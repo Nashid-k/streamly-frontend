@@ -1,51 +1,41 @@
-# 🎬 StreamUI Frontend (Next.js)
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!--                    NASHID K  —  STREAMLY FRONTEND                  -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
 
-Welcome to the **StreamUI Frontend**, a highly responsive, cinematic streaming interface built with modern web technologies. This application is engineered to deliver an authentic, premium user experience akin to industry leaders like Netflix, Prime Video, and Disney+ Hotstar.
+# 🎬 StreamUI Frontend — Cinematic Multi-Platform UI Clone
 
-## ✨ Features
+<p align="center">
+  <img src="https://img.shields.io/badge/Next.js-14.x-black?style=flat-square&logo=nextdotjs" alt="Next.js" />
+  &nbsp;
+  <img src="https://img.shields.io/badge/React-18.x-61DAFB?style=flat-square&logo=react" alt="React" />
+  &nbsp;
+  <img src="https://img.shields.io/badge/TypeScript-5.x-blue?style=flat-square&logo=typescript" alt="TypeScript" />
+  &nbsp;
+  <img src="https://img.shields.io/badge/Testing-Cypress-green?style=flat-square&logo=cypress" alt="Cypress" />
+</p>
 
-- **Premium UX/UI:** Glassmorphic navigation, smooth 300ms peek-UI card expansions, and satisfying button ripple micro-interactions.
-- **Cinematic Hero Banners:** Edge-to-edge billboards featuring auto-playing background trailers and bold typography.
-- **Magnetic Carousels:** CSS scroll-snapping ensures movie rows glide perfectly into place.
-- **Multi-Platform Theming:** Switch instantly between themes (Netflix, Prime, Hotstar) with dedicated color palettes and CSS variables.
-- **Smart Search & AI Filtering:** Search the entire catalog in real-time, or let AI apply smart filters based on complex queries.
-- **Cross-Platform PWA:** Installable as a Progressive Web App for a native app feel on mobile devices.
+<p align="center">
+  <strong>Cinematic, responsive streaming catalog client written in Next.js, supporting global theme conversions (Netflix, Disney+, Prime Video).</strong>
+</p>
 
-## 🚀 Getting Started
+---
 
-### Prerequisites
-- [Node.js](https://nodejs.org/) (v18+)
-- npm or yarn
+## 📌 Project Overview
+StreamUI renders beautiful layout sliders, hero billboards with auto-playing video components, and search drawers. Recruits can instantly switch styles to match industry interfaces.
 
-### Installation
+### ✨ Features
+*   **Theme Switcher Engine:** Dedicated CSS configuration files and layout colors for major platforms.
+*   **Optimal Navigation:** CSS snapping features for smooth horizontal scroll carousels.
+*   **Testing Suites:** Cypress setups to check interface interactions.
 
-1. **Install dependencies:**
+---
+
+## ⚙️ Installation
+1. Clone:
    ```bash
-   npm install
+   git clone https://github.com/Nashid-k/Streamly-frontend.git
+   cd Streamly-frontend
    ```
-
-2. **Configure Environment Variables:**
-   Create a `.env.local` file in the root of the `frontend` directory and add your API endpoints or secrets (e.g., your backend URL).
-   ```env
-   NEXT_PUBLIC_API_URL=http://localhost:3001
-   ```
-
-3. **Run the Development Server:**
-   ```bash
-   npm run dev
-   ```
-
-4. **Open in Browser:**
-   Navigate to [http://localhost:3000](http://localhost:3000) to see the magic happen!
-
-## 🛠️ Tech Stack
-- **Framework:** Next.js (React)
-- **Styling:** Custom CSS with Premium Keyframe Animations & CSS Variables
-- **Icons:** Lucide React
-- **Motion:** Framer Motion (for page transitions)
-
-## 🎨 Design Philosophy
-The UI is driven by an obsessive focus on detail:
-- **Typography:** Tight letter-spacing for headers, giving a cinematic, heavy weight.
-- **Feedback:** Every interaction (from clicking a button to hovering a card) provides immediate, satisfying visual feedback.
-- **Layout:** Utilizing modern CSS Grid (`.classic-grid`) for flawless responsiveness across mobile, tablet, and ultra-wide displays.
+2. Install packages: `npm install`
+3. Add API URLs to `.env` (use `.env.example` as mock template).
+4. Run `npm run dev`.
