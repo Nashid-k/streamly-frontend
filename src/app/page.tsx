@@ -572,6 +572,7 @@ export default function Home() {
         void Promise.resolve().then(() => {
           uniqueUrls.forEach((url) => {
             const img = new Image();
+            img.crossOrigin = "Anonymous";
             img.src = url;
           });
         });

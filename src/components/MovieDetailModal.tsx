@@ -23,7 +23,7 @@ function useDominantColor(imageUrl: string | undefined, defaultColor: string) {
   useEffect(() => {
     if (!imageUrl) return;
     const fac = new FastAverageColor();
-    fac.getColorAsync(imageUrl, { ignoredColor: [0,0,0,255] })
+    fac.getColorAsync(imageUrl, { ignoredColor: [0,0,0,255], crossOrigin: 'anonymous' })
       .then(color => {
         setColor(color.rgba);
       })

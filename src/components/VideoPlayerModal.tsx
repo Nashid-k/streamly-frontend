@@ -150,8 +150,9 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({ movie, onClo
             position: 'absolute', inset: 0, width: '100%', height: '100%',
             border: 'none', display: 'block', zIndex: 1,
           }}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
+          sandbox="allow-scripts allow-same-origin allow-presentation allow-forms"
           onLoad={() => { setSourceLoading(false); setSourceFailed(false); setSourceError(''); }}
           onError={() => {
             setSourceLoading(false);
