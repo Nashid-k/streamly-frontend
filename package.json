@@ -11,6 +11,7 @@
     "e2e:open": "cypress open"
   },
   "dependencies": {
+    "fast-average-color": "^9.5.2",
     "framer-motion": "^12.43.0",
     "hls.js": "^1.6.16",
     "ipapi.co": "^0.3.0",

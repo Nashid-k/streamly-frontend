@@ -305,6 +305,7 @@ export default function Home() {
   };
 
   const handleToggleMyListWithToast = async (movieId: string) => {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(50);
     // Search allMoviesMapRef first (covers search results + top10 + categories)
     const found = allMoviesMapRef.current.get(movieId);
     const title = found ? found.title : 'Title';

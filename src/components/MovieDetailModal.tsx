@@ -5,6 +5,7 @@ import { X, Play, Plus, Check, ThumbsUp, ChevronDown, Volume2, VolumeX, Download
 import { usePlatform } from './PlatformContext';
 import { Movie, Episode } from '../types';
 import { fetchMovieById, fetchSeasonEpisodes, fetchRecommendationsApi } from '../lib/api';
+import { FastAverageColor } from 'fast-average-color';
 
 interface MovieDetailModalProps {
   movie: Movie | null;
@@ -14,6 +15,24 @@ interface MovieDetailModalProps {
   onToggleMyList: (movieId: string) => void;
   isMyList: boolean;
   similarMovies: Movie[];
+}
+
+function useDominantColor(imageUrl: string | undefined, defaultColor: string) {
+  const [color, setColor] = useState(defaultColor);
+  
+  useEffect(() => {
+    if (!imageUrl) return;
+    const fac = new FastAverageColor();
+    fac.getColorAsync(imageUrl, { ignoredColor: [0,0,0,255] })
+      .then(color => {
+        setColor(color.rgba);
+      })
+      .catch(e => {
+        console.log(e);
+      });
+  }, [imageUrl]);
+  
+  return color;
 }
 
 function formatCastNames(castList?: any[]): string {
@@ -255,6 +274,7 @@ function NetflixModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, i
     }
   };
   const { isMuted, toggleMute, renderTrailer, hasTrailer } = useTrailerPlayer(displayMovie?.trailerUrl || '', movie?.backdropUrl || movie?.posterUrl || '');
+  const dominantColor = useDominantColor(movie?.backdropUrl || movie?.posterUrl || undefined, 'rgba(0,0,0,0.65)');
 
   if (!movie) return null;
   const matchScore = (displayMovie?.matchScore || parseInt(movie.id.replace(/\D/g, '') || '0') % 30 + 70);
@@ -264,7 +284,7 @@ function NetflixModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, i
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title" onClick={onClose} style={{
       position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start',
-      backgroundColor: platform === 'nprime' ? 'rgba(15, 23, 30, 0.7)' : 'rgba(0,0,0,0.65)', backdropFilter: 'blur(20px)', overflowY: 'auto', padding: '32px 0',
+      backgroundColor: dominantColor, backdropFilter: 'blur(30px)', overflowY: 'auto', padding: '32px 0',
       transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
     }}>
       <div className="detail-dialog" onClick={e => e.stopPropagation()} style={{
@@ -483,6 +503,7 @@ function PrimeModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isM
     }
   };
   const { isMuted, toggleMute, renderTrailer, hasTrailer } = useTrailerPlayer(displayMovie?.trailerUrl || '', movie?.backdropUrl || movie?.posterUrl || '');
+  const dominantColor = useDominantColor(movie?.backdropUrl || movie?.posterUrl || undefined, 'rgba(0,0,0,0.65)');
 
   if (!movie) return null;
   const matchScore = (displayMovie?.matchScore || parseInt(movie.id.replace(/\D/g, '') || '0') % 30 + 70);
@@ -492,7 +513,7 @@ function PrimeModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isM
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title" onClick={onClose} style={{
       position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start',
-      backgroundColor: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(10px)', overflowY: 'auto', padding: '32px 0',
+      backgroundColor: dominantColor, backdropFilter: 'blur(30px)', overflowY: 'auto', padding: '32px 0',
       transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
     }}>
       <div className="detail-dialog" onClick={e => e.stopPropagation()} style={{
@@ -667,6 +688,7 @@ function HotstarModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, i
     }
   };
   const { isMuted, toggleMute, renderTrailer, hasTrailer } = useTrailerPlayer(displayMovie?.trailerUrl || '', movie?.backdropUrl || movie?.posterUrl || '');
+  const dominantColor = useDominantColor(movie?.backdropUrl || movie?.posterUrl || undefined, 'rgba(0,0,0,0.85)');
 
   if (!movie) return null;
   const matchScore = (displayMovie?.matchScore || parseInt(movie.id.replace(/\D/g, '') || '0') % 30 + 70);
@@ -676,7 +698,8 @@ function HotstarModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, i
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title" onClick={onClose} style={{
       position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center',
-      backgroundColor: 'rgba(0,0,0,0.85)', padding: '20px', overflowY: 'auto'
+      backgroundColor: dominantColor, backdropFilter: 'blur(30px)', padding: '20px', overflowY: 'auto',
+      transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
     }}>
       <div className="detail-dialog" onClick={e => e.stopPropagation()} style={{
         width: '100%', maxWidth: '900px', background: 'linear-gradient(to bottom, #0f1014, #000)', borderRadius: '12px',

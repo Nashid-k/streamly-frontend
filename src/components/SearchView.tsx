@@ -115,9 +115,38 @@ export const SearchView: React.FC<SearchViewProps> = ({
           </div>
         </>
       ) : (
-        <div style={{ padding: '40px 4%', textAlign: 'center', color: '#AAA' }}>
-          <p style={{ fontSize: '1.2rem', marginBottom: '12px' }}>{`No titles found for "${searchQuery}".`}</p>
-          <p style={{ fontSize: '0.9rem', color: '#777' }}>Try searching by title, cast member, or click one of the quick genre chips above.</p>
+        <div style={{ padding: '80px 4%', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', color: '#FFF' }}>
+          <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
+            <Sparkles size={32} color="#AAA" />
+          </div>
+          <p style={{ fontSize: '1.4rem', fontWeight: 600, marginBottom: '12px' }}>{`We couldn't find "${searchQuery}"`}</p>
+          <p style={{ fontSize: '0.95rem', color: '#777', maxWidth: '400px', marginBottom: '32px', lineHeight: '1.5' }}>
+            Try searching by another title, cast member, or let our AI find similar movies for you.
+          </p>
+          <button
+            onClick={onAISearch}
+            disabled={isAILoading}
+            style={{
+              backgroundColor: '#E50914',
+              color: '#FFF',
+              border: 'none',
+              padding: '12px 28px',
+              borderRadius: '24px',
+              fontSize: '1rem',
+              fontWeight: 700,
+              cursor: isAILoading ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: '0 4px 14px rgba(229, 9, 20, 0.4)',
+              transition: 'transform 0.2s, box-shadow 0.2s'
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(229, 9, 20, 0.6)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(229, 9, 20, 0.4)'; }}
+          >
+            <Sparkles size={18} />
+            {isAILoading ? 'Finding Recommendations...' : 'Ask AI for Recommendations'}
+          </button>
         </div>
       )}
     </div>

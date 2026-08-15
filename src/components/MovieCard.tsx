@@ -93,6 +93,9 @@ export const MovieCard: React.FC<MovieCardProps> = ({
     };
   }, []);
 
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const cardRef = React.useRef<HTMLDivElement>(null);
+
   const handleMouseEnter = () => {
     setIsHovered(true);
     if (movie.id) {
@@ -104,11 +107,26 @@ export const MovieCard: React.FC<MovieCardProps> = ({
     }
   };
 
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const xPct = x / rect.width - 0.5;
+    const yPct = y / rect.height - 0.5;
+    setMousePos({ x: xPct, y: yPct });
+  };
+
   const handleMouseLeave = () => {
     setIsHovered(false);
     setShowTrailer(false);
+    setMousePos({ x: 0, y: 0 });
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
   };
+
+  const parallaxStyle = isHovered 
+    ? { transform: `scale(1.05) rotateX(${-mousePos.y * 15}deg) rotateY(${mousePos.x * 15}deg)`, zIndex: 50 } 
+    : { transform: 'scale(1) rotateX(0deg) rotateY(0deg)', zIndex: 1 };
 
   const matchScore = movie.matchScore || (parseInt(movie.id.replace(/\D/g, '') || '0') % 30 + 70);
   const rawScore = movie.score || (matchScore / 10);
@@ -137,20 +155,22 @@ export const MovieCard: React.FC<MovieCardProps> = ({
         aria-label={`View details for ${movie.title}`}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
+        onMouseMove={handleMouseMove}
         onClick={handleCardClick}
         onKeyDown={handleKeyDown}
+        ref={cardRef}
         style={{
+          ...parallaxStyle,
           position: 'relative',
           flexShrink: 0,
           width: '185px',
           height: '275px',
           cursor: 'pointer',
           overflow: 'hidden',
-          transform: isHovered ? 'scale(1.08)' : 'scale(1)',
+          borderRadius: '12px',
           boxShadow: isHovered ? '0 12px 32px rgba(0,0,0,0.85), 0 0 16px rgba(31, 128, 224, 0.6)' : '0 4px 14px rgba(0,0,0,0.5)',
           border: isHovered ? '2px solid rgba(31, 128, 224, 0.9)' : '1px solid rgba(255,255,255,0.05)',
           transition: `transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), border 0.35s ease, z-index 0s ${isHovered ? '0s' : '0.35s'}`,
-          zIndex: isHovered ? 50 : 1,
           backgroundColor: '#0F1014',
           willChange: 'transform, box-shadow',
         }}
@@ -247,9 +267,12 @@ export const MovieCard: React.FC<MovieCardProps> = ({
         aria-label={`View details for ${movie.title}`}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
+        onMouseMove={handleMouseMove}
         onClick={handleCardClick}
         onKeyDown={handleKeyDown}
+        ref={cardRef}
         style={{
+          ...parallaxStyle,
           position: 'relative',
           flexShrink: 0,
           width: top10Rank !== undefined ? '190px' : '280px',
@@ -257,11 +280,9 @@ export const MovieCard: React.FC<MovieCardProps> = ({
           borderRadius: '6px',
           cursor: 'pointer',
           overflow: 'hidden',
-          transform: isHovered ? 'scale(1.08)' : 'scale(1)',
           boxShadow: isHovered ? '0 12px 30px rgba(0,0,0,0.95), 0 0 20px rgba(0, 168, 225, 0.6)' : '0 4px 12px rgba(0,0,0,0.6)',
           border: isHovered ? '2px solid #00A8E1' : '1px solid rgba(255,255,255,0.06)',
           transition: `transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), border 0.35s ease, z-index 0s ${isHovered ? '0s' : '0.35s'}`,
-          zIndex: isHovered ? 50 : 1,
           backgroundColor: '#0F171E',
           willChange: 'transform, box-shadow',
         }}
@@ -380,14 +401,17 @@ export const MovieCard: React.FC<MovieCardProps> = ({
         overflow: 'visible',
       }}
     >
-      <div className="netflix-card-inner" style={{
-        position: 'absolute',
-        top: 0, left: 0,
-        width: '100%',
-        background: '#141414',
-        borderRadius: '4px',
-        boxShadow: isHovered ? '0 20px 40px rgba(0,0,0,0.95), 0 10px 20px rgba(0,0,0,0.7)' : 'none',
-        transform: isHovered ? 'scale(1.25)' : 'scale(1)',
+        <div className="netflix-card-inner" 
+          onMouseMove={handleMouseMove}
+          ref={cardRef}
+          style={{
+          position: 'absolute',
+          top: 0, left: 0,
+          width: '100%',
+          background: '#141414',
+          borderRadius: '4px',
+          boxShadow: isHovered ? '0 20px 40px rgba(0,0,0,0.95), 0 10px 20px rgba(0,0,0,0.7)' : 'none',
+          transform: isHovered ? `scale(1.25) rotateX(${-mousePos.y * 15}deg) rotateY(${mousePos.x * 15}deg)` : 'scale(1)',
         transformOrigin: 'center center',
         transition: `transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.45s ease, z-index 0s ${isHovered ? '0s' : '0.45s'}`,
         zIndex: isHovered ? 50 : 1,

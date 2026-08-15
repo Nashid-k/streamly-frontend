@@ -87,7 +87,14 @@ export const MovieRow: React.FC<MovieRowProps> = ({
       onMouseLeave={(e) => e.currentTarget.style.zIndex = '1'}
     >
       {!isVisible ? (
-        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
+        <div style={{ width: '100%', minHeight: '280px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ width: '200px', height: '28px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', marginBottom: '20px', animation: 'pulse 1.5s infinite ease-in-out' }} />
+          <div style={{ display: 'flex', gap: '12px', overflow: 'hidden' }}>
+            {[...Array(6)].map((_, i) => (
+              <div key={i} style={{ flexShrink: 0, width: platform === 'nprime' ? '280px' : platform === 'nflix' ? '290px' : '185px', height: platform === 'nprime' ? '158px' : platform === 'nflix' ? '163px' : '275px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', animation: `pulse 1.5s infinite ease-in-out ${(i * 0.1).toFixed(1)}s` }} />
+            ))}
+          </div>
+        </div>
       ) : (
         <>
           {/* Category Row Header with Accent Bar & Explore All Link */}
