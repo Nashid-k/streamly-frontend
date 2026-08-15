@@ -320,30 +320,25 @@ export const Navbar: React.FC<NavbarProps> = ({
   // NETFLIX & PRIME TOP NAV
   return (
     <>
-      <header
-        style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0,
-          height: platform === 'nprime' ? '72px' : '68px',
-          padding: '0 4%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          zIndex: 1000,
-          background: isScrolled
-            ? (platform === 'nprime' ? 'rgba(15, 23, 30, 0.95)' : 'rgba(20, 20, 20, 0.95)')
-            : 'linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%)',
-          backdropFilter: isScrolled ? 'blur(20px)' : 'none',
-          borderBottom: isScrolled ? (platform === 'nprime' ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(255,255,255,0.05)') : '1px solid transparent',
-          transition: 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: platform === 'nprime' ? '32px' : '40px' }}>
-          {/* Main Logo & Platform Toggle */}
-          <div style={{ position: 'relative' }} onMouseEnter={() => setShowAppSwitcher(true)} onMouseLeave={() => setShowAppSwitcher(false)}>
+      <header>
+        <div className={`navbar ${isScrolled ? 'scrolled' : ''}`} style={{ 
+          marginLeft: 0, 
+          transition: 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)', 
+          background: isScrolled 
+            ? (platform === 'nprime' ? 'rgba(15, 23, 30, 0.95)' : 'rgba(20, 20, 20, 0.95)') 
+            : 'linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%)', 
+          boxShadow: isScrolled ? '0 4px 12px rgba(0,0,0,0.5)' : 'none', 
+          backdropFilter: isScrolled ? 'blur(20px)' : 'none', 
+          height: platform === 'nprime' ? '72px' : '68px', 
+          padding: '0 4%', 
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+          position: 'fixed', top: 0, right: 0, left: 0, zIndex: 1000,
+          borderBottom: isScrolled ? (platform === 'nprime' ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(255,255,255,0.05)') : '1px solid transparent'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
             {platform === 'nflix' && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => setActiveTab('home')}>
-                <span style={{ fontSize: '1.8rem', fontWeight: 900, color: '#E50914', letterSpacing: '-0.03em', fontFamily: 'Arial, sans-serif', textShadow: '0 2px 10px rgba(229,9,20,0.3)' }}>NETFLIX</span>
+                <img src="https://upload.wikimedia.org/wikipedia/commons/0/08/Netflix_2015_logo.svg" alt="Netflix" style={{ height: '24px' }} />
               </div>
             )}
             {platform === 'nprime' && (
@@ -352,18 +347,18 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             )}
             
-            <nav className="desktop-nav-items" style={{ display: 'flex', alignItems: 'center', gap: platform === 'nprime' ? '28px' : '24px', fontFamily: platform === 'nprime' ? '"Amazon Ember", Arial, sans-serif' : 'Helvetica, Arial, sans-serif' }}>
+            <nav className="desktop-nav-items" style={{ display: 'flex', alignItems: 'center', gap: platform === 'nprime' ? '28px' : '20px', fontFamily: platform === 'nprime' ? '"Amazon Ember", Arial, sans-serif' : 'Helvetica, Arial, sans-serif' }}>
               {navItems.map((item) => (
-                <button key={item.id} onClick={() => setActiveTab(item.id as any)} style={{ background: 'none', border: 'none', color: activeTab === item.id ? '#FFF' : (platform === 'nprime' ? '#8197a4' : '#E5E5E5'), fontWeight: activeTab === item.id ? 700 : (platform === 'nprime' ? 600 : 400), fontSize: platform === 'nprime' ? '0.95rem' : '0.85rem', cursor: 'pointer', transition: 'all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)', letterSpacing: platform === 'nprime' ? '0.02em' : 'normal' }} onMouseEnter={(e) => { e.currentTarget.style.color = '#FFF'; e.currentTarget.style.transform = 'translateY(-1px)'; }} onMouseLeave={(e) => { e.currentTarget.style.color = activeTab === item.id ? '#FFF' : (platform === 'nprime' ? '#8197a4' : '#E5E5E5'); e.currentTarget.style.transform = 'translateY(0)'; }}>
+                <button key={item.id} onClick={() => setActiveTab(item.id as any)} style={{ background: 'none', border: 'none', color: activeTab === item.id ? '#FFF' : (platform === 'nprime' ? '#8197a4' : '#E5E5E5'), fontWeight: activeTab === item.id ? 700 : (platform === 'nprime' ? 600 : 400), fontSize: platform === 'nprime' ? '0.95rem' : '0.85rem', cursor: 'pointer', transition: 'color 0.2s', letterSpacing: platform === 'nprime' ? '0.02em' : 'normal' }} onMouseEnter={(e) => e.currentTarget.style.color = '#FFF'} onMouseLeave={(e) => e.currentTarget.style.color = activeTab === item.id ? '#FFF' : (platform === 'nprime' ? '#8197a4' : '#E5E5E5')}>
                   {item.label}
                 </button>
               ))}
             </nav>
           </div>
 
-          <div className="navbar-right-actions" style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
+          <div className="navbar-right-actions" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <div style={{ position: 'relative' }} ref={appSwitcherRef}>
-              <button onClick={() => setShowAppSwitcher(!showAppSwitcher)} style={{ background: 'none', border: 'none', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center', transition: 'transform 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'} title="Switch App">
+              <button onClick={() => setShowAppSwitcher(!showAppSwitcher)} style={{ background: 'none', border: 'none', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Switch App">
                 <Grip size={20} />
               </button>
               {showAppSwitcher && renderAppSwitcherDropdown()}
@@ -371,9 +366,9 @@ export const Navbar: React.FC<NavbarProps> = ({
 
 
             {onGenreFilterChange && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Filter size={16} color="var(--primary-color)" />
-                <select aria-label="Filter by genre" value={selectedGenreFilter} onChange={(e) => onGenreFilterChange(e.target.value)} style={{ background: (platform === 'nprime') ? 'var(--bg-elevated)' : 'rgba(20, 20, 20, 0.65)', color: '#FFF', border: (platform === 'nprime') ? '1px solid rgba(255,255,255,0.4)' : '1px solid rgba(255, 255, 255, 0.15)', borderRadius: (platform === 'nprime') ? '8px' : '4px', padding: '6px 10px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', outline: 'none', backdropFilter: 'blur(12px)', transition: 'all 0.2s' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Filter size={14} color="var(--primary-color)" />
+                <select aria-label="Filter by genre" value={selectedGenreFilter} onChange={(e) => onGenreFilterChange(e.target.value)} style={{ background: (platform === 'nprime') ? 'var(--bg-elevated)' : 'rgba(20, 20, 20, 0.85)', color: '#FFF', border: (platform === 'nprime') ? '1px solid rgba(255,255,255,0.4)' : '1px solid rgba(255, 255, 255, 0.25)', borderRadius: (platform === 'nprime') ? '8px' : '4px', padding: '5px 8px', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', outline: 'none', backdropFilter: 'blur(8px)' }}>
                   {['All', ...availableGenres.filter((genre) => genre !== 'All')].map((g) => (
                     <option key={g} value={g} style={{ background: '#141414', color: '#FFF' }}>{g === 'All' ? 'All Genres' : g}</option>
                   ))}
@@ -382,45 +377,45 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
 
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <button onClick={() => setIsSearchOpen(!isSearchOpen)} style={{ background: 'none', border: 'none', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center', transition: 'transform 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'} title="Search"><Search size={20} /></button>
+              <button onClick={() => setIsSearchOpen(!isSearchOpen)} style={{ background: 'none', border: 'none', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Search"><Search size={20} /></button>
               {isSearchOpen && (
                 <div style={{ position: 'relative' }}>
-                  <input aria-label="Search titles, people, or genres" type="text" placeholder="Titles, people, genres" value={searchQuery} onChange={(e) => onSearchChange(e.target.value)} autoFocus onBlur={() => { setTimeout(() => { if (!searchQuery) setIsSearchOpen(false); }, 400); }} style={{ background: 'rgba(0, 0, 0, 0.65)', border: '1px solid rgba(255, 255, 255, 0.5)', color: '#FFF', padding: '6px 12px', marginLeft: '12px', width: '240px', fontSize: '0.95rem', outline: 'none', borderRadius: (platform === 'nprime') ? '8px' : '4px', backdropFilter: 'blur(12px)', transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }} />
+                  <input aria-label="Search titles, people, or genres" type="text" placeholder="Titles, people, genres" value={searchQuery} onChange={(e) => onSearchChange(e.target.value)} autoFocus onBlur={() => { setTimeout(() => { if (!searchQuery) setIsSearchOpen(false); }, 400); }} style={{ background: 'rgba(0, 0, 0, 0.75)', border: '1px solid rgba(255, 255, 255, 0.8)', color: '#FFF', padding: '6px 12px', marginLeft: '10px', width: '220px', fontSize: '0.9rem', outline: 'none', borderRadius: (platform === 'nprime') ? '8px' : '4px' }} />
                   {/* Search Dropdown Removed */}
                 </div>
               )}
             </div>
 
             <div style={{ position: 'relative' }} ref={profileRef}>
-              <div role="button" tabIndex={0} aria-expanded={showProfileDropdown} aria-label="Profile Menu" onKeyDown={(e) => { if(e.key === 'Enter') setShowProfileDropdown(!showProfileDropdown); }} onClick={() => setShowProfileDropdown(!showProfileDropdown)} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '2px', borderRadius: (platform === 'nprime') ? '20px' : '4px', transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+              <div role="button" tabIndex={0} aria-expanded={showProfileDropdown} aria-label="Profile Menu" onKeyDown={(e) => { if(e.key === 'Enter') setShowProfileDropdown(!showProfileDropdown); }} onClick={() => setShowProfileDropdown(!showProfileDropdown)} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                 {currentProfile?.avatarUrl ? (
                   <img src={currentProfile.avatarUrl} alt="Profile" style={{ width: '32px', height: '32px', borderRadius: (platform === 'nprime') ? '50%' : '4px', objectFit: 'cover' }} />
                 ) : (
                   <img src={platform === 'nprime' ? 'https://api.dicebear.com/7.x/avataaars/svg?seed=Prime' : 'https://upload.wikimedia.org/wikipedia/commons/0/0b/Netflix-avatar.png'} alt="Profile" style={{ width: '32px', height: '32px', borderRadius: (platform === 'nprime') ? '50%' : '4px', objectFit: 'cover' }} />
                 )}
-                <ChevronDown size={14} color="#FFF" style={{ transition: 'transform 0.2s', transform: showProfileDropdown ? 'rotate(180deg)' : 'rotate(0)' }} />
+                <ChevronDown size={14} color="#FFF" />
               </div>
 
               {showProfileDropdown && (
                 <div style={{ position: 'absolute', right: 0, top: '46px', width: '200px', background: (platform === 'nprime') ? 'var(--bg-elevated)' : 'rgba(20, 20, 20, 0.85)', border: '1px solid rgba(255, 255, 255, 0.15)', padding: '8px 0', borderRadius: (platform === 'nprime') ? '8px' : '8px', zIndex: 100, backdropFilter: 'blur(16px)', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
                   
                   {showSignIn && onSignInClick && (
-                    <button onClick={() => { setShowProfileDropdown(false); onSignInClick(); }} style={{ width: '100%', textAlign: 'left', padding: '10px 16px', background: 'none', border: 'none', color: '#FFF', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                    <button onClick={() => { setShowProfileDropdown(false); onSignInClick(); }} style={{ width: '100%', textAlign: 'left', padding: '8px 16px', background: 'none', border: 'none', color: '#FFF', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <LogIn size={15} color="var(--primary-color)" /> Sign In
                     </button>
                   )}
                   {onOpenOnboardingModal && (
-                    <button onClick={() => { setShowProfileDropdown(false); onOpenOnboardingModal(); }} style={{ width: '100%', textAlign: 'left', padding: '10px 16px', background: 'none', border: 'none', color: '#FFF', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                    <button onClick={() => { setShowProfileDropdown(false); onOpenOnboardingModal(); }} style={{ width: '100%', textAlign: 'left', padding: '8px 16px', background: 'none', border: 'none', color: '#FFF', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <Globe size={15} color="var(--primary-color)" /> Language & Dub Settings
                     </button>
                   )}
                   {!showSignIn && (
-                    <button onClick={() => { setShowProfileDropdown(false); onOpenProfileModal(); }} style={{ width: '100%', textAlign: 'left', padding: '10px 16px', background: 'none', border: 'none', color: '#AAA', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                    <button onClick={() => { setShowProfileDropdown(false); onOpenProfileModal(); }} style={{ width: '100%', textAlign: 'left', padding: '8px 16px', background: 'none', border: 'none', color: '#AAA', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <Settings size={15} /> Manage Profiles
                     </button>
                   )}
                   {!showSignIn && onSignOutClick && (
-                    <button onClick={() => { setShowProfileDropdown(false); onSignOutClick(); }} style={{ width: '100%', textAlign: 'left', padding: '10px 16px', background: 'none', border: 'none', color: '#E50914', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(229,9,20,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                    <button onClick={() => { setShowProfileDropdown(false); onSignOutClick(); }} style={{ width: '100%', textAlign: 'left', padding: '8px 16px', background: 'none', border: 'none', color: '#E50914', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <LogIn size={15} /> Log Out
                     </button>
                   )}
@@ -437,9 +432,9 @@ export const Navbar: React.FC<NavbarProps> = ({
         position: 'fixed', 
         bottom: 0, left: 0, right: 0, 
         height: '60px', 
-        background: platform === 'nflix' ? 'rgba(20, 20, 20, 0.85)' : 'rgba(15, 23, 30, 0.85)', 
-        backdropFilter: 'blur(24px)', 
-        borderTop: platform === 'nflix' ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(255,255,255,0.08)', 
+        background: platform === 'nflix' ? 'rgba(18, 18, 18, 0.98)' : 'rgba(15, 23, 30, 0.98)', 
+        backdropFilter: 'blur(20px)', 
+        borderTop: platform === 'nflix' ? 'none' : '1px solid rgba(255,255,255,0.05)', 
         zIndex: 2000, 
         alignItems: 'center', 
         justifyContent: 'space-around', 
