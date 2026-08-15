@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Home, Tv, Film, Plus, Grip, ChevronDown, Filter, Globe, Settings, LogIn } from 'lucide-react';
+import { Search, Home, Tv, Film, Plus, Grip, ChevronDown, Filter, Globe, Settings, LogIn, Mic } from 'lucide-react';
 import { usePlatform } from './PlatformContext';
 
 interface NavbarProps {
@@ -376,11 +376,38 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
 
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <button onClick={() => setIsSearchOpen(!isSearchOpen)} style={{ background: 'none', border: 'none', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Search"><Search size={20} /></button>
+              <button aria-label="Search" onClick={() => setIsSearchOpen(!isSearchOpen)} style={{ background: 'none', border: 'none', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                <Search size={20} />
+              </button>
               {isSearchOpen && (
-                <div style={{ position: 'relative' }}>
-                  <input aria-label="Search titles, people, or genres" type="text" placeholder="Titles, people, genres" value={searchQuery} onChange={(e) => onSearchChange(e.target.value)} autoFocus onBlur={() => { setTimeout(() => { if (!searchQuery) setIsSearchOpen(false); }, 400); }} style={{ background: 'rgba(0, 0, 0, 0.75)', border: '1px solid rgba(255, 255, 255, 0.8)', color: '#FFF', padding: '6px 12px', marginLeft: '10px', width: '220px', fontSize: '0.9rem', outline: 'none', borderRadius: (platform === 'nprime') ? '8px' : '4px' }} />
-                  {/* Search Dropdown Removed */}
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <input aria-label="Search titles, people, or genres" type="text" placeholder="Titles, people, genres" value={searchQuery} onChange={(e) => onSearchChange(e.target.value)} autoFocus onBlur={(e) => { 
+                    // Prevent closing if clicking the mic button
+                    if (e.relatedTarget && (e.relatedTarget as HTMLElement).id === 'mic-btn') return;
+                    setTimeout(() => { if (!searchQuery) setIsSearchOpen(false); }, 400); 
+                  }} style={{ background: 'rgba(0, 0, 0, 0.75)', border: '1px solid rgba(255, 255, 255, 0.8)', color: '#FFF', padding: '6px 36px 6px 12px', marginLeft: '10px', width: '220px', fontSize: '0.9rem', outline: 'none', borderRadius: (platform === 'nprime') ? '8px' : '4px' }} />
+                  <button 
+                    id="mic-btn"
+                    tabIndex={-1}
+                    onClick={() => {
+                      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+                      if (SpeechRecognition) {
+                        const recognition = new SpeechRecognition();
+                        recognition.lang = 'en-US';
+                        recognition.start();
+                        recognition.onresult = (event: any) => {
+                          onSearchChange(event.results[0][0].transcript);
+                        };
+                      } else {
+                        alert("Voice search is not supported in this browser.");
+                      }
+                    }}
+                    style={{ position: 'absolute', right: '8px', background: 'none', border: 'none', color: '#AAA', cursor: 'pointer', display: 'flex' }}
+                    onMouseEnter={e => e.currentTarget.style.color = '#FFF'}
+                    onMouseLeave={e => e.currentTarget.style.color = '#AAA'}
+                  >
+                    <Mic size={16} />
+                  </button>
                 </div>
               )}
             </div>

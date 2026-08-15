@@ -19,6 +19,7 @@ import { Footer } from '../components/Footer';
 import { ScrollToTop } from '../components/ScrollToTop';
 import { Toast } from '../components/Toast';
 import { SearchView } from '../components/SearchView';
+import { initSpatialNavigation } from '../lib/spatialNav';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import {
@@ -158,6 +159,8 @@ export default function Home() {
 
   // Dynamic Global Geolocation & Browser Language Detection
   useEffect(() => {
+    const cleanupSpatialNav = initSpatialNavigation();
+    
     const languageMap: Record<string, string> = {
       en: 'English', hi: 'Hindi', ta: 'Tamil', te: 'Telugu', ml: 'Malayalam',
       kn: 'Kannada', mr: 'Marathi', bn: 'Bengali', ar: 'Arabic', es: 'Spanish',
@@ -201,6 +204,10 @@ export default function Home() {
         }
       })
       .catch(err => console.error('Failed to detect geolocation:', err));
+    
+    return () => {
+      if (cleanupSpatialNav) cleanupSpatialNav();
+    };
   }, []);
 
   const [activeDetailMovie, setActiveDetailMovie] = useState<Movie | null>(null);

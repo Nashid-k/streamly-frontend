@@ -228,15 +228,29 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
     };
   }, [movie, carouselMovies, onHeroReady]);
 
+  const [scrollY, setScrollY] = useState(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrollY(window.scrollY);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   const { renderTrailer, isVideoPlaying, toggleMute, isMuted, hasTrailer } = useTrailerPlayer(enrichedMovie?.trailerUrl || '');
 
   if (!enrichedMovie) return null;
 
   const backgroundUrl = enrichedMovie.backdropUrl || enrichedMovie.posterUrl || '';
 
+  const parallaxTransform = `translate3d(0, ${scrollY * 0.3}px, 0) scale(${1 + scrollY * 0.0005})`;
+  const opacityFade = Math.max(0, 1 - scrollY / 600);
+
   return (
     <div className="hero-container herobanner-elem-749d84"
       data-testid="hero-container"
+      style={{ transform: parallaxTransform, opacity: opacityFade, willChange: 'transform, opacity' }}
     >
       {/* Cinematic Trailer Background */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 0, overflow: 'hidden' }}>

@@ -25,21 +25,41 @@ async function request<T>(path: string, ttlMs: number, init?: RequestInit): Prom
     headers['authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${apiBaseUrl}${path}`, { ...init, headers });
-  if (!response.ok) {
-    const body = await response.json().catch(() => null) as { message?: unknown } | null;
-    const message = typeof body?.message === 'string' ? body.message : `Request failed: ${response.status}`;
-    throw new Error(message);
+  try {
+    const response = await fetch(`${apiBaseUrl}${path}`, { ...init, headers });
+    if (!response.ok) {
+      const body = await response.json().catch(() => null) as { message?: unknown } | null;
+      const message = typeof body?.message === 'string' ? body.message : `Request failed: ${response.status}`;
+      throw new Error(message);
+    }
+    const value = await response.json() as T;
+    
+    if (cache.size >= 50) {
+      const firstKey = cache.keys().next().value;
+      if (firstKey) cache.delete(firstKey);
+    }
+    
+    cache.set(key, { expiresAt: Date.now() + ttlMs, value });
+
+    // ✈️ True PWA Offline Resilience: Persist JSON metadata to LocalStorage for zero-network playback
+    if (typeof window !== 'undefined' && init?.method !== 'POST') {
+      try {
+        localStorage.setItem(`pwa_cache_${key}`, JSON.stringify(value));
+      } catch (e) {} // ignore quota exceeded
+    }
+
+    return value;
+  } catch (error) {
+    // If network fails (airplane mode), aggressively return cached metadata for zero-interruption UX
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(`pwa_cache_${key}`);
+      if (stored) {
+        console.warn(`[PWA] Network unavailable. Serving cached data for ${path}`);
+        return JSON.parse(stored) as T;
+      }
+    }
+    throw error;
   }
-  const value = await response.json() as T;
-  
-  if (cache.size >= 50) {
-    const firstKey = cache.keys().next().value;
-    if (firstKey) cache.delete(firstKey);
-  }
-  
-  cache.set(key, { expiresAt: Date.now() + ttlMs, value });
-  return value;
 }
 
 export const fetchFeaturedMovie = (p = getPlatform()) => request<Movie | null>(`/movies/featured?platform=${p}`, 300_000);
