@@ -13,6 +13,7 @@
   "dependencies": {
     "fast-average-color": "^9.5.2",
     "framer-motion": "^12.43.0",
+    "fuse.js": "^7.5.0",
     "hls.js": "^1.6.16",
     "ipapi.co": "^0.3.0",
     "lucide-react": "^0.344.0",

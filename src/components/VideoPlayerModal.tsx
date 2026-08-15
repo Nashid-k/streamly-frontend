@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { X, AlertTriangle, SkipForward, ChevronDown, ChevronUp } from 'lucide-react';
 import { Movie } from '../types';
+import { useGlobalHotkeys } from '../hooks/useGlobalHotkeys';
 
 interface VideoPlayerModalProps {
   movie: Movie;
@@ -118,6 +119,21 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({ movie, onClo
     transition: 'opacity 0.3s ease',
   };
 
+  // Global Hotkeys inside Video Modal
+  useGlobalHotkeys({
+    'Escape': () => {
+      onClose();
+    },
+    'f': () => {
+      // Attempt to fullscreen the overlay
+      if (!document.fullscreenElement) {
+        overlayRef.current?.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    },
+  });
+
   return (
     <div
       ref={overlayRef}
@@ -160,7 +176,15 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({ movie, onClo
             setSourceError(`${currentSource?.name} could not load.`);
           }}
         />
-      ) : (
+      ) : null}
+
+      {sourceLoading && !sourceFailed && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', zIndex: 5, color: '#fff' }}>
+          <div style={{ animation: 'spin 1s linear infinite', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--primary-color)', borderRadius: '50%', width: '40px', height: '40px' }} />
+        </div>
+      )}
+
+      {sourceFailed && (
         <div style={{
           position: 'absolute', inset: 0, zIndex: 2, display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '40px 24px', textAlign: 'center',
@@ -192,24 +216,34 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({ movie, onClo
 
       {/* Floating UI */}
       <>
-        <div style={{
-          position: 'absolute', top: '16px', left: '16px', zIndex: 20,
-          display: 'flex', alignItems: 'center', gap: '10px', ...floatingTransition,
-        }}>
-          {nextEpisode && !sourceLoading && !sourceFailed && (
+        {/* God-Tier Binge Mode: Up Next Button */}
+        {nextEpisode && !sourceLoading && !sourceFailed && (
+          <div style={{
+            position: 'absolute', bottom: '24px', right: '24px', zIndex: 20,
+            ...floatingTransition, transition: 'all 0.3s ease',
+          }}>
             <button
               onClick={(e) => { e.stopPropagation(); playNextEpisode(); }}
               style={{
-                display: 'inline-flex', alignItems: 'center', gap: '6px',
-                padding: '6px 12px', borderRadius: '6px',
-                background: 'rgba(229,9,20,0.85)', color: '#fff',
-                fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', border: 'none',
+                display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+                padding: '12px 18px', borderRadius: '12px',
+                background: 'rgba(15, 15, 15, 0.85)', border: '1px solid rgba(255,255,255,0.15)',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.6)', cursor: 'pointer',
+                backdropFilter: 'blur(10px)',
               }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'; e.currentTarget.style.transform = 'scale(1.05)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(15, 15, 15, 0.85)'; e.currentTarget.style.transform = 'scale(1)'; }}
             >
-              <SkipForward size={13} fill="currentColor" /> Next
+              <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>
+                Up Next
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#fff' }}>
+                <span style={{ fontSize: '0.95rem', fontWeight: 700 }}>S{nextEpisode.seasonNumber} E{nextEpisode.episodeNumber}</span>
+                <SkipForward size={16} color="var(--primary-color)" fill="var(--primary-color)" />
+              </div>
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
         <div
           style={{

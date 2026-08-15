@@ -84,9 +84,15 @@ export const SearchView: React.FC<SearchViewProps> = ({
       </div>
 
       {isSearching && languageFilteredSearchResults.length === 0 && !searchActor ? (
-        <div className="classic-grid">
+        <div className="classic-grid" style={{ padding: '0 4%' }}>
           {[...Array(12)].map((_, i) => (
-            <div key={i} style={{ aspectRatio: '2/3', backgroundColor: 'rgba(255, 255, 255, 0.08)', borderRadius: '4px', animation: 'pulse 1.5s infinite ease-in-out' }} />
+            <div key={i} style={{ 
+              aspectRatio: '2/3', 
+              backgroundColor: 'rgba(255, 255, 255, 0.05)', 
+              borderRadius: '8px', 
+              animation: 'netflixSkeletonPulse 2s infinite ease-in-out',
+              animationDelay: `${(i % 4) * 0.1}s`
+            }} />
           ))}
         </div>
       ) : languageFilteredSearchResults.length || searchActor || isSearching ? (

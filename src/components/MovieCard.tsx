@@ -106,7 +106,7 @@ export const MovieCard: React.FC<MovieCardProps> = ({
       hoverTimeoutRef.current = setTimeout(() => {
         setShowTrailer(true);
         fetchMovieById(movie.id).catch(() => {});
-      }, 500);
+      }, 1500);
     }
   };
 

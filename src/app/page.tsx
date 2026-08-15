@@ -21,6 +21,8 @@ import { Toast } from '../components/Toast';
 import { SearchView } from '../components/SearchView';
 import { initSpatialNavigation } from '../lib/spatialNav';
 import { motion, AnimatePresence } from 'framer-motion';
+import Fuse from 'fuse.js';
+import { useGlobalHotkeys } from '../hooks/useGlobalHotkeys';
 
 import {
   fetchFeaturedMovie,
@@ -107,6 +109,27 @@ export default function Home() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchFilters, setSearchFilters] = useState<SearchFiltersState>(DEFAULT_SEARCH_FILTERS);
   const [isAILoading, setIsAILoading] = useState(false);
+  const [isTheaterMode, setIsTheaterMode] = useState(false);
+
+  // Global Hotkeys
+  useGlobalHotkeys({
+    't': () => {
+      // Only toggle if we have a modal open, or just allow it anytime
+      setIsTheaterMode((prev) => !prev);
+      showToast('Theater Mode toggled');
+    },
+    'Escape': () => {
+      // Close active modals
+      if (activeVideoMovie) setActiveVideoMovie(null);
+      if (activeDetailMovie) setActiveDetailMovie(null);
+      if (isTheaterMode) setIsTheaterMode(false);
+    },
+    '/': () => {
+      // Focus the search input inside Navbar (needs a DOM query or ref, we can dispatch a custom event)
+      const searchBtn = document.getElementById('navbar-search-btn');
+      if (searchBtn) searchBtn.click();
+    },
+  });
 
   const handleAISearch = async () => {
     if (!searchQuery.trim()) return;
@@ -663,16 +686,36 @@ export default function Home() {
     return () => { isMounted = false; };
   }, [hasCompletedInitialLoad, continueWatching.length, aiRecommendations.length]);
 
+
+
   const currentSearchNonce = useRef(0);
   // Live Search Handling
   useEffect(() => {
     let isMounted = true;
     const timer = setTimeout(async () => {
-      if (searchQuery.trim() !== '') {
+      const q = searchQuery.trim();
+      if (q !== '') {
         setIsSearching(true);
         const nonce = ++currentSearchNonce.current;
+
+        // God-Tier UX: Instant Fuzzy Search on local cache
+        const localMovies = Array.from(allMoviesMapRef.current.values());
+        const fuse = new Fuse(localMovies, {
+          keys: ['title', 'originalTitle', 'tags', 'genres', 'director'],
+          threshold: 0.4, // Typo forgiveness (0.0 is perfect match, 1.0 is match anything)
+          distance: 100,
+        });
+
+        const fuzzyResults = fuse.search(q).map(res => res.item);
+
+        if (fuzzyResults.length > 0 && isMounted && nonce === currentSearchNonce.current) {
+          setSearchResults(fuzzyResults);
+          setIsSearching(false);
+          return; // Instant results shown, skip network request!
+        }
+
         try {
-          const response = await searchMovies(searchQuery.trim(), selectedGenreFilter);
+          const response = await searchMovies(q, selectedGenreFilter);
           if (isMounted && nonce === currentSearchNonce.current) {
             setSearchResults(response.movies);
             setSearchActor(response.actor);
