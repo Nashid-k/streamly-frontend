@@ -207,6 +207,28 @@ function useTrailerPlayer(encodedUrl: string, backdropUrl: string) {
   return { isMuted, toggleMute, renderTrailer, hasTrailer: !!videoId };
 }
 
+function SwitchingLoader({ targetPlatform }: { targetPlatform: string }) {
+  const logo = targetPlatform === 'Netflix' ? 'https://upload.wikimedia.org/wikipedia/commons/0/08/Netflix_2015_logo.svg' 
+             : targetPlatform === 'Prime Video' ? 'https://upload.wikimedia.org/wikipedia/commons/f/f1/Prime_Video.png' 
+             : 'https://secure-media.hotstarext.com/web-assets/prod/images/brand-logos/disney-hotstar-logo-dark.svg';
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, zIndex: 2000, 
+      background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(20px)',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      animation: 'fadeIn 0.3s ease-out'
+    }}>
+      <div style={{ width: '50px', height: '50px', border: '4px solid rgba(255,255,255,0.1)', borderTop: '4px solid #FFF', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '24px' }} />
+      <div style={{ color: '#FFF', fontSize: '1.2rem', fontWeight: 600, marginBottom: '16px' }}>Switching to</div>
+      <img src={logo} alt={targetPlatform} style={{ height: '40px', objectFit: 'contain', filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))' }} />
+      <style>{`
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes fadeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
+      `}</style>
+    </div>
+  );
+}
+
 function NetflixModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isMyList, similarMovies, platform }: MovieDetailModalProps & { platform: string }) {
   const [selectedSeason, setSelectedSeason] = useState(1);
   const { detailedMovie, episodes, isLoadingEpisodes } = useMovieDetails(movie, selectedSeason, platform);
@@ -219,11 +241,15 @@ function NetflixModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, i
   const nativePlatformName = platformNameMap[platform];
   const isAvailableNative = !movie?.availablePlatforms || movie.availablePlatforms.includes(nativePlatformName);
   const alternativePlatform = movie?.availablePlatforms?.find(p => p !== nativePlatformName);
+  const [isSwitching, setIsSwitching] = useState(false);
   const handlePlayClick = () => { if (!movie) return;
     if (!isAvailableNative && alternativePlatform) {
-      const target = alternativePlatform === "Netflix" ? "nflix" : alternativePlatform === "Hotstar" ? "hotstar" : "nprime";
-      setPlatform(target);
-      setTimeout(() => onPlay(movie), 100);
+      setIsSwitching(true);
+      setTimeout(() => {
+        const target = alternativePlatform === "Netflix" ? "nflix" : alternativePlatform === "Hotstar" ? "hotstar" : "nprime";
+        setPlatform(target);
+        setIsSwitching(false);
+      }, 3500);
     } else {
       onPlay(movie);
     }
@@ -249,6 +275,7 @@ function NetflixModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, i
         animation: 'scaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1)', color: '#FFF', display: 'flex', flexDirection: 'column',
         border: platform === 'hotstar' ? '1px solid rgba(31, 128, 224, 0.3)' : platform === 'nprime' ? '1px solid rgba(0, 168, 225, 0.3)' : '1px solid rgba(255,255,255,0.1)'
       }}>
+        {isSwitching && alternativePlatform && <SwitchingLoader targetPlatform={alternativePlatform} />}
         <button onClick={onClose} autoFocus aria-label="Close modal" style={{
           position: 'absolute', top: '16px', right: '16px', width: '36px', height: '36px',
           borderRadius: '50%',
@@ -442,11 +469,15 @@ function PrimeModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isM
   const nativePlatformName = platformNameMap[platform];
   const isAvailableNative = !movie?.availablePlatforms || movie.availablePlatforms.includes(nativePlatformName);
   const alternativePlatform = movie?.availablePlatforms?.find(p => p !== nativePlatformName);
+  const [isSwitching, setIsSwitching] = useState(false);
   const handlePlayClick = () => { if (!movie) return;
     if (!isAvailableNative && alternativePlatform) {
-      const target = alternativePlatform === "Netflix" ? "nflix" : alternativePlatform === "Hotstar" ? "hotstar" : "nprime";
-      setPlatform(target);
-      setTimeout(() => onPlay(movie), 100);
+      setIsSwitching(true);
+      setTimeout(() => {
+        const target = alternativePlatform === "Netflix" ? "nflix" : alternativePlatform === "Hotstar" ? "hotstar" : "nprime";
+        setPlatform(target);
+        setIsSwitching(false);
+      }, 3500);
     } else {
       onPlay(movie);
     }
@@ -469,6 +500,7 @@ function PrimeModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isM
         overflow: 'hidden', position: 'relative', color: '#FFF', display: 'flex', flexDirection: 'column',
         boxShadow: '0 20px 60px rgba(0,0,0,0.8)', animation: 'fadeIn 0.3s ease', maxHeight: '90vh'
       }}>
+        {isSwitching && alternativePlatform && <SwitchingLoader targetPlatform={alternativePlatform} />}
         <button onClick={onClose} autoFocus aria-label="Close modal" style={{
           position: 'absolute', top: '20px', right: '20px', width: '40px', height: '40px',
           borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', border: 'none', color: '#FFF',
@@ -621,11 +653,15 @@ function HotstarModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, i
   const nativePlatformName = platformNameMap[platform];
   const isAvailableNative = !movie?.availablePlatforms || movie.availablePlatforms.includes(nativePlatformName);
   const alternativePlatform = movie?.availablePlatforms?.find(p => p !== nativePlatformName);
+  const [isSwitching, setIsSwitching] = useState(false);
   const handlePlayClick = () => { if (!movie) return;
     if (!isAvailableNative && alternativePlatform) {
-      const target = alternativePlatform === "Netflix" ? "nflix" : alternativePlatform === "Hotstar" ? "hotstar" : "nprime";
-      setPlatform(target);
-      setTimeout(() => onPlay(movie), 100);
+      setIsSwitching(true);
+      setTimeout(() => {
+        const target = alternativePlatform === "Netflix" ? "nflix" : alternativePlatform === "Hotstar" ? "hotstar" : "nprime";
+        setPlatform(target);
+        setIsSwitching(false);
+      }, 3500);
     } else {
       onPlay(movie);
     }
@@ -647,6 +683,7 @@ function HotstarModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, i
         overflow: 'hidden', position: 'relative', color: '#FFF', display: 'flex', flexDirection: 'column',
         boxShadow: '0 20px 60px rgba(0,0,0,0.9)', maxHeight: '90vh'
       }}>
+        {isSwitching && alternativePlatform && <SwitchingLoader targetPlatform={alternativePlatform} />}
         <button onClick={onClose} autoFocus aria-label="Close modal" style={{
           position: 'absolute', top: '24px', right: '24px', width: '36px', height: '36px',
           borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', border: 'none', color: '#FFF',

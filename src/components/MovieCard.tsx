@@ -224,9 +224,11 @@ export const MovieCard: React.FC<MovieCardProps> = ({
             {movie.isSeries ? 'Series' : 'Movie'}
           </span>
           <h4 className="moviecard-elem-a0014f">{movie.title}</h4>
-          <button className="moviecard-elem-e39862" onClick={(e) => { e.stopPropagation(); onPlay(movie); }}>
-            <Play size={13} fill="#FFF" /> Watch Now
-          </button>
+          {(!movie.availablePlatforms || movie.availablePlatforms.includes('Hotstar')) && (
+            <button className="moviecard-elem-e39862" onClick={(e) => { e.stopPropagation(); onPlay(movie); }}>
+              <Play size={13} fill="#FFF" /> Watch Now
+            </button>
+          )}
         </div>
         {/* Platform Availability Badges */}
         {platformBadges}
@@ -334,9 +336,11 @@ export const MovieCard: React.FC<MovieCardProps> = ({
         }}>
           <h4 className="moviecard-elem-d88b98">{movie.title}</h4>
           <div className="moviecard-elem-b80cec">
-            <button className="moviecard-elem-915695" onClick={(e) => { e.stopPropagation(); onPlay(movie); }}>
-              <Play size={14} fill="#FFF" color="#FFF" />
-            </button>
+            {(!movie.availablePlatforms || movie.availablePlatforms.includes('Prime Video')) && (
+              <button className="moviecard-elem-915695" onClick={(e) => { e.stopPropagation(); onPlay(movie); }}>
+                <Play size={14} fill="#FFF" color="#FFF" />
+              </button>
+            )}
             <button className="moviecard-elem-25e200" onClick={(e) => { e.stopPropagation(); onOpenDetails(movie); }}>
               <Info size={15} />
             </button>
@@ -483,9 +487,11 @@ export const MovieCard: React.FC<MovieCardProps> = ({
           {/* Action Row */}
           <div className="moviecard-elem-464823">
             <div className="moviecard-elem-b82f88">
-              <button className="moviecard-elem-68038c" onClick={(e) => { e.stopPropagation(); onPlay(movie); }}>
-                <Play size={12} fill="#000" color="#000" />
-              </button>
+              {(!movie.availablePlatforms || movie.availablePlatforms.includes('Netflix')) && (
+                <button className="moviecard-elem-68038c" onClick={(e) => { e.stopPropagation(); onPlay(movie); }}>
+                  <Play size={12} fill="#000" color="#000" />
+                </button>
+              )}
               <button
                 onClick={(e) => { e.stopPropagation(); onToggleMyList(movie.id); }}
                 className="moviecard-elem-8b8a17"

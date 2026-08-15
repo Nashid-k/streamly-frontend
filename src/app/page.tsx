@@ -322,22 +322,6 @@ export default function Home() {
   };
 
   const handleOpenDetails = (movie: Movie) => {
-    // Platform switching logic for unified modals
-    if (movie.availablePlatforms && movie.availablePlatforms.length > 0) {
-      const platformNameMap: Record<string, string> = { nflix: "Netflix", nprime: "Prime Video", hotstar: "Hotstar" };
-      const currentPlatformName = platformNameMap[platform];
-      
-      // If current platform has the title, stick to it. Otherwise, switch to the first available platform.
-      if (!movie.availablePlatforms.includes(currentPlatformName)) {
-        const fallback = movie.availablePlatforms[0];
-        const target = fallback === "Netflix" ? "nflix" : fallback === "Hotstar" ? "hotstar" : "nprime";
-        if (target && target !== platform) {
-          setPlatform(target);
-          showToast(`Switched to ${fallback} to view "${movie.title}"`);
-        }
-      }
-    }
-
     setActiveDetailMovie(movie);
     updateUrlParam('title', movie.id);
   };
