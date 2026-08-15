@@ -293,7 +293,8 @@ function NetflixModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, i
         borderRadius: platform === 'hotstar' ? '12px' : platform === 'nprime' ? '8px' : '10px',
         overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.98)', position: 'relative',
         animation: 'scaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1)', color: '#FFF', display: 'flex', flexDirection: 'column',
-        border: platform === 'hotstar' ? '1px solid rgba(31, 128, 224, 0.3)' : platform === 'nprime' ? '1px solid rgba(0, 168, 225, 0.3)' : '1px solid rgba(255,255,255,0.1)'
+        border: platform === 'hotstar' ? '1px solid rgba(31, 128, 224, 0.3)' : platform === 'nprime' ? '1px solid rgba(0, 168, 225, 0.3)' : '1px solid rgba(255,255,255,0.1)',
+        viewTransitionName: `movie-card-${movie.id}`
       }}>
         {isSwitching && alternativePlatform && <SwitchingLoader targetPlatform={alternativePlatform} />}
         <button onClick={onClose} autoFocus aria-label="Close modal" style={{
@@ -519,7 +520,8 @@ function PrimeModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isM
       <div className="detail-dialog" onClick={e => e.stopPropagation()} style={{
         width: '100%', maxWidth: '960px', backgroundColor: '#0f171e', borderRadius: '8px',
         overflow: 'hidden', position: 'relative', color: '#FFF', display: 'flex', flexDirection: 'column',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.8)', animation: 'fadeIn 0.3s ease', maxHeight: '90vh'
+        boxShadow: '0 20px 60px rgba(0,0,0,0.8)', animation: 'fadeIn 0.3s ease', maxHeight: '90vh',
+        viewTransitionName: `movie-card-${movie.id}`
       }}>
         {isSwitching && alternativePlatform && <SwitchingLoader targetPlatform={alternativePlatform} />}
         <button onClick={onClose} autoFocus aria-label="Close modal" style={{
@@ -704,7 +706,8 @@ function HotstarModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, i
       <div className="detail-dialog" onClick={e => e.stopPropagation()} style={{
         width: '100%', maxWidth: '900px', background: 'linear-gradient(to bottom, #0f1014, #000)', borderRadius: '12px',
         overflow: 'hidden', position: 'relative', color: '#FFF', display: 'flex', flexDirection: 'column',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.9)', maxHeight: '90vh'
+        boxShadow: '0 20px 60px rgba(0,0,0,0.9)', maxHeight: '90vh',
+        viewTransitionName: `movie-card-${movie.id}`
       }}>
         {isSwitching && alternativePlatform && <SwitchingLoader targetPlatform={alternativePlatform} />}
         <button onClick={onClose} autoFocus aria-label="Close modal" style={{

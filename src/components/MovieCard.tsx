@@ -8,6 +8,7 @@ import { usePlatform } from './PlatformContext';
 import { Movie } from '../types';
 import { fetchMovieById } from '../lib/api';
 import { HoverTrailer } from './HoverTrailer';
+import { playHoverSound, playClickSound } from '../lib/audio';
 
 interface MovieCardProps {
   movie: Movie;
@@ -46,6 +47,7 @@ export const MovieCard: React.FC<MovieCardProps> = ({
   }
 
   const handleCardClick = () => {
+    playClickSound();
     onOpenDetails(movie);
   };
 
@@ -97,6 +99,7 @@ export const MovieCard: React.FC<MovieCardProps> = ({
   const cardRef = React.useRef<HTMLDivElement>(null);
 
   const handleMouseEnter = () => {
+    if (!isHovered) playHoverSound();
     setIsHovered(true);
     if (movie.id) {
       if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
@@ -199,7 +202,7 @@ export const MovieCard: React.FC<MovieCardProps> = ({
                 setIsImageLoaded(true); 
               }
             }}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isImageLoaded ? 1 : 0, transition: 'opacity 0.2s ease, transform 0.4s ease', transform: isHovered ? 'scale(1.05)' : 'scale(1)' }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isImageLoaded ? 1 : 0, transition: 'opacity 0.2s ease, transform 0.4s ease', transform: isHovered ? 'scale(1.05)' : 'scale(1)', viewTransitionName: `movie-card-${movie.id}` }}
           />
         ) : imgSrc === 'broken' ? (
           <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1f2937 0%, #111827 100%)', textAlign: 'center', padding: '10px' }}>

@@ -33,6 +33,98 @@ const getFallbackTitleStyle = () => {
   };
 };
 
+const decodeTrailerUrl = (encodedUrl: string): string => {
+  if (!encodedUrl) return '';
+  try {
+    return atob(encodedUrl);
+  } catch (e) {
+    return encodedUrl;
+  }
+};
+
+function useTrailerPlayer(encodedUrl: string) {
+  const [isMuted, setIsMuted] = useState(true);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [showIframe, setShowIframe] = useState(false);
+  const iframeRef = React.useRef<HTMLIFrameElement>(null);
+  const trailerUrl = encodedUrl ? decodeTrailerUrl(encodedUrl) : '';
+  const videoIdMatch = trailerUrl.match(/embed\/([^?]+)/);
+  const videoId = videoIdMatch ? videoIdMatch[1] : '';
+
+  useEffect(() => {
+    setIsVideoPlaying(false);
+    setShowIframe(false);
+    if (!videoId) return;
+
+    const timer = setTimeout(() => {
+      setShowIframe(true);
+    }, 2500); // 2.5 second delay before cinematic autoplay
+    return () => clearTimeout(timer);
+  }, [videoId]);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== 'https://www.youtube.com') return;
+      if (iframeRef.current && iframeRef.current.contentWindow !== event.source) return;
+      try {
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        const isPlayingEvent = (data.event === 'infoDelivery' && data.info && data.info.playerState === 1) || 
+                               (data.event === 'onStateChange' && data.info === 1);
+
+        if (isPlayingEvent) {
+          setIsVideoPlaying(true);
+        }
+      } catch (e) {}
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  const toggleMute = () => {
+    const newMuted = !isMuted;
+    setIsMuted(newMuted);
+    if (iframeRef.current && iframeRef.current.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        JSON.stringify({ event: 'command', func: newMuted ? 'mute' : 'unMute', args: [] }),
+        '*'
+      );
+    }
+  };
+
+  const handleIframeLoad = () => {
+    if (iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'listening' }), '*');
+    }
+  };
+
+  const renderTrailer = () => (
+    videoId && showIframe ? (
+      <iframe
+        ref={iframeRef}
+        src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=${isMuted ? 1 : 0}&controls=0&showinfo=0&rel=0&modestbranding=1&loop=1&playlist=${videoId}&enablejsapi=1`}
+        title="Cinematic Trailer"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          width: '100%',
+          height: '150%',
+          transform: 'translate(-50%, -50%)',
+          pointerEvents: 'none',
+          opacity: isVideoPlaying ? 1 : 0,
+          transition: 'opacity 1s ease-in-out',
+          zIndex: 0,
+        }}
+        onLoad={handleIframeLoad}
+      />
+    ) : null
+  );
+
+  return { isMuted, toggleMute, renderTrailer, hasTrailer: !!videoId, isVideoPlaying };
+}
+
 export const HeroBanner: React.FC<HeroBannerProps> = ({ 
   movie, 
   carouselMovies = [], 
@@ -136,6 +228,8 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
     };
   }, [movie, carouselMovies, onHeroReady]);
 
+  const { renderTrailer, isVideoPlaying, toggleMute, isMuted, hasTrailer } = useTrailerPlayer(enrichedMovie?.trailerUrl || '');
+
   if (!enrichedMovie) return null;
 
   const backgroundUrl = enrichedMovie.backdropUrl || enrichedMovie.posterUrl || '';
@@ -144,6 +238,10 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
     <div className="hero-container herobanner-elem-749d84"
       data-testid="hero-container"
     >
+      {/* Cinematic Trailer Background */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0, overflow: 'hidden' }}>
+        {renderTrailer()}
+      </div>
       {/* High-Resolution Backdrop Image (Desktop/Tablet) */}
       <div
         key={`backdrop-${enrichedMovie.id}`}
@@ -161,6 +259,8 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
           backgroundSize: 'cover',
           backgroundPosition: 'center top',
           zIndex: 0,
+          opacity: isVideoPlaying ? 0 : 1,
+          transition: 'opacity 1s ease-in-out',
           WebkitMaskImage: platform === 'hotstar' 
             ? 'linear-gradient(to top, transparent 0%, black 40%), linear-gradient(to right, transparent 0%, black 40%)' 
             : 'none',
@@ -359,7 +459,31 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
               {platform === 'hotstar' && <span>Watchlist</span>}
             </button>
           )}
-
+          
+          {hasTrailer && isVideoPlaying && (
+            <button
+              onClick={toggleMute}
+              style={{
+                height: platform === 'nprime' ? '48px' : '44px',
+                width: platform === 'nprime' ? '48px' : '44px',
+                borderRadius: '50%',
+                backgroundColor: 'rgba(255,255,255,0.15)',
+                border: '1px solid rgba(255,255,255,0.4)',
+                color: '#FFF', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                cursor: 'pointer', 
+                transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                backdropFilter: 'blur(8px)',
+                marginLeft: 'auto'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.1)'; e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.25)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.15)'; }}
+            >
+              {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+            </button>
+          )}
 
         </div>
       </div>

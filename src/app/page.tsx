@@ -322,13 +322,27 @@ export default function Home() {
     window.history.pushState({}, '', url.toString());
   };
 
+  const withViewTransition = (callback: () => void) => {
+    if (typeof document !== 'undefined' && 'startViewTransition' in document) {
+      (document as any).startViewTransition(() => {
+        callback();
+      });
+    } else {
+      callback();
+    }
+  };
+
   const handleOpenDetails = (movie: Movie) => {
-    setActiveDetailMovie(movie);
+    withViewTransition(() => {
+      setActiveDetailMovie(movie);
+    });
     updateUrlParam('title', movie.id);
   };
 
   const handleCloseDetails = () => {
-    setActiveDetailMovie(null);
+    withViewTransition(() => {
+      setActiveDetailMovie(null);
+    });
     updateUrlParam('title', null);
   };
 
@@ -336,10 +350,14 @@ export default function Home() {
 
   const handleTabChange = (tab: 'home' | 'movies' | 'series' | 'anime' | 'mylist') => {
     if (tab === activeTab) return;
-    setSelectedGenreFilter('All');
-    setDiscoveryRevision((revision) => revision + 1);
-    setIsTabTransitioning(true);
-    setActiveTab(tab);
+    
+    withViewTransition(() => {
+      setSelectedGenreFilter('All');
+      setDiscoveryRevision((revision) => revision + 1);
+      setIsTabTransitioning(true);
+      setActiveTab(tab);
+    });
+
     updateUrlParam('tab', tab === 'home' ? null : tab);
     setTimeout(() => {
       setIsTabTransitioning(false);
