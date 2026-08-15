@@ -1,7 +1,7 @@
 import React from 'react';
 import { usePlatform } from './PlatformContext';
 
-export const PlatformInitialLoader = () => {
+export const PlatformInitialLoader = ({ showSlowLoadMessage = false }: { showSlowLoadMessage?: boolean }) => {
   const { platform } = usePlatform();
 
   if (platform === 'nflix') {
@@ -23,6 +23,12 @@ export const PlatformInitialLoader = () => {
           borderRadius: '50%',
           animation: 'spin 0.8s linear infinite'
         }} />
+        {showSlowLoadMessage && (
+          <div style={{ marginTop: '30px', color: '#999', fontSize: '0.9rem', maxWidth: '300px', textAlign: 'center', lineHeight: '1.5', animation: 'fadeIn 0.5s ease-in' }}>
+            <p>Waking up server...</p>
+            <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '8px' }}>Please wait up to 50 seconds on free tier.</p>
+          </div>
+        )}
       </div>
     );
   }
@@ -50,6 +56,12 @@ export const PlatformInitialLoader = () => {
             animation: 'primeShimmer 1.2s infinite ease-in-out'
           }} />
         </div>
+        {showSlowLoadMessage && (
+          <div style={{ marginTop: '30px', color: '#999', fontSize: '0.9rem', maxWidth: '300px', textAlign: 'center', lineHeight: '1.5', animation: 'fadeIn 0.5s ease-in' }}>
+            <p>Waking up server...</p>
+            <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '8px' }}>Please wait up to 50 seconds on free tier.</p>
+          </div>
+        )}
       </div>
     );
   }
@@ -81,6 +93,12 @@ export const PlatformInitialLoader = () => {
           />
         ))}
       </div>
+      {showSlowLoadMessage && (
+        <div style={{ marginTop: '30px', color: '#999', fontSize: '0.9rem', maxWidth: '300px', textAlign: 'center', lineHeight: '1.5', animation: 'fadeIn 0.5s ease-in' }}>
+          <p>Waking up server...</p>
+          <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '8px' }}>Please wait up to 50 seconds on free tier.</p>
+        </div>
+      )}
     </div>
   );
 };

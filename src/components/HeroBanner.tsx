@@ -294,8 +294,10 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
               alignItems: 'center',
               gap: '8px',
               boxShadow: platform === 'hotstar' ? '0 4px 14px var(--primary-glow)' : '0 4px 14px rgba(0,0,0,0.5)',
-              transition: 'transform 0.2s',
+              transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
             }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.filter = 'brightness(1.1)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.filter = 'brightness(1)'; }}
           >
             <Play fill={platform === 'hotstar' ? '#FFF' : '#000'} size={18} />
             {platform === 'hotstar' ? 'Watch Now' : 'Play'}
@@ -319,8 +321,11 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
               alignItems: 'center',
               justifyContent: 'center',
               gap: '8px',
-              transition: 'all 0.2s',
+              transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+              backdropFilter: 'blur(8px)',
             }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.background = platform === 'nprime' ? 'rgba(255,255,255,0.25)' : 'rgba(129, 129, 130, 0.9)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.background = platform === 'nprime' ? 'rgba(255,255,255,0.15)' : 'rgba(109, 109, 110, 0.7)'; }}
           >
             <Info size={platform === 'nprime' ? 22 : 18} /> {platform !== 'nprime' && 'More Info'}
           </button>
@@ -342,10 +347,13 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
                 justifyContent: 'center', 
                 gap: '8px',
                 cursor: 'pointer', 
-                transition: 'all 0.2s',
+                transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
                 fontWeight: 700,
                 fontSize: '1rem',
+                backdropFilter: 'blur(8px)',
               }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.25)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.15)'; }}
             >
               {isMyList ? <Check size={platform === 'hotstar' ? 20 : 24} /> : <Plus size={platform === 'hotstar' ? 20 : 24} />}
               {platform === 'hotstar' && <span>Watchlist</span>}

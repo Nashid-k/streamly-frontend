@@ -51,13 +51,18 @@ html, body {
   text-rendering: optimizeLegibility;
   overflow-x: hidden;
   scroll-behavior: smooth;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
+  line-height: 1.5;
 }
 
-body { overflow-y: auto; }
+body { 
+  overflow-y: auto; 
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
 
 button, select, input {
   font: inherit;
+  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 button:focus-visible,
@@ -75,18 +80,19 @@ input:focus-visible,
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  border: 2px solid var(--bg-color);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .hide-scrollbar::-webkit-scrollbar {
@@ -95,6 +101,14 @@ input:focus-visible,
 .hide-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Glassmorphism helpers */
+.glass-panel {
+  background: rgba(20, 20, 20, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* Netflix Skeleton Pulse Animation */

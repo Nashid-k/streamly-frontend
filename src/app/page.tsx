@@ -477,6 +477,7 @@ export default function Home() {
   const [isLoadingPage, setIsLoadingPage] = useState(true);
   const [hasCompletedInitialLoad, setHasCompletedInitialLoad] = useState(false);
   const [isSwitchingPlatform, setIsSwitchingPlatform] = useState(false);
+  const [isSlowLoad, setIsSlowLoad] = useState(false);
 
   useEffect(() => {
     if (!isLoadingPage) {
@@ -615,12 +616,9 @@ export default function Home() {
       }
     }
 
-    // Safety fallback timer (max 5.5s) to guarantee loader unmasks under any condition
     const safetyTimer = setTimeout(() => {
       if (isMounted) {
-        setIsLoadingPage(false);
-        setHasCompletedInitialLoad(true);
-        setIsSwitchingPlatform(false);
+        setIsSlowLoad(true);
       }
     }, 5500);
 
@@ -951,7 +949,7 @@ export default function Home() {
       />
 
       {/* Full-Screen Initial Loader */}
-      {(!hasCompletedInitialLoad) && <PlatformInitialLoader />}
+      {(!hasCompletedInitialLoad) && <PlatformInitialLoader showSlowLoadMessage={isSlowLoad} />}
 
       {/* Main Page Content Router */}
       <div style={{ opacity: hasCompletedInitialLoad ? 1 : 0, transition: 'opacity 0.3s' }}>

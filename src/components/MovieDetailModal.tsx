@@ -238,7 +238,8 @@ function NetflixModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, i
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title" onClick={onClose} style={{
       position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start',
-      backgroundColor: 'rgba(0,0,0,0.7)', overflowY: 'auto', padding: '32px 0'
+      backgroundColor: platform === 'nprime' ? 'rgba(15, 23, 30, 0.7)' : 'rgba(0,0,0,0.65)', backdropFilter: 'blur(20px)', overflowY: 'auto', padding: '32px 0',
+      transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
     }}>
       <div className="detail-dialog" onClick={e => e.stopPropagation()} style={{
         width: '92%', maxWidth: '850px',
@@ -459,8 +460,9 @@ function PrimeModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isM
 
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title" onClick={onClose} style={{
-      position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center',
-      backgroundColor: 'rgba(0,0,0,0.8)', padding: '20px', overflowY: 'auto'
+      position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start',
+      backgroundColor: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(10px)', overflowY: 'auto', padding: '32px 0',
+      transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
     }}>
       <div className="detail-dialog" onClick={e => e.stopPropagation()} style={{
         width: '100%', maxWidth: '960px', backgroundColor: '#0f171e', borderRadius: '8px',

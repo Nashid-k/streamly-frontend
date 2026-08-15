@@ -382,10 +382,10 @@ export const MovieCard: React.FC<MovieCardProps> = ({
         width: '100%',
         background: '#141414',
         borderRadius: '4px',
-        boxShadow: isHovered ? '0 14px 28px rgba(0,0,0,0.9), 0 10px 10px rgba(0,0,0,0.8)' : 'none',
+        boxShadow: isHovered ? '0 20px 40px rgba(0,0,0,0.95), 0 10px 20px rgba(0,0,0,0.7)' : 'none',
         transform: isHovered ? 'scale(1.25)' : 'scale(1)',
         transformOrigin: 'center center',
-        transition: `transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.4s ease, z-index 0s ${isHovered ? '0s' : '0.4s'}`,
+        transition: `transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.45s ease, z-index 0s ${isHovered ? '0s' : '0.45s'}`,
         zIndex: isHovered ? 50 : 1,
       }}>
         {/* Netflix N Logo */}

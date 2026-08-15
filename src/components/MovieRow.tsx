@@ -77,7 +77,7 @@ export const MovieRow: React.FC<MovieRowProps> = ({
       ref={containerRef}
       className="catalog-row" 
       style={{ 
-        marginBottom: '44px', 
+        marginBottom: '64px', 
         padding: '0 4%', 
         position: 'relative', 
         zIndex: 1,
@@ -91,15 +91,15 @@ export const MovieRow: React.FC<MovieRowProps> = ({
       ) : (
         <>
           {/* Category Row Header with Accent Bar & Explore All Link */}
-      <div className="catalog-row-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ width: '4px', height: '22px', background: platform === 'nprime' ? 'var(--primary-color)' : platform === 'hotstar' ? '#1F80E0' : 'linear-gradient(180deg, #E50914 0%, #FF5252 100%)', borderRadius: '2px' }} />
+      <div className="catalog-row-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: '4px', height: '24px', background: platform === 'nprime' ? 'var(--primary-color)' : platform === 'hotstar' ? '#1F80E0' : 'linear-gradient(180deg, #E50914 0%, #FF5252 100%)', borderRadius: '4px' }} />
           <h3
             style={{
-              fontSize: '1.4rem',
+              fontSize: '1.45rem',
               fontWeight: 800,
               color: '#F8FAFC',
-              letterSpacing: '-0.02em',
+              letterSpacing: '-0.025em',
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
