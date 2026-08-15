@@ -332,8 +332,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           height: platform === 'nprime' ? '72px' : '68px', 
           padding: '0 4%', 
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
-          position: 'fixed', top: 0, right: 0, left: 0, zIndex: 1000,
-          borderBottom: isScrolled ? (platform === 'nprime' ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(255,255,255,0.05)') : '1px solid transparent'
+          position: 'fixed', top: 0, right: 0, left: 0, zIndex: 1000
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
             {platform === 'nflix' && (
