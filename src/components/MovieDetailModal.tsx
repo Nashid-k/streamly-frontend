@@ -533,7 +533,7 @@ function PrimeModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isM
 
   return (
     <div className="prime-detail-page" role="dialog" aria-modal="true" style={{
-      position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', flexDirection: 'column',
+      position: 'fixed', top: '70px', bottom: 0, left: 0, right: 0, zIndex: 1000, display: 'flex', flexDirection: 'column',
       backgroundColor: '#0f171e', overflowY: 'auto', overflowX: 'hidden', color: '#FFF',
       animation: 'fadeIn 0.3s ease'
     }}>
@@ -566,22 +566,6 @@ function PrimeModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isM
             {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
           </button>
         )}
-
-        {/* Fake Prime Navbar */}
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: '70px', display: 'flex', alignItems: 'center', padding: '0 40px', zIndex: 60, background: 'rgba(15,23,30,0.95)', borderBottom: '1px solid rgba(255,255,255,0.1)', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', gap: '32px', alignItems: 'center' }}>
-            <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#00a8e1', letterSpacing: '-0.5px' }}>prime video</span>
-            <div style={{ display: 'flex', gap: '24px', fontWeight: 600, fontSize: '1.05rem', color: '#FFF' }}>
-              <span style={{ cursor: 'pointer', borderBottom: '2px solid #FFF', paddingBottom: '4px' }}>Home</span>
-              <span style={{ cursor: 'pointer', color: '#8197a4' }}>Store</span>
-              <span style={{ cursor: 'pointer', color: '#8197a4' }}>Live TV</span>
-              <span style={{ cursor: 'pointer', color: '#8197a4' }}>Categories</span>
-            </div>
-          </div>
-          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', padding: '8px 16px', borderRadius: '4px', border: 'none', color: '#FFF', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <ArrowLeft size={20} /> Back
-          </button>
-        </div>
 
         <div className="detail-hero-content" style={{ position: 'absolute', bottom: '10%', left: '40px', right: '40px', display: 'flex', flexDirection: 'column', zIndex: 20 }}>
           
