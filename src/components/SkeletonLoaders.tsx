@@ -25,8 +25,8 @@ export const PlatformInitialLoader = ({ showSlowLoadMessage = false }: { showSlo
         }} />
         {showSlowLoadMessage && (
           <div style={{ marginTop: '30px', color: '#999', fontSize: '0.9rem', maxWidth: '300px', textAlign: 'center', lineHeight: '1.5', animation: 'fadeIn 0.5s ease-in' }}>
-            <p>Waking up server...</p>
-            <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '8px' }}>Please wait up to 50 seconds on free tier.</p>
+            <p style={{ fontWeight: 500, color: '#FFF' }}>Preparing your experience...</p>
+            <p style={{ fontSize: '0.85rem', color: '#888', marginTop: '8px' }}>Optimizing stream quality and fetching metadata.</p>
           </div>
         )}
       </div>
@@ -58,8 +58,8 @@ export const PlatformInitialLoader = ({ showSlowLoadMessage = false }: { showSlo
         </div>
         {showSlowLoadMessage && (
           <div style={{ marginTop: '30px', color: '#999', fontSize: '0.9rem', maxWidth: '300px', textAlign: 'center', lineHeight: '1.5', animation: 'fadeIn 0.5s ease-in' }}>
-            <p>Waking up server...</p>
-            <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '8px' }}>Please wait up to 50 seconds on free tier.</p>
+            <p style={{ fontWeight: 500, color: '#FFF' }}>Preparing your experience...</p>
+            <p style={{ fontSize: '0.85rem', color: '#888', marginTop: '8px' }}>Optimizing stream quality and fetching metadata.</p>
           </div>
         )}
       </div>
@@ -94,10 +94,10 @@ export const PlatformInitialLoader = ({ showSlowLoadMessage = false }: { showSlo
         ))}
       </div>
       {showSlowLoadMessage && (
-        <div style={{ marginTop: '30px', color: '#999', fontSize: '0.9rem', maxWidth: '300px', textAlign: 'center', lineHeight: '1.5', animation: 'fadeIn 0.5s ease-in' }}>
-          <p>Waking up server...</p>
-          <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '8px' }}>Please wait up to 50 seconds on free tier.</p>
-        </div>
+          <div style={{ marginTop: '30px', color: '#999', fontSize: '0.9rem', maxWidth: '300px', textAlign: 'center', lineHeight: '1.5', animation: 'fadeIn 0.5s ease-in' }}>
+            <p style={{ fontWeight: 500, color: '#FFF' }}>Preparing your experience...</p>
+            <p style={{ fontSize: '0.85rem', color: '#888', marginTop: '8px' }}>Optimizing stream quality and fetching metadata.</p>
+          </div>
       )}
     </div>
   );
