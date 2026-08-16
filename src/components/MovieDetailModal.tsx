@@ -462,31 +462,43 @@ function NetflixModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, i
                   )}
                 </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {isLoadingEpisodes ? (
-                  <>
-                    <EpisodeSkeleton />
-                    <EpisodeSkeleton />
-                    <EpisodeSkeleton />
-                  </>
-                ) : (
-                  episodes.map((ep, idx) => (
-                    <div key={ep.id} onClick={() => onPlay(displayMovie!, ep)} style={{ display: 'flex', gap: '16px', padding: '16px', borderRadius: '4px', backgroundColor: '#222', cursor: 'pointer', alignItems: 'center' }}>
-                      <div style={{ fontSize: '1.5rem', color: '#D2D2D2', width: '30px', textAlign: 'center' }}>{idx + 1}</div>
-                      <div style={{ position: 'relative', width: '130px', height: '73px', flexShrink: 0, borderRadius: '4px', overflow: 'hidden' }}>
-                        <img src={ep.thumbnailUrl || movie.backdropUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)' }}><Play size={30} fill="#FFF" color="#FFF" /></div>
-                      </div>
-                      <div style={{ flex: 1, paddingRight: '16px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                          <span style={{ fontWeight: 700 }}>{ep.title}</span>
-                          <span style={{ color: '#D2D2D2' }}>{ep.duration}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '32px' }}>
+                  {isLoadingEpisodes ? (
+                    <>
+                      <EpisodeSkeleton />
+                      <EpisodeSkeleton />
+                      <EpisodeSkeleton />
+                      <EpisodeSkeleton />
+                    </>
+                  ) : (
+                    episodes.map((ep, idx) => (
+                      <div key={ep.id} onClick={() => onPlay(displayMovie!, ep)} style={{ display: 'flex', flexDirection: 'column', gap: '16px', cursor: 'pointer' }}>
+                        <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#111', boxShadow: '0 4px 12px rgba(0,0,0,0.3)', transition: 'transform 0.2s ease, box-shadow 0.2s ease' }}
+                          onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.03)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.5)'; }}
+                          onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)'; }}
+                        >
+                          <img src={ep.thumbnailUrl || movie.backdropUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.2)', transition: 'background 0.2s' }}
+                            onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.4)'}
+                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.2)'}
+                          >
+                            <Play size={48} fill="#FFF" color="#FFF" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} />
+                          </div>
                         </div>
-                        <p style={{ fontSize: '0.85rem', color: '#D2D2D2', margin: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{ep.description || 'No description available for this episode.'}</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <h4 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#FFF' }}>{idx + 1}. {ep.title}</h4>
+                          <p style={{ fontSize: '1rem', color: '#8197a4', margin: 0, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.5 }}>{ep.description || 'No description available for this episode.'}</p>
+                          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', fontSize: '0.9rem', color: '#8197a4', fontWeight: 600, marginTop: '4px' }}>
+                            <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px', color: '#FFF' }}>A</span>
+                            <span>{ep.duration}</span>
+                            <span>{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))
-                )}
+                    ))
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -722,44 +734,50 @@ function PrimeModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isM
         {activeTab === 'episodes' && (displayMovie?.isSeries || movie.isSeries || (displayMovie?.seasonsCount ?? 0) > 0) && (
            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div style={{ fontSize: '1.1rem', fontWeight: 700 }}>{episodes.length} episodes</div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{episodes.length} episodes</div>
               <div style={{ display: 'flex', alignItems: 'center' }}>
-                <select value={selectedSeason} onChange={e => setSelectedSeason(Number(e.target.value))} style={{ background: 'rgba(255,255,255,0.1)', color: '#FFF', border: '1px solid rgba(255,255,255,0.3)', padding: '12px 20px', borderRadius: '4px', fontSize: '1.1rem', fontWeight: 600, cursor: 'pointer', outline: 'none' }}>
-                  {Array.from({ length: displayMovie?.seasonsCount || 1 }, (_, i) => i + 1).map(s => <option key={s} value={s} style={{ background: '#24303c', color: '#FFF' }}>Season {s}</option>)}
+                <select value={selectedSeason} onChange={e => setSelectedSeason(Number(e.target.value))} style={{ background: 'rgba(255,255,255,0.1)', color: '#FFF', border: '1px solid rgba(255,255,255,0.3)', padding: '12px 20px', borderRadius: '8px', fontSize: '1.1rem', fontWeight: 700, cursor: 'pointer', outline: 'none' }}>
+                  {Array.from({ length: displayMovie?.seasonsCount || 1 }, (_, i) => i + 1).map(s => <option key={s} value={s} style={{ background: '#0f171e', color: '#FFF' }}>Season {s}</option>)}
                 </select>
               </div>
             </div>
             
-            {isLoadingEpisodes ? (
-              <>
-                <EpisodeSkeleton />
-                <EpisodeSkeleton />
-                <EpisodeSkeleton />
-              </>
-            ) : (
-              episodes.map((ep, idx) => (
-                <div key={ep.id} onClick={() => onPlay(displayMovie!, ep)} style={{ display: 'flex', gap: '24px', padding: '24px 0', borderBottom: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', alignItems: 'center' }}>
-                  <div style={{ position: 'relative', width: '220px', height: '124px', flexShrink: 0, borderRadius: '4px', overflow: 'hidden', backgroundColor: '#111' }}>
-                    <img src={ep.thumbnailUrl || movie.backdropUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.2)', transition: 'background 0.2s' }}
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.4)'}
-                      onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.2)'}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '32px' }}>
+              {isLoadingEpisodes ? (
+                <>
+                  <EpisodeSkeleton />
+                  <EpisodeSkeleton />
+                  <EpisodeSkeleton />
+                  <EpisodeSkeleton />
+                </>
+              ) : (
+                episodes.map((ep, idx) => (
+                  <div key={ep.id} onClick={() => onPlay(displayMovie!, ep)} style={{ display: 'flex', flexDirection: 'column', gap: '16px', cursor: 'pointer' }}>
+                    <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#111', boxShadow: '0 4px 12px rgba(0,0,0,0.3)', transition: 'transform 0.2s ease, box-shadow 0.2s ease' }}
+                      onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.03)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.5)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)'; }}
                     >
-                      <Play size={40} fill="#FFF" color="#FFF" />
+                      <img src={ep.thumbnailUrl || movie.backdropUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.2)', transition: 'background 0.2s' }}
+                        onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.4)'}
+                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.2)'}
+                      >
+                        <Play size={48} fill="#FFF" color="#FFF" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} />
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <h4 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#FFF' }}>{idx + 1}. {ep.title}</h4>
+                      <p style={{ fontSize: '1rem', color: '#8197a4', margin: 0, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.5 }}>{ep.description || 'No description available for this episode.'}</p>
+                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', fontSize: '0.9rem', color: '#8197a4', fontWeight: 600, marginTop: '4px' }}>
+                        <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px', color: '#FFF' }}>A</span>
+                        <span>{ep.duration}</span>
+                        <span>{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                      </div>
                     </div>
                   </div>
-                  <div style={{ flex: 1, paddingRight: '16px' }}>
-                    <h4 style={{ margin: '0 0 12px 0', fontSize: '1.25rem', fontWeight: 700 }}>{idx + 1}. {ep.title}</h4>
-                    <p style={{ fontSize: '1rem', color: '#8197a4', margin: '0 0 16px 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.5 }}>{ep.description || 'No description available for this episode.'}</p>
-                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center', fontSize: '0.9rem', color: '#8197a4', fontWeight: 600 }}>
-                      <span style={{ border: '1px solid #8197a4', padding: '1px 6px', borderRadius: '3px' }}>U/A 16+</span>
-                      <span>{ep.duration}</span>
-                      <span>{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
            </div>
         )}
 
@@ -972,33 +990,49 @@ function HotstarModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, i
           </div>
 
           {activeTab === 'episodes' && (displayMovie?.isSeries || movie.isSeries || (displayMovie?.seasonsCount ?? 0) > 0) && (
-             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
               <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '10px' }}>
                 <select value={selectedSeason} onChange={e => setSelectedSeason(Number(e.target.value))} style={{ background: '#191c24', color: '#FFF', border: '1px solid rgba(31,128,224,0.4)', padding: '10px 16px', borderRadius: '6px', fontSize: '1rem', cursor: 'pointer', width: 'fit-content', outline: 'none' }}>
                   {Array.from({ length: displayMovie?.seasonsCount || 1 }, (_, i) => i + 1).map(s => <option key={s} value={s} style={{ background: '#222631', color: '#FFF' }}>Season {s}</option>)}
                 </select>
               </div>
-              {isLoadingEpisodes ? (
-                <>
-                  <EpisodeSkeleton />
-                  <EpisodeSkeleton />
-                  <EpisodeSkeleton />
-                </>
-              ) : (
-                episodes.map((ep, idx) => (
-                  <div key={ep.id} onClick={() => onPlay(displayMovie!, ep)} style={{ display: 'flex', gap: '20px', padding: '16px', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.03)', cursor: 'pointer', alignItems: 'center' }}>
-                    <div style={{ position: 'relative', width: '180px', height: '101px', flexShrink: 0, borderRadius: '8px', overflow: 'hidden' }}>
-                      <img src={ep.thumbnailUrl || movie.backdropUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)' }}><Play size={30} fill="#FFF" color="#FFF" /></div>
-                      <div style={{ position: 'absolute', bottom: '8px', right: '8px', backgroundColor: 'rgba(0,0,0,0.7)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>{ep.duration}</div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '32px' }}>
+                {isLoadingEpisodes ? (
+                  <>
+                    <EpisodeSkeleton />
+                    <EpisodeSkeleton />
+                    <EpisodeSkeleton />
+                    <EpisodeSkeleton />
+                  </>
+                ) : (
+                  episodes.map((ep, idx) => (
+                    <div key={ep.id} onClick={() => onPlay(displayMovie!, ep)} style={{ display: 'flex', flexDirection: 'column', gap: '16px', cursor: 'pointer' }}>
+                      <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#111', boxShadow: '0 4px 12px rgba(0,0,0,0.3)', transition: 'transform 0.2s ease, box-shadow 0.2s ease' }}
+                        onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.03)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.5)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)'; }}
+                      >
+                        <img src={ep.thumbnailUrl || movie.backdropUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.2)', transition: 'background 0.2s' }}
+                          onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.4)'}
+                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.2)'}
+                        >
+                          <Play size={48} fill="#FFF" color="#FFF" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} />
+                        </div>
+                        <div style={{ position: 'absolute', bottom: '8px', right: '8px', backgroundColor: 'rgba(0,0,0,0.7)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>{ep.duration}</div>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <h4 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#FFF' }}>{idx + 1}. {ep.title}</h4>
+                        <p style={{ fontSize: '1rem', color: '#979CA6', margin: 0, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.5 }}>{ep.description || 'No description available for this episode.'}</p>
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', fontSize: '0.9rem', color: '#979CA6', fontWeight: 600, marginTop: '4px' }}>
+                          <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px', color: '#FFF' }}>A</span>
+                          <span>{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ flex: 1, paddingRight: '16px' }}>
-                      <h4 style={{ margin: '0 0 8px 0', fontSize: '1.1rem', fontWeight: 600 }}>E{idx + 1} - {ep.title}</h4>
-                      <p style={{ fontSize: '0.9rem', color: '#979CA6', margin: 0, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{ep.description || 'No description available for this episode.'}</p>
-                    </div>
-                  </div>
-                ))
-              )}
+                  ))
+                )}
+              </div>
              </div>
           )}
 
