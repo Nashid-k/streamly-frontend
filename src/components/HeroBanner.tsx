@@ -313,7 +313,15 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
       />
 
       {/* Left Column: Hero Content */}
-      <div className="hero-content hero-text-animate herobanner-elem-023ba0" key={enrichedMovie.id} data-testid="hero-content">
+      <div 
+        className="hero-content hero-text-animate herobanner-elem-023ba0" 
+        key={enrichedMovie.id} 
+        data-testid="hero-content"
+        style={{
+          opacity: (isLogoLoading || (enrichedMovie.logoUrl && !isLogoImageLoaded)) ? 0 : 1,
+          transition: 'opacity 0.6s cubic-bezier(0.2, 0.8, 0.2, 1)',
+        }}
+      >
         {/* Upcoming Eyebrow Badge */}
         {enrichedMovie.isUpcoming && (
           <div className="herobanner-elem-93662c">
@@ -331,22 +339,18 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
           </div>
         )}
 
-        {/* Title Logo / Stylized Title Text (Always visible, seamless logo swap) */}
-        <div className="herobanner-elem-37a56f" style={{ position: 'relative' }}>
-          {enrichedMovie.logoUrl && (
+        {/* Title Logo / Stylized Title Text */}
+        <div className="herobanner-elem-37a56f">
+          {enrichedMovie.logoUrl ? (
             <img
               key={`logo-${enrichedMovie.id}`}
               src={enrichedMovie.logoUrl}
               alt=""
               onLoad={() => setIsLogoImageLoaded(true)}
               className="herobanner-elem-227255"
-              style={{ opacity: isLogoImageLoaded ? 1 : 0, transition: 'opacity 0.4s ease', position: isLogoImageLoaded ? 'relative' : 'absolute' }}
+              style={{ display: 'block', objectFit: 'contain' }}
             />
-          )}
-          
-          {(!enrichedMovie.logoUrl && isLogoLoading) || (enrichedMovie.logoUrl && !isLogoImageLoaded) ? (
-            <div className="herobanner-elem-1e1dae" />
-          ) : !enrichedMovie.logoUrl && !isLogoLoading ? (
+          ) : !isLogoLoading ? (
             <h1
               className="hero-title-text herobanner-elem-7244b5"
               data-testid="hero-title"
