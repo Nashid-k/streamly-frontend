@@ -8,7 +8,7 @@ import { usePlatform } from './PlatformContext';
 import { Movie } from '../types';
 import { fetchMovieById } from '../lib/api';
 import { HoverTrailer } from './HoverTrailer';
-import { playHoverSound, playClickSound } from '../lib/audio';
+
 
 interface MovieCardProps {
   movie: Movie;
@@ -47,7 +47,7 @@ export const MovieCard: React.FC<MovieCardProps> = ({
   }
 
   const handleCardClick = () => {
-    playClickSound();
+    
     onOpenDetails(movie);
   };
 
@@ -101,7 +101,7 @@ export const MovieCard: React.FC<MovieCardProps> = ({
   const hoverDelayRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const handleMouseEnter = () => {
-    if (!isHovered) playHoverSound();
+    
     if (hoverDelayRef.current) clearTimeout(hoverDelayRef.current);
     hoverDelayRef.current = setTimeout(() => {
       setIsHovered(true);
@@ -250,23 +250,158 @@ export const MovieCard: React.FC<MovieCardProps> = ({
           
         
           
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(to top, rgba(15,16,20,0.95) 0%, rgba(15,16,20,0.6) 50%, transparent 100%)',
+            opacity: isHovered ? 1 : 0,
+            transition: 'opacity 0.3s ease',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'flex-end',
+            padding: '16px',
+            zIndex: 20,
+            pointerEvents: isHovered ? 'auto' : 'none'
+          }}>
+            <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{movie.title}</h4>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.7rem', fontWeight: 600, marginTop: '4px' }}>
+              <span style={{ color: '#4ade80' }}>{movie.matchScore}% Match</span>
+              <span style={{ border: '1px solid rgba(255,255,255,0.4)', padding: '0 4px', borderRadius: '2px', color: '#FFF' }}>{movie.maturityRating || 'U/A 13+'}</span>
+              <span style={{ color: '#8f98b0' }}>{movie.duration || (movie.isSeries ? 'Series' : 'Film')}</span>
+              <span style={{ border: '1px solid rgba(255,255,255,0.4)', padding: '0 4px', borderRadius: '2px', color: '#FFF' }}>HD</span>
+            </div>
+            <div style={{ fontSize: '0.7rem', color: '#8f98b0', fontWeight: 600, marginTop: '4px' }}>
+              {movie.genres.slice(0, 3).join(' • ')}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
+              {(!movie.availablePlatforms || movie.availablePlatforms.includes('Hotstar')) && (
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onPlay(movie); }}
+                  style={{ flex: 1, background: '#FFF', color: '#0F1014', border: 'none', borderRadius: '4px', padding: '8px', fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer', transition: 'background 0.2s' }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#e5e5e5'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = '#FFF'}
+                >
+                  <Play size={14} fill="#0F1014" /> Watch Now
+                </button>
+              )}
+              <button 
+                onClick={(e) => { e.stopPropagation(); onToggleMyList(movie.id); }}
+                style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '4px', width: '34px', height: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+              >
+                {isMyList ? <Check size={16} color="#FFF" /> : <Plus size={16} color="#FFF" />}
+              </button>
+            </div>
+          </div>
+          
+          {/* Static Meta (Hidden on hover) */}
+          <div style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0, padding: '12px',
+            background: 'linear-gradient(to top, rgba(15,16,20,0.9) 0%, transparent 100%)',
+            opacity: isHovered ? 0 : 1, transition: 'opacity 0.3s ease',
+            pointerEvents: 'none'
+          }}>
+            <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, color: '#FFF' }}>{movie.title}</h4>
+            <span style={{ fontSize: '0.75rem', color: '#8f98b0', fontWeight: 500 }}>{movie.genres[0]}</span>
+          </div>
+
+          {platformBadges}
+          {!isHovered && renderProgressBar()}
+        </div>
+      </div>
+    );
+  }
+
+  // ── PRIME CARD ──
+  if (platform === 'nprime') {
+    const primeWidth = top10Rank !== undefined ? 200 : 290;
+    
+    return (
+      <div
+        className={"movie-card prime-card" + (top10Rank !== undefined ? ' top10' : '')}
+        role="button"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onClick={handleCardClick}
+        style={{
+          position: 'relative',
+          flexShrink: 0,
+          width: `${primeWidth}px`,
+          height: top10Rank !== undefined ? '300px' : '163px',
+          borderRadius: '4px',
+          cursor: 'pointer',
+          zIndex: isHovered ? 50 : 1,
+          transition: `z-index 0s ${isHovered ? '0s' : '0.4s'}`,
+          overflow: 'visible',
+        }}
+      >
+        <div className="prime-card-inner" 
+          onMouseMove={handleMouseMove}
+          ref={cardRef}
+          style={{
+            position: 'absolute',
+            overflow: isHovered ? 'visible' : 'hidden',
+            top: 0, left: 0,
+            width: '100%',
+            background: '#0f171e', // Prime blue
+            borderRadius: '4px',
+            boxShadow: isHovered ? '0 20px 40px rgba(0,0,0,0.95), 0 10px 20px rgba(0,0,0,0.7)' : 'none',
+            transform: isHovered ? `scale(1.25) rotateX(${-mousePos.y * 15}deg) rotateY(${mousePos.x * 15}deg)` : 'scale(1)',
+            transformOrigin: 'center center',
+            transition: `transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), z-index 0s ${isHovered ? '0s' : '0.45s'}`,
+            zIndex: isHovered ? 50 : 1,
+          }}>
+          
+          {!isImageLoaded && imgSrc && imgSrc !== 'broken' && (
+            <div style={{
+              position: 'absolute', inset: 0,
+              animation: 'netflixSkeletonPulse 1.5s infinite ease-in-out',
+              zIndex: 0, pointerEvents: 'none', background: 'rgba(255,255,255,0.05)', borderRadius: 'inherit'
+            }} />
+          )}
+          
+          {imgSrc && imgSrc !== 'broken' ? (
+            <img
+              src={imgSrc}
+              alt={movie.title}
+              onLoad={() => setIsImageLoaded(true)}
+              onError={() => { 
+                if (!imgFailed && fallbackImg && fallbackImg !== primaryImg) { setImgFailed(true); } else { setIsImageLoaded(true); }
+              }}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', aspectRatio: top10Rank !== undefined ? '2/3' : '16/9', borderRadius: isHovered ? '4px 4px 0 0' : '4px', opacity: isImageLoaded ? 1 : 0 }}
+            />
+          ) : (
+            <div style={{ width: '100%', height: '100%', aspectRatio: top10Rank !== undefined ? '2/3' : '16/9', background: '#0f171e', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '12px', textAlign: 'center', borderRadius: '4px' }}>
+              <Film size={24} color="#00A8E1" />
+              <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#FFF', marginTop: '8px' }}>{movie.title}</span>
+            </div>
+          )}
+          
+          {showTrailer && movie.trailerUrl && (
+            <HoverTrailer trailerUrl={movie.trailerUrl} isMuted={true} />
+          )}
+          
+          {/* Prime Video Hover Metadata */}
           <div className="expanding-meta" style={{
             padding: isHovered ? '16px' : '0 16px',
             opacity: isHovered ? 1 : 0,
             visibility: isHovered ? 'visible' : 'hidden',
-            maxHeight: isHovered ? '350px' : '0px',
+            maxHeight: isHovered ? '450px' : '0px',
             overflow: 'hidden',
             transition: 'max-height 0.4s ease, padding 0.4s ease, opacity 0.4s ease, visibility 0.4s',
-            backgroundColor: '#0f171e', // Authentic prime dark blue
+            backgroundColor: '#0f171e',
             borderRadius: '0 0 6px 6px',
             width: '100%',
             display: 'flex',
             flexDirection: 'column',
-            gap: '10px',
-            pointerEvents: isHovered ? 'auto' : 'none'
+            gap: '12px',
+            pointerEvents: isHovered ? 'auto' : 'none',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderTop: 'none'
           }}>
-            <h4 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{movie.title}</h4>
-            <div style={{ color: '#00A8E1', fontSize: '0.8rem', fontWeight: 700 }}>Watch for free</div>
+            <h4 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{movie.title}</h4>
+            <div style={{ color: '#00A8E1', fontSize: '0.85rem', fontWeight: 700 }}>Watch for free</div>
             
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               {(!movie.availablePlatforms || movie.availablePlatforms.includes('Prime Video')) && (
@@ -304,11 +439,11 @@ export const MovieCard: React.FC<MovieCardProps> = ({
               <span style={{ border: '1px solid rgba(255,255,255,0.2)', padding: '2px 6px', borderRadius: '2px', color: '#FFF' }}>HD</span>
             </div>
             
-            <p style={{ margin: 0, fontSize: '0.8rem', color: '#8197a4', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+            <p style={{ margin: 0, fontSize: '0.8rem', color: '#8197a4', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
               {movie.description || "The inspiring chronicle of a champion whose relentless determination paved the way for historic greatness."}
             </p>
           </div>
-
+          
           {platformBadges}
           {!isHovered && renderProgressBar()}
         </div>
