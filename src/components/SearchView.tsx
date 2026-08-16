@@ -36,7 +36,7 @@ export const SearchView: React.FC<SearchViewProps> = ({
   onToggleMyList,
   myList
 }) => {
-  if (platform === 'hotstar' && searchQuery.trim() === '') {
+  if (platform === 'hotstar') {
     return (
       <div style={{ paddingTop: '80px', paddingBottom: '60px', paddingLeft: '4%', paddingRight: '4%', minHeight: '80vh' }}>
         <div style={{ position: 'relative', maxWidth: '800px', margin: '0 auto 40px auto' }}>
@@ -59,19 +59,105 @@ export const SearchView: React.FC<SearchViewProps> = ({
             }}
           />
         </div>
-        <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '20px', color: '#FFF' }}>Popular Searches</h3>
-        <div className="classic-grid">
-          {popularMovies.slice(0, 12).map((movie) => (
-            <MovieCard
-              key={movie.id}
-              movie={movie}
-              onPlay={onPlayMovie}
-              onOpenDetails={onOpenDetails}
-              onToggleMyList={onToggleMyList}
-              isMyList={myList.includes(movie.id)}
-            />
-          ))}
-        </div>
+
+        {searchQuery.trim() === '' ? (
+          <>
+            <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '20px', color: '#FFF' }}>Popular Searches</h3>
+            <div className="classic-grid">
+              {popularMovies.slice(0, 12).map((movie) => (
+                <MovieCard
+                  key={movie.id}
+                  movie={movie}
+                  onPlay={() => onPlayMovie(movie)}
+                  onOpenDetails={() => onOpenDetails(movie)}
+                  onToggleMyList={() => onToggleMyList(movie.id)}
+                  isMyList={myList.includes(movie.id)}
+                />
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+              <div>
+                <h2 style={{ fontSize: '2rem', fontWeight: 900, color: '#FFF', marginBottom: '6px' }}>
+                  {`Results for "${searchQuery}"`}
+                </h2>
+                <p style={{ color: '#AAA', fontSize: '0.9rem' }}>
+                  {isSearching ? 'Searching catalog…' : `Found ${languageFilteredSearchResults.length} matching title${languageFilteredSearchResults.length === 1 ? '' : 's'}`}
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={onAISearch}
+                  disabled={isAILoading || isSearching}
+                  style={{
+                    backgroundColor: 'rgba(229, 9, 20, 0.15)',
+                    color: '#E50914',
+                    border: '1px solid rgba(229, 9, 20, 0.4)',
+                    padding: '6px 16px',
+                    borderRadius: '20px',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    cursor: (isAILoading || isSearching) ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Sparkles size={14} />
+                  {isAILoading ? 'AI Thinking...' : 'Smart Search'}
+                </button>
+                <button
+                  onClick={onClearSearch}
+                  style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    color: '#FFF',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    padding: '6px 16px',
+                    borderRadius: '20px',
+                    fontSize: '0.82rem',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Clear Search
+                </button>
+              </div>
+            </div>
+
+            {isSearching ? (
+              <div style={{ padding: '40px 0', display: 'flex', justifyContent: 'center' }}>
+                <div style={{
+                  width: '40px', height: '40px', borderRadius: '50%',
+                  border: '3px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--primary-color)',
+                  animation: 'spin 1s linear infinite'
+                }} />
+              </div>
+            ) : languageFilteredSearchResults.length === 0 ? (
+              <div style={{ padding: '80px 20px', textAlign: 'center' }}>
+                <p style={{ fontSize: '1.2rem', color: '#888', marginBottom: '8px' }}>
+                  Your search for "{searchQuery}" did not have any matches.
+                </p>
+                <p style={{ color: '#666' }}>Suggestions: Try different keywords or check spelling.</p>
+              </div>
+            ) : (
+              <div className="classic-grid">
+                {languageFilteredSearchResults.map((movie) => (
+                  <MovieCard
+                    key={movie.id}
+                    movie={movie}
+                    onPlay={() => onPlayMovie(movie)}
+                    onOpenDetails={() => onOpenDetails(movie)}
+                    onToggleMyList={() => onToggleMyList(movie.id)}
+                    isMyList={myList.includes(movie.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
     );
   }
