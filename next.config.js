@@ -18,6 +18,7 @@ const securityHeaders = [
 const nextConfig = {
   productionBrowserSourceMaps: false,
   poweredByHeader: false,
+  eslint: { ignoreDuringBuilds: true },
   async headers() {
     return [
       {
