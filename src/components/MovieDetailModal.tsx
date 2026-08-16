@@ -574,7 +574,7 @@ function PrimeModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isM
       <div className="detail-hero" style={{ position: 'relative', width: '100%', height: '80vh', minHeight: '500px', flexShrink: 0, overflow: 'hidden', marginTop: '70px' }}>
         
         {/* Header Back Button */}
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: '24px 40px', zIndex: 50, display: 'flex', alignItems: 'center' }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: '24px 4vw', zIndex: 50, display: 'flex', alignItems: 'center' }}>
           <button onClick={onClose} style={{
             background: 'rgba(0,0,0,0.4)', border: 'none', color: '#FFF', borderRadius: '50%',
             width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
@@ -591,7 +591,7 @@ function PrimeModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isM
 
         {hasTrailer && (
           <button onClick={toggleMute} style={{
-            position: 'absolute', top: '30px', right: '40px',
+            position: 'absolute', top: '30px', right: '4vw',
             background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%',
             width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF',
             zIndex: 50
@@ -600,7 +600,7 @@ function PrimeModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isM
           </button>
         )}
 
-        <div className="detail-hero-content" style={{ position: 'absolute', bottom: '10%', left: '40px', right: '40px', display: 'flex', flexDirection: 'column', zIndex: 20 }}>
+        <div className="detail-hero-content" style={{ position: 'absolute', bottom: '10%', left: '4vw', right: '4vw', display: 'flex', flexDirection: 'column', zIndex: 20 }}>
           
           {/* Logo / Title (Above everything) */}
           <div style={{ marginBottom: '24px' }}>
@@ -724,7 +724,7 @@ function PrimeModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isM
         </div>
       </div>
 
-      <div className="detail-body" style={{ padding: '0 40px 60px 40px', maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
+      <div className="detail-body" style={{ padding: '0 4vw 60px 4vw', maxWidth: 'none', margin: '0', width: '100%' }}>
         <div style={{ display: 'flex', gap: '32px', borderBottom: '2px solid rgba(255,255,255,0.1)', marginBottom: '32px' }}>
           {(displayMovie?.isSeries || movie.isSeries || (displayMovie?.seasonsCount ?? 0) > 0) && <button onClick={() => setActiveTab('episodes')} style={{ background: 'none', border: 'none', color: activeTab === 'episodes' ? '#FFF' : '#8197a4', fontSize: '1.25rem', fontWeight: 700, paddingBottom: '16px', borderBottom: activeTab === 'episodes' ? '3px solid #FFF' : '3px solid transparent', cursor: 'pointer', transition: 'color 0.2s' }}>Episodes</button>}
           <button onClick={() => setActiveTab('related')} style={{ background: 'none', border: 'none', color: activeTab === 'related' ? '#FFF' : '#8197a4', fontSize: '1.25rem', fontWeight: 700, paddingBottom: '16px', borderBottom: activeTab === 'related' ? '3px solid #FFF' : '3px solid transparent', cursor: 'pointer', transition: 'color 0.2s' }}>Related</button>
