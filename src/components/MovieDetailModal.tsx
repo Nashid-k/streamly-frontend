@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { X, Play, Plus, Check, ThumbsUp, ThumbsDown, Share2, ArrowLeft, ChevronDown, Volume2, VolumeX, Download, Sparkles } from 'lucide-react';
 import { usePlatform } from './PlatformContext';
+import { Navbar } from './Navbar';
 import { Movie, Episode } from '../types';
 import { fetchMovieById, fetchSeasonEpisodes, fetchRecommendationsApi } from '../lib/api';
 import { FastAverageColor } from 'fast-average-color';
@@ -148,23 +149,26 @@ function useTrailerPlayer(encodedUrl: string, backdropUrl: string, delayMs: numb
   const videoId = videoIdMatch ? videoIdMatch[1] : '';
 
   useEffect(() => {
-    if (delayMs > 0 && videoId) {
-      const timer = setTimeout(() => {
-        setShouldLoadIframe(true);
-      }, delayMs);
-      return () => clearTimeout(timer);
-    }
-  }, [delayMs, videoId]);
-
-  // When the video changes, reset the playing state so the poster shows while loading
-  useEffect(() => {
     setIsVideoPlaying(false);
     if (delayMs > 0) {
       setShouldLoadIframe(false);
       const timer = setTimeout(() => setShouldLoadIframe(true), delayMs);
       return () => clearTimeout(timer);
+    } else {
+      setShouldLoadIframe(true);
     }
   }, [videoId, delayMs]);
+
+  // Fallback: force reveal the video after it has had time to load
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+    if (shouldLoadIframe && videoId) {
+      timeout = setTimeout(() => {
+        setIsVideoPlaying(true);
+      }, 2000);
+    }
+    return () => clearTimeout(timeout);
+  }, [shouldLoadIframe, videoId]);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -563,29 +567,29 @@ function PrimeModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isM
           </button>
         )}
 
+        {/* Fake Prime Navbar */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '70px', display: 'flex', alignItems: 'center', padding: '0 40px', zIndex: 60, background: 'linear-gradient(to bottom, rgba(15,23,30,0.8), transparent)' }}>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 600 }}>
+            <ArrowLeft size={24} /> Back
+          </button>
+        </div>
+
         <div className="detail-hero-content" style={{ position: 'absolute', bottom: '10%', left: '40px', right: '40px', display: 'flex', justifyContent: 'flex-start', alignItems: 'flex-end', zIndex: 20 }}>
-          <div className="detail-hero-info" style={{ maxWidth: '650px' }}>
+          <div className="detail-hero-info" style={{ maxWidth: '800px' }}>
             {displayMovie?.logoUrl ? (
               <img src={displayMovie.logoUrl} style={{ maxWidth: '400px', maxHeight: '140px', objectFit: 'contain', marginBottom: '16px' }} />
             ) : (
               <h1 style={{ fontSize: '3.5rem', fontWeight: 800, margin: '0 0 16px 0', textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>{movie.title}</h1>
             )}
 
-            <div style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '8px', letterSpacing: '0.5px' }}>
-              Subscribe
-            </div>
-            <div style={{ color: '#00a8e1', fontWeight: 700, fontSize: '1.05rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Check size={18} color="#00a8e1" /> Watch with a Prime membership
-            </div>
-
             {(isTvShow && isNew) && (
-              <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', fontSize: '0.9rem', fontWeight: 700 }}>
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', fontSize: '0.9rem', fontWeight: 700 }}>
                 <span style={{ backgroundColor: '#fff', color: '#000', padding: '2px 6px', borderRadius: '2px' }}>SEASON PREMIERE</span>
                 <span style={{ color: '#00a8e1' }}>New episode Wednesday</span>
               </div>
             )}
 
-            <p style={{ fontSize: '1.15rem', lineHeight: 1.5, color: '#FFF', fontWeight: 500, marginBottom: '24px', textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>
+            <p style={{ fontSize: '1.15rem', lineHeight: 1.5, color: '#FFF', fontWeight: 500, marginBottom: '16px', textShadow: '0 1px 4px rgba(0,0,0,0.8)', maxWidth: '650px' }}>
               {displayMovie?.description || movie.description}
             </p>
 
@@ -643,17 +647,30 @@ function PrimeModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isM
               </div>
             </div>
 
-            {/* Big Play Button */}
-            <button onClick={handlePlayClick} style={{
-              background: '#FFF', color: '#000', border: 'none', borderRadius: '6px', padding: '16px 48px',
-              fontSize: '1.25rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '12px', cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.3)', transition: 'transform 0.2s ease, background 0.2s ease'
-            }}
-            onMouseEnter={e => e.currentTarget.style.background = '#e6e6e6'}
-            onMouseLeave={e => e.currentTarget.style.background = '#FFF'}
-            >
-              <Play fill="#000" size={26} /> {(!isAvailableNative && alternativePlatform) ? `Watch on ${alternativePlatform}` : 'Play'}
-            </button>
+            {/* Big Play Button and Subscribe */}
+            <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
+              <button onClick={handlePlayClick} style={{
+                background: '#FFF', color: '#000', border: 'none', borderRadius: '6px', padding: '16px',
+                width: '344px',
+                fontSize: '1.25rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '12px', cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.3)', transition: 'transform 0.2s ease, background 0.2s ease'
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = '#e6e6e6'}
+              onMouseLeave={e => e.currentTarget.style.background = '#FFF'}
+              >
+                <Play fill="#000" size={26} /> {(!isAvailableNative && alternativePlatform) ? `Watch on ${alternativePlatform}` : 'Play'}
+              </button>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                <div style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '4px', letterSpacing: '0.5px' }}>
+                  Subscribe
+                </div>
+                <div style={{ color: '#00a8e1', fontWeight: 700, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Check size={18} color="#00a8e1" /> Watch with a Prime membership
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
