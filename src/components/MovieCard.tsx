@@ -249,58 +249,66 @@ export const MovieCard: React.FC<MovieCardProps> = ({
           
           
         
-          <div style={{
-            position: 'absolute',
-            inset: 0,
-            background: 'linear-gradient(to top, rgba(15,23,30,0.95) 0%, rgba(15,23,30,0.5) 50%, transparent 100%)',
+          
+          <div className="expanding-meta" style={{
+            padding: isHovered ? '16px' : '0 16px',
             opacity: isHovered ? 1 : 0,
-            transition: 'opacity 0.3s ease',
+            visibility: isHovered ? 'visible' : 'hidden',
+            maxHeight: isHovered ? '350px' : '0px',
+            overflow: 'hidden',
+            transition: 'max-height 0.4s ease, padding 0.4s ease, opacity 0.4s ease, visibility 0.4s',
+            backgroundColor: '#0f171e', // Authentic prime dark blue
+            borderRadius: '0 0 6px 6px',
+            width: '100%',
             display: 'flex',
             flexDirection: 'column',
-            justifyContent: 'flex-end',
-            padding: '12px',
-            zIndex: 20,
+            gap: '10px',
             pointerEvents: isHovered ? 'auto' : 'none'
           }}>
-            <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{movie.title}</h4>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.7rem', fontWeight: 600, color: '#8197a4', marginTop: '4px' }}>
-              <span style={{ color: '#4ade80' }}>{movie.matchScore}% Match</span>
-              <span style={{ border: '1px solid rgba(255,255,255,0.4)', padding: '0 4px', borderRadius: '2px', color: '#FFF' }}>{movie.maturityRating || 'U/A 13+'}</span>
-              <span>{movie.duration || (movie.isSeries ? 'Series' : 'Film')}</span>
-              <span style={{ border: '1px solid rgba(255,255,255,0.4)', padding: '0 4px', borderRadius: '2px', color: '#FFF' }}>HD</span>
-            </div>
-            <div style={{ fontSize: '0.7rem', color: '#8197a4', fontWeight: 600, marginTop: '2px' }}>
-              {movie.genres.slice(0, 3).join(' • ')}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px' }}>
+            <h4 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{movie.title}</h4>
+            <div style={{ color: '#00A8E1', fontSize: '0.8rem', fontWeight: 700 }}>Watch for free</div>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               {(!movie.availablePlatforms || movie.availablePlatforms.includes('Prime Video')) && (
                 <button 
                   onClick={(e) => { e.stopPropagation(); onPlay(movie); }}
-                  style={{ background: '#00A8E1', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 0.2s', paddingLeft: '2px' }}
+                  style={{ flex: 1, background: '#00A8E1', color: '#FFF', border: 'none', borderRadius: '4px', padding: '10px 16px', fontSize: '0.9rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', transition: 'background 0.2s' }}
                   onMouseEnter={(e) => e.currentTarget.style.background = '#0f79af'}
                   onMouseLeave={(e) => e.currentTarget.style.background = '#00A8E1'}
                 >
-                  <Play size={16} fill="#FFF" color="#FFF" />
+                  <Play size={18} fill="#FFF" color="#FFF" /> Play
                 </button>
               )}
               <button 
-                onClick={(e) => { e.stopPropagation(); onToggleMyList(movie.id); }}
-                style={{ background: 'transparent', border: '2px solid rgba(255,255,255,0.7)', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s', color: '#FFF' }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#FFF'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.7)'; e.currentTarget.style.background = 'transparent'; }}
+                onClick={(e) => { e.stopPropagation(); setShowTrailer(true); }}
+                style={{ flex: 1, background: 'transparent', color: '#FFF', border: '2px solid rgba(255,255,255,0.2)', borderRadius: '4px', padding: '8px', fontSize: '0.9rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', transition: 'background 0.2s' }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
               >
-                {isMyList ? <Check size={16} /> : <Plus size={16} />}
+                Watch trailer
               </button>
               <button 
-                onClick={(e) => { e.stopPropagation(); onOpenDetails(movie); }}
-                style={{ background: 'transparent', border: '2px solid rgba(255,255,255,0.7)', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s', color: '#FFF' }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#FFF'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.7)'; e.currentTarget.style.background = 'transparent'; }}
+                onClick={(e) => { e.stopPropagation(); onToggleMyList(movie.id); }}
+                style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0, color: '#FFF' }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
               >
-                <Info size={16} />
+                {isMyList ? <Check size={18} /> : <Plus size={18} />}
               </button>
             </div>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.75rem', fontWeight: 600, color: '#8197a4' }}>
+              <span style={{ border: '1px solid rgba(255,255,255,0.2)', padding: '2px 6px', borderRadius: '2px', color: '#FFF' }}>{movie.maturityRating || 'U/A 13+'}</span>
+              <span>{movie.releaseDate?.split('-')[0] || '2024'}</span>
+              <span>{movie.duration || '2 h 22 min'}</span>
+              <span style={{ border: '1px solid rgba(255,255,255,0.2)', padding: '2px 6px', borderRadius: '2px', color: '#FFF' }}>HD</span>
+            </div>
+            
+            <p style={{ margin: 0, fontSize: '0.8rem', color: '#8197a4', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+              {movie.description || "The inspiring chronicle of a champion whose relentless determination paved the way for historic greatness."}
+            </p>
           </div>
+
           {platformBadges}
           {!isHovered && renderProgressBar()}
         </div>
