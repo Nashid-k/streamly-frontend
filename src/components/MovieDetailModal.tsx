@@ -533,24 +533,28 @@ function PrimeModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isM
 
   return (
     <div className="prime-detail-page" role="dialog" aria-modal="true" style={{
-      position: 'fixed', top: '70px', bottom: 0, left: 0, right: 0, zIndex: 1000, display: 'flex', flexDirection: 'column',
+      position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', flexDirection: 'column',
       backgroundColor: '#0f171e', overflowY: 'auto', overflowX: 'hidden', color: '#FFF',
       animation: 'fadeIn 0.3s ease'
     }}>
       {isSwitching && alternativePlatform && <SwitchingLoader targetPlatform={alternativePlatform} />}
       
-      {/* Header Back Button */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: '24px 40px', zIndex: 50, display: 'flex', alignItems: 'center' }}>
-        <button onClick={onClose} style={{
-          background: 'rgba(0,0,0,0.4)', border: 'none', color: '#FFF', borderRadius: '50%',
-          width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-          backdropFilter: 'blur(4px)'
-        }}>
-          <ArrowLeft size={24} />
-        </button>
-      </div>
+      {/* Solid background blocker to prevent scrolled content from showing under the transparent global Navbar */}
+      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: '70px', backgroundColor: '#0f171e', zIndex: 1500 }} />
 
-      <div className="detail-hero" style={{ position: 'relative', width: '100%', height: '80vh', minHeight: '500px', flexShrink: 0, overflow: 'hidden' }}>
+      <div className="detail-hero" style={{ position: 'relative', width: '100%', height: '80vh', minHeight: '500px', flexShrink: 0, overflow: 'hidden', marginTop: '70px' }}>
+        
+        {/* Header Back Button */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: '24px 40px', zIndex: 50, display: 'flex', alignItems: 'center' }}>
+          <button onClick={onClose} style={{
+            background: 'rgba(0,0,0,0.4)', border: 'none', color: '#FFF', borderRadius: '50%',
+            width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+            backdropFilter: 'blur(4px)'
+          }}>
+            <ArrowLeft size={24} />
+          </button>
+        </div>
+
         {renderTrailer()}
         
         {/* Gradients to blend into background */}
