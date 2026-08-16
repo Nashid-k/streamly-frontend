@@ -178,23 +178,42 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({ movie, onClo
       }}
     >
       {currentUrl && !sourceFailed ? (
-        <iframe
-          key={`${activeMovie.id}-s${sourceIndex}`}
-          src={currentUrl}
-          title={`${activeMovie.title} — ${currentSource?.name}`}
-          style={{
-            position: 'absolute', inset: 0, width: '100%', height: '100%',
-            border: 'none', display: 'block', zIndex: 1,
-          }}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-          onLoad={() => { setSourceLoading(false); setSourceFailed(false); setSourceError(''); }}
-          onError={() => {
-            setSourceLoading(false);
-            setSourceFailed(true);
-            setSourceError(`${currentSource?.name} could not load.`);
-          }}
-        />
+        currentSource?.name?.includes('Torrent') ? (
+          <video
+            key={`${activeMovie.id}-s${sourceIndex}`}
+            src={currentUrl}
+            controls
+            autoPlay
+            style={{
+              position: 'absolute', inset: 0, width: '100%', height: '100%',
+              border: 'none', display: 'block', zIndex: 1, backgroundColor: '#000'
+            }}
+            onLoadedData={() => { setSourceLoading(false); setSourceFailed(false); setSourceError(''); }}
+            onError={() => {
+              setSourceLoading(false);
+              setSourceFailed(true);
+              setSourceError(`${currentSource?.name} stream failed or timed out.`);
+            }}
+          />
+        ) : (
+          <iframe
+            key={`${activeMovie.id}-s${sourceIndex}`}
+            src={currentUrl}
+            title={`${activeMovie.title} — ${currentSource?.name}`}
+            style={{
+              position: 'absolute', inset: 0, width: '100%', height: '100%',
+              border: 'none', display: 'block', zIndex: 1,
+            }}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            onLoad={() => { setSourceLoading(false); setSourceFailed(false); setSourceError(''); }}
+            onError={() => {
+              setSourceLoading(false);
+              setSourceFailed(true);
+              setSourceError(`${currentSource?.name} could not load.`);
+            }}
+          />
+        )
       ) : null}
 
       {sourceLoading && !sourceFailed && (
