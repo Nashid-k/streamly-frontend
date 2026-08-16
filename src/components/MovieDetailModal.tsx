@@ -568,87 +568,77 @@ function PrimeModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isM
         )}
 
         {/* Fake Prime Navbar */}
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '70px', display: 'flex', alignItems: 'center', padding: '0 40px', zIndex: 60, background: 'linear-gradient(to bottom, rgba(15,23,30,0.8), transparent)' }}>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 600 }}>
-            <ArrowLeft size={24} /> Back
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: '70px', display: 'flex', alignItems: 'center', padding: '0 40px', zIndex: 60, background: 'rgba(15,23,30,0.95)', borderBottom: '1px solid rgba(255,255,255,0.1)', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', gap: '32px', alignItems: 'center' }}>
+            <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#00a8e1', letterSpacing: '-0.5px' }}>prime video</span>
+            <div style={{ display: 'flex', gap: '24px', fontWeight: 600, fontSize: '1.05rem', color: '#FFF' }}>
+              <span style={{ cursor: 'pointer', borderBottom: '2px solid #FFF', paddingBottom: '4px' }}>Home</span>
+              <span style={{ cursor: 'pointer', color: '#8197a4' }}>Store</span>
+              <span style={{ cursor: 'pointer', color: '#8197a4' }}>Live TV</span>
+              <span style={{ cursor: 'pointer', color: '#8197a4' }}>Categories</span>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', padding: '8px 16px', borderRadius: '4px', border: 'none', color: '#FFF', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <ArrowLeft size={20} /> Back
           </button>
         </div>
 
-        <div className="detail-hero-content" style={{ position: 'absolute', bottom: '10%', left: '40px', right: '40px', display: 'flex', justifyContent: 'flex-start', alignItems: 'flex-end', zIndex: 20 }}>
-          <div className="detail-hero-info" style={{ maxWidth: '800px' }}>
+        <div className="detail-hero-content" style={{ position: 'absolute', bottom: '10%', left: '40px', right: '40px', display: 'flex', flexDirection: 'column', zIndex: 20 }}>
+          
+          {/* Logo / Title (Above everything) */}
+          <div style={{ marginBottom: '24px' }}>
             {displayMovie?.logoUrl ? (
-              <img src={displayMovie.logoUrl} style={{ maxWidth: '400px', maxHeight: '140px', objectFit: 'contain', marginBottom: '16px' }} />
+              <img src={displayMovie.logoUrl} style={{ maxWidth: '400px', maxHeight: '140px', objectFit: 'contain' }} />
             ) : (
-              <h1 style={{ fontSize: '3.5rem', fontWeight: 800, margin: '0 0 16px 0', textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>{movie.title}</h1>
+              <h1 style={{ fontSize: '3.5rem', fontWeight: 800, margin: '0', textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>{movie.title}</h1>
             )}
+          </div>
 
-            {(isTvShow && isNew) && (
-              <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', fontSize: '0.9rem', fontWeight: 700 }}>
-                <span style={{ backgroundColor: '#fff', color: '#000', padding: '2px 6px', borderRadius: '2px' }}>SEASON PREMIERE</span>
-                <span style={{ color: '#00a8e1' }}>New episode Wednesday</span>
+          {/* Two-Column Layout for Buttons & Details */}
+          <div style={{ display: 'flex', gap: '48px', alignItems: 'flex-start' }}>
+            
+            {/* Left Column: Buttons */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              
+              {/* Circular Buttons Row */}
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                  <button onClick={() => {
+                    const scrollable = document.querySelector('.prime-detail-page');
+                    if (scrollable) scrollable.scrollTo({ top: 0, behavior: 'smooth' });
+                    if (isMuted) toggleMute();
+                  }} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF', transition: 'background 0.2s' }}>
+                    <Play fill="#FFF" size={24} />
+                  </button>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Trailer</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                  <button onClick={() => onToggleMyList(movie.id)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF', transition: 'background 0.2s' }}>
+                    {isMyList ? <Check size={26} /> : <Plus size={26} />}
+                  </button>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Watchlist</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                  <button onClick={() => { setIsLiked(!isLiked); setIsDisliked(false); }} style={{ background: isLiked ? '#00A8E1' : 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF', transition: 'background 0.2s' }}>
+                    <ThumbsUp size={24} fill={isLiked ? '#FFF' : 'none'} />
+                  </button>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Like</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                  <button onClick={() => { setIsDisliked(!isDisliked); setIsLiked(false); }} style={{ background: isDisliked ? '#FFF' : 'rgba(255,255,255,0.2)', color: isDisliked ? '#000' : '#FFF', border: 'none', borderRadius: '50%', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 0.2s' }}>
+                    <ThumbsDown size={24} fill={isDisliked ? '#000' : 'none'} />
+                  </button>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Not for me</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                  <button style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF', transition: 'background 0.2s' }}>
+                    <Share2 size={24} />
+                  </button>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Share</span>
+                </div>
               </div>
-            )}
 
-            <p style={{ fontSize: '1.15rem', lineHeight: 1.5, color: '#FFF', fontWeight: 500, marginBottom: '16px', textShadow: '0 1px 4px rgba(0,0,0,0.8)', maxWidth: '650px' }}>
-              {displayMovie?.description || movie.description}
-            </p>
-
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', fontSize: '1.05rem', color: '#8197a4', fontWeight: 600, marginBottom: '24px', flexWrap: 'wrap' }}>
-              {(displayMovie?.tags?.slice(0,3) || []).map((t: string, i: number, arr: string[]) => (
-                <React.Fragment key={t}>
-                  <span style={{ color: '#FFF' }}>{t}</span>
-                  {i < arr.length - 1 && <span>•</span>}
-                </React.Fragment>
-              ))}
-              <span style={{ color: '#FFF', marginLeft: '12px' }}>{(displayMovie?.releaseDate || movie?.releaseDate || '').split('-')[0]}</span>
-              {isTvShow && <span style={{ color: '#FFF' }}>{displayMovie?.seasonsCount || 1} seasons</span>}
-              <span style={{ border: '1px solid #8197a4', padding: '1px 6px', borderRadius: '3px', fontSize: '0.85rem' }}>U/A 16+</span>
-            </div>
-
-            <div style={{ fontSize: '1.05rem', color: '#8197a4', marginBottom: '32px' }}>
-              Cast: <span style={{ color: '#FFF' }}>{formatCastNames(displayMovie?.cast)}</span>
-            </div>
-
-            {/* Circular Buttons Row */}
-            <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '24px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                <button onClick={() => {
-                  const scrollable = document.querySelector('.prime-detail-page');
-                  if (scrollable) scrollable.scrollTo({ top: 0, behavior: 'smooth' });
-                  if (isMuted) toggleMute();
-                }} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF', transition: 'background 0.2s' }}>
-                  <Play fill="#FFF" size={24} />
-                </button>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Trailer</span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                <button onClick={() => onToggleMyList(movie.id)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF', transition: 'background 0.2s' }}>
-                  {isMyList ? <Check size={26} /> : <Plus size={26} />}
-                </button>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Watchlist</span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                <button onClick={() => { setIsLiked(!isLiked); setIsDisliked(false); }} style={{ background: isLiked ? '#00A8E1' : 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF', transition: 'background 0.2s' }}>
-                  <ThumbsUp size={24} fill={isLiked ? '#FFF' : 'none'} />
-                </button>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Like</span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                <button onClick={() => { setIsDisliked(!isDisliked); setIsLiked(false); }} style={{ background: isDisliked ? '#FFF' : 'rgba(255,255,255,0.2)', color: isDisliked ? '#000' : '#FFF', border: 'none', borderRadius: '50%', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 0.2s' }}>
-                  <ThumbsDown size={24} fill={isDisliked ? '#000' : 'none'} />
-                </button>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Not for me</span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                <button style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF', transition: 'background 0.2s' }}>
-                  <Share2 size={24} />
-                </button>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Share</span>
-              </div>
-            </div>
-
-            {/* Big Play Button and Subscribe */}
-            <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
+              {/* Big Play Button */}
               <button onClick={handlePlayClick} style={{
                 background: '#FFF', color: '#000', border: 'none', borderRadius: '6px', padding: '16px',
                 width: '344px',
@@ -660,14 +650,42 @@ function PrimeModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isM
               >
                 <Play fill="#000" size={26} /> {(!isAvailableNative && alternativePlatform) ? `Watch on ${alternativePlatform}` : 'Play'}
               </button>
+            </div>
+
+            {/* Right Column: Text Details */}
+            <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '600px' }}>
+              <div style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '4px', letterSpacing: '0.5px' }}>
+                Subscribe
+              </div>
+              <div style={{ color: '#00a8e1', fontWeight: 700, fontSize: '1.05rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Check size={18} color="#00a8e1" /> Watch with a Prime membership
+              </div>
               
-              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <div style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '4px', letterSpacing: '0.5px' }}>
-                  Subscribe
+              {(isTvShow && isNew) && (
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', fontSize: '0.9rem', fontWeight: 700 }}>
+                  <span style={{ backgroundColor: '#fff', color: '#000', padding: '2px 6px', borderRadius: '2px' }}>SEASON PREMIERE</span>
+                  <span style={{ color: '#00a8e1' }}>New episode Wednesday</span>
                 </div>
-                <div style={{ color: '#00a8e1', fontWeight: 700, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Check size={18} color="#00a8e1" /> Watch with a Prime membership
-                </div>
+              )}
+
+              <p style={{ fontSize: '1.15rem', lineHeight: 1.5, color: '#FFF', fontWeight: 500, marginBottom: '16px', textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>
+                {displayMovie?.description || movie.description}
+              </p>
+
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', fontSize: '1.05rem', color: '#8197a4', fontWeight: 600, marginBottom: '16px', flexWrap: 'wrap' }}>
+                {(displayMovie?.tags?.slice(0,3) || []).map((t: string, i: number, arr: string[]) => (
+                  <React.Fragment key={t}>
+                    <span style={{ color: '#FFF' }}>{t}</span>
+                    {i < arr.length - 1 && <span>•</span>}
+                  </React.Fragment>
+                ))}
+                <span style={{ color: '#FFF', marginLeft: '12px' }}>{(displayMovie?.releaseDate || movie?.releaseDate || '').split('-')[0]}</span>
+                {isTvShow && <span style={{ color: '#FFF' }}>{displayMovie?.seasonsCount || 1} seasons</span>}
+                <span style={{ border: '1px solid #8197a4', padding: '1px 6px', borderRadius: '3px', fontSize: '0.85rem' }}>U/A 16+</span>
+              </div>
+
+              <div style={{ fontSize: '1.05rem', color: '#8197a4' }}>
+                Cast: <span style={{ color: '#FFF' }}>{formatCastNames(displayMovie?.cast)}</span>
               </div>
             </div>
 
