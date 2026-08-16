@@ -159,7 +159,7 @@ export default function Home() {
 
   // State mapping & helper refs
 
-  const [activeTab, setActiveTab] = useState<'home' | 'movies' | 'series' | 'anime' | 'mylist'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'movies' | 'series' | 'anime' | 'mylist' | 'search'>('home');
   const [selectedGenreFilter, setSelectedGenreFilter] = useState<string>('All');
   const [selectedLangFilter, setSelectedLangFilter] = useState<string[]>(['All']);
   const [selectedDubFilter, setSelectedDubFilter] = useState<'all' | 'dubbed_only' | 'subtitled_only' | 'dual_audio'>('all');
@@ -378,7 +378,7 @@ export default function Home() {
 
   const [isTabTransitioning, setIsTabTransitioning] = useState(false);
 
-  const handleTabChange = (tab: 'home' | 'movies' | 'series' | 'anime' | 'mylist') => {
+  const handleTabChange = (tab: 'home' | 'movies' | 'series' | 'anime' | 'mylist' | 'search') => {
     if (tab === activeTab) return;
     
     withViewTransition(() => {
@@ -1007,10 +1007,13 @@ export default function Home() {
 
       {/* Main Page Content Router */}
       <div style={{ opacity: hasCompletedInitialLoad ? 1 : 0, transition: 'opacity 0.3s' }}>
-      {searchQuery.trim() !== '' ? (
+      {(activeTab === 'search' || searchQuery.trim() !== '') ? (
         /* Search View */
         <SearchView
+          platform={platform}
+          popularMovies={top10MoviesList}
           searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
           isSearching={isSearching}
           languageFilteredSearchResults={languageFilteredSearchResults}
           searchActor={searchActor}
@@ -1080,18 +1083,20 @@ export default function Home() {
                               key={pill}
                               onClick={() => setSelectedGenreFilter(pill)}
                               style={{
-                                background: isActive ? '#1F80E0' : 'rgba(255, 255, 255, 0.08)',
-                                color: '#FFF',
+                                background: isActive ? '#FFF' : 'rgba(255, 255, 255, 0.1)',
+                                color: isActive ? '#0F1014' : '#E1E6F0',
                                 border: 'none',
                                 padding: '8px 18px',
-                                borderRadius: '20px',
-                                fontSize: '0.88rem',
+                                borderRadius: '24px',
+                                fontSize: '0.9rem',
                                 fontWeight: 700,
                                 cursor: 'pointer',
                                 whiteSpace: 'nowrap',
                                 transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                                boxShadow: isActive ? '0 4px 14px rgba(31, 128, 224, 0.4)' : 'none'
+                                boxShadow: isActive ? '0 4px 12px rgba(255, 255, 255, 0.15)' : 'none'
                               }}
+                              onMouseEnter={(e) => { if(!isActive) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'; }}
+                              onMouseLeave={(e) => { if(!isActive) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'; }}
                             >
                               {pill}
                             </button>

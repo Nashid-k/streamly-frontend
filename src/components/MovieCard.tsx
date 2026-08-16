@@ -148,7 +148,7 @@ export const MovieCard: React.FC<MovieCardProps> = ({
     </div>
   );
 
-  // ── HOTSTAR CARD (Vertical Poster with Gradient Mask & Watch Hover) ──
+  // ── HOTSTAR CARD (Vertical Poster with Netflix-style Hover Expansion) ──
   if (platform === 'hotstar') {
     return (
       <div
@@ -158,110 +158,137 @@ export const MovieCard: React.FC<MovieCardProps> = ({
         aria-label={`View details for ${movie.title}`}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        onMouseMove={handleMouseMove}
         onClick={handleCardClick}
         onKeyDown={handleKeyDown}
-        ref={cardRef}
         style={{
-          ...parallaxStyle,
           position: 'relative',
           flexShrink: 0,
           width: '185px',
           height: '275px',
-          cursor: 'pointer',
-          overflow: 'hidden',
           borderRadius: '12px',
-          boxShadow: isHovered ? '0 12px 32px rgba(0,0,0,0.85), 0 0 16px rgba(31, 128, 224, 0.6)' : '0 4px 14px rgba(0,0,0,0.5)',
-          border: isHovered ? '2px solid rgba(31, 128, 224, 0.9)' : '1px solid rgba(255,255,255,0.05)',
-          transition: `transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), border 0.35s ease, z-index 0s ${isHovered ? '0s' : '0.35s'}`,
-          backgroundColor: '#0F1014',
-          willChange: 'transform, box-shadow',
+          cursor: 'pointer',
+          zIndex: isHovered ? 50 : 1,
+          transition: `z-index 0s ${isHovered ? '0s' : '0.4s'}`,
+          overflow: 'visible', // Break out of bounds like Netflix
         }}
       >
-        {!isImageLoaded && imgSrc && imgSrc !== 'broken' && (
-          <div style={{
-            position: 'absolute', inset: 0,
-            animation: 'netflixSkeletonPulse 1.5s infinite ease-in-out',
-            zIndex: 0,
-            pointerEvents: 'none',
-            background: 'rgba(255,255,255,0.05)',
-            borderRadius: 'inherit'
-          }} />
-        )}
-        {imgSrc && imgSrc !== 'broken' ? (
-          <img
-            src={imgSrc}
-            alt={movie.title}
-            loading="lazy"
-            decoding="async"
-            onLoad={() => setIsImageLoaded(true)}
-            onError={() => { 
-              if (!imgFailed && fallbackImg && fallbackImg !== primaryImg) {
-                setImgFailed(true); 
-              } else {
-                setIsImageLoaded(true); 
-              }
-            }}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isImageLoaded ? 1 : 0, transition: 'opacity 0.2s ease, transform 0.4s ease', transform: isHovered ? 'scale(1.05)' : 'scale(1)', viewTransitionName: `movie-card-${movie.id}` }}
-          />
-        ) : imgSrc === 'broken' ? (
-          <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1f2937 0%, #111827 100%)', textAlign: 'center', padding: '10px' }}>
-             <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#888' }}>{movie.title}</span>
-          </div>
-) : (
-          <div className="moviecard-elem-8b9f5c">
-            <Film size={28} color="#1F80E0" className="moviecard-elem-03bd55" />
-            <span className="moviecard-elem-3d2a25">{movie.title}</span>
-          </div>
-        )}
-        {showTrailer && movie.trailerUrl && (
-          <HoverTrailer trailerUrl={movie.trailerUrl} isMuted={true} />
-        )}
-        {imdbBadge}
-        {/* Hotstar Authentic Badges */}
-        {movie.isRecentlyAdded && !movie.isUpcoming && !movie.isLeavingSoon && (
-          <div className="moviecard-elem-66f313">
-            NEW
-          </div>
-        )}
-        {movie.isLeavingSoon && (
-          <div className="moviecard-elem-4c27d4">
-            LEAVING SOON
-          </div>
-        )}
-        {movie.isUpcoming && (
-          <div className="moviecard-elem-4e41c2">
-            COMING SOON
-          </div>
-        )}
-        {/* Hotstar Gradient Hover Sheet */}
-        <div className="expanding-meta" style={{
-          position: 'absolute', inset: 0,
-          background: 'linear-gradient(180deg, transparent 40%, rgba(15,16,20,0.8) 70%, rgba(15,16,20,0.98) 100%)',
-          display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
-          padding: '14px',
-          opacity: isHovered ? 1 : 0,
-          transition: 'opacity 0.2s ease',
-        }}>
-          <span className="moviecard-elem-09e479">
-            {movie.isSeries ? 'Series' : 'Movie'}
-          </span>
-          <h4 className="moviecard-elem-a0014f">{movie.title}</h4>
-          {(!movie.availablePlatforms || movie.availablePlatforms.includes('Hotstar')) && (
-            <button className="moviecard-elem-e39862" onClick={(e) => { e.stopPropagation(); onPlay(movie); }}>
-              <Play size={13} fill="#FFF" /> Watch Now
-            </button>
+        <div className="hotstar-card-inner"
+          onMouseMove={handleMouseMove}
+          ref={cardRef}
+          style={{
+            position: 'absolute',
+            top: 0, left: 0, width: '100%',
+            background: '#0F1014',
+            borderRadius: '12px',
+            boxShadow: isHovered ? '0 12px 32px rgba(0,0,0,0.85), 0 0 16px rgba(31, 128, 224, 0.6)' : '0 4px 14px rgba(0,0,0,0.5)',
+            border: isHovered ? '2px solid rgba(31, 128, 224, 0.9)' : '1px solid rgba(255,255,255,0.05)',
+            transform: isHovered ? `scale(1.25) rotateX(${-mousePos.y * 15}deg) rotateY(${mousePos.x * 15}deg)` : 'scale(1)',
+            transformOrigin: 'center center',
+            transition: `transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.45s ease, border 0.35s ease, z-index 0s ${isHovered ? '0s' : '0.45s'}`,
+            zIndex: isHovered ? 50 : 1,
+          }}
+        >
+          {!isImageLoaded && imgSrc && imgSrc !== 'broken' && (
+            <div style={{
+              position: 'absolute', inset: 0,
+              animation: 'netflixSkeletonPulse 1.5s infinite ease-in-out',
+              zIndex: 0,
+              pointerEvents: 'none',
+              background: 'rgba(255,255,255,0.05)',
+              borderRadius: 'inherit'
+            }} />
           )}
+          {imgSrc && imgSrc !== 'broken' ? (
+            <img
+              src={imgSrc}
+              alt={movie.title}
+              loading="lazy"
+              decoding="async"
+              onLoad={() => setIsImageLoaded(true)}
+              onError={() => { 
+                if (!imgFailed && fallbackImg && fallbackImg !== primaryImg) {
+                  setImgFailed(true); 
+                } else {
+                  setIsImageLoaded(true); 
+                }
+              }}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', aspectRatio: '2/3', borderRadius: isHovered ? '10px 10px 0 0' : '10px', opacity: isImageLoaded ? 1 : 0 }}
+            />
+          ) : imgSrc === 'broken' ? (
+            <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1f2937 0%, #111827 100%)', textAlign: 'center', padding: '10px', aspectRatio: '2/3' }}>
+               <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#888' }}>{movie.title}</span>
+            </div>
+          ) : (
+            <div className="moviecard-elem-8b9f5c" style={{ aspectRatio: '2/3' }}>
+              <Film size={28} color="#1F80E0" className="moviecard-elem-03bd55" />
+              <span className="moviecard-elem-3d2a25">{movie.title}</span>
+            </div>
+          )}
+          {showTrailer && movie.trailerUrl && (
+            <HoverTrailer trailerUrl={movie.trailerUrl} isMuted={true} />
+          )}
+          {imdbBadge}
+          {movie.isRecentlyAdded && !movie.isUpcoming && !movie.isLeavingSoon && (
+            <div className="moviecard-elem-66f313">NEW</div>
+          )}
+          {movie.isLeavingSoon && (
+            <div className="moviecard-elem-4c27d4">LEAVING SOON</div>
+          )}
+          {movie.isUpcoming && (
+            <div className="moviecard-elem-4e41c2">COMING SOON</div>
+          )}
+          
+          <div className="expanding-meta" style={{
+            padding: '14px',
+            opacity: isHovered ? 1 : 0,
+            visibility: isHovered ? 'visible' : 'hidden',
+            transition: 'opacity 0.4s ease, visibility 0.4s',
+            backgroundColor: '#0F1014',
+            borderRadius: '0 0 10px 10px',
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', color: '#8f98b0', fontWeight: 600 }}>
+              <span>{movie.duration || '2023'}</span>
+              <span>•</span>
+              <span>{movie.genres?.[0] || (movie.isSeries ? 'Series' : 'Movie')}</span>
+            </div>
+            
+            <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{movie.title}</h4>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+              {(!movie.availablePlatforms || movie.availablePlatforms.includes('Hotstar')) && (
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onPlay(movie); }}
+                  style={{ flex: 1, background: '#FFF', color: '#0F1014', border: 'none', borderRadius: '4px', padding: '8px', fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer', transition: 'background 0.2s' }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#e5e5e5'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = '#FFF'}
+                >
+                  <Play size={14} fill="#0F1014" /> Watch Now
+                </button>
+              )}
+              <button 
+                onClick={(e) => { e.stopPropagation(); onToggleMyList(movie.id); }}
+                style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '4px', width: '34px', height: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+              >
+                {isMyList ? <Check size={16} color="#FFF" /> : <Plus size={16} color="#FFF" />}
+              </button>
+            </div>
+          </div>
+          {platformBadges}
+          {!isHovered && renderProgressBar()}
         </div>
-        {/* Platform Availability Badges */}
-        {platformBadges}
-        {renderProgressBar()}
       </div>
     );
   }
 
   // ── PRIME VIDEO CARD (Landscape Card with Electric Blue Ring & Quick Actions) ──
   if (platform === 'nprime') {
+    const nprimeWidth = top10Rank !== undefined ? 190 : 280;
+    const nprimeHeight = top10Rank !== undefined ? 280 : 158;
     return (
       <div
         className={`movie-card nprime-card ${top10Rank !== undefined ? 'top10' : ''}`}
@@ -270,112 +297,131 @@ export const MovieCard: React.FC<MovieCardProps> = ({
         aria-label={`View details for ${movie.title}`}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        onMouseMove={handleMouseMove}
         onClick={handleCardClick}
         onKeyDown={handleKeyDown}
-        ref={cardRef}
         style={{
-          ...parallaxStyle,
           position: 'relative',
           flexShrink: 0,
-          width: top10Rank !== undefined ? '190px' : '280px',
-          height: top10Rank !== undefined ? '280px' : '158px',
+          width: `${nprimeWidth}px`,
+          height: `${nprimeHeight}px`,
           borderRadius: '6px',
           cursor: 'pointer',
-          overflow: 'hidden',
-          boxShadow: isHovered ? '0 12px 30px rgba(0,0,0,0.95), 0 0 20px rgba(0, 168, 225, 0.6)' : '0 4px 12px rgba(0,0,0,0.6)',
-          border: isHovered ? '2px solid #00A8E1' : '1px solid rgba(255,255,255,0.06)',
-          transition: `transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), border 0.35s ease, z-index 0s ${isHovered ? '0s' : '0.35s'}`,
-          backgroundColor: '#0F171E',
-          willChange: 'transform, box-shadow',
+          zIndex: isHovered ? 50 : 1,
+          transition: `z-index 0s ${isHovered ? '0s' : '0.4s'}`,
+          overflow: 'visible', // Break out of bounds like Netflix
         }}
       >
-        {!isImageLoaded && imgSrc && imgSrc !== 'broken' && (
-          <div style={{
-            position: 'absolute', inset: 0,
-            animation: 'netflixSkeletonPulse 1.5s infinite ease-in-out',
-            zIndex: 0,
-            pointerEvents: 'none',
-            background: 'rgba(255,255,255,0.05)',
-            borderRadius: 'inherit'
-          }} />
-        )}
-        {imgSrc && imgSrc !== 'broken' ? (
-          <img
-            src={imgSrc}
-            alt={movie.title}
-            loading="lazy"
-            decoding="async"
-            onLoad={() => setIsImageLoaded(true)}
-            onError={() => { 
-              if (!imgFailed && fallbackImg && fallbackImg !== primaryImg) {
-                setImgFailed(true); 
-              } else {
-                setIsImageLoaded(true); 
-              }
-            }}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isImageLoaded ? 1 : 0, transition: 'transform 0.4s ease', transform: isHovered ? 'scale(1.05)' : 'scale(1)' }}
-          />
-        ) : imgSrc === 'broken' ? (
-          <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1f2937 0%, #111827 100%)', textAlign: 'center', padding: '10px' }}>
-             <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#888' }}>{movie.title}</span>
+        <div className="nprime-card-inner"
+          onMouseMove={handleMouseMove}
+          ref={cardRef}
+          style={{
+            position: 'absolute',
+            top: 0, left: 0, width: '100%',
+            background: '#0F171E',
+            borderRadius: '6px',
+            boxShadow: isHovered ? '0 12px 30px rgba(0,0,0,0.95), 0 0 20px rgba(0, 168, 225, 0.6)' : '0 4px 12px rgba(0,0,0,0.6)',
+            border: isHovered ? '2px solid #00A8E1' : '1px solid rgba(255,255,255,0.06)',
+            transform: isHovered ? `scale(1.25) rotateX(${-mousePos.y * 15}deg) rotateY(${mousePos.x * 15}deg)` : 'scale(1)',
+            transformOrigin: 'center center',
+            transition: `transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.45s ease, border 0.35s ease, z-index 0s ${isHovered ? '0s' : '0.45s'}`,
+            zIndex: isHovered ? 50 : 1,
+          }}
+        >
+          {!isImageLoaded && imgSrc && imgSrc !== 'broken' && (
+            <div style={{
+              position: 'absolute', inset: 0,
+              animation: 'netflixSkeletonPulse 1.5s infinite ease-in-out',
+              zIndex: 0,
+              pointerEvents: 'none',
+              background: 'rgba(255,255,255,0.05)',
+              borderRadius: 'inherit'
+            }} />
+          )}
+          {imgSrc && imgSrc !== 'broken' ? (
+            <img
+              src={imgSrc}
+              alt={movie.title}
+              loading="lazy"
+              decoding="async"
+              onLoad={() => setIsImageLoaded(true)}
+              onError={() => { 
+                if (!imgFailed && fallbackImg && fallbackImg !== primaryImg) {
+                  setImgFailed(true); 
+                } else {
+                  setIsImageLoaded(true); 
+                }
+              }}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isImageLoaded ? 1 : 0, transition: 'transform 0.4s ease', aspectRatio: top10Rank !== undefined ? '2/3' : '16/9', borderRadius: isHovered ? '6px 6px 0 0' : '6px' }}
+            />
+          ) : imgSrc === 'broken' ? (
+            <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1f2937 0%, #111827 100%)', textAlign: 'center', padding: '10px', aspectRatio: top10Rank !== undefined ? '2/3' : '16/9' }}>
+               <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#888' }}>{movie.title}</span>
+            </div>
+          ) : (
+            <div className="moviecard-elem-54e2d7" style={{ aspectRatio: top10Rank !== undefined ? '2/3' : '16/9' }}>
+              <Film size={24} color="#00A8E1" className="moviecard-elem-fc7b7c" />
+              <span className="moviecard-elem-1fa588">{movie.title}</span>
+            </div>
+          )}
+          {showTrailer && movie.trailerUrl && (
+            <HoverTrailer trailerUrl={movie.trailerUrl} isMuted={true} />
+          )}
+          {imdbBadge}
+          <div style={{ position: 'absolute', top: 0, left: 0, background: '#00A8E1', color: '#FFF', padding: '4px 6px', borderBottomRightRadius: '4px', fontSize: '0.65rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '2px', zIndex: 10, borderTopLeftRadius: '6px' }}>
+            <Check size={12} strokeWidth={4} color="#00A8E1" style={{ background: '#FFF', borderRadius: '50%', padding: '1px' }} /> prime
           </div>
-) : (
-          <div className="moviecard-elem-54e2d7">
-            <Film size={24} color="#00A8E1" className="moviecard-elem-fc7b7c" />
-            <span className="moviecard-elem-1fa588">{movie.title}</span>
-          </div>
-        )}
-        {showTrailer && movie.trailerUrl && (
-          <HoverTrailer trailerUrl={movie.trailerUrl} isMuted={true} />
-        )}
-        {imdbBadge}
-        <div className="moviecard-elem-24e0e8">
-          prime
-        </div>
-        {/* Prime Authentic Badges */}
-        {movie.isRecentlyAdded && !movie.isUpcoming && !movie.isLeavingSoon && (
-          <div className="moviecard-elem-d1c52f">
-            NEWLY ADDED
-          </div>
-        )}
-        {movie.isLeavingSoon && (
-          <div className="moviecard-elem-756e29">
-            LEAVING PRIME
-          </div>
-        )}
-        {movie.isUpcoming && (
-          <div className="moviecard-elem-73fae6">
-            COMING SOON
-          </div>
-        )}
-        {/* Prime Hover Overlay */}
-        <div className="expanding-meta" style={{
-          position: 'absolute', inset: 0,
-          background: 'linear-gradient(180deg, transparent 30%, rgba(15,23,30,0.85) 65%, rgba(15,23,30,0.98) 100%)',
-          display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
-          padding: '12px',
-          opacity: isHovered ? 1 : 0,
-          transition: 'opacity 0.2s ease',
-        }}>
-          <h4 className="moviecard-elem-d88b98">{movie.title}</h4>
-          <div className="moviecard-elem-b80cec">
-            {(!movie.availablePlatforms || movie.availablePlatforms.includes('Prime Video')) && (
-              <button className="moviecard-elem-915695" onClick={(e) => { e.stopPropagation(); onPlay(movie); }}>
-                <Play size={14} fill="#FFF" color="#FFF" />
+          {movie.isRecentlyAdded && !movie.isUpcoming && !movie.isLeavingSoon && (
+            <div className="moviecard-elem-d1c52f">NEWLY ADDED</div>
+          )}
+          {movie.isLeavingSoon && (
+            <div className="moviecard-elem-756e29">LEAVING PRIME</div>
+          )}
+          {movie.isUpcoming && (
+            <div className="moviecard-elem-73fae6">COMING SOON</div>
+          )}
+          
+          <div className="expanding-meta" style={{
+            padding: '12px',
+            opacity: isHovered ? 1 : 0,
+            visibility: isHovered ? 'visible' : 'hidden',
+            transition: 'opacity 0.4s ease, visibility 0.4s',
+            backgroundColor: '#0F171E',
+            borderRadius: '0 0 6px 6px',
+            width: '100%',
+          }}>
+            <h4 className="moviecard-elem-d88b98">{movie.title}</h4>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+              {(!movie.availablePlatforms || movie.availablePlatforms.includes('Prime Video')) && (
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onPlay(movie); }}
+                  style={{ background: '#00A8E1', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 0.2s', paddingLeft: '2px' }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#0f79af'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = '#00A8E1'}
+                >
+                  <Play size={16} fill="#FFF" color="#FFF" />
+                </button>
+              )}
+              <button 
+                onClick={(e) => { e.stopPropagation(); onToggleMyList(movie.id); }}
+                style={{ background: 'transparent', border: '2px solid rgba(255,255,255,0.7)', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s', color: '#FFF' }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#FFF'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.7)'; e.currentTarget.style.background = 'transparent'; }}
+              >
+                {isMyList ? <Check size={16} /> : <Plus size={16} />}
               </button>
-            )}
-            <button className="moviecard-elem-25e200" onClick={(e) => { e.stopPropagation(); onOpenDetails(movie); }}>
-              <Info size={15} />
-            </button>
-            <button className="moviecard-elem-7b4804" onClick={(e) => { e.stopPropagation(); onToggleMyList(movie.id); }}>
-              {isMyList ? <Check size={15} /> : <Plus size={15} />}
-            </button>
+              <button 
+                onClick={(e) => { e.stopPropagation(); onOpenDetails(movie); }}
+                style={{ background: 'transparent', border: '2px solid rgba(255,255,255,0.7)', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s', color: '#FFF' }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#FFF'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.7)'; e.currentTarget.style.background = 'transparent'; }}
+              >
+                <Info size={16} />
+              </button>
+            </div>
           </div>
+          {platformBadges}
+          {!isHovered && renderProgressBar()}
         </div>
-        {/* Platform Availability Badges */}
-        {platformBadges}
-        {renderProgressBar()}
       </div>
     );
   }

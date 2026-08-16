@@ -1,10 +1,13 @@
 import React from 'react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Search } from 'lucide-react';
 import { MovieCard } from './MovieCard';
 import { Movie, Actor } from '../types';
 
 interface SearchViewProps {
+  platform?: string;
+  popularMovies?: Movie[];
   searchQuery: string;
+  onSearchChange?: (query: string) => void;
   isSearching: boolean;
   languageFilteredSearchResults: Movie[];
   searchActor?: Actor;
@@ -18,7 +21,10 @@ interface SearchViewProps {
 }
 
 export const SearchView: React.FC<SearchViewProps> = ({
+  platform,
+  popularMovies = [],
   searchQuery,
+  onSearchChange,
   isSearching,
   languageFilteredSearchResults,
   searchActor,
@@ -30,6 +36,46 @@ export const SearchView: React.FC<SearchViewProps> = ({
   onToggleMyList,
   myList
 }) => {
+  if (platform === 'hotstar' && searchQuery.trim() === '') {
+    return (
+      <div style={{ paddingTop: '80px', paddingBottom: '60px', paddingLeft: '4%', paddingRight: '4%', minHeight: '80vh' }}>
+        <div style={{ position: 'relative', maxWidth: '800px', margin: '0 auto 40px auto' }}>
+          <Search size={28} color="#1F80E0" style={{ position: 'absolute', left: '20px', top: '50%', transform: 'translateY(-50%)' }} />
+          <input
+            type="text"
+            placeholder="Movies, shows and more"
+            value={searchQuery}
+            onChange={(e) => onSearchChange?.(e.target.value)}
+            autoFocus
+            style={{
+              width: '100%',
+              padding: '18px 20px 18px 64px',
+              fontSize: '1.2rem',
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: 'none',
+              borderRadius: '8px',
+              color: '#FFF',
+              outline: 'none',
+            }}
+          />
+        </div>
+        <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '20px', color: '#FFF' }}>Popular Searches</h3>
+        <div className="classic-grid">
+          {popularMovies.slice(0, 12).map((movie) => (
+            <MovieCard
+              key={movie.id}
+              movie={movie}
+              onPlay={onPlayMovie}
+              onOpenDetails={onOpenDetails}
+              onToggleMyList={onToggleMyList}
+              isMyList={myList.includes(movie.id)}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ paddingTop: '110px', width: '100%', minHeight: '80vh', paddingBottom: '60px' }}>
       <div style={{ padding: '0 4%', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>

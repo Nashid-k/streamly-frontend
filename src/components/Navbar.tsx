@@ -3,8 +3,8 @@ import { Search, Home, Tv, Film, Plus, Grip, ChevronDown, Filter, Globe, Setting
 import { usePlatform } from './PlatformContext';
 
 interface NavbarProps {
-  activeTab: 'home' | 'movies' | 'series' | 'anime' | 'mylist';
-  setActiveTab: (tab: 'home' | 'movies' | 'series' | 'anime' | 'mylist') => void;
+  activeTab: 'home' | 'movies' | 'series' | 'anime' | 'mylist' | 'search';
+  setActiveTab: (tab: 'home' | 'movies' | 'series' | 'anime' | 'mylist' | 'search') => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   availableGenres?: string[];
@@ -207,12 +207,9 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <button onClick={() => setIsSearchOpen(!isSearchOpen)} style={{ background: 'none', border: 'none', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                <Search size={20} color="#1F80E0" />
+              <button onClick={() => setActiveTab('search')} style={{ background: 'none', border: 'none', color: activeTab === 'search' ? '#FFF' : '#8F98B2', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                <Search size={20} color={activeTab === 'search' ? '#FFF' : '#1F80E0'} />
               </button>
-              {isSearchOpen && (
-                <input type="text" placeholder="Search" value={searchQuery} onChange={(e) => onSearchChange(e.target.value)} autoFocus onBlur={() => { if (!searchQuery) setIsSearchOpen(false); }} style={{ background: 'rgba(0, 0, 0, 0.85)', border: '1px solid #1F80E0', color: '#FFF', padding: '6px 10px', marginLeft: '6px', width: '150px', fontSize: '0.85rem', outline: 'none', borderRadius: '6px' }} />
-              )}
             </div>
 
             <div style={{ position: 'relative' }} ref={appSwitcherRef}>
@@ -267,10 +264,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span style={{ opacity: isHotstarExpanded ? 1 : 0, transition: 'opacity 0.2s 0.1s' }}>My Space</span>
             </button>
 
-            <button className="hotstar-sidebar-btn search-btn" onClick={() => setIsSearchOpen(true)}>
-              <Search size={24} style={{ flexShrink: 0 }} />
+            <button className={`hotstar-sidebar-btn ${activeTab === 'search' ? 'active' : ''}`} onClick={() => setActiveTab('search')}>
+              <Search size={24} style={{ flexShrink: 0, color: activeTab === 'search' ? '#FFF' : '#8f98b0' }} />
               <div style={{ opacity: isHotstarExpanded ? 1 : 0, transition: 'opacity 0.2s 0.1s', display: 'flex', alignItems: 'center', width: '100%' }}>
-                <input type="text" placeholder="Search" value={searchQuery} onChange={(e) => onSearchChange(e.target.value)} style={{ background: 'transparent', border: 'none', color: '#FFF', outline: 'none', width: '100%', fontSize: '1rem', fontFamily: 'inherit' }} />
+                <span style={{ fontSize: '0.95rem', fontWeight: activeTab === 'search' ? 700 : 500, color: activeTab === 'search' ? '#FFF' : '#8f98b0' }}>Search</span>
               </div>
             </button>
 
@@ -346,12 +343,31 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             )}
             
-            <nav className="desktop-nav-items" style={{ display: 'flex', alignItems: 'center', gap: platform === 'nprime' ? '28px' : '20px', fontFamily: platform === 'nprime' ? '"Amazon Ember", Arial, sans-serif' : 'Helvetica, Arial, sans-serif' }}>
-              {navItems.map((item) => (
-                <button key={item.id} onClick={() => setActiveTab(item.id as any)} style={{ background: 'none', border: 'none', color: activeTab === item.id ? '#FFF' : (platform === 'nprime' ? '#8197a4' : '#E5E5E5'), fontWeight: activeTab === item.id ? 700 : (platform === 'nprime' ? 600 : 400), fontSize: platform === 'nprime' ? '0.95rem' : '0.85rem', cursor: 'pointer', transition: 'color 0.2s', letterSpacing: platform === 'nprime' ? '0.02em' : 'normal' }} onMouseEnter={(e) => e.currentTarget.style.color = '#FFF'} onMouseLeave={(e) => e.currentTarget.style.color = activeTab === item.id ? '#FFF' : (platform === 'nprime' ? '#8197a4' : '#E5E5E5')}>
-                  {item.label}
-                </button>
-              ))}
+            <nav className="desktop-nav-items" style={{ display: 'flex', alignItems: 'center', gap: platform === 'nprime' ? '12px' : '20px', fontFamily: platform === 'nprime' ? '"Amazon Ember", Arial, sans-serif' : 'Helvetica, Arial, sans-serif' }}>
+              {navItems.map((item) => {
+                const isActive = activeTab === item.id;
+                return (
+                  <button key={item.id} onClick={() => setActiveTab(item.id as any)} style={{ 
+                    position: 'relative',
+                    background: 'none', border: 'none', 
+                    color: isActive ? '#FFF' : (platform === 'nprime' ? '#8197a4' : '#E5E5E5'), 
+                    fontWeight: isActive ? 700 : (platform === 'nprime' ? 600 : 400), 
+                    fontSize: platform === 'nprime' ? '1rem' : '0.85rem', 
+                    cursor: 'pointer', 
+                    transition: 'all 0.2s', 
+                    letterSpacing: platform === 'nprime' ? '0.01em' : 'normal',
+                    padding: platform === 'nprime' ? '8px 12px' : '0',
+                    borderRadius: platform === 'nprime' ? '8px' : '0'
+                  }} 
+                  onMouseEnter={(e) => { e.currentTarget.style.color = '#FFF'; if (platform === 'nprime') e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }} 
+                  onMouseLeave={(e) => { e.currentTarget.style.color = isActive ? '#FFF' : (platform === 'nprime' ? '#8197a4' : '#E5E5E5'); if (platform === 'nprime') e.currentTarget.style.background = 'transparent'; }}>
+                    {item.label}
+                    {platform === 'nprime' && isActive && (
+                       <div style={{ position: 'absolute', bottom: '0', left: '12px', right: '12px', height: '2px', background: '#FFF', borderRadius: '2px' }} />
+                    )}
+                  </button>
+                );
+              })}
             </nav>
           </div>
 
