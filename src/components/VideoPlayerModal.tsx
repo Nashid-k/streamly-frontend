@@ -72,12 +72,32 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({ movie, onClo
   useEffect(() => {
     resetHide();
     const handleBlur = () => setShowUI(true);
+    
+    const handleMessage = (e: MessageEvent) => {
+      // Many popular streaming embeds send one of these messages when playback completes
+      const data = typeof e.data === 'string' ? e.data.toLowerCase() : e.data;
+      if (
+        data === 'ended' || 
+        data === 'videoended' || 
+        data === 'video_ended' || 
+        data?.type === 'ended' ||
+        data?.event === 'video_ended'
+      ) {
+        if (activeMovie?.nextEpisode) {
+          playNextEpisode();
+        }
+      }
+    };
+
     window.addEventListener('blur', handleBlur);
+    window.addEventListener('message', handleMessage);
+    
     return () => {
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('message', handleMessage);
     };
-  }, []);
+  }, [activeMovie]);
 
   useEffect(() => {
     if (showServerList) {
