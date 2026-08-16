@@ -200,7 +200,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     return (
       <>
         {/* Hotstar Mobile Top Header (<768px) */}
-        <header className="hotstar-mobile-header" style={{ display: 'none', position: 'fixed', top: 0, left: 0, right: 0, height: '54px', background: 'rgba(15, 16, 20, 0.95)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.08)', zIndex: 1000, padding: '0 12px', alignItems: 'center', justifyContent: 'space-between' }}>
+        <header className="hotstar-mobile-header" style={{ display: 'none', position: 'fixed', top: 0, left: 0, right: 0, height: '54px', background: 'rgba(15, 16, 20, 0.95)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.08)', zIndex: 2000, padding: '0 12px', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }} onClick={() => setActiveTab('home')}>
             <img src="https://secure-media.hotstarext.com/web-assets/prod/images/brand-logos/disney-hotstar-logo-dark.svg" alt="Disney+ Hotstar" style={{ height: '28px' }} />
           </div>
@@ -329,7 +329,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           height: platform === 'nprime' ? '72px' : '68px', 
           padding: '0 4%', 
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
-          position: 'fixed', top: 0, right: 0, left: 0, zIndex: 1000
+          position: 'fixed', top: 0, right: 0, left: 0, zIndex: 2000
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
             {platform === 'nflix' && (
