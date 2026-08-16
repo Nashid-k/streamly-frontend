@@ -379,9 +379,13 @@ export default function Home() {
   const [isTabTransitioning, setIsTabTransitioning] = useState(false);
 
   const handleTabChange = (tab: 'home' | 'movies' | 'series' | 'anime' | 'mylist' | 'search') => {
-    if (tab === activeTab) return;
+    if (tab === activeTab) {
+      handleCloseDetails();
+      return;
+    }
     
     withViewTransition(() => {
+      handleCloseDetails();
       setSelectedGenreFilter('All');
       setDiscoveryRevision((revision) => revision + 1);
       setIsTabTransitioning(true);
