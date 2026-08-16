@@ -338,30 +338,41 @@ function NetflixModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, i
                 <h2 className="detail-title-text" style={{ fontSize: '3rem', fontWeight: 900, marginBottom: '20px', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>{movie.title}</h2>
               )}
 
-              <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+              <div style={{ display: 'flex', gap: '16px', width: '100%' }}>
                 <button className="detail-play-btn" onClick={handlePlayClick} style={{
-                  background: platform === 'hotstar' ? '#1F80E0' : platform === 'nprime' ? '#00A8E1' : '#FFF',
-                  color: platform === 'nflix' ? '#000' : '#FFF',
-                  border: 'none', borderRadius: '4px', padding: '10px 28px',
-                  fontSize: '1.1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer',
-                  boxShadow: platform === 'hotstar' ? '0 4px 18px rgba(31, 128, 224, 0.4)' : platform === 'nprime' ? '0 4px 18px rgba(0, 168, 225, 0.4)' : 'none',
-                  transition: 'transform 0.2s ease'
-                }}>
-                  <Play fill={platform === 'nflix' ? '#000' : '#FFF'} size={24} /> {(!isAvailableNative && alternativePlatform) ? `Watch on ${alternativePlatform}` : (platform === 'hotstar' ? 'Watch Now' : 'Play')}
+                  background: '#FFF',
+                  color: '#000',
+                  border: 'none', borderRadius: '4px', padding: '12px 32px',
+                  fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer',
+                  boxShadow: '0 4px 18px rgba(0,0,0,0.3)',
+                  transition: 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), background 0.2s ease',
+                  minWidth: '160px', justifyContent: 'center'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#e6e6e6'; e.currentTarget.style.transform = 'scale(1.05)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#FFF'; e.currentTarget.style.transform = 'scale(1)'; }}
+                >
+                  <Play fill="#000" size={28} /> {(!isAvailableNative && alternativePlatform) ? `Watch on ${alternativePlatform}` : 'Play'}
                 </button>
-                <button className="detail-action-btn" onClick={() => onToggleMyList(movie.id)} style={{
-                  background: 'rgba(42,42,42,0.6)', border: '1px solid rgba(255,255,255,0.5)', borderRadius: '50%',
-                  width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF'
-                }}>
-                  {isMyList ? <Check size={20} /> : <Plus size={20} />}
+                <button className="detail-action-btn" onClick={() => onToggleMyList(movie.id)} title="My List" style={{
+                  background: 'rgba(42,42,42,0.7)', border: '2px solid rgba(255,255,255,0.6)', borderRadius: '50%',
+                  width: '52px', height: '52px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF',
+                  transition: 'all 0.2s ease', backdropFilter: 'blur(4px)'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.border = '2px solid #FFF'; e.currentTarget.style.transform = 'scale(1.1)'; e.currentTarget.style.background = 'rgba(70,70,70,0.8)'; }}
+                onMouseLeave={e => { e.currentTarget.style.border = '2px solid rgba(255,255,255,0.6)'; e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.background = 'rgba(42,42,42,0.7)'; }}
+                >
+                  {isMyList ? <Check size={24} /> : <Plus size={24} />}
                 </button>
-                <button className="detail-action-btn" onClick={() => setIsLiked(!isLiked)} style={{
-                  background: isLiked ? (platform === 'hotstar' ? '#1F80E0' : platform === 'nprime' ? '#00A8E1' : '#E50914') : 'rgba(42,42,42,0.6)',
-                  border: '1px solid rgba(255,255,255,0.5)', borderRadius: '50%',
-                  width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF',
-                  transition: 'background 0.2s'
-                }}>
-                  <ThumbsUp size={20} fill={isLiked ? '#FFF' : 'none'} />
+                <button className="detail-action-btn" onClick={() => setIsLiked(!isLiked)} title="Rate" style={{
+                  background: isLiked ? '#E50914' : 'rgba(42,42,42,0.7)',
+                  border: isLiked ? 'none' : '2px solid rgba(255,255,255,0.6)', borderRadius: '50%',
+                  width: '52px', height: '52px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF',
+                  transition: 'all 0.2s ease', backdropFilter: 'blur(4px)'
+                }}
+                onMouseEnter={e => { if(!isLiked) { e.currentTarget.style.border = '2px solid #FFF'; e.currentTarget.style.background = 'rgba(70,70,70,0.8)'; } e.currentTarget.style.transform = 'scale(1.1)'; }}
+                onMouseLeave={e => { if(!isLiked) { e.currentTarget.style.border = '2px solid rgba(255,255,255,0.6)'; e.currentTarget.style.background = 'rgba(42,42,42,0.7)'; } e.currentTarget.style.transform = 'scale(1)'; }}
+                >
+                  <ThumbsUp size={24} fill={isLiked ? '#FFF' : 'none'} />
                 </button>
               </div>
             </div>
@@ -393,9 +404,15 @@ function NetflixModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, i
                 <span style={{ color: '#BCBCBC' }}>• {displayMovie?.audioLanguages?.slice(0, 2).join(', ')}</span>
               )}
             </div>
-            <p style={{ fontSize: '1.1rem', lineHeight: 1.5, color: '#FFF', fontWeight: 400 }}>
-              {displayMovie?.longDescription || movie.description}
-            </p>
+            
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#E50914', fontSize: '0.85rem', fontWeight: 800, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                <Sparkles size={14} /> <span>AI Summary</span>
+              </div>
+              <p style={{ fontSize: '1.15rem', lineHeight: 1.6, color: '#FFF', fontWeight: 400, margin: 0 }}>
+                {displayMovie?.longDescription || movie.description}
+              </p>
+            </div>
           </div>
           <div style={{ flex: '1', fontSize: '0.9rem', color: '#777', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div><span style={{ color: '#777' }}>Cast: </span><span style={{ color: '#FFF' }}>{formatCastNames(displayMovie?.cast?.slice(0,4))} {(displayMovie?.cast?.length ?? 0) > 4 ? ', more' : ''}</span></div>
@@ -886,37 +903,54 @@ function HotstarModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, i
               <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
                 <button onClick={handlePlayClick} style={{
                   background: 'linear-gradient(90deg, #1f80e0, #14599c)', color: '#FFF', border: 'none', borderRadius: '8px', padding: '14px 48px',
-                  fontSize: '1.1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(31,128,224,0.4)'
-                }}>
-                  <Play fill="#FFF" size={20} /> {(!isAvailableNative && alternativePlatform) ? `Watch on ${alternativePlatform}` : 'Watch Now'}
+                  fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer',
+                  boxShadow: '0 8px 24px rgba(31,128,224,0.4)',
+                  transition: 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), filter 0.2s ease',
+                  minWidth: '220px', justifyContent: 'center'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.filter = 'brightness(1.2)'; e.currentTarget.style.transform = 'scale(1.05)'; }}
+                onMouseLeave={e => { e.currentTarget.style.filter = 'brightness(1)'; e.currentTarget.style.transform = 'scale(1)'; }}
+                >
+                  <Play fill="#FFF" size={26} /> {(!isAvailableNative && alternativePlatform) ? `Watch on ${alternativePlatform}` : 'Watch Now'}
                 </button>
-                <button onClick={() => onToggleMyList(movie.id)} style={{
-                  background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px',
-                  width: '52px', height: '52px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF'
-                }}>
-                  {isMyList ? <Check size={24} /> : <Plus size={24} />}
+                <button onClick={() => onToggleMyList(movie.id)} title="Watchlist" style={{
+                  background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px',
+                  width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF',
+                  transition: 'all 0.2s ease', backdropFilter: 'blur(8px)'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#FFF'; e.currentTarget.style.color = '#1f80e0'; e.currentTarget.style.transform = 'scale(1.1)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.color = '#FFF'; e.currentTarget.style.transform = 'scale(1)'; }}
+                >
+                  {isMyList ? <Check size={28} /> : <Plus size={28} />}
                 </button>
-
               </div>
             </div>
 
             {hasTrailer && (
               <button onClick={toggleMute} style={{
-                background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px',
-                width: '52px', height: '52px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF',
-                zIndex: 50
-              }}>
-                {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px',
+                width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF',
+                zIndex: 50, transition: 'all 0.2s ease', backdropFilter: 'blur(8px)'
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#FFF'; e.currentTarget.style.color = '#1f80e0'; e.currentTarget.style.transform = 'scale(1.1)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.color = '#FFF'; e.currentTarget.style.transform = 'scale(1)'; }}
+              >
+                {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
               </button>
             )}
           </div>
         </div>
 
         <div className="detail-body" style={{ padding: '20px 40px 40px 40px', color: '#E1E6F0', overflowY: 'auto' }}>
-          <p style={{ fontSize: '1.05rem', lineHeight: 1.6, fontWeight: 400, maxWidth: '90%', marginBottom: '24px' }}>
-            {displayMovie?.longDescription || movie.description}
-          </p>
+          
+          <div style={{ marginBottom: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#1f80e0', fontSize: '0.85rem', fontWeight: 800, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              <Sparkles size={16} /> <span>AI Summary</span>
+            </div>
+            <p style={{ fontSize: '1.15rem', lineHeight: 1.6, fontWeight: 400, maxWidth: '90%', margin: 0 }}>
+              {displayMovie?.longDescription || movie.description}
+            </p>
+          </div>
           <div style={{ display: 'flex', gap: '40px', fontSize: '0.95rem', marginBottom: '32px' }}>
             {(displayMovie?.cast?.length ?? 0) > 0 && (
               <div>
