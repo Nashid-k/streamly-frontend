@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { X, AlertTriangle, SkipForward, ChevronDown, ChevronUp } from 'lucide-react';
 import { Movie } from '../types';
 import { useGlobalHotkeys } from '../hooks/useGlobalHotkeys';
+import { WebtorPlayer } from './WebtorPlayer';
 
 interface VideoPlayerModalProps {
   movie: Movie;
@@ -178,7 +179,14 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({ movie, onClo
       }}
     >
       {currentUrl && !sourceFailed ? (
-        currentSource?.name?.includes('Torrent') ? (
+        currentUrl.startsWith('webtor:') ? (
+          <WebtorPlayer 
+            key={`${activeMovie.id}-s${sourceIndex}`}
+            webtorUrl={currentUrl} 
+            onLoaded={() => { setSourceLoading(false); setSourceFailed(false); setSourceError(''); }} 
+            onError={(msg) => { setSourceLoading(false); setSourceFailed(true); setSourceError(msg); }} 
+          />
+        ) : currentSource?.name?.includes('Torrent') ? (
           <video
             key={`${activeMovie.id}-s${sourceIndex}`}
             src={currentUrl}
