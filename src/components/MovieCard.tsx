@@ -31,6 +31,8 @@ export const MovieCard: React.FC<MovieCardProps> = ({
   isSearchResult = false,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const expandTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const [showTrailer, setShowTrailer] = useState(false);
   const [imgFailed, setImgFailed] = useState(false);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
@@ -101,6 +103,10 @@ export const MovieCard: React.FC<MovieCardProps> = ({
   const handleMouseEnter = () => {
     if (!isHovered) playHoverSound();
     setIsHovered(true);
+    if (expandTimeoutRef.current) clearTimeout(expandTimeoutRef.current);
+    expandTimeoutRef.current = setTimeout(() => {
+      setIsExpanded(true);
+    }, 450);
     if (movie.id) {
       if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
       hoverTimeoutRef.current = setTimeout(() => {
@@ -122,6 +128,8 @@ export const MovieCard: React.FC<MovieCardProps> = ({
 
   const handleMouseLeave = () => {
     setIsHovered(false);
+    setIsExpanded(false);
+    if (expandTimeoutRef.current) clearTimeout(expandTimeoutRef.current);
     setShowTrailer(false);
     setMousePos({ x: 0, y: 0 });
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
@@ -136,113 +144,14 @@ export const MovieCard: React.FC<MovieCardProps> = ({
   const ratingText = rawScore.toFixed(1);
 
   const imdbBadge = (
-    <div style={{
-      position: 'absolute', bottom: '8px', left: '8px', zIndex: 15,
-      background: 'rgba(0,0,0,0.7)', padding: '2px 6px', borderRadius: '4px',
-      display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.65rem', fontWeight: 800, color: '#fff',
-      boxShadow: '0 2px 6px rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
-      opacity: isHovered ? 0 : 1, transition: 'opacity 0.2s',
-    }}>
-      <span className="moviecard-elem-fc373e">IMDb</span>
-      <span>{ratingText}</span>
-    </div>
-  );
-
-  // ── HOTSTAR CARD (Vertical Poster with Netflix-style Hover Expansion) ──
-  if (platform === 'hotstar') {
-    return (
-      <div
-        className={`movie-card hotstar-card ${top10Rank !== undefined ? 'top10' : ''}`}
-        role="button"
-        tabIndex={0}
-        aria-label={`View details for ${movie.title}`}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-        onClick={handleCardClick}
-        onKeyDown={handleKeyDown}
-        style={{
-          position: 'relative',
-          flexShrink: 0,
-          width: '185px',
-          height: '275px',
-          borderRadius: '12px',
-          cursor: 'pointer',
-          zIndex: isHovered ? 50 : 1,
-          transition: `z-index 0s ${isHovered ? '0s' : '0.4s'}`,
-          overflow: 'visible', // Break out of bounds like Netflix
-        }}
-      >
-        <div className="hotstar-card-inner"
-          onMouseMove={handleMouseMove}
-          ref={cardRef}
-          style={{
-            position: 'absolute',
-            top: 0, left: 0, width: '100%',
-            background: '#0F1014',
-            borderRadius: '12px',
-            boxShadow: isHovered ? '0 12px 32px rgba(0,0,0,0.85), 0 0 16px rgba(31, 128, 224, 0.6)' : '0 4px 14px rgba(0,0,0,0.5)',
-            border: isHovered ? '2px solid rgba(31, 128, 224, 0.9)' : '1px solid rgba(255,255,255,0.05)',
-            transform: isHovered ? `scale(1.25) rotateX(${-mousePos.y * 15}deg) rotateY(${mousePos.x * 15}deg)` : 'scale(1)',
-            transformOrigin: 'center center',
-            transition: `transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.45s ease, border 0.35s ease, z-index 0s ${isHovered ? '0s' : '0.45s'}`,
-            zIndex: isHovered ? 50 : 1,
-          }}
-        >
-          {!isImageLoaded && imgSrc && imgSrc !== 'broken' && (
-            <div style={{
-              position: 'absolute', inset: 0,
-              animation: 'netflixSkeletonPulse 1.5s infinite ease-in-out',
-              zIndex: 0,
-              pointerEvents: 'none',
-              background: 'rgba(255,255,255,0.05)',
-              borderRadius: 'inherit'
-            }} />
-          )}
-          {imgSrc && imgSrc !== 'broken' ? (
-            <img
-              src={imgSrc}
-              alt={movie.title}
-              loading="lazy"
-              decoding="async"
-              onLoad={() => setIsImageLoaded(true)}
-              onError={() => { 
-                if (!imgFailed && fallbackImg && fallbackImg !== primaryImg) {
-                  setImgFailed(true); 
-                } else {
-                  setIsImageLoaded(true); 
-                }
-              }}
-              style={{ width: '100%', height: '100%', objectFit: 'cover', aspectRatio: '2/3', borderRadius: isHovered ? '10px 10px 0 0' : '10px', opacity: isImageLoaded ? 1 : 0 }}
-            />
-          ) : imgSrc === 'broken' ? (
-            <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1f2937 0%, #111827 100%)', textAlign: 'center', padding: '10px', aspectRatio: '2/3' }}>
-               <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#888' }}>{movie.title}</span>
-            </div>
-          ) : (
-            <div className="moviecard-elem-8b9f5c" style={{ aspectRatio: '2/3' }}>
-              <Film size={28} color="#1F80E0" className="moviecard-elem-03bd55" />
-              <span className="moviecard-elem-3d2a25">{movie.title}</span>
-            </div>
-          )}
-          {showTrailer && movie.trailerUrl && (
-            <HoverTrailer trailerUrl={movie.trailerUrl} isMuted={true} />
-          )}
-          {imdbBadge}
-          {movie.isRecentlyAdded && !movie.isUpcoming && !movie.isLeavingSoon && (
-            <div className="moviecard-elem-66f313">NEW</div>
-          )}
-          {movie.isLeavingSoon && (
-            <div className="moviecard-elem-4c27d4">LEAVING SOON</div>
-          )}
-          {movie.isUpcoming && (
-            <div className="moviecard-elem-4e41c2">COMING SOON</div>
-          )}
-          
+    
           <div className="expanding-meta" style={{
             padding: '14px',
-            opacity: isHovered ? 1 : 0,
-            visibility: isHovered ? 'visible' : 'hidden',
-            transition: 'opacity 0.4s ease, visibility 0.4s',
+            opacity: isExpanded ? 1 : 0,
+            visibility: isExpanded ? 'visible' : 'hidden',
+            maxHeight: isExpanded ? '250px' : '0px',
+            overflow: 'hidden',
+            transition: 'max-height 0.4s ease, opacity 0.4s ease, visibility 0.4s',
             backgroundColor: '#0F1014',
             borderRadius: '0 0 10px 10px',
             width: '100%',
@@ -250,12 +159,6 @@ export const MovieCard: React.FC<MovieCardProps> = ({
             flexDirection: 'column',
             gap: '8px'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', color: '#8f98b0', fontWeight: 600 }}>
-              <span>{movie.duration || '2023'}</span>
-              <span>•</span>
-              <span>{movie.genres?.[0] || (movie.isSeries ? 'Series' : 'Movie')}</span>
-            </div>
-            
             <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{movie.title}</h4>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
               {(!movie.availablePlatforms || movie.availablePlatforms.includes('Hotstar')) && (
@@ -276,6 +179,15 @@ export const MovieCard: React.FC<MovieCardProps> = ({
               >
                 {isMyList ? <Check size={16} color="#FFF" /> : <Plus size={16} color="#FFF" />}
               </button>
+            </div>
+            <div className="moviecard-elem-0e6893" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', fontWeight: 600 }}>
+              <span style={{ color: '#4ade80' }}>{movie.matchScore}% Match</span>
+              <span style={{ border: '1px solid rgba(255,255,255,0.4)', padding: '0 4px', borderRadius: '2px', color: '#FFF' }}>{movie.maturityRating || 'U/A 13+'}</span>
+              <span style={{ color: '#8f98b0' }}>{movie.duration || (movie.isSeries ? 'Series' : 'Film')}</span>
+              <span style={{ border: '1px solid rgba(255,255,255,0.4)', padding: '0 4px', borderRadius: '2px', color: '#FFF' }}>HD</span>
+            </div>
+            <div style={{ fontSize: '0.75rem', color: '#8f98b0', fontWeight: 600 }}>
+              {movie.genres.slice(0, 3).join(' • ')}
             </div>
           </div>
           {platformBadges}
@@ -312,85 +224,39 @@ export const MovieCard: React.FC<MovieCardProps> = ({
         }}
       >
         <div className="nprime-card-inner"
-          onMouseMove={handleMouseMove}
           ref={cardRef}
           style={{
             position: 'absolute',
             top: 0, left: 0, width: '100%',
             background: '#0F171E',
             borderRadius: '6px',
-            boxShadow: isHovered ? '0 12px 30px rgba(0,0,0,0.95), 0 0 20px rgba(0, 168, 225, 0.6)' : '0 4px 12px rgba(0,0,0,0.6)',
-            border: isHovered ? '2px solid #00A8E1' : '1px solid rgba(255,255,255,0.06)',
-            transform: isHovered ? `scale(1.25) rotateX(${-mousePos.y * 15}deg) rotateY(${mousePos.x * 15}deg)` : 'scale(1)',
+            boxShadow: isExpanded ? '0 12px 30px rgba(0,0,0,0.95), 0 0 20px rgba(0, 168, 225, 0.6)' : '0 4px 12px rgba(0,0,0,0.6)',0,0,0.95), 0 0 20px rgba(0, 168, 225, 0.6)' : '0 4px 12px rgba(0,0,0,0.6)',
+            border: isExpanded ? '2px solid #00A8E1' : '1px solid rgba(255,255,255,0.06)',255,255,0.06)',
+            transform: isExpanded ? 'scale(1.05)' : 'scale(1)',
             transformOrigin: 'center center',
-            transition: `transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.45s ease, border 0.35s ease, z-index 0s ${isHovered ? '0s' : '0.45s'}`,
-            zIndex: isHovered ? 50 : 1,
-          }}
+            transition: 'transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s ease, border 0.3s ease, z-index 0s',
+            zIndex: isExpanded ? 50 : 1,
+          overflow: 'visible',
+            }}
         >
           {!isImageLoaded && imgSrc && imgSrc !== 'broken' && (
-            <div style={{
-              position: 'absolute', inset: 0,
-              animation: 'netflixSkeletonPulse 1.5s infinite ease-in-out',
-              zIndex: 0,
-              pointerEvents: 'none',
-              background: 'rgba(255,255,255,0.05)',
-              borderRadius: 'inherit'
-            }} />
-          )}
-          {imgSrc && imgSrc !== 'broken' ? (
-            <img
-              src={imgSrc}
-              alt={movie.title}
-              loading="lazy"
-              decoding="async"
-              onLoad={() => setIsImageLoaded(true)}
-              onError={() => { 
-                if (!imgFailed && fallbackImg && fallbackImg !== primaryImg) {
-                  setImgFailed(true); 
-                } else {
-                  setIsImageLoaded(true); 
-                }
-              }}
-              style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isImageLoaded ? 1 : 0, transition: 'transform 0.4s ease', aspectRatio: top10Rank !== undefined ? '2/3' : '16/9', borderRadius: isHovered ? '6px 6px 0 0' : '6px' }}
-            />
-          ) : imgSrc === 'broken' ? (
-            <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1f2937 0%, #111827 100%)', textAlign: 'center', padding: '10px', aspectRatio: top10Rank !== undefined ? '2/3' : '16/9' }}>
-               <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#888' }}>{movie.title}</span>
-            </div>
-          ) : (
-            <div className="moviecard-elem-54e2d7" style={{ aspectRatio: top10Rank !== undefined ? '2/3' : '16/9' }}>
-              <Film size={24} color="#00A8E1" className="moviecard-elem-fc7b7c" />
-              <span className="moviecard-elem-1fa588">{movie.title}</span>
-            </div>
-          )}
-          {showTrailer && movie.trailerUrl && (
-            <HoverTrailer trailerUrl={movie.trailerUrl} isMuted={true} />
-          )}
-          {imdbBadge}
-          <div style={{ position: 'absolute', top: 0, left: 0, background: '#00A8E1', color: '#FFF', padding: '4px 6px', borderBottomRightRadius: '4px', fontSize: '0.65rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '2px', zIndex: 10, borderTopLeftRadius: '6px' }}>
-            <Check size={12} strokeWidth={4} color="#00A8E1" style={{ background: '#FFF', borderRadius: '50%', padding: '1px' }} /> prime
-          </div>
-          {movie.isRecentlyAdded && !movie.isUpcoming && !movie.isLeavingSoon && (
-            <div className="moviecard-elem-d1c52f">NEWLY ADDED</div>
-          )}
-          {movie.isLeavingSoon && (
-            <div className="moviecard-elem-756e29">LEAVING PRIME</div>
-          )}
-          {movie.isUpcoming && (
-            <div className="moviecard-elem-73fae6">COMING SOON</div>
-          )}
-          
+            
           <div className="expanding-meta" style={{
             padding: '12px',
-            opacity: isHovered ? 1 : 0,
-            visibility: isHovered ? 'visible' : 'hidden',
-            transition: 'opacity 0.4s ease, visibility 0.4s',
+            opacity: isExpanded ? 1 : 0,
+            visibility: isExpanded ? 'visible' : 'hidden',
+            maxHeight: isExpanded ? '250px' : '0px',
+            overflow: isExpanded ? 'visible' : 'hidden',
+            transition: 'max-height 0.4s ease, opacity 0.4s ease, visibility 0.4s',
             backgroundColor: '#0F171E',
             borderRadius: '0 0 6px 6px',
             width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px'
           }}>
-            <h4 className="moviecard-elem-d88b98">{movie.title}</h4>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+            <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{movie.title}</h4>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
               {(!movie.availablePlatforms || movie.availablePlatforms.includes('Prime Video')) && (
                 <button 
                   onClick={(e) => { e.stopPropagation(); onPlay(movie); }}
@@ -417,6 +283,15 @@ export const MovieCard: React.FC<MovieCardProps> = ({
               >
                 <Info size={16} />
               </button>
+            </div>
+            <div className="moviecard-elem-0e6893" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', fontWeight: 600, color: '#8197a4' }}>
+              <span style={{ color: '#4ade80' }}>{movie.matchScore}% Match</span>
+              <span style={{ border: '1px solid rgba(255,255,255,0.4)', padding: '0 4px', borderRadius: '2px', color: '#FFF' }}>{movie.maturityRating || 'U/A 13+'}</span>
+              <span>{movie.duration || (movie.isSeries ? 'Series' : 'Film')}</span>
+              <span style={{ border: '1px solid rgba(255,255,255,0.4)', padding: '0 4px', borderRadius: '2px', color: '#FFF' }}>HD</span>
+            </div>
+            <div style={{ fontSize: '0.75rem', color: '#8197a4', fontWeight: 600 }}>
+              {movie.genres.slice(0, 3).join(' • ')}
             </div>
           </div>
           {platformBadges}
@@ -450,20 +325,20 @@ export const MovieCard: React.FC<MovieCardProps> = ({
         overflow: 'visible',
       }}
     >
-        <div className="netflix-card-inner" 
-          onMouseMove={handleMouseMove}
+        <div className="netflix-card-inner"
           ref={cardRef}
           style={{
           position: 'absolute',
+          overflow: 'hidden',
           top: 0, left: 0,
           width: '100%',
           background: '#141414',
           borderRadius: '4px',
-          boxShadow: isHovered ? '0 20px 40px rgba(0,0,0,0.95), 0 10px 20px rgba(0,0,0,0.7)' : 'none',
-          transform: isHovered ? `scale(1.25) rotateX(${-mousePos.y * 15}deg) rotateY(${mousePos.x * 15}deg)` : 'scale(1)',
+          boxShadow: isExpanded ? '0 20px 40px rgba(0,0,0,0.95), 0 10px 20px rgba(0,0,0,0.7)' : 'none',0,0,0.95), 0 10px 20px rgba(0,0,0,0.7)' : 'none',
+          transform: isExpanded ? 'scale(1.05)' : 'scale(1)',
         transformOrigin: 'center center',
-        transition: `transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.45s ease, z-index 0s ${isHovered ? '0s' : '0.45s'}`,
-        zIndex: isHovered ? 50 : 1,
+        transition: 'transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s ease, background-color 0.4s ease, z-index 0s',
+        zIndex: isExpanded ? 50 : 1,
       }}>
         {/* Netflix N Logo */}
         {parseInt(movie.id.replace(/\D/g, '') || '0') % 3 === 0 && (
@@ -510,7 +385,7 @@ export const MovieCard: React.FC<MovieCardProps> = ({
                 setIsImageLoaded(true); 
               }
             }}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', aspectRatio: top10Rank !== undefined ? '2/3' : '16/9', borderRadius: isHovered ? '4px 4px 0 0' : '4px', opacity: isImageLoaded ? 1 : 0 }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', aspectRatio: top10Rank !== undefined ? '2/3' : '16/9', borderRadius: '4px', opacity: isImageLoaded ? 1 : 0 }}
           />
         ) : imgSrc === 'broken' ? (
           <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1f2937 0%, #111827 100%)', textAlign: 'center', padding: '10px' }}>
@@ -550,12 +425,15 @@ export const MovieCard: React.FC<MovieCardProps> = ({
         {/* Expanding Metadata Box (Below Image) */}
         <div className="expanding-meta" style={{
           padding: '12px',
-          opacity: isHovered ? 1 : 0,
-          visibility: isHovered ? 'visible' : 'hidden',
+          opacity: isExpanded ? 1 : 0,
+          visibility: isExpanded ? 'visible' : 'hidden',
           transition: 'opacity 0.4s ease, visibility 0.4s',
           backgroundColor: '#141414',
           borderRadius: '0 0 4px 4px',
           width: '100%',
+            maxHeight: isExpanded ? '250px' : '0px',
+            padding: isExpanded ? '14px' : '0 14px',
+            overflow: 'hidden',
         }}>
           {/* Action Row */}
           <div className="moviecard-elem-464823">
