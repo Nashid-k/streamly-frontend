@@ -183,7 +183,7 @@ export const MovieCard: React.FC<MovieCardProps> = ({
           onMouseMove={handleMouseMove}
           ref={cardRef}
           style={{
-            overflow: isHovered ? 'visible' : 'hidden',
+            overflow: "hidden",
             position: 'absolute',
             top: 0, left: 0, width: '100%',
             background: '#0F1014',
@@ -248,19 +248,31 @@ export const MovieCard: React.FC<MovieCardProps> = ({
           
           
           
-        <div className="expanding-meta" style={{
-          padding: isHovered ? '12px' : '0 12px',
-          opacity: isHovered ? 1 : 0,
-          visibility: isHovered ? 'visible' : 'hidden',
-          maxHeight: isHovered ? '300px' : '0px',
-          overflow: 'hidden',
-          transition: 'max-height 0.4s ease, padding 0.4s ease, opacity 0.4s ease, visibility 0.4s',
-          backgroundColor: '#141414',
-          borderRadius: '0 0 4px 4px',
-          width: '100%',
-        }}>
+        
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(to top, rgba(15,23,30,0.95) 0%, rgba(15,23,30,0.5) 50%, transparent 100%)',
+            opacity: isHovered ? 1 : 0,
+            transition: 'opacity 0.3s ease',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'flex-end',
+            padding: '12px',
+            zIndex: 20,
+            pointerEvents: isHovered ? 'auto' : 'none'
+          }}>
             <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{movie.title}</h4>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.7rem', fontWeight: 600, color: '#8197a4', marginTop: '4px' }}>
+              <span style={{ color: '#4ade80' }}>{movie.matchScore}% Match</span>
+              <span style={{ border: '1px solid rgba(255,255,255,0.4)', padding: '0 4px', borderRadius: '2px', color: '#FFF' }}>{movie.maturityRating || 'U/A 13+'}</span>
+              <span>{movie.duration || (movie.isSeries ? 'Series' : 'Film')}</span>
+              <span style={{ border: '1px solid rgba(255,255,255,0.4)', padding: '0 4px', borderRadius: '2px', color: '#FFF' }}>HD</span>
+            </div>
+            <div style={{ fontSize: '0.7rem', color: '#8197a4', fontWeight: 600, marginTop: '2px' }}>
+              {movie.genres.slice(0, 3).join(' • ')}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px' }}>
               {(!movie.availablePlatforms || movie.availablePlatforms.includes('Prime Video')) && (
                 <button 
                   onClick={(e) => { e.stopPropagation(); onPlay(movie); }}
@@ -287,15 +299,6 @@ export const MovieCard: React.FC<MovieCardProps> = ({
               >
                 <Info size={16} />
               </button>
-            </div>
-            <div className="moviecard-elem-0e6893" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', fontWeight: 600, color: '#8197a4' }}>
-              <span style={{ color: '#4ade80' }}>{movie.matchScore}% Match</span>
-              <span style={{ border: '1px solid rgba(255,255,255,0.4)', padding: '0 4px', borderRadius: '2px', color: '#FFF' }}>{movie.maturityRating || 'U/A 13+'}</span>
-              <span>{movie.duration || (movie.isSeries ? 'Series' : 'Film')}</span>
-              <span style={{ border: '1px solid rgba(255,255,255,0.4)', padding: '0 4px', borderRadius: '2px', color: '#FFF' }}>HD</span>
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#8197a4', fontWeight: 600 }}>
-              {movie.genres.slice(0, 3).join(' • ')}
             </div>
           </div>
           {platformBadges}
