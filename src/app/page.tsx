@@ -522,7 +522,9 @@ export default function Home() {
   // Initial Data Fetching & Dynamic Platform Switching Sync
   useEffect(() => {
     let isMounted = true;
-    setIsLoadingPage(true);
+    if (!hasCompletedInitialLoad) {
+      setIsLoadingPage(true);
+    }
     setIsSwitchingPlatform(true);
     
     async function loadData() {
@@ -710,8 +712,8 @@ export default function Home() {
 
         if (fuzzyResults.length > 0 && isMounted && nonce === currentSearchNonce.current) {
           setSearchResults(fuzzyResults);
-          setIsSearching(false);
-          return; // Instant results shown, skip network request!
+          // We DO NOT return here, because we want the network request to fetch the fully 
+          // hydrated metadata (including cross-platform availability) from searchMovies API!
         }
 
         try {

@@ -387,7 +387,7 @@ input:focus-visible,
 
 .classic-grid div.movie-card {
   width: 100% !important;
-  height: auto !important;
+  height: auto;
   flex: none !important;
 }
 
@@ -647,14 +647,14 @@ main.hotstar-main-content { padding-left: 96px; }
   .catalog-row-track div.movie-card.netflix-card, 
   .catalog-row-track div.movie-card.nprime-card { 
     width: 24vw !important; 
-    height: auto !important; 
+    aspect-ratio: 16/9 !important; 
     aspect-ratio: 16/9 !important; 
     flex: 0 0 24vw !important;
   }
   
   .catalog-row-track div.movie-card.hotstar-card { 
     width: 18vw !important; 
-    height: auto !important; 
+    aspect-ratio: 16/9 !important; 
     aspect-ratio: 2/3 !important; 
     flex: 0 0 18vw !important;
   }
@@ -668,7 +668,7 @@ main.hotstar-main-content { padding-left: 96px; }
   .classic-grid div.movie-card {
     width: 100% !important;
     flex: none !important;
-    height: auto !important;
+    height: auto;
   }
   
   div.netflix-card-inner, img.netflix-card-img { 
@@ -1002,13 +1002,13 @@ main.hotstar-main-content { padding-left: 96px; }
   .catalog-row-track div.movie-card.netflix-card, 
   .catalog-row-track div.movie-card.nprime-card { 
     width: 38vw !important; 
-    height: auto !important; 
+    aspect-ratio: 16/9 !important; 
     aspect-ratio: 16/9 !important; 
     flex: 0 0 38vw !important;
   }
   .catalog-row-track div.movie-card.hotstar-card { 
     width: 28vw !important; 
-    height: auto !important; 
+    aspect-ratio: 16/9 !important; 
     aspect-ratio: 2/3 !important; 
     flex: 0 0 28vw !important;
   }
@@ -1017,7 +1017,7 @@ main.hotstar-main-content { padding-left: 96px; }
   .classic-grid div.movie-card {
     width: 100% !important;
     flex: none !important;
-    height: auto !important;
+    height: auto;
   }
   
   div.netflix-card-inner, img.netflix-card-img { 

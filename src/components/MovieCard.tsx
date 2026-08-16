@@ -190,7 +190,7 @@ export const MovieCard: React.FC<MovieCardProps> = ({
             borderRadius: '12px',
             boxShadow: isHovered ? '0 12px 32px rgba(0,0,0,0.85), 0 0 16px rgba(31, 128, 224, 0.6)' : '0 4px 14px rgba(0,0,0,0.5)',
             border: isHovered ? '2px solid rgba(31, 128, 224, 0.9)' : '1px solid rgba(255,255,255,0.05)',
-            transform: isHovered ? `scale(1.25) rotateX(${-mousePos.y * 15}deg) rotateY(${mousePos.x * 15}deg)` : 'scale(1)',
+            transform: isHovered ? `scale(1.75) rotateX(${-mousePos.y * 15}deg) rotateY(${mousePos.x * 15}deg)` : 'scale(1)',
             transformOrigin: 'center center',
             transition: `transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.45s ease, border 0.35s ease, z-index 0s ${isHovered ? '0s' : '0.45s'}`,
             zIndex: isHovered ? 50 : 1,
@@ -352,7 +352,7 @@ export const MovieCard: React.FC<MovieCardProps> = ({
             background: '#0f171e', // Prime blue
             borderRadius: '8px',
             boxShadow: isHovered ? '0 20px 40px rgba(0,0,0,0.95), 0 10px 20px rgba(0,0,0,0.7)' : 'none',
-            transform: isHovered ? `scale(1.45) rotateX(${-mousePos.y * 15}deg) rotateY(${mousePos.x * 15}deg)` : 'scale(1)',
+            transform: isHovered ? `scale(1.75) rotateX(${-mousePos.y * 15}deg) rotateY(${mousePos.x * 15}deg)` : 'scale(1)',
             transformOrigin: 'center center',
             transition: `transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), z-index 0s ${isHovered ? '0s' : '0.45s'}`,
             zIndex: isHovered ? 50 : 1,
@@ -406,24 +406,23 @@ export const MovieCard: React.FC<MovieCardProps> = ({
             ) : (
               <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 800, color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{movie.title}</h4>
             )}
-            <div style={{ color: '#00A8E1', fontSize: '0.65rem', fontWeight: 700 }}>Watch for free</div>
             
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '2px 0' }}>
               {(!movie.availablePlatforms || movie.availablePlatforms.includes('Prime Video')) && (
                 <button 
                   onClick={(e) => { e.stopPropagation(); onPlay(movie); }}
                   title="Play"
-                  style={{ background: '#00A8E1', color: '#FFF', border: 'none', borderRadius: '50%', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 0.2s', paddingLeft: '2px' }}
+                  style={{ background: '#00A8E1', color: '#FFF', border: 'none', borderRadius: '4px', padding: '6px 16px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', transition: 'background 0.2s', fontWeight: 700, fontSize: '0.8rem' }}
                   onMouseEnter={(e) => e.currentTarget.style.background = '#0f79af'}
                   onMouseLeave={(e) => e.currentTarget.style.background = '#00A8E1'}
                 >
-                  <Play size={14} fill="#FFF" color="#FFF" />
+                  <Play size={14} fill="#FFF" color="#FFF" /> Play
                 </button>
               )}
               <button 
                 onClick={(e) => { e.stopPropagation(); setShowTrailer(true); }}
                 title="Watch Trailer"
-                style={{ background: 'rgba(255,255,255,0.15)', color: '#FFF', border: '1.5px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
+                style={{ background: 'rgba(255,255,255,0.15)', color: '#FFF', border: '1.5px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.25)'; e.currentTarget.style.borderColor = '#FFF'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)'; }}
               >
@@ -432,7 +431,7 @@ export const MovieCard: React.FC<MovieCardProps> = ({
               <button 
                 onClick={(e) => { e.stopPropagation(); onToggleMyList(movie.id); }}
                 title="Add to Watchlist"
-                style={{ background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s', color: '#FFF' }}
+                style={{ background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s', color: '#FFF' }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.25)'; e.currentTarget.style.borderColor = '#FFF'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)'; }}
               >
@@ -494,7 +493,7 @@ export const MovieCard: React.FC<MovieCardProps> = ({
           background: '#141414',
           borderRadius: '4px',
           boxShadow: isHovered ? '0 20px 40px rgba(0,0,0,0.95), 0 10px 20px rgba(0,0,0,0.7)' : 'none',
-          transform: isHovered ? `scale(1.25) rotateX(${-mousePos.y * 15}deg) rotateY(${mousePos.x * 15}deg)` : 'scale(1)',
+          transform: isHovered ? `scale(1.75) rotateX(${-mousePos.y * 15}deg) rotateY(${mousePos.x * 15}deg)` : 'scale(1)',
         transformOrigin: 'center center',
         transition: `transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.45s ease, z-index 0s ${isHovered ? '0s' : '0.45s'}`,
         zIndex: isHovered ? 50 : 1,

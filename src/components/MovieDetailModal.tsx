@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
-import { X, Play, Plus, Check, ThumbsUp, ChevronDown, Volume2, VolumeX, Download, Sparkles } from 'lucide-react';
+import { X, Play, Plus, Check, ThumbsUp, ThumbsDown, Share2, ArrowLeft, ChevronDown, Volume2, VolumeX, Download, Sparkles } from 'lucide-react';
 import { usePlatform } from './PlatformContext';
 import { Movie, Episode } from '../types';
 import { fetchMovieById, fetchSeasonEpisodes, fetchRecommendationsApi } from '../lib/api';
@@ -68,7 +68,7 @@ function useMovieDetails(movie: Movie | null, selectedSeason: number, platform: 
     setIsLoadingDetails(true);
     
     // Fetch full movie details
-    const fetchPlatform = movie.platform || platform;
+    const fetchPlatform = platform;
     fetchMovieById(movie.id, fetchPlatform)
       .then(data => { 
         if (isMounted) {
@@ -99,7 +99,7 @@ function useMovieDetails(movie: Movie | null, selectedSeason: number, platform: 
     }
     
     setIsLoadingEpisodes(true);
-    const fetchPlatform = movie.platform || platform;
+    const fetchPlatform = platform;
     fetchSeasonEpisodes(movie.id, selectedSeason, fetchPlatform)
       .then(data => { 
         if (isMounted) {
@@ -138,18 +138,33 @@ const decodeTrailerUrl = (encodedUrl: string): string => {
   }
 };
 
-function useTrailerPlayer(encodedUrl: string, backdropUrl: string) {
+function useTrailerPlayer(encodedUrl: string, backdropUrl: string, delayMs: number = 0) {
   const [isMuted, setIsMuted] = useState(true);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [shouldLoadIframe, setShouldLoadIframe] = useState(delayMs === 0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const trailerUrl = encodedUrl ? decodeTrailerUrl(encodedUrl) : '';
   const videoIdMatch = trailerUrl.match(/embed\/([^?]+)/);
   const videoId = videoIdMatch ? videoIdMatch[1] : '';
 
+  useEffect(() => {
+    if (delayMs > 0 && videoId) {
+      const timer = setTimeout(() => {
+        setShouldLoadIframe(true);
+      }, delayMs);
+      return () => clearTimeout(timer);
+    }
+  }, [delayMs, videoId]);
+
   // When the video changes, reset the playing state so the poster shows while loading
   useEffect(() => {
     setIsVideoPlaying(false);
-  }, [videoId]);
+    if (delayMs > 0) {
+      setShouldLoadIframe(false);
+      const timer = setTimeout(() => setShouldLoadIframe(true), delayMs);
+      return () => clearTimeout(timer);
+    }
+  }, [videoId, delayMs]);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -208,7 +223,7 @@ function useTrailerPlayer(encodedUrl: string, backdropUrl: string) {
           opacity: isVideoPlaying && videoId ? 0 : 1, transition: 'opacity 0.8s ease'
         }} 
       />
-      {videoId && (
+      {shouldLoadIframe && videoId && (
         <iframe
           ref={iframeRef}
           onLoad={handleIframeLoad}
@@ -248,9 +263,7 @@ function SwitchingLoader({ targetPlatform }: { targetPlatform: string }) {
   );
 }
 
-function NetflixModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isMyList, similarMovies, platform }: MovieDetailModalProps & { platform: string }) {
-  const [selectedSeason, setSelectedSeason] = useState(1);
-  const { detailedMovie, episodes, isLoadingEpisodes } = useMovieDetails(movie, selectedSeason, platform);
+function NetflixModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isMyList, similarMovies, platform, detailedMovie, episodes, isLoadingEpisodes, selectedSeason, setSelectedSeason }: MovieDetailModalProps & { platform: string, detailedMovie: Movie | null, episodes: Episode[], isLoadingEpisodes: boolean, selectedSeason: number, setSelectedSeason: (season: number) => void }) {
   const displayMovie = detailedMovie || movie;
   const isTvShow = Boolean(displayMovie?.isSeries || movie?.isSeries || (displayMovie?.seasonsCount ?? 0) > 0);
   const [activeTab, setActiveTab] = useState<'episodes' | 'similar'>(isTvShow ? 'episodes' : 'similar');
@@ -270,7 +283,7 @@ function NetflixModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, i
         setIsSwitching(false);
       }, 3500);
     } else {
-      onPlay(movie);
+      onPlay(displayMovie!);
     }
   };
   const { isMuted, toggleMute, renderTrailer, hasTrailer } = useTrailerPlayer(displayMovie?.trailerUrl || '', movie?.backdropUrl || movie?.posterUrl || '');
@@ -437,7 +450,7 @@ function NetflixModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, i
                   </>
                 ) : (
                   episodes.map((ep, idx) => (
-                    <div key={ep.id} onClick={() => onPlay(movie, ep)} style={{ display: 'flex', gap: '16px', padding: '16px', borderRadius: '4px', backgroundColor: '#222', cursor: 'pointer', alignItems: 'center' }}>
+                    <div key={ep.id} onClick={() => onPlay(displayMovie!, ep)} style={{ display: 'flex', gap: '16px', padding: '16px', borderRadius: '4px', backgroundColor: '#222', cursor: 'pointer', alignItems: 'center' }}>
                       <div style={{ fontSize: '1.5rem', color: '#D2D2D2', width: '30px', textAlign: 'center' }}>{idx + 1}</div>
                       <div style={{ position: 'relative', width: '130px', height: '73px', flexShrink: 0, borderRadius: '4px', overflow: 'hidden' }}>
                         <img src={ep.thumbnailUrl || movie.backdropUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -478,19 +491,19 @@ function NetflixModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, i
   );
 }
 
-function PrimeModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isMyList, similarMovies, platform }: MovieDetailModalProps & { platform: string }) {
-  const [selectedSeason, setSelectedSeason] = useState(1);
-  const { detailedMovie, episodes, isLoadingEpisodes } = useMovieDetails(movie, selectedSeason, platform);
+function PrimeModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isMyList, similarMovies, platform, detailedMovie, episodes, isLoadingEpisodes, selectedSeason, setSelectedSeason }: MovieDetailModalProps & { platform: string, detailedMovie: Movie | null, episodes: Episode[], isLoadingEpisodes: boolean, selectedSeason: number, setSelectedSeason: (season: number) => void }) {
   const displayMovie = detailedMovie || movie;
   const isTvShow = Boolean(displayMovie?.isSeries || movie?.isSeries || (displayMovie?.seasonsCount ?? 0) > 0);
   const [activeTab, setActiveTab] = useState<'episodes' | 'related' | 'details'>(isTvShow ? 'episodes' : 'related');
   const [isLiked, setIsLiked] = useState(false);
+  const [isDisliked, setIsDisliked] = useState(false);
   const { setPlatform } = usePlatform();
   const platformNameMap: Record<string, string> = { nflix: "Netflix", nprime: "Prime Video", hotstar: "Hotstar" };
   const nativePlatformName = platformNameMap[platform];
   const isAvailableNative = !movie?.availablePlatforms || movie.availablePlatforms.includes(nativePlatformName);
   const alternativePlatform = movie?.availablePlatforms?.find(p => p !== nativePlatformName);
   const [isSwitching, setIsSwitching] = useState(false);
+  
   const handlePlayClick = () => { if (!movie) return;
     if (!isAvailableNative && alternativePlatform) {
       setIsSwitching(true);
@@ -500,174 +513,260 @@ function PrimeModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isM
         setIsSwitching(false);
       }, 3500);
     } else {
-      onPlay(movie);
+      onPlay(displayMovie!);
     }
   };
-  const { isMuted, toggleMute, renderTrailer, hasTrailer } = useTrailerPlayer(displayMovie?.trailerUrl || '', movie?.backdropUrl || movie?.posterUrl || '');
-  const dominantColor = useDominantColor(movie?.backdropUrl || movie?.posterUrl || undefined, 'rgba(0,0,0,0.65)');
+
+  const { isMuted, toggleMute, renderTrailer, hasTrailer } = useTrailerPlayer(displayMovie?.trailerUrl || '', movie?.backdropUrl || movie?.posterUrl || '', 5000);
 
   if (!movie) return null;
   const matchScore = (displayMovie?.matchScore || parseInt(movie.id.replace(/\D/g, '') || '0') % 30 + 70);
   const rawScore = displayMovie?.score || (matchScore / 10);
   const ratingText = rawScore > 0 ? `${rawScore.toFixed(1)}` : 'N/A';
+  
+  // Fake badges
+  const isNew = parseInt(movie.id) % 3 === 0;
 
   return (
-    <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title" onClick={onClose} style={{
-      position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start',
-      backgroundColor: dominantColor, backdropFilter: 'blur(30px)', overflowY: 'auto', padding: '32px 0',
-      transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+    <div className="prime-detail-page" role="dialog" aria-modal="true" style={{
+      position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', flexDirection: 'column',
+      backgroundColor: '#0f171e', overflowY: 'auto', overflowX: 'hidden', color: '#FFF',
+      animation: 'fadeIn 0.3s ease'
     }}>
-      <div className="detail-dialog" onClick={e => e.stopPropagation()} style={{
-        width: '100%', maxWidth: '960px', backgroundColor: '#0f171e', borderRadius: '8px',
-        overflow: 'hidden', position: 'relative', color: '#FFF', display: 'flex', flexDirection: 'column',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.8)', animation: 'fadeIn 0.3s ease', maxHeight: '90vh',
-        viewTransitionName: `movie-card-${movie.id}`
-      }}>
-        {isSwitching && alternativePlatform && <SwitchingLoader targetPlatform={alternativePlatform} />}
-        <button onClick={onClose} autoFocus aria-label="Close modal" style={{
-          position: 'absolute', top: '20px', right: '20px', width: '40px', height: '40px',
-          borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', border: 'none', color: '#FFF',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 40, cursor: 'pointer'
+      {isSwitching && alternativePlatform && <SwitchingLoader targetPlatform={alternativePlatform} />}
+      
+      {/* Header Back Button */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: '24px 40px', zIndex: 50, display: 'flex', alignItems: 'center' }}>
+        <button onClick={onClose} style={{
+          background: 'rgba(0,0,0,0.4)', border: 'none', color: '#FFF', borderRadius: '50%',
+          width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+          backdropFilter: 'blur(4px)'
         }}>
-          <X size={24} />
+          <ArrowLeft size={24} />
         </button>
+      </div>
 
-        <div className="detail-hero" style={{ position: 'relative', width: '100%', aspectRatio: '16/9', maxHeight: '480px', minHeight: '250px', flexShrink: 0, overflow: 'hidden' }}>
-          {renderTrailer()}
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, #0f171e 30%, rgba(15,23,30,0) 80%), linear-gradient(to top, #0f171e 0%, transparent 40%)', zIndex: 15 }} />
+      <div className="detail-hero" style={{ position: 'relative', width: '100%', height: '80vh', minHeight: '500px', flexShrink: 0, overflow: 'hidden' }}>
+        {renderTrailer()}
+        
+        {/* Gradients to blend into background */}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, #0f171e 0%, rgba(15,23,30,0.8) 20%, rgba(15,23,30,0) 60%), linear-gradient(to top, #0f171e 0%, transparent 30%)', zIndex: 15, pointerEvents: 'none' }} />
 
-          <div className="detail-hero-content" style={{ position: 'absolute', bottom: '30px', left: '40px', right: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', zIndex: 20 }}>
-            <div className="detail-hero-info" style={{ maxWidth: '50%' }}>
-              {displayMovie?.logoUrl ? (
-                <img src={displayMovie.logoUrl} style={{ maxWidth: '300px', maxHeight: '100px', objectFit: 'contain', marginBottom: '10px' }} />
-              ) : (
-                <h2 style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '10px' }}>{movie.title}</h2>
-              )}
+        {hasTrailer && (
+          <button onClick={toggleMute} style={{
+            position: 'absolute', top: '30px', right: '40px',
+            background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%',
+            width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF',
+            zIndex: 50
+          }}>
+            {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
+          </button>
+        )}
 
-              <div style={{ color: '#00a8e1', fontWeight: 700, fontSize: '0.9rem', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Check size={16} color="#00a8e1" /> Included with Prime
+        <div className="detail-hero-content" style={{ position: 'absolute', bottom: '10%', left: '40px', right: '40px', display: 'flex', justifyContent: 'flex-start', alignItems: 'flex-end', zIndex: 20 }}>
+          <div className="detail-hero-info" style={{ maxWidth: '650px' }}>
+            {displayMovie?.logoUrl ? (
+              <img src={displayMovie.logoUrl} style={{ maxWidth: '400px', maxHeight: '140px', objectFit: 'contain', marginBottom: '16px' }} />
+            ) : (
+              <h1 style={{ fontSize: '3.5rem', fontWeight: 800, margin: '0 0 16px 0', textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>{movie.title}</h1>
+            )}
+
+            <div style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '8px', letterSpacing: '0.5px' }}>
+              Subscribe
+            </div>
+            <div style={{ color: '#00a8e1', fontWeight: 700, fontSize: '1.05rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Check size={18} color="#00a8e1" /> Watch with a Prime membership
+            </div>
+
+            {(isTvShow && isNew) && (
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', fontSize: '0.9rem', fontWeight: 700 }}>
+                <span style={{ backgroundColor: '#fff', color: '#000', padding: '2px 6px', borderRadius: '2px' }}>SEASON PREMIERE</span>
+                <span style={{ color: '#00a8e1' }}>New episode Wednesday</span>
               </div>
+            )}
 
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                <button onClick={handlePlayClick} style={{
-                  background: '#0f79af', color: '#FFF', border: 'none', borderRadius: '4px', padding: '12px 32px',
-                  fontSize: '1.1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer'
-                }}>
-                  <Play fill="#FFF" size={20} /> {(!isAvailableNative && alternativePlatform) ? `Watch on ${alternativePlatform}` : 'Play'}
+            <p style={{ fontSize: '1.15rem', lineHeight: 1.5, color: '#FFF', fontWeight: 500, marginBottom: '24px', textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>
+              {displayMovie?.description || movie.description}
+            </p>
+
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', fontSize: '1.05rem', color: '#8197a4', fontWeight: 600, marginBottom: '24px', flexWrap: 'wrap' }}>
+              {(displayMovie?.tags?.slice(0,3) || []).map((t: string, i: number, arr: string[]) => (
+                <React.Fragment key={t}>
+                  <span style={{ color: '#FFF' }}>{t}</span>
+                  {i < arr.length - 1 && <span>•</span>}
+                </React.Fragment>
+              ))}
+              <span style={{ color: '#FFF', marginLeft: '12px' }}>{(displayMovie?.releaseDate || movie?.releaseDate || '').split('-')[0]}</span>
+              {isTvShow && <span style={{ color: '#FFF' }}>{displayMovie?.seasonsCount || 1} seasons</span>}
+              <span style={{ border: '1px solid #8197a4', padding: '1px 6px', borderRadius: '3px', fontSize: '0.85rem' }}>U/A 16+</span>
+            </div>
+
+            <div style={{ fontSize: '1.05rem', color: '#8197a4', marginBottom: '32px' }}>
+              Cast: <span style={{ color: '#FFF' }}>{formatCastNames(displayMovie?.cast)}</span>
+            </div>
+
+            {/* Circular Buttons Row */}
+            <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                <button onClick={() => {
+                  const scrollable = document.querySelector('.prime-detail-page');
+                  if (scrollable) scrollable.scrollTo({ top: 0, behavior: 'smooth' });
+                  if (isMuted) toggleMute();
+                }} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF', transition: 'background 0.2s' }}>
+                  <Play fill="#FFF" size={24} />
                 </button>
-                <button onClick={() => onToggleMyList(movie.id)} style={{
-                  background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%',
-                  width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF'
-                }}>
-                  {isMyList ? <Check size={22} /> : <Plus size={22} />}
+                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Trailer</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                <button onClick={() => onToggleMyList(movie.id)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF', transition: 'background 0.2s' }}>
+                  {isMyList ? <Check size={26} /> : <Plus size={26} />}
                 </button>
-                <button onClick={() => setIsLiked(!isLiked)} style={{
-                  background: isLiked ? '#00A8E1' : 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%',
-                  width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF',
-                  transition: 'background 0.2s'
-                }}>
-                  <ThumbsUp size={22} fill={isLiked ? '#FFF' : 'none'} />
+                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Watchlist</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                <button onClick={() => { setIsLiked(!isLiked); setIsDisliked(false); }} style={{ background: isLiked ? '#00A8E1' : 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF', transition: 'background 0.2s' }}>
+                  <ThumbsUp size={24} fill={isLiked ? '#FFF' : 'none'} />
                 </button>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Like</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                <button onClick={() => { setIsDisliked(!isDisliked); setIsLiked(false); }} style={{ background: isDisliked ? '#FFF' : 'rgba(255,255,255,0.2)', color: isDisliked ? '#000' : '#FFF', border: 'none', borderRadius: '50%', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 0.2s' }}>
+                  <ThumbsDown size={24} fill={isDisliked ? '#000' : 'none'} />
+                </button>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Not for me</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                <button style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF', transition: 'background 0.2s' }}>
+                  <Share2 size={24} />
+                </button>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Share</span>
               </div>
             </div>
 
-            {hasTrailer && (
-              <button onClick={toggleMute} style={{
-                background: 'rgba(15,23,30,0.6)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%',
-                width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF',
-                zIndex: 50
-              }}>
-                {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-              </button>
-            )}
+            {/* Big Play Button */}
+            <button onClick={handlePlayClick} style={{
+              background: '#FFF', color: '#000', border: 'none', borderRadius: '6px', padding: '16px 48px',
+              fontSize: '1.25rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '12px', cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.3)', transition: 'transform 0.2s ease, background 0.2s ease'
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = '#e6e6e6'}
+            onMouseLeave={e => e.currentTarget.style.background = '#FFF'}
+            >
+              <Play fill="#000" size={26} /> {(!isAvailableNative && alternativePlatform) ? `Watch on ${alternativePlatform}` : 'Play'}
+            </button>
           </div>
         </div>
+      </div>
 
-        <div className="detail-body" style={{ padding: '0 40px 40px 40px', overflowY: 'auto' }}>
-          <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '16px', fontSize: '0.95rem', color: '#8197a4', fontWeight: 600 }}>
-            <span style={{ backgroundColor: '#F5C518', color: '#000', padding: '1px 4px', borderRadius: '3px', fontWeight: 800 }}>IMDb {ratingText}</span>
-            <span>{(displayMovie?.releaseDate || movie?.releaseDate || '').split('-')[0]}</span>
-            <span>{displayMovie?.duration || movie?.duration}</span>
-            <span style={{ border: '1px solid #8197a4', padding: '1px 4px', borderRadius: '3px', fontSize: '0.8rem' }}>X-Ray</span>
-            <span style={{ border: '1px solid #8197a4', padding: '1px 4px', borderRadius: '3px', fontSize: '0.8rem' }}>UHD</span>
-            <span style={{ border: '1px solid #8197a4', padding: '1px 4px', borderRadius: '3px', fontSize: '0.8rem' }}>AD</span>
-          </div>
-          <p style={{ fontSize: '1.05rem', lineHeight: 1.6, color: '#FFF', fontWeight: 400, maxWidth: '80%' }}>
-            {displayMovie?.longDescription || movie.description}
-          </p>
+      <div className="detail-body" style={{ padding: '0 40px 60px 40px', maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
+        <div style={{ display: 'flex', gap: '32px', borderBottom: '2px solid rgba(255,255,255,0.1)', marginBottom: '32px' }}>
+          {(displayMovie?.isSeries || movie.isSeries || (displayMovie?.seasonsCount ?? 0) > 0) && <button onClick={() => setActiveTab('episodes')} style={{ background: 'none', border: 'none', color: activeTab === 'episodes' ? '#FFF' : '#8197a4', fontSize: '1.25rem', fontWeight: 700, paddingBottom: '16px', borderBottom: activeTab === 'episodes' ? '3px solid #FFF' : '3px solid transparent', cursor: 'pointer', transition: 'color 0.2s' }}>Episodes</button>}
+          <button onClick={() => setActiveTab('related')} style={{ background: 'none', border: 'none', color: activeTab === 'related' ? '#FFF' : '#8197a4', fontSize: '1.25rem', fontWeight: 700, paddingBottom: '16px', borderBottom: activeTab === 'related' ? '3px solid #FFF' : '3px solid transparent', cursor: 'pointer', transition: 'color 0.2s' }}>Related</button>
+          <button onClick={() => setActiveTab('details')} style={{ background: 'none', border: 'none', color: activeTab === 'details' ? '#FFF' : '#8197a4', fontSize: '1.25rem', fontWeight: 700, paddingBottom: '16px', borderBottom: activeTab === 'details' ? '3px solid #FFF' : '3px solid transparent', cursor: 'pointer', transition: 'color 0.2s' }}>Details</button>
+        </div>
 
-          <div style={{ display: 'flex', gap: '20px', borderBottom: '1px solid rgba(255,255,255,0.1)', marginTop: '30px', marginBottom: '24px' }}>
-            {(displayMovie?.isSeries || movie.isSeries || (displayMovie?.seasonsCount ?? 0) > 0) && <button onClick={() => setActiveTab('episodes')} style={{ background: 'none', border: 'none', color: activeTab === 'episodes' ? '#FFF' : '#8197a4', fontSize: '1.1rem', fontWeight: 700, paddingBottom: '12px', borderBottom: activeTab === 'episodes' ? '2px solid #FFF' : '2px solid transparent', cursor: 'pointer' }}>Episodes</button>}
-            <button onClick={() => setActiveTab('related')} style={{ background: 'none', border: 'none', color: activeTab === 'related' ? '#FFF' : '#8197a4', fontSize: '1.1rem', fontWeight: 700, paddingBottom: '12px', borderBottom: activeTab === 'related' ? '2px solid #FFF' : '2px solid transparent', cursor: 'pointer' }}>Related</button>
-            <button onClick={() => setActiveTab('details')} style={{ background: 'none', border: 'none', color: activeTab === 'details' ? '#FFF' : '#8197a4', fontSize: '1.1rem', fontWeight: 700, paddingBottom: '12px', borderBottom: activeTab === 'details' ? '2px solid #FFF' : '2px solid transparent', cursor: 'pointer' }}>Details</button>
-          </div>
-
-          {activeTab === 'episodes' && (displayMovie?.isSeries || movie.isSeries || (displayMovie?.seasonsCount ?? 0) > 0) && (
-             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '10px' }}>
-                <select value={selectedSeason} onChange={e => setSelectedSeason(Number(e.target.value))} style={{ background: '#19232d', color: '#FFF', border: '1px solid rgba(255,255,255,0.2)', padding: '10px 16px', borderRadius: '4px', fontSize: '1rem', cursor: 'pointer', width: 'fit-content', outline: 'none' }}>
+        {activeTab === 'episodes' && (displayMovie?.isSeries || movie.isSeries || (displayMovie?.seasonsCount ?? 0) > 0) && (
+           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ fontSize: '1.1rem', fontWeight: 700 }}>{episodes.length} episodes</div>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <select value={selectedSeason} onChange={e => setSelectedSeason(Number(e.target.value))} style={{ background: 'rgba(255,255,255,0.1)', color: '#FFF', border: '1px solid rgba(255,255,255,0.3)', padding: '12px 20px', borderRadius: '4px', fontSize: '1.1rem', fontWeight: 600, cursor: 'pointer', outline: 'none' }}>
                   {Array.from({ length: displayMovie?.seasonsCount || 1 }, (_, i) => i + 1).map(s => <option key={s} value={s} style={{ background: '#24303c', color: '#FFF' }}>Season {s}</option>)}
                 </select>
               </div>
-              {isLoadingEpisodes ? (
-                <>
-                  <EpisodeSkeleton />
-                  <EpisodeSkeleton />
-                  <EpisodeSkeleton />
-                </>
-              ) : (
-                episodes.map((ep, idx) => (
-                  <div key={ep.id} onClick={() => onPlay(movie, ep)} style={{ display: 'flex', gap: '24px', padding: '16px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', cursor: 'pointer', alignItems: 'center' }}>
-                    <div style={{ position: 'relative', width: '160px', height: '90px', flexShrink: 0, borderRadius: '4px', overflow: 'hidden' }}>
-                      <img src={ep.thumbnailUrl || movie.backdropUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)' }}><Play size={30} fill="#FFF" color="#FFF" /></div>
-                    </div>
-                    <div style={{ flex: 1, paddingRight: '16px' }}>
-                      <h4 style={{ margin: '0 0 8px 0', fontSize: '1.1rem' }}>{idx + 1}. {ep.title}</h4>
-                      <p style={{ fontSize: '0.9rem', color: '#8197a4', margin: '0 0 8px 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{ep.description || 'No description available for this episode.'}</p>
-                      <span style={{ fontSize: '0.8rem', color: '#8197a4' }}>{ep.duration}</span>
+            </div>
+            
+            {isLoadingEpisodes ? (
+              <>
+                <EpisodeSkeleton />
+                <EpisodeSkeleton />
+                <EpisodeSkeleton />
+              </>
+            ) : (
+              episodes.map((ep, idx) => (
+                <div key={ep.id} onClick={() => onPlay(displayMovie!, ep)} style={{ display: 'flex', gap: '24px', padding: '24px 0', borderBottom: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', alignItems: 'center' }}>
+                  <div style={{ position: 'relative', width: '220px', height: '124px', flexShrink: 0, borderRadius: '4px', overflow: 'hidden', backgroundColor: '#111' }}>
+                    <img src={ep.thumbnailUrl || movie.backdropUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.2)', transition: 'background 0.2s' }}
+                      onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.4)'}
+                      onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.2)'}
+                    >
+                      <Play size={40} fill="#FFF" color="#FFF" />
                     </div>
                   </div>
-                ))
-              )}
-             </div>
-          )}
-
-          {activeTab === 'related' && (
-            <div>
-              <h3 style={{ fontSize: '1.2rem', marginBottom: '16px' }}>Customers who watched this also watched</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
-                {similarMovies.slice(0, 10).map(sim => (
-                  <div key={sim.id} onClick={() => onOpenDetails(sim)} style={{ borderRadius: '8px', overflow: 'hidden', cursor: 'pointer', backgroundColor: 'rgba(255,255,255,0.05)' }}>
-                    <img src={sim.backdropUrl || sim.posterUrl} style={{ width: '100%', height: '120px', objectFit: 'cover' }} />
-                    <div style={{ padding: '12px' }}>
-                      <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#00a8e1', marginBottom: '4px' }}>✓ Prime</div>
-                      <div style={{ fontSize: '1rem', fontWeight: 700 }}>{sim.title}</div>
+                  <div style={{ flex: 1, paddingRight: '16px' }}>
+                    <h4 style={{ margin: '0 0 12px 0', fontSize: '1.25rem', fontWeight: 700 }}>{idx + 1}. {ep.title}</h4>
+                    <p style={{ fontSize: '1rem', color: '#8197a4', margin: '0 0 16px 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.5 }}>{ep.description || 'No description available for this episode.'}</p>
+                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center', fontSize: '0.9rem', color: '#8197a4', fontWeight: 600 }}>
+                      <span style={{ border: '1px solid #8197a4', padding: '1px 6px', borderRadius: '3px' }}>U/A 16+</span>
+                      <span>{ep.duration}</span>
+                      <span>{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
+                </div>
+              ))
+            )}
+           </div>
+        )}
 
-          {activeTab === 'details' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', color: '#8197a4', fontSize: '1rem' }}>
-              <div style={{ display: 'flex' }}><strong style={{ width: '150px', color: '#FFF' }}>Audio languages</strong> <span>{displayMovie?.audioLanguages?.join(', ') || 'English, English [Audio Description]'}</span></div>
-              <div style={{ display: 'flex' }}><strong style={{ width: '150px', color: '#FFF' }}>Subtitles</strong> <span>{displayMovie?.subtitleLanguages?.join(', ') || 'English [CC]'}</span></div>
-              <div style={{ display: 'flex' }}><strong style={{ width: '150px', color: '#FFF' }}>Directors</strong> <span>{displayMovie?.director || 'Unknown'}</span></div>
-              <div style={{ display: 'flex' }}><strong style={{ width: '150px', color: '#FFF' }}>Starring</strong> <span>{formatCastNames(displayMovie?.cast)}</span></div>
-              <div style={{ display: 'flex' }}><strong style={{ width: '150px', color: '#FFF' }}>Studio</strong> <span>Amazon Studios</span></div>
+        {activeTab === 'related' && (
+          <div>
+            <h3 style={{ fontSize: '1.4rem', fontWeight: 700, marginBottom: '24px' }}>Customers also watched</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '20px' }}>
+              {similarMovies.slice(0, 12).map(sim => (
+                <div key={sim.id} onClick={() => onOpenDetails(sim)} style={{ borderRadius: '8px', overflow: 'hidden', cursor: 'pointer', backgroundColor: 'rgba(255,255,255,0.05)', transition: 'transform 0.2s ease' }}
+                  onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.03)'}
+                  onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  <div style={{ position: 'relative', paddingTop: '56.25%' }}>
+                    <img src={sim.backdropUrl || sim.posterUrl} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+                  <div style={{ padding: '16px' }}>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#00a8e1', marginBottom: '8px', letterSpacing: '0.5px' }}>✓ PRIME</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sim.title}</div>
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
+          </div>
+        )}
+
+        {activeTab === 'details' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', color: '#8197a4', fontSize: '1.1rem' }}>
+            <p style={{ fontSize: '1.15rem', lineHeight: 1.6, color: '#FFF', fontWeight: 400, maxWidth: '800px', marginBottom: '16px' }}>
+              {displayMovie?.longDescription || movie.description}
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: '16px 24px' }}>
+              <strong style={{ color: '#FFF', fontWeight: 700 }}>Audio languages</strong> <span>{displayMovie?.audioLanguages?.join(', ') || 'English, English [Audio Description]'}</span>
+              <strong style={{ color: '#FFF', fontWeight: 700 }}>Subtitles</strong> <span>{displayMovie?.subtitleLanguages?.join(', ') || 'English [CC]'}</span>
+              <strong style={{ color: '#FFF', fontWeight: 700 }}>Directors</strong> <span>{displayMovie?.director || 'Unknown'}</span>
+              <strong style={{ color: '#FFF', fontWeight: 700 }}>Starring</strong> <span>{formatCastNames(displayMovie?.cast)}</span>
+              <strong style={{ color: '#FFF', fontWeight: 700 }}>Studio</strong> <span>Amazon Studios</span>
+            </div>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div style={{ marginTop: '80px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px', color: '#8197a4', fontSize: '1rem' }}>
+          <div>By clicking play, you agree to our <a href="#" style={{ color: '#00a8e1', textDecoration: 'none' }}>Terms of Use</a>.</div>
+          <div style={{ display: 'flex', gap: '40px', fontWeight: 700 }}>
+            <a href="#" style={{ color: '#FFF', textDecoration: 'none' }}>Send us feedback</a>
+            <a href="#" style={{ color: '#FFF', textDecoration: 'none' }}>Get Help</a>
+          </div>
+          <div style={{ fontSize: '0.9rem', display: 'flex', gap: '20px' }}>
+            <a href="#" style={{ color: '#8197a4', textDecoration: 'none' }}>Terms and Privacy Notice</a>
+            <a href="#" style={{ color: '#8197a4', textDecoration: 'none' }}>Send us feedback</a>
+            <a href="#" style={{ color: '#8197a4', textDecoration: 'none' }}>Help</a>
+            <span>© 1996-2026, Amazon.com, Inc. or its affiliates</span>
+          </div>
         </div>
+
       </div>
     </div>
   );
 }
 
-function HotstarModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isMyList, similarMovies, platform }: MovieDetailModalProps & { platform: string }) {
-  const [selectedSeason, setSelectedSeason] = useState(1);
-  const { detailedMovie, episodes, isLoadingEpisodes } = useMovieDetails(movie, selectedSeason, platform);
+function HotstarModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isMyList, similarMovies, platform, detailedMovie, episodes, isLoadingEpisodes, selectedSeason, setSelectedSeason }: MovieDetailModalProps & { platform: string, detailedMovie: Movie | null, episodes: Episode[], isLoadingEpisodes: boolean, selectedSeason: number, setSelectedSeason: (season: number) => void }) {
   const displayMovie = detailedMovie || movie;
   const isTvShow = Boolean(displayMovie?.isSeries || movie?.isSeries || (displayMovie?.seasonsCount ?? 0) > 0);
   const [activeTab, setActiveTab] = useState<'episodes' | 'more'>(isTvShow ? 'episodes' : 'more');
@@ -686,7 +785,7 @@ function HotstarModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, i
         setIsSwitching(false);
       }, 3500);
     } else {
-      onPlay(movie);
+      onPlay(displayMovie!);
     }
   };
   const { isMuted, toggleMute, renderTrailer, hasTrailer } = useTrailerPlayer(displayMovie?.trailerUrl || '', movie?.backdropUrl || movie?.posterUrl || '');
@@ -816,7 +915,7 @@ function HotstarModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, i
                 </>
               ) : (
                 episodes.map((ep, idx) => (
-                  <div key={ep.id} onClick={() => onPlay(movie, ep)} style={{ display: 'flex', gap: '20px', padding: '16px', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.03)', cursor: 'pointer', alignItems: 'center' }}>
+                  <div key={ep.id} onClick={() => onPlay(displayMovie!, ep)} style={{ display: 'flex', gap: '20px', padding: '16px', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.03)', cursor: 'pointer', alignItems: 'center' }}>
                     <div style={{ position: 'relative', width: '180px', height: '101px', flexShrink: 0, borderRadius: '8px', overflow: 'hidden' }}>
                       <img src={ep.thumbnailUrl || movie.backdropUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)' }}><Play size={30} fill="#FFF" color="#FFF" /></div>
@@ -853,9 +952,14 @@ function HotstarModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, i
 
 export const MovieDetailModal: React.FC<MovieDetailModalProps> = (props) => {
   const { platform } = usePlatform();
-  if (platform === 'nflix') return <NetflixModal {...props} platform={platform} />;
-  if (platform === 'nprime') return <PrimeModal {...props} platform={platform} />;
-  return <HotstarModal {...props} platform={platform} />;
+  const [selectedSeason, setSelectedSeason] = useState(1);
+  const movieDetails = useMovieDetails(props.movie, selectedSeason, platform);
+
+  const modalProps = { ...props, platform, ...movieDetails, selectedSeason, setSelectedSeason };
+
+  if (platform === 'nflix') return <NetflixModal {...modalProps} />;
+  if (platform === 'nprime') return <PrimeModal {...modalProps} />;
+  return <HotstarModal {...modalProps} />;
 };
 
 function RecommendationsSection({ movie, onOpenDetails }: { movie: Movie; onOpenDetails: (m: Movie) => void }) {
