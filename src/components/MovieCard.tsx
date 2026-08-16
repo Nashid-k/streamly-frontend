@@ -263,7 +263,11 @@ export const MovieCard: React.FC<MovieCardProps> = ({
             zIndex: 20,
             pointerEvents: isHovered ? 'auto' : 'none'
           }}>
-            <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{movie.title}</h4>
+            {movie.logoUrl ? (
+              <img src={movie.logoUrl} alt="" style={{ height: '36px', objectFit: 'contain', margin: '0 0 2px 0', maxWidth: '90%', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} />
+            ) : (
+              <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{movie.title}</h4>
+            )}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.7rem', fontWeight: 600, marginTop: '4px' }}>
               <span style={{ color: '#4ade80' }}>{movie.matchScore}% Match</span>
               <span style={{ border: '1px solid rgba(255,255,255,0.4)', padding: '0 4px', borderRadius: '2px', color: '#FFF' }}>{movie.maturityRating || 'U/A 13+'}</span>
@@ -397,7 +401,11 @@ export const MovieCard: React.FC<MovieCardProps> = ({
             gap: '6px',
             pointerEvents: isHovered ? 'auto' : 'none',
           }}>
-            <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 800, color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{movie.title}</h4>
+            {movie.logoUrl ? (
+              <img src={movie.logoUrl} alt="" style={{ height: '32px', objectFit: 'contain', margin: '0', maxWidth: '80%', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} />
+            ) : (
+              <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 800, color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{movie.title}</h4>
+            )}
             <div style={{ color: '#00A8E1', fontSize: '0.65rem', fontWeight: 700 }}>Watch for free</div>
             
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '2px 0' }}>
@@ -565,7 +573,7 @@ export const MovieCard: React.FC<MovieCardProps> = ({
             padding: '12px'
           }}>
             {movie.logoUrl ? (
-               <img src={movie.logoUrl} alt={movie.title} className="moviecard-elem-8d581f" />
+               <img src={movie.logoUrl} alt="" className="moviecard-elem-8d581f" />
              ) : (
                <h4 className="moviecard-elem-a01151">{movie.title}</h4>
              )}
