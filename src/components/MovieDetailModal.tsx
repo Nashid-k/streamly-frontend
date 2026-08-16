@@ -558,7 +558,7 @@ function PrimeModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isM
         {renderTrailer()}
         
         {/* Gradients to blend into background */}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, #0f171e 0%, rgba(15,23,30,0.8) 20%, rgba(15,23,30,0) 60%), linear-gradient(to top, #0f171e 0%, transparent 30%)', zIndex: 15, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, #0f171e 0%, rgba(15,23,30,0.9) 35%, rgba(15,23,30,0) 70%), linear-gradient(to top, #0f171e 0%, transparent 40%)', zIndex: 15, pointerEvents: 'none' }} />
 
         {hasTrailer && (
           <button onClick={toggleMute} style={{
@@ -571,112 +571,92 @@ function PrimeModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isM
           </button>
         )}
 
-        <div className="detail-hero-content" style={{ position: 'absolute', bottom: '10%', left: '40px', right: '40px', display: 'flex', flexDirection: 'column', zIndex: 20 }}>
+        <div className="detail-hero-content" style={{ position: 'absolute', bottom: '10%', left: '40px', right: '40px', display: 'flex', flexDirection: 'column', zIndex: 20, maxWidth: '800px' }}>
           
-          {/* Logo / Title (Above everything) */}
+          {/* Logo / Title */}
           <div style={{ marginBottom: '24px' }}>
             {displayMovie?.logoUrl ? (
               <img src={displayMovie.logoUrl} style={{ maxWidth: '400px', maxHeight: '140px', objectFit: 'contain' }} />
             ) : (
-              <h1 style={{ fontSize: '3.5rem', fontWeight: 800, margin: '0', textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>{movie.title}</h1>
+              <h1 style={{ fontSize: '3.5rem', fontWeight: 800, margin: '0', textShadow: '0 2px 12px rgba(0,0,0,0.9)' }}>{movie.title}</h1>
             )}
           </div>
 
-          {/* Two-Column Layout for Buttons & Details */}
-          <div style={{ display: 'flex', gap: '48px', alignItems: 'flex-start' }}>
+          {/* AI Banner / Premiere Banner */}
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', fontSize: '0.95rem', fontWeight: 700, alignItems: 'center' }}>
+             {(isTvShow && isNew) && <span style={{ backgroundColor: '#fff', color: '#000', padding: '4px 8px', borderRadius: '4px', letterSpacing: '0.5px' }}>SEASON PREMIERE</span>}
+             <span style={{ color: '#00a8e1', display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(0,168,225,0.1)', padding: '4px 10px', borderRadius: '4px' }}>
+               <Check size={16} strokeWidth={3} /> Included with Prime
+             </span>
+          </div>
+
+          {/* Metadata Row */}
+          <div style={{ display: 'flex', gap: '16px', alignItems: 'center', fontSize: '1.05rem', color: '#a0b1bc', fontWeight: 600, marginBottom: '24px', flexWrap: 'wrap' }}>
+            <span style={{ color: '#f5c518', fontWeight: 800 }}>IMDb {ratingText}</span>
+            <span style={{ color: '#FFF' }}>{(displayMovie?.releaseDate || movie?.releaseDate || '').split('-')[0]}</span>
+            {isTvShow ? <span style={{ color: '#FFF' }}>{displayMovie?.seasonsCount || 1} Seasons</span> : <span style={{ color: '#FFF' }}>{displayMovie?.duration || movie?.duration}</span>}
+            <span style={{ border: '1px solid rgba(255,255,255,0.4)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.85rem', color: '#FFF' }}>U/A 16+</span>
+            <span style={{ border: '1px solid rgba(255,255,255,0.4)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.85rem', color: '#FFF' }}>UHD</span>
+            <span style={{ border: '1px solid rgba(255,255,255,0.4)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.85rem', color: '#FFF' }}>CC</span>
+          </div>
+
+          {/* Action Buttons Row */}
+          <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '24px' }}>
+            {/* Massive Play Button */}
+            <button onClick={handlePlayClick} style={{
+              background: '#FFF', color: '#000', border: 'none', borderRadius: '8px', padding: '16px 32px',
+              fontSize: '1.3rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '12px', cursor: 'pointer',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.4)', transition: 'transform 0.2s ease, background 0.2s ease, filter 0.2s ease',
+              minWidth: '240px'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#e6e6e6'; e.currentTarget.style.transform = 'scale(1.03)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#FFF'; e.currentTarget.style.transform = 'scale(1)'; }}
+            >
+              <Play fill="#000" size={28} /> {(!isAvailableNative && alternativePlatform) ? `Watch on ${alternativePlatform}` : 'Play Movie'}
+            </button>
             
-            {/* Left Column: Buttons */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              
-              {/* Circular Buttons Row */}
-              <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                  <button onClick={() => {
-                    const scrollable = document.querySelector('.prime-detail-page');
-                    if (scrollable) scrollable.scrollTo({ top: 0, behavior: 'smooth' });
-                    if (isMuted) toggleMute();
-                  }} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF', transition: 'background 0.2s' }}>
-                    <Play fill="#FFF" size={24} />
-                  </button>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Trailer</span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                  <button onClick={() => onToggleMyList(movie.id)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF', transition: 'background 0.2s' }}>
-                    {isMyList ? <Check size={26} /> : <Plus size={26} />}
-                  </button>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Watchlist</span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                  <button onClick={() => { setIsLiked(!isLiked); setIsDisliked(false); }} style={{ background: isLiked ? '#00A8E1' : 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF', transition: 'background 0.2s' }}>
-                    <ThumbsUp size={24} fill={isLiked ? '#FFF' : 'none'} />
-                  </button>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Like</span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                  <button onClick={() => { setIsDisliked(!isDisliked); setIsLiked(false); }} style={{ background: isDisliked ? '#FFF' : 'rgba(255,255,255,0.2)', color: isDisliked ? '#000' : '#FFF', border: 'none', borderRadius: '50%', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 0.2s' }}>
-                    <ThumbsDown size={24} fill={isDisliked ? '#000' : 'none'} />
-                  </button>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Not for me</span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                  <button style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF', transition: 'background 0.2s' }}>
-                    <Share2 size={24} />
-                  </button>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Share</span>
-                </div>
-              </div>
+            {/* Circular Buttons */}
+            <button onClick={() => {
+              const scrollable = document.querySelector('.prime-detail-page');
+              if (scrollable) scrollable.scrollTo({ top: 0, behavior: 'smooth' });
+              if (isMuted) toggleMute();
+            }} title="Trailer" style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '50%', width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF', transition: 'all 0.2s', backdropFilter: 'blur(8px)' }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#FFF'; e.currentTarget.style.color = '#000'; e.currentTarget.style.transform = 'scale(1.1)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.color = '#FFF'; e.currentTarget.style.transform = 'scale(1)'; }}>
+              <Play size={26} />
+            </button>
+            
+            <button onClick={() => onToggleMyList(movie.id)} title="Watchlist" style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '50%', width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF', transition: 'all 0.2s', backdropFilter: 'blur(8px)' }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#FFF'; e.currentTarget.style.color = '#000'; e.currentTarget.style.transform = 'scale(1.1)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.color = '#FFF'; e.currentTarget.style.transform = 'scale(1)'; }}>
+              {isMyList ? <Check size={28} /> : <Plus size={28} />}
+            </button>
+            
+            <button onClick={() => { setIsLiked(!isLiked); setIsDisliked(false); }} title="Like" style={{ background: isLiked ? '#00A8E1' : 'rgba(255,255,255,0.15)', border: isLiked ? 'none' : '1px solid rgba(255,255,255,0.2)', borderRadius: '50%', width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF', transition: 'all 0.2s', backdropFilter: 'blur(8px)' }}
+            onMouseEnter={e => { if(!isLiked) { e.currentTarget.style.background = '#FFF'; e.currentTarget.style.color = '#000'; } e.currentTarget.style.transform = 'scale(1.1)'; }}
+            onMouseLeave={e => { if(!isLiked) { e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.color = '#FFF'; } e.currentTarget.style.transform = 'scale(1)'; }}>
+              <ThumbsUp size={26} fill={isLiked ? '#FFF' : 'none'} />
+            </button>
+          </div>
 
-              {/* Big Play Button */}
-              <button onClick={handlePlayClick} style={{
-                background: '#FFF', color: '#000', border: 'none', borderRadius: '6px', padding: '16px',
-                width: '344px',
-                fontSize: '1.25rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '12px', cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.3)', transition: 'transform 0.2s ease, background 0.2s ease'
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = '#e6e6e6'}
-              onMouseLeave={e => e.currentTarget.style.background = '#FFF'}
-              >
-                <Play fill="#000" size={26} /> {(!isAvailableNative && alternativePlatform) ? `Watch on ${alternativePlatform}` : 'Play'}
-              </button>
+          {/* Simplified LLM AI Description */}
+          <div style={{ position: 'relative', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#00a8e1', fontSize: '0.85rem', fontWeight: 800, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              <Sparkles size={16} /> <span>AI Summary</span>
             </div>
+            <p style={{ fontSize: '1.2rem', lineHeight: 1.6, color: '#e6ebf1', fontWeight: 500, margin: 0, textShadow: '0 2px 6px rgba(0,0,0,0.9)', maxWidth: '750px' }}>
+              {displayMovie?.description || movie.description}
+            </p>
+          </div>
 
-            {/* Right Column: Text Details */}
-            <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '600px' }}>
-              <div style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '4px', letterSpacing: '0.5px' }}>
-                Subscribe
-              </div>
-              <div style={{ color: '#00a8e1', fontWeight: 700, fontSize: '1.05rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Check size={18} color="#00a8e1" /> Watch with a Prime membership
-              </div>
-              
-              {(isTvShow && isNew) && (
-                <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', fontSize: '0.9rem', fontWeight: 700 }}>
-                  <span style={{ backgroundColor: '#fff', color: '#000', padding: '2px 6px', borderRadius: '2px' }}>SEASON PREMIERE</span>
-                  <span style={{ color: '#00a8e1' }}>New episode Wednesday</span>
-                </div>
-              )}
-
-              <p style={{ fontSize: '1.15rem', lineHeight: 1.5, color: '#FFF', fontWeight: 500, marginBottom: '16px', textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>
-                {displayMovie?.description || movie.description}
-              </p>
-
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', fontSize: '1.05rem', color: '#8197a4', fontWeight: 600, marginBottom: '16px', flexWrap: 'wrap' }}>
-                {(displayMovie?.tags?.slice(0,3) || []).map((t: string, i: number, arr: string[]) => (
-                  <React.Fragment key={t}>
-                    <span style={{ color: '#FFF' }}>{t}</span>
-                    {i < arr.length - 1 && <span>•</span>}
-                  </React.Fragment>
-                ))}
-                <span style={{ color: '#FFF', marginLeft: '12px' }}>{(displayMovie?.releaseDate || movie?.releaseDate || '').split('-')[0]}</span>
-                {isTvShow && <span style={{ color: '#FFF' }}>{displayMovie?.seasonsCount || 1} seasons</span>}
-                <span style={{ border: '1px solid #8197a4', padding: '1px 6px', borderRadius: '3px', fontSize: '0.85rem' }}>U/A 16+</span>
-              </div>
-
-              <div style={{ fontSize: '1.05rem', color: '#8197a4' }}>
-                Cast: <span style={{ color: '#FFF' }}>{formatCastNames(displayMovie?.cast)}</span>
-              </div>
+          {/* Cast & Genres */}
+          <div style={{ fontSize: '1.05rem', color: '#a0b1bc', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div>
+              <span style={{ fontWeight: 600 }}>Starring:</span> <span style={{ color: '#FFF' }}>{formatCastNames(displayMovie?.cast)}</span>
             </div>
-
+            <div>
+              <span style={{ fontWeight: 600 }}>Genres:</span> <span style={{ color: '#FFF' }}>{(displayMovie?.tags || []).join(', ')}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -735,14 +715,14 @@ function PrimeModal({ movie, onClose, onPlay, onOpenDetails, onToggleMyList, isM
         {activeTab === 'related' && (
           <div>
             <h3 style={{ fontSize: '1.4rem', fontWeight: 700, marginBottom: '24px' }}>Customers also watched</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '20px' }}>
               {similarMovies.slice(0, 12).map(sim => (
-                <div key={sim.id} onClick={() => onOpenDetails(sim)} style={{ borderRadius: '8px', overflow: 'hidden', cursor: 'pointer', backgroundColor: 'rgba(255,255,255,0.05)', transition: 'transform 0.2s ease' }}
-                  onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.03)'}
-                  onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                <div key={sim.id} onClick={() => onOpenDetails(sim)} style={{ borderRadius: '8px', overflow: 'hidden', cursor: 'pointer', backgroundColor: 'rgba(255,255,255,0.05)', transition: 'transform 0.2s ease, box-shadow 0.2s ease' }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.5)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = 'none'; }}
                 >
-                  <div style={{ position: 'relative', paddingTop: '56.25%' }}>
-                    <img src={sim.backdropUrl || sim.posterUrl} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <div style={{ position: 'relative', aspectRatio: '2/3' }}>
+                    <img src={sim.posterUrl || sim.backdropUrl} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                   <div style={{ padding: '16px' }}>
                     <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#00a8e1', marginBottom: '8px', letterSpacing: '0.5px' }}>✓ PRIME</div>
