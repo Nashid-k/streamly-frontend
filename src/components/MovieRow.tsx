@@ -198,9 +198,11 @@ export const MovieRow: React.FC<MovieRowProps> = ({
             alignItems: 'center',
             gap: '12px',
             overflowX: 'auto', overflowY: 'visible',
-            padding: '40px 20px 200px 20px', // huge bottom padding to prevent vertical clipping
-            marginTop: '-30px',
-            marginBottom: '-190px', // negative margin to compensate for padding
+            padding: '120px 60px 260px 60px', // Massive padding to accommodate Netflix dropdown scale
+            marginTop: '-110px',
+            marginBottom: '-250px',
+            marginLeft: '-40px',
+            marginRight: '-40px',
             scrollBehavior: 'smooth',
           }}
         >
