@@ -168,7 +168,6 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({ movie, onClo
           }}
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
-          sandbox="allow-scripts allow-same-origin allow-presentation allow-forms"
           onLoad={() => { setSourceLoading(false); setSourceFailed(false); setSourceError(''); }}
           onError={() => {
             setSourceLoading(false);
