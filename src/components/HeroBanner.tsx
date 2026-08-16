@@ -140,7 +140,8 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
   const { platform } = usePlatform();
   const [enrichedMovie, setEnrichedMovie] = useState<Movie | null>(null);
   const [carouselScrollIndex, setCarouselScrollIndex] = useState(0);
-  const [isLogoLoading, setIsLogoLoading] = useState(false);
+  const [isLogoLoading, setIsLogoLoading] = useState(true);
+  const [isLogoImageLoaded, setIsLogoImageLoaded] = useState(false);
 
   // Persistent logo cache across banner transitions to eliminate text title flicker
   const logoCacheRef = React.useRef<Map<string, string>>(new Map());
@@ -205,6 +206,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
     const initialMovie = cachedLogo ? { ...movie, logoUrl: cachedLogo } : movie;
 
     setEnrichedMovie(initialMovie);
+    setIsLogoImageLoaded(false);
     if (onHeroReady) onHeroReady();
 
     // Async background enrichment if logo is missing (non-blocking)
@@ -330,17 +332,21 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
         )}
 
         {/* Title Logo / Stylized Title Text (Always visible, seamless logo swap) */}
-        <div className="herobanner-elem-37a56f">
-          {enrichedMovie.logoUrl ? (
+        <div className="herobanner-elem-37a56f" style={{ position: 'relative' }}>
+          {enrichedMovie.logoUrl && (
             <img
               key={`logo-${enrichedMovie.id}`}
               src={enrichedMovie.logoUrl}
-              alt={enrichedMovie.title}
+              alt=""
+              onLoad={() => setIsLogoImageLoaded(true)}
               className="herobanner-elem-227255"
+              style={{ opacity: isLogoImageLoaded ? 1 : 0, transition: 'opacity 0.4s ease', position: isLogoImageLoaded ? 'relative' : 'absolute' }}
             />
-          ) : isLogoLoading ? (
+          )}
+          
+          {(!enrichedMovie.logoUrl && isLogoLoading) || (enrichedMovie.logoUrl && !isLogoImageLoaded) ? (
             <div className="herobanner-elem-1e1dae" />
-          ) : (
+          ) : !enrichedMovie.logoUrl && !isLogoLoading ? (
             <h1
               className="hero-title-text herobanner-elem-7244b5"
               data-testid="hero-title"
@@ -348,7 +354,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
             >
               {enrichedMovie.title}
             </h1>
-          )}
+          ) : null}
         </div>
 
         {/* Badges */}
