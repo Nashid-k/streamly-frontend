@@ -15,16 +15,35 @@ export const WebtorPlayer: React.FC<WebtorPlayerProps> = ({ webtorUrl, onLoaded,
       try {
         const payload = webtorUrl.replace('webtor:', '');
         const [title, year] = payload.split('|');
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://streamly-backend-9q7i.onrender.com';
-        const res = await fetch(`${baseUrl}/api/movies/magnet?title=${encodeURIComponent(title)}&year=${year}`);
+        
+        // Fetch from apibay via CORS proxy
+        const query = encodeURIComponent(`${title} ${year} 1080p multi`);
+        const corsProxy = 'https://corsproxy.io/?';
+        const searchUrl = encodeURIComponent(`https://apibay.org/q.php?q=${query}`);
+        
+        const res = await fetch(`${corsProxy}${searchUrl}`);
         const data = await res.json();
         
-        if (!data.magnet) {
+        let foundHash = '';
+        if (data && data.length > 0 && data[0].info_hash && data[0].info_hash !== '0000000000000000000000000000000000000000') {
+          foundHash = data[0].info_hash;
+        } else {
+          // Fallback to non-multi
+          const fbQuery = encodeURIComponent(`${title} ${year} 1080p`);
+          const fbSearchUrl = encodeURIComponent(`https://apibay.org/q.php?q=${fbQuery}`);
+          const fbRes = await fetch(`${corsProxy}${fbSearchUrl}`);
+          const fbData = await fbRes.json();
+          if (fbData && fbData.length > 0 && fbData[0].info_hash && fbData[0].info_hash !== '0000000000000000000000000000000000000000') {
+            foundHash = fbData[0].info_hash;
+          }
+        }
+
+        if (!foundHash) {
           throw new Error('No seeds or torrent found');
         }
         
         if (isMounted) {
-          setMagnet(data.magnet);
+          setMagnet(`magnet:?xt=urn:btih:${foundHash}&tr=udp://tracker.opentrackr.org:1337/announce`);
         }
       } catch (e: any) {
         if (isMounted) onError(e.message || 'Failed to fetch torrent metadata');

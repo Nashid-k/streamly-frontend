@@ -26,7 +26,19 @@ async function request<T>(path: string, ttlMs: number, init?: RequestInit): Prom
   }
 
   try {
+    const timeoutId = setTimeout(() => {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('server-wakeup'));
+      }
+    }, 5000);
+
     const response = await fetch(`${apiBaseUrl}${path}`, { ...init, headers });
+    
+    clearTimeout(timeoutId);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('server-wakeup-done'));
+    }
+
     if (!response.ok) {
       const body = await response.json().catch(() => null) as { message?: unknown } | null;
       const message = typeof body?.message === 'string' ? body.message : `Request failed: ${response.status}`;
