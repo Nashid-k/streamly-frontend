@@ -5,7 +5,6 @@ import { movieService } from "../api/movieService";
 import { ChevronLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import MovieCard from "../components/MovieCard";
-import Loader from "../components/Loader";
 
 export default function CategoryPage() {
   const { name } = useParams();
@@ -82,8 +81,43 @@ export default function CategoryPage() {
 
   if (isLoading)
     return (
-      <div style={{ paddingTop: "100px" }}>
-        <Loader />
+      <div
+        className="main-content"
+        style={{ padding: "6rem 3rem 3rem 3rem", minHeight: "100vh" }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "1rem",
+            marginBottom: "2rem",
+          }}
+        >
+          <Link
+            to="/"
+            style={{
+              color: "white",
+              display: "flex",
+              alignItems: "center",
+              textDecoration: "none",
+              padding: "10px",
+            }}
+          >
+            <ChevronLeft size={24} /> Back
+          </Link>
+          <h1 style={{ fontSize: "2rem", fontWeight: 800, margin: 0 }}>
+            {categoryName}
+          </h1>
+        </div>
+        <div className="movie-grid" style={{ marginTop: "1rem" }}>
+          {[...Array(12)].map((_, i) => (
+            <div key={i} className="skeleton-moviecard">
+              <div className="skeleton sk-poster"></div>
+              <div className="skeleton sk-line sk-line--w70"></div>
+              <div className="skeleton sk-line sk-line--sub"></div>
+            </div>
+          ))}
+        </div>
       </div>
     );
 
