@@ -284,11 +284,11 @@ export default function SearchPage() {
         {loading ? (
           <div className="movie-grid" style={{ marginTop: "1rem" }}>
             {[...Array(12)].map((_, i) => (
-              <div
-                key={i}
-                className="skeleton skeleton-card"
-                style={{ height: "350px" }}
-              ></div>
+              <div key={i} className="skeleton-moviecard">
+                <div className="skeleton sk-poster"></div>
+                <div className="skeleton sk-line sk-line--w70"></div>
+                <div className="skeleton sk-line sk-line--sub"></div>
+              </div>
             ))}
           </div>
         ) : error ? (

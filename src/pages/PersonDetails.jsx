@@ -24,15 +24,30 @@ export default function PersonDetails() {
 
   if (loading) {
     return (
-      <div className="main-content" style={{ padding: "0 3rem" }}>
-        <div style={{ marginBottom: "2rem" }}>
+      <div className="main-content" style={{ padding: "0 3rem", position: "relative" }}>
+        {/* Blurred backdrop preview — mirrors the real blurred profile bg */}
+        <div
+          className="skeleton skeleton-glow"
+          style={{
+            position: "absolute", top: 0, left: 0,
+            width: "100%", height: "60vh",
+            borderRadius: 0, filter: "blur(60px)",
+            opacity: 0.35, zIndex: 0,
+          }}
+        />
+
+        {/* Navigation Breadcrumb */}
+        <div style={{ position: "relative", zIndex: 1, marginBottom: "2rem" }}>
           <div
             className="skeleton"
             style={{ width: "80px", height: "36px", borderRadius: "100px" }}
           ></div>
         </div>
+
+        {/* Profile + Info */}
         <div
           style={{
+            position: "relative", zIndex: 1,
             display: "flex",
             gap: "3rem",
             flexWrap: "wrap",
@@ -42,8 +57,8 @@ export default function PersonDetails() {
           <div
             className="skeleton"
             style={{
-              width: "300px",
-              height: "450px",
+              width: "min(300px, 80vw)",
+              aspectRatio: "2/3",
               borderRadius: "1.25rem",
               flexShrink: 0,
             }}
@@ -51,10 +66,10 @@ export default function PersonDetails() {
           <div style={{ flex: 1, minWidth: "300px", paddingTop: "1rem" }}>
             <div
               className="skeleton skeleton-title"
-              style={{ width: "50%", height: "3.5rem", marginBottom: "1.5rem" }}
+              style={{ width: "45%", height: "3.5rem", marginBottom: "1.5rem" }}
             ></div>
             <div
-              style={{ display: "flex", gap: "1rem", marginBottom: "2.5rem" }}
+              style={{ display: "flex", gap: "1rem", flexWrap: "wrap", marginBottom: "2.5rem" }}
             >
               <div
                 className="skeleton"
@@ -64,22 +79,18 @@ export default function PersonDetails() {
                 className="skeleton"
                 style={{ width: "120px", height: "2rem", borderRadius: "8px" }}
               ></div>
+              <div
+                className="skeleton"
+                style={{ width: "130px", height: "2rem", borderRadius: "8px" }}
+              ></div>
             </div>
             <div
               className="skeleton"
-              style={{
-                width: "200px",
-                height: "1.5rem",
-                marginBottom: "1.5rem",
-              }}
+              style={{ width: "120px", height: "1.4rem", borderRadius: "6px", marginBottom: "1rem" }}
             ></div>
             <div
               className="skeleton"
-              style={{
-                width: "100%",
-                height: "1.2rem",
-                marginBottom: "0.8rem",
-              }}
+              style={{ width: "100%", height: "1.2rem", marginBottom: "0.8rem" }}
             ></div>
             <div
               className="skeleton"
@@ -95,6 +106,38 @@ export default function PersonDetails() {
             ></div>
           </div>
         </div>
+
+        {/* Known For rail — mirrors topCredits horizontal rail */}
+        <section style={{ position: "relative", zIndex: 1, marginBottom: "4rem" }}>
+          <div className="section-header">
+            <div className="skeleton" style={{ width: "140px", height: "1.6rem", borderRadius: "6px" }} />
+          </div>
+          <div style={{ display: "flex", gap: "1.5rem", marginTop: "1.5rem", overflow: "hidden" }}>
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="skeleton-moviecard" style={{ width: "200px", flexShrink: 0 }}>
+                <div className="skeleton sk-poster"></div>
+                <div className="skeleton sk-line sk-line--w70"></div>
+                <div className="skeleton sk-line sk-line--sub"></div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Full Filmography grid — mirrors credits movie-grid */}
+        <section style={{ position: "relative", zIndex: 1 }}>
+          <div className="section-header">
+            <div className="skeleton" style={{ width: "180px", height: "1.6rem", borderRadius: "6px" }} />
+          </div>
+          <div className="movie-grid" style={{ marginTop: "1.5rem" }}>
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="skeleton-moviecard">
+                <div className="skeleton sk-poster"></div>
+                <div className="skeleton sk-line sk-line--w70"></div>
+                <div className="skeleton sk-line sk-line--sub"></div>
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
     );
   }

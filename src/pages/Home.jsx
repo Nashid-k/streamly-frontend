@@ -1019,7 +1019,54 @@ export default function Home({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="skeleton skeleton-hero"
-          />
+            style={{ overflow: "hidden" }}
+          >
+            <div className="hero-content" style={{ zIndex: 2 }}>
+              <div
+                className="skeleton"
+                style={{
+                  width: "min(420px, 70%)",
+                  height: "clamp(2.2rem, 4vw, 3.4rem)",
+                  borderRadius: "8px",
+                  marginBottom: "1.2rem",
+                }}
+              />
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.6rem",
+                  flexWrap: "wrap",
+                  marginBottom: "1.1rem",
+                }}
+              >
+                {[70, 95, 60, 85].map((w, i) => (
+                  <div
+                    key={i}
+                    className="skeleton"
+                    style={{ width: `${w}px`, height: "22px", borderRadius: "6px" }}
+                  />
+                ))}
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.45rem",
+                  marginBottom: "1.5rem",
+                  maxWidth: "560px",
+                }}
+              >
+                <div className="skeleton" style={{ width: "100%", height: "12px", borderRadius: "4px" }} />
+                <div className="skeleton" style={{ width: "86%", height: "12px", borderRadius: "4px" }} />
+                <div className="skeleton" style={{ width: "62%", height: "12px", borderRadius: "4px" }} />
+              </div>
+              <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+                <div className="skeleton" style={{ width: "150px", height: "48px", borderRadius: "100px" }} />
+                <div className="skeleton" style={{ width: "120px", height: "48px", borderRadius: "100px" }} />
+              </div>
+            </div>
+          </motion.div>
         ) : activeFeaturedMovie ? (
           <ErrorBoundary>
           <motion.div
@@ -1425,8 +1472,12 @@ export default function Home({
               <div key={rail}>
                 <div className="skeleton skeleton-title"></div>
                 <div className="skeleton-rail">
-                  {[1, 2, 3, 4, 5, 6].map((card) => (
-                    <div key={card} className="skeleton skeleton-card"></div>
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((card) => (
+                    <div key={card} className="skeleton-moviecard">
+                      <div className="skeleton sk-poster"></div>
+                      <div className="skeleton sk-line sk-line--w70"></div>
+                      <div className="skeleton sk-line sk-line--sub"></div>
+                    </div>
                   ))}
                 </div>
               </div>

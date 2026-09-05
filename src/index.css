@@ -1186,9 +1186,86 @@ a {
 
 .skeleton-rail {
   display: flex;
-  gap: var(--spacing-md);
+  gap: 0.5rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  padding: 0.25rem 1.4rem 1rem;
+}
+.skeleton-rail::-webkit-scrollbar {
+  display: none;
+}
+.skeleton-rail > div {
+  width: 180px;
+  flex-shrink: 0;
+}
+
+/* Movie-card-shaped skeleton — mirrors MovieCard:
+   poster (2/3) + title line + subtitle line, sized like .movie-grid cells */
+.skeleton-moviecard {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
   overflow: hidden;
-  padding-bottom: 1rem;
+}
+.skeleton-moviecard .sk-poster {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+.skeleton-moviecard .sk-line {
+  height: 0.8rem;
+  border-radius: 4px;
+  margin-top: 0.5rem;
+}
+.skeleton-moviecard .sk-line--w70 {
+  width: 70%;
+}
+.skeleton-moviecard .sk-line--w45 {
+  width: 45%;
+}
+.skeleton-moviecard .sk-line--w40 {
+  width: 40%;
+}
+.skeleton-moviecard .sk-line--sub {
+  height: 0.65rem;
+  margin-top: 0.35rem;
+}
+
+/* Cast-style circular avatar skeleton (mirrors CastRail 90px circles) */
+.skeleton-cast {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 110px;
+  flex-shrink: 0;
+}
+.skeleton-cast .sk-avatar {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  margin-bottom: 0.5rem;
+}
+.skeleton-cast .sk-name {
+  width: 60px;
+  height: 12px;
+  border-radius: 4px;
+  margin-bottom: 5px;
+}
+.skeleton-cast .sk-character {
+  width: 70px;
+  height: 10px;
+  border-radius: 4px;
+}
+
+@media (max-width: 768px) {
+  .skeleton-rail > div {
+    width: 140px;
+  }
+  .skeleton-rail {
+    padding: 0.25rem 1rem 1rem;
+  }
 }
 
 .skeleton-card {
