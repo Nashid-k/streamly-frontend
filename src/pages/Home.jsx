@@ -786,11 +786,12 @@ export default function Home({
   // "Upcoming" — only PREMIERES: movies with a future release date plus series
   // the backend explicitly flags isUpcoming (first-air date in the future).
   // Ongoing shows whose *next episode* is in the future are excluded — those
-  // airings already live in the Airing rail. Mirrors how Netflix/JusWatch
+  // airings already live in the Airing rail. Mirrors how Netflix/JustWatch
   // split "Coming Soon" (premieres) from ongoing new episodes. Rail rows are
   // anchored to the current date (TODAY/TOMORROW/weekday/month-day chips),
-  // sorted soonest-first, given a 365-day window, and padded with the
-  // remaining upcoming premieres before ever falling back to trending/airing.
+  // sorted soonest-first, given a 365-day window. The rail is NEVER padded
+  // with trending/airing titles: released films are not "coming soon", so if
+  // fewer premieres exist the rail simply shows what's genuinely upcoming.
   const upcomingReleases = useMemo(() => {
     const pool = [
       ...asArray(airingData),
@@ -800,25 +801,14 @@ export default function Home({
       ...asArray(rawCategories).flatMap((c) => (Array.isArray(c.movies) ? c.movies : [])),
     ];
     const hasArtwork = (m) => m && (m.posterUrl || m.backdropUrl);
-    const upcomingAll = applyPageFilter(buildUpcoming(pool, 365))
+    return applyPageFilter(buildUpcoming(pool, 365))
       .filter((m) => !isSeriesMovie(m) || m.isUpcoming === true)
       .map(normalizeMovieSource)
       .map(enrichWithPlatforms)
-      .filter(hasArtwork);
-    const realUpcoming = upcomingAll.slice(0, 12);
-
-    const seen = new Set(realUpcoming.map((m) => m.id));
-    const filled = [...realUpcoming];
-    for (const m of [...upcomingAll.slice(12), ...trendingThisWeek, ...airingThisWeek]) {
-      if (hasArtwork(m) && m.id && !seen.has(m.id)) {
-        seen.add(m.id);
-        filled.push(m);
-        if (filled.length >= 12) break;
-      }
-    }
-    return filled;
+      .filter(hasArtwork)
+      .slice(0, 12);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [airingData, trendingData, top10Data, featuredData, rawCategories, filter, trendingThisWeek, airingThisWeek, enrichWithPlatforms]);
+  }, [airingData, trendingData, top10Data, featuredData, rawCategories, filter, enrichWithPlatforms]);
 
   // Proximity-aware heading: surface when the next premiere drops instead of
   // always saying a flat "Upcoming".
