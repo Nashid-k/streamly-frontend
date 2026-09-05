@@ -4,7 +4,7 @@ export const movieService = {
   searchMovies: async (query) => {
     if (!query) return [];
     const res = await apiClient.get(`/movies/search`, {
-      params: { q: query, _cb: "v2" },
+      params: { q: query, platform: "all", _cb: "v2" },
     });
     return res.data;
   },

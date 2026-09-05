@@ -7,6 +7,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { Search, Film, Tv, Flame, Sparkles, Star } from "lucide-react";
 import { motion } from "framer-motion";
 import MovieCard from "../components/MovieCard";
+import DiscoveryRails from "../components/DiscoveryRails";
 import EmptyState from "../components/EmptyState";
 import Button from "../components/Button";
 
@@ -279,6 +280,9 @@ export default function SearchPage() {
             </div>
           )}
         </div>
+
+        {/* Discovery banners — Trending / Airing / Latest / Popular */}
+        <DiscoveryRails />
 
         {/* Content */}
         {loading ? (

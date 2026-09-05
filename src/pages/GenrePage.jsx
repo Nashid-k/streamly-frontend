@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { movieService } from "../api/movieService";
 import { mapSource } from "../api/platformAdapter";
 import MovieCard from "../components/MovieCard";
+import DiscoveryRails from "../components/DiscoveryRails";
 
 export default function GenrePage() {
   const { genre } = useParams();
@@ -242,6 +243,9 @@ export default function GenrePage() {
               </div>
             )}
           </div>
+
+          {/* Discovery banners — Trending / Airing / Latest / Popular */}
+          <DiscoveryRails />
 
           {/* Content */}
           {loading ? (

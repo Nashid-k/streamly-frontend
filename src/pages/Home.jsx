@@ -939,10 +939,15 @@ export default function Home({
       }
     }
 
-    // 3. Filter strictly for items with a title image (logoUrl)
-    globalPool = globalPool.filter((m) => m.logoUrl);
-    regionalPool = regionalPool.filter((m) => m.logoUrl);
-    recommendedPool = recommendedPool.filter((m) => m.logoUrl);
+    // 3. Filter strictly for items with a title image (logoUrl).
+    //    New OTT releases often lack a TMDB logo, so also accept a
+    //    backdrop (hero renders an <h1> fallback in that case) — this is
+    //    what lets fresh titles like "DC"/"Blast" surface in the banner.
+    const bannerReady = (m) =>
+      m.logoUrl || m.backdropUrl || m.posterUrl || m.poster;
+    globalPool = globalPool.filter(bannerReady);
+    regionalPool = regionalPool.filter(bannerReady);
+    recommendedPool = recommendedPool.filter(bannerReady);
 
     // 4. The "Surpass Authentic" Mixing Algorithm
     const pool = [];
@@ -969,11 +974,12 @@ export default function Home({
       pushToPool(recommendedPool[recIdx++]);
     }
 
-    // 5. Always find better: If the active filter yielded no movies with logoUrls,
-    // fallback to ANY featured movie that has a logoUrl so the banner doesn't break
+    // 5. Always find better: If the active filter yielded no movies with a
+    // banner image, fallback to ANY featured movie that is banner-ready so
+    // the banner doesn't break
     if (pool.length === 0 && featuredMovies.length > 0) {
       for (const fm of featuredMovies) {
-        if (fm.logoUrl) {
+        if (bannerReady(fm)) {
           pushToPool(fm);
           if (pool.length >= 5) break;
         }
