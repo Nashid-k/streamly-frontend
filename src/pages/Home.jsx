@@ -783,12 +783,14 @@ export default function Home({
     [airingData, filter, enrichWithPlatforms],
   );
 
-  // "Upcoming" — future premieres (movies/series) and next-episode airings
-  // dated today or later inside a rolling 365-day window (backend "isUpcoming"
-  // flags also pass, even beyond the window). The backend catalog now carries
-  // plenty of future-dated titles via its dedicated upcoming rails, so real
-  // upcoming entries lead; the rail is padded with the remaining upcoming
-  // entries first, then tab-filtered trending/airing only as a last resort.
+  // "Upcoming" — only PREMIERES: movies with a future release date plus series
+  // the backend explicitly flags isUpcoming (first-air date in the future).
+  // Ongoing shows whose *next episode* is in the future are excluded — those
+  // airings already live in the Airing rail. Mirrors how Netflix/JusWatch
+  // split "Coming Soon" (premieres) from ongoing new episodes. Rail rows are
+  // anchored to the current date (TODAY/TOMORROW/weekday/month-day chips),
+  // sorted soonest-first, given a 365-day window, and padded with the
+  // remaining upcoming premieres before ever falling back to trending/airing.
   const upcomingReleases = useMemo(() => {
     const pool = [
       ...asArray(airingData),
@@ -799,6 +801,7 @@ export default function Home({
     ];
     const hasArtwork = (m) => m && (m.posterUrl || m.backdropUrl);
     const upcomingAll = applyPageFilter(buildUpcoming(pool, 365))
+      .filter((m) => !isSeriesMovie(m) || m.isUpcoming === true)
       .map(normalizeMovieSource)
       .map(enrichWithPlatforms)
       .filter(hasArtwork);
@@ -817,14 +820,24 @@ export default function Home({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [airingData, trendingData, top10Data, featuredData, rawCategories, filter, trendingThisWeek, airingThisWeek, enrichWithPlatforms]);
 
-  const upcomingTitle =
-    filter === "series" || filter === "tv shows"
-      ? "Upcoming TV Shows"
-      : filter === "movies"
-        ? "Upcoming Movies"
-        : filter === "anime"
-          ? "Upcoming Anime"
-          : "Upcoming";
+  // Proximity-aware heading: surface when the next premiere drops instead of
+  // always saying a flat "Upcoming".
+  const upcomingTitle = (() => {
+    const scope =
+      filter === "series" || filter === "tv shows"
+        ? "TV Shows"
+        : filter === "movies"
+          ? "Movies"
+          : filter === "anime"
+            ? "Anime"
+            : "";
+    const nearest = upcomingReleases[0];
+    if (nearest && nearest.daysUntil <= 7)
+      return scope ? `Coming This Week — ${scope}` : "Coming This Week";
+    if (nearest && nearest.daysUntil <= 30)
+      return scope ? `Coming This Month — ${scope}` : "Coming This Month";
+    return scope ? `Upcoming ${scope}` : "Upcoming";
+  })();
 
   // Top 10 — backend rank first, padded to a full 10 per tab. The backend
   // list is filtered per page type, which can leave fewer than 10 (e.g. only a

@@ -193,15 +193,31 @@ function buildUpcomingInRange(items, todayStr, endStr) {
     const platformKey = normalizePlatformKey(item.source || item.availablePlatforms?.[0]);
     const platformObj = platformKey ? PLATFORMS[platformKey] : null;
 
+    // Days from today (UTC-anchored so the "current date" stays exact for the
+    // user regardless of local TZ). Powers the relative chip labels below.
+    const daysUntil = Math.round(
+      (Date.parse(`${dateStr}T12:00:00Z`) - Date.parse(`${todayStr}T12:00:00Z`)) / 86400000,
+    );
+    const relLabel =
+      daysUntil <= 0
+        ? "TODAY"
+        : daysUntil === 1
+          ? "TOMORROW"
+          : daysUntil <= 7
+            ? formatTMDBDate(dateStr, { weekday: "short" }, undefined, platformKey).toUpperCase()
+            : formatTMDBDate(dateStr, { month: "short", day: "numeric" }, undefined, platformKey);
+
     out.push({
       ...item,
       kind,
       releaseDate: dateStr,
+      daysUntil,
+      relLabel,
       // Give the card the info it needs to draw date/S·E badges
       nextEpisode: air && air.releaseDate
         ? { ...(item.nextEpisode || {}), releaseDate: air.releaseDate, season: air.season, episode: air.episode }
         : item.nextEpisode,
-      formattedRelease: formatReleaseLabel(dateStr, platformKey),
+      formattedRelease: relLabel,
       releaseDay: formatTMDBDate(dateStr, { weekday: "short" }, undefined, platformKey),
       releaseMonthDay: formatTMDBDate(dateStr, { month: "short", day: "numeric" }, undefined, platformKey),
       platformKey,
