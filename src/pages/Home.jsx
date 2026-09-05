@@ -783,10 +783,12 @@ export default function Home({
     [airingData, filter, enrichWithPlatforms],
   );
 
-  // "Upcoming" — future premieres (movies/series) and next-episode airings with
-  // a release date inside a rolling 90-day window. The backend catalog carries
-  // very few future-dated titles, so real upcoming entries lead and the rail is
-  // padded with tab-filtered trending/airing entries to always fill the row.
+  // "Upcoming" — future premieres (movies/series) and next-episode airings
+  // dated today or later inside a rolling 365-day window (backend "isUpcoming"
+  // flags also pass, even beyond the window). The backend catalog now carries
+  // plenty of future-dated titles via its dedicated upcoming rails, so real
+  // upcoming entries lead; the rail is padded with the remaining upcoming
+  // entries first, then tab-filtered trending/airing only as a last resort.
   const upcomingReleases = useMemo(() => {
     const pool = [
       ...asArray(airingData),
@@ -795,15 +797,17 @@ export default function Home({
       ...asArray(featuredData),
       ...asArray(rawCategories).flatMap((c) => (Array.isArray(c.movies) ? c.movies : [])),
     ];
-    const realUpcoming = applyPageFilter(buildUpcoming(pool, 90))
-      .slice(0, 12)
+    const hasArtwork = (m) => m && (m.posterUrl || m.backdropUrl);
+    const upcomingAll = applyPageFilter(buildUpcoming(pool, 365))
       .map(normalizeMovieSource)
-      .map(enrichWithPlatforms);
+      .map(enrichWithPlatforms)
+      .filter(hasArtwork);
+    const realUpcoming = upcomingAll.slice(0, 12);
 
     const seen = new Set(realUpcoming.map((m) => m.id));
     const filled = [...realUpcoming];
-    for (const m of [...trendingThisWeek, ...airingThisWeek]) {
-      if (m && m.id && !seen.has(m.id)) {
+    for (const m of [...upcomingAll.slice(12), ...trendingThisWeek, ...airingThisWeek]) {
+      if (hasArtwork(m) && m.id && !seen.has(m.id)) {
         seen.add(m.id);
         filled.push(m);
         if (filled.length >= 12) break;

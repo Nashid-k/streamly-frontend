@@ -171,9 +171,12 @@ function buildUpcomingInRange(items, todayStr, endStr) {
     const dateStr = air?.releaseDate || (!isTv ? item.releaseDate : null);
     if (!dateStr) continue;
 
-    // Only keep well-formed YYYY-MM-DD strings inside [today, window end]
+    // Only keep well-formed YYYY-MM-DD strings, dated today or later. Backend
+    // "isUpcoming" flags are honored beyond the window end so explicitly
+    // announced premieres aren't dropped just because they're far out.
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
-    if (dateStr < todayStr || dateStr > endStr) continue;
+    if (dateStr < todayStr) continue;
+    if (dateStr > endStr && !(item.isUpcoming === true)) continue;
 
     const isAnime = Boolean(
       (Array.isArray(item.genres) &&
