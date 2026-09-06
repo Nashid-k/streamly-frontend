@@ -92,13 +92,12 @@ VITE_URL_DECODE_KEY=your_url_decode_key_here
 src/
 ├── main.jsx                         ← React root: QueryClient, AuthProvider, ToastProvider
 ├── App.jsx                          ← Top-level router, navbar, page transitions
-├── ServerWakeupNotification.jsx     ← "Server waking up…" cold-start banner
 ├── index.css                        ← Global CSS, variables, animations, skeleton loaders
 ├── queryClient.js                   ← TanStack Query client config
 ├── firebase.js                      ← Firebase app init — exports auth & db singletons
-├── utils.js                         ← Shared utilities (decodeUrl, asArray, EMPTY_ARRAY)
-├── utils/                           ← Domain helpers: timezone, ratings, searchRanking,
-│                                       SubtitleEngine, notificationEngine, releaseCalendar
+├── utils/                           ← Shared utilities + domain engines: index (decodeUrl,
+│                                       asArray), timezone, ratings, searchRanking,
+│                                       subtitleEngine, notificationEngine, releaseCalendar
 │
 ├── api/
 │   ├── movieService.js              ← fetch() wrappers for all backend /api/movies endpoints
@@ -126,6 +125,7 @@ src/
 │
 ├── components/
 │   ├── AuthModal.jsx                ← Glass-panel Sign In / Sign Up modal (Firebase Auth)
+│   ├── ServerWakeupNotification.jsx ← "Server waking up…" cold-start banner
 │   ├── MovieCard.jsx                ← Cinematic hover card with glass curtain effect
 │   ├── CustomVideoPlayer.jsx        ← HLS player + episode/source switching
 │   ├── DiscoveryRails.jsx           ← Trend/Airing/Popular banner rails
@@ -211,9 +211,9 @@ service cloud.firestore {
 | `/search` | SearchPage | Search with `?q=` query param |
 | `/genre/:genre` | GenrePage | Genre-filtered catalog |
 | `/category/:name` | CategoryPage | Single category drill-down |
-| `/movie/:platform/:id` | TitleDetails | Player + full metadata |
-| `/person/:id` | PersonDetails | Actor/director page |
-| `/mylist` | WatchlistPage | Saved movies |
+| `/movie/:platform/:id` | TitleDetailsPage | Player + full metadata |
+| `/person/:id/:slug?` | PersonDetailsPage | Actor/director page |
+| `/watchlist` | WatchlistPage | Saved movies |
 | `/history` | HistoryPage | Continue watching / history |
 
 ---

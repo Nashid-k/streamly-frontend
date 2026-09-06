@@ -9,7 +9,7 @@ import {
   Keyboard, X, Upload, Captions, Film, Link, Repeat, AudioLines,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { SubtitleEngine } from "../utils/SubtitleEngine";
+import { SubtitleEngine } from "../utils/subtitleEngine";
 
 const getNumericId = (s) => {
   if (!s) return null;
@@ -1395,7 +1395,7 @@ const CustomVideoPlayer = ({
     setIsFetchingSubtitles(true);
     if (!silent) showToast("Searching subtitles...");
     try {
-      const { SubtitleFetcher } = await import("../api/subtitles");
+      const { SubtitleFetcher } = await import("../api/subtitleFetcher");
       const langs = await SubtitleFetcher.searchAvailableSubtitles(imdbId, fq);
       if (langs.length) {
         setAvailableSubtitleLangs(langs);
@@ -1415,7 +1415,7 @@ const CustomVideoPlayer = ({
     showToast(`Downloading ${lo.language}...`);
     setIsFetchingSubtitles(true);
     try {
-      const { SubtitleFetcher } = await import("../api/subtitles");
+      const { SubtitleFetcher } = await import("../api/subtitleFetcher");
       const txt = await SubtitleFetcher.downloadAndDecompress(link);
       if (txt) {
         const p = SubtitleEngine.parseSRT(txt);

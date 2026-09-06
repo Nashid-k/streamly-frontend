@@ -4,6 +4,7 @@ import {
   Routes,
   Route,
   Link,
+  Navigate,
   useLocation,
   useNavigate,
 } from "react-router-dom";
@@ -46,9 +47,9 @@ import { useMediaQuery } from "./hooks/useMediaQuery";
 
 const APP_VERSION = __VERSION__ || "1.0.0";
 
-const HomePage = lazy(() => import("./pages/Home"));
-const TitleDetails = lazy(() => import("./pages/TitleDetails"));
-const PersonDetails = lazy(() => import("./pages/PersonDetails"));
+const HomePage = lazy(() => import("./pages/HomePage"));
+const TitleDetails = lazy(() => import("./pages/TitleDetailsPage"));
+const PersonDetails = lazy(() => import("./pages/PersonDetailsPage"));
 const SearchPage = lazy(() => import("./pages/SearchPage"));
 const CategoryPage = lazy(() => import("./pages/CategoryPage"));
 const WatchlistPage = lazy(() => import("./pages/WatchlistPage"));
@@ -551,8 +552,8 @@ function Layout({ children }) {
             </Link>
             <Link
               onClick={() => setMobileMenuOpen(false)}
-              to="/mylist"
-              className={`nav-item ${location.pathname === "/mylist" ? "active" : ""}`}
+              to="/watchlist"
+              className={`nav-item ${location.pathname === "/watchlist" ? "active" : ""}`}
             >
               My List
             </Link>
@@ -1168,7 +1169,7 @@ function Layout({ children }) {
                   </div>
 
                   <Link
-                    to="/mylist"
+                    to="/watchlist"
                     onClick={() => setShowUserMenu(false)}
                     className="menu-item"
                   >
@@ -1306,8 +1307,8 @@ function Layout({ children }) {
           <span>Search</span>
         </Link>
         <Link
-          to="/mylist"
-          className={`bottom-nav-item ${location.pathname === "/mylist" ? "active" : ""}`}
+          to="/watchlist"
+          className={`bottom-nav-item ${location.pathname === "/watchlist" ? "active" : ""}`}
         >
           <Bookmark size={22} />
           <span>My List</span>
@@ -1317,7 +1318,7 @@ function Layout({ children }) {
   );
 }
 
-import { ServerWakeupNotification } from "./ServerWakeupNotification";
+import { ServerWakeupNotification } from "./components/ServerWakeupNotification";
 import GlobalShortcuts from "./components/GlobalShortcuts";
 
 /* Routes wrapped in a route-keyed ErrorBoundary + Suspense so a page that
@@ -1355,7 +1356,8 @@ function AppRoutes() {
                 path="/anime"
                 element={<HomePage filter="anime" title="Anime Collection" />}
               />
-              <Route path="/mylist" element={<WatchlistPage />} />
+              <Route path="/watchlist" element={<WatchlistPage />} />
+              <Route path="/mylist" element={<Navigate to="/watchlist" replace />} />
               <Route path="/history" element={<HistoryPage />} />
               <Route path="/search" element={<SearchPage />} />
               <Route path="/category/:name" element={<CategoryPage />} />

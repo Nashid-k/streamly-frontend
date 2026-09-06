@@ -36,15 +36,15 @@
 └── src/
     ├── main.jsx                     ← ReactDOM.createRoot, QueryClient, Router
     ├── App.jsx                      ← Top-level routing & layout
-    ├── ServerWakeupNotification.jsx ← Render cold-start UX banner
     ├── index.css                    ← Global styles, CSS variables, animations
-    ├── utils.js                     ← Shared utilities (decodeUrl, asArray)
-    ├── utils/                       ← Domain helpers (timezone, ratings, notifications…)
+    ├── utils/                       ← Shared utilities + domain engines: index,
+    │                                   (decodeUrl, asArray), timezone, ratings, notifications…
     │
     ├── api/
     │   ├── movieService.js          ← fetch() wrappers for all backend endpoints
     │   ├── apiClient.js             ← axios instance + interceptors
     │   ├── platformAdapter.js        ← Platform registry + source normalization
+    │   ├── subtitleFetcher.js       ← Subtitle search/download/decompress
     │   └── (cdnImageAdapter, authAdapter, storageAdapter, serverHealth, …)
     │
     ├── hooks/
@@ -56,6 +56,7 @@
     ├── components/                  ← Reusable UI building blocks
     │   ├── MovieCard.jsx            ← Cinematic glass-panel hover card
     │   ├── CustomVideoPlayer.jsx    ← HLS player + episode/source switcher
+    │   ├── ServerWakeupNotification.jsx ← Cold-start UX banner
     │   ├── ConfirmDialog.jsx        ← Modal dialog component
     │   ├── Toast.jsx                ← Notification toasts
     │   ├── GlobalShortcuts.jsx      ← Keyboard shortcut handler
@@ -64,14 +65,14 @@
     │   └── ErrorBoundary.jsx        ← React error boundary
     │
     └── pages/                       ← Route-level page components
-        ├── Home.jsx                 ← Main landing page
-        ├── TitleDetails.jsx         ← Player + metadata page (largest page)
+        ├── HomePage.jsx             ← Main landing page
+        ├── TitleDetailsPage.jsx     ← Player + metadata page (largest page)
         ├── SearchPage.jsx           ← Search results with filters
         ├── GenrePage.jsx            ← Genre-filtered catalog
         ├── CategoryPage.jsx         ← Category drill-down
         ├── WatchlistPage.jsx        ← My List page
         ├── HistoryPage.jsx          ← Continue Watching / History
-        └── PersonDetails.jsx        ← Actor/Director profile
+        └── PersonDetailsPage.jsx    ← Actor/Director profile
 ```
 
 ---
@@ -178,7 +179,7 @@ git switch -c style/hero-banner-animation
 # ... edit files ...
 
 # Stage specific files
-git add src/pages/Home.jsx
+git add src/pages/HomePage.jsx
 git add src/index.css
 
 # Review what you're committing
@@ -351,7 +352,7 @@ git reset --mixed HEAD~1
 ### Discard changes in a specific file
 
 ```bash
-git checkout -- src/pages/Home.jsx
+git checkout -- src/pages/HomePage.jsx
 ```
 
 ### Discard ALL local changes
@@ -534,7 +535,7 @@ git add src/index.css
 git commit -m "style: increase movie card border-radius to 12px"
 
 # JS logic change
-git add src/pages/Home.jsx
+git add src/pages/HomePage.jsx
 git commit -m "feat: add skeleton loading state to Home page"
 ```
 

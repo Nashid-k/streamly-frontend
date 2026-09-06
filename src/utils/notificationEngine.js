@@ -170,7 +170,7 @@ export function buildMilestoneNotification({ type, count, title }) {
     title: title || `🎉 Milestone Reached`,
     message: messages[type] || `You've reached a new milestone!`,
     detail: null,
-    link: "/mylist",
+    link: "/watchlist",
     createdAt: Date.now(),
     isRead: false,
     priority: "low",

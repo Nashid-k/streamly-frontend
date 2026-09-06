@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { SubtitleEngine } from '../utils/SubtitleEngine';
+import { SubtitleEngine } from '../utils/subtitleEngine';
 
 describe('SubtitleEngine', () => {
   let engine;
