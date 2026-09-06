@@ -57,11 +57,38 @@ const parseThumbnailVTT = (vttText) => {
 
 const STREAM_SERVICE_URL = import.meta.env.VITE_STREAM_SERVICE_URL || "";
 
-/* Route cross-origin CDN URLs through the stream-service CORS proxy */
+/* Route cross-origin CDN URLs through the stream-service CORS proxy. Only used
+   as a FALLBACK now — most fetches go browser-direct so CDN bytes (thumbnail
+   sprites, subtitle files) never ride the stream-service bandwidth meter. */
 const proxyUrl = (u) => {
   if (!u || !STREAM_SERVICE_URL) return u;
   if (String(u).startsWith(STREAM_SERVICE_URL)) return u;
   return `${STREAM_SERVICE_URL}/api/proxy?url=${encodeURIComponent(u)}`;
+};
+
+/* Fetch a CDN resource directly from the browser first; relay through the
+   stream-service proxy only when the CDN blocks cross-origin access. Keeps
+   repeat subtitle/VTT downloads off the Render egress, with zero behavior
+   change for CORS-locked CDNs. */
+const fetchDirect = async (u, opts) => {
+  if (!u) throw new Error("no url");
+  try {
+    const res = await fetch(u, opts);
+    if (res.ok) return res;
+    return fetch(proxyUrl(u), opts);
+  } catch {
+    return fetch(proxyUrl(u), opts);
+  }
+};
+
+/* <img> tags can display cross-origin images without CORS — load sprite tiles
+   straight from the CDN and only re-point to the proxy if the host actually
+   rejects the direct load. */
+const onTileImgError = (e, u) => {
+  const el = e.currentTarget;
+  if (el.dataset.proxied || !STREAM_SERVICE_URL) return;
+  el.dataset.proxied = "1";
+  el.src = proxyUrl(u);
 };
 
 const ASPECT_RATIOS = [
@@ -650,7 +677,7 @@ const CustomVideoPlayer = ({
               const en = subs.find(s => /^(en|eng|en-US|en-GB)$/i.test(s.label) || /english/i.test(s.label)) || subs[0];
               try {
                 const subUrl = en.url || en;
-                const subRes = await fetch(proxyUrl(subUrl));
+                const subRes = await fetchDirect(subUrl);
                 if (subRes.ok) {
                   const subText = await subRes.text();
                   const parsed = (String(subUrl).includes(".vtt") || subText.trim().startsWith("WEBVTT"))
@@ -702,13 +729,13 @@ const CustomVideoPlayer = ({
                 let subUrl = streamData.subtitles[0];
                 // If it's a search URL, fetch the subtitle list first
                 if (subUrl.includes('search?id=')) {
-                  const subRes = await fetch(proxyUrl(subUrl));
+                  const subRes = await fetchDirect(subUrl);
                   if (subRes.ok) {
                     const subs = await subRes.json();
                     if (subs?.length > 0) subUrl = subs[0].url;
                   }
                 }
-                const subRes = await fetch(proxyUrl(subUrl));
+                const subRes = await fetchDirect(subUrl);
                 if (subRes.ok) {
                   const subText = await subRes.text();
                   const parsed = subUrl.includes('.vtt') || subText.trim().startsWith("WEBVTT")
@@ -820,7 +847,7 @@ const CustomVideoPlayer = ({
         vttTileRef.current = [{ start: 0, end: Infinity, url: fullUrl, x: 0, y: 0, w: 0, h: 0, full: true }];
         return;
       }
-      const res = await fetch(proxyUrl(fullUrl), { priority: 'low' });
+      const res = await fetchDirect(fullUrl, { priority: 'low' });
       if (!res.ok) return;
       const text = await res.text();
       const tiles = parseThumbnailVTT(text);
@@ -831,8 +858,15 @@ const CustomVideoPlayer = ({
       spriteURLs.forEach((rawUrl) => {
         const img = new Image();
         img.onload = () => vttSpriteMetaRef.current.set(rawUrl, { w: img.naturalWidth, h: img.naturalHeight });
-        img.onerror = () => {};
-        img.src = proxyUrl(rawUrl);
+        img.onerror = () => {
+          if (STREAM_SERVICE_URL) {
+            const fallback = new Image();
+            fallback.onload = () => vttSpriteMetaRef.current.set(rawUrl, { w: fallback.naturalWidth, h: fallback.naturalHeight });
+            fallback.onerror = () => {};
+            fallback.src = proxyUrl(rawUrl);
+          }
+        };
+        img.src = rawUrl;
       });
     } catch { /* thumbnail VTT optional */ }
   }, []);
@@ -2995,7 +3029,8 @@ const CustomVideoPlayer = ({
                             }}>
                               {tile.full ? (
                                 <img
-                                  src={proxyUrl(tile.url)}
+                                  src={tile.url}
+                                  onError={(e) => onTileImgError(e, tile.url)}
                                   alt=""
                                   draggable={false}
                                   style={{
@@ -3006,7 +3041,8 @@ const CustomVideoPlayer = ({
                                 />
                               ) : (
                                 <img
-                                  src={proxyUrl(tile.url)}
+                                  src={tile.url}
+                                  onError={(e) => onTileImgError(e, tile.url)}
                                   alt=""
                                   draggable={false}
                                   style={{
