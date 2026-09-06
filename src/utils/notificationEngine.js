@@ -5,8 +5,6 @@
  *   • Episode releases (new episode of Y season released)
  *   • Upcoming episodes (Z will air on K day)
  *   • Movie additions (movie streaming on platform name)
- *   • Platform availability (content now on platform)
- *   • Weekly digest (trending content across platforms)
  *   • Watchlist milestones (binge reminders, completion)
  *   • Recommendations (based on viewing patterns)
  *
@@ -130,70 +128,6 @@ export function buildMovieAddedNotification({ title, platform, year, duration, i
 }
 
 /**
- * Create a notification for platform availability change.
- * "🎬 Dune: Part Two now available on Prime Video"
- */
-export function buildPlatformAvailabilityNotification({ title, platform, previousPlatform, imageUrl, movieId }) {
-  const platformKey = normalizePlatformKey(platform);
-  const platformName = platformKey ? PlatformAdapter.getName(platformKey) : platform;
-  const prevPlatformKey = previousPlatform ? normalizePlatformKey(previousPlatform) : null;
-  const prevPlatformName = prevPlatformKey ? PlatformAdapter.getName(prevPlatformKey) : previousPlatform;
-
-  return {
-    id: `avail-${movieId}-${platform }`,
-    type: NOTIF_TYPES.PLATFORM_AVAILABILITY,
-    title: `🆕 Now Available`,
-    message: prevPlatformName
-      ? `${title} is now streaming on ${platformName} (was on ${prevPlatformName}).`
-      : `${title} is now streaming on ${platformName}.`,
-    detail: `Available on ${platformName}`,
-    link: `/watch/${movieId}`,
-    platform: platformName,
-    platformKey,
-    image: imageUrl || null,
-    createdAt: Date.now(),
-    isRead: false,
-    priority: "medium",
-    actionable: true,
-  };
-}
-
-/**
- * Create a weekly digest notification.
- * "🔥 12 new episodes this week across Netflix, Prime Video, Hotstar"
- */
-export function buildWeeklyDigestNotification({ newEpisodes, newMovies, platforms, trending }) {
-  const parts = [];
-  if (newEpisodes > 0) parts.push(`${newEpisodes} new episode${newEpisodes > 1 ? "s" : ""}`);
-  if (newMovies > 0) parts.push(`${newMovies} new movie${newMovies > 1 ? "s" : ""}`);
-
-  const platformNames = (platforms || [])
-    .map((p) => PlatformAdapter.getName(normalizePlatformKey(p)) || p)
-    .slice(0, 3);
-
-  const message = parts.length > 0
-    ? `This week: ${parts.join(" and ")}${platformNames.length > 0 ? ` across ${platformNames.join(", ")}` : ""}.`
-    : `Check out what's new across your favorite platforms this week.`;
-
-  const trendingTitles = (trending || []).slice(0, 3).map((t) => t.title).join(", ");
-  const detail = trendingTitles ? `Trending: ${trendingTitles}` : null;
-
-  return {
-    id: `digest-weekly-${newEpisodes || 0}-${newMovies || 0}`,
-    type: NOTIF_TYPES.WEEKLY_DIGEST,
-    title: `🔥 Weekly Digest`,
-    message,
-    detail,
-    link: "/",
-    createdAt: Date.now(),
-    isRead: false,
-    priority: "low",
-    actionable: true,
-    metadata: { newEpisodes, newMovies, platforms: platformNames },
-  };
-}
-
-/**
  * Create a recommendation notification.
  * "💡 Because you watched Inception — Interstellar is now streaming"
  */
@@ -264,142 +198,6 @@ export function buildWelcomeNotification({ isSignedIn }) {
   };
 }
 
-// ─── Smart Watchlist Intelligence ───────────────────────────────────────────
-
-/**
- * Generate notifications from the user's watchlist state.
- * Checks for upcoming episodes, new releases, and milestones.
- *
- * @param {Object} options
- * @param {Array} options.myList - User's watchlist
- * @param {Array} options.continueWatching - User's continue watching list
- * @param {Array} options.existingNotifications - Current notifications
- * @param {Array} options.airingThisWeek - Currently airing content
- * @param {Array} options.trendingThisWeek - Trending content
- * @returns {Array} New notifications to add
- */
-export function generateSmartNotifications({ myList = [], continueWatching = [], existingNotifications = [], airingThisWeek = [], trendingThisWeek = [] }) {
-  const newNotifs = [];
-  const existingIds = new Set(existingNotifications.map((n) => n.id));
-
-  // 1. Check for upcoming episodes in watchlist
-  for (const item of myList) {
-    if (!item.isSeries && !String(item.id).startsWith("tmdb-tv-")) continue;
-
-    // Upcoming episode alert
-    if (item.nextEpisode?.releaseDate) {
-      const timeUntil = getTimeUntil(item.nextEpisode.releaseDate, undefined, item.source);
-      if (timeUntil === "today" || timeUntil === "tomorrow" || timeUntil.startsWith("in ")) {          const contentId = `ep-airing-${item.id}-s${item.nextEpisode.season || 1}e${item.nextEpisode.episode || 1}`;
-        if (existingIds.has(contentId)) continue;
-        const notif = buildEpisodeAiringNotification({
-          title: item.title,
-          season: item.nextEpisode.season || 1,
-          episode: item.nextEpisode.episode || 1,
-          episodeTitle: item.nextEpisode.title,
-          platform: item.source || item.sourceName,
-          releaseDate: item.nextEpisode.releaseDate,
-          imageUrl: item.backdropUrl || item.posterUrl,
-          movieId: item.id,
-        });
-        notif.id = contentId; // Override timestamp-based ID with content-based ID
-        newNotifs.push(notif);
-      }
-    }
-  }
-
-  // 2. Check airing this week for watchlist matches
-  if (airingThisWeek.length > 0) {
-    for (const airing of airingThisWeek) {
-      const inList = myList.some((m) => String(m.id) === String(airing.id));        if (inList && airing.nextEpisode?.releaseDate) {
-        const contentId = `ep-airing-${airing.id}-s${airing.nextEpisode.season || 1}e${airing.nextEpisode.episode || 1}`;
-        if (existingIds.has(contentId)) continue;
-        const notif = buildEpisodeAiringNotification({
-          title: airing.title,
-          season: airing.nextEpisode.season || 1,
-          episode: airing.nextEpisode.episode || 1,
-          episodeTitle: airing.nextEpisode.title,
-          platform: airing.source || airing.sourceName,
-          releaseDate: airing.nextEpisode.releaseDate,
-          imageUrl: airing.backdropUrl || airing.posterUrl,
-          movieId: airing.id,
-        });
-        notif.id = contentId;
-        newNotifs.push(notif);
-      }
-    }
-  }
-
-  // 3. Continue watching reminders (if haven't watched in 3+ days)
-  if (continueWatching.length > 0) {
-    const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
-    for (const item of continueWatching) {
-      if (item.lastWatched && item.lastWatched < threeDaysAgo && item.timestamp > 0) {
-        const contentId = `cw-reminder-${item.id}`;
-        if (existingIds.has(contentId)) continue;
-        const notif = {
-          id: contentId,
-          type: NOTIF_TYPES.MILESTONE,
-          title: `⏸️ Pick Up Where You Left Off`,
-          message: `You started "${item.title}" ${Math.floor((Date.now() - item.lastWatched) / (1000 * 60 * 60 * 24))} days ago. Continue watching?`,
-          detail: item.timestamp > 0 ? `Paused at ${Math.floor(item.timestamp / 60)}:${String(item.timestamp % 60).padStart(2, "0")}` : null,
-          link: `/watch/${item.id}`,
-          image: item.backdropUrl || item.posterUrl || null,
-          createdAt: Date.now(),
-          isRead: false,
-          priority: "low",
-          actionable: true,
-        };
-        if (!existingIds.has(`cw-reminder-${item.id}`)) {
-          newNotifs.push(notif);
-        }
-      }
-    }
-  }
-
-  // 4. Watchlist milestone
-  if (myList.length === 10 || myList.length === 25 || myList.length === 50 || myList.length === 100) {
-    const notif = buildMilestoneNotification({
-      type: "list_milestone",
-      count: myList.length,
-      title: `📚 Watchlist Milestone`,
-    });
-    if (!existingIds.has(`milestone-list-${myList.length}`)) {
-      newNotifs.push(notif);
-    }
-  }
-
-  // 5. Recommendations based on trending + watchlist genres
-  if (trendingThisWeek.length > 0 && myList.length > 0) {
-    const watchlistGenres = new Set();
-    for (const item of myList) {
-      (item.genres || []).forEach((g) => watchlistGenres.add(g.toLowerCase()));
-    }
-
-    const recommendations = trendingThisWeek.filter((m) => {
-      if (myList.some((w) => String(w.id) === String(m.id))) return false;
-      return (m.genres || []).some((g) => watchlistGenres.has(g.toLowerCase()));
-    }).slice(0, 2);
-
-    for (const rec of recommendations) {
-      const inList = myList.some((m) => String(m.id) === String(rec.id));
-      if (!inList) {
-        const notif = buildRecommendationNotification({
-          title: rec.title,
-          reason: myList[0]?.title || "your watchlist",
-          platform: rec.source || rec.sourceName,
-          imageUrl: rec.backdropUrl || rec.posterUrl,
-          movieId: rec.id,
-        });
-        if (!existingIds.has(`rec-${rec.id}`)) {
-          newNotifs.push(notif);
-        }
-      }
-    }
-  }
-
-  return newNotifs;
-}
-
 // ─── Notification Preferences ───────────────────────────────────────────────
 
 export const DEFAULT_NOTIF_PREFS = {
@@ -420,12 +218,6 @@ export function getNotificationPrefs() {
   } catch {
     return DEFAULT_NOTIF_PREFS;
   }
-}
-
-export function setNotificationPrefs(prefs) {
-  try {
-    localStorage.setItem("streamly_notif_prefs", JSON.stringify(prefs));
-  } catch {}
 }
 
 export function isNotificationTypeEnabled(type) {

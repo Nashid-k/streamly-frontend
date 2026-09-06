@@ -1,3 +1,14 @@
+/**
+ * Shared utilities.
+ *
+ * `asArray`/`EMPTY_ARRAY` normalize backend payloads that can briefly return
+ * non-array bodies (cold-start errors, object envelopes, 503 stubs) so a
+ * single truthy-but-not-array value can never crash a render.
+ */
+export const EMPTY_ARRAY = [];
+
+export const asArray = (x) => (Array.isArray(x) ? x : EMPTY_ARRAY);
+
 export const decodeUrl = (encodedStr) => {
   if (!encodedStr || encodedStr.startsWith("http")) return encodedStr;
   try {

@@ -382,36 +382,6 @@ export const PLATFORMS = {
   },
 };
 
-// ─── Category Groupings ─────────────────────────────────────────────────────
-
-export const PLATFORM_CATEGORIES = {
-  global: {
-    name: "Global",
-    description: "International streaming platforms",
-    ids: ["netflix", "prime", "disney", "appletv", "hulu", "max", "paramount", "peacock", "crunchyroll", "mubi"],
-  },
-  india: {
-    name: "India",
-    description: "Indian streaming platforms",
-    ids: ["hotstar", "zee5", "sonyliv", "jio", "mxplayer", "voot", "erosnow", "aha", "hoichoi", "shemaroo", "sunnxt", "lionsgate"],
-  },
-  free: {
-    name: "Free",
-    description: "Free or ad-supported platforms",
-    ids: ["jio", "mxplayer"],
-  },
-  anime: {
-    name: "Anime",
-    description: "Anime-focused platforms",
-    ids: ["crunchyroll"],
-  },
-  arthouse: {
-    name: "Arthouse & Docs",
-    description: "Curated cinema and documentaries",
-    ids: ["mubi", "curiositystream"],
-  },
-};
-
 // ─── Normalization ──────────────────────────────────────────────────────────
 
 // Order matters — more specific matches first
@@ -505,22 +475,8 @@ export class PlatformAdapter {
     return PLATFORMS[id] || null;
   }
 
-  static getAllPlatforms() {
-    return Object.values(PLATFORMS);
-  }
-
-  static getPlatformsByCategory(category) {
-    const cat = PLATFORM_CATEGORIES[category];
-    if (!cat) return [];
-    return cat.ids.map((id) => PLATFORMS[id]).filter(Boolean);
-  }
-
   static getName(id) {
     return this.getPlatform(id)?.name || id;
-  }
-
-  static getShortName(id) {
-    return this.getPlatform(id)?.shortName || this.getName(id);
   }
 
   static getIconUrl(id) {
@@ -529,18 +485,6 @@ export class PlatformAdapter {
 
   static getColor(id) {
     return this.getPlatform(id)?.color || "#ffffff";
-  }
-
-  static getGradient(id) {
-    return this.getPlatform(id)?.gradient || `linear-gradient(135deg, ${this.getColor(id)}, ${this.getColor(id)}88)`;
-  }
-
-  static getCategory(id) {
-    return this.getPlatform(id)?.category || "global";
-  }
-
-  static getTags(id) {
-    return this.getPlatform(id)?.tags || [];
   }
 
   /**
@@ -552,34 +496,6 @@ export class PlatformAdapter {
     if (!rawName) return null;
     const key = normalizePlatformKey(rawName);
     return key ? PLATFORMS[key] : null;
-  }
-
-  /**
-   * Find the best platform match from an array of platform strings.
-   * @param {string[]} platforms
-   * @returns {object|null} First matching platform
-   */
-  static resolveBestMatch(platforms) {
-    if (!platforms || !Array.isArray(platforms)) return null;
-    for (const p of platforms) {
-      const match = this.resolveFromRawName(p);
-      if (match) return match;
-    }
-    return null;
-  }
-
-  /**
-   * Returns all platform keys as an array.
-   */
-  static getAllKeys() {
-    return Object.keys(PLATFORMS);
-  }
-
-  /**
-   * Check if a given platform key is valid.
-   */
-  static isValid(id) {
-    return !!PLATFORMS[id];
   }
 }
 
@@ -653,42 +569,4 @@ export function normalizeMovieSource(movie) {
 
   // 4. No platform data — keep all movie properties, set source to null (never Netflix default)
   return { ...movie, source: null, sourceName: null };
-}
-
-/**
- * Normalize an array of movies with source/sourceName resolution.
- * Safely handles undefined/null elements in the array.
- */
-export function normalizeMoviesSources(movies) {
-  if (!Array.isArray(movies)) return [];
-  return movies.filter(Boolean).map(normalizeMovieSource);
-}
-
-/**
- * Resolve all available platform keys for a movie.
- * Returns an array of unique canonical platform IDs.
- */
-export function resolveAllPlatforms(movie) {
-  if (!movie?.availablePlatforms?.length) return [];
-  const seen = new Set();
-  const result = [];
-  for (const p of movie.availablePlatforms) {
-    const key = normalizePlatformKey(p);
-    if (key && !seen.has(key)) {
-      seen.add(key);
-      result.push(key);
-    }
-  }
-  return result;
-}
-
-/**
- * Whether content from this platform should be served through NetMirror's
- * multi-audio HLS. NetMirror mirrors Netflix, Prime Video, and other OTT
- * catalogs; Netflix/Prime are the primary request.
- */
-export function isNetMirrorSuitable(platform) {
-  if (!platform) return false;
-  const key = normalizePlatformKey(platform);
-  return key === "netflix" || key === "prime";
 }

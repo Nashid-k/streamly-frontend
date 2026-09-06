@@ -24,30 +24,38 @@
 ## 🗺️ Repository Overview
 
 ```
-frontend/
+.
 ├── index.html                       ← App entry point (Vite)
 ├── vite.config.js                   ← Vite build config
+├── vitest.config.js                 ← Test config (jsdom + globals)
 ├── vercel.json                      ← Vercel SPA routing rules
 ├── .oxlintrc.json                   ← Oxlint linting rules
 │
-├── public/                          ← Static assets (favicon, icons)
+├── public/                          ← Static assets (favicon, icons, sw.js)
 │
 └── src/
     ├── main.jsx                     ← ReactDOM.createRoot, QueryClient, Router
-    ├── App.jsx                      ← Top-level routing & layout (~35 KB)
+    ├── App.jsx                      ← Top-level routing & layout
     ├── ServerWakeupNotification.jsx ← Render cold-start UX banner
     ├── index.css                    ← Global styles, CSS variables, animations
-    ├── utils.js                     ← Shared utility functions
+    ├── utils.js                     ← Shared utilities (decodeUrl, asArray)
+    ├── utils/                       ← Domain helpers (timezone, ratings, notifications…)
     │
     ├── api/
-    │   └── movieService.js          ← fetch() wrappers for all backend endpoints
+    │   ├── movieService.js          ← fetch() wrappers for all backend endpoints
+    │   ├── apiClient.js             ← axios instance + interceptors
+    │   ├── platformAdapter.js        ← Platform registry + source normalization
+    │   └── (cdnImageAdapter, authAdapter, storageAdapter, serverHealth, …)
     │
     ├── hooks/
     │   ├── useDebounce.js           ← Input debounce hook
+    │   ├── useMediaQuery.js         ← Responsive breakpoint matching
+    │   ├── useScrollRestoration.js  ← Scroll restore across routes
     │   └── useUserData.js           ← Auth state, myList, continueWatching
     │
     ├── components/                  ← Reusable UI building blocks
-    │   ├── MovieCard.jsx            ← Cinematic glass-panel hover card (~11 KB)
+    │   ├── MovieCard.jsx            ← Cinematic glass-panel hover card
+    │   ├── CustomVideoPlayer.jsx    ← HLS player + episode/source switcher
     │   ├── ConfirmDialog.jsx        ← Modal dialog component
     │   ├── Toast.jsx                ← Notification toasts
     │   ├── GlobalShortcuts.jsx      ← Keyboard shortcut handler
@@ -56,8 +64,8 @@ frontend/
     │   └── ErrorBoundary.jsx        ← React error boundary
     │
     └── pages/                       ← Route-level page components
-        ├── Home.jsx                 ← Main landing page (~31 KB)
-        ├── MovieDetails.jsx         ← Player + metadata page (~67 KB!)
+        ├── Home.jsx                 ← Main landing page
+        ├── TitleDetails.jsx         ← Player + metadata page (largest page)
         ├── SearchPage.jsx           ← Search results with filters
         ├── GenrePage.jsx            ← Genre-filtered catalog
         ├── CategoryPage.jsx         ← Category drill-down
@@ -226,13 +234,13 @@ git add src/components/SkeletonCard.jsx
 git commit -m "feat: add SkeletonCard loading placeholder component"
 ```
 
-### Editing large files (MovieDetails.jsx ~67 KB, App.jsx ~35 KB)
+### Editing large files (CustomVideoPlayer.jsx ~3.7k lines, TitleDetails.jsx ~2.5k lines)
 
 These files are large and get touched frequently. To avoid messy diffs:
 
 ```bash
 # 1. Only stage what you intentionally changed
-git add -p src/pages/MovieDetails.jsx   # interactive patch mode — review hunk by hunk
+git add -p src/components/CustomVideoPlayer.jsx   # interactive patch mode — review hunk by hunk
 
 # 2. Keep commits focused — one logical change per commit
 git commit -m "feat: simplify player header buttons to just Prev Ep / Next Ep"
@@ -483,7 +491,7 @@ git add src/components/YourComponent.jsx
 git commit -m "feat: add YourComponent with glass panel animation"
 
 # ── Review large file changes interactively ────────────
-git add -p src/pages/MovieDetails.jsx
+git add -p src/components/CustomVideoPlayer.jsx
 
 # ── Sync before PR ─────────────────────────────────────
 git fetch origin && git rebase origin/main
@@ -507,12 +515,12 @@ git add src/App.jsx src/pages/NewPage.jsx
 git commit -m "feat: add NewPage route at /new-page"
 ```
 
-### `MovieDetails.jsx` (largest file)
+### `CustomVideoPlayer.jsx` (largest file)
 
 Use interactive staging to pick only your changes:
 
 ```bash
-git add -p src/pages/MovieDetails.jsx
+git add -p src/components/CustomVideoPlayer.jsx
 # Press 'y' to stage a hunk, 'n' to skip, 's' to split, '?' for help
 ```
 

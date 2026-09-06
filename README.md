@@ -55,12 +55,15 @@ npm run lint
 
 ## 🔑 Environment Variables
 
-Create a `.env` file in `frontend/` with the following:
+# Create a `.env` file in the project root with the following:
 
 ```bash
 # ─── Backend API ──────────────────────────────────────────────────────────────
 VITE_API_URL=http://localhost:4000/api
 # Production: VITE_API_URL=https://streamly-backend-9q7i.onrender.com/api
+
+# ─── Direct Stream Service (Playwright) ────────────────────────────────────
+VITE_STREAM_SERVICE_URL=http://localhost:3001
 
 # ─── Firebase Web SDK ─────────────────────────────────────────────────────────
 # Get from: Firebase Console → Project Settings → Your apps → Web app config
@@ -71,27 +74,44 @@ VITE_FIREBASE_STORAGE_BUCKET=your-app.firebasestorage.app
 VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
 VITE_FIREBASE_APP_ID=1:123456789:web:abc123
 VITE_FIREBASE_MEASUREMENT_ID=G-XXXXXXXX
+
+# ─── App / URLs ───────────────────────────────────────────────────────────────
+VITE_SITE_URL=https://your-site-origin
+VITE_URL_DECODE_KEY=your_url_decode_key_here
 ```
 
 > ✅ These are the **public web config** values — safe to commit and add to Vercel dashboard.
 > Only `VITE_`-prefixed variables are exposed to the browser bundle.
+> See `.env.example` for the complete template.
 
 ---
 
 ## 🗂️ Project Structure
 
 ```
-frontend/src/
+src/
 ├── main.jsx                         ← React root: QueryClient, AuthProvider, ToastProvider
 ├── App.jsx                          ← Top-level router, navbar, page transitions
 ├── ServerWakeupNotification.jsx     ← "Server waking up…" cold-start banner
-├── index.css                        ← Global CSS, variables, animations, skeleton loader
-├── utils.js                         ← Shared utility functions
-│
+├── index.css                        ← Global CSS, variables, animations, skeleton loaders
+├── queryClient.js                   ← TanStack Query client config
 ├── firebase.js                      ← Firebase app init — exports auth & db singletons
+├── utils.js                         ← Shared utilities (decodeUrl, asArray, EMPTY_ARRAY)
+├── utils/                           ← Domain helpers: timezone, ratings, searchRanking,
+│                                       SubtitleEngine, notificationEngine, releaseCalendar
 │
 ├── api/
-│   └── movieService.js              ← fetch() wrappers for all backend /api/movies endpoints
+│   ├── movieService.js              ← fetch() wrappers for all backend /api/movies endpoints
+│   ├── apiClient.js                 ← axios instance + interceptors (health-banner aware)
+│   ├── platformAdapter.js           ← 20+ platform registry + source normalization
+│   ├── cdnImageAdapter.js           ← TMDB image URL building + sizes
+│   ├── authAdapter.js               ← Firebase auth facade
+│   ├── storageAdapter.js            ← Firestore / localStorage persistence
+│   ├── serverHealth.js              ← Backend cold-start health monitor
+│   ├── subtitles.js                 ← Subtitle parsing/loading
+│   ├── videoSourceAdapter.js        ← Stream source resolution
+│   ├── prefetchAdapter.js           ← QueryClient cache prefetching
+│   └── virtualRenderAdapter.js      ← Virtual-list rendering helper
 │
 ├── context/
 │   └── AuthContext.jsx              ← AuthProvider + useAppAuth() — merges Firebase auth,
@@ -100,21 +120,30 @@ frontend/src/
 ├── hooks/
 │   ├── useUserData.js               ← useAuth, useMyList, useContinueWatching
 │   │                                   (Firestore when signed in, localStorage for guests)
-│   └── useDebounce.js               ← Search input debounce
+│   ├── useDebounce.js               ← Search input debounce
+│   ├── useMediaQuery.js             ← Responsive breakpoint matching
+│   └── useScrollRestoration.js      ← Scroll position restore across navigation
 │
 ├── components/
 │   ├── AuthModal.jsx                ← Glass-panel Sign In / Sign Up modal (Firebase Auth)
 │   ├── MovieCard.jsx                ← Cinematic hover card with glass curtain effect
+│   ├── CustomVideoPlayer.jsx        ← HLS player + episode/source switching
+│   ├── DiscoveryRails.jsx           ← Trend/Airing/Popular banner rails
+│   ├── SearchResultRow.jsx          ← Search dropdown suggestion row
 │   ├── ConfirmDialog.jsx            ← Animated confirmation modal
 │   ├── Toast.jsx                    ← Notification toast system
 │   ├── GlobalShortcuts.jsx          ← Keyboard shortcut handler + help modal
 │   ├── Loader.jsx                   ← Full-page loading spinner
 │   ├── BackToTop.jsx                ← Scroll-to-top floating button
-│   └── ErrorBoundary.jsx            ← React error boundary
+│   ├── ErrorBoundary.jsx            ← React error boundary
+│   ├── EmptyState.jsx / SectionHeader.jsx / PlatformIcon.jsx / RailArrow.jsx
+│   ├── CountdownBadge.jsx / LeavingSoonBanner.jsx / Popover.jsx / SEO.jsx
+│   ├── MovieDetailsSkeleton.jsx
+│   └── (theming/misc: src/components/*)
 │
 └── pages/
-    ├── Home.jsx                     ← Main landing: featured banner, category rows, Top 10
-    ├── MovieDetails.jsx             ← Video player + metadata, season/episode picker
+    ├── Home.jsx                     ← Main landing: featured banner, category rows, Upcoming, Top 10
+    ├── TitleDetails.jsx             ← Video player + metadata, season/episode picker
     ├── SearchPage.jsx               ← Search results with genre & platform filters
     ├── GenrePage.jsx                ← Genre-filtered movie catalog
     ├── CategoryPage.jsx             ← Single category drill-down
@@ -182,7 +211,7 @@ service cloud.firestore {
 | `/search` | SearchPage | Search with `?q=` query param |
 | `/genre/:genre` | GenrePage | Genre-filtered catalog |
 | `/category/:name` | CategoryPage | Single category drill-down |
-| `/movie/:platform/:id` | MovieDetails | Player + full metadata |
+| `/movie/:platform/:id` | TitleDetails | Player + full metadata |
 | `/person/:id` | PersonDetails | Actor/director page |
 | `/mylist` | WatchlistPage | Saved movies |
 | `/history` | HistoryPage | Continue watching / history |

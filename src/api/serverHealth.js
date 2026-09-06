@@ -12,7 +12,7 @@
  *     GitHub Actions keepalive when no tab is open),
  *   • still respects background tabs: no probes run while the tab is hidden.
  *
- * Pure module — no React. Consumers subscribe with onServerHealthChange().
+ * Pure module — no React.
  */
 const API_BASE = (import.meta.env.VITE_API_URL || "").trim();
 const STREAM_BASE = (import.meta.env.VITE_STREAM_SERVICE_URL || "").trim();
@@ -211,13 +211,9 @@ export function stopServerHealthMonitor() {
   }
 }
 
-/** Subscribe to health changes. Returns an unsubscribe function. */
-export function onServerHealthChange(cb) {
-  listeners.add(cb);
-  return () => listeners.delete(cb);
-}
-
-/** Internal — clears all state. Harmless in prod; used by tests for isolation. */
+/**
+ * Internal — clears all state. Harmless in prod; used by tests for isolation.
+ */
 export function resetServerHealthState() {
   stopServerHealthMonitor();
   consecutiveFailures = 0;

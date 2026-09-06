@@ -7,9 +7,8 @@ import { normalizeMovieSource } from "../api/platformAdapter";
 import ErrorBoundary from "./ErrorBoundary";
 import SectionHeader from "./SectionHeader";
 import MovieCard from "./MovieCard";
+import { asArray, EMPTY_ARRAY } from "../utils";
 
-const EMPTY_ARRAY = [];
-const asArray = (x) => (Array.isArray(x) ? x : EMPTY_ARRAY);
 const hasArt = (m) => Boolean(m && (m.posterUrl || m.poster || m.backdropUrl));
 const dedupeKey = (m) => m.tmdbId || m.id;
 

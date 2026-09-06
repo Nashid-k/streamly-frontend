@@ -2,102 +2,12 @@
  * releaseCalendar.js — Release intelligence system
  *
  * Provides:
- *   • Weekly calendar view with platform color coding
  *   • Countdown timers for upcoming content
- *   • "New This Week" detection for auto-notifications
  *   • "Leaving Soon" alerts for content about to leave platforms
  */
 
 import { normalizePlatformKey, PlatformAdapter, PLATFORMS } from "../api/platformAdapter";
-import { formatTMDBDate, getTMDBWeekday, getTimeUntil } from "./timezone";
-
-// ─── Weekly Calendar ────────────────────────────────────────────────────────
-
-/**
- * Group content by release day for the weekly calendar view.
- * Returns an object keyed by day name with platform-tagged items.
- *
- * @param {Array} items - Movies/shows with releaseDate and availablePlatforms
- * @returns {Object} { "Monday": [...], "Tuesday": [...], ... }
- */
-export function buildWeeklyCalendar(items = []) {
-  const calendar = {
-    Monday: [], Tuesday: [], Wednesday: [], Thursday: [],
-    Friday: [], Saturday: [], Sunday: [],
-  };
-
-  if (!items || !Array.isArray(items)) return calendar;
-
-  const today = new Date();
-  const todayUTC = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
-  // Compute start of week (Monday) in local time, then compare using UTC dates
-  const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
-  const startOfWeekUTC = todayUTC - ((dayOfWeek + 6) % 7) * 86400000; // Monday 00:00 UTC
-  const endOfWeekUTC = startOfWeekUTC + 6 * 86400000 + 86399999; // Sunday 23:59:59 UTC
-
-  for (const item of items) {
-    const air = getAiringEpisode(item);
-    const isTv = isTvishItem(item);
-    const releaseDate = air?.releaseDate || (!isTv ? item.releaseDate : null);
-    if (!releaseDate) continue;
-
-    const date = new Date(releaseDate + "T12:00:00Z");
-    const dateUTC = date.getTime();
-    if (dateUTC < startOfWeekUTC || dateUTC > endOfWeekUTC) continue;
-
-    // Use UTC date for day name to match our UTC-based week boundaries
-    const dayName = date.toLocaleDateString("en-US", { weekday: "long", timeZone: 'UTC' });
-    if (!calendar[dayName]) continue;
-
-    const platformKey = normalizePlatformKey(item.source || item.availablePlatforms?.[0]);
-    const platformObj = platformKey ? PLATFORMS[platformKey] : null;
-
-    calendar[dayName].push({
-      ...item,
-      platformKey,
-      platformName: platformObj?.name || item.sourceName || "TBA",
-      platformColor: platformObj?.color || "#71717a",
-      platformGradient: platformObj?.gradient || null,
-      formattedDate: formatTMDBDate(releaseDate, { weekday: "short", month: "short", day: "numeric" }, undefined, platformKey),
-      weekday: getTMDBWeekday(releaseDate, undefined, platformKey),
-      // Episode rows (new episodes) get a S/E chip; premiere rows stay date-only
-      releaseType: air?.episodeLabel ? "episode" : undefined,
-      episodeInfo: air?.episodeLabel || undefined,
-      isToday: date.toDateString() === today.toDateString(),
-      isPast: date < today,
-    });
-  }
-
-  // Sort each day by platform name
-  for (const day of Object.keys(calendar)) {
-    calendar[day].sort((a, b) => a.platformName.localeCompare(b.platformName));
-  }
-
-  return calendar;
-}
-
-/**
- * Get the days of the current week with dates.
- */
-export function getWeekDays() {
-  const today = new Date();
-  const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - today.getDay() + 1);
-
-  return Array.from({ length: 7 }, (_, i) => {
-    const date = new Date(startOfWeek);
-    date.setDate(startOfWeek.getDate() + i);
-    return {
-      name: date.toLocaleDateString("en-US", { weekday: "short" }),
-      fullName: date.toLocaleDateString("en-US", { weekday: "long" }),
-      date: date.getDate(),
-      month: date.toLocaleDateString("en-US", { month: "short" }),
-      isToday: date.toDateString() === today.toDateString(),
-      isPast: date < today && date.toDateString() !== today.toDateString(),
-      fullDate: date.toISOString().split("T")[0],
-    };
-  });
-}
+import { formatTMDBDate, getTimeUntil } from "./timezone";
 
 // ─── Airing / Upcoming normalization ───────────────────────────────────────
 
@@ -137,25 +47,6 @@ export function getAiringEpisode(item) {
     episode != null ? `S${season || 1} E${episode}` : null;
 
   return { releaseDate, season, episode, episodeLabel };
-}
-
-/** Weekday + month day label, e.g. "Sun, Sep 6". */
-export function formatReleaseLabel(dateStr, platform) {
-  if (!dateStr) return "";
-  return formatTMDBDate(
-    dateStr,
-    { weekday: "short", month: "short", day: "numeric" },
-    undefined,
-    platform,
-  );
-}
-
-/** True when the release is today or in the future (not already aired). */
-export function isUpcomingRelease(dateStr, platform) {
-  if (!dateStr) return false;
-  const until = getTimeUntil(dateStr, undefined, platform);
-  if (!until) return false;
-  return !until.includes("ago") && until !== "yesterday";
 }
 
 function buildUpcomingInRange(items, todayStr, endStr) {
@@ -232,33 +123,9 @@ function buildUpcomingInRange(items, todayStr, endStr) {
 }
 
 /**
- * Build a "Coming this month" list from any pool of titles.
- * Accepts movies (releaseDate) and series episodes (flat or nextEpisode)
- * airing between today and the end of the current month.
- *
- * @returns {Array} items enriched with { kind, formattedRelease, releaseDay,
- *   releaseMonthDay, nextEpisode } sorted by release date (soonest first).
- */
-export function buildUpcomingThisMonth(items = []) {
-  if (!items || !Array.isArray(items)) return [];
-
-  // Compare YYYY-MM-DD calendar strings (local calendar for "today" and the
-  // month end) rather than mixing UTC-parsed dates with local boundaries —
-  // lexicographic comparison is exact and immune to timezone edge cases.
-  const pad = (n) => String(n).padStart(2, "0");
-  const now = new Date();
-  const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  const monthEndStr = `${monthEnd.getFullYear()}-${pad(monthEnd.getMonth() + 1)}-${pad(monthEnd.getDate())}`;
-
-  return buildUpcomingInRange(items, todayStr, monthEndStr);
-}
-
-/**
- * Build an "Upcoming" list from any pool of titles — the same enrichment as
- * buildUpcomingThisMonth, but with a sliding window of the next `windowDays`
- * days instead of a hard month boundary. Surfaces future premiere dates and
- * next-episode airings on a rolling basis.
+ * Build an "Upcoming" list from any pool of titles — enriched with kind,
+ * relative labels, and release metadata. Surfaces future premiere dates and
+ * next-episode airings on a rolling window.
  *
  * @returns {Array} items enriched with { kind, formattedRelease, releaseDay,
  *   releaseMonthDay, nextEpisode } sorted by release date (soonest first).
@@ -331,57 +198,6 @@ export function getCountdownUrgency(days) {
   return "future";                    // gray
 }
 
-// ─── New This Week Detection ────────────────────────────────────────────────
-
-/**
- * Detect content that was released this week (for auto-notifications).
- * Checks both movie releases and new episodes.
- *
- * @param {Array} items - All content items
- * @param {Array} existingNotifs - Current notifications to avoid duplicates
- * @returns {Array} New releases this week
- */
-export function detectNewReleasesThisWeek(items = []) {
-  if (!items || !Array.isArray(items)) return [];
-
-  const today = new Date();
-  const todayUTC = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
-  const dayOfWeek = today.getDay();
-  const startOfWeekUTC = todayUTC - ((dayOfWeek + 6) % 7) * 86400000;
-  const endOfWeekUTC = startOfWeekUTC + 6 * 86400000 + 86399999;
-
-  const newReleases = [];
-
-  for (const item of items) {
-    // Check movie release date
-    if (item.releaseDate) {
-      const date = new Date(item.releaseDate + "T12:00:00Z");
-      if (date.getTime() >= startOfWeekUTC && date.getTime() <= endOfWeekUTC) {
-        newReleases.push({
-          ...item,
-          releaseType: "movie",
-          releaseDay: date.toLocaleDateString("en-US", { weekday: "long" }),
-        });
-      }
-    }
-
-    // Check new episode releases
-    if (item.nextEpisode?.releaseDate) {
-      const date = new Date(item.nextEpisode.releaseDate + "T12:00:00Z");
-      if (date.getTime() >= startOfWeekUTC && date.getTime() <= endOfWeekUTC) {
-        newReleases.push({
-          ...item,
-          releaseType: "episode",
-          episodeInfo: `S${item.nextEpisode.season || 1}E${item.nextEpisode.episode || 1}`,
-          releaseDay: date.toLocaleDateString("en-US", { weekday: "long" }),
-        });
-      }
-    }
-  }
-
-  return newReleases;
-}
-
 // ─── Leaving Soon Detection ─────────────────────────────────────────────────
 
 /**
@@ -425,31 +241,4 @@ export function detectLeavingSoon(items = [], thresholdDays = 14) {
       };
     })
     .sort((a, b) => a.daysLeft - b.daysLeft);
-}
-
-/**
- * Build leaving soon notification for a single item.
- */
-export function buildLeavingSoonNotification(item) {
-  const platformKey = normalizePlatformKey(item.source || item.availablePlatforms?.[0]);
-  const platformName = platformKey ? PlatformAdapter.getName(platformKey) : "streaming";
-  const daysLeft = item.daysLeft || 0;
-
-  return {
-    id: `leaving-${item.id}-${item.leavingDate}`,
-    type: "leaving_soon",
-    title: `⏰ Leaving Soon`,
-    message: daysLeft <= 1
-      ? `"${item.title}" is leaving ${platformName} tomorrow! Watch it before it's gone.`
-      : `"${item.title}" will leave ${platformName} in ${daysLeft} days (${item.formattedLeaveDate}).`,
-    detail: `Leaving ${item.formattedLeaveDate} · ${platformName}`,
-    link: `/watch/${item.id}`,
-    platform: platformName,
-    platformKey,
-    image: item.backdropUrl || item.posterUrl || null,
-    priority: daysLeft <= 3 ? "high" : "medium",
-    actionable: true,
-    createdAt: Date.now(),
-    isRead: false,
-  };
 }

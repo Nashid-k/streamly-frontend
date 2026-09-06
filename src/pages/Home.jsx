@@ -19,6 +19,7 @@ import RailArrow from "../components/RailArrow";
 import { PLATFORMS, normalizePlatformKey, normalizeMovieSource } from "../api/platformAdapter";
 import LeavingSoonBanner from "../components/LeavingSoonBanner";
 import { detectLeavingSoon, buildUpcoming } from "../utils/releaseCalendar";
+import { asArray, EMPTY_ARRAY } from "../utils";
 
 const GENRE_OPTIONS = [
   "All",
@@ -411,13 +412,6 @@ const Top10Rail = React.memo(
   },
   (prev, next) => prev.movies === next.movies && prev.filter === next.filter,
 );
-
-const EMPTY_ARRAY = [];
-
-/* Backend endpoints can briefly return non-array payloads (cold-start error
-   bodies, an object envelope, a 503 stub). Route everything through this so
-   a single truthy-but-not-array value can never crash Home's renders. */
-const asArray = (x) => (Array.isArray(x) ? x : EMPTY_ARRAY);
 
 export default function Home({
   filter = "all",
