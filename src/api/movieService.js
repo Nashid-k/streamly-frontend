@@ -25,16 +25,14 @@ export const movieService = {
 
   getTop10: async (platform = "all") => {
     const res = await apiClient.get("/movies/top10", {
-      params: { platform, _t: Date.now() },
-      headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' },
+      params: { platform },
     });
     return res.data;
   },
 
   getRecommendations: async (id, platform) => {
     const res = await apiClient.get(`/movies/${id}/recommendations`, {
-      params: { platform, _t: Date.now() },
-      headers: { 'Cache-Control': 'no-store' },
+      params: { platform },
     });
     return res.data;
   },
@@ -55,8 +53,7 @@ export const movieService = {
 
   getSeasonEpisodes: async (id, seasonNumber, platform) => {
     const res = await apiClient.get(`/movies/${id}/season/${seasonNumber}`, {
-      params: { platform, _t: Date.now() },
-      headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' },
+      params: { platform },
     });
     // Read metadata from X-* response headers
     const totalEpisodes = parseInt(res.headers['x-total-episodes'] || '0', 10);
@@ -79,16 +76,14 @@ export const movieService = {
 
   getAiringThisWeek: async (platform = 'all') => {
     const res = await apiClient.get('/movies/airing', {
-      params: { platform, _t: Date.now() },
-      headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' },
+      params: { platform },
     });
     return res.data;
   },
 
   getTrendingThisWeek: async (platform = 'all') => {
     const res = await apiClient.get('/movies/trending', {
-      params: { platform, _t: Date.now() },
-      headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' },
+      params: { platform },
     });
     return res.data;
   },};
