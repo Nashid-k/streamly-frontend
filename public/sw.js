@@ -22,10 +22,36 @@ self.addEventListener('message', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Network-first for API calls and HTML navigations
-  if (event.request.url.includes('/api/') || event.request.mode === 'navigate' || event.request.headers.get('accept')?.includes('text/html')) {
+  const request = event.request;
+
+  // Network-first for API calls and HTML navigations, with a soft timeout.
+  // If the network is slow (Render cold start / sleeping backend) we serve the
+  // last cached copy immediately and let the real request finish in the
+  // background, refreshing the cache. This makes cold starts invisible for
+  // repeat users without ever showing stale data on a fast network.
+  if (request.url.includes('/api/') || request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html')) {
+    const refreshCache = (response) => {
+      if (response && response.status === 200) {
+        const responseClone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(request, responseClone));
+      }
+    };
+    const slowNetwork = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('slow network')), 1500)
+    );
+    const fetchFresh = fetch(request)
+      .then((response) => {
+        refreshCache(response);
+        return response;
+      })
+      .catch(() => {
+        // Real network failure — fall back to cache immediately.
+        return caches.match(request);
+      });
     event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request))
+      Promise.race([fetchFresh, slowNetwork])
+        .catch(() => caches.match(request))
+        .then((cached) => cached || fetchFresh)
     );
     return;
   }
