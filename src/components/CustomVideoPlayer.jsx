@@ -433,6 +433,8 @@ const CustomVideoPlayer = ({
   const vttSpriteMetaRef = useRef(new Map());
   const previewThumbTimerRef = useRef(null);
   const seekLongPressRef = useRef(null);
+  /* Scrape-free NetMirror preview lookups already attempted (per title) */
+  const previewLookupAttemptedRef = useRef(new Set());
 
   const isTouch = useIsTouch();
   const isCineSrc = iframeUrl.includes("cinesrc.st");
@@ -624,6 +626,7 @@ const CustomVideoPlayer = ({
       contentSignatureRef.current = sig;
       if (isNew) { setCurrentTime(0); setDuration(0); setBuffered(0); targetSeekTimeRef.current = null; }
       if (isNew) thumbnailCacheRef.current.clear(); // Drop frames captured for the previous title
+      previewLookupAttemptedRef.current = new Set(); // allow a fresh preview lookup per title
       vttTileRef.current = [];
       vttSpriteMetaRef.current = new Map();
 
@@ -665,6 +668,8 @@ const CustomVideoPlayer = ({
             // Load the thumbnail sprite sheet (VTT) for Netflix-style previews
             if (streamData.thumbnails?.length > 0) {
               setupThumbnailVTT(streamData.thumbnails[0]);
+            } else {
+              requestPreviews(`${tid}-nm`, movie?.title || movie?.name, String(movie?.id || "").startsWith("tmdb-tv-") ? "tv" : "movie");
             }
             setIsLoading(false);
           }
@@ -721,6 +726,8 @@ const CustomVideoPlayer = ({
             // Load thumbnail sprite sheet (VTT) for Netflix-style previews
             if (streamData.thumbnails?.length > 0) {
               setupThumbnailVTT(streamData.thumbnails[0]);
+            } else {
+              requestPreviews(`${tid}-dir`, movie?.title || movie?.name, isTv ? "tv" : "movie");
             }
             setIsLoading(false);
           }
@@ -757,6 +764,9 @@ const CustomVideoPlayer = ({
         else if (isNew && startTimeRef.current > 0) url += `&t=${Math.floor(startTimeRef.current)}&continueprompt=false`;
       }
       setIframeUrl(url);
+      /* Iframe servers hand us no thumbnail sprite — supply one scrape-free from
+         NetMirror's HTTP preview track so hover shows frames across the timeline */
+      requestPreviews(`${tid}-frame-${activeServerIndex}`, movie?.title || movie?.name, isTv ? "tv" : "movie");
       const watchdogDelay = isCineServer ? 20000 : 12000;
       watchdogTimer = setTimeout(() => {
         setIsLoading((prev) => {
@@ -799,10 +809,17 @@ const CustomVideoPlayer = ({
 
   /* Load the CDN's thumbnail sprite VTT and pre-warm sprite sheet metadata.
      Gives Netflix-style previews across the ENTIRE timeline, not just the
-     parts already played (the on-the-fly frame captures can't reach ahead). */
+     parts already played (the on-the-fly frame captures can't reach ahead).
+     Also handles a plain-image storyboard track (no sprite VTT) as one
+     full-range tile so at least a still shows on hover. */
   const setupThumbnailVTT = useCallback(async (vttUrl) => {
     try {
       const fullUrl = /^https?:/.test(vttUrl) ? vttUrl : `https:${vttUrl}`;
+      // A bare image URL (no VTT) → single tile spanning the whole timeline
+      if (/\.(jpe?g|png|webp|avif|gif)(\?|#|$)/i.test(fullUrl)) {
+        vttTileRef.current = [{ start: 0, end: Infinity, url: fullUrl, x: 0, y: 0, w: 0, h: 0, full: true }];
+        return;
+      }
       const res = await fetch(proxyUrl(fullUrl), { priority: 'low' });
       if (!res.ok) return;
       const text = await res.text();
@@ -819,6 +836,26 @@ const CustomVideoPlayer = ({
       });
     } catch { /* thumbnail VTT optional */ }
   }, []);
+
+  /* Scrape-free hover preview supply: when the active source didn't provide a
+     thumbnail sprite (iframe servers never do), fetch NetMirror's preview track
+     over plain HTTP — no Playwright, no scraping. Runs once per title, in the
+     background, and fails silently if NetMirror has no entry or is unreachable. */
+  const ensureNetmirrorPreview = useCallback(async (title, type) => {
+    try {
+      const { thumbnails } = await VideoSourceAdapter.fetchNetMirrorThumbnails(title, type);
+      if (thumbnails.length > 0 && vttTileRef.current.length === 0) {
+        setupThumbnailVTT(thumbnails[0]);
+      }
+    } catch { /* optional — previews degrade to the timer pill */ }
+  }, [setupThumbnailVTT]);
+
+  /* Background preview lookup for a title key — fires once, never blocks init */
+  const requestPreviews = useCallback((titleKey, title, type) => {
+    if (previewLookupAttemptedRef.current.has(titleKey)) return;
+    previewLookupAttemptedRef.current.add(titleKey);
+    ensureNetmirrorPreview(title, type);
+  }, [ensureNetmirrorPreview]);
 
   /* HLS.js — direct stream playback. hls.js itself is lazy-loaded above;
      Safari/iOS (native HLS) and unmounts during the load are handled so we
@@ -2312,14 +2349,14 @@ const CustomVideoPlayer = ({
         )}
       </AnimatePresence>
 
-      {/* ═══ ASPECT RATIO HUD — center-top pill: morphing frame + name ═══ */}
+      {/* ═══ ASPECT RATIO HUD — crop-frame glyph morphing + halo ring + staggered labels ═══ */}
       <AnimatePresence>
         {showAspectRatioArc && (
           <motion.div
             key="aspect-hud"
-            initial={{ opacity: 0, y: -18, scale: 0.94, x: "-50%" }}
+            initial={{ opacity: 0, y: -18, scale: 0.88, x: "-50%" }}
             animate={{ opacity: 1, y: 0, scale: 1, x: "-50%" }}
-            exit={{ opacity: 0, y: -10, scale: 0.97, x: "-50%" }}
+            exit={{ opacity: 0, y: -6, scale: 0.92, x: "-50%" }}
             transition={SPRING_SNAPPY}
             style={{
               position: "absolute", left: "50%",
@@ -2327,55 +2364,123 @@ const CustomVideoPlayer = ({
               zIndex: 65, pointerEvents: "none",
             }}
           >
-            <div style={{
-              display: "flex", alignItems: "center", gap: 10,
-              background: "rgba(12,12,14,0.78)",
-              backdropFilter: "blur(24px) saturate(160%)",
-              WebkitBackdropFilter: "blur(24px) saturate(160%)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: 999,
-              padding: "8px 14px",
-              boxShadow: "0 12px 44px rgba(0,0,0,0.55), inset 0 0.5px 0 rgba(255,255,255,0.08)",
-            }}>
-              {/* Frame glyph — morphs to the active aspect ratio */}
-              <motion.div
-                initial={false}
-                animate={{
-                  width: AR_GLYPH[aspectRatioIndex][0],
-                  height: AR_GLYPH[aspectRatioIndex][1],
-                }}
-                transition={SPRING}
-                style={{
-                  flexShrink: 0,
-                  borderRadius: 3,
-                  border: "1.5px solid rgba(255,255,255,0.92)",
-                  background:
-                    "radial-gradient(circle at 50% 40%, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.03) 100%)",
-                  boxShadow: "0 0 14px rgba(255,255,255,0.2), inset 0 0 12px rgba(255,255,255,0.06)",
-                }}
-              />
-              <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+            {/* layout → the pill resizes with a spring as the label + glyph change */}
+            <motion.div
+              layout
+              transition={{ type: "spring", stiffness: 380, damping: 34, mass: 0.9 }}
+              style={{
+                display: "flex", alignItems: "center", gap: 12,
+                background: "rgba(12,12,14,0.78)",
+                backdropFilter: "blur(24px) saturate(160%)",
+                WebkitBackdropFilter: "blur(24px) saturate(160%)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 999,
+                padding: "9px 16px",
+                boxShadow:
+                  "0 16px 48px rgba(0,0,0,0.6), 0 0 0 0.5px rgba(255,255,255,0.04), inset 0 0.5px 0 rgba(255,255,255,0.14)",
+              }}
+            >
+              {/* ── Glyph stage ── */}
+              <div style={{
+                position: "relative", width: 56, height: 56, flexShrink: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                {/* Frosted backdrop disc */}
+                <div style={{
+                  position: "absolute", inset: 0, borderRadius: "50%",
+                  background: "radial-gradient(circle at 50% 35%, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.02) 70%)",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                }} />
+                {/* Expanding halo ring — replays on every ratio change (Apple motif) */}
+                <motion.div
+                  key={aspectRatioIndex}
+                  initial={{ scale: 0.7, opacity: 0.6 }}
+                  animate={{ scale: 1.8, opacity: 0 }}
+                  transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
+                  style={{
+                    position: "absolute", width: 44, height: 44, borderRadius: "50%",
+                    border: "1.5px solid rgba(255,255,255,0.35)",
+                  }}
+                />
+                {/* The morphing crop frame — springy overshoot as it changes shape */}
+                <motion.div
+                  initial={false}
+                  animate={{
+                    width: AR_GLYPH[aspectRatioIndex][0],
+                    height: AR_GLYPH[aspectRatioIndex][1],
+                  }}
+                  transition={{ type: "spring", stiffness: 430, damping: 24, mass: 0.9 }}
+                  style={{
+                    position: "relative", zIndex: 1, flexShrink: 0,
+                    borderRadius: 3, overflow: "hidden",
+                    border: "1.5px solid rgba(255,255,255,0.92)",
+                    background:
+                      "radial-gradient(circle at 50% 40%, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.04) 100%)",
+                    boxShadow: "0 0 16px rgba(255,255,255,0.22), inset 0 0 12px rgba(255,255,255,0.06)",
+                  }}
+                >
+                  {/* Light sweep across the frame — replays on every change */}
+                  <motion.div
+                    key={aspectRatioIndex}
+                    initial={{ x: "-85%", opacity: 0 }}
+                    animate={{ x: "85%", opacity: [0, 0.85, 0] }}
+                    transition={{ duration: 0.6, ease: "easeOut" }}
+                    style={{
+                      position: "absolute", top: 0, bottom: 0, width: "55%",
+                      background: "linear-gradient(100deg, transparent 0%, rgba(255,255,255,0.18) 50%, transparent 100%)",
+                    }}
+                  />
+                </motion.div>
+                {/* Corner crop brackets — re-grip on every change */}
+                <motion.div
+                  key={aspectRatioIndex}
+                  initial={{ opacity: 0, scale: 1.25 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.08, type: "spring", stiffness: 500, damping: 32 }}
+                  style={{ position: "absolute", inset: 0, zIndex: 2 }}
+                >
+                  <div style={{ position: "absolute", top: -2, left: -2, width: 9, height: 9, borderTop: "2px solid rgba(255,255,255,0.85)", borderLeft: "2px solid rgba(255,255,255,0.85)", borderTopLeftRadius: 2 }} />
+                  <div style={{ position: "absolute", top: -2, right: -2, width: 9, height: 9, borderTop: "2px solid rgba(255,255,255,0.85)", borderRight: "2px solid rgba(255,255,255,0.85)", borderTopRightRadius: 2 }} />
+                  <div style={{ position: "absolute", bottom: -2, left: -2, width: 9, height: 9, borderBottom: "2px solid rgba(255,255,255,0.85)", borderLeft: "2px solid rgba(255,255,255,0.85)", borderBottomLeftRadius: 2 }} />
+                  <div style={{ position: "absolute", bottom: -2, right: -2, width: 9, height: 9, borderBottom: "2px solid rgba(255,255,255,0.85)", borderRight: "2px solid rgba(255,255,255,0.85)", borderBottomRightRadius: 2 }} />
+                </motion.div>
+              </div>
+
+              {/* ── Label block ── */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                {/* Name — blur-to-crisp rise, replaying on each change */}
                 <motion.span
                   key={aspectRatioIndex}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={SPRING_FAST}
+                  initial={{ opacity: 0, y: 6, filter: "blur(3px)" }}
+                  animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                  transition={SPRING_SNAPPY}
                   style={{
-                    color: "#fff", fontSize: R.fontSmall, fontWeight: 700, lineHeight: 1.25,
+                    color: "#fff", fontSize: R.fontSmall, fontWeight: 700, lineHeight: 1.2,
                     fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
                     whiteSpace: "nowrap",
                   }}
                 >
                   {ASPECT_RATIOS[aspectRatioIndex].name}
                 </motion.span>
-                <span style={{
-                  color: "rgba(255,255,255,0.4)", fontSize: R.fontTiny, fontWeight: 600,
-                  fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
-                }}>
-                  {aspectRatioIndex + 1} / {ASPECT_RATIOS.length}
-                </span>
+                {/* Segmented position track — sleek dot progression */}
+                <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
+                  {ASPECT_RATIOS.map((_, i) => (
+                    <motion.i
+                      key={i}
+                      animate={{
+                        width: i === aspectRatioIndex ? 7 : 4,
+                        height: 3.5,
+                        backgroundColor: i <= aspectRatioIndex
+                          ? "rgba(255,255,255,0.95)"
+                          : "rgba(255,255,255,0.18)",
+                      }}
+                      transition={{ type: "spring", stiffness: 600, damping: 32 }}
+                      style={{ display: "block", borderRadius: 2 }}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -2888,21 +2993,34 @@ const CustomVideoPlayer = ({
                               boxShadow: "0 6px 24px rgba(0,0,0,0.6)",
                               background: "rgba(0,0,0,0.4)", position: "relative",
                             }}>
-                              <img
-                                src={proxyUrl(tile.url)}
-                                alt=""
-                                draggable={false}
-                                style={{
-                                  position: "absolute", top: 0, left: 0,
-                                  display: "block",
-                                  maxWidth: "none",
-                                  width: "auto", height: "auto",
-                                  transform: `translate(${-tile.x}px, ${-tile.y}px) scale(${TILE_W / tile.w})`,
-                                  transformOrigin: "0 0",
-                                  pointerEvents: "none",
-                                  userSelect: "none",
-                                }}
-                              />
+                              {tile.full ? (
+                                <img
+                                  src={proxyUrl(tile.url)}
+                                  alt=""
+                                  draggable={false}
+                                  style={{
+                                    width: "100%", height: "100%",
+                                    objectFit: "cover", display: "block",
+                                    pointerEvents: "none", userSelect: "none",
+                                  }}
+                                />
+                              ) : (
+                                <img
+                                  src={proxyUrl(tile.url)}
+                                  alt=""
+                                  draggable={false}
+                                  style={{
+                                    position: "absolute", top: 0, left: 0,
+                                    display: "block",
+                                    maxWidth: "none",
+                                    width: "auto", height: "auto",
+                                    transform: `translate(${-tile.x}px, ${-tile.y}px) scale(${TILE_W / tile.w})`,
+                                    transformOrigin: "0 0",
+                                    pointerEvents: "none",
+                                    userSelect: "none",
+                                  }}
+                                />
+                              )}
                             </div>
                           )}
                           {!tile && thumbUrl && (

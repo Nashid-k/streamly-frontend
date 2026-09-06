@@ -57,6 +57,23 @@ export class VideoSourceAdapter {
     return this.SERVERS[serverIndex]?.netmirror === true;
   }
 
+  static async fetchNetMirrorThumbnails(title, type = "movie") {
+    if (!STREAM_SERVICE_URL) return { thumbnails: [] };
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+    try {
+      const params = new URLSearchParams({ title, type });
+      const res = await fetch(`${STREAM_SERVICE_URL}/api/netmirror/thumbnails?${params}`, { signal: controller.signal });
+      if (!res.ok) return { thumbnails: [] };
+      const data = await res.json().catch(() => null);
+      return { thumbnails: Array.isArray(data?.thumbnails) ? data.thumbnails : [] };
+    } catch {
+      return { thumbnails: [] };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   static async fetchNetMirrorStream(title, type = "movie") {
     if (!STREAM_SERVICE_URL) throw new Error("Stream service not configured");
     const params = new URLSearchParams({ title, type });
