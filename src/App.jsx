@@ -14,25 +14,14 @@ import {
   Bookmark,
   Clock,
   User,
-  X,
-  Menu,
   Bell,
   Tv,
   Keyboard,
   LogOut,
   Film,
-  Compass,
   Sparkles,
   Clapperboard,
-  Flame,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import slugify from "slugify";
-import { movieService } from "./api/movieService";
-import { mapSource } from "./api/platformAdapter";
-import { rankSearchResults } from "./utils/searchRanking";
-import SearchResultRow from "./components/SearchResultRow";
-import { useDebounce } from "./hooks/useDebounce";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAppAuth } from "./context/AuthContext";
 
@@ -44,7 +33,6 @@ import AuthModal from "./components/AuthModal";
 import PlatformIcon from "./components/PlatformIcon";
 import Popover from "./components/Popover";
 import { useScrollRestoration } from "./hooks/useScrollRestoration";
-import { useMediaQuery } from "./hooks/useMediaQuery";
 
 const APP_VERSION = __VERSION__ || "1.0.0";
 
@@ -55,8 +43,6 @@ const NAV_ITEMS = [
   { id: "movies", label: "Movies", to: "/movies", icon: Clapperboard, match: (p) => p.startsWith("/movies") },
   { id: "shows", label: "Shows", to: "/series", icon: Tv, match: (p) => p.startsWith("/series") },
   { id: "mylist", label: "My List", to: "/watchlist", icon: Bookmark, match: (p) => p === "/watchlist" },
-  { id: "anime", label: "Anime", to: "/anime", icon: Compass, match: (p) => p.startsWith("/anime") },
-  { id: "new", label: "New & Popular", to: "/new", icon: Flame, match: (p) => p.startsWith("/new") },
 ];
 
 const HomePage = lazy(() => import("./pages/HomePage"));
@@ -70,29 +56,20 @@ const GenrePage = lazy(() => import("./pages/GenrePage"));
 
 function Layout({ children }) {
   useScrollRestoration();
-  const [query, setQuery] = useState("");
   const location = useLocation();
   const navigate = useNavigate();
-  const searchInputRef = useRef(null);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        if (window.innerWidth > 768 && searchInputRef.current) {
-          searchInputRef.current.focus();
-        } else if (mobileInputRef.current) {
-          mobileInputRef.current.focus();
-        } else {
-          navigate("/search");
-        }
+        navigate("/search");
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [navigate]);
-  const debouncedQuery = useDebounce(query, 400);
-  const [showDropdown, setShowDropdown] = useState(false);
+
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -108,10 +85,6 @@ function Layout({ children }) {
   const {
     user,
     logout,
-    searchHistory,
-    addSearch,
-    removeSearch,
-    clearSearchHistory,
     notifications,
     markAllAsRead,
     clearNotifications,
@@ -128,54 +101,18 @@ function Layout({ children }) {
     }
   }, [user]);
 
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  const userMenuRef = useRef(null);
   const notificationsRef = useRef(null);
-  const searchRef = useRef(null);
-  const mobileSearchRef = useRef(null);
-  const mobileInputRef = useRef(null);
-
-  const {
-    data: rawResults,
-    isLoading: loading,
-    error: queryError,
-  } = useQuery({
-    queryKey: ["search", debouncedQuery],
-    queryFn: () => movieService.searchMovies(debouncedQuery),
-    enabled: !!debouncedQuery.trim(),
-  });
-
-  const results = useMemo(() => {
-    if (!rawResults || !Array.isArray(rawResults.movies)) return [];
-
-    const mapped = rawResults.movies.filter(Boolean).map(mapSource);
-    const seen = new Set();
-    const unique = mapped.filter((m) => {
-      const key = m.tmdbId || m.id;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-
-    // Rank by relevance — exact title matches first
-    return rankSearchResults(unique, debouncedQuery).slice(0, 10);
-  }, [rawResults, debouncedQuery]);
-
-  const error = queryError
-    ? "Failed to reach server. Please try again later."
-    : null;
+  const pillProfileRef = useRef(null);
 
   useEffect(() => {
-    setShowDropdown(false);
-    setQuery("");
-    setMobileMenuOpen(false);
+    setShowUserMenu(false);
+    setShowNotifications(false);
   }, [location.pathname]);
 
   // Close menus when clicking outside or pressing Escape
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+      if (pillProfileRef.current && !pillProfileRef.current.contains(e.target)) {
         setShowUserMenu(false);
       }
       if (
@@ -184,20 +121,12 @@ function Layout({ children }) {
       ) {
         setShowNotifications(false);
       }
-      const clickedOutsideDesktop =
-        searchRef.current && !searchRef.current.contains(e.target);
-      const clickedOutsideMobile =
-        mobileSearchRef.current && !mobileSearchRef.current.contains(e.target);
-      if (clickedOutsideDesktop && clickedOutsideMobile) {
-        setShowDropdown(false);
-      }
     };
 
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
         setShowUserMenu(false);
         setShowNotifications(false);
-        setShowDropdown(false);
       }
     };
 
@@ -209,40 +138,6 @@ function Layout({ children }) {
     };
   }, []);
 
-  const [selectedResultIndex, setSelectedResultIndex] = useState(-1);
-  const isDesktop = useMediaQuery("(min-width: 769px)");
-
-  // Reset selection when results change
-  useEffect(() => {
-    setSelectedResultIndex(-1);
-  }, [results]);
-
-  const handleSearchKeyDown = (e) => {
-    if (e.key === "Enter") {
-      if (selectedResultIndex >= 0 && results[selectedResultIndex]) {
-        const r = results[selectedResultIndex];
-        addSearch(r.title);
-        navigate(
-          `/watch/${r.id}/${slugify(r.title, { lower: true, strict: true })}`,
-        );
-        setQuery("");
-        setShowDropdown(false);
-        setSelectedResultIndex(-1);
-      } else if (query.trim()) {
-        addSearch(query);
-        navigate(`/search?q=${encodeURIComponent(query.trim())}`);
-        setQuery("");
-        setShowDropdown(false);
-      }
-    } else if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setSelectedResultIndex((prev) => Math.min(prev + 1, results.length - 1));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setSelectedResultIndex((prev) => Math.max(prev - 1, -1));
-    }
-  };
-
   return (
     <div className="app-container">
       <a href="#main-content" className="skip-link">
@@ -253,11 +148,11 @@ function Layout({ children }) {
         className={`navbar${isScrolled ? ' scrolled' : ''}`}
         style={{
           background: isScrolled
-            ? "linear-gradient(180deg, rgba(5,5,5,0.97) 0%, rgba(5,5,5,0.95) 100%)"
-            : "linear-gradient(180deg, rgba(5,5,5,0.92) 0%, rgba(5,5,5,0.85) 100%)",
+            ? "linear-gradient(180deg, rgba(5,5,5,0.92) 0%, rgba(5,5,5,0.82) 100%)"
+            : "transparent",
           borderBottom: isScrolled
-            ? "1px solid rgba(255,255,255,0.08)"
-            : "1px solid rgba(255,255,255,0.06)",
+            ? "1px solid rgba(255,255,255,0.07)"
+            : "none",
           boxShadow: isScrolled
             ? "0 1px 0 rgba(255,255,255,0.04), 0 8px 32px rgba(0,0,0,0.5)"
             : "none",
@@ -275,271 +170,6 @@ function Layout({ children }) {
             <span className="logo-word">Streamly</span>
             <span className="logo-version" style={{ fontSize: '0.5rem', color: 'rgba(255,255,255,0.55)', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', padding: '2px 6px', borderRadius: '6px', fontWeight: 700, marginLeft: '6px', letterSpacing: '0.05em', verticalAlign: 'super' }}>v{APP_VERSION}</span>
           </Link>
-        </div>
-
-        {/* Drawer nav — tablet/rare small-desk menu toggle */}
-        <div
-          className={`nav-links ${mobileMenuOpen ? "nav-links-open" : ""}`}
-        >
-            {/* Mobile Search */}
-            <div className="mobile-only" style={{ marginBottom: "1rem" }}>
-              <div
-                ref={mobileSearchRef}
-                className="search-wrapper mobile-search"
-                style={{ position: "relative" }}
-              >
-                <Search
-                  size={18}
-                  className="search-icon"
-                  onClick={() => {
-                    const input =
-                      mobileSearchRef.current?.querySelector("input");
-                    if (input) input.focus();
-                  }}
-                  style={{ cursor: "pointer", padding: "10px" }}
-                />
-                <input
-                  ref={mobileInputRef}
-                  type="text"
-                  className="search-input"
-                  placeholder="Search movies, shows... (Cmd+K)"
-                  aria-label="Search movies and TV shows"
-                  value={query}
-                  onChange={(e) => {
-                    setQuery(e.target.value);
-                    setShowDropdown(true);
-                  }}
-                  onFocus={() => {
-                    if (query) setShowDropdown(true);
-                  }}
-                  onKeyDown={handleSearchKeyDown}
-                />
-                {query && (
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => {
-                      setQuery("");
-                      setShowDropdown(false);
-                    }}
-                    style={{
-                      position: "absolute",
-                      right: "12px",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      background: "transparent",
-                      border: "none",
-                      color: "#a1a1aa",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      padding: "10px",
-                    }}
-                  >
-                    <X size={16} aria-label="Close search" />
-                  </motion.button>
-                )}
-
-                <Popover
-                  isOpen={!!(showDropdown && query)}
-                  onClose={() => setShowDropdown(false)}
-                  triggerRef={mobileSearchRef}
-                  role={null}
-                  style={{
-                    width: "100%",
-                    maxHeight: "65vh",
-                    overflowY: "auto",
-                  }}
-                >
-                      {loading ? (
-                        <div
-                          role="status"
-                          aria-busy="true"
-                          aria-label="Loading search results"
-                          style={{ display: "flex", flexDirection: "column" }}
-                        >
-                          {[1, 2, 3, 4].map((i) => (
-                            <div
-                              key={i}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "1rem",
-                                padding: "0.75rem 1rem",
-                                borderBottom:
-                                  "1px solid rgba(255,255,255,0.05)",
-                              }}
-                            >
-                              <div
-                                className="skeleton"
-                                style={{
-                                  width: "50px",
-                                  height: "75px",
-                                  borderRadius: "4px",
-                                }}
-                              ></div>
-                              <div
-                                style={{
-                                  flex: 1,
-                                  display: "flex",
-                                  flexDirection: "column",
-                                  gap: "8px",
-                                }}
-                              >
-                                <div
-                                  className="skeleton"
-                                  style={{
-                                    width: "60%",
-                                    height: "1rem",
-                                    borderRadius: "4px",
-                                  }}
-                                ></div>
-                                <div
-                                  className="skeleton"
-                                  style={{
-                                    width: "30%",
-                                    height: "0.8rem",
-                                    borderRadius: "4px",
-                                  }}
-                                ></div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : error ? (
-                        <div
-                          style={{
-                            padding: "3rem",
-                            textAlign: "center",
-                            color: "#ef4444",
-                          }}
-                        >
-                          {error}
-                        </div>
-                      ) : results.length > 0 ? (
-                        <div
-                          style={{ display: "flex", flexDirection: "column" }}
-                        >
-                          <div role="listbox" aria-label="Search results">
-                          {results.map((r, i) => (
-                            <SearchResultRow
-                              key={`${r.id}-${i}`}
-                              r={r}
-                              i={i}
-                              selectedResultIndex={selectedResultIndex}
-                              setSelectedResultIndex={setSelectedResultIndex}
-                              roleOption
-                              onClick={() => {
-                                addSearch(r.title); // Fix #21: save to history on click
-                                navigate(
-                                  `/watch/${r.id}/${slugify(r.title, { lower: true, strict: true })}`,
-                                );
-                                setQuery("");
-                                setShowDropdown(false);
-                                setMobileMenuOpen(false);
-                              }}
-                            />
-                          ))}
-                          </div>
-                          {/* Keyboard nav hint */}
-                          <div
-                            style={{
-                              padding: "0.5rem 1rem",
-                              display: "flex",
-                              gap: "1rem",
-                              borderTop: "1px solid rgba(255,255,255,0.05)",
-                              borderBottom: "1px solid rgba(255,255,255,0.05)",
-                            }}
-                          >
-                            <span
-                              style={{
-                                fontSize: "0.7rem",
-                                color: "#52525b",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "4px",
-                              }}
-                            >
-                              <kbd
-                                style={{
-                                  background: "rgba(255,255,255,0.08)",
-                                  border: "1px solid rgba(255,255,255,0.12)",
-                                  borderRadius: "3px",
-                                  padding: "1px 5px",
-                                  fontSize: "0.65rem",
-                                }}
-                              >
-                                ↑↓
-                              </kbd>{" "}
-                              navigate
-                            </span>
-                            <span
-                              style={{
-                                fontSize: "0.7rem",
-                                color: "#52525b",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "4px",
-                              }}
-                            >
-                              <kbd
-                                style={{
-                                  background: "rgba(255,255,255,0.08)",
-                                  border: "1px solid rgba(255,255,255,0.12)",
-                                  borderRadius: "3px",
-                                  padding: "1px 5px",
-                                  fontSize: "0.65rem",
-                                }}
-                              >
-                                ↵
-                              </kbd>{" "}
-                              select
-                            </span>
-                          </div>
-                          <button
-                            type="button"
-                            className="menu-item"
-                            style={{ textAlign: "center", color: "var(--accent-secondary)", fontWeight: 600, borderTop: "1px solid rgba(255,255,255,0.08)" }}
-                            onClick={() => {
-                              addSearch(query); // Fix #21: save to history on mobile see-all
-                              navigate(
-                                `/search?q=${encodeURIComponent(query)}`,
-                              );
-                              setQuery("");
-                              setShowDropdown(false);
-                              setMobileMenuOpen(false);
-                            }}
-                          >
-                            See all results for "{query}" →
-                          </button>
-                        </div>
-                      ) : (
-                        <div
-                          style={{
-                            padding: "3rem",
-                            textAlign: "center",
-                            color: "#a1a1aa",
-                          }}
-                        >
-                          No results found for "{query}"
-                        </div>
-                      )}
-                  </Popover>
-              </div>
-            </div>
-            {/* Drawer nav items */}
-            {NAV_ITEMS.map((item) => (
-              <Link
-                key={`drawer-${item.id}`}
-                onClick={() => setMobileMenuOpen(false)}
-                to={item.to}
-                className={`nav-item ${item.match(location.pathname) ? "active" : ""}`}
-              >
-                <item.icon size={16} strokeWidth={2} />
-                <span style={{ marginLeft: "8px" }}>{item.label}</span>
-              </Link>
-            ))}
         </div>
 
         <div className="nav-right">
@@ -566,311 +196,139 @@ function Layout({ children }) {
                 </Link>
               );
             })}
-          </div>
-          <div
-            ref={searchRef}
-            className="search-wrapper desktop-only"
-            style={{ position: "relative" }}
-          >
-            <Search
-              size={18}
-              className="search-icon"
-              onClick={() => {
-                const input = searchRef.current?.querySelector("input");
-                if (input) input.focus();
-              }}
-              style={{ cursor: "pointer", padding: "10px" }}
-            />
-            <input
-              ref={searchInputRef}
-              type="text"
-              className="search-input"
-              placeholder="Search movies, shows... (Cmd+K)"
-              aria-label="Search movies and TV shows"
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setShowDropdown(true);
-              }}
-              onFocus={() => setShowDropdown(true)}
-              onKeyDown={handleSearchKeyDown}
-            />
-            {query && (
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => {
-                  setQuery("");
-                  setShowDropdown(false);
-                }}
-                style={{
-                  position: "absolute",
-                  right: "12px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  background: "transparent",
-                  border: "none",
-                  color: "#a1a1aa",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: "10px",
-                }}
-              >
-                <X size={16} aria-label="Close search" />
-              </motion.button>
-            )}
 
-            <Popover
-              isOpen={!!(showDropdown && (query || (searchHistory && searchHistory.length > 0)))}
-              onClose={() => setShowDropdown(false)}
-              triggerRef={searchRef}
-              role={null}
-              style={{
-                width: isDesktop ? "min(450px, calc(100vw - 2rem))" : "100%",
-                maxHeight: "65vh",
-                overflowY: "auto",
-              }}
+            <div className="nav-pill-divider" aria-hidden="true" />
+
+            {/* Search — opens the full search page (Cmd/Ctrl+K too) */}
+            <Link
+              to="/search"
+              className={`nav-pill-item${location.pathname === "/search" ? " active" : ""}`}
+              aria-current={location.pathname === "/search" ? "page" : undefined}
             >
-                    {!query && searchHistory && searchHistory.length > 0 ? (
-                      <div style={{ padding: "0.75rem" }}>
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            marginBottom: "0.5rem",
-                            padding: "0 0.25rem",
-                          }}
-                        >
-                          <span className="label-eyebrow">
-                            Recent Searches
-                          </span>
-                          <button
-                            onClick={() => clearSearchHistory()}
-                            className="menu-item"
-                            style={{
-                              fontSize: "0.75rem",
-                              padding: "2px 6px",
-                              width: "auto",
-                            }}
-                          >
-                            Clear all
-                          </button>
-                        </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            flexWrap: "wrap",
-                            gap: "0.5rem",
-                          }}
-                        >
-                          {searchHistory.slice(0, 8).map((term) => (
-                            <motion.button
-                              key={term}
-                              whileHover={{ scale: 1.03 }}
-                              whileTap={{ scale: 0.97 }}
-                              className="chip"
-                              onClick={() => {
-                                setQuery(term);
-                                addSearch(term);
-                                navigate(
-                                  `/search?q=${encodeURIComponent(term)}`,
-                                );
-                                setShowDropdown(false);
-                              }}
-                            >
-                              <span>{term}</span>
-                              <span
-                                role="button"
-                                tabIndex={0}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  removeSearch(term);
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter" || e.key === " ") {
-                                    e.stopPropagation();
-                                    removeSearch(term);
-                                  }
-                                }}
-                                style={{
-                                  color: "var(--text-muted)",
-                                  fontSize: "0.75rem",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  marginLeft: "2px",
-                                }}
-                              >
-                                ×
-                              </span>
-                            </motion.button>
-                          ))}
-                        </div>
-                      </div>
-                    ) : loading ? (
-                      <div style={{ display: "flex", flexDirection: "column" }}>
-                        {[1, 2, 3, 4].map((i) => (
-                          <div
-                            key={i}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "1rem",
-                              padding: "0.75rem 1rem",
-                              borderBottom: "1px solid rgba(255,255,255,0.05)",
-                            }}
-                          >
-                            <div
-                              className="skeleton"
-                              style={{
-                                width: "50px",
-                                height: "75px",
-                                borderRadius: "4px",
-                              }}
-                            ></div>
-                            <div
-                              style={{
-                                flex: 1,
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: "8px",
-                              }}
-                            >
-                              <div
-                                className="skeleton"
-                                style={{
-                                  width: "60%",
-                                  height: "1rem",
-                                  borderRadius: "4px",
-                                }}
-                              ></div>
-                              <div
-                                className="skeleton"
-                                style={{
-                                  width: "30%",
-                                  height: "0.8rem",
-                                  borderRadius: "4px",
-                                }}
-                              ></div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : error ? (
-                      <div
-                        style={{
-                          padding: "3rem",
-                          textAlign: "center",
-                          color: "#ef4444",
-                        }}
-                      >
-                        {error}
-                      </div>
-                    ) : results.length > 0 ? (
-                      <div style={{ display: "flex", flexDirection: "column" }}>
-                        {results.map((r, i) => (
-                          <SearchResultRow
-                            key={`${r.id}-${i}`}
-                            r={r}
-                            i={i}
-                            selectedResultIndex={selectedResultIndex}
-                            setSelectedResultIndex={setSelectedResultIndex}
-                            onClick={() => {
-                              addSearch(r.title); // Fix #21: save to history on desktop click
-                              navigate(
-                                `/watch/${r.id}/${slugify(r.title, { lower: true, strict: true })}`,
-                              );
-                              setQuery("");
-                              setShowDropdown(false);
-                              setMobileMenuOpen(false);
-                            }}
-                          />
-                        ))}
-                        {/* Keyboard nav hint */}
-                        <div
-                          style={{
-                            padding: "0.5rem 1rem",
-                            display: "flex",
-                            gap: "1rem",
-                            borderTop: "1px solid rgba(255,255,255,0.05)",
-                            borderBottom: "1px solid rgba(255,255,255,0.05)",
-                          }}
-                        >
-                          <span
-                            style={{
-                              fontSize: "0.7rem",
-                              color: "#52525b",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "4px",
-                            }}
-                          >
-                            <kbd
-                              style={{
-                                background: "rgba(255,255,255,0.08)",
-                                border: "1px solid rgba(255,255,255,0.12)",
-                                borderRadius: "3px",
-                                padding: "1px 5px",
-                                fontSize: "0.65rem",
-                              }}
-                            >
-                              ↑↓
-                            </kbd>{" "}
-                            navigate
-                          </span>
-                          <span
-                            style={{
-                              fontSize: "0.7rem",
-                              color: "#52525b",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "4px",
-                            }}
-                          >
-                            <kbd
-                              style={{
-                                background: "rgba(255,255,255,0.08)",
-                                border: "1px solid rgba(255,255,255,0.12)",
-                                borderRadius: "3px",
-                                padding: "1px 5px",
-                                fontSize: "0.65rem",
-                              }}
-                            >
-                              ↵
-                            </kbd>{" "}
-                            select
-                          </span>
-                        </div>
-                        {/* See all results link */}
-                        <button
-                          type="button"
-                          className="menu-item"
-                          style={{ textAlign: "center", color: "var(--accent-secondary)", fontWeight: 600, borderTop: "1px solid rgba(255,255,255,0.08)" }}
-                          onClick={() => {
-                            addSearch(query);
-                            navigate(`/search?q=${encodeURIComponent(query)}`);
-                            setQuery("");
-                            setShowDropdown(false);
-                            setMobileMenuOpen(false);
-                          }}
-                        >
-                          See all results for "{query}" →
-                        </button>
-                      </div>
-                    ) : (
-                      <div
-                        style={{
-                          padding: "3rem",
-                          textAlign: "center",
-                          color: "#a1a1aa",
-                        }}
-                      >
-                        No results found for "{query}"
-</div>
-                      )}
-                  </Popover>
+              {location.pathname === "/search" && (
+                <motion.span
+                  layoutId="nav-pill-active"
+                  className="nav-pill-active"
+                  transition={{ type: "spring", stiffness: 420, damping: 32, mass: 0.9 }}
+                />
+              )}
+              <Search size={16} strokeWidth={2} />
+              <span className="nav-pill-label">Search</span>
+            </Link>
+
+            {/* Profile / Sign In — dropdown anchored inside the pill */}
+            <div ref={pillProfileRef} style={{ position: "relative" }}>
+              <div
+                className={`nav-pill-item${showUserMenu && user ? " profile-open" : ""}`}
+                role="button"
+                tabIndex={0}
+                aria-haspopup="menu"
+                aria-expanded={user ? showUserMenu : undefined}
+                aria-label={user ? "User menu" : "Sign In"}
+                title={user ? user.displayName || user.email : "Sign In"}
+                onClick={() =>
+                  user ? setShowUserMenu(!showUserMenu) : setShowAuthModal(true)
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    if (user) setShowUserMenu(!showUserMenu);
+                    else setShowAuthModal(true);
+                  }
+                }}
+                style={{ cursor: "pointer" }}
+              >
+                {user ? (
+                  <span className="nav-pill-avatar">
+                    {(user.displayName || user.email || "?")[0].toUpperCase()}
+                  </span>
+                ) : (
+                  <User size={16} strokeWidth={2} />
+                )}
+                <span className="nav-pill-label">
+                  {user ? "Profile" : "Sign In"}
+                </span>
+              </div>
+              <Popover
+                isOpen={!!(showUserMenu && user)}
+                onClose={() => setShowUserMenu(false)}
+                triggerRef={pillProfileRef}
+                style={{ padding: "8px 0", minWidth: "220px" }}
+              >
+                {/* Signed-in user info */}
+                <div
+                  style={{
+                    padding: "10px 16px 8px",
+                    borderBottom: "1px solid rgba(255,255,255,0.08)",
+                    marginBottom: "4px",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontWeight: 600,
+                      fontSize: "0.9rem",
+                      color: "#fff",
+                    }}
+                  >
+                    {user?.displayName || "Streamer"}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#71717a",
+                      marginTop: "2px",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {user?.email || ""}
+                  </div>
+                </div>
+
+                <Link
+                  to="/watchlist"
+                  onClick={() => setShowUserMenu(false)}
+                  className="menu-item"
+                >
+                  <Bookmark size={16} /> My List
+                </Link>
+                <Link
+                  to="/history"
+                  onClick={() => setShowUserMenu(false)}
+                  className="menu-item"
+                >
+                  <Clock size={16} /> Watch History
+                </Link>
+                <hr className="menu-divider" />
+                <button
+                  type="button"
+                  className="menu-item"
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    window.dispatchEvent(
+                      new KeyboardEvent("keydown", {
+                        key: "?",
+                        shiftKey: true,
+                      }),
+                    );
+                  }}
+                >
+                  <Keyboard size={16} /> Keyboard Shortcuts
+                </button>
+                <hr className="menu-divider" />
+                <button
+                  type="button"
+                  className="menu-item menu-item--danger"
+                  onClick={async () => {
+                    setShowUserMenu(false);
+                    await logout();
+                  }}
+                >
+                  <LogOut size={16} /> Sign Out
+                </button>
+              </Popover>
+            </div>
           </div>
 
           {/* Notifications Dropdown */}
@@ -1101,122 +559,6 @@ function Layout({ children }) {
               </Popover>
           </div>
 
-          {/* User Avatar with Dropdown */}
-          <div ref={userMenuRef} style={{ position: "relative" }}>
-            <div
-              className="user-avatar"
-              role="button"
-              tabIndex={0}
-              aria-haspopup="menu"
-              aria-expanded={user ? showUserMenu : undefined}
-              aria-label={user ? "User menu" : "Sign In"}
-              onClick={() =>
-                user ? setShowUserMenu(!showUserMenu) : setShowAuthModal(true)
-              }
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  if (user) setShowUserMenu(!showUserMenu);
-                  else setShowAuthModal(true);
-                }
-              }}
-              title={user ? user.displayName || user.email : "Sign In"}
-              style={{ cursor: "pointer", position: "relative" }}
-            >
-              {user ? (
-                <div
-                  className="user-avatar"
-                  style={{
-                    borderRadius: "50%",
-                    background: "var(--accent-gradient)",
-                  }}
-                >
-                  {(user.displayName || user.email || "?")[0].toUpperCase()}
-                </div>
-              ) : (
-                <User size={20} aria-label="Sign In" />
-              )}
-            </div>
-            <Popover
-              isOpen={!!(showUserMenu && user)}
-              onClose={() => setShowUserMenu(false)}
-              triggerRef={userMenuRef}
-              style={{ padding: "8px 0", minWidth: "220px" }}
-            >
-                  {/* Signed-in user info */}
-                  <div
-                    style={{
-                      padding: "10px 16px 8px",
-                      borderBottom: "1px solid rgba(255,255,255,0.08)",
-                      marginBottom: "4px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontWeight: 600,
-                        fontSize: "0.9rem",
-                        color: "#fff",
-                      }}
-                    >
-                      {user?.displayName || "Streamer"}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "0.75rem",
-                        color: "#71717a",
-                        marginTop: "2px",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {user?.email || ""}
-                    </div>
-                  </div>
-
-                  <Link
-                    to="/watchlist"
-                    onClick={() => setShowUserMenu(false)}
-                    className="menu-item"
-                  >
-                    <Bookmark size={16} /> My List
-                  </Link>
-                  <Link
-                    to="/history"
-                    onClick={() => setShowUserMenu(false)}
-                    className="menu-item"
-                  >
-                    <Clock size={16} /> Watch History
-                  </Link>
-                  <hr className="menu-divider" />
-                  <button
-                    type="button"
-                    className="menu-item"
-                    onClick={() => {
-                      setShowUserMenu(false);
-                      window.dispatchEvent(
-                        new KeyboardEvent("keydown", {
-                          key: "?",
-                          shiftKey: true,
-                        }),
-                      );
-                    }}
-                  >
-                    <Keyboard size={16} /> Keyboard Shortcuts
-                  </button>
-                  <hr className="menu-divider" />
-                  <button
-                    type="button"
-                    className="menu-item menu-item--danger"
-                    onClick={async () => {
-                      setShowUserMenu(false);
-                      await logout();
-                    }}
-                  >
-                    <LogOut size={16} /> Sign Out
-                  </button>
-                  </Popover>
-          </div>
 
           {/* Auth Modal */}
           <AuthModal
@@ -1224,27 +566,6 @@ function Layout({ children }) {
             onClose={() => setShowAuthModal(false)}
           />
 
-          {/* Hamburger button for mobile */}
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            className="hamburger-btn"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            style={{
-              background: "transparent",
-              border: "none",
-              color: "#fff",
-              cursor: "pointer",
-              padding: "10px",
-              marginLeft: "0.5rem",
-            }}
-          >
-            {mobileMenuOpen ? (
-              <X size={24} aria-label="Close menu" />
-            ) : (
-              <Menu size={24} aria-label="Open menu" />
-            )}
-          </motion.button>
         </div>
       </nav>
 
@@ -1277,7 +598,7 @@ function Layout({ children }) {
             aria-current={item.match(location.pathname) ? "page" : undefined}
           >
             <item.icon size={22} strokeWidth={2} />
-            <span>{item.label === "New & Popular" ? "New" : item.label}</span>
+            <span>{item.label}</span>
           </Link>
         ))}
         <Link
@@ -1319,16 +640,6 @@ function AppRoutes() {
                 element={
                   <HomePage filter="movies" title="Blockbuster Movies" />
                 }
-              />
-              <Route
-                path="/new"
-                element={
-                  <HomePage filter="new" title="New & Popular Arrivals" />
-                }
-              />
-              <Route
-                path="/anime"
-                element={<HomePage filter="anime" title="Anime Collection" />}
               />
               <Route path="/watchlist" element={<WatchlistPage />} />
               <Route path="/mylist" element={<Navigate to="/watchlist" replace />} />

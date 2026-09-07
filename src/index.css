@@ -163,7 +163,8 @@ a {
   background: #050505;
 }
 
-/* Top Navbar */.navbar {
+/* Top Navbar — floating transparent header: logo left, pill right, no black bar */
+.navbar {
   position: fixed;
   top: 0;
   left: 0;
@@ -172,28 +173,19 @@ a {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.7rem clamp(1.5rem, 3vw, 3rem);
+  padding: 0.9rem clamp(1.5rem, 3vw, 3rem);
   height: 56px;
-  background: linear-gradient(180deg, rgba(5,5,5,0.95) 0%, rgba(5,5,5,0.88) 100%);
-  backdrop-filter: blur(32px) saturate(200%);
-  -webkit-backdrop-filter: blur(32px) saturate(200%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: transparent;
+  border-bottom: none;
   transition: background 0.4s ease, box-shadow 0.4s ease, padding 0.3s ease;
   will-change: background, box-shadow, padding;
 }
 .navbar.scrolled {
-  background: rgba(5, 5, 5, 0.98);
-  box-shadow: 0 1px 0 rgba(255,255,255,0.05), 0 8px 32px rgba(0,0,0,0.55);
-}
-.navbar::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(244,63,94,0.15), transparent);
-  pointer-events: none;
+  background: linear-gradient(180deg, rgba(5,5,5,0.9) 0%, rgba(5,5,5,0.78) 100%);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.05), 0 8px 32px rgba(0,0,0,0.45);
 }
 
 .nav-left,
@@ -282,6 +274,11 @@ a {
   color: #08080a;
 }
 
+.nav-pill-item.profile-open {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.16);
+}
+
 .nav-pill-active {
   position: absolute;
   inset: 0;
@@ -296,57 +293,29 @@ a {
   z-index: 1;
 }
 
-.nav-links {
-  display: none;
-  gap: 0.25rem;
-  list-style: none;
-  align-items: center;
+/* Vertical hairline separating pill sections (nav links | search | profile) */
+.nav-pill-divider {
+  width: 1px;
+  height: 16px;
+  margin: 0 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.14);
+  flex-shrink: 0;
 }
 
-.nav-item {
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: rgba(255,255,255,0.55);
-  padding: 0.4rem 0.7rem;
-  border-radius: 8px;
-  transition:
-    color 0.2s ease,
-    background 0.2s ease,
-    transform 0.15s ease;
-  cursor: pointer;
+/* Monochrome avatar chip shown inside the pill for signed-in users */
+.nav-pill-avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f43f5e, #fb923c);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
   display: flex;
   align-items: center;
-  position: relative;
-  letter-spacing: 0.01em;
-  text-decoration: none;
-}
-
-.nav-item::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0.7rem;
-  right: 0.7rem;
-  height: 2px;
-  border-radius: 2px;
-  background: linear-gradient(90deg, #f43f5e, #fb923c);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.3s var(--ease-out);
-}
-
-.nav-item.active::after {
-  transform: scaleX(1);
-}
-
-.nav-item:hover,
-.nav-item.active {
-  color: #ffffff;
-  background: rgba(255,255,255,0.08);
-}
-
-.nav-item:active {
-  transform: scale(0.97);
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .search-wrapper {
@@ -1438,11 +1407,6 @@ input:focus-visible {
   flex-shrink: 0;
 }
 
-/* Hamburger button — hidden on desktop */
-.hamburger-btn {
-  display: none !important;
-}
-
 /* Desktop scroll snap on rails (mobile reinforces with scroll-snap-stop: always inside media query) */
 .movie-rail {
   scroll-snap-type: x mandatory;
@@ -1496,25 +1460,6 @@ input:focus-visible {
   .movie-grid {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important;
   }
-
-  /* Ensure the nav drawer works on tablet */
-  .nav-links-open {
-    display: flex !important;
-    flex-direction: column;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: rgba(9, 9, 11, 0.98);
-    padding: 1rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    animation: navDrawerIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6);
-  }
-  @keyframes navDrawerIn {
-    from { opacity: 0; transform: translateY(-8px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
 }
 
 /* Toast semantic accent bars */
@@ -1552,7 +1497,6 @@ input:focus-visible {
     backdrop-filter: blur(32px) saturate(200%) !important;
     -webkit-backdrop-filter: blur(32px) saturate(200%) !important;
   }
-  .hamburger-btn,
   .nav-links,
   .nav-pill,
   .search-container {

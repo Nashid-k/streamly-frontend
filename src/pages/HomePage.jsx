@@ -21,6 +21,22 @@ import LeavingSoonBanner from "../components/LeavingSoonBanner";
 import { detectLeavingSoon, buildUpcoming } from "../utils/releaseCalendar";
 import { asArray, EMPTY_ARRAY } from "../utils";
 
+// Shared content-type predicates. Anime is merged into Movies/TV Shows by
+// whether each title is a movie or a series, so both stay discoverable
+// without a dedicated tab.
+const isSeriesLike = (m) =>
+  Boolean(
+    m.isSeries ||
+      String(m.id || "").startsWith("tmdb-tv-") ||
+      m.type === "tv" ||
+      (m.seasonsCount && m.seasonsCount > 0),
+  );
+const isAnime = (m) =>
+  Boolean(
+    m.genres?.includes("Animation") ||
+      (m.tags && m.tags.some((t) => t.toLowerCase().includes("anime"))),
+  );
+
 const GENRE_OPTIONS = [
   "All",
   "Malayalam",
@@ -540,14 +556,7 @@ export default function Home({
     // Apply base tab filter to allMovies
     if (filter === "series" || filter === "tv shows")
       allMovies = allMovies.filter((m) => m.isSeries);
-    else if (filter === "movies")
-      allMovies = allMovies.filter((m) => !m.isSeries);
-    else if (filter === "anime")
-      allMovies = allMovies.filter(
-        (m) =>
-          m.genres?.includes("Animation") ||
-          (m.tags && m.tags.some((t) => t.toLowerCase().includes("anime"))),
-      );
+    else if (filter === "movies") allMovies = allMovies.filter((m) => !m.isSeries);
 
     const getMoviesByLanguage = (lang) => {
       const regex = new RegExp(lang, "i");
@@ -562,35 +571,64 @@ export default function Home({
         .sort((a, b) => (b.imdbRating || 0) - (a.imdbRating || 0));
     };
 
-    // 2. Generate dynamic regional rails (Authentic Netflix/Prime pattern)
-    let dynamicRegionalRails = [];
-    if (activeGenre === "All" && filter !== "new") {
+    // 2. Generate dynamic discovery rails (authentic Netflix/Prime pattern):
+    //    New & Popular on Home, and anime split into Movies vs TV Shows,
+    //    interleaved with the regional rails below.
+    let dynamicRails = [];
+    if (activeGenre === "All" && activePlatform === "all") {
+      if (filter === "all") {
+        // New & Popular — newest releases first, highest-rated within a year.
+        const fresh = allMovies
+          .filter((m) => !!m.releaseYear)
+          .sort(
+            (a, b) =>
+              b.releaseYear - a.releaseYear ||
+              (b.imdbRating || 0) - (a.imdbRating || 0),
+          )
+          .slice(0, 30);
+        if (fresh.length > 0)
+          dynamicRails.push({ name: "New & Popular", movies: fresh });
+      }
+
+      const isTV = filter === "series" || filter === "tv shows";
+      if (filter === "movies") {
+        const animeMovies = allMovies.filter(
+          (m) => isAnime(m) && !isSeriesLike(m),
+        );
+        if (animeMovies.length >= 4)
+          dynamicRails.push({ name: "Anime Movies", movies: animeMovies });
+      } else if (isTV) {
+        const animeSeries = allMovies.filter(
+          (m) => isAnime(m) && isSeriesLike(m),
+        );
+        if (animeSeries.length >= 4)
+          dynamicRails.push({ name: "Anime Series", movies: animeSeries });
+      }
+
       const malayalam = getMoviesByLanguage("Malayalam");
       const tamil = getMoviesByLanguage("Tamil");
       const hindi = getMoviesByLanguage("Hindi");
       const telugu = getMoviesByLanguage("Telugu");
 
-      const isTV = filter === "series" || filter === "tv shows";
-
       if (malayalam.length >= 4)
-        dynamicRegionalRails.push({
+        dynamicRails.push({
           name: isTV
             ? "Malayalam TV Shows"
             : "Critically Acclaimed Malayalam Movies",
           movies: malayalam,
         });
       if (tamil.length >= 4)
-        dynamicRegionalRails.push({
+        dynamicRails.push({
           name: isTV ? "Tamil TV Shows" : "Blockbuster Tamil Movies",
           movies: tamil,
         });
       if (hindi.length >= 4)
-        dynamicRegionalRails.push({
+        dynamicRails.push({
           name: isTV ? "Hindi TV Shows" : "Trending in Hindi",
           movies: hindi,
         });
       if (telugu.length >= 4)
-        dynamicRegionalRails.push({
+        dynamicRails.push({
           name: isTV ? "Telugu TV Shows" : "Popular Telugu Movies",
           movies: telugu,
         });
@@ -617,18 +655,6 @@ export default function Home({
         );
         if (!dynamicName.toLowerCase().includes("movie"))
           dynamicName = `${dynamicName} Movies`;
-      } else if (filter === "anime") {
-        filtered = filtered.filter(
-          (m) =>
-            m.genres?.includes("Animation") ||
-            (m.tags && m.tags.some((t) => t.toLowerCase().includes("anime"))),
-        );
-        if (!dynamicName.toLowerCase().includes("anime"))
-          dynamicName = `${dynamicName} Anime`;
-      } else if (filter === "new") {
-        filtered = filtered
-          .sort((a, b) => b.releaseYear - a.releaseYear)
-          .slice(0, 30);
       }
 
       if (activeGenre !== "All") {
@@ -679,8 +705,7 @@ export default function Home({
         filter === "all" ||
         filter === "series" ||
         filter === "tv shows" ||
-        filter === "movies" ||
-        filter === "anime"
+        filter === "movies"
       ) {
         // Sort by rating descending for quality-first ordering
         filtered = filtered.sort(
@@ -693,22 +718,22 @@ export default function Home({
       }
     }
 
-    // 3. Interleave dynamic regional rails with standard backend rails
+    // 3. Interleave dynamic rails (New & Popular / Anime / Regional) with standard backend rails
     const finalCategories = [];
     let dynamicIdx = 0;
 
     for (let i = 0; i < standardCategories.length; i++) {
       finalCategories.push(standardCategories[i]);
-      // Insert a dynamic regional rail every 2 standard rails to distribute them beautifully
-      if ((i + 1) % 2 === 0 && dynamicIdx < dynamicRegionalRails.length) {
-        finalCategories.push(dynamicRegionalRails[dynamicIdx]);
+      // Insert a dynamic rail every 2 standard rails to distribute them beautifully
+      if ((i + 1) % 2 === 0 && dynamicIdx < dynamicRails.length) {
+        finalCategories.push(dynamicRails[dynamicIdx]);
         dynamicIdx++;
       }
     }
 
     // Append any remaining dynamic rails at the end
-    while (dynamicIdx < dynamicRegionalRails.length) {
-      finalCategories.push(dynamicRegionalRails[dynamicIdx]);
+    while (dynamicIdx < dynamicRails.length) {
+      finalCategories.push(dynamicRails[dynamicIdx]);
       dynamicIdx++;
     }
 
@@ -720,22 +745,12 @@ export default function Home({
   }, [rawCategories, filter, activeGenre, activePlatform]);
 
   // Shared predicates for the Top 10 / Trending / Airing rails
-  const isSeriesMovie = (m) =>
-    Boolean(
-      m.isSeries ||
-        String(m.id || "").startsWith("tmdb-tv-") ||
-        m.type === "tv" ||
-        (m.seasonsCount && m.seasonsCount > 0),
-    );
-  const isAnimeMovie = (m) =>
-    m.genres?.includes("Animation") ||
-    (m.tags && m.tags.some((t) => t.toLowerCase().includes("anime")));
+  const isSeriesMovie = isSeriesLike;
 
   const applyPageFilter = (list) => {
     if (filter === "series" || filter === "tv shows")
       return (list || []).filter(isSeriesMovie);
     if (filter === "movies") return (list || []).filter((m) => !isSeriesMovie(m));
-    if (filter === "anime") return (list || []).filter(isAnimeMovie);
     return Array.isArray(list) ? list : [];
   };
 
@@ -812,9 +827,7 @@ export default function Home({
         ? "TV Shows"
         : filter === "movies"
           ? "Movies"
-          : filter === "anime"
-            ? "Anime"
-            : "";
+          : "";
     const nearest = upcomingReleases[0];
     if (nearest && nearest.daysUntil <= 7)
       return scope ? `Coming This Week — ${scope}` : "Coming This Week";
@@ -878,9 +891,7 @@ export default function Home({
         if ((filter === "series" || filter === "tv shows") && fm.isSeries)
           globalPool.push(fm);
         else if (filter === "movies" && !fm.isSeries) globalPool.push(fm);
-        else if (filter === "anime" && fm.genres?.includes("Animation"))
-          globalPool.push(fm);
-        else if (filter === "all" || filter === "new" || filter === "mylist")
+        else if (filter === "all" || filter === "mylist")
           globalPool.push(fm);
       });
     }
@@ -896,16 +907,12 @@ export default function Home({
         });
       });
 
-      // Filter for the current tab (Movies vs Series vs Anime)
+      // Filter for the current tab (Movies vs Series)
       let tabFilteredMovies = allCategoryMovies;
       if (filter === "series" || filter === "tv shows")
         tabFilteredMovies = tabFilteredMovies.filter((m) => m.isSeries);
       if (filter === "movies")
         tabFilteredMovies = tabFilteredMovies.filter((m) => !m.isSeries);
-      if (filter === "anime")
-        tabFilteredMovies = tabFilteredMovies.filter((m) =>
-          m.genres?.includes("Animation"),
-        );
 
       // Extract Regional Content (Tamil, Malayalam, Hindi, Telugu, etc.)
       regionalPool = tabFilteredMovies.filter(
@@ -1451,8 +1458,8 @@ export default function Home({
       )}
 
       {/* Upcoming — standard rail UI on every tab; tab-filtered (all on Home,
-          movies/series/anime on their pages) and padded so the rail always fills. */}
-      {!loading && filter !== "new" && activeGenre === "All" && upcomingReleases.length > 0 && (
+          movies/series on their pages) and padded so the rail always fills. */}
+      {!loading && activeGenre === "All" && upcomingReleases.length > 0 && (
         <FadeInSection>
           <ErrorBoundary>
             <MovieRail
@@ -1530,8 +1537,7 @@ export default function Home({
             {(filter === "all" ||
               filter === "series" ||
               filter === "tv shows" ||
-              filter === "movies" ||
-              filter === "anime") &&
+              filter === "movies") &&
               top10Movies.length > 0 &&
               activeGenre === "All" && (
                 <FadeInSection>
