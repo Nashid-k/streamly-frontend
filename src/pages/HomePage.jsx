@@ -1229,7 +1229,7 @@ export default function Home({
                       {isInList(activeFeaturedMovie?.id) ? "In My List" : "My List"}
                     </motion.button>
                     <div className="hero-btn-group-divider" />
-                    <Link to={`/title/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`} style={{ textDecoration: 'none' }}>
+                    <Link to={`/watch/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`} style={{ textDecoration: 'none' }}>
                       <motion.button
                         className="hero-btn-group-item"
                         whileHover={{ backgroundColor: "rgba(255,255,255,0.1)" }}
@@ -1298,14 +1298,14 @@ export default function Home({
 
       {/* Browse by Platforms */}
       {!loading && categories.length > 0 && (
-        <div style={{ margin: "0.4rem 0 1.1rem" }}>
+        <div style={{ margin: "1.75rem 0 2rem" }}>
           <h2
             className="section-title"
             style={{
               display: "flex",
               alignItems: "center",
               gap: "0.5rem",
-              marginBottom: "1rem",
+              marginBottom: "1.1rem",
             }}
           >
             Browse by Platforms
@@ -1392,7 +1392,7 @@ export default function Home({
             overflowX: "auto",
             scrollbarWidth: "none",
             padding: "0.4rem 0 0.75rem",
-            marginBottom: "0.25rem",
+            margin: "1.25rem 0 0.75rem",
           }}
         >
           {GENRE_OPTIONS.map((genre) => (

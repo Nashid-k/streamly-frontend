@@ -1,4 +1,4 @@
-const STREAM_SERVICE_URL = import.meta.env.VITE_STREAM_SERVICE_URL || "";
+import { streamUrl } from "./env";
 
 const BASE_SERVERS = [
   {
@@ -79,12 +79,11 @@ export class VideoSourceAdapter {
   }
 
   static async fetchNetMirrorThumbnails(title, type = "movie") {
-    if (!STREAM_SERVICE_URL) return { thumbnails: [] };
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 12000);
     try {
       const params = new URLSearchParams({ title, type });
-      const res = await fetch(`${STREAM_SERVICE_URL}/api/netmirror/thumbnails?${params}`, { signal: controller.signal });
+      const res = await fetch(streamUrl(`/api/netmirror/thumbnails?${params}`), { signal: controller.signal });
       if (!res.ok) return { thumbnails: [] };
       const data = await res.json().catch(() => null);
       return { thumbnails: Array.isArray(data?.thumbnails) ? data.thumbnails : [] };
@@ -96,13 +95,12 @@ export class VideoSourceAdapter {
   }
 
   static async fetchNetMirrorStream(title, type = "movie") {
-    if (!STREAM_SERVICE_URL) throw new Error("Stream service not configured");
     const params = new URLSearchParams({ title, type });
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 20000);
     let res;
     try {
-      res = await fetch(`${STREAM_SERVICE_URL}/api/netmirror?${params}`, { signal: controller.signal });
+      res = await fetch(streamUrl(`/api/netmirror?${params}`), { signal: controller.signal });
     } catch {
       clearTimeout(timer);
       const err = new Error("NetMirror lookup timed out");
@@ -133,11 +131,10 @@ export class VideoSourceAdapter {
   }
 
   static async fetchDirectStreamUrl(tmdbId, type = "movie", season, episode) {
-    if (!STREAM_SERVICE_URL) throw new Error("Stream service not configured");
     const params = new URLSearchParams({ tmdbId, type });
     if (season) params.set("season", season);
     if (episode) params.set("episode", episode);
-    const res = await fetch(`${STREAM_SERVICE_URL}/api/stream?${params}`);
+    const res = await fetch(streamUrl(`/api/stream?${params}`));
     const data = await res.json().catch(() => null);
     if (!res.ok) {
       // Session-protected content (e.g. CineSrc "thunder") can't be extracted as
@@ -158,11 +155,11 @@ export class VideoSourceAdapter {
     // from the CDN — no segment relay through the stream service (which is what
     // caused buffer stalls on the free-tier backend). Only CORS-blocked streams
     // (session-token "thunder" etc.) route through the proxy.
-    const streamUrl = data.corsOpen
+    const streamUrlResolved = data.corsOpen
       ? data.streamUrl
-      : `${STREAM_SERVICE_URL}/api/proxy?url=${encodeURIComponent(data.streamUrl)}`;
+      : streamUrl(`/api/proxy?url=${encodeURIComponent(data.streamUrl)}`);
     return {
-      streamUrl,
+      streamUrl: streamUrlResolved,
       provider: data.provider,
       subtitles: data.subtitles || [],
       thumbnails: data.thumbnails || [],

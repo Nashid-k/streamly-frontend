@@ -1,23 +1,17 @@
 name: Keep backend warm
 
-# Render free-tier services spin down after ~15 minutes without traffic,
-# causing 30-60s cold starts on the first request. This action pings both
-# backends on a cadence well under the idle threshold so they stay warm and
-# "instant" for users.
-#
+# The merged backend (API + stream router) now runs on the same Vercel
+# deployment as the SPA, so there are no Render services to wake anymore.
+# This action merely pings the live deployment every 10 minutes to keep the
+# serverless function warm and "instant" for users. Both URLs below map to the
+# SAME function via vercel.json (`/api` and `/health` rewrites).
+
 # Tips:
-#  - The API URL below matches vercel.json's rewrite target. If it changes,
-#    update both.
-#  - Add a repository secret `KEEPALIVE_STREAM_URL` with your stream-service
-#    Render URL (https://your-stream-service.onrender.com). Without it the
-#    action only pings the API backend.
-#  - Note: always-on warmth consumes ~720 of the 750 free instance-hours on
-#    a Render free account. If you run two always-warm services you may need
-#    a Starter instance instead.
+#  - The cron cadence (10 min) is comfortably under typical idle timeouts.
+#  - Replace the base URL below if the Vercel project is renamed.
 
 on:
   schedule:
-    # Every 10 minutes — comfortably under Render's ~15 min idle timeout.
     - cron: "*/10 * * * *"
   workflow_dispatch: {}
 
@@ -36,17 +30,14 @@ jobs:
     steps:
       - name: Wake API backend
         run: |
-          curl -sS --fail --max-time 90 \
+          curl -sS --fail --max-time 30 \
             -H "User-Agent: keepalive" \
-            "https://streamly-backend-9q7i.onrender.com/health" \
-            || echo "::warning::API backend health ping failed (may be mid cold-start)"
+            "https://streamlyvercelin.vercel.app/health" \
+            || echo "::warning::API health ping failed (may be mid cold-start)"
 
-      - name: Wake stream service
-        if: ${{ secrets.KEEPALIVE_STREAM_URL != '' }}
-        env:
-          KEEPALIVE_STREAM_URL: ${{ secrets.KEEPALIVE_STREAM_URL }}
+      - name: Wake stream router
         run: |
-          curl -sS --fail --max-time 90 \
+          curl -sS --fail --max-time 30 \
             -H "User-Agent: keepalive" \
-            "${KEEPALIVE_STREAM_URL%/}/api/health" \
-            || echo "::warning::Stream service health ping failed (may be mid cold-start)"
+            "https://streamlyvercelin.vercel.app/api/health" \
+            || echo "::warning::Stream health ping failed (may be mid cold-start)"

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SubtitleEngine } from "../utils/subtitleEngine";
+import { streamUrl, STREAM_BASE } from "../api/env";
 
 const getNumericId = (s) => {
   if (!s) return null;
@@ -55,15 +56,13 @@ const parseThumbnailVTT = (vttText) => {
   return tiles;
 };
 
-const STREAM_SERVICE_URL = import.meta.env.VITE_STREAM_SERVICE_URL || "";
-
-/* Route cross-origin CDN URLs through the stream-service CORS proxy. Only used
-   as a FALLBACK now — most fetches go browser-direct so CDN bytes (thumbnail
-   sprites, subtitle files) never ride the stream-service bandwidth meter. */
+/* Route cross-origin CDN URLs through the merged backend's CORS proxy. Only
+   used as a FALLBACK now — most fetches go browser-direct so CDN bytes
+   (thumbnail sprites, subtitle files) never ride the backend bandwidth. */
 const proxyUrl = (u) => {
-  if (!u || !STREAM_SERVICE_URL) return u;
-  if (String(u).startsWith(STREAM_SERVICE_URL)) return u;
-  return `${STREAM_SERVICE_URL}/api/proxy?url=${encodeURIComponent(u)}`;
+  if (!u) return u;
+  if (STREAM_BASE && String(u).startsWith(STREAM_BASE)) return u;
+  return streamUrl(`/api/proxy?url=${encodeURIComponent(u)}`);
 };
 
 /* Fetch a CDN resource directly from the browser first; relay through the
@@ -86,7 +85,7 @@ const fetchDirect = async (u, opts) => {
    rejects the direct load. */
 const onTileImgError = (e, u) => {
   const el = e.currentTarget;
-  if (el.dataset.proxied || !STREAM_SERVICE_URL) return;
+  if (el.dataset.proxied) return;
   el.dataset.proxied = "1";
   el.src = proxyUrl(u);
 };
@@ -898,12 +897,10 @@ const CustomVideoPlayer = ({
         const img = new Image();
         img.onload = () => vttSpriteMetaRef.current.set(rawUrl, { w: img.naturalWidth, h: img.naturalHeight });
         img.onerror = () => {
-          if (STREAM_SERVICE_URL) {
-            const fallback = new Image();
-            fallback.onload = () => vttSpriteMetaRef.current.set(rawUrl, { w: fallback.naturalWidth, h: fallback.naturalHeight });
-            fallback.onerror = () => {};
-            fallback.src = proxyUrl(rawUrl);
-          }
+          const fallback = new Image();
+          fallback.onload = () => vttSpriteMetaRef.current.set(rawUrl, { w: fallback.naturalWidth, h: fallback.naturalHeight });
+          fallback.onerror = () => {};
+          fallback.src = proxyUrl(rawUrl);
         };
         img.src = rawUrl;
       });

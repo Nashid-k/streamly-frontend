@@ -1,35 +1,36 @@
 /**
  * serverHealth — lightweight backend health monitoring for the SPA.
  *
- * Why: the API and the stream service run on cold-starting hosts (Render free
- * tier). A sleeping instance takes tens of seconds to boot, so requests hang
- * while it warms up. This module:
+ * Why: the merged backend (API + stream router) runs on a cold-starting host.
+ * A sleeping instance takes seconds to boot, so requests hang while it warms
+ * up. This module:
  *   • probes the real /health endpoints instead of guessing,
  *   • wakes a sleeping backend as soon as the app opens (pre-warm),
  *   • retries with capped exponential backoff while a backend is down,
- *   • sends a slow 5-minute keep-alive while this tab is open so a Render
- *     free instance never idles to sleep mid-session (backed up by the
- *     GitHub Actions keepalive when no tab is open),
+ *   • sends a slow 5-minute keep-alive while this tab is open so a backend
+ *     never idles to sleep mid-session (backed up by the GitHub Actions
+ *     keepalive when no tab is open),
  *   • still respects background tabs: no probes run while the tab is hidden.
+ *
+ * API and stream health are both same-origin now (one merged backend), so both
+ * URLs are derived from the same VITE_API_URL base.
  *
  * Pure module — no React.
  */
-const API_BASE = (import.meta.env.VITE_API_URL || "").trim();
-const STREAM_BASE = (import.meta.env.VITE_STREAM_SERVICE_URL || "").trim();
+import { streamUrl, backendOrigin } from "./env";
 
 /** Derive the API host's health URL. Backend serves GET /health at the root. */
 export function apiHealthUrl() {
-  if (/^https?:\/\//.test(API_BASE)) {
-    return API_BASE.replace(/\/api\/?$/, "") + "/health";
+  if (backendOrigin()) {
+    return backendOrigin() + "/health";
   }
   // Relative VITE_API_URL (same-origin dev/proxy) — still root-served.
   return "/health";
 }
 
-/** Derive the stream service's health URL, or null when not configured. */
+/** Derive the merged backend's stream-router health URL (same-origin). */
 export function streamHealthUrl() {
-  if (!STREAM_BASE) return null;
-  return STREAM_BASE.replace(/\/+$/, "") + "/api/health";
+  return streamUrl("/api/health");
 }
 
 const TARGETS = {
