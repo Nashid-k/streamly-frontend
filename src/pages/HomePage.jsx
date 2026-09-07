@@ -1313,8 +1313,12 @@ export default function Home({
           <div
             style={{
               display: "flex",
-              flexWrap: "wrap",
               gap: "0.8rem",
+              WebkitOverflowScrolling: "touch",
+              overscrollBehaviorX: "contain",
+              overflowX: "auto",
+              scrollbarWidth: "none",
+              padding: "0.4rem 0.25rem 0.75rem",
             }}
           >
             <motion.button
