@@ -29,6 +29,13 @@ const BASE_SERVERS = [
         ? `https://vidsrcme.ru/embed/tv?${imdb ? "imdb=" + imdb : "tmdb=" + id}&season=${s}&episode=${e}`
         : `https://vidsrcme.ru/embed/movie?${imdb ? "imdb=" + imdb : "tmdb=" + id}`,
   },
+  {
+    name: "Server 5 (VidCore)",
+    url: (id, s, e, imdb) =>
+      s
+        ? `https://vidcore.io/tv/${id}/${s}/${e}?autoPlay=true`
+        : `https://vidcore.io/movie/${imdb || id}?autoPlay=true`,
+  },
 ];
 
 export class VideoSourceAdapter {

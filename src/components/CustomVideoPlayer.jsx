@@ -478,6 +478,7 @@ const CustomVideoPlayer = ({
 
   const isTouch = useIsTouch();
   const isCineSrc = iframeUrl.includes("cinesrc.st");
+  const isVidCore = iframeUrl.includes("vidcore.io");
   const isDirectStream = Boolean(directStreamUrl);
   const showCustomUI = (isCineSrc || isDirectStream) && !useNativeControls;
 
@@ -841,11 +842,25 @@ const CustomVideoPlayer = ({
 
   const sendCommand = useCallback((c, a = []) => {
     try {
-      if (iframeRef.current?.contentWindow) {
-        iframeRef.current.contentWindow.postMessage({ type: "cinesrc:command", command: c, args: a }, "https://cinesrc.st");
+      const w = iframeRef.current?.contentWindow;
+      if (!w) return;
+      if (!isVidCore) {
+        w.postMessage({ type: "cinesrc:command", command: c, args: a }, "https://cinesrc.st");
+        return;
+      }
+      // VidCore postMessage protocol: { command: "play" | "pause" | "seek" | "volume" | "mute" | "getStatus", ... }
+      switch (c) {
+        case "play": w.postMessage({ command: "play" }, "*"); break;
+        case "pause": w.postMessage({ command: "pause" }, "*"); break;
+        case "seek": w.postMessage({ command: "seek", time: a[0] }, "*"); break;
+        case "setVolume": w.postMessage({ command: "volume", level: a[0] }, "*"); break;
+        case "setMuted": w.postMessage({ command: "mute", muted: !!a[0] }, "*"); break;
+        case "getCurrentTime": case "getDuration": case "getVolume":
+        case "getPaused": w.postMessage({ command: "getStatus" }, "*"); break;
+        default: break; // no VidCore equivalent (rate/quality/audio) — ignore
       }
     } catch { /* iframe cross-origin */ }
-  }, []);
+  }, [isVidCore]);
 
   /* Load the CDN's thumbnail sprite VTT and pre-warm sprite sheet metadata.
      Gives Netflix-style previews across the ENTIRE timeline, not just the
@@ -1339,6 +1354,76 @@ const CustomVideoPlayer = ({
     return () => window.removeEventListener("message", h);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- onServerChange/autoSkipIntro/showToast/onClose are read inside the listener but the listener is keyed to playback state; re-adding it when these parent-provided callbacks change would churn message handling on unrelated re-renders.
   }, [isCineSrc, isScrubbing, playbackRate, sendCommand, hasNextEpisode, onNextEpisode, activeServerIndex, startUpNextCountdown, onProgressUpdate]);
+
+  /* VidCore PostMessage Listener — events arrive either as
+     { type: "timeupdate", data: { currentTime, duration, percent } } or wrapped as
+     { type: "PLAYER_EVENT", data: { event: "play"|"pause"|"seeked"|"ended"|"timeupdate"|"playerstatus", ...
+     (plus a direct media-data event carrying mediaId/mediaType/season/episode). */
+  useEffect(() => {
+    if (!isVidCore) return;
+    const h = (ev) => {
+      try {
+        if (ev.origin !== "https://vidcore.io" || !ev.data || typeof ev.data !== "object") return;
+        const d = ev.data;
+        let etype = d.type;
+        let payload = d.data;
+        if (etype === "PLAYER_EVENT" && payload && typeof payload === "object") {
+          etype = payload.event;
+        }
+        if (typeof etype !== "string" || !etype) return;
+        switch (etype) {
+          case "play": setIsLoading(false); setIsPlaying(true); setServerErrorCounts({}); break;
+          case "pause": setIsPlaying(false); setIsLoading(false); break;
+          case "seeked": targetSeekTimeRef.current = null; setIsLoading(false); break;
+          case "timeupdate": {
+            if (isLoadingRef.current) setIsLoading(false);
+            if (!isScrubbing && !targetSeekTimeRef.current) {
+              const t = payload?.currentTime;
+              const dur = payload?.duration;
+              if (t != null) setCurrentTime(t);
+              if (dur) setDuration(dur);
+              // Debounce progress writes to Firestore — max once per 10 seconds
+              const now = Date.now();
+              if (now - lastProgressWriteRef.current > 10000) {
+                lastProgressWriteRef.current = now;
+                onProgressUpdate?.(t, dur);
+              }
+              if (!isScrubbing) setIsLoading(false);
+              if (dur > 0 && t >= dur - 30 && hasNextEpisode && !upNextShownRef.current && !isLoopingRef.current) startUpNextCountdown();
+              if (dur > 0 && t >= dur - 1 && hasNextEpisode && onNextEpisode && !hasTriggeredNextRef.current && !isLoopingRef.current) {
+                hasTriggeredNextRef.current = true;
+                clearInterval(upNextIntervalRef.current);
+                setShowUpNext(false);
+                onNextEpisode();
+              }
+            }
+            break;
+          }
+          case "ended":
+            if (isLoopingRef.current) { sendCommand("seek", [0]); return; }
+            if (hasNextEpisode && !hasTriggeredNextRef.current) {
+              hasTriggeredNextRef.current = true;
+              clearInterval(upNextIntervalRef.current);
+              setShowUpNext(false);
+              onNextEpisode();
+            }
+            break;
+          case "playerstatus":
+            if (payload?.playing !== undefined) setIsPlaying(payload.playing);
+            if (payload?.muted !== undefined) setIsMuted(payload.muted);
+            if (payload?.volume !== undefined) setVolume(payload.volume);
+            if (payload?.currentTime != null) setCurrentTime(payload.currentTime);
+            if (payload?.duration != null) setDuration(payload.duration);
+            setIsLoading(false);
+            break;
+          default: break;
+        }
+      } catch { /* DataCloneError etc */ }
+    };
+    window.addEventListener("message", h);
+    return () => window.removeEventListener("message", h);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onProgressUpdate (inline parent prop) must not re-attach the listener on every parent render; playback/mute state flows one-way via refs where needed.
+  }, [isVidCore, isScrubbing, hasNextEpisode, onNextEpisode, startUpNextCountdown, sendCommand]);
 
   /* Actions */
   const triggerCenterIcon = useCallback((type) => {
@@ -1916,11 +2001,21 @@ const CustomVideoPlayer = ({
               ? `scale(${ASPECT_RATIOS[aspectRatioIndex].scale})` : 'none',
             transformOrigin: 'center center',
           }}
-          allow="autoplay; fullscreen; picture-in-picture"
+          allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
           onLoad={() => {
             if (isCineSrc) {
               /* Do NOT set isLoading=false here — wait for cinesrc:playing
                  so CineSrc's own spinner stays hidden behind our overlay */
+            } else if (isVidCore) {
+              // Pull the current playback state into our player so the loading
+              // state, progress bar and up-next logic stay in sync.
+              setIsLoading(false);
+              setServerErrorCounts({});
+              setTimeout(() => {
+                const w = iframeRef.current?.contentWindow;
+                if (w && iframeUrl.includes("vidcore.io"))
+                  w.postMessage({ command: "getStatus" }, "*");
+              }, 600);
             } else {
               setIsLoading(false);
               setServerErrorCounts({}); // Reset error count on successful load
