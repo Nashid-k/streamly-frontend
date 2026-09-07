@@ -36,6 +36,7 @@ describe("ConfirmDialog", () => {
 
     it("ConfirmDialogRenderer renders nothing when dialog is null", () => {
       // Renderer is a component; when dialog is null, AnimatePresence renders nothing
+      const { result } = renderHook(() => useConfirmDialog());
       expect(result.current.ConfirmDialogRenderer).toBeDefined();
       expect(result.current.ConfirmDialogRenderer.name).toBe("ConfirmDialogRenderer");
     });
