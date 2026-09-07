@@ -75,7 +75,7 @@ export default function WatchlistPage() {
   return (
     <div
       className="main-content"
-      style={{ padding: "0 3rem 4rem", minHeight: "80vh" }}
+      style={{ padding: "5.5rem 3rem 4rem", minHeight: "80vh" }}
     >
       <div
         style={{

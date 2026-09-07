@@ -3,7 +3,7 @@ export default function MovieDetailsSkeleton() {
     <div
       style={{
         position: "relative",
-        marginTop: "-56px",
+        marginTop: 0,
         paddingTop: 0,
         minHeight: "100vh",
       }}

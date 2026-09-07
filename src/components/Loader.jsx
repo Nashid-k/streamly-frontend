@@ -148,7 +148,7 @@ export default function Loader({ variant = "page", size, color }) {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        minHeight: variant === "page" ? "calc(100vh - 56px)" : "auto",
+        minHeight: variant === "page" ? "100dvh" : "auto",
         width: "100%",
         padding: variant === "inline" ? "2rem" : "0",
         gap: "1.25rem",

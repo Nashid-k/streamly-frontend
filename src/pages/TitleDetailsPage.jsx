@@ -725,7 +725,7 @@ export default function TitleDetails() {
       style={{
         position: "relative",
         width: "100%",
-        marginTop: "-56px",
+        marginTop: 0,
         paddingTop: 0,
       }}
     >

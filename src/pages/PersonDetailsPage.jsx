@@ -24,7 +24,7 @@ export default function PersonDetails() {
 
   if (loading) {
     return (
-      <div className="main-content" style={{ padding: "0 3rem", position: "relative" }}>
+      <div className="main-content" style={{ padding: "5.5rem 3rem 3rem", position: "relative" }}>
         {/* Blurred backdrop preview — mirrors the real blurred profile bg */}
         <div
           className="skeleton skeleton-glow"
@@ -166,7 +166,7 @@ export default function PersonDetails() {
     : [];
 
   return (
-    <div style={{ position: "relative" }}>
+    <div style={{ position: "relative", paddingTop: "5.5rem" }}>
       {/* Dynamic Blurred Background */}
       <div
         style={{

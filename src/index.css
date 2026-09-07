@@ -498,7 +498,7 @@ a {
 /* Main Content */
 .main-content {
   flex: 1;
-  padding: 88px 2rem 4rem;
+  padding: 0 2rem 4rem;
   max-width: 1800px;
   margin: 0 auto;
   width: 100%;
@@ -526,7 +526,7 @@ a {
   max-height: 900px;
   border-radius: 0;
   overflow: hidden;
-  margin-top: -88px;
+  margin-top: 0;
   margin-bottom: 0;
   box-shadow: none;
   border: none;
@@ -1335,7 +1335,7 @@ a {
   min-height: 560px;
   max-height: 900px;
   border-radius: 0;
-  margin-top: -88px;
+  margin-top: 0;
   margin-bottom: 0;
   position: relative;
 }
@@ -1586,7 +1586,7 @@ input:focus-visible {
     top: 0;
   }
   .main-content {
-    padding: 56px 2rem 4rem;
+    padding: 0 2rem 4rem;
   }
 
   /* Icon-only pill on tight widths: reveal icons for idle items too */
@@ -1724,7 +1724,7 @@ input:focus-visible {
     margin-left: calc(50% - 50vw);
     margin-right: calc(50% - 50vw);
     border-radius: 0;
-    margin-top: -88px;
+    margin-top: 0;
     height: min(75vh, 560px);
     min-height: 450px;
     max-height: none;
