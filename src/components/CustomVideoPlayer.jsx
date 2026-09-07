@@ -2321,7 +2321,7 @@ const CustomVideoPlayer = ({
         )}
       </AnimatePresence>
 
-      {/* ═══ VOLUME HUD — dynamic top-center gauge: live arc fill + morphing icon + spring % ═══ */}
+      {/* ═══ VOLUME HUD — compact horizontal gauge: live arc fill + morphing icon + spring % ═══ */}
       <AnimatePresence>
         {showVolumeArc && (
           <motion.div
@@ -2341,19 +2341,19 @@ const CustomVideoPlayer = ({
               transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.9 }}
               animate={{
                 boxShadow: isMuted || volume === 0
-                  ? "0 14px 48px rgba(255,69,58,0.25), inset 0 0.5px 0 rgba(255,255,255,0.1)"
-                  : `0 14px 48px rgba(0,0,0,0.6), inset 0 0.5px 0 rgba(255,255,255,0.14)`,
+                  ? "0 14px 40px rgba(255,69,58,0.22), inset 0 0.5px 0 rgba(255,255,255,0.1)"
+                  : `0 14px 40px rgba(0,0,0,0.6), inset 0 0.5px 0 rgba(255,255,255,0.14)`,
               }}
               style={{
-                display: "flex", flexDirection: "column", alignItems: "center", gap: Math.round(6 * hudScale),
+                display: "flex", flexDirection: "row", alignItems: "center", gap: Math.round(11 * hudScale),
                 background: "linear-gradient(180deg, rgba(22,22,26,0.9), rgba(10,10,12,0.9))",
                 backdropFilter: "blur(24px) saturate(160%)",
                 WebkitBackdropFilter: "blur(24px) saturate(160%)",
                 border: isMuted || volume === 0
                   ? "1px solid rgba(255,69,58,0.35)"
                   : "1px solid rgba(255,255,255,0.12)",
-                borderRadius: Math.round(20 * hudScale),
-                padding: `${Math.round(10 * hudScale)}px ${Math.round(14 * hudScale)}px`,
+                borderRadius: Math.round(18 * hudScale),
+                padding: `${Math.round(8 * hudScale)}px ${Math.round(13 * hudScale)}px`,
               }}
             >
               {/* Pulsing ambient glow — breathes with the level */}
@@ -2375,7 +2375,7 @@ const CustomVideoPlayer = ({
               {/* Live arc gauge — ring sweeps to the current level */}
               <ArcRing
                 progress={effVolume}
-                size={Math.round(52 * hudScale)}
+                size={Math.round(40 * hudScale)}
                 strokeWidth={3}
                 color={isMuted || volume === 0 ? "#ff453a" : "#fff"}
                 bgColor="rgba(255,255,255,0.1)"
@@ -2389,42 +2389,50 @@ const CustomVideoPlayer = ({
                   style={{ display: "flex", alignItems: "center" }}
                 >
                   {isMuted || volume === 0 ? (
-                    <VolumeX size={Math.round(20 * hudScale)} color="#ff453a" strokeWidth={2.2} />
+                    <VolumeX size={Math.round(17 * hudScale)} color="#ff453a" strokeWidth={2.2} />
                   ) : effVolume <= 0.33 ? (
-                    <Volume1 size={Math.round(20 * hudScale)} color="rgba(255,255,255,0.92)" strokeWidth={2.2} />
+                    <Volume1 size={Math.round(17 * hudScale)} color="rgba(255,255,255,0.92)" strokeWidth={2.2} />
                   ) : (
-                    <Volume2 size={Math.round(20 * hudScale)} color="#fff" strokeWidth={2.2} />
+                    <Volume2 size={Math.round(17 * hudScale)} color="#fff" strokeWidth={2.2} />
                   )}
                 </motion.span>
               </ArcRing>
 
-              {/* Live percent — tabular, springs on every change while sliding */}
-              <motion.span
-                key={isMuted || volume === 0 ? "muted" : Math.round(effVolume * 100)}
-                initial={{ opacity: 0, y: 4, scale: 1.2 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={SPRING_FAST}
+              {/* Label + live percent — stacked, springs on every change */}
+              <div
                 style={{
-                  color: isMuted || volume === 0 ? "#ff453a" : "rgba(255,255,255,0.95)",
-                  fontSize: Math.round(13 * hudScale) + 'px',
-                  fontWeight: 700,
-                  fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
-                  fontVariantNumeric: "tabular-nums",
-                  letterSpacing: "0.02em",
+                  display: "flex", flexDirection: "column", alignItems: "flex-start",
+                  gap: Math.round(2 * hudScale), lineHeight: 1.1,
                 }}
               >
-                {isMuted || volume === 0 ? "Muted" : `${Math.round(effVolume * 100)}%`}
-              </motion.span>
+                <motion.span
+                  key={isMuted || volume === 0 ? "muted" : Math.round(effVolume * 100)}
+                  initial={{ opacity: 0, y: 4, scale: 1.2 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={SPRING_FAST}
+                  style={{
+                    color: isMuted || volume === 0 ? "#ff453a" : "rgba(255,255,255,0.95)",
+                    fontSize: Math.round(12 * hudScale) + 'px',
+                    fontWeight: 700,
+                    fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+                    fontVariantNumeric: "tabular-nums",
+                    letterSpacing: "0.02em",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {isMuted || volume === 0 ? "Muted" : `${Math.round(effVolume * 100)}%`}
+                </motion.span>
 
-              {/* Label */}
-              <span style={{
-                color: "rgba(255,255,255,0.45)",
-                fontSize: Math.round(9 * hudScale) + 'px',
-                fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase",
-                fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
-              }}>
-                Volume
-              </span>
+                <span style={{
+                  color: "rgba(255,255,255,0.45)",
+                  fontSize: Math.round(8 * hudScale) + 'px',
+                  fontWeight: 600, letterSpacing: "0.18em", textTransform: "uppercase",
+                  fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+                  whiteSpace: "nowrap",
+                }}>
+                  Volume
+                </span>
+              </div>
             </motion.div>
           </motion.div>
         )}
@@ -2456,14 +2464,14 @@ const CustomVideoPlayer = ({
                 WebkitBackdropFilter: "blur(24px) saturate(160%)",
                 border: "1px solid rgba(255,255,255,0.12)",
                 borderRadius: 999,
-                padding: `${Math.round(9 * hudScale)}px ${Math.round(16 * hudScale)}px`,
+                padding: `${Math.round(7 * hudScale)}px ${Math.round(14 * hudScale)}px`,
                 boxShadow:
                   "0 16px 48px rgba(0,0,0,0.6), 0 0 0 0.5px rgba(255,255,255,0.04), inset 0 0.5px 0 rgba(255,255,255,0.14)",
               }}
             >
               {/* ── Dynamic glyph stage — scales with the player box ── */}
               <motion.div
-                animate={{ width: Math.round(56 * hudScale), height: Math.round(56 * hudScale) }}
+                animate={{ width: Math.round(44 * hudScale), height: Math.round(44 * hudScale) }}
                 transition={{ type: "spring", stiffness: 380, damping: 30, mass: 0.9 }}
                 style={{
                   position: "relative", flexShrink: 0,
@@ -2483,7 +2491,7 @@ const CustomVideoPlayer = ({
                   animate={{ scale: 1.8, opacity: 0 }}
                   transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
                   style={{
-                    position: "absolute", width: Math.round(44 * hudScale), height: Math.round(44 * hudScale),
+                    position: "absolute", width: Math.round(36 * hudScale), height: Math.round(36 * hudScale),
                     borderRadius: "50%",
                     border: "1.5px solid rgba(255,255,255,0.35)",
                   }}
@@ -2525,10 +2533,10 @@ const CustomVideoPlayer = ({
                   transition={{ delay: 0.08, type: "spring", stiffness: 500, damping: 32 }}
                   style={{ position: "absolute", inset: 0, zIndex: 2 }}
                 >
-                  <div style={{ position: "absolute", top: -2, left: -2, width: 9, height: 9, borderTop: "2px solid rgba(255,255,255,0.85)", borderLeft: "2px solid rgba(255,255,255,0.85)", borderTopLeftRadius: 2 }} />
-                  <div style={{ position: "absolute", top: -2, right: -2, width: 9, height: 9, borderTop: "2px solid rgba(255,255,255,0.85)", borderRight: "2px solid rgba(255,255,255,0.85)", borderTopRightRadius: 2 }} />
-                  <div style={{ position: "absolute", bottom: -2, left: -2, width: 9, height: 9, borderBottom: "2px solid rgba(255,255,255,0.85)", borderLeft: "2px solid rgba(255,255,255,0.85)", borderBottomLeftRadius: 2 }} />
-                  <div style={{ position: "absolute", bottom: -2, right: -2, width: 9, height: 9, borderBottom: "2px solid rgba(255,255,255,0.85)", borderRight: "2px solid rgba(255,255,255,0.85)", borderBottomRightRadius: 2 }} />
+                  <div style={{ position: "absolute", top: -2, left: -2, width: 7, height: 7, borderTop: "2px solid rgba(255,255,255,0.85)", borderLeft: "2px solid rgba(255,255,255,0.85)", borderTopLeftRadius: 2 }} />
+                  <div style={{ position: "absolute", top: -2, right: -2, width: 7, height: 7, borderTop: "2px solid rgba(255,255,255,0.85)", borderRight: "2px solid rgba(255,255,255,0.85)", borderTopRightRadius: 2 }} />
+                  <div style={{ position: "absolute", bottom: -2, left: -2, width: 7, height: 7, borderBottom: "2px solid rgba(255,255,255,0.85)", borderLeft: "2px solid rgba(255,255,255,0.85)", borderBottomLeftRadius: 2 }} />
+                  <div style={{ position: "absolute", bottom: -2, right: -2, width: 7, height: 7, borderBottom: "2px solid rgba(255,255,255,0.85)", borderRight: "2px solid rgba(255,255,255,0.85)", borderBottomRightRadius: 2 }} />
                 </motion.div>
               </motion.div>
 
