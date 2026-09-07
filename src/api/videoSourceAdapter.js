@@ -33,8 +33,15 @@ const BASE_SERVERS = [
     name: "Server 5 (VidCore)",
     url: (id, s, e, imdb) =>
       s
-        ? `https://vidcore.io/tv/${id}/${s}/${e}?autoPlay=true`
-        : `https://vidcore.io/movie/${imdb || id}?autoPlay=true`,
+        ? `https://vidcore.io/tv/${id}/${s}/${e}?autoPlay=true&theme=0A84FF&hideServer=true&fullscreenButton=false&chromecast=false&title=false&poster=false&nextButton=false&autoNext=false`
+        : `https://vidcore.io/movie/${imdb || id}?autoPlay=true&theme=0A84FF&hideServer=true&fullscreenButton=false&chromecast=false&title=false&poster=false`,
+  },
+  {
+    name: "Server 6 (Peachify)",
+    url: (id, s, e, imdb) =>
+      s
+        ? `https://peachify.top/embed/tv/${id}/${s}/${e}?autoNext=false&showNextBtn=false&accent=0A84FF`
+        : `https://peachify.top/embed/movie/${imdb || id}?accent=0A84FF`,
   },
 ];
 

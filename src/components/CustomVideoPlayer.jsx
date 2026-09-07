@@ -479,8 +479,12 @@ const CustomVideoPlayer = ({
   const isTouch = useIsTouch();
   const isCineSrc = iframeUrl.includes("cinesrc.st");
   const isVidCore = iframeUrl.includes("vidcore.io");
+  const isPeachify = iframeUrl.includes("peachify.top");
   const isDirectStream = Boolean(directStreamUrl);
-  const showCustomUI = (isCineSrc || isDirectStream) && !useNativeControls;
+  // Quality / audio / playback-rate menus are only wired to servers we can
+  // command (CineSrc command API, direct HLS). VidCore is transport-only.
+  const hasManagedSettings = isCineSrc || isDirectStream;
+  const showCustomUI = (isCineSrc || isDirectStream || isVidCore) && !useNativeControls;
 
   /* Auto-hide paused info */
   useEffect(() => {
@@ -804,11 +808,13 @@ const CustomVideoPlayer = ({
         if (!isNew && currentTime > 0 && !targetSeekTimeRef.current) url += `&t=${Math.floor(currentTime)}&continueprompt=false`;
         else if (isNew && startTimeRef.current > 0) url += `&t=${Math.floor(startTimeRef.current)}&continueprompt=false`;
       }
+      if (isNew && startTimeRef.current > 0 && url.includes("peachify.top"))
+        url += `&startAt=${Math.floor(startTimeRef.current)}`;
       setIframeUrl(url);
       /* Iframe servers hand us no thumbnail sprite — supply one scrape-free from
          NetMirror's HTTP preview track so hover shows frames across the timeline */
       requestPreviews(`${tid}-frame-${activeServerIndex}`, movie?.title || movie?.name, isTv ? "tv" : "movie");
-      const watchdogDelay = isCineServer ? 20000 : 12000;
+      const watchdogDelay = (isCineServer || url.includes("vidcore.io")) ? 20000 : 12000;
       watchdogTimer = setTimeout(() => {
         setIsLoading((prev) => {
           if (prev) {
@@ -844,23 +850,26 @@ const CustomVideoPlayer = ({
     try {
       const w = iframeRef.current?.contentWindow;
       if (!w) return;
-      if (!isVidCore) {
-        w.postMessage({ type: "cinesrc:command", command: c, args: a }, "https://cinesrc.st");
+      if (isVidCore) {
+        // VidCore postMessage protocol: { command: "play" | "pause" | "seek" | "volume" | "mute" | "getStatus", ... }
+        switch (c) {
+          case "play": w.postMessage({ command: "play" }, "*"); break;
+          case "pause": w.postMessage({ command: "pause" }, "*"); break;
+          case "seek": w.postMessage({ command: "seek", time: a[0] }, "*"); break;
+          case "setVolume": w.postMessage({ command: "volume", level: a[0] }, "*"); break;
+          case "setMuted": w.postMessage({ command: "mute", muted: !!a[0] }, "*"); break;
+          case "getCurrentTime": case "getDuration": case "getVolume":
+          case "getPaused": w.postMessage({ command: "getStatus" }, "*"); break;
+          default: break; // no VidCore equivalent (rate/quality/audio) — ignore
+        }
         return;
       }
-      // VidCore postMessage protocol: { command: "play" | "pause" | "seek" | "volume" | "mute" | "getStatus", ... }
-      switch (c) {
-        case "play": w.postMessage({ command: "play" }, "*"); break;
-        case "pause": w.postMessage({ command: "pause" }, "*"); break;
-        case "seek": w.postMessage({ command: "seek", time: a[0] }, "*"); break;
-        case "setVolume": w.postMessage({ command: "volume", level: a[0] }, "*"); break;
-        case "setMuted": w.postMessage({ command: "mute", muted: !!a[0] }, "*"); break;
-        case "getCurrentTime": case "getDuration": case "getVolume":
-        case "getPaused": w.postMessage({ command: "getStatus" }, "*"); break;
-        default: break; // no VidCore equivalent (rate/quality/audio) — ignore
+      if (isCineSrc) {
+        w.postMessage({ type: "cinesrc:command", command: c, args: a }, "https://cinesrc.st");
       }
+      // Peachify publishes no postMessage control API — commands are a no-op.
     } catch { /* iframe cross-origin */ }
-  }, [isVidCore]);
+  }, [isCineSrc, isVidCore]);
 
   /* Load the CDN's thumbnail sprite VTT and pre-warm sprite sheet metadata.
      Gives Netflix-style previews across the ENTIRE timeline, not just the
@@ -1355,15 +1364,15 @@ const CustomVideoPlayer = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- onServerChange/autoSkipIntro/showToast/onClose are read inside the listener but the listener is keyed to playback state; re-adding it when these parent-provided callbacks change would churn message handling on unrelated re-renders.
   }, [isCineSrc, isScrubbing, playbackRate, sendCommand, hasNextEpisode, onNextEpisode, activeServerIndex, startUpNextCountdown, onProgressUpdate]);
 
-  /* VidCore PostMessage Listener — events arrive either as
-     { type: "timeupdate", data: { currentTime, duration, percent } } or wrapped as
-     { type: "PLAYER_EVENT", data: { event: "play"|"pause"|"seeked"|"ended"|"timeupdate"|"playerstatus", ...
-     (plus a direct media-data event carrying mediaId/mediaType/season/episode). */
+  /* External-iframes PostMessage Listener (VidCore + Peachify) — events arrive as
+     { type: "timeupdate", data: { currentTime, duration, percent } } (VidCore),
+     { type: "PLAYER_EVENT", data: { event: "play"|"pause"|"seeked"|"ended"|"timeupdate"|"playerstatus", ... }} (both),
+     or { type: "MEDIA_DATA", data: { ... } } (Peachify's full progress payload for Continue Watching). */
   useEffect(() => {
-    if (!isVidCore) return;
+    if (!isVidCore && !isPeachify) return;
     const h = (ev) => {
       try {
-        if (ev.origin !== "https://vidcore.io" || !ev.data || typeof ev.data !== "object") return;
+        if ((ev.origin !== "https://vidcore.io" && ev.origin !== "https://peachify.top") || !ev.data || typeof ev.data !== "object") return;
         const d = ev.data;
         let etype = d.type;
         let payload = d.data;
@@ -1416,6 +1425,17 @@ const CustomVideoPlayer = ({
             if (payload?.duration != null) setDuration(payload.duration);
             setIsLoading(false);
             break;
+          case "MEDIA_DATA":
+            // Peachify Continue Watching payload — store wholesale for quick restore
+            try {
+              const mediaId = payload?.id ?? payload?.tmdbId;
+              if (mediaId != null) {
+                const curr = JSON.parse(localStorage.getItem("peachifyProgress") || "{}");
+                curr[mediaId] = payload;
+                localStorage.setItem("peachifyProgress", JSON.stringify(curr));
+              }
+            } catch { /* localStorage full / blocked */ }
+            break;
           default: break;
         }
       } catch { /* DataCloneError etc */ }
@@ -1423,7 +1443,7 @@ const CustomVideoPlayer = ({
     window.addEventListener("message", h);
     return () => window.removeEventListener("message", h);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- onProgressUpdate (inline parent prop) must not re-attach the listener on every parent render; playback/mute state flows one-way via refs where needed.
-  }, [isVidCore, isScrubbing, hasNextEpisode, onNextEpisode, startUpNextCountdown, sendCommand]);
+  }, [isVidCore, isPeachify, isScrubbing, hasNextEpisode, onNextEpisode, startUpNextCountdown, sendCommand]);
 
   /* Actions */
   const triggerCenterIcon = useCallback((type) => {
@@ -1691,7 +1711,7 @@ const CustomVideoPlayer = ({
 
   /* Keyboard */
   useEffect(() => {
-    if (!isCineSrc && !isDirectStream) return;
+    if (!isCineSrc && !isDirectStream && !isVidCore) return;
     const h = (e) => {
       if (document.activeElement?.tagName === "input" || e.ctrlKey || e.metaKey || e.altKey) return;
       switch (e.key.toLowerCase()) {
@@ -1710,7 +1730,7 @@ const CustomVideoPlayer = ({
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [isCineSrc, isDirectStream, togglePlay, toggleFullscreen, toggleMute, seekRelative, changeVolume]);
+  }, [isCineSrc, isDirectStream, isVidCore, togglePlay, toggleFullscreen, toggleMute, seekRelative, changeVolume]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -2024,8 +2044,8 @@ const CustomVideoPlayer = ({
         />
       )}
 
-      {/* CineSrc interaction overlay — handles mouse (desktop) and touch (mobile) */}
-      {showCustomUI && (isCineSrc || isDirectStream) && (
+      {/* CineSrc / VidCore interaction overlay — handles mouse (desktop) and touch (mobile) */}
+      {showCustomUI && (isCineSrc || isDirectStream || isVidCore) && (
         <div
           onMouseMove={handleMouseMove}
           onClick={(e) => {
@@ -3604,6 +3624,7 @@ const CustomVideoPlayer = ({
                       lineHeight: 1, fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
                     }}>{aspectRatioIndex + 1}</span>
                   </motion.button>
+                {hasManagedSettings && (
                 <motion.button onClick={(e) => {
                     e.stopPropagation();
                     setShowSettings(!showSettings); setShowSubtitlesMenu(false);
@@ -3633,6 +3654,7 @@ const CustomVideoPlayer = ({
                     <Settings size={15} />
                   </motion.div>
                 </motion.button>
+                )}
                 {/* Picture-in-Picture */}
                 {isDirectStream && videoRef.current && 'pictureInPictureEnabled' in document && (
                   <motion.button onClick={async (e) => {
@@ -3684,6 +3706,7 @@ const CustomVideoPlayer = ({
             }}
           >
             {/* Speed */}
+            {hasManagedSettings && (
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: R.fontTiny, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "1.5px", fontWeight: 700, marginBottom: 10, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif" }}>Playback Speed</div>
               <div style={{ display: "flex", gap: "clamp(4px, 1vw, 6px)", flexWrap: "wrap" }}>
@@ -3705,6 +3728,7 @@ const CustomVideoPlayer = ({
                 ))}
               </div>
             </div>
+            )}
 
             {/* Quality */}
             {qualities?.length > 0 && (
