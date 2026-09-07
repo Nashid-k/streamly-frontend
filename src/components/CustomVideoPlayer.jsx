@@ -182,9 +182,6 @@ const R = {
   /* Container */
   controlRowPad: 'clamp(4px, 1vw, 14px)',
   progressBarPad: 'clamp(8px, 2vw, 20px)',
-  /* HUD center-top offset — clears the toast/error pill (top ≈ 12–16px)
-     while staying inside the player container, even in fullscreen */
-  hudCenterTop: 'clamp(44px, 8vw, 68px)',
 };
 
 /* Circular Arc Component — the core Apple TV+ motif
@@ -315,6 +312,22 @@ const useIsTouch = () => {
     setIsTouch(hasTouch && noHover);
   }, []);
   return isTouch;
+};
+
+/* Observe the player container size → derive a live HUD scale factor so
+   the top-center HUDs stay proportional from phones to 4K monitors. */
+const useContainerSize = (ref) => {
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => setSize({ w: el.clientWidth, h: el.clientHeight });
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref]);
+  return size;
 };
 
 /* Upper bound for the in-memory thumbnail frame cache. Buckets are 5s of
@@ -1800,6 +1813,17 @@ const CustomVideoPlayer = ({
   const effVolume = isMuted ? 0 : volume;
 
   /* ═══════════════════════════════════════════════════════════════
+     DYNAMIC TOP-CENTER HUD SYSTEM — shared by the volume + aspect HUDs
+       · hudScale: fluid geometry (glyph/ring/pill) tuned to the real
+         player box via ResizeObserver, not raw viewport assumptions
+       · hudTop: adaptive vertical placement — clears a floating toast /
+         error pill when present, then sits pinned top-center
+     ═══════════════════════════════════════════════════════════════ */
+  const { w: playerW } = useContainerSize(containerRef);
+  const hudScale = playerW ? Math.max(0.78, Math.min(1.35, playerW / 1280)) : 1;
+  const hudTop = Math.round((toastMessage || errorMessage ? 116 : 56) * hudScale) + 'px';
+
+  /* ═══════════════════════════════════════════════════════════════
      RENDER — Apple TV+ inspired player
      ══════════════════════════════════════════════════════════════ */
   return (
@@ -2297,93 +2321,116 @@ const CustomVideoPlayer = ({
         )}
       </AnimatePresence>
 
-      {/* ═══ VOLUME HUD — center-top pill: state icon + segmented meter ═══ */}
+      {/* ═══ VOLUME HUD — dynamic top-center gauge: live arc fill + morphing icon + spring % ═══ */}
       <AnimatePresence>
         {showVolumeArc && (
           <motion.div
             key="volume-hud"
-            initial={{ opacity: 0, y: -18, scale: 0.94, x: "-50%" }}
+            initial={{ opacity: 0, y: -18, scale: 0.9, x: "-50%" }}
             animate={{ opacity: 1, y: 0, scale: 1, x: "-50%" }}
-            exit={{ opacity: 0, y: -10, scale: 0.97, x: "-50%" }}
+            exit={{ opacity: 0, y: -8, scale: 0.95, x: "-50%" }}
             transition={SPRING_SNAPPY}
             style={{
               position: "absolute", left: "50%",
-              top: R.hudCenterTop,
+              top: hudTop,
               zIndex: 65, pointerEvents: "none",
             }}
           >
-            <div style={{
-              display: "flex", alignItems: "center", gap: 10,
-              background: "rgba(12,12,14,0.78)",
-              backdropFilter: "blur(24px) saturate(160%)",
-              WebkitBackdropFilter: "blur(24px) saturate(160%)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: 999,
-              padding: "8px 14px",
-              boxShadow: "0 12px 44px rgba(0,0,0,0.55), inset 0 0.5px 0 rgba(255,255,255,0.08)",
-            }}>
-              {/* State icon — swaps between muted / low / high */}
-              <motion.span
-                key={isMuted || volume === 0 ? "muted" : effVolume <= 0.33 ? "low" : "high"}
-                initial={{ scale: 0.4, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={SPRING_FAST}
-                style={{ display: "flex", alignItems: "center" }}
+            <motion.div
+              layout
+              transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.9 }}
+              animate={{
+                boxShadow: isMuted || volume === 0
+                  ? "0 14px 48px rgba(255,69,58,0.25), inset 0 0.5px 0 rgba(255,255,255,0.1)"
+                  : `0 14px 48px rgba(0,0,0,0.6), inset 0 0.5px 0 rgba(255,255,255,0.14)`,
+              }}
+              style={{
+                display: "flex", flexDirection: "column", alignItems: "center", gap: Math.round(6 * hudScale),
+                background: "linear-gradient(180deg, rgba(22,22,26,0.9), rgba(10,10,12,0.9))",
+                backdropFilter: "blur(24px) saturate(160%)",
+                WebkitBackdropFilter: "blur(24px) saturate(160%)",
+                border: isMuted || volume === 0
+                  ? "1px solid rgba(255,69,58,0.35)"
+                  : "1px solid rgba(255,255,255,0.12)",
+                borderRadius: Math.round(20 * hudScale),
+                padding: `${Math.round(10 * hudScale)}px ${Math.round(14 * hudScale)}px`,
+              }}
+            >
+              {/* Pulsing ambient glow — breathes with the level */}
+              <motion.div
+                animate={{
+                  opacity: 0.15 + effVolume * 0.35,
+                  scale: 1 + effVolume * 0.12,
+                }}
+                transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                style={{
+                  position: "absolute",
+                  inset: 0, borderRadius: "inherit",
+                  background: isMuted || volume === 0
+                    ? "radial-gradient(circle at 50% 100%, rgba(255,69,58,0.5) 0%, transparent 70%)"
+                    : "radial-gradient(circle at 50% 100%, rgba(255,255,255,0.35) 0%, transparent 70%)",
+                  filter: "blur(6px)",
+                }}
+              />
+              {/* Live arc gauge — ring sweeps to the current level */}
+              <ArcRing
+                progress={effVolume}
+                size={Math.round(52 * hudScale)}
+                strokeWidth={3}
+                color={isMuted || volume === 0 ? "#ff453a" : "#fff"}
+                bgColor="rgba(255,255,255,0.1)"
+                glowColor={isMuted || volume === 0 ? "#ff453a" : "#fff"}
               >
-                {isMuted || volume === 0 ? (
-                  <VolumeX size={17} color="#ff453a" strokeWidth={2.2} />
-                ) : effVolume <= 0.33 ? (
-                  <Volume1 size={17} color="rgba(255,255,255,0.85)" strokeWidth={2.2} />
-                ) : (
-                  <Volume2 size={17} color="#fff" strokeWidth={2.2} />
-                )}
-              </motion.span>
+                <motion.span
+                  key={isMuted || volume === 0 ? "muted" : effVolume <= 0.33 ? "low" : "high"}
+                  initial={{ scale: 0.4, rotate: -12, opacity: 0 }}
+                  animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                  transition={SPRING_FAST}
+                  style={{ display: "flex", alignItems: "center" }}
+                >
+                  {isMuted || volume === 0 ? (
+                    <VolumeX size={Math.round(20 * hudScale)} color="#ff453a" strokeWidth={2.2} />
+                  ) : effVolume <= 0.33 ? (
+                    <Volume1 size={Math.round(20 * hudScale)} color="rgba(255,255,255,0.92)" strokeWidth={2.2} />
+                  ) : (
+                    <Volume2 size={Math.round(20 * hudScale)} color="#fff" strokeWidth={2.2} />
+                  )}
+                </motion.span>
+              </ArcRing>
 
-              {/* Segmented meter — reads instantly, iOS-lock-screen style */}
-              <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
-                {Array.from({ length: 16 }).map((_, i) => {
-                  const on = effVolume > 0 && i < Math.round(effVolume * 16);
-                  const muted = isMuted || volume === 0;
-                  return (
-                    <motion.div
-                      key={i}
-                      animate={{
-                        backgroundColor: on
-                          ? muted
-                            ? "rgba(255,69,58,0.95)"
-                            : "rgba(255,255,255,0.95)"
-                          : "rgba(255,255,255,0.14)",
-                      }}
-                      transition={{ duration: 0.1 }}
-                      style={{ width: 4, height: 13, borderRadius: 2 }}
-                    />
-                  );
-                })}
-              </div>
-
-              {/* Label */}
+              {/* Live percent — tabular, springs on every change while sliding */}
               <motion.span
                 key={isMuted || volume === 0 ? "muted" : Math.round(effVolume * 100)}
-                initial={{ opacity: 0, x: 5 }}
-                animate={{ opacity: 1, x: 0 }}
+                initial={{ opacity: 0, y: 4, scale: 1.2 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={SPRING_FAST}
                 style={{
-                  color: isMuted || volume === 0 ? "#ff453a" : "rgba(255,255,255,0.92)",
-                  fontSize: R.fontSmall, fontWeight: 700,
+                  color: isMuted || volume === 0 ? "#ff453a" : "rgba(255,255,255,0.95)",
+                  fontSize: Math.round(13 * hudScale) + 'px',
+                  fontWeight: 700,
                   fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
                   fontVariantNumeric: "tabular-nums",
                   letterSpacing: "0.02em",
-                  minWidth: 44,
                 }}
               >
                 {isMuted || volume === 0 ? "Muted" : `${Math.round(effVolume * 100)}%`}
               </motion.span>
-            </div>
+
+              {/* Label */}
+              <span style={{
+                color: "rgba(255,255,255,0.45)",
+                fontSize: Math.round(9 * hudScale) + 'px',
+                fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase",
+                fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+              }}>
+                Volume
+              </span>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ═══ ASPECT RATIO HUD — crop-frame glyph morphing + halo ring + staggered labels ═══ */}
+      {/* ═══ ASPECT RATIO HUD — dynamic crop-frame glyph + live ratio readout ═══ */}
       <AnimatePresence>
         {showAspectRatioArc && (
           <motion.div
@@ -2394,7 +2441,7 @@ const CustomVideoPlayer = ({
             transition={SPRING_SNAPPY}
             style={{
               position: "absolute", left: "50%",
-              top: R.hudCenterTop,
+              top: hudTop,
               zIndex: 65, pointerEvents: "none",
             }}
           >
@@ -2403,22 +2450,26 @@ const CustomVideoPlayer = ({
               layout
               transition={{ type: "spring", stiffness: 380, damping: 34, mass: 0.9 }}
               style={{
-                display: "flex", alignItems: "center", gap: 12,
-                background: "rgba(12,12,14,0.78)",
+                display: "flex", alignItems: "center", gap: Math.round(12 * hudScale),
+                background: "linear-gradient(180deg, rgba(22,22,26,0.9), rgba(10,10,12,0.9))",
                 backdropFilter: "blur(24px) saturate(160%)",
                 WebkitBackdropFilter: "blur(24px) saturate(160%)",
-                border: "1px solid rgba(255,255,255,0.1)",
+                border: "1px solid rgba(255,255,255,0.12)",
                 borderRadius: 999,
-                padding: "9px 16px",
+                padding: `${Math.round(9 * hudScale)}px ${Math.round(16 * hudScale)}px`,
                 boxShadow:
                   "0 16px 48px rgba(0,0,0,0.6), 0 0 0 0.5px rgba(255,255,255,0.04), inset 0 0.5px 0 rgba(255,255,255,0.14)",
               }}
             >
-              {/* ── Glyph stage ── */}
-              <div style={{
-                position: "relative", width: 56, height: 56, flexShrink: 0,
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}>
+              {/* ── Dynamic glyph stage — scales with the player box ── */}
+              <motion.div
+                animate={{ width: Math.round(56 * hudScale), height: Math.round(56 * hudScale) }}
+                transition={{ type: "spring", stiffness: 380, damping: 30, mass: 0.9 }}
+                style={{
+                  position: "relative", flexShrink: 0,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}
+              >
                 {/* Frosted backdrop disc */}
                 <div style={{
                   position: "absolute", inset: 0, borderRadius: "50%",
@@ -2432,7 +2483,8 @@ const CustomVideoPlayer = ({
                   animate={{ scale: 1.8, opacity: 0 }}
                   transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
                   style={{
-                    position: "absolute", width: 44, height: 44, borderRadius: "50%",
+                    position: "absolute", width: Math.round(44 * hudScale), height: Math.round(44 * hudScale),
+                    borderRadius: "50%",
                     border: "1.5px solid rgba(255,255,255,0.35)",
                   }}
                 />
@@ -2440,8 +2492,8 @@ const CustomVideoPlayer = ({
                 <motion.div
                   initial={false}
                   animate={{
-                    width: AR_GLYPH[aspectRatioIndex][0],
-                    height: AR_GLYPH[aspectRatioIndex][1],
+                    width: AR_GLYPH[aspectRatioIndex][0] * hudScale,
+                    height: AR_GLYPH[aspectRatioIndex][1] * hudScale,
                   }}
                   transition={{ type: "spring", stiffness: 430, damping: 24, mass: 0.9 }}
                   style={{
@@ -2478,40 +2530,57 @@ const CustomVideoPlayer = ({
                   <div style={{ position: "absolute", bottom: -2, left: -2, width: 9, height: 9, borderBottom: "2px solid rgba(255,255,255,0.85)", borderLeft: "2px solid rgba(255,255,255,0.85)", borderBottomLeftRadius: 2 }} />
                   <div style={{ position: "absolute", bottom: -2, right: -2, width: 9, height: 9, borderBottom: "2px solid rgba(255,255,255,0.85)", borderRight: "2px solid rgba(255,255,255,0.85)", borderBottomRightRadius: 2 }} />
                 </motion.div>
-              </div>
+              </motion.div>
 
-              {/* ── Label block ── */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              {/* ── Label block — live ratio readout ── */}
+              <div style={{ display: "flex", flexDirection: "column", gap: Math.round(5 * hudScale) }}>
                 {/* Name — blur-to-crisp rise, replaying on each change */}
                 <motion.span
-                  key={aspectRatioIndex}
+                  key={`${aspectRatioIndex}-name`}
                   initial={{ opacity: 0, y: 6, filter: "blur(3px)" }}
                   animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
                   transition={SPRING_SNAPPY}
                   style={{
-                    color: "#fff", fontSize: R.fontSmall, fontWeight: 700, lineHeight: 1.2,
+                    color: "#fff", fontSize: Math.round(13 * hudScale) + 'px', fontWeight: 700, lineHeight: 1.2,
                     fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
                     whiteSpace: "nowrap",
                   }}
                 >
                   {ASPECT_RATIOS[aspectRatioIndex].name}
                 </motion.span>
-                {/* Segmented position track — sleek dot progression */}
-                <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
-                  {ASPECT_RATIOS.map((_, i) => (
-                    <motion.i
-                      key={i}
-                      animate={{
-                        width: i === aspectRatioIndex ? 7 : 4,
-                        height: 3.5,
-                        backgroundColor: i <= aspectRatioIndex
-                          ? "rgba(255,255,255,0.95)"
-                          : "rgba(255,255,255,0.18)",
-                      }}
-                      transition={{ type: "spring", stiffness: 600, damping: 32 }}
-                      style={{ display: "block", borderRadius: 2 }}
-                    />
-                  ))}
+                {/* Live readout — shows the active scale/accent */}
+                <div style={{ display: "flex", alignItems: "center", gap: Math.round(6 * hudScale) }}>
+                  <motion.span
+                    key={`${aspectRatioIndex}-pct`}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={SPRING_FAST}
+                    style={{
+                      color: aspectRatioIndex === 0 ? "rgba(255,255,255,0.9)" : "#7DD3FC",
+                      fontSize: Math.round(10 * hudScale) + 'px', fontWeight: 700,
+                      fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {aspectRatioIndex === 0 ? "Original" : `+${Math.round((ASPECT_RATIOS[aspectRatioIndex].scale - 1) * 100)}%`}
+                  </motion.span>
+                  {/* Segmented position track — sleek dot progression */}
+                  <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
+                    {ASPECT_RATIOS.map((_, i) => (
+                      <motion.i
+                        key={i}
+                        animate={{
+                          width: i === aspectRatioIndex ? 7 : 4,
+                          height: 3.5,
+                          backgroundColor: i === aspectRatioIndex
+                            ? (aspectRatioIndex === 0 ? "rgba(255,255,255,0.95)" : "#7DD3FC")
+                            : "rgba(255,255,255,0.18)",
+                        }}
+                        transition={{ type: "spring", stiffness: 600, damping: 32 }}
+                        style={{ display: "block", borderRadius: 2 }}
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
             </motion.div>
