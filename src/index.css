@@ -219,32 +219,85 @@ a {
 }
 
 .logo-icon {
-  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 50%, #f43f5e 100%);
-  background-size: 200% 200%;
-  animation: logoGradient 4s ease infinite;
-  color: #ffffff;
-  padding: 5px 7px;
-  border-radius: 8px;
+  filter: drop-shadow(0 3px 12px rgba(0, 0, 0, 0.55));
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(244, 63, 94, 0.35), inset 0 1px 0 rgba(255,255,255,0.15);
+  border-radius: 9px;
+  overflow: hidden;
 }
 
-@keyframes logoGradient {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
+.logo-word {
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+/* Desktop glass-morphic pill nav — monochrome, spring-active bubble */
+.nav-pill {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.nav-pill-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.58);
+  text-decoration: none;
+  transition: color 0.22s ease;
+  white-space: nowrap;
+}
+
+.nav-pill-item svg {
+  flex-shrink: 0;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nav-pill-item:hover {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.nav-pill-item:hover svg {
+  transform: scale(1.15);
+}
+
+.nav-pill-item.active {
+  color: #08080a;
+}
+
+.nav-pill-active {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+.nav-pill-item > *:not(.nav-pill-active) {
+  position: relative;
+  z-index: 1;
 }
 
 .nav-links {
-  display: flex;
+  display: none;
   gap: 0.25rem;
   list-style: none;
   align-items: center;
@@ -1416,6 +1469,16 @@ input:focus-visible {
   .details-poster-large {
     height: 320px;
   }
+  /* Icon-only pill on tight widths */
+  .nav-pill-item {
+    padding: 7px 10px;
+  }
+  .nav-pill-label {
+    display: none;
+  }
+  .nav-pill-item {
+    gap: 0;
+  }
 }
 
 @media (max-width: 768px) {
@@ -1491,6 +1554,7 @@ input:focus-visible {
   }
   .hamburger-btn,
   .nav-links,
+  .nav-pill,
   .search-container {
     display: none !important;
   }

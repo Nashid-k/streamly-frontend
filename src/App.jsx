@@ -14,7 +14,6 @@ import {
   Bookmark,
   Clock,
   User,
-  Play,
   X,
   Menu,
   Bell,
@@ -24,6 +23,8 @@ import {
   Film,
   Compass,
   Sparkles,
+  Clapperboard,
+  Flame,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import slugify from "slugify";
@@ -46,6 +47,17 @@ import { useScrollRestoration } from "./hooks/useScrollRestoration";
 import { useMediaQuery } from "./hooks/useMediaQuery";
 
 const APP_VERSION = __VERSION__ || "1.0.0";
+
+/* Single source of truth for the navigation entries — feeds both the
+   desktop glass pill and the mobile bottom bar. */
+const NAV_ITEMS = [
+  { id: "home", label: "Home", to: "/", icon: Home, match: (p) => p === "/" },
+  { id: "movies", label: "Movies", to: "/movies", icon: Clapperboard, match: (p) => p.startsWith("/movies") },
+  { id: "shows", label: "Shows", to: "/series", icon: Tv, match: (p) => p.startsWith("/series") },
+  { id: "mylist", label: "My List", to: "/watchlist", icon: Bookmark, match: (p) => p === "/watchlist" },
+  { id: "anime", label: "Anime", to: "/anime", icon: Compass, match: (p) => p.startsWith("/anime") },
+  { id: "new", label: "New & Popular", to: "/new", icon: Flame, match: (p) => p.startsWith("/new") },
+];
 
 const HomePage = lazy(() => import("./pages/HomePage"));
 const TitleDetails = lazy(() => import("./pages/TitleDetailsPage"));
@@ -236,7 +248,7 @@ function Layout({ children }) {
       <a href="#main-content" className="skip-link">
         Skip to content
       </a>
-      {/* Top Navbar */}
+      {/* Top Navbar — logo on the left, glass-morphic pill on the right */}
       <nav
         className={`navbar${isScrolled ? ' scrolled' : ''}`}
         style={{
@@ -252,22 +264,23 @@ function Layout({ children }) {
         }}
       >
         <div className="nav-left">
-          <Link to="/" className="logo">
+          <Link to="/" className="logo" aria-label="Streamly home">
+            {/* iOS-inspired monochrome mark — white squircle + black play */}
             <div className="logo-icon">
-              <Play
-                size={20}
-                fill="currentColor"
-                stroke="none"
-                style={{ marginLeft: "2px" }}
-              />
+              <svg width="30" height="30" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="1" y="1" width="30" height="30" rx="8.5" fill="#ffffff" />
+                <path d="M12.6 9.4 L23 16 L12.6 22.6 Z" fill="#050505" />
+              </svg>
             </div>
-            Streamly
-            <span style={{ fontSize: '0.5rem', background: 'linear-gradient(135deg, #f43f5e, #fb923c)', color: '#fff', padding: '2px 6px', borderRadius: '6px', fontWeight: 700, marginLeft: '6px', letterSpacing: '0.05em', verticalAlign: 'super' }}>v{APP_VERSION}</span>
+            <span className="logo-word">Streamly</span>
+            <span className="logo-version" style={{ fontSize: '0.5rem', color: 'rgba(255,255,255,0.55)', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', padding: '2px 6px', borderRadius: '6px', fontWeight: 700, marginLeft: '6px', letterSpacing: '0.05em', verticalAlign: 'super' }}>v{APP_VERSION}</span>
           </Link>
+        </div>
 
-          <div
-            className={`nav-links ${mobileMenuOpen ? "nav-links-open" : ""}`}
-          >
+        {/* Drawer nav — tablet/rare small-desk menu toggle */}
+        <div
+          className={`nav-links ${mobileMenuOpen ? "nav-links-open" : ""}`}
+        >
             {/* Mobile Search */}
             <div className="mobile-only" style={{ marginBottom: "1rem" }}>
               <div
@@ -515,52 +528,45 @@ function Layout({ children }) {
                   </Popover>
               </div>
             </div>
-            <Link
-              onClick={() => setMobileMenuOpen(false)}
-              to="/"
-              className={`nav-item ${location.pathname === "/" ? "active" : ""}`}
-            >
-              Home
-            </Link>
-            <Link
-              onClick={() => setMobileMenuOpen(false)}
-              to="/series"
-              className={`nav-item ${location.pathname.includes("/series") ? "active" : ""}`}
-            >
-              TV Shows
-            </Link>
-            <Link
-              onClick={() => setMobileMenuOpen(false)}
-              to="/movies"
-              className={`nav-item ${location.pathname.includes("/movies") ? "active" : ""}`}
-            >
-              Movies
-            </Link>
-            <Link
-              onClick={() => setMobileMenuOpen(false)}
-              to="/new"
-              className={`nav-item ${location.pathname.includes("/new") ? "active" : ""}`}
-            >
-              New & Popular
-            </Link>
-            <Link
-              onClick={() => setMobileMenuOpen(false)}
-              to="/anime"
-              className={`nav-item ${location.pathname.includes("/anime") ? "active" : ""}`}
-            >
-              Anime
-            </Link>
-            <Link
-              onClick={() => setMobileMenuOpen(false)}
-              to="/watchlist"
-              className={`nav-item ${location.pathname === "/watchlist" ? "active" : ""}`}
-            >
-              My List
-            </Link>
-          </div>
+            {/* Drawer nav items */}
+            {NAV_ITEMS.map((item) => (
+              <Link
+                key={`drawer-${item.id}`}
+                onClick={() => setMobileMenuOpen(false)}
+                to={item.to}
+                className={`nav-item ${item.match(location.pathname) ? "active" : ""}`}
+              >
+                <item.icon size={16} strokeWidth={2} />
+                <span style={{ marginLeft: "8px" }}>{item.label}</span>
+              </Link>
+            ))}
         </div>
 
         <div className="nav-right">
+          {/* Desktop glass-morphic pill — monochrome icons, spring-active bubble */}
+          <div className="nav-pill">
+            {NAV_ITEMS.map((item) => {
+              const active = item.match(location.pathname);
+              return (
+                <Link
+                  key={item.id}
+                  to={item.to}
+                  className={`nav-pill-item${active ? " active" : ""}`}
+                  aria-current={active ? "page" : undefined}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="nav-pill-active"
+                      className="nav-pill-active"
+                      transition={{ type: "spring", stiffness: 420, damping: 32, mass: 0.9 }}
+                    />
+                  )}
+                  <item.icon size={16} strokeWidth={2} />
+                  <span className="nav-pill-label">{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
           <div
             ref={searchRef}
             className="search-wrapper desktop-only"
@@ -1262,56 +1268,24 @@ function Layout({ children }) {
       <BackToTop />
 
       {/* Mobile Bottom Navigation Bar (Surpassing authentic platforms with persistent UX) */}
-
       <div className="mobile-bottom-nav">
-        <Link
-          to="/"
-          className={`bottom-nav-item ${location.pathname === "/" ? "active" : ""}`}
-        >
-          <Home size={22} />
-          <span>Home</span>
-        </Link>
-        <Link
-          to="/movies"
-          className={`bottom-nav-item ${location.pathname === "/movies" ? "active" : ""}`}
-        >
-          <Film size={22} />
-          <span>Movies</span>
-        </Link>
-        <Link
-          to="/new"
-          className={`bottom-nav-item ${location.pathname === "/new" ? "active" : ""}`}
-        >
-          <Sparkles size={22} />
-          <span>New</span>
-        </Link>
-        <Link
-          to="/series"
-          className={`bottom-nav-item ${location.pathname === "/series" ? "active" : ""}`}
-        >
-          <Tv size={22} />
-          <span>TV Shows</span>
-        </Link>
-        <Link
-          to="/anime"
-          className={`bottom-nav-item ${location.pathname === "/anime" ? "active" : ""}`}
-        >
-          <Compass size={22} />
-          <span>Anime</span>
-        </Link>
+        {NAV_ITEMS.map((item) => (
+          <Link
+            key={`bottom-${item.id}`}
+            to={item.to}
+            className={`bottom-nav-item ${item.match(location.pathname) ? "active" : ""}`}
+            aria-current={item.match(location.pathname) ? "page" : undefined}
+          >
+            <item.icon size={22} strokeWidth={2} />
+            <span>{item.label === "New & Popular" ? "New" : item.label}</span>
+          </Link>
+        ))}
         <Link
           to="/search"
           className={`bottom-nav-item ${location.pathname === "/search" ? "active" : ""}`}
         >
-          <Search size={22} />
+          <Search size={22} strokeWidth={2} />
           <span>Search</span>
-        </Link>
-        <Link
-          to="/watchlist"
-          className={`bottom-nav-item ${location.pathname === "/watchlist" ? "active" : ""}`}
-        >
-          <Bookmark size={22} />
-          <span>My List</span>
         </Link>
       </div>
     </div>
