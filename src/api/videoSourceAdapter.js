@@ -43,6 +43,13 @@ const BASE_SERVERS = [
         ? `https://peachify.top/embed/tv/${id}/${s}/${e}?autoNext=false&showNextBtn=false&accent=0A84FF`
         : `https://peachify.top/embed/movie/${imdb || id}?accent=0A84FF`,
   },
+  {
+    name: "Server 7 (VidUp)",
+    url: (id, s, e, imdb) =>
+      s
+        ? `https://vidup.to/tv/${id}/${s}/${e}?autoPlay=true&theme=0A84FF&nextButton=false&autoNext=false`
+        : `https://vidup.to/movie/${imdb || id}?autoPlay=true&theme=0A84FF`,
+  },
 ];
 
 export class VideoSourceAdapter {

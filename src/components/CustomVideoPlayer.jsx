@@ -480,6 +480,7 @@ const CustomVideoPlayer = ({
   const isCineSrc = iframeUrl.includes("cinesrc.st");
   const isVidCore = iframeUrl.includes("vidcore.io");
   const isPeachify = iframeUrl.includes("peachify.top");
+  const isVidUp = iframeUrl.includes("vidup.to");
   const isDirectStream = Boolean(directStreamUrl);
   // Quality / audio / playback-rate menus are only wired to servers we can
   // command (CineSrc command API, direct HLS). VidCore is transport-only.
@@ -808,7 +809,7 @@ const CustomVideoPlayer = ({
         if (!isNew && currentTime > 0 && !targetSeekTimeRef.current) url += `&t=${Math.floor(currentTime)}&continueprompt=false`;
         else if (isNew && startTimeRef.current > 0) url += `&t=${Math.floor(startTimeRef.current)}&continueprompt=false`;
       }
-      if (isNew && startTimeRef.current > 0 && url.includes("peachify.top"))
+      if (isNew && startTimeRef.current > 0 && (url.includes("peachify.top") || url.includes("vidup.to")))
         url += `&startAt=${Math.floor(startTimeRef.current)}`;
       setIframeUrl(url);
       /* Iframe servers hand us no thumbnail sprite — supply one scrape-free from
@@ -1364,15 +1365,15 @@ const CustomVideoPlayer = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- onServerChange/autoSkipIntro/showToast/onClose are read inside the listener but the listener is keyed to playback state; re-adding it when these parent-provided callbacks change would churn message handling on unrelated re-renders.
   }, [isCineSrc, isScrubbing, playbackRate, sendCommand, hasNextEpisode, onNextEpisode, activeServerIndex, startUpNextCountdown, onProgressUpdate]);
 
-  /* External-iframes PostMessage Listener (VidCore + Peachify) — events arrive as
+  /* External-iframes PostMessage Listener (VidCore + Peachify + VidUp) — events as
      { type: "timeupdate", data: { currentTime, duration, percent } } (VidCore),
-     { type: "PLAYER_EVENT", data: { event: "play"|"pause"|"seeked"|"ended"|"timeupdate"|"playerstatus", ... }} (both),
-     or { type: "MEDIA_DATA", data: { ... } } (Peachify's full progress payload for Continue Watching). */
+     { type: "PLAYER_EVENT", data: { event: "play"|"pause"|"seeked"|"ended"|"timeupdate"|"playerstatus", ... }} (all),
+     or { type: "MEDIA_DATA", data: { ... } } (Peachify/VidUp full progress payload for Continue Watching). */
   useEffect(() => {
-    if (!isVidCore && !isPeachify) return;
+    if (!isVidCore && !isPeachify && !isVidUp) return;
     const h = (ev) => {
       try {
-        if ((ev.origin !== "https://vidcore.io" && ev.origin !== "https://peachify.top") || !ev.data || typeof ev.data !== "object") return;
+        if ((ev.origin !== "https://vidcore.io" && ev.origin !== "https://peachify.top" && ev.origin !== "https://vidup.to") || !ev.data || typeof ev.data !== "object") return;
         const d = ev.data;
         let etype = d.type;
         let payload = d.data;
@@ -1426,13 +1427,14 @@ const CustomVideoPlayer = ({
             setIsLoading(false);
             break;
           case "MEDIA_DATA":
-            // Peachify Continue Watching payload — store wholesale for quick restore
+            // Peachify/VidUp Continue Watching payload — store wholesale for quick restore
             try {
               const mediaId = payload?.id ?? payload?.tmdbId;
               if (mediaId != null) {
-                const curr = JSON.parse(localStorage.getItem("peachifyProgress") || "{}");
+                const key = ev.origin === "https://vidup.to" ? "vidUpProgress" : "peachifyProgress";
+                const curr = JSON.parse(localStorage.getItem(key) || "{}");
                 curr[mediaId] = payload;
-                localStorage.setItem("peachifyProgress", JSON.stringify(curr));
+                localStorage.setItem(key, JSON.stringify(curr));
               }
             } catch { /* localStorage full / blocked */ }
             break;
@@ -1443,7 +1445,7 @@ const CustomVideoPlayer = ({
     window.addEventListener("message", h);
     return () => window.removeEventListener("message", h);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- onProgressUpdate (inline parent prop) must not re-attach the listener on every parent render; playback/mute state flows one-way via refs where needed.
-  }, [isVidCore, isPeachify, isScrubbing, hasNextEpisode, onNextEpisode, startUpNextCountdown, sendCommand]);
+  }, [isVidCore, isPeachify, isVidUp, isScrubbing, hasNextEpisode, onNextEpisode, startUpNextCountdown, sendCommand]);
 
   /* Actions */
   const triggerCenterIcon = useCallback((type) => {
