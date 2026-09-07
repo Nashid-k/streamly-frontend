@@ -1087,25 +1087,22 @@ export default function Home({
             key={activeFeaturedMovie.id}
             ref={heroRef}
             className="hero-container"
-            initial={{ opacity: 0, filter: "blur(12px)", scale: 1.02 }}
-            animate={{ opacity: 1, filter: "blur(0px)", scale: 1 }}
-            exit={{ opacity: 0, filter: "blur(8px)", scale: 1.02 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-            style={{ willChange: "opacity, transform" }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.65, ease: "easeOut" }}
+            style={{ willChange: "opacity" }}
             onMouseEnter={() => { isHeroHoveredRef.current = true; setIsHeroHovered(true); }}
             onMouseLeave={() => { isHeroHoveredRef.current = false; setIsHeroHovered(false); }}
           >
+            {/* Backdrop — cinematic, slow Ken Burns */}
             <motion.img
-              src={
-                activeFeaturedMovie.backdropUrl ||
-                activeFeaturedMovie.posterUrl ||
-                activeFeaturedMovie.poster
-              }
+              src={activeFeaturedMovie.backdropUrl || activeFeaturedMovie.posterUrl || activeFeaturedMovie.poster}
               alt={activeFeaturedMovie.title}
               className={`hero-bg desktop-bg${!heroVisible ? ' paused' : ''}`}
               initial={{ scale: 1 }}
-              animate={{ scale: 1.03 }}
-              transition={{ duration: 8, ease: "linear" }}
+              animate={{ scale: 1.04 }}
+              transition={{ duration: 10, ease: "linear" }}
               fetchpriority="high"
               loading="eager"
               decoding="async"
@@ -1113,224 +1110,140 @@ export default function Home({
               style={{ willChange: "transform" }}
             />
             <motion.img
-              src={
-                activeFeaturedMovie.posterUrl ||
-                activeFeaturedMovie.poster ||
-                activeFeaturedMovie.backdropUrl
-              }
+              src={activeFeaturedMovie.posterUrl || activeFeaturedMovie.poster || activeFeaturedMovie.backdropUrl}
               alt={activeFeaturedMovie.title}
               className={`hero-bg mobile-bg${!heroVisible ? ' paused' : ''}`}
               initial={{ scale: 1 }}
-              animate={{ scale: 1.03 }}
-              transition={{ duration: 8, ease: "linear" }}
+              animate={{ scale: 1.04 }}
+              transition={{ duration: 10, ease: "linear" }}
               fetchpriority="high"
               loading="eager"
               decoding="async"
               y={heroParallax}
               style={{ willChange: "transform" }}
             />
-            <div className="hero-overlay" />
 
-            {/* Left/Right Navigation Arrows */}
+            {/* Apple-style gradient overlay — gradient from bottom and left, no hard black */}
+            <div className="hero-overlay hero-overlay--apple" />
+
+            {/* Prev / Next arrows — appear on hover */}
             <AnimatePresence>
               {isHeroHovered && totalFeatured > 1 && (
                 <>
                   <motion.button
-                    initial={{ opacity: 0, x: -20, y: "-50%" }}
-                    animate={{ opacity: 1, x: 0, y: "-50%" }}
-                    exit={{ opacity: 0, x: -20, y: "-50%" }}
-                    whileHover={{
-                      scale: 1.1,
-                      backgroundColor: "rgba(0,0,0,0.8)",
-                    }}
-                    whileTap={{ scale: 0.95 }}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
                     className="hero-nav-arrow left"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setFeaturedIndex(
-                        (featuredIndex - 1 + totalFeatured) % totalFeatured,
-                      );
-                    }}
+                    onClick={(e) => { e.stopPropagation(); setFeaturedIndex((featuredIndex - 1 + totalFeatured) % totalFeatured); }}
                   >
-                    <ChevronLeft size={32} />
+                    <ChevronLeft size={28} />
                   </motion.button>
                   <motion.button
-                    initial={{ opacity: 0, x: 20, y: "-50%" }}
-                    animate={{ opacity: 1, x: 0, y: "-50%" }}
-                    exit={{ opacity: 0, x: 20, y: "-50%" }}
-                    whileHover={{
-                      scale: 1.1,
-                      backgroundColor: "rgba(0,0,0,0.8)",
-                    }}
-                    whileTap={{ scale: 0.95 }}
+                    initial={{ opacity: 0, x: 10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 10 }}
                     className="hero-nav-arrow right"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setFeaturedIndex((featuredIndex + 1) % totalFeatured);
-                    }}
+                    onClick={(e) => { e.stopPropagation(); setFeaturedIndex((featuredIndex + 1) % totalFeatured); }}
                   >
-                    <ChevronRight size={32} />
+                    <ChevronRight size={28} />
                   </motion.button>
                 </>
               )}
             </AnimatePresence>
 
-            <div className="hero-content">
+            {/* ── Apple Hero Content ─────────────────────────────────────── */}
+            <div className="hero-content hero-content--apple">
               <motion.div
-                initial={{ opacity: 0, y: 24 }}
+                key={activeFeaturedMovie.id + "-content"}
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                style={{
-                  paddingBottom: "1rem",
-                  willChange: "transform, opacity",
-                }}
+                transition={{ duration: 0.55, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+                style={{ willChange: "transform, opacity" }}
               >
+                {/* Eyebrow — platform + genre tags */}
+                <div className="hero-eyebrow">
+                  <div style={{ display: "inline-flex", alignItems: "center" }}>
+                    <PlatformIcon platform={activeFeaturedMovie.source} />
+                  </div>
+                  {activeFeaturedMovie.genres?.slice(0, 2).map((g) => (
+                    <span key={g} className="hero-eyebrow-tag">{g}</span>
+                  ))}
+                </div>
+
+                {/* Title / Logo */}
                 {activeFeaturedMovie.logoUrl ? (
-                  <motion.img
+                  <img
                     src={activeFeaturedMovie.logoUrl}
                     alt={activeFeaturedMovie.title}
-                    style={{
-                      maxHeight: "120px",
-                      maxWidth: "100%",
-                      marginBottom: "1.5rem",
-                      filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.8))",
-                      willChange: "transform",
-                    }}
+                    className="hero-logo-img"
                   />
                 ) : (
                   <h1 className="hero-title">{activeFeaturedMovie.title}</h1>
                 )}
-                <div className="hero-meta">
-                  <span>
-                    {(
-                      activeFeaturedMovie.releaseYear ||
-                      activeFeaturedMovie.year
-                    )
-                      ?.toString()
-                      .substring(0, 4)}
-                  </span>
+
+                {/* Meta row — Year · Rating · Runtime */}
+                <div className="hero-meta hero-meta--apple">
+                  {(activeFeaturedMovie.releaseYear || activeFeaturedMovie.year) && (
+                    <span>{String(activeFeaturedMovie.releaseYear || activeFeaturedMovie.year).substring(0, 4)}</span>
+                  )}
                   {activeFeaturedMovie.imdbRating > 0 && (
-                    <span style={{ color: "#fbbf24" }}>
-                      ⭐ {activeFeaturedMovie.imdbRating}
+                    <span className="hero-rating">
+                      <span style={{ opacity: 0.6, fontSize: "0.8em" }}>IMDb</span> {activeFeaturedMovie.imdbRating}
                     </span>
                   )}
-                  <span className="maturity-badge">
-                    {activeFeaturedMovie.maturityRating || "TV-MA"}
-                  </span>
-                  {activeFeaturedMovie.duration &&
-                    !activeFeaturedMovie.duration.match(
-                      /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/,
-                    ) && <span>{activeFeaturedMovie.duration}</span>}
-                  <div style={{ display: "inline-flex", marginLeft: "0.5rem" }}>
-                    <PlatformIcon platform={activeFeaturedMovie.source} />
-                  </div>
+                  <span className="maturity-badge">{activeFeaturedMovie.maturityRating || "TV-MA"}</span>
+                  {activeFeaturedMovie.duration && !activeFeaturedMovie.duration.match(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/) && (
+                    <span>{activeFeaturedMovie.duration}</span>
+                  )}
                 </div>
-                {/* Description — always visible, truncated to 3 lines */}
-                {(activeFeaturedMovie.description ||
-                  activeFeaturedMovie.longDescription) && (
-                  <p
-                    className="hero-desc"
-                    style={{
-                      marginBottom: "1.5rem",
-                      marginTop: "0.5rem",
-                      cursor: "pointer",
-                      lineHeight: 1.5,
-                      WebkitLineClamp: 3,
-                      WebkitBoxOrient: "vertical",
-                      display: "-webkit-box",
-                      overflow: "hidden",
-                    }}
-                  >
-                    {activeFeaturedMovie.description ||
-                      activeFeaturedMovie.longDescription ||
-                      "Start watching this amazing title right now."}
+
+                {/* Description */}
+                {(activeFeaturedMovie.description || activeFeaturedMovie.longDescription) && (
+                  <p className="hero-desc hero-desc--apple">
+                    {activeFeaturedMovie.description || activeFeaturedMovie.longDescription}
                   </p>
                 )}
 
-                <motion.div
-                  className="hero-actions"
-                  style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.5, duration: 0.5 }}
-                >
-                  <Link
-                    to={`/watch/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`}
-                  >
+                {/* CTA row */}
+                <div className="hero-ctas">
+                  <Link to={`/watch/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`}>
                     <motion.button
-                      className="btn btn-primary"
-                      style={{
-                        padding: "0.8rem 2rem",
-                        fontSize: "1.1rem",
-                        fontWeight: 700,
-                      }}
+                      className="btn btn-primary hero-btn-play"
                       whileHover={{ scale: 1.03 }}
-                      whileTap={{ scale: 0.95 }}
+                      whileTap={{ scale: 0.96 }}
                     >
-                      <Play size={24} fill="currentColor" stroke="none" />
+                      <Play size={20} fill="currentColor" stroke="none" />
                       Play
                     </motion.button>
                   </Link>
                   <motion.button
-                    className="btn btn-glass"
-                    style={{
-                      padding: "0.8rem 2rem",
-                      fontSize: "1.1rem",
-                      fontWeight: 700,
-                      border: "1px solid rgba(255,255,255,0.3)",
-                    }}
-                    whileHover={{
-                      scale: 1.03,
-                      background: "rgba(255,255,255,0.15)",
-                    }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => {
-                      toggleMyList(activeFeaturedMovie);
-                    }}
+                    className="btn btn-glass hero-btn-mylist"
+                    whileHover={{ scale: 1.03, background: "rgba(255,255,255,0.14)" }}
+                    whileTap={{ scale: 0.96 }}
+                    onClick={() => toggleMyList(activeFeaturedMovie)}
                   >
-                    {isInList(activeFeaturedMovie?.id) ? (
-                      <Check size={24} />
-                    ) : (
-                      <Plus size={24} />
-                    )}
-                    {isInList(activeFeaturedMovie?.id)
-                      ? "In My List"
-                      : "My List"}
+                    {isInList(activeFeaturedMovie?.id) ? <Check size={18} /> : <Plus size={18} />}
+                    {isInList(activeFeaturedMovie?.id) ? "In My List" : "My List"}
                   </motion.button>
-                </motion.div>
+                </div>
               </motion.div>
             </div>
 
-            {/* Navigation Dots — improved with larger touch targets */}
+            {/* Slim progress dots */}
             {totalFeatured > 1 && (
-              <div className="hero-dots">
+              <div className="hero-dots hero-dots--apple">
                 {Array.from({ length: totalFeatured }).map((_, i) => {
                   const isActive = i === featuredIndex % totalFeatured;
                   return (
                     <motion.button
                       key={i}
                       onClick={() => setFeaturedIndex(i)}
-                      aria-label={`Go to slide ${i + 1}`}
-                      style={{
-                        width: isActive ? "32px" : "8px",
-                        height: "6px",
-                        borderRadius: "100px",
-                        background: isActive
-                          ? "rgba(255,255,255,0.1)"
-                          : "rgba(255,255,255,0.3)",
-                        position: "relative",
-                        overflow: "hidden",
-                        border: "none",
-                        cursor: "pointer",
-                        transition:
-                          "all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)",
-                        padding: "0",
-                        // Invisible padding for larger touch target
-                        margin: "10px 2px",
-                      }}
+                      aria-label={`Slide ${i + 1}`}
+                      className={`hero-dot${isActive ? " hero-dot--active" : ""}`}
                     >
                       {isActive && (
-                        <div className="dot-filler" style={{ animationPlayState: isHeroHovered ? 'paused' : 'running' }} />
+                        <div className="dot-filler" style={{ animationPlayState: isHeroHovered ? "paused" : "running" }} />
                       )}
                     </motion.button>
                   );
