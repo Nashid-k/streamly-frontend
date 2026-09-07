@@ -3,7 +3,7 @@ import slugify from "slugify";
 import ErrorBoundary from "../components/ErrorBoundary";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { Play, ChevronLeft, ChevronRight, Check, Plus, Info } from "lucide-react";
+import { Play, ChevronLeft, ChevronRight, Check, Plus, Info, LayoutGrid } from "lucide-react";
 import {
   motion,
   AnimatePresence,
@@ -1296,51 +1296,84 @@ export default function Home({
         )}
       </AnimatePresence>
 
-      {/* Platform Filter Row */}
+      {/* Browse by Platforms */}
       {!loading && categories.length > 0 && (
-        <div
-          style={{
-            display: "flex",
-            gap: "0.4rem",
-            WebkitOverflowScrolling: "touch",
-            overscrollBehaviorX: "contain",
-            overflowX: "auto",
-            scrollbarWidth: "none",
-            padding: "0.4rem 0 0.5rem",
-          }}
-        >
-          <motion.button
-            layout
-            onClick={() => setActivePlatform("all")}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.95 }}
-            className={`chip ${activePlatform === "all" ? "chip--active" : ""}`}
+        <div style={{ margin: "0.4rem 0 1.1rem" }}>
+          <h2
+            className="section-title"
             style={{
-              fontSize: "0.8rem",
-              flexShrink: 0,
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              marginBottom: "1rem",
             }}
           >
-            All Platforms
-          </motion.button>
-          {Object.entries(PLATFORMS).filter(([, p]) => p.category !== "aggregator").map(([key, p]) => (
+            Browse by Platforms
+          </h2>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "0.8rem",
+            }}
+          >
             <motion.button
-              layout
-              key={key}
-              onClick={() => setActivePlatform(key)}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.95 }}
-              className="chip"
+              onClick={() => setActivePlatform("all")}
+              whileHover={{ scale: 1.05, y: -2 }}
+              whileTap={{ scale: 0.94 }}
+              aria-label="Show all platforms"
+              title="All Platforms"
               style={{
-                background: activePlatform === key ? (p.gradient || p.color) : undefined,
-                borderColor: activePlatform === key ? "transparent" : undefined,
-                color: "#fff",
-                fontSize: "0.75rem",
+                width: "80px",
+                height: "80px",
+                borderRadius: "16px",
+                border:
+                  activePlatform === "all"
+                    ? "2px solid rgba(255,255,255,0.9)"
+                    : "1px dashed rgba(255,255,255,0.25)",
+                background: activePlatform === "all" ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.04)",
+                color: activePlatform === "all" ? "#fff" : "#a1a1aa",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
                 flexShrink: 0,
               }}
             >
-              <PlatformIcon platform={key} xs />
+              <LayoutGrid size={30} />
             </motion.button>
-          ))}
+            {Object.entries(PLATFORMS)
+              .filter(([, p]) => p.category !== "aggregator")
+              .map(([key, p]) => {
+                const active = activePlatform === key;
+                return (
+                  <motion.button
+                    key={key}
+                    onClick={() => setActivePlatform(active ? "all" : key)}
+                    whileHover={{ scale: 1.05, y: -2 }}
+                    whileTap={{ scale: 0.94 }}
+                    aria-label={`Browse ${p.name}`}
+                    title={p.name}
+                    style={{
+                      width: "80px",
+                      height: "80px",
+                      padding: 0,
+                      border: "none",
+                      borderRadius: "14px",
+                      background: "transparent",
+                      cursor: "pointer",
+                      flexShrink: 0,
+                      boxShadow: active
+                        ? "0 0 0 2px rgba(255,255,255,0.9), 0 6px 20px rgba(0,0,0,0.5)"
+                        : "0 4px 12px rgba(0,0,0,0.45)",
+                      overflow: "visible",
+                    }}
+                  >
+                    <PlatformIcon platform={key} size={80} />
+                  </motion.button>
+                );
+              })}
+          </div>
         </div>
       )}
 

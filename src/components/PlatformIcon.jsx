@@ -8,6 +8,7 @@ import { PLATFORMS, normalizePlatformKey } from "../api/platformAdapter";
  *   platform  — raw or canonical platform string
  *   small     — smaller sizing
  *   xs        — extra-small sizing
+ *   size      — explicit square pixel size (e.g. 80 for browse grid)
  *   pill      — render as a pill with name + icon
  *   showName  — show platform name next to icon
  *   style     — additional inline styles
@@ -17,6 +18,7 @@ export default function PlatformIcon({
   style = {},
   small = false,
   xs = false,
+  size,
   pill = false,
 }) {
   if (!platform) return null;
@@ -129,11 +131,15 @@ export default function PlatformIcon({
         alt={p.name}
         title={p.name}
         style={{
-          height: xs
-            ? `calc(${p.iconHeight} * 0.62)`
-            : small
-              ? `calc(${p.iconHeight} * 0.85)`
-              : p.iconHeight,
+          width: size || "auto",
+          height: size
+            ? `${size}px`
+            : xs
+              ? `calc(${p.iconHeight} * 0.62)`
+              : small
+                ? `calc(${p.iconHeight} * 0.85)`
+                : p.iconHeight,
+          borderRadius: size ? "12px" : undefined,
           objectFit: "contain",
           filter: p.iconFilter
             ? `${p.iconFilter} drop-shadow(0 2px 4px rgba(0,0,0,0.5))`
@@ -148,14 +154,15 @@ export default function PlatformIcon({
           if (parent && !parent.querySelector('.platform-fallback-badge')) {
             e.target.style.display = "none";
             const badge = document.createElement('div');
+            const bSize = size ? `${size}px` : xs ? '18px' : small ? '24px' : '32px';
+            const bFont = size ? `${Math.round(size * 0.4)}px` : xs ? '0.5rem' : small ? '0.6rem' : '0.75rem';
             badge.className = 'platform-fallback-badge';
             badge.style.cssText = `
               display: flex; align-items: center; justify-content: center;
-              width: ${xs ? '18px' : small ? '24px' : '32px'};
-              height: ${xs ? '18px' : small ? '24px' : '32px'};
-              border-radius: 6px;
+              width: ${bSize}; height: ${bSize};
+              border-radius: ${size ? '12px' : '6px'};
               background: ${p.gradient || p.color};
-              font-size: ${xs ? '0.5rem' : small ? '0.6rem' : '0.75rem'};
+              font-size: ${bFont};
               font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.3);
               flex-shrink: 0;
             `;
