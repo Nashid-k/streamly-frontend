@@ -451,35 +451,6 @@ export default function TitleDetails() {
     if (isPlaying) setIframeLoading(true);
   }, [isPlaying, playMode, playingServerIndex, playingEpisode, selectedSeason]);
 
-  /* Pre-warm the Direct-stream backend cache so hitting Play is near-instant.
-     Uses the same signature the player calls; a warm cache returns in <1s. */
-  useEffect(() => {
-    if (!id || isPlaying) return;
-    const timer = setTimeout(() => {
-      const isSeries = String(id).startsWith("tmdb-tv-");
-      const rawId = String(id).replace(/^tmdb-(tv|movie)-/, "");
-      const numeric = (rawId.match(/\d+/) || [])[0];
-      if (!numeric) return;
-      const base = import.meta.env.VITE_STREAM_SERVICE_URL;
-      if (!base) return;
-      const params = new URLSearchParams({ tmdbId: numeric, type: isSeries ? "tv" : "movie" });
-      if (isSeries) {
-        const s = selectedSeason ?? 1;
-        const e = playingEpisode ?? 1;
-        params.set("season", s);
-        params.set("episode", e);
-      }
-      const ctrl = new AbortController();
-      const to = setTimeout(() => ctrl.abort(), 45000);
-      fetch(`${base}/api/stream?${params}`, { signal: ctrl.signal })
-        .then(r => r.json())
-        .then(() => {})
-        .catch(() => {})
-        .finally(() => clearTimeout(to));
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, [id, isPlaying, selectedSeason, playingEpisode]);
-
   const directorRailRef = useRef(null);
   const pageRef = useRef(null);
 

@@ -4,7 +4,7 @@
   "outputDirectory": "dist",
   "headers": [
     {
-      "source": "/api/:path*",
+      "source": "/api/movies/:path*",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400" }
       ]
@@ -34,7 +34,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://streamly-backend-9q7i.onrender.com/api/:path*"
+      "destination": "/api"
+    },
+    {
+      "source": "/health",
+      "destination": "/api"
     },
     {
       "source": "/movie/:type/:id",

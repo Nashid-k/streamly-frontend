@@ -19,6 +19,7 @@ dist-ssr
 builds/*.apk
 
 streamly-backend/
+*.tsbuildinfo
 
 # Editor directories and files
 .vscode/*
