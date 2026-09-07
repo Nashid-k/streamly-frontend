@@ -168,28 +168,30 @@ a {
    Fully transparent over hero; deep frosted glass once scrolled. */
 .navbar {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 1000;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  padding: 0 clamp(1.5rem, 3vw, 3rem);
-  height: 52px;
-  background: transparent;
-  border-bottom: none;
-  transition:
-    background 0.5s cubic-bezier(0.16, 1, 0.3, 1),
-    backdrop-filter 0.5s cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: background, backdrop-filter;
+  padding: 0 1.25rem 0 1rem;
+  height: 56px;
+  width: max-content;
+  min-width: min(800px, 95vw);
+  background: rgba(15, 15, 15, 0.6);
+  backdrop-filter: blur(32px) saturate(200%);
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: background, backdrop-filter, border-color, box-shadow;
 }
 .navbar.scrolled {
-  background: rgba(5, 5, 5, 0.72);
-  backdrop-filter: blur(28px) saturate(200%);
-  -webkit-backdrop-filter: blur(28px) saturate(200%);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06), 0 8px 32px rgba(0, 0, 0, 0.5);
+  background: rgba(10, 10, 10, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 /* Left zone */
@@ -496,7 +498,7 @@ a {
 /* Main Content */
 .main-content {
   flex: 1;
-  padding: 52px 2rem 4rem;
+  padding: 88px 2rem 4rem;
   max-width: 1800px;
   margin: 0 auto;
   width: 100%;
@@ -524,7 +526,7 @@ a {
   max-height: 900px;
   border-radius: 0;
   overflow: hidden;
-  margin-top: -52px;
+  margin-top: -88px;
   margin-bottom: 0;
   box-shadow: none;
   border: none;
@@ -725,11 +727,30 @@ a {
   font-size: 0.98rem !important;
   font-weight: 700 !important;
 }
-.hero-btn-mylist {
-  padding: 0.72rem 1.6rem !important;
-  font-size: 0.95rem !important;
-  font-weight: 600 !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+.hero-btn-group {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  overflow: hidden;
+}
+.hero-btn-group-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.72rem 1.25rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: white;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-family: inherit;
+}
+.hero-btn-group-divider {
+  width: 1px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.2);
 }
 
 /* ── Apple-style dot indicators ── */
@@ -1314,7 +1335,7 @@ a {
   min-height: 560px;
   max-height: 900px;
   border-radius: 0;
-  margin-top: -52px;
+  margin-top: -88px;
   margin-bottom: 0;
   position: relative;
 }
@@ -1703,7 +1724,7 @@ input:focus-visible {
     margin-left: calc(50% - 50vw);
     margin-right: calc(50% - 50vw);
     border-radius: 0;
-    margin-top: -52px;
+    margin-top: -88px;
     height: min(75vh, 560px);
     min-height: 450px;
     max-height: none;

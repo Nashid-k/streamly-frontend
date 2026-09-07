@@ -3,7 +3,7 @@ import slugify from "slugify";
 import ErrorBoundary from "../components/ErrorBoundary";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { Play, ChevronLeft, ChevronRight, Check, Plus } from "lucide-react";
+import { Play, ChevronLeft, ChevronRight, Check, Plus, Info } from "lucide-react";
 import {
   motion,
   AnimatePresence,
@@ -1217,15 +1217,29 @@ export default function Home({
                       Play
                     </motion.button>
                   </Link>
-                  <motion.button
-                    className="btn btn-glass hero-btn-mylist"
-                    whileHover={{ scale: 1.03, background: "rgba(255,255,255,0.14)" }}
-                    whileTap={{ scale: 0.96 }}
-                    onClick={() => toggleMyList(activeFeaturedMovie)}
-                  >
-                    {isInList(activeFeaturedMovie?.id) ? <Check size={18} /> : <Plus size={18} />}
-                    {isInList(activeFeaturedMovie?.id) ? "In My List" : "My List"}
-                  </motion.button>
+
+                  <div className="btn-glass hero-btn-group">
+                    <motion.button
+                      className="hero-btn-group-item"
+                      whileHover={{ backgroundColor: "rgba(255,255,255,0.1)" }}
+                      whileTap={{ backgroundColor: "rgba(255,255,255,0.15)" }}
+                      onClick={() => toggleMyList(activeFeaturedMovie)}
+                    >
+                      {isInList(activeFeaturedMovie?.id) ? <Check size={18} /> : <Plus size={18} />}
+                      {isInList(activeFeaturedMovie?.id) ? "In My List" : "My List"}
+                    </motion.button>
+                    <div className="hero-btn-group-divider" />
+                    <Link to={`/title/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`} style={{ textDecoration: 'none' }}>
+                      <motion.button
+                        className="hero-btn-group-item"
+                        whileHover={{ backgroundColor: "rgba(255,255,255,0.1)" }}
+                        whileTap={{ backgroundColor: "rgba(255,255,255,0.15)" }}
+                      >
+                        <Info size={18} />
+                        Info
+                      </motion.button>
+                    </Link>
+                  </div>
                 </div>
               </motion.div>
             </div>
