@@ -148,14 +148,10 @@ function Layout({ children }) {
         className={`navbar${isScrolled ? ' scrolled' : ''}`}
         style={{
           background: isScrolled
-            ? "linear-gradient(180deg, rgba(5,5,5,0.92) 0%, rgba(5,5,5,0.82) 100%)"
+            ? "radial-gradient(ellipse 70% 100% at 50% 0%, rgba(5,5,5,0.55) 0%, transparent 70%)"
             : "transparent",
-          borderBottom: isScrolled
-            ? "1px solid rgba(255,255,255,0.07)"
-            : "none",
-          boxShadow: isScrolled
-            ? "0 1px 0 rgba(255,255,255,0.04), 0 8px 32px rgba(0,0,0,0.5)"
-            : "none",
+          borderBottom: "none",
+          boxShadow: "none",
         }}
       >
         <div className="nav-left">
@@ -191,8 +187,10 @@ function Layout({ children }) {
                       transition={{ type: "spring", stiffness: 420, damping: 32, mass: 0.9 }}
                     />
                   )}
-                  <item.icon size={16} strokeWidth={2} />
-                  <span className="nav-pill-label">{item.label}</span>
+                  <span className="nav-pill-swap">
+                    <span className="nav-pill-icon"><item.icon size={16} strokeWidth={2} /></span>
+                    <span className="nav-pill-label">{item.label}</span>
+                  </span>
                 </Link>
               );
             })}
@@ -212,8 +210,10 @@ function Layout({ children }) {
                   transition={{ type: "spring", stiffness: 420, damping: 32, mass: 0.9 }}
                 />
               )}
-              <Search size={16} strokeWidth={2} />
-              <span className="nav-pill-label">Search</span>
+              <span className="nav-pill-swap">
+                <span className="nav-pill-icon"><Search size={16} strokeWidth={2} /></span>
+                <span className="nav-pill-label">Search</span>
+              </span>
             </Link>
 
             {/* Profile / Sign In — dropdown anchored inside the pill */}

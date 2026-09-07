@@ -483,9 +483,10 @@ const CustomVideoPlayer = ({
   const isVidUp = iframeUrl.includes("vidup.to");
   const isDirectStream = Boolean(directStreamUrl);
   // Quality / audio / playback-rate menus are only wired to servers we can
-  // command (CineSrc command API, direct HLS). VidCore is transport-only.
+  // command (CineSrc command API, direct HLS). VidCore/Peachify/VidUp use
+  // their own native controls UI.
   const hasManagedSettings = isCineSrc || isDirectStream;
-  const showCustomUI = (isCineSrc || isDirectStream || isVidCore) && !useNativeControls;
+  const showCustomUI = (isCineSrc || isDirectStream) && !useNativeControls;
 
   /* Auto-hide paused info */
   useEffect(() => {
@@ -1713,7 +1714,7 @@ const CustomVideoPlayer = ({
 
   /* Keyboard */
   useEffect(() => {
-    if (!isCineSrc && !isDirectStream && !isVidCore) return;
+    if (!isCineSrc && !isDirectStream) return;
     const h = (e) => {
       if (document.activeElement?.tagName === "input" || e.ctrlKey || e.metaKey || e.altKey) return;
       switch (e.key.toLowerCase()) {
@@ -1732,7 +1733,7 @@ const CustomVideoPlayer = ({
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [isCineSrc, isDirectStream, isVidCore, togglePlay, toggleFullscreen, toggleMute, seekRelative, changeVolume]);
+  }, [isCineSrc, isDirectStream, togglePlay, toggleFullscreen, toggleMute, seekRelative, changeVolume]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -2029,8 +2030,8 @@ const CustomVideoPlayer = ({
               /* Do NOT set isLoading=false here — wait for cinesrc:playing
                  so CineSrc's own spinner stays hidden behind our overlay */
             } else if (isVidCore) {
-              // Pull the current playback state into our player so the loading
-              // state, progress bar and up-next logic stay in sync.
+              // Native UI mode: pull the current playback state into our player
+              // so Continue Watching and up-next logic stay in sync.
               setIsLoading(false);
               setServerErrorCounts({});
               setTimeout(() => {
@@ -2046,8 +2047,8 @@ const CustomVideoPlayer = ({
         />
       )}
 
-      {/* CineSrc / VidCore interaction overlay — handles mouse (desktop) and touch (mobile) */}
-      {showCustomUI && (isCineSrc || isDirectStream || isVidCore) && (
+      {/* CineSrc / DirectStream interaction overlay — handles mouse (desktop) and touch (mobile) */}
+      {showCustomUI && (isCineSrc || isDirectStream) && (
         <div
           onMouseMove={handleMouseMove}
           onClick={(e) => {
