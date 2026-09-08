@@ -308,11 +308,15 @@ a {
   text-decoration: none;
   border-radius: 999px;
   letter-spacing: -0.01em;
-  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  transition: opacity 0.25s ease, background 0.25s ease, color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
   white-space: nowrap;
 }
 .nav-link:hover {
   opacity: 1;
+  background: rgba(255, 255, 255, 0.08);
+}
+.nav-link:active {
+  transform: scale(0.96);
 }
 
 /* Home — solid white pill (matches the spec's hero CTA language) */
@@ -336,6 +340,25 @@ a {
 .nav-link--active {
   opacity: 1;
   font-weight: 600;
+  color: #ffffff;
+}
+
+.nav-link {
+  position: relative;
+  z-index: 0;
+}
+.nav-active-pill {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.85), rgba(251, 146, 60, 0.85));
+  box-shadow: 0 4px 18px rgba(244, 63, 94, 0.4);
+  z-index: 0;
+}
+.nav-link-label,
+.nav-link svg {
+  position: relative;
+  z-index: 1;
 }
 
 /* ── Right icon cluster — plain ghost icons (16px apart) ───────────────── */
@@ -892,19 +915,26 @@ a {
   user-select: none;
 }
 
-/* ── Apple-style dot indicators — spec: 24×4 active / 8×4 inactive ── */
+/* ── Apple-style dot indicators — progress pill track with accent fill ── */
 .hero-dots--apple {
   bottom: 1.5rem !important;
   right: clamp(1.5rem, 5vw, 2.5rem);
   left: auto !important;
   transform: none !important;
   display: flex;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
+  padding: 8px 14px;
+  background: rgba(8, 8, 10, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
 }
 .hero-dot {
-  width: 8px;
-  height: 4px;
+  width: 14px;
+  height: 6px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.35);
   border: none;
@@ -913,11 +943,18 @@ a {
   overflow: hidden;
   padding: 0;
   margin: 0;
-  transition: width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.35s ease;
+  transition: width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.35s ease, transform 0.35s ease;
+}
+.hero-dot:hover {
+  background: rgba(255, 255, 255, 0.6);
 }
 .hero-dot--active {
-  width: 24px;
-  background: rgba(255, 255, 255, 0.3);
+  width: 42px;
+  background: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 0 14px rgba(244, 63, 94, 0.35);
+}
+.hero-dot--active .dot-filler {
+  background: linear-gradient(90deg, #f43f5e, #fb923c);
 }
 
 /* Buttons */
@@ -2485,11 +2522,13 @@ input:focus-visible {
     bottom: 5rem !important;
     right: 50% !important;
     transform: translateX(50%) !important;
+    gap: 10px !important;
+    padding: 10px 18px !important;
   }
   .hero-dots button {
-    min-width: 20px !important;
-    min-height: 20px !important;
-    padding: 6px !important;
+    min-width: 24px !important;
+    min-height: 24px !important;
+    padding: 8px !important;
     margin: 8px 4px !important;
   }
 
@@ -2539,8 +2578,8 @@ input:focus-visible {
   top: 0;
   left: 0;
   height: 100%;
-  background: #ffffff;
-  animation: bannerProgress 6s linear forwards;
+  background: linear-gradient(90deg, #f43f5e, #fb923c);
+  animation: bannerProgress 10s linear forwards;
   transform-origin: left;
   width: 100%;
   will-change: transform;

@@ -136,6 +136,13 @@ function Layout({ children }) {
                   className={`nav-link${item.home ? " nav-link--home" : ""}${active ? " nav-link--active" : ""}`}
                   aria-current={active ? "page" : undefined}
                 >
+                  {active && !item.home && (
+                    <motion.span
+                      layoutId="nav-active-pill"
+                      className="nav-active-pill"
+                      transition={{ type: "spring", stiffness: 320, damping: 28 }}
+                    />
+                  )}
                   {/* Icon shows on Home always, and on whichever page is active */}
                   {(item.home || active) && <item.icon size={15} strokeWidth={2} />}
                   <span className="nav-link-label">{item.label}</span>

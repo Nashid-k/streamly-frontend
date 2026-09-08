@@ -943,7 +943,7 @@ export default function Home({
       rIdx = 0,
       recIdx = 0;
     while (
-      pool.length < 10 &&
+      pool.length < 7 &&
       (gIdx < globalPool.length ||
         rIdx < regionalPool.length ||
         recIdx < recommendedPool.length)
@@ -983,7 +983,7 @@ export default function Home({
       if (!isHeroHoveredRef.current) {
         setFeaturedIndex((prev) => prev + 1);
       }
-    }, 6000);
+    }, 10000);
     return () => clearInterval(timer);
   }, [totalFeatured]);
 
