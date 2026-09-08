@@ -187,7 +187,7 @@ export default function DiscoveryRails({ limit = 20 } = {}) {
                     overscrollBehaviorX: "contain",
                     overflowX: "auto",
                     scrollbarWidth: "none",
-                    padding: "0.25rem 0.5rem",
+                    padding: "0.75rem 0.5rem",
                   }}
                 >
                   {section.movies.map((movie, idx) => (

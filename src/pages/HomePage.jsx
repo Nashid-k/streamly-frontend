@@ -201,7 +201,7 @@ const MovieRail = React.memo(
                 overscrollBehaviorX: "contain",
                 overflowX: "auto",
                 scrollbarWidth: "none",
-                padding: "0.25rem 1.4rem",
+                padding: "0.75rem 1.4rem",
               }}
             >
               {(Array.isArray(category.movies) ? category.movies : []).slice(0, visibleCount).map((movie, i) => (
@@ -333,7 +333,7 @@ const Top10Rail = React.memo(
                 overscrollBehaviorX: "contain",
                 overflowX: "auto",
                 scrollbarWidth: "none",
-                padding: "0.25rem 1.4rem",
+                padding: "0.75rem 1.4rem",
               }}
             >
               {top10.map((movie, i) => (
