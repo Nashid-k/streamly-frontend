@@ -65,9 +65,19 @@ export const movieService = {
     const tvItems = (tv.results || []).map(r => normalizeResult({ ...r, media_type: 'tv' }));
     // Return as an array of category objects matching the app's expected shape
     return [
-      { name: 'Trending Movies', items: movieItems },
-      { name: 'Trending TV Shows', items: tvItems },
+      { name: 'Trending Movies', movies: movieItems },
+      { name: 'Trending TV Shows', movies: tvItems },
     ];
+  },
+
+  getAiringThisWeek: async () => {
+    const data = await tmdb('/tv/on_the_air');
+    return (data.results || []).map(normalizeResult);
+  },
+
+  getTrendingThisWeek: async () => {
+    const data = await tmdb('/trending/all/week');
+    return (data.results || []).map(normalizeResult);
   },
 
   getTop10: async () => {
