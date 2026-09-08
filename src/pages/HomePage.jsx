@@ -1126,6 +1126,10 @@ export default function Home({
             {/* Apple-style gradient overlay — gradient from bottom and left, no hard black */}
             <div className="hero-overlay hero-overlay--apple" />
 
+            {/* Explicit bottom gradient — hides the banner image's bottom edge,
+                melting into the page ambient below (same language as the watch page). */}
+            <div className="hero-bottom-fade" aria-hidden="true" />
+
             {/* Prev / Next arrows — appear on hover */}
             <AnimatePresence>
               {isHeroHovered && totalFeatured > 1 && (
