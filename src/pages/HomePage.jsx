@@ -14,6 +14,7 @@ import { useAppAuth } from "../context/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { movieService } from "../api/movieService";
 import MovieCard from "../components/MovieCard";
+import ContinueWatchingRail from "../components/ContinueWatchingRail";
 
 import RailArrow from "../components/RailArrow";
 import LeavingSoonBanner from "../components/LeavingSoonBanner";
@@ -437,7 +438,7 @@ export default function Home({
   const [visibleCatCount, setVisibleCatCount] = useState(4);
   const [activeGenre, setActiveGenre] = useState("All");
   const [activePlatform, setActivePlatform] = useState("all");
-  const { continueWatching } = useAppAuth();
+  const { continueWatching, myList, isInList, toggleMyList } = useAppAuth();
 
   const { scrollY } = useScroll();
   const heroParallax = useTransform(scrollY, [0, 600], [0, 120]);
@@ -1205,7 +1206,15 @@ export default function Home({
                     </motion.button>
                   </Link>
 
-
+                  <motion.button
+                    className="hero-cta-circle"
+                    whileHover={{ scale: 1.08 }}
+                    whileTap={{ scale: 0.92 }}
+                    onClick={() => toggleMyList(activeFeaturedMovie)}
+                    aria-label={isInList(activeFeaturedMovie?.id) ? "Remove from My List" : "Add to My List"}
+                  >
+                    {isInList(activeFeaturedMovie?.id) ? <Check size={20} /> : <Plus size={20} />}
+                  </motion.button>
 
                   <Link to={`/watch/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`}>
                     <motion.button
@@ -1359,7 +1368,19 @@ export default function Home({
           </h3>
         ) : (
           <>
-
+            {/* 1. Continue Watching — resume-first (highest intent, Netflix surfaces near top) */}
+            {continueWatching &&
+              continueWatching.length > 0 &&
+              filter === "all" && (
+                <FadeInSection>
+                  <ErrorBoundary>
+                    <ContinueWatchingRail
+                      railIndex={0}
+                      items={continueWatching}
+                    />
+                  </ErrorBoundary>
+                </FadeInSection>
+              )}
             {/* 2. Because you watched — personalized discovery ranker */}
             {filter === "all" && lastWatched && recommendations?.length > 0 && (
               <FadeInSection>
@@ -1397,6 +1418,18 @@ export default function Home({
                   <MovieRail
                     railIndex={3}
                     category={{ name: "Trending This Week", movies: trendingThisWeek }}
+                  />
+                </ErrorBoundary>
+              </FadeInSection>
+            )}
+
+            {/* 5. My List */}
+            {myList && myList.length > 0 && filter === "all" && (
+              <FadeInSection>
+                <ErrorBoundary>
+                  <MovieRail
+                    railIndex={5}
+                    category={{ name: "My List", movies: myList }}
                   />
                 </ErrorBoundary>
               </FadeInSection>

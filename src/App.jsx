@@ -13,6 +13,8 @@ import {
   Settings,
   Home,
   Tv,
+  Bookmark,
+  Clock,
   Keyboard,
   Film,
   Clapperboard,
@@ -34,6 +36,7 @@ const NAV_ITEMS = [
   { id: "home", label: "Home", to: "/", icon: Home, home: true, match: (p) => p === "/" },
   { id: "movies", label: "Movies", to: "/movies", icon: Clapperboard, match: (p) => p.startsWith("/movies") },
   { id: "shows", label: "Shows", to: "/series", icon: Tv, match: (p) => p.startsWith("/series") },
+  { id: "mylist", label: "My List", to: "/watchlist", icon: Bookmark, match: (p) => p === "/watchlist" },
 ];
 
 const HomePage = lazy(() => import("./pages/HomePage"));
@@ -42,7 +45,8 @@ const PersonDetails = lazy(() => import("./pages/PersonDetailsPage"));
 const SearchPage = lazy(() => import("./pages/SearchPage"));
 const CategoryPage = lazy(() => import("./pages/CategoryPage"));
 const GenrePage = lazy(() => import("./pages/GenrePage"));
-
+const WatchlistPage = lazy(() => import("./pages/WatchlistPage"));
+const HistoryPage = lazy(() => import("./pages/HistoryPage"));
 function Layout({ children }) {
   useScrollRestoration();
   const location = useLocation();
@@ -178,6 +182,9 @@ function Layout({ children }) {
               className="more-popover"
               style={{ padding: "8px 0", width: "min(220px, calc(100vw - 2rem))", right: -10 }}
             >
+              <Link to="/watchlist" onClick={() => setShowMoreMenu(false)} className="menu-item"><Bookmark size={16} /> My List</Link>
+              <Link to="/history" onClick={() => setShowMoreMenu(false)} className="menu-item"><Clock size={16} /> Watch History</Link>
+              <hr className="menu-divider" />
               <button
                 type="button"
                 className="menu-item"
@@ -268,9 +275,9 @@ function AppRoutes() {
               <Route path="/watch/:id/:slug?" element={<TitleDetails />} />
               <Route path="/person/:id/:slug?" element={<PersonDetails />} />
               {/* Legacy redirects */}
-              <Route path="/watchlist" element={<Navigate to="/" replace />} />
-              <Route path="/mylist" element={<Navigate to="/" replace />} />
-              <Route path="/history" element={<Navigate to="/" replace />} />
+              <Route path="/watchlist" element={<WatchlistPage />} />
+              <Route path="/mylist" element={<Navigate to="/watchlist" replace />} />
+              <Route path="/history" element={<HistoryPage />} />
         </Routes>
       </Suspense>
     </ErrorBoundary>

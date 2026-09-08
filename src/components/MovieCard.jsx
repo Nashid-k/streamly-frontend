@@ -95,6 +95,8 @@ export default function MovieCard({
   bare = false,
 }) {
   const navigate = useNavigate();
+  const { isInList, toggleMyList, addNotification } = useAppAuth();
+  const { toast } = useToast();
   const { isVisible, ref: virtualRef } = useVirtualRenderAdapter("400px"); // render 400px before it comes into view
   const [isLoaded, setIsLoaded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -155,6 +157,39 @@ export default function MovieCard({
     const slug = slugify(movie.title, { lower: true, strict: true });
     navigate(`/watch/${movie.id}/${slug}`);
   }, [navigate, movie]);
+
+  const handleToggleMyList = useCallback(
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const wasInList = isInList(movie.id);
+      toggleMyList(movie);
+      toast({
+        title: wasInList ? "Removed from List" : "Added to My List",
+        message: wasInList
+          ? `"${movie.title}" was removed.`
+          : `"${movie.title}" saved to your list.`,
+        type: wasInList ? "info" : "success",
+        duration: 2500,
+      });
+      // Generate a rich notification when adding to list
+      if (!wasInList && addNotification) {
+        const notif = buildMovieAddedNotification({
+          title: movie.title,
+          platform: movie.source || movie.sourceName,
+          year: movie.releaseYear || movie.year,
+          duration: movie.duration,
+          imageUrl: movie.backdropUrl || movie.posterUrl,
+          movieId: movie.id,
+          isSeries: isTvContent,
+        });
+        addNotification(notif);
+      }
+    },
+    [movie, isInList, toggleMyList, toast, addNotification, isTvContent],
+  );
+
+  const inList = isInList(movie.id);
 
   const rating = movie.imdbRating;
   const ratingColor = getRatingColor(rating);
@@ -381,6 +416,21 @@ export default function MovieCard({
             )}
 
 
+
+            {/* Mobile quick action — only visible on touch devices where
+                the hover curtain is unreachable. Tapping navigates to
+                details; this button toggles the watchlist. */}
+            <button
+              onClick={handleToggleMyList}
+              className="card-quick-list"
+              aria-label={
+                inList
+                  ? `Remove ${movie.title} from My List`
+                  : `Add ${movie.title} to My List`
+              }
+            >
+              {inList ? <Check size={18} /> : <Plus size={18} />}
+            </button>
 
             {/* Poster image (Always visible, darkens on hover) */}
             <motion.img
@@ -618,6 +668,37 @@ export default function MovieCard({
                   <span className="desktop-only">Watch</span>
                 </button>
 
+                {/* Watchlist — glass circle */}
+                <button
+                  onClick={handleToggleMyList}
+                  title={inList ? "Remove from list" : "Add to My List"}
+                  aria-label={
+                    inList
+                      ? `Remove ${movie.title} from My List`
+                      : `Add ${movie.title} to My List`
+                  }
+                  className="curtain-list-btn"
+                  style={{
+                    width: compact ? "26px" : "32px",
+                    height: compact ? "26px" : "32px",
+                    flexShrink: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: "50%",
+                    background: inList
+                      ? "rgba(244,63,94,0.18)"
+                      : "rgba(255,255,255,0.1)",
+                    border: inList
+                      ? "1.5px solid rgba(244,63,94,0.55)"
+                      : "1.5px solid rgba(255,255,255,0.2)",
+                    color: inList ? "var(--accent-primary)" : "var(--text-secondary)",
+                    cursor: "pointer",
+                    backdropFilter: "blur(4px)",
+                  }}
+                >
+                  {inList ? <Check size={compact ? 12 : 14} /> : <Plus size={compact ? 12 : 14} />}
+                </button>
               </motion.div>
             </motion.div>
 
