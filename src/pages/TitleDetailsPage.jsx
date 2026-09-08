@@ -443,6 +443,7 @@ export default function TitleDetails() {
   const EPISODES_INITIAL_COUNT = 8;
 
   const [playMode, setPlayMode] = useState("movie");
+  const [playingTrailerKey, setPlayingTrailerKey] = useState(null);
   const [playingServerIndex, setPlayingServerIndex] = useState(0);
   // Trigger loading state when iframe src/key is about to change
   useEffect(() => {
@@ -2047,6 +2048,51 @@ export default function TitleDetails() {
         </motion.section>
       )}
 
+      {/* ── Trailers ──────────────────────────────────────────────────────────── */}
+      {movie.videos && movie.videos.length > 0 && (
+        <motion.section
+          style={{ position: "relative", zIndex: 1, marginTop: "2rem", paddingLeft: "1rem", paddingRight: "1rem", maxWidth: "1600px", marginLeft: "auto", marginRight: "auto" }}
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true, margin: "-40px" }}
+          transition={{ duration: 0.4 }}
+        >
+          <motion.h2
+            className="section-title"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+          >
+            Trailers & Clips
+          </motion.h2>
+          <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '1rem', scrollbarWidth: 'none' }} className="hide-scrollbar">
+            {movie.videos.map((vid) => (
+              <motion.div
+                key={vid.key}
+                whileHover={{ scale: 1.02 }}
+                style={{ flexShrink: 0, width: '280px', borderRadius: '12px', overflow: 'hidden', cursor: 'pointer', background: '#18181b', position: 'relative' }}
+                onClick={() => { setIsPlaying(true); setPlayMode('trailer'); setPlayingTrailerKey(vid.key); setPlayingEpisode(null); }}
+              >
+                <div style={{ position: 'relative', aspectRatio: '16/9' }}>
+                  <img src={`https://img.youtube.com/vi/${vid.key}/mqdefault.jpg`} alt={vid.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(244,63,94,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+                      <Play size={18} fill="#fff" stroke="none" style={{ marginLeft: '2px' }} />
+                    </div>
+                  </div>
+                </div>
+                <div style={{ padding: '0.75rem' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.85rem', color: '#e4e4e7', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.4 }}>{vid.name}</h4>
+                  <span style={{ fontSize: '0.7rem', color: '#a1a1aa', marginTop: '4px', display: 'block' }}>{vid.type}</span>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.section>
+      )}
+
+
       {/* ── More Like This ────────────────────────────────────────────────────── */}
       {(loading || (similar && similar.length > 0)) && (
         <motion.section
@@ -2450,28 +2496,19 @@ export default function TitleDetails() {
                         position: "absolute",
                         inset: 0,
                         display: "flex",
-                        flexDirection: "column",
                         alignItems: "center",
                         justifyContent: "center",
-                        zIndex: -1,
                       }}
                     >
                       <Loader variant="inline" size="40px" />
-                      <span
-                        style={{
-                          marginTop: "1rem",
-                          color: "#a1a1aa",
-                          fontSize: "0.9rem",
-                          fontWeight: 500,
-                        }}
-                      >
-                        Loading trailer...
-                      </span>
                     </div>
                   )}
                   <iframe
-                    src={decodeUrl(movie.trailerUrl)}
+                    key={playingTrailerKey || movie.trailerUrl || movie.trailer}
+                    src={`https://www.youtube.com/embed/${playingTrailerKey || movie.trailerUrl || movie.trailer}?autoplay=1&rel=0&modestbranding=1`}
                     onLoad={() => setIframeLoading(false)}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
                     style={{
                       width: "100%",
                       height: "min(calc(100vw * 9/16), calc(100vh - 120px))",
