@@ -5,6 +5,7 @@ import { Play, Plus, Check, Info, Pencil } from "lucide-react";
 import slugify from "slugify";
 import { useAppAuth } from "../context/AuthContext";
 import RailArrow from "./RailArrow";
+import useRailArrows from "../hooks/useRailArrows";
 
 /* Continue Watching rail — landscape 16:9 cards with a 3px progress bar and
    a Netflix-style hover mini-player. The popup is rendered in the rail's own
@@ -49,6 +50,7 @@ export default function ContinueWatchingRail({ items = [] }) {
   const scrollRef = useRef(null);
   const layerRef = useRef(null);
   const [hover, setHover] = useState(null); // { id, x, top }
+  const { canScrollLeft, canScrollRight, refresh } = useRailArrows(scrollRef);
 
   const close = useCallback(() => setHover(null), []);
 
@@ -57,6 +59,7 @@ export default function ContinueWatchingRail({ items = [] }) {
     if (!el) return;
     const amount = el.clientWidth > 800 ? el.clientWidth * 0.8 : el.clientWidth * 0.9;
     el.scrollBy({ left: dir === "left" ? -amount : amount, behavior: "smooth" });
+    refresh();
   };
 
   const onEnter = (e, item) => {
@@ -89,8 +92,8 @@ export default function ContinueWatchingRail({ items = [] }) {
         </Link>
       </div>
 
-      <RailArrow dir="left" onClick={() => scroll("left")} />
-      <RailArrow dir="right" onClick={() => scroll("right")} />
+      {canScrollLeft && <RailArrow dir="left" onClick={() => scroll("left")} />}
+      {canScrollRight && <RailArrow dir="right" onClick={() => scroll("right")} />}
 
       <div
         ref={scrollRef}

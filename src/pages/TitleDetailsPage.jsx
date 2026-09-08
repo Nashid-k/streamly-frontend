@@ -2,6 +2,7 @@ import SEO from "../components/SEO";
 import MovieDetailsSkeleton from "../components/MovieDetailsSkeleton";
 import CastRail from "../components/CastRail";
 import RailArrow from "../components/RailArrow";
+import useRailArrows from "../hooks/useRailArrows";
 import { useQuery } from "@tanstack/react-query";
 import { movieService } from "../api/movieService";
 import Loader from "../components/Loader";
@@ -452,6 +453,7 @@ export default function TitleDetails() {
 
   const directorRailRef = useRef(null);
   const pageRef = useRef(null);
+  const { canScrollLeft, canScrollRight, refresh } = useRailArrows(directorRailRef);
 
   const scrollDirector = (dir) => {
     if (directorRailRef.current) {
@@ -459,6 +461,7 @@ export default function TitleDetails() {
         left: dir === "left" ? -500 : 500,
         behavior: "smooth",
       });
+      refresh();
     }
   };
 
@@ -1579,8 +1582,8 @@ export default function TitleDetails() {
               }}
               ref={directorRailRef}
             >
-              <RailArrow dir="left" onClick={() => scrollDirector("left")} />
-              <RailArrow dir="right" onClick={() => scrollDirector("right")} />
+              {canScrollLeft && <RailArrow dir="left" onClick={() => scrollDirector("left")} />}
+              {canScrollRight && <RailArrow dir="right" onClick={() => scrollDirector("right")} />}
               <ErrorBoundary>
               {similar.slice(0, 8).filter(s => s.director && s.director === movie.director).slice(0, 5).map((sim, idx) => (
               <motion.div

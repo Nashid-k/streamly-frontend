@@ -18,6 +18,7 @@ import ContinueWatchingRail from "../components/ContinueWatchingRail";
 import AmbientBackground from "../components/AmbientBackground";
 
 import RailArrow from "../components/RailArrow";
+import useRailArrows from "../hooks/useRailArrows";
 import LeavingSoonBanner from "../components/LeavingSoonBanner";
 import { detectLeavingSoon, buildUpcoming } from "../utils/releaseCalendar";
 import { asArray, EMPTY_ARRAY } from "../utils";
@@ -51,7 +52,7 @@ const FadeInSection = ({ children, delay = 0 }) => (
 );
 
 const MovieRail = React.memo(
-  function MovieRail({ category, railIndex: _railIndex = 0, bare = false }) {
+  function MovieRail({ category, railIndex: _railIndex = 0 }) {
     const railRef = useRef(null);
     const containerRef = useRef(null);
     // Windowing: render the rail's cards only while it is near the viewport.
@@ -97,6 +98,10 @@ const MovieRail = React.memo(
       }
     }, [inView]);
 
+    const { canScrollLeft, canScrollRight, refresh } = useRailArrows(railRef, {
+      enabled: inView,
+    });
+
     const [visibleCount, setVisibleCount] = useState(15);
     const inThrottle = useRef(false);
     const throttleTimeoutRef = useRef(null);
@@ -121,6 +126,7 @@ const MovieRail = React.memo(
       inThrottle.current = true;
       if (throttleTimeoutRef.current) clearTimeout(throttleTimeoutRef.current);
       throttleTimeoutRef.current = setTimeout(() => (inThrottle.current = false), 150);
+      refresh();
     };
 
     const scroll = (dir) => {
@@ -132,6 +138,7 @@ const MovieRail = React.memo(
           left: dir === "left" ? -scrollAmount : scrollAmount,
           behavior: "smooth",
         });
+        refresh();
       }
     };
 
@@ -187,8 +194,8 @@ const MovieRail = React.memo(
 
         {inView && (
           <>
-            <RailArrow dir="left" onClick={() => scroll("left")} />
-            <RailArrow dir="right" onClick={() => scroll("right")} />
+            {canScrollLeft && <RailArrow dir="left" onClick={() => scroll("left")} />}
+            {canScrollRight && <RailArrow dir="right" onClick={() => scroll("right")} />}
 
             <div
               ref={railRef}
@@ -201,7 +208,7 @@ const MovieRail = React.memo(
                 overscrollBehaviorX: "contain",
                 overflowX: "auto",
                 scrollbarWidth: "none",
-                padding: "0.75rem 1.4rem",
+                padding: "0.75rem 0.5rem",
               }}
             >
               {(Array.isArray(category.movies) ? category.movies : []).slice(0, visibleCount).map((movie, i) => (
@@ -217,8 +224,8 @@ const MovieRail = React.memo(
                   }}
                   style={{ flexShrink: 0 }}
                 >
-                  <div className={`movie-rail-item${bare ? " movie-rail-item--bare" : ""}`} style={bare ? { width: 200 } : undefined}>
-                    <MovieCard movie={movie} bare={bare} />
+                  <div className="movie-rail-item">
+                    <MovieCard movie={movie} />
                   </div>
                 </motion.div>
               ))}
@@ -259,6 +266,10 @@ const Top10Rail = React.memo(
       return () => observer.disconnect();
     }, []);
 
+    const { canScrollLeft, canScrollRight, refresh } = useRailArrows(railRef, {
+      enabled: inView,
+    });
+
     // Restore horizontal position after the rail is windowed back in
     useEffect(() => {
       if (inView && railRef.current && scrollPosRef.current > 0) {
@@ -269,8 +280,9 @@ const Top10Rail = React.memo(
     useEffect(() => {
       if (railRef.current) {
         railRef.current.scrollLeft = 0;
+        refresh();
       }
-    }, [filter]);
+    }, [filter, refresh]);
 
     const scroll = (dir) => {
       if (railRef.current) {
@@ -281,6 +293,7 @@ const Top10Rail = React.memo(
           left: dir === "left" ? -scrollAmount : scrollAmount,
           behavior: "smooth",
         });
+        refresh();
       }
     };
 
@@ -320,8 +333,8 @@ const Top10Rail = React.memo(
 
         {inView && (
           <>
-            <RailArrow dir="left" onClick={() => scroll("left")} />
-            <RailArrow dir="right" onClick={() => scroll("right")} />
+            {canScrollLeft && <RailArrow dir="left" onClick={() => scroll("left")} />}
+            {canScrollRight && <RailArrow dir="right" onClick={() => scroll("right")} />}
 
             <div
               ref={railRef}
@@ -333,7 +346,7 @@ const Top10Rail = React.memo(
                 overscrollBehaviorX: "contain",
                 overflowX: "auto",
                 scrollbarWidth: "none",
-                padding: "0.75rem 1.4rem",
+                padding: "0.75rem 0.5rem",
               }}
             >
               {top10.map((movie, i) => (
@@ -353,19 +366,20 @@ const Top10Rail = React.memo(
                     style={{
                       display: "flex",
                       alignItems: "flex-end",
-                      height: "300px",
+                      gap: "0.75rem",
                       flexShrink: 0,
                     }}
                   >
                     <div
                       style={{
-                        width: "104px",
+                        width: "1.35em",
                         flexShrink: 0,
                         textAlign: "right",
-                        marginRight: "10px",
                         lineHeight: 0.8,
                         pointerEvents: "none",
                         userSelect: "none",
+                        marginBottom: "var(--spacing-sm)",
+                        fontSize: "clamp(3.5rem, 8vw, 8.5rem)",
                       }}
                       aria-hidden="true"
                     >
@@ -376,10 +390,6 @@ const Top10Rail = React.memo(
                           whiteSpace: "nowrap",
                           fontWeight: 900,
                           letterSpacing: "-0.04em",
-                          fontSize:
-                            i === 9
-                              ? "clamp(3.25rem, 6vw, 6.5rem)"
-                              : "clamp(5.5rem, 10vw, 11rem)",
                           color:
                             i === 0
                               ? "rgba(251,191,36,0.9)"
@@ -404,10 +414,8 @@ const Top10Rail = React.memo(
                       </span>
                     </div>
                     <div
-                      style={{
-                        width: "200px",
-                        flexShrink: 0,
-                      }}
+                      className="movie-rail-item"
+                      style={{ flexShrink: 0 }}
                     >
                       <MovieCard movie={movie} />
                     </div>
@@ -1380,7 +1388,6 @@ export default function Home({
                 <ErrorBoundary>
                   <MovieRail
                     railIndex={1}
-                    bare
                     category={{
                       name: `Because you watched ${lastWatched.title}`,
                       movies: recommendations,

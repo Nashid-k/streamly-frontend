@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
@@ -6,10 +6,74 @@ import { movieService } from "../api/movieService";
 import ErrorBoundary from "./ErrorBoundary";
 import SectionHeader from "./SectionHeader";
 import MovieCard from "./MovieCard";
+import RailArrow from "./RailArrow";
+import useRailArrows from "../hooks/useRailArrows";
 import { asArray, EMPTY_ARRAY } from "../utils";
 
 const hasArt = (m) => Boolean(m && (m.posterUrl || m.poster || m.backdropUrl));
 const dedupeKey = (m) => m.tmdbId || m.id;
+
+const DiscoveryRail = ({ section }) => {
+  const railRef = useRef(null);
+  const { canScrollLeft, canScrollRight, refresh } = useRailArrows(railRef);
+
+  const scroll = (dir) => {
+    const el = railRef.current;
+    if (!el) return;
+    const amount = el.clientWidth > 800 ? el.clientWidth * 0.8 : el.clientWidth * 0.9;
+    el.scrollBy({ left: dir === "left" ? -amount : amount, behavior: "smooth" });
+    refresh();
+  };
+
+  return (
+    <div className="discovery-rail" style={{ position: "relative" }}>
+      <SectionHeader
+        title={section.title}
+        actions={
+          <Link
+            to={`/search?q=${encodeURIComponent(section.title)}`}
+            style={{
+              fontSize: "0.72rem",
+              color: "rgba(255,255,255,0.35)",
+              textDecoration: "none",
+              fontWeight: 500,
+              padding: "2px 8px",
+              borderRadius: "4px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Show all ›
+          </Link>
+        }
+      />
+      {canScrollLeft && <RailArrow dir="left" onClick={() => scroll("left")} />}
+      {canScrollRight && <RailArrow dir="right" onClick={() => scroll("right")} />}
+      <div
+        ref={railRef}
+        className="movie-rail"
+        style={{
+          display: "flex",
+          gap: "1.5rem",
+          WebkitOverflowScrolling: "touch",
+          overscrollBehaviorX: "contain",
+          overflowX: "auto",
+          scrollbarWidth: "none",
+          padding: "0.75rem 0.5rem",
+        }}
+      >
+        {section.movies.map((movie, idx) => (
+          <div
+            key={`${section.id}-${dedupeKey(movie)}-${idx}`}
+            className="movie-rail-item"
+            style={{ flexShrink: 0 }}
+          >
+            <MovieCard movie={movie} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 // Compact banner-style discovery rails for listing pages. Mirrors the
 // authentic streaming pattern: Trend / Airing / Latest / Popular rows on
@@ -159,46 +223,7 @@ export default function DiscoveryRails({ limit = 20 } = {}) {
               transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
             >
               <ErrorBoundary>
-                <SectionHeader
-                  title={section.title}
-                  actions={
-                    <Link
-                      to={`/search?q=${encodeURIComponent(section.title)}`}
-                      style={{
-                        fontSize: "0.72rem",
-                        color: "rgba(255,255,255,0.35)",
-                        textDecoration: "none",
-                        fontWeight: 500,
-                        padding: "2px 8px",
-                        borderRadius: "4px",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      Show all ›
-                    </Link>
-                  }
-                />
-                <div
-                  className="movie-rail"
-                  style={{
-                    display: "flex",
-                    gap: "1.5rem",
-                    WebkitOverflowScrolling: "touch",
-                    overscrollBehaviorX: "contain",
-                    overflowX: "auto",
-                    scrollbarWidth: "none",
-                    padding: "0.75rem 0.5rem",
-                  }}
-                >
-                  {section.movies.map((movie, idx) => (
-                    <div
-                      key={`${section.id}-${dedupeKey(movie)}-${idx}`}
-                      style={{ flexShrink: 0, width: "200px" }}
-                    >
-                      <MovieCard movie={movie} />
-                    </div>
-                  ))}
-                </div>
+                <DiscoveryRail section={section} />
               </ErrorBoundary>
             </motion.section>
           ))}

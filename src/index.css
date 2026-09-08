@@ -563,7 +563,7 @@ a {
 /* Main Content */
 .main-content {
   flex: 1;
-  padding: 0 2rem 5rem;
+  padding: 0 clamp(0.75rem, 2vw, 1.5rem) 5rem;
   max-width: 1800px;
   margin: 0 auto;
   width: 100%;
@@ -1536,7 +1536,7 @@ a {
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
-  padding: 0.25rem 1.4rem 1rem;
+  padding: 0.25rem 0.5rem 1rem;
 }
 .skeleton-rail::-webkit-scrollbar {
   display: none;
@@ -1610,7 +1610,7 @@ a {
     width: 140px;
   }
   .skeleton-rail {
-    padding: 0.25rem 1rem 1rem;
+    padding: 0.25rem 0.5rem 1rem;
   }
 }
 
@@ -2349,7 +2349,9 @@ input:focus-visible {
   }
 
   /* Movie Rails */
-  .movie-rail-wrapper > button {
+  .movie-rail-wrapper > button,
+  .discovery-rail > button,
+  .cw-rail > button {
     display: none !important;
   }
   .movie-rail,
