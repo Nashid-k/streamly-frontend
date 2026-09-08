@@ -1210,12 +1210,12 @@ export default function Home({
                       whileHover={{ scale: 1.04 }}
                       whileTap={{ scale: 0.96 }}
                     >
-                      <Play size={16} fill="currentColor" stroke="none" />
+                      <Play size={20} strokeWidth={2.5} fill="currentColor" stroke="none" />
                       Play
                     </motion.button>
                   </Link>
 
-                  <div className="hero-action-pill inline-flex items-center h-14 shrink-0 rounded-full bg-white/10 backdrop-blur-[20px] backdrop-saturate-150 border border-white/10 shadow-lg shadow-black/5">
+                  <div className="hero-action-pill inline-flex items-center shrink-0 rounded-full bg-white/10 backdrop-blur-[20px] backdrop-saturate-150 border border-white/10 shadow-lg shadow-black/5">
                     <motion.button
                       className="hero-cta-secondary-icon"
                       whileHover={{ scale: 1.1 }}
@@ -1224,7 +1224,7 @@ export default function Home({
                       aria-label={isInList(activeFeaturedMovie?.id) ? "Remove from My List" : "Add to My List"}
                       title={isInList(activeFeaturedMovie?.id) ? "Remove from My List" : "Add to My List"}
                     >
-                      {isInList(activeFeaturedMovie?.id) ? <Check size={18} /> : <Plus size={18} />}
+                      {isInList(activeFeaturedMovie?.id) ? <Check size={18} strokeWidth={2.5} /> : <Plus size={18} strokeWidth={2.5} />}
                     </motion.button>
                     <span className="hero-cta-separator" aria-hidden="true">|</span>
                     <Link to={`/watch/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`}>
@@ -1235,7 +1235,7 @@ export default function Home({
                         aria-label="More info"
                         title="More info"
                       >
-                        <Info size={18} />
+                        <Info size={18} strokeWidth={2.5} />
                       </motion.button>
                     </Link>
                   </div>

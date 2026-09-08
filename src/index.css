@@ -793,14 +793,15 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  height: 56px;
-  padding: 0 36px;
+  gap: 8px;
+  width: clamp(116px, 131px, 34vw);
+  height: clamp(46px, 52px, 7vw);
+  padding: 0 16px;
   border-radius: 999px;
   border: none;
   background: #ffffff;
   color: #000000;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   font-family: inherit;
   line-height: 1;
@@ -830,7 +831,9 @@ a {
   color: #ffffff;
   cursor: pointer;
   transition: background-color 0.2s ease;
-  padding: 0 8px;
+  width: clamp(116px, 131px, 34vw);
+  height: clamp(46px, 52px, 7vw);
+  padding: 0 4px;
   overflow: hidden;
 }
 .hero-action-pill:hover {
@@ -840,8 +843,8 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: transparent;
   border: none;
@@ -856,10 +859,10 @@ a {
   display: inline-flex;
   align-items: center;
   color: rgba(255, 255, 255, 0.35);
-  font-size: 1.4rem;
+  font-size: 1.3rem;
   font-weight: 300;
   line-height: 1;
-  padding: 0 4px;
+  padding: 0 2px;
   user-select: none;
 }
 
