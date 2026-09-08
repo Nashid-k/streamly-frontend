@@ -833,18 +833,29 @@ a {
   transition: background-color 0.2s ease;
   width: clamp(116px, 131px, 34vw);
   height: clamp(46px, 52px, 7vw);
-  padding: 0 4px;
+  padding: 0 3px;
   overflow: hidden;
+  box-sizing: border-box;
 }
 .hero-action-pill:hover {
   background-color: rgba(255, 255, 255, 0.16);
+}
+.hero-action-pill > a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  flex: 1 1 0;
+  min-width: 0;
 }
 .hero-cta-secondary-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  flex: 1 1 0;
+  width: auto;
+  max-width: 52px;
+  height: 100%;
   border-radius: 50%;
   background: transparent;
   border: none;
@@ -858,11 +869,13 @@ a {
 .hero-cta-separator {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
   color: rgba(255, 255, 255, 0.35);
   font-size: 1.3rem;
   font-weight: 300;
   line-height: 1;
-  padding: 0 2px;
+  margin: 0 2px;
   user-select: none;
 }
 
