@@ -718,7 +718,7 @@ export default function TitleDetails() {
 
 
   return (
-    <div ref={pageRef} className="relative min-h-screen w-full font-sans overflow-x-hidden pb-24 bg-[#050505]">
+    <div ref={pageRef} className="relative min-h-screen font-sans overflow-x-hidden pb-24 bg-[#050505] w-screen left-1/2 -translate-x-1/2 -mt-[56px]">
       <SEO
         title={movie.title}
         description={movie.description}
