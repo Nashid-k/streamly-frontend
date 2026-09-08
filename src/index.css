@@ -606,11 +606,11 @@ a {
   object-position: center 20%;
   animation: kenBurns 20s ease-in-out infinite alternate;
   will-change: transform;
-  /* Fade the image bottom to transparent so the banner melts into the
-     page's ambient gradient below (mirrors the watch/details hero mask) —
-     no hard line at the bottom edge. */
-  -webkit-mask-image: linear-gradient(to bottom, black 62%, transparent 100%);
-  mask-image: linear-gradient(to bottom, black 62%, transparent 100%);
+  /* Fade the banner image up to transparent toward the bottom (mirrors the
+     watch/details hero mask) so the hero melts into the page's ambient
+     image below — no hard image edge. */
+  -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 92%);
+  mask-image: linear-gradient(to bottom, black 40%, transparent 92%);
 }
 .hero-bg.paused {
   animation-play-state: paused;
@@ -727,20 +727,6 @@ a {
     radial-gradient(ellipse 65% 100% at 0% 50%, rgba(5,5,5,0.85) 0%, rgba(5,5,5,0.4) 40%, transparent 70%),
     /* Soft right vignette */
     radial-gradient(ellipse 35% 100% at 100% 50%, rgba(5,5,5,0.45) 0%, transparent 60%);
-}
-
-.hero-overlay--apple + .hero-bottom-fade,
-.hero-bottom-fade {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 46%;
-  pointer-events: none;
-  /* Fully opaque at the very bottom so no banner image edge is visible;
-     fades up into the hero and out into the ambient below. */
-  background:
-    linear-gradient(to top, #0a0a0c 0%, rgba(10,10,12,0.92) 12%, rgba(10,10,12,0.72) 30%, rgba(10,10,12,0.35) 55%, transparent 82%);
 }
 
 /* ── Watch/details page — reuse the exact hero banner gradient stack ── */
