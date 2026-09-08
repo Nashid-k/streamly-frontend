@@ -1217,7 +1217,7 @@ export default function Home({
 
                   <Link to={`/watch/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`}>
                     <motion.button
-                      className="hero-cta-secondary"
+                      className="hero-action-pill inline-flex items-center h-[52px] shrink-0 rounded-full bg-white/10 backdrop-blur-[20px] backdrop-saturate-150 border border-white/10 shadow-lg shadow-black/5"
                       whileHover={{ scale: 1.04 }}
                       whileTap={{ scale: 0.96 }}
                     >
