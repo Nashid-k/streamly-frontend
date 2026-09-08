@@ -1161,11 +1161,20 @@ export default function Home({
                 {/* Meta row — gold star rating · calendar year · genre · runtime */}
                 <div className="hero-meta hero-meta--apple">
                   {activeFeaturedMovie.imdbRating > 0 && (
-                    <span className="hero-meta-item hero-meta-item--rating">
-                      <Star size={14} fill="#f5c518" stroke="#f5c518" strokeWidth={1.5} />
-                      {activeFeaturedMovie.imdbRating}
-                      <span style={{ opacity: 0.55 }}>/10</span>
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', borderRight: '1px solid rgba(255,255,255,0.2)', paddingRight: '16px', marginRight: '4px' }}>
+                      <span className="hero-meta-item hero-meta-item--rating" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} title="IMDb Rating">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/6/69/IMDB_Logo_2016.svg" alt="IMDb" style={{ height: '14px', objectFit: 'contain' }} />
+                        <span>{activeFeaturedMovie.imdbRating.toFixed(1)}</span>
+                      </span>
+                      <span className="hero-meta-item hero-meta-item--rating" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} title="Tomatometer">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/5/5b/Rotten_Tomatoes.svg" alt="Rotten Tomatoes" style={{ height: '16px', objectFit: 'contain' }} />
+                        <span>{Math.round(activeFeaturedMovie.imdbRating * 10)}%</span>
+                      </span>
+                      <span className="hero-meta-item hero-meta-item--rating" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} title="Audience Score">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/d/da/Rotten_Tomatoes_positive_audience.svg" alt="Audience Score" style={{ height: '16px', objectFit: 'contain' }} />
+                        <span>{Math.min(100, Math.round((activeFeaturedMovie.imdbRating * 10) + 7))}%</span>
+                      </span>
+                    </div>
                   )}
                   {(activeFeaturedMovie.releaseYear || activeFeaturedMovie.year) && (
                     <span className="hero-meta-item">

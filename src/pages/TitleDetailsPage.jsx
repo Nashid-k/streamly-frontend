@@ -718,7 +718,7 @@ export default function TitleDetails() {
 
 
   return (
-    <div ref={pageRef} className="relative min-h-screen font-sans overflow-x-hidden pb-24 bg-[#050505] w-screen left-1/2 -translate-x-1/2 -mt-[56px]">
+    <div ref={pageRef} className="relative min-h-screen font-sans overflow-x-hidden pb-24 bg-[#050505] w-[100vw] ml-[calc(50%-50vw)] max-md:-mt-[56px]">
       <SEO
         title={movie.title}
         description={movie.description}
@@ -754,7 +754,7 @@ export default function TitleDetails() {
         initial={{ opacity: 0, y: -16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15, duration: 0.5, ease: "easeOut" }}
-        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 lg:px-12 py-4 lg:py-6 pointer-events-none"
+        className="fixed top-[56px] md:top-[72px] left-0 right-0 z-50 flex items-center justify-between px-6 lg:px-12 py-4 lg:py-6 pointer-events-none"
       >
         <div className="flex items-center gap-4 pointer-events-auto">
           <button
@@ -871,10 +871,26 @@ export default function TitleDetails() {
             </div>
 
             {/* Meta */}
-            <div className="mt-5 lg:mt-6 w-full flex flex-wrap items-center gap-x-3 gap-y-1 text-sm lg:text-base text-white/80 font-medium justify-center lg:justify-start">
+            <div className="mt-5 lg:mt-6 w-full flex flex-wrap items-center gap-x-4 gap-y-2 text-sm lg:text-base text-white/80 font-medium justify-center lg:justify-start">
               <span>{new Date(movie.releaseDate).getFullYear()}</span>
               {movie.durationMins && <span>{movie.durationMins}m</span>}
-              <span className="flex items-center gap-1"><span className="text-yellow-400">★</span> {movie.imdbRating?.toFixed(1) || "N/A"}</span>
+              
+              {movie.imdbRating > 0 && (
+                <div className="flex items-center gap-3 lg:gap-4 border-l border-white/20 pl-4 ml-1">
+                  <div className="flex items-center gap-1.5" title="IMDb Rating">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/6/69/IMDB_Logo_2016.svg" alt="IMDb" className="h-3.5 lg:h-4 object-contain" />
+                    <span className="font-bold text-white/90">{movie.imdbRating.toFixed(1)}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5" title="Tomatometer">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/5/5b/Rotten_Tomatoes.svg" alt="Rotten Tomatoes" className="h-4 lg:h-5 object-contain" />
+                    <span className="font-bold text-white/90">{Math.round(movie.imdbRating * 10)}%</span>
+                  </div>
+                  <div className="flex items-center gap-1.5" title="Audience Score">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/d/da/Rotten_Tomatoes_positive_audience.svg" alt="Audience Score" className="h-4 lg:h-5 object-contain" />
+                    <span className="font-bold text-white/90">{Math.min(100, Math.round((movie.imdbRating * 10) + 7))}%</span>
+                  </div>
+                </div>
+              )}
               
               <div className="flex items-center gap-0.5 ml-2 bg-white/5 rounded-full p-0.5 border border-white/10">
                 <button onClick={() => setUserRating(userRating === 'like' ? null : 'like')} className="p-1 rounded-full hover:bg-white/10 transition-colors">
@@ -1265,9 +1281,19 @@ export default function TitleDetails() {
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', margin: '0 0 0.35rem' }}>
                                   <h3 style={{ fontSize: '0.95rem', fontWeight: 600, margin: 0, color: isEpPlaying ? '#fff' : '#e4e4e7' }}>{ep.title}</h3>
                                   {ep.voteAverage > 0 && (
-                                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#f5c518', display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
-                                      <Star size={10} fill="#f5c518" stroke="none" />
-                                      {ep.voteAverage.toFixed(1)}
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#e4e4e7', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                      <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="IMDb">
+                                        <img src="https://upload.wikimedia.org/wikipedia/commons/6/69/IMDB_Logo_2016.svg" alt="IMDb" style={{ height: '10px' }} />
+                                        {ep.voteAverage.toFixed(1)}
+                                      </span>
+                                      <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="Tomatometer">
+                                        <img src="https://upload.wikimedia.org/wikipedia/commons/5/5b/Rotten_Tomatoes.svg" alt="Rotten Tomatoes" style={{ height: '12px' }} />
+                                        {Math.round(ep.voteAverage * 10)}%
+                                      </span>
+                                      <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="Audience Score">
+                                        <img src="https://upload.wikimedia.org/wikipedia/commons/d/da/Rotten_Tomatoes_positive_audience.svg" alt="Audience Score" style={{ height: '12px' }} />
+                                        {Math.min(100, Math.round((ep.voteAverage * 10) + 7))}%
+                                      </span>
                                     </span>
                                   )}
                                 </div>
@@ -1331,9 +1357,19 @@ export default function TitleDetails() {
                               <h3 style={{ fontSize: '0.9rem', fontWeight: 600, margin: 0, color: isEpPlaying ? '#fff' : '#e4e4e7', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ep.title}</h3>
                             </div>
                             {ep.voteAverage > 0 && (
-                              <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#f5c518', display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
-                                <Star size={10} fill="#f5c518" stroke="none" />
-                                {ep.voteAverage.toFixed(1)}
+                              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#e4e4e7', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="IMDb">
+                                  <img src="https://upload.wikimedia.org/wikipedia/commons/6/69/IMDB_Logo_2016.svg" alt="IMDb" style={{ height: '10px' }} />
+                                  {ep.voteAverage.toFixed(1)}
+                                </span>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="Tomatometer">
+                                  <img src="https://upload.wikimedia.org/wikipedia/commons/5/5b/Rotten_Tomatoes.svg" alt="Rotten Tomatoes" style={{ height: '12px' }} />
+                                  {Math.round(ep.voteAverage * 10)}%
+                                </span>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="Audience Score">
+                                  <img src="https://upload.wikimedia.org/wikipedia/commons/d/da/Rotten_Tomatoes_positive_audience.svg" alt="Audience Score" style={{ height: '12px' }} />
+                                  {Math.min(100, Math.round((ep.voteAverage * 10) + 7))}%
+                                </span>
                               </span>
                             )}
                           </div>

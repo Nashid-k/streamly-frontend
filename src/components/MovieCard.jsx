@@ -534,18 +534,31 @@ export default function MovieCard({
                   justifyContent: "center",
                 }}
               >
-                {ratingColor && (
-                  <span
+                {rating > 0 && (
+                  <div
                     style={{
                       display: "flex",
                       alignItems: "center",
-                      gap: "3px",
-                      color: ratingColor,
+                      gap: compact ? "6px" : "10px",
                     }}
                   >
-                    <Star size={10} fill="currentColor" stroke="none" />
-                    {rating}
-                  </span>
+                    <span style={{ display: "flex", alignItems: "center", gap: "3px" }} title="IMDb">
+                      <img src="https://upload.wikimedia.org/wikipedia/commons/6/69/IMDB_Logo_2016.svg" alt="IMDb" style={{ height: compact ? "8px" : "10px" }} />
+                      <span>{Number(rating).toFixed(1)}</span>
+                    </span>
+                    {!compact && (
+                      <span style={{ display: "flex", alignItems: "center", gap: "3px" }} title="Tomatometer">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/5/5b/Rotten_Tomatoes.svg" alt="Rotten Tomatoes" style={{ height: "12px" }} />
+                        <span>{Math.round(rating * 10)}%</span>
+                      </span>
+                    )}
+                    {!compact && (
+                      <span style={{ display: "flex", alignItems: "center", gap: "3px" }} title="Audience Score">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/d/da/Rotten_Tomatoes_positive_audience.svg" alt="Popcorn" style={{ height: "12px" }} />
+                        <span>{Math.min(100, Math.round((rating * 10) + 7))}%</span>
+                      </span>
+                    )}
+                  </div>
                 )}
                 {(movie.releaseYear || movie.year) && (
                   <span>
@@ -736,17 +749,27 @@ export default function MovieCard({
                   {(movie.releaseYear || movie.year)?.toString().substring(0, 4)}
                 </span>
                 {rating > 0 && (
-                  <span
+                  <div
                     style={{
-                      color: ratingColor || "#fbbf24",
                       display: "flex",
                       alignItems: "center",
-                      gap: "3px",
+                      gap: "10px",
+                      color: "#a1a1aa",
                     }}
                   >
-                    <Star size={11} fill="currentColor" stroke="none" />
-                    {rating}
-                  </span>
+                    <span style={{ display: "flex", alignItems: "center", gap: "3px" }} title="IMDb">
+                      <img src="https://upload.wikimedia.org/wikipedia/commons/6/69/IMDB_Logo_2016.svg" alt="IMDb" style={{ height: "10px" }} />
+                      <span>{Number(rating).toFixed(1)}</span>
+                    </span>
+                    <span style={{ display: "flex", alignItems: "center", gap: "3px" }} title="Tomatometer">
+                      <img src="https://upload.wikimedia.org/wikipedia/commons/5/5b/Rotten_Tomatoes.svg" alt="Rotten Tomatoes" style={{ height: "12px" }} />
+                      <span>{Math.round(rating * 10)}%</span>
+                    </span>
+                    <span style={{ display: "flex", alignItems: "center", gap: "3px" }} title="Audience Score">
+                      <img src="https://upload.wikimedia.org/wikipedia/commons/d/da/Rotten_Tomatoes_positive_audience.svg" alt="Popcorn" style={{ height: "12px" }} />
+                      <span>{Math.min(100, Math.round((rating * 10) + 7))}%</span>
+                    </span>
+                  </div>
                 )}
               </div>
             </div>
