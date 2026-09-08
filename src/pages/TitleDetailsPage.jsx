@@ -734,6 +734,43 @@ export default function TitleDetails() {
         type="video.movie"
       />
 
+      {/* ── Ambient Poster Gradient Background ──────────────────────────────── */}
+      <div
+        style={{
+          position: "fixed",
+          inset: "-20%",
+          width: "140vw",
+          height: "140vh",
+          backgroundImage: movie.posterUrl ? `url(${movie.posterUrl})` : "none",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          filter: "blur(120px) saturate(150%)",
+          opacity: 0.35,
+          zIndex: 0,
+          pointerEvents: "none",
+        }}
+      />
+      {/* Side gradients to smoothly blend edges */}
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "linear-gradient(90deg, rgba(5,5,5,0.9) 0%, transparent 15%, transparent 85%, rgba(5,5,5,0.9) 100%)",
+          zIndex: 0,
+          pointerEvents: "none",
+        }}
+      />
+      {/* Bottom gradient to blend lower page */}
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "linear-gradient(180deg, transparent 40%, rgba(5,5,5,0.6) 80%, rgba(5,5,5,0.95) 100%)",
+          zIndex: 0,
+          pointerEvents: "none",
+        }}
+      />
+
       {/* ── Backdrop ─────────────────────────────────────────────────────────── */}
       <div
         className="details-backdrop"
@@ -757,7 +794,7 @@ export default function TitleDetails() {
             position: "absolute",
             inset: 0,
             background:
-              "linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.15) 25%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.55) 75%, #050505 100%)",
+              "linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.15) 25%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.55) 75%, rgba(5,5,5,0.8) 100%)",
             pointerEvents: "none",
           }}
         />
@@ -784,7 +821,7 @@ export default function TitleDetails() {
             pointerEvents: "none",
           }}
         />
-        {/* Bottom fade — solid #050505 seam into content */}
+        {/* Bottom fade — seam into ambient content */}
         <div
           style={{
             position: "absolute",
@@ -793,7 +830,7 @@ export default function TitleDetails() {
             right: 0,
             height: "60%",
             background:
-              "linear-gradient(to top, #050505 0%, #050505 8%, rgba(5,5,5,0.98) 20%, rgba(5,5,5,0.85) 40%, rgba(5,5,5,0.5) 65%, rgba(0,0,0,0.2) 85%, transparent 100%)",
+              "linear-gradient(to top, rgba(5,5,5,0.7) 0%, rgba(5,5,5,0.4) 30%, rgba(5,5,5,0.1) 60%, transparent 100%)",
             pointerEvents: "none",
           }}
         />

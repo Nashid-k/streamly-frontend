@@ -2259,7 +2259,7 @@ input:focus-visible {
     padding-right: 0.75rem !important;
     padding-top: 1rem !important;
     padding-bottom: 5rem !important;
-    background: linear-gradient(to bottom, transparent, #050505 8%, #050505);
+    background: linear-gradient(to bottom, transparent, rgba(5,5,5,0.7) 12%, rgba(5,5,5,0.85));
   }
   .details-backdrop {
     height: 50vh !important;
