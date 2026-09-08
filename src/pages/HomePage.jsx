@@ -354,22 +354,22 @@ const Top10Rail = React.memo(
                       position: "relative",
                       display: "flex",
                       alignItems: "flex-end",
-                      width: "200px",
+                      height: "300px",
                       flexShrink: 0,
                     }}
                   >
                     <span
                       className="top10-number"
                       style={{
-                        position: "absolute",
-                        bottom: "-8px",
-                        left: "-18px",
-                        fontSize: "clamp(4.5rem, 8vw, 7rem)",
+                        flexShrink: 0,
+                        lineHeight: 0.8,
+                        whiteSpace: "nowrap",
                         fontWeight: 900,
-                        lineHeight: 1,
-                        zIndex: 2,
+                        marginRight: "-56px",
+                        zIndex: 1,
                         pointerEvents: "none",
                         userSelect: "none",
+                        fontSize: "clamp(6rem, 12vw, 13.5rem)",
                         color:
                           i === 0
                             ? "rgba(251,191,36,0.12)"
@@ -379,7 +379,7 @@ const Top10Rail = React.memo(
                                 ? "rgba(201,124,74,0.12)"
                                 : "rgba(255,255,255,0.04)",
                         WebkitTextStroke:
-                          "2px " +
+                          "2.5px " +
                           (i === 0
                             ? "#fbbf24"
                             : i === 1
@@ -387,16 +387,17 @@ const Top10Rail = React.memo(
                               : i === 2
                                 ? "#c97c4a"
                                 : "rgba(255,255,255,0.25)"),
-                        textShadow: "0 0 15px rgba(0,0,0,0.6)",
+                        textShadow: "0 2px 18px rgba(0,0,0,0.65)",
                       }}
                     >
                       {i + 1}
                     </span>
                     <div
                       style={{
-                        width: "140px",
+                        position: "relative",
+                        zIndex: 2,
+                        width: "200px",
                         flexShrink: 0,
-                        marginLeft: "35px",
                       }}
                     >
                       <MovieCard movie={movie} compact />
