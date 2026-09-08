@@ -1215,7 +1215,7 @@ export default function Home({
                     </motion.button>
                   </Link>
 
-                  <div className="hero-action-pill inline-flex items-center h-[52px] shrink-0 rounded-full bg-white/10 backdrop-blur-[20px] backdrop-saturate-150 border border-white/10 shadow-lg shadow-black/5">
+                  <div className="hero-action-pill inline-flex items-center h-14 shrink-0 rounded-full bg-white/10 backdrop-blur-[20px] backdrop-saturate-150 border border-white/10 shadow-lg shadow-black/5">
                     <motion.button
                       className="hero-cta-secondary-icon"
                       whileHover={{ scale: 1.1 }}

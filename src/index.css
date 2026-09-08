@@ -793,13 +793,14 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 12px 28px;
+  gap: 10px;
+  height: 56px;
+  padding: 0 36px;
   border-radius: 999px;
   border: none;
   background: #ffffff;
   color: #000000;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   font-family: inherit;
   line-height: 1;
@@ -829,7 +830,7 @@ a {
   color: #ffffff;
   cursor: pointer;
   transition: background-color 0.2s ease;
-  padding: 0 6px;
+  padding: 0 8px;
   overflow: hidden;
 }
 .hero-action-pill:hover {
@@ -839,8 +840,8 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   background: transparent;
   border: none;
@@ -855,10 +856,10 @@ a {
   display: inline-flex;
   align-items: center;
   color: rgba(255, 255, 255, 0.35);
-  font-size: 1.25rem;
+  font-size: 1.4rem;
   font-weight: 300;
   line-height: 1;
-  padding: 0 2px;
+  padding: 0 4px;
   user-select: none;
 }
 
