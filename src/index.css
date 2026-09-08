@@ -1133,7 +1133,7 @@ a {
 }
 
 .movie-rail-item {
-  width: 180px;
+  width: 200px;
 }
 
 .movie-card {
@@ -1696,14 +1696,14 @@ input:focus-visible {
 /* Off-screen rails get deferred rendering for faster initial paint */
 .movie-rail-wrapper {
   content-visibility: auto;
-  contain-intrinsic-size: 0 420px;
+  contain-intrinsic-size: 0 520px;
   position: relative;
   padding: 0.2rem 0 0;
-  margin: 0 0 2rem;
+  margin: 0 0 3.5rem;
 }
 
 .movie-rail {
-  gap: 1rem;
+  gap: 1.25rem;
   padding: 0.45rem 0 0.2rem;
   padding-left: 0;
   padding-right: 0;
@@ -2370,10 +2370,10 @@ input:focus-visible {
   .movie-rail .movie-card,
   .skeleton-card,
   .movie-rail-item {
-    width: 140px !important;
+    width: 200px !important;
   }
   .skeleton-card {
-    height: 210px !important;
+    height: 300px !important;
   }
 
   /* Movie Details */

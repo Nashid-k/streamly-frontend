@@ -193,7 +193,7 @@ export default function DiscoveryRails({ limit = 20 } = {}) {
                   {section.movies.map((movie, idx) => (
                     <div
                       key={`${section.id}-${dedupeKey(movie)}-${idx}`}
-                      style={{ flexShrink: 0 }}
+                      style={{ flexShrink: 0, width: "200px" }}
                     >
                       <MovieCard movie={movie} />
                     </div>

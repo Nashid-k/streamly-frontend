@@ -217,7 +217,7 @@ const MovieRail = React.memo(
                   }}
                   style={{ flexShrink: 0 }}
                 >
-                  <div className={`movie-rail-item${bare ? " movie-rail-item--bare" : ""}`} style={bare ? { width: 140 } : undefined}>
+                  <div className={`movie-rail-item${bare ? " movie-rail-item--bare" : ""}`} style={bare ? { width: 200 } : undefined}>
                     <MovieCard movie={movie} bare={bare} />
                   </div>
                 </motion.div>
@@ -354,7 +354,7 @@ const Top10Rail = React.memo(
                       position: "relative",
                       display: "flex",
                       alignItems: "flex-end",
-                      width: "180px",
+                      width: "200px",
                       flexShrink: 0,
                     }}
                   >
@@ -1320,7 +1320,7 @@ export default function Home({
 
       {/* Categories Section */}
       <section
-        style={{ display: "flex", flexDirection: "column", gap: "2rem" }}
+        style={{ display: "flex", flexDirection: "column", gap: "3.5rem" }}
       >
         <div className="section-header" style={{ marginBottom: 0 }}>
           <h2 className="section-title">{title}</h2>
@@ -1328,7 +1328,7 @@ export default function Home({
 
         {loading ? (
           <div
-            style={{ display: "flex", flexDirection: "column", gap: "2rem" }}
+            style={{ display: "flex", flexDirection: "column", gap: "3.5rem" }}
           >
             {[1, 2, 3, 4].map((rail) => (
               <div key={rail}>
