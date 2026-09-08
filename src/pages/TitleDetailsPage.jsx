@@ -742,8 +742,8 @@ export default function TitleDetails() {
               src={backdropOptimized || movie.posterUrl}
             />
           </div>
-          {/* Side gradients to smoothly blend edges */}
-          <div className="absolute inset-0 z-0 pointer-events-none" style={{ background: "linear-gradient(90deg, rgba(5,5,5,0.95) 0%, transparent 15%, transparent 85%, rgba(5,5,5,0.95) 100%)" }} />
+          {/* Smooth radial vignette to blend edges without harsh vertical lines */}
+          <div className="absolute inset-0 z-0 pointer-events-none" style={{ background: "radial-gradient(50% 50% at 50% 30%, transparent 20%, rgba(5,5,5,0.7) 80%, rgba(5,5,5,1) 100%)" }} />
           {/* Bottom gradient to blend lower page */}
           <div className="absolute inset-0 z-0 pointer-events-none" style={{ background: "linear-gradient(180deg, transparent 50%, rgba(5,5,5,0.6) 80%, rgba(5,5,5,1) 100%)" }} />
         </div>
