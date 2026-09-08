@@ -606,10 +606,11 @@ a {
   object-position: center 20%;
   animation: kenBurns 20s ease-in-out infinite alternate;
   will-change: transform;
-  /* Soft-fade the image bottom so the banner melts into the page ambient
-     instead of showing a hard line (mirrors the watch/details page mask). */
-  -webkit-mask-image: linear-gradient(to bottom, black 78%, transparent 100%);
-  mask-image: linear-gradient(to bottom, black 78%, transparent 100%);
+  /* Fade the image bottom to transparent so the banner melts into the
+     page's ambient gradient below (mirrors the watch/details hero mask) —
+     no hard line at the bottom edge. */
+  -webkit-mask-image: linear-gradient(to bottom, black 62%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 62%, transparent 100%);
 }
 .hero-bg.paused {
   animation-play-state: paused;
@@ -711,15 +712,19 @@ a {
   max-width: 62ch;
 }
 
-/* ── Apple-variant overlay — softer, less opaque at top */
+/* ── Apple-variant overlay — melts the banner bottom into the ambient ──
+   The very bottom is transparent so the home hero fades into the page's
+   ambient gradient (same visual language as the watch/details page),
+   avoiding a hard line where the banner ends. */
 .hero-overlay--apple {
   position: absolute;
   inset: 0;
   background:
-    /* Bottom fade */
-    linear-gradient(0deg, #050505 0%, rgba(5,5,5,0.92) 8%, rgba(5,5,5,0.6) 22%, rgba(5,5,5,0.25) 45%, transparent 65%),
+    /* Bottom fade — darker for content legibility, fades fully out at the
+       bottom edge so it blends into the ambient background below. */
+    linear-gradient(0deg, rgba(5,5,5,0.95) 0%, rgba(5,5,5,0.92) 8%, rgba(5,5,5,0.7) 20%, rgba(5,5,5,0.35) 40%, transparent 62%),
     /* Soft left vignette — feathered, no hard vertical line */
-    radial-gradient(ellipse 65% 100% at 0% 50%, rgba(5,5,5,0.8) 0%, rgba(5,5,5,0.35) 40%, transparent 70%),
+    radial-gradient(ellipse 65% 100% at 0% 50%, rgba(5,5,5,0.85) 0%, rgba(5,5,5,0.4) 40%, transparent 70%),
     /* Soft right vignette */
     radial-gradient(ellipse 35% 100% at 100% 50%, rgba(5,5,5,0.45) 0%, transparent 60%);
 }
