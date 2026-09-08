@@ -825,6 +825,40 @@ a {
   border-color: #ffffff;
   background: rgba(255, 255, 255, 0.12);
 }
+.hero-cta-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  background: rgba(22, 22, 22, 0.6);
+  backdrop-filter: blur(4px);
+  color: #ffffff;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.hero-cta-secondary:hover {
+  border-color: #ffffff;
+  background: rgba(255, 255, 255, 0.16);
+}
+.hero-cta-secondary-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+}
+.hero-cta-secondary-icon + .hero-cta-secondary-icon {
+  margin-left: 2px;
+}
+.hero-cta-circle--tiny {
+  width: 34px;
+  height: 34px;
+  border-width: 1.5px;
+}
 
 /* ── Apple-style dot indicators — spec: 24×4 active / 8×4 inactive ── */
 .hero-dots--apple {
