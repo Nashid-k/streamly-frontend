@@ -181,23 +181,28 @@ a {
   background: #050505;
 }
 
-/* ── Apple-style Navbar ──────────────────────────────────────────────────────
-   Full-width frosted glass bar: logo on the left, nav links + icon cluster on
-   the right. Fully transparent over hero; deep frosted glass once scrolled. */
+/* ── Floating pill Navbar ────────────────────────────────────────────────────
+   Centered floating pill: logo on the left, nav links + icon cluster on the
+   right. Subtle glass over hero; deep frosted glass once scrolled. */
 .navbar {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100% - 2rem, 1480px);
   z-index: var(--z-sticky);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
   padding: 0 clamp(1rem, 2.5vw, 2.25rem);
-  height: 60px;
-  background: transparent;
-  border-bottom: 1px solid transparent;
+  height: 56px;
+  border-radius: 999px;
+  background: rgba(20, 20, 24, 0.35);
+  backdrop-filter: blur(28px) saturate(150%);
+  -webkit-backdrop-filter: blur(28px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2), 0 4px 20px rgba(0, 0, 0, 0.35);
   transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: background, backdrop-filter, border-color, box-shadow;
 }
@@ -205,8 +210,8 @@ a {
   background: rgba(20, 20, 24, 0.55);
   backdrop-filter: blur(40px) saturate(180%);
   -webkit-backdrop-filter: blur(40px) saturate(180%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45), inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 /* Left zone */
@@ -384,41 +389,6 @@ a {
   box-shadow: 0 2px 8px rgba(225, 29, 72, 0.4);
 }
 
-/* Profile / Sign-In button — frosted pill */
-.nav-profile-btn {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 4px 14px 4px 5px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 0.8rem;
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 12px rgba(0, 0, 0, 0.2);
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  white-space: nowrap;
-}
-.nav-profile-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.2);
-  color: #fff;
-  transform: translateY(-1px);
-}
-.nav-profile-btn--open {
-  background: rgba(255, 255, 255, 0.16);
-  border-color: rgba(255, 255, 255, 0.24);
-  color: #fff;
-}
-.nav-signin-label {
-  letter-spacing: -0.01em;
-}
-
 /* Avatar initial circle */
 .nav-avatar {
   width: 25px;
@@ -433,6 +403,35 @@ a {
   justify-content: center;
   flex-shrink: 0;
   box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.2), 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+/* Account header inside the merged settings menu */
+.more-account {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 4px;
+}
+.more-account-text {
+  min-width: 0;
+}
+.more-account-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.more-account-email {
+  font-size: 0.75rem;
+  color: #71717a;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── Design System Primitives ─────────────────────────────── */
@@ -1703,7 +1702,9 @@ input:focus-visible {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
   transition: box-shadow 0.2s ease;
 }
 .platform-tile-face--all {
@@ -1717,9 +1718,6 @@ input:focus-visible {
 }
 .platform-tile--active .platform-tile-face--all svg {
   color: #ffffff !important;
-}
-.platform-tile img {
-  filter: brightness(0) invert(1) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35)) !important;
 }
 .platform-tile-label {
   font-size: 11px;
@@ -1973,9 +1971,9 @@ input:focus-visible {
     height: 320px;
   }
 
-  /* Reset floating navbar offset on tablet and below */
+  /* Keep the floating pill navbar on tablet, just tucked closer to the top */
   .navbar {
-    top: 0;
+    top: 8px;
   }
   .main-content {
     padding: 0 2rem 4rem;
@@ -2048,7 +2046,7 @@ input:focus-visible {
     background: rgba(12, 12, 15, 0.65) !important;
     backdrop-filter: blur(32px) saturate(180%) !important;
     -webkit-backdrop-filter: blur(32px) saturate(180%) !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
   }
   .nav-links,
   .nav-pill,

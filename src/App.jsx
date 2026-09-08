@@ -10,6 +10,7 @@ import {
 } from "react-router-dom";
 import {
   Search,
+  Settings,
   Home,
   Bookmark,
   Clock,
@@ -70,8 +71,7 @@ function Layout({ children }) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [navigate]);
 
-  const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
@@ -92,41 +92,23 @@ function Layout({ children }) {
 
   const unreadCount = useMemo(() => (notifications || []).filter((n) => !n.isRead).length, [notifications]);
 
-  // Close any signed-in-only menus if auth drops (prevents rendering menu
-  // content while `user` is undefined during the popover exit animation).
-  useEffect(() => {
-    if (!user) {
-      setShowUserMenu(false);
-      setShowNotifications(false);
-    }
-  }, [user]);
-
-  const notificationsRef = useRef(null);
-  const pillProfileRef = useRef(null);
+  const moreRef = useRef(null);
 
   useEffect(() => {
-    setShowUserMenu(false);
-    setShowNotifications(false);
+    setShowMoreMenu(false);
   }, [location.pathname]);
 
-  // Close menus when clicking outside or pressing Escape
+  // Close the settings menu when clicking outside or pressing Escape
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (pillProfileRef.current && !pillProfileRef.current.contains(e.target)) {
-        setShowUserMenu(false);
-      }
-      if (
-        notificationsRef.current &&
-        !notificationsRef.current.contains(e.target)
-      ) {
-        setShowNotifications(false);
+      if (moreRef.current && !moreRef.current.contains(e.target)) {
+        setShowMoreMenu(false);
       }
     };
 
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
-        setShowUserMenu(false);
-        setShowNotifications(false);
+        setShowMoreMenu(false);
       }
     };
 
@@ -174,14 +156,15 @@ function Layout({ children }) {
                   className={`nav-link${item.home ? " nav-link--home" : ""}${active ? " nav-link--active" : ""}`}
                   aria-current={active ? "page" : undefined}
                 >
-                  {item.home && <item.icon size={15} strokeWidth={2} />}
+                  {/* Icon shows on Home always, and on whichever page is active */}
+                  {(item.home || active) && <item.icon size={15} strokeWidth={2} />}
                   <span className="nav-link-label">{item.label}</span>
                 </Link>
               );
             })}
           </div>
 
-          {/* Right — icon cluster: search · bell · profile */}
+          {/* Right — icon cluster: search · settings (settings merges notifications & profile) */}
         <div className="nav-right">
           {/* Search */}
           <Link
@@ -193,57 +176,81 @@ function Layout({ children }) {
             <Search size={18} strokeWidth={2} />
           </Link>
 
-          {/* Notifications */}
-          <div ref={notificationsRef} style={{ position: "relative" }}>
+          {/* Settings — merged menu: profile, notifications, shortcuts */}
+          <div ref={moreRef} style={{ position: "relative" }}>
             <button
               type="button"
-              className={`nav-icon-btn${showNotifications ? " nav-icon-btn--active" : ""}`}
-              aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
-              aria-expanded={showNotifications}
+              className={`nav-icon-btn${showMoreMenu ? " nav-icon-btn--active" : ""}`}
+              aria-label={`Settings${unreadCount > 0 ? ` (${unreadCount} unread notifications)` : ""}`}
+              aria-haspopup="menu"
+              aria-expanded={showMoreMenu}
               onClick={() => {
-                setShowNotifications(!showNotifications);
-                if (!showNotifications && (notifications || []).some((n) => !n.isRead)) {
+                const next = !showMoreMenu;
+                setShowMoreMenu(next);
+                if (next && (notifications || []).some((n) => !n.isRead)) {
                   markAllAsRead();
                 }
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  setShowNotifications(!showNotifications);
-                  if (!showNotifications && (notifications || []).some((n) => !n.isRead)) {
+                  const next = !showMoreMenu;
+                  setShowMoreMenu(next);
+                  if (next && (notifications || []).some((n) => !n.isRead)) {
                     markAllAsRead();
                   }
                 }
               }}
             >
-              <Bell size={18} strokeWidth={2} />
+              <Settings size={18} strokeWidth={2} />
               {unreadCount > 0 && (
                 <span className="nav-badge">{unreadCount > 9 ? "9+" : unreadCount}</span>
               )}
             </button>
 
             <Popover
-              isOpen={showNotifications}
-              onClose={() => setShowNotifications(false)}
-              triggerRef={notificationsRef}
-              className="notifications-popover"
+              isOpen={showMoreMenu}
+              onClose={() => setShowMoreMenu(false)}
+              triggerRef={moreRef}
+              className="more-popover notifications-popover"
               scrollable
-              style={{ padding: "8px 0", width: "min(320px, calc(100vw - 2rem))", right: -10 }}
+              style={{ padding: "8px 0", width: "min(340px, calc(100vw - 2rem))", right: -10 }}
             >
-              <div style={{ padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: "4px" }}>
-                <div style={{ fontWeight: 600, fontSize: "0.95rem", color: "#fff" }}>Notifications</div>
+              {/* Account / session */}
+              {user ? (
+                <div className="more-account">
+                  <span className="nav-avatar">{(user.displayName || user.email || "?")[0].toUpperCase()}</span>
+                  <div className="more-account-text">
+                    <div className="more-account-name">{user.displayName || "Streamer"}</div>
+                    <div className="more-account-email">{user.email || ""}</div>
+                  </div>
+                </div>
+              ) : (
+                <button type="button" className="menu-item" onClick={() => { setShowMoreMenu(false); setShowAuthModal(true); }}>
+                  <User size={16} /> Sign In
+                </button>
+              )}
+              {user && (
+                <>
+                  <Link to="/watchlist" onClick={() => setShowMoreMenu(false)} className="menu-item"><Bookmark size={16} /> My List</Link>
+                  <Link to="/history" onClick={() => setShowMoreMenu(false)} className="menu-item"><Clock size={16} /> Watch History</Link>
+                  <hr className="menu-divider" />
+                </>
+              )}
+              <div style={{ padding: "8px 16px 4px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
+                <div style={{ fontWeight: 700, fontSize: "0.68rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "#71717a" }}>Notifications</div>
                 {(notifications || []).length > 0 && (
-                  <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={clearNotifications} style={{ background: "transparent", border: "none", color: "#a1a1aa", fontSize: "0.8rem", cursor: "pointer" }}>
+                  <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={clearNotifications} style={{ background: "transparent", border: "none", color: "#a1a1aa", fontSize: "0.7rem", cursor: "pointer", padding: 0 }}>
                     Clear All
                   </motion.button>
                 )}
               </div>
               {(notifications || []).length === 0 ? (
-                <div style={{ padding: "2rem 1rem", textAlign: "center", color: "#a1a1aa", fontSize: "0.85rem" }}>
+                <div style={{ padding: "1rem", textAlign: "center", color: "#a1a1aa", fontSize: "0.8rem" }}>
                   You're all caught up!
                 </div>
               ) : (
-                notifications.map((n) => {
+                notifications.slice(0, 8).map((n) => {
                   const diffMs = Date.now() - (n.createdAt || Date.now());
                   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
                   let timeStr = "Just now";
@@ -274,8 +281,8 @@ function Layout({ children }) {
                       key={n.id}
                       role={n.link ? "button" : undefined}
                       tabIndex={n.link ? 0 : undefined}
-                      onClick={() => { setShowNotifications(false); if (n.link) navigate(n.link); }}
-                      onKeyDown={(e) => { if (n.link && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setShowNotifications(false); navigate(n.link); } }}
+                      onClick={() => { setShowMoreMenu(false); if (n.link) navigate(n.link); }}
+                      onKeyDown={(e) => { if (n.link && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setShowMoreMenu(false); navigate(n.link); } }}
                       style={{ padding: "10px 14px", display: "flex", gap: "10px", borderBottom: "1px solid rgba(255,255,255,0.05)", cursor: n.link ? "pointer" : "default", background: n.isRead ? "transparent" : cfg.bg, borderLeft: `3px solid ${cfg.accent}`, opacity: n.isRead ? 0.7 : 1, transition: "background 0.2s" }}
                       onMouseEnter={(e) => { if (n.link) e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}
                       onMouseLeave={(e) => { if (n.link) e.currentTarget.style.background = n.isRead ? "transparent" : cfg.bg; }}
@@ -302,57 +309,26 @@ function Layout({ children }) {
                   );
                 })
               )}
-            </Popover>
-          </div>
 
-          {/* Profile / Sign In */}
-          <div ref={pillProfileRef} style={{ position: "relative" }}>
-            <button
-              type="button"
-              className={`nav-profile-btn${showUserMenu && user ? " nav-profile-btn--open" : ""}`}
-              aria-haspopup="menu"
-              aria-expanded={user ? showUserMenu : undefined}
-              aria-label={user ? "User menu" : "Sign In"}
-              title={user ? user.displayName || user.email : "Sign In"}
-              onClick={() => user ? setShowUserMenu(!showUserMenu) : setShowAuthModal(true)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  if (user) setShowUserMenu(!showUserMenu);
-                  else setShowAuthModal(true);
-                }
-              }}
-            >
-              {user ? (
-                <span className="nav-avatar">{(user.displayName || user.email || "?")[0].toUpperCase()}</span>
-              ) : (
-                <>
-                  <User size={15} strokeWidth={2} />
-                  <span className="nav-signin-label">Sign In</span>
-                </>
-              )}
-            </button>
-
-            <Popover
-              isOpen={!!(showUserMenu && user)}
-              onClose={() => setShowUserMenu(false)}
-              triggerRef={pillProfileRef}
-              style={{ padding: "8px 0", minWidth: "220px" }}
-            >
-              <div style={{ padding: "10px 16px 8px", borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: "4px" }}>
-                <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "#fff" }}>{user?.displayName || "Streamer"}</div>
-                <div style={{ fontSize: "0.75rem", color: "#71717a", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user?.email || ""}</div>
-              </div>
-              <Link to="/watchlist" onClick={() => setShowUserMenu(false)} className="menu-item"><Bookmark size={16} /> My List</Link>
-              <Link to="/history" onClick={() => setShowUserMenu(false)} className="menu-item"><Clock size={16} /> Watch History</Link>
               <hr className="menu-divider" />
-              <button type="button" className="menu-item" onClick={() => { setShowUserMenu(false); window.dispatchEvent(new KeyboardEvent("keydown", { key: "?", shiftKey: true })); }}>
+              <button
+                type="button"
+                className="menu-item"
+                onClick={() => {
+                  setShowMoreMenu(false);
+                  window.dispatchEvent(new KeyboardEvent("keydown", { key: "?", shiftKey: true }));
+                }}
+              >
                 <Keyboard size={16} /> Keyboard Shortcuts
               </button>
-              <hr className="menu-divider" />
-              <button type="button" className="menu-item menu-item--danger" onClick={async () => { setShowUserMenu(false); await logout(); }}>
-                <LogOut size={16} /> Sign Out
-              </button>
+              {user && (
+                <>
+                  <hr className="menu-divider" />
+                  <button type="button" className="menu-item menu-item--danger" onClick={async () => { setShowMoreMenu(false); await logout(); }}>
+                    <LogOut size={16} /> Sign Out
+                  </button>
+                </>
+              )}
             </Popover>
           </div>
         </div>

@@ -1366,7 +1366,7 @@ export default function Home({
                   >
                     <span
                       className="platform-tile-face"
-                      style={{ background: p.gradient || p.color }}
+                      style={{ background: "rgba(255,255,255,0.05)" }}
                     >
                       <PlatformIcon platform={key} size={52} />
                     </span>
