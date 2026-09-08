@@ -380,20 +380,7 @@ export default function MovieCard({
               </div>
             )}
 
-            {/* Mobile quick action — only visible on touch devices where
-                the hover curtain is unreachable. Tapping navigates to
-                details; this button toggles the watchlist. */}
-            <button
-              onClick={handleToggleMyList}
-              className="card-quick-list"
-              aria-label={
-                inList
-                  ? `Remove ${movie.title} from My List`
-                  : `Add ${movie.title} to My List`
-              }
-            >
-              {inList ? <Check size={18} /> : <Plus size={18} />}
-            </button>
+
 
             {/* Poster image (Always visible, darkens on hover) */}
             <motion.img

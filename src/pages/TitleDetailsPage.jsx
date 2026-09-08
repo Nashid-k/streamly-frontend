@@ -374,57 +374,13 @@ export default function TitleDetails() {
   const navigate = useNavigate();
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [playingEpisode, setPlayingEpisode] = useState(1);
-  const { isInList, toggleMyList, continueWatching, updateProgress, addNotification } =
-    useAppAuth();
+  const { continueWatching, updateProgress, addNotification } = useAppAuth();
   const { toast } = useToast();
   const cwRef = useRef(continueWatching);
   useEffect(() => {
     cwRef.current = continueWatching;
   }, [continueWatching]);
 
-  // Wrap toggleMyList to show toast feedback
-  // Fix C2: await adapter call before showing toast to avoid false confirmation on failure
-  const handleToggleMyList = async (movieObj) => {
-    const wasInList = isInList(movieObj.id);
-    try {
-      await toggleMyList(movieObj);
-      if (wasInList) {
-        toast({
-          title: "Removed from List",
-          message: `"${movieObj.title}" was removed.`,
-          type: "info",
-          duration: 2500,
-        });
-      } else {
-        toast({
-          title: "Added to My List",
-          message: `"${movieObj.title}" saved to your list.`,
-          type: "success",
-          duration: 2500,
-        });
-        // Generate a rich notification when adding to list
-        if (addNotification && movieObj) {
-          const notif = buildMovieAddedNotification({
-            title: movieObj.title,
-            platform: resolvedPlatform ? PlatformAdapter.getName(resolvedPlatform) : (movieObj.availablePlatforms?.[0] || null),
-            year: movieObj.releaseYear,
-            duration: movieObj.duration,
-            imageUrl: movieObj.backdropUrl || movieObj.posterUrl,
-            movieId: movieObj.id,
-            isSeries: isTvContent,
-          });
-          addNotification(notif);
-        }
-      }
-    } catch {
-      toast({
-        title: "Error",
-        message: `Failed to update list for "${movieObj.title}".`,
-        type: "error",
-        duration: 3000,
-      });
-    }
-  };
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [iframeLoading, setIframeLoading] = useState(false);
@@ -1528,24 +1484,7 @@ export default function TitleDetails() {
                       },
                     ]
                   : []),
-                {
-                  cls: "btn btn-glass",
-                  style: {
-                    fontSize: "clamp(0.9rem, 1vw, 1.06rem)",
-                    padding: "clamp(0.8rem, 1.4vw, 1.12rem) clamp(1.2rem, 2.8vw, 2.05rem)",
-                  },
-                  onClick: () => handleToggleMyList(movie),
-                  children: (
-                    <>
-                      {isInList(movie.id) ? (
-                        <Check size={20} color="#4ade80" />
-                      ) : (
-                        <Plus size={20} />
-                      )}{" "}
-                      {isInList(movie.id) ? "Added" : "My List"}
-                    </>
-                  ),
-                },
+
                 ...(!movie.isUpcoming && !movie.isInTheaters && movie.trailerUrl
                   ? [
                       {

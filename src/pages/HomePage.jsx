@@ -437,7 +437,7 @@ export default function Home({
   const [visibleCatCount, setVisibleCatCount] = useState(4);
   const [activeGenre, setActiveGenre] = useState("All");
   const [activePlatform, setActivePlatform] = useState("all");
-  const { continueWatching, myList, isInList, toggleMyList } = useAppAuth();
+  const { continueWatching } = useAppAuth();
 
   const { scrollY } = useScroll();
   const heroParallax = useTransform(scrollY, [0, 600], [0, 120]);
@@ -1205,15 +1205,7 @@ export default function Home({
                     </motion.button>
                   </Link>
 
-                  <motion.button
-                    className="hero-cta-circle"
-                    whileHover={{ scale: 1.08 }}
-                    whileTap={{ scale: 0.92 }}
-                    onClick={() => toggleMyList(activeFeaturedMovie)}
-                    aria-label={isInList(activeFeaturedMovie?.id) ? "Remove from My List" : "Add to My List"}
-                  >
-                    {isInList(activeFeaturedMovie?.id) ? <Check size={20} /> : <Plus size={20} />}
-                  </motion.button>
+
 
                   <Link to={`/watch/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`}>
                     <motion.button
@@ -1409,17 +1401,7 @@ export default function Home({
                 </ErrorBoundary>
               </FadeInSection>
             )}
-            {/* 5. My List */}
-            {myList && myList.length > 0 && filter === "all" && (
-              <FadeInSection>
-                <ErrorBoundary>
-                  <MovieRail
-                    railIndex={5}
-                    category={{ name: "My List", movies: myList }}
-                  />
-                </ErrorBoundary>
-              </FadeInSection>
-            )}
+
             {/* 7. Category rails */}
             {categories.slice(0, visibleCatCount).map((category, catIdx) => (
               <FadeInSection key={catIdx} delay={0.1}>
