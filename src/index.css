@@ -714,7 +714,7 @@ a {
   padding-bottom: 3.5rem !important;
   padding: clamp(1.5rem, 3vw, 3.5rem) !important;
   padding-left: clamp(1rem, 5vw, 3.75rem) !important;
-  max-width: 520px;
+  max-width: 680px;
 }
 
 /* Eyebrow row — platform icon + genre tags */
@@ -738,8 +738,8 @@ a {
 
 /* Logo image */
 .hero-logo-img {
-  max-height: 90px;
-  max-width: min(380px, 80%);
+  max-height: 140px;
+  max-width: min(520px, 85%);
   margin-bottom: 1.1rem;
   filter: drop-shadow(0 2px 16px rgba(0, 0, 0, 0.85));
   display: block;
@@ -768,16 +768,16 @@ a {
   color: rgba(255, 255, 255, 0.85);
 }
 
-/* Apple-variant description — tighter, 4-line clamp */
+/* Apple-variant description — tighter, 5-line clamp */
 .hero-desc--apple {
-  font-size: 0.94rem;
-  line-height: 1.6;
-  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.97rem;
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.78);
   margin-bottom: 1.4rem;
   margin-top: 0;
-  max-width: 52ch;
+  max-width: 65ch;
   display: -webkit-box;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 5;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }

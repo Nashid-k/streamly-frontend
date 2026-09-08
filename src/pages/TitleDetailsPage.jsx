@@ -909,7 +909,7 @@ export default function TitleDetails() {
             )}
 
             <div className="mt-4 lg:mt-5 w-full text-center lg:text-left">
-              <p className="text-sm lg:text-base text-white/70 leading-relaxed max-w-[650px]">{movie.description}</p>
+              <p className="text-sm lg:text-base text-white/70 leading-relaxed max-w-[650px]">{movie.description || movie.longDescription || movie.overview || ''}</p>
             </div>
 
             {/* Mobile details block */}
@@ -937,13 +937,13 @@ export default function TitleDetails() {
                   {movie.budget > 0 && (
                     <div className="flex items-center justify-between px-3.5 py-2.5">
                       <span className="text-xs text-white/40">Budget</span>
-                      <span className="text-xs text-white/80">$${movie.budget.toLocaleString()}</span>
+                      <span className="text-xs text-white/80">{movie.budget.toLocaleString()}</span>
                     </div>
                   )}
                   {movie.revenue > 0 && (
                     <div className="flex items-center justify-between px-3.5 py-2.5">
                       <span className="text-xs text-white/40">Revenue</span>
-                      <span className="text-xs text-white/80">$${movie.revenue.toLocaleString()}</span>
+                      <span className="text-xs text-white/80">{movie.revenue.toLocaleString()}</span>
                     </div>
                   )}
                 </div>
@@ -976,13 +976,13 @@ export default function TitleDetails() {
                 {movie.budget > 0 && (
                   <div className="flex items-center justify-between px-4 py-2.5">
                     <span className="text-xs text-white/40">Budget</span>
-                    <span className="text-xs text-white/80">$${movie.budget.toLocaleString()}</span>
+                    <span className="text-xs text-white/80">{movie.budget.toLocaleString()}</span>
                   </div>
                 )}
                 {movie.revenue > 0 && (
                   <div className="flex items-center justify-between px-4 py-2.5">
                     <span className="text-xs text-white/40">Revenue</span>
-                    <span className="text-xs text-white/80">$${movie.revenue.toLocaleString()}</span>
+                    <span className="text-xs text-white/80">{movie.revenue.toLocaleString()}</span>
                   </div>
                 )}
               </div>
