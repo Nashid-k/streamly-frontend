@@ -41,8 +41,7 @@ import {
 import { useAppAuth } from "../context/AuthContext";
 import { useToast } from "../components/Toast.jsx";
 import MovieCard from "../components/MovieCard";
-import PlatformIcon from "../components/PlatformIcon";
-import { normalizePlatformKey, normalizeMovieSource } from "../api/platformAdapter";
+
 import { buildMovieAddedNotification } from "../utils/notificationEngine";
 import { formatTMDBDate, formatTMDBDateFull, getTMDBWeekday } from "../utils/timezone";
 import { decodeUrl } from "../utils";
@@ -1170,23 +1169,17 @@ export default function TitleDetails() {
                 transition={{ delay: 0.18, duration: 0.4, ease: "easeOut" }}
                 style={{ marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}
               >
-                {movie.isInTheaters ? (
+                {movie.isInTheaters && (
                   <>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'linear-gradient(135deg, rgba(251,191,36,0.12), rgba(251,191,36,0.04))', padding: '5px 12px', borderRadius: '8px', border: '1px solid rgba(251,191,36,0.2)' }}>
                       <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fbbf24' }}>🎬 In Theaters</span>
                     </div>
-                    {movie.expectedOttDate ? (
+                    {movie.expectedOttDate && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(96,165,250,0.08)', padding: '5px 12px', borderRadius: '8px', border: '1px solid rgba(96,165,250,0.15)' }}>
                         <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#93c5fd' }}>Expected on OTT: {formatTMDBDateFull(movie.expectedOttDate, undefined, effectivePlatform)}</span>
                       </div>
-                    ) : movie.availablePlatforms?.length > 0 ? (
-                      <PlatformIcon platform={resolvedPlatform} pill />
-                    ) : (
-                      <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#a1a1aa', padding: '5px 12px', borderRadius: '100px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.06)' }}>Not yet streaming</span>
                     )}
                   </>
-                ) : (
-                  <PlatformIcon platform={resolvedPlatform} pill />
                 )}
               </motion.div>
 
@@ -2157,28 +2150,7 @@ export default function TitleDetails() {
             </span>
           </div>
         )}
-        {availablePlatformKeys.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.85rem', color: '#a1a1aa' }}>Available on</span>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
-              {availablePlatformKeys.map((key) => (
-                <div
-                  key={key}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    padding: '3px 6px',
-                    background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    borderRadius: '6px',
-                  }}
-                >
-                  <PlatformIcon platform={key} small />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+
       </motion.div>
 
       {/* ── Video Player Overlay (portal to body for z-index above navbar) ── */}

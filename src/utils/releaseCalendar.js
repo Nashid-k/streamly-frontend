@@ -6,7 +6,6 @@
  *   • "Leaving Soon" alerts for content about to leave platforms
  */
 
-import { normalizePlatformKey, PlatformAdapter, PLATFORMS } from "../api/platformAdapter";
 import { formatTMDBDate, getTimeUntil } from "./timezone";
 
 // ─── Airing / Upcoming normalization ───────────────────────────────────────
@@ -80,12 +79,6 @@ function buildUpcomingInRange(items, todayStr, endStr) {
     const key = `${item.id}|${kind}|${dateStr}`;
     if (seen.has(key)) continue;
     seen.add(key);
-
-    const platformKey = normalizePlatformKey(item.source || item.availablePlatforms?.[0]);
-    const platformObj = platformKey ? PLATFORMS[platformKey] : null;
-
-    // Days from today (UTC-anchored so the "current date" stays exact for the
-    // user regardless of local TZ). Powers the relative chip labels below.
     const daysUntil = Math.round(
       (Date.parse(`${dateStr}T12:00:00Z`) - Date.parse(`${todayStr}T12:00:00Z`)) / 86400000,
     );
@@ -95,8 +88,8 @@ function buildUpcomingInRange(items, todayStr, endStr) {
         : daysUntil === 1
           ? "TOMORROW"
           : daysUntil <= 7
-            ? formatTMDBDate(dateStr, { weekday: "short" }, undefined, platformKey).toUpperCase()
-            : formatTMDBDate(dateStr, { month: "short", day: "numeric" }, undefined, platformKey);
+            ? formatTMDBDate(dateStr, { weekday: "short" }).toUpperCase()
+            : formatTMDBDate(dateStr, { month: "short", day: "numeric" });
 
     out.push({
       ...item,
@@ -104,16 +97,12 @@ function buildUpcomingInRange(items, todayStr, endStr) {
       releaseDate: dateStr,
       daysUntil,
       relLabel,
-      // Give the card the info it needs to draw date/S·E badges
       nextEpisode: air && air.releaseDate
         ? { ...(item.nextEpisode || {}), releaseDate: air.releaseDate, season: air.season, episode: air.episode }
         : item.nextEpisode,
       formattedRelease: relLabel,
-      releaseDay: formatTMDBDate(dateStr, { weekday: "short" }, undefined, platformKey),
-      releaseMonthDay: formatTMDBDate(dateStr, { month: "short", day: "numeric" }, undefined, platformKey),
-      platformKey,
-      platformName: platformObj?.name || item.sourceName || "TBA",
-      platformColor: platformObj?.color || "#71717a",
+      releaseDay: formatTMDBDate(dateStr, { weekday: "short" }),
+      releaseMonthDay: formatTMDBDate(dateStr, { month: "short", day: "numeric" }),
     });
   }
 
@@ -224,20 +213,16 @@ export function detectLeavingSoon(items = [], thresholdDays = 14) {
     .map(item => {
       const leaveDate = new Date(item.leavingDate + "T00:00:00Z");
       const daysLeft = Math.ceil((leaveDate - now) / (1000 * 60 * 60 * 24));
-      const platformKey = normalizePlatformKey(item.source || item.availablePlatforms?.[0]);
-      const platformName = platformKey ? PlatformAdapter.getName(platformKey) : "streaming";
 
       return {
         ...item,
         daysLeft,
-        platformKey,
-        platformName,
         urgency: daysLeft <= 3 ? "critical" : daysLeft <= 7 ? "warning" : "info",
         formattedLeaveDate: formatTMDBDate(item.leavingDate, { month: "short", day: "numeric", year: "numeric" }),
         timeUntilLeave: getTimeUntil(item.leavingDate),
         message: daysLeft <= 1
-          ? `Leaving ${platformName} tomorrow!`
-          : `Leaving ${platformName} in ${daysLeft} days`,
+          ? `Leaving soon — tomorrow!`
+          : `Leaving soon — in ${daysLeft} days`,
       };
     })
     .sort((a, b) => a.daysLeft - b.daysLeft);

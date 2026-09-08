@@ -2,27 +2,9 @@ import { useCallback, useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Play, Plus, Check, Star } from "lucide-react";
 import slugify from "slugify";
-import PlatformIcon from "./PlatformIcon";
 import { getTMDBWeekdayShort, getTMDBWeekday } from "../utils/timezone";
 import { useNavigate } from "react-router-dom";
 import { movieService } from "../api/movieService";
-import { normalizePlatformKey } from "../api/platformAdapter";
-
-// Resolve the badge platform for a card, matching normalizeMovieSource priority:
-// availablePlatforms (real availability) first, then the movie's own source.
-const normalizeAndResolvePlatform = (movie) => {
-  if (movie.availablePlatforms?.length) {
-    for (const p of movie.availablePlatforms) {
-      const key = normalizePlatformKey(p);
-      if (key) return key;
-    }
-  }
-  if (movie.source) {
-    const key = normalizePlatformKey(movie.source);
-    if (key) return key;
-  }
-  return null;
-};
 import { buildMovieAddedNotification } from "../utils/notificationEngine";
 import CountdownBadge from "./CountdownBadge";
 import { useAppAuth } from "../context/AuthContext";
@@ -110,12 +92,9 @@ export default function MovieCard({
   showProgress = false,
   progressValue = 0,
   compact = false,
-  platformBadge = "sm",
   bare = false,
 }) {
   const navigate = useNavigate();
-  const { isInList, toggleMyList, addNotification } = useAppAuth();
-  const { toast } = useToast();
   const { isVisible, ref: virtualRef } = useVirtualRenderAdapter("400px"); // render 400px before it comes into view
   const [isLoaded, setIsLoaded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -159,7 +138,7 @@ export default function MovieCard({
       const timer = setTimeout(() => {
         setLogoFetchAttempted(true);
         movieService
-          .getMovieDetails(movie.id, movie.source || "all")
+          .getMovieDetails(movie.id, "all")
           .then((data) => {
             if (!controller.signal.aborted && data.logoUrl) setDetailedLogo(data.logoUrl);
           })
@@ -170,45 +149,13 @@ export default function MovieCard({
         clearTimeout(timer);
       };
     }
-  }, [isHovered, movie.id, movie.logoUrl, logoFetchAttempted, movie.source]);
+  }, [isHovered, movie.id, movie.logoUrl, logoFetchAttempted]);
 
   const navigateToDetails = useCallback(() => {
     const slug = slugify(movie.title, { lower: true, strict: true });
     navigate(`/watch/${movie.id}/${slug}`);
   }, [navigate, movie]);
 
-  const handleToggleMyList = useCallback(
-    (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const wasInList = isInList(movie.id);
-      toggleMyList(movie);
-      toast({
-        title: wasInList ? "Removed from List" : "Added to My List",
-        message: wasInList
-          ? `"${movie.title}" was removed.`
-          : `"${movie.title}" saved to your list.`,
-        type: wasInList ? "info" : "success",
-        duration: 2500,
-      });
-      // Generate a rich notification when adding to list
-      if (!wasInList && addNotification) {
-        const notif = buildMovieAddedNotification({
-          title: movie.title,
-          platform: movie.source || movie.sourceName,
-          year: movie.releaseYear || movie.year,
-          duration: movie.duration,
-          imageUrl: movie.backdropUrl || movie.posterUrl,
-          movieId: movie.id,
-          isSeries: isTvContent,
-        });
-        addNotification(notif);
-      }
-    },
-    [movie, isInList, toggleMyList, toast, addNotification, isTvContent],
-  );
-
-  const inList = isInList(movie.id);
   const rating = movie.imdbRating;
   const ratingColor = getRatingColor(rating);
 
@@ -303,33 +250,7 @@ export default function MovieCard({
               </div>
             )}
 
-            {/* Platform Badge */}
-            {(() => {
-              const platformKey = normalizeAndResolvePlatform(movie);
-              if (!platformKey) return null;
-              const iconXs = platformBadge === "xs";
-              return (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: iconXs ? '6px' : '8px',
-                    right: iconXs ? '6px' : '8px',
-                    zIndex: 10,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: 'rgba(0,0,0,0.55)',
-                    backdropFilter: 'blur(6px)',
-                    WebkitBackdropFilter: 'blur(6px)',
-                    borderRadius: '6px',
-                    padding: iconXs ? '3px' : '4px',
-                    pointerEvents: 'none',
-                  }}
-                >
-                  <PlatformIcon platform={platformKey} xs={iconXs} small={!iconXs} />
-                </div>
-              );
-            })()}
+
 
             {/* Bottom-left badges: SERIES + S/E + NEW {DAY} — one row so nothing overlaps */}
             {!isHovered && (
@@ -710,37 +631,6 @@ export default function MovieCard({
                   <span className="desktop-only">Watch</span>
                 </button>
 
-                {/* Watchlist — glass circle */}
-                <button
-                  onClick={handleToggleMyList}
-                  title={inList ? "Remove from list" : "Add to My List"}
-                  aria-label={
-                    inList
-                      ? `Remove ${movie.title} from My List`
-                      : `Add ${movie.title} to My List`
-                  }
-                  className="curtain-list-btn"
-                  style={{
-                    width: compact ? "26px" : "32px",
-                    height: compact ? "26px" : "32px",
-                    flexShrink: 0,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderRadius: "50%",
-                    background: inList
-                      ? "rgba(244,63,94,0.18)"
-                      : "rgba(255,255,255,0.1)",
-                    border: inList
-                      ? "1.5px solid rgba(244,63,94,0.55)"
-                      : "1.5px solid rgba(255,255,255,0.2)",
-                    color: inList ? "var(--accent-primary)" : "var(--text-secondary)",
-                    cursor: "pointer",
-                    backdropFilter: "blur(4px)",
-                  }}
-                >
-                  {inList ? <Check size={compact ? 12 : 14} /> : <Plus size={compact ? 12 : 14} />}
-                </button>
               </motion.div>
             </motion.div>
 

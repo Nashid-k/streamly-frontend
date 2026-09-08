@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, Suspense, lazy } from "react";
+import { useState, useEffect, useRef, Suspense, lazy } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -12,26 +12,17 @@ import {
   Search,
   Settings,
   Home,
-  Bookmark,
-  Clock,
-  User,
-  Bell,
   Tv,
   Keyboard,
-  LogOut,
   Film,
-  Sparkles,
   Clapperboard,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useAppAuth } from "./context/AuthContext";
 
 import ErrorBoundary from "./components/ErrorBoundary";
 
 import Loader from "./components/Loader";
 import BackToTop from "./components/BackToTop";
-import AuthModal from "./components/AuthModal";
-import PlatformIcon from "./components/PlatformIcon";
 import Popover from "./components/Popover";
 import { useScrollRestoration } from "./hooks/useScrollRestoration";
 
@@ -43,7 +34,6 @@ const NAV_ITEMS = [
   { id: "home", label: "Home", to: "/", icon: Home, home: true, match: (p) => p === "/" },
   { id: "movies", label: "Movies", to: "/movies", icon: Clapperboard, match: (p) => p.startsWith("/movies") },
   { id: "shows", label: "Shows", to: "/series", icon: Tv, match: (p) => p.startsWith("/series") },
-  { id: "mylist", label: "My List", to: "/watchlist", icon: Bookmark, match: (p) => p === "/watchlist" },
 ];
 
 const HomePage = lazy(() => import("./pages/HomePage"));
@@ -51,8 +41,6 @@ const TitleDetails = lazy(() => import("./pages/TitleDetailsPage"));
 const PersonDetails = lazy(() => import("./pages/PersonDetailsPage"));
 const SearchPage = lazy(() => import("./pages/SearchPage"));
 const CategoryPage = lazy(() => import("./pages/CategoryPage"));
-const WatchlistPage = lazy(() => import("./pages/WatchlistPage"));
-const HistoryPage = lazy(() => import("./pages/HistoryPage"));
 const GenrePage = lazy(() => import("./pages/GenrePage"));
 
 function Layout({ children }) {
@@ -73,24 +61,12 @@ function Layout({ children }) {
 
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [showAuthModal, setShowAuthModal] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-
-  // Auth state from Firebase
-  const {
-    user,
-    logout,
-    notifications,
-    markAllAsRead,
-    clearNotifications,
-  } = useAppAuth();
-
-  const unreadCount = useMemo(() => (notifications || []).filter((n) => !n.isRead).length, [notifications]);
 
   const moreRef = useRef(null);
 
@@ -164,7 +140,7 @@ function Layout({ children }) {
             })}
           </div>
 
-          {/* Right — icon cluster: search · settings (settings merges notifications & profile) */}
+          {/* Right — icon cluster: search · settings */}
         <div className="nav-right">
           {/* Search */}
           <Link
@@ -176,141 +152,32 @@ function Layout({ children }) {
             <Search size={18} strokeWidth={2} />
           </Link>
 
-          {/* Settings — merged menu: profile, notifications, shortcuts */}
+          {/* Settings — keyboard shortcuts */}
           <div ref={moreRef} style={{ position: "relative" }}>
             <button
               type="button"
               className={`nav-icon-btn${showMoreMenu ? " nav-icon-btn--active" : ""}`}
-              aria-label={`Settings${unreadCount > 0 ? ` (${unreadCount} unread notifications)` : ""}`}
+              aria-label="Settings"
               aria-haspopup="menu"
               aria-expanded={showMoreMenu}
-              onClick={() => {
-                const next = !showMoreMenu;
-                setShowMoreMenu(next);
-                if (next && (notifications || []).some((n) => !n.isRead)) {
-                  markAllAsRead();
-                }
-              }}
+              onClick={() => setShowMoreMenu((v) => !v)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  const next = !showMoreMenu;
-                  setShowMoreMenu(next);
-                  if (next && (notifications || []).some((n) => !n.isRead)) {
-                    markAllAsRead();
-                  }
+                  setShowMoreMenu((v) => !v);
                 }
               }}
             >
               <Settings size={18} strokeWidth={2} />
-              {unreadCount > 0 && (
-                <span className="nav-badge">{unreadCount > 9 ? "9+" : unreadCount}</span>
-              )}
             </button>
 
             <Popover
               isOpen={showMoreMenu}
               onClose={() => setShowMoreMenu(false)}
               triggerRef={moreRef}
-              className="more-popover notifications-popover"
-              scrollable
-              style={{ padding: "8px 0", width: "min(340px, calc(100vw - 2rem))", right: -10 }}
+              className="more-popover"
+              style={{ padding: "8px 0", width: "min(220px, calc(100vw - 2rem))", right: -10 }}
             >
-              {/* Account / session */}
-              {user ? (
-                <div className="more-account">
-                  <span className="nav-avatar">{(user.displayName || user.email || "?")[0].toUpperCase()}</span>
-                  <div className="more-account-text">
-                    <div className="more-account-name">{user.displayName || "Streamer"}</div>
-                    <div className="more-account-email">{user.email || ""}</div>
-                  </div>
-                </div>
-              ) : (
-                <button type="button" className="menu-item" onClick={() => { setShowMoreMenu(false); setShowAuthModal(true); }}>
-                  <User size={16} /> Sign In
-                </button>
-              )}
-              {user && (
-                <>
-                  <Link to="/watchlist" onClick={() => setShowMoreMenu(false)} className="menu-item"><Bookmark size={16} /> My List</Link>
-                  <Link to="/history" onClick={() => setShowMoreMenu(false)} className="menu-item"><Clock size={16} /> Watch History</Link>
-                  <hr className="menu-divider" />
-                </>
-              )}
-              <div style={{ padding: "8px 16px 4px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
-                <div style={{ fontWeight: 700, fontSize: "0.68rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "#71717a" }}>Notifications</div>
-                {(notifications || []).length > 0 && (
-                  <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={clearNotifications} style={{ background: "transparent", border: "none", color: "#a1a1aa", fontSize: "0.7rem", cursor: "pointer", padding: 0 }}>
-                    Clear All
-                  </motion.button>
-                )}
-              </div>
-              {(notifications || []).length === 0 ? (
-                <div style={{ padding: "1rem", textAlign: "center", color: "#a1a1aa", fontSize: "0.8rem" }}>
-                  You're all caught up!
-                </div>
-              ) : (
-                notifications.slice(0, 8).map((n) => {
-                  const diffMs = Date.now() - (n.createdAt || Date.now());
-                  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-                  let timeStr = "Just now";
-                  if (diffDays === 1) timeStr = "Yesterday";
-                  else if (diffDays > 1) timeStr = `${diffDays}d ago`;
-                  else if (diffMs > 1000 * 60 * 60) timeStr = `${Math.floor(diffMs / (1000 * 60 * 60))}h ago`;
-                  else if (diffMs > 1000 * 60) timeStr = `${Math.floor(diffMs / (1000 * 60))}m ago`;
-
-                  const typeConfig = {
-                    episode_released: { icon: <Tv size={15} />, accent: "#60a5fa", bg: "rgba(96,165,250,0.06)" },
-                    episode_airing: { icon: <Tv size={15} />, accent: "#f97316", bg: "rgba(249,115,22,0.06)" },
-                    movie_added: { icon: <Film size={15} />, accent: "#f43f5e", bg: "rgba(244,63,94,0.06)" },
-                    series_added: { icon: <Tv size={15} />, accent: "#a78bfa", bg: "rgba(167,139,250,0.06)" },
-                    movie_streaming: { icon: <Film size={15} />, accent: "#f43f5e", bg: "rgba(244,63,94,0.06)" },
-                    platform_availability: { icon: <Sparkles size={15} />, accent: "#10b981", bg: "rgba(16,185,129,0.06)" },
-                    weekly_digest: { icon: <Sparkles size={15} />, accent: "#fbbf24", bg: "rgba(251,191,36,0.06)" },
-                    recommendation: { icon: <Sparkles size={15} />, accent: "#818cf8", bg: "rgba(129,140,248,0.06)" },
-                    milestone: { icon: <Sparkles size={15} />, accent: "#fbbf24", bg: "rgba(251,191,36,0.06)" },
-                    welcome: { icon: <Sparkles size={15} />, accent: "#fbbf24", bg: "rgba(251,191,36,0.06)" },
-                    episode: { icon: <Tv size={15} />, accent: "#60a5fa", bg: "rgba(96,165,250,0.06)" },
-                    movie: { icon: <Film size={15} />, accent: "#f43f5e", bg: "rgba(244,63,94,0.06)" },
-                    info: { icon: <Bell size={15} />, accent: "#a1a1aa", bg: "rgba(255,255,255,0.03)" },
-                  };
-                  const cfg = typeConfig[n.type] || typeConfig.info;
-
-                  return (
-                    <div
-                      key={n.id}
-                      role={n.link ? "button" : undefined}
-                      tabIndex={n.link ? 0 : undefined}
-                      onClick={() => { setShowMoreMenu(false); if (n.link) navigate(n.link); }}
-                      onKeyDown={(e) => { if (n.link && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setShowMoreMenu(false); navigate(n.link); } }}
-                      style={{ padding: "10px 14px", display: "flex", gap: "10px", borderBottom: "1px solid rgba(255,255,255,0.05)", cursor: n.link ? "pointer" : "default", background: n.isRead ? "transparent" : cfg.bg, borderLeft: `3px solid ${cfg.accent}`, opacity: n.isRead ? 0.7 : 1, transition: "background 0.2s" }}
-                      onMouseEnter={(e) => { if (n.link) e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}
-                      onMouseLeave={(e) => { if (n.link) e.currentTarget.style.background = n.isRead ? "transparent" : cfg.bg; }}
-                    >
-                      {n.image && (
-                        <div style={{ width: "44px", height: "44px", borderRadius: "8px", flexShrink: 0, overflow: "hidden", background: "#18181b" }}>
-                          <img src={n.image} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} loading="lazy" onError={(e) => { e.target.style.display = "none"; }} />
-                        </div>
-                      )}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "2px" }}>
-                          <span style={{ color: cfg.accent, flexShrink: 0, display: "flex" }}>{cfg.icon}</span>
-                          <div style={{ fontSize: "0.85rem", color: "#fff", fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.title}</div>
-                          {!n.isRead && <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: cfg.accent, flexShrink: 0 }} />}
-                        </div>
-                        <div style={{ fontSize: "0.78rem", color: "#a1a1aa", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{n.message}</div>
-                        <div style={{ fontSize: "0.68rem", color: "#71717a", marginTop: "3px", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-                          <span>{timeStr}</span>
-                          {n.platformKey && <span style={{ display: "inline-flex", alignItems: "center" }}><PlatformIcon platform={n.platformKey} xs /></span>}
-                          {n.detail && !n.platform && <span style={{ color: "#52525b" }}>{n.detail}</span>}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-
-              <hr className="menu-divider" />
               <button
                 type="button"
                 className="menu-item"
@@ -321,14 +188,6 @@ function Layout({ children }) {
               >
                 <Keyboard size={16} /> Keyboard Shortcuts
               </button>
-              {user && (
-                <>
-                  <hr className="menu-divider" />
-                  <button type="button" className="menu-item menu-item--danger" onClick={async () => { setShowMoreMenu(false); await logout(); }}>
-                    <LogOut size={16} /> Sign Out
-                  </button>
-                </>
-              )}
             </Popover>
           </div>
         </div>
@@ -372,14 +231,10 @@ function Layout({ children }) {
           <span>Search</span>
         </Link>
       </div>
-
-      {/* Auth Modal */}
-      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
     </div>
   );
 }
 
-import { ServerWakeupNotification } from "./components/ServerWakeupNotification";
 import GlobalShortcuts from "./components/GlobalShortcuts";
 
 /* Routes wrapped in a route-keyed ErrorBoundary + Suspense so a page that
@@ -394,7 +249,7 @@ function AppRoutes() {
               <Route
                 path="/"
                 element={
-                  <HomePage filter="all" title="Trending Across Platforms" />
+                  <HomePage filter="all" title="Trending Now" />
                 }
               />
               <Route
@@ -407,14 +262,15 @@ function AppRoutes() {
                   <HomePage filter="movies" title="Blockbuster Movies" />
                 }
               />
-              <Route path="/watchlist" element={<WatchlistPage />} />
-              <Route path="/mylist" element={<Navigate to="/watchlist" replace />} />
-              <Route path="/history" element={<HistoryPage />} />
               <Route path="/search" element={<SearchPage />} />
               <Route path="/category/:name" element={<CategoryPage />} />
               <Route path="/genre/:genre" element={<GenrePage />} />
               <Route path="/watch/:id/:slug?" element={<TitleDetails />} />
               <Route path="/person/:id/:slug?" element={<PersonDetails />} />
+              {/* Legacy redirects */}
+              <Route path="/watchlist" element={<Navigate to="/" replace />} />
+              <Route path="/mylist" element={<Navigate to="/" replace />} />
+              <Route path="/history" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
     </ErrorBoundary>
@@ -424,7 +280,6 @@ function AppRoutes() {
 function App() {
   return (
     <Router>
-      <ServerWakeupNotification />
       <Loader variant="global" />
       <GlobalShortcuts />
       <Layout>

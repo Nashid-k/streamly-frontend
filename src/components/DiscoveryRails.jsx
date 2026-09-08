@@ -3,7 +3,6 @@ import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { movieService } from "../api/movieService";
-import { normalizeMovieSource } from "../api/platformAdapter";
 import ErrorBoundary from "./ErrorBoundary";
 import SectionHeader from "./SectionHeader";
 import MovieCard from "./MovieCard";
@@ -95,7 +94,7 @@ export default function DiscoveryRails({ limit = 20 } = {}) {
     const take = (list) => {
       const out = [];
       for (const raw of asArray(list)) {
-        const m = hasArt(raw) ? normalizeMovieSource(raw) : null;
+        const m = hasArt(raw) ? raw : null;
         if (!m) continue;
         const key = dedupeKey(m);
         if (key && seen.has(key)) continue;
@@ -196,7 +195,7 @@ export default function DiscoveryRails({ limit = 20 } = {}) {
                       key={`${section.id}-${dedupeKey(movie)}-${idx}`}
                       style={{ flexShrink: 0 }}
                     >
-                      <MovieCard movie={movie} platformBadge="xs" />
+                      <MovieCard movie={movie} />
                     </div>
                   ))}
                 </div>

@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { AlertTriangle, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import slugify from "slugify";
-import PlatformIcon from "./PlatformIcon";
+
 
 /**
  * LeavingSoonBanner — Urgent alert for content leaving a platform
@@ -87,7 +87,6 @@ export default function LeavingSoonBanner({ items = [], maxDisplay = 3 }) {
                 {item.title}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "1px" }}>
-                <PlatformIcon platform={item.platformKey} xs />
                 <span style={{
                   fontSize: "0.62rem", fontWeight: 700,
                   color: item.urgency === "critical" ? "#ef4444" : item.urgency === "warning" ? "#f97316" : "#a1a1aa",

@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { movieService } from "../api/movieService";
-import { mapSource } from "../api/platformAdapter";
 import { rankSearchResults, getDidYouMean } from "../utils/searchRanking";
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
@@ -41,7 +40,7 @@ export default function SearchPage() {
   const results = useMemo(() => {
     if (!rawResults || !Array.isArray(rawResults.movies)) return [];
 
-    const mapped = rawResults.movies.filter(Boolean).map(mapSource);
+    const mapped = rawResults.movies.filter(Boolean);
     const seen = new Set();
     const unique = mapped.filter((m) => {
       const key = m.tmdbId || m.id;
@@ -413,7 +412,7 @@ export default function SearchPage() {
                   ease: "easeOut",
                 }}
               >
-                <MovieCard movie={movie} platformBadge="xs" />
+                <MovieCard movie={movie} />
               </motion.div>
             ))}
           </div>

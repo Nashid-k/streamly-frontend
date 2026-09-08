@@ -14,10 +14,8 @@ import { useAppAuth } from "../context/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { movieService } from "../api/movieService";
 import MovieCard from "../components/MovieCard";
-import PlatformIcon from "../components/PlatformIcon";
-import ContinueWatchingRail from "../components/ContinueWatchingRail";
+
 import RailArrow from "../components/RailArrow";
-import { PLATFORMS, normalizePlatformKey, normalizeMovieSource } from "../api/platformAdapter";
 import LeavingSoonBanner from "../components/LeavingSoonBanner";
 import { detectLeavingSoon, buildUpcoming } from "../utils/releaseCalendar";
 import { asArray, EMPTY_ARRAY } from "../utils";
@@ -483,7 +481,7 @@ export default function Home({
     () => {
       try {
         return featuredData
-          ? asArray(featuredData).filter(Boolean).map(normalizeMovieSource)
+          ? asArray(featuredData).filter(Boolean)
           : EMPTY_ARRAY;
       } catch (e) {
         console.error('featuredMovies useMemo error:', e);
@@ -639,7 +637,7 @@ export default function Home({
     const standardCategories = [];
     for (const cat of rawCategories) {
       // Normalize every movie's source/sourceName from availablePlatforms
-      let filtered = (Array.isArray(cat.movies) ? cat.movies : []).filter(Boolean).map(normalizeMovieSource);
+      let filtered = (Array.isArray(cat.movies) ? cat.movies : []).filter(Boolean);
       let dynamicName = cat.name;
 
       if (filter === "series" || filter === "tv shows") {
@@ -683,25 +681,7 @@ export default function Home({
         });
       }
 
-      // Platform filter: match against source, availablePlatforms, or sourceName
-      if (activePlatform !== "all") {
-        const platformObj = PLATFORMS[activePlatform];
-        if (platformObj) {
-          const platformNameLC = platformObj.name.toLowerCase();
-          const shortNameLC = platformObj.shortName.toLowerCase();
-          filtered = filtered.filter((m) => {
-            if (m.source === activePlatform) return true;
-            if (m.sourceName && (m.sourceName.toLowerCase() === platformNameLC || m.sourceName.toLowerCase() === shortNameLC)) return true;
-            if (m.availablePlatforms && m.availablePlatforms.length > 0) {
-              return m.availablePlatforms.some((p) => {
-                const key = normalizePlatformKey(p);
-                return key === activePlatform;
-              });
-            }
-            return false;
-          });
-        }
-      }
+
 
       if (
         filter === "all" ||
@@ -770,26 +750,21 @@ export default function Home({
     return map;
   }, [rawCategories]);
 
-  // Enrich a movie array: for movies with source=null, look up platform from categories
+  // Enrich a movie array: (No-op now since platforms are removed)
   const enrichWithPlatforms = useCallback((movies) => {
-    return (Array.isArray(movies) ? movies : []).map(m => {
-      if (!m || m.source) return m;
-      const lookupSource = platformLookup.get(m.id);
-      if (lookupSource) return { ...m, source: lookupSource };
-      return m;
-    });
-  }, [platformLookup]);
+    return Array.isArray(movies) ? movies : [];
+  }, []);
 
   // Real cross-platform Top 10 from the backend (ranked, not a client-side shuffle).
 
   const trendingThisWeek = useMemo(
-    () => enrichWithPlatforms(applyPageFilter(asArray(trendingData)).slice(0, 20)).map(normalizeMovieSource),
+    () => enrichWithPlatforms(applyPageFilter(asArray(trendingData)).slice(0, 20)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [trendingData, filter, enrichWithPlatforms],
   );
 
   const airingThisWeek = useMemo(
-    () => enrichWithPlatforms(applyPageFilter(asArray(airingData)).slice(0, 20)).map(normalizeMovieSource),
+    () => enrichWithPlatforms(applyPageFilter(asArray(airingData)).slice(0, 20)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [airingData, filter, enrichWithPlatforms],
   );
@@ -814,7 +789,7 @@ export default function Home({
     const hasArtwork = (m) => m && (m.posterUrl || m.backdropUrl);
     return applyPageFilter(buildUpcoming(pool, 365))
       .filter((m) => !isSeriesMovie(m) || m.isUpcoming === true)
-      .map(normalizeMovieSource)
+      
       .map(enrichWithPlatforms)
       .filter(hasArtwork)
       .slice(0, 12);
@@ -845,7 +820,7 @@ export default function Home({
   // ranking keeps leading and the rank badges always count 1–10.
   const top10Movies = useMemo(() => {
     const ranked = enrichWithPlatforms(applyPageFilter(asArray(top10Data)))
-      .map(normalizeMovieSource)
+      
       .slice(0, 10);
     if (ranked.length >= 10) return ranked;
 
@@ -877,7 +852,7 @@ export default function Home({
     refetchOnWindowFocus: false,
   });
   const recommendations = useMemo(
-    () => Array.isArray(rawRecommendations) ? enrichWithPlatforms(rawRecommendations).map(normalizeMovieSource) : [],
+    () => Array.isArray(rawRecommendations) ? enrichWithPlatforms(rawRecommendations) : [],
     [rawRecommendations, enrichWithPlatforms],
   );
 
@@ -1165,9 +1140,7 @@ export default function Home({
               >
                 {/* Eyebrow — platform + genre tags */}
                 <div className="hero-eyebrow">
-                  <div style={{ display: "inline-flex", alignItems: "center" }}>
-                    <PlatformIcon platform={activeFeaturedMovie.source} />
-                  </div>
+
                   {activeFeaturedMovie.genres?.slice(0, 2).map((g) => (
                     <span key={g} className="hero-eyebrow-tag">{g}</span>
                   ))}
@@ -1308,76 +1281,6 @@ export default function Home({
         )}
       </AnimatePresence>
 
-      {/* Browse by Providers — brand-color tiles with labels */}
-      {!loading && categories.length > 0 && (
-        <div style={{ margin: "1.75rem 0 2rem" }}>
-          <h2
-            className="section-title section-title--spec"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              marginBottom: "1.1rem",
-            }}
-          >
-            Browse by Providers
-          </h2>
-          <div
-            className="platform-tile-row"
-            style={{
-              display: "flex",
-              gap: "0.9rem",
-              WebkitOverflowScrolling: "touch",
-              overscrollBehaviorX: "contain",
-              overflowX: "auto",
-              scrollbarWidth: "none",
-              padding: "0.4rem 0.25rem 0.75rem",
-            }}
-          >
-            <motion.button
-              className={`platform-tile${activePlatform === "all" ? " platform-tile--active" : ""}`}
-              onClick={() => setActivePlatform("all")}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.94 }}
-              aria-label="Show all platforms"
-              title="All Platforms"
-            >
-              <span
-                className="platform-tile-face platform-tile-face--all"
-                style={{ background: "rgba(255,255,255,0.04)" }}
-              >
-                <LayoutGrid size={30} style={{ color: "#a1a1aa" }} />
-              </span>
-              <span className="platform-tile-label">All</span>
-            </motion.button>
-            {Object.entries(PLATFORMS)
-              .filter(([, p]) => p.category !== "aggregator")
-              .map(([key, p]) => {
-                const active = activePlatform === key;
-                return (
-                  <motion.button
-                    key={key}
-                    className={`platform-tile${active ? " platform-tile--active" : ""}`}
-                    onClick={() => setActivePlatform(active ? "all" : key)}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.94 }}
-                    aria-label={`Browse ${p.name}`}
-                    title={p.name}
-                  >
-                    <span
-                      className="platform-tile-face"
-                      style={{ background: "rgba(255,255,255,0.05)" }}
-                    >
-                      <PlatformIcon platform={key} size={52} />
-                    </span>
-                    <span className="platform-tile-label">{p.shortName}</span>
-                  </motion.button>
-                );
-              })}
-          </div>
-        </div>
-      )}
-
       {/* Genre Filter Chips */}
       {!loading && categories.length > 0 && (
         <div
@@ -1464,19 +1367,7 @@ export default function Home({
           </h3>
         ) : (
           <>
-            {/* 1. Continue Watching — resume-first (highest intent, Netflix surfaces near top) */}
-            {continueWatching &&
-              continueWatching.length > 0 &&
-              filter === "all" && (
-                <FadeInSection>
-                  <ErrorBoundary>
-                    <ContinueWatchingRail
-                      railIndex={0}
-                      items={continueWatching}
-                    />
-                  </ErrorBoundary>
-                </FadeInSection>
-              )}
+
             {/* 2. Because you watched — personalized discovery ranker */}
             {filter === "all" && lastWatched && recommendations?.length > 0 && (
               <FadeInSection>

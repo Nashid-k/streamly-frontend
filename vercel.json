@@ -4,12 +4,6 @@
   "outputDirectory": "dist",
   "headers": [
     {
-      "source": "/api/movies/:path*",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400" }
-      ]
-    },
-    {
       "source": "/index.html",
       "headers": [
         { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
@@ -32,25 +26,6 @@
     }
   ],
   "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "/api"
-    },
-    {
-      "source": "/health",
-      "destination": "/api"
-    },
-    {
-      "source": "/movie/:type/:id",
-      "has": [
-        {
-          "type": "header",
-          "key": "user-agent",
-          "value": ".*(bot|facebook|twitter|discord|telegram).*"
-        }
-      ],
-      "destination": "/api/og?type=$type&id=$id"
-    },
     {
       "source": "/(.*)",
       "destination": "/index.html"

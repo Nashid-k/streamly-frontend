@@ -3,7 +3,6 @@ import { useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { movieService } from "../api/movieService";
-import { mapSource } from "../api/platformAdapter";
 import MovieCard from "../components/MovieCard";
 import DiscoveryRails from "../components/DiscoveryRails";
 
@@ -24,7 +23,7 @@ export default function GenrePage() {
   const results = useMemo(() => {
     if (!rawResults || !Array.isArray(rawResults.movies)) return [];
 
-    const mapped = rawResults.movies.filter(Boolean).map(mapSource);
+    const mapped = rawResults.movies.filter(Boolean);
 
     // Filter to ensure the genre matches to prevent dirty search results
     const strict = mapped.filter((m) => {

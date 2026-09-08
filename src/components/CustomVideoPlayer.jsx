@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { VideoSourceAdapter } from "../api/videoSourceAdapter";
-import { PlatformAdapter } from "../api/platformAdapter";
+
 import { movieService } from "../api/movieService";
 import {
   Play, Pause, Volume1, Volume2, VolumeX, Maximize, Minimize,
@@ -3390,17 +3390,7 @@ const CustomVideoPlayer = ({
                     fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
                     textTransform: "uppercase",
                   }}>
-                    {(() => {
-                      const src = movie?.source || (movie?.availablePlatforms && movie.availablePlatforms[0]);
-                      const icon = src ? PlatformAdapter.getIconUrl(src) : "";
-                      return icon ? (
-                        <img
-                          src={icon}
-                          alt=""
-                          style={{ height: 13, width: 13, objectFit: "contain", borderRadius: 2, flexShrink: 0 }}
-                        />
-                      ) : null;
-                    })()}
+
                     <span>{streamAudioLanguages.length > 0 ? `${streamAudioLanguages.length}-Audio` : "NetMirror"}</span>
                     {streamAudioLanguages.length > 0 && (
                       <span style={{ color: "rgba(255,255,255,0.55)", fontWeight: 500, textTransform: "none" }}>

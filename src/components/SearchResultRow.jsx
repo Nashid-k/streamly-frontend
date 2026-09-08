@@ -1,7 +1,6 @@
 import { motion } from "framer-motion";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import { getRatingColor } from "../utils/ratings";
-import PlatformIcon from "./PlatformIcon";
 
 export default function SearchResultRow({
   r,
@@ -80,24 +79,12 @@ export default function SearchResultRow({
             alignItems: "center",
           }}
         >
-          <span>{r.releaseYear}</span>
-          <span>•</span>
-          {r.source && (
-            <span
-              className="source-tag"
-              style={{
-                padding: "2px 7px",
-                fontSize: "0.6rem",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "5px",
-                background: "rgba(255,255,255,0.08)",
-                borderRadius: "6px",
-              }}
-            >
-              <PlatformIcon platform={r.source} small={true} />
-              {r.sourceName}
-            </span>
+          <span>{r.year || r.releaseYear}</span>
+          {r.isSeries !== undefined && (
+            <>
+              <span>•</span>
+              <span>{r.isSeries ? "TV Show" : "Movie"}</span>
+            </>
           )}
           {r.imdbRating > 0 && (
             <span
