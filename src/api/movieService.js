@@ -119,6 +119,9 @@ export const movieService = {
       ...base,
       tagline: detail.tagline || '',
       runtime: detail.runtime || (detail.episode_run_time?.[0]) || null,
+      durationMins: detail.runtime || (detail.episode_run_time?.[0]) || null,
+      releaseDate: detail.release_date || detail.first_air_date || null,
+      originalLanguage: detail.original_language || null,
       genres: (detail.genres || []).map(g => g.name),
       logoUrl: (detail.images?.logos || []).find(l => l.iso_639_1 === 'en' || !l.iso_639_1)?.file_path ? `https://image.tmdb.org/t/p/w500${(detail.images?.logos || []).find(l => l.iso_639_1 === 'en' || !l.iso_639_1).file_path}` : null,
       cast: (credits.cast || []).slice(0, 20).map(c => ({

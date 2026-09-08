@@ -718,15 +718,7 @@ export default function TitleDetails() {
 
 
   return (
-    <div
-      ref={pageRef}
-      style={{
-        position: "relative",
-        width: "100%",
-        marginTop: 0,
-        paddingTop: 0,
-      }}
-    >
+    <div ref={pageRef} className="relative min-h-screen w-full font-sans overflow-x-hidden pb-24 bg-[#050505]">
       <SEO
         title={movie.title}
         description={movie.description}
@@ -734,138 +726,33 @@ export default function TitleDetails() {
         type="video.movie"
       />
 
-      {/* ── Ambient Poster Gradient Background ──────────────────────────────── */}
-      <div
-        style={{
-          position: "fixed",
-          inset: "-20%",
-          width: "140vw",
-          height: "140vh",
-          backgroundImage: movie.posterUrl ? `url(${movie.posterUrl})` : "none",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          filter: "blur(120px) saturate(150%)",
-          opacity: 0.35,
-          zIndex: 0,
-          pointerEvents: "none",
-        }}
-      />
-      {/* Side gradients to smoothly blend edges */}
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "linear-gradient(90deg, rgba(5,5,5,0.9) 0%, transparent 15%, transparent 85%, rgba(5,5,5,0.9) 100%)",
-          zIndex: 0,
-          pointerEvents: "none",
-        }}
-      />
-      {/* Bottom gradient to blend lower page */}
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "linear-gradient(180deg, transparent 40%, rgba(5,5,5,0.6) 80%, rgba(5,5,5,0.95) 100%)",
-          zIndex: 0,
-          pointerEvents: "none",
-        }}
-      />
+      {/* ── Ambient Background ─────────────────────────────────────────────── */}
+      <div className="fixed inset-0 w-full h-full z-0 pointer-events-none bg-[#050505]" style={{ contain: "strict", willChange: "transform" }}>
+        <div className="absolute inset-0 w-full h-full">
+          <img
+            className="w-full h-full object-cover scale-[1.2] blur-[80px] saturate-100 opacity-50"
+            alt=""
+            src={backdropOptimized || movie.posterUrl}
+          />
+          <div className="absolute top-0 left-0 w-full h-[40vh] mix-blend-screen opacity-20 hidden lg:block">
+            <img
+              className="w-full h-full object-cover scale-[1.2] blur-[50px] saturate-100"
+              alt=""
+              style={{ maskImage: "linear-gradient(to bottom, black 0%, transparent 100%)", WebkitMaskImage: "linear-gradient(to bottom, black 0%, transparent 100%)" }}
+              src={backdropOptimized || movie.posterUrl}
+            />
+          </div>
+        </div>
+      </div>
 
-      {/* ── Backdrop ─────────────────────────────────────────────────────────── */}
-      <div
-        className="details-backdrop"
-        style={{
-          height: "100vh",
-          overflow: "hidden",
-          top: 0,
-          left: "50%",
-          width: "100vw",
-          marginLeft: "-50vw",
-          marginTop: 0,
-          backgroundImage: backdropSrc ? `url(${backdropOptimized || backdropSrc})` : "none",
-          backgroundSize: "cover",
-          backgroundPosition: "center top",
-        }}
-      >
-
-        {/* Deep cinematic base darkening */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.15) 25%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.55) 75%, rgba(5,5,5,0.8) 100%)",
-            pointerEvents: "none",
-          }}
-        />
-        {/* Side vignettes — deep dark edges */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "linear-gradient(90deg, rgba(0,0,0,0.97) 0%, rgba(0,0,0,0.65) 15%, rgba(0,0,0,0.2) 35%, transparent 50%, rgba(0,0,0,0.2) 65%, rgba(0,0,0,0.65) 85%, rgba(0,0,0,0.97) 100%)",
-            pointerEvents: "none",
-          }}
-        />
-        {/* Top fade — navbar blend */}
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            height: "180px",
-            background:
-              "linear-gradient(to bottom, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 35%, rgba(0,0,0,0.2) 70%, transparent 100%)",
-            pointerEvents: "none",
-          }}
-        />
-        {/* Bottom fade — seam into ambient content */}
-        <div
-          style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: "60%",
-            background:
-              "linear-gradient(to top, rgba(5,5,5,0.7) 0%, rgba(5,5,5,0.4) 30%, rgba(5,5,5,0.1) 60%, transparent 100%)",
-            pointerEvents: "none",
-          }}
-        />
-        {/* Radial vignette — focus center */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "radial-gradient(ellipse 70% 50% at 50% 35%, transparent 0%, rgba(0,0,0,0.25) 55%, rgba(0,0,0,0.7) 100%)",
-            pointerEvents: "none",
-          }}
-        />
-      </div>        {/* ── Topbar: Back + Actions ───────────────────────────────────────────── */}
+      {/* ── Topbar: Back + Actions ───────────────────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: -16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15, duration: 0.5, ease: "easeOut" }}
-        style={{
-          position: "sticky",
-          top: 56,
-          zIndex: 10,
-          paddingTop: "0.75rem",
-          paddingBottom: "0.5rem",
-          paddingLeft: "clamp(0.5rem, 1.5vw, 1.5rem)",
-          paddingRight: "clamp(0.5rem, 1.5vw, 1.5rem)",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          background: "transparent",
-          borderBottom: "none",
-        }}
+        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 lg:px-12 py-4 lg:py-6 pointer-events-none"
       >
-        {/* Left: Breadcrumb + Back */}
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+        <div className="flex items-center gap-4 pointer-events-auto">
           <button
             onClick={() => {
               if (window.history.length > 1) {
@@ -874,34 +761,16 @@ export default function TitleDetails() {
                 navigate("/");
               }
             }}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "8px",
-              color: "#d4d4d8",
-              fontWeight: 600,
-              transition: "all 0.2s ease",
-              textTransform: "uppercase",
-              fontSize: "0.8rem",
-              letterSpacing: "0.05em",
-              background: "transparent",
-              padding: "8px 14px",
-              borderRadius: "8px",
-              border: "none",
-              cursor: "pointer",
-            }}
-            className="back-link"
+            className="flex items-center justify-center text-white drop-shadow-lg transition-transform duration-200 hover:scale-110 active:scale-90"
+            aria-label="Go back"
           >
-            <ArrowLeft size={18} /> Back
+            <ArrowLeft size={28} />
           </button>
-          {movie.genres && movie.genres[0] && (
-            <span style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.8rem", fontWeight: 500, letterSpacing: "0.03em" }}>
-              {movie.genres[0]} / {isTvContent ? "Series" : "Movie"}
-            </span>
-          )}
+          <Link to="/" className="group relative flex items-center justify-center transition-transform duration-300 hover:scale-110">
+            <span className="text-white font-bold text-xl tracking-wide drop-shadow-lg">Streamly</span>
+          </Link>
         </div>
-        {/* Right: Share + Like/Dislike */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <div className="flex items-center gap-2 pointer-events-auto">
           <motion.button
             whileHover={{ scale: 1.1, background: "rgba(255,255,255,0.15)" }}
             whileTap={{ scale: 0.9 }}
@@ -915,68 +784,14 @@ export default function TitleDetails() {
                 shareToastTimeoutRef.current = setTimeout(() => setShowShareToast(false), 2000);
               }
             }}
-            style={{
-              background: "transparent",
-              border: "none",
-              color: "rgba(255,255,255,0.5)",
-              width: "36px",
-              height: "36px",
-              borderRadius: "8px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              transition: "all 0.2s",
-            }}
+            className="w-10 h-10 rounded-full flex items-center justify-center text-white/60 hover:text-white transition-colors bg-white/5 backdrop-blur-md"
             title="Share"
           >
-            <Share2 size={16} />
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.85 }}
-            onClick={() => setUserRating(userRating === 'like' ? null : 'like')}
-            style={{
-              background: userRating === 'like' ? 'rgba(74,222,128,0.12)' : 'transparent',
-              border: 'none',
-              color: userRating === 'like' ? '#4ade80' : 'rgba(255,255,255,0.5)',
-              width: '36px',
-              height: '36px',
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-            title="Like"
-          >
-            <ThumbsUp size={16} fill={userRating === 'like' ? '#4ade80' : 'none'} />
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.85 }}
-            onClick={() => setUserRating(userRating === 'dislike' ? null : 'dislike')}
-            style={{
-              background: userRating === 'dislike' ? 'rgba(248,113,113,0.12)' : 'transparent',
-              border: 'none',
-              color: userRating === 'dislike' ? '#f87171' : 'rgba(255,255,255,0.5)',
-              width: '36px',
-              height: '36px',
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              backdropFilter: 'blur(8px)',
-              transition: 'all 0.2s',
-            }}
-            title="Dislike"
-          >
-            <ThumbsDown size={16} fill={userRating === 'dislike' ? '#f87171' : 'none'} />
+            <Share2 size={20} />
           </motion.button>
         </div>
       </motion.div>
+
       {/* Share toast */}
       <AnimatePresence>
         {showShareToast && (
@@ -984,720 +799,193 @@ export default function TitleDetails() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            style={{
-              position: 'fixed', top: '80px', left: '50%', transform: 'translateX(-50%)',
-              background: 'rgba(5,5,5,0.95)', border: '1px solid rgba(255,255,255,0.15)',
-              padding: '10px 24px', borderRadius: '100px', color: '#fff', fontSize: '0.85rem',
-              fontWeight: 600, zIndex: 99999, backdropFilter: 'blur(16px)',
-              boxShadow: '0 12px 40px rgba(0,0,0,0.6)',
-            }}
+            className="fixed top-[80px] left-1/2 -translate-x-1/2 bg-[#050505]/95 border border-white/15 px-6 py-2.5 rounded-full text-white text-sm font-semibold z-[99999] backdrop-blur-md shadow-2xl"
           >
             Link copied to clipboard
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── Main Content Block ────────────────────────────────────────────────── */}
-      <motion.div
-        className="details-content-wrapper"
-        variants={pageVariants}
-        initial="hidden"
-        animate="show"
-      >
-        {/* Poster */}
-        <motion.div
-          key="poster"
-          variants={slideUp}
-          style={{ position: "relative", flexShrink: 0 }}
+      <div className="relative w-full">
+        {/* Hero Image Mask */}
+        <div
+          className="relative w-full h-[65vh] lg:h-[75vh] overflow-hidden"
+          style={{ maskImage: "linear-gradient(to bottom, black 40%, transparent 98%)", WebkitMaskImage: "linear-gradient(to bottom, black 40%, transparent 98%)" }}
         >
-          <div
-            style={{
-              position: "absolute",
-              inset: "-15%",
-              background: `url(${movie.posterUrl})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              filter: "blur(60px) brightness(0.4) saturate(1.2)",
-              zIndex: -1,
-              borderRadius: "50%",
-              opacity: 0.7,
-            }}
-          />
-          <motion.img
-            src={movie.posterUrl}
+          <img
+            className="h-full w-full object-cover object-top"
+            src={backdropOptimized || movie.posterUrl}
             alt={movie.title}
-            className="details-poster-large"
-            whileHover={{
-              scale: 1.04,
-              y: -8,
-              boxShadow: "0 50px 100px -20px rgba(0,0,0,0.98)",
-            }}
-            transition={{ type: "spring", stiffness: 260, damping: 20 }}
-            onError={(e) => {
-              e.currentTarget.style.opacity = "0";
-            }}
           />
-        </motion.div>
+          <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/40 to-transparent pointer-events-none"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-[#050505] via-transparent to-transparent pointer-events-none hidden lg:block"></div>
+        </div>
 
-        {/* Text content */}
-        <motion.div
-          className="details-text"
-          layout
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            width: "100%",
-            alignItems: "stretch",
-            gap: "0",
-            paddingTop: 0,
-            transition: "padding-top 0.7s cubic-bezier(0.16,1,0.3,1)",
-          }}
-        >
-          <motion.div
-            layout
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              width: "100%",
-            }}
-          >
-            {/* Platform tag */}
-            <motion.div
-              variants={fadeIn}
-              initial="hidden"
-              animate="show"
-            >
-              {movie.nextEpisode && movie.nextEpisode.releaseDate && (
-                <motion.div
-                  initial={{ opacity: 0, x: -12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{
-                    delay: 0.3,
-                    duration: 0.4,
-                    ease: "easeOut",
-                  }}
-                  style={{
-                    marginBottom: "1.5rem",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                  }}
-                >
-                  <span
-                    style={{
-                      background: resolvedPlatform ? PlatformAdapter.getColor(resolvedPlatform) : 'var(--accent-gradient)',
-                      color: "white",
-                      padding: "4px 8px",
-                      borderRadius: "4px",
-                      fontSize: "0.75rem",
-                      fontWeight: 800,
-                      letterSpacing: "0.05em",
-                      animation: "pulse 2s infinite",
-                    }}
-                  >
-                    LIVE SEASON
-                  </span>
-                  <span
-                    style={{
-                      color: "#d4d4d8",
-                      fontSize: "0.9rem",
-                      fontWeight: 500,
-                    }}
-                  >
-                    New Episode Airs on{" "}
-                    {formatTMDBDate(movie.nextEpisode.releaseDate, { weekday: 'long', month: 'short', day: 'numeric' }, undefined, effectivePlatform)}
-                  </span>
-                </motion.div>
-              )}
-            </motion.div>
+        {/* Content Overlap */}
+        <div className="relative z-20 -mt-44 lg:-mt-[22rem] lg:flex lg:items-start lg:justify-between lg:gap-10 px-6 lg:px-16 max-w-[1800px] mx-auto">
+          {/* Left Column */}
+          <div className="w-full max-w-[700px] lg:max-w-[650px] lg:min-w-0 flex flex-col items-center lg:items-start">
+            {movie.logoUrl ? (
+              <img className="max-h-20 lg:max-h-36 max-w-[75%] lg:max-w-[500px] object-contain drop-shadow-2xl" src={movie.logoUrl} alt={movie.title} />
+            ) : (
+              <h1 className="text-3xl lg:text-5xl font-bold text-white drop-shadow-2xl text-center lg:text-left">{movie.title}</h1>
+            )}
 
-            {/* Logo / Title */}
-            <motion.div
-              layout
-              style={{
-                marginBottom: "1.5rem",
-                minHeight: "80px",
-                display: "flex",
-                alignItems: "center",
-              }}
-              variants={slideUp}
-            >
-              {movie.logoUrl ? (
-                <motion.img
-                  src={movie.logoUrl}
-                  alt={movie.title}
-                  style={{
-                    maxWidth: "400px",
-                    maxHeight: "140px",
-                    objectFit: "contain",
-                    filter: "drop-shadow(0 6px 16px rgba(0,0,0,0.7))",
-                  }}
-                  initial={{
-                    opacity: 0,
-                    y: 20,
-                    filter: "drop-shadow(0 6px 16px rgba(0,0,0,0)) blur(4px)",
-                  }}
-                  animate={{
-                    opacity: 1,
-                    y: 0,
-                    filter: "drop-shadow(0 6px 16px rgba(0,0,0,0.7)) blur(0px)",
-                  }}
-                  transition={{
-                    delay: 0.25,
-                    duration: 0.7,
-                    ease: [0.16, 1, 0.3, 1],
-                  }}
-                  onError={(e) => {
-                    e.currentTarget.style.display = "none";
-                  }}
-                />
-              ) : (
-                <motion.div
-                  initial={{ opacity: 0, y: 24 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2, duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
-                  style={{ position: 'relative', maxWidth: '500px' }}
-                >
-                  <h1
-                    style={{
-                      fontSize: 'clamp(2.2rem, 3.5vw, 3.8rem)',
-                      fontWeight: 800,
-                      letterSpacing: '-0.03em',
-                      margin: 0,
-                      lineHeight: 1.1,
-                      background: 'linear-gradient(135deg, #fff 0%, #a1a1aa 100%)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      textShadow: 'none',
-                    }}
-                  >
-                    {movie.title}
-                  </h1>
-                  {movie.releaseYear && (
-                    <span style={{
-                      display: 'inline-block',
-                      marginTop: '0.5rem',
-                      fontSize: '0.7rem',
-                      fontWeight: 700,
-                      letterSpacing: '0.12em',
-                      textTransform: 'uppercase',
-                      color: '#52525b',
-                      padding: '3px 10px',
-                      background: 'rgba(255,255,255,0.04)',
-                      borderRadius: '6px',
-                      border: '1px solid rgba(255,255,255,0.06)',
-                    }}>{movie.releaseYear} · {movie.isSeries ? 'Series' : 'Movie'}</span>
-                  )}
-                </motion.div>
-              )}
-            </motion.div>
-
-            {/* Meta + genres + description */}
-            <motion.div
-              variants={slideUp}
-              initial="hidden"
-              animate="show"
-            >
-              {/* Platform + Quality badges */}
-              <motion.div
-                initial={{ opacity: 0, x: -12 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.18, duration: 0.4, ease: "easeOut" }}
-                style={{ marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}
-              >
-                {movie.isInTheaters && (
-                  <>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'linear-gradient(135deg, rgba(251,191,36,0.12), rgba(251,191,36,0.04))', padding: '5px 12px', borderRadius: '8px', border: '1px solid rgba(251,191,36,0.2)' }}>
-                      <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fbbf24' }}>🎬 In Theaters</span>
-                    </div>
-                    {movie.expectedOttDate && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(96,165,250,0.08)', padding: '5px 12px', borderRadius: '8px', border: '1px solid rgba(96,165,250,0.15)' }}>
-                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#93c5fd' }}>Expected on OTT: {formatTMDBDateFull(movie.expectedOttDate, undefined, effectivePlatform)}</span>
-                      </div>
-                    )}
-                  </>
-                )}
-              </motion.div>
-
-              {/* IMDb prominent badge + Meta pills */}
-              <motion.div
-                className="details-meta"
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  alignItems: "center",
-                  gap: "0.75rem",
-                  marginBottom: "1.75rem",
-                  fontSize: "0.92rem",
-                  fontWeight: 600,
-                  color: "#a1a1aa",
-                }}
-                variants={{
-                  show: { transition: { staggerChildren: 0.06 } },
-                }}
-                initial="hidden"
-                animate="show"
-              >
-                {/* IMDb prominent badge */}
-                {movie.imdbRating > 0 && (
-                  <>
-                    <motion.div
-                      variants={slideUpSm}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: '8px',
-                        background: 'linear-gradient(135deg, rgba(251,191,36,0.15), rgba(251,191,36,0.05))',
-                        padding: '6px 14px', borderRadius: '10px',
-                        border: '1px solid rgba(251,191,36,0.2)',
-                      }}
-                    >
-                      <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#000', background: '#fbbf24', padding: '2px 6px', borderRadius: '4px', letterSpacing: '0.03em' }}>IMDb</span>
-                      <span style={{ fontSize: '1rem', fontWeight: 700, color: '#fbbf24' }}>{movie.imdbRating}</span>
-                      <span style={{ fontSize: '0.7rem', color: '#a1a1aa' }}>/10</span>
-                    </motion.div>
-                    
-                    {/* Rotten Tomatoes (Tomatometer Mock) */}
-                    <motion.div
-                      variants={slideUpSm}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: '8px',
-                        background: 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(239,68,68,0.05))',
-                        padding: '6px 14px', borderRadius: '10px',
-                        border: '1px solid rgba(239,68,68,0.2)',
-                      }}
-                    >
-                      <span style={{ fontSize: '1rem' }}>{Math.round(movie.imdbRating * 10) >= 60 ? '🍅' : '🤢'}</span>
-                      <span style={{ fontSize: '1rem', fontWeight: 700, color: '#ef4444' }}>{Math.round(movie.imdbRating * 10)}%</span>
-                    </motion.div>
-
-                    {/* Popcorn (Audience Score Mock) */}
-                    <motion.div
-                      variants={slideUpSm}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: '8px',
-                        background: 'linear-gradient(135deg, rgba(248,113,113,0.15), rgba(248,113,113,0.05))',
-                        padding: '6px 14px', borderRadius: '10px',
-                        border: '1px solid rgba(248,113,113,0.2)',
-                      }}
-                    >
-                      <span style={{ fontSize: '1rem' }}>🍿</span>
-                      <span style={{ fontSize: '1rem', fontWeight: 700, color: '#fca5a5' }}>{Math.min(100, Math.round(movie.imdbRating * 10 + 6))}%</span>
-                    </motion.div>
-                  </>
-                )}
-                {[
-                  {
-                    icon: <Calendar size={15} />,
-                    label:
-                      movie.isUpcoming && movie.releaseDate
-                        ? formatTMDBDateFull(movie.releaseDate, undefined, effectivePlatform)
-                        : movie.releaseYear,
-                    bg: "rgba(255,255,255,0.06)",
-                  },
-                  {
-                    icon: <Clock size={15} />,
-                    label:
-                      movie.duration ||
-                      (isTvContent ? "Series" : "Movie"),
-                    bg: "rgba(255,255,255,0.06)",
-                  },
-                  {
-                    icon: <Star size={15} fill="#fbbf24" color="#fbbf24" />,
-                    label: movie.maturityRating || "PG",
-                    bg: "rgba(251,191,36,0.08)",
-                    color: "#fbbf24",
-                  },
-                  ...(movie.matchScore
-                    ? [
-                        {
-                          label: `${movie.matchScore}% Match`,
-                          bg: "rgba(74,222,128,0.1)",
-                          color: "#4ade80",
-                        },
-                      ]
-                    : []),
-                ].map((item, i) => (
-                  <motion.span
-                    key={i}
-                    variants={slideUpSm}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "5px",
-                      background: item.bg || "rgba(255,255,255,0.06)",
-                      padding: "5px 11px",
-                      borderRadius: "8px",
-                      color: item.color || "#a1a1aa",
-                      border: "1px solid rgba(255,255,255,0.04)",
-                    }}
-                  >
-                    {item.icon} {item.label}
-                  </motion.span>
-                ))}
-              </motion.div>
-
-              {/* Genre tags */}
-              <motion.div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: "0.5rem",
-                  marginBottom: "1.75rem",
-                }}
-                variants={{
-                  show: { transition: { staggerChildren: 0.05 } },
-                }}
-                initial="hidden"
-                animate="show"
-              >
-                {(movie.genres || []).map((genre) => (
-                  <motion.div
-                    key={genre}
-                    variants={slideUpSm}
-                    whileHover={{ scale: 1.05 }}
-                  >
-                    <Link
-                      to={`/genre/${encodeURIComponent(genre)}`}
-                      style={{
-                        background: "rgba(255,255,255,0.06)",
-                        border: "1px solid rgba(255,255,255,0.1)",
-                        padding: "5px 14px",
-                        borderRadius: "100px",
-                        fontSize: "0.8rem",
-                        color: "#d4d4d8",
-                        letterSpacing: "0.03em",
-                        cursor: "pointer",
-                        transition: "all 0.2s",
-                        textDecoration: "none",
-                        display: "inline-block",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background =
-                          "rgba(255,255,255,0.12)";
-                        e.currentTarget.style.borderColor =
-                          "rgba(255,255,255,0.3)";
-                        e.currentTarget.style.color = "#fff";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background =
-                          "rgba(255,255,255,0.06)";
-                        e.currentTarget.style.borderColor =
-                          "rgba(255,255,255,0.1)";
-                        e.currentTarget.style.color = "#d4d4d8";
-                      }}
-                    >
-                      {genre}
-                    </Link>
-                  </motion.div>
-                ))}
-              </motion.div>
-
-              {/* Description */}
-              <motion.p
-                className="details-overview"
-                style={{
-                  fontSize: "1.05rem",
-                  lineHeight: 1.85,
-                  color: "#d4d4d8",
-                  letterSpacing: "0.01em",
-                  marginBottom: "1.5rem",
-                  width: "100%",
-                  paddingRight: "2rem",
-                }}
-                initial={{ opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.45, duration: 0.6, ease: "easeOut" }}
-              >
-                {movie.longDescription || movie.description}
-              </motion.p>
-
-              {(movie.tags?.length || movie.audioLanguages?.length || movie.subtitleLanguages?.length) && (
-                <div className="detail-tag-list" style={{ marginBottom: '1.5rem' }}>
-                  {[
-                    ...(movie.tags || []).slice(0, 6),
-                    ...(movie.audioLanguages || []).slice(0, 3),
-                    ...(movie.subtitleLanguages || []).slice(0, 3),
-                  ]
-                    .filter(Boolean)
-                    .slice(0, 12)
-                    .map((tag) => (
-                      <span key={tag} className="detail-tag">
-                        {tag}
-                      </span>
-                    ))}
-                </div>
-              )}
-
-
-              {/* Info grid: Director, Writers, Budget, Revenue, Locations, Studios */}
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5, duration: 0.5 }}
-                style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}
-              >
-                {movie.director && (
-                  <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '12px 14px', border: '1px solid rgba(255,255,255,0.04)' }}>
-                    <div style={{ fontSize: '0.65rem', color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px', fontWeight: 700 }}>Director</div>
-                    <div style={{ fontSize: '0.85rem', color: '#e4e4e7', fontWeight: 500 }}>{movie.director}</div>
-                  </div>
-                )}
-                {movie.writers && movie.writers.length > 0 && (
-                  <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '12px 14px', border: '1px solid rgba(255,255,255,0.04)' }}>
-                    <div style={{ fontSize: '0.65rem', color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px', fontWeight: 700 }}>Writers</div>
-                    <div style={{ fontSize: '0.85rem', color: '#e4e4e7', fontWeight: 500 }}>{movie.writers.slice(0, 2).join(', ')}</div>
-                  </div>
-                )}
-                {movie.budget && (
-                  <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '12px 14px', border: '1px solid rgba(255,255,255,0.04)' }}>
-                    <div style={{ fontSize: '0.65rem', color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px', fontWeight: 700 }}><DollarSign size={10} style={{ display: 'inline', verticalAlign: 'middle' }} /> Budget</div>
-                    <div style={{ fontSize: '0.85rem', color: '#e4e4e7', fontWeight: 500 }}>${(movie.budget / 1_000_000).toFixed(0)}M</div>
-                  </div>
-                )}
-                {movie.revenue && (
-                  <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '12px 14px', border: '1px solid rgba(255,255,255,0.04)' }}>
-                    <div style={{ fontSize: '0.65rem', color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px', fontWeight: 700 }}><DollarSign size={10} style={{ display: 'inline', verticalAlign: 'middle' }} /> Revenue</div>
-                    <div style={{ fontSize: '0.85rem', color: '#4ade80', fontWeight: 500 }}>${(movie.revenue / 1_000_000).toFixed(0)}M</div>
-                  </div>
-                )}
-                {movie.filmingLocations && movie.filmingLocations.length > 0 && (
-                  <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '12px 14px', border: '1px solid rgba(255,255,255,0.04)' }}>
-                    <div style={{ fontSize: '0.65rem', color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px', fontWeight: 700 }}><MapPin size={10} style={{ display: 'inline', verticalAlign: 'middle' }} /> Filmed in</div>
-                    <div style={{ fontSize: '0.85rem', color: '#e4e4e7', fontWeight: 500 }}>{movie.filmingLocations[0]}</div>
-                  </div>
-                )}
-                {movie.productionCompanies && movie.productionCompanies.length > 0 && (
-                  <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '12px 14px', border: '1px solid rgba(255,255,255,0.04)' }}>
-                    <div style={{ fontSize: '0.65rem', color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px', fontWeight: 700 }}><Building2 size={10} style={{ display: 'inline', verticalAlign: 'middle' }} /> Studio</div>
-                    <div style={{ fontSize: '0.85rem', color: '#e4e4e7', fontWeight: 500 }}>{movie.productionCompanies[0]}</div>
-                  </div>
-                )}
-                {movie.awards && (
-                  <div style={{ background: 'rgba(251,191,36,0.05)', borderRadius: '10px', padding: '12px 14px', border: '1px solid rgba(251,191,36,0.1)' }}>
-                    <div style={{ fontSize: '0.65rem', color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px', fontWeight: 700 }}><Award size={10} style={{ display: 'inline', verticalAlign: 'middle' }} /> Awards</div>
-                    <div style={{ fontSize: '0.85rem', color: '#fbbf24', fontWeight: 500, lineHeight: 1.4 }}>{movie.awards}</div>
-                  </div>
-                )}
-              </motion.div>
-
-
-            </motion.div>
-
-            {/* CTA Buttons */}
-            <motion.div
-              layout
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: "0.85rem",
-                marginTop: "0.75rem",
-                marginBottom: "3.5rem",
-                alignItems: "center",
-              }}
-              variants={{ show: { transition: { staggerChildren: 0.08 } } }}
-              initial="hidden"
-              animate="show"
-            >
-              {[
-                ...(movie.isUpcoming || movie.isInTheaters || SERVERS.length === 0
-                  ? []
-                  : [
-                      {
-                        cls: `btn btn-primary${!hasProgress ? " btn-cta-pulse" : ""}`,
-                        style: {
-                          fontSize: "clamp(0.9rem, 1vw, 1.06rem)",
-                          padding: "clamp(0.8rem, 1.4vw, 1.12rem) clamp(1.2rem, 2.8vw, 2.05rem)",
-                        },
-                        onClick: () => {
-                          setPlayMode("movie");
-                          setIsPlaying(true);
-                          if (progressItem && progressItem.timestamp > 0) {
-                            if (isTvContent) {
-                              setSelectedSeason(progressItem.savedSeason || 1);
-                              setPlayingEpisode(progressItem.savedEpisode || 1);
-                            }
-                          } else {
-                            setPlayingEpisode(1);
-                            if (isTvContent) setSelectedSeason(1);
-                            updateProgress(
-                              {
-                                ...movie,
-                                source: resolvedPlatform,
-                                sourceName,
-                              },
-                              isTvContent ? 1 : null,
-                              isTvContent ? 1 : null,
-                               0,
-                             );
-                           }
-                         },
-                         children: (
-                           <>
-                             <Play size={20} fill="currentColor" stroke="none" />{" "}
-                            {savedTimestamp > 0
-                              ? `Continue (${formatTime(savedTimestamp)})`
-                              : "Play Now"}
-                          </>
-                        ),
-                      },
-                      ...(savedTimestamp > 0
-                        ? [
-                            {
-                              cls: "btn",
-                              style: {
-                                fontSize: "clamp(0.9rem, 1vw, 1.06rem)",
-                                padding: "clamp(0.8rem, 1.4vw, 1.12rem) clamp(1.2rem, 2.8vw, 2.05rem)",
-                                background: "rgba(255,255,255,0.1)",
-                                color: "#fff",
-                              },
-                              onClick: () => {
-                                setPlayMode("movie");
-                                setIsPlaying(true);
-                                setPlayingEpisode(1);
-                                if (isTvContent) setSelectedSeason(1);
-                                updateProgress(
-                                  {
-                                    ...movie,
-                                    source: resolvedPlatform,
-                                    sourceName,
-                                  },
-                                  isTvContent ? 1 : null,
-                                   isTvContent ? 1 : null,
-                                   0,
-                                 );
-                               },
-                               children: (
-                                 <>
-                                   <RotateCcw size={20} /> Start Over
-                                 </>
-                               ),
-                            },
-                          ]
-                        : []),
-                    ]),
-                ...((movie.isUpcoming || movie.isInTheaters) && movie.trailerUrl
-                  ? [
-                      {
-                        cls: "btn btn-primary",
-                        style: {
-                          fontSize: "clamp(0.9rem, 1vw, 1.06rem)",
-                          padding: "clamp(0.8rem, 1.4vw, 1.12rem) clamp(1.2rem, 2.8vw, 2.05rem)",
-                        },
-                        onClick: () => {
-                          setPlayMode("trailer");
-                          setIsPlaying(true);
-                        },
-                        children: (
-                          <>
-                            <Play size={20} fill="currentColor" stroke="none" />{" "}
-                            Watch Trailer
-                          </>
-                        ),
-                      },
-                    ]
-                  : []),
-                {
-                  cls: "btn btn-glass",
-                  style: {
-                    fontSize: "clamp(0.9rem, 1vw, 1.06rem)",
-                    padding: "clamp(0.8rem, 1.4vw, 1.12rem) clamp(1.2rem, 2.8vw, 2.05rem)",
-                  },
-                  onClick: () => handleToggleMyList(movie),
-                  children: (
-                    <>
-                      {isInList(movie.id) ? (
-                        <Check size={20} color="#4ade80" />
-                      ) : (
-                        <Plus size={20} />
-                      )}{" "}
-                      {isInList(movie.id) ? "Added" : "My List"}
-                    </>
-                  ),
-                },
-
-                ...(!movie.isUpcoming && !movie.isInTheaters && movie.trailerUrl
-                  ? [
-                      {
-                        cls: "btn btn-trailer",
-                        style: {
-                          fontSize: "clamp(0.9rem, 1vw, 1.06rem)",
-                          padding: "clamp(0.8rem, 1.4vw, 1.12rem) clamp(1.2rem, 2.8vw, 2.05rem)",
-                        },
-                        onClick: () => {
-                          setPlayMode("trailer");
-                          setIsPlaying(true);
-                        },
-                        children: <>Watch Trailer</>,
-                      },
-                    ]
-                  : []),
-              ].map((btn, i) => (
-                <motion.button
-                  key={i}
-                  variants={slideUpSm}
-                  whileHover={{ scale: 1.04, y: -2 }}
-                  whileTap={{ scale: 0.96 }}
-                  transition={{ type: "spring", stiffness: 380, damping: 22 }}
-                  className={`${btn.cls} btn-animate-in`}
-                  style={btn.style}
-                  onClick={btn.onClick}
-                >
-                  {btn.children}
-                </motion.button>
+            <div className="mt-3 lg:mt-4 flex items-center gap-2 text-sm lg:text-lg text-white/90 font-medium flex-wrap justify-center lg:justify-start">
+              {movie.genres?.map((genre, idx) => (
+                <span key={genre} className="flex items-center gap-2">
+                  <span>{genre}</span>
+                  {idx < movie.genres.length - 1 && <span className="text-white/40">•</span>}
+                </span>
               ))}
-            </motion.div>
-          </motion.div>
+            </div>
 
-          {/* Cast */}
-          <motion.div
-            layout
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "2rem",
-              borderTop: "1px solid rgba(255,255,255,0.07)",
-              paddingTop: "2rem",
-              width: "100%",
-            }}
-          >
-            <motion.div variants={fadeIn}>
-              {isTvContent && normalizedSeasonCount > 0 && (
-                <motion.div variants={slideUpSm}>
-                  <h3
-                    style={{
-                      fontSize: "0.8rem",
-                      color: "#52525b",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.1em",
-                      marginBottom: "0.6rem",
-                    }}
-                  >
-                    Series Info
-                  </h3>
-                  <p
-                    style={{
-                      margin: 0,
-                      fontWeight: 500,
-                      color: "#e4e4e7",
-                      fontSize: "1rem",
-                    }}
-                  >
-                  {normalizedSeasonCount} Season
-                    {normalizedSeasonCount > 1 ? "s" : ""}
-                  </p>
-                </motion.div>
-              )}
-          </motion.div>
-        </motion.div>
-      </motion.div>
-    </motion.div>
+            {/* Actions */}
+            <div className="mt-5 lg:mt-6 flex items-center gap-3 flex-wrap justify-center lg:justify-start">
+              <button
+                onClick={() => {
+                  setPlayMode("movie");
+                  setIsPlaying(true);
+                  if (isTvContent) {
+                    setPlayingEpisode(1);
+                    setSelectedSeason(1);
+                  }
+                  updateProgress(movie, isTvContent ? 1 : null, isTvContent ? 1 : null, 0);
+                }}
+                className="relative rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 font-semibold tracking-wide h-[44px] lg:h-[52px] px-6 lg:px-8 py-3 text-sm lg:text-base min-w-[120px] bg-[#95ff50] text-[#050505] hover:bg-[#a3ff66] shadow-xl hover:scale-105"
+              >
+                <Play size={20} className="mr-1.5 fill-current" /> Play
+              </button>
 
-      {/* ── Cast ─────────────────────────────────────────────────────────────── */}
+              <button
+                onClick={() => handleToggleMyList(movie)}
+                className="relative rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 h-[44px] w-[44px] lg:h-[52px] lg:w-[52px] bg-white/10 backdrop-blur-md border border-white/10 hover:border-white/20 hover:bg-white/20 text-white shadow-lg"
+                title="My List"
+              >
+                {isInList(movie.id) ? <Check size={20} color="#95ff50" /> : <Plus size={20} />}
+              </button>
+            </div>
+
+            {/* Meta */}
+            <div className="mt-5 lg:mt-6 w-full flex flex-wrap items-center gap-x-3 gap-y-1 text-sm lg:text-base text-white/80 font-medium justify-center lg:justify-start">
+              <span>{new Date(movie.releaseDate).getFullYear()}</span>
+              {movie.durationMins && <span>{movie.durationMins}m</span>}
+              <span className="flex items-center gap-1"><span className="text-yellow-400">★</span> {movie.imdbRating?.toFixed(1) || "N/A"}</span>
+              
+              <div className="flex items-center gap-0.5 ml-2 bg-white/5 rounded-full p-0.5 border border-white/10">
+                <button onClick={() => setUserRating(userRating === 'like' ? null : 'like')} className="p-1 rounded-full hover:bg-white/10 transition-colors">
+                  <ThumbsUp size={16} color={userRating === 'like' ? '#95ff50' : 'currentColor'} />
+                </button>
+                <button onClick={() => setUserRating(userRating === 'dislike' ? null : 'dislike')} className="p-1 rounded-full hover:bg-white/10 transition-colors">
+                  <ThumbsDown size={16} color={userRating === 'dislike' ? '#f87171' : 'currentColor'} />
+                </button>
+              </div>
+            </div>
+
+            {movie.director && (
+              <div className="mt-1.5 w-full text-sm lg:text-base text-white/60 text-center lg:text-left">
+                <span className="text-white/40">Director:</span> <span className="text-white/80">{movie.director}</span>
+              </div>
+            )}
+
+            <div className="mt-4 lg:mt-5 w-full text-center lg:text-left">
+              <p className="text-sm lg:text-base text-white/70 leading-relaxed max-w-[650px]">{movie.description}</p>
+            </div>
+
+            {/* Mobile details block */}
+            <div className="mt-6 w-full lg:hidden">
+              <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] overflow-hidden backdrop-blur-sm">
+                <div className="divide-y divide-white/[0.06]">
+                  {movie.durationMins && (
+                    <div className="flex items-center justify-between px-3.5 py-2.5">
+                      <span className="text-xs text-white/40">Runtime</span>
+                      <span className="text-xs text-white/80">{movie.durationMins}m</span>
+                    </div>
+                  )}
+                  {movie.originalLanguage && (
+                    <div className="flex items-center justify-between px-3.5 py-2.5">
+                      <span className="text-xs text-white/40">Language</span>
+                      <span className="text-xs text-white/80 uppercase">{movie.originalLanguage}</span>
+                    </div>
+                  )}
+                  {movie.releaseDate && (
+                    <div className="flex items-center justify-between px-3.5 py-2.5">
+                      <span className="text-xs text-white/40">Release Date</span>
+                      <span className="text-xs text-white/80">{formatTMDBDate(movie.releaseDate, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                    </div>
+                  )}
+                  {movie.budget > 0 && (
+                    <div className="flex items-center justify-between px-3.5 py-2.5">
+                      <span className="text-xs text-white/40">Budget</span>
+                      <span className="text-xs text-white/80">$${movie.budget.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {movie.revenue > 0 && (
+                    <div className="flex items-center justify-between px-3.5 py-2.5">
+                      <span className="text-xs text-white/40">Revenue</span>
+                      <span className="text-xs text-white/80">$${movie.revenue.toLocaleString()}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column (Desktop) */}
+          <div className="hidden lg:block w-[280px] shrink-0 mt-40">
+            <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] overflow-hidden backdrop-blur-sm">
+              <div className="divide-y divide-white/[0.06]">
+                {movie.durationMins && (
+                  <div className="flex items-center justify-between px-4 py-2.5">
+                    <span className="text-xs text-white/40">Runtime</span>
+                    <span className="text-xs text-white/80">{movie.durationMins}m</span>
+                  </div>
+                )}
+                {movie.originalLanguage && (
+                  <div className="flex items-center justify-between px-4 py-2.5">
+                    <span className="text-xs text-white/40">Language</span>
+                    <span className="text-xs text-white/80 uppercase">{movie.originalLanguage}</span>
+                  </div>
+                )}
+                {movie.releaseDate && (
+                  <div className="flex items-center justify-between px-4 py-2.5">
+                    <span className="text-xs text-white/40">Release Date</span>
+                    <span className="text-xs text-white/80">{formatTMDBDate(movie.releaseDate, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                  </div>
+                )}
+                {movie.budget > 0 && (
+                  <div className="flex items-center justify-between px-4 py-2.5">
+                    <span className="text-xs text-white/40">Budget</span>
+                    <span className="text-xs text-white/80">$${movie.budget.toLocaleString()}</span>
+                  </div>
+                )}
+                {movie.revenue > 0 && (
+                  <div className="flex items-center justify-between px-4 py-2.5">
+                    <span className="text-xs text-white/40">Revenue</span>
+                    <span className="text-xs text-white/80">$${movie.revenue.toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            {movie.productionCompanies && movie.productionCompanies.length > 0 && (
+              <div className="mt-4 grid gap-2 grid-cols-2">
+                {movie.productionCompanies.slice(0, 4).map(company => company.logo_path && (
+                  <div key={company.id} className="flex items-center justify-center h-10 px-2">
+                    <img loading="lazy" src={`https://image.tmdb.org/t/p/w200${company.logo_path}`} alt={company.name} title={company.name} className="w-auto max-h-7 object-contain brightness-0 invert opacity-50 max-w-full" />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Cast & Rest ─────────────────────────────────────────────────────────────── */}
+      <div className="relative z-20 mt-10 lg:mt-14 px-6 lg:px-16 max-w-[1800px] mx-auto space-y-10 lg:space-y-14 pb-20">
+{/* ── Cast ─────────────────────────────────────────────────────────────── */}
       {movie.cast && movie.cast.length > 0 && (
         <motion.section
-          style={{ position: "relative", zIndex: 1, paddingLeft: "clamp(0.5rem, 1.5vw, 1.5rem)", paddingRight: "clamp(0.5rem, 1.5vw, 1.5rem)", maxWidth: "100%", marginLeft: "auto", marginRight: "auto", marginBottom: "2rem" }}
+          style={{ position: "relative", zIndex: 1, maxWidth: "100%", marginLeft: "auto", marginRight: "auto", marginBottom: "2rem" }}
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-40px" }}
@@ -1712,7 +1000,7 @@ export default function TitleDetails() {
       {/* ── Episodes ─────────────────────────────────────────────────────────── */}
       {isTvContent && hasSeriesEpisodes && (
         <motion.section
-          style={{ position: "relative", zIndex: 1, marginTop: "1.5rem", paddingLeft: "clamp(0.5rem, 1.5vw, 1.5rem)", paddingRight: "clamp(0.5rem, 1.5vw, 1.5rem)", maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
+          style={{ position: "relative", zIndex: 1, marginTop: "1.5rem", maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-40px" }}
@@ -2098,7 +1386,7 @@ export default function TitleDetails() {
       {/* ── Trailers ──────────────────────────────────────────────────────────── */}
       {movie.videos && movie.videos.length > 0 && (
         <motion.section
-          style={{ position: "relative", zIndex: 1, marginTop: "2rem", paddingLeft: "clamp(0.5rem, 1.5vw, 1.5rem)", paddingRight: "clamp(0.5rem, 1.5vw, 1.5rem)", maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
+          style={{ position: "relative", zIndex: 1, marginTop: "2rem", maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true, margin: "-40px" }}
@@ -2143,7 +1431,7 @@ export default function TitleDetails() {
       {/* ── More Like This ────────────────────────────────────────────────────── */}
       {(loading || (similar && similar.length > 0)) && (
         <motion.section
-          style={{ position: "relative", zIndex: 1, marginTop: "2rem", paddingLeft: "clamp(0.5rem, 1.5vw, 1.5rem)", paddingRight: "clamp(0.5rem, 1.5vw, 1.5rem)", maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
+          style={{ position: "relative", zIndex: 1, marginTop: "2rem", maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true, margin: "-40px" }}
@@ -2222,7 +1510,7 @@ export default function TitleDetails() {
       {/* ── More from Director ──────────────────────────────────────────────── */}
       {movie.director && similar.some(s => s.director && s.director === movie.director) && (
         <motion.section
-          style={{ position: "relative", zIndex: 1, marginTop: "2rem", paddingLeft: "1rem", paddingRight: "1rem", maxWidth: "1600px", marginLeft: "auto", marginRight: "auto" }}
+          style={{ position: "relative", zIndex: 1, marginTop: "2rem", maxWidth: "1600px", marginLeft: "auto", marginRight: "auto" }}
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true, margin: "-40px" }}
@@ -2310,7 +1598,8 @@ export default function TitleDetails() {
       </motion.div>
 
       {/* ── Video Player Overlay (portal to body for z-index above navbar) ── */}
-      {createPortal(
+      </div>
+{createPortal(
       <AnimatePresence>
         {isPlaying && (
           <motion.div
