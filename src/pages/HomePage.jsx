@@ -196,7 +196,7 @@ const MovieRail = React.memo(
               onScroll={handleScroll}
               style={{
                 display: "flex",
-                gap: "0.5rem",
+                gap: "1.5rem",
                 WebkitOverflowScrolling: "touch",
                 overscrollBehaviorX: "contain",
                 overflowX: "auto",
@@ -328,7 +328,7 @@ const Top10Rail = React.memo(
               className="movie-rail"
               style={{
                 display: "flex",
-                gap: "1rem",
+                gap: "1.5rem",
                 WebkitOverflowScrolling: "touch",
                 overscrollBehaviorX: "contain",
                 overflowX: "auto",

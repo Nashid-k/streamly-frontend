@@ -98,7 +98,7 @@ export default function ContinueWatchingRail({ items = [] }) {
         onScroll={close}
         style={{
           display: "flex",
-          gap: "1rem",
+          gap: "1.5rem",
           WebkitOverflowScrolling: "touch",
           overscrollBehaviorX: "contain",
           overflowX: "auto",

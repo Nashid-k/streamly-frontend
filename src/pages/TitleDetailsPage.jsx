@@ -1572,7 +1572,7 @@ export default function TitleDetails() {
               style={{
                 position: "relative",
                 display: "flex",
-                gap: "1rem",
+                gap: "1.5rem",
                 overflowX: "auto",
                 padding: "1rem",
                 scrollbarWidth: "none",

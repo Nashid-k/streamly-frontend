@@ -1128,7 +1128,7 @@ a {
 .movie-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-  gap: 1rem;
+  gap: 1.5rem;
   padding: 0 0.15rem;
 }
 
@@ -1532,7 +1532,7 @@ a {
 
 .skeleton-rail {
   display: flex;
-  gap: 0.5rem;
+  gap: 1.5rem;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
@@ -1703,7 +1703,7 @@ input:focus-visible {
 }
 
 .movie-rail {
-  gap: 1.25rem;
+  gap: 1.5rem;
   padding: 0.75rem 0;
   padding-left: 0;
   padding-right: 0;

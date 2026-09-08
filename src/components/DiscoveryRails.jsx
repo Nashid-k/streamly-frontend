@@ -182,7 +182,7 @@ export default function DiscoveryRails({ limit = 20 } = {}) {
                   className="movie-rail"
                   style={{
                     display: "flex",
-                    gap: "0.5rem",
+                    gap: "1.5rem",
                     WebkitOverflowScrolling: "touch",
                     overscrollBehaviorX: "contain",
                     overflowX: "auto",
