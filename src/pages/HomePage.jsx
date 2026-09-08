@@ -38,25 +38,6 @@ const isAnime = (m) =>
       (m.tags && m.tags.some((t) => t.toLowerCase().includes("anime"))),
   );
 
-const GENRE_OPTIONS = [
-  "All",
-  "Malayalam",
-  "Tamil",
-  "Hindi",
-  "Action",
-  "Drama",
-  "Comedy",
-  "Thriller",
-  "Horror",
-  "Sci-Fi",
-  "Romance",
-  "Animation",
-  "Crime",
-  "Mystery",
-  "Adventure",
-  "Fantasy",
-];
-
 // ... (skipping MovieRail and Top10Rail for brevity, they remain unchanged)
 const FadeInSection = ({ children, delay = 0 }) => (
   <motion.div
@@ -1316,39 +1297,6 @@ export default function Home({
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Genre Filter Chips */}
-      {!loading && categories.length > 0 && (
-        <div
-          style={{
-            display: "flex",
-            gap: "0.5rem",
-            WebkitOverflowScrolling: "touch",
-            overscrollBehaviorX: "contain",
-            overflowX: "auto",
-            scrollbarWidth: "none",
-            padding: "0.4rem 0 0.75rem",
-            margin: "1.25rem 0 0.75rem",
-          }}
-        >
-          {GENRE_OPTIONS.map((genre) => (
-            <motion.button
-              layout
-              key={genre}
-              onClick={() => setActiveGenre(genre)}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.95 }}
-              className={`chip ${activeGenre === genre ? "chip--active" : ""}`}
-              style={{
-                fontSize: "0.85rem",
-                flexShrink: 0,
-              }}
-            >
-              {genre}
-            </motion.button>
-          ))}
-        </div>
-      )}
 
       {/* Leaving Soon — home page only */}
       {!loading && filter === 'all' && activeGenre === 'All' && (
