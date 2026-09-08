@@ -9,6 +9,18 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { HelmetProvider } from "react-helmet-async";
 import { queryClient } from "./queryClient";
 
+// Auto-reload when old Vite chunks fail to load due to deployment updates
+if (import.meta.env.PROD) {
+  window.addEventListener('vite:preloadError', (event) => {
+    event.preventDefault();
+    const lastReload = sessionStorage.getItem('vite_reload');
+    if (!lastReload || Date.now() - Number(lastReload) > 5000) {
+      sessionStorage.setItem('vite_reload', Date.now().toString());
+      window.location.reload();
+    }
+  });
+}
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <HelmetProvider>

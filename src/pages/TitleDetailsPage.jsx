@@ -1841,6 +1841,7 @@ export default function TitleDetails() {
                     const isGrid = episodeLayout === 'grid';
                     const isWatched = continueWatching?.some(m => String(m.id) === String(movie.id) && m.savedEpisode === ep.episodeNumber && m.timestamp > 0);
                     const watchedTs = continueWatching?.find(m => String(m.id) === String(movie.id) && m.savedEpisode === ep.episodeNumber)?.timestamp || 0;
+                    const isAired = !ep.airDate || new Date(ep.airDate) <= new Date();
 
                     if (isGrid) {
                       // ── GRID CARD ──
@@ -1852,21 +1853,32 @@ export default function TitleDetails() {
                           exit={{ opacity: 0, scale: 0.95, y: -8 }}
                           transition={{ duration: 0.35, delay: Math.min(idx * 0.04, 0.3), ease: [0.16, 1, 0.3, 1] }}
                           whileHover={{ y: -4, boxShadow: '0 16px 40px -10px rgba(0,0,0,0.7)' }}
-                          onClick={() => { if (SERVERS.length > 0) { setIsPlaying(true); setPlayingEpisode(ep.episodeNumber); updateProgress({ ...movie, source: resolvedPlatform, sourceName }, selectedSeason, ep.episodeNumber); } }}
+                          onClick={() => { if (SERVERS.length > 0 && isAired) { setIsPlaying(true); setPlayingEpisode(ep.episodeNumber); updateProgress({ ...movie, source: resolvedPlatform, sourceName }, selectedSeason, ep.episodeNumber); } }}
                           style={{
                             background: isEpPlaying ? 'linear-gradient(180deg, rgba(244,63,94,0.1) 0%, #050505 100%)' : '#0a0a0c',
                             borderRadius: '16px', overflow: 'hidden',
                             border: isEpPlaying ? '1px solid rgba(244,63,94,0.4)' : '1px solid rgba(255,255,255,0.05)',
-                            cursor: SERVERS.length > 0 ? 'pointer' : 'default', opacity: SERVERS.length > 0 ? 1 : 0.6,
+                            cursor: (SERVERS.length > 0 && isAired) ? 'pointer' : 'default', opacity: (!isAired) ? 0.35 : (SERVERS.length > 0 ? 1 : 0.6),
                             position: 'relative',
                             boxShadow: isEpPlaying ? '0 10px 30px -10px rgba(244,63,94,0.15)' : '0 10px 30px -10px rgba(0,0,0,0.5)',
                             transition: 'border 0.3s ease, background 0.3s ease',
                           }}
                         >
-                          <div style={{ position: 'relative', aspectRatio: '16/9', background: '#18181b', overflow: 'hidden' }}>
+                          <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', overflow: 'hidden', background: '#18181b' }}>
                             {ep.thumbnailUrl && (
                               <motion.img src={ep.thumbnailUrl} alt={ep.title} whileHover={{ scale: 1.06 }} transition={{ duration: 0.5 }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" decoding="async" />
                             )}
+                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              {isAired ? (
+                                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+                                  <Play size={18} fill="#fff" stroke="none" style={{ marginLeft: '2px' }} />
+                                </div>
+                              ) : (
+                                <div style={{ background: 'rgba(0,0,0,0.8)', color: '#fff', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700, backdropFilter: 'blur(4px)' }}>
+                                  Airs {ep.airDate}
+                                </div>
+                              )}
+                            </div>
                             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 50%)', pointerEvents: 'none' }} />
                             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s' }} className="ep-play-overlay">
                               <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--accent-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', boxShadow: '0 8px 24px rgba(244,63,94,0.5)' }}>
@@ -1906,13 +1918,13 @@ export default function TitleDetails() {
                         exit={{ opacity: 0, x: 12 }}
                         transition={{ duration: 0.3, delay: Math.min(idx * 0.03, 0.25) }}
                         whileHover={{ background: 'rgba(255,255,255,0.04)' }}
-                        onClick={() => { if (SERVERS.length > 0) { setIsPlaying(true); setPlayingEpisode(ep.episodeNumber); updateProgress({ ...movie, source: resolvedPlatform, sourceName }, selectedSeason, ep.episodeNumber); } }}
+                        onClick={() => { if (SERVERS.length > 0 && isAired) { setIsPlaying(true); setPlayingEpisode(ep.episodeNumber); updateProgress({ ...movie, source: resolvedPlatform, sourceName }, selectedSeason, ep.episodeNumber); } }}
                         style={{
                           display: 'flex', alignItems: 'center', gap: '1rem',
                           padding: '0.75rem 1rem', borderRadius: '12px',
                           background: isEpPlaying ? 'rgba(244,63,94,0.08)' : 'transparent',
                           border: isEpPlaying ? '1px solid rgba(244,63,94,0.2)' : '1px solid transparent',
-                          cursor: SERVERS.length > 0 ? 'pointer' : 'default',
+                          cursor: (SERVERS.length > 0 && isAired) ? 'pointer' : 'default', opacity: (!isAired) ? 0.35 : (SERVERS.length > 0 ? 1 : 0.6),
                           transition: 'background 0.2s, border 0.2s',
                         }}
                       >
@@ -1920,9 +1932,15 @@ export default function TitleDetails() {
                         <div style={{ position: 'relative', width: '140px', flexShrink: 0, borderRadius: '8px', overflow: 'hidden', aspectRatio: '16/9', background: '#18181b' }}>
                           {ep.thumbnailUrl && <img src={ep.thumbnailUrl} alt={ep.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" decoding="async" />}
                           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <Play size={14} fill="#fff" stroke="none" style={{ marginLeft: '2px' }} />
-                            </div>
+                            {isAired ? (
+                              <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Play size={14} fill="#fff" stroke="none" style={{ marginLeft: '2px' }} />
+                              </div>
+                            ) : (
+                              <div style={{ background: 'rgba(0,0,0,0.8)', color: '#fff', padding: '2px 4px', borderRadius: '4px', fontSize: '0.6rem', fontWeight: 700, backdropFilter: 'blur(4px)' }}>
+                                {ep.airDate}
+                              </div>
+                            )}
                           </div>
                           {isEpPlaying && <div style={{ position: 'absolute', top: '4px', right: '4px', background: '#f43f5e', color: 'white', padding: '1px 5px', borderRadius: '4px', fontSize: '0.5rem', fontWeight: 800, textTransform: 'uppercase' }}>Playing</div>}
                           <div style={{ position: 'absolute', bottom: '4px', right: '4px', background: 'rgba(0,0,0,0.7)', padding: '1px 5px', borderRadius: '4px', fontSize: '0.55rem', fontWeight: 700 }}>{ep.duration}</div>
