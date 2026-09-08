@@ -1202,19 +1202,49 @@ export default function TitleDetails() {
               >
                 {/* IMDb prominent badge */}
                 {movie.imdbRating > 0 && (
-                  <motion.div
-                    variants={slideUpSm}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '8px',
-                      background: 'linear-gradient(135deg, rgba(251,191,36,0.15), rgba(251,191,36,0.05))',
-                      padding: '6px 14px', borderRadius: '10px',
-                      border: '1px solid rgba(251,191,36,0.2)',
-                    }}
-                  >
-                    <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#000', background: '#fbbf24', padding: '2px 6px', borderRadius: '4px', letterSpacing: '0.03em' }}>IMDb</span>
-                    <span style={{ fontSize: '1rem', fontWeight: 700, color: '#fbbf24' }}>{movie.imdbRating}</span>
-                    <span style={{ fontSize: '0.7rem', color: '#a1a1aa' }}>/10</span>
-                  </motion.div>
+                  <>
+                    <motion.div
+                      variants={slideUpSm}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        background: 'linear-gradient(135deg, rgba(251,191,36,0.15), rgba(251,191,36,0.05))',
+                        padding: '6px 14px', borderRadius: '10px',
+                        border: '1px solid rgba(251,191,36,0.2)',
+                      }}
+                    >
+                      <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#000', background: '#fbbf24', padding: '2px 6px', borderRadius: '4px', letterSpacing: '0.03em' }}>IMDb</span>
+                      <span style={{ fontSize: '1rem', fontWeight: 700, color: '#fbbf24' }}>{movie.imdbRating}</span>
+                      <span style={{ fontSize: '0.7rem', color: '#a1a1aa' }}>/10</span>
+                    </motion.div>
+                    
+                    {/* Rotten Tomatoes (Tomatometer Mock) */}
+                    <motion.div
+                      variants={slideUpSm}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        background: 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(239,68,68,0.05))',
+                        padding: '6px 14px', borderRadius: '10px',
+                        border: '1px solid rgba(239,68,68,0.2)',
+                      }}
+                    >
+                      <span style={{ fontSize: '1rem' }}>{Math.round(movie.imdbRating * 10) >= 60 ? '🍅' : '🤢'}</span>
+                      <span style={{ fontSize: '1rem', fontWeight: 700, color: '#ef4444' }}>{Math.round(movie.imdbRating * 10)}%</span>
+                    </motion.div>
+
+                    {/* Popcorn (Audience Score Mock) */}
+                    <motion.div
+                      variants={slideUpSm}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        background: 'linear-gradient(135deg, rgba(248,113,113,0.15), rgba(248,113,113,0.05))',
+                        padding: '6px 14px', borderRadius: '10px',
+                        border: '1px solid rgba(248,113,113,0.2)',
+                      }}
+                    >
+                      <span style={{ fontSize: '1rem' }}>🍿</span>
+                      <span style={{ fontSize: '1rem', fontWeight: 700, color: '#fca5a5' }}>{Math.min(100, Math.round(movie.imdbRating * 10 + 6))}%</span>
+                    </motion.div>
+                  </>
                 )}
                 {[
                   {
@@ -1892,7 +1922,15 @@ export default function TitleDetails() {
                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
                               <span style={{ fontSize: '1.2rem', fontWeight: 800, color: isEpPlaying ? '#f43f5e' : '#3f3f46', lineHeight: 1, fontFamily: 'monospace' }}>{String(ep.episodeNumber).padStart(2, '0')}</span>
                               <div style={{ flex: 1 }}>
-                                <h3 style={{ fontSize: '0.95rem', fontWeight: 600, margin: '0 0 0.35rem', color: isEpPlaying ? '#fff' : '#e4e4e7' }}>{ep.title}</h3>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', margin: '0 0 0.35rem' }}>
+                                  <h3 style={{ fontSize: '0.95rem', fontWeight: 600, margin: 0, color: isEpPlaying ? '#fff' : '#e4e4e7' }}>{ep.title}</h3>
+                                  {ep.voteAverage > 0 && (
+                                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#f5c518', display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
+                                      <Star size={10} fill="#f5c518" stroke="none" />
+                                      {ep.voteAverage.toFixed(1)}
+                                    </span>
+                                  )}
+                                </div>
                                 <p style={{ fontSize: '0.8rem', color: '#a1a1aa', margin: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.5 }}>{ep.description}</p>
                               </div>
                             </div>
@@ -1947,9 +1985,17 @@ export default function TitleDetails() {
                         </div>
                         {/* Info */}
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.25rem' }}>
-                            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: isEpPlaying ? '#f43f5e' : '#52525b', fontFamily: 'monospace' }}>E{String(ep.episodeNumber).padStart(2, '0')}</span>
-                            <h3 style={{ fontSize: '0.9rem', fontWeight: 600, margin: 0, color: isEpPlaying ? '#fff' : '#e4e4e7', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ep.title}</h3>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '0.25rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: isEpPlaying ? '#f43f5e' : '#52525b', fontFamily: 'monospace', flexShrink: 0 }}>E{String(ep.episodeNumber).padStart(2, '0')}</span>
+                              <h3 style={{ fontSize: '0.9rem', fontWeight: 600, margin: 0, color: isEpPlaying ? '#fff' : '#e4e4e7', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ep.title}</h3>
+                            </div>
+                            {ep.voteAverage > 0 && (
+                              <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#f5c518', display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
+                                <Star size={10} fill="#f5c518" stroke="none" />
+                                {ep.voteAverage.toFixed(1)}
+                              </span>
+                            )}
                           </div>
                           <p style={{ fontSize: '0.78rem', color: '#71717a', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ep.description}</p>
                           {isWatched && (

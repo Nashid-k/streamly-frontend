@@ -157,6 +157,7 @@ export const movieService = {
       thumbnailUrl: ep.still_path ? `https://image.tmdb.org/t/p/w300${ep.still_path}` : null,
       durationMins: ep.runtime,
       duration: ep.runtime ? `${ep.runtime}m` : '',
+      voteAverage: ep.vote_average,
     }));
     const now = new Date();
     const releasedEpisodes = episodes.filter(ep => ep.airDate && new Date(ep.airDate) <= now).length;
