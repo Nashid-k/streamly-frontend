@@ -734,76 +734,37 @@ export default function TitleDetails() {
         type="video.movie"
       />
 
-      {/* ── Backdrop ─────────────────────────────────────────────────────────── */}
+      {/* ── Full Screen iOS 27 Glass Backdrop ────────────────────────────────── */}
       <div
-        className="details-backdrop"
+        className="backdrop-hero"
         style={{
-          height: "min(85vh, 900px)",
-          overflow: "hidden",
-          top: 0,
-          left: "50%",
+          position: "fixed",
+          inset: 0,
           width: "100vw",
-          marginLeft: "-50vw",
-          marginTop: 0,
+          height: "100vh",
           backgroundImage: backdropSrc ? `url(${backdropOptimized || backdropSrc})` : "none",
           backgroundSize: "cover",
-          backgroundPosition: "center top",
+          backgroundPosition: "center",
+          zIndex: 0,
         }}
       >
-
-        {/* Deep cinematic base darkening */}
+        {/* iOS Frosted Glass Layer */}
         <div
           style={{
             position: "absolute",
             inset: 0,
-            background:
-              "linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.15) 25%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.55) 75%, #050505 100%)",
+            background: "rgba(10, 10, 12, 0.65)",
+            backdropFilter: "blur(60px) saturate(180%)",
+            WebkitBackdropFilter: "blur(60px) saturate(180%)",
             pointerEvents: "none",
           }}
         />
-        {/* Side vignettes — deep dark edges */}
+        {/* Subtle top/bottom gradients for depth */}
         <div
           style={{
             position: "absolute",
             inset: 0,
-            background:
-              "linear-gradient(90deg, rgba(0,0,0,0.97) 0%, rgba(0,0,0,0.65) 15%, rgba(0,0,0,0.2) 35%, transparent 50%, rgba(0,0,0,0.2) 65%, rgba(0,0,0,0.65) 85%, rgba(0,0,0,0.97) 100%)",
-            pointerEvents: "none",
-          }}
-        />
-        {/* Top fade — navbar blend */}
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            height: "180px",
-            background:
-              "linear-gradient(to bottom, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 35%, rgba(0,0,0,0.2) 70%, transparent 100%)",
-            pointerEvents: "none",
-          }}
-        />
-        {/* Bottom fade — solid #050505 seam into content */}
-        <div
-          style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: "60%",
-            background:
-              "linear-gradient(to top, #050505 0%, #050505 8%, rgba(5,5,5,0.98) 20%, rgba(5,5,5,0.85) 40%, rgba(5,5,5,0.5) 65%, rgba(0,0,0,0.2) 85%, transparent 100%)",
-            pointerEvents: "none",
-          }}
-        />
-        {/* Radial vignette — focus center */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "radial-gradient(ellipse 70% 50% at 50% 35%, transparent 0%, rgba(0,0,0,0.25) 55%, rgba(0,0,0,0.7) 100%)",
+            background: "linear-gradient(180deg, rgba(0,0,0,0.4) 0%, transparent 20%, transparent 80%, rgba(5,5,5,0.9) 100%)",
             pointerEvents: "none",
           }}
         />
@@ -814,17 +775,25 @@ export default function TitleDetails() {
         transition={{ delay: 0.15, duration: 0.5, ease: "easeOut" }}
         style={{
           position: "sticky",
-          top: 56,
+          top: 76, // slightly lower
           zIndex: 10,
-          paddingTop: "0.75rem",
+          paddingTop: "0.5rem",
           paddingBottom: "0.5rem",
-          paddingLeft: "clamp(1rem, 2.5vw, 2.5rem)",
-          paddingRight: "clamp(1rem, 2.5vw, 2.5rem)",
+          paddingLeft: "clamp(1rem, 2vw, 1.5rem)",
+          paddingRight: "clamp(1rem, 2vw, 1.5rem)",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          background: "transparent",
-          borderBottom: "none",
+          background: "rgba(20, 20, 25, 0.4)",
+          backdropFilter: "blur(20px) saturate(150%)",
+          WebkitBackdropFilter: "blur(20px) saturate(150%)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          borderRadius: "100px",
+          width: "calc(100% - 2rem)",
+          maxWidth: "1600px",
+          marginLeft: "auto",
+          marginRight: "auto",
+          marginTop: "1rem",
         }}
       >
         {/* Left: Breadcrumb + Back */}
@@ -962,7 +931,8 @@ export default function TitleDetails() {
 
       {/* ── Main Content Block ────────────────────────────────────────────────── */}
       <motion.div
-        className="details-content-wrapper"
+        className="details-content-wrapper ios-glass-card"
+        style={{ padding: '2rem', marginTop: 'min(16vh, 180px)', backdropFilter: 'blur(30px) saturate(200%)' }}
         variants={pageVariants}
         initial="hidden"
         animate="show"
@@ -1665,7 +1635,8 @@ export default function TitleDetails() {
       {/* ── Episodes ─────────────────────────────────────────────────────────── */}
       {isTvContent && hasSeriesEpisodes && (
         <motion.section
-          style={{ position: "relative", zIndex: 1, marginTop: "1.5rem", paddingLeft: "1rem", paddingRight: "1rem", maxWidth: "1600px", marginLeft: "auto", marginRight: "auto" }}
+          className="ios-glass-card"
+          style={{ position: "relative", zIndex: 1, marginTop: "1.5rem", padding: "2rem", maxWidth: "1600px", marginLeft: "auto", marginRight: "auto" }}
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-40px" }}
@@ -2051,7 +2022,8 @@ export default function TitleDetails() {
       {/* ── Trailers ──────────────────────────────────────────────────────────── */}
       {movie.videos && movie.videos.length > 0 && (
         <motion.section
-          style={{ position: "relative", zIndex: 1, marginTop: "2rem", paddingLeft: "1rem", paddingRight: "1rem", maxWidth: "1600px", marginLeft: "auto", marginRight: "auto" }}
+          className="ios-glass-card"
+          style={{ position: "relative", zIndex: 1, marginTop: "2rem", padding: "2rem", maxWidth: "1600px", marginLeft: "auto", marginRight: "auto" }}
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true, margin: "-40px" }}
@@ -2096,7 +2068,8 @@ export default function TitleDetails() {
       {/* ── More Like This ────────────────────────────────────────────────────── */}
       {(loading || (similar && similar.length > 0)) && (
         <motion.section
-          style={{ position: "relative", zIndex: 1, marginTop: "2rem", paddingLeft: "1rem", paddingRight: "1rem", maxWidth: "1600px", marginLeft: "auto", marginRight: "auto" }}
+          className="ios-glass-card"
+          style={{ position: "relative", zIndex: 1, marginTop: "2rem", padding: "2rem", maxWidth: "1600px", marginLeft: "auto", marginRight: "auto" }}
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true, margin: "-40px" }}
