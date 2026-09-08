@@ -351,56 +351,65 @@ const Top10Rail = React.memo(
                 >
                   <div
                     style={{
-                      position: "relative",
                       display: "flex",
                       alignItems: "flex-end",
                       height: "300px",
                       flexShrink: 0,
                     }}
                   >
-                    <span
-                      className="top10-number"
-                      style={{
-                        flexShrink: 0,
-                        lineHeight: 0.8,
-                        whiteSpace: "nowrap",
-                        fontWeight: 900,
-                        marginRight: "-56px",
-                        zIndex: 1,
-                        pointerEvents: "none",
-                        userSelect: "none",
-                        fontSize: "clamp(6rem, 12vw, 13.5rem)",
-                        color:
-                          i === 0
-                            ? "rgba(251,191,36,0.12)"
-                            : i === 1
-                              ? "rgba(148,163,184,0.12)"
-                              : i === 2
-                                ? "rgba(201,124,74,0.12)"
-                                : "rgba(255,255,255,0.04)",
-                        WebkitTextStroke:
-                          "2.5px " +
-                          (i === 0
-                            ? "#fbbf24"
-                            : i === 1
-                              ? "#94a3b8"
-                              : i === 2
-                                ? "#c97c4a"
-                                : "rgba(255,255,255,0.25)"),
-                        textShadow: "0 2px 18px rgba(0,0,0,0.65)",
-                      }}
-                    >
-                      {i + 1}
-                    </span>
                     <div
                       style={{
-                        position: "relative",
-                        zIndex: 2,
+                        width: "104px",
+                        flexShrink: 0,
+                        textAlign: "right",
+                        marginRight: "10px",
+                        lineHeight: 0.8,
+                        pointerEvents: "none",
+                        userSelect: "none",
+                      }}
+                      aria-hidden="true"
+                    >
+                      <span
+                        className="top10-number"
+                        style={{
+                          display: "block",
+                          whiteSpace: "nowrap",
+                          fontWeight: 900,
+                          letterSpacing: "-0.04em",
+                          fontSize:
+                            i === 9
+                              ? "clamp(3.25rem, 6vw, 6.5rem)"
+                              : "clamp(5.5rem, 10vw, 11rem)",
+                          color:
+                            i === 0
+                              ? "rgba(251,191,36,0.9)"
+                              : i === 1
+                                ? "rgba(180,192,205,0.85)"
+                                : i === 2
+                                  ? "rgba(201,124,74,0.85)"
+                                  : "rgba(255,255,255,0.35)",
+                          WebkitTextStroke:
+                            "1px " +
+                            (i === 0
+                              ? "rgba(251,191,36,0.5)"
+                              : i === 1
+                                ? "rgba(180,192,205,0.4)"
+                                : i === 2
+                                  ? "rgba(201,124,74,0.45)"
+                                  : "rgba(255,255,255,0.14)"),
+                          textShadow: "0 2px 16px rgba(0,0,0,0.6)",
+                        }}
+                      >
+                        {i + 1}
+                      </span>
+                    </div>
+                    <div
+                      style={{
                         width: "200px",
                         flexShrink: 0,
                       }}
                     >
-                      <MovieCard movie={movie} compact />
+                      <MovieCard movie={movie} />
                     </div>
                   </div>
                 </motion.div>
