@@ -1010,7 +1010,9 @@ export default function TitleDetails() {
           transition={{ duration: 0.4 }}
         >
           <div style={{ minWidth: 0 }}>
-            <CastRail cast={movie.cast} />
+            <ErrorBoundary>
+              <CastRail cast={movie.cast} />
+            </ErrorBoundary>
           </div>
         </motion.section>
       )}
@@ -1518,6 +1520,7 @@ export default function TitleDetails() {
               ))}
             </div>
           ) : (
+            <ErrorBoundary>
             <motion.div
               className="movie-grid"
 
@@ -1541,6 +1544,7 @@ export default function TitleDetails() {
                 </motion.div>
               ))}
             </motion.div>
+            </ErrorBoundary>
           )}
         </motion.section>
       )}
@@ -1577,6 +1581,7 @@ export default function TitleDetails() {
             >
               <RailArrow dir="left" onClick={() => scrollDirector("left")} />
               <RailArrow dir="right" onClick={() => scrollDirector("right")} />
+              <ErrorBoundary>
               {similar.slice(0, 8).filter(s => s.director && s.director === movie.director).slice(0, 5).map((sim, idx) => (
               <motion.div
                 key={`dir-${sim.id}-${idx}`}
@@ -1589,6 +1594,7 @@ export default function TitleDetails() {
                 <MovieCard movie={{ ...sim, source: sim.source || resolvedPlatform }} />
               </motion.div>
             ))}
+              </ErrorBoundary>
           </div>
         </motion.section>
       )}

@@ -6,6 +6,7 @@ import { ChevronLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import MovieCard from "../components/MovieCard";
 import AmbientBackground from "../components/AmbientBackground";
+import ErrorBoundary from "../components/ErrorBoundary";
 
 export default function CategoryPage() {
   const { name } = useParams();
@@ -185,6 +186,7 @@ export default function CategoryPage() {
       {allMovies.length === 0 ? (
         <p style={{ color: "#a1a1aa" }}>No movies found in this category.</p>
       ) : (
+        <ErrorBoundary>
         <div className="movie-grid" style={{ marginTop: "1rem" }}>
           {visibleMovies.map((movie, index) => (
             <motion.div
@@ -201,6 +203,7 @@ export default function CategoryPage() {
             </motion.div>
           ))}
         </div>
+        </ErrorBoundary>
       )}
     </div>
   );

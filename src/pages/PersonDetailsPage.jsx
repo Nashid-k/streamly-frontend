@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { movieService } from "../api/movieService";
 import MovieCard from "../components/MovieCard";
+import ErrorBoundary from "../components/ErrorBoundary";
 
 export default function PersonDetails() {
   const { id } = useParams();
@@ -355,6 +356,7 @@ export default function PersonDetails() {
           <div className="section-header">
             <h2 className="section-title">Known For</h2>
           </div>
+          <ErrorBoundary>
           <div
             style={{
               display: "flex",
@@ -383,6 +385,7 @@ export default function PersonDetails() {
               </motion.div>
             ))}
           </div>
+          </ErrorBoundary>
         </section>
       )}
 
@@ -392,6 +395,7 @@ export default function PersonDetails() {
           <div className="section-header">
             <h2 className="section-title">Full Filmography</h2>
           </div>
+          <ErrorBoundary>
           <div className="movie-grid" style={{ marginTop: "1.5rem" }}>
             {person.credits.map((movie, idx) => (
               <motion.div
@@ -411,6 +415,7 @@ export default function PersonDetails() {
               </motion.div>
             ))}
           </div>
+          </ErrorBoundary>
         </section>
       )}
     </div>

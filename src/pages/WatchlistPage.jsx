@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAppAuth } from "../context/AuthContext";
 import { useToast } from "../components/Toast.jsx";
 import MovieCard from "../components/MovieCard";
+import ErrorBoundary from "../components/ErrorBoundary";
 
 export default function WatchlistPage() {
   const navigate = useNavigate();
@@ -285,6 +286,7 @@ export default function WatchlistPage() {
             No items match this filter.
           </motion.div>
         ) : (
+          <ErrorBoundary>
           <div className="movie-grid" style={{ marginTop: "1rem" }}>
             <AnimatePresence>
               {visibleResults.map((movie, idx) => (
@@ -345,6 +347,7 @@ export default function WatchlistPage() {
               ))}
             </AnimatePresence>
           </div>
+          </ErrorBoundary>
         )}
       </div>
     </div>

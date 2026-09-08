@@ -6,6 +6,7 @@ import { movieService } from "../api/movieService";
 import MovieCard from "../components/MovieCard";
 import DiscoveryRails from "../components/DiscoveryRails";
 import AmbientBackground from "../components/AmbientBackground";
+import ErrorBoundary from "../components/ErrorBoundary";
 
 export default function GenrePage() {
   const { genre } = useParams();
@@ -239,6 +240,7 @@ export default function GenrePage() {
           <DiscoveryRails />
 
           {/* Content */}
+          <ErrorBoundary>
           {loading ? (
             <div className="movie-grid" style={{ marginTop: "1rem" }}>
               {[...Array(12)].map((_, i) => (
@@ -291,6 +293,7 @@ export default function GenrePage() {
               ))}
             </div>
           )}
+          </ErrorBoundary>
         </div>
       </div>
     </div>

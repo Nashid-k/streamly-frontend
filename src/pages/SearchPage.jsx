@@ -10,6 +10,7 @@ import DiscoveryRails from "../components/DiscoveryRails";
 import EmptyState from "../components/EmptyState";
 import Button from "../components/Button";
 import AmbientBackground from "../components/AmbientBackground";
+import ErrorBoundary from "../components/ErrorBoundary";
 
 export default function SearchPage() {
   const [searchParams] = useSearchParams();
@@ -293,7 +294,8 @@ export default function SearchPage() {
         <DiscoveryRails />
 
         {/* Content */}
-        {loading ? (
+        <ErrorBoundary>
+          {loading ? (
           <div className="movie-grid" style={{ marginTop: "1rem" }}>
             {[...Array(12)].map((_, i) => (
               <div key={i} className="skeleton-moviecard">
@@ -426,6 +428,7 @@ export default function SearchPage() {
             ))}
           </div>
         )}
+        </ErrorBoundary>
       </div>
     </div>
   );

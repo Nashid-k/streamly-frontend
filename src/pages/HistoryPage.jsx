@@ -6,6 +6,7 @@ import { useAppAuth } from "../context/AuthContext";
 import { useToast } from "../components/Toast.jsx";
 import { useConfirmDialog } from "../components/ConfirmDialog.jsx";
 import MovieCard from "../components/MovieCard.jsx";
+import ErrorBoundary from "../components/ErrorBoundary";
 
 
 export default function HistoryPage() {
@@ -198,6 +199,7 @@ export default function HistoryPage() {
             </motion.button>
           </motion.div>
         ) : (
+          <ErrorBoundary>
           <div
             style={{ display: "flex", flexDirection: "column", gap: "3rem" }}
           >
@@ -306,6 +308,7 @@ export default function HistoryPage() {
               );
             })}
           </div>
+          </ErrorBoundary>
         )}
       </div>
     </div>
