@@ -606,11 +606,11 @@ a {
   object-position: center 20%;
   animation: kenBurns 20s ease-in-out infinite alternate;
   will-change: transform;
-  /* Fade the banner image up to transparent toward the bottom (mirrors the
-     watch/details hero mask) so the hero melts into the page's ambient
-     image below — no hard image edge. */
-  -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 92%);
-  mask-image: linear-gradient(to bottom, black 40%, transparent 92%);
+  /* Exact same mask as the watch/details page hero: image fully fades to
+     transparent well before the bottom, so the banner's bottom edge is
+     completely gone and only the ambient gradient shows through. */
+  -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 98%);
+  mask-image: linear-gradient(to bottom, black 40%, transparent 98%);
 }
 .hero-bg.paused {
   animation-play-state: paused;
@@ -712,21 +712,25 @@ a {
   max-width: 62ch;
 }
 
-/* ── Apple-variant overlay — banner-based gradient covering the bottom ──
-   Reuses the exact watch/details hero gradient stack. The bottom stop is
-   fully opaque (#050505) so it completely covers the banner image's bottom
-   edge; because the ambient page below uses the same gradient, the hero
-   melts seamlessly into the page with no visible image line. */
+/* ── Apple-variant overlay — exactly the watch/details page gradient ──
+   Reuses the identical watch-hero-gradient stack (opaque #050505 bottom,
+   same left/right vignettes). Paired with the hero image mask, this makes
+   the banner melt seamlessly into the AmbientBackground below — the exact
+   approach the movie details/watch page uses. */
 .hero-overlay--apple {
   position: absolute;
   inset: 0;
   background:
-    /* Bottom fade — opaque at the very bottom to cover the image edge */
-    linear-gradient(0deg, rgba(5,5,5,0.98) 0%, rgba(5,5,5,0.94) 6%, rgba(5,5,5,0.82) 14%, rgba(5,5,5,0.6) 24%, rgba(5,5,5,0.3) 42%, transparent 62%),
-    /* Soft left vignette — feathered, no hard vertical line */
-    radial-gradient(ellipse 65% 100% at 0% 50%, rgba(5,5,5,0.85) 0%, rgba(5,5,5,0.4) 40%, transparent 70%),
-    /* Soft right vignette */
+    linear-gradient(0deg, rgba(5,5,5,0.98) 0%, rgba(5,5,5,0.92) 8%, rgba(5,5,5,0.6) 22%, rgba(5,5,5,0.25) 45%, transparent 65%),
+    radial-gradient(ellipse 65% 100% at 0% 50%, rgba(5,5,5,0.8) 0%, rgba(5,5,5,0.35) 40%, transparent 70%),
     radial-gradient(ellipse 35% 100% at 100% 50%, rgba(5,5,5,0.45) 0%, transparent 60%);
+  /* Fade the overlay out with the image (same mask as .hero-bg, exactly like
+     the watch/details page where the mask wraps image + gradient together).
+     This removes the opaque bottom band that was creating the visible
+     "banner image bottom" line — image and gradient now melt into the
+     ambient together. */
+  -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 98%);
+  mask-image: linear-gradient(to bottom, black 40%, transparent 98%);
 }
 
 /* ── Watch/details page — reuse the exact hero banner gradient stack ── */
