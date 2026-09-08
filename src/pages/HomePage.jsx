@@ -1196,9 +1196,9 @@ export default function Home({
                 </div>
 
                 {/* Description */}
-                {(activeFeaturedMovie.description || activeFeaturedMovie.longDescription) && (
+                {(activeFeaturedMovie.description || activeFeaturedMovie.longDescription || activeFeaturedMovie.overview) && (
                   <p className="hero-desc hero-desc--apple">
-                    {activeFeaturedMovie.description || activeFeaturedMovie.longDescription}
+                    {activeFeaturedMovie.description || activeFeaturedMovie.longDescription || activeFeaturedMovie.overview}
                   </p>
                 )}
 

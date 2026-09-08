@@ -25,6 +25,8 @@ function normalizeResult(item) {
     posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
     backdropUrl: item.backdrop_path ? `https://image.tmdb.org/t/p/w1280${item.backdrop_path}` : null,
     overview: item.overview || '',
+    description: item.overview || '',
+    longDescription: item.overview || '',
     imdbRating: item.vote_average ? parseFloat(item.vote_average.toFixed(1)) : null,
     year: (item.release_date || item.first_air_date || '').slice(0, 4) || null,
     isSeries: isTV,
