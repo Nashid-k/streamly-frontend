@@ -151,11 +151,12 @@ export const movieService = {
       id: ep.id,
       episodeNumber: ep.episode_number,
       seasonNumber: ep.season_number,
-      name: ep.name,
-      overview: ep.overview,
+      title: ep.name,
+      description: ep.overview,
       airDate: ep.air_date,
-      stillUrl: ep.still_path ? `https://image.tmdb.org/t/p/w300${ep.still_path}` : null,
-      runtime: ep.runtime,
+      thumbnailUrl: ep.still_path ? `https://image.tmdb.org/t/p/w300${ep.still_path}` : null,
+      durationMins: ep.runtime,
+      duration: ep.runtime ? `${ep.runtime}m` : '',
     }));
     const now = new Date();
     const releasedEpisodes = episodes.filter(ep => ep.airDate && new Date(ep.airDate) <= now).length;
