@@ -1,3 +1,4 @@
+@import "tailwindcss/utilities";
 :root {
   /* ── Colors ────────────────────────────────────────────── */
   --bg-color: #000000;
