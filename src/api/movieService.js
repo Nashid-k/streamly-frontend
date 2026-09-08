@@ -53,7 +53,19 @@ export const movieService = {
 
   getFeaturedMovies: async () => {
     const data = await tmdb('/trending/all/week');
-    return (data.results || []).map(normalizeResult);
+    const results = (data.results || []).slice(0, 5);
+    // Fetch details for the featured movies to get logos
+    return await Promise.all(results.map(async (r) => {
+      try {
+        const detail = await tmdb(`/${r.media_type || 'movie'}/${r.id}`, { append_to_response: 'images' });
+        const item = { ...r, ...detail };
+        const base = normalizeResult(item);
+        const logoUrl = (detail.images?.logos || []).find(l => l.iso_639_1 === 'en' || !l.iso_639_1)?.file_path ? `https://image.tmdb.org/t/p/w500${(detail.images?.logos || []).find(l => l.iso_639_1 === 'en' || !l.iso_639_1).file_path}` : null;
+        return { ...base, logoUrl };
+      } catch {
+        return normalizeResult(r);
+      }
+    }));
   },
 
   getCategories: async () => {
@@ -108,6 +120,7 @@ export const movieService = {
       tagline: detail.tagline || '',
       runtime: detail.runtime || (detail.episode_run_time?.[0]) || null,
       genres: (detail.genres || []).map(g => g.name),
+      logoUrl: (detail.images?.logos || []).find(l => l.iso_639_1 === 'en' || !l.iso_639_1)?.file_path ? `https://image.tmdb.org/t/p/w500${(detail.images?.logos || []).find(l => l.iso_639_1 === 'en' || !l.iso_639_1).file_path}` : null,
       cast: (credits.cast || []).slice(0, 20).map(c => ({
         id: c.id,
         name: c.name,
