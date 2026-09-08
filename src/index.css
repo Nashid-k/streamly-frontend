@@ -306,23 +306,23 @@ a {
   transform: scale(0.96);
 }
 
-/* Home — solid accent pill (matches the active-pill language used elsewhere) */
+/* Home — renders as a normal nav link, and becomes the solid accent pill
+   ONLY while on the home route (i.e. when it's the active page). This stops
+   Home from appearing "active" on every other page. */
 .nav-link--home {
+  gap: 6px;
+  padding: 7px 16px;
+  font-weight: 600;
+}
+.nav-link--home:hover {
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.55), rgba(251, 146, 60, 0.55));
+  color: #ffffff;
+}
+.nav-link--home.nav-link--active {
   background: linear-gradient(135deg, rgba(244, 63, 94, 0.9), rgba(251, 146, 60, 0.9));
   color: #ffffff;
   opacity: 1;
-  gap: 6px;
-  padding: 7px 20px;
-  font-weight: 600;
   box-shadow: 0 4px 18px rgba(244, 63, 94, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
-}
-.nav-link--home:hover {
-  background: linear-gradient(135deg, rgba(244, 63, 94, 1), rgba(251, 146, 60, 1));
-  color: #ffffff;
-  box-shadow: 0 6px 24px rgba(244, 63, 94, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.25);
-}
-.nav-link--home.nav-link--active {
-  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35), 0 4px 18px rgba(244, 63, 94, 0.4);
 }
 
 .nav-link--active {
@@ -606,6 +606,10 @@ a {
   object-position: center 20%;
   animation: kenBurns 20s ease-in-out infinite alternate;
   will-change: transform;
+  /* Soft-fade the image bottom so the banner melts into the page ambient
+     instead of showing a hard line (mirrors the watch/details page mask). */
+  -webkit-mask-image: linear-gradient(to bottom, black 78%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 78%, transparent 100%);
 }
 .hero-bg.paused {
   animation-play-state: paused;

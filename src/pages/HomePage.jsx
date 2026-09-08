@@ -863,6 +863,7 @@ export default function Home({
     let globalPool = [];
     let regionalPool = [];
     let recommendedPool = [];
+    let tabFilteredMovies = [];
 
     // 1. Gather Global Featured
     if (featuredMovies.length > 0) {
@@ -887,7 +888,7 @@ export default function Home({
       });
 
       // Filter for the current tab (Movies vs Series)
-      let tabFilteredMovies = allCategoryMovies;
+      tabFilteredMovies = allCategoryMovies;
       if (filter === "series" || filter === "tv shows")
         tabFilteredMovies = tabFilteredMovies.filter((m) => m.isSeries);
       if (filter === "movies")
@@ -954,14 +955,25 @@ export default function Home({
       pushToPool(recommendedPool[recIdx++]);
     }
 
-    // 5. Always find better: If the active filter yielded no movies with a
-    // banner image, fallback to ANY featured movie that is banner-ready so
-    // the banner doesn't break
-    if (pool.length === 0 && featuredMovies.length > 0) {
+    // 5. Always find better: If the pool didn't reach 7 banner-ready items,
+    // backfill from any featured movie that is banner-ready.
+    if (pool.length < 7 && featuredMovies.length > 0) {
       for (const fm of featuredMovies) {
+        if (pool.length >= 7) break;
         if (bannerReady(fm)) {
           pushToPool(fm);
-          if (pool.length >= 5) break;
+        }
+      }
+    }
+
+    // 6. Last resort: if we still didn't hit 7, pull from ANY source movie
+    // with an image so the hero always has a full rotation.
+    if (pool.length < 7) {
+      const allCandidates = [...tabFilteredMovies, ...featuredMovies];
+      for (const m of allCandidates) {
+        if (pool.length >= 7) break;
+        if (m && (m.backdropUrl || m.posterUrl || m.poster)) {
+          pushToPool(m);
         }
       }
     }
