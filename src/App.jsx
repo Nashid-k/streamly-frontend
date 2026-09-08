@@ -16,7 +16,6 @@ import {
   Bookmark,
   Clock,
   Keyboard,
-  Film,
   Clapperboard,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -27,8 +26,6 @@ import Loader from "./components/Loader";
 import BackToTop from "./components/BackToTop";
 import Popover from "./components/Popover";
 import { useScrollRestoration } from "./hooks/useScrollRestoration";
-
-const APP_VERSION = __VERSION__ || "1.0.0";
 
 /* Single source of truth for the navigation entries — feeds both the
    desktop nav (Home = white pill, rest = text links) and the mobile bottom bar. */
@@ -107,23 +104,10 @@ function Layout({ children }) {
       </a>
 
       {/* ── Apple-style Navbar ─────────────────────────────────────────────────
-          Full-width frosted glass bar · logo left · nav links + icons right.
+          Right-docked frosted glass dock · brand mark lives as a standalone
+          fixed element on the left (opposite the nav) · nav links + icons right.
           Home renders as a solid white pill; the rest are text links. */}
       <nav className={`navbar${isScrolled ? " scrolled" : ""}`}>
-        {/* Left — logo mark + wordmark */}
-        <div className="nav-left">
-          <Link to="/" className="logo" aria-label="Streamly home">
-            <div className="logo-icon">
-              <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="1" y="1" width="30" height="30" rx="8.5" fill="#ffffff" />
-                <path d="M12.6 9.4 L23 16 L12.6 22.6 Z" fill="#050505" />
-              </svg>
-            </div>
-            <span className="logo-word">Streamly</span>
-            <span className="logo-version">v{APP_VERSION}</span>
-          </Link>
-        </div>
-
         {/* Right — nav links + icon cluster */}
         <div className="nav-cluster">
           <div className="nav-links">
@@ -207,6 +191,30 @@ function Layout({ children }) {
         </div>
         </div>
       </nav>
+
+      {/* Left — standalone brand mark, opposite the right-docked nav */}
+      <div className="app-brand">
+        <Link to="/" className="app-brand-link" aria-label="Streamly home">
+          <span className="app-brand-mark">
+            <svg viewBox="0 0 48 48" width="44" height="44" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="streamly-grad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#f43f5e" />
+                  <stop offset="55%" stopColor="#fb7185" />
+                  <stop offset="100%" stopColor="#fb923c" />
+                </linearGradient>
+              </defs>
+              <rect x="1.5" y="1.5" width="45" height="45" rx="13.5" fill="url(#streamly-grad)" />
+              <rect x="1.5" y="1.5" width="45" height="45" rx="13.5" stroke="rgba(255,255,255,0.25)" strokeWidth="1" />
+              <path d="M20 15.5 L32 24 L20 32.5 Z" fill="#ffffff" stroke="none" />
+              <path d="M8 30.5 C 11 27.5 14 33.5 17 30.5 C 20 27.5 23 33.5 26 30.5" stroke="#ffffff" strokeWidth="2.4" strokeLinecap="round" fill="none" opacity="0.85" />
+            </svg>
+          </span>
+          <span className="app-brand-word">
+            Stream<span style={{ color: "#fb923c" }}>ly</span>
+          </span>
+        </Link>
+      </div>
 
       {/* Main Content Area with Page Transitions */}
       <main className="main-content" id="main-content">

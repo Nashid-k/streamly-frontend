@@ -185,107 +185,93 @@ a {
   background: #050505;
 }
 
-/* ── Floating pill Navbar ────────────────────────────────────────────────────
-   Centered floating pill: logo on the left, nav links + icon cluster on the
-   right. Subtle glass over hero; deep frosted glass once scrolled. */
+/* ── Floating pill Navbar — right-docked ───────────────────────────────────
+   Right edges the viewport: brand mark sits standalone on the left, the nav
+   links + icon cluster dock right. Subtle glass over hero; deep frosted glass
+   once scrolled. */
 .navbar {
   position: fixed;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(100% - 2rem, 1480px);
+  top: 18px;
+  right: clamp(1rem, 2.5vw, 2.25rem);
+  left: auto;
   z-index: var(--z-sticky);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 1rem;
-  padding: 0 clamp(1rem, 2.5vw, 2.25rem);
-  height: 56px;
+  padding: 8px clamp(0.75rem, 2vw, 1.5rem);
   border-radius: 999px;
-  background: rgba(20, 20, 24, 0.35);
-  backdrop-filter: blur(28px) saturate(150%);
-  -webkit-backdrop-filter: blur(28px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2), 0 4px 20px rgba(0, 0, 0, 0.35);
+  background: rgba(20, 20, 24, 0.42);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25), 0 4px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: background, backdrop-filter, border-color, box-shadow;
 }
 .navbar.scrolled {
-  background: rgba(20, 20, 24, 0.55);
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
-}
-
-/* Left zone */
-.nav-left {
-  display: flex;
-  align-items: center;
-  flex: 0 1 auto;
-  min-width: 0;
+  background: rgba(20, 20, 24, 0.6);
+  backdrop-filter: blur(48px) saturate(200%);
+  -webkit-backdrop-filter: blur(48px) saturate(200%);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 /* Right zone — nav links + icons grouped together */
 .nav-cluster {
   display: flex;
   align-items: center;
-  gap: 28px;
+  gap: 22px;
   flex: 0 1 auto;
   min-width: 0;
 }
 
-/* Logo — glass pill */
-.logo {
-  font-size: 1.18rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+/* ── Standalone brand mark — fixed at top-left, opposite the nav ───────── */
+.app-brand {
+  position: fixed;
+  top: 12px;
+  left: clamp(1rem, 2.5vw, 2.25rem);
+  z-index: var(--z-sticky);
+}
+.app-brand-link {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.65rem;
   color: #ffffff;
   text-decoration: none;
-  padding: 5px 16px 5px 6px;
+  padding: 6px 18px 6px 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 4px 20px rgba(0, 0, 0, 0.25);
-  transition: opacity 0.2s ease, background 0.3s ease, border-color 0.3s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  background: rgba(20, 20, 24, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25), 0 4px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: background 0.3s ease, border-color 0.3s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
   white-space: nowrap;
 }
-.logo:hover {
-  opacity: 1;
-  background: rgba(255, 255, 255, 0.09);
-  border-color: rgba(255, 255, 255, 0.16);
+.app-brand-link:hover {
+  background: rgba(30, 30, 36, 0.6);
+  border-color: rgba(255, 255, 255, 0.18);
   transform: translateY(-1px);
 }
-.logo-icon {
-  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.6));
+.app-brand-link.scrolled {
+  background: rgba(20, 20, 24, 0.6);
+  backdrop-filter: blur(48px) saturate(200%);
+  -webkit-backdrop-filter: blur(48px) saturate(200%);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+.app-brand-mark {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
-  overflow: hidden;
+  filter: drop-shadow(0 3px 12px rgba(244, 63, 94, 0.45));
   flex-shrink: 0;
 }
-.logo-word {
+.app-brand-word {
   font-weight: 800;
+  font-size: 1.18rem;
   letter-spacing: -0.03em;
   line-height: 1;
-}
-.logo-version {
-  font-size: 0.48rem;
-  color: rgba(255, 255, 255, 0.5);
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  padding: 2px 5px;
-  border-radius: 5px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  vertical-align: super;
-  flex-shrink: 0;
 }
 
 /* ── Right nav links — Home as a solid white pill, rest as text ────────── */
@@ -313,7 +299,8 @@ a {
 }
 .nav-link:hover {
   opacity: 1;
-  background: rgba(255, 255, 255, 0.08);
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.55), rgba(251, 146, 60, 0.55));
+  color: #ffffff;
 }
 .nav-link:active {
   transform: scale(0.96);
@@ -330,8 +317,8 @@ a {
   box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
 }
 .nav-link--home:hover {
-  background: rgba(255, 255, 255, 0.88);
-  color: #000000;
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.9), rgba(251, 146, 60, 0.9));
+  color: #ffffff;
 }
 .nav-link--home.nav-link--active {
   box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.55), 0 2px 14px rgba(0, 0, 0, 0.35);
@@ -388,11 +375,11 @@ a {
 }
 .nav-icon-btn:hover {
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.08);
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.55), rgba(251, 146, 60, 0.55));
 }
 .nav-icon-btn--active {
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.12);
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.75), rgba(251, 146, 60, 0.75));
 }
 
 /* Notification badge */
@@ -2154,22 +2141,36 @@ input:focus-visible {
 
   /* Navbar */
   .navbar {
-    padding: calc(0.5rem + env(safe-area-inset-top, 0px)) 0.75rem !important;
-    height: 56px;
+    top: 8px !important;
+    right: 0.75rem;
+    padding: 6px !important;
+    height: auto;
     background: rgba(12, 12, 15, 0.65) !important;
     backdrop-filter: blur(32px) saturate(180%) !important;
     -webkit-backdrop-filter: blur(32px) saturate(180%) !important;
     border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  }
+  .nav-cluster {
+    gap: 8px !important;
   }
   .nav-links,
   .nav-pill,
   .search-container {
     display: none !important;
   }
-  .logo {
-    font-size: 1.15rem !important;
+  .logo,
+  .app-brand-link {
+    font-size: 1.05rem !important;
     gap: 4px !important;
-    padding: 4px 12px 4px 5px !important;
+    padding: 4px 10px 4px 4px !important;
+  }
+  .app-brand {
+    top: 6px;
+    left: 0.75rem;
+  }
+  .app-brand-mark svg {
+    width: 36px;
+    height: 36px;
   }
   .nav-icon-btn {
     width: 34px;
