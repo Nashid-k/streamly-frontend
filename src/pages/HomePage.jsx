@@ -1202,7 +1202,7 @@ export default function Home({
                   </p>
                 )}
 
-                {/* CTA row — white Play pill · single info/list pill · tiny list toggle */}
+                {/* CTA row — white Play pill · single pill with list toggle | info */}
                 <div className="hero-ctas">
                   <Link to={`/watch/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`}>
                     <motion.button
@@ -1215,31 +1215,30 @@ export default function Home({
                     </motion.button>
                   </Link>
 
-                  <Link to={`/watch/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`}>
+                  <div className="hero-action-pill inline-flex items-center h-[52px] shrink-0 rounded-full bg-white/10 backdrop-blur-[20px] backdrop-saturate-150 border border-white/10 shadow-lg shadow-black/5">
                     <motion.button
-                      className="hero-action-pill inline-flex items-center h-[52px] shrink-0 rounded-full bg-white/10 backdrop-blur-[20px] backdrop-saturate-150 border border-white/10 shadow-lg shadow-black/5"
-                      whileHover={{ scale: 1.04 }}
-                      whileTap={{ scale: 0.96 }}
+                      className="hero-cta-secondary-icon"
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.92 }}
+                      onClick={() => toggleMyList(activeFeaturedMovie)}
+                      aria-label={isInList(activeFeaturedMovie?.id) ? "Remove from My List" : "Add to My List"}
+                      title={isInList(activeFeaturedMovie?.id) ? "Remove from My List" : "Add to My List"}
                     >
-                      <span className="hero-cta-secondary-icon">
-                        {isInList(activeFeaturedMovie?.id) ? <Check size={18} /> : <Plus size={18} />}
-                      </span>
-                      <span className="hero-cta-secondary-icon">
-                        <Info size={18} />
-                      </span>
+                      {isInList(activeFeaturedMovie?.id) ? <Check size={18} /> : <Plus size={18} />}
                     </motion.button>
-                  </Link>
-
-                  <motion.button
-                    className="hero-cta-circle hero-cta-circle--tiny"
-                    whileHover={{ scale: 1.08 }}
-                    whileTap={{ scale: 0.92 }}
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleMyList(activeFeaturedMovie); }}
-                    aria-label={isInList(activeFeaturedMovie?.id) ? "Remove from My List" : "Add to My List"}
-                    title={isInList(activeFeaturedMovie?.id) ? "Remove from My List" : "Add to My List"}
-                  >
-                    {isInList(activeFeaturedMovie?.id) ? <Check size={14} /> : <Plus size={14} />}
-                  </motion.button>
+                    <span className="hero-cta-separator" aria-hidden="true">|</span>
+                    <Link to={`/watch/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`}>
+                      <motion.button
+                        className="hero-cta-secondary-icon"
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.92 }}
+                        aria-label="More info"
+                        title="More info"
+                      >
+                        <Info size={18} />
+                      </motion.button>
+                    </Link>
+                  </div>
                 </div>
               </motion.div>
             </div>

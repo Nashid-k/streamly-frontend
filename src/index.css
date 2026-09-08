@@ -828,8 +828,9 @@ a {
 .hero-action-pill {
   color: #ffffff;
   cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.2s ease;
-  padding: 0 8px;
+  transition: background-color 0.2s ease;
+  padding: 0 6px;
+  overflow: hidden;
 }
 .hero-action-pill:hover {
   background-color: rgba(255, 255, 255, 0.16);
@@ -838,17 +839,27 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
 }
-.hero-cta-secondary-icon + .hero-cta-secondary-icon {
-  margin-left: 2px;
+.hero-cta-secondary-icon:hover {
+  background-color: rgba(255, 255, 255, 0.14);
 }
-.hero-cta-circle--tiny {
-  width: 34px;
-  height: 34px;
-  border-width: 1.5px;
+.hero-cta-separator {
+  display: inline-flex;
+  align-items: center;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 1.25rem;
+  font-weight: 300;
+  line-height: 1;
+  padding: 0 2px;
+  user-select: none;
 }
 
 /* ── Apple-style dot indicators — spec: 24×4 active / 8×4 inactive ── */
