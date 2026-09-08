@@ -37,9 +37,9 @@ import { useScrollRestoration } from "./hooks/useScrollRestoration";
 const APP_VERSION = __VERSION__ || "1.0.0";
 
 /* Single source of truth for the navigation entries — feeds both the
-   desktop glass pill and the mobile bottom bar. */
+   desktop nav (Home = white pill, rest = text links) and the mobile bottom bar. */
 const NAV_ITEMS = [
-  { id: "home", label: "Home", to: "/", icon: Home, match: (p) => p === "/" },
+  { id: "home", label: "Home", to: "/", icon: Home, home: true, match: (p) => p === "/" },
   { id: "movies", label: "Movies", to: "/movies", icon: Clapperboard, match: (p) => p.startsWith("/movies") },
   { id: "shows", label: "Shows", to: "/series", icon: Tv, match: (p) => p.startsWith("/series") },
   { id: "mylist", label: "My List", to: "/watchlist", icon: Bookmark, match: (p) => p === "/watchlist" },
@@ -146,7 +146,7 @@ function Layout({ children }) {
 
       {/* ── Apple-style Navbar ─────────────────────────────────────────────────
           Full-width frosted glass bar · logo left · nav links + icons right.
-          Transitions from fully transparent to a deep frosted blur on scroll. */}
+          Home renders as a solid white pill; the rest are text links. */}
       <nav className={`navbar${isScrolled ? " scrolled" : ""}`}>
         {/* Left — logo mark + wordmark */}
         <div className="nav-left">
@@ -162,32 +162,24 @@ function Layout({ children }) {
           </Link>
         </div>
 
-        {/* Right — primary nav links (glass segmented pill) + icon cluster */}
+        {/* Right — nav links + icon cluster */}
         <div className="nav-cluster">
-          <div className="nav-center">
+          <div className="nav-links">
             {NAV_ITEMS.map((item) => {
               const active = item.match(location.pathname);
               return (
                 <Link
                   key={item.id}
                   to={item.to}
-                  className={`nav-link${active ? " nav-link--active" : ""}`}
+                  className={`nav-link${item.home ? " nav-link--home" : ""}${active ? " nav-link--active" : ""}`}
                   aria-current={active ? "page" : undefined}
                 >
+                  {item.home && <item.icon size={15} strokeWidth={2} />}
                   <span className="nav-link-label">{item.label}</span>
-                  {active && (
-                    <motion.span
-                      layoutId="nav-pill"
-                      className="nav-pill-indicator"
-                      transition={{ type: "spring", stiffness: 500, damping: 38, mass: 0.8 }}
-                    />
-                  )}
                 </Link>
               );
             })}
           </div>
-
-          <span className="nav-divider" aria-hidden="true" />
 
           {/* Right — icon cluster: search · bell · profile */}
         <div className="nav-right">

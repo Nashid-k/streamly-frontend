@@ -111,6 +111,7 @@ export default function MovieCard({
   progressValue = 0,
   compact = false,
   platformBadge = "sm",
+  bare = false,
 }) {
   const navigate = useNavigate();
   const { isInList, toggleMyList, addNotification } = useAppAuth();
@@ -768,28 +769,30 @@ export default function MovieCard({
             )}
           </div>
 
-          {/* ── Card info below poster ────────────────────────── */}
-          <div className="movie-info">
-            <h3 className="movie-title">{movie.title}</h3>
-            <div className="movie-meta">
-              <span>
-                {(movie.releaseYear || movie.year)?.toString().substring(0, 4)}
-              </span>
-              {rating > 0 && (
-                <span
-                  style={{
-                    color: ratingColor || "#fbbf24",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "3px",
-                  }}
-                >
-                  <Star size={11} fill="currentColor" stroke="none" />
-                  {rating}
+          {/* ── Card info below poster (hidden in bare/spec rec rows) ── */}
+          {!bare && (
+            <div className="movie-info">
+              <h3 className="movie-title">{movie.title}</h3>
+              <div className="movie-meta">
+                <span>
+                  {(movie.releaseYear || movie.year)?.toString().substring(0, 4)}
                 </span>
-              )}
+                {rating > 0 && (
+                  <span
+                    style={{
+                      color: ratingColor || "#fbbf24",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "3px",
+                    }}
+                  >
+                    <Star size={11} fill="currentColor" stroke="none" />
+                    {rating}
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </motion.div>
       ) : null}
     </div>

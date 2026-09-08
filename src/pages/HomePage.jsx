@@ -3,7 +3,7 @@ import slugify from "slugify";
 import ErrorBoundary from "../components/ErrorBoundary";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { Play, ChevronLeft, ChevronRight, Check, Plus, Info, LayoutGrid } from "lucide-react";
+import { Play, ChevronLeft, ChevronRight, Check, Plus, Info, LayoutGrid, Star, Calendar, Heart } from "lucide-react";
 import {
   motion,
   AnimatePresence,
@@ -15,6 +15,7 @@ import { useQuery } from "@tanstack/react-query";
 import { movieService } from "../api/movieService";
 import MovieCard from "../components/MovieCard";
 import PlatformIcon from "../components/PlatformIcon";
+import ContinueWatchingRail from "../components/ContinueWatchingRail";
 import RailArrow from "../components/RailArrow";
 import { PLATFORMS, normalizePlatformKey, normalizeMovieSource } from "../api/platformAdapter";
 import LeavingSoonBanner from "../components/LeavingSoonBanner";
@@ -69,7 +70,7 @@ const FadeInSection = ({ children, delay = 0 }) => (
 );
 
 const MovieRail = React.memo(
-  function MovieRail({ category, railIndex: _railIndex = 0 }) {
+  function MovieRail({ category, railIndex: _railIndex = 0, bare = false }) {
     const railRef = useRef(null);
     const containerRef = useRef(null);
     // Windowing: render the rail's cards only while it is near the viewport.
@@ -171,12 +172,13 @@ const MovieRail = React.memo(
           }}
         >
           <h3
+            className={`rail-title${isDynamicRail ? " rail-title--dynamic" : ""}${category.name.startsWith("Because you watched") ? " rail-title--because" : ""}`}
             style={{
-              fontSize: "1.1rem",
-              fontWeight: 700,
+              fontSize: "20px",
+              fontWeight: 600,
               margin: 0,
               letterSpacing: "-0.02em",
-              color: "rgba(255,255,255,0.9)",
+              color: "#ffffff",
             }}
           >
             {category.name}
@@ -234,8 +236,8 @@ const MovieRail = React.memo(
                   }}
                   style={{ flexShrink: 0 }}
                 >
-                  <div className="movie-rail-item">
-                    <MovieCard movie={movie} />
+                  <div className={`movie-rail-item${bare ? " movie-rail-item--bare" : ""}`} style={bare ? { width: 140 } : undefined}>
+                    <MovieCard movie={movie} bare={bare} />
                   </div>
                 </motion.div>
               ))}
@@ -1182,19 +1184,31 @@ export default function Home({
                   <h1 className="hero-title">{activeFeaturedMovie.title}</h1>
                 )}
 
-                {/* Meta row — Year · Rating · Runtime */}
+                {/* Meta row — gold star rating · calendar year · genre · runtime */}
                 <div className="hero-meta hero-meta--apple">
-                  {(activeFeaturedMovie.releaseYear || activeFeaturedMovie.year) && (
-                    <span>{String(activeFeaturedMovie.releaseYear || activeFeaturedMovie.year).substring(0, 4)}</span>
-                  )}
                   {activeFeaturedMovie.imdbRating > 0 && (
-                    <span className="hero-rating">
-                      <span style={{ opacity: 0.6, fontSize: "0.8em" }}>IMDb</span> {activeFeaturedMovie.imdbRating}
+                    <span className="hero-meta-item hero-meta-item--rating">
+                      <Star size={14} fill="#f5c518" stroke="#f5c518" strokeWidth={1.5} />
+                      {activeFeaturedMovie.imdbRating}
+                      <span style={{ opacity: 0.55 }}>/10</span>
                     </span>
                   )}
-                  <span className="maturity-badge">{activeFeaturedMovie.maturityRating || "TV-MA"}</span>
+                  {(activeFeaturedMovie.releaseYear || activeFeaturedMovie.year) && (
+                    <span className="hero-meta-item">
+                      <Calendar size={14} />
+                      {String(activeFeaturedMovie.releaseYear || activeFeaturedMovie.year).substring(0, 4)}
+                    </span>
+                  )}
+                  {activeFeaturedMovie.genres?.[0] ? (
+                    <span className="hero-meta-item">
+                      <Heart size={14} fill="currentColor" />
+                      {activeFeaturedMovie.genres[0]}
+                    </span>
+                  ) : (
+                    <span className="maturity-badge">{activeFeaturedMovie.maturityRating || "TV-MA"}</span>
+                  )}
                   {activeFeaturedMovie.duration && !activeFeaturedMovie.duration.match(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/) && (
-                    <span>{activeFeaturedMovie.duration}</span>
+                    <span className="hero-meta-item">{activeFeaturedMovie.duration}</span>
                   )}
                 </div>
 
@@ -1205,41 +1219,39 @@ export default function Home({
                   </p>
                 )}
 
-                {/* CTA row */}
+                {/* CTA row — white Play pill · round My List · round Info */}
                 <div className="hero-ctas">
                   <Link to={`/watch/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`}>
                     <motion.button
-                      className="btn btn-primary hero-btn-play"
-                      whileHover={{ scale: 1.03 }}
+                      className="hero-cta-play"
+                      whileHover={{ scale: 1.04 }}
                       whileTap={{ scale: 0.96 }}
                     >
-                      <Play size={20} fill="currentColor" stroke="none" />
+                      <Play size={16} fill="currentColor" stroke="none" />
                       Play
                     </motion.button>
                   </Link>
 
-                  <div className="btn-glass hero-btn-group">
+                  <motion.button
+                    className="hero-cta-circle"
+                    whileHover={{ scale: 1.08 }}
+                    whileTap={{ scale: 0.92 }}
+                    onClick={() => toggleMyList(activeFeaturedMovie)}
+                    aria-label={isInList(activeFeaturedMovie?.id) ? "Remove from My List" : "Add to My List"}
+                  >
+                    {isInList(activeFeaturedMovie?.id) ? <Check size={20} /> : <Plus size={20} />}
+                  </motion.button>
+
+                  <Link to={`/watch/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`}>
                     <motion.button
-                      className="hero-btn-group-item"
-                      whileHover={{ backgroundColor: "rgba(255,255,255,0.1)" }}
-                      whileTap={{ backgroundColor: "rgba(255,255,255,0.15)" }}
-                      onClick={() => toggleMyList(activeFeaturedMovie)}
+                      className="hero-cta-circle"
+                      whileHover={{ scale: 1.08 }}
+                      whileTap={{ scale: 0.92 }}
+                      aria-label="More info"
                     >
-                      {isInList(activeFeaturedMovie?.id) ? <Check size={18} /> : <Plus size={18} />}
-                      {isInList(activeFeaturedMovie?.id) ? "In My List" : "My List"}
+                      <Info size={18} />
                     </motion.button>
-                    <div className="hero-btn-group-divider" />
-                    <Link to={`/watch/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`} style={{ textDecoration: 'none' }}>
-                      <motion.button
-                        className="hero-btn-group-item"
-                        whileHover={{ backgroundColor: "rgba(255,255,255,0.1)" }}
-                        whileTap={{ backgroundColor: "rgba(255,255,255,0.15)" }}
-                      >
-                        <Info size={18} />
-                        Info
-                      </motion.button>
-                    </Link>
-                  </div>
+                  </Link>
                 </div>
               </motion.div>
             </div>
@@ -1296,11 +1308,11 @@ export default function Home({
         )}
       </AnimatePresence>
 
-      {/* Browse by Platforms */}
+      {/* Browse by Providers — brand-color tiles with labels */}
       {!loading && categories.length > 0 && (
         <div style={{ margin: "1.75rem 0 2rem" }}>
           <h2
-            className="section-title"
+            className="section-title section-title--spec"
             style={{
               display: "flex",
               alignItems: "center",
@@ -1308,12 +1320,13 @@ export default function Home({
               marginBottom: "1.1rem",
             }}
           >
-            Browse by Platforms
+            Browse by Providers
           </h2>
           <div
+            className="platform-tile-row"
             style={{
               display: "flex",
-              gap: "0.8rem",
+              gap: "0.9rem",
               WebkitOverflowScrolling: "touch",
               overscrollBehaviorX: "contain",
               overflowX: "auto",
@@ -1322,29 +1335,20 @@ export default function Home({
             }}
           >
             <motion.button
+              className={`platform-tile${activePlatform === "all" ? " platform-tile--active" : ""}`}
               onClick={() => setActivePlatform("all")}
-              whileHover={{ scale: 1.05, y: -2 }}
+              whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.94 }}
               aria-label="Show all platforms"
               title="All Platforms"
-              style={{
-                width: "80px",
-                height: "80px",
-                borderRadius: "16px",
-                border:
-                  activePlatform === "all"
-                    ? "2px solid rgba(255,255,255,0.9)"
-                    : "1px dashed rgba(255,255,255,0.25)",
-                background: activePlatform === "all" ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.04)",
-                color: activePlatform === "all" ? "#fff" : "#a1a1aa",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                flexShrink: 0,
-              }}
             >
-              <LayoutGrid size={30} />
+              <span
+                className="platform-tile-face platform-tile-face--all"
+                style={{ background: "rgba(255,255,255,0.04)" }}
+              >
+                <LayoutGrid size={30} style={{ color: "#a1a1aa" }} />
+              </span>
+              <span className="platform-tile-label">All</span>
             </motion.button>
             {Object.entries(PLATFORMS)
               .filter(([, p]) => p.category !== "aggregator")
@@ -1353,27 +1357,20 @@ export default function Home({
                 return (
                   <motion.button
                     key={key}
+                    className={`platform-tile${active ? " platform-tile--active" : ""}`}
                     onClick={() => setActivePlatform(active ? "all" : key)}
-                    whileHover={{ scale: 1.05, y: -2 }}
+                    whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.94 }}
                     aria-label={`Browse ${p.name}`}
                     title={p.name}
-                    style={{
-                      width: "80px",
-                      height: "80px",
-                      padding: 0,
-                      border: "none",
-                      borderRadius: "14px",
-                      background: "transparent",
-                      cursor: "pointer",
-                      flexShrink: 0,
-                      boxShadow: active
-                        ? "0 0 0 2px rgba(255,255,255,0.9), 0 6px 20px rgba(0,0,0,0.5)"
-                        : "0 4px 12px rgba(0,0,0,0.45)",
-                      overflow: "visible",
-                    }}
                   >
-                    <PlatformIcon platform={key} size={80} />
+                    <span
+                      className="platform-tile-face"
+                      style={{ background: p.gradient || p.color }}
+                    >
+                      <PlatformIcon platform={key} size={52} />
+                    </span>
+                    <span className="platform-tile-label">{p.shortName}</span>
                   </motion.button>
                 );
               })}
@@ -1473,12 +1470,9 @@ export default function Home({
               filter === "all" && (
                 <FadeInSection>
                   <ErrorBoundary>
-                    <MovieRail
+                    <ContinueWatchingRail
                       railIndex={0}
-                      category={{
-                        name: "Continue Watching",
-                        movies: continueWatching,
-                      }}
+                      items={continueWatching}
                     />
                   </ErrorBoundary>
                 </FadeInSection>
@@ -1489,6 +1483,7 @@ export default function Home({
                 <ErrorBoundary>
                   <MovieRail
                     railIndex={1}
+                    bare
                     category={{
                       name: `Because you watched ${lastWatched.title}`,
                       movies: recommendations,
