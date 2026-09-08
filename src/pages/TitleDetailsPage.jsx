@@ -469,8 +469,7 @@ export default function TitleDetails() {
     refetchOnWindowFocus: true,
   });
 
-  // ── SINGLE SOURCE OF TRUTH: normalize platform data from ANY API response ──
-  const movie = useMemo(() => rawMovie ? normalizeMovieSource(rawMovie) : rawMovie, [rawMovie]);
+  const movie = rawMovie;
 
   // Resolve the actual platform — now guaranteed to be a canonical key or null
   const effectivePlatform = movie?.source || undefined;
@@ -2054,7 +2053,7 @@ export default function TitleDetails() {
                   }}
                 >
                   <MovieCard
-                    movie={normalizeMovieSource({ ...sim, source: sim.source || resolvedPlatform })}
+                    movie={sim}
                   />
                 </motion.div>
               ))}
