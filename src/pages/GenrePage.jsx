@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { movieService } from "../api/movieService";
 import MovieCard from "../components/MovieCard";
 import DiscoveryRails from "../components/DiscoveryRails";
+import AmbientBackground from "../components/AmbientBackground";
 
 export default function GenrePage() {
   const { genre } = useParams();
@@ -110,18 +111,9 @@ export default function GenrePage() {
 
   return (
     <div style={{ position: "relative" }}>
-      {/* Hero Banner */}
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: "100%",
-          height: "40vh",
-          background: "linear-gradient(135deg, #27272a 0%, #09090b 100%)",
-          zIndex: -1,
-          opacity: 0.6,
-        }}
+      {/* Ambient background — banner-at-the-time gradient blur, like the watch page */}
+      <AmbientBackground
+        src={results[0]?.backdropUrl || results[0]?.posterUrl || results[0]?.poster}
       />
       <div
         style={{

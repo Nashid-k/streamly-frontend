@@ -15,6 +15,7 @@ import { useQuery } from "@tanstack/react-query";
 import { movieService } from "../api/movieService";
 import MovieCard from "../components/MovieCard";
 import ContinueWatchingRail from "../components/ContinueWatchingRail";
+import AmbientBackground from "../components/AmbientBackground";
 
 import RailArrow from "../components/RailArrow";
 import LeavingSoonBanner from "../components/LeavingSoonBanner";
@@ -1002,6 +1003,15 @@ export default function Home({
 
   return (
     <div className="main-content" style={{ paddingBottom: "2rem" }}>
+      <AmbientBackground
+        src={
+          activeFeaturedMovie
+            ? activeFeaturedMovie.backdropUrl ||
+              activeFeaturedMovie.posterUrl ||
+              activeFeaturedMovie.poster
+            : null
+        }
+      />
       <SEO title={title || "Discover Movies & TV Shows"} />
       <AnimatePresence mode="wait">
         {loading && !activeFeaturedMovie ? (

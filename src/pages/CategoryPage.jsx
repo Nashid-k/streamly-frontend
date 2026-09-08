@@ -5,6 +5,7 @@ import { movieService } from "../api/movieService";
 import { ChevronLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import MovieCard from "../components/MovieCard";
+import AmbientBackground from "../components/AmbientBackground";
 
 export default function CategoryPage() {
   const { name } = useParams();
@@ -149,6 +150,13 @@ export default function CategoryPage() {
       className="main-content"
       style={{ padding: "6rem 3rem 3rem 3rem", minHeight: "100vh" }}
     >
+      <AmbientBackground
+        src={
+          visibleMovies[0]?.backdropUrl ||
+          visibleMovies[0]?.posterUrl ||
+          visibleMovies[0]?.poster
+        }
+      />
       <div
         style={{
           display: "flex",

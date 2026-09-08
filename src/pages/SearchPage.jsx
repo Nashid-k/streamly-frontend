@@ -9,6 +9,7 @@ import MovieCard from "../components/MovieCard";
 import DiscoveryRails from "../components/DiscoveryRails";
 import EmptyState from "../components/EmptyState";
 import Button from "../components/Button";
+import AmbientBackground from "../components/AmbientBackground";
 
 export default function SearchPage() {
   const [searchParams] = useSearchParams();
@@ -136,6 +137,14 @@ export default function SearchPage() {
       className="main-content"
       style={{ padding: "5.5rem 3rem 4rem", minHeight: "80vh" }}
     >
+      <AmbientBackground
+        src={
+          visibleResults[0]?.backdropUrl ||
+          visibleResults[0]?.posterUrl ||
+          visibleResults[0]?.poster ||
+          (results[0] && (results[0].backdropUrl || results[0].posterUrl || results[0].poster))
+        }
+      />
       <div
         style={{
           padding: "2rem 0",
