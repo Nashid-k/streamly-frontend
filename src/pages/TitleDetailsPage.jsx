@@ -738,7 +738,7 @@ export default function TitleDetails() {
       <div
         className="details-backdrop"
         style={{
-          height: "min(85vh, 900px)",
+          height: "100vh",
           overflow: "hidden",
           top: 0,
           left: "50%",
@@ -818,8 +818,8 @@ export default function TitleDetails() {
           zIndex: 10,
           paddingTop: "0.75rem",
           paddingBottom: "0.5rem",
-          paddingLeft: "clamp(1rem, 2.5vw, 2.5rem)",
-          paddingRight: "clamp(1rem, 2.5vw, 2.5rem)",
+          paddingLeft: "clamp(0.5rem, 1.5vw, 1.5rem)",
+          paddingRight: "clamp(0.5rem, 1.5vw, 1.5rem)",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
@@ -1652,20 +1652,30 @@ export default function TitleDetails() {
                   </p>
                 </motion.div>
               )}
-            </motion.div>
-            {movie.cast && movie.cast.length > 0 && (
-              <div style={{ minWidth: 0 }}>
-                <CastRail cast={movie.cast} />
-              </div>
-            )}
           </motion.div>
         </motion.div>
       </motion.div>
+    </motion.div>
+
+      {/* ── Cast ─────────────────────────────────────────────────────────────── */}
+      {movie.cast && movie.cast.length > 0 && (
+        <motion.section
+          style={{ position: "relative", zIndex: 1, paddingLeft: "clamp(0.5rem, 1.5vw, 1.5rem)", paddingRight: "clamp(0.5rem, 1.5vw, 1.5rem)", maxWidth: "100%", marginLeft: "auto", marginRight: "auto", marginBottom: "2rem" }}
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-40px" }}
+          transition={{ duration: 0.4 }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <CastRail cast={movie.cast} />
+          </div>
+        </motion.section>
+      )}
 
       {/* ── Episodes ─────────────────────────────────────────────────────────── */}
       {isTvContent && hasSeriesEpisodes && (
         <motion.section
-          style={{ position: "relative", zIndex: 1, marginTop: "1.5rem", paddingLeft: "1rem", paddingRight: "1rem", maxWidth: "1600px", marginLeft: "auto", marginRight: "auto" }}
+          style={{ position: "relative", zIndex: 1, marginTop: "1.5rem", paddingLeft: "clamp(0.5rem, 1.5vw, 1.5rem)", paddingRight: "clamp(0.5rem, 1.5vw, 1.5rem)", maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-40px" }}
@@ -2051,7 +2061,7 @@ export default function TitleDetails() {
       {/* ── Trailers ──────────────────────────────────────────────────────────── */}
       {movie.videos && movie.videos.length > 0 && (
         <motion.section
-          style={{ position: "relative", zIndex: 1, marginTop: "2rem", paddingLeft: "1rem", paddingRight: "1rem", maxWidth: "1600px", marginLeft: "auto", marginRight: "auto" }}
+          style={{ position: "relative", zIndex: 1, marginTop: "2rem", paddingLeft: "clamp(0.5rem, 1.5vw, 1.5rem)", paddingRight: "clamp(0.5rem, 1.5vw, 1.5rem)", maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true, margin: "-40px" }}
@@ -2096,7 +2106,7 @@ export default function TitleDetails() {
       {/* ── More Like This ────────────────────────────────────────────────────── */}
       {(loading || (similar && similar.length > 0)) && (
         <motion.section
-          style={{ position: "relative", zIndex: 1, marginTop: "2rem", paddingLeft: "1rem", paddingRight: "1rem", maxWidth: "1600px", marginLeft: "auto", marginRight: "auto" }}
+          style={{ position: "relative", zIndex: 1, marginTop: "2rem", paddingLeft: "clamp(0.5rem, 1.5vw, 1.5rem)", paddingRight: "clamp(0.5rem, 1.5vw, 1.5rem)", maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true, margin: "-40px" }}
