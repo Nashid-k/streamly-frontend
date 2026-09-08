@@ -145,7 +145,7 @@ function Layout({ children }) {
       </a>
 
       {/* ── Apple-style Navbar ─────────────────────────────────────────────────
-          Frosted glass bar · logo left · nav center · icon cluster right.
+          Full-width frosted glass bar · logo left · nav links + icons right.
           Transitions from fully transparent to a deep frosted blur on scroll. */}
       <nav className={`navbar${isScrolled ? " scrolled" : ""}`}>
         {/* Left — logo mark + wordmark */}
@@ -162,31 +162,34 @@ function Layout({ children }) {
           </Link>
         </div>
 
-        {/* Center — primary navigation links */}
-        <div className="nav-center">
-          {NAV_ITEMS.map((item) => {
-            const active = item.match(location.pathname);
-            return (
-              <Link
-                key={item.id}
-                to={item.to}
-                className={`nav-link${active ? " nav-link--active" : ""}`}
-                aria-current={active ? "page" : undefined}
-              >
-                {item.label}
-                {active && (
-                  <motion.span
-                    layoutId="nav-underline"
-                    className="nav-underline"
-                    transition={{ type: "spring", stiffness: 500, damping: 38, mass: 0.8 }}
-                  />
-                )}
-              </Link>
-            );
-          })}
-        </div>
+        {/* Right — primary nav links (glass segmented pill) + icon cluster */}
+        <div className="nav-cluster">
+          <div className="nav-center">
+            {NAV_ITEMS.map((item) => {
+              const active = item.match(location.pathname);
+              return (
+                <Link
+                  key={item.id}
+                  to={item.to}
+                  className={`nav-link${active ? " nav-link--active" : ""}`}
+                  aria-current={active ? "page" : undefined}
+                >
+                  <span className="nav-link-label">{item.label}</span>
+                  {active && (
+                    <motion.span
+                      layoutId="nav-pill"
+                      className="nav-pill-indicator"
+                      transition={{ type: "spring", stiffness: 500, damping: 38, mass: 0.8 }}
+                    />
+                  )}
+                </Link>
+              );
+            })}
+          </div>
 
-        {/* Right — icon cluster: search · bell · profile */}
+          <span className="nav-divider" aria-hidden="true" />
+
+          {/* Right — icon cluster: search · bell · profile */}
         <div className="nav-right">
           {/* Search */}
           <Link
@@ -360,6 +363,7 @@ function Layout({ children }) {
               </button>
             </Popover>
           </div>
+        </div>
         </div>
       </nav>
 

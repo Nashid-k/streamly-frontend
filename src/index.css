@@ -47,9 +47,9 @@
   --shadow-glow: 0 0 20px rgba(244, 63, 94, 0.15);
 
   /* ── Glass / Blur ──────────────────────────────────────── */
-  --glass-bg: rgba(9, 9, 11, 0.85);
+  --glass-bg: rgba(18, 18, 24, 0.72);
   --glass-border: rgba(255, 255, 255, 0.15);
-  --glass-blur: blur(24px);
+  --glass-blur: blur(24px) saturate(180%);
 
   /* ── Typography ────────────────────────────────────────── */
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
@@ -104,6 +104,24 @@ body {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   overflow-x: hidden;
+}
+
+/* ── Ambient Apple glow ────────────────────────────────────────────────────
+   Soft radial colour washes pinned behind the content. The frosted-glass
+   surfaces (navbar, pills, popovers) pick this up as a diffused halo that
+   subtle-shifts on scroll — the glassmorphic depth cue. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(55% 45% at 10% 5%, rgba(244, 63, 94, 0.13), transparent 62%),
+    radial-gradient(45% 40% at 90% 8%, rgba(251, 146, 60, 0.11), transparent 60%),
+    radial-gradient(60% 50% at 78% 95%, rgba(96, 165, 250, 0.09), transparent 62%),
+    radial-gradient(40% 35% at 25% 88%, rgba(167, 139, 250, 0.07), transparent 60%),
+    #050505;
 }
 
 button,
@@ -164,72 +182,75 @@ a {
 }
 
 /* ── Apple-style Navbar ──────────────────────────────────────────────────────
-   Three-zone layout: logo left · text nav center · icon cluster right.
-   Fully transparent over hero; deep frosted glass once scrolled. */
+   Full-width frosted glass bar: logo on the left, nav links + icon cluster on
+   the right. Fully transparent over hero; deep frosted glass once scrolled. */
 .navbar {
   position: fixed;
-  top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1000;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--z-sticky);
+  display: flex;
   align-items: center;
-  padding: 0 1.25rem 0 1rem;
-  height: 56px;
-  width: max-content;
-  min-width: min(800px, 95vw);
-  background: rgba(15, 15, 15, 0.6);
-  backdrop-filter: blur(32px) saturate(200%);
-  -webkit-backdrop-filter: blur(32px) saturate(200%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 999px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0 clamp(1rem, 2.5vw, 2.25rem);
+  height: 60px;
+  background: transparent;
+  border-bottom: 1px solid transparent;
   transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: background, backdrop-filter, border-color, box-shadow;
 }
 .navbar.scrolled {
-  background: rgba(10, 10, 10, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  background: rgba(20, 20, 24, 0.55);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45), inset 0 -1px 0 rgba(255, 255, 255, 0.04);
 }
 
 /* Left zone */
 .nav-left {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
-/* Center zone — primary text links */
-.nav-center {
+/* Right zone — nav links + icons grouped together */
+.nav-cluster {
   display: flex;
   align-items: center;
-  gap: 0.15rem;
+  gap: 0.5rem;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
-/* Right zone — icon cluster */
-.nav-right {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.25rem;
-}
-
-/* Logo */
+/* Logo — glass pill */
 .logo {
-  font-size: 1.25rem;
+  font-size: 1.18rem;
   font-weight: 800;
   letter-spacing: -0.03em;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   color: #ffffff;
   text-decoration: none;
-  transition: opacity 0.2s ease;
+  padding: 5px 16px 5px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 4px 20px rgba(0, 0, 0, 0.25);
+  transition: opacity 0.2s ease, background 0.3s ease, border-color 0.3s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
 }
 .logo:hover {
-  opacity: 0.85;
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.16);
+  transform: translateY(-1px);
 }
 .logo-icon {
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.6));
@@ -247,7 +268,7 @@ a {
 }
 .logo-version {
   font-size: 0.48rem;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.5);
   background: rgba(255, 255, 255, 0.07);
   border: 1px solid rgba(255, 255, 255, 0.12);
   padding: 2px 5px;
@@ -258,44 +279,78 @@ a {
   flex-shrink: 0;
 }
 
-/* ── Center nav text links ─────────────────────────────────────────────── */
+/* ── Right nav links — glass segmented pill ────────────────────────────── */
+.nav-center {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 24px rgba(0, 0, 0, 0.15);
+}
+
 .nav-link {
   position: relative;
+  z-index: 0;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  padding: 6px 14px;
-  border-radius: 8px;
-  font-size: 0.82rem;
+  justify-content: center;
+  padding: 7px 16px;
+  border-radius: 999px;
+  font-size: 0.84rem;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.58);
   text-decoration: none;
   letter-spacing: -0.01em;
-  transition: color 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: color 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   white-space: nowrap;
 }
 .nav-link:hover {
-  color: rgba(255, 255, 255, 0.92);
-  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.95);
 }
 .nav-link--active {
   color: #ffffff;
   font-weight: 600;
 }
+.nav-link-label {
+  position: relative;
+  z-index: 1;
+}
 
-/* Spring-animated underline — Framer Motion handles position */
-.nav-underline {
+/* Sliding frosted pill behind the active link — Framer Motion animates its
+   position across links with layoutId, giving the signature Apple glide. */
+.nav-pill-indicator {
   position: absolute;
-  bottom: 2px;
-  left: 14px;
-  right: 14px;
-  height: 2px;
+  inset: 2px;
+  z-index: 0;
   border-radius: 999px;
-  background: #ffffff;
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.08));
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+/* Hairline divider between links and icon cluster */
+.nav-divider {
+  width: 1px;
+  height: 22px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 0 0.15rem;
 }
 
 /* ── Right icon cluster ────────────────────────────────────────────────── */
+.nav-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+/* Squircle glass icon buttons */
 .nav-icon-btn {
   position: relative;
   display: flex;
@@ -303,35 +358,42 @@ a {
   justify-content: center;
   width: 36px;
   height: 36px;
-  border-radius: 50%;
-  color: rgba(255, 255, 255, 0.6);
-  background: transparent;
-  border: none;
+  border-radius: 11px;
+  color: rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
   cursor: pointer;
   text-decoration: none;
-  transition: color 0.2s ease, background 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   flex-shrink: 0;
 }
 .nav-icon-btn:hover {
-  color: rgba(255, 255, 255, 0.95);
-  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 6px 18px rgba(0, 0, 0, 0.3);
 }
 .nav-icon-btn--active {
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
 /* Notification badge */
 .nav-badge {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 3px;
-  background: #ef4444;
+  top: -3px;
+  right: -3px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  background: linear-gradient(135deg, #f43f5e, #e11d48);
   border-radius: 999px;
-  border: 1.5px solid #050505;
+  border: 2px solid rgba(10, 10, 12, 0.9);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -339,33 +401,38 @@ a {
   font-weight: 700;
   color: #fff;
   line-height: 1;
+  box-shadow: 0 2px 8px rgba(225, 29, 72, 0.4);
 }
 
-/* Profile / Sign-In button */
+/* Profile / Sign-In button — frosted pill */
 .nav-profile-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 12px 5px 8px;
+  gap: 7px;
+  padding: 4px 14px 4px 5px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 0.78rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.8rem;
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 12px rgba(0, 0, 0, 0.2);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   white-space: nowrap;
 }
 .nav-profile-btn:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.12);
   border-color: rgba(255, 255, 255, 0.2);
   color: #fff;
+  transform: translateY(-1px);
 }
 .nav-profile-btn--open {
-  background: rgba(255, 255, 255, 0.18);
-  border-color: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.24);
   color: #fff;
 }
 .nav-signin-label {
@@ -374,8 +441,8 @@ a {
 
 /* Avatar initial circle */
 .nav-avatar {
-  width: 24px;
-  height: 24px;
+  width: 25px;
+  height: 25px;
   border-radius: 50%;
   background: linear-gradient(135deg, #f43f5e, #fb923c);
   color: #fff;
@@ -385,6 +452,7 @@ a {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.2), 0 2px 6px rgba(0, 0, 0, 0.35);
 }
 
 /* ── Design System Primitives ─────────────────────────────── */
@@ -394,11 +462,11 @@ a {
   position: absolute;
   top: 120%;
   background: var(--glass-bg);
-  backdrop-filter: blur(24px) saturate(150%);
-  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
   border: 1px solid var(--glass-border);
-  border-radius: var(--radius-xl);
-  box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.9), 0 0 20px rgba(255, 255, 255, 0.05);
+  border-radius: 22px;
+  box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.9), 0 0 24px rgba(255, 255, 255, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   z-index: var(--z-modal);
   overflow: hidden;
 }
@@ -451,7 +519,7 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-full);
   padding: 5px 14px;
@@ -461,6 +529,9 @@ a {
   font-weight: 500;
   font-family: inherit;
   white-space: nowrap;
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
 }
 .chip:hover,
@@ -478,7 +549,7 @@ a {
   border-color: transparent;
   color: #fff;
   font-weight: 600;
-  box-shadow: 0 4px 18px rgba(244, 63, 94, 0.35);
+  box-shadow: 0 4px 18px rgba(244, 63, 94, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 .chip--active:hover,
 .chip--active:focus-visible {
@@ -1099,13 +1170,13 @@ a {
   margin-top: 1rem;
 }
 .detail-fact-card {
-  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015));
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 18px;
   padding: 0.7rem 0.85rem 0.6rem;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02), 0 18px 26px -24px rgba(0,0,0,0.9);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 18px 26px -24px rgba(0,0,0,0.9);
 }
 .detail-fact-label {
   display: block;
@@ -1651,10 +1722,12 @@ input:focus-visible {
 
   /* Navbar */
   .navbar {
-    padding: calc(0.5rem + env(safe-area-inset-top, 0px)) 1rem !important;
-    background: linear-gradient(180deg, rgba(5,5,5,0.95) 0%, rgba(5,5,5,0.88) 100%) !important;
-    backdrop-filter: blur(32px) saturate(200%) !important;
-    -webkit-backdrop-filter: blur(32px) saturate(200%) !important;
+    padding: calc(0.5rem + env(safe-area-inset-top, 0px)) 0.75rem !important;
+    height: 56px;
+    background: rgba(12, 12, 15, 0.65) !important;
+    backdrop-filter: blur(32px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(180%) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
   }
   .nav-links,
   .nav-pill,
@@ -1662,33 +1735,46 @@ input:focus-visible {
   .search-container {
     display: none !important;
   }
+  .nav-divider {
+    display: none !important;
+  }
   .logo {
     font-size: 1.15rem !important;
     gap: 4px !important;
+    padding: 4px 12px 4px 5px !important;
+  }
+  .nav-icon-btn {
+    width: 34px;
+    height: 34px;
   }
   .user-menu-container {
     right: -10px !important;
   }
 
-  /* Mobile Bottom Nav */
+  /* Mobile Bottom Nav — floating frosted glass pill */
   .mobile-bottom-nav {
     display: flex !important;
     position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 65px;
-    background: rgba(9, 9, 11, 0.95) !important;
-    backdrop-filter: saturate(180%) blur(20px) !important;
-    -webkit-backdrop-filter: saturate(180%) blur(20px) !important;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%);
+    width: min(92vw, 440px);
+    height: 62px;
+    background: rgba(18, 18, 24, 0.72) !important;
+    backdrop-filter: blur(32px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.12);
     z-index: 9999;
     justify-content: space-around;
     align-items: center;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding: 6px;
   }
   .bottom-nav-item {
     display: flex;
+    flex: 1;
     flex-direction: column;
     align-items: center;
     justify-content: center;
@@ -1697,23 +1783,24 @@ input:focus-visible {
     text-decoration: none;
     font-size: 0.65rem;
     font-weight: 600;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    padding: 4px 14px;
-    border-radius: 14px;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    padding: 6px 8px;
+    border-radius: 999px;
     position: relative;
   }
   .bottom-nav-item.active {
     color: #fff;
     font-weight: 700;
-    transform: translateY(-2px);
-    background: rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
   }
   .bottom-nav-item.active svg {
     color: #f43f5e;
     filter: drop-shadow(0 0 10px rgba(244, 63, 94, 0.6));
   }
   body {
-    padding-bottom: calc(65px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
     letter-spacing: -0.01em;
   }
 
