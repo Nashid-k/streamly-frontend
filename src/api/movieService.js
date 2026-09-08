@@ -2,12 +2,14 @@ import tmdb from './tmdbClient';
 
 // Helper: detect if a TMDB id refers to a TV show
 function isTvId(id) {
-  return typeof id === 'string' && id.startsWith('tmdb-tv-');
+  if (typeof id !== 'string') return false;
+  return id.startsWith('tmdb-tv-') || id.startsWith('tv-') || id.includes('-tv-');
 }
 function rawId(id) {
   if (typeof id === 'string') {
-    if (id.startsWith('tmdb-tv-')) return id.replace('tmdb-tv-', '');
-    if (id.startsWith('tmdb-')) return id.replace('tmdb-', '');
+    // Strip everything before the first number
+    const match = id.match(/\d+$/);
+    if (match) return match[0];
   }
   return id;
 }
@@ -15,7 +17,7 @@ function rawId(id) {
 // Normalize a TMDB result to the shape the app expects
 function normalizeResult(item) {
   const isTV = item.media_type === 'tv' || item.first_air_date !== undefined;
-  const id = isTV ? `tmdb-tv-${item.id}` : `tmdb-${item.id}`;
+  const id = isTV ? `tv-${item.id}` : `movie-${item.id}`;
   return {
     id,
     tmdbId: item.id,
