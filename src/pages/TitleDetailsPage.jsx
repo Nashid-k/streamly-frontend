@@ -742,10 +742,8 @@ export default function TitleDetails() {
               src={backdropOptimized || movie.posterUrl}
             />
           </div>
-          {/* Smooth radial vignette to blend edges without harsh vertical lines */}
-          <div className="absolute inset-0 z-0 pointer-events-none" style={{ background: "radial-gradient(50% 50% at 50% 30%, transparent 20%, rgba(5,5,5,0.7) 80%, rgba(5,5,5,1) 100%)" }} />
-          {/* Bottom gradient to blend lower page */}
-          <div className="absolute inset-0 z-0 pointer-events-none" style={{ background: "linear-gradient(180deg, transparent 50%, rgba(5,5,5,0.6) 80%, rgba(5,5,5,1) 100%)" }} />
+          {/* Same gradient stack as the hero banner overlay — bottom fade + soft side vignettes */}
+          <div className="absolute inset-0 z-0 pointer-events-none watch-hero-gradient" />
         </div>
       </div>
 
@@ -821,8 +819,8 @@ export default function TitleDetails() {
             src={backdropOptimized || movie.posterUrl}
             alt={movie.title}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/40 to-transparent pointer-events-none"></div>
-          <div className="absolute inset-0 bg-gradient-to-r from-[#050505] via-transparent to-transparent pointer-events-none hidden lg:block"></div>
+          <div className="absolute inset-0 watch-hero-gradient pointer-events-none"></div>
+          <div className="absolute inset-0 left-vignette pointer-events-none hidden lg:block"></div>
         </div>
 
         {/* Content Overlap */}
