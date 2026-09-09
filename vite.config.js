@@ -17,6 +17,7 @@ export default defineConfig(({ mode }) => {
     },
     server: { port: 3001, strictPort: false },
     build: {
+      modulePreload: false,
       rollupOptions: {
         output: {
           manualChunks(id) {
