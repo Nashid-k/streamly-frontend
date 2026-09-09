@@ -16,6 +16,7 @@ import { movieService } from "../api/movieService";
 import MovieCard from "../components/MovieCard";
 import ContinueWatchingRail from "../components/ContinueWatchingRail";
 import AmbientBackground from "../components/AmbientBackground";
+import HeroTitleLogo from "../components/HeroTitleLogo";
 
 import RailArrow from "../components/RailArrow";
 import useRailArrows from "../hooks/useRailArrows";
@@ -1205,16 +1206,8 @@ export default function Home({
                   ))}
                 </div>
 
-                {/* Title / Logo */}
-                {activeFeaturedMovie.logoUrl ? (
-                  <img
-                    src={activeFeaturedMovie.logoUrl}
-                    alt={activeFeaturedMovie.title}
-                    className="hero-logo-img"
-                  />
-                ) : (
-                  <h1 className="hero-title">{activeFeaturedMovie.title}</h1>
-                )}
+                {/* Title / Logo — real show wordmark, lazy-fetched on demand */}
+                <HeroTitleLogo movie={activeFeaturedMovie} />
 
                 {/* Meta row — gold star rating · calendar year · genre · runtime */}
                 <div className="hero-meta hero-meta--apple">

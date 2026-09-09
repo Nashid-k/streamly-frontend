@@ -14,6 +14,24 @@ function rawId(id) {
   return id;
 }
 
+// Helper: pick the English (or any) title logo from a TMDB images payload.
+// Prefers the given size (default w500) and dedupes against the highly
+// decorated primary logo that TMDB sometimes returns with a white/key-art
+// version — those block-type logos are excluded so brand wordmarks win.
+const LOGO_SIZE_SCORE = { original: 3, w500: 2, w185: 1 };
+function logoUrlFromImages(images, size = 'w500') {
+  const logos = (images?.logos || []).filter((l) => {
+    if (l.file_path === undefined || l.file_path === null) return false;
+    const type = (l.type || '').toLowerCase();
+    if (type.includes('white') && type.includes('purple')) return false;
+    return true;
+  });
+  const best = logos.find((l) => l.iso_639_1 === 'en') || logos.find((l) => !l.iso_639_1) || logos[0];
+  if (!best) return null;
+  const resolvedSize = LOGO_SIZE_SCORE[size] != null ? size : 'w500';
+  return `https://image.tmdb.org/t/p/${resolvedSize}${best.file_path}`;
+}
+
 // Normalize a TMDB result to the shape the app expects
 function normalizeResult(item) {
   const isTV = item.media_type === 'tv' || item.first_air_date !== undefined;
@@ -62,12 +80,22 @@ export const movieService = {
         const detail = await tmdb(`/${r.media_type || 'movie'}/${r.id}`, { append_to_response: 'images' });
         const item = { ...r, ...detail };
         const base = normalizeResult(item);
-        const logoUrl = (detail.images?.logos || []).find(l => l.iso_639_1 === 'en' || !l.iso_639_1)?.file_path ? `https://image.tmdb.org/t/p/w500${(detail.images?.logos || []).find(l => l.iso_639_1 === 'en' || !l.iso_639_1).file_path}` : null;
+        const logoUrl = logoUrlFromImages(detail.images);
         return { ...base, logoUrl };
       } catch {
         return normalizeResult(r);
       }
     }));
+  },
+
+  // Fetch just the English title logo for a movie or TV show. Used by the
+  // hero banner to render the actual show logo image instead of the text
+  // fallback. Returns the biggest available logo (original) for crispness.
+  getTitleLogo: async (id) => {
+    const isTV = isTvId(id);
+    const rid = rawId(id);
+    const data = await tmdb(`/${isTV ? 'tv' : 'movie'}/${rid}/images`);
+    return logoUrlFromImages(data, 'original');
   },
 
   getCategories: async () => {
@@ -125,7 +153,7 @@ export const movieService = {
       releaseDate: detail.release_date || detail.first_air_date || null,
       originalLanguage: detail.original_language || null,
       genres: (detail.genres || []).map(g => g.name),
-      logoUrl: (detail.images?.logos || []).find(l => l.iso_639_1 === 'en' || !l.iso_639_1)?.file_path ? `https://image.tmdb.org/t/p/w500${(detail.images?.logos || []).find(l => l.iso_639_1 === 'en' || !l.iso_639_1).file_path}` : null,
+      logoUrl: logoUrlFromImages(detail.images),
       cast: (credits.cast || []).slice(0, 20).map(c => ({
         id: c.id,
         name: c.name,

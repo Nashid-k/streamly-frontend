@@ -1,16 +1,11 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, Plus, Check, Info, Pencil } from "lucide-react";
+import { Play, Plus, Check, Info, Pencil, X } from "lucide-react";
 import slugify from "slugify";
 import { useAppAuth } from "../context/AuthContext";
 import RailArrow from "./RailArrow";
 import useRailArrows from "../hooks/useRailArrows";
-
-/* Continue Watching rail — landscape 16:9 cards with a 3px progress bar and
-   a Netflix-style hover mini-player. The popup is rendered in the rail's own
-   positioned layer (not inside the horizontal scroll container) so it is never
-   clipped by overflow-x. */
 
 const fmtMins = (seconds) => {
   if (!seconds || seconds <= 0) return "0m";
@@ -45,14 +40,44 @@ const remainingLabel = (item) => {
   return null;
 };
 
+const trailerKeyOf = (item) => {
+  if (item.trailer) return item.trailer;
+  const v = (item.videos || []).find((x) => x.type === "Trailer" && x.key);
+  return v ? v.key : null;
+};
+
+const trailerSrc = (key) =>
+  `https://www.youtube.com/embed/${key}?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&modestbranding=1&playsinline=1&disablekb=1&fs=0&iv_load_policy=3&loop=1&playlist=${key}&origin=${typeof window !== "undefined" ? window.location.origin : ""}`;
+
 export default function ContinueWatchingRail({ items = [] }) {
-  const { isInList, toggleMyList } = useAppAuth();
+  const { isInList, toggleMyList, removeFromContinueWatching } = useAppAuth();
   const scrollRef = useRef(null);
   const layerRef = useRef(null);
-  const [hover, setHover] = useState(null); // { id, x, top }
+  const [hover, setHover] = useState(null);
+  const [editMode, setEditMode] = useState(false);
+  const closeTimerRef = useRef(null);
   const { canScrollLeft, canScrollRight, refresh } = useRailArrows(scrollRef);
 
   const close = useCallback(() => setHover(null), []);
+
+  const scheduleClose = useCallback(() => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = setTimeout(close, 150);
+  }, [close]);
+
+  const cancelClose = useCallback(() => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+  }, []);
+
+  useEffect(() => () => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current); }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => setHover(null);
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
 
   const scroll = (dir) => {
     const el = scrollRef.current;
@@ -63,6 +88,7 @@ export default function ContinueWatchingRail({ items = [] }) {
   };
 
   const onEnter = (e, item) => {
+    if (editMode) return;
     const card = e.currentTarget;
     const layer = layerRef.current;
     if (!layer) return;
@@ -70,9 +96,26 @@ export default function ContinueWatchingRail({ items = [] }) {
     const layerRect = layer.getBoundingClientRect();
     const cardWidth = cardRect.width;
     const popupWidth = Math.min(270, layerRect.width - 16);
-    const x = cardRect.left - layerRect.left + cardWidth / 2 - popupWidth / 2;
-    const top = cardRect.top - layerRect.top - 148;
+    const popupHeight = popupWidth * (9 / 16) + 100;
+    let x = cardRect.left - layerRect.left + cardWidth / 2 - popupWidth / 2;
+    const vw = layerRect.right - layerRect.left;
+    x = Math.max(0, Math.min(x, vw - popupWidth));
+    const spaceAbove = cardRect.top - layerRect.top;
+    const overlap = 36;
+    let top;
+    if (spaceAbove + overlap >= popupHeight) {
+      top = cardRect.top - layerRect.top - popupHeight + overlap;
+    } else {
+      top = cardRect.bottom - layerRect.top + 12;
+    }
     setHover({ id: item.id, x, top, item });
+  };
+
+  const handleRemove = (e, item) => {
+    e.preventDefault();
+    e.stopPropagation();
+    removeFromContinueWatching(item.id);
+    close();
   };
 
   if (!items || items.length === 0) return null;
@@ -81,15 +124,22 @@ export default function ContinueWatchingRail({ items = [] }) {
     <div
       className="cw-rail"
       style={{ position: "relative" }}
-      onMouseLeave={close}
+      onMouseLeave={scheduleClose}
+      onMouseEnter={cancelClose}
     >
-      {/* Section header — 20px title + pencil edit → history */}
       <div className="section-header-row">
         <h3 className="section-title section-title--cw">Continue Watching</h3>
-        <Link to="/history" className="section-header-edit" aria-label="Edit watch history">
-          <Pencil size={14} />
-          <span>Edit</span>
-        </Link>
+        <button
+          className={`section-header-edit ${editMode ? "section-header-edit--active" : ""}`}
+          onClick={() => { setEditMode((v) => !v); close(); }}
+          aria-label={editMode ? "Done editing" : "Edit watch history"}
+        >
+          {editMode ? (
+            <><span>Done</span></>
+          ) : (
+            <><Pencil size={14} /><span>Edit</span></>
+          )}
+        </button>
       </div>
 
       {canScrollLeft && <RailArrow dir="left" onClick={() => scroll("left")} />}
@@ -98,7 +148,6 @@ export default function ContinueWatchingRail({ items = [] }) {
       <div
         ref={scrollRef}
         className="movie-rail cw-rail-scroll"
-        onScroll={close}
         style={{
           display: "flex",
           gap: "1.5rem",
@@ -107,6 +156,7 @@ export default function ContinueWatchingRail({ items = [] }) {
           overflowX: "auto",
           scrollbarWidth: "none",
           padding: "0.45rem 0 0.2rem",
+          minHeight: items.length > 0 ? "140px" : undefined,
         }}
       >
         {items.map((item, i) => {
@@ -120,11 +170,15 @@ export default function ContinueWatchingRail({ items = [] }) {
           return (
             <motion.div
               key={`${item.id}-${i}`}
-              className="cw-card"
+              className={`cw-card ${editMode ? "cw-card--edit" : ""}`}
               style={{ position: "relative", flexShrink: 0 }}
               onMouseEnter={(e) => onEnter(e, item)}
             >
-              <Link to={watchTo} className="cw-card-link">
+              <Link
+                to={editMode ? undefined : watchTo}
+                className="cw-card-link"
+                onClick={(e) => { if (editMode) e.preventDefault(); }}
+              >
                 <div className="cw-thumb">
                   {art ? (
                     <img src={art} alt={item.title} loading="lazy" />
@@ -136,6 +190,15 @@ export default function ContinueWatchingRail({ items = [] }) {
                   <div className="cw-progress">
                     <span style={{ width: `${pct}%` }} />
                   </div>
+                  {editMode && (
+                    <button
+                      className="cw-remove-btn"
+                      onClick={(e) => handleRemove(e, item)}
+                      aria-label={`Remove ${item.title} from continue watching`}
+                    >
+                      <X size={16} strokeWidth={3} />
+                    </button>
+                  )}
                 </div>
                 <div className="cw-info">
                   <div className="cw-title">{item.title}</div>
@@ -147,7 +210,6 @@ export default function ContinueWatchingRail({ items = [] }) {
         })}
       </div>
 
-      {/* Hover mini-player — rendered in the rail's own layer, never clipped */}
       <div ref={layerRef} className="cw-popup-layer" aria-hidden="true">
         <AnimatePresence>
           {hover && hover.item && (
@@ -159,9 +221,20 @@ export default function ContinueWatchingRail({ items = [] }) {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
               transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              onMouseEnter={cancelClose}
+              onMouseLeave={scheduleClose}
             >
               <div className="cw-popup-thumb">
-                {hover.item.backdropUrl || hover.item.posterUrl || hover.item.poster ? (
+                {trailerKeyOf(hover.item) ? (
+                  <iframe
+                    className="cw-popup-trailer"
+                    src={trailerSrc(trailerKeyOf(hover.item))}
+                    title=""
+                    allow="autoplay; encrypted-media"
+                    allowFullScreen={false}
+                    frameBorder="0"
+                  />
+                ) : (hover.item.backdropUrl || hover.item.posterUrl || hover.item.poster) ? (
                   <img
                     src={hover.item.backdropUrl || hover.item.posterUrl || hover.item.poster}
                     alt=""

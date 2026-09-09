@@ -1777,13 +1777,19 @@ input:focus-visible {
 .section-header-edit {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   font-size: 12px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.45);
   text-decoration: none;
-  padding: 4px 8px;
+  padding: 5px 10px;
   border-radius: 999px;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  line-height: 1;
+  cursor: pointer;
   transition: color 0.15s ease, background 0.15s ease;
 }
 .section-header-edit:hover {
@@ -1853,6 +1859,9 @@ input:focus-visible {
 }
 
 /* ── Continue Watching rail — landscape cards + hover mini-player ──────── */
+.cw-rail-scroll {
+  min-height: 140px;
+}
 .cw-card {
   width: clamp(160px, 22vw, 220px);
   border-radius: 8px;
@@ -2048,6 +2057,51 @@ input:focus-visible {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.55);
   white-space: nowrap;
+}
+
+/* Trailer iframe in popup — fills the thumbnail area, muted autoplay */
+.cw-popup-trailer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  pointer-events: none;
+}
+
+/* Edit mode — remove button on each card */
+.cw-remove-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 10;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.75);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.cw-remove-btn:hover {
+  background: #e50914;
+  transform: scale(1.15);
+}
+.cw-card--edit .cw-card-link {
+  pointer-events: none;
+}
+.cw-card--edit .cw-remove-btn {
+  pointer-events: auto;
+}
+.section-header-edit--active {
+  color: #ffffff !important;
+  background: rgba(229, 9, 20, 0.25);
+  border: 1px solid rgba(229, 9, 20, 0.5);
 }
 
 /* Because-you-watched: dashed underline + chevron (spec) */
