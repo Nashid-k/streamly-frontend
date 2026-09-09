@@ -42,6 +42,13 @@ function cacheKeyFor(request) {
 
 self.addEventListener('fetch', (event) => {
   const request = event.request;
+  const url = new URL(request.url);
+
+  // Let cross-origin requests (TMDB API, fonts, CDN images) pass through
+  // untouched. Intercepting them causes the SW to swallow network errors and
+  // return synthetic 408/502 responses, which the app cannot distinguish from
+  // real outages.
+  if (url.origin !== self.location.origin) return;
 
   // API calls — network-first with a soft timeout so Render cold starts are
   // invisible for repeat users without showing stale data on a fast network.

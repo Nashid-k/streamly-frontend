@@ -1,4 +1,4 @@
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { readFileSync } from 'node:fs'
@@ -6,14 +6,12 @@ import { readFileSync } from 'node:fs'
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8'))
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '');
+export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
     define: {
       __BUILD_TIME: JSON.stringify(Date.now()),
       __VERSION__: JSON.stringify(pkg.version),
-      'import.meta.env.VITE_TMDB_API_KEY': JSON.stringify(env.TMDB_API_KEY || env.VITE_TMDB_API_KEY || ''),
     },
     server: { port: 3001, strictPort: false },
     build: {
