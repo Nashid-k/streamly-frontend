@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Clock, Zap } from "lucide-react";
 import { getCountdown, getCountdownUrgency } from "../utils/releaseCalendar";
 
@@ -11,6 +11,7 @@ import { getCountdown, getCountdownUrgency } from "../utils/releaseCalendar";
  */
 export default function CountdownBadge({ releaseDate, platform, compact = false }) {
   const [countdown, setCountdown] = useState(() => getCountdown(releaseDate, platform));
+  const reduceMotion = useReducedMotion();
 
   // Update every minute for live countdown
   useEffect(() => {
@@ -53,6 +54,7 @@ export default function CountdownBadge({ releaseDate, platform, compact = false 
   };
 
   const s = styles[urgency] || styles.future;
+  const pulse = s.animate && !reduceMotion;
 
   return (
     <motion.div
@@ -60,7 +62,7 @@ export default function CountdownBadge({ releaseDate, platform, compact = false 
       animate={{
         opacity: 1,
         scale: 1,
-        ...(s.animate ? {
+        ...(pulse ? {
           boxShadow: [
             "0 0 0 0 rgba(239,68,68,0.4)",
             "0 0 0 6px rgba(239,68,68,0)",
@@ -69,8 +71,8 @@ export default function CountdownBadge({ releaseDate, platform, compact = false 
         } : {}),
       }}
       transition={{
-        duration: s.animate ? 2 : 0.3,
-        repeat: s.animate ? Infinity : 0,
+        duration: pulse ? 2 : 0.3,
+        repeat: pulse ? Infinity : 0,
         ease: "easeInOut",
       }}
       style={{

@@ -133,16 +133,6 @@ export const movieService = {
     ];
   },
 
-  getAiringThisWeek: async () => {
-    const data = await tmdb('/tv/on_the_air');
-    return (data.results || []).map(normalizeResult);
-  },
-
-  getTrendingThisWeek: async () => {
-    const data = await tmdb('/trending/all/week');
-    return (data.results || []).map(normalizeResult);
-  },
-
   getTop10: async () => {
     const data = await tmdb('/trending/all/week');
     return (data.results || []).slice(0, 10).map(normalizeResult);

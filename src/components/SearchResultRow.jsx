@@ -15,7 +15,16 @@ export default function SearchResultRow({
       key={`${r.id}-${i}`}
       {...(roleOption
         ? { role: "option", "aria-selected": selectedResultIndex === i }
-        : {})}
+        : {
+            role: "button",
+            tabIndex: 0,
+            onKeyDown: (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick();
+              }
+            },
+          })}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: i * 0.05, duration: 0.2 }}

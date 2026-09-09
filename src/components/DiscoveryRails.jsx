@@ -34,7 +34,7 @@ const DiscoveryRail = ({ section }) => {
             to={`/search?q=${encodeURIComponent(section.title)}`}
             style={{
               fontSize: "0.72rem",
-              color: "rgba(255,255,255,0.35)",
+              color: "rgba(255,255,255,0.72)",
               textDecoration: "none",
               fontWeight: 500,
               padding: "2px 8px",

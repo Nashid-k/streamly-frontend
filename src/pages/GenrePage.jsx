@@ -42,12 +42,11 @@ export default function GenrePage() {
       return false;
     });
 
-    // If strict is too small, fallback to search results (#12 fix: lower threshold)
-    const finalResults = strict.length > 0 ? strict : mapped;
-
-    // Deduplicate
+    // No dirty fallback: only show titles that genuinely match the genre.
+    // Searching by genre name returns fuzzy hits, so never spill them onto
+    // the page when strict matching comes up short.
     const seen = new Set();
-    return finalResults.filter((m) => {
+    return strict.filter((m) => {
       if (seen.has(m.id)) return false;
       seen.add(m.id);
       return true;

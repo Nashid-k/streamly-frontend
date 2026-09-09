@@ -2,13 +2,14 @@ import SEO from "../components/SEO";
 import slugify from "slugify";
 import ErrorBoundary from "../components/ErrorBoundary";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { Link } from "react-router-dom";
-import { Play, ChevronLeft, ChevronRight, Check, Plus, Info, LayoutGrid, Star, Calendar, Heart } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Play, ChevronLeft, ChevronRight, Check, Plus, Info, Calendar, Heart } from "lucide-react";
 import {
   motion,
   AnimatePresence,
   useScroll,
   useTransform,
+  useReducedMotion,
 } from "framer-motion";
 import { useAppAuth } from "../context/AuthContext";
 import { useQuery } from "@tanstack/react-query";
@@ -426,6 +427,8 @@ export default function Home({
   title = "Trending Across Platforms",
 }) {
   const [featuredIndex, setFeaturedIndex] = useState(0);
+  const navigate = useNavigate();
+  const reduceMotion = useReducedMotion();
   const [visibleCatCount, setVisibleCatCount] = useState(4);
   const [activeGenre, setActiveGenre] = useState("All");
   const [activePlatform, setActivePlatform] = useState("all");
@@ -752,21 +755,7 @@ export default function Home({
     return Array.isArray(list) ? list : [];
   };
 
-  // Platform lookup map: categories have pre-resolved source data, trending/recommendations don't.
-  // Build a map from movie id → source, so we can enrich rails that lack platform data.
-  const platformLookup = useMemo(() => {
-    const map = new Map();
-    for (const cat of asArray(rawCategories)) {
-      for (const m of (Array.isArray(cat.movies) ? cat.movies : []).filter(Boolean)) {
-        if (m.id && m.source && !map.has(m.id)) {
-          map.set(m.id, m.source);
-        }
-      }
-    }
-    return map;
-  }, [rawCategories]);
-
-  // Enrich a movie array: (No-op now since platforms are removed)
+  // enrich a movie array: (No-op now since platforms are removed)
   const enrichWithPlatforms = useCallback((movies) => {
     return Array.isArray(movies) ? movies : [];
   }, []);
@@ -1028,14 +1017,14 @@ export default function Home({
 
   // Auto-rotation: use ref for hover state to avoid stale closures and unnecessary interval restarts
   useEffect(() => {
-    if (totalFeatured <= 1) return;
+    if (totalFeatured <= 1 || reduceMotion) return;
     const timer = setInterval(() => {
       if (!isHeroHoveredRef.current) {
         setFeaturedIndex((prev) => prev + 1);
       }
     }, 10000);
     return () => clearInterval(timer);
-  }, [totalFeatured]);
+  }, [totalFeatured, reduceMotion]);
 
   // Preload next hero image to eliminate flash on slide change
   useEffect(() => {
@@ -1172,6 +1161,7 @@ export default function Home({
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -10 }}
                     className="hero-nav-arrow left"
+                    aria-label="Previous featured title"
                     onClick={(e) => { e.stopPropagation(); setFeaturedIndex((featuredIndex - 1 + totalFeatured) % totalFeatured); }}
                   >
                     <ChevronLeft size={28} />
@@ -1181,6 +1171,7 @@ export default function Home({
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 10 }}
                     className="hero-nav-arrow right"
+                    aria-label="Next featured title"
                     onClick={(e) => { e.stopPropagation(); setFeaturedIndex((featuredIndex + 1) % totalFeatured); }}
                   >
                     <ChevronRight size={28} />
@@ -1217,14 +1208,6 @@ export default function Home({
                         <img src="https://upload.wikimedia.org/wikipedia/commons/6/69/IMDB_Logo_2016.svg" alt="IMDb" style={{ height: '14px', objectFit: 'contain' }} />
                         <span>{activeFeaturedMovie.imdbRating.toFixed(1)}</span>
                       </span>
-                      <span className="hero-meta-item hero-meta-item--rating" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} title="Tomatometer">
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/5/5b/Rotten_Tomatoes.svg" alt="Rotten Tomatoes" style={{ height: '16px', objectFit: 'contain' }} />
-                        <span>{Math.round(activeFeaturedMovie.imdbRating * 10)}%</span>
-                      </span>
-                      <span className="hero-meta-item hero-meta-item--rating" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} title="Audience Score">
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/d/da/Rotten_Tomatoes_positive_audience.svg" alt="Audience Score" style={{ height: '16px', objectFit: 'contain' }} />
-                        <span>{Math.min(100, Math.round((activeFeaturedMovie.imdbRating * 10) + 7))}%</span>
-                      </span>
                     </div>
                   )}
                   {(activeFeaturedMovie.releaseYear || activeFeaturedMovie.year) && (
@@ -1255,16 +1238,15 @@ export default function Home({
 
                 {/* CTA row — white Play pill · single pill with list toggle | info */}
                 <div className="hero-ctas">
-                  <Link to={`/watch/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`}>
-                    <motion.button
-                      className="hero-cta-play"
-                      whileHover={{ scale: 1.04 }}
-                      whileTap={{ scale: 0.96 }}
-                    >
-                      <Play size={20} strokeWidth={2.5} fill="currentColor" stroke="none" />
-                      Play
-                    </motion.button>
-                  </Link>
+                  <motion.button
+                    className="hero-cta-play"
+                    whileHover={{ scale: 1.04 }}
+                    whileTap={{ scale: 0.96 }}
+                    onClick={() => navigate(`/watch/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`)}
+                  >
+                    <Play size={20} strokeWidth={2.5} fill="currentColor" stroke="none" />
+                    Play
+                  </motion.button>
 
                   <div className="hero-action-pill inline-flex items-center shrink-0 rounded-full bg-white/10 backdrop-blur-[20px] backdrop-saturate-150 border border-white/10 shadow-lg shadow-black/5">
                     <motion.button
@@ -1278,17 +1260,16 @@ export default function Home({
                       {isInList(activeFeaturedMovie?.id) ? <Check size={18} strokeWidth={2.5} /> : <Plus size={18} strokeWidth={2.5} />}
                     </motion.button>
                     <span className="hero-cta-separator" aria-hidden="true">|</span>
-                    <Link to={`/watch/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`}>
-                      <motion.button
-                        className="hero-cta-secondary-icon"
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.92 }}
-                        aria-label="More info"
-                        title="More info"
-                      >
-                        <Info size={18} strokeWidth={2.5} />
-                      </motion.button>
-                    </Link>
+                    <motion.button
+                      className="hero-cta-secondary-icon"
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.92 }}
+                      aria-label="More info"
+                      title="More info"
+                      onClick={() => navigate(`/watch/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`)}
+                    >
+                      <Info size={18} strokeWidth={2.5} />
+                    </motion.button>
                   </div>
                 </div>
               </motion.div>
@@ -1304,6 +1285,7 @@ export default function Home({
                       key={i}
                       onClick={() => setFeaturedIndex(i)}
                       aria-label={`Slide ${i + 1}`}
+                      aria-current={isActive ? "true" : undefined}
                       className={`hero-dot${isActive ? " hero-dot--active" : ""}`}
                     >
                       {isActive && (

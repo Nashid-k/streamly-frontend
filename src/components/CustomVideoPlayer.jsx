@@ -2004,6 +2004,7 @@ const CustomVideoPlayer = ({
           ref={iframeRef}
           key={`iframe-${activeServerIndex}-${useNativeControls}`}
           src={iframeUrl}
+          title="Video player"
           style={{
             width: '100%', height: '100%', border: 'none', background: '#000', overflow: 'visible',
             pointerEvents: isCineSrc ? 'auto' : (showCustomUI ? 'none' : 'auto'),

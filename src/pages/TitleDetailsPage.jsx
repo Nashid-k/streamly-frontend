@@ -8,14 +8,12 @@ import { movieService } from "../api/movieService";
 import Loader from "../components/Loader";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import { createPortal } from "react-dom";
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Play,
   ArrowLeft,
   Star,
-  Clock,
-  Calendar,
   Plus,
   Check,
   X,
@@ -23,10 +21,6 @@ import {
   ChevronDown,
   RotateCcw,
   ThumbsUp,
-  Award,
-  MapPin,
-  Building2,
-  DollarSign,
   Tv,
   Film,
   LayoutGrid,
@@ -42,8 +36,7 @@ import { useToast } from "../components/Toast.jsx";
 import MovieCard from "../components/MovieCard";
 
 import { buildMovieAddedNotification } from "../utils/notificationEngine";
-import { formatTMDBDate, formatTMDBDateFull, getTMDBWeekday } from "../utils/timezone";
-import { decodeUrl } from "../utils";
+import { formatTMDBDate, getTMDBWeekday } from "../utils/timezone";
 import CustomVideoPlayer from "../components/CustomVideoPlayer";
 import ErrorBoundary from "../components/ErrorBoundary";
 const EMPTY_ARRAY = [];
@@ -51,49 +44,6 @@ const EMPTY_ARRAY = [];
 import { VideoSourceAdapter } from "../api/videoSourceAdapter";
 
 const SERVERS = VideoSourceAdapter.getServers();
-
-// ─── Animation Variants ───────────────────────────────────────────────────────
-
-// Master page entrance — staggered children
-const prefersReducedMotion =
-  typeof window !== "undefined"
-    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    : false;
-const pageVariants = prefersReducedMotion
-  ? {}
-  : {
-      hidden: { opacity: 0 },
-      show: {
-        opacity: 1,
-        transition: { staggerChildren: 0.08, delayChildren: 0.1 },
-      },
-    };
-
-// Slide up from below
-const slideUp = {
-  hidden: { opacity: 0, y: 32 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { type: "spring", stiffness: 280, damping: 28, mass: 0.8 },
-  },
-};
-
-// Slide up subtle (for smaller items)
-const slideUpSm = {
-  hidden: { opacity: 0, y: 18 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { type: "spring", stiffness: 320, damping: 30 },
-  },
-};
-
-// Fade in only
-const fadeIn = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { duration: 0.5, ease: "easeOut" } },
-};
 
 // ─── SeasonDropdown — custom styled dropdown (no native <select>) ─────────────
 
@@ -465,28 +415,6 @@ export default function TitleDetails() {
   const effectivePlatform = movie?.source || undefined;
   const serverManuallySetRef = useRef(false);
 
-  // All unique platform keys available for this title (for logo row display)
-  const availablePlatformKeys = useMemo(() => {
-    const keys = [];
-    const seen = new Set();
-    // Use the resolved source first
-    if (effectivePlatform && !seen.has(effectivePlatform)) {
-      seen.add(effectivePlatform);
-      keys.push(effectivePlatform);
-    }
-    // Then add any additional platforms from availablePlatforms
-    if (movie?.availablePlatforms?.length) {
-      for (const p of movie.availablePlatforms) {
-        const key = normalizePlatformKey(p);
-        if (key && !seen.has(key)) {
-          seen.add(key);
-          keys.push(key);
-        }
-      }
-    }
-    return keys;
-  }, [effectivePlatform, movie?.availablePlatforms]);
-
   const { data: similarData } = useQuery({
     queryKey: ["similar", id],
     queryFn: () => movieService.getSimilarMovies(id),
@@ -694,7 +622,6 @@ export default function TitleDetails() {
   };
 
   // Derived: true if user has any watch progress for this movie
-  const hasProgress = continueWatching?.some((m) => m.id === movie?.id);
   const progressItem = continueWatching?.find((m) => m.id === movie?.id);
   const savedTimestamp = progressItem?.timestamp || 0;
   // Track which episode the saved timestamp belongs to — only apply it once
@@ -839,14 +766,6 @@ export default function TitleDetails() {
                     <img src="https://upload.wikimedia.org/wikipedia/commons/6/69/IMDB_Logo_2016.svg" alt="IMDb" className="h-3.5 lg:h-4 object-contain" />
                     <span className="font-bold text-white/90">{movie.imdbRating.toFixed(1)}</span>
                   </div>
-                  <div className="flex items-center gap-1.5" title="Tomatometer">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/5/5b/Rotten_Tomatoes.svg" alt="Rotten Tomatoes" className="h-4 lg:h-5 object-contain" />
-                    <span className="font-bold text-white/90">{Math.round(movie.imdbRating * 10)}%</span>
-                  </div>
-                  <div className="flex items-center gap-1.5" title="Audience Score">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/d/da/Rotten_Tomatoes_positive_audience.svg" alt="Audience Score" className="h-4 lg:h-5 object-contain" />
-                    <span className="font-bold text-white/90">{Math.min(100, Math.round((movie.imdbRating * 10) + 7))}%</span>
-                  </div>
                 </div>
               )}
             </div>
@@ -886,13 +805,19 @@ export default function TitleDetails() {
                   {movie.budget > 0 && (
                     <div className="flex items-center justify-between px-3.5 py-2.5">
                       <span className="text-xs text-white/40">Budget</span>
-                      <span className="text-xs text-white/80">{movie.budget.toLocaleString()}</span>
+                      <span className="text-xs text-white/80">{movie.budget.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })}</span>
                     </div>
                   )}
                   {movie.revenue > 0 && (
                     <div className="flex items-center justify-between px-3.5 py-2.5">
                       <span className="text-xs text-white/40">Revenue</span>
-                      <span className="text-xs text-white/80">{movie.revenue.toLocaleString()}</span>
+                      <span className="text-xs text-white/80">{movie.revenue.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })}</span>
+                    </div>
+                  )}
+                  {movie.productionCompanies && movie.productionCompanies.length > 0 && (
+                    <div className="flex items-center justify-between px-3.5 py-2.5">
+                      <span className="text-xs text-white/40 shrink-0">Production</span>
+                      <span className="text-xs text-white/80 text-right">{movie.productionCompanies.slice(0, 3).map(c => c.name).join(", ")}</span>
                     </div>
                   )}
                 </div>
@@ -925,13 +850,13 @@ export default function TitleDetails() {
                 {movie.budget > 0 && (
                   <div className="flex items-center justify-between px-4 py-2.5">
                     <span className="text-xs text-white/40">Budget</span>
-                    <span className="text-xs text-white/80">{movie.budget.toLocaleString()}</span>
+                    <span className="text-xs text-white/80">{movie.budget.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })}</span>
                   </div>
                 )}
                 {movie.revenue > 0 && (
                   <div className="flex items-center justify-between px-4 py-2.5">
                     <span className="text-xs text-white/40">Revenue</span>
-                    <span className="text-xs text-white/80">{movie.revenue.toLocaleString()}</span>
+                    <span className="text-xs text-white/80">{movie.revenue.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })}</span>
                   </div>
                 )}
               </div>
@@ -1179,6 +1104,20 @@ export default function TitleDetails() {
                     const isWatched = continueWatching?.some(m => String(m.id) === String(movie.id) && m.savedEpisode === ep.episodeNumber && m.timestamp > 0);
                     const watchedTs = continueWatching?.find(m => String(m.id) === String(movie.id) && m.savedEpisode === ep.episodeNumber)?.timestamp || 0;
                     const isAired = !ep.airDate || new Date(ep.airDate) <= new Date();
+                    const playable = SERVERS.length > 0 && isAired;
+                    const playEpisode = () => {
+                      if (!playable) return;
+                      setIsPlaying(true);
+                      setPlayingEpisode(ep.episodeNumber);
+                      updateProgress({ ...movie, source: resolvedPlatform, sourceName }, selectedSeason, ep.episodeNumber);
+                    };
+                    const playEpKeyboard = (e) => {
+                      if (e.target !== e.currentTarget || !playable) return;
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        playEpisode();
+                      }
+                    };
 
                     if (isGrid) {
                       // ── GRID CARD ──
@@ -1190,12 +1129,17 @@ export default function TitleDetails() {
                           exit={{ opacity: 0, scale: 0.95, y: -8 }}
                           transition={{ duration: 0.35, delay: Math.min(idx * 0.04, 0.3), ease: [0.16, 1, 0.3, 1] }}
                           whileHover={{ y: -4, boxShadow: '0 16px 40px -10px rgba(0,0,0,0.7)' }}
-                          onClick={() => { if (SERVERS.length > 0 && isAired) { setIsPlaying(true); setPlayingEpisode(ep.episodeNumber); updateProgress({ ...movie, source: resolvedPlatform, sourceName }, selectedSeason, ep.episodeNumber); } }}
+                          role={playable ? "button" : undefined}
+                          tabIndex={playable ? 0 : undefined}
+                          aria-disabled={playable ? undefined : true}
+                          aria-label={playable ? `Play ${ep.title}` : undefined}
+                          onClick={playEpisode}
+                          onKeyDown={playEpKeyboard}
                           style={{
                             background: isEpPlaying ? 'linear-gradient(180deg, rgba(244,63,94,0.1) 0%, #050505 100%)' : '#0a0a0c',
                             borderRadius: '16px', overflow: 'hidden',
                             border: isEpPlaying ? '1px solid rgba(244,63,94,0.4)' : '1px solid rgba(255,255,255,0.05)',
-                            cursor: (SERVERS.length > 0 && isAired) ? 'pointer' : 'default', opacity: (!isAired) ? 0.35 : (SERVERS.length > 0 ? 1 : 0.6),
+                            cursor: playable ? 'pointer' : 'default', opacity: (!isAired) ? 0.35 : (SERVERS.length > 0 ? 1 : 0.6),
                             position: 'relative',
                             boxShadow: isEpPlaying ? '0 10px 30px -10px rgba(244,63,94,0.15)' : '0 10px 30px -10px rgba(0,0,0,0.5)',
                             transition: 'border 0.3s ease, background 0.3s ease',
@@ -1207,9 +1151,15 @@ export default function TitleDetails() {
                             )}
                             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                               {isAired ? (
-                                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
-                                  <Play size={18} fill="#fff" stroke="none" style={{ marginLeft: '2px' }} />
-                                </div>
+                                SERVERS.length > 0 ? (
+                                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+                                    <Play size={18} fill="#fff" stroke="none" style={{ marginLeft: '2px' }} />
+                                  </div>
+                                ) : (
+                                  <div style={{ background: 'rgba(0,0,0,0.85)', color: '#a1a1aa', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 600, backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                                    No stream available
+                                  </div>
+                                )
                               ) : (
                                 <div style={{ background: 'rgba(0,0,0,0.8)', color: '#fff', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700, backdropFilter: 'blur(4px)' }}>
                                   Airs {ep.airDate}
@@ -1217,11 +1167,13 @@ export default function TitleDetails() {
                               )}
                             </div>
                             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 50%)', pointerEvents: 'none' }} />
-                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s' }} className="ep-play-overlay">
-                              <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--accent-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', boxShadow: '0 8px 24px rgba(244,63,94,0.5)' }}>
-                                <Play size={22} fill="currentColor" stroke="none" style={{ marginLeft: '3px' }} />
+                            {playable && (
+                              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s' }} className="ep-play-overlay">
+                                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--accent-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', boxShadow: '0 8px 24px rgba(244,63,94,0.5)' }}>
+                                  <Play size={22} fill="currentColor" stroke="none" style={{ marginLeft: '3px' }} />
+                                </div>
                               </div>
-                            </div>
+                            )}
                             {isEpPlaying && <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'var(--accent-gradient)', color: 'white', padding: '3px 8px', borderRadius: '6px', fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', zIndex: 10 }}>Playing</div>}
                             <div style={{ position: 'absolute', bottom: '8px', right: '8px', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', padding: '2px 7px', borderRadius: '5px', fontSize: '0.65rem', fontWeight: 700, border: '1px solid rgba(255,255,255,0.08)' }}>{ep.duration}</div>
                           </div>
@@ -1236,14 +1188,6 @@ export default function TitleDetails() {
                                       <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="IMDb">
                                         <img src="https://upload.wikimedia.org/wikipedia/commons/6/69/IMDB_Logo_2016.svg" alt="IMDb" style={{ height: '10px' }} />
                                         {ep.voteAverage.toFixed(1)}
-                                      </span>
-                                      <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="Tomatometer">
-                                        <img src="https://upload.wikimedia.org/wikipedia/commons/5/5b/Rotten_Tomatoes.svg" alt="Rotten Tomatoes" style={{ height: '12px' }} />
-                                        {Math.round(ep.voteAverage * 10)}%
-                                      </span>
-                                      <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="Audience Score">
-                                        <img src="https://upload.wikimedia.org/wikipedia/commons/d/da/Rotten_Tomatoes_positive_audience.svg" alt="Audience Score" style={{ height: '12px' }} />
-                                        {Math.min(100, Math.round((ep.voteAverage * 10) + 7))}%
                                       </span>
                                     </span>
                                   )}
@@ -1273,13 +1217,18 @@ export default function TitleDetails() {
                         exit={{ opacity: 0, x: 12 }}
                         transition={{ duration: 0.3, delay: Math.min(idx * 0.03, 0.25) }}
                         whileHover={{ background: 'rgba(255,255,255,0.04)' }}
-                        onClick={() => { if (SERVERS.length > 0 && isAired) { setIsPlaying(true); setPlayingEpisode(ep.episodeNumber); updateProgress({ ...movie, source: resolvedPlatform, sourceName }, selectedSeason, ep.episodeNumber); } }}
+                        role={playable ? "button" : undefined}
+                        tabIndex={playable ? 0 : undefined}
+                        aria-disabled={playable ? undefined : true}
+                        aria-label={playable ? `Play ${ep.title}` : undefined}
+                        onClick={playEpisode}
+                        onKeyDown={playEpKeyboard}
                         style={{
                           display: 'flex', alignItems: 'center', gap: '1rem',
                           padding: '0.75rem 1rem', borderRadius: '12px',
                           background: isEpPlaying ? 'rgba(244,63,94,0.08)' : 'transparent',
                           border: isEpPlaying ? '1px solid rgba(244,63,94,0.2)' : '1px solid transparent',
-                          cursor: (SERVERS.length > 0 && isAired) ? 'pointer' : 'default', opacity: (!isAired) ? 0.35 : (SERVERS.length > 0 ? 1 : 0.6),
+                          cursor: playable ? 'pointer' : 'default', opacity: (!isAired) ? 0.35 : (SERVERS.length > 0 ? 1 : 0.6),
                           transition: 'background 0.2s, border 0.2s',
                         }}
                       >
@@ -1288,9 +1237,15 @@ export default function TitleDetails() {
                           {ep.thumbnailUrl && <img src={ep.thumbnailUrl} alt={ep.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" decoding="async" />}
                           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             {isAired ? (
-                              <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Play size={14} fill="#fff" stroke="none" style={{ marginLeft: '2px' }} />
-                              </div>
+                              SERVERS.length > 0 ? (
+                                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                  <Play size={14} fill="#fff" stroke="none" style={{ marginLeft: '2px' }} />
+                                </div>
+                              ) : (
+                                <div style={{ background: 'rgba(0,0,0,0.85)', color: '#a1a1aa', padding: '2px 5px', borderRadius: '4px', fontSize: '0.6rem', fontWeight: 600, backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                                  No stream available
+                                </div>
+                              )
                             ) : (
                               <div style={{ background: 'rgba(0,0,0,0.8)', color: '#fff', padding: '2px 4px', borderRadius: '4px', fontSize: '0.6rem', fontWeight: 700, backdropFilter: 'blur(4px)' }}>
                                 {ep.airDate}
@@ -1312,14 +1267,6 @@ export default function TitleDetails() {
                                 <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="IMDb">
                                   <img src="https://upload.wikimedia.org/wikipedia/commons/6/69/IMDB_Logo_2016.svg" alt="IMDb" style={{ height: '10px' }} />
                                   {ep.voteAverage.toFixed(1)}
-                                </span>
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="Tomatometer">
-                                  <img src="https://upload.wikimedia.org/wikipedia/commons/5/5b/Rotten_Tomatoes.svg" alt="Rotten Tomatoes" style={{ height: '12px' }} />
-                                  {Math.round(ep.voteAverage * 10)}%
-                                </span>
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="Audience Score">
-                                  <img src="https://upload.wikimedia.org/wikipedia/commons/d/da/Rotten_Tomatoes_positive_audience.svg" alt="Audience Score" style={{ height: '12px' }} />
-                                  {Math.min(100, Math.round((ep.voteAverage * 10) + 7))}%
                                 </span>
                               </span>
                             )}

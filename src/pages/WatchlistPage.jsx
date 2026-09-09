@@ -313,6 +313,7 @@ export default function WatchlistPage() {
                   <motion.button
                     onClick={(e) => handleRemove(e, movie)}
                     title="Remove from List"
+                    aria-label={`Remove ${movie.title} from My List`}
                     style={{
                       position: "absolute",
                       top: "10px",
@@ -336,6 +337,15 @@ export default function WatchlistPage() {
                       e.currentTarget.style.borderColor = "#ef4444";
                     }}
                     onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "rgba(0,0,0,0.6)";
+                      e.currentTarget.style.borderColor =
+                        "rgba(255,255,255,0.2)";
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.background = "#ef4444";
+                      e.currentTarget.style.borderColor = "#ef4444";
+                    }}
+                    onBlur={(e) => {
                       e.currentTarget.style.background = "rgba(0,0,0,0.6)";
                       e.currentTarget.style.borderColor =
                         "rgba(255,255,255,0.2)";

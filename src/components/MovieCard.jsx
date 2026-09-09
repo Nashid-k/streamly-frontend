@@ -99,7 +99,7 @@ export default function MovieCard({
     // 2. Debounce the hover animation state to prevent UI thrashing on quick swipes
     hoverTimeoutRef.current = setTimeout(() => {
       setIsHovered(true);
-    }, 250);
+    }, 150);
   }, [movie]);
 
   const handleMouseLeave = useCallback(() => {
@@ -189,11 +189,14 @@ export default function MovieCard({
           initial="rest"
           whileHover="hover"
           animate="rest"
-          role="link"
+          role="button"
           tabIndex={0}
           aria-label={`View details for ${movie.title}`}
           onClick={navigateToDetails}
           onKeyDown={(e) => {
+            // Only activate when the card itself is focused — inner buttons
+            // handle their own keyboard activation and must not bubble here.
+            if (e.target !== e.currentTarget) return;
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
               navigateToDetails();
@@ -438,7 +441,7 @@ export default function MovieCard({
                   navigateToDetails();
                 }}
                 className="curtain-play-btn"
-                aria-label={`Play ${movie.title}`}
+                aria-label={`View details for ${movie.title}`}
                 style={{
                   width: compact ? "44px" : "52px",
                   height: compact ? "44px" : "52px",
@@ -514,7 +517,7 @@ export default function MovieCard({
                   right: 0,
                   height: "4px",
                   background: "rgba(255,255,255,0.15)",
-                  zIndex: 2,
+                  zIndex: 6,
                 }}
               >
                 <div
