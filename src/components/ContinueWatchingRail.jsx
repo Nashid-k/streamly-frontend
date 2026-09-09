@@ -136,12 +136,12 @@ export default function ContinueWatchingRail({ items = [] }) {
     const layerRect = layer.getBoundingClientRect();
     const cardWidth = cardRect.width;
     const { w: popupWidth, h: popupHeight } = popupDims(cardRect.width, layerRect.width);
-    // Center the (wider) panel on the card, clamped inside the rail.
+    // Center the panel BOTH ways on the card so it grows out of it on all
+    // 4 sides at a proper ratio — up, down, left and right.
     let x = cardRect.left - layerRect.left + (cardWidth - popupWidth) / 2;
     const vw = layerRect.right - layerRect.left;
     x = Math.max(0, Math.min(x, vw - popupWidth));
-    const below = 6;
-    const top = cardRect.bottom - layerRect.top - popupHeight + below;
+    const top = cardRect.top - layerRect.top + (cardRect.height - popupHeight) / 2;
     setHover({ id: item.id, x, top, w: popupWidth, item });
 
     // Warm the cache for nearby cards so their trailers are ready on the
@@ -275,9 +275,9 @@ export default function ContinueWatchingRail({ items = [] }) {
               key={hover.item.id}
               className="cw-popup"
               style={{ left: hover.x, top: hover.top, width: hover.w }}
-              initial={{ opacity: 0, scale: 0.82, y: 18 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.86, y: -10, transition: { duration: 0.18, ease: "easeIn" } }}
+              initial={{ opacity: 0, scale: 0.82 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.86, transition: { duration: 0.18, ease: "easeIn" } }}
               transition={{ duration: 0.34, ease: [0.16, 1, 0.3, 1] }}
               onMouseEnter={cancelClose}
               onMouseLeave={scheduleClose}
