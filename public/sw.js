@@ -1,4 +1,4 @@
-const CACHE_NAME = 'streamly-v8';
+const CACHE_NAME = 'streamly-v9';
 
 self.addEventListener('install', () => {
   // Skip waiting — activate immediately
@@ -43,18 +43,12 @@ function cacheKeyFor(request) {
 self.addEventListener('fetch', (event) => {
   const request = event.request;
 
-  // Network-first for API calls and HTML navigations, with a soft timeout.
-  // If the network is slow (Render cold start / sleeping backend) we serve the
-  // last cached copy immediately and let the real request finish in the
-  // background, refreshing the cache. This makes cold starts invisible for
-  // repeat users without ever showing stale data on a fast network. The handler
-  // ALWAYS resolves to a Response — never undefined.
-  if (request.url.includes('/api/') || request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html')) {
+  // API calls — network-first with a soft timeout so Render cold starts are
+  // invisible for repeat users without showing stale data on a fast network.
+  if (request.url.includes('/api/')) {
     const cacheKey = cacheKeyFor(request);
 
     const handle = async () => {
-      // Start the network request right away; refresh the cache in the background
-      // whenever it returns a real response, regardless of what we serve.
       const netPromise = fetch(request).then((response) => {
         if (response && response.status === 200) {
           const responseClone = response.clone();
@@ -87,17 +81,47 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-first for JS/CSS assets (always fetch latest, fall back to cache)
-  if (event.request.url.match(/\.(js|css)$/)) {
-    event.respondWith(
-      fetch(event.request).then((response) => {
-        // Update cache with fresh version
+  // HTML navigations — network-first, but NEVER serve a stale app shell on a
+  // live deploy. A cached index.html references old hashed chunks that no
+  // longer exist after redeploy, which is exactly what produces the 404s.
+  // Cache only on network success; fall back to cache only when truly offline.
+  if (request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html')) {
+    const cacheKey = cacheKeyFor(request);
+
+    const handle = async () => {
+      try {
+        const response = await fetch(request);
         if (response && response.status === 200) {
           const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+          caches.open(CACHE_NAME).then((cache) => cache.put(cacheKey, responseClone));
         }
         return response;
-      }).catch(() => caches.match(event.request))
+      } catch {
+        const cached = await caches.match(cacheKey).catch(() => null);
+        if (cached) return cached; // offline — serve last-known-good shell
+        return new Response('', { status: 502, statusText: 'Offline' });
+      }
+    };
+
+    event.respondWith(handle());
+    return;
+  }
+
+  // Hashed JS/CSS assets — network-first. Files are immutable (hashed), so a
+  // 404 means the index.html shell is stale: fall back to the cached copy.
+  if (event.request.url.match(/\.(js|css)$/)) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+            return response;
+          }
+          // 404 for a versioned chunk — stale shell. Serve from cache if we can.
+          return caches.match(event.request).then((cached) => cached || response);
+        })
+        .catch(() => caches.match(event.request))
     );
     return;
   }
