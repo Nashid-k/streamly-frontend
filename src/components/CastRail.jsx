@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
@@ -23,9 +23,22 @@ const castItemVariants = {
 
 export default function CastRail({ cast }) {
   const railRef = useRef(null);
-  // Arrows stay hidden (mobile uses swipe); the scroll-state setter was removed,
-  // so this is intentionally a constant rather than state.
-  const showArrows = false;
+  const [canLeft, setCanLeft] = useState(false);
+  const [canRight, setCanRight] = useState(false);
+
+  // Arrows are rendered on desktop (fine pointer) and hidden on touch via CSS —
+  // mobile relies on swipe. Disabled states track the scroll bounds.
+  const updateArrows = useCallback(() => {
+    const el = railRef.current;
+    if (!el) return;
+    setCanLeft(el.scrollLeft > 4);
+    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }, []);
+
+  useLayoutEffect(() => {
+    updateArrows();
+  }, [updateArrows, cast]);
+
   if (!cast || cast.length === 0) return null;
 
   const scroll = (dir) => {
@@ -34,6 +47,22 @@ export default function CastRail({ cast }) {
         left: dir === "left" ? -400 : 400,
         behavior: "smooth",
       });
+  };
+
+  const arrowBtn = (dir) => {
+    const disabled = dir === "left" ? !canLeft : !canRight;
+    const Icon = dir === "left" ? ChevronLeft : ChevronRight;
+    return (
+      <button
+        key={dir}
+        onClick={() => scroll(dir)}
+        disabled={disabled}
+        aria-label={dir === "left" ? "Scroll cast list left" : "Scroll cast list right"}
+        className="cast-rail__arrow"
+      >
+        <Icon size={18} />
+      </button>
+    );
   };
 
   return (
@@ -47,40 +76,17 @@ export default function CastRail({ cast }) {
         }}
       >
         <h2 style={{ fontSize: "1.4rem", fontWeight: 700 }}>Cast & Crew</h2>
-        {showArrows && (
-          <div style={{ display: "flex", gap: "8px" }}>
-            {["left", "right"].map((dir) => (
-              <button
-                key={dir}
-                onClick={() => scroll(dir)}
-                style={{
-                  background: "rgba(255,255,255,0.08)",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  borderRadius: "50%",
-                  width: "36px",
-                  height: "36px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  color: "#fff",
-                }}
-              >
-                {dir === "left" ? (
-                  <ChevronLeft size={18} />
-                ) : (
-                  <ChevronRight size={18} />
-                )}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="cast-rail__nav">
+          {["left", "right"].map(arrowBtn)}
+        </div>
       </div>
       <motion.div
         ref={railRef}
         variants={castContainerVariants}
         initial="hidden"
         animate="show"
+        onScroll={updateArrows}
+        className="cast-rail__scroll"
         style={{
           display: "flex",
           gap: "1rem",
@@ -94,6 +100,7 @@ export default function CastRail({ cast }) {
             typeof member === "string"
               ? { id: null, name: member, character: "", profileUrl: null }
               : member;
+          const initial = (m.name || "?").trim().charAt(0).toUpperCase();
           return (
             <motion.div
               key={m.id || m.name}
@@ -105,29 +112,33 @@ export default function CastRail({ cast }) {
                   to={`/person/${m.id}/${slugify(m.name, { lower: true, strict: true })}`}
                   style={{ textDecoration: "none", color: "inherit" }}
                 >
-                  <img
-                    src={m.profileUrl || "/placeholder-person.jpg"}
-                    alt={m.name}
-                    style={{
-                      width: "90px",
-                      height: "90px",
-                      borderRadius: "50%",
-                      objectFit: "cover",
-                      background: "#27272a",
-                      marginBottom: "0.5rem",
-                      border: "2px solid rgba(255,255,255,0.1)",
-                    }}
-                    onError={(e) => {
-                      e.currentTarget.src =
-                        "data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2290%22 height=%2290%22 viewBox=%220 0 90 90%22%3E%3Crect width=%2290%22 height=%2290%22 fill=%22%2327272a%22/%3E%3C/svg%3E";
-                    }}
-                  />
+                  {m.profileUrl ? (
+                    <img
+                      src={m.profileUrl}
+                      alt={m.name}
+                      loading="lazy"
+                      decoding="async"
+                      className="cast-rail__avatar"
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                        const sib = e.currentTarget.nextElementSibling;
+                        if (sib) sib.style.display = "flex";
+                      }}
+                    />
+                  ) : (
+                    <div className="cast-rail__avatar cast-rail__avatar--monogram" aria-hidden="true">
+                      {initial}
+                    </div>
+                  )}
                   <div
                     style={{
                       fontSize: "0.8rem",
                       fontWeight: 600,
                       color: "#e4e4e7",
                       lineHeight: 1.3,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
                     }}
                   >
                     {m.name}
@@ -138,6 +149,9 @@ export default function CastRail({ cast }) {
                         fontSize: "0.7rem",
                         color: "#71717a",
                         marginTop: "2px",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
                       }}
                     >
                       {m.character}
@@ -146,22 +160,8 @@ export default function CastRail({ cast }) {
                 </Link>
               ) : (
                 <>
-                  <div
-                    style={{
-                      width: "90px",
-                      height: "90px",
-                      borderRadius: "50%",
-                      background: "#27272a",
-                      margin: "0 auto 0.5rem",
-                      border: "2px solid rgba(255,255,255,0.1)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "1.5rem",
-                      color: "#52525b",
-                    }}
-                  >
-                    👤
+                  <div className="cast-rail__avatar cast-rail__avatar--monogram">
+                    {initial}
                   </div>
                   <div
                     style={{

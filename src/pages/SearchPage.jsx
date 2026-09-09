@@ -3,12 +3,13 @@ import { movieService } from "../api/movieService";
 import { rankSearchResults, getDidYouMean } from "../utils/searchRanking";
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { Search, Film, Tv, Flame, Sparkles, Star, X } from "lucide-react";
+import { Search, Film, Tv, Flame, Sparkles, Star, X, RotateCw } from "lucide-react";
 import { motion } from "framer-motion";
 import MovieCard from "../components/MovieCard";
 import DiscoveryRails from "../components/DiscoveryRails";
 import EmptyState from "../components/EmptyState";
 import Button from "../components/Button";
+import Chip from "../components/Chip";
 import AmbientBackground from "../components/AmbientBackground";
 import ErrorBoundary from "../components/ErrorBoundary";
 
@@ -40,6 +41,7 @@ export default function SearchPage() {
     data: rawResults,
     isLoading: loading,
     error: queryError,
+    refetch,
   } = useQuery({
     queryKey: ["search", query],
     queryFn: () => movieService.searchMovies(query),
@@ -291,16 +293,9 @@ export default function SearchPage() {
             >
               <div style={{ display: "flex", gap: "0.5rem" }}>
                 {["All", "Movies", "TV Shows", "Anime"].map((f) => (
-                  <motion.button
-                    key={f}
-                    onClick={() => setFilterType(f)}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    aria-pressed={filterType === f}
-                    className={`chip ${filterType === f ? "chip--active" : ""}`}
-                  >
+                  <Chip key={f} active={filterType === f} onClick={() => setFilterType(f)}>
                     {f}
-                  </motion.button>
+                  </Chip>
                 ))}
               </div>
               <div
@@ -316,19 +311,14 @@ export default function SearchPage() {
                   { label: "Newest", value: "Year (Newest)" },
                   { label: "Oldest", value: "Year (Oldest)" },
                 ].map((opt) => (
-                  <motion.button
+                  <Chip
                     key={opt.value}
+                    size="sm"
+                    active={sortBy === opt.value}
                     onClick={() => setSortBy(opt.value)}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    aria-pressed={sortBy === opt.value}
-                    className={`chip ${sortBy === opt.value ? "chip--active" : ""}`}
-                    style={{
-                      fontSize: "0.82rem",
-                    }}
                   >
                     {opt.label}
-                  </motion.button>
+                  </Chip>
                 ))}
               </div>
             </div>
@@ -351,16 +341,16 @@ export default function SearchPage() {
             ))}
           </div>
         ) : error ? (
-          <div
-            style={{
-              padding: "4rem 0",
-              textAlign: "center",
-              color: "#ef4444",
-              fontSize: "1.2rem",
-            }}
-          >
-            {error}
-          </div>
+          <EmptyState
+            icon="error"
+            title="Couldn't load results"
+            description={error}
+            actions={
+              <Button variant="secondary" pill icon={RotateCw} onClick={() => refetch()}>
+                Try Again
+              </Button>
+            }
+          />
         ) : !query ? (
           <EmptyState
             icon="search"
@@ -395,6 +385,18 @@ export default function SearchPage() {
             description="Try a different spelling, or browse by genre and platform."
             actions={
               <>
+                {filterType === "Anime" && (
+                  <span
+                    style={{
+                      fontSize: "0.85rem",
+                      color: "#a1a1aa",
+                      textAlign: "center",
+                      marginBottom: "0.5rem",
+                    }}
+                  >
+                    No anime found — try "naruto", "demon slayer", or "one piece"
+                  </span>
+                )}
                 {/* Did you mean suggestions */}
                 {didYouMean.length > 0 && (
                   <div

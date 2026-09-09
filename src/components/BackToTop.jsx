@@ -3,16 +3,35 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronUp } from "lucide-react";
 
 /**
- * BackToTop button — appears after scrolling 600px down.
- * Smooth scroll, animated entrance/exit.
+ * BackToTop button — appears after scrolling 600px down, but stays hidden
+ * while the video player is open (matches GlobalShortcuts' player detection)
+ * so it never overlaps the player UI.
  */
+const PLAYER_IFRAME_SELECTOR =
+  'iframe[src*="cinesrc"], iframe[src*="vidlink"], iframe[src*="vidsrc"]';
+
+function isPlayerActive() {
+  return !!document.querySelector(PLAYER_IFRAME_SELECTOR);
+}
+
 export default function BackToTop() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => setVisible(window.scrollY > 600);
+    const handleScroll = () =>
+      setVisible(window.scrollY > 600 && !isPlayerActive());
+    // Re-evaluate while idle (e.g. player opens/closes without a scroll event).
+    const startPlayerCheck = () => {
+      if (window.scrollY > 600 && !isPlayerActive()) setVisible(true);
+      else if (isPlayerActive()) setVisible(false);
+    };
     window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+    const interval = window.setInterval(startPlayerCheck, 1500);
+    startPlayerCheck();
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.clearInterval(interval);
+    };
   }, []);
 
   return (

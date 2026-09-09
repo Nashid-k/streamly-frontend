@@ -29,6 +29,16 @@ function writeCache(id, value) {
   }
 }
 
+// User-initiated refresh affordance: drop the 24h entry so the next fetch hits
+// OMDb again (sparingly — it consumes part of the 1,000 req/day quota).
+function clearCache(id) {
+  try {
+    localStorage.removeItem(CACHE_PREFIX + id);
+  } catch {
+    // ignore — nothing to clear
+  }
+}
+
 function pickRating(ratings, source) {
   if (!Array.isArray(ratings)) return null;
   const row = ratings.find((r) => r?.Source === source);
@@ -88,5 +98,10 @@ export const ratingService = {
       writeCache(movie.id, null);
       return null;
     }
+  },
+
+  // Manual refresh — clears the cached entry (caller re-fetches immediately)
+  clearCache(movieId) {
+    if (movieId) clearCache(movieId);
   },
 };

@@ -15,6 +15,7 @@ import {
   Tv,
   Bookmark,
   Clapperboard,
+  Clock,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -104,7 +105,7 @@ function Layout({ children }) {
             })}
           </div>
 
-          {/* Right — icon cluster: search · settings */}
+          {/* Right — icon cluster: search · history · settings */}
         <div className="nav-right">
           {/* Search */}
           <Link
@@ -114,6 +115,16 @@ function Layout({ children }) {
             title="Search (Ctrl+K)"
           >
             <Search size={18} strokeWidth={2} />
+          </Link>
+
+          {/* History */}
+          <Link
+            to="/history"
+            className={`nav-icon-btn${location.pathname === "/history" ? " nav-icon-btn--active" : ""}`}
+            aria-label="Watch History"
+            title="Watch History"
+          >
+            <Clock size={18} strokeWidth={2} />
           </Link>
 
           {/* Settings */}
@@ -180,6 +191,10 @@ function Layout({ children }) {
         <Link to="/search" className={`bottom-nav-item ${location.pathname === "/search" ? "active" : ""}`}>
           <Search size={22} strokeWidth={2} />
           <span>Search</span>
+        </Link>
+        <Link to="/settings" className={`bottom-nav-item ${location.pathname === "/settings" ? "active" : ""}`}>
+          <Settings size={22} strokeWidth={2} />
+          <span>Settings</span>
         </Link>
       </div>
     </div>

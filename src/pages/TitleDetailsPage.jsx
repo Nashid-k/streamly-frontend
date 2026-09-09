@@ -4,7 +4,7 @@ import CastRail from "../components/CastRail";
 import RailArrow from "../components/RailArrow";
 import useRailArrows from "../hooks/useRailArrows";
 import { useQuery } from "@tanstack/react-query";
-import { movieService } from "../api/movieService";
+import { movieService, classifyTrailer } from "../api/movieService";
 import Loader from "../components/Loader";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import { createPortal } from "react-dom";
@@ -1373,10 +1373,13 @@ export default function TitleDetails() {
             viewport={{ once: true }}
             transition={{ duration: 0.5, ease: "easeOut" }}
           >
-            Trailers & Clips
+            Official Trailers
           </motion.h2>
           <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '1rem', scrollbarWidth: 'none' }} className="hide-scrollbar">
-            {movie.videos.map((vid) => (
+            {movie.videos.map((vid) => {
+              const rankLabel = classifyTrailer(vid);
+              const viewLabel = rankLabel ? rankLabel[0].toUpperCase() + rankLabel.slice(1) : null;
+              return (
               <motion.div
                 key={vid.key}
                 whileHover={{ scale: 1.02 }}
@@ -1390,13 +1393,18 @@ export default function TitleDetails() {
                       <Play size={18} fill="#fff" stroke="none" style={{ marginLeft: '2px' }} />
                     </div>
                   </div>
+                  {viewLabel && (
+                    <span style={{ position: 'absolute', top: '8px', left: '8px', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)', border: '1px solid rgba(255,255,255,0.15)', color: '#fda4af', padding: '3px 8px', borderRadius: '999px' }}>
+                      {viewLabel}
+                    </span>
+                  )}
                 </div>
                 <div style={{ padding: '0.75rem' }}>
                   <h4 style={{ margin: 0, fontSize: '0.85rem', color: '#e4e4e7', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.4 }}>{vid.name}</h4>
-                  <span style={{ fontSize: '0.7rem', color: '#a1a1aa', marginTop: '4px', display: 'block' }}>{vid.type}</span>
                 </div>
               </motion.div>
-            ))}
+              );
+            })}
           </div>
         </motion.section>
       )}

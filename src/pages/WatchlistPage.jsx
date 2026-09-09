@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAppAuth } from "../context/AuthContext";
 import { useToast } from "../components/Toast.jsx";
 import MovieCard from "../components/MovieCard";
+import Chip from "../components/Chip";
 import ErrorBoundary from "../components/ErrorBoundary";
 
 export default function WatchlistPage() {
@@ -132,31 +133,9 @@ export default function WatchlistPage() {
             >
               <div style={{ display: "flex", gap: "0.5rem" }}>
                 {["All", "Movies", "TV Shows"].map((f) => (
-                  <motion.button
-                    key={f}
-                    onClick={() => setFilterType(f)}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    style={{
-                      background:
-                        filterType === f ? "#fff" : "rgba(255,255,255,0.08)",
-                      color: filterType === f ? "#000" : "#fff",
-                      border:
-                        "1px solid " +
-                        (filterType === f
-                          ? "transparent"
-                          : "rgba(255,255,255,0.1)"),
-                      padding: "6px 16px",
-                      borderRadius: "100px",
-                      fontSize: "0.85rem",
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      transition:
-                        "background 0.2s, color 0.2s, border-color 0.2s",
-                    }}
-                  >
+                  <Chip key={f} active={filterType === f} onClick={() => setFilterType(f)}>
                     {f}
-                  </motion.button>
+                  </Chip>
                 ))}
               </div>
               <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
@@ -165,33 +144,14 @@ export default function WatchlistPage() {
                   { label: "A – Z", value: "Title A–Z" },
                   { label: "Top Rated", value: "Rating" },
                 ].map((opt) => (
-                  <motion.button
+                  <Chip
                     key={opt.value}
+                    size="sm"
+                    active={sortBy === opt.value}
                     onClick={() => setSortBy(opt.value)}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    style={{
-                      background:
-                        sortBy === opt.value
-                          ? "rgba(255,255,255,0.13)"
-                          : "rgba(255,255,255,0.05)",
-                      color: sortBy === opt.value ? "#fff" : "#a1a1aa",
-                      border:
-                        "1px solid " +
-                        (sortBy === opt.value
-                          ? "rgba(255,255,255,0.28)"
-                          : "rgba(255,255,255,0.08)"),
-                      padding: "5px 13px",
-                      borderRadius: "100px",
-                      fontSize: "0.82rem",
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      whiteSpace: "nowrap",
-                      transition: "all 0.15s",
-                    }}
                   >
                     {opt.label}
-                  </motion.button>
+                  </Chip>
                 ))}
               </div>
             </div>

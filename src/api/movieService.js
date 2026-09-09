@@ -70,7 +70,7 @@ const GENRE_MAP = {
 // Rank trailer-family videos by prominence — Final → Official → Trailer →
 // Teaser → Extended — one per rank, bounded.
 const TRAILER_ORDER = ['final', 'official', 'trailer', 'teaser', 'extended'];
-function classifyTrailer(v) {
+export function classifyTrailer(v) {
   const name = (v.name || '').toLowerCase();
   const type = (v.type || '').toLowerCase();
   if (name.includes('final')) return 'final';

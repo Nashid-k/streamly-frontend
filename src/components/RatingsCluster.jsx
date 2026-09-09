@@ -1,5 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-import { Popcorn } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Popcorn, RefreshCw } from "lucide-react";
 import { ratingService } from "../api/ratingService";
 import { hasOmdbKey } from "../api/omdbClient";
 
@@ -23,6 +23,7 @@ export default function RatingsCluster({
   itemClassName = "",
   showTmdb = true,
 }) {
+  const queryClient = useQueryClient();
   const { data: real } = useQuery({
     queryKey: ["realRatings", movie?.id],
     queryFn: () => ratingService.getRealRatings(movie),
@@ -32,6 +33,13 @@ export default function RatingsCluster({
     retry: 0,
     refetchOnWindowFocus: false, // OMDb is 1,000 req/day — don't burn quota
   });
+
+  // User-initiated refresh: clears the 24h cache entry and refetches once.
+  const refresh = () => {
+    if (!movie?.id) return;
+    ratingService.clearCache(movie.id);
+    queryClient.invalidateQueries({ queryKey: ["realRatings", movie.id] });
+  };
 
   const imdbH = size === "sm" ? 10 : 14;
   const rtH = size === "sm" ? 12 : 16;
@@ -97,6 +105,30 @@ export default function RatingsCluster({
           />
           <span className={boldText}>{movie.imdbRating.toFixed(1)}</span>
         </span>
+      )}
+      {movie?.id && hasOmdbKey() && (
+        <button
+          type="button"
+          onClick={refresh}
+          aria-label="Refresh ratings"
+          title="Refresh ratings"
+          className="ratings-refresh"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: "22px",
+            height: "22px",
+            borderRadius: "50%",
+            background: "rgba(255,255,255,0.08)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            color: "#a1a1aa",
+            cursor: "pointer",
+            transition: "color 0.15s ease, background 0.15s ease",
+          }}
+        >
+          <RefreshCw size={11} strokeWidth={2.25} />
+        </button>
       )}
     </>
   );
