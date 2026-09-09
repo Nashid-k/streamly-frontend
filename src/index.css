@@ -638,24 +638,11 @@ a {
   height: 100%;
   object-fit: cover;
   object-position: center 20%;
-  animation: kenBurns 20s ease-in-out infinite alternate;
-  will-change: transform;
   /* Exact same mask as the watch/details page hero: image fully fades to
      transparent well before the bottom, so the banner's bottom edge is
      completely gone and only the ambient gradient shows through. */
   -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 98%);
   mask-image: linear-gradient(to bottom, black 40%, transparent 98%);
-}
-.hero-bg.paused {
-  animation-play-state: paused;
-}
-@keyframes kenBurns {
-  0% {
-    transform: scale(1) translate(0, 0);
-  }
-  100% {
-    transform: scale(1.08) translate(-1.5%, -1%);
-  }
 }
 
 .hero-nav-arrow {

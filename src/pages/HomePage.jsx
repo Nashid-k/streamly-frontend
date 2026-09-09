@@ -3,12 +3,10 @@ import slugify from "slugify";
 import ErrorBoundary from "../components/ErrorBoundary";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Play, Pause, ChevronLeft, ChevronRight, Check, Plus, Info, Calendar, Heart } from "lucide-react";
+import { Play, ChevronLeft, ChevronRight, Check, Plus, Info, Calendar, Heart } from "lucide-react";
 import {
   motion,
   AnimatePresence,
-  useScroll,
-  useTransform,
   useReducedMotion,
 } from "framer-motion";
 import { useAppAuth } from "../context/AuthContext";
@@ -442,11 +440,7 @@ export default function Home({
   const [visibleCatCount, setVisibleCatCount] = useState(4);
   const [activeGenre, setActiveGenre] = useState("All");
   const [activePlatform, setActivePlatform] = useState("all");
-  const [isHeroPaused, setIsHeroPaused] = useState(false);
   const { continueWatching, myList, isInList, toggleMyList } = useAppAuth();
-
-  const { scrollY } = useScroll();
-  const heroParallax = useTransform(scrollY, [0, 600], [0, 120]);
 
   const {
     data: featuredData,
@@ -556,25 +550,6 @@ export default function Home({
 
   const [isHeroHovered, setIsHeroHovered] = useState(false);
   const isHeroHoveredRef = useRef(false);
-  const [heroVisible, setHeroVisible] = useState(true);
-
-  // Pause kenBurns animation when the hero scrolls off-screen to save GPU.
-  // Callback ref (React 19 cleans up on unmount) so it re-observes whenever
-  // AnimatePresence re-mounts the hero element — without a ref in the dep array.
-  const heroRef = useCallback((node) => {
-    if (!node) return;
-    if (!("IntersectionObserver" in window)) {
-      setHeroVisible(true);
-      return undefined;
-    }
-    const observer = new IntersectionObserver(
-      ([entry]) => setHeroVisible(entry.isIntersecting),
-      { threshold: 0.1 },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
   // Interval logic moved below totalFeatured
 
   useEffect(() => {
@@ -583,7 +558,6 @@ export default function Home({
     setActiveGenre("All");
     setActivePlatform("all");
     setFeaturedIndex(0);
-    setIsHeroPaused(false);
     window.scrollTo({ top: 0, behavior: "auto" });
   }, [filter]);
 
@@ -1044,14 +1018,14 @@ export default function Home({
 
   // Auto-rotation: use ref for hover state to avoid stale closures and unnecessary interval restarts
   useEffect(() => {
-    if (totalFeatured <= 1 || reduceMotion || isHeroPaused) return;
+    if (totalFeatured <= 1 || reduceMotion) return;
     const timer = setInterval(() => {
       if (!isHeroHoveredRef.current) {
         setFeaturedIndex((prev) => prev + 1);
       }
     }, 10000);
     return () => clearInterval(timer);
-  }, [totalFeatured, reduceMotion, isHeroPaused]);
+  }, [totalFeatured, reduceMotion]);
 
   // Preload next hero image to eliminate flash on slide change
   useEffect(() => {
@@ -1138,7 +1112,6 @@ export default function Home({
           <ErrorBoundary>
           <motion.div
             key={activeFeaturedMovie.id}
-            ref={heroRef}
             className="hero-container"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -1165,32 +1138,22 @@ export default function Home({
               }
             }}
           >
-            {/* Backdrop — cinematic, slow Ken Burns */}
+            {/* Backdrop — static framing keeps the hero calm while titles rotate. */}
             <motion.img
               src={activeFeaturedMovie.backdropUrl || activeFeaturedMovie.posterUrl || activeFeaturedMovie.poster}
               alt={activeFeaturedMovie.title}
-              className={`hero-bg desktop-bg${!heroVisible || isHeroPaused ? ' paused' : ''}`}
-              initial={{ scale: 1 }}
-              animate={{ scale: reduceMotion ? 1 : 1.04 }}
-              transition={{ duration: reduceMotion ? 0 : 10, ease: "linear" }}
+              className="hero-bg desktop-bg"
               fetchpriority="high"
               loading="eager"
               decoding="async"
-              y={reduceMotion ? 0 : heroParallax}
-              style={{ willChange: "transform" }}
             />
             <motion.img
               src={activeFeaturedMovie.posterUrl || activeFeaturedMovie.poster || activeFeaturedMovie.backdropUrl}
               alt={activeFeaturedMovie.title}
-              className={`hero-bg mobile-bg${!heroVisible || isHeroPaused ? ' paused' : ''}`}
-              initial={{ scale: 1 }}
-              animate={{ scale: reduceMotion ? 1 : 1.04 }}
-              transition={{ duration: reduceMotion ? 0 : 10, ease: "linear" }}
+              className="hero-bg mobile-bg"
               fetchpriority="high"
               loading="eager"
               decoding="async"
-              y={heroParallax}
-              style={{ willChange: "transform" }}
             />
 
             {/* Apple-style gradient overlay — gradient from bottom and left, no hard black */}
@@ -1312,17 +1275,6 @@ export default function Home({
                       <Info size={18} strokeWidth={2.5} />
                     </motion.button>
                   </div>
-                  {totalFeatured > 1 && !reduceMotion && (
-                    <button
-                      type="button"
-                      className="hero-rotation-control"
-                      onClick={() => setIsHeroPaused((paused) => !paused)}
-                      aria-label={isHeroPaused ? "Resume featured title rotation" : "Pause featured title rotation"}
-                      title={isHeroPaused ? "Resume rotation" : "Pause rotation"}
-                    >
-                      {isHeroPaused ? <Play size={15} fill="currentColor" stroke="none" /> : <Pause size={15} />}
-                    </button>
-                  )}
                 </div>
               </motion.div>
             </div>
