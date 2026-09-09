@@ -514,6 +514,9 @@ export default function TitleDetails() {
   const airingSeasonNumber = availableSeasonNumbers.includes(movie?.airingSeasonNumber)
     ? movie.airingSeasonNumber
     : null;
+  // Global "series is airing" state — independent of the season the viewer has
+  // selected, so the banner can surface a currently-airing show (e.g. S7 headlights).
+  const seriesIsAiring = isTvContent && airingSeasonNumber != null;
 
   const { data: episodesData, isLoading: episodesLoading } = useQuery({
     queryKey: ["episodes", id, selectedSeason, effectivePlatform],
@@ -846,6 +849,60 @@ export default function TitleDetails() {
               <h1 className="text-3xl lg:text-5xl font-bold text-white drop-shadow-2xl text-center lg:text-left">{movie.title}</h1>
             )}
 
+            {seriesIsAiring && (
+              <div className="mt-4 lg:mt-5 flex flex-wrap items-center justify-center lg:justify-start gap-x-4 gap-y-2">
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "6px 14px",
+                    borderRadius: "100px",
+                    background:
+                      "linear-gradient(135deg, rgba(239,68,68,0.18), rgba(220,38,38,0.08))",
+                    border: "1px solid rgba(239,68,68,0.45)",
+                    color: "#fecaca",
+                    fontSize: "0.8rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.03em",
+                    boxShadow: "0 4px 20px rgba(220,38,38,0.25)",
+                  }}
+                >
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      background: "#ef4444",
+                      boxShadow: "0 0 0 0 rgba(239,68,68,0.7)",
+                      animation: "pulse 2s ease-in-out infinite",
+                      flexShrink: 0,
+                    }}
+                  />
+                  {airingSeasonNumber > 1
+                    ? `Season ${airingSeasonNumber} Airing`
+                    : "Airing"}
+                </span>
+
+                {movie?.nextEpisode?.releaseDate && (
+                  <span
+                    className="text-xs lg:text-sm text-white/70 font-medium"
+                    style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+                  >
+                    New episode{" "}
+                    {getTMDBWeekday(movie.nextEpisode.releaseDate, undefined, effectivePlatform)}
+                    <span className="text-white/40 mx-1">·</span>
+                    {formatTMDBDate(movie.nextEpisode.releaseDate, {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </span>
+                )}
+              </div>
+            )}
+
             <div className="mt-3 lg:mt-4 flex items-center gap-2 text-sm lg:text-lg text-white/90 font-medium flex-wrap justify-center lg:justify-start">
               {movie.genres?.map((genre, idx) => (
                 <span key={genre} className="flex items-center gap-2">
@@ -1046,14 +1103,6 @@ export default function TitleDetails() {
               Episodes {isAiring && totalEpisodes > episodes.length
                 ? <span style={{ fontSize: '0.7em', color: '#52525b', fontWeight: 400 }}>({releasedEpisodes} of {totalEpisodes} released)</span>
                 : episodes.length > 0 && <span style={{ fontSize: '0.7em', color: '#52525b', fontWeight: 400 }}>({episodes.length})</span>}
-              {isAiring && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginLeft: '10px', fontSize: '0.65rem', fontWeight: 700, color: '#fff', background: 'linear-gradient(135deg, #ef4444, #dc2626)', padding: '3px 12px', borderRadius: '100px', boxShadow: '0 2px 8px rgba(239,68,68,0.3)' }}>
-                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#fff', animation: 'pulse 2s infinite' }} />
-                  {movie?.nextEpisode?.releaseDate
-                    ? `New episode ${getTMDBWeekday(movie.nextEpisode.releaseDate, undefined, effectivePlatform)}`
-                    : 'Airing now'}
-                </span>
-              )}
             </motion.h2>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
