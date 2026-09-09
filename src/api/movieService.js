@@ -1,4 +1,5 @@
 import tmdb from './tmdbClient';
+import { CdnImageAdapter } from './cdnImageAdapter';
 
 // Helper: detect if a TMDB id refers to a TV show
 function isTvId(id) {
@@ -64,6 +65,32 @@ const GENRE_MAP = {
   10765:'Sci-Fi & Fantasy',10766:'Soap',10767:'Talk',10768:'War & Politics',
 };
 
+// ── Trailer curation ────────────────────────────────────────────────────────
+// "Authentic platform" rules: never dump every Clip/Featurette on the page.
+// Rank trailer-family videos by prominence — Final → Official → Trailer →
+// Teaser → Extended — one per rank, bounded.
+const TRAILER_ORDER = ['final', 'official', 'trailer', 'teaser', 'extended'];
+function classifyTrailer(v) {
+  const name = (v.name || '').toLowerCase();
+  const type = (v.type || '').toLowerCase();
+  if (name.includes('final')) return 'final';
+  if (name.includes('official')) return 'official';
+  if (name.includes('superbowl') || name.includes('super bowl') || type === 'trailer' || name.includes(' trailer')) return 'trailer';
+  if (name.includes('teaser') || type === 'teaser') return 'teaser';
+  if (name.includes('extended')) return 'extended';
+  return null;
+}
+function rankTrailerVideos(videos, limit = 4) {
+  const byRank = {};
+  for (const v of videos || []) {
+    if (v?.site && v.site !== 'YouTube') continue;
+    if (!v?.key || !String(v.key).trim()) continue;
+    const rank = classifyTrailer(v);
+    if (rank && !byRank[rank]) byRank[rank] = v;
+  }
+  return TRAILER_ORDER.map((r) => byRank[r]).filter(Boolean).slice(0, limit);
+}
+
 export const movieService = {
   searchMovies: async (query) => {
     if (!query) return [];
@@ -100,8 +127,9 @@ export const movieService = {
 
   // Fetch an embeddable YouTube trailer key for any movie/TV id. Reaches
   // into the live details so even titles stored before trailers were wired
-  // up (old continue-watching entries) get a preview. Prefers an official
-  // Trailer, then Teaser, then the first usable YouTube video.
+  // up (old continue-watching entries) get a preview. Picks the most
+  // prominent trailer (Final → Official → Trailer → Teaser → Extended),
+  // falling back to the first usable YouTube video for legacy titles.
   getTitleTrailer: async (id) => {
     const isTV = isTvId(id);
     const rid = rawId(id);
@@ -110,13 +138,8 @@ export const movieService = {
       (v) => v.site === 'YouTube' && v.key && v.key.trim(),
     );
     if (videos.length === 0) return null;
-    const pick = (types) => videos.find((v) => types.includes(v.type));
-    const candidate =
-      pick(['Trailer']) ||
-      pick(['Teaser']) ||
-      pick(['Featurette', 'Clip', 'Highlight', 'Behind the Scenes']) ||
-      videos[0];
-    return candidate ? candidate.key : null;
+    const ranked = rankTrailerVideos(videos, 1);
+    return ranked[0]?.key || videos[0].key;
   },
 
   getCategories: async () => {
@@ -177,13 +200,16 @@ export const movieService = {
       revenue: detail.revenue || 0,
       productionCompanies: (detail.production_companies || []).map(p => p.name),
       filmingLocations: (detail.production_countries || []).map(p => p.name),
-      videos: (detail.videos?.results || []).filter(v => v.site === 'YouTube').map(v => ({
+      // Curated trailer set — Final → Official → Trailer → Teaser → Extended,
+      // one per rank, max 4. No clip/featurette spam.
+      videos: rankTrailerVideos(detail.videos?.results || []).map(v => ({
         id: v.id,
         key: v.key,
         name: v.name,
         type: v.type,
       })),
-      trailer: (detail.videos?.results || []).find(v => v.type === 'Trailer' && v.site === 'YouTube')?.key || null,
+      trailer: (rankTrailerVideos(detail.videos?.results || [], 1)[0] ||
+        (detail.videos?.results || []).find(v => v.type === 'Trailer' && v.site === 'YouTube'))?.key || null,
       seasonsCount: detail.number_of_seasons || null,
       seasons: (detail.seasons || []).filter(s => s.season_number > 0),
       imdbId: externalIds.imdb_id || null,
@@ -209,7 +235,7 @@ export const movieService = {
       title: ep.name,
       description: ep.overview,
       airDate: ep.air_date,
-      thumbnailUrl: ep.still_path ? `https://image.tmdb.org/t/p/w300${ep.still_path}` : null,
+      thumbnailUrl: ep.still_path ? CdnImageAdapter.getUrl(ep.still_path, 'w500') : null,
       durationMins: ep.runtime,
       duration: ep.runtime ? `${ep.runtime}m` : '',
       voteAverage: ep.vote_average,
@@ -281,5 +307,40 @@ export const movieService = {
   getTrendingThisWeek: async () => {
     const data = await tmdb('/trending/all/week');
     return (data.results || []).map(normalizeResult);
+  },
+
+  // Genre-cluster discover rails for the home showcase ("Action & Adventure",
+  // "Sci-Fi & Fantasy", "Comedies" ...). Accepts per-type genre id lists so a
+  // single rail can mix the movie genre (28) with its TV equivalent (10759).
+  // Results from movie + tv are interleaved so the row feels curated. Quality
+  // floor via vote_count_gte mirrors what authentic platforms surface.
+  getDiscoverByGenre: async ({ movies = [], tv = [] } = {}) => {
+    const jobs = [];
+    const typed = (list) => (Array.isArray(list) ? list.filter(Boolean) : []);
+    if (typed(movies).length > 0) jobs.push(['movie', typed(movies)]);
+    if (typed(tv).length > 0) jobs.push(['tv', typed(tv)]);
+    if (jobs.length === 0) return [];
+
+    const grouped = await Promise.all(
+      jobs.map(async ([mt, genreIds]) => {
+        const data = await tmdb(`/discover/${mt}`, {
+          with_genres: genreIds.join(','),
+          sort_by: 'popularity.desc',
+          vote_count_gte: 30,
+          include_adult: 'false',
+          include_video: 'false',
+        });
+        return (data.results || []).map(r =>
+          normalizeResult({ ...r, media_type: mt }),
+        );
+      }),
+    );
+
+    const out = [];
+    const max = grouped.reduce((m, g) => Math.max(m, g.length), 0);
+    for (let i = 0; i < max; i++) {
+      for (const g of grouped) if (g[i]) out.push(g[i]);
+    }
+    return out.slice(0, 24);
   },
 };

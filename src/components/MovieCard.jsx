@@ -154,6 +154,11 @@ export default function MovieCard({
 
   const rating = movie.imdbRating;
 
+  // Fallback so every card has an image: poster → backdrop, else a branded
+  // monogram tile. Never render a broken <img>.
+  const posterPath = movie.posterUrl || movie.backdropUrl;
+  const posterSrc = CdnImageAdapter.getUrl(posterPath);
+
   // ── Next-airing info for the rail badges ──────────────────────────────
   // Airing-rail cards (and any series with an announced next episode) show
   // which DAY the episode drops plus its season/episode. Series that are only
@@ -393,26 +398,47 @@ export default function MovieCard({
             </button>
 
             {/* Poster image (Always visible, darkens on hover) */}
-            <motion.img
-              src={CdnImageAdapter.getUrl(movie.posterUrl || movie.backdropUrl)}
-              alt={movie.title}
-              className="movie-poster"
-              loading="lazy"
-              decoding="async"
-              onLoad={() => setIsLoaded(true)}
-              variants={imageVariants}
-              style={{
-                position: "absolute",
-                inset: 0,
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                zIndex: 1,
-                willChange: "transform, opacity, filter",
-                opacity: isLoaded ? 1 : 0,
-                transition: "opacity 0.4s ease",
-              }}
-            />
+            {posterSrc ? (
+              <motion.img
+                src={posterSrc}
+                alt={movie.title}
+                className="movie-poster"
+                loading="lazy"
+                decoding="async"
+                onLoad={() => setIsLoaded(true)}
+                variants={imageVariants}
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  zIndex: 1,
+                  willChange: "transform, opacity, filter",
+                  opacity: isLoaded ? 1 : 0,
+                  transition: "opacity 0.4s ease",
+                }}
+              />
+            ) : (
+              <div
+                aria-hidden="true"
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  zIndex: 2,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "linear-gradient(160deg, #18181b, #0a0a0c)",
+                  color: "rgba(255,255,255,0.22)",
+                  fontSize: "2.4rem",
+                  fontWeight: 800,
+                  letterSpacing: "-0.03em",
+                }}
+              >
+                {(movie.title || "?").trim().charAt(0).toUpperCase()}
+              </div>
+            )}
 
             {/* ── Cinematic curtain ─────────────────────────── */}
             <motion.div

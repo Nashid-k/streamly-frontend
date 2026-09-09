@@ -23,6 +23,7 @@ import RatingsCluster from "../components/RatingsCluster";
 import RailArrow from "../components/RailArrow";
 import useRailArrows from "../hooks/useRailArrows";
 import LeavingSoonBanner from "../components/LeavingSoonBanner";
+import GenreShowcase from "../components/GenreShowcase";
 import { detectLeavingSoon, buildUpcoming } from "../utils/releaseCalendar";
 import { asArray, EMPTY_ARRAY } from "../utils";
 
@@ -1432,57 +1433,73 @@ export default function Home({
                 </ErrorBoundary>
               </FadeInSection>
             )}
-            {/* 5. Popular Now */}
-            {popularNow.length > 0 && activeGenre === "All" && (
+            {/* 5. Airing This Week — currently-airing TV, the "On the Air" row */}
+            {airingThisWeek.length > 0 && activeGenre === "All" && (
               <FadeInSection>
                 <ErrorBoundary>
                   <MovieRail
                     railIndex={4}
+                    category={{ name: "Airing This Week", movies: airingThisWeek }}
+                  />
+                </ErrorBoundary>
+              </FadeInSection>
+            )}
+            {/* 6. Popular Now */}
+            {popularNow.length > 0 && activeGenre === "All" && (
+              <FadeInSection>
+                <ErrorBoundary>
+                  <MovieRail
+                    railIndex={5}
                     category={{ name: "Popular Now", movies: popularNow }}
                   />
                 </ErrorBoundary>
               </FadeInSection>
             )}
-            {/* 6. Top Rated */}
+            {/* 7. Top Rated */}
             {topRated.length > 0 && activeGenre === "All" && (
               <FadeInSection>
                 <ErrorBoundary>
                   <MovieRail
-                    railIndex={5}
+                    railIndex={6}
                     category={{ name: "Top Rated", movies: topRated }}
                   />
                 </ErrorBoundary>
               </FadeInSection>
             )}
-            {/* 7. Now Playing / In Theaters */}
+            {/* 8. Now Playing / In Theaters */}
             {nowPlaying.length > 0 && activeGenre === "All" && (
               <FadeInSection>
                 <ErrorBoundary>
                   <MovieRail
-                    railIndex={6}
+                    railIndex={7}
                     category={{ name: "Now Playing / In Theaters", movies: nowPlaying }}
                   />
                 </ErrorBoundary>
               </FadeInSection>
             )}
 
-            {/* 8. My List */}
+            {/* 9. My List */}
             {myList && myList.length > 0 && filter === "all" && (
               <FadeInSection>
                 <ErrorBoundary>
                   <MovieRail
-                    railIndex={7}
+                    railIndex={8}
                     category={{ name: "My List", movies: myList }}
                   />
                 </ErrorBoundary>
               </FadeInSection>
             )}
 
-            {/* 9. Category rails */}
+            {/* 10. Genre showcase — Netflix/Prime-style rows (tab-aware) */}
+            <ErrorBoundary>
+              <GenreShowcase filter={filter} activeGenre={activeGenre} />
+            </ErrorBoundary>
+
+            {/* 11. Category rails */}
             {categories.slice(0, visibleCatCount).map((category, catIdx) => (
               <FadeInSection key={catIdx} delay={0.1}>
                 <ErrorBoundary key={category.id || catIdx}>
-                  <MovieRail railIndex={catIdx + 8} category={category} />
+                  <MovieRail railIndex={catIdx + 9} category={category} />
                 </ErrorBoundary>
               </FadeInSection>
             ))}

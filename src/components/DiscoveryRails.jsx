@@ -13,7 +13,7 @@ import { asArray, EMPTY_ARRAY } from "../utils";
 const hasArt = (m) => Boolean(m && (m.posterUrl || m.poster || m.backdropUrl));
 const dedupeKey = (m) => m.tmdbId || m.id;
 
-const DiscoveryRail = ({ section }) => {
+export const DiscoveryRail = ({ section }) => {
   const railRef = useRef(null);
   const { canScrollLeft, canScrollRight, refresh } = useRailArrows(railRef);
 
@@ -31,7 +31,8 @@ const DiscoveryRail = ({ section }) => {
         title={section.title}
         actions={
           <Link
-            to={`/search?q=${encodeURIComponent(section.title)}`}
+            to={section.href || `/search?q=${encodeURIComponent(section.title)}`}
+            state={section.linkState}
             style={{
               fontSize: "0.72rem",
               color: "rgba(255,255,255,0.72)",

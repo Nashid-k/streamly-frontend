@@ -26,6 +26,7 @@ import {
   LayoutGrid,
   List,
   Popcorn,
+  Calendar,
   ChevronDown as ChevronDownIcon,
 } from "lucide-react";
 import {
@@ -46,6 +47,18 @@ const EMPTY_ARRAY = [];
 import { VideoSourceAdapter } from "../api/videoSourceAdapter";
 
 const SERVERS = VideoSourceAdapter.getServers();
+
+// Compact "Airs Thu, Sep 9"-style date for upcoming episode chips.
+const formatAirsDate = (dateStr) => {
+  if (!dateStr) return "Upcoming";
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return dateStr;
+  return date.toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+};
 
 // ─── SeasonDropdown — custom styled dropdown (no native <select>) ─────────────
 
@@ -1104,6 +1117,9 @@ export default function TitleDetails() {
                     const watchedTs = continueWatching?.find(m => String(m.id) === String(movie.id) && m.savedEpisode === ep.episodeNumber)?.timestamp || 0;
                     const isAired = !ep.airDate || new Date(ep.airDate) <= new Date();
                     const playable = SERVERS.length > 0 && isAired;
+                    // Upcoming episodes have no TMDB still — fall back to the
+                    // series artwork so every card shows an image (grayed out).
+                    const epThumb = ep.thumbnailUrl || movie.backdropUrl || movie.posterUrl;
                     const playEpisode = () => {
                       if (!playable) return;
                       setIsPlaying(true);
@@ -1145,8 +1161,20 @@ export default function TitleDetails() {
                           }}
                         >
                           <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', overflow: 'hidden', background: '#18181b' }}>
-                            {ep.thumbnailUrl && (
-                              <motion.img src={ep.thumbnailUrl} alt={ep.title} whileHover={{ scale: 1.06 }} transition={{ duration: 0.5 }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" decoding="async" />
+                            {epThumb ? (
+                              <motion.img
+                                src={CdnImageAdapter.getUrl(epThumb, 'w500')}
+                                alt={ep.title}
+                                whileHover={playable ? { scale: 1.06 } : undefined}
+                                transition={{ duration: 0.5 }}
+                                loading="lazy"
+                                decoding="async"
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', filter: !isAired ? 'grayscale(0.85) brightness(0.55)' : undefined }}
+                              />
+                            ) : (
+                              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3f3f46' }}>
+                                <Film size={28} strokeWidth={1.5} />
+                              </div>
                             )}
                             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                               {isAired ? (
@@ -1160,8 +1188,10 @@ export default function TitleDetails() {
                                   </div>
                                 )
                               ) : (
-                                <div style={{ background: 'rgba(0,0,0,0.8)', color: '#fff', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700, backdropFilter: 'blur(4px)' }}>
-                                  Airs {ep.airDate}
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'linear-gradient(135deg, rgba(251,191,36,0.95), rgba(244,63,94,0.9))', color: '#fff', padding: '6px 12px', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.02em', backdropFilter: 'blur(6px)', boxShadow: '0 6px 20px rgba(244,63,94,0.4)' }}>
+                                  <Calendar size={13} strokeWidth={2.5} aria-hidden="true" />
+                                  <span style={{ opacity: 0.9, fontWeight: 700 }}>Airs</span>
+                                  {formatAirsDate(ep.airDate)}
                                 </div>
                               )}
                             </div>
@@ -1233,7 +1263,13 @@ export default function TitleDetails() {
                       >
                         {/* Thumbnail */}
                         <div style={{ position: 'relative', width: '140px', flexShrink: 0, borderRadius: '8px', overflow: 'hidden', aspectRatio: '16/9', background: '#18181b' }}>
-                          {ep.thumbnailUrl && <img src={ep.thumbnailUrl} alt={ep.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" decoding="async" />}
+                          {epThumb ? (
+                            <img src={CdnImageAdapter.getUrl(epThumb, 'w500')} alt={ep.title} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: !isAired ? 'grayscale(0.85) brightness(0.55)' : undefined }} />
+                          ) : (
+                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3f3f46' }}>
+                              <Film size={22} strokeWidth={1.5} />
+                            </div>
+                          )}
                           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             {isAired ? (
                               SERVERS.length > 0 ? (
@@ -1246,8 +1282,9 @@ export default function TitleDetails() {
                                 </div>
                               )
                             ) : (
-                              <div style={{ background: 'rgba(0,0,0,0.8)', color: '#fff', padding: '2px 4px', borderRadius: '4px', fontSize: '0.6rem', fontWeight: 700, backdropFilter: 'blur(4px)' }}>
-                                {ep.airDate}
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'linear-gradient(135deg, rgba(251,191,36,0.9), rgba(244,63,94,0.9))', color: '#fff', padding: '3px 9px', borderRadius: '999px', fontSize: '0.64rem', fontWeight: 800, backdropFilter: 'blur(6px)', boxShadow: '0 4px 14px rgba(244,63,94,0.35)' }}>
+                                <Calendar size={11} strokeWidth={2.5} aria-hidden="true" />
+                                {formatAirsDate(ep.airDate)}
                               </div>
                             )}
                           </div>
