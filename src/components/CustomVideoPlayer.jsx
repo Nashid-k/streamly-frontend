@@ -1926,9 +1926,20 @@ const CustomVideoPlayer = ({
        · hudTop: adaptive vertical placement — clears a floating toast /
          error pill when present, then sits pinned top-center
      ═══════════════════════════════════════════════════════════════ */
-  const { w: playerW } = useContainerSize(containerRef);
+  const { w: playerW, h: playerH } = useContainerSize(containerRef);
   const hudScale = playerW ? Math.max(0.78, Math.min(1.35, playerW / 1280)) : 1;
   const hudTop = Math.round((toastMessage || errorMessage ? 116 : 56) * hudScale) + 'px';
+  const selectedAspect = ASPECT_RATIOS[aspectRatioIndex];
+  // A 16:9 frame leaves vertical pillars on notched landscape phones. When a
+  // crop mode is chosen, first zoom enough to cover the actual player box,
+  // then apply the chosen crop. The Fit mode deliberately remains contained.
+  const coverScale = playerW && playerH
+    ? Math.max(1, (playerW / playerH) / (16 / 9))
+    : 1;
+  const mediaScale = aspectRatioIndex === 0
+    ? 1
+    : Math.max(selectedAspect.scale, coverScale);
+  const mediaTransform = mediaScale === 1 ? 'none' : `scale(${mediaScale})`;
 
   /* ═══════════════════════════════════════════════════════════════
      RENDER — Apple TV+ inspired player
@@ -1936,10 +1947,14 @@ const CustomVideoPlayer = ({
   return (
     <div
       ref={containerRef}
+      className={`streamly-player${isTouch ? ' streamly-player--touch' : ''}${isFullscreen ? ' streamly-player--fullscreen' : ''}`}
       style={{
         position: isFullscreen ? 'fixed' : 'relative', width: '100%',
-        aspectRatio: isFullscreen ? undefined : '16/9',
-        height: isFullscreen ? '100dvh' : 'auto',
+        // The watch modal gives touch players the available viewport height.
+        // Desktop keeps its familiar 16:9 frame.
+        aspectRatio: isFullscreen || isTouch ? undefined : '16/9',
+        height: isFullscreen ? '100dvh' : (isTouch ? '100%' : 'auto'),
+        minHeight: isTouch && !isFullscreen ? 0 : undefined,
         maxHeight: isFullscreen ? '100dvh' : 'min(calc(100vh - 120px), 80vw)',
         background: '#000',
         borderRadius: isFullscreen ? 0 : 12,
@@ -1951,7 +1966,9 @@ const CustomVideoPlayer = ({
         WebkitUserSelect: 'none',
         touchAction: 'manipulation',
         WebkitTouchCallout: 'none',
-        /* Safe area insets — applied as margin on the iframe, not padding on container */
+        /* Media intentionally reaches the physical edge. Safe areas protect
+           controls below, not the picture itself, so crop modes can cover a
+           notched landscape screen without retaining black side pillars. */
         '--sat': isFullscreen ? 'env(safe-area-inset-top, 0px)' : '0px',
         '--sab': isFullscreen ? 'env(safe-area-inset-bottom, 0px)' : '0px',
         '--sal': isFullscreen ? 'env(safe-area-inset-left, 0px)' : '0px',
@@ -1981,18 +1998,13 @@ const CustomVideoPlayer = ({
         <video
           ref={videoRef}
           style={{
-            width: '100%', height: '100%', border: 'none', background: '#000',
-            objectFit: 'contain',
+            position: 'absolute', inset: 0, display: 'block', width: '100%', height: '100%', border: 'none', background: '#000',
+            objectFit: aspectRatioIndex === 0 ? 'contain' : 'cover',
             pointerEvents: 'none',
             opacity: hasInitiallyLoaded ? 1 : 0,
             transition: 'opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
             filter: brightness !== 1 ? `brightness(${brightness})` : undefined,
-            marginTop: 'var(--sat)',
-            marginBottom: 'var(--sab)',
-            marginLeft: 'var(--sal)',
-            marginRight: 'var(--sar)',
-            transform: ASPECT_RATIOS[aspectRatioIndex].scale !== 1
-              ? `scale(${ASPECT_RATIOS[aspectRatioIndex].scale})` : 'none',
+            transform: mediaTransform,
             transformOrigin: 'center center',
           }}
           crossOrigin="anonymous"
@@ -2008,20 +2020,12 @@ const CustomVideoPlayer = ({
           src={iframeUrl}
           title="Video player"
           style={{
-            width: '100%', height: '100%', border: 'none', background: '#000', overflow: 'visible',
+            position: 'absolute', inset: 0, display: 'block', width: '100%', height: '100%', border: 'none', background: '#000', overflow: 'visible',
             pointerEvents: isCineSrc ? 'auto' : (showCustomUI ? 'none' : 'auto'),
             opacity: hasInitiallyLoaded ? 1 : 0,
             transition: 'opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
             filter: brightness !== 1 ? `brightness(${brightness})` : undefined,
-            /* Safe area margins on the iframe itself */
-            marginTop: 'var(--sat)',
-            marginBottom: 'var(--sab)',
-            marginLeft: 'var(--sal)',
-            marginRight: 'var(--sar)',
-            /* Aspect ratio: use object-fit instead of transform to respect safe areas */
-            objectFit: 'contain',
-            transform: ASPECT_RATIOS[aspectRatioIndex].scale !== 1
-              ? `scale(${ASPECT_RATIOS[aspectRatioIndex].scale})` : 'none',
+            transform: mediaTransform,
             transformOrigin: 'center center',
           }}
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
@@ -2087,7 +2091,7 @@ const CustomVideoPlayer = ({
       {/* Subtitles */}
       {showCustomUI && subtitleEnabled && hasSubtitles && activeSubtitleCue && (
         <div style={{
-          position: "absolute", bottom: controlsVisible ? "clamp(60px, 12vw, 100px)" : "clamp(20px, 4vw, 36px)",
+          position: "absolute", bottom: controlsVisible ? "calc(clamp(60px, 12vw, 100px) + var(--sab))" : "calc(clamp(20px, 4vw, 36px) + var(--sab))",
           left: 0, right: 0, display: "flex", justifyContent: "center",
           pointerEvents: "none", zIndex: 15,
           transition: "bottom 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
@@ -3074,7 +3078,7 @@ const CustomVideoPlayer = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 20, pointerEvents: "none" }}
+            style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 20, pointerEvents: "none", paddingBottom: "var(--sab)" }}
           >
             {/* Skip Intro / Up Next */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", padding: `0 ${R.progressBarPad}`, marginBottom: 8, pointerEvents: "none" }}>
@@ -3336,7 +3340,7 @@ const CustomVideoPlayer = ({
             </div>
 
             {/* TITLE ROW */}
-            <div style={{
+            <div className="streamly-player-title-row" style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
               padding: `${R.padTiny} ${R.progressBarPad} 2px`, pointerEvents: "none", gap: "clamp(8px, 2vw, 12px)",
             }}>
@@ -3348,7 +3352,7 @@ const CustomVideoPlayer = ({
               }}>
                 {fmt(currentTime)} / {fmt(duration)}
               </span>
-              <div style={{
+              <div className="streamly-player-title-meta" style={{
                 display: "flex", alignItems: "center", gap: "clamp(6px, 1.5vw, 10px)",
                 minWidth: 0, flex: 1, justifyContent: "center",
               }}>
@@ -3363,7 +3367,7 @@ const CustomVideoPlayer = ({
                   {movie?.title || movie?.name}
                 </span>
                 {isTvContent && season && (
-                  <span style={{
+                  <span className="streamly-player-episode-label" style={{
                     color: "rgba(255,255,255,0.6)", fontSize: "clamp(10px, 1.2vw, 12px)",
                     fontWeight: 700, letterSpacing: "0.3px",
                     background: "rgba(255,255,255,0.06)",
@@ -3376,7 +3380,7 @@ const CustomVideoPlayer = ({
                   </span>
                 )}
                 {movie?.releaseYear && (
-                  <span style={{
+                  <span className="streamly-player-release-year" style={{
                     color: "rgba(255,255,255,0.35)", fontSize: R.fontSmall, fontWeight: 600,
                     flexShrink: 0, letterSpacing: "0.3px",
                     fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
@@ -3384,7 +3388,7 @@ const CustomVideoPlayer = ({
                 )}
                 {/* Direct stream provider badge (branded for NetMirror multi-audio) */}
                 {isDirectStream && directStreamProvider === "netmirror" ? (
-                  <span style={{
+                  <span className="streamly-player-provider" style={{
                     display: "inline-flex", alignItems: "center", gap: 6,
                     color: "#fff", fontSize: "10px", fontWeight: 700,
                     background: "rgba(0,0,0,0.45)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
@@ -3403,7 +3407,7 @@ const CustomVideoPlayer = ({
                     )}
                   </span>
                 ) : isDirectStream && directStreamProvider ? (
-                  <span style={{
+                  <span className="streamly-player-provider" style={{
                     color: "rgba(0,200,120,0.7)", fontSize: "10px", fontWeight: 700,
                     background: "rgba(0,200,120,0.08)", padding: "2px 7px",
                     borderRadius: 100, flexShrink: 0, letterSpacing: "0.5px",
@@ -3417,7 +3421,7 @@ const CustomVideoPlayer = ({
             </div>
 
             {/* ═══ CONTROL ROW ════════════════════════════════════ */}
-            <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: `${R.controlRowPad} ${R.padMedium} ${R.padMedium}`, pointerEvents: "auto" }}>
+            <div className="streamly-player-control-row" onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: `${R.controlRowPad} ${R.padMedium} ${R.padMedium}`, pointerEvents: "auto" }}>
               {/* Left: Play + Seek + Volume */}
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <motion.button
@@ -3687,7 +3691,7 @@ const CustomVideoPlayer = ({
             transition={SPRING}
             onClick={(e) => e.stopPropagation()}
             style={{
-              position: "absolute", bottom: "clamp(40px, 8vw, 60px)", right: "clamp(8px, 2vw, 16px)", zIndex: 50,
+              position: "absolute", bottom: "calc(clamp(40px, 8vw, 60px) + var(--sab))", right: "calc(clamp(8px, 2vw, 16px) + var(--sar))", zIndex: 50,
               width: R.panelSettings, maxHeight: "50vh",
               background: "rgba(18,18,20,0.88)",
               backdropFilter: "blur(40px) saturate(180%)",
@@ -3885,7 +3889,7 @@ const CustomVideoPlayer = ({
             transition={SPRING}
             onClick={(e) => e.stopPropagation()}
             style={{
-              position: "absolute", bottom: "clamp(40px, 8vw, 60px)", right: "clamp(36px, 8vw, 56px)", zIndex: 50,
+              position: "absolute", bottom: "calc(clamp(40px, 8vw, 60px) + var(--sab))", right: "calc(clamp(36px, 8vw, 56px) + var(--sar))", zIndex: 50,
               width: R.panelSubtitles, maxHeight: "45vh",
               background: "rgba(18,18,20,0.88)",
               backdropFilter: "blur(40px) saturate(180%)",
@@ -3966,7 +3970,7 @@ const CustomVideoPlayer = ({
             transition={SPRING}
             onClick={(e) => e.stopPropagation()}
             style={{
-              position: "absolute", bottom: "clamp(40px, 8vw, 60px)", right: "clamp(68px, 14vw, 96px)", zIndex: 50,
+              position: "absolute", bottom: "calc(clamp(40px, 8vw, 60px) + var(--sab))", right: "calc(clamp(68px, 14vw, 96px) + var(--sar))", zIndex: 50,
               width: R.panelSubtitles, maxHeight: "40vh",
               background: "rgba(18,18,20,0.88)",
               backdropFilter: "blur(40px) saturate(180%)",

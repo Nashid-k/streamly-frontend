@@ -4328,3 +4328,105 @@ html {
     max-width: 100%;
   }
 }
+
+/* ── Watch player: compact touch layout ─────────────────────────────────── */
+.video-modal-player {
+  min-height: 0;
+}
+
+@media (max-width: 1024px) {
+  .video-modal-header__identity {
+    min-width: 0;
+  }
+
+  .video-modal-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 768px) {
+  .video-modal-header {
+    flex-direction: row !important;
+    min-height: 3.75rem;
+    padding: calc(env(safe-area-inset-top, 0px) + 0.5rem) 0.75rem 0.5rem !important;
+    gap: 0.5rem !important;
+    align-items: center !important;
+  }
+
+  .video-modal-header__identity {
+    flex: 1 1 auto;
+    gap: 0.65rem !important;
+  }
+
+  .video-modal-title {
+    font-size: 0.88rem !important;
+  }
+
+  .video-modal-header__actions {
+    flex: 0 0 auto;
+    margin-left: auto;
+    gap: 0.45rem !important;
+  }
+
+  .video-modal-episode-nav {
+    display: none !important;
+  }
+
+  .video-modal-back-button {
+    width: 2.5rem;
+    height: 2.5rem;
+    justify-content: center !important;
+    padding: 0 !important;
+  }
+
+  .video-modal-back-label {
+    display: none;
+  }
+
+  .streamly-player--touch .streamly-player-title-row {
+    gap: 0.45rem !important;
+    padding-top: 0.15rem !important;
+  }
+
+  .streamly-player--touch .streamly-player-title-meta {
+    justify-content: flex-start !important;
+    gap: 0.45rem !important;
+  }
+
+  .streamly-player--touch .streamly-player-release-year,
+  .streamly-player--touch .streamly-player-provider {
+    display: none !important;
+  }
+
+  .streamly-player--touch .streamly-player-control-row {
+    padding-left: max(0.5rem, env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(0.5rem, env(safe-area-inset-right, 0px)) !important;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 600px) and (hover: none) {
+  /* Keep the content edge-to-edge in phone landscape; the small header floats
+     over the picture rather than consuming a horizontal strip of playback. */
+  .video-modal-header {
+    position: absolute !important;
+    inset: 0 0 auto !important;
+    z-index: 30 !important;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.74), transparent) !important;
+    border-bottom: 0 !important;
+  }
+
+  .video-modal-player {
+    height: 100%;
+  }
+
+  .video-modal-title {
+    max-width: min(42vw, 22rem);
+  }
+
+  .streamly-player--touch .streamly-player-title-row {
+    padding-top: 0 !important;
+  }
+}

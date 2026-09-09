@@ -64,9 +64,12 @@ const formatAirsDate = (dateStr) => {
 
 // ─── SeasonDropdown — custom styled dropdown (no native <select>) ─────────────
 
-function SeasonDropdown({ seasonsCount, selectedSeason, onSelect }) {
+function SeasonDropdown({ seasons, selectedSeason, airingSeasonNumber, onSelect }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+  const seasonOptions = seasons.length > 0
+    ? seasons
+    : [{ seasonNumber: selectedSeason, name: `Season ${selectedSeason}` }];
 
   // Close on outside click
   useEffect(() => {
@@ -113,6 +116,19 @@ function SeasonDropdown({ seasonsCount, selectedSeason, onSelect }) {
             }}
           />
           Season {selectedSeason}
+          {airingSeasonNumber === selectedSeason && (
+            <span
+              aria-label="Currently airing"
+              title="Currently airing"
+              style={{
+                width: "6px",
+                height: "6px",
+                borderRadius: "50%",
+                background: "#ef4444",
+                boxShadow: "0 0 0 3px rgba(239,68,68,0.18)",
+              }}
+            />
+          )}
         </span>
         <motion.span
           animate={{ rotate: open ? 180 : 0 }}
@@ -146,14 +162,15 @@ function SeasonDropdown({ seasonsCount, selectedSeason, onSelect }) {
               scrollbarColor: "rgba(255,255,255,0.15) transparent",
             }}
           >
-            {Array.from({ length: seasonsCount }, (_, i) => i + 1).map(
-              (season) => {
-                const isSelected = season === selectedSeason;
+            {seasonOptions.map((season, index) => {
+                const seasonNumber = season.seasonNumber;
+                const isSelected = seasonNumber === selectedSeason;
+                const isAiringSeason = seasonNumber === airingSeasonNumber;
                 return (
                   <motion.button
-                    key={season}
+                    key={seasonNumber}
                     onClick={() => {
-                      onSelect(season);
+                      onSelect(seasonNumber);
                       setOpen(false);
                     }}
                     whileHover={{ background: "rgba(255,255,255,0.08)" }}
@@ -173,9 +190,9 @@ function SeasonDropdown({ seasonsCount, selectedSeason, onSelect }) {
                       cursor: "pointer",
                       textAlign: "left",
                       borderRadius:
-                        season === 1
+                        index === 0
                           ? "14px 14px 0 0"
-                          : season === seasonsCount
+                          : index === seasonOptions.length - 1
                             ? "0 0 14px 14px"
                             : "0",
                       transition: "background 0.1s",
@@ -194,11 +211,15 @@ function SeasonDropdown({ seasonsCount, selectedSeason, onSelect }) {
                       />
                     )}
                     {!isSelected && <span style={{ width: "6px" }} />}
-                    Season {season}
+                    <span style={{ flex: 1 }}>Season {seasonNumber}</span>
+                    {isAiringSeason && (
+                      <span style={{ color: "#fca5a5", fontSize: "0.68rem", fontWeight: 700 }}>
+                        AIRING
+                      </span>
+                    )}
                   </motion.button>
                 );
-              },
-            )}
+              })}
           </motion.div>
         )}
       </AnimatePresence>
@@ -428,6 +449,7 @@ export default function TitleDetails() {
   });
 
   const movie = rawMovie;
+  const movieId = movie?.id;
 
   // Resolve the actual platform — now guaranteed to be a canonical key or null
   const effectivePlatform = movie?.source || undefined;
@@ -478,9 +500,20 @@ export default function TitleDetails() {
     (movie?.type === "tv") ||
     (movie?.seasonsCount && Number(movie.seasonsCount) > 0 && !String(movie?.id || id).startsWith("tmdb-movie-")),
   );
-  const normalizedSeasonCount = isTvContent
-    ? Math.max(1, Number(movie?.seasonsCount) || 1)
-    : 0;
+  const availableSeasons = isTvContent
+    ? (movie?.seasons?.length
+      ? movie.seasons
+      : Array.from({ length: Math.max(1, Number(movie?.seasonsCount) || 1) }, (_, index) => ({
+        seasonNumber: index + 1,
+        name: `Season ${index + 1}`,
+      })))
+    : EMPTY_ARRAY;
+  const availableSeasonNumbers = availableSeasons.map((season) => season.seasonNumber);
+  const availableSeasonKey = availableSeasonNumbers.join(",");
+  const normalizedSeasonCount = availableSeasonNumbers.length;
+  const airingSeasonNumber = availableSeasonNumbers.includes(movie?.airingSeasonNumber)
+    ? movie.airingSeasonNumber
+    : null;
 
   const { data: episodesData, isLoading: episodesLoading } = useQuery({
     queryKey: ["episodes", id, selectedSeason, effectivePlatform],
@@ -501,20 +534,27 @@ export default function TitleDetails() {
 
   const totalEpisodes = episodesData?.totalEpisodes || episodes.length;
   const releasedEpisodes = episodesData?.releasedEpisodes || episodes.length;
-  const isAiring = episodesData?.isAiring || !!movie?.nextEpisode?.releaseDate;
+  const isAiring = episodesData?.isAiring
+    || (selectedSeason === airingSeasonNumber && !!movie?.nextEpisode?.releaseDate);
   const hasSeriesEpisodes = isTvContent;
 
   useEffect(() => {
-    if (movie && isTvContent) {
-      const saved = cwRef.current.find(
-        (m) => String(m.id) === String(movie.id),
-      );
-      if (saved) {
-        setSelectedSeason(saved.savedSeason || 1);
-        setPlayingEpisode(saved.savedEpisode || 1);
-      }
-    }
-  }, [movie, isTvContent]);
+    if (!movieId || !isTvContent) return;
+    const seasonNumbers = availableSeasonKey
+      .split(",")
+      .map(Number)
+      .filter(Number.isFinite);
+    const saved = cwRef.current.find(
+      (m) => String(m.id) === String(movieId),
+    );
+    const savedSeason = Number(saved?.savedSeason);
+    const preferredSeason = seasonNumbers.includes(savedSeason)
+      ? savedSeason
+      : airingSeasonNumber || seasonNumbers[0] || 1;
+
+    setSelectedSeason(preferredSeason);
+    setPlayingEpisode(saved?.savedEpisode || 1);
+  }, [movieId, isTvContent, airingSeasonNumber, availableSeasonKey]);
 
   // Scroll handled by useScrollRestoration in Layout
 
@@ -628,6 +668,75 @@ export default function TitleDetails() {
 
   const resolvedPlatform = effectivePlatform;
   const sourceName = movie?.sourceName || getPlatformName(resolvedPlatform) || "Streaming";
+  const savedEpisodeForSelectedSeason = continueWatching?.find(
+    (item) => String(item.id) === String(movie.id)
+      && Number(item.savedSeason) === Number(selectedSeason)
+      && Number(item.savedEpisode) > 0,
+  );
+  const latestAiredEpisode = episodes
+    .filter((ep) => !ep.airDate || new Date(ep.airDate) <= new Date())
+    .at(-1)?.episodeNumber
+    || (movie.lastEpisode?.seasonNumber === selectedSeason
+      ? movie.lastEpisode.episodeNumber
+      : null);
+  const episodeToPlay = savedEpisodeForSelectedSeason?.savedEpisode
+    || latestAiredEpisode
+    || 1;
+
+  // ── Season-aware episode navigation ─────────────────────────────────────
+  // Same philosophy as the hero Play button: step within the *aired* episodes
+  // of the selected season, and roll across season boundaries to the previous
+  // season's last / next season's first episode instead of landing on an
+  // episode number that doesn't exist.
+  const airedEpisodeNumbers = episodes
+    .filter((ep) => !ep.airDate || new Date(ep.airDate) <= new Date())
+    .sort((a, b) => (a.episodeNumber || 0) - (b.episodeNumber || 0))
+    .map((ep) => ep.episodeNumber);
+  const currentSeasonIndex = availableSeasonNumbers.indexOf(selectedSeason);
+  const hasPrevSeason = currentSeasonIndex > 0;
+  const hasNextSeason =
+    currentSeasonIndex >= 0 &&
+    currentSeasonIndex < availableSeasonNumbers.length - 1;
+  const currentEpisodeIndex = airedEpisodeNumbers.indexOf(playingEpisode);
+  const canGoPrev =
+    currentEpisodeIndex > 0 || hasPrevSeason;
+  const canGoNext =
+    (currentEpisodeIndex >= 0 &&
+      currentEpisodeIndex < airedEpisodeNumbers.length - 1) ||
+    hasNextSeason;
+
+  const goToPrevEpisode = () => {
+    if (currentEpisodeIndex > 0) {
+      setPlayingEpisode(airedEpisodeNumbers[currentEpisodeIndex - 1]);
+      return;
+    }
+    if (!hasPrevSeason) return;
+    const prevSeason = availableSeasonNumbers[currentSeasonIndex - 1];
+    setSelectedSeason(prevSeason);
+    setPlayingEpisode(
+      movie?.lastEpisode?.seasonNumber === prevSeason
+        ? movie.lastEpisode.episodeNumber
+        : 1,
+    );
+  };
+
+  const goToNextEpisode = () => {
+    if (
+      currentEpisodeIndex >= 0 &&
+      currentEpisodeIndex < airedEpisodeNumbers.length - 1
+    ) {
+      setPlayingEpisode(airedEpisodeNumbers[currentEpisodeIndex + 1]);
+      return;
+    }
+    if (!hasNextSeason) return;
+    const nextSeason = availableSeasonNumbers[currentSeasonIndex + 1];
+    setSelectedSeason(nextSeason);
+    setPlayingEpisode(
+      movie?.lastEpisode?.seasonNumber === nextSeason
+        ? movie.lastEpisode.episodeNumber
+        : 1,
+    );
+  };
 
   const formatTime = (time) => {
     if (!time || isNaN(time)) return "0:00";
@@ -753,10 +862,9 @@ export default function TitleDetails() {
                   setPlayMode("movie");
                   setIsPlaying(true);
                   if (isTvContent) {
-                    setPlayingEpisode(1);
-                    setSelectedSeason(1);
+                    setPlayingEpisode(episodeToPlay);
                   }
-                  updateProgress(movie, isTvContent ? 1 : null, isTvContent ? 1 : null, 0);
+                  updateProgress(movie, isTvContent ? selectedSeason : null, isTvContent ? episodeToPlay : null, 0);
                 }}
                 className="relative rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 font-semibold tracking-wide h-[44px] lg:h-[52px] px-6 lg:px-8 py-3 text-sm lg:text-base min-w-[120px] text-white border-none"
                 style={{ background: "var(--accent-gradient)", boxShadow: "0 8px 24px rgba(244,63,94,0.5)" }}
@@ -981,8 +1089,9 @@ export default function TitleDetails() {
 
               {/* Season dropdown */}
             <SeasonDropdown
-              seasonsCount={normalizedSeasonCount}
+              seasons={availableSeasons}
               selectedSeason={selectedSeason}
+              airingSeasonNumber={airingSeasonNumber}
               onSelect={(s) => { setSelectedSeason(s); setShowAllEpisodes(false); }}
             />
             </div>
@@ -1089,7 +1198,13 @@ export default function TitleDetails() {
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={() => setSelectedSeason(selectedSeason < normalizedSeasonCount ? selectedSeason + 1 : 1)}
+                    onClick={() => {
+                      const currentIndex = availableSeasonNumbers.indexOf(selectedSeason);
+                      const nextIndex = currentIndex >= 0
+                        ? (currentIndex + 1) % availableSeasonNumbers.length
+                        : 0;
+                      setSelectedSeason(availableSeasonNumbers[nextIndex]);
+                    }}
                     style={{
                       background: "rgba(244,63,94,0.08)",
                       border: "1px solid rgba(244,63,94,0.2)",
@@ -1643,10 +1758,12 @@ export default function TitleDetails() {
               }}
             >
               <div
+                className="video-modal-header__identity"
                 style={{ display: "flex", alignItems: "center", gap: "1rem" }}
               >
                 <motion.button
                   onClick={() => setIsPlaying(false)}
+                  className="video-modal-back-button"
                   style={{
                     background: "rgba(255,255,255,0.08)",
                     border: "1px solid rgba(255,255,255,0.12)",
@@ -1666,9 +1783,10 @@ export default function TitleDetails() {
                   }}
                   whileTap={{ scale: 0.96 }}
                 >
-                  <ArrowLeft size={18} /> Back
+                  <ArrowLeft size={18} /> <span className="video-modal-back-label">Back</span>
                 </motion.button>
                 <h3
+                  className="video-modal-title"
                   style={{
                     margin: 0,
                     fontSize: "1.1rem",
@@ -1689,6 +1807,7 @@ export default function TitleDetails() {
                 </h3>
               </div>
               <div
+                className="video-modal-header__actions"
                 style={{
                   display: "flex",
                   gap: "0.75rem",
@@ -1697,6 +1816,7 @@ export default function TitleDetails() {
               >
                 {isTvContent && playMode !== "trailer" && (
                   <div
+                    className="video-modal-episode-nav"
                     style={{
                       display: "flex",
                       gap: "0.5rem",
@@ -1704,53 +1824,42 @@ export default function TitleDetails() {
                     }}
                   >
                     <motion.button
-                      onClick={() => {
-                        if (playingEpisode > 1) {
-                          setPlayingEpisode((prev) => prev - 1);
-                        }
-                      }}
-                      disabled={playingEpisode <= 1}
+                      onClick={goToPrevEpisode}
+                      disabled={!canGoPrev}
                       style={{
                         background: "rgba(255,255,255,0.1)",
                         border: "none",
                         color: "white",
                         padding: "0.5rem 1rem",
                         borderRadius: "8px",
-                        cursor: playingEpisode <= 1 ? "not-allowed" : "pointer",
-                        opacity: playingEpisode <= 1 ? 0.4 : 1,
+                        cursor: canGoPrev ? "pointer" : "not-allowed",
+                        opacity: canGoPrev ? 1 : 0.4,
                       }}
-                      whileHover={playingEpisode > 1 ? { scale: 1.04 } : {}}
-                      whileTap={playingEpisode > 1 ? { scale: 0.95 } : {}}
+                      whileHover={canGoPrev ? { scale: 1.04 } : {}}
+                      whileTap={canGoPrev ? { scale: 0.95 } : {}}
                     >
                       Prev Ep
                     </motion.button>
                     <motion.button
-                      onClick={() => {
-                        if (playingEpisode < episodes.length) {
-                          setPlayingEpisode((prev) => prev + 1);
-                        }
-                      }}
-                      disabled={playingEpisode >= episodes.length}
+                      onClick={goToNextEpisode}
+                      disabled={!canGoNext}
                       style={{
                         background: "var(--accent-gradient)",
                         border: "none",
                         color: "white",
                         padding: "0.5rem 1.1rem",
                         borderRadius: "8px",
-                        cursor:
-                          playingEpisode >= episodes.length
-                            ? "not-allowed"
-                            : "pointer",
+                        cursor: canGoNext ? "pointer" : "not-allowed",
                         fontWeight: 700,
-                        opacity: playingEpisode >= episodes.length ? 0.4 : 1,
+                        opacity: canGoNext ? 1 : 0.4,
                       }}
                       whileHover={
-                        playingEpisode < episodes.length
+                        canGoNext
                           ? { scale: 1.05, background: "#ff0a16" }
                           : {}
                       }
                       whileTap={
-                        playingEpisode < episodes.length ? { scale: 0.95 } : {}
+                        canGoNext ? { scale: 0.95 } : {}
                       }
                     >
                       Next Ep
@@ -1803,6 +1912,7 @@ export default function TitleDetails() {
 
             {/* Player: iframe for trailer, CustomVideoPlayer for streams */}
             <motion.div
+              className="video-modal-player"
               style={{
                 position: "relative",
                 flex: 1,
@@ -1858,13 +1968,9 @@ export default function TitleDetails() {
                     thumbnailUrl={movie.backdropUrl || movie.posterUrl}
                     startTime={effectiveSavedTimestamp}
                     hasNextEpisode={
-                      isTvContent && playingEpisode < episodes.length
+                      isTvContent && canGoNext
                     }
-                    onNextEpisode={() => {
-                      if (playingEpisode < episodes.length) {
-                        setPlayingEpisode((prev) => prev + 1);
-                      }
-                    }}
+                    onNextEpisode={goToNextEpisode}
                     onProgressUpdate={(currentTime, duration) => {
                       if (duration > 0 && currentTime > 10) {
                         updateProgress(

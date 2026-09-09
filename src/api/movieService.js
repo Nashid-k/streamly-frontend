@@ -222,7 +222,33 @@ export const movieService = {
       trailer: (rankTrailerVideos(detail.videos?.results || [], 1)[0] ||
         (detail.videos?.results || []).find(v => v.type === 'Trailer' && v.site === 'YouTube'))?.key || null,
       seasonsCount: detail.number_of_seasons || null,
-      seasons: (detail.seasons || []).filter(s => s.season_number > 0),
+      // Preserve the real season numbers instead of deriving options from the
+      // count. TMDB includes specials in the count, so counting from one can
+      // point the watch page at a season that does not exist.
+      seasons: (detail.seasons || [])
+        .filter(s => s.season_number > 0)
+        .map(s => ({
+          seasonNumber: s.season_number,
+          name: s.name || `Season ${s.season_number}`,
+          episodeCount: s.episode_count || 0,
+          airDate: s.air_date || null,
+        })),
+      nextEpisode: detail.next_episode_to_air ? {
+        seasonNumber: detail.next_episode_to_air.season_number,
+        episodeNumber: detail.next_episode_to_air.episode_number,
+        releaseDate: detail.next_episode_to_air.air_date || null,
+        title: detail.next_episode_to_air.name || null,
+      } : null,
+      lastEpisode: detail.last_episode_to_air ? {
+        seasonNumber: detail.last_episode_to_air.season_number,
+        episodeNumber: detail.last_episode_to_air.episode_number,
+        releaseDate: detail.last_episode_to_air.air_date || null,
+        title: detail.last_episode_to_air.name || null,
+      } : null,
+      // Only a scheduled next episode means the show is actively airing. A
+      // last episode exists for completed shows too, which should keep their
+      // normal Season 1 landing state unless the viewer has a resume point.
+      airingSeasonNumber: detail.next_episode_to_air?.season_number || null,
       imdbId: externalIds.imdb_id || null,
       status: detail.status || null,
       networks: (detail.networks || []).map(n => n.name),

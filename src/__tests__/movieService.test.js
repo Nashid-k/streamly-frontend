@@ -47,4 +47,44 @@ describe("movieService", () => {
     expect(title.cast).toEqual([{ id: 10, name: "Lead", character: undefined, profileUrl: null }]);
     expect(title.imdbId).toBeNull();
   });
+
+  it("keeps TMDB's live season metadata so the watch page can open it directly", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: 9,
+          name: "Running Show",
+          number_of_seasons: 3,
+          seasons: [
+            { season_number: 0, name: "Specials" },
+            { season_number: 1, name: "Season 1", episode_count: 8 },
+            { season_number: 3, name: "Season 3", episode_count: 10 },
+          ],
+          next_episode_to_air: {
+            season_number: 3,
+            episode_number: 4,
+            air_date: "2026-09-12",
+            name: "New Episode",
+          },
+          last_episode_to_air: {
+            season_number: 3,
+            episode_number: 3,
+            air_date: "2026-09-05",
+            name: "Previous Episode",
+          },
+          genres: [],
+          credits: { cast: [], crew: [] },
+          videos: { results: [] },
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({}));
+    vi.stubGlobal("fetch", fetch);
+
+    const title = await movieService.getMovieDetails("tv-9");
+
+    expect(title.seasons.map((season) => season.seasonNumber)).toEqual([1, 3]);
+    expect(title.airingSeasonNumber).toBe(3);
+    expect(title.nextEpisode).toMatchObject({ seasonNumber: 3, episodeNumber: 4 });
+  });
 });
