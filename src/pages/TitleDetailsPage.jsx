@@ -40,8 +40,10 @@ import RatingsCluster from "../components/RatingsCluster";
 
 import { buildMovieAddedNotification } from "../utils/notificationEngine";
 import { formatTMDBDate, getTMDBWeekday } from "../utils/timezone";
+import { getPlatformName } from "../utils/platforms";
 import CustomVideoPlayer from "../components/CustomVideoPlayer";
 import ErrorBoundary from "../components/ErrorBoundary";
+import { usePreferences } from "../context/preferences";
 const EMPTY_ARRAY = [];
 
 import { VideoSourceAdapter } from "../api/videoSourceAdapter";
@@ -336,6 +338,7 @@ function ServerDropdown({ servers, selectedIndex, onSelect }) {
 export default function TitleDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { muteTrailers } = usePreferences();
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [playingEpisode, setPlayingEpisode] = useState(1);
   const { isInList, toggleMyList, continueWatching, updateProgress, addNotification } = useAppAuth();
@@ -624,7 +627,7 @@ export default function TitleDetails() {
   }
 
   const resolvedPlatform = effectivePlatform;
-  const sourceName = movie?.sourceName || (resolvedPlatform ? PlatformAdapter.getName(resolvedPlatform) : 'Streaming');
+  const sourceName = movie?.sourceName || getPlatformName(resolvedPlatform) || "Streaming";
 
   const formatTime = (time) => {
     if (!time || isNaN(time)) return "0:00";
@@ -1827,7 +1830,7 @@ export default function TitleDetails() {
                   )}
                   <iframe
                     key={playingTrailerKey || movie.trailerUrl || movie.trailer}
-                    src={`https://www.youtube.com/embed/${playingTrailerKey || movie.trailerUrl || movie.trailer}?autoplay=1&rel=0&modestbranding=1`}
+                    src={`https://www.youtube.com/embed/${playingTrailerKey || movie.trailerUrl || movie.trailer}?autoplay=1&rel=0&modestbranding=1&mute=${muteTrailers ? 1 : 0}`}
                     onLoad={() => setIframeLoading(false)}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen

@@ -38,7 +38,7 @@ export default function WatchlistPage() {
   // Reset visible count when filter/sort changes (#14 fix)
   useEffect(() => {
     setVisibleCount(20);
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    window.scrollTo({ top: 0, behavior: "auto" });
   }, [filterType, sortBy]);
 
   useEffect(() => {

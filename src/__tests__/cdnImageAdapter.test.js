@@ -28,6 +28,11 @@ describe('CdnImageAdapter', () => {
       expect(url).toBe('https://image.tmdb.org/t/p/w500/abc.jpg');
     });
 
+    it('resizes an existing medium TMDB URL for data-saving cards', () => {
+      const url = CdnImageAdapter.getUrl('https://image.tmdb.org/t/p/w500/abc.jpg', 'w342');
+      expect(url).toBe('https://image.tmdb.org/t/p/w342/abc.jpg');
+    });
+
     it('does not downgrade when size is original', () => {
       const url = CdnImageAdapter.getUrl('https://image.tmdb.org/t/p/w1280/abc.jpg', 'original');
       expect(url).toBe('https://image.tmdb.org/t/p/w1280/abc.jpg');

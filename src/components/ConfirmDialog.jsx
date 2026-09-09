@@ -10,33 +10,79 @@ import { AlertTriangle } from "lucide-react";
  *   // Trigger: await confirmDialog({ title, message, confirmLabel?, cancelLabel? })
  */
 export function useConfirmDialog() {
-  const [dialog, setDialog] = useState(null); // { title, message, confirmLabel, cancelLabel, resolve }
-  const dialogRef = useRef(dialog);
-  dialogRef.current = dialog;
+  const [queue, setQueue] = useState([]);
+  const queueRef = useRef(queue);
+  const panelRef = useRef(null);
+  queueRef.current = queue;
+  const dialog = queue[0] || null;
 
   // Cleanup: resolve any pending dialog as false on unmount to prevent memory leaks
   useEffect(() => {
     return () => {
-      if (dialogRef.current?.resolve) {
-        dialogRef.current.resolve(false);
-      }
+      queueRef.current.forEach((pending) => pending.resolve(false));
     };
   }, []);
 
   const confirmDialog = (opts) =>
     new Promise((resolve) => {
-      setDialog({ ...opts, resolve });
+      // Queue requests instead of silently orphaning an earlier promise when
+      // two destructive actions are triggered before the first is answered.
+      setQueue((current) => [...current, { ...opts, resolve }]);
     });
 
   const handleConfirm = () => {
-    dialog?.resolve(true);
-    setDialog(null);
+    queueRef.current[0]?.resolve(true);
+    setQueue((current) => current.slice(1));
   };
 
   const handleCancel = () => {
-    dialog?.resolve(false);
-    setDialog(null);
+    queueRef.current[0]?.resolve(false);
+    setQueue((current) => current.slice(1));
   };
+
+  useEffect(() => {
+    if (!dialog) return;
+
+    const previouslyFocused = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const focusInitialControl = () => {
+      panelRef.current?.querySelector("[data-dialog-initial]")?.focus();
+    };
+    const focusTimer = window.setTimeout(focusInitialControl, 0);
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        handleCancel();
+        return;
+      }
+      if (event.key !== "Tab" || !panelRef.current) return;
+
+      const controls = [...panelRef.current.querySelectorAll("button:not(:disabled)")];
+      if (controls.length === 0) return;
+      const first = controls[0];
+      const last = controls.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.clearTimeout(focusTimer);
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      if (previouslyFocused instanceof HTMLElement && previouslyFocused.isConnected) {
+        previouslyFocused.focus();
+      }
+    };
+  }, [dialog]);
 
   function ConfirmDialogRenderer() {
     return (
@@ -46,6 +92,7 @@ export function useConfirmDialog() {
             {/* Backdrop */}
             <motion.div
               className="modal-overlay"
+              aria-hidden="true"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -84,6 +131,12 @@ export function useConfirmDialog() {
                 gap: "1.25rem",
               }}
               className="modal-container"
+              ref={panelRef}
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="confirm-dialog-title"
+              aria-describedby="confirm-dialog-description"
+              tabIndex={-1}
             >
               {/* Icon */}
               <div
@@ -104,6 +157,7 @@ export function useConfirmDialog() {
 
               <div>
                 <h3
+                  id="confirm-dialog-title"
                   style={{
                     margin: "0 0 6px",
                     fontSize: "1.1rem",
@@ -114,6 +168,7 @@ export function useConfirmDialog() {
                   {dialog.title || "Are you sure?"}
                 </h3>
                 <p
+                  id="confirm-dialog-description"
                   style={{
                     margin: 0,
                     fontSize: "0.9rem",
@@ -133,6 +188,8 @@ export function useConfirmDialog() {
                 }}
               >
                 <button
+                  type="button"
+                  data-dialog-initial
                   onClick={handleCancel}
                   style={{
                     background: "rgba(255,255,255,0.06)",
@@ -157,6 +214,7 @@ export function useConfirmDialog() {
                   {dialog.cancelLabel || "Cancel"}
                 </button>
                 <button
+                  type="button"
                   onClick={handleConfirm}
                   style={{
                     background: "#ef4444",

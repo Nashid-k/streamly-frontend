@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -15,22 +15,7 @@ import {
 } from "lucide-react";
 import SEO from "../components/SEO";
 import ContentPageHeader from "../components/ContentPageHeader";
-
-const useSetting = (key, defaultValue) => {
-  const [value, setValue] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem(`setting-${key}`) ?? "null") ?? defaultValue;
-    } catch {
-      return defaultValue;
-    }
-  });
-  useEffect(() => {
-    try {
-      localStorage.setItem(`setting-${key}`, JSON.stringify(value));
-    } catch {}
-  }, [key, value]);
-  return [value, setValue];
-};
+import { usePreferences } from "../context/preferences";
 
 function Toggle({ checked, onChange, label }) {
   return (
@@ -67,11 +52,14 @@ function SettingRow({ icon: Icon, title, description, children }) {
 export default function SettingsPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const [autoplay, setAutoplay] = useSetting("autoplay", true);
-  const [muteTrailers, setMuteTrailers] = useSetting("muteTrailers", false);
-  const [hdThumbs, setHdThumbs] = useSetting("hdThumbs", true);
-  const [reduceMotion, setReduceMotion] = useSetting("reduceMotion", false);
-  const [notifications, setNotifications] = useSetting("notifications", true);
+  const {
+    autoplay,
+    muteTrailers,
+    hdThumbs,
+    reduceMotion,
+    notifications,
+    setPreference,
+  } = usePreferences();
 
   const q = useMemo(() => query.trim().toLowerCase(), [query]);
 
@@ -85,35 +73,35 @@ export default function SettingsPage() {
       title: "Autoplay next episode",
       description: "Start the next episode automatically",
       icon: Play,
-      control: <Toggle checked={autoplay} onChange={setAutoplay} label="Autoplay next episode" />,
+      control: <Toggle checked={autoplay} onChange={(value) => setPreference("autoplay", value)} label="Autoplay next episode" />,
     },
     {
       section: "Playback",
-      title: "Mute trailers on hover",
-      description: "Play trailers with sound off by default",
+      title: "Mute trailer audio",
+      description: "Open trailers with sound off by default",
       icon: MonitorPlay,
-      control: <Toggle checked={muteTrailers} onChange={setMuteTrailers} label="Mute trailers on hover" />,
+      control: <Toggle checked={muteTrailers} onChange={(value) => setPreference("muteTrailers", value)} label="Mute trailer audio" />,
     },
     {
       section: "Appearance",
       title: "High-quality thumbnails",
       description: "Stream higher resolution artwork",
       icon: Palette,
-      control: <Toggle checked={hdThumbs} onChange={setHdThumbs} label="High-quality thumbnails" />,
+      control: <Toggle checked={hdThumbs} onChange={(value) => setPreference("hdThumbs", value)} label="High-quality thumbnails" />,
     },
     {
       section: "Appearance",
       title: "Reduce motion",
       description: "Minimize animations and transitions",
       icon: Subtitles,
-      control: <Toggle checked={reduceMotion} onChange={setReduceMotion} label="Reduce motion" />,
+      control: <Toggle checked={reduceMotion} onChange={(value) => setPreference("reduceMotion", value)} label="Reduce motion" />,
     },
     {
       section: "Notifications",
-      title: "Show notifications",
-      description: "Get notified when titles are added to your list",
+      title: "Show in-app notifications",
+      description: "Show confirmations and activity updates while browsing",
       icon: Bell,
-      control: <Toggle checked={notifications} onChange={setNotifications} label="Show notifications" />,
+      control: <Toggle checked={notifications} onChange={(value) => setPreference("notifications", value)} label="Show in-app notifications" />,
     },
     {
       section: "Account",

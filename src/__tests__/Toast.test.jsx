@@ -12,6 +12,15 @@ function ToastTrigger() {
   );
 }
 
+function ObjectToastTrigger() {
+  const { toast } = useToast();
+  return (
+    <button onClick={() => toast({ type: 'success', title: 'Saved', message: 'Your list was updated.' })}>
+      Show Object Toast
+    </button>
+  );
+}
+
 // Suppress console.error for expected test warnings
 const originalError = console.error;
 beforeEach(() => {
@@ -52,6 +61,21 @@ describe('Toast', () => {
     });
 
     expect(screen.getByText('It worked!')).toBeInTheDocument();
+  });
+
+  it('supports the object form used by page and card actions', () => {
+    render(
+      <ToastProvider>
+        <ObjectToastTrigger />
+      </ToastProvider>
+    );
+
+    act(() => {
+      screen.getByText('Show Object Toast').click();
+    });
+
+    expect(screen.getByText('Saved')).toBeInTheDocument();
+    expect(screen.getByText('Your list was updated.')).toBeInTheDocument();
   });
 
   it('shows correct type styling', () => {

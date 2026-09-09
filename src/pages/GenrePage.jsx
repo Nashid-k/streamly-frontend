@@ -9,6 +9,7 @@ import AmbientBackground from "../components/AmbientBackground";
 import ErrorBoundary from "../components/ErrorBoundary";
 import Chip from "../components/Chip";
 import ContentPageHeader from "../components/ContentPageHeader";
+import { selectGenreResults } from "../utils/genreResults";
 
 export default function GenrePage() {
   const { genre } = useParams();
@@ -24,36 +25,10 @@ export default function GenrePage() {
 
   const error = queryError ? "Failed to load genre results." : null;
 
-  const results = useMemo(() => {
-    if (!rawResults || !Array.isArray(rawResults.movies)) return [];
-
-    const mapped = rawResults.movies.filter(Boolean);
-
-    // Filter to ensure the genre matches to prevent dirty search results
-    const strict = mapped.filter((m) => {
-      if (
-        m.genres &&
-        m.genres.some((g) => g.toLowerCase() === genre.toLowerCase())
-      )
-        return true;
-      if (
-        m.tags &&
-        m.tags.some((t) => t.toLowerCase() === genre.toLowerCase())
-      )
-        return true;
-      return false;
-    });
-
-    // No dirty fallback: only show titles that genuinely match the genre.
-    // Searching by genre name returns fuzzy hits, so never spill them onto
-    // the page when strict matching comes up short.
-    const seen = new Set();
-    return strict.filter((m) => {
-      if (seen.has(m.id)) return false;
-      seen.add(m.id);
-      return true;
-    });
-  }, [rawResults, genre]);
+  const results = useMemo(
+    () => selectGenreResults(rawResults, genre),
+    [rawResults, genre],
+  );
 
   const filteredAndSortedList = useMemo(() => {
     let list = [...(results || [])];
@@ -76,7 +51,7 @@ export default function GenrePage() {
           (a.releaseYear || a.year || 0) - (b.releaseYear || b.year || 0),
       );
     else if (sortBy === "Popularity") {
-      list.sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
+      list.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
     }
 
     return list;

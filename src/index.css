@@ -89,6 +89,22 @@ html {
   overflow-x: hidden;
 }
 
+/* Respect Streamly's in-app motion preference as well as Framer Motion's
+   runtime configuration. This covers CSS-only effects such as glows, shimmers,
+   and smooth scrolling. */
+html[data-reduce-motion="true"] {
+  scroll-behavior: auto;
+}
+
+html[data-reduce-motion="true"] *,
+html[data-reduce-motion="true"] *::before,
+html[data-reduce-motion="true"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+  transition-duration: 0.01ms !important;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -2379,24 +2395,6 @@ input:focus-visible {
     font-size: 2.2rem !important;
   }
 
-  /* Typography */
-  .section-title {
-    font-size: 1.2rem !important;
-  }
-  h1 {
-    font-size: 1.5rem !important;
-  }
-  h2 {
-    font-size: 1.2rem !important;
-  }
-  h3 {
-    font-size: 1rem !important;
-  }
-  p {
-    font-size: 0.85rem !important;
-    line-height: 1.5;
-  }
-
   input,
   select,
   textarea {
@@ -4238,4 +4236,108 @@ html {
 .void-hover:active { transform: scale(0.98); }
 .void-volume-bar {
   transition: width 0.15s ease;
+}
+
+/* ── Interaction polish ────────────────────────────────────────────────── */
+.hero-rotation-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(8, 8, 10, 0.45);
+  color: #fff;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: transform 180ms var(--ease-out), background 180ms ease, border-color 180ms ease;
+}
+
+.hero-rotation-control:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.34);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.hero-rotation-control:focus-visible,
+.search-history button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.search-history {
+  width: min(100%, 34rem);
+  margin: 0 auto 0.9rem;
+  text-align: left;
+}
+
+.search-history__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.55rem;
+  color: rgba(255, 255, 255, 0.54);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.search-history__heading button {
+  border: 0;
+  padding: 0.25rem;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.64);
+  font: inherit;
+  cursor: pointer;
+}
+
+.search-history__heading button:hover {
+  color: #fff;
+}
+
+.search-history__items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.search-history__items button {
+  max-width: 15rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 999px;
+  padding: 0.45rem 0.72rem;
+  background: rgba(255, 255, 255, 0.055);
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: transform 180ms var(--ease-out), background 180ms ease, border-color 180ms ease;
+}
+
+.search-history__items button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(251, 146, 60, 0.42);
+  background: rgba(244, 63, 94, 0.12);
+  color: #fff;
+}
+
+@media (max-width: 768px) {
+  .hero-rotation-control {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .search-history {
+    width: 100%;
+  }
+
+  .search-history__items button {
+    max-width: 100%;
+  }
 }

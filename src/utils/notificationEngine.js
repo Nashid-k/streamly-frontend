@@ -13,6 +13,7 @@
  */
 
 import { formatTMDBDate, getTMDBWeekday, getTimeUntil } from "./timezone";
+import { getPlatformName, normalizePlatformKey } from "./platforms";
 
 // ─── Notification Types ─────────────────────────────────────────────────────
 
@@ -37,7 +38,7 @@ export const NOTIF_TYPES = {
  */
 export function buildEpisodeReleasedNotification({ title, season, episode, episodeTitle, platform, releaseDate, imageUrl, movieId }) {
   const platformKey = normalizePlatformKey(platform);
-  const platformName = platformKey ? PlatformAdapter.getName(platformKey) : platform || "streaming";
+  const platformName = getPlatformName(platform) || "streaming";
   const formattedDate = releaseDate ? formatTMDBDate(releaseDate, { weekday: 'long', month: 'short', day: 'numeric' }, undefined, platformKey) : "today";
 
   return {
@@ -65,7 +66,7 @@ export function buildEpisodeReleasedNotification({ title, season, episode, episo
  */
 export function buildEpisodeAiringNotification({ title, season, episode, episodeTitle, platform, releaseDate, imageUrl, movieId }) {
   const platformKey = normalizePlatformKey(platform);
-  const platformName = platformKey ? PlatformAdapter.getName(platformKey) : platform || "streaming";
+  const platformName = getPlatformName(platform) || "streaming";
   const weekday = getTMDBWeekday(releaseDate, undefined, platformKey);
   const timeUntil = getTimeUntil(releaseDate, undefined, platformKey);
   const formattedDate = formatTMDBDate(releaseDate, { weekday: 'long', month: 'short', day: 'numeric' }, undefined, platformKey);
@@ -100,7 +101,7 @@ export function buildEpisodeAiringNotification({ title, season, episode, episode
  */
 export function buildMovieAddedNotification({ title, platform, year, duration, imageUrl, movieId, isSeries }) {
   const platformKey = normalizePlatformKey(platform);
-  const platformName = platformKey ? PlatformAdapter.getName(platformKey) : null;
+  const platformName = getPlatformName(platform);
   const emoji = isSeries ? "📺" : "🎬";
   const typeLabel = isSeries ? "Series" : "Movie";
 
@@ -132,7 +133,7 @@ export function buildMovieAddedNotification({ title, platform, year, duration, i
  */
 export function buildRecommendationNotification({ title, reason, platform, imageUrl, movieId }) {
   const platformKey = normalizePlatformKey(platform);
-  const platformName = platformKey ? PlatformAdapter.getName(platformKey) : platform || null;
+  const platformName = getPlatformName(platform);
 
   return {
     id: `rec-${movieId }`,

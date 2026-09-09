@@ -3,6 +3,20 @@ import { useLocation, useNavigationType } from "react-router-dom";
 
 const MAX_SCROLL_ENTRIES = 20;
 
+function readScrollEntry(key) {
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+    const entry = JSON.parse(raw);
+    if (entry && Number.isFinite(entry.y)) return entry;
+    // Preserve positions saved by versions that stored a plain number.
+    const y = Number.parseInt(raw, 10);
+    return Number.isFinite(y) ? { y, savedAt: 0 } : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Clean up old scroll entries to prevent sessionStorage from growing
  * indefinitely. Keeps only the most recent MAX_SCROLL_ENTRIES entries.
@@ -15,14 +29,8 @@ function pruneScrollEntries(currentKey) {
       if (k && k.startsWith('scroll-')) keys.push(k);
     }
     if (keys.length > MAX_SCROLL_ENTRIES) {
-      // Sort by least recently accessed (oldest first)
-      keys.sort((a, b) => {
-        const aVal = sessionStorage.getItem(a);
-        const bVal = sessionStorage.getItem(b);
-        // Use value as a rough proxy — entries with smaller scroll positions
-        // are likely from shorter/older page visits
-        return parseInt(aVal || '0') - parseInt(bVal || '0');
-      });
+      // Sort by actual save time. Scroll position says nothing about recency.
+      keys.sort((a, b) => (readScrollEntry(a)?.savedAt || 0) - (readScrollEntry(b)?.savedAt || 0));
       // Remove oldest entries, but always keep the current page's entry
       const toRemove = keys.slice(0, keys.length - MAX_SCROLL_ENTRIES);
       for (const k of toRemove) {
@@ -44,10 +52,14 @@ export function useScrollRestoration() {
       // Debounce sessionStorage writes to avoid thrashing on fast scroll
       clearTimeout(scrollTimer);
       scrollTimer = setTimeout(() => {
-        sessionStorage.setItem(
-          `scroll-${location.key}`,
-          window.scrollY.toString(),
-        );
+        try {
+          sessionStorage.setItem(
+            `scroll-${location.key}`,
+            JSON.stringify({ y: window.scrollY, savedAt: Date.now() }),
+          );
+        } catch {
+          // Storage can be disabled; navigation should still work normally.
+        }
       }, 150);
     };
 
@@ -63,9 +75,9 @@ export function useScrollRestoration() {
 
   useEffect(() => {
     if (navType === "POP") {
-      const savedPosition = sessionStorage.getItem(`scroll-${location.key}`);
+      const savedPosition = readScrollEntry(`scroll-${location.key}`);
       if (savedPosition) {
-        const scrollY = parseInt(savedPosition, 10);
+        const scrollY = savedPosition.y;
         // Attempt immediate restore
         window.scrollTo(0, scrollY);
         // Fallback restore for when React renders children or Suspense resolves

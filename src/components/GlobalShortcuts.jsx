@@ -5,15 +5,19 @@ import { Keyboard, X, Search, ArrowLeft, Play } from "lucide-react";
 export default function GlobalShortcuts() {
   const [isOpen, setIsOpen] = useState(false);
   const isOpenRef = useRef(isOpen);
+  const previouslyFocusedRef = useRef(null);
   isOpenRef.current = isOpen;
 
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Skip if the video player is active (it handles its own shortcuts)
       const playerActive = !!document.querySelector('iframe[src*="cinesrc"], iframe[src*="vidlink"], iframe[src*="vidsrc"]');
+      const target = e.target;
+      const isTyping = target instanceof HTMLElement &&
+        (target.matches("input, textarea, select") || target.isContentEditable);
 
       // Shortcuts modal (Shift + ?)
-      if (e.shiftKey && e.key === "?") {
+      if (e.shiftKey && e.key === "?" && !isTyping) {
         // Don't open global shortcuts if player is active — player has its own
         if (!playerActive) {
           e.preventDefault();
@@ -23,6 +27,7 @@ export default function GlobalShortcuts() {
 
       // Close modal on escape
       if (e.key === "Escape" && isOpenRef.current) {
+        e.preventDefault();
         setIsOpen(false);
       }
     };
@@ -32,7 +37,7 @@ export default function GlobalShortcuts() {
   }, []);
 
   const shortcuts = [
-    { key: "Cmd + K", desc: "Global Search", icon: <Search size={16} /> },
+    { key: "Ctrl / Cmd + K", desc: "Global Search", icon: <Search size={16} /> },
     {
       key: "Shift + ?",
       desc: "Show Keyboard Shortcuts",
@@ -51,12 +56,38 @@ export default function GlobalShortcuts() {
     },
   ];
 
-  // Trap focus inside the modal when open
+  // Trap focus, preserve the trigger, and stop background scrolling while open.
   const modalRef = useRef(null);
   useEffect(() => {
     if (!isOpen || !modalRef.current) return;
+    previouslyFocusedRef.current = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     const focusable = modalRef.current.querySelector('button, [tabindex]:not([tabindex="-1"])');
     if (focusable) focusable.focus();
+
+    const trapFocus = (event) => {
+      if (event.key !== "Tab") return;
+      const controls = [...modalRef.current.querySelectorAll('button:not(:disabled), [href], [tabindex]:not([tabindex="-1"])')];
+      if (controls.length === 0) return;
+      const first = controls[0];
+      const last = controls.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", trapFocus);
+    return () => {
+      window.removeEventListener("keydown", trapFocus);
+      document.body.style.overflow = previousOverflow;
+      if (previouslyFocusedRef.current instanceof HTMLElement && previouslyFocusedRef.current.isConnected) {
+        previouslyFocusedRef.current.focus();
+      }
+    };
   }, [isOpen]);
 
   return (

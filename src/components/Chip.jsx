@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 
 /**
  * Chip — shared pill filter/sort control. One source of truth for the
@@ -12,13 +12,14 @@ export default function Chip({
   className = "",
   ...props
 }) {
+  const reduceMotion = useReducedMotion();
   const sizeClass = size === "sm" ? "chip--sm" : "";
   return (
     <motion.button
       type="button"
       onClick={onClick}
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
+      whileHover={reduceMotion ? undefined : { scale: 1.05 }}
+      whileTap={reduceMotion ? undefined : { scale: 0.95 }}
       aria-pressed={active}
       className={`chip${active ? " chip--active" : ""} ${sizeClass} ${className}`}
       {...props}

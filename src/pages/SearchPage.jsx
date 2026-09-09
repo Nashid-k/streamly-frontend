@@ -13,6 +13,7 @@ import Chip from "../components/Chip";
 import AmbientBackground from "../components/AmbientBackground";
 import ErrorBoundary from "../components/ErrorBoundary";
 import ContentPageHeader from "../components/ContentPageHeader";
+import { useAppAuth } from "../context/AuthContext";
 
 export default function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -20,6 +21,7 @@ export default function SearchPage() {
   const navigate = useNavigate();
 
   const [localQuery, setLocalQuery] = useState(query);
+  const { searchHistory, addSearch, clearSearchHistory } = useAppAuth();
 
   useEffect(() => {
     setLocalQuery(query);
@@ -37,6 +39,13 @@ export default function SearchPage() {
 
   const [filterType, setFilterType] = useState("All");
   const [sortBy, setSortBy] = useState("Relevance");
+
+  useEffect(() => {
+    if (!query.trim()) return;
+    addSearch(query);
+    setFilterType("All");
+    setSortBy("Relevance");
+  }, [query, addSearch]);
 
   const {
     data: rawResults,
@@ -122,7 +131,7 @@ export default function SearchPage() {
 
   useEffect(() => {
     setVisibleCount(20);
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    window.scrollTo({ top: 0, behavior: "auto" });
   }, [query, filterType, sortBy]);
 
   useEffect(() => {
@@ -199,7 +208,7 @@ export default function SearchPage() {
         </form>
 
         {/* Header */}
-        <ContentPageHeader
+          <ContentPageHeader
           eyebrow={query ? "Search" : "Explore Streamly"}
           title={query ? <>Results for <span className="page-title-quote">“{query}”</span></> : "Find something worth watching"}
           description={query ? "Fine-tune the results or keep exploring." : "Search a title, a person, or the mood you are in."}
@@ -267,6 +276,25 @@ export default function SearchPage() {
             description="Search for movies, TV shows, actors, or genres."
             actions={
               <>
+                {searchHistory.length > 0 && (
+                  <div className="search-history" aria-label="Recent searches">
+                    <div className="search-history__heading">
+                      <span>Recent searches</span>
+                      <button type="button" onClick={clearSearchHistory}>Clear</button>
+                    </div>
+                    <div className="search-history__items">
+                      {searchHistory.map((term) => (
+                        <button
+                          key={term}
+                          type="button"
+                          onClick={() => navigate(`/search?q=${encodeURIComponent(term)}`)}
+                        >
+                          {term}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {[
                   { label: "Trending Now", query: "trending", icon: Flame },
                   { label: "New Releases", query: "new", icon: Sparkles },
@@ -290,8 +318,8 @@ export default function SearchPage() {
         ) : filteredAndSortedList.length === 0 ? (
           <EmptyState
             icon="search"
-            title={`No results found for "${query}"`}
-            description="Try a different spelling, or browse by genre and platform."
+            title={filterType === "All" ? `No results found for "${query}"` : `No ${filterType.toLowerCase()} match "${query}"`}
+            description={filterType === "All" ? "Try a different spelling, or browse by genre and platform." : "Try another filter, or clear the current search."}
             actions={
               <>
                 {filterType === "Anime" && (

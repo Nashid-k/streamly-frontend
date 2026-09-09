@@ -3,7 +3,7 @@ import slugify from "slugify";
 import ErrorBoundary from "../components/ErrorBoundary";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Play, ChevronLeft, ChevronRight, Check, Plus, Info, Calendar, Heart } from "lucide-react";
+import { Play, Pause, ChevronLeft, ChevronRight, Check, Plus, Info, Calendar, Heart } from "lucide-react";
 import {
   motion,
   AnimatePresence,
@@ -76,6 +76,10 @@ const MovieRail = React.memo(
       category.name.startsWith("Because you watched");
 
     useEffect(() => {
+      if (!("IntersectionObserver" in window)) {
+        setInView(true);
+        return undefined;
+      }
       const observer = new IntersectionObserver(
         ([entry]) => {
           const visible = entry.isIntersecting;
@@ -254,6 +258,10 @@ const Top10Rail = React.memo(
     const top10 = movies.slice(0, 10);
 
     useEffect(() => {
+      if (!("IntersectionObserver" in window)) {
+        setInView(true);
+        return undefined;
+      }
       const observer = new IntersectionObserver(
         ([entry]) => {
           const visible = entry.isIntersecting;
@@ -434,23 +442,34 @@ export default function Home({
   const [visibleCatCount, setVisibleCatCount] = useState(4);
   const [activeGenre, setActiveGenre] = useState("All");
   const [activePlatform, setActivePlatform] = useState("all");
+  const [isHeroPaused, setIsHeroPaused] = useState(false);
   const { continueWatching, myList, isInList, toggleMyList } = useAppAuth();
 
   const { scrollY } = useScroll();
   const heroParallax = useTransform(scrollY, [0, 600], [0, 120]);
 
-  const { data: featuredData, isLoading: featuredLoading } = useQuery({
+  const {
+    data: featuredData,
+    isLoading: featuredLoading,
+    isError: featuredError,
+    refetch: refetchFeatured,
+  } = useQuery({
     queryKey: ["featuredMovies"],
     queryFn: movieService.getFeaturedMovies,
   });
 
-  const { data: categoriesData, isLoading: catsLoading } = useQuery({
+  const {
+    data: categoriesData,
+    isLoading: catsLoading,
+    isError: categoriesError,
+    refetch: refetchCategories,
+  } = useQuery({
     queryKey: ["categories"],
     queryFn: () => movieService.getCategories("all"),
   });
 
   const { data: airingData } = useQuery({
-    queryKey: ["airingThisWeek"],
+    queryKey: ["airing-this-week"],
     queryFn: () => movieService.getAiringThisWeek("all"),
     staleTime: 1000 * 60 * 5,
     retry: false,
@@ -458,7 +477,7 @@ export default function Home({
   });
 
   const { data: trendingData } = useQuery({
-    queryKey: ["trendingThisWeek"],
+    queryKey: ["trending-this-week"],
     queryFn: () => movieService.getTrendingThisWeek("all"),
     staleTime: 1000 * 60 * 5,
     retry: false,
@@ -544,6 +563,10 @@ export default function Home({
   // AnimatePresence re-mounts the hero element — without a ref in the dep array.
   const heroRef = useCallback((node) => {
     if (!node) return;
+    if (!("IntersectionObserver" in window)) {
+      setHeroVisible(true);
+      return undefined;
+    }
     const observer = new IntersectionObserver(
       ([entry]) => setHeroVisible(entry.isIntersecting),
       { threshold: 0.1 },
@@ -560,7 +583,8 @@ export default function Home({
     setActiveGenre("All");
     setActivePlatform("all");
     setFeaturedIndex(0);
-    window.scrollTo({ top: 0, behavior: "instant" });
+    setIsHeroPaused(false);
+    window.scrollTo({ top: 0, behavior: "auto" });
   }, [filter]);
 
   const categories = useMemo(() => {
@@ -1016,17 +1040,18 @@ export default function Home({
   const totalFeatured = finalPool.length;
   const activeFeaturedMovie =
     totalFeatured > 0 ? finalPool[featuredIndex % totalFeatured] : null;
+  const hasInitialLoadError = !activeFeaturedMovie && (featuredError || categoriesError);
 
   // Auto-rotation: use ref for hover state to avoid stale closures and unnecessary interval restarts
   useEffect(() => {
-    if (totalFeatured <= 1 || reduceMotion) return;
+    if (totalFeatured <= 1 || reduceMotion || isHeroPaused) return;
     const timer = setInterval(() => {
       if (!isHeroHoveredRef.current) {
         setFeaturedIndex((prev) => prev + 1);
       }
     }, 10000);
     return () => clearInterval(timer);
-  }, [totalFeatured, reduceMotion]);
+  }, [totalFeatured, reduceMotion, isHeroPaused]);
 
   // Preload next hero image to eliminate flash on slide change
   useEffect(() => {
@@ -1122,28 +1147,45 @@ export default function Home({
             style={{ willChange: "opacity" }}
             onMouseEnter={() => { isHeroHoveredRef.current = true; setIsHeroHovered(true); }}
             onMouseLeave={() => { isHeroHoveredRef.current = false; setIsHeroHovered(false); }}
+            onFocus={() => { isHeroHoveredRef.current = true; setIsHeroHovered(true); }}
+            onBlur={(event) => {
+              if (event.currentTarget.contains(event.relatedTarget)) return;
+              isHeroHoveredRef.current = false;
+              setIsHeroHovered(false);
+            }}
+            onKeyDown={(event) => {
+              if (totalFeatured <= 1) return;
+              if (event.key === "ArrowLeft") {
+                event.preventDefault();
+                setFeaturedIndex((current) => (current - 1 + totalFeatured) % totalFeatured);
+              }
+              if (event.key === "ArrowRight") {
+                event.preventDefault();
+                setFeaturedIndex((current) => (current + 1) % totalFeatured);
+              }
+            }}
           >
             {/* Backdrop — cinematic, slow Ken Burns */}
             <motion.img
               src={activeFeaturedMovie.backdropUrl || activeFeaturedMovie.posterUrl || activeFeaturedMovie.poster}
               alt={activeFeaturedMovie.title}
-              className={`hero-bg desktop-bg${!heroVisible ? ' paused' : ''}`}
+              className={`hero-bg desktop-bg${!heroVisible || isHeroPaused ? ' paused' : ''}`}
               initial={{ scale: 1 }}
-              animate={{ scale: 1.04 }}
-              transition={{ duration: 10, ease: "linear" }}
+              animate={{ scale: reduceMotion ? 1 : 1.04 }}
+              transition={{ duration: reduceMotion ? 0 : 10, ease: "linear" }}
               fetchpriority="high"
               loading="eager"
               decoding="async"
-              y={heroParallax}
+              y={reduceMotion ? 0 : heroParallax}
               style={{ willChange: "transform" }}
             />
             <motion.img
               src={activeFeaturedMovie.posterUrl || activeFeaturedMovie.poster || activeFeaturedMovie.backdropUrl}
               alt={activeFeaturedMovie.title}
-              className={`hero-bg mobile-bg${!heroVisible ? ' paused' : ''}`}
+              className={`hero-bg mobile-bg${!heroVisible || isHeroPaused ? ' paused' : ''}`}
               initial={{ scale: 1 }}
-              animate={{ scale: 1.04 }}
-              transition={{ duration: 10, ease: "linear" }}
+              animate={{ scale: reduceMotion ? 1 : 1.04 }}
+              transition={{ duration: reduceMotion ? 0 : 10, ease: "linear" }}
               fetchpriority="high"
               loading="eager"
               decoding="async"
@@ -1270,20 +1312,31 @@ export default function Home({
                       <Info size={18} strokeWidth={2.5} />
                     </motion.button>
                   </div>
+                  {totalFeatured > 1 && !reduceMotion && (
+                    <button
+                      type="button"
+                      className="hero-rotation-control"
+                      onClick={() => setIsHeroPaused((paused) => !paused)}
+                      aria-label={isHeroPaused ? "Resume featured title rotation" : "Pause featured title rotation"}
+                      title={isHeroPaused ? "Resume rotation" : "Pause rotation"}
+                    >
+                      {isHeroPaused ? <Play size={15} fill="currentColor" stroke="none" /> : <Pause size={15} />}
+                    </button>
+                  )}
                 </div>
               </motion.div>
             </div>
 
             {/* Slim progress dots */}
             {totalFeatured > 1 && (
-              <div className="hero-dots hero-dots--apple">
+              <div className="hero-dots hero-dots--apple" aria-label="Featured titles">
                 {Array.from({ length: totalFeatured }).map((_, i) => {
                   const isActive = i === featuredIndex % totalFeatured;
                   return (
                     <motion.button
                       key={i}
                       onClick={() => setFeaturedIndex(i)}
-                      aria-label={`Slide ${i + 1}`}
+                      aria-label={`Show ${finalPool[i]?.title || `featured title ${i + 1}`}`}
                       aria-current={isActive ? "true" : undefined}
                       className={`hero-dot${isActive ? " hero-dot--active" : ""}`}
                     >
@@ -1317,11 +1370,26 @@ export default function Home({
                 <Play size={28} fill="currentColor" stroke="none" />
               </div>
               <h2 style={{ color: "#fff", marginBottom: "0.5rem" }}>
-                Welcome to Streamly
+                {hasInitialLoadError ? "Couldn't load Streamly" : "Welcome to Streamly"}
               </h2>
               <p style={{ color: "#a1a1aa", maxWidth: "420px", margin: "0 auto" }}>
-                Discover movies and TV shows across all your favorite streaming platforms.
+                {hasInitialLoadError
+                  ? "Check your connection and try again. Your saved list and history are still available."
+                  : "Discover movies and TV shows across all your favorite streaming platforms."}
               </p>
+              {hasInitialLoadError && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ marginTop: "1.25rem" }}
+                  onClick={() => {
+                    refetchFeatured();
+                    refetchCategories();
+                  }}
+                >
+                  Try again
+                </button>
+              )}
             </div>
           </motion.div>
         )}

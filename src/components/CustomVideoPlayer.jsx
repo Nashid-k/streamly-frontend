@@ -11,6 +11,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { SubtitleEngine } from "../utils/subtitleEngine";
 import { streamUrl, STREAM_BASE } from "../api/env";
+import { usePreferences } from "../context/preferences";
 
 const getNumericId = (s) => {
   if (!s) return null;
@@ -339,6 +340,7 @@ const CustomVideoPlayer = ({
   movie, season, episode, preferredServerIndex = 0, onServerChange,
   hasNextEpisode, onNextEpisode, onClose, thumbnailUrl, startTime = 0, onProgressUpdate,
 }) => {
+  const { autoplay, setPreference } = usePreferences();
   /* State */
   const [activeServerIndex, setActiveServerIndex] = useState(preferredServerIndex);
   const activeServerIndexRef = useRef(activeServerIndex);
@@ -372,7 +374,7 @@ const CustomVideoPlayer = ({
   const [showVolumeArc, setShowVolumeArc] = useState(false);
   const [showAspectRatioArc, setShowAspectRatioArc] = useState(false);
   const [autoSkipIntro, setAutoSkipIntro] = useState(() => localStorage.getItem("streamly_autoSkip") === "true");
-  const [autoPlayNext, setAutoPlayNext] = useState(() => localStorage.getItem("streamly_autoNext") !== "false");
+  const autoPlayNext = autoplay;
   const [doubleTapRipple, setDoubleTapRipple] = useState(null);
   const [showControls, setShowControls] = useState(true);
   const [playbackRate, setPlaybackRate] = useState(1);
@@ -3833,11 +3835,11 @@ const CustomVideoPlayer = ({
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {[
                   { label: "Auto-Skip Intro", val: autoSkipIntro, set: setAutoSkipIntro, key: "streamly_autoSkip" },
-                  ...(movie?.isSeries ? [{ label: "Auto-Play Next", val: autoPlayNext, set: setAutoPlayNext, key: "streamly_autoNext" }] : []),
+                  ...(movie?.isSeries ? [{ label: "Auto-Play Next", val: autoPlayNext, set: (value) => setPreference("autoplay", value) }] : []),
                 ].map((item, i) => (
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: R.fontMedium, fontWeight: 600, color: "rgba(255,255,255,0.6)", fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif" }}>{item.label}</span>
-                    <div onClick={() => { const v = !item.val; item.set(v); localStorage.setItem(item.key, String(v)); }}
+                    <div onClick={() => { const v = !item.val; item.set(v); if (item.key) localStorage.setItem(item.key, String(v)); }}
                       style={{
                         width: isTouch ? 44 : 36, height: isTouch ? 24 : 20,
                         background: item.val ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.1)",

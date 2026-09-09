@@ -17,13 +17,14 @@ import {
   Clapperboard,
   Clock,
 } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "framer-motion";
 
 import ErrorBoundary from "./components/ErrorBoundary";
 
 import Loader from "./components/Loader";
 import BackToTop from "./components/BackToTop";
 import { useScrollRestoration } from "./hooks/useScrollRestoration";
+import { usePreferences } from "./context/preferences";
 
 /* Single source of truth for navigation — feeds the desktop glass dock and
    the concise five-item mobile bar. */
@@ -47,6 +48,7 @@ function Layout({ children }) {
   useScrollRestoration();
   const location = useLocation();
   const navigate = useNavigate();
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -62,9 +64,21 @@ function Layout({ children }) {
   const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 50);
+    let frameId = 0;
+    const handleScroll = () => {
+      if (frameId) return;
+      frameId = window.requestAnimationFrame(() => {
+        const nextIsScrolled = window.scrollY > 50;
+        setIsScrolled((current) => (current === nextIsScrolled ? current : nextIsScrolled));
+        frameId = 0;
+      });
+    };
     window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+    handleScroll();
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      if (frameId) window.cancelAnimationFrame(frameId);
+    };
   }, []);
 
   return (
@@ -156,14 +170,14 @@ function Layout({ children }) {
       </div>
 
       {/* Main Content Area with Page Transitions */}
-      <main className="app-main" id="main-content">
+      <main className="app-main" id="main-content" tabIndex={-1}>
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}
-            initial={{ opacity: 0 }}
+            initial={reduceMotion ? false : { opacity: 0, y: 4 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+            exit={reduceMotion ? undefined : { opacity: 0, y: -3 }}
+            transition={{ duration: reduceMotion ? 0 : 0.24, ease: [0.16, 1, 0.3, 1] }}
             style={{ flex: 1 }}
           >
             {children}
@@ -175,7 +189,7 @@ function Layout({ children }) {
       <BackToTop />
 
       {/* Mobile Bottom Navigation Bar */}
-      <div className="mobile-bottom-nav">
+      <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
         {NAV_ITEMS.map((item) => (
           <Link
             key={`bottom-${item.id}`}
@@ -187,11 +201,15 @@ function Layout({ children }) {
             <span>{item.label}</span>
           </Link>
         ))}
-        <Link to="/search" className={`bottom-nav-item ${location.pathname === "/search" ? "active" : ""}`}>
+        <Link
+          to="/search"
+          className={`bottom-nav-item ${location.pathname === "/search" ? "active" : ""}`}
+          aria-current={location.pathname === "/search" ? "page" : undefined}
+        >
           <Search size={22} strokeWidth={2} />
           <span>Search</span>
         </Link>
-      </div>
+      </nav>
     </div>
   );
 }
@@ -240,14 +258,17 @@ function AppRoutes() {
 }
 
 function App() {
+  const { reduceMotion } = usePreferences();
   return (
-    <Router>
-      <Loader variant="global" />
-      <GlobalShortcuts />
-      <Layout>
-        <AppRoutes />
-      </Layout>
-    </Router>
+    <MotionConfig reducedMotion={reduceMotion ? "always" : "user"}>
+      <Router>
+        <Loader variant="global" />
+        <GlobalShortcuts />
+        <Layout>
+          <AppRoutes />
+        </Layout>
+      </Router>
+    </MotionConfig>
   );
 }
 

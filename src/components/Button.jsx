@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 
 export default function Button({
   children,
@@ -13,6 +13,7 @@ export default function Button({
   style: overrideStyle,
   ...props
 }) {
+  const reduceMotion = useReducedMotion();
   const sizeClass = size === "sm" ? "btn-sm" : "";
   const pillClass = pill ? "btn-pill" : "";
   const variantClass = `btn-${variant}`;
@@ -22,8 +23,8 @@ export default function Button({
       className={`btn ${variantClass} ${sizeClass} ${pillClass} ${className}`}
       onClick={onClick}
       disabled={disabled}
-      whileHover={disabled ? undefined : { scale: 1.03 }}
-      whileTap={disabled ? undefined : { scale: 0.97 }}
+      whileHover={disabled || reduceMotion ? undefined : { scale: 1.03 }}
+      whileTap={disabled || reduceMotion ? undefined : { scale: 0.97 }}
       style={{
         opacity: disabled ? 0.5 : 1,
         cursor: disabled ? "not-allowed" : "pointer",

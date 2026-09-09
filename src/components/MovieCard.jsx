@@ -1,5 +1,5 @@
 import { useCallback, useState, useEffect, useRef } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Play, Plus, Check, Star } from "lucide-react";
 import slugify from "slugify";
 import { getTMDBWeekdayShort } from "../utils/timezone";
@@ -78,6 +78,7 @@ import { PrefetchAdapter } from "../api/prefetchAdapter";
 
 import { useVirtualRenderAdapter } from "../api/virtualRenderAdapter";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
+import { useOptionalPreferences } from "../context/preferences";
 
 export default function MovieCard({
   movie,
@@ -88,10 +89,13 @@ export default function MovieCard({
   const navigate = useNavigate();
   const { isInList, toggleMyList, addNotification } = useAppAuth();
   const { toast } = useToast();
+  const preferences = useOptionalPreferences();
   const { isVisible, ref: virtualRef } = useVirtualRenderAdapter("400px"); // render 400px before it comes into view
   const [isLoaded, setIsLoaded] = useState(false);
+  const [hasImageError, setHasImageError] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const hoverTimeoutRef = useRef(null);
+  const reduceMotion = useReducedMotion();
   const isTvContent = movie?.isSeries || String(movie?.id || '').startsWith('tmdb-tv-');
 
   const handleMouseEnter = useCallback(() => {
@@ -106,6 +110,17 @@ export default function MovieCard({
 
   const handleMouseLeave = useCallback(() => {
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    setIsHovered(false);
+  }, []);
+
+  const handleFocus = useCallback(() => {
+    PrefetchAdapter.prefetchMovieDetails(movie.id);
+    setIsHovered(true);
+  }, [movie.id]);
+
+  const handleBlur = useCallback((event) => {
+    // Keep the curtain open while focus moves between the card and its actions.
+    if (event.currentTarget.contains(event.relatedTarget)) return;
     setIsHovered(false);
   }, []);
 
@@ -159,7 +174,15 @@ export default function MovieCard({
   // Fallback so every card has an image: poster → backdrop, else a branded
   // monogram tile. Never render a broken <img>.
   const posterPath = movie.posterUrl || movie.backdropUrl;
-  const posterSrc = CdnImageAdapter.getUrl(posterPath);
+  const posterSrc = CdnImageAdapter.getUrl(
+    posterPath,
+    preferences?.hdThumbs === false ? "w342" : "w500",
+  );
+
+  useEffect(() => {
+    setIsLoaded(false);
+    setHasImageError(false);
+  }, [posterSrc]);
 
   // ── Next-airing info for the rail badges ──────────────────────────────
   // Airing-rail cards (and any series with an announced next episode) show
@@ -194,8 +217,8 @@ export default function MovieCard({
           className="movie-card"
           variants={cardVariants}
           initial="rest"
-          whileHover="hover"
-          animate="rest"
+          whileHover={reduceMotion ? undefined : "hover"}
+          animate={isHovered ? "hover" : "rest"}
           role="button"
           tabIndex={0}
           aria-label={`View details for ${movie.title}`}
@@ -211,6 +234,8 @@ export default function MovieCard({
           }}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
           style={{
             cursor: "pointer",
             position: "relative",
@@ -400,7 +425,7 @@ export default function MovieCard({
             </button>
 
             {/* Poster image (Always visible, darkens on hover) */}
-            {posterSrc ? (
+            {posterSrc && !hasImageError ? (
               <motion.img
                 src={posterSrc}
                 alt={movie.title}
@@ -408,6 +433,10 @@ export default function MovieCard({
                 loading="lazy"
                 decoding="async"
                 onLoad={() => setIsLoaded(true)}
+                onError={() => {
+                  setHasImageError(true);
+                  setIsLoaded(false);
+                }}
                 variants={imageVariants}
                 style={{
                   position: "absolute",

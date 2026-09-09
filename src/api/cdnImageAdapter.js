@@ -24,12 +24,13 @@ export class CdnImageAdapter {
 
     // If it's already a full URL, check if we can optimize it
     if (path.startsWith("http")) {
-      // If it's a TMDB URL with a large size, downgrade for performance
-      if (path.includes("image.tmdb.org/t/p/w1280") && size !== "original") {
-        return path.replace("/w1280/", `/${size}/`);
-      }
       if (this.USE_PROXY && path.includes("image.tmdb.org")) {
         return path.replace("https://image.tmdb.org/t/p/", this.PROXY_BASE);
+      }
+      // API adapters may already return w500. Resize any TMDB rendition (not
+      // only w1280) so the artwork-quality preference is actually honored.
+      if (path.includes("image.tmdb.org/t/p/") && size !== "original") {
+        return path.replace(/\/t\/p\/(?:w\d+|original)\//, `/t/p/${size}/`);
       }
       return path;
     }

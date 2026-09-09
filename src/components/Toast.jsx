@@ -8,6 +8,7 @@ import {
 } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, X, AlertCircle, Info, Volume2, Settings, Play } from "lucide-react";
+import { useOptionalPreferences } from "../context/preferences";
 
 const ToastContext = createContext(null);
 
@@ -181,6 +182,8 @@ function ToastItem({ toast, onDismiss }) {
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
   const idRef = useRef(0);
+  const preferences = useOptionalPreferences();
+  const notificationsEnabled = preferences?.notifications ?? true;
 
   const dismiss = useCallback((id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -189,12 +192,16 @@ export function ToastProvider({ children }) {
   const timersRef = useRef(new Map());
 
   const toast = useCallback(
-    (type, titleOrMessage, message) => {
+    (typeOrToast, titleOrMessage, message) => {
+      const suppliedToast =
+        typeOrToast && typeof typeOrToast === "object"
+          ? typeOrToast
+          : { type: typeOrToast, title: titleOrMessage, message };
+      // Notification settings should quiet routine confirmations, never hide
+      // a recovery path when an operation has failed.
+      if (!notificationsEnabled && suppliedToast.type !== "error") return null;
       const id = ++idRef.current;
-      const toastObj =
-        typeof titleOrMessage === "object"
-          ? { ...titleOrMessage, id }
-          : { id, type, title: titleOrMessage, message };
+      const toastObj = { ...suppliedToast, id };
       setToasts((prev) => [...prev.slice(-4), toastObj]);
       const timer = setTimeout(() => {
         dismiss(id);
@@ -203,7 +210,7 @@ export function ToastProvider({ children }) {
       timersRef.current.set(id, timer);
       return id;
     },
-    [dismiss],
+    [dismiss, notificationsEnabled],
   );
 
   // Cleanup all timers on unmount

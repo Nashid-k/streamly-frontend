@@ -33,9 +33,15 @@ function logoUrlFromImages(images, size = 'w500') {
   return `https://image.tmdb.org/t/p/${resolvedSize}${best.file_path}`;
 }
 
+export function isBrowsableTitle(item) {
+  return item?.media_type === 'movie' || item?.media_type === 'tv';
+}
+
 // Normalize a TMDB result to the shape the app expects
-function normalizeResult(item) {
-  const isTV = item.media_type === 'tv' || item.first_air_date !== undefined;
+export function normalizeResult(item) {
+  const isTV = item.media_type === 'tv' || (
+    item.media_type == null && Boolean(item.first_air_date) && !item.release_date
+  );
   const id = isTV ? `tv-${item.id}` : `movie-${item.id}`;
   return {
     id,
@@ -100,7 +106,10 @@ export const movieService = {
 
   getFeaturedMovies: async () => {
     const data = await tmdb('/trending/all/week');
-    const results = (data.results || []).slice(0, 5);
+    // TMDB's `all` feed also includes people. A person has no title, poster
+    // route, or playable detail page, so filter before slicing to keep five
+    // real hero candidates rather than rendering "Untitled" cards.
+    const results = (data.results || []).filter(isBrowsableTitle).slice(0, 5);
     // Fetch details for the featured movies to get logos
     return await Promise.all(results.map(async (r) => {
       try {
@@ -158,7 +167,7 @@ export const movieService = {
 
   getTop10: async () => {
     const data = await tmdb('/trending/all/week');
-    return (data.results || []).slice(0, 10).map(normalizeResult);
+    return (data.results || []).filter(isBrowsableTitle).slice(0, 10).map(normalizeResult);
   },
 
   getRecommendations: async (id) => {
@@ -172,11 +181,13 @@ export const movieService = {
     const isTV = isTvId(id);
     const rid = rawId(id);
     const endpoint = isTV ? 'tv' : 'movie';
-    const [detail, credits, externalIds] = await Promise.all([
+    const [detail, externalIds] = await Promise.all([
       tmdb(`/${endpoint}/${rid}`, { append_to_response: 'credits,videos,images' }),
-      tmdb(`/${endpoint}/${rid}/credits`),
-      tmdb(`/${endpoint}/${rid}/external_ids`),
+      // Ratings enrich the page but should not make a perfectly usable title
+      // fail when TMDB's external-id endpoint is temporarily unavailable.
+      tmdb(`/${endpoint}/${rid}/external_ids`).catch(() => ({})),
     ]);
+    const credits = detail.credits || {};
     const item = { ...detail, media_type: isTV ? 'tv' : 'movie' };
     const base = normalizeResult(item);
     return {
@@ -267,8 +278,12 @@ export const movieService = {
       deathday: person.deathday,
       placeOfBirth: person.place_of_birth,
       profileUrl: person.profile_path ? `https://image.tmdb.org/t/p/w185${person.profile_path}` : null,
-      knownForDepartment: person.known_for_department,
-      credits: (credits.cast || []).map(c => normalizeResult({ ...c, media_type: c.media_type })).slice(0, 40),
+      knownFor: person.known_for_department || null,
+      knownForDepartment: person.known_for_department || null,
+      credits: (credits.cast || [])
+        .filter(isBrowsableTitle)
+        .map((c) => normalizeResult({ ...c, media_type: c.media_type }))
+        .slice(0, 40),
     };
   },
 
@@ -306,7 +321,7 @@ export const movieService = {
 
   getTrendingThisWeek: async () => {
     const data = await tmdb('/trending/all/week');
-    return (data.results || []).map(normalizeResult);
+    return (data.results || []).filter(isBrowsableTitle).map(normalizeResult);
   },
 
   // Genre-cluster discover rails for the home showcase ("Action & Adventure",
