@@ -37,8 +37,12 @@ export default function Loader({ variant = "page", size, color }) {
   else if (variant === "button") dimensions = "18px";
   else if (variant === "global") dimensions = "28px";
 
+  const useGradient = !color;
   const primaryColor = color || "#f43f5e";
   const secondaryColor = "#fb923c";
+  const gradientId = "streamly-loader-grad";
+
+  const stroke = useGradient ? `url(#${gradientId})` : primaryColor;
 
   const spinnerCore = (
     <div style={{ position: "relative", width: dimensions, height: dimensions }}>
@@ -46,11 +50,20 @@ export default function Loader({ variant = "page", size, color }) {
         viewBox="0 0 44 44"
         style={{ width: "100%", height: "100%", transform: "rotate(-90deg)" }}
       >
+        {useGradient && (
+          <defs>
+            <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#f43f5e" />
+              <stop offset="55%" stopColor="#fb7185" />
+              <stop offset="100%" stopColor="#fb923c" />
+            </linearGradient>
+          </defs>
+        )}
         {/* Outer ring */}
         <circle
           cx="22" cy="22" r="18"
           fill="none"
-          stroke={primaryColor}
+          stroke={stroke}
           strokeWidth="3"
           strokeLinecap="round"
           strokeDasharray="113"
@@ -60,7 +73,7 @@ export default function Loader({ variant = "page", size, color }) {
         <circle
           cx="22" cy="22" r="18"
           fill="none"
-          stroke={primaryColor}
+          stroke={stroke}
           strokeWidth="3"
           strokeLinecap="round"
           strokeDasharray="113"
@@ -99,8 +112,12 @@ export default function Loader({ variant = "page", size, color }) {
           width: "20%",
           height: "20%",
           borderRadius: "50%",
-          background: primaryColor,
-          boxShadow: `0 0 8px ${primaryColor}80`,
+          background: useGradient
+            ? "linear-gradient(135deg, #f43f5e, #fb923c)"
+            : primaryColor,
+          boxShadow: useGradient
+            ? "0 0 10px rgba(244,63,94,0.6), 0 0 22px rgba(251,146,60,0.35)"
+            : `0 0 8px ${primaryColor}80`,
           animation: "loader-pulse-center 1.2s ease-in-out infinite",
         }}
       />

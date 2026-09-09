@@ -728,6 +728,8 @@ export default function TitleDetails() {
             <img
               className="w-full h-full object-cover scale-[1.2] blur-[50px] saturate-100"
               alt=""
+              loading="lazy"
+              decoding="async"
               style={{ maskImage: "linear-gradient(to bottom, black 0%, transparent 100%)", WebkitMaskImage: "linear-gradient(to bottom, black 0%, transparent 100%)" }}
               src={backdropOptimized || movie.posterUrl}
             />
@@ -768,11 +770,14 @@ export default function TitleDetails() {
           className="relative w-full h-[65vh] lg:h-[75vh] overflow-hidden"
           style={{ maskImage: "linear-gradient(to bottom, black 40%, transparent 98%)", WebkitMaskImage: "linear-gradient(to bottom, black 40%, transparent 98%)" }}
         >
-          <img
-            className="h-full w-full object-cover object-top"
-            src={backdropOptimized || movie.posterUrl}
-            alt={movie.title}
-          />
+<img
+              className="h-full w-full object-cover object-top"
+              src={backdropOptimized || movie.posterUrl}
+              alt={movie.title}
+              fetchPriority="high"
+              loading="eager"
+              decoding="async"
+            />
           <div className="absolute inset-0 watch-hero-gradient pointer-events-none"></div>
           <div className="absolute inset-0 left-vignette pointer-events-none hidden lg:block"></div>
         </div>

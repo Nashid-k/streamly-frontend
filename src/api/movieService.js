@@ -207,6 +207,33 @@ export const movieService = {
     };
   },
 
+  getPopular: async () => {
+    const [movies, tv] = await Promise.all([
+      tmdb('/movie/popular'),
+      tmdb('/tv/popular'),
+    ]);
+    return [
+      ...(movies.results || []).map(r => normalizeResult({ ...r, media_type: 'movie' })),
+      ...(tv.results || []).map(r => normalizeResult({ ...r, media_type: 'tv' })),
+    ];
+  },
+
+  getTopRated: async () => {
+    const [movies, tv] = await Promise.all([
+      tmdb('/movie/top_rated'),
+      tmdb('/tv/top_rated'),
+    ]);
+    return [
+      ...(movies.results || []).map(r => normalizeResult({ ...r, media_type: 'movie' })),
+      ...(tv.results || []).map(r => normalizeResult({ ...r, media_type: 'tv' })),
+    ];
+  },
+
+  getNowPlaying: async () => {
+    const data = await tmdb('/movie/now_playing');
+    return (data.results || []).map(r => normalizeResult({ ...r, media_type: 'movie' }));
+  },
+
   getAiringThisWeek: async () => {
     const data = await tmdb('/tv/on_the_air');
     return (data.results || []).map(r => normalizeResult({ ...r, media_type: 'tv' }));

@@ -467,6 +467,30 @@ export default function Home({
     refetchOnWindowFocus: false,
   });
 
+  const { data: popularData } = useQuery({
+    queryKey: ["popular"],
+    queryFn: () => movieService.getPopular(),
+    staleTime: 1000 * 60 * 10,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: topRatedData } = useQuery({
+    queryKey: ["topRated"],
+    queryFn: () => movieService.getTopRated(),
+    staleTime: 1000 * 60 * 10,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: nowPlayingData } = useQuery({
+    queryKey: ["nowPlaying"],
+    queryFn: () => movieService.getNowPlaying(),
+    staleTime: 1000 * 60 * 10,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
   const rawCategories = asArray(categoriesData);
   const featuredMovies = useMemo(
     () => {
@@ -758,6 +782,29 @@ export default function Home({
     () => enrichWithPlatforms(applyPageFilter(asArray(airingData)).slice(0, 20)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [airingData, filter, enrichWithPlatforms],
+  );
+
+  const popularNow = useMemo(
+    () => enrichWithPlatforms(applyPageFilter(asArray(popularData)).slice(0, 20)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [popularData, filter, enrichWithPlatforms],
+  );
+
+  const topRated = useMemo(
+    () => enrichWithPlatforms(applyPageFilter(asArray(topRatedData)).slice(0, 20)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [topRatedData, filter, enrichWithPlatforms],
+  );
+
+  const nowPlaying = useMemo(
+    () =>
+      enrichWithPlatforms(
+        applyPageFilter(
+          asArray(nowPlayingData).map((m) => ({ ...m, isSeries: false })),
+        ).slice(0, 20),
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [nowPlayingData, filter, enrichWithPlatforms],
   );
 
   // "Upcoming" — only PREMIERES: movies with a future release date plus series
@@ -1267,7 +1314,7 @@ export default function Home({
                       className={`hero-dot${isActive ? " hero-dot--active" : ""}`}
                     >
                       {isActive && (
-                        <div className="dot-filler" style={{ animationPlayState: isHeroHovered ? "paused" : "running" }} />
+                        <div className="dot-filler" />
                       )}
                     </motion.button>
                   );
@@ -1412,24 +1459,57 @@ export default function Home({
                 </ErrorBoundary>
               </FadeInSection>
             )}
-
-            {/* 5. My List */}
-            {myList && myList.length > 0 && filter === "all" && (
+            {/* 5. Popular Now */}
+            {popularNow.length > 0 && activeGenre === "All" && (
+              <FadeInSection>
+                <ErrorBoundary>
+                  <MovieRail
+                    railIndex={4}
+                    category={{ name: "Popular Now", movies: popularNow }}
+                  />
+                </ErrorBoundary>
+              </FadeInSection>
+            )}
+            {/* 6. Top Rated */}
+            {topRated.length > 0 && activeGenre === "All" && (
               <FadeInSection>
                 <ErrorBoundary>
                   <MovieRail
                     railIndex={5}
+                    category={{ name: "Top Rated", movies: topRated }}
+                  />
+                </ErrorBoundary>
+              </FadeInSection>
+            )}
+            {/* 7. Now Playing / In Theaters */}
+            {nowPlaying.length > 0 && activeGenre === "All" && (
+              <FadeInSection>
+                <ErrorBoundary>
+                  <MovieRail
+                    railIndex={6}
+                    category={{ name: "Now Playing / In Theaters", movies: nowPlaying }}
+                  />
+                </ErrorBoundary>
+              </FadeInSection>
+            )}
+
+            {/* 8. My List */}
+            {myList && myList.length > 0 && filter === "all" && (
+              <FadeInSection>
+                <ErrorBoundary>
+                  <MovieRail
+                    railIndex={7}
                     category={{ name: "My List", movies: myList }}
                   />
                 </ErrorBoundary>
               </FadeInSection>
             )}
 
-            {/* 7. Category rails */}
+            {/* 9. Category rails */}
             {categories.slice(0, visibleCatCount).map((category, catIdx) => (
               <FadeInSection key={catIdx} delay={0.1}>
                 <ErrorBoundary key={category.id || catIdx}>
-                  <MovieRail railIndex={catIdx + 6} category={category} />
+                  <MovieRail railIndex={catIdx + 8} category={category} />
                 </ErrorBoundary>
               </FadeInSection>
             ))}

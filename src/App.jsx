@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Suspense, lazy } from "react";
+import { useState, useEffect, Suspense, lazy } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -14,8 +14,6 @@ import {
   Home,
   Tv,
   Bookmark,
-  Clock,
-  Keyboard,
   Clapperboard,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -24,7 +22,6 @@ import ErrorBoundary from "./components/ErrorBoundary";
 
 import Loader from "./components/Loader";
 import BackToTop from "./components/BackToTop";
-import Popover from "./components/Popover";
 import { useScrollRestoration } from "./hooks/useScrollRestoration";
 
 /* Single source of truth for the navigation entries — feeds both the
@@ -44,6 +41,7 @@ const CategoryPage = lazy(() => import("./pages/CategoryPage"));
 const GenrePage = lazy(() => import("./pages/GenrePage"));
 const WatchlistPage = lazy(() => import("./pages/WatchlistPage"));
 const HistoryPage = lazy(() => import("./pages/HistoryPage"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 function Layout({ children }) {
   useScrollRestoration();
   const location = useLocation();
@@ -60,41 +58,12 @@ function Layout({ children }) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [navigate]);
 
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  const moreRef = useRef(null);
-
-  useEffect(() => {
-    setShowMoreMenu(false);
-  }, [location.pathname]);
-
-  // Close the settings menu when clicking outside or pressing Escape
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (moreRef.current && !moreRef.current.contains(e.target)) {
-        setShowMoreMenu(false);
-      }
-    };
-
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape") {
-        setShowMoreMenu(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
   }, []);
 
   return (
@@ -147,47 +116,15 @@ function Layout({ children }) {
             <Search size={18} strokeWidth={2} />
           </Link>
 
-          {/* Settings — keyboard shortcuts */}
-          <div ref={moreRef} style={{ position: "relative" }}>
-            <button
-              type="button"
-              className={`nav-icon-btn${showMoreMenu ? " nav-icon-btn--active" : ""}`}
-              aria-label="Settings"
-              aria-haspopup="menu"
-              aria-expanded={showMoreMenu}
-              onClick={() => setShowMoreMenu((v) => !v)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  setShowMoreMenu((v) => !v);
-                }
-              }}
-            >
-              <Settings size={18} strokeWidth={2} />
-            </button>
-
-            <Popover
-              isOpen={showMoreMenu}
-              onClose={() => setShowMoreMenu(false)}
-              triggerRef={moreRef}
-              className="more-popover"
-              style={{ padding: "8px 0", width: "min(220px, calc(100vw - 2rem))", right: -10 }}
-            >
-              <Link to="/watchlist" onClick={() => setShowMoreMenu(false)} className="menu-item"><Bookmark size={16} /> My List</Link>
-              <Link to="/history" onClick={() => setShowMoreMenu(false)} className="menu-item"><Clock size={16} /> Watch History</Link>
-              <hr className="menu-divider" />
-              <button
-                type="button"
-                className="menu-item"
-                onClick={() => {
-                  setShowMoreMenu(false);
-                  window.dispatchEvent(new KeyboardEvent("keydown", { key: "?", shiftKey: true }));
-                }}
-              >
-                <Keyboard size={16} /> Keyboard Shortcuts
-              </button>
-            </Popover>
-          </div>
+          {/* Settings */}
+          <Link
+            to="/settings"
+            className={`nav-icon-btn${location.pathname === "/settings" ? " nav-icon-btn--active" : ""}`}
+            aria-label="Settings"
+            title="Settings"
+          >
+            <Settings size={18} strokeWidth={2} />
+          </Link>
         </div>
         </div>
       </nav>
@@ -196,22 +133,14 @@ function Layout({ children }) {
       <div className="app-brand">
         <Link to="/" className="app-brand-link" aria-label="Streamly home">
           <span className="app-brand-mark">
-            <svg viewBox="0 0 48 48" width="44" height="44" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <linearGradient id="streamly-grad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#f43f5e" />
-                  <stop offset="55%" stopColor="#fb7185" />
-                  <stop offset="100%" stopColor="#fb923c" />
-                </linearGradient>
-              </defs>
-              <rect x="1.5" y="1.5" width="45" height="45" rx="13.5" fill="url(#streamly-grad)" />
-              <rect x="1.5" y="1.5" width="45" height="45" rx="13.5" stroke="rgba(255,255,255,0.25)" strokeWidth="1" />
-              <path d="M20 15.5 L32 24 L20 32.5 Z" fill="#ffffff" stroke="none" />
-              <path d="M8 30.5 C 11 27.5 14 33.5 17 30.5 C 20 27.5 23 33.5 26 30.5" stroke="#ffffff" strokeWidth="2.4" strokeLinecap="round" fill="none" opacity="0.85" />
+            <svg viewBox="0 0 48 48" width="44" height="44" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="1.5" y="1.5" width="45" height="45" rx="14" fill="#ffffff" />
+              <path d="M20.5 16 L32.5 24 L20.5 32 Z" fill="#050505" />
+              <circle cx="13" cy="35" r="2.2" fill="#050505" />
             </svg>
           </span>
           <span className="app-brand-word">
-            Stream<span style={{ color: "#fb923c" }}>ly</span>
+            Stream<span className="app-brand-word-accent">ly</span>
           </span>
         </Link>
       </div>
@@ -293,6 +222,7 @@ function AppRoutes() {
               <Route path="/watchlist" element={<WatchlistPage />} />
               <Route path="/mylist" element={<Navigate to="/watchlist" replace />} />
               <Route path="/history" element={<HistoryPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </Suspense>
     </ErrorBoundary>

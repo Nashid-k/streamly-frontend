@@ -1,6 +1,6 @@
 import { useCallback, useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { Play, Plus, Check } from "lucide-react";
+import { Play, Plus, Check, Star } from "lucide-react";
 import slugify from "slugify";
 import { getTMDBWeekdayShort } from "../utils/timezone";
 import { useNavigate } from "react-router-dom";
@@ -73,7 +73,6 @@ const btnVariants = {
 };
 
 import { PrefetchAdapter } from "../api/prefetchAdapter";
-import { getRatingColor } from "../utils/ratings";
 
 import { useVirtualRenderAdapter } from "../api/virtualRenderAdapter";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
@@ -154,7 +153,6 @@ export default function MovieCard({
   const inList = isInList(movie.id);
 
   const rating = movie.imdbRating;
-  const ratingColor = getRatingColor(rating);
 
   // ── Next-airing info for the rail badges ──────────────────────────────
   // Airing-rail cards (and any series with an announced next episode) show
@@ -424,15 +422,15 @@ export default function MovieCard({
                   "linear-gradient(to top, rgba(9,9,11,0.95) 0%, rgba(9,9,11,0.7) 50%, rgba(9,9,11,0.2) 100%)",
                 display: "flex",
                 flexDirection: "column",
-                justifyContent: "flex-end",
+                justifyContent: "center",
                 alignItems: "center",
-                padding: compact ? "0.75rem" : "1.25rem",
-                gap: compact ? "8px" : "12px",
+                padding: compact ? "0.75rem" : "1rem",
+                gap: compact ? "8px" : "10px",
                 textAlign: "center",
                 zIndex: 5,
               }}
             >
-              {/* Play — gradient pill */}
+              {/* Single centered circular play button */}
               <motion.button
                 variants={btnVariants}
                 onClick={(e) => {
@@ -440,53 +438,67 @@ export default function MovieCard({
                   navigateToDetails();
                 }}
                 className="curtain-play-btn"
-                aria-label={`Watch ${movie.title}`}
+                aria-label={`Play ${movie.title}`}
                 style={{
-                  width: "fit-content",
-                  minWidth: compact ? "88px" : "104px",
+                  width: compact ? "44px" : "52px",
+                  height: compact ? "44px" : "52px",
+                  borderRadius: "50%",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: "6px",
-                  padding: compact ? "6px 14px" : "8px 18px",
-                  borderRadius: "100px",
                   background: "var(--accent-gradient)",
                   border: "none",
                   color: "#fff",
-                  fontSize: compact ? "0.7rem" : "0.8rem",
-                  fontWeight: 700,
                   cursor: "pointer",
-                  letterSpacing: "0.01em",
-                  boxShadow: "var(--shadow-glow)",
+                  boxShadow:
+                    "0 8px 22px rgba(244,63,94,0.5), inset 0 1px 0 rgba(255,255,255,0.25)",
                 }}
               >
-                <Play size={compact ? 13 : 16} fill="currentColor" stroke="none" />
-                <span className="desktop-only">Watch</span>
+                <Play
+                  size={compact ? 18 : 22}
+                  fill="currentColor"
+                  stroke="none"
+                  style={{ marginLeft: "2px" }}
+                />
               </motion.button>
 
-              {/* Year · Rating */}
+              {/* IMDb star rating + year */}
               <motion.div
                 variants={metaVariants}
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: compact ? "5px" : "8px",
+                  gap: "6px",
+                  padding: compact ? "3px 10px" : "4px 12px",
+                  borderRadius: "100px",
+                  background: "rgba(0,0,0,0.45)",
+                  backdropFilter: "blur(6px)",
                   fontSize: compact ? "0.6rem" : "0.7rem",
-                  fontWeight: 600,
-                  color: "#a1a1aa",
+                  fontWeight: 700,
+                  color: "#fff",
+                  letterSpacing: "0.02em",
+                  whiteSpace: "nowrap",
                 }}
               >
+                {rating > 0 && (
+                  <span
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "3px",
+                      color: "#f5c518",
+                    }}
+                    title="IMDb"
+                  >
+                    <Star size={compact ? 10 : 12} fill="currentColor" stroke="none" />
+                    <span>{Number(rating).toFixed(1)}</span>
+                  </span>
+                )}
                 {(movie.releaseYear || movie.year) && (
-                  <span>
+                  <span style={{ color: "rgba(255,255,255,0.8)" }}>
                     {(movie.releaseYear || movie.year)
                       ?.toString()
                       .substring(0, 4)}
-                  </span>
-                )}
-                {rating > 0 && (
-                  <span style={{ display: "flex", alignItems: "center", gap: "3px", color: ratingColor }} title="IMDb">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/6/69/IMDB_Logo_2016.svg" alt="IMDb" style={{ height: compact ? "8px" : "10px" }} />
-                    <span>{Number(rating).toFixed(1)}</span>
                   </span>
                 )}
               </motion.div>
