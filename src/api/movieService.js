@@ -98,6 +98,27 @@ export const movieService = {
     return logoUrlFromImages(data, 'original');
   },
 
+  // Fetch an embeddable YouTube trailer key for any movie/TV id. Reaches
+  // into the live details so even titles stored before trailers were wired
+  // up (old continue-watching entries) get a preview. Prefers an official
+  // Trailer, then Teaser, then the first usable YouTube video.
+  getTitleTrailer: async (id) => {
+    const isTV = isTvId(id);
+    const rid = rawId(id);
+    const data = await tmdb(`/${isTV ? 'tv' : 'movie'}/${rid}/videos`);
+    const videos = (data.results || []).filter(
+      (v) => v.site === 'YouTube' && v.key && v.key.trim(),
+    );
+    if (videos.length === 0) return null;
+    const pick = (types) => videos.find((v) => types.includes(v.type));
+    const candidate =
+      pick(['Trailer']) ||
+      pick(['Teaser']) ||
+      pick(['Featurette', 'Clip', 'Highlight', 'Behind the Scenes']) ||
+      videos[0];
+    return candidate ? candidate.key : null;
+  },
+
   getCategories: async () => {
     const [movies, tv] = await Promise.all([
       tmdb('/trending/movie/week'),

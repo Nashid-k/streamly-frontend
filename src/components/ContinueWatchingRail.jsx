@@ -2,8 +2,10 @@ import React, { useState, useRef, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, Plus, Check, Info, Pencil, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import slugify from "slugify";
 import { useAppAuth } from "../context/AuthContext";
+import { movieService } from "../api/movieService";
 import RailArrow from "./RailArrow";
 import useRailArrows from "../hooks/useRailArrows";
 
@@ -41,13 +43,20 @@ const remainingLabel = (item) => {
 };
 
 const trailerKeyOf = (item) => {
+  if (!item) return null;
   if (item.trailer) return item.trailer;
   const v = (item.videos || []).find((x) => x.type === "Trailer" && x.key);
-  return v ? v.key : null;
+  return v ? v.key : item.videos?.[0]?.key || null;
 };
 
-const trailerSrc = (key) =>
-  `https://www.youtube.com/embed/${key}?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&modestbranding=1&playsinline=1&disablekb=1&fs=0&iv_load_policy=3&loop=1&playlist=${key}&origin=${typeof window !== "undefined" ? window.location.origin : ""}`;
+/* Clean full-bleed embed: no controls, no title bar, no "Watch on YouTube",
+   no related videos, no skip buttons, looping, muted autoplay. The no-cookie
+   domain + pointer-events:none keep the player chrome away entirely. */
+const trailerSrc = (key) => {
+  const origin =
+    typeof window !== "undefined" ? window.location.origin : "";
+  return `https://www.youtube-nocookie.com/embed/${key}?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&autohide=1&disablekb=1&fs=0&loop=1&playlist=${key}&origin=${origin}`;
+};
 
 export default function ContinueWatchingRail({ items = [] }) {
   const { isInList, toggleMyList, removeFromContinueWatching } = useAppAuth();
@@ -58,18 +67,37 @@ export default function ContinueWatchingRail({ items = [] }) {
   const closeTimerRef = useRef(null);
   const { canScrollLeft, canScrollRight, refresh } = useRailArrows(scrollRef);
 
+  const localKey = hover?.item ? trailerKeyOf(hover.item) : null;
+
+  // Lazily fetch a trailer when the hovered item doesn't already carry one
+  // (e.g. old continue-watching entries). Cached forever once fetched.
+  const { data: fetchedTrailer } = useQuery({
+    queryKey: ["titleTrailer", hover?.item?.id],
+    queryFn: () => movieService.getTitleTrailer(hover.item.id),
+    enabled: Boolean(hover?.item && !localKey),
+    staleTime: Infinity,
+    retry: 1,
+  });
+
+  const activeTrailer = localKey || fetchedTrailer || null;
+
   const close = useCallback(() => setHover(null), []);
 
   const scheduleClose = useCallback(() => {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
-    closeTimerRef.current = setTimeout(close, 150);
+    closeTimerRef.current = setTimeout(close, 180);
   }, [close]);
 
   const cancelClose = useCallback(() => {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
   }, []);
 
-  useEffect(() => () => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current); }, []);
+  useEffect(
+    () => () => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -96,18 +124,15 @@ export default function ContinueWatchingRail({ items = [] }) {
     const layerRect = layer.getBoundingClientRect();
     const cardWidth = cardRect.width;
     const popupWidth = Math.min(270, layerRect.width - 16);
-    const popupHeight = popupWidth * (9 / 16) + 100;
+    const popupHeight = Math.round(popupWidth * (9 / 16)) + 104;
     let x = cardRect.left - layerRect.left + cardWidth / 2 - popupWidth / 2;
     const vw = layerRect.right - layerRect.left;
     x = Math.max(0, Math.min(x, vw - popupWidth));
-    const spaceAbove = cardRect.top - layerRect.top;
-    const overlap = 36;
-    let top;
-    if (spaceAbove + overlap >= popupHeight) {
-      top = cardRect.top - layerRect.top - popupHeight + overlap;
-    } else {
-      top = cardRect.bottom - layerRect.top + 12;
-    }
+    // Netflix-style: the panel pops UP, overlapping the top of the card and
+    // extending above the rail when needed. transform-origin: bottom center
+    // makes it scale outward from the card it belongs to.
+    const overlap = 52;
+    const top = cardRect.top - layerRect.top - popupHeight + overlap;
     setHover({ id: item.id, x, top, item });
   };
 
@@ -131,7 +156,10 @@ export default function ContinueWatchingRail({ items = [] }) {
         <h3 className="section-title section-title--cw">Continue Watching</h3>
         <button
           className={`section-header-edit ${editMode ? "section-header-edit--active" : ""}`}
-          onClick={() => { setEditMode((v) => !v); close(); }}
+          onClick={() => {
+            setEditMode((v) => !v);
+            close();
+          }}
           aria-label={editMode ? "Done editing" : "Edit watch history"}
         >
           {editMode ? (
@@ -172,12 +200,17 @@ export default function ContinueWatchingRail({ items = [] }) {
               key={`${item.id}-${i}`}
               className={`cw-card ${editMode ? "cw-card--edit" : ""}`}
               style={{ position: "relative", flexShrink: 0 }}
+              variants={{ hovered: { scale: 1.06, y: -6 } }}
+              whileHover={editMode ? undefined : "hovered"}
+              transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
               onMouseEnter={(e) => onEnter(e, item)}
             >
               <Link
                 to={editMode ? undefined : watchTo}
                 className="cw-card-link"
-                onClick={(e) => { if (editMode) e.preventDefault(); }}
+                onClick={(e) => {
+                  if (editMode) e.preventDefault();
+                }}
               >
                 <div className="cw-thumb">
                   {art ? (
@@ -217,22 +250,23 @@ export default function ContinueWatchingRail({ items = [] }) {
               key={hover.item.id}
               className="cw-popup"
               style={{ left: hover.x, top: hover.top, width: "270px" }}
-              initial={{ opacity: 0, y: 14, scale: 0.94 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96, y: 8 }}
-              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              initial={{ opacity: 0, scale: 0.8, y: -26 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.85, y: -8, transition: { duration: 0.18, ease: "easeIn" } }}
+              transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
               onMouseEnter={cancelClose}
               onMouseLeave={scheduleClose}
             >
               <div className="cw-popup-thumb">
-                {trailerKeyOf(hover.item) ? (
+                {activeTrailer ? (
                   <iframe
                     className="cw-popup-trailer"
-                    src={trailerSrc(trailerKeyOf(hover.item))}
+                    src={trailerSrc(activeTrailer)}
                     title=""
                     allow="autoplay; encrypted-media"
                     allowFullScreen={false}
                     frameBorder="0"
+                    tabIndex={-1}
                   />
                 ) : (hover.item.backdropUrl || hover.item.posterUrl || hover.item.poster) ? (
                   <img
