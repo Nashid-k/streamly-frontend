@@ -9,7 +9,7 @@ import Loader from "../components/Loader";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import { createPortal } from "react-dom";
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   Play,
   ArrowLeft,
@@ -22,9 +22,7 @@ import {
   MonitorPlay,
   ChevronDown,
   RotateCcw,
-  Share2,
   ThumbsUp,
-  ThumbsDown,
   Award,
   MapPin,
   Building2,
@@ -428,17 +426,6 @@ export default function TitleDetails() {
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [iframeLoading, setIframeLoading] = useState(false);
-  const [userRating, setUserRating] = useState(() => {
-    try { return localStorage.getItem(`rating-${id}`) || null; } catch { return null; }
-  });
-  useEffect(() => {
-    try {
-      if (userRating) localStorage.setItem(`rating-${id}`, userRating);
-      else localStorage.removeItem(`rating-${id}`);
-    } catch {}
-  }, [userRating, id]);
-  const [showShareToast, setShowShareToast] = useState(false);
-  const shareToastTimeoutRef = useRef(null);
   const [episodeLayout, setEpisodeLayout] = useState("grid"); // 'grid' | 'list'
   const [showAllEpisodes, setShowAllEpisodes] = useState(false);
   const EPISODES_INITIAL_COUNT = 8;
@@ -766,50 +753,14 @@ export default function TitleDetails() {
                 navigate("/");
               }
             }}
-            className="flex items-center justify-center text-white drop-shadow-lg transition-transform duration-200 hover:scale-110 active:scale-90"
+            className="btn btn-glass"
+            style={{ padding: "10px 18px", borderRadius: "100px", fontSize: "0.9rem" }}
             aria-label="Go back"
           >
-            <ArrowLeft size={28} />
+            <ArrowLeft size={18} /> Back
           </button>
-          <Link to="/" className="group relative flex items-center justify-center transition-transform duration-300 hover:scale-110">
-            <span className="text-white font-bold text-xl tracking-wide drop-shadow-lg">Streamly</span>
-          </Link>
-        </div>
-        <div className="flex items-center gap-2 pointer-events-auto">
-          <motion.button
-            whileHover={{ scale: 1.1, background: "rgba(255,255,255,0.15)" }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => {
-              if (navigator.share) {
-                navigator.share({ title: movie.title, url: window.location.href });
-              } else {
-                navigator.clipboard?.writeText(window.location.href);
-                setShowShareToast(true);
-                if (shareToastTimeoutRef.current) clearTimeout(shareToastTimeoutRef.current);
-                shareToastTimeoutRef.current = setTimeout(() => setShowShareToast(false), 2000);
-              }
-            }}
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white/60 hover:text-white transition-colors bg-white/5 backdrop-blur-md"
-            title="Share"
-          >
-            <Share2 size={20} />
-          </motion.button>
         </div>
       </motion.div>
-
-      {/* Share toast */}
-      <AnimatePresence>
-        {showShareToast && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="fixed top-[80px] left-1/2 -translate-x-1/2 bg-[#050505]/95 border border-white/15 px-6 py-2.5 rounded-full text-white text-sm font-semibold z-[99999] backdrop-blur-md shadow-2xl"
-          >
-            Link copied to clipboard
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <div className="relative w-full">
         {/* Hero Image Mask */}
@@ -857,7 +808,8 @@ export default function TitleDetails() {
                   }
                   updateProgress(movie, isTvContent ? 1 : null, isTvContent ? 1 : null, 0);
                 }}
-                className="relative rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 font-semibold tracking-wide h-[44px] lg:h-[52px] px-6 lg:px-8 py-3 text-sm lg:text-base min-w-[120px] bg-[#95ff50] text-[#050505] hover:bg-[#a3ff66] shadow-xl hover:scale-105"
+                className="relative rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 font-semibold tracking-wide h-[44px] lg:h-[52px] px-6 lg:px-8 py-3 text-sm lg:text-base min-w-[120px] text-white border-none"
+                style={{ background: "var(--accent-gradient)", boxShadow: "0 8px 24px rgba(244,63,94,0.5)" }}
               >
                 <Play size={20} className="mr-1.5 fill-current" /> Play
               </button>
@@ -892,15 +844,6 @@ export default function TitleDetails() {
                   </div>
                 </div>
               )}
-              
-              <div className="flex items-center gap-0.5 ml-2 bg-white/5 rounded-full p-0.5 border border-white/10">
-                <button onClick={() => setUserRating(userRating === 'like' ? null : 'like')} className="p-1 rounded-full hover:bg-white/10 transition-colors">
-                  <ThumbsUp size={16} color={userRating === 'like' ? '#95ff50' : 'currentColor'} />
-                </button>
-                <button onClick={() => setUserRating(userRating === 'dislike' ? null : 'dislike')} className="p-1 rounded-full hover:bg-white/10 transition-colors">
-                  <ThumbsDown size={16} color={userRating === 'dislike' ? '#f87171' : 'currentColor'} />
-                </button>
-              </div>
             </div>
 
             {movie.director && (
