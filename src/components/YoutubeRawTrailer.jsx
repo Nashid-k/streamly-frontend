@@ -26,6 +26,9 @@ window.onYouTubeIframeAPIReady = () => {
 /* Full-bleed youtube trailer with the player UI suppressed:
    - IFrame API lets us mute + start playback ourselves, loop reliably,
      and KNOW when playback actually begins.
+   - Playback starts a few seconds in (skipping the studio-intro title
+     card), so the video is ALREADY in motion the moment the cover lifts —
+     the trailer feels like it starts exactly where the cover was.
    - An opaque cover (backdrop image) sits over the player until PLAYING,
      so YouTube's title/avatar/pause overlays (which only exist in the
      loading/paused/ended states) are never visible.
@@ -33,6 +36,11 @@ window.onYouTubeIframeAPIReady = () => {
      so YouTube's edge chrome (title strip, bottom-right watermark) is
      pushed off-screen even while playing. pointer-events:none stops hover
      from summoning the controls. */
+
+// Seconds into the trailer to jump before revealing — hides the studio/
+// title freeze-frame that YouTube shows at 0:00 behind the cover.
+const START_OFFSET_SECONDS = 3;
+
 export default function YoutubeRawTrailer({ videoKey, poster }) {
   const mountRef = useRef(null);
   const [playing, setPlaying] = useState(false);
@@ -63,6 +71,9 @@ export default function YoutubeRawTrailer({ videoKey, poster }) {
         events: {
           onReady: (e) => {
             e.target.mute();
+            // Start already in motion so there's no still-frame/logo freeze
+            // when the cover lifts — the video begins from under it.
+            e.target.seekTo(START_OFFSET_SECONDS, true);
             e.target.playVideo();
             const frame = e.target.getIframe();
             frame.setAttribute("allow", "autoplay; encrypted-media; picture-in-picture");
@@ -71,6 +82,7 @@ export default function YoutubeRawTrailer({ videoKey, poster }) {
           onStateChange: (e) => {
             if (cancelled) return;
             if (e.data === YT.PlayerState.ENDED) {
+              e.target.seekTo(START_OFFSET_SECONDS, true);
               e.target.playVideo();
             }
             setPlaying(e.data === YT.PlayerState.PLAYING);
