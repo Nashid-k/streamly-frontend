@@ -123,17 +123,18 @@ export default function ContinueWatchingRail({ items = [] }) {
     const cardRect = card.getBoundingClientRect();
     const layerRect = layer.getBoundingClientRect();
     const cardWidth = cardRect.width;
-    const popupWidth = Math.min(270, layerRect.width - 16);
+    // Netflix style: the panel is the same width as the card and anchored to
+    // the card's bottom edge, so on hover it pops UP and FULLY COVERS the
+    // card (thumbnail + title). transform-origin: bottom center makes it grow
+    // out of the card it belongs to, hiding it entirely.
+    const popupWidth = Math.min(Math.round(cardWidth), Math.round(layerRect.width - 16));
     const popupHeight = Math.round(popupWidth * (9 / 16)) + 104;
-    let x = cardRect.left - layerRect.left + cardWidth / 2 - popupWidth / 2;
+    let x = cardRect.left - layerRect.left;
     const vw = layerRect.right - layerRect.left;
     x = Math.max(0, Math.min(x, vw - popupWidth));
-    // Netflix-style: the panel pops UP, overlapping the top of the card and
-    // extending above the rail when needed. transform-origin: bottom center
-    // makes it scale outward from the card it belongs to.
-    const overlap = 52;
-    const top = cardRect.top - layerRect.top - popupHeight + overlap;
-    setHover({ id: item.id, x, top, item });
+    const below = 6;
+    const top = cardRect.bottom - layerRect.top - popupHeight + below;
+    setHover({ id: item.id, x, top, w: popupWidth, item });
   };
 
   const handleRemove = (e, item) => {
@@ -200,9 +201,6 @@ export default function ContinueWatchingRail({ items = [] }) {
               key={`${item.id}-${i}`}
               className={`cw-card ${editMode ? "cw-card--edit" : ""}`}
               style={{ position: "relative", flexShrink: 0 }}
-              variants={{ hovered: { scale: 1.06, y: -6 } }}
-              whileHover={editMode ? undefined : "hovered"}
-              transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
               onMouseEnter={(e) => onEnter(e, item)}
             >
               <Link
@@ -249,11 +247,11 @@ export default function ContinueWatchingRail({ items = [] }) {
             <motion.div
               key={hover.item.id}
               className="cw-popup"
-              style={{ left: hover.x, top: hover.top, width: "270px" }}
-              initial={{ opacity: 0, scale: 0.8, y: -26 }}
+              style={{ left: hover.x, top: hover.top, width: hover.w }}
+              initial={{ opacity: 0, scale: 0.82, y: 18 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.85, y: -8, transition: { duration: 0.18, ease: "easeIn" } }}
-              transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+              exit={{ opacity: 0, scale: 0.86, y: -10, transition: { duration: 0.18, ease: "easeIn" } }}
+              transition={{ duration: 0.34, ease: [0.16, 1, 0.3, 1] }}
               onMouseEnter={cancelClose}
               onMouseLeave={scheduleClose}
             >
