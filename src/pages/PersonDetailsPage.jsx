@@ -24,7 +24,7 @@ export default function PersonDetails() {
 
   if (loading) {
     return (
-      <div className="main-content" style={{ padding: "5.5rem 3rem 3rem", position: "relative" }}>
+      <div className="main-content person-page person-page--loading">
         {/* Blurred backdrop preview — mirrors the real blurred profile bg */}
         <div
           className="skeleton skeleton-glow"
@@ -144,9 +144,7 @@ export default function PersonDetails() {
 
   if (!person) {
     return (
-      <div
-        style={{ padding: "4rem 2rem", textAlign: "center", color: "#a1a1aa" }}
-      >
+      <div className="main-content content-page person-page__missing">
         <h2>Actor not found</h2>
         <button
           className="btn btn-glass"
@@ -166,9 +164,10 @@ export default function PersonDetails() {
     : [];
 
   return (
-    <div style={{ position: "relative", paddingTop: "5.5rem" }}>
+    <div className="main-content person-page">
       {/* Dynamic Blurred Background */}
       <div
+        className="person-page__backdrop"
         style={{
           position: "absolute",
           top: 0,

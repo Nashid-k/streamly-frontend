@@ -2,7 +2,6 @@ import { useMemo, useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft,
   Search,
   Play,
   Subtitles,
@@ -15,6 +14,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import SEO from "../components/SEO";
+import ContentPageHeader from "../components/ContentPageHeader";
 
 const useSetting = (key, defaultValue) => {
   const [value, setValue] = useState(() => {
@@ -40,65 +40,23 @@ function Toggle({ checked, onChange, label }) {
       aria-checked={checked}
       aria-label={label}
       onClick={() => onChange(!checked)}
-      style={{
-        width: "44px",
-        height: "26px",
-        borderRadius: "999px",
-        border: "none",
-        cursor: "pointer",
-        flexShrink: 0,
-        position: "relative",
-        transition: "background 0.25s ease",
-        background: checked ? "var(--accent-gradient)" : "rgba(255,255,255,0.14)",
-        boxShadow: checked ? "0 0 12px rgba(244,63,94,0.35)" : "inset 0 1px 0 rgba(255,255,255,0.08)",
-      }}
+      className={`setting-toggle${checked ? " setting-toggle--checked" : ""}`}
     >
-      <span
-        style={{
-          position: "absolute",
-          top: "3px",
-          left: checked ? "22px" : "3px",
-          width: "20px",
-          height: "20px",
-          borderRadius: "50%",
-          background: "#fff",
-          transition: "left 0.25s cubic-bezier(0.16,1,0.3,1)",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.4)",
-        }}
-      />
+      <span className="setting-toggle__thumb" />
     </button>
   );
 }
 
 function SettingRow({ icon: Icon, title, description, children }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "1rem",
-        padding: "1rem 1.25rem",
-      }}
-    >
-      <span
-        style={{
-          width: "38px",
-          height: "38px",
-          borderRadius: "12px",
-          flexShrink: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "rgba(244,63,94,0.12)",
-          color: "#fb7185",
-        }}
-      >
+    <div className="setting-row">
+      <span className="setting-row__icon">
         <Icon size={18} />
       </span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ color: "#fafafa", fontWeight: 600, fontSize: "0.95rem" }}>{title}</div>
+      <div className="setting-row__copy">
+        <div className="setting-row__title">{title}</div>
         {description && (
-          <div style={{ color: "#71717a", fontSize: "0.8rem", marginTop: "2px" }}>{description}</div>
+          <div className="setting-row__description">{description}</div>
         )}
       </div>
       {children}
@@ -163,8 +121,8 @@ export default function SettingsPage() {
       description: "Your saved movies and shows",
       icon: Bookmark,
       control: (
-        <Link to="/watchlist" aria-label="Open My List" style={{ display: "flex", alignItems: "center", color: "inherit" }}>
-          <ChevronRight size={18} style={{ color: "#71717a" }} />
+        <Link to="/watchlist" aria-label="Open My List" className="setting-row__link">
+          <ChevronRight size={18} />
         </Link>
       ),
     },
@@ -174,8 +132,8 @@ export default function SettingsPage() {
       description: "Everything you've watched",
       icon: Clock,
       control: (
-        <Link to="/history" aria-label="Open Watch History" style={{ display: "flex", alignItems: "center", color: "inherit" }}>
-          <ChevronRight size={18} style={{ color: "#71717a" }} />
+        <Link to="/history" aria-label="Open Watch History" className="setting-row__link">
+          <ChevronRight size={18} />
         </Link>
       ),
     },
@@ -189,9 +147,9 @@ export default function SettingsPage() {
           type="button"
           onClick={openShortcuts}
           aria-label="Show Keyboard Shortcuts"
-          style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", display: "flex", alignItems: "center", padding: 0 }}
+          className="setting-row__link"
         >
-          <ChevronRight size={18} style={{ color: "#71717a" }} />
+          <ChevronRight size={18} />
         </button>
       ),
     },
@@ -209,23 +167,13 @@ export default function SettingsPage() {
   const renderCard = (group, index) => (
     <motion.div
       key={group.name}
-      initial={{ opacity: 0, y: 12 }}
+      initial={false}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.05, ease: [0.16, 1, 0.3, 1] }}
-      style={{
-        background: "rgba(255,255,255,0.04)",
-        border: "1px solid rgba(255,255,255,0.08)",
-        borderRadius: "18px",
-        overflow: "hidden",
-      }}
+      className="settings-card"
     >
       {group.items.map((s, i) => (
-        <div
-          key={s.title}
-          style={{
-            borderTop: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none",
-          }}
-        >
+        <div key={s.title} className={`settings-card__item${i > 0 ? " settings-card__item--bordered" : ""}`}>
           <SettingRow icon={s.icon} title={s.title} description={s.description}>
             {s.control}
           </SettingRow>
@@ -235,121 +183,50 @@ export default function SettingsPage() {
   );
 
   return (
-    <div className="main-content" style={{ padding: "5.5rem 1.5rem 5rem", minHeight: "100vh", position: "relative" }}>
+    <div className="main-content content-page settings-page">
       <SEO title="Settings" description="Customize your Streamly experience." />
-      <div
-        style={{
-          pointerEvents: "none",
-          position: "absolute",
-          inset: 0,
-          background:
-            "radial-gradient(ellipse 55% 35% at 50% 0%, rgba(244,63,94,0.10) 0%, transparent 70%)",
-          zIndex: 0,
-        }}
-      />
+      <div className="settings-page__glow" aria-hidden="true" />
 
-      <div style={{ position: "relative", zIndex: 1, maxWidth: "720px", margin: "0 auto" }}>
-        {/* Back + title */}
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "2rem" }}>
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="btn btn-glass"
-            style={{ padding: "8px 16px", borderRadius: "100px", fontSize: "0.9rem" }}
-            aria-label="Go back"
-          >
-            <ArrowLeft size={16} /> Back
-          </button>
-          <div>
-            <h1
-              style={{
-                margin: 0,
-                fontSize: "1.75rem",
-                fontWeight: 800,
-                letterSpacing: "-0.03em",
-                background: "var(--accent-gradient)",
-                WebkitBackgroundClip: "text",
-                backgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                color: "transparent",
-              }}
-            >
-              Settings
-            </h1>
-            <p style={{ margin: "2px 0 0", color: "#71717a", fontSize: "0.85rem" }}>
-              Personalize your Streamly experience
-            </p>
-          </div>
-        </div>
+      <div className="content-page__inner settings-page__inner">
+        <ContentPageHeader
+          eyebrow="Preferences"
+          title="Settings"
+          description="Make Streamly feel like it was built for you."
+          onBack={() => navigate(-1)}
+        />
 
         {/* Search input */}
-        <div style={{ position: "relative", marginBottom: "1.5rem" }}>
+        <div className="settings-search">
           <Search
             size={18}
-            style={{
-              position: "absolute",
-              left: "14px",
-              top: "50%",
-              transform: "translateY(-50%)",
-              color: "#71717a",
-              pointerEvents: "none",
-            }}
+            className="settings-search__icon"
+            aria-hidden="true"
           />
           <input
+            className="settings-search__input"
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search settings..."
             aria-label="Search settings"
-            style={{
-              width: "100%",
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: "14px",
-              padding: "0.85rem 1rem 0.85rem 2.75rem",
-              fontSize: "0.95rem",
-              color: "#fff",
-              fontFamily: "inherit",
-              outline: "none",
-              transition: "border-color 0.2s ease, box-shadow 0.2s ease",
-            }}
-            onFocus={(e) => {
-              e.currentTarget.style.borderColor = "rgba(244,63,94,0.5)";
-              e.currentTarget.style.boxShadow = "0 0 0 3px rgba(244,63,94,0.15)";
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
-              e.currentTarget.style.boxShadow = "none";
-            }}
           />
         </div>
 
         {filtered.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "3rem 1rem", color: "#71717a" }}>
-            <Search size={28} style={{ margin: "0 auto 0.75rem", opacity: 0.5 }} />
-            <p style={{ margin: 0, fontWeight: 600, color: "#a1a1aa" }}>No settings match "{query}"</p>
+          <div className="content-page__notice">
+            <Search size={28} />
+            <p>No settings match "{query}"</p>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
+          <div className="settings-sections">
             {sections.map((group, i) => (
-              <div key={group.name}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
-                  <h2
-                    style={{
-                      margin: 0,
-                      fontSize: "0.8rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.08em",
-                      textTransform: "uppercase",
-                      color: "#71717a",
-                    }}
-                  >
-                    {group.name}
-                  </h2>
-                  <div style={{ height: "1px", flex: 1, background: "rgba(255,255,255,0.08)" }} />
+              <section key={group.name} className="settings-section">
+                <div className="settings-section__heading">
+                  <h2>{group.name}</h2>
+                  <div aria-hidden="true" />
                 </div>
                 {renderCard(group, i)}
-              </div>
+              </section>
             ))}
           </div>
         )}

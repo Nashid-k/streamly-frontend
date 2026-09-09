@@ -7,6 +7,7 @@ import { useToast } from "../components/Toast.jsx";
 import MovieCard from "../components/MovieCard";
 import Chip from "../components/Chip";
 import ErrorBoundary from "../components/ErrorBoundary";
+import ContentPageHeader from "../components/ContentPageHeader";
 
 export default function WatchlistPage() {
   const navigate = useNavigate();
@@ -75,70 +76,23 @@ export default function WatchlistPage() {
   };
 
   return (
-    <div
-      className="main-content"
-      style={{ padding: "5.5rem 3rem 4rem", minHeight: "80vh" }}
-    >
-      <div
-        style={{
-          padding: "2rem 0",
-          display: "flex",
-          flexDirection: "column",
-          gap: "1.5rem",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-end",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: "1rem",
-          }}
-        >
-          <div>
-            <h1
-              className="section-title"
-              style={{
-                margin: 0,
-                fontSize: "2.5rem",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.75rem",
-              }}
-            >
-              My List
-              <span
-                style={{
-                  fontSize: "1rem",
-                  background: "rgba(255,255,255,0.1)",
-                  padding: "2px 12px",
-                  borderRadius: "100px",
-                  fontWeight: 600,
-                  color: "#a1a1aa",
-                }}
-              >
-                {myList.length}
-              </span>
-            </h1>
-          </div>
-          {myList.length > 0 && (
-            <div
-              style={{
-                display: "flex",
-                gap: "1.5rem",
-                alignItems: "center",
-                flexWrap: "wrap",
-              }}
-            >
-              <div style={{ display: "flex", gap: "0.5rem" }}>
+    <div className="main-content content-page content-page--library">
+      <div className="content-page__inner">
+        <ContentPageHeader
+          eyebrow="Your library"
+          title="My List"
+          description="Keep the next great watch close at hand."
+          count={myList.length}
+          actions={myList.length > 0 && (
+            <div className="filter-controls">
+              <div className="filter-group" aria-label="Filter My List by type">
                 {["All", "Movies", "TV Shows"].map((f) => (
                   <Chip key={f} active={filterType === f} onClick={() => setFilterType(f)}>
                     {f}
                   </Chip>
                 ))}
               </div>
-              <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+              <div className="filter-group filter-group--quiet" aria-label="Sort My List">
                 {[
                   { label: "Date Added", value: "Date Added" },
                   { label: "A – Z", value: "Title A–Z" },
@@ -156,21 +110,14 @@ export default function WatchlistPage() {
               </div>
             </div>
           )}
-        </div>
+        />
 
         {myList.length === 0 ? (
           <motion.div
+            className="collection-empty"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "6rem 0",
-              color: "#a1a1aa",
-            }}
           >
             <motion.div
               animate={{ y: [0, -8, 0] }}
@@ -185,46 +132,14 @@ export default function WatchlistPage() {
                 style={{ opacity: 0.2, marginBottom: "1.5rem" }}
               />
             </motion.div>
-            <h2 style={{ color: "#fff", marginBottom: "0.5rem" }}>
-              Your list is empty
-            </h2>
-            <p
-              style={{
-                marginBottom: "2rem",
-                textAlign: "center",
-                maxWidth: "300px",
-              }}
-            >
+            <h2>Your list is empty</h2>
+            <p>
               Add movies and series to your list to save them for later.
             </p>
-            <div
-              style={{
-                marginTop: "1rem",
-                color: "#52525b",
-                fontSize: "0.9rem",
-                lineHeight: 1.6,
-                maxWidth: "320px",
-                margin: "1rem auto 0",
-                textAlign: "center",
-              }}
-            >
+            <div className="collection-empty__hint">
               <p>
                 Browse any title and tap{" "}
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "3px",
-                    background: "rgba(255,255,255,0.08)",
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    borderRadius: "6px",
-                    padding: "1px 8px",
-                    fontSize: "0.8rem",
-                    verticalAlign: "middle",
-                  }}
-                >
-                  ＋
-                </span>{" "}
+                <span className="collection-empty__key">＋</span>{" "}
                 to save it here.
               </p>
             </div>
@@ -239,9 +154,9 @@ export default function WatchlistPage() {
           </motion.div>
         ) : filteredAndSortedList.length === 0 ? (
           <motion.div
+            className="content-page__notice"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            style={{ padding: "4rem 0", textAlign: "center", color: "#a1a1aa" }}
           >
             No items match this filter.
           </motion.div>
@@ -271,45 +186,10 @@ export default function WatchlistPage() {
 
                   {/* Remove button — positioned relative to the motion.div wrapper */}
                   <motion.button
+                    className="card-remove-button"
                     onClick={(e) => handleRemove(e, movie)}
                     title="Remove from List"
                     aria-label={`Remove ${movie.title} from My List`}
-                    style={{
-                      position: "absolute",
-                      top: "10px",
-                      right: "10px",
-                      zIndex: 10,
-                      background: "rgba(0,0,0,0.6)",
-                      border: "1px solid rgba(255,255,255,0.2)",
-                      color: "#fff",
-                      width: "30px",
-                      height: "30px",
-                      borderRadius: "50%",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      cursor: "pointer",
-                      backdropFilter: "blur(4px)",
-                      transition: "background 0.2s, border-color 0.2s",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = "#ef4444";
-                      e.currentTarget.style.borderColor = "#ef4444";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "rgba(0,0,0,0.6)";
-                      e.currentTarget.style.borderColor =
-                        "rgba(255,255,255,0.2)";
-                    }}
-                    onFocus={(e) => {
-                      e.currentTarget.style.background = "#ef4444";
-                      e.currentTarget.style.borderColor = "#ef4444";
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.background = "rgba(0,0,0,0.6)";
-                      e.currentTarget.style.borderColor =
-                        "rgba(255,255,255,0.2)";
-                    }}
                   >
                     <X size={14} />
                   </motion.button>

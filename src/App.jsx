@@ -25,8 +25,8 @@ import Loader from "./components/Loader";
 import BackToTop from "./components/BackToTop";
 import { useScrollRestoration } from "./hooks/useScrollRestoration";
 
-/* Single source of truth for the navigation entries — feeds both the
-   desktop nav (Home = white pill, rest = text links) and the mobile bottom bar. */
+/* Single source of truth for navigation — feeds the desktop glass dock and
+   the concise five-item mobile bar. */
 const NAV_ITEMS = [
   { id: "home", label: "Home", to: "/", icon: Home, home: true, match: (p) => p === "/" },
   { id: "movies", label: "Movies", to: "/movies", icon: Clapperboard, match: (p) => p.startsWith("/movies") },
@@ -73,11 +73,10 @@ function Layout({ children }) {
         Skip to content
       </a>
 
-      {/* ── Apple-style Navbar ─────────────────────────────────────────────────
+      {/* ── Primary navigation ─────────────────────────────────────────────────
           Right-docked frosted glass dock · brand mark lives as a standalone
-          fixed element on the left (opposite the nav) · nav links + icons right.
-          Home renders as a solid white pill; the rest are text links. */}
-      <nav className={`navbar${isScrolled ? " scrolled" : ""}`}>
+          fixed element on the left (opposite the nav) · nav links + utilities right. */}
+      <nav className={`navbar${isScrolled ? " scrolled" : ""}`} aria-label="Primary navigation">
         {/* Right — nav links + icon cluster */}
         <div className="nav-cluster">
           <div className="nav-links">
@@ -157,7 +156,7 @@ function Layout({ children }) {
       </div>
 
       {/* Main Content Area with Page Transitions */}
-      <main className="main-content" id="main-content">
+      <main className="app-main" id="main-content">
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}
@@ -191,10 +190,6 @@ function Layout({ children }) {
         <Link to="/search" className={`bottom-nav-item ${location.pathname === "/search" ? "active" : ""}`}>
           <Search size={22} strokeWidth={2} />
           <span>Search</span>
-        </Link>
-        <Link to="/settings" className={`bottom-nav-item ${location.pathname === "/settings" ? "active" : ""}`}>
-          <Settings size={22} strokeWidth={2} />
-          <span>Settings</span>
         </Link>
       </div>
     </div>

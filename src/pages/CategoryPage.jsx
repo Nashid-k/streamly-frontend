@@ -1,12 +1,12 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { useParams, Link, useLocation } from "react-router-dom";
+import { useParams, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { movieService } from "../api/movieService";
-import { ChevronLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import MovieCard from "../components/MovieCard";
 import AmbientBackground from "../components/AmbientBackground";
 import ErrorBoundary from "../components/ErrorBoundary";
+import ContentPageHeader from "../components/ContentPageHeader";
 
 export default function CategoryPage() {
   const { name } = useParams();
@@ -83,34 +83,15 @@ export default function CategoryPage() {
 
   if (isLoading)
     return (
-      <div
-        className="main-content"
-        style={{ padding: "6rem 3rem 3rem 3rem", minHeight: "100vh" }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "1rem",
-            marginBottom: "2rem",
-          }}
-        >
-          <Link
-            to="/"
-            style={{
-              color: "white",
-              display: "flex",
-              alignItems: "center",
-              textDecoration: "none",
-              padding: "10px",
-            }}
-          >
-            <ChevronLeft size={24} /> Back
-          </Link>
-          <h1 style={{ fontSize: "2rem", fontWeight: 800, margin: 0 }}>
-            {categoryName}
-          </h1>
-        </div>
+      <div className="main-content content-page content-page--collection">
+        <div className="content-page__inner">
+        <ContentPageHeader
+          eyebrow="Collection"
+          title={categoryName}
+          description="Getting your collection ready."
+          backTo="/"
+          backLabel="Browse"
+        />
         <div className="movie-grid" style={{ marginTop: "1rem" }}>
           {[...Array(12)].map((_, i) => (
             <div key={i} className="skeleton-moviecard">
@@ -120,26 +101,25 @@ export default function CategoryPage() {
             </div>
           ))}
         </div>
+        </div>
       </div>
     );
 
   if (!category && allMovies.length === 0) {
     return (
-      <div
-        className="main-content"
-        style={{ padding: "6rem 3rem 3rem 3rem", minHeight: "100vh" }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "2rem" }}>
-          <Link to="/" style={{ color: "white", display: "flex", alignItems: "center", textDecoration: "none", padding: "10px" }}>
-            <ChevronLeft size={24} /> Back
-          </Link>
-          <h1 style={{ fontSize: "2rem", fontWeight: 800, margin: 0, color: "#a1a1aa" }}>
-            Category not found
-          </h1>
-        </div>
-        <p style={{ color: "#71717a", textAlign: "center", padding: "4rem 0" }}>
+      <div className="main-content content-page content-page--collection">
+        <div className="content-page__inner">
+        <ContentPageHeader
+          eyebrow="Collection"
+          title="Category unavailable"
+          description="This collection may have moved or is no longer available."
+          backTo="/"
+          backLabel="Browse"
+        />
+        <p className="content-page__notice">
           No category matching "{categoryName}" was found.
         </p>
+        </div>
       </div>
     );
   }
@@ -147,10 +127,7 @@ export default function CategoryPage() {
   const visibleMovies = allMovies.slice(0, visibleCount);
 
   return (
-    <div
-      className="main-content"
-      style={{ padding: "6rem 3rem 3rem 3rem", minHeight: "100vh" }}
-    >
+    <div className="main-content content-page content-page--collection">
       <AmbientBackground
         src={
           visibleMovies[0]?.backdropUrl ||
@@ -158,33 +135,18 @@ export default function CategoryPage() {
           visibleMovies[0]?.poster
         }
       />
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "1rem",
-          marginBottom: "2rem",
-        }}
-      >
-        <Link
-          to="/"
-          style={{
-            color: "white",
-            display: "flex",
-            alignItems: "center",
-            textDecoration: "none",
-            padding: "10px",
-          }}
-        >
-          <ChevronLeft size={24} /> Back
-        </Link>
-        <h1 style={{ fontSize: "2rem", fontWeight: 800, margin: 0 }}>
-          {category?.name || categoryName}
-        </h1>
-      </div>
+      <div className="content-page__inner">
+      <ContentPageHeader
+        eyebrow="Collection"
+        title={category?.name || categoryName}
+        description="A curated selection, ready when you are."
+        count={allMovies.length}
+        backTo="/"
+        backLabel="Browse"
+      />
 
       {allMovies.length === 0 ? (
-        <p style={{ color: "#a1a1aa" }}>No movies found in this category.</p>
+        <p className="content-page__notice">No titles are available in this collection yet.</p>
       ) : (
         <ErrorBoundary>
         <div className="movie-grid" style={{ marginTop: "1rem" }}>
@@ -205,6 +167,7 @@ export default function CategoryPage() {
         </div>
         </ErrorBoundary>
       )}
+      </div>
     </div>
   );
 }

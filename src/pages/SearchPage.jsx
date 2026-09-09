@@ -12,6 +12,7 @@ import Button from "../components/Button";
 import Chip from "../components/Chip";
 import AmbientBackground from "../components/AmbientBackground";
 import ErrorBoundary from "../components/ErrorBoundary";
+import ContentPageHeader from "../components/ContentPageHeader";
 
 export default function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -147,10 +148,7 @@ export default function SearchPage() {
   const visibleResults = filteredAndSortedList.slice(0, visibleCount);
 
   return (
-    <div
-      className="main-content"
-      style={{ padding: "5.5rem 3rem 4rem", minHeight: "80vh" }}
-    >
+    <div className="main-content content-page content-page--search">
       <AmbientBackground
         src={
           visibleResults[0]?.backdropUrl ||
@@ -159,152 +157,63 @@ export default function SearchPage() {
           (results[0] && (results[0].backdropUrl || results[0].posterUrl || results[0].poster))
         }
       />
-      <div
-        style={{
-          padding: "2rem 0",
-          display: "flex",
-          flexDirection: "column",
-          gap: "1.5rem",
-        }}
-      >
+      <div className="content-page__inner">
         {/* Search input — live, dynamic search */}
-        <div style={{ marginBottom: "1.5rem", maxWidth: "760px" }}>
-          <div style={{ position: "relative" }}>
+        <form
+          className="search-panel"
+          role="search"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (localQuery.trim()) {
+              setSearchParams({ q: localQuery.trim() }, { replace: true });
+            }
+          }}
+        >
             <Search
               size={20}
-              style={{
-                position: "absolute",
-                left: "16px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "#71717a",
-                pointerEvents: "none",
-              }}
+              className="search-panel__icon"
+              aria-hidden="true"
             />
             <input
+              className="search-panel__input"
               type="text"
               value={localQuery}
               onChange={(e) => setLocalQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && localQuery.trim()) {
-                  setSearchParams({ q: localQuery.trim() }, { replace: true });
-                }
-              }}
               placeholder="Search movies, shows, actors..."
               aria-label="Search"
               autoFocus
-              style={{
-                width: "100%",
-                background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: "16px",
-                padding: "1rem 3.25rem 1rem 3rem",
-                fontSize: "1.05rem",
-                color: "#fff",
-                fontFamily: "inherit",
-                outline: "none",
-                transition: "border-color 0.2s ease, box-shadow 0.2s ease",
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = "rgba(244,63,94,0.5)";
-                e.currentTarget.style.boxShadow = "0 0 0 4px rgba(244,63,94,0.12)";
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
-                e.currentTarget.style.boxShadow = "none";
-              }}
             />
             {localQuery && (
               <button
                 type="button"
+                className="search-panel__clear"
                 aria-label="Clear search"
                 onClick={() => {
                   setLocalQuery("");
                   setSearchParams({}, { replace: true });
                 }}
-                style={{
-                  position: "absolute",
-                  right: "14px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  background: "rgba(255,255,255,0.1)",
-                  border: "none",
-                  width: "28px",
-                  height: "28px",
-                  borderRadius: "50%",
-                  color: "#a1a1aa",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
               >
                 <X size={16} />
               </button>
             )}
-          </div>
-        </div>
+        </form>
 
         {/* Header */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-end",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: "1rem",
-          }}
-        >
-          <div>
-            <h1
-              className="section-title"
-              style={{
-                margin: 0,
-                fontSize: "2.5rem",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.75rem",
-              }}
-            >
-              Search results for "{query}"
-              <span
-                style={{
-                  fontSize: "1rem",
-                  background: "rgba(255,255,255,0.1)",
-                  padding: "2px 12px",
-                  borderRadius: "100px",
-                  fontWeight: 600,
-                  color: "#a1a1aa",
-                }}
-              >
-                {results.length}
-              </span>
-            </h1>
-          </div>
-
-          {results.length > 0 && (
-            <div
-              style={{
-                display: "flex",
-                gap: "1.5rem",
-                alignItems: "center",
-                flexWrap: "wrap",
-              }}
-            >
-              <div style={{ display: "flex", gap: "0.5rem" }}>
+        <ContentPageHeader
+          eyebrow={query ? "Search" : "Explore Streamly"}
+          title={query ? <>Results for <span className="page-title-quote">“{query}”</span></> : "Find something worth watching"}
+          description={query ? "Fine-tune the results or keep exploring." : "Search a title, a person, or the mood you are in."}
+          count={query ? results.length : undefined}
+          actions={results.length > 0 && (
+            <div className="filter-controls">
+              <div className="filter-group" aria-label="Filter results by type">
                 {["All", "Movies", "TV Shows", "Anime"].map((f) => (
                   <Chip key={f} active={filterType === f} onClick={() => setFilterType(f)}>
                     {f}
                   </Chip>
                 ))}
               </div>
-              <div
-                style={{
-                  display: "flex",
-                  gap: "0.4rem",
-                  flexWrap: "wrap",
-                }}
-              >
+              <div className="filter-group filter-group--quiet" aria-label="Sort results">
                 {[
                   { label: "Relevant", value: "Relevance" },
                   { label: "Rating", value: "Rating" },
@@ -323,7 +232,7 @@ export default function SearchPage() {
               </div>
             </div>
           )}
-        </div>
+        />
 
         {/* Discovery banners — only when browsing (no active query), not while searching */}
         {!query && <DiscoveryRails />}

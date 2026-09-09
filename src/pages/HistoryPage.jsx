@@ -7,6 +7,7 @@ import { useToast } from "../components/Toast.jsx";
 import { useConfirmDialog } from "../components/ConfirmDialog.jsx";
 import MovieCard from "../components/MovieCard.jsx";
 import ErrorBoundary from "../components/ErrorBoundary";
+import ContentPageHeader from "../components/ContentPageHeader";
 
 
 export default function HistoryPage() {
@@ -79,93 +80,31 @@ export default function HistoryPage() {
   };
 
   return (
-    <div
-      className="main-content"
-      style={{ padding: "5.5rem 3rem 4rem", minHeight: "80vh" }}
-    >
+    <div className="main-content content-page content-page--library">
       <ConfirmDialogRenderer />
-      <div
-        style={{
-          padding: "2rem 0",
-          display: "flex",
-          flexDirection: "column",
-          gap: "1.5rem",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-end",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: "1rem",
-          }}
-        >
-          <div>
-            <h1
-              className="section-title"
-              style={{
-                margin: 0,
-                fontSize: "2.5rem",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.75rem",
-              }}
-            >
-              Watch History
-              <span
-                style={{
-                  fontSize: "1rem",
-                  background: "rgba(255,255,255,0.1)",
-                  padding: "2px 12px",
-                  borderRadius: "100px",
-                  fontWeight: 600,
-                  color: "#a1a1aa",
-                }}
-              >
-                {continueWatching.length}
-              </span>
-            </h1>
-          </div>
-          {continueWatching.length > 0 && (
-            <motion.button
+      <div className="content-page__inner">
+        <ContentPageHeader
+          eyebrow="Your activity"
+          title="Watch History"
+          description="Pick up where you left off, without hunting for it."
+          count={continueWatching.length}
+          actions={continueWatching.length > 0 && (
+            <button
+              type="button"
+              className="page-danger-action"
               onClick={clearHistory}
-              style={{
-                background: "transparent",
-                color: "#ef4444",
-                border: "1px solid rgba(239,68,68,0.3)",
-                padding: "6px 16px",
-                borderRadius: "100px",
-                fontSize: "0.85rem",
-                fontWeight: 600,
-                cursor: "pointer",
-                transition: "all 0.2s",
-              }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = "rgba(239,68,68,0.1)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = "transparent")
-              }
             >
               Clear All
-            </motion.button>
+            </button>
           )}
-        </div>
+        />
 
         {continueWatching.length === 0 ? (
           <motion.div
+            className="collection-empty"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "6rem 0",
-              color: "#a1a1aa",
-            }}
           >
             <motion.div
               animate={{ rotate: [0, -10, 10, -5, 5, 0] }}
@@ -176,16 +115,8 @@ export default function HistoryPage() {
                 style={{ opacity: 0.2, marginBottom: "1.5rem" }}
               />
             </motion.div>
-            <h2 style={{ color: "#fff", marginBottom: "0.5rem" }}>
-              No watch history yet
-            </h2>
-            <p
-              style={{
-                marginBottom: "2rem",
-                textAlign: "center",
-                maxWidth: "300px",
-              }}
-            >
+            <h2>No watch history yet</h2>
+            <p>
               Titles you watch will automatically appear here so you can pick up
               right where you left off.
             </p>
@@ -200,9 +131,7 @@ export default function HistoryPage() {
           </motion.div>
         ) : (
           <ErrorBoundary>
-          <div
-            style={{ display: "flex", flexDirection: "column", gap: "3rem" }}
-          >
+          <div className="history-groups">
             {["Today", "Yesterday", "Earlier"].map((group) => {
               const groupItems = visibleResults.filter((item) => {
                 if (!item.lastWatched) return group === "Earlier";
@@ -217,19 +146,8 @@ export default function HistoryPage() {
               if (groupItems.length === 0) return null;
 
               return (
-                <div key={group}>
-                  <h2
-                    style={{
-                      fontSize: "1.25rem",
-                      color: "#e4e4e7",
-                      borderBottom: "1px solid rgba(255,255,255,0.06)",
-                      paddingBottom: "0.5rem",
-                      marginBottom: "1.5rem",
-                      fontWeight: 600,
-                    }}
-                  >
-                    {group}
-                  </h2>
+                <div key={group} className="history-group">
+                  <h2 className="history-group__title">{group}</h2>
                   <motion.div
                     className="movie-grid"
                     variants={{
@@ -278,24 +196,7 @@ export default function HistoryPage() {
                           />
                           <motion.button
                             onClick={(e) => handleRemove(e, movie)}
-                            className="remove-btn"
-                            style={{
-                              position: "absolute",
-                              top: "10px",
-                              right: "10px",
-                              background: "rgba(0,0,0,0.7)",
-                              border: "1px solid rgba(255,255,255,0.2)",
-                              color: "white",
-                              width: "32px",
-                              height: "32px",
-                              borderRadius: "50%",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              cursor: "pointer",
-                              zIndex: 10,
-                              backdropFilter: "blur(4px)",
-                            }}
+                            className="card-remove-button"
                             title="Remove from History"
                           >
                             <X size={16} />

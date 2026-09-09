@@ -7,6 +7,8 @@ import MovieCard from "../components/MovieCard";
 import DiscoveryRails from "../components/DiscoveryRails";
 import AmbientBackground from "../components/AmbientBackground";
 import ErrorBoundary from "../components/ErrorBoundary";
+import Chip from "../components/Chip";
+import ContentPageHeader from "../components/ContentPageHeader";
 
 export default function GenrePage() {
   const { genre } = useParams();
@@ -127,113 +129,46 @@ export default function GenrePage() {
         }}
       />
 
-      <div
-        className="main-content"
-        style={{ padding: "5.5rem 3rem 4rem", minHeight: "80vh" }}
-      >
-        <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
+      <div className="main-content content-page content-page--genre">
+        <div className="content-page__inner">
           {/* Header */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "flex-end",
-              justifyContent: "space-between",
-              flexWrap: "wrap",
-              gap: "1rem",
-            }}
-          >
-            <div>
-              <h1
-                style={{
-                  margin: "0 0 0.5rem",
-                  fontSize: "3.5rem",
-                  fontWeight: 800,
-                  textTransform: "capitalize",
-                }}
-              >
-                {genre}
-              </h1>
-              <p style={{ margin: 0, color: "#a1a1aa", fontSize: "1.1rem" }}>
-                Browse top titles in {genre}
-              </p>
-            </div>
-
-            {results.length > 0 && (
-              <div
-                style={{
-                  display: "flex",
-                  gap: "1.5rem",
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                }}
-              >
-                <div style={{ display: "flex", gap: "0.5rem" }}>
+          <ContentPageHeader
+            eyebrow="Browse by genre"
+            title={genre}
+            description={`A handpicked view of the best ${genre} stories right now.`}
+            count={results.length || undefined}
+            actions={results.length > 0 && (
+              <div className="filter-controls">
+                <div className="filter-group" aria-label="Filter genre results by type">
                   {["All", "Movies", "TV Shows"].map((f) => (
-                    <motion.button
+                    <Chip
                       key={f}
+                      active={filterType === f}
                       onClick={() => setFilterType(f)}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      style={{
-                        background:
-                          filterType === f ? "#fff" : "rgba(255,255,255,0.08)",
-                        color: filterType === f ? "#000" : "#fff",
-                        border:
-                          "1px solid " +
-                          (filterType === f
-                            ? "transparent"
-                            : "rgba(255,255,255,0.1)"),
-                        padding: "6px 16px",
-                        borderRadius: "100px",
-                        fontSize: "0.85rem",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        transition:
-                          "background 0.2s, color 0.2s, border-color 0.2s",
-                      }}
                     >
                       {f}
-                    </motion.button>
+                    </Chip>
                   ))}
                 </div>
-                <div style={{ display: "flex", gap: "0.4rem" }}>
+                <div className="filter-group filter-group--quiet" aria-label="Sort genre results">
                   {[
                     { label: "Popular", value: "Popularity" },
                     { label: "Top Rated", value: "Rating" },
                     { label: "Newest", value: "Year (Newest)" },
                   ].map((opt) => (
-                    <motion.button
+                    <Chip
                       key={opt.value}
+                      size="sm"
+                      active={sortBy === opt.value}
                       onClick={() => setSortBy(opt.value)}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      style={{
-                        background:
-                          sortBy === opt.value
-                            ? "rgba(255,255,255,0.13)"
-                            : "rgba(255,255,255,0.05)",
-                        color: sortBy === opt.value ? "#fff" : "#a1a1aa",
-                        border:
-                          "1px solid " +
-                          (sortBy === opt.value
-                            ? "rgba(255,255,255,0.28)"
-                            : "rgba(255,255,255,0.08)"),
-                        padding: "5px 13px",
-                        borderRadius: "100px",
-                        fontSize: "0.82rem",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        whiteSpace: "nowrap",
-                        transition: "all 0.15s",
-                      }}
                     >
                       {opt.label}
-                    </motion.button>
+                    </Chip>
                   ))}
                 </div>
               </div>
             )}
-          </div>
+          />
 
           {/* Discovery banners — Trending / Airing / Latest / Popular */}
           <DiscoveryRails />

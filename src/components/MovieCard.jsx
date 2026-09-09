@@ -29,7 +29,9 @@ const EASE_OUT = [0.16, 1, 0.3, 1];
 const cardVariants = {
   rest: { scale: 1, zIndex: 1, transition: { duration: 0.25, ease: "easeOut" } },
   hover: {
-    scale: 1.06,
+    // A modest lift preserves the rhythm of a dense rail and prevents one
+    // card from visually swallowing its neighbours.
+    scale: 1.035,
     zIndex: 20,
     transition: { duration: 0.4, ease: EASE_OUT },
   },
