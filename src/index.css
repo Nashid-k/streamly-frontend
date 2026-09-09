@@ -2080,10 +2080,10 @@ input:focus-visible {
   pointer-events: none;
 }
 
-/* Opaque cover over the player until it is actually playing. Covers the
-   YouTube title/avatar/pause overlays that only exist in the loading,
-   paused and ended states, so they are never visible. Shows the title
-   backdrop meanwhile, then fades out on PLAYING. */
+/* Opaque cover over the player until playback has truly started and the
+   YouTube startup play-button/title overlay has hidden itself (~3s in).
+   Covers title/avatar/pause/end overlays so they are never visible. Shows
+   the title backdrop meanwhile, then fades out for the raw video. */
 .cw-popup-cover {
   position: absolute;
   inset: 0;
@@ -2093,7 +2093,7 @@ input:focus-visible {
   pointer-events: none;
   transition: opacity 0.45s ease 0.15s;
 }
-.cw-popup-cover.is-playing {
+.cw-popup-cover.is-hidden {
   opacity: 0;
 }
 .cw-popup-cover img {

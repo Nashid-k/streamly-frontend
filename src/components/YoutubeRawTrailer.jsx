@@ -26,24 +26,25 @@ window.onYouTubeIframeAPIReady = () => {
 /* Full-bleed youtube trailer with the player UI suppressed:
    - IFrame API lets us mute + start playback ourselves, loop reliably,
      and KNOW when playback actually begins.
-   - Playback starts a few seconds in (skipping the studio-intro title
-     card), so the video is ALREADY in motion the moment the cover lifts —
-     the trailer feels like it starts exactly where the cover was.
-   - An opaque cover (backdrop image) sits over the player until PLAYING,
-     so YouTube's title/avatar/pause overlays (which only exist in the
-     loading/paused/ended states) are never visible.
+   - The trailer plays from 0:00, but an opaque cover (backdrop image) stays
+     over the player until playback is running AND ~3s have passed — that's
+     how long YouTube keeps its big play-button/title overlay up after a
+     video starts. So the very moment the cover lifts, that overlay is gone
+     and only raw video is visible.
    - The iframe is oversized + cropped inside the overflow:hidden thumb box
      so YouTube's edge chrome (title strip, bottom-right watermark) is
      pushed off-screen even while playing. pointer-events:none stops hover
      from summoning the controls. */
 
-// Seconds into the trailer to jump before revealing — hides the studio/
-// title freeze-frame that YouTube shows at 0:00 behind the cover.
-const START_OFFSET_SECONDS = 3;
+// How long YouTube shows its startup play-button/title overlay after the
+// video begins — keep the cover up this long, then reveal the raw frames.
+const REVEAL_DELAY_MS = 3000;
 
 export default function YoutubeRawTrailer({ videoKey, poster }) {
   const mountRef = useRef(null);
+  const revealTimerRef = useRef(null);
   const [playing, setPlaying] = useState(false);
+  const [reveal, setReveal] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,9 +72,6 @@ export default function YoutubeRawTrailer({ videoKey, poster }) {
         events: {
           onReady: (e) => {
             e.target.mute();
-            // Start already in motion so there's no still-frame/logo freeze
-            // when the cover lifts — the video begins from under it.
-            e.target.seekTo(START_OFFSET_SECONDS, true);
             e.target.playVideo();
             const frame = e.target.getIframe();
             frame.setAttribute("allow", "autoplay; encrypted-media; picture-in-picture");
@@ -81,11 +79,18 @@ export default function YoutubeRawTrailer({ videoKey, poster }) {
           },
           onStateChange: (e) => {
             if (cancelled) return;
-            if (e.data === YT.PlayerState.ENDED) {
-              e.target.seekTo(START_OFFSET_SECONDS, true);
-              e.target.playVideo();
+            if (e.data === YT.PlayerState.PLAYING) {
+              setPlaying(true);
+              // YouTube keeps its play-button/title overlay up for a few
+              // seconds after playback starts; only reveal once it's gone.
+              if (revealTimerRef.current == null) {
+                revealTimerRef.current = setTimeout(() => {
+                  if (!cancelled) setReveal(true);
+                }, REVEAL_DELAY_MS);
+              }
+            } else {
+              setPlaying(false);
             }
-            setPlaying(e.data === YT.PlayerState.PLAYING);
           },
         },
       });
@@ -93,15 +98,21 @@ export default function YoutubeRawTrailer({ videoKey, poster }) {
 
     return () => {
       cancelled = true;
+      if (revealTimerRef.current) {
+        clearTimeout(revealTimerRef.current);
+        revealTimerRef.current = null;
+      }
       if (player) player.destroy();
     };
   }, [videoKey]);
+
+  const coverHidden = playing && reveal;
 
   return (
     <>
       <div ref={mountRef} className="cw-popup-trailer" />
       <div
-        className={`cw-popup-cover${playing ? " is-playing" : ""}`}
+        className={`cw-popup-cover${coverHidden ? " is-hidden" : ""}`}
         aria-hidden="true"
       >
         {poster ? <img src={poster} alt="" /> : null}
