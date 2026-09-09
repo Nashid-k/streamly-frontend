@@ -365,58 +365,48 @@ const Top10Rail = React.memo(
                   <div
                     style={{
                       display: "flex",
-                      alignItems: "flex-end",
-                      gap: "0.75rem",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: "0.35rem",
+                      width: "200px",
                       flexShrink: 0,
                     }}
                   >
-                    <div
+                    <span
+                      className="top10-number"
                       style={{
-                        width: "1.35em",
-                        flexShrink: 0,
-                        textAlign: "right",
-                        lineHeight: 0.8,
+                        display: "block",
+                        whiteSpace: "nowrap",
+                        lineHeight: 1,
+                        fontWeight: 900,
+                        letterSpacing: "-0.04em",
+                        fontSize: "clamp(1.5rem, 3vw, 2.5rem)",
                         pointerEvents: "none",
                         userSelect: "none",
-                        marginBottom: "var(--spacing-sm)",
-                        fontSize: "clamp(3.5rem, 8vw, 8.5rem)",
+                        color:
+                          i === 0
+                            ? "rgba(251,191,36,0.9)"
+                            : i === 1
+                              ? "rgba(180,192,205,0.85)"
+                              : i === 2
+                                ? "rgba(201,124,74,0.85)"
+                                : "rgba(255,255,255,0.35)",
+                        WebkitTextStroke:
+                          "1px " +
+                          (i === 0
+                            ? "rgba(251,191,36,0.5)"
+                            : i === 1
+                              ? "rgba(180,192,205,0.4)"
+                              : i === 2
+                                ? "rgba(201,124,74,0.45)"
+                                : "rgba(255,255,255,0.14)"),
+                        textShadow: "0 2px 16px rgba(0,0,0,0.6)",
                       }}
                       aria-hidden="true"
                     >
-                      <span
-                        className="top10-number"
-                        style={{
-                          display: "block",
-                          whiteSpace: "nowrap",
-                          fontWeight: 900,
-                          letterSpacing: "-0.04em",
-                          color:
-                            i === 0
-                              ? "rgba(251,191,36,0.9)"
-                              : i === 1
-                                ? "rgba(180,192,205,0.85)"
-                                : i === 2
-                                  ? "rgba(201,124,74,0.85)"
-                                  : "rgba(255,255,255,0.35)",
-                          WebkitTextStroke:
-                            "1px " +
-                            (i === 0
-                              ? "rgba(251,191,36,0.5)"
-                              : i === 1
-                                ? "rgba(180,192,205,0.4)"
-                                : i === 2
-                                  ? "rgba(201,124,74,0.45)"
-                                  : "rgba(255,255,255,0.14)"),
-                          textShadow: "0 2px 16px rgba(0,0,0,0.6)",
-                        }}
-                      >
-                        {i + 1}
-                      </span>
-                    </div>
-                    <div
-                      className="movie-rail-item"
-                      style={{ flexShrink: 0 }}
-                    >
+                      {i + 1}
+                    </span>
+                    <div className="movie-rail-item" style={{ flexShrink: 0 }}>
                       <MovieCard movie={movie} />
                     </div>
                   </div>
