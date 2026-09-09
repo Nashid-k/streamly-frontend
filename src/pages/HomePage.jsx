@@ -18,6 +18,7 @@ import MovieCard from "../components/MovieCard";
 import ContinueWatchingRail from "../components/ContinueWatchingRail";
 import AmbientBackground from "../components/AmbientBackground";
 import HeroTitleLogo from "../components/HeroTitleLogo";
+import RatingsCluster from "../components/RatingsCluster";
 
 import RailArrow from "../components/RailArrow";
 import useRailArrows from "../hooks/useRailArrows";
@@ -1204,10 +1205,7 @@ export default function Home({
                 <div className="hero-meta hero-meta--apple">
                   {activeFeaturedMovie.imdbRating > 0 && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px', borderRight: '1px solid rgba(255,255,255,0.2)', paddingRight: '16px', marginRight: '4px' }}>
-                      <span className="hero-meta-item hero-meta-item--rating" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} title="IMDb Rating">
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/6/69/IMDB_Logo_2016.svg" alt="IMDb" style={{ height: '14px', objectFit: 'contain' }} />
-                        <span>{activeFeaturedMovie.imdbRating.toFixed(1)}</span>
-                      </span>
+                      <RatingsCluster movie={activeFeaturedMovie} size="lg" itemClassName="hero-meta-item" />
                     </div>
                   )}
                   {(activeFeaturedMovie.releaseYear || activeFeaturedMovie.year) && (

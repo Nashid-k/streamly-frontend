@@ -25,6 +25,7 @@ import {
   Film,
   LayoutGrid,
   List,
+  Popcorn,
   ChevronDown as ChevronDownIcon,
 } from "lucide-react";
 import {
@@ -34,6 +35,7 @@ import {
 import { useAppAuth } from "../context/AuthContext";
 import { useToast } from "../components/Toast.jsx";
 import MovieCard from "../components/MovieCard";
+import RatingsCluster from "../components/RatingsCluster";
 
 import { buildMovieAddedNotification } from "../utils/notificationEngine";
 import { formatTMDBDate, getTMDBWeekday } from "../utils/timezone";
@@ -762,10 +764,7 @@ export default function TitleDetails() {
               
               {movie.imdbRating > 0 && (
                 <div className="flex items-center gap-3 lg:gap-4 border-l border-white/20 pl-4 ml-1">
-                  <div className="flex items-center gap-1.5" title="IMDb Rating">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/6/69/IMDB_Logo_2016.svg" alt="IMDb" className="h-3.5 lg:h-4 object-contain" />
-                    <span className="font-bold text-white/90">{movie.imdbRating.toFixed(1)}</span>
-                  </div>
+                  <RatingsCluster movie={movie} size="md" />
                 </div>
               )}
             </div>
@@ -1185,8 +1184,8 @@ export default function TitleDetails() {
                                   <h3 style={{ fontSize: '0.95rem', fontWeight: 600, margin: 0, color: isEpPlaying ? '#fff' : '#e4e4e7' }}>{ep.title}</h3>
                                   {ep.voteAverage > 0 && (
                                     <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#e4e4e7', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                                      <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="IMDb">
-                                        <img src="https://upload.wikimedia.org/wikipedia/commons/6/69/IMDB_Logo_2016.svg" alt="IMDb" style={{ height: '10px' }} />
+                                      <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="TMDB Community Score">
+                                        <Popcorn size={11} fill="currentColor" stroke="none" aria-hidden="true" />
                                         {ep.voteAverage.toFixed(1)}
                                       </span>
                                     </span>
@@ -1264,8 +1263,8 @@ export default function TitleDetails() {
                             </div>
                             {ep.voteAverage > 0 && (
                               <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#e4e4e7', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="IMDb">
-                                  <img src="https://upload.wikimedia.org/wikipedia/commons/6/69/IMDB_Logo_2016.svg" alt="IMDb" style={{ height: '10px' }} />
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="TMDB Community Score">
+                                  <Popcorn size={11} fill="currentColor" stroke="none" aria-hidden="true" />
                                   {ep.voteAverage.toFixed(1)}
                                 </span>
                               </span>
@@ -1516,7 +1515,7 @@ export default function TitleDetails() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Star size={16} fill="#fbbf24" color="#fbbf24" />
             <span style={{ fontSize: '0.85rem', color: '#a1a1aa' }}>
-              <strong style={{ color: '#fbbf24' }}>{movie.imdbRating}</strong> on IMDb
+              <strong style={{ color: '#fbbf24' }}>{movie.imdbRating}</strong> TMDB Score
             </span>
           </div>
         )}
