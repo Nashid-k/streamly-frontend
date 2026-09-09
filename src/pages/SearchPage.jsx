@@ -335,8 +335,8 @@ export default function SearchPage() {
           )}
         </div>
 
-        {/* Discovery banners — Trending / Airing / Latest / Popular */}
-        <DiscoveryRails />
+        {/* Discovery banners — only when browsing (no active query), not while searching */}
+        {!query && <DiscoveryRails />}
 
         {/* Content */}
         <ErrorBoundary>
