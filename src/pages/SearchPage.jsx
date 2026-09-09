@@ -50,9 +50,10 @@ export default function SearchPage() {
   const backendSuggestions = useMemo(() => rawResults?.suggestions || [], [rawResults]);
 
   const results = useMemo(() => {
-    if (!rawResults || !Array.isArray(rawResults.movies)) return [];
+    const list = Array.isArray(rawResults) ? rawResults : rawResults?.movies;
+    if (!list) return [];
 
-    const mapped = rawResults.movies.filter(Boolean);
+    const mapped = list.filter(Boolean);
     const seen = new Set();
     const unique = mapped.filter((m) => {
       const key = m.tmdbId || m.id;
