@@ -8,6 +8,7 @@ import { useAppAuth } from "../context/AuthContext";
 import { movieService } from "../api/movieService";
 import RailArrow from "./RailArrow";
 import useRailArrows from "../hooks/useRailArrows";
+import YoutubeRawTrailer from "./YoutubeRawTrailer";
 
 const fmtMins = (seconds) => {
   if (!seconds || seconds <= 0) return "0m";
@@ -47,16 +48,6 @@ const trailerKeyOf = (item) => {
   if (item.trailer) return item.trailer;
   const v = (item.videos || []).find((x) => x.type === "Trailer" && x.key);
   return v ? v.key : item.videos?.[0]?.key || null;
-};
-
-/* Clean full-bleed embed: controls=0 removes the player bar; deprecated
-   params (modestbranding/showinfo) are ignored by YouTube now, so the YT
-   title bar + bottom-right watermark are cropped off in CSS by oversizing
-   the iframe inside an overflow:hidden thumb box. Loops muted autoplay. */
-const trailerSrc = (key) => {
-  const origin =
-    typeof window !== "undefined" ? window.location.origin : "";
-  return `https://www.youtube-nocookie.com/embed/${key}?autoplay=1&mute=1&controls=0&rel=0&iv_load_policy=3&playsinline=1&disablekb=1&fs=0&loop=1&playlist=${key}&origin=${origin}`;
 };
 
 const POPUP_SCALE = 1.25;
@@ -284,14 +275,10 @@ export default function ContinueWatchingRail({ items = [] }) {
             >
               <div className="cw-popup-thumb">
                 {activeTrailer ? (
-                  <iframe
-                    className="cw-popup-trailer"
-                    src={trailerSrc(activeTrailer)}
-                    title=""
-                    allow="autoplay; encrypted-media"
-                    allowFullScreen={false}
-                    frameBorder="0"
-                    tabIndex={-1}
+                  <YoutubeRawTrailer
+                    key={activeTrailer}
+                    videoKey={activeTrailer}
+                    poster={hover.item.backdropUrl || hover.item.posterUrl || hover.item.poster}
                   />
                 ) : (hover.item.backdropUrl || hover.item.posterUrl || hover.item.poster) ? (
                   <img

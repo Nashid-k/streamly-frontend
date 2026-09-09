@@ -2059,18 +2059,48 @@ input:focus-visible {
   white-space: nowrap;
 }
 
-/* Trailer iframe in popup — fills the thumbnail area, muted autoplay.
-   The iframe is oversized and shifted so YouTube's own chrome (title bar,
-   bottom-right watermark) lands outside the overflow:hidden thumb box —
-   only the raw video frames are visible. */
+/* Raw trailer player in the popup. The IFrame API mounts its <iframe> inside
+   this oversized box, shifted so YouTube's edge chrome (title strip on top,
+   bottom-right watermark, control bar) lands outside the overflow:hidden
+   thumb box — only the raw video frames show once playback starts.
+   pointer-events:none (here + on the nested <iframe>) stops hover from
+   summoning the controls. */
 .cw-popup-trailer {
   position: absolute;
-  left: -16%;
-  top: -24%;
-  width: 132%;
-  height: 132%;
+  left: -20%;
+  top: -20%;
+  width: 140%;
+  height: 140%;
   border: none;
   pointer-events: none;
+  background: #000000;
+}
+.cw-popup-trailer iframe {
+  border: none;
+  pointer-events: none;
+}
+
+/* Opaque cover over the player until it is actually playing. Covers the
+   YouTube title/avatar/pause overlays that only exist in the loading,
+   paused and ended states, so they are never visible. Shows the title
+   backdrop meanwhile, then fades out on PLAYING. */
+.cw-popup-cover {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: #000000;
+  opacity: 1;
+  pointer-events: none;
+  transition: opacity 0.45s ease 0.15s;
+}
+.cw-popup-cover.is-playing {
+  opacity: 0;
+}
+.cw-popup-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 /* Edit mode — remove button on each card */
