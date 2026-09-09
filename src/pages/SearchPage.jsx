@@ -3,7 +3,7 @@ import { movieService } from "../api/movieService";
 import { rankSearchResults, getDidYouMean } from "../utils/searchRanking";
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { Search, Film, Tv, Flame, Sparkles, Star } from "lucide-react";
+import { Search, Film, Tv, Flame, Sparkles, Star, X } from "lucide-react";
 import { motion } from "framer-motion";
 import MovieCard from "../components/MovieCard";
 import DiscoveryRails from "../components/DiscoveryRails";
@@ -13,7 +13,7 @@ import AmbientBackground from "../components/AmbientBackground";
 import ErrorBoundary from "../components/ErrorBoundary";
 
 export default function SearchPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const query = searchParams.get("q") || "";
   const navigate = useNavigate();
 
@@ -22,6 +22,16 @@ export default function SearchPage() {
   useEffect(() => {
     setLocalQuery(query);
   }, [query]);
+
+  // Live / dynamic search — sync the input to the URL query (debounced)
+  useEffect(() => {
+    if (localQuery.trim() === query) return;
+    const t = setTimeout(() => {
+      setSearchParams(localQuery.trim() ? { q: localQuery.trim() } : {}, { replace: true });
+    }, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localQuery]);
 
   const [filterType, setFilterType] = useState("All");
   const [sortBy, setSortBy] = useState("Relevance");
@@ -154,47 +164,81 @@ export default function SearchPage() {
           gap: "1.5rem",
         }}
       >
-        {/* Mobile-friendly inline search refinement */}
-        <div className="mobile-only" style={{ marginBottom: "1.5rem" }}>
+        {/* Search input — live, dynamic search */}
+        <div style={{ marginBottom: "1.5rem", maxWidth: "760px" }}>
           <div style={{ position: "relative" }}>
             <Search
-              size={18}
+              size={20}
               style={{
                 position: "absolute",
-                left: "14px",
+                left: "16px",
                 top: "50%",
                 transform: "translateY(-50%)",
                 color: "#71717a",
+                pointerEvents: "none",
               }}
             />
             <input
               type="text"
               value={localQuery}
-              onChange={(e) => {
-                setLocalQuery(e.target.value);
-              }}
+              onChange={(e) => setLocalQuery(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && localQuery.trim()) {
-                  navigate(
-                    `/search?q=${encodeURIComponent(localQuery.trim())}`,
-                    { replace: true },
-                  );
+                if (e.key === "Enter" && localQuery.trim()) {
+                  setSearchParams({ q: localQuery.trim() }, { replace: true });
                 }
               }}
-              placeholder="Search movies, shows..."
-              aria-label="Refine search"
+              placeholder="Search movies, shows, actors..."
+              aria-label="Search"
+              autoFocus
               style={{
                 width: "100%",
                 background: "rgba(255,255,255,0.06)",
                 border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: "var(--radius-lg)",
-                padding: "0.75rem 1rem 0.75rem 2.75rem",
-                fontSize: "1rem",
+                borderRadius: "16px",
+                padding: "1rem 3.25rem 1rem 3rem",
+                fontSize: "1.05rem",
                 color: "#fff",
                 fontFamily: "inherit",
                 outline: "none",
+                transition: "border-color 0.2s ease, box-shadow 0.2s ease",
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = "rgba(244,63,94,0.5)";
+                e.currentTarget.style.boxShadow = "0 0 0 4px rgba(244,63,94,0.12)";
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
+                e.currentTarget.style.boxShadow = "none";
               }}
             />
+            {localQuery && (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => {
+                  setLocalQuery("");
+                  setSearchParams({}, { replace: true });
+                }}
+                style={{
+                  position: "absolute",
+                  right: "14px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "rgba(255,255,255,0.1)",
+                  border: "none",
+                  width: "28px",
+                  height: "28px",
+                  borderRadius: "50%",
+                  color: "#a1a1aa",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <X size={16} />
+              </button>
+            )}
           </div>
         </div>
 
