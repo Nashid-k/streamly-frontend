@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, Plus, Check, Info, Pencil, X } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import slugify from "slugify";
 import { useAppAuth } from "../context/AuthContext";
 import { movieService } from "../api/movieService";
@@ -49,17 +49,29 @@ const trailerKeyOf = (item) => {
   return v ? v.key : item.videos?.[0]?.key || null;
 };
 
-/* Clean full-bleed embed: no controls, no title bar, no "Watch on YouTube",
-   no related videos, no skip buttons, looping, muted autoplay. The no-cookie
-   domain + pointer-events:none keep the player chrome away entirely. */
+/* Clean full-bleed embed: controls=0 removes the player bar; deprecated
+   params (modestbranding/showinfo) are ignored by YouTube now, so the YT
+   title bar + bottom-right watermark are cropped off in CSS by oversizing
+   the iframe inside an overflow:hidden thumb box. Loops muted autoplay. */
 const trailerSrc = (key) => {
   const origin =
     typeof window !== "undefined" ? window.location.origin : "";
-  return `https://www.youtube-nocookie.com/embed/${key}?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&autohide=1&disablekb=1&fs=0&loop=1&playlist=${key}&origin=${origin}`;
+  return `https://www.youtube-nocookie.com/embed/${key}?autoplay=1&mute=1&controls=0&rel=0&iv_load_policy=3&playsinline=1&disablekb=1&fs=0&loop=1&playlist=${key}&origin=${origin}`;
+};
+
+const POPUP_SCALE = 1.25;
+
+// Netflix-style: panel width = card width x 1.25, anchored to the card's
+// bottom edge so it pops up and fully covers the card.
+const popupDims = (cardWidth, layerWidth) => {
+  const w = Math.min(Math.round(cardWidth * POPUP_SCALE), Math.max(0, Math.round(layerWidth - 16)));
+  const h = Math.round(w * (9 / 16)) + Math.round(104 * POPUP_SCALE);
+  return { w, h };
 };
 
 export default function ContinueWatchingRail({ items = [] }) {
   const { isInList, toggleMyList, removeFromContinueWatching } = useAppAuth();
+  const queryClient = useQueryClient();
   const scrollRef = useRef(null);
   const layerRef = useRef(null);
   const [hover, setHover] = useState(null);
@@ -123,18 +135,33 @@ export default function ContinueWatchingRail({ items = [] }) {
     const cardRect = card.getBoundingClientRect();
     const layerRect = layer.getBoundingClientRect();
     const cardWidth = cardRect.width;
-    // Netflix style: the panel is the same width as the card and anchored to
-    // the card's bottom edge, so on hover it pops UP and FULLY COVERS the
-    // card (thumbnail + title). transform-origin: bottom center makes it grow
-    // out of the card it belongs to, hiding it entirely.
-    const popupWidth = Math.min(Math.round(cardWidth), Math.round(layerRect.width - 16));
-    const popupHeight = Math.round(popupWidth * (9 / 16)) + 104;
-    let x = cardRect.left - layerRect.left;
+    const { w: popupWidth, h: popupHeight } = popupDims(cardRect.width, layerRect.width);
+    // Center the (wider) panel on the card, clamped inside the rail.
+    let x = cardRect.left - layerRect.left + (cardWidth - popupWidth) / 2;
     const vw = layerRect.right - layerRect.left;
     x = Math.max(0, Math.min(x, vw - popupWidth));
     const below = 6;
     const top = cardRect.bottom - layerRect.top - popupHeight + below;
     setHover({ id: item.id, x, top, w: popupWidth, item });
+
+    // Warm the cache for nearby cards so their trailers are ready on the
+    // next hover — no fetch delay, no flashed static image.
+    const idx = items.findIndex((it) => it.id === item.id);
+    if (idx >= 0) {
+      const lo = Math.max(0, idx - 2);
+      const hi = Math.min(items.length - 1, idx + 2);
+      for (let k = lo; k <= hi; k++) {
+        const it = items[k];
+        if (it && it.id !== item.id && !trailerKeyOf(it)) {
+          queryClient.prefetchQuery({
+            queryKey: ["titleTrailer", it.id],
+            queryFn: () => movieService.getTitleTrailer(it.id),
+            staleTime: Infinity,
+            retry: 1,
+          });
+        }
+      }
+    }
   };
 
   const handleRemove = (e, item) => {
@@ -275,9 +302,6 @@ export default function ContinueWatchingRail({ items = [] }) {
                   <div className="cw-thumb-fallback">
                     <Play size={22} fill="currentColor" stroke="none" />
                   </div>
-                )}
-                {episodeLabel(hover.item) && (
-                  <div className="cw-popup-label">{episodeLabel(hover.item)}</div>
                 )}
               </div>
               <div className="cw-popup-body">

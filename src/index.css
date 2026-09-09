@@ -2059,12 +2059,16 @@ input:focus-visible {
   white-space: nowrap;
 }
 
-/* Trailer iframe in popup — fills the thumbnail area, muted autoplay */
+/* Trailer iframe in popup — fills the thumbnail area, muted autoplay.
+   The iframe is oversized and shifted so YouTube's own chrome (title bar,
+   bottom-right watermark) lands outside the overflow:hidden thumb box —
+   only the raw video frames are visible. */
 .cw-popup-trailer {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  left: -16%;
+  top: -24%;
+  width: 132%;
+  height: 132%;
   border: none;
   pointer-events: none;
 }
