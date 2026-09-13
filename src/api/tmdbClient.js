@@ -15,7 +15,7 @@ if (!import.meta.env.VITE_TMDB_API_KEY) {
 }
 
 // Same-origin proxy: `/api/tmdb` is served by the Vercel function in
-// `api/tmdb/[...path].js` (production) and by the Vite dev proxy in
+// `api/tmdb.js` (production) and by the Vite dev proxy in
 // `vite.config.js` (local dev). Requests leave from the host's network, so
 // visitors on ISPs that block api.themoviedb.org still get data. Returns
 // null outside browsers (node scripts/tests) where relative URLs can't run.

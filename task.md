@@ -46,7 +46,10 @@
   NetMirror/Direct dead paths or re-spec them in `prd.md` §4 first — do not
   half-revive.
 - [x] 12. Same-origin TMDB proxy so blocked ISPs work on every device:
-  `api/tmdb/[...path].js` (Vercel function), proxy-first `tmdbClient` with
-  direct fallback, Vite `/api/tmdb` dev proxy, `vercel.json` excludes `/api/`
-  from SPA rewrite. Verified: lint 0 errors, 201 tests pass, build ok, live
-  proxy returns TMDB JSON, headless Edge renders populated rails.
+  `api/tmdb.js` (Vercel serverless function with CORS, OPTIONS, fallback key,
+  and query/url path extraction), `vercel.json` rewrites `/api/tmdb/(.*)` to
+  `/api/tmdb?path=$1` so non-Next.js Vercel properly routes all wildcard API
+  calls to the proxy function instead of 404ing, Vite `/api/tmdb` dev/preview proxy
+  with `host: true` for LAN access. Verified: lint 0 errors, 209 tests pass,
+  build ok.
+

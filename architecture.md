@@ -22,7 +22,7 @@
 
 Data flow: **same-origin `/api/tmdb` proxy → TMDB REST, direct TMDB as
 fallback** (`src/api/tmdbClient.js`). The proxy is the Vercel function in
-`api/tmdb/[...path].js` (production) and the Vite dev proxy in
+`api/tmdb.js` (production) and the Vite dev proxy in
 `vite.config.js` (local `npm run dev`) — requests leave from the host's
 network, so visitors on ISPs that block `api.themoviedb.org` still get data.
 Fallback triggers only when no proxy is deployed (plain static hosting:
@@ -86,11 +86,11 @@ through the `env.js` stub to `''` and fail soft (logged, non-blocking).
   components). `src/queryClient.js` — QueryClient + global `QueryCache.onError`
   logger. `src/main.jsx` — boot diagnostics + global error hooks.
 - `api/` — Vercel serverless functions (not bundled to the client).
-  `api/tmdb/[...path].js` is the TMDB passthrough proxy — the reason
+  `api/tmdb.js` is the TMDB passthrough proxy — the reason
   visitors on ISPs that block `api.themoviedb.org` still get data.
   Root: `index.html` (fonts/CDN preconnect, SW cache-buster), `vite.config.js`
   (vendor chunk split, `hls.js` isolated, `/api/tmdb` dev proxy), `vercel.json`
-  (SPA rewrite + cache headers), `.env` / `.env.example`, `test-movie.js` (manual TMDB probe).
+  (`/api/tmdb/(.*)` proxy rewrite + SPA rewrite + cache headers), `.env` / `.env.example`, `test-movie.js` (manual TMDB probe).
 
 ## 4. Five architecture decisions + why
 

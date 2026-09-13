@@ -16,9 +16,22 @@ export default defineConfig(() => {
     server: {
       port: 3001,
       strictPort: false,
-      // Local stand-in for the Vercel function in api/tmdb/[...path].js, so
+      host: true,
+      // Local stand-in for the Vercel function in api/tmdb.js, so
       // `npm run dev` exercises the exact same same-origin `/api/tmdb` path
       // that production visitors use. Forwards path+query to TMDB as-is.
+      proxy: {
+        '/api/tmdb': {
+          target: 'https://api.themoviedb.org/3',
+          changeOrigin: true,
+          rewrite: (p) => p.replace(/^\/api\/tmdb/, ''),
+        },
+      },
+    },
+    preview: {
+      port: 3001,
+      strictPort: false,
+      host: true,
       proxy: {
         '/api/tmdb': {
           target: 'https://api.themoviedb.org/3',
