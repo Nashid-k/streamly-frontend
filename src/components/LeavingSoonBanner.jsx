@@ -1,18 +1,18 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { AlertTriangle, Clock } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import slugify from "slugify";
+import useDetailView from "../hooks/useDetailView";
 
 
 /**
  * LeavingSoonBanner — Urgent alert for content leaving a platform
  *
  * Shows when a movie/show in the user's watchlist or browsing
- * is about to leave a streaming platform.
+ * is about to leave a streaming platform. Rows open details through
+ * the shared gateway (page or modal per the Detail View Type setting).
  */
 export default function LeavingSoonBanner({ items = [], maxDisplay = 3 }) {
-  const navigate = useNavigate();
+  const { openDetails, modalHost } = useDetailView();
   if (!items || items.length === 0) return null;
 
   const displayed = items.slice(0, maxDisplay);
@@ -55,10 +55,7 @@ export default function LeavingSoonBanner({ items = [], maxDisplay = 3 }) {
             key={item.id || idx}
             whileHover={{ background: "rgba(255,255,255,0.06)" }}
             whileTap={{ scale: 0.98, background: "rgba(255,255,255,0.08)" }}
-            onClick={() => {
-              const slug = slugify(item.title, { lower: true, strict: true });
-              navigate(`/watch/${item.id}/${slug}`);
-            }}
+            onClick={() => openDetails(item)}
             style={{
               display: "flex", alignItems: "center", gap: "10px",
               padding: "8px 10px", borderRadius: "8px",
@@ -109,6 +106,7 @@ export default function LeavingSoonBanner({ items = [], maxDisplay = 3 }) {
           +{items.length - maxDisplay} more leaving soon
         </div>
       )}
+      {modalHost}
     </motion.div>
   );
 }

@@ -242,3 +242,25 @@
     persistence, `buildMetaFacts` composition + edge cases).
   - Verified: `npm run lint` (0 errors, 1 pre-existing warning), `npm run test`
     (255 passed across 23 files, was 248), `npm run build` (success, 2.1s).
+
+- [x] **Task 27 — Detail View Type governs every details affordance + Settings dropdown/modals theming & responsiveness**
+  - **`useDetailView` hook (new)**: one gateway for all "open details" actions —
+Detail View Type `page` → `/watch/:id/:slug`, `modal` → shared `TitleInfoModal`
+(portaled, so call-site placement can never trap it).
+  - **Wiring**: hero banner art click AND hero Info button, every `MovieCard`
+(rails, grids, search, watchlist), and `LeavingSoonBanner` rows all obey the
+setting now; hero Play stays a direct watch link; Continue Watching still
+resumes playback (play ≠ details).
+  - **Settings dropdowns themed**: theme/seek/language panels moved from hardcoded
+`bg-[#14121a]` + white-alpha rows to `--bg-elevated`/`--border-subtle` + accent-tinted
+selection; UA button chrome reset (no preflight in this Tailwind setup — this was
+the white dropdown background); panels anchor left ≤640px so they stay on-screen.
+  - **Studio + Sign-In modals**: portaled to body (transformed ancestors no longer
+clip them) and themed off hardcoded `#13111c`; Sign In button now uses the accent
+gradient; `color-scheme: dark` at :root so the Studio select never pops a white
+OS menu; settings section headers stack title/subtitle (was overlapping).
+  - **Verified manually in preview @439px**: behavior matrix (modal: banner/ⓘ/cards;
+page: banner/ⓘ/cards), no horizontal overflow, dropdowns on-screen, Studio and
+Sign-In modals fit, themed screenshot confirmed.
+  - **Tests**: new `useDetailView.test.jsx` +4 (modal open, page nav, host lifecycle,
+null guard). Lint 0 errors, 259 passed across 24 files, build success.

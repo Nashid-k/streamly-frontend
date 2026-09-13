@@ -1,12 +1,10 @@
 import { useCallback, useState, useEffect, useRef } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Play, Plus, Check, Star } from "lucide-react";
-import slugify from "slugify";
 import { getTMDBWeekdayShort } from "../utils/timezone";
-import { useNavigate } from "react-router-dom";
 import { buildMovieAddedNotification } from "../utils/notificationEngine";
 import CountdownBadge from "./CountdownBadge";
-import TitleInfoModal from "./TitleInfoModal";
+import useDetailView from "../hooks/useDetailView";
 import { useAppAuth } from "../context/AuthContext";
 import { useToast } from "./Toast";
 
@@ -88,7 +86,6 @@ export default function MovieCard({
   progressValue = 0,
   compact = false,
 }) {
-  const navigate = useNavigate();
   const { isInList, toggleMyList, addNotification } = useAppAuth();
   const { toast } = useToast();
   const preferences = useOptionalPreferences();
@@ -133,32 +130,10 @@ export default function MovieCard({
     };
   }, []);
 
-  const detailViewType = preferences?.detailViewType || "page";
-  const [showQuickView, setShowQuickView] = useState(false);
-
-  // Netflix-style quick view: Escape dismisses, background scroll locks.
-  useEffect(() => {
-    if (!showQuickView) return;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const onKey = (e) => {
-      if (e.key === "Escape") setShowQuickView(false);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.body.style.overflow = prevOverflow;
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [showQuickView]);
-
-  const navigateToDetails = useCallback(() => {
-    const slug = slugify(movie.title, { lower: true, strict: true });
-    if (detailViewType === "modal") {
-      setShowQuickView(true);
-    } else {
-      navigate(`/watch/${movie.id}/${slug}`);
-    }
-  }, [navigate, movie, detailViewType]);
+  // Details open through one shared gateway — page or modal per the
+  // Detail View Type preference (same behavior as the hero banner).
+  const { openDetails, modalHost } = useDetailView();
+  const navigateToDetails = useCallback(() => openDetails(movie), [openDetails, movie]);
 
   const handleToggleMyList = useCallback(
     (e) => {
@@ -617,11 +592,9 @@ export default function MovieCard({
         </motion.div>
       ) : null}
 
-      {/* Netflix-style info modal — shown when Detail View Type = "modal".
+      {/* Netflix-style info modal host — shown when Detail View Type = "modal".
           One shared modal for cards and the hero banner (TitleInfoModal). */}
-      {showQuickView && (
-        <TitleInfoModal movie={movie} onClose={() => setShowQuickView(false)} />
-      )}
+      {modalHost}
     </div>
   );
 }

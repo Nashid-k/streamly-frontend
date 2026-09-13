@@ -3,6 +3,9 @@
 @source ".";
 @source ".";
 :root {
+  /* Native controls (selects, scrollbars, date pickers) must render dark —
+     without this, Chromium paints white popups that clash with every theme. */
+  color-scheme: dark;
   /* ── Colors ────────────────────────────────────────────── */
   --bg-color: #000000;
   --bg-primary: #050505;
@@ -5671,6 +5674,11 @@ html[data-theme="solar"] {
   outline: none;
 }
 
+.studio-chip-select option {
+  background: var(--bg-elevated, #0f0f13);
+  color: var(--text-primary, #fff);
+}
+
 .studio-eye {
   display: inline-flex;
   align-items: center;
@@ -5783,6 +5791,50 @@ html[data-theme="solar"] {
 
 .settings-dropdown {
   max-width: calc(100vw - 2.5rem);
+  background: var(--bg-elevated, #0f0f13);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55), 0 2px 10px rgba(0, 0, 0, 0.4);
+}
+
+/* Settings section headers stack title above subtitle — the global
+   .section-header is a flex row for title+side-link patterns. */
+.settings-page .section-header {
+  display: block;
+}
+
+.settings-page .section-subtitle {
+  margin-top: 0.3rem;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.55));
+}
+
+.settings-dropdown-item {
+  /* No Tailwind preflight here - reset the UA button chrome (gray bg, white border) */
+  appearance: none;
+  background: transparent;
+  border: none;
+  width: 100%;
+  font: inherit;
+  cursor: pointer;
+  color: var(--text-secondary, #a1a1aa);
+}
+
+.settings-dropdown-item:hover {
+  background: rgba(var(--accent-primary-rgb, 244, 63, 94), 0.1);
+  color: var(--text-primary, #fff);
+}
+
+.settings-dropdown-item.is-selected {
+  background: rgba(var(--accent-primary-rgb, 244, 63, 94), 0.16);
+  color: var(--text-primary, #fff);
+}
+
+/* ≤640px stacks the label above the control and left-aligns it, so the
+   right-anchored panel would spill past the left viewport edge. */
+@media (max-width: 640px) {
+  .settings-dropdown {
+    left: 0;
+    right: auto;
+  }
 }
 
 .setting-control {

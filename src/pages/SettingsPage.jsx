@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, Reorder, useDragControls } from "framer-motion";
 import {
@@ -962,7 +963,7 @@ export default function SettingsPage() {
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: 8, scale: 0.96 }}
                               transition={{ duration: 0.15 }}
-                              className="absolute right-0 top-full mt-2 w-56 rounded-2xl bg-[#14121a] border border-white/15 p-2 shadow-2xl backdrop-blur-xl z-50 flex flex-col gap-1 settings-dropdown"
+                              className="absolute right-0 top-full mt-2 w-56 rounded-2xl p-2 shadow-2xl z-50 flex flex-col gap-1 settings-dropdown"
                             >
                               {THEMES.map((t) => {
                                 const selected = theme === t.id;
@@ -975,7 +976,7 @@ export default function SettingsPage() {
                                       setThemeDropdownOpen(false);
                                     }}
                                     className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
-                                      selected ? "bg-white/15 text-white" : "text-white/70 hover:bg-white/10 hover:text-white"
+                                      selected ? "settings-dropdown-item is-selected" : "settings-dropdown-item text-white/70 hover:text-white"
                                     }`}
                                   >
                                     <span className="flex items-center gap-2">
@@ -1179,7 +1180,7 @@ export default function SettingsPage() {
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: 8, scale: 0.96 }}
                               transition={{ duration: 0.15 }}
-                              className="absolute right-0 top-full mt-2 w-44 rounded-2xl bg-[#14121a] border border-white/15 p-2 shadow-2xl backdrop-blur-xl z-50 flex flex-col gap-1 settings-dropdown"
+                              className="absolute right-0 top-full mt-2 w-44 rounded-2xl p-2 shadow-2xl z-50 flex flex-col gap-1 settings-dropdown"
                             >
                               {SEEK_TIMES.map((st) => {
                                 const selected = Number(seekTime) === st.value;
@@ -1192,7 +1193,7 @@ export default function SettingsPage() {
                                       setSeekDropdownOpen(false);
                                     }}
                                     className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
-                                      selected ? "bg-white/15 text-white" : "text-white/70 hover:bg-white/10 hover:text-white"
+                                      selected ? "settings-dropdown-item is-selected" : "settings-dropdown-item text-white/70 hover:text-white"
                                     }`}
                                   >
                                     <span>{st.label}</span>
@@ -1255,7 +1256,7 @@ export default function SettingsPage() {
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: 8, scale: 0.96 }}
                               transition={{ duration: 0.15 }}
-                              className="absolute right-0 top-full mt-2 w-52 max-h-60 overflow-y-auto rounded-2xl bg-[#14121a] border border-white/15 p-2 shadow-2xl backdrop-blur-xl z-50 flex flex-col gap-1 settings-dropdown"
+                              className="absolute right-0 top-full mt-2 w-52 max-h-60 overflow-y-auto rounded-2xl p-2 shadow-2xl z-50 flex flex-col gap-1 settings-dropdown"
                             >
                               {LANGUAGES.map((l) => {
                                 const selected = defaultLanguage === l.code;
@@ -1268,7 +1269,7 @@ export default function SettingsPage() {
                                       setLangDropdownOpen(false);
                                     }}
                                     className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
-                                      selected ? "bg-white/15 text-white" : "text-white/70 hover:bg-white/10 hover:text-white"
+                                      selected ? "settings-dropdown-item is-selected" : "settings-dropdown-item text-white/70 hover:text-white"
                                     }`}
                                   >
                                     <span className="flex items-center gap-2.5">
@@ -1470,14 +1471,13 @@ export default function SettingsPage() {
       {/* ── MODALS ── */}
 
       {/* Sign-In Modal */}
-      <AnimatePresence>
-        {showSignInModal && (
+      {showSignInModal && createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="w-full max-w-md bg-[#13111c] border border-white/15 rounded-3xl p-6 shadow-2xl relative"
+              className="w-full max-w-md [background:var(--bg-elevated)] border [border-color:var(--border-subtle)] rounded-3xl p-6 shadow-2xl relative"
             >
               <button
                 onClick={() => setShowSignInModal(false)}
@@ -1537,20 +1537,19 @@ export default function SettingsPage() {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 py-2.5 rounded-xl bg-white text-black hover:bg-gray-200 text-sm font-bold transition-colors shadow-lg"
+                    className="flex-1 py-2.5 rounded-xl [background:var(--accent-gradient)] [color:var(--on-accent,#fff)] hover:brightness-110 text-sm font-bold transition-colors shadow-lg"
                   >
                     Sign In
                   </button>
                 </div>
               </form>
             </motion.div>
-          </div>
+          </div>,
+          document.body
         )}
-      </AnimatePresence>
 
       {/* Player UI Studio Modal */}
-      <AnimatePresence>
-        {showControlsModal && (
+      {showControlsModal && createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -1559,7 +1558,7 @@ export default function SettingsPage() {
               role="dialog"
               aria-modal="true"
               aria-label="Player UI studio"
-              className="w-full max-w-3xl bg-[#13111c] border border-white/15 rounded-3xl p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto"
+              className="w-full max-w-3xl [background:var(--bg-elevated)] border [border-color:var(--border-subtle)] rounded-3xl p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto"
             >
               <button
                 onClick={() => setShowControlsModal(false)}
@@ -1596,9 +1595,9 @@ export default function SettingsPage() {
                 Done
               </button>
             </motion.div>
-          </div>
+          </div>,
+          document.body
         )}
-      </AnimatePresence>
     </div>
   );
 }

@@ -16,8 +16,8 @@ import MovieCard from "../components/MovieCard";
 import ContinueWatchingRail from "../components/ContinueWatchingRail";
 import AmbientBackground from "../components/AmbientBackground";
 import HeroTitleLogo from "../components/HeroTitleLogo";
+import useDetailView from "../hooks/useDetailView";
 import RatingsCluster from "../components/RatingsCluster";
-import TitleInfoModal from "../components/TitleInfoModal";
 
 import RailArrow from "../components/RailArrow";
 import useRailArrows from "../hooks/useRailArrows";
@@ -444,6 +444,11 @@ export default function Home({
   const [activePlatform, setActivePlatform] = useState("all");
   const { continueWatching, myList, isInList, toggleMyList } = useAppAuth();
 
+  // Every details affordance routes through one gateway: Detail View Type
+  // "page" → details page, "modal" → Netflix-style info modal. The hero
+  // Play button stays a direct watch link (play ≠ details).
+  const { openDetails, modalHost } = useDetailView();
+
   const {
     data: featuredData,
     isLoading: featuredLoading,
@@ -585,7 +590,7 @@ export default function Home({
   /* Netflix behavior: the banner's Info button always opens the in-place
      info modal — regardless of the Detail View Type setting (that setting
      governs card/banner-card clicks, not the explicit Info affordance). */
-  const [heroInfoMovie, setHeroInfoMovie] = useState(null);
+
   // Interval logic moved below totalFeatured
 
   useEffect(() => {
@@ -1188,6 +1193,7 @@ export default function Home({
             style={{ willChange: "opacity" }}
             onTouchStart={handleHeroTouchStart}
             onTouchEnd={handleHeroTouchEnd}
+            onClick={() => openDetails(activeFeaturedMovie)}
             onMouseEnter={() => { isHeroHoveredRef.current = true; setIsHeroHovered(true); }}
             onMouseLeave={() => { isHeroHoveredRef.current = false; setIsHeroHovered(false); }}
             onFocus={() => { isHeroHoveredRef.current = true; setIsHeroHovered(true); }}
@@ -1316,7 +1322,7 @@ export default function Home({
                     className="hero-cta-play"
                     whileHover={{ scale: 1.04 }}
                     whileTap={{ scale: 0.96 }}
-                    onClick={() => navigate(`/watch/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`)}
+                    onClick={(e) => { e.stopPropagation(); navigate(`/watch/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`); }}
                   >
                     <Play size={20} strokeWidth={2.5} fill="currentColor" stroke="none" />
                     Play
@@ -1327,7 +1333,7 @@ export default function Home({
                       className="hero-cta-secondary-icon"
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.92 }}
-                      onClick={() => toggleMyList(activeFeaturedMovie)}
+                      onClick={(e) => { e.stopPropagation(); toggleMyList(activeFeaturedMovie); }}
                       aria-label={isInList(activeFeaturedMovie?.id) ? "Remove from My List" : "Add to My List"}
                       title={isInList(activeFeaturedMovie?.id) ? "Remove from My List" : "Add to My List"}
                     >
@@ -1340,7 +1346,7 @@ export default function Home({
                       whileTap={{ scale: 0.92 }}
                       aria-label="More info"
                       title="More info"
-                      onClick={() => setHeroInfoMovie(activeFeaturedMovie)}
+                      onClick={(e) => { e.stopPropagation(); openDetails(activeFeaturedMovie); }}
                     >
                       <Info size={18} strokeWidth={2.5} />
                     </motion.button>
@@ -1357,7 +1363,7 @@ export default function Home({
                   return (
                     <motion.button
                       key={i}
-                      onClick={() => setFeaturedIndex(i)}
+                      onClick={(e) => { e.stopPropagation(); setFeaturedIndex(i); }}
                       whileTap={{ scale: 0.88 }}
                       aria-label={`Show ${finalPool[i]?.title || `featured title ${i + 1}`}`}
                       aria-current={isActive ? "true" : undefined}
@@ -1598,14 +1604,9 @@ export default function Home({
         )}
       </section>
 
-      {/* Hero Info modal — Netflix behavior: the banner Info button always
-          opens the in-place modal instead of navigating. */}
-      {heroInfoMovie && (
-        <TitleInfoModal
-          movie={heroInfoMovie}
-          onClose={() => setHeroInfoMovie(null)}
-        />
-      )}
+      {/* Netflix-style info modal — Detail View Type governs whether the
+          hero (banner click / Info button) opens this or navigates. */}
+      {modalHost}
     </div>
   );
 }
