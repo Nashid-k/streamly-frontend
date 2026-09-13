@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -22,7 +23,13 @@ import { buildMetaFacts } from "../utils/metaFacts";
    Ergonomics: centered card sized min(92vw, 780px) with a viewport-capped
    max-height and internal scroll; ≤640px it becomes a full-width
    bottom sheet with rounded top corners and safe-area padding, so it
-   never touches the top/bottom edges or spans the whole screen. */
+   never touches the top/bottom edges or spans the whole screen.
+
+   Portaling: rendered via createPortal(document.body). Without it, any
+   ancestor with a transform/will-change (carousel rows animate y on
+   hover/entry) becomes the containing block for position:fixed, stretching
+   the backdrop across the whole document — and the initial focus() then
+   makes the browser scroll the page to reveal the close button. */
 
 const SPRING = { type: "spring", stiffness: 380, damping: 30 };
 
@@ -48,7 +55,8 @@ export default function TitleInfoModal({ movie, onClose }) {
   useEffect(() => {
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    closeButtonRef.current?.focus?.();
+    // preventScroll: never let focus reposition the page under the modal.
+    closeButtonRef.current?.focus?.({ preventScroll: true });
     const onKey = (e) => {
       if (e.key === "Escape") handleClose();
     };
@@ -92,7 +100,7 @@ export default function TitleInfoModal({ movie, onClose }) {
     });
   };
 
-  return (
+  return createPortal(
     <motion.div
       className="title-info-backdrop"
       initial={{ opacity: 0 }}
@@ -192,6 +200,7 @@ export default function TitleInfoModal({ movie, onClose }) {
           </div>
         </div>
       </motion.div>
-    </motion.div>
+    </motion.div>,
+    document.body
   );
 }
