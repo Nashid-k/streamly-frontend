@@ -58,6 +58,9 @@ function proxyLooksLikeTmdb(res) {
     ct = '';
   }
   if (ct.includes('text/html')) return false;
+  // Proxy gateway failures (502, 503, 504) mean the proxy function or upstream edge failed;
+  // fall back immediately to direct TMDB.
+  if (res.status === 502 || res.status === 503 || res.status === 504) return false;
   if (ct.includes('json')) return true;
   return ct === '';
 }

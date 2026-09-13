@@ -59,4 +59,23 @@ describe("tmdbClient transport", () => {
     // No direct retry: the proxy works, the key is bad — direct would 401 too.
     expect(fetch).toHaveBeenCalledTimes(1);
   });
+
+  it("falls back to direct TMDB when the proxy returns a 502 bad gateway error", async () => {
+    const calls = [];
+    const fetch = vi.fn().mockImplementation(async (url) => {
+      calls.push(url);
+      if (String(url).includes("/api/tmdb")) {
+        return jsonResponse({ status_message: "TMDB proxy failed", status_code: 502 }, { status: 502 });
+      }
+      return jsonResponse({ results: [{ id: 99, title: "Recovered Direct" }] });
+    });
+    vi.stubGlobal("fetch", fetch);
+
+    const data = await tmdb("/trending/all/week");
+    expect(data.results).toHaveLength(1);
+    expect(data.results[0].title).toBe("Recovered Direct");
+    expect(calls).toHaveLength(2);
+    expect(calls[0]).toContain("/api/tmdb");
+    expect(calls[1]).toContain("api.themoviedb.org");
+  });
 });

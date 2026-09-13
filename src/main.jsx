@@ -50,6 +50,19 @@ if ('serviceWorker' in navigator) {
       try {
         const buildTime = typeof __BUILD_TIME !== 'undefined' ? __BUILD_TIME : Date.now();
         const reg = await navigator.serviceWorker.register(`/sw.js?v=${buildTime}`);
+        if (reg.waiting) {
+          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
+        reg.addEventListener('updatefound', () => {
+          const installing = reg.installing;
+          if (installing) {
+            installing.addEventListener('statechange', () => {
+              if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+                installing.postMessage({ type: 'SKIP_WAITING' });
+              }
+            });
+          }
+        });
         setInterval(() => {
           if (document.visibilityState !== 'visible') return;
           reg.update().catch(() => {});

@@ -1,16 +1,24 @@
-const CACHE_NAME = 'streamly-v9';
+const CACHE_NAME = 'streamly-v10';
 
-self.addEventListener('install', () => {
-  // Skip waiting — activate immediately
-  self.skipWaiting();
+self.addEventListener('install', (event) => {
+  // Pre-cache core shell so navigations always have index.html
+  event.waitUntil(
+    caches
+      .open(CACHE_NAME)
+      .then((cache) => cache.addAll(['/', '/index.html']).catch(() => {}))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', (event) => {
-  // Delete ALL old caches, then claim all clients
+  // Delete OLD caches only, preserving the current CACHE_NAME
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      )
+      .then(() => self.clients.claim())
   );
 });
 
@@ -44,54 +52,16 @@ self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
 
-  // Let cross-origin requests (TMDB API, fonts, CDN images) pass through
-  // untouched. Intercepting them causes the SW to swallow network errors and
-  // return synthetic 408/502 responses, which the app cannot distinguish from
-  // real outages.
+  // 1. Cross-origin requests (TMDB API, fonts, CDN images) pass through untouched.
   if (url.origin !== self.location.origin) return;
 
-  // API calls — network-first with a soft timeout so Render cold starts are
-  // invisible for repeat users without showing stale data on a fast network.
-  if (request.url.includes('/api/')) {
-    const cacheKey = cacheKeyFor(request);
+  // 2. Pass through /api/ requests untouched!
+  // TMDB proxy and same-origin API calls manage their own timeout and automatic
+  // fallback to direct TMDB. Intercepting them causes the SW to swallow errors
+  // and emit synthetic 502 responses that break client failover.
+  if (url.pathname.startsWith('/api/')) return;
 
-    const handle = async () => {
-      const netPromise = fetch(request).then((response) => {
-        if (response && response.status === 200) {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(cacheKey, responseClone));
-        }
-        return response;
-      });
-
-      const cached = await caches.match(cacheKey).catch(() => null);
-      if (cached) {
-        try {
-          const winner = await Promise.race([
-            netPromise,
-            new Promise((resolve) => setTimeout(() => resolve(null), 1500)),
-          ]);
-          if (winner) return winner; // network beat the soft timeout — fresh
-          return cached; // network slow — serve last-known-good immediately
-        } catch {
-          return cached; // network failed — serve stale rather than error
-        }
-      }
-      try {
-        return await netPromise; // nothing cached — must wait for the network
-      } catch {
-        return new Response('', { status: 502, statusText: 'Offline' });
-      }
-    };
-
-    event.respondWith(handle());
-    return;
-  }
-
-  // HTML / SPA navigations — network-first, but NEVER serve a stale app shell on a
-  // live deploy. A cached index.html references old hashed chunks that no
-  // longer exist after redeploy. Cache only on network success; fall back to
-  // cached shell when truly offline.
+  // 3. HTML / SPA Navigations — network-first, with cached index.html shell fallback
   const isNavOrSpaRoute =
     request.mode === 'navigate' ||
     request.headers.get('accept')?.includes('text/html') ||
@@ -117,7 +87,15 @@ self.addEventListener('fetch', (event) => {
           (await caches.match('/index.html').catch(() => null)) ||
           (await caches.match('/').catch(() => null));
         if (cached) return cached; // offline — serve last-known-good shell
-        return new Response('', { status: 502, statusText: 'Offline' });
+
+        // Never synthesize a 502 response. Return a clean offline fallback page.
+        return new Response(
+          '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Streamly — Offline</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{background:#0a0a0c;color:#fff;font-family:system-ui,-apple-system,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:24px;text-align:center}h1{font-size:1.75rem;margin:0 0 12px;font-weight:700}p{color:#a1a1aa;margin:0 0 24px;max-width:400px;line-height:1.5}button{background:#95ff50;color:#050505;border:none;padding:12px 28px;border-radius:999px;font-weight:600;font-size:0.95rem;cursor:pointer;transition:transform 0.2s}button:active{transform:scale(0.96)}</style></head><body><h1>Streamly is offline</h1><p>We couldn\'t load this page because your device appears to be offline. Reconnect and try again.</p><button onclick="window.location.reload()">Retry</button></body></html>',
+          {
+            status: 200,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' },
+          }
+        );
       }
     };
 
@@ -125,7 +103,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Hashed JS/CSS assets — network-first. Files are immutable (hashed), so a
+  // 4. Hashed JS/CSS assets — network-first. Files are immutable (hashed), so a
   // 404 means the index.html shell is stale: fall back to the cached copy.
   if (event.request.url.match(/\.(js|css)$/)) {
     event.respondWith(
@@ -136,7 +114,6 @@ self.addEventListener('fetch', (event) => {
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
             return response;
           }
-          // 404 for a versioned chunk — stale shell. Serve from cache if we can.
           return caches.match(event.request).then((cached) => cached || response);
         })
         .catch(() => caches.match(event.request))
@@ -144,7 +121,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache-first for images, fonts, and other assets
+  // 5. Cache-first for images, fonts, and other assets
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
@@ -154,7 +131,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
         }
         return response;
-      }).catch(() => new Response('', { status: 504, statusText: 'Gateway Timeout' }));
+      });
     })
   );
 });
