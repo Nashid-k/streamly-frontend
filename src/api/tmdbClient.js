@@ -3,14 +3,18 @@ import { logDebug, logError, logWarn } from '../utils/debugLogger';
 // Direct TMDB base — used as fallback when no same-origin proxy is deployed
 // (plain static hosting, `vite preview`), and by non-browser runtimes.
 const DIRECT_BASE = 'https://api.themoviedb.org/3';
-const API_KEY = import.meta.env.VITE_TMDB_API_KEY || '522f1f08eda5e03bf93100ba29471d5d';
+// The key is NEVER bundled: deploys supply VITE_TMDB_API_KEY (client) and the
+// same-origin /api/tmdb proxy injects its own server-side key. An empty key
+// fails TMDB with 401 and surfaces the guidance below.
+const API_KEY = import.meta.env.VITE_TMDB_API_KEY || '';
 const REQUEST_TIMEOUT_MS = 10_000;
 
-if (!import.meta.env.VITE_TMDB_API_KEY) {
+if (!API_KEY) {
   logWarn(
     'tmdb',
-    'VITE_TMDB_API_KEY is not set — using bundled fallback key. ' +
-      'If TMDB returns 401, set VITE_TMDB_API_KEY in .env (see .env.example).',
+    'VITE_TMDB_API_KEY is not set — direct TMDB fallback requests will 401. ' +
+      'Set VITE_TMDB_API_KEY in .env/Vercel (see .env.example); the /api/tmdb ' +
+      'proxy also injects a server-side key for same-origin requests.',
   );
 }
 

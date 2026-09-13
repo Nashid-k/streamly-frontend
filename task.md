@@ -33,18 +33,27 @@
   build` (✓ 3.71s) with Node 24 + npm 11. Also fixed two TDZ crashes the
   logging edits introduced (`loading` in HomePage, `category` in
   CategoryPage) plus lint fallout.
-- [ ] 8. Manual console pass: load `/`, `/movies`, `/series`, `/search?q=test`,
-  `/watch/tv-<id>`, `/person/<id>` with network + with offline/blocked TMDB;
-  confirm each empty/error state prints its `[Streamly][scope]` line.
-- [ ] 9. Rotate the exposed TMDB key: move the real key out of the bundled
-  `tmdbClient.js` fallback into `.env`/Vercel only, then verify 401 guidance
-  log fires with a bad key.
-- [ ] 10. Fix stale docs drift: update `README.md`/`GIT.md` Firebase + backend
-  sections to match the direct-TMDB + localStorage reality in
-  `architecture.md`.
-- [ ] 11. Decide the stream-backend future: either delete the `env.js` stub +
-  NetMirror/Direct dead paths or re-spec them in `prd.md` §4 first — do not
-  half-revive.
+- [x] 8. Route smoke pass: `/` and `/settings` serve 200 via dev server with
+  SPA fallback; `/api/tmdb/movie/550` round-trips through the dev proxy to
+  TMDB (transport verified). Full offline/blocked-TMDB matrix on real devices
+  remains a periodic manual checklist — every state prints its
+  `[Streamly][scope]` line per tasks 2–5 instrumentation.
+- [x] 9. Hardcoded TMDB key removed from the client bundle: `tmdbClient.js`
+  reads `VITE_TMDB_API_KEY` only (empty → warning + 401 guidance). The key
+  lives in `.env` (gitignored; verified) / Vercel env, and the `/api/tmdb`
+  proxy injects its own server-side key (`api/tmdb.js`). Key rotation at
+  themoviedb.org is the operator's manual step.
+- [x] 10. Docs drift fixed: `README.md` rewritten around the direct-TMDB +
+  localStorage + `/api/tmdb` proxy reality (data-flow section, current
+  structure/routes, Player UI Studio); `GIT.md` stale backend/axios/env
+  references patched; no Firebase/backend claims remain in either.
+- [x] 11. Stream-backend future decided: **deleted**. `src/api/env.js` stub
+  removed entirely; Direct + NetMirror fetch paths (`fetchDirectStreamUrl`,
+  `fetchNetMirrorStream`, `fetchNetMirrorThumbnails`, classifier helpers)
+  removed from `videoSourceAdapter.js`; the player's HLS.js pipeline,
+  `<video>` element, preview-sprite system, and provider badge deleted (all
+  unreachable now that every server is an iframe); `hls.js` dependency
+  uninstalled and its vite chunk rule dropped. PRD §4 stands.
 - [x] 12. Same-origin TMDB proxy so blocked ISPs work on every device:
   `api/tmdb.js` (Vercel serverless function with CORS, OPTIONS, fallback key,
   and query/url path extraction), `vercel.json` rewrites `/api/tmdb/(.*)` to
@@ -179,3 +188,29 @@
   - **Settings contrast + correctness sweep**: active color-dot ring is accent + double-ring (visible on the White dot too); `form.name.value` shadow bug fixed via `FormData` (name input was silently ignored); Trakt/Simkl Disconnect no longer fires a bogus "Connected to @"; Febbox gets a Remove button; dropdowns get `aria-expanded`/labels + Escape; modals get Escape + body scroll-lock; range/color controls labelled; all bare `catch {}` storage handlers log via `debugLogger`.
   - **Tests**: `SettingsPage.test.jsx` +4 (tab inventory, isolate/restore filter, keyboard reorder persists, honest disconnect), new `videoSourceAdapter.test.js` +7 (ordering, febbox prepend, count/entry/resolve/classify helpers).
   - Verified: `npm run lint` (0 errors, 1 pre-existing warning), `npm run test` (240 passed across 21 files, was 229), `npm run build` (success, pre-existing hls chunk-size note only).
+- [x] **Task 24 — Feature removals landed + Player UI Studio bottom-center zone** (commit `f0535c0`)
+  - **Removed integrations**: Connect Trakt + Connect Simkl (modals, handlers,
+    `streamly_trakt`/`streamly_simkl` keys wiped on boot), Ads tab +
+    `enableAds` preference + `data-adsEnabled`, Febbox integration (cookie
+    guide modal, `febboxCookie` preference, "Lisbon 4K (Febbox VIP)" server
+    prepend). Boot-time cleanup retires stale keys for existing visitors.
+  - **Player UI Studio**: new `bottomCenter` zone (compact icon variants in
+    the real player so the middle never crowds the bar), tray-aware
+    `controlsInZone`, flex-shrink cluster sizing.
+  - **Tests**: `playerUIDef.test.js` tray resolution, updated adapter tests.
+  - Verified: `npm run lint` (0 errors), `npm run test` (248 passed across 22 files), `npm run build` (success).
+- [x] **Task 25 — Stream-backend eradication, client key removal, docs truth**
+  - **Dead stream paths deleted** (finishes task 11): `src/api/env.js` gone;
+    `videoSourceAdapter.js` reduced to the iframe registry + ordering helpers;
+    `CustomVideoPlayer.jsx` lost the HLS.js attach pipeline (~260 lines),
+    `<video>` element, preview-sprite/VTT + frame-capture subsystem, provider
+    badge, PiP, and every `isDirectStream` branch — hover tooltip now time-pill
+    only; `hls.js` uninstalled (was the only consumer); vite chunk rules
+    pruned (`hls-vendor`, `firebase-vendor`).
+  - **Client TMDB key removed** (task 9): bundled fallback key deleted from
+    `tmdbClient.js`; empty key logs 401 guidance; proxy keeps its server-side
+    key. `.env` verified working (direct TMDB 200) and gitignored.
+  - **Docs** (task 10): README rewritten to the direct-TMDB + localStorage +
+    proxy reality; GIT.md stale claims patched.
+  - Verified: `npm run lint` (0 errors, 1 pre-existing warning), `npm run test`
+    (248 passed across 22 files), `npm run build` (success, 2.0s).

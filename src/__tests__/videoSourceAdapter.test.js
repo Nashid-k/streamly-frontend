@@ -36,8 +36,13 @@ describe("VideoSourceAdapter ordered-list helpers (custom player)", () => {
     expect(first.name).toBe("Joy");
   });
 
-  it("classifies iframe servers as neither direct nor netmirror", () => {
-    expect(VideoSourceAdapter.isDirectEntry(ordered[0])).toBe(false);
-    expect(VideoSourceAdapter.isNetMirrorEntry(ordered[0])).toBe(false);
+  it("ships only iframe servers after the Direct/NetMirror retirement", () => {
+    // Every server in the rotation must render through an iframe — no direct
+    // extraction entries remain.
+    for (const entry of ordered) {
+      expect(typeof entry.url).toBe("function");
+      expect(entry.direct).toBeUndefined();
+      expect(entry.netmirror).toBeUndefined();
+    }
   });
 });

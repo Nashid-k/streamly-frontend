@@ -41,11 +41,10 @@
     │                                   (decodeUrl, asArray), timezone, ratings, notifications…
     │
     ├── api/
-    │   ├── movieService.js          ← fetch() wrappers for all backend endpoints
-    │   ├── apiClient.js             ← axios instance + interceptors
-    │   ├── platformAdapter.js        ← Platform registry + source normalization
-    │   ├── subtitleFetcher.js       ← Subtitle search/download/decompress
-    │   └── (cdnImageAdapter, authAdapter, storageAdapter, serverHealth, …)
+    │   ├── tmdbClient.js             ← proxy-first TMDB fetch + direct fallback
+    │   ├── movieService.js           ← TMDB domain calls + normalizeResult
+    │   ├── subtitleFetcher.js        ← Subtitle search/download/decompress
+    │   └── (cdnImageAdapter, videoSourceAdapter, ratingService, …)
     │
     ├── hooks/
     │   ├── useDebounce.js           ← Input debounce hook
@@ -55,8 +54,8 @@
     │
     ├── components/                  ← Reusable UI building blocks
     │   ├── MovieCard.jsx            ← Cinematic glass-panel hover card
-    │   ├── CustomVideoPlayer.jsx    ← HLS player + episode/source switcher
-    │   ├── ServerWakeupNotification.jsx ← Cold-start UX banner
+    │   ├── CustomVideoPlayer.jsx    ← Zone-driven player + episode/source switcher
+    │   ├── ContinueWatchingRail.jsx ← Cinejoy-style continue watching rail
     │   ├── ConfirmDialog.jsx        ← Modal dialog component
     │   ├── Toast.jsx                ← Notification toasts
     │   ├── GlobalShortcuts.jsx      ← Keyboard shortcut handler
@@ -281,10 +280,10 @@ dist-ssr/             ← gitignored ✅
 
 ```bash
 # .env (local — never commit)
-VITE_API_URL=http://localhost:4000/api
+VITE_TMDB_API_KEY=your_tmdb_api_key_here
 
-# Production — set in Vercel dashboard
-VITE_API_URL=https://your-backend.onrender.com/api
+# Production — set in Vercel dashboard:
+#   VITE_TMDB_API_KEY (client) + TMDB_API_KEY (api/tmdb.js proxy, server-side)
 ```
 
 > **Vite exposes only `VITE_`-prefixed variables** to the browser bundle.
@@ -479,7 +478,7 @@ grep -r "TMDB_API_KEY\|jwt_secret\|password" dist/ && echo "⚠️  SECRET IN BU
 # ── Setup ──────────────────────────────────────────────
 git clone https://github.com/Nashid-k/streamly.git frontend
 cd frontend && npm install
-cp .env.example .env        # fill in VITE_API_URL
+cp .env.example .env        # fill in VITE_TMDB_API_KEY
 npm run dev                 # http://localhost:5173
 
 # ── Every day ──────────────────────────────────────────

@@ -12,7 +12,6 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { SubtitleEngine } from "../utils/subtitleEngine";
 import { logDebug, logWarn } from "../utils/debugLogger";
-import { streamUrl, STREAM_BASE } from "../api/env";
 import { usePreferences } from "../context/preferences";
 import { resolveUILayout, PLAYER_CONTROL_ORDER, PLAYER_SPEEDS } from "./playerUIDef";
 
@@ -20,78 +19,6 @@ const getNumericId = (s) => {
   if (!s) return null;
   const m = s.toString().match(/\d+/);
   return m ? m[0] : null;
-};
-
-/* Parse a WebVTT thumbnail sprite file into tile descriptors.
-   Format:
-     WEBVTT
-     00:00:00.000 --> 00:00:10.000
-     https://host/sprite.jpg#xywh=0,0,320,180     */
-const parseThumbnailVTT = (vttText) => {
-  const tiles = [];
-  const lines = vttText.split(/\r?\n/);
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i].trim();
-    const m = line.match(/^(?:(\d{1,2}):)?(\d{2}):(\d{2})[.,](\d{1,3})\s*-->\s*(?:(\d{1,2}):)?(\d{2}):(\d{2})[.,](\d{1,3})/);
-    if (m) {
-      const toNum = (h, min, s, ms) => (h || 0) * 3600 + +min * 60 + +s + +ms / 1000;
-      const start = toNum(m[1], m[2], m[3], m[4]);
-      const end = toNum(m[5], m[6], m[7], m[8]);
-      const imgLine = (lines[i + 1] || "").trim();
-      if (imgLine) {
-        const hashIdx = imgLine.lastIndexOf("#");
-        const url = hashIdx > 0 ? imgLine.slice(0, hashIdx) : imgLine;
-        const params = hashIdx > 0 ? imgLine.slice(hashIdx + 1) : "";
-        const xywh = params.match(/xywh=(\d+),(\d+),(\d+),(\d+)/);
-        const tile = { start, end, url };
-        if (xywh) {
-          tile.x = +xywh[1]; tile.y = +xywh[2]; tile.w = +xywh[3]; tile.h = +xywh[4];
-        } else {
-          tile.x = 0; tile.y = 0; tile.w = 320; tile.h = 180;
-        }
-        tiles.push(tile);
-      }
-      i += 2;
-    } else {
-      i++;
-    }
-  }
-  return tiles;
-};
-
-/* Route cross-origin CDN URLs through the merged backend's CORS proxy. Only
-   used as a FALLBACK now — most fetches go browser-direct so CDN bytes
-   (thumbnail sprites, subtitle files) never ride the backend bandwidth. */
-const proxyUrl = (u) => {
-  if (!u) return u;
-  if (STREAM_BASE && String(u).startsWith(STREAM_BASE)) return u;
-  return streamUrl(`/api/proxy?url=${encodeURIComponent(u)}`);
-};
-
-/* Fetch a CDN resource directly from the browser first; relay through the
-   stream-service proxy only when the CDN blocks cross-origin access. Keeps
-   repeat subtitle/VTT downloads off the Render egress, with zero behavior
-   change for CORS-locked CDNs. */
-const fetchDirect = async (u, opts) => {
-  if (!u) throw new Error("no url");
-  try {
-    const res = await fetch(u, opts);
-    if (res.ok) return res;
-    return fetch(proxyUrl(u), opts);
-  } catch {
-    return fetch(proxyUrl(u), opts);
-  }
-};
-
-/* <img> tags can display cross-origin images without CORS — load sprite tiles
-   straight from the CDN and only re-point to the proxy if the host actually
-   rejects the direct load. */
-const onTileImgError = (e, u) => {
-  const el = e.currentTarget;
-  if (el.dataset.proxied) return;
-  el.dataset.proxied = "1";
-  el.src = proxyUrl(u);
 };
 
 const ASPECT_RATIOS = [
@@ -300,18 +227,6 @@ const LoadingArc = ({ size = 56, strokeWidth = 2.5, progress = 0 }) => {
   );
 };
 
-/* hls.js is ~150 KB minified — never import it statically. It is fetched
-   lazily the first time a Direct HLS stream actually starts, so iframe-server
-   titles, native-HLS (Safari/iOS) playback, and every other page never pay
-   for it. Subsequent plays reuse the cached module. */
-let hlsModulePromise = null;
-const loadHls = () => {
-  if (!hlsModulePromise) {
-    hlsModulePromise = import("hls.js").then((m) => m.default);
-  }
-  return hlsModulePromise;
-};
-
 /* ═══ Main Player ═══════════════════════════════════════════════ */
 /* Detect touch device: has touch screen + no hover = mobile/tablet */
 const useIsTouch = () => {
@@ -339,12 +254,6 @@ const useContainerSize = (ref) => {
   }, [ref]);
   return size;
 };
-
-/* Upper bound for the in-memory thumbnail frame cache. Buckets are 5s of
-   playback, so 600 buckets ≈ 50 minutes — plenty for scrubbing back through
-   everything already watched, without letting dataURLs accumulate forever
-   during long binges. */
-const MAX_THUMBNAIL_BUCKETS = 600;
 
 const CustomVideoPlayer = ({
   movie, season, episode, preferredServerIndex = 0, onServerChange,
@@ -427,7 +336,6 @@ const CustomVideoPlayer = ({
   }, [onServerChange, serverCount]);
 
   const [iframeUrl, setIframeUrl] = useState("");
-  const [directStreamUrl, setDirectStreamUrl] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
   const [loadProgress, setLoadProgress] = useState(0);
@@ -475,7 +383,6 @@ const CustomVideoPlayer = ({
      stop auto-switching it on device rotation. */
   const aspectManuallySetRef = useRef(false);
   const [toastMessage, setToastMessage] = useState("");
-  const [useNativeControls, setUseNativeControls] = useState(false);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [isScreenLocked, setIsScreenLocked] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -497,9 +404,6 @@ const CustomVideoPlayer = ({
   const [currentQuality, setCurrentQuality] = useState(null);
   const [audioTracks, setAudioTracks] = useState([]);
   const [currentAudioTrack, setCurrentAudioTrack] = useState(null);
-  const [directStreamProvider, setDirectStreamProvider] = useState(null);
-  // Languages advertised by the NetMirror master (shown even before hls.js loads its audio tracks)
-  const [streamAudioLanguages, setStreamAudioLanguages] = useState([]);
   const [showPausedInfo, setShowPausedInfo] = useState(false);
   const pausedInfoTimerRef = useRef(null);
 
@@ -552,7 +456,6 @@ const CustomVideoPlayer = ({
 
   /* Refs */
   const iframeRef = useRef(null);
-  const videoRef = useRef(null);
   const containerRef = useRef(null);
   const controlsTimeoutRef = useRef(null);
   const clickTimeoutRef = useRef(null);
@@ -585,33 +488,18 @@ const CustomVideoPlayer = ({
     try { localStorage.setItem("streamly_aspectRatio", String(aspectRatioIndex)); } catch {}
   }, [aspectRatioIndex]);
 
-  /* HLS.js instance ref (for Direct server audio/quality switching) */
-  const hlsRef = useRef(null);
-  const qualitiesMapRef = useRef([]);
-  /* Thumbnail preview cache (time -> dataURL) */
-  const thumbnailCacheRef = useRef(new Map());
-  /* 5s thumbnail capture interval handle (held on a ref so a bundler's
-     minifier can't drop the binding while the effect cleanup needs it) */
-  const thumbnailIntervalRef = useRef(null);
-  /* Netflix-style sprite previews from the CDN's thumbnail VTT */
-  const vttTileRef = useRef([]);
-  const vttSpriteMetaRef = useRef(new Map());
   const previewThumbTimerRef = useRef(null);
   const seekLongPressRef = useRef(null);
-  /* Scrape-free NetMirror preview lookups already attempted (per title) */
-  const previewLookupAttemptedRef = useRef(new Set());
 
   const isTouch = useIsTouch();
   const isCineSrc = iframeUrl.includes("cinesrc.st");
   const isVidCore = iframeUrl.includes("vidcore.io");
   const isPeachify = iframeUrl.includes("peachify.top");
   const isVidUp = iframeUrl.includes("vidup.to");
-  const isDirectStream = Boolean(directStreamUrl);
-  // Quality / audio / playback-rate menus are only wired to servers we can
-  // command (CineSrc command API, direct HLS). VidCore/Peachify/VidUp use
-  // their own native controls UI.
-  const hasManagedSettings = isCineSrc || isDirectStream;
-  const showCustomUI = (isCineSrc || isDirectStream) && !useNativeControls;
+  // Quality / audio / playback-rate menus are only wired to CineSrc's command
+  // API. VidCore/Peachify/VidUp use their own native controls UI.
+  const hasManagedSettings = isCineSrc;
+  const showCustomUI = isCineSrc && !useNativeControls;
 
   /* Auto-hide paused info */
   useEffect(() => {
@@ -769,11 +657,9 @@ const CustomVideoPlayer = ({
   /* URL Generation */
   useEffect(() => {
     let watchdogTimer;
-    let cancelled = false;
     const gen = async () => {
       setIsLoading(true);
       setHasInitiallyLoaded(false);
-      setDirectStreamUrl("");
       let imdbId = movie.imdbId || movie.imdb_id || movie.external_ids?.imdb_id;
       const tid = getNumericId(movie.id);
       if (!tid) { setIsLoading(false); setErrorMessage("No valid content ID."); return; }
@@ -801,136 +687,6 @@ const CustomVideoPlayer = ({
       const isNew = contentSignatureRef.current !== sig;
       contentSignatureRef.current = sig;
       if (isNew) { setCurrentTime(0); setDuration(0); setBuffered(0); targetSeekTimeRef.current = null; }
-      if (isNew) thumbnailCacheRef.current.clear(); // Drop frames captured for the previous title
-      previewLookupAttemptedRef.current = new Set(); // allow a fresh preview lookup per title
-      vttTileRef.current = [];
-      vttSpriteMetaRef.current = new Map();
-
-      /* NetMirror server — CORS-open multi-audio HLS. Resolved by title via the
-         stream service (its JSON lookups carry no CORS headers), then the master
-         plays directly — no proxy needed for the m3u8 or its segments. */
-      if (VideoSourceAdapter.isNetMirrorEntry(SERVERS[activeServerIndex])) {
-        setIframeUrl("");
-        try {
-          const streamData = await VideoSourceAdapter.fetchNetMirrorStream(
-            movie?.title || movie?.name,
-            String(movie?.id || "").startsWith("tmdb-tv-") ? "tv" : "movie"
-          );
-          if (!cancelled) {
-            setDirectStreamUrl(streamData.streamUrl);
-            setDirectStreamProvider("netmirror");
-            setStreamAudioLanguages(streamData.audioLanguages || []);
-            // Pre-load the English (or first available) SRT caption track
-            const subs = streamData.subtitles || [];
-            if (subs.length > 0) {
-              const en = subs.find(s => /^(en|eng|en-US|en-GB)$/i.test(s.label) || /english/i.test(s.label)) || subs[0];
-              try {
-                const subUrl = en.url || en;
-                const subRes = await fetchDirect(subUrl);
-                if (subRes.ok) {
-                  const subText = await subRes.text();
-                  const parsed = (String(subUrl).includes(".vtt") || subText.trim().startsWith("WEBVTT"))
-                    ? SubtitleEngine.parseVTT(subText)
-                    : SubtitleEngine.parseSRT(subText);
-                  if (parsed.length > 0) {
-                    subtitleEngineRef.current.setCues(parsed);
-                    setHasSubtitles(true);
-                    setSubtitleEnabled(true);
-                    setSubtitleFileName(`Auto (${en.label || "English"})`);
-                  }
-                }
-              } catch {}
-            }
-            // Load the thumbnail sprite sheet (VTT) for Netflix-style previews
-            if (streamData.thumbnails?.length > 0) {
-              setupThumbnailVTT(streamData.thumbnails[0]);
-            } else {
-              requestPreviews(`${tid}-nm`, movie?.title || movie?.name, String(movie?.id || "").startsWith("tmdb-tv-") ? "tv" : "movie");
-            }
-            setIsLoading(false);
-          }
-        } catch (extractErr) {
-          if (!cancelled) {
-            setStreamAudioLanguages([]);
-            failoverToNextServer(
-              extractErr?.streamUnavailable
-                ? "NetMirror is temporarily down, switching server..."
-                : "NetMirror unavailable, switching server..."
-            );
-          }
-        }
-        return;
-      }
-
-      /* Direct streaming server — fetch m3u8 via stream service */
-      if (VideoSourceAdapter.isDirectEntry(SERVERS[activeServerIndex])) {
-        setIframeUrl("");
-        try {
-          const streamData = await VideoSourceAdapter.fetchDirectStreamUrl(
-            tid, isTv ? "tv" : "movie", isTv ? season : null, isTv ? episode : null
-          );
-          if (!cancelled) {
-            setDirectStreamUrl(streamData.streamUrl);
-            setDirectStreamProvider(streamData.provider || 'direct');
-            // Auto-load subtitles from Direct server if available
-            if (streamData.subtitles?.length > 0) {
-              try {
-                let subUrl = streamData.subtitles[0];
-                // If it's a search URL, fetch the subtitle list first
-                if (subUrl.includes('search?id=')) {
-                  const subRes = await fetchDirect(subUrl);
-                  if (subRes.ok) {
-                    const subs = await subRes.json();
-                    if (subs?.length > 0) subUrl = subs[0].url;
-                  }
-                }
-                const subRes = await fetchDirect(subUrl);
-                if (subRes.ok) {
-                  const subText = await subRes.text();
-                  const parsed = subUrl.includes('.vtt') || subText.trim().startsWith("WEBVTT")
-                    ? SubtitleEngine.parseVTT(subText)
-                    : SubtitleEngine.parseSRT(subText);
-                  if (parsed.length > 0) {
-                    subtitleEngineRef.current.setCues(parsed);
-                    setHasSubtitles(true);
-                    setSubtitleEnabled(true);
-                    setSubtitleFileName("Auto (English)");
-                  }
-                }
-              } catch {}
-            }
-            // Load thumbnail sprite sheet (VTT) for Netflix-style previews
-            if (streamData.thumbnails?.length > 0) {
-              setupThumbnailVTT(streamData.thumbnails[0]);
-            } else {
-              requestPreviews(`${tid}-dir`, movie?.title || movie?.name, isTv ? "tv" : "movie");
-            }
-            setIsLoading(false);
-          }
-        } catch (extractErr) {
-          if (!cancelled) {
-            // Session-key-protected streams (CineSrc "thunder") can't be played as
-            // a direct m3u8 — jump straight to CineSrc's native iframe (Server 1),
-            // which plays them, instead of showing an error then failing over.
-            if (extractErr?.requiresIframe) {
-              setErrorMessage("This title streams through CineSrc's player");
-              setTimeout(() => {
-                if (cancelled) return;
-                setErrorMessage("");
-                const cinesrcIndex = SERVERS.findIndex((e) => !VideoSourceAdapter.isDirectEntry(e));
-                const ni = cinesrcIndex >= 0 ? cinesrcIndex : 1;
-                setActiveServerIndex(ni);
-                onServerChange?.(ni);
-              }, 1200);
-            } else {
-              // Fail over to the next server on extraction failure
-              failoverToNextServer("Direct stream unavailable, switching server...");
-            }
-          }
-        }
-        return;
-      }
-
       /* Iframe-based servers — resolved from the user's ordered list so the
          Settings → Server Order rotation is what actually plays. */
       let url = VideoSourceAdapter.resolveStreamUrl(SERVERS, activeServerIndex, tid, isTv ? season : null, isTv ? episode : null, imdbId, movie.title);
@@ -942,9 +698,6 @@ const CustomVideoPlayer = ({
       if (isNew && startTimeRef.current > 0 && (url.includes("peachify.top") || url.includes("vidup.to")))
         url += `&startAt=${Math.floor(startTimeRef.current)}`;
       setIframeUrl(url);
-      /* Iframe servers hand us no thumbnail sprite — supply one scrape-free from
-         NetMirror's HTTP preview track so hover shows frames across the timeline */
-      requestPreviews(`${tid}-frame-${activeServerIndex}`, movie?.title || movie?.name, isTv ? "tv" : "movie");
       const watchdogDelay = (isCineServer || url.includes("vidcore.io")) ? 20000 : 12000;
       watchdogTimer = setTimeout(() => {
         setIsLoading((prev) => {
@@ -973,7 +726,7 @@ const CustomVideoPlayer = ({
       }, watchdogDelay);
     };
     gen();
-    return () => { cancelled = true; if (watchdogTimer) clearTimeout(watchdogTimer); };
+    return () => { if (watchdogTimer) clearTimeout(watchdogTimer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- currentTime/onServerChange/setupThumbnailVTT are read but must NOT drive reloads: currentTime changes every timeupdate and would re-init the whole stream, and adding the others would churn the session on every parent render.
   }, [activeServerIndex, movie, season, episode, useNativeControls, failoverToNextServer]);
 
@@ -1002,333 +755,8 @@ const CustomVideoPlayer = ({
     } catch { /* iframe cross-origin */ }
   }, [isCineSrc, isVidCore]);
 
-  /* Load the CDN's thumbnail sprite VTT and pre-warm sprite sheet metadata.
-     Gives Netflix-style previews across the ENTIRE timeline, not just the
-     parts already played (the on-the-fly frame captures can't reach ahead).
-     Also handles a plain-image storyboard track (no sprite VTT) as one
-     full-range tile so at least a still shows on hover. */
-  const setupThumbnailVTT = useCallback(async (vttUrl) => {
-    try {
-      const fullUrl = /^https?:/.test(vttUrl) ? vttUrl : `https:${vttUrl}`;
-      // A bare image URL (no VTT) → single tile spanning the whole timeline
-      if (/\.(jpe?g|png|webp|avif|gif)(\?|#|$)/i.test(fullUrl)) {
-        vttTileRef.current = [{ start: 0, end: Infinity, url: fullUrl, x: 0, y: 0, w: 0, h: 0, full: true }];
-        return;
-      }
-      const res = await fetchDirect(fullUrl, { priority: 'low' });
-      if (!res.ok) {
-        logWarn("player", `Thumbnail VTT unavailable (HTTP ${res.status}) — scrub previews fall back to timer pill.`, { vttUrl: fullUrl });
-        return;
-      }
-      const text = await res.text();
-      const tiles = parseThumbnailVTT(text);
-      if (tiles.length === 0) {
-        logWarn("player", "Thumbnail VTT parsed to 0 tiles — scrub previews disabled for this title.", { vttUrl: fullUrl });
-        return;
-      }
-      vttTileRef.current = tiles;
-      // Proactively cache sprite sheet dimensions so hover tiles render instantly
-      const spriteURLs = [...new Set(tiles.map(t => t.url))];
-      spriteURLs.forEach((rawUrl) => {
-        const img = new Image();
-        img.onload = () => vttSpriteMetaRef.current.set(rawUrl, { w: img.naturalWidth, h: img.naturalHeight });
-        img.onerror = () => {
-          const fallback = new Image();
-          fallback.onload = () => vttSpriteMetaRef.current.set(rawUrl, { w: fallback.naturalWidth, h: fallback.naturalHeight });
-          fallback.onerror = () => {};
-          fallback.src = proxyUrl(rawUrl);
-        };
-        img.src = rawUrl;
-      });
-    } catch (vttError) {
-      logWarn("player", "Thumbnail VTT load failed — scrub previews disabled for this title.", { vttUrl, message: vttError?.message });
-    }
-  }, []);
-
-  /* Scrape-free hover preview supply: when the active source didn't provide a
-     thumbnail sprite (iframe servers never do), fetch NetMirror's preview track
-     over plain HTTP — no Playwright, no scraping. Runs once per title, in the
-     background, and fails silently if NetMirror has no entry or is unreachable. */
-  const ensureNetmirrorPreview = useCallback(async (title, type) => {
-    try {
-      const { thumbnails } = await VideoSourceAdapter.fetchNetMirrorThumbnails(title, type);
-      if (thumbnails.length > 0 && vttTileRef.current.length === 0) {
-        setupThumbnailVTT(thumbnails[0]);
-      }
-    } catch (previewError) {
-      logWarn("player", "NetMirror preview lookup failed — hover shows stills instead of frames.", { title, type, message: previewError?.message });
-    }
-  }, [setupThumbnailVTT]);
-
-  /* Background preview lookup for a title key — fires once, never blocks init */
-  const requestPreviews = useCallback((titleKey, title, type) => {
-    if (previewLookupAttemptedRef.current.has(titleKey)) return;
-    previewLookupAttemptedRef.current.add(titleKey);
-    ensureNetmirrorPreview(title, type);
-  }, [ensureNetmirrorPreview]);
-
-  /* HLS.js — direct stream playback. hls.js itself is lazy-loaded above;
-     Safari/iOS (native HLS) and unmounts during the load are handled so we
-     never fetch the module unless a desktop Direct stream is really playing. */
-  useEffect(() => {
-    if (!directStreamUrl || !videoRef.current) return;
-
-    const video = videoRef.current;
-    let hls = null;
-    let cancelled = false;
-    let cleanup = null;
-
-    const attachPlayer = (Hls) => {
-      setDuration(0);
-      setCurrentTime(0);
-      setBuffered(0);
-
-      const handleLoadedMetadata = () => {
-        setHasInitiallyLoaded(true);
-        setDuration(video.duration || 0);
-        if (startTimeRef.current > 0 && !targetSeekTimeRef.current) {
-          video.currentTime = Math.min(startTimeRef.current, video.duration - 1);
-        }
-      };
-      video.addEventListener('loadedmetadata', handleLoadedMetadata);
-
-      const handleTimeUpdate = () => {
-        const t = video.currentTime;
-        const target = targetSeekTimeRef.current;
-        if (target != null) {
-          // A programmatic seek is pending (bar click / keyboard / buttons).
-          // While the stream buffers toward the target the element can still
-          // report stale pre-seek positions — ignore frames far from the
-          // requested spot so the bar/loader never jump past where the user
-          // clicked. Accept + clear the marker once playback reaches it.
-          if (Math.abs(t - target) > 1.2) {
-            setDuration(video.duration || 0);
-            return;
-          }
-          targetSeekTimeRef.current = null; // reached the target
-        }
-        setCurrentTime(t);
-        setDuration(video.duration || 0);
-        if (hasSubtitlesRef.current) {
-          const cue = subtitleEngineRef.current.getActiveCue(t);
-          setActiveSubtitleCue((p) => p?.start === cue?.start && p?.end === cue?.end ? p : cue);
-        }
-        // Debounce progress writes to Firestore — max once per 10 seconds
-        const now = Date.now();
-        if (now - lastProgressWriteRef.current > 10000) {
-          lastProgressWriteRef.current = now;
-          onProgressUpdate?.(t, video.duration);
-        }
-      };
-      video.addEventListener('timeupdate', handleTimeUpdate);
-
-      const handleProgress = () => {
-        if (video.buffered.length > 0) {
-          setBuffered(video.buffered.end(video.buffered.length - 1));
-        }
-      };
-      video.addEventListener('progress', handleProgress);
-
-      const handlePlay = () => setIsPlaying(true);
-      const handlePause = () => setIsPlaying(false);
-      const handleWaiting = () => setIsLoading(true);
-      const handlePlaying = () => {
-        setIsLoading(false);
-        // Playback really resumed — drop any leftover seek marker and realign
-        // the UI to the element's actual position so it can't lag the stream.
-        if (targetSeekTimeRef.current != null) {
-          targetSeekTimeRef.current = null;
-          setCurrentTime(video.currentTime);
-        }
-      };
-      const handleCanPlay = () => setIsLoading(false);
-      const handleSeeking = () => { /* loading is surfaced via 'waiting' */ };
-      const handleSeeked = () => {
-        targetSeekTimeRef.current = null;
-        setIsLoading(false);
-      };
-      const handleEnded = () => {
-        setIsPlaying(false);
-        startUpNextCountdown();
-      };
-      const handleError = () => setErrorMessage("Playback error");
-
-      video.addEventListener('play', handlePlay);
-      video.addEventListener('pause', handlePause);
-      video.addEventListener('waiting', handleWaiting);
-      video.addEventListener('playing', handlePlaying);
-      video.addEventListener('canplay', handleCanPlay);
-      video.addEventListener('seeking', handleSeeking);
-      video.addEventListener('seeked', handleSeeked);
-      video.addEventListener('ended', handleEnded);
-      video.addEventListener('error', handleError);
-
-      if (Hls && Hls.isSupported()) {
-        hls = new Hls({ enableWorker: true, startPosition: startTimeRef.current || -1 });
-        hlsRef.current = hls;
-        hls.loadSource(directStreamUrl);
-        hls.attachMedia(video);
-
-        /* Audio tracks */
-        hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, (_, { audioTracks: tracks }) => {
-          const mapped = tracks.map((t, i) => ({ id: t.id ?? i, name: t.name || t.lang || `Track ${i + 1}`, language: t.lang || '' }));
-          setAudioTracks(mapped);
-        });
-        hls.on(Hls.Events.AUDIO_TRACK_SWITCHED, (_, { id }) => {
-          setCurrentAudioTrack({ id, name: `Track ${id + 1}` });
-        });
-
-        /* Quality levels */
-        hls.on(Hls.Events.LEVELS_UPDATED, (_, { levels }) => {
-          const mapped = levels.map((l, i) => ({ id: i, name: l.height ? `${l.height}p` : `Level ${i}`, height: l.height || 0, bitrate: l.bitrate || 0 }));
-          setQualities(mapped);
-          qualitiesMapRef.current = mapped;
-        });
-        hls.on(Hls.Events.LEVEL_SWITCHED, (_, { level }) => {
-          const q = level === -1
-            ? { id: -1, name: 'Auto' }
-            : (qualitiesMapRef.current[level] || { id: level, name: undefined });
-          setCurrentQuality(q);
-          // Watchdog: after a level switch, ensure video buffers actually advance.
-          // On slow fMP4 CDNs a forced switch can leave video frozen while audio
-          // keeps playing — recover by nudging the fragment loader.
-          if (level !== -1) {
-            const h = hlsRef.current;
-            const start = Date.now();
-            const lastPos = video.currentTime || 0;
-            const stallTimer = setInterval(() => {
-              if (!h) { clearInterval(stallTimer); return; }
-              const advanced = (video.currentTime || 0) - lastPos;
-              const bufferedOk = video.buffered.length > 0 && video.buffered.end(video.buffered.length - 1) > lastPos;
-              if (advanced > 1.5 || bufferedOk) {
-                clearInterval(stallTimer);
-                return;
-              }
-              if (Date.now() - start > 5000) {
-                clearInterval(stallTimer);
-                if (!video.paused && video.readyState < 3) {
-                  h.startLoad(video.currentTime || 0);
-                }
-              }
-            }, 1200);
-          }
-        });
-
-        /* Thumbnail capture — draw video frame every 5s for preview.
-           These only cover the already-watched timeline; the CDN thumbnail
-           VTT (when present) provides full Netflix-style coverage. */
-        const thumbCanvas = document.createElement('canvas');
-        thumbCanvas.width = 160; thumbCanvas.height = 90;
-        const thumbCtx = thumbCanvas.getContext('2d');
-        thumbnailIntervalRef.current = setInterval(() => {
-          if (video.paused || video.ended || !video.videoWidth) return;
-          try {
-            thumbCtx.drawImage(video, 0, 0, 160, 90);
-            const bucket = Math.floor(video.currentTime / 5) * 5;
-            // Cap the in-memory frame cache (dataURLs). Once past the limit,
-            // drop the OLDEST bucket (Map preserves insertion order, and buckets
-            // are inserted chronologically while playing forward).
-            if (thumbnailCacheRef.current.size >= MAX_THUMBNAIL_BUCKETS) {
-              const oldest = thumbnailCacheRef.current.keys().next().value;
-              if (oldest !== undefined) thumbnailCacheRef.current.delete(oldest);
-            }
-            thumbnailCacheRef.current.set(bucket, thumbCanvas.toDataURL('image/jpeg', 0.5));
-          } catch {}
-        }, 5000);
-
-        hls.on(Hls.Events.MANIFEST_PARSED, (_, { levels: lvls }) => {
-          setHasInitiallyLoaded(true);
-          setIsLoading(false);
-          video.play().catch(() => {});
-          /* Set auto-quality as default */
-          if (lvls?.length > 1) {
-            const mapped = lvls.map((l, i) => ({ id: i, name: l.height ? `${l.height}p` : `Level ${i}`, height: l.height || 0, bitrate: l.bitrate || 0 }));
-            setQualities(mapped);
-            qualitiesMapRef.current = mapped;
-          }
-        });
-        hls.on(Hls.Events.ERROR, (_, data) => {
-          if (data.fatal) {
-            switch (data.type) {
-              case Hls.ErrorTypes.NETWORK_ERROR:
-                // Lisbon provider streams need a CineSrc session + lack CORS,
-                // so they can't play directly — fail over to an iframe server.
-                if (data.response?.code === 404) {
-                  setIsLoading(false);
-                  failoverToNextServer("Direct stream unavailable, switching server...");
-                } else {
-                  // Preserve playback position so a transient hiccup doesn't reset to 0
-                  const pos = video.currentTime || 0;
-                  setTimeout(() => hls?.startLoad(pos), 3000);
-                }
-                break;
-              case Hls.ErrorTypes.MEDIA_ERROR:
-                hls?.recoverMediaError();
-                // Re-arm any lost buffer position after recovery so the
-                // "video stuck, audio playing" state doesn't persist
-                setTimeout(() => {
-                  if (video.currentTime > 0 && video.readyState < 3) {
-                    hls?.startLoad(video.currentTime);
-                  }
-                }, 800);
-                break;
-              default:
-                setIsLoading(false);
-                failoverToNextServer("Direct stream unavailable, switching server...");
-                break;
-            }
-          }
-        });
-      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = directStreamUrl;
-        setHasInitiallyLoaded(true);
-      }
-
-      return () => {
-        video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-        video.removeEventListener('timeupdate', handleTimeUpdate);
-        video.removeEventListener('progress', handleProgress);
-        video.removeEventListener('play', handlePlay);
-        video.removeEventListener('pause', handlePause);
-        video.removeEventListener('waiting', handleWaiting);
-        video.removeEventListener('playing', handlePlaying);
-        video.removeEventListener('canplay', handleCanPlay);
-        video.removeEventListener('seeking', handleSeeking);
-        video.removeEventListener('seeked', handleSeeked);
-        video.removeEventListener('ended', handleEnded);
-        video.removeEventListener('error', handleError);
-        if (thumbnailIntervalRef.current) clearInterval(thumbnailIntervalRef.current);
-        thumbnailIntervalRef.current = null;
-        hlsRef.current = null;
-        if (hls) { hls.destroy(); hls = null; }
-      };
-    };
-
-    const supportsNativeHls =
-      typeof video.canPlayType === "function" &&
-      video.canPlayType("application/vnd.apple.mpegurl");
-
-    (async () => {
-      try {
-        // Native HLS (Safari/iOS): no hls.js module needed at all.
-        if (supportsNativeHls) {
-          if (!cancelled && videoRef.current) cleanup = attachPlayer(null);
-          return;
-        }
-        const Hls = await loadHls();
-        if (cancelled || !videoRef.current || !directStreamUrl) return; // changed while loading
-        cleanup = attachPlayer(Hls);
-      } catch {
-        if (!cancelled) setErrorMessage("Failed to load the player engine.");
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      if (cleanup) { cleanup(); cleanup = null; }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- onProgressUpdate (inline parent prop) and startUpNextCountdown must not re-attach the HLS/video session on every parent render; the attach is intentionally keyed to stream + server only.
-  }, [directStreamUrl, failoverToNextServer]);
+  /* Background preview lookup for a title key — fires once, never blocks init.
+     Preview thumbnails now come only from CineSrc's own player chrome. */
 
   /* Up Next */
   const startUpNextCountdown = useCallback(() => {
@@ -1601,24 +1029,6 @@ const CustomVideoPlayer = ({
 
   const togglePlay = useCallback((e) => {
     if (e) e.stopPropagation();
-    if (isDirectStream) {
-      const v = videoRef.current;
-      if (!v) return;
-      if (v.paused) {
-        v.play().catch(() => {});
-        setIsPlaying(true);
-        if (showCustomUI) triggerCenterIcon("play");
-        setShowPausedInfo(false);
-        if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-        controlsTimeoutRef.current = setTimeout(() => setShowControls(false), 3500);
-      } else {
-        v.pause();
-        setIsPlaying(false);
-        setShowControls(true);
-        if (showCustomUI) triggerCenterIcon("pause");
-      }
-      return;
-    }
     if (isPlaying) {
       sendCommand("pause");
       setIsPlaying(false);
@@ -1632,19 +1042,14 @@ const CustomVideoPlayer = ({
       if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
       controlsTimeoutRef.current = setTimeout(() => setShowControls(false), 3500);
     }
-  }, [isPlaying, isDirectStream, sendCommand, triggerCenterIcon, showCustomUI]);
+  }, [isPlaying, sendCommand, triggerCenterIcon, showCustomUI]);
 
   const changeVolume = useCallback((nv) => {
     const v = Math.max(0, Math.min(nv, 1));
     setVolume(v);
     volumeRef.current = v;
     localStorage.setItem("streamly_volume", v.toString());
-    if (isDirectStream && videoRef.current) {
-      videoRef.current.volume = v;
-      if (v > 0) videoRef.current.muted = false;
-    } else {
-      sendCommand("setVolume", [v]);
-    }
+    sendCommand("setVolume", [v]);
     if (v > 0 && isMuted) {
       setIsMuted(false);
       isMutedRef.current = false;
@@ -1661,7 +1066,7 @@ const CustomVideoPlayer = ({
       if (volumeArcTimerRef.current) clearTimeout(volumeArcTimerRef.current);
       volumeArcTimerRef.current = setTimeout(() => setShowVolumeArc(false), 1200);
     }
-  }, [isMuted, isDirectStream, sendCommand, isTouch]);
+  }, [isMuted, sendCommand, isTouch]);
 
   const toggleMute = useCallback((e) => {
     if (e) e.stopPropagation();
@@ -1669,20 +1074,16 @@ const CustomVideoPlayer = ({
     setIsMuted(n);
     isMutedRef.current = n;
     localStorage.setItem("streamly_muted", n.toString());
-    if (isDirectStream && videoRef.current) {
-      videoRef.current.muted = n;
+    if (n) {
+      sendCommand("setVolume", [0]);
     } else {
-      if (n) {
-        sendCommand("setVolume", [0]);
-      } else {
-        const restoreVol = volume <= 0 ? 0.7 : volume;
-        if (volume <= 0) {
-          setVolume(restoreVol);
-          volumeRef.current = restoreVol;
-          localStorage.setItem("streamly_volume", restoreVol.toString());
-        }
-        sendCommand("setVolume", [restoreVol]);
+      const restoreVol = volume <= 0 ? 0.7 : volume;
+      if (volume <= 0) {
+        setVolume(restoreVol);
+        volumeRef.current = restoreVol;
+        localStorage.setItem("streamly_volume", restoreVol.toString());
       }
+      sendCommand("setVolume", [restoreVol]);
     }
     if (isTouch) {
       setGestureType("volume");
@@ -1694,18 +1095,14 @@ const CustomVideoPlayer = ({
       if (volumeArcTimerRef.current) clearTimeout(volumeArcTimerRef.current);
       volumeArcTimerRef.current = setTimeout(() => setShowVolumeArc(false), 1200);
     }
-  }, [isMuted, volume, isDirectStream, sendCommand, isTouch]);
+  }, [isMuted, volume, sendCommand, isTouch]);
 
   const seekRelative = useCallback((s, showSideFeedback = true) => {
     const base = targetSeekTimeRef.current ?? currentTime;
     const nt = Math.max(0, Math.min(base + s, duration || Infinity));
     targetSeekTimeRef.current = nt;
     setCurrentTime(nt);
-    if (isDirectStream && videoRef.current) {
-      videoRef.current.currentTime = nt;
-    } else {
-      sendCommand("seek", [nt]);
-    }
+    sendCommand("seek", [nt]);
     seekAccumulatorRef.current += s;
     const a = seekAccumulatorRef.current;
     if (showSideFeedback) {
@@ -1714,7 +1111,7 @@ const CustomVideoPlayer = ({
     }
     if (seekTimeoutRef.current) clearTimeout(seekTimeoutRef.current);
     seekTimeoutRef.current = setTimeout(() => { seekAccumulatorRef.current = 0; }, 1000);
-  }, [currentTime, duration, isDirectStream, sendCommand, triggerSideIcon]);
+  }, [currentTime, duration, sendCommand, triggerSideIcon]);
 
   const showToast = useCallback((msg) => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
@@ -1852,12 +1249,8 @@ const CustomVideoPlayer = ({
     const nt = (x / r.width) * duration;
     setCurrentTime(nt);
     targetSeekTimeRef.current = nt;
-    if (isDirectStream && videoRef.current) {
-      videoRef.current.currentTime = nt;
-    } else {
-      sendCommand("seek", [nt]);
-    }
-  }, [duration, isDirectStream, sendCommand]);
+    sendCommand("seek", [nt]);
+  }, [duration, sendCommand]);
 
   const handleProgressHover = useCallback((e) => {
     const outer = progressBarRef.current;
@@ -1893,7 +1286,7 @@ const CustomVideoPlayer = ({
 
   /* Keyboard */
   useEffect(() => {
-    if (!isCineSrc && !isDirectStream) return;
+    if (!isCineSrc) return;
     const h = (e) => {
       if (document.activeElement?.tagName === "input" || e.ctrlKey || e.metaKey || e.altKey) return;
       switch (e.key.toLowerCase()) {
@@ -1912,7 +1305,7 @@ const CustomVideoPlayer = ({
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [isCineSrc, isDirectStream, togglePlay, toggleFullscreen, toggleMute, seekRelative, changeVolume]);
+  }, [isCineSrc, togglePlay, toggleFullscreen, toggleMute, seekRelative, changeVolume]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -2017,12 +1410,7 @@ const CustomVideoPlayer = ({
         setVolume(newVol);
         volumeRef.current = newVol;
         localStorage.setItem('streamly_volume', newVol.toString());
-        if (isDirectStream && videoRef.current) {
-          videoRef.current.volume = newVol;
-          if (newVol > 0) videoRef.current.muted = false;
-        } else {
-          sendCommand('setVolume', [newVol]);
-        }
+        sendCommand('setVolume', [newVol]);
         if (newVol > 0 && isMutedRef.current) {
           setIsMuted(false);
           isMutedRef.current = false;
@@ -2052,7 +1440,7 @@ const CustomVideoPlayer = ({
       setGestureType(null);
       setSeekDelta(0);
     }, 800);
-  }, [isTouch, showCustomUI, isDirectStream, sendCommand, toggleFullscreen, isScreenLocked]);
+  }, [isTouch, showCustomUI, sendCommand, toggleFullscreen, isScreenLocked]);
 
   const handleTouchEnd = useCallback((e) => {
     lastTouchEndRef.current = Date.now();
@@ -2167,31 +1555,17 @@ const CustomVideoPlayer = ({
   const selectedAspect = ASPECT_RATIOS[aspectRatioIndex] || ASPECT_RATIOS[0];
 
   /* Aspect ratio calculation — dynamic Edge-to-Edge punch-hole camera coverage.
-     Two different targets:
-       · native <video> (Direct/NetMirror) → driven by object-fit only. A scale
-         transform on top of `cover` would over-crop (double zoom), so edge-to-edge
-         modes use `object-fit: cover` with NO transform.
-       · iframe (CineSrc etc.) → object-fit cannot crop an iframe, so the whole
-         frame is scaled up until its edge-bleed reaches the screen border. */
+     ═══════════════════════════════════════════════════════════ */
   const isLandscape = playerW > playerH;
   const currentRatio = playerW && playerH ? playerW / playerH : 16 / 9;
   const targetVideoRatio = 16 / 9;
-  const isNativeVideo = isDirectStream; // object-fit applies to <video> only
-
   let mediaTransform = 'none';
-  let videoObjectFit = 'contain';
 
   if (selectedAspect.id === 'fit') {
     mediaTransform = 'none';
-    videoObjectFit = 'contain';
   } else if (selectedAspect.id === 'fill') {
     // Edge-to-Edge: every pixel of a punch-hole / notch phone gets picture.
-    if (isNativeVideo) {
-      // object-fit:cover already fills the whole box and clips the overflow —
-      // adding a scale transform would zoom in a second time.
-      mediaTransform = 'none';
-      videoObjectFit = 'cover';
-    } else if (isLandscape) {
+    if (isLandscape) {
       const scale = Math.max(1, currentRatio / targetVideoRatio);
       mediaTransform = `scale(${scale.toFixed(4)})`;
     } else {
@@ -2202,13 +1576,8 @@ const CustomVideoPlayer = ({
     const baseZoom = selectedAspect.scale || 1.25;
     const dynamicZoom = isLandscape ? Math.max(baseZoom, currentRatio / targetVideoRatio) : baseZoom;
     mediaTransform = `scale(${dynamicZoom.toFixed(4)})`;
-    videoObjectFit = 'cover';
   } else if (selectedAspect.id === 'stretch') {
-    if (isNativeVideo) {
-      // object-fit:fill already stretches the 16:9 frame across the whole box.
-      mediaTransform = 'none';
-      videoObjectFit = 'fill';
-    } else if (isLandscape && currentRatio > targetVideoRatio) {
+    if (isLandscape && currentRatio > targetVideoRatio) {
       const scaleX = currentRatio / targetVideoRatio;
       mediaTransform = `scaleX(${scaleX.toFixed(4)}) scaleY(1)`;
     } else if (!isLandscape && currentRatio < targetVideoRatio) {
@@ -2216,11 +1585,9 @@ const CustomVideoPlayer = ({
       mediaTransform = `scaleX(1) scaleY(${Math.min(scaleY, 2.5).toFixed(4)})`;
     } else {
       mediaTransform = 'none';
-      videoObjectFit = 'fill';
     }
   } else if (selectedAspect.scale) {
     mediaTransform = `scale(${selectedAspect.scale})`;
-    videoObjectFit = 'cover';
   }
 
   /* ── Zone-driven control renderer (Player UI Studio) ───────────────
@@ -2576,27 +1943,8 @@ const CustomVideoPlayer = ({
         });
       }}
     >
-      {/* DIRECT STREAM — native <video> with HLS.js */}
-      {isDirectStream && directStreamUrl && (
-        <video
-          ref={videoRef}
-          style={{
-            position: 'absolute', inset: 0, display: 'block', width: '100%', height: '100%', border: 'none', background: '#000',
-            objectFit: videoObjectFit,
-            pointerEvents: 'none',
-            opacity: hasInitiallyLoaded ? 1 : 0,
-            transition: 'opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
-            filter: brightness !== 1 ? `brightness(${brightness})` : undefined,
-            transform: mediaTransform,
-            transformOrigin: 'center center',
-          }}
-          crossOrigin="anonymous"
-          playsInline
-        />
-      )}
-
       {/* IFRAME */}
-      {!isDirectStream && iframeUrl && (
+      {iframeUrl && (
         <iframe
           ref={iframeRef}
           key={`iframe-${activeServerIndex}-${useNativeControls}`}
@@ -2634,8 +1982,8 @@ const CustomVideoPlayer = ({
         />
       )}
 
-      {/* CineSrc / DirectStream interaction overlay — handles mouse (desktop) and touch (mobile) */}
-      {showCustomUI && (isCineSrc || isDirectStream) && (
+      {/* CineSrc interaction overlay — handles mouse (desktop) and touch (mobile) */}
+      {showCustomUI && (
         <div
           onMouseMove={handleMouseMove}
           onClick={(e) => {
@@ -4048,74 +3396,8 @@ const CustomVideoPlayer = ({
                     }}
                   >
                     {(() => {
-                      /* Resolve a preview for hoverTime:
-                         1. CDN thumbnail sprite tile (full-timeline, Netflix-style)
-                         2. Live-captured frame (already-watched regions)
-                         3. No preview — just the time pill */
-                      const tile = vttTileRef.current.find((t) => hoverTime >= t.start && hoverTime <= t.end)
-                        || null;
-                      const bucket = Math.floor(hoverTime / 5) * 5;
-                      const thumbUrl = thumbnailCacheRef.current.get(bucket)
-                        || thumbnailCacheRef.current.get(bucket - 5)
-                        || thumbnailCacheRef.current.get(bucket + 5)
-                        || thumbnailCacheRef.current.get(bucket - 10)
-                        || thumbnailCacheRef.current.get(bucket + 10)
-                        || null;
-                      const TILE_W = 170;
-                      const TILE_H = 96;
                       return (
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                          {tile && (
-                            <div style={{
-                              width: TILE_W, height: TILE_H,
-                              borderRadius: R.radiusSmall, overflow: "hidden",
-                              border: "2px solid rgba(255,255,255,0.15)",
-                              boxShadow: "0 6px 24px rgba(0,0,0,0.6)",
-                              background: "rgba(0,0,0,0.4)", position: "relative",
-                            }}>
-                              {tile.full ? (
-                                <img
-                                  src={tile.url}
-                                  onError={(e) => onTileImgError(e, tile.url)}
-                                  alt=""
-                                  draggable={false}
-                                  style={{
-                                    width: "100%", height: "100%",
-                                    objectFit: "cover", display: "block",
-                                    pointerEvents: "none", userSelect: "none",
-                                  }}
-                                />
-                              ) : (
-                                <img
-                                  src={tile.url}
-                                  onError={(e) => onTileImgError(e, tile.url)}
-                                  alt=""
-                                  draggable={false}
-                                  style={{
-                                    position: "absolute", top: 0, left: 0,
-                                    display: "block",
-                                    maxWidth: "none",
-                                    width: "auto", height: "auto",
-                                    transform: `translate(${-tile.x}px, ${-tile.y}px) scale(${TILE_W / tile.w})`,
-                                    transformOrigin: "0 0",
-                                    pointerEvents: "none",
-                                    userSelect: "none",
-                                  }}
-                                />
-                              )}
-                            </div>
-                          )}
-                          {!tile && thumbUrl && (
-                            <div style={{
-                              width: TILE_W, height: TILE_H,
-                              borderRadius: R.radiusSmall, overflow: "hidden",
-                              border: "2px solid rgba(255,255,255,0.15)",
-                              boxShadow: "0 6px 24px rgba(0,0,0,0.6)",
-                              background: "rgba(0,0,0,0.4)",
-                            }}>
-                              <img src={thumbUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                            </div>
-                          )}
                           <div style={{
                             background: "rgba(28,28,30,0.92)",
                             backdropFilter: "blur(24px) saturate(160%)",
@@ -4233,36 +3515,6 @@ const CustomVideoPlayer = ({
                     fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
                   }}>{movie.releaseYear}</span>
                 )}
-                {/* Direct stream provider badge (branded for NetMirror multi-audio) */}
-                {isDirectStream && directStreamProvider === "netmirror" ? (
-                  <span className="streamly-player-provider" style={{
-                    display: "inline-flex", alignItems: "center", gap: 6,
-                    color: "#fff", fontSize: "10px", fontWeight: 700,
-                    background: "rgba(0,0,0,0.45)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
-                    padding: "3px 8px", borderRadius: 100, flexShrink: 0, letterSpacing: "0.5px",
-                    border: "1px solid rgba(255,255,255,0.14)",
-                    fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
-                    textTransform: "uppercase",
-                  }}>
-
-                    <span>{streamAudioLanguages.length > 0 ? `${streamAudioLanguages.length}-Audio` : "NetMirror"}</span>
-                    {streamAudioLanguages.length > 0 && (
-                      <span style={{ color: "rgba(255,255,255,0.55)", fontWeight: 500, textTransform: "none" }}>
-                        {streamAudioLanguages.slice(0, 4).map(l => l.language || l.name).filter(Boolean).join(" / ")}
-                        {streamAudioLanguages.length > 4 ? " +" : ""}
-                      </span>
-                    )}
-                  </span>
-                ) : isDirectStream && directStreamProvider ? (
-                  <span className="streamly-player-provider" style={{
-                    color: "rgba(0,200,120,0.7)", fontSize: "10px", fontWeight: 700,
-                    background: "rgba(0,200,120,0.08)", padding: "2px 7px",
-                    borderRadius: 100, flexShrink: 0, letterSpacing: "0.5px",
-                    border: "1px solid rgba(0,200,120,0.12)",
-                    fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
-                    textTransform: "uppercase",
-                  }}>{directStreamProvider}</span>
-                ) : null}
               </div>
               <div style={{ flexShrink: 0, minWidth: "clamp(50px, 10vw, 70px)" }} />
             </div>
@@ -4300,17 +3552,6 @@ const CustomVideoPlayer = ({
                 <motion.button onClick={(e) => {
                     e.stopPropagation();
                     setShowSettings(!showSettings); setShowSubtitlesMenu(false);
-                    // On-demand audio track sync (AUDIO_TRACKS_UPDATED may fire
-                    // before the settings panel ever opens)
-                    if (!showSettings && isDirectStream && hlsRef.current) {
-                      try {
-                        const h = hlsRef.current;
-                        if (h.audioTracks && h.audioTracks.length > 0 && audioTracks.length === 0) {
-                          const mapped = h.audioTracks.map((t, i) => ({ id: t.id ?? i, name: t.name || t.lang || `Track ${i + 1}`, language: t.lang || '' }));
-                          setAudioTracks(mapped);
-                        }
-                      } catch {}
-                    }
                   }}
                   whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
                   transition={SPRING}
@@ -4326,22 +3567,6 @@ const CustomVideoPlayer = ({
                     <Settings size={15} />
                   </motion.div>
                 </motion.button>
-                )}
-                {/* Picture-in-Picture */}
-                {isDirectStream && videoRef.current && 'pictureInPictureEnabled' in document && (
-                  <motion.button onClick={async (e) => {
-                    e.stopPropagation();
-                    try {
-                      if (document.pictureInPictureElement) await document.exitPictureInPicture();
-                      else if (videoRef.current) await videoRef.current.requestPictureInPicture();
-                    } catch {}
-                  }}
-                    whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
-                    transition={SPRING}
-                    style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.6)", cursor: "pointer", width: R.btnSmall, height: R.btnSmall, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
-                  >
-                    <Maximize size={15} style={{ transform: "scale(0.8) translate(-1px, 1px)" }} />
-                  </motion.button>
                 )}
                 {/* Fullscreen button lives in barControl (zone-driven) */}
               </div>
@@ -4430,15 +3655,7 @@ const CustomVideoPlayer = ({
                 <div style={{ fontSize: R.fontTiny, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "1.5px", fontWeight: 700, marginBottom: 10, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif" }}>Quality</div>
                 <div style={{ display: "flex", gap: "clamp(4px, 1vw, 6px)", flexWrap: "wrap" }}>
                   <motion.button onClick={() => {
-                    if (isDirectStream && hlsRef.current) {
-                      const h = hlsRef.current;
-                      // Smooth switch: nextLevel waits for a fragment boundary so
-                      // video doesn't freeze while audio continues.
-                      h.nextLevel = -1;
-                      // Force an earlier boundary for snappy feedback
-                      h.startLoad(videoRef.current?.currentTime || 0);
-                    }
-                    else { sendCommand("setQuality", [-1]); }
+                    sendCommand("setQuality", [-1]);
                     setCurrentQuality({ id: -1, name: 'Auto' }); setShowSettings(false);
                   }}
                     whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }} transition={SPRING}
@@ -4452,19 +3669,7 @@ const CustomVideoPlayer = ({
                   >Auto</motion.button>
                   {qualities.map((q) => (
                     <motion.button key={q.id} onClick={() => {
-                      if (isDirectStream && hlsRef.current) {
-                        const h = hlsRef.current;
-                        // Forced, but position-preserving switch. We keep the
-                        // current playback time so an init-segment refetch never
-                        // sends the viewer back to 0.
-                        const pos = videoRef.current?.currentTime || 0;
-                        h.nextLevel = q.id;
-                        // Nudge so it applies at the next fragment quickly
-                        h.startLoad(pos);
-                        // UI shows the target immediately; LEVEL_SWITCHED will
-                        // confirm with the real id/name.
-                      }
-                      else { sendCommand("setQuality", [q.id]); }
+                      sendCommand("setQuality", [q.id]);
                       setCurrentQuality(q); setShowSettings(false);
                     }}
                       whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }} transition={SPRING}
@@ -4490,8 +3695,7 @@ const CustomVideoPlayer = ({
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   {audioTracks.map((t, i) => (
                     <button key={i} onClick={() => {
-                      if (isDirectStream && hlsRef.current) { hlsRef.current.audioTrack = t.id ?? i; }
-                      else { sendCommand("setAudioTrack", [t.id || i]); }
+                      sendCommand("setAudioTrack", [t.id || i]);
                       setCurrentAudioTrack(t); setShowSettings(false);
                     }}
                       style={{
@@ -4698,8 +3902,7 @@ const CustomVideoPlayer = ({
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {audioTracks.map((t, i) => (
                 <button key={i} onClick={() => {
-                  if (isDirectStream && hlsRef.current) { hlsRef.current.audioTrack = t.id ?? i; }
-                  else { sendCommand("setAudioTrack", [t.id || i]); }
+                  sendCommand("setAudioTrack", [t.id || i]);
                   setCurrentAudioTrack(t); setShowAudioMenu(false);
                 }}
                   style={{

@@ -6,10 +6,10 @@
 [![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)](https://vitejs.dev)
 [![TanStack Query](https://img.shields.io/badge/TanStack_Query-v5-FF4154?logo=reactquery&logoColor=white)](https://tanstack.com/query)
 [![Framer Motion](https://img.shields.io/badge/Framer_Motion-13-0055FF?logo=framer&logoColor=white)](https://www.framer.com/motion)
-[![Firebase](https://img.shields.io/badge/Firebase-Auth+Firestore-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com)
+[![TMDB](https://img.shields.io/badge/Data-TMDB-01B4E4?logo=themoviedatabase&logoColor=white)](https://www.themoviedb.org)
 [![Vercel](https://img.shields.io/badge/Deployed_on-Vercel-000?logo=vercel)](https://vercel.com)
 
-**React 19 SPA — the Streamly user interface**
+**React 19 SPA — direct-TMDB streaming UI, no backend**
 
 </div>
 
@@ -19,8 +19,8 @@
 
 - [Setup](#-setup)
 - [Environment Variables](#-environment-variables)
+- [How Data Flows](#-how-data-flows)
 - [Project Structure](#-project-structure)
-- [Firebase Integration](#-firebase-integration)
 - [Pages & Routes](#-pages--routes)
 - [Components](#-components)
 - [Hooks & Context](#-hooks--context)
@@ -55,79 +55,92 @@ npm run lint
 
 ## 🔑 Environment Variables
 
-# Create a `.env` file in the project root with the following:
-
 ```bash
-# ─── Backend API ──────────────────────────────────────────────────────────────
-VITE_API_URL=http://localhost:4000/api
-# Production: VITE_API_URL=https://streamly-backend-9q7i.onrender.com/api
+# .env — TMDB API (required)
+# Get from: https://www.themoviedb.org/settings/api
+VITE_TMDB_API_KEY=your_tmdb_api_key_here
 
-# ─── Direct Stream Service (Playwright) ────────────────────────────────────
-VITE_STREAM_SERVICE_URL=http://localhost:3001
-
-# ─── Firebase Web SDK ─────────────────────────────────────────────────────────
-# Get from: Firebase Console → Project Settings → Your apps → Web app config
-VITE_FIREBASE_API_KEY=AIzaSy...
-VITE_FIREBASE_AUTH_DOMAIN=your-app.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your-app-id
-VITE_FIREBASE_STORAGE_BUCKET=your-app.firebasestorage.app
-VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
-VITE_FIREBASE_APP_ID=1:123456789:web:abc123
-VITE_FIREBASE_MEASUREMENT_ID=G-XXXXXXXX
-
-# ─── App / URLs ───────────────────────────────────────────────────────────────
-VITE_SITE_URL=https://your-site-origin
-VITE_URL_DECODE_KEY=your_url_decode_key_here
+# ─── App / URLs ────────────────────────────────────────────────
+# Canonical site origin used for SEO/OpenGraph links
+VITE_SITE_URL=https://your-project.vercel.app
 ```
 
-> ✅ These are the **public web config** values — safe to commit and add to Vercel dashboard.
-> Only `VITE_`-prefixed variables are exposed to the browser bundle.
-> See `.env.example` for the complete template.
+> ℹ️ **No backend, no Firebase.** All catalog data comes straight from the
+> TMDB REST API; all personal state (My List, Continue Watching, search
+> history, Settings) lives in `localStorage` on the viewer's device.
+>
+> ⚠️ The API key is never hard-coded in the bundle. Deploys set
+> `VITE_TMDB_API_KEY`; the same-origin `/api/tmdb` proxy injects its own
+> server-side key (`api/tmdb.js`, Vercel env `TMDB_API_KEY`/`VITE_TMDB_API_KEY`).
+
+---
+
+## 🌐 How Data Flows
+
+1. **Same-origin first:** the app calls `/api/tmdb/...`. In production that is
+   the Vercel serverless function in `api/tmdb.js`; in dev it is the Vite proxy.
+   Requests leave from the host's network, so visitors on ISPs that block
+   `api.themoviedb.org` still get data.
+2. **Direct fallback:** if the proxy is missing or misbehaving (HTML 404,
+   gateway 502/503/504), `src/api/tmdbClient.js` retries directly against
+   `https://api.themoviedb.org/3`.
+3. **Single domain contract:** every response passes through `normalizeResult`
+   (`id: movie-<n>/tv-<n>`, `posterUrl/backdropUrl`, `imdbRating`,
+   `isSeries`), then lives in the **React Query** cache
+   (`src/queryClient.js`).
+4. **Playback:** titles play through third-party iframe hosts (CineSrc,
+   Vidlink, 2Embed, …) listed in `src/api/videoSourceAdapter.js`. Viewers
+   re-order them in Settings → Server Order.
+5. **Personal state:** `localStorage` only — `aios_my_list`,
+   `aios_continue_watching`, `aios_search_history`, `setting-*` preference
+   keys. Cross-tab sync via `storage` events. No accounts, no database.
 
 ---
 
 ## 🗂️ Project Structure
 
 ```
+api/
+├── tmdb.js                          ← Vercel serverless: same-origin /api/tmdb
+│                                       TMDB passthrough proxy (CORS, OPTIONS,
+│                                       server-side key injection)
+public/
+└── sw.js                            ← Service worker (offline shell, cache v10)
+
 src/
-├── main.jsx                         ← React root: QueryClient, AuthProvider, ToastProvider
-├── App.jsx                          ← Top-level router, navbar, page transitions
-├── index.css                        ← Global CSS, variables, animations, skeleton loaders
+├── main.jsx                         ← React root: QueryClient, PreferencesProvider, ToastProvider
+├── App.jsx                          ← Top-level router, navbar, mobile bottom bar
+├── index.css                        ← Global CSS, variables, themes, animations
 ├── queryClient.js                   ← TanStack Query client config
-├── firebase.js                      ← Firebase app init — exports auth & db singletons
-├── utils/                           ← Shared utilities + domain engines: index (decodeUrl,
-│                                       asArray), timezone, ratings, searchRanking,
-│                                       subtitleEngine, notificationEngine, releaseCalendar
-│
+├── utils/                           ← debugLogger ([Streamly][scope] logging),
+│                                       subtitleEngine, ratings, searchRanking,
+│                                       releaseCalendar, timezone, index (asArray)
 ├── api/
-│   ├── movieService.js              ← fetch() wrappers for all backend /api/movies endpoints
-│   ├── apiClient.js                 ← axios instance + interceptors (health-banner aware)
-│   ├── platformAdapter.js           ← 20+ platform registry + source normalization
+│   ├── tmdbClient.js                ← proxy-first fetch + 10s timeout + direct fallback
+│   ├── movieService.js              ← all TMDB domain calls + normalizeResult
+│   ├── omdbClient.js                ← OMDb IMDb/RT ratings lookup
+│   ├── ratingService.js             ← ratings aggregation with 24h cache
+│   ├── subtitleFetcher.js           ← OpenSubtitles-style SRT/VTT lookup
 │   ├── cdnImageAdapter.js           ← TMDB image URL building + sizes
-│   ├── authAdapter.js               ← Firebase auth facade
-│   ├── storageAdapter.js            ← Firestore / localStorage persistence
-│   ├── serverHealth.js              ← Backend cold-start health monitor
-│   ├── subtitles.js                 ← Subtitle parsing/loading
-│   ├── videoSourceAdapter.js        ← Stream source resolution
+│   ├── videoSourceAdapter.js        ← iframe server registry + server ordering
 │   ├── prefetchAdapter.js           ← QueryClient cache prefetching
 │   └── virtualRenderAdapter.js      ← Virtual-list rendering helper
-│
 ├── context/
-│   └── AuthContext.jsx              ← AuthProvider + useAppAuth() — merges Firebase auth,
-│                                       myList, and continueWatching into one context
-│
+│   ├── AuthContext.jsx              ← AppProvider + useAppAuth() — myList +
+│   │                                  continueWatching merged into one context
+│   └── PreferencesContext.jsx       ← settings engine (localStorage `setting-*`)
 ├── hooks/
-│   ├── useUserData.js               ← useAuth, useMyList, useContinueWatching
-│   │                                   (Firestore when signed in, localStorage for guests)
+│   ├── useUserData.js               ← useMyList, useContinueWatching (localStorage)
 │   ├── useDebounce.js               ← Search input debounce
 │   ├── useMediaQuery.js             ← Responsive breakpoint matching
+│   ├── useRailArrows.js             ← Rail scroll-arrow enable/disable
 │   └── useScrollRestoration.js      ← Scroll position restore across navigation
-│
 ├── components/
-│   ├── AuthModal.jsx                ← Glass-panel Sign In / Sign Up modal (Firebase Auth)
-│   ├── ServerWakeupNotification.jsx ← "Server waking up…" cold-start banner
-│   ├── MovieCard.jsx                ← Cinematic hover card with glass curtain effect
-│   ├── CustomVideoPlayer.jsx        ← HLS player + episode/source switching
+│   ├── CustomVideoPlayer.jsx        ← Zone-driven player (Player UI Studio layout),
+│   │                                  CineSrc command API, subtitles, gestures
+│   ├── playerUIDef.js               ← Player UI Studio zones, presets, controls
+│   ├── MovieCard.jsx                ← Cinematic hover card + Quick View modal
+│   ├── ContinueWatchingRail.jsx     ← Cinejoy-style continue watching rail
 │   ├── DiscoveryRails.jsx           ← Trend/Airing/Popular banner rails
 │   ├── SearchResultRow.jsx          ← Search dropdown suggestion row
 │   ├── ConfirmDialog.jsx            ← Animated confirmation modal
@@ -136,65 +149,18 @@ src/
 │   ├── Loader.jsx                   ← Full-page loading spinner
 │   ├── BackToTop.jsx                ← Scroll-to-top floating button
 │   ├── ErrorBoundary.jsx            ← React error boundary
-│   ├── EmptyState.jsx / SectionHeader.jsx / PlatformIcon.jsx / RailArrow.jsx
-│   ├── CountdownBadge.jsx / LeavingSoonBanner.jsx / Popover.jsx / SEO.jsx
-│   ├── MovieDetailsSkeleton.jsx
-│   └── (theming/misc: src/components/*)
-│
+│   └── EmptyState.jsx / SectionHeader.jsx / HeroTitleLogo.jsx / RatingsCluster.jsx / SEO.jsx
 └── pages/
-    ├── Home.jsx                     ← Main landing: featured banner, category rows, Upcoming, Top 10
-    ├── TitleDetails.jsx             ← Video player + metadata, season/episode picker
-    ├── SearchPage.jsx               ← Search results with genre & platform filters
-    ├── GenrePage.jsx                ← Genre-filtered movie catalog
+    ├── HomePage.jsx                 ← Landing: hero, category rails, Top 10
+    ├── TitleDetailsPage.jsx         ← Player + metadata, season/episode picker
+    ├── SearchPage.jsx               ← Search results with filters
+    ├── GenrePage.jsx                ← Genre-filtered catalog
     ├── CategoryPage.jsx             ← Single category drill-down
-    ├── WatchlistPage.jsx            ← My List page
-    ├── HistoryPage.jsx              ← Continue Watching / watch history
-    └── PersonDetails.jsx            ← Actor / director filmography page
-```
-
----
-
-## 🔥 Firebase Integration
-
-### Auth flow
-
-```
-User clicks sign-in icon in navbar
-    │
-    ▼
-AuthModal opens (Sign In / Sign Up tabs)
-    │  createUserWithEmailAndPassword()
-    │  signInWithEmailAndPassword()
-    ▼
-Firebase Auth → returns User + ID Token
-    │
-    │  onAuthStateChanged() listener in useAuth()
-    ▼
-AuthContext updates { user } across the whole app
-    │
-    ├── User avatar shows initials in navbar
-    ├── My List syncs to Firestore  /users/{uid}/myList
-    └── Continue Watching syncs to /users/{uid}/continueWatching
-```
-
-### Guest mode
-
-Users who are **not signed in** still get full functionality:
-- My List → stored in `localStorage` (`aios_my_list`)
-- Continue Watching → stored in `localStorage` (`aios_continue_watching`)
-- On sign-in, localStorage data is **automatically migrated** to Firestore
-
-### Firestore security rules
-
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-  }
-}
+    ├── PersonDetailsPage.jsx        ← Actor / director filmography
+    ├── WatchlistPage.jsx            ← My List
+    ├── HistoryPage.jsx              ← Continue Watching / history
+    └── SettingsPage.jsx             ← Themes, playback, servers, subtitles,
+                                       Player UI Studio (5 presets + drag-and-drop)
 ```
 
 ---
@@ -203,42 +169,46 @@ service cloud.firestore {
 
 | Route | Page | Description |
 |---|---|---|
-| `/` | Home | All platforms, featured banner, categories |
-| `/series` | Home (filter: series) | TV shows only |
-| `/movies` | Home (filter: movies) | Movies only |
-| `/new` | Home (filter: new) | New & popular arrivals |
-| `/anime` | Home (filter: anime) | Anime collection |
-| `/search` | SearchPage | Search with `?q=` query param |
+| `/` | HomePage | Featured hero, category rails |
+| `/movies` | HomePage (filter) | Movies only |
+| `/series` | HomePage (filter) | TV shows only |
+| `/search?q=` | SearchPage | Search with `?q=` query param |
 | `/genre/:genre` | GenrePage | Genre-filtered catalog |
 | `/category/:name` | CategoryPage | Single category drill-down |
-| `/movie/:platform/:id` | TitleDetailsPage | Player + full metadata |
+| `/watch/:id/:slug?` | TitleDetailsPage | Player + full metadata (`movie-<n>` / `tv-<n>`) |
 | `/person/:id/:slug?` | PersonDetailsPage | Actor/director page |
-| `/watchlist` | WatchlistPage | Saved movies |
+| `/watchlist` | WatchlistPage | Saved titles |
 | `/history` | HistoryPage | Continue watching / history |
+| `/settings` | SettingsPage | Preferences + Player UI Studio |
 
 ---
 
 ## 🧩 Components
 
-### `AuthModal`
-- Firebase email/password Sign In & Sign Up
-- Animated tab switcher, password visibility toggle
-- Inline error messages with Firebase error code mapping
-- Glass-morphism panel with spring animation
+### `CustomVideoPlayer`
+- Zone-driven control bar — every button (play/pause, volume, subtitles,
+  audio, aspect ratio, speed, screen lock, fullscreen) is placeable in one of
+  6 zones (top-left/top-right/bottom-left/center/right/hidden)
+- CineSrc postMessage command API for play/seek/volume/quality
+- Touch gestures: swipe seek, brightness/volume, double-tap seek, screen lock
+- Custom subtitle engine with per-viewer font, size, color, and blur
+
+### `Player UI Studio` (in Settings)
+- 5 one-click presets: **Classic, Minimal, Compact, Theater, Studio**
+- Drag-and-drop (or tap-to-move) any control into any zone — layout is saved
+  and the real player follows
+- Live preview renders your actual subtitle font/size/color/blur while you edit
 
 ### `MovieCard`
 - Cinematic curtain hover effect (Framer Motion `whileHover`)
-- Shows: title, rating, year, platform badge, genre tags
-- Quick-add to My List without leaving the page
+- Quick View modal (`detailViewType: "modal"`) with Play Now / Full Details
 
 ### `Toast`
-- Notification system with queue management
-- Auto-dismiss with configurable duration
-- Types: success, error, info
+- Notification system with queue management, auto-dismiss, success/error/info
 
 ### `GlobalShortcuts`
 - `Ctrl+K` / `Cmd+K` — focus search
-- `?` / `Shift+?` — open keyboard shortcuts modal
+- `?` — open keyboard shortcuts modal
 - Arrow keys — navigate search dropdown results
 
 ---
@@ -253,22 +223,21 @@ service cloud.firestore {
 | `Enter` | Open selected search result |
 | `Escape` | Close any open dropdown / modal |
 
+Player shortcuts (when the player has focus): `Space`/`K` play-pause,
+`F` fullscreen, `M` mute, `←`/`→` seek, `↑`/`↓` volume, `A` aspect ratio,
+`?` shortcuts.
+
 ---
 
 ## 🪝 Hooks & Context
 
-### `useAppAuth()` — primary hook (use this everywhere)
+### `useAppAuth()` — app-wide data hook
 
 ```js
 import { useAppAuth } from '../context/AuthContext';
 
 const {
-  user,               // Firebase User | null
-  loading,            // boolean — auth state resolving
-  register,           // (email, password, name) => Promise<User>
-  login,              // (email, password) => Promise<User>
-  logout,             // () => Promise<void>
-  myList,             // movie[] — from Firestore or localStorage
+  myList,             // movie[] — localStorage
   toggleMyList,       // (movie) => void
   isInList,           // (id) => boolean
   continueWatching,   // item[] — sorted by lastWatched
@@ -277,24 +246,33 @@ const {
 } = useAppAuth();
 ```
 
-### `useDebounce(value, delay)`
+### `usePreferences()` — settings engine
 
 ```js
-import { useDebounce } from '../hooks/useDebounce';
-const debouncedQuery = useDebounce(searchQuery, 400);
+import { usePreferences } from '../context/preferences';
+
+const {
+  theme,            // "default" | "emerald" | "amethyst" | "ocean" | "crimson" | "solar"
+  serverOrder,      // ordered iframe server names
+  subtitleFont, subtitleSize, subtitleColor, subtitleBgBlur,
+  playerUIPreset,   // Player UI Studio: "classic" | ... | "custom"
+  playerUILayout,   // { playPause: "bottomLeft", ... }
+  setPreference,    // (key, value) => void — persists to localStorage
+  setPlayerControl, // (controlKey, enabled) => void
+} = usePreferences();
 ```
 
-### `movieService` — API client
+### `movieService` — TMDB client
 
 ```js
 import { movieService } from '../api/movieService';
 
 await movieService.searchMovies(query);
 await movieService.getFeaturedMovies();
-await movieService.getCategories(platform);
-await movieService.getMovieDetails(id, platform);
-await movieService.getSimilarMovies(id, platform);
-await movieService.getSeasonEpisodes(id, seasonNumber, platform);
+await movieService.getCategories();
+await movieService.getMovieDetails(id);
+await movieService.getSimilarMovies(id);
+await movieService.getSeasonEpisodes(id, seasonNumber);
 await movieService.getPersonDetails(id);
 ```
 
@@ -308,18 +286,15 @@ Deployed on **Vercel** with automatic preview deployments for every pull request
 
 | Variable | Value |
 |---|---|
-| `VITE_API_URL` | `https://streamly-backend-9q7i.onrender.com/api` |
-| `VITE_FIREBASE_API_KEY` | from Firebase console |
-| `VITE_FIREBASE_AUTH_DOMAIN` | `streamly-731c4.firebaseapp.com` |
-| `VITE_FIREBASE_PROJECT_ID` | `streamly-731c4` |
-| `VITE_FIREBASE_STORAGE_BUCKET` | `streamly-731c4.firebasestorage.app` |
-| `VITE_FIREBASE_MESSAGING_SENDER_ID` | from Firebase console |
-| `VITE_FIREBASE_APP_ID` | from Firebase console |
-| `VITE_FIREBASE_MEASUREMENT_ID` | from Firebase console |
+| `VITE_TMDB_API_KEY` | from [themoviedb.org](https://www.themoviedb.org/settings/api) |
+| `TMDB_API_KEY` | same key, read by `api/tmdb.js` (server-side, never bundled) |
+| `VITE_SITE_URL` | `https://your-project.vercel.app` |
 
 ### `vercel.json`
 
-The included `vercel.json` configures SPA routing — all paths fall back to `index.html` so React Router handles navigation.
+The included `vercel.json` routes `/api/tmdb/(.*)` to the serverless proxy,
+keeps SPA routing (all paths fall back to `index.html`), and sets cache
+headers for hashed assets.
 
 ---
 
