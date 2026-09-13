@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Clock, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAppAuth } from "../context/AuthContext";
+import { useAppAuth } from "../context/auth";
 import { useToast } from "../components/Toast.jsx";
 import { useConfirmDialog } from "../components/ConfirmDialog.jsx";
 import MovieCard from "../components/MovieCard.jsx";

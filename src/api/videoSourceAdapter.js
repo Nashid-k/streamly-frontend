@@ -1,55 +1,55 @@
 const BASE_SERVERS = [
   {
-    name: "Lisbon",
+    name: "Server 1",
     url: (id, s, e) =>
       s
         ? `https://cinesrc.st/embed/tv/${id}?s=${s}&e=${e}&color=%230A84FF&autoplay=true&controls=false&autoskip=false&autonext=false`
         : `https://cinesrc.st/embed/movie/${id}?color=%230A84FF&autoplay=true&controls=false`,
   },
   {
-    name: "Nebula",
+    name: "Server 2 (Fast)",
     url: (id, s, e, imdb) =>
       s
         ? `https://vidlink.pro/tv/${imdb || id}/${s}/${e}`
         : `https://vidlink.pro/movie/${imdb || id}`,
   },
   {
-    name: "Solara",
+    name: "Server 3 (HD)",
     url: (id, s, e, imdb) =>
       s
         ? `https://www.2embed.cc/embedtv/${imdb || id}&s=${s}&e=${e}`
         : `https://www.2embed.cc/embed/${imdb || id}`,
   },
   {
-    name: "Athens",
+    name: "Server 4 (Backup)",
     url: (id, s, e, imdb) =>
       s
         ? `https://vidsrcme.ru/embed/tv?${imdb ? "imdb=" + imdb : "tmdb=" + id}&season=${s}&episode=${e}`
         : `https://vidsrcme.ru/embed/movie?${imdb ? "imdb=" + imdb : "tmdb=" + id}`,
   },
   {
-    name: "Joy",
+    name: "Server 5 (VidCore)",
     url: (id, s, e, imdb) =>
       s
         ? `https://vidcore.io/tv/${id}/${s}/${e}?autoPlay=true&theme=0A84FF`
         : `https://vidcore.io/movie/${imdb || id}?autoPlay=true&theme=0A84FF`,
   },
   {
-    name: "Castle",
+    name: "Server 6 (Peachify)",
     url: (id, s, e, imdb) =>
       s
         ? `https://peachify.top/embed/tv/${id}/${s}/${e}?autoNext=false&showNextBtn=false&accent=0A84FF`
         : `https://peachify.top/embed/movie/${imdb || id}?accent=0A84FF`,
   },
   {
-    name: "Sakura",
+    name: "Server 7 (VidUp)",
     url: (id, s, e, imdb) =>
       s
         ? `https://vidup.to/tv/${id}/${s}/${e}?autoPlay=true&theme=0A84FF&nextButton=false&autoNext=false`
         : `https://vidup.to/movie/${imdb || id}?autoPlay=true&theme=0A84FF`,
   },
   {
-    name: "Canaias",
+    name: "Server 8 (Smashy)",
     url: (id, s, e, _imdb) =>
       s
         ? `https://embed.smashystream.com/playere.php?tmdb=${id}&season=${s}&episode=${e}`
@@ -58,12 +58,17 @@ const BASE_SERVERS = [
 ];
 
 export class VideoSourceAdapter {
-  /* Lisbon (CineSrc iframe) is the default. Direct extraction and NetMirror
+  /* Server 1 (CineSrc iframe) is the default. Direct extraction and NetMirror
      were retired entirely (see task 11): Direct relayed every segment through
      the decommissioned stream-service proxy (buffer-stall source), and
-     NetMirror's media CDN was unreliable. Lisbon + the iframe fallbacks are
+     NetMirror's media CDN was unreliable. Server 1 + the iframe fallbacks are
      the stable path — every server in the rotation renders in an iframe, so
-     no direct-stream resolution code remains anywhere. */
+     no direct-stream resolution code remains anywhere.
+
+     Server names were restored to the original player-dropdown labels
+     (Server 1 … Server 8) from the pre-rename history; the URLs are
+     unchanged. See LEGACY_SERVER_NAME_MAP in PreferencesContext for the
+     Lisbon/Nebula/… → Server N rename migration. */
   static SERVERS = BASE_SERVERS;
 
   static getServers() {

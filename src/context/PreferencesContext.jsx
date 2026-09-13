@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { DEFAULT_PREFERENCES, PreferencesContext } from "./preferences";
+import {
+  DEFAULT_PREFERENCES,
+  LEGACY_SERVER_NAME_MAP,
+  migrateServerOrder,
+  PreferencesContext,
+} from "./preferences";
 import { logDebug } from "../utils/debugLogger";
 const SETTING_PREFIX = "setting-";
 const LEGACY_AUTOPLAY_KEY = "streamly_autoNext";
+
+export { LEGACY_SERVER_NAME_MAP };
 
 function isPlainObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -40,7 +47,24 @@ function readPreference(key) {
   const fallback = DEFAULT_PREFERENCES[key];
   try {
     const stored = localStorage.getItem(`${SETTING_PREFIX}${key}`);
-    if (stored !== null) return parseValue(stored, fallback);
+    if (stored !== null) {
+      let value = parseValue(stored, fallback);
+      if (key === "serverOrder") {
+        const migrated = migrateServerOrder(value);
+        if (JSON.stringify(migrated) !== JSON.stringify(value)) {
+          logDebug("preferences", "Migrated saved server order to the restored Server 1–8 labels.", { order: migrated });
+        }
+        value = migrated;
+        // Persist the renamed order so the stored key matches the current
+        // labels (idempotent — subsequent boots see no legacy names).
+        try {
+          localStorage.setItem(`${SETTING_PREFIX}serverOrder`, JSON.stringify(value));
+        } catch {
+          // In-memory rename still applies for this visit.
+        }
+      }
+      return value;
+    }
 
     // The player owned this value before the Settings page existed. Preserve a
     // viewer's established autoplay preference during the migration.

@@ -1,7 +1,6 @@
-import { createContext, useContext, useMemo } from 'react';
-import { useMyList, useContinueWatching, useSearchHistory } from '../hooks/useUserData';
-
-const AppContext = createContext(null);
+import { useMemo } from "react";
+import { AppContext } from "./auth";
+import { useMyList, useContinueWatching, useSearchHistory } from "../hooks/useUserData";
 
 export function AuthProvider({ children }) {
   const myListData = useMyList();
@@ -14,10 +13,4 @@ export function AuthProvider({ children }) {
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
-}
-
-export function useAppAuth() {
-  const ctx = useContext(AppContext);
-  if (!ctx) throw new Error('useAppAuth must be used inside <AuthProvider>');
-  return ctx;
 }

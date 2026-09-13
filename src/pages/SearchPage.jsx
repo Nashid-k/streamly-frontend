@@ -13,7 +13,7 @@ import Chip from "../components/Chip";
 import AmbientBackground from "../components/AmbientBackground";
 import ErrorBoundary from "../components/ErrorBoundary";
 import ContentPageHeader from "../components/ContentPageHeader";
-import { useAppAuth } from "../context/AuthContext";
+import { useAppAuth } from "../context/auth";
 import { logEmptyData, reportQueryError } from "../utils/debugLogger";
 
 export default function SearchPage() {

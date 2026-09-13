@@ -9,7 +9,7 @@ import {
   AnimatePresence,
   useReducedMotion,
 } from "framer-motion";
-import { useAppAuth } from "../context/AuthContext";
+import { useAppAuth } from "../context/auth";
 import { useQuery } from "@tanstack/react-query";
 import { movieService } from "../api/movieService";
 import MovieCard from "../components/MovieCard";

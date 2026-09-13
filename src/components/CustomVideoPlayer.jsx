@@ -13,7 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { SubtitleEngine } from "../utils/subtitleEngine";
 import { logDebug, logWarn } from "../utils/debugLogger";
 import { usePreferences } from "../context/preferences";
-import { resolveUILayout, PLAYER_CONTROL_ORDER, PLAYER_SPEEDS } from "./playerUIDef";
+import { resolveUILayout, resolveSkin, PLAYER_CONTROL_ORDER, PLAYER_SPEEDS } from "./playerUIDef";
 
 const getNumericId = (s) => {
   if (!s) return null;
@@ -276,6 +276,7 @@ const CustomVideoPlayer = ({
     defaultLanguage = "en",
     playerControls = {},
     playerUILayout,
+    playerUIPreset = "classic",
   } = usePreferences();
   // Per-button visibility flags — default to true when not explicitly set
   const ctrl = {
@@ -298,6 +299,37 @@ const CustomVideoPlayer = ({
      bottomRight/tray). Corrupt/partial storage falls back to Classic.
      Visibility still honors the playerControls toggles (default-on). */
   const uiLayout = useMemo(() => resolveUILayout(playerUILayout), [playerUILayout]);
+  /* ── Player UI skin (end-to-end look per preset) ────────────────
+     Custom arrangements and unknown ids resolve to the Classic tokens.
+     Emitted as --skin-* CSS variables on the player root below. */
+  const skin = useMemo(() => resolveSkin(playerUIPreset), [playerUIPreset]);
+  const skinVars = useMemo(
+    () => ({
+      "--skin-bar-bg": skin.barBg,
+      "--skin-bar-blur": skin.barBlur,
+      "--skin-bar-border": skin.barBorder,
+      "--skin-bar-radius": skin.barRadius,
+      "--skin-btn-bg": skin.btnBg,
+      "--skin-btn-ghost-bg": skin.btnGhostBg || "transparent",
+      "--skin-btn-border": skin.btnBorder,
+      "--skin-btn-radius": skin.btnRadius,
+      "--skin-progress-height": skin.progressHeight,
+      "--skin-progress-fill": skin.progressFill,
+      "--skin-progress-glow": skin.progressGlow,
+      "--skin-time-font": skin.timeFont,
+      "--skin-accent": skin.accent,
+      "--skin-panel-bg": skin.panelBg,
+      "--skin-panel-blur": skin.panelBlur,
+      "--skin-panel-border": skin.panelBorder,
+      "--skin-scrim": skin.scrim,
+      "--skin-chrome-shadow": skin.chromeShadow,
+    }),
+    [skin],
+  );
+  /* Touch detection must live above topZoneKeys — the skin-era callback
+     below reads it in both its body and deps array (a later declaration
+     here put it in the temporal dead zone and crashed every render). */
+  const isTouch = useIsTouch();
   const zoneKeys = useCallback((zone) => (
     PLAYER_CONTROL_ORDER.filter((k) => uiLayout[k] === zone && playerControls[k] !== false)
   ), [uiLayout, playerControls]);
@@ -306,13 +338,9 @@ const CustomVideoPlayer = ({
     zoneKeys(zone).filter((k) => !(k === "screenLock" && zone === "topLeft" && isTouch))
   ), [zoneKeys, isTouch]);
 
-  /* Cycle playback speed for the placeable speed pill. */
-  const cycleSpeed = useCallback(() => {
-    const i = PLAYER_SPEEDS.indexOf(playbackRate);
-    const next = PLAYER_SPEEDS[(i + 1) % PLAYER_SPEEDS.length] ?? 1;
-    sendCommand("setPlaybackRate", [next]);
-    setPlaybackRate(next);
-  }, [playbackRate, sendCommand]);
+  /* NOTE: cycleSpeed is defined after sendCommand/playbackRate below —
+     defining it here put those bindings in the temporal dead zone and
+     crashed the player on every render. */
   /* State */
   const [activeServerIndex, setActiveServerIndex] = useState(preferredServerIndex);
   const activeServerIndexRef = useRef(activeServerIndex);
@@ -383,6 +411,11 @@ const CustomVideoPlayer = ({
      stop auto-switching it on device rotation. */
   const aspectManuallySetRef = useRef(false);
   const [toastMessage, setToastMessage] = useState("");
+  /* Restored (was deleted by 6ba4c76's dead-stream cleanup, leaving 3 live
+     references → ReferenceError → "Oops! Something went wrong" on Play).
+     false = CineSrc renders the custom zone-driven chrome; flipping this
+     on falls back to the provider's native controls. */
+  const [useNativeControls] = useState(false);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [isScreenLocked, setIsScreenLocked] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -491,7 +524,6 @@ const CustomVideoPlayer = ({
   const previewThumbTimerRef = useRef(null);
   const seekLongPressRef = useRef(null);
 
-  const isTouch = useIsTouch();
   const isCineSrc = iframeUrl.includes("cinesrc.st");
   const isVidCore = iframeUrl.includes("vidcore.io");
   const isPeachify = iframeUrl.includes("peachify.top");
@@ -754,6 +786,15 @@ const CustomVideoPlayer = ({
       // Peachify publishes no postMessage control API — commands are a no-op.
     } catch { /* iframe cross-origin */ }
   }, [isCineSrc, isVidCore]);
+
+  /* Cycle playback speed for the placeable speed pill. Lives after
+     playbackRate/sendCommand so their bindings are initialized. */
+  const cycleSpeed = useCallback(() => {
+    const i = PLAYER_SPEEDS.indexOf(playbackRate);
+    const next = PLAYER_SPEEDS[(i + 1) % PLAYER_SPEEDS.length] ?? 1;
+    sendCommand("setPlaybackRate", [next]);
+    setPlaybackRate(next);
+  }, [playbackRate, sendCommand]);
 
   /* Background preview lookup for a title key — fires once, never blocks init.
      Preview thumbnails now come only from CineSrc's own player chrome. */
@@ -1597,8 +1638,11 @@ const CustomVideoPlayer = ({
   const barControl = (key, variant = "bar") => {
     if (playerControls[key] === false || uiLayout[key] === "tray") return null;
     const ghostCircle = {
-      background: "transparent", border: "none", color: "rgba(255,255,255,0.6)",
-      cursor: "pointer", width: R.btnSmall, height: R.btnSmall, borderRadius: "50%",
+      background: "var(--skin-btn-ghost-bg, transparent)",
+      border: "var(--skin-btn-border, none)",
+      color: "rgba(255,255,255,0.6)",
+      cursor: "pointer", width: R.btnSmall, height: R.btnSmall,
+      borderRadius: "var(--skin-btn-radius, 50%)",
       display: "flex", alignItems: "center", justifyContent: "center",
     };
     if (key === "playPause") {
@@ -1610,11 +1654,14 @@ const CustomVideoPlayer = ({
           transition={SPRING}
           aria-label={isPlaying ? "Pause" : "Play"}
           style={{
-            background: "rgba(255,255,255,0.12)", border: "none", color: "#fff",
-            cursor: "pointer", width: R.btnMedium, height: R.btnMedium, borderRadius: "50%",
+            background: "var(--skin-btn-bg, rgba(255,255,255,0.12))",
+            border: "var(--skin-btn-border, none)", color: "#fff",
+            cursor: "pointer", width: R.btnMedium, height: R.btnMedium,
+            borderRadius: "var(--skin-btn-radius, 50%)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
-            boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
+            backdropFilter: "blur(var(--skin-bar-blur, 16px))",
+            WebkitBackdropFilter: "blur(var(--skin-bar-blur, 16px))",
+            boxShadow: "var(--skin-chrome-shadow, 0 2px 12px rgba(0,0,0,0.3))",
           }}
         >
           {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" style={{ marginLeft: 2 }} />}
@@ -1900,6 +1947,7 @@ const CustomVideoPlayer = ({
   return (
     <div
       ref={containerRef}
+      data-player-skin={skin.id}
       className={`streamly-player${isTouch ? ' streamly-player--touch' : ''}${isFullscreen ? ' streamly-player--fullscreen' : ''}`}
       style={{
         position: isFullscreen ? 'fixed' : 'relative',
@@ -1923,6 +1971,8 @@ const CustomVideoPlayer = ({
         '--sab': 'env(safe-area-inset-bottom, 0px)',
         '--sal': 'env(safe-area-inset-left, 0px)',
         '--sar': 'env(safe-area-inset-right, 0px)',
+        /* Player UI Studio skin tokens — every themed surface reads these */
+        ...skinVars,
       }}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => {
@@ -2059,11 +2109,11 @@ const CustomVideoPlayer = ({
         </div>
       )}
 
-      {/* Bottom vignette */}
+      {/* Bottom vignette — skinned per Player UI preset */}
       {showCustomUI && (
         <div style={{
           position: "absolute", inset: 0, zIndex: 11, pointerEvents: "none",
-          background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.4) 15%, transparent 35%)",
+          background: "var(--skin-scrim, linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.4) 15%, transparent 35%))",
           transition: "opacity 0.4s", opacity: controlsVisible ? 1 : 0,
         }} />
       )}
@@ -3440,9 +3490,9 @@ const CustomVideoPlayer = ({
                 }} />}
                 {duration > 0 && <div style={{
                   position: "absolute", inset: 0, width: `${Math.min(pp, 100)}%`,
-                  background: "var(--accent-gradient, rgba(255,255,255,0.85))",
+                  background: "var(--skin-progress-fill, var(--accent-gradient, rgba(255,255,255,0.85)))",
                   borderRadius: 3,
-                  boxShadow: "0 0 6px var(--accent-glow, rgba(255,255,255,0.15))",
+                  boxShadow: "var(--skin-progress-glow, 0 0 6px var(--accent-glow, rgba(255,255,255,0.15)))",
                   transition: isScrubbing ? "none" : "width 0.1s linear",
                 }} />}
                 {/* Scrubber dot */}
@@ -3475,7 +3525,7 @@ const CustomVideoPlayer = ({
             }}>
               <span style={{
                 color: "rgba(255,255,255,0.4)", fontSize: R.fontSmall, fontWeight: 600,
-                fontFamily: "SF Mono, Menlo, monospace",
+                fontFamily: "var(--skin-time-font, 'SF Mono', Menlo, monospace)",
                 fontVariantNumeric: "tabular-nums", letterSpacing: "0.3px",
                 flexShrink: 0,
               }}>
@@ -3521,8 +3571,17 @@ const CustomVideoPlayer = ({
 
             {/* Zone-driven controls render via barControl above the component return. */}
 
-            {/* ═══ CONTROL ROW ════════════════════════════════════ */}
-            <div className="streamly-player-control-row" onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: `${R.controlRowPad} ${R.padMedium} ${R.padMedium}`, pointerEvents: "auto" }}>
+            {/* ═══ CONTROL ROW (skinned by Player UI preset) ══════ */}
+            <div className="streamly-player-control-row" onClick={(e) => e.stopPropagation()} style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: `${R.controlRowPad} ${R.padMedium} ${R.padMedium}`, pointerEvents: "auto",
+              background: "var(--skin-bar-bg, transparent)",
+              backdropFilter: "blur(var(--skin-bar-blur, 16px))",
+              WebkitBackdropFilter: "blur(var(--skin-bar-blur, 16px))",
+              border: "var(--skin-bar-border, none)",
+              borderRadius: "var(--skin-bar-radius, 0px)",
+              boxShadow: "var(--skin-chrome-shadow, none)",
+            }}>
               {/* Left cluster — Player UI Studio zone: bottomLeft */}
               <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
                 {zoneKeys("bottomLeft").map((key) => (
@@ -3613,10 +3672,10 @@ const CustomVideoPlayer = ({
               zIndex: 50,
               width: isTouch ? "min(calc(100% - 24px), 360px)" : R.panelSettings,
               maxHeight: isTouch ? "min(68vh, 420px)" : "50vh",
-              background: "rgba(18,18,20,0.92)",
-              backdropFilter: "blur(40px) saturate(180%)",
-              WebkitBackdropFilter: "blur(40px) saturate(180%)",
-              border: "1px solid rgba(255,255,255,0.08)",
+              background: "var(--skin-panel-bg, rgba(18,18,20,0.92))",
+              backdropFilter: "blur(var(--skin-panel-blur, 40px)) saturate(180%)",
+              WebkitBackdropFilter: "blur(var(--skin-panel-blur, 40px)) saturate(180%)",
+              border: "var(--skin-panel-border, 1px solid rgba(255,255,255,0.08))",
               borderRadius: isTouch ? 20 : R.radiusMedium,
               padding: `${R.padMedium} ${R.padMedium}`,
               color: "#fff",
@@ -3798,10 +3857,10 @@ const CustomVideoPlayer = ({
               zIndex: 50,
               width: isTouch ? "min(calc(100% - 24px), 360px)" : R.panelSubtitles,
               maxHeight: isTouch ? "min(68vh, 420px)" : "45vh",
-              background: "rgba(18,18,20,0.92)",
-              backdropFilter: "blur(40px) saturate(180%)",
-              WebkitBackdropFilter: "blur(40px) saturate(180%)",
-              border: "1px solid rgba(255,255,255,0.08)",
+              background: "var(--skin-panel-bg, rgba(18,18,20,0.92))",
+              backdropFilter: "blur(var(--skin-panel-blur, 40px)) saturate(180%)",
+              WebkitBackdropFilter: "blur(var(--skin-panel-blur, 40px)) saturate(180%)",
+              border: "var(--skin-panel-border, 1px solid rgba(255,255,255,0.08))",
               borderRadius: isTouch ? 20 : R.radiusMedium,
               padding: `${R.padMedium} ${R.padMedium}`,
               color: "#fff",
@@ -3887,10 +3946,10 @@ const CustomVideoPlayer = ({
               zIndex: 50,
               width: isTouch ? "min(calc(100% - 24px), 360px)" : R.panelSubtitles,
               maxHeight: isTouch ? "min(68vh, 420px)" : "40vh",
-              background: "rgba(18,18,20,0.92)",
-              backdropFilter: "blur(40px) saturate(180%)",
-              WebkitBackdropFilter: "blur(40px) saturate(180%)",
-              border: "1px solid rgba(255,255,255,0.08)",
+              background: "var(--skin-panel-bg, rgba(18,18,20,0.92))",
+              backdropFilter: "blur(var(--skin-panel-blur, 40px)) saturate(180%)",
+              WebkitBackdropFilter: "blur(var(--skin-panel-blur, 40px)) saturate(180%)",
+              border: "var(--skin-panel-border, 1px solid rgba(255,255,255,0.08))",
               borderRadius: isTouch ? 20 : R.radiusMedium,
               padding: `${R.padMedium} ${R.padMedium}`,
               color: "#fff",

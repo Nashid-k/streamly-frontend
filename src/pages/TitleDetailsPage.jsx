@@ -36,7 +36,7 @@ import {
   motion,
   AnimatePresence,
 } from "framer-motion";
-import { useAppAuth } from "../context/AuthContext";
+import { useAppAuth } from "../context/auth";
 import { useToast } from "../components/Toast.jsx";
 import MovieCard from "../components/MovieCard";
 import RatingsCluster from "../components/RatingsCluster";

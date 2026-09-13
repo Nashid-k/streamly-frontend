@@ -1,5 +1,10 @@
 import React from "react";
-import { logError } from "../utils/debugLogger";
+import { logError, logWarn } from "../utils/debugLogger";
+import {
+  isChunkLoadError,
+  recoverFromChunkError,
+  clearRuntimeCaches,
+} from "../utils/chunkRecovery";
 
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -14,45 +19,25 @@ export default class ErrorBoundary extends React.Component {
   componentDidCatch(error, errorInfo) {
     logError("ErrorBoundary", `Render crash caught (route: ${window.location.pathname}). UI shows fallback; navigate to recover.`, error, {
       route: window.location.pathname,
+      chunkFailure: isChunkLoadError(error),
       componentStack: errorInfo?.componentStack?.split("\n").slice(0, 5).join("\n"),
     });
 
-    // Auto-reload on Vite chunk splitting errors (deployment updates)
-    if (
-      error &&
-      error.message &&
-      (error.message.includes("Failed to fetch dynamically imported module") ||
-        error.message.includes("Importing a module script failed"))
-    ) {
-      const lastReload = sessionStorage.getItem("chunk_reload_time");
-      const now = Date.now();
-      // Only reload if we haven't reloaded in the last 5 seconds to prevent infinite loops
-      if (!lastReload || now - Number(lastReload) > 5000) {
-        sessionStorage.setItem("chunk_reload_time", now.toString());
-        // Clear all caches before reload to ensure fresh chunks
-        if ('caches' in window) {
-          caches.keys().then(function(names) {
-            return Promise.all(names.map(function(name) { return caches.delete(name); }));
-          }).then(function() {
-            window.location.reload();
-          }).catch(function() {
-            window.location.reload();
-          });
-        } else {
-          window.location.reload();
-        }
-      }
+    // Auto-recover stale deployment chunks: clear every Cache Storage
+    // bucket, then reload into a fresh boot. Detection covers the
+    // Chromium, WebKit and Firefox wording (see chunkRecovery.js) and a
+    // 5s throttle keeps a persistently failing chunk out of a reload
+    // loop — the fallback UI below stays as the escape hatch.
+    if (isChunkLoadError(error) && !recoverFromChunkError(error)) {
+      logWarn("recovery", "Stale-chunk reload suppressed by throttle — fallback shown.", {
+        route: window.location.pathname,
+      });
     }
   }
 
   render() {
     if (this.state.hasError) {
-      if (
-        this.state.error?.message?.includes(
-          "Failed to fetch dynamically imported module",
-        ) ||
-        this.state.error?.message?.includes("Importing a module script failed")
-      ) {
+      if (isChunkLoadError(this.state.error)) {
         return (
           <div
             style={{
@@ -86,6 +71,22 @@ export default class ErrorBoundary extends React.Component {
             <p style={{ color: "#71717a", fontSize: "0.9rem", margin: 0 }}>
               Fetching the latest version...
             </p>
+            {/* Escape hatch when the loop-guard suppressed auto-recovery
+                (or a previous reload failed): wipe caches + reload. */}
+            <button
+              onClick={() => clearRuntimeCaches().finally(() => window.location.reload())}
+              style={{
+                background: "transparent",
+                color: "#a1a1aa",
+                border: "1px solid rgba(255,255,255,0.2)",
+                padding: "0.6rem 1.4rem",
+                borderRadius: "8px",
+                cursor: "pointer",
+                fontWeight: "bold",
+              }}
+            >
+              Reload App
+            </button>
           </div>
         );
       }
@@ -114,23 +115,41 @@ export default class ErrorBoundary extends React.Component {
           <p style={{ color: "#a1a1aa", marginBottom: "2rem" }}>
             We're sorry, an unexpected error occurred.
           </p>
-          <button
-            onClick={() => {
-              this.setState({ hasError: false });
-              window.location.href = "/";
-            }}
-            style={{
-              background: "var(--accent-gradient, #e50914)",
-              color: "var(--on-accent, white)",
-              border: "none",
-              padding: "0.8rem 1.5rem",
-              borderRadius: "8px",
-              cursor: "pointer",
-              fontWeight: "bold",
-            }}
-          >
-            Return to Home
-          </button>
+          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", justifyContent: "center" }}>
+            <button
+              onClick={() => {
+                this.setState({ hasError: false });
+                window.location.href = "/";
+              }}
+              style={{
+                background: "var(--accent-gradient, #e50914)",
+                color: "var(--on-accent, white)",
+                border: "none",
+                padding: "0.8rem 1.5rem",
+                borderRadius: "8px",
+                cursor: "pointer",
+                fontWeight: "bold",
+              }}
+            >
+              Return to Home
+            </button>
+            {/* Escape hatch when the loop guard suppressed auto-recovery
+                (e.g. a stale chunk after a deploy): wipe caches + reload. */}
+            <button
+              onClick={() => clearRuntimeCaches().finally(() => window.location.reload())}
+              style={{
+                background: "transparent",
+                color: "#a1a1aa",
+                border: "1px solid rgba(255,255,255,0.2)",
+                padding: "0.8rem 1.5rem",
+                borderRadius: "8px",
+                cursor: "pointer",
+                fontWeight: "bold",
+              }}
+            >
+              Reload App
+            </button>
+          </div>
         </div>
       );
     }

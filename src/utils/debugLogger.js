@@ -107,6 +107,24 @@ export function logError(scope, message, error, context) {
   try {
     const errInfo = describeError(error);
     const ctx = safeContext(context);
+    // Ring buffer of recent errors — `window.__streamlyErrors` lets anyone
+    // (devtools, automation, the ErrorBoundary screen) read the last
+    // failures without digging through console noise.
+    try {
+      if (isBrowser()) {
+        window.__streamlyErrors = window.__streamlyErrors || [];
+        window.__streamlyErrors.push({
+          at: new Date().toISOString(),
+          scope,
+          message,
+          error: errInfo,
+          context: ctx,
+        });
+        if (window.__streamlyErrors.length > 20) window.__streamlyErrors.shift();
+      }
+    } catch {
+      // diagnostics must never break the app
+    }
     // Keep the original error object as the last arg so the console shows
     // a full stack trace when one exists.
     if (ctx === undefined) console.error(fmt(scope), message, errInfo, error);

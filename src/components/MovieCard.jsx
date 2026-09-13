@@ -5,7 +5,7 @@ import { getTMDBWeekdayShort } from "../utils/timezone";
 import { buildMovieAddedNotification } from "../utils/notificationEngine";
 import CountdownBadge from "./CountdownBadge";
 import useDetailView from "../hooks/useDetailView";
-import { useAppAuth } from "../context/AuthContext";
+import { useAppAuth } from "../context/auth";
 import { useToast } from "./Toast";
 
 /* ─────────────────────────────────────────────────────────────

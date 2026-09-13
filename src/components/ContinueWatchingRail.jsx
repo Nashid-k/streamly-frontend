@@ -2,7 +2,7 @@ import React, { useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Clock, ChevronRight, ChevronLeft, Play, X } from "lucide-react";
 import slugify from "slugify";
-import { useAppAuth } from "../context/AuthContext";
+import { useAppAuth } from "../context/auth";
 import useRailArrows from "../hooks/useRailArrows";
 
 const fmtTimeLeft = (seconds) => {

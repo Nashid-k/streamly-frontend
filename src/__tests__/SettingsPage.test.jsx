@@ -142,14 +142,14 @@ describe("SettingsPage", () => {
     );
 
     // Arrow keys move the focused row (up/down arrow buttons are gone).
-    const lisbon = screen.getByRole("option", { name: /lisbon, priority 1/i });
-    fireEvent.keyDown(lisbon, { key: "ArrowDown" });
+    const server1 = screen.getByRole("option", { name: /server 1, priority 1/i });
+    fireEvent.keyDown(server1, { key: "ArrowDown" });
 
     const stored = JSON.parse(localStorage.getItem("setting-serverOrder"));
-    expect(stored[0]).toBe("Nebula");
-    expect(stored[1]).toBe("Lisbon");
+    expect(stored[0]).toBe("Server 2 (Fast)");
+    expect(stored[1]).toBe("Server 1");
     // The rank badge follows the new order.
-    expect(screen.getByRole("option", { name: /lisbon, priority 2/i })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /server 1, priority 2/i })).toBeInTheDocument();
   });
 
   it("opens the player UI studio with 5 presets and a live preview", () => {

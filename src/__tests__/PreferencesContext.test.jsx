@@ -4,10 +4,11 @@ import { PreferencesProvider } from "../context/PreferencesContext";
 import { usePreferences } from "../context/preferences";
 
 function PreferenceProbe() {
-  const { autoplay, notifications, theme, setPreference } = usePreferences();
+  const { autoplay, notifications, theme, serverOrder, setPreference } = usePreferences();
   return (
     <>
       <output>{`${autoplay}:${notifications}:${theme}`}</output>
+      <output data-testid="server-order">{serverOrder.join(" | ")}</output>
       <button type="button" onClick={() => setPreference("notifications", false)}>
         Disable notifications
       </button>
@@ -115,5 +116,43 @@ describe("PreferencesProvider", () => {
 
     // Defaults survive corrupt storage; the settings UI stays usable.
     expect(screen.getByText("true:true:default")).toBeInTheDocument();
+  });
+
+  it("migrates a saved Lisbon-era server order to the restored Server 1–8 labels, position preserved", () => {
+    localStorage.setItem(
+      "setting-serverOrder",
+      JSON.stringify(["Nebula", "Lisbon", "Joy"]),
+    );
+
+    render(
+      <PreferencesProvider>
+        <PreferenceProbe />
+      </PreferencesProvider>,
+    );
+
+    expect(screen.getByTestId("server-order")).toHaveTextContent(
+      "Server 2 (Fast) | Server 1 | Server 5 (VidCore)",
+    );
+    // The stored key is rewritten in place so the migration is idempotent.
+    expect(localStorage.getItem("setting-serverOrder")).toBe(
+      JSON.stringify(["Server 2 (Fast)", "Server 1", "Server 5 (VidCore)"]),
+    );
+  });
+
+  it("leaves already-current server orders untouched", () => {
+    localStorage.setItem(
+      "setting-serverOrder",
+      JSON.stringify(["Server 8 (Smashy)", "Server 1"]),
+    );
+
+    render(
+      <PreferencesProvider>
+        <PreferenceProbe />
+      </PreferencesProvider>,
+    );
+
+    expect(screen.getByTestId("server-order")).toHaveTextContent(
+      "Server 8 (Smashy) | Server 1",
+    );
   });
 });

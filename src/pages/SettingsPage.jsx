@@ -28,6 +28,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import SEO from "../components/SEO";
+import PlayerPreview from "../components/PlayerPreview.jsx";
 import { usePreferences } from "../context/preferences";
 import { useToast } from "../components/Toast.jsx";
 import { logDebug } from "../utils/debugLogger";
@@ -38,6 +39,8 @@ import {
   PLAYER_UI_PRESETS,
   resolveUILayout,
   zoneOf,
+  presetById,
+  resolveSkin,
 } from "../components/playerUIDef";
 
 const THEMES = [
@@ -113,15 +116,18 @@ const SUBTITLE_COLORS = [
   { name: "Emerald", value: "#95ff50" },
 ];
 
+/* Mirrors DEFAULT_PREFERENCES.serverOrder (restored Server 1 … Server 8
+   labels). Kept local so the Settings page renders before the provider
+   resolves; the adapter owns the authoritative list. */
 const DEFAULT_SERVER_ORDER = [
-  "Lisbon",
-  "Nebula",
-  "Solara",
-  "Athens",
-  "Joy",
-  "Castle",
-  "Sakura",
-  "Canaias",
+  "Server 1",
+  "Server 2 (Fast)",
+  "Server 3 (HD)",
+  "Server 4 (Backup)",
+  "Server 5 (VidCore)",
+  "Server 6 (Peachify)",
+  "Server 7 (VidUp)",
+  "Server 8 (Smashy)",
 ];
 
 const TABS = [
@@ -259,10 +265,6 @@ function PlayerUIStudio() {
     playerControls = {},
     playerUIPreset = "classic",
     playerUILayout,
-    subtitleFont = "cinejoy",
-    subtitleSize = 100,
-    subtitleColor = "#ffffff",
-    subtitleBgBlur = true,
     setPreference,
     setPlayerControl,
   } = usePreferences();
@@ -314,39 +316,18 @@ function PlayerUIStudio() {
     setPickedKey(null);
   };
 
-  const previewFont = SUBTITLE_FONTS.find((f) => f.id === subtitleFont) || SUBTITLE_FONTS[0];
-
-  const PreviewIcon = ({ controlKey, size = 13 }) => {
-    const meta = PLAYER_CONTROLS.find((c) => c.key === controlKey);
-    if (!meta) return null;
-    const Icon = meta.Icon;
-    return <Icon style={{ width: size, height: size }} />;
-  };
-
-  const renderPreviewCluster = (zoneId) => {
-    const keys = PLAYER_CONTROL_ORDER.filter((k) => layout[k] === zoneId && playerControls[k] !== false);
-    if (keys.length === 0) return <span className="studio-preview-empty">—</span>;
-    return keys.map((k) => (
-      <span key={k} className="studio-preview-btn" title={k}>
-        {k === "volume" && (zoneId === "bottomLeft" || zoneId === "bottomRight") ? (
-          <span className="studio-preview-vol">
-            <PreviewIcon controlKey={k} />
-            <span className="studio-preview-volbar" />
-          </span>
-        ) : (
-          <PreviewIcon controlKey={k} />
-        )}
-      </span>
-    ));
-  };
+  /* previewFont/PreviewIcon/renderPreviewCluster are retired — the live
+     preview is now the shared PlayerPreview mini-player (demo video +
+     real zone chrome, styled from the same preferences). */
 
   return (
     <div className="studio">
       {/* Presets */}
-      <p className="studio-label">Preset layouts</p>
+      <p className="studio-label">Preset layouts <span className="studio-label-note">each with its own end-to-end skin</span></p>
       <div className="studio-presets" role="radiogroup" aria-label="Player UI presets">
         {PLAYER_UI_PRESETS.map((preset) => {
           const selected = playerUIPreset === preset.id;
+          const presetSkin = resolveSkin(preset.skinId);
           return (
             <button
               key={preset.id}
@@ -370,6 +351,14 @@ function PlayerUIStudio() {
               </span>
               <span className="studio-preset-name">{preset.name}</span>
               <span className="studio-preset-blurb">{preset.blurb}</span>
+              <span
+                className="studio-preset-swatch"
+                aria-hidden="true"
+                style={{
+                  background: presetSkin.progressFill,
+                  boxShadow: presetSkin.progressGlow !== "none" ? presetSkin.progressGlow : undefined,
+                }}
+              />
             </button>
           );
         })}
@@ -384,43 +373,16 @@ function PlayerUIStudio() {
         </div>
       </div>
 
-      {/* Live preview */}
-      <p className="studio-label">Live preview <span className="studio-label-note">matches the player + your subtitles</span></p>
-      <div className="studio-preview" aria-label="Player layout preview">
-        <div className="studio-preview-screen">
-          <div className="studio-preview-top">
-            <div className="studio-preview-cluster">{renderPreviewCluster("topLeft")}</div>
-            <div className="studio-preview-cluster">{renderPreviewCluster("topRight")}</div>
-          </div>
-          <div className="studio-preview-play" aria-hidden="true">
-            <PreviewIcon controlKey="playPause" size={18} />
-          </div>
-          <div
-            className="studio-preview-sub"
-            style={{
-              fontFamily: previewFont.family,
-              fontSize: `${(Number(subtitleSize) / 100) * 0.85}rem`,
-              color: subtitleColor,
-              textShadow: subtitleBgBlur
-                ? `0 0 8px rgba(0,0,0,0.9), 0 0 14px ${subtitleColor}55, 0 1px 3px #000`
-                : "0 1px 3px rgba(0,0,0,0.9)",
-              backgroundColor: subtitleBgBlur ? "rgba(0,0,0,0.4)" : "transparent",
-            }}
-          >
-            Here is what your subtitles will look like.
-          </div>
-          <div className="studio-preview-bottom">
-            <div className="studio-preview-progress" aria-hidden="true">
-              <span style={{ width: "35%" }} />
-            </div>
-            <div className="studio-preview-bar">
-              <div className="studio-preview-cluster">{renderPreviewCluster("bottomLeft")}</div>
-              <div className="studio-preview-cluster studio-preview-cluster--center">{renderPreviewCluster("bottomCenter")}</div>
-              <div className="studio-preview-cluster">{renderPreviewCluster("bottomRight")}</div>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Live preview — real demo video + the exact zone chrome the
+          player renders. Re-renders instantly on preset click, drag,
+          tap-to-move, and eye toggles (same preferences + live state). */}
+      <p className="studio-label">Live preview <span className="studio-label-note">demo video · matches the player</span></p>
+      <PlayerPreview
+        layout={layout}
+        visibility={playerControls}
+        label={playerUIPreset === "custom" ? "Custom" : (presetById(playerUIPreset)?.name || "Classic")}
+        presetId={playerUIPreset}
+      />
 
       {/* Placement board */}
       <p className="studio-label">Placement <span className="studio-label-note">drag, tap-tap, or use the menu</span></p>
@@ -565,7 +527,7 @@ export default function SettingsPage() {
     defaultLanguage = "en",
     // Servers
     serverOrder = DEFAULT_SERVER_ORDER,
-    // Subtitles
+    // Subtitles (live-controls the Subtitles section below)
     subtitleFont = "cinejoy",
     subtitleSize = 100,
     subtitleColor = "#ffffff",
@@ -584,11 +546,6 @@ export default function SettingsPage() {
   const activeLang = useMemo(
     () => LANGUAGES.find((l) => l.code === defaultLanguage) || LANGUAGES[0],
     [defaultLanguage],
-  );
-
-  const activeFont = useMemo(
-    () => SUBTITLE_FONTS.find((f) => f.id === subtitleFont) || SUBTITLE_FONTS[0],
-    [subtitleFont],
   );
 
   // Close dropdowns on outside click or Escape
@@ -720,7 +677,7 @@ export default function SettingsPage() {
     account: visibleSection("account", "account sign in list history shortcuts user"),
     appearance: visibleSection("appearance", "appearance theme episode style view logo trailer spoiler motion thumbnail"),
     playback: visibleSection("playback", "playback autoplay skip intro controls seek time subtitle language audio mute"),
-    servers: visibleSection("servers", "server order lisbon nebula solara athens joy castle sakura canaias stream priority"),
+    servers: visibleSection("servers", "server order server 1 fast hd backup vidcore peachify vidup smashy stream priority"),
     subtitles: visibleSection("subtitles", "subtitles font size color background blur preview style"),
     notifications: visibleSection("notifications", "notifications alert toast popup banner"),
   };
@@ -1407,34 +1364,10 @@ export default function SettingsPage() {
                     />
                   </SettingRow>
 
-                  {/* Real-time Subtitle Live Preview Box */}
-                  <div className="mt-4 p-5 rounded-2xl bg-black/60 border border-white/10 relative overflow-hidden flex flex-col items-center justify-center min-h-[140px] text-center">
-                    <div
-                      className="absolute inset-0 bg-cover bg-center opacity-30 pointer-events-none"
-                      style={{
-                        backgroundImage:
-                          "url('https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&q=80')",
-                      }}
-                    />
-                    <div className="relative z-10">
-                      <span
-                        style={{
-                          fontFamily: activeFont.family,
-                          fontSize: `${(Number(subtitleSize) / 100) * 1.15}rem`,
-                          color: subtitleColor,
-                          textShadow: subtitleBgBlur
-                            ? `0 0 10px rgba(0,0,0,0.9), 0 0 20px ${subtitleColor}55, 0 2px 4px #000`
-                            : "0 2px 4px rgba(0,0,0,0.9)",
-                          backgroundColor: subtitleBgBlur ? "rgba(0,0,0,0.4)" : "transparent",
-                          padding: "4px 12px",
-                          borderRadius: "8px",
-                          display: "inline-block",
-                          lineHeight: 1.4,
-                        }}
-                      >
-                        Here is what your subtitles will look like.
-                      </span>
-                    </div>
+                  {/* Real-time Subtitle Live Preview Box — the same demo-video
+                      mini-player as the Studio (video + live subtitle styles). */}
+                  <div className="mt-4">
+                    <PlayerPreview showChrome={false} label="Subtitles" />
                   </div>
                 </div>
               </section>
@@ -1560,13 +1493,17 @@ export default function SettingsPage() {
               aria-label="Player UI studio"
               className="w-full max-w-3xl [background:var(--bg-elevated)] border [border-color:var(--border-subtle)] rounded-3xl p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto"
             >
-              <button
-                onClick={() => setShowControlsModal(false)}
-                aria-label="Close player studio"
-                className="absolute right-5 top-5 p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/10"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              {/* Sticky close: the modal scrolls — a plain absolute button
+                  scrolls under the fixed navbar and becomes unclickable. */}
+              <div className="studio-modal-close">
+                <button
+                  onClick={() => setShowControlsModal(false)}
+                  aria-label="Close player studio"
+                  className="p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/15 bg-black/50 border border-white/10 backdrop-blur-sm"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
 
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-white">

@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import ContinueWatchingRail from "../components/ContinueWatchingRail";
 
 const mockRemove = vi.fn();
-vi.mock("../context/AuthContext", () => ({
+vi.mock("../context/auth", () => ({
   useAppAuth: () => ({
     removeFromContinueWatching: mockRemove,
   }),

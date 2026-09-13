@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { Play, Plus, Check, X } from "lucide-react";
 import slugify from "slugify";
 import { movieService } from "../api/movieService";
-import { useAppAuth } from "../context/AuthContext";
+import { useAppAuth } from "../context/auth";
 import { useToast } from "./Toast";
 import { buildMetaFacts } from "../utils/metaFacts";
 

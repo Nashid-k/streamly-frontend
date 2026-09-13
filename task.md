@@ -264,3 +264,42 @@ page: banner/ⓘ/cards), no horizontal overflow, dropdowns on-screen, Studio and
 Sign-In modals fit, themed screenshot confirmed.
   - **Tests**: new `useDetailView.test.jsx` +4 (modal open, page nav, host lifecycle,
 null guard). Lint 0 errors, 259 passed across 24 files, build success.
+- [x] **Task 28 — Player crash fixed ("Oops! Something went wrong"), Server 1–8 names restored, five end-to-end skins, lint to zero**
+  - **Player crash root-caused + fixed (the "video not playing" bug)**: commit `6ba4c76`'s
+    dead-stream cleanup deleted `const [useNativeControls, setUseNativeControls] = useState(false)`
+    but left 3 live references → `ReferenceError` on every CustomVideoPlayer render → the
+    ErrorBoundary's "Oops! Something went wrong." screen replaced the player the moment anyone
+    hit Play. Restored as `const [useNativeControls] = useState(false)` (custom CineSrc chrome).
+  - **Two more temporal-dead-zone crashes found the same way** (order-of-declaration bugs the
+    bundler can't catch): `isTouch` was declared *below* the skin-era `topZoneKeys` callback that
+    reads it (hoisted above), and `cycleSpeed` referenced `playbackRate`/`sendCommand` declared
+    later (relocated after `sendCommand`). Each was caught live in the browser preview via the
+    new `window.__streamlyErrors` ring buffer (`debugLogger.logError` now records the last 20
+    errors with scope + context for console/automation inspection).
+  - **Stale-deploy recovery hardened**: new `src/utils/chunkRecovery.js` — `isChunkLoadError`
+    matches every browser wording (Chromium "Failed to fetch…", WebKit "Importing a module script
+    failed", Vite 7/Firefox "error loading dynamically imported module", MIME-type module errors),
+    `clearRuntimeCaches` wipes every Cache Storage bucket, `shouldAttemptRecovery` is a shared 5s
+    loop-guard. ErrorBoundary auto-recovers on all wordings, both its screens gain a manual
+    "Reload App" escape hatch; `main.jsx`'s `vite:preloadError` handler uses the same helpers.
+  - **Server names restored (Server 1 … Server 8 (Smashy))** from pre-rename history (rename was
+    `f584ba3`): `videoSourceAdapter` BASE_SERVERS, `preferences.js` defaults, Settings reorder
+    list, and the player dropdown all use the original labels; URLs unchanged.
+    `LEGACY_SERVER_NAME_MAP` + `migrateServerOrder` (moved to `preferences.js` so the map lives
+    beside the defaults it maps into) remap any saved Lisbon/Nebula/Solara/Athens/Joy/Castle/
+    Sakura/Canaias order on boot, position preserved, then persist the renamed order (idempotent).
+  - **Five end-to-end skins** ship via the `PLAYER_UI_SKINS` token system in `playerUIDef.js`
+    (`resolveSkin`): Classic frosted glass, Minimal ghost bar, Compact capsule+squircle, Theater
+    cinema-gold scrims with glowing rail, Studio flat pro-editor panels with monospace timecode.
+    Tokens are emitted as `--skin-*` CSS variables on both `CustomVideoPlayer` and the shared
+    `PlayerPreview` live demo player (Studio modal), so presets restyle bar, buttons, progress,
+    time font, scrims and chrome shadow identically everywhere; custom arrangements fall back to
+    Classic tokens. New `src/context/auth.js` hosts `AppContext`/`useAppAuth` so `AuthContext.jsx`
+    is component-only (fast-refresh clean; 8 import sites updated).
+  - **Lint 18 → 0**: unused lucide imports + dead `failed` state/`cluster` helper removed from
+    `PlayerPreview.jsx`; map re-export removed from `PreferencesContext.jsx`.
+  - **Verified in the live preview**: details page → Play opens the player, CineSrc iframe mounts
+    with correct season/episode URL and loads subtitles, Server 1–8 dropdown renders, Player UI
+    Studio presets apply live (toast confirmed) with the demo-video preview. `npm run lint`
+    (0 warnings, 0 errors), `npm run test` (280 passed across 25 files — +4 chunk-recovery cases),
+    `npm run build` (✓ 2.5s).

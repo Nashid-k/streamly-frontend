@@ -10,21 +10,21 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { HelmetProvider } from "react-helmet-async";
 import { queryClient } from "./queryClient";
 import { initGlobalErrorLogging, logBootDiagnostics } from "./utils/debugLogger";
+import { shouldAttemptRecovery, clearRuntimeCaches } from "./utils/chunkRecovery";
 
 // Boot diagnostics — always visible in the console so "nothing loads" is
 // traceable to offline / missing TMDB key / bad URL before anything else.
 logBootDiagnostics("boot");
 initGlobalErrorLogging();
 
-// Auto-reload when old Vite chunks fail to load due to deployment updates
+// Auto-recover when old Vite chunks fail to preload after a deploy:
+// wipe every Cache Storage bucket (old hashed assets + stale HTML shell)
+// so the reload boots fresh. Shared 5s loop-guard with ErrorBoundary.
 if (import.meta.env.PROD) {
   window.addEventListener('vite:preloadError', (event) => {
     event.preventDefault();
-    const lastReload = sessionStorage.getItem('vite_reload');
-    if (!lastReload || Date.now() - Number(lastReload) > 5000) {
-      sessionStorage.setItem('vite_reload', Date.now().toString());
-      window.location.reload();
-    }
+    if (!shouldAttemptRecovery('vite_reload')) return;
+    clearRuntimeCaches().finally(() => window.location.reload());
   });
 }
 

@@ -2558,10 +2558,18 @@ input:focus-visible {
     font-size: 2.2rem !important;
   }
 
+  /* 16px font (no iOS zoom) without stomping inputs that have their own
+       layout padding — icon inputs (search/settings filter) position an
+       absolute magnifier over the left edge and would get text-over-icon. */
   input,
   select,
   textarea {
     font-size: 16px !important;
+  }
+
+  input:not(.search-panel__input):not(.settings-search__input):not(.range-slider):not(.pl-11):not(.px-4),
+  select,
+  textarea {
     padding: 12px 16px !important;
   }
 
@@ -5290,6 +5298,333 @@ html[data-theme="solar"] {
 }
 
 /* ── Player UI Studio ── */
+.player-preview {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #000;
+}
+
+.player-preview-screen {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #000;
+}
+
+.player-preview-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.player-preview-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(to top, rgba(0, 0, 0, 0.88) 0%, rgba(0, 0, 0, 0.35) 26%, rgba(0, 0, 0, 0.08) 45%, rgba(0, 0, 0, 0.12) 78%, rgba(0, 0, 0, 0.45) 100%);
+}
+
+.player-preview--bare .player-preview-scrim {
+  background:
+    linear-gradient(to top, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.18) 40%, rgba(0, 0, 0, 0.1) 100%);
+}
+
+/* Video failed to load (offline / blocked host) → cinematic fallback */
+.player-preview-video:not([src]) {
+  display: none;
+}
+
+.player-preview-chrome {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.player-preview-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 26px;
+  padding: 10px 12px 0;
+}
+
+.player-preview-cluster {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 26px;
+}
+
+.player-preview-cluster--center {
+  flex: 1;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.player-preview-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  /* Skin tokens (Player UI Studio) — mirror the real player's buttons */
+  border-radius: var(--skin-btn-radius, 50%);
+  background: var(--skin-btn-bg, rgba(20, 20, 24, 0.55));
+  border: var(--skin-btn-border, 1px solid rgba(255, 255, 255, 0.14));
+  color: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: var(--skin-chrome-shadow, none);
+  flex-shrink: 0;
+}
+
+/* Icon-variant buttons follow the skin too (compact tone, ghost skins
+   resolve transparent through --skin-btn-bg) — like the real player. */
+.player-preview-btn.is-muted {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.player-preview-btn.is-bordered {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.player-preview-speedpill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: var(--skin-btn-radius, 999px);
+  background: var(--skin-btn-bg, rgba(20, 20, 24, 0.55));
+  border: var(--skin-btn-border, 1px solid rgba(255, 255, 255, 0.14));
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+.player-preview-volume {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.player-preview-volbar {
+  width: 34px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+  display: inline-block;
+}
+
+.player-preview-volfill {
+  display: block;
+  width: 70%;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--skin-progress-fill, var(--accent-gradient, rgba(255, 255, 255, 0.85)));
+}
+
+.player-preview-center {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.player-preview-play {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--skin-btn-radius, 50%);
+  background: var(--skin-btn-bg, rgba(0, 0, 0, 0.45));
+  border: var(--skin-btn-border, 1px solid rgba(255, 255, 255, 0.16));
+  color: #fff;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: var(--skin-chrome-shadow, none);
+}
+
+.player-preview-subwrap {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  /* Sit above the bottom stack (progress + time row + bar ≈ 78px),
+     mirroring how the real player lifts subtitles over its chrome. */
+  bottom: 84px;
+  display: flex;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.player-preview--bare .player-preview-subwrap {
+  bottom: 12%;
+}
+
+/* Very short previews (small phones in the Studio modal) can't spare
+   84px under the subtitle — clamp so both stay visible. */
+@media (max-height: 700px) {
+  .player-preview:not(.player-preview--bare) .player-preview-subwrap {
+    bottom: clamp(64px, 32%, 84px);
+  }
+}
+
+.player-preview-sub {
+  display: inline-block;
+  font-weight: 600;
+  line-height: 1.35;
+  padding: 2px 10px;
+  max-width: 100%;
+}
+
+.player-preview-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 10px 8px;
+}
+
+.player-preview-progress {
+  position: relative;
+  height: 4px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.16);
+  overflow: visible;
+}
+
+.player-preview-progress-fill {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 42%;
+  border-radius: 3px;
+  background: var(--skin-progress-fill, var(--accent-gradient, rgba(255, 255, 255, 0.85)));
+}
+
+.player-preview-progress-dot {
+  position: absolute;
+  top: 50%;
+  left: 42%;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+}
+
+.player-preview-timerow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 2px;
+  min-height: 14px;
+}
+
+.player-preview-time {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--skin-time-font, inherit);
+  color: rgba(255, 255, 255, 0.55);
+  flex-shrink: 0;
+}
+
+.player-preview-time--ghost {
+  width: 58px;
+  visibility: hidden;
+}
+
+.player-preview-titlemeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.player-preview-title {
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player-preview-pill {
+  flex-shrink: 0;
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
+.player-preview-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 26px;
+}
+
+.player-preview-chip {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 3;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(10, 10, 14, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  padding: 3px 9px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+
+/* ═══ Player UI Studio (Settings modal) ═══ */
+/* Sticky close for the scrolling Studio modal — always above content
+   and never beneath the fixed app navbar. */
+.studio-modal-close {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: flex-end;
+  margin: -0.5rem -0.5rem 0 auto;
+  width: fit-content;
+  background: transparent;
+}
+
 .studio {
   display: flex;
   flex-direction: column;
@@ -5370,6 +5705,15 @@ html[data-theme="solar"] {
   color: rgba(255, 255, 255, 0.5);
 }
 
+/* Skin identity swatch — shows each preset's progress-fill accent so the
+   five looks are distinguishable at a glance before previewing. */
+.studio-preset-swatch {
+  height: 4px;
+  width: 100%;
+  border-radius: 999px;
+  margin-top: 2px;
+}
+
 .studio-minimap {
   display: flex;
   flex-direction: column;
@@ -5403,134 +5747,6 @@ html[data-theme="solar"] {
   height: 3px;
   border-radius: 2px;
   background: linear-gradient(90deg, rgba(255,255,255,0.12), rgba(255,255,255,0.3));
-}
-
-/* Live preview mock player */
-.studio-preview {
-  border-radius: 16px;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: #000;
-}
-
-.studio-preview-screen {
-  position: relative;
-  aspect-ratio: 16 / 9;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 10px 12px;
-  background:
-    radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.08), transparent 55%),
-    linear-gradient(160deg, #23232c 0%, #0b0b10 60%, #000 100%);
-}
-
-.studio-preview-top {
-  display: flex;
-  justify-content: space-between;
-  min-height: 26px;
-}
-
-.studio-preview-cluster {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 26px;
-}
-
-.studio-preview-cluster--center {
-  flex: 1;
-  justify-content: center;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.studio-preview-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.studio-preview-vol {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-}
-
-.studio-preview-volbar {
-  width: 22px;
-  height: 3px;
-  border-radius: 2px;
-  background: var(--accent-gradient, rgba(255, 255, 255, 0.7));
-}
-
-.studio-preview-empty {
-  color: rgba(255, 255, 255, 0.25);
-  font-size: 0.8rem;
-}
-
-.studio-preview-play {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -62%);
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  color: #fff;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-
-.studio-preview-sub {
-  position: absolute;
-  left: 8%;
-  right: 8%;
-  bottom: 24%;
-  text-align: center;
-  line-height: 1.4;
-  padding: 2px 10px;
-  border-radius: 6px;
-  display: inline-block;
-  pointer-events: none;
-}
-
-.studio-preview-bottom {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.studio-preview-progress {
-  height: 4px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.14);
-  overflow: hidden;
-}
-
-.studio-preview-progress span {
-  display: block;
-  height: 100%;
-  background: var(--accent-gradient, rgba(255, 255, 255, 0.8));
-  border-radius: 3px;
-}
-
-.studio-preview-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 26px;
 }
 
 /* Placement board */

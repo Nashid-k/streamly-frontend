@@ -53,11 +53,156 @@ export const PLAYER_CONTROL_ORDER = [
 
 export const PLAYER_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
+/* ── Player UI Skins ──────────────────────────────────────────────
+   Each preset is a complete end-to-end look, not just an icon
+   arrangement. Every token is emitted as a --skin-* CSS variable on
+   the player root (and on the Studio preview), so both the real player
+   and the live preview render the same visual identity.
+
+   Token contract:
+   - barBg / barBlur / barBorder / barRadius  → control-bar surface
+   - btnBg / btnGhostBg / btnBorder / btnRadius / btnTone → buttons
+     (btnBg = filled primary circle, btnGhostBg = secondary ghost buttons)
+   - progressHeight / progressFill / progressGlow → scrubber
+   - timeFont / accent                        → time row + accent color
+   - panelBg / panelBlur / panelBorder        → settings panel + menus
+   - scrim / chromeShadow                     → video scrims + chrome glow */
+export const PLAYER_UI_SKINS = {
+  classic: {
+    id: "classic",
+    name: "Classic",
+    barBg: "rgba(12, 12, 16, 0.55)",
+    barBlur: "16px",
+    barBorder: "none",
+    barRadius: "0px",
+    btnBg: "rgba(255, 255, 255, 0.12)",
+    btnGhostBg: "transparent",
+    btnBorder: "none",
+    btnRadius: "50%",
+    btnTone: "frosted",
+    progressHeight: "4px",
+    progressFill: "var(--accent-gradient, linear-gradient(90deg, #f43f5e, #f59e0b))",
+    progressGlow: "none",
+    timeFont: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+    accent: "var(--accent-primary, #f43f5e)",
+    panelBg: "rgba(18, 18, 20, 0.92)",
+    panelBlur: "40px",
+    panelBorder: "1px solid rgba(255, 255, 255, 0.08)",
+    scrim: "linear-gradient(to top, rgba(0,0,0,0.75), transparent 30%, transparent 70%, rgba(0,0,0,0.45))",
+    chromeShadow: "0 2px 12px rgba(0, 0, 0, 0.3)",
+  },
+  minimal: {
+    id: "minimal",
+    name: "Minimal",
+    barBg: "transparent",
+    barBlur: "0px",
+    barBorder: "none",
+    barRadius: "0px",
+    btnBg: "transparent",
+    btnGhostBg: "transparent",
+    btnBorder: "none",
+    btnRadius: "50%",
+    btnTone: "ghost",
+    progressHeight: "2px",
+    progressFill: "rgba(255, 255, 255, 0.85)",
+    progressGlow: "none",
+    timeFont: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+    accent: "rgba(255, 255, 255, 0.9)",
+    panelBg: "rgba(10, 10, 12, 0.9)",
+    panelBlur: "24px",
+    panelBorder: "1px solid rgba(255, 255, 255, 0.06)",
+    scrim: "linear-gradient(to top, rgba(0,0,0,0.55), transparent 25%, transparent 80%, rgba(0,0,0,0.25))",
+    chromeShadow: "none",
+  },
+  compact: {
+    id: "compact",
+    name: "Compact",
+    barBg: "rgba(16, 16, 22, 0.9)",
+    barBlur: "28px",
+    barBorder: "1px solid rgba(255, 255, 255, 0.12)",
+    barRadius: "24px",
+    btnBg: "rgba(255, 255, 255, 0.08)",
+    btnGhostBg: "rgba(255, 255, 255, 0.08)",
+    btnBorder: "1px solid rgba(255, 255, 255, 0.16)",
+    btnRadius: "14px",
+    btnTone: "squircle",
+    progressHeight: "8px",
+    progressFill: "linear-gradient(90deg, #ffffff, rgba(255,255,255,0.75))",
+    progressGlow: "none",
+    timeFont: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+    accent: "#ffffff",
+    panelBg: "rgba(16, 16, 22, 0.95)",
+    panelBlur: "32px",
+    panelBorder: "1px solid rgba(255, 255, 255, 0.14)",
+    scrim: "linear-gradient(to top, rgba(0,0,0,0.8), transparent 35%, transparent 75%, rgba(0,0,0,0.35))",
+    chromeShadow: "0 8px 32px rgba(0, 0, 0, 0.55)",
+  },
+  theater: {
+    id: "theater",
+    name: "Theater",
+    barBg: "linear-gradient(to top, rgba(24, 14, 4, 0.92), rgba(24, 14, 4, 0.55))",
+    barBlur: "10px",
+    barBorder: "none",
+    barRadius: "0px",
+    btnBg: "rgba(255, 190, 80, 0.14)",
+    btnGhostBg: "rgba(255, 190, 80, 0.14)",
+    btnBorder: "1px solid rgba(255, 200, 100, 0.28)",
+    btnRadius: "50%",
+    btnTone: "gilded",
+    progressHeight: "5px",
+    progressFill: "linear-gradient(90deg, #ffd166, #ff9e2c)",
+    progressGlow: "0 0 12px rgba(255, 178, 64, 0.55)",
+    timeFont: "Georgia, 'Times New Roman', serif",
+    accent: "#ffce6b",
+    panelBg: "rgba(26, 16, 6, 0.94)",
+    panelBlur: "24px",
+    panelBorder: "1px solid rgba(255, 200, 100, 0.22)",
+    scrim: "linear-gradient(to top, rgba(20,10,2,0.9), transparent 40%, transparent 60%, rgba(20,10,2,0.55))",
+    chromeShadow: "0 4px 24px rgba(255, 178, 64, 0.18)",
+  },
+  studio: {
+    id: "studio",
+    name: "Studio",
+    barBg: "rgba(10, 10, 12, 0.97)",
+    barBlur: "0px",
+    barBorder: "1px solid rgba(255, 255, 255, 0.1)",
+    barRadius: "0px",
+    btnBg: "rgba(255, 255, 255, 0.05)",
+    btnGhostBg: "rgba(255, 255, 255, 0.05)",
+    btnBorder: "1px solid rgba(255, 255, 255, 0.14)",
+    btnRadius: "8px",
+    btnTone: "flat",
+    progressHeight: "4px",
+    progressFill: "linear-gradient(90deg, #ff3b4e, #ff6a5e)",
+    progressGlow: "none",
+    timeFont: "'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace",
+    accent: "#ff3b4e",
+    panelBg: "rgba(12, 12, 14, 0.98)",
+    panelBlur: "0px",
+    panelBorder: "1px solid rgba(255, 255, 255, 0.12)",
+    scrim: "linear-gradient(to top, rgba(0,0,0,0.82), transparent 30%, transparent 70%, rgba(0,0,0,0.5))",
+    chromeShadow: "none",
+  },
+};
+
+export const DEFAULT_SKIN_ID = "classic";
+
+/* Resolve the skin tokens for a preset id. "custom" arrangements and
+   unknown ids fall back to the Classic tokens — the classic look is the
+   neutral surface every custom layout starts from. */
+export function resolveSkin(presetId) {
+  if (typeof presetId === "string" && PLAYER_UI_SKINS[presetId]) {
+    return PLAYER_UI_SKINS[presetId];
+  }
+  return PLAYER_UI_SKINS[DEFAULT_SKIN_ID];
+}
+
 export const PLAYER_UI_PRESETS = [
   {
     id: "classic",
     name: "Classic",
-    blurb: "The default Streamly layout",
+    blurb: "The default Streamly look — frosted glass",
+    skinId: "classic",
     visibility: {
       playPause: true,
       jumpForwardBackward: true,
@@ -84,7 +229,8 @@ export const PLAYER_UI_PRESETS = [
   {
     id: "minimal",
     name: "Minimal",
-    blurb: "Play, volume, fullscreen — nothing else",
+    blurb: "Ghost chrome — borderless, hairline progress",
+    skinId: "minimal",
     visibility: {
       playPause: true,
       jumpForwardBackward: false,
@@ -111,7 +257,8 @@ export const PLAYER_UI_PRESETS = [
   {
     id: "compact",
     name: "Compact",
-    blurb: "Everything in one bottom cluster",
+    blurb: "One solid capsule bar, squircle buttons",
+    skinId: "compact",
     visibility: {
       playPause: true,
       jumpForwardBackward: true,
@@ -138,7 +285,8 @@ export const PLAYER_UI_PRESETS = [
   {
     id: "theater",
     name: "Theater",
-    blurb: "Transport below, setup above",
+    blurb: "Cinema gold — deep scrims, glowing rail",
+    skinId: "theater",
     visibility: {
       playPause: true,
       jumpForwardBackward: true,
@@ -165,7 +313,8 @@ export const PLAYER_UI_PRESETS = [
   {
     id: "studio",
     name: "Studio",
-    blurb: "Pro deck — speed on the bar",
+    blurb: "Pro editor — flat panels, mono timecode",
+    skinId: "studio",
     visibility: {
       playPause: true,
       jumpForwardBackward: true,
