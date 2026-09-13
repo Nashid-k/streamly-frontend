@@ -420,6 +420,8 @@ const CustomVideoPlayer = ({
   const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0 });
   const [isLooping, setIsLooping] = useState(false);
   const [brightness, setBrightness] = useState(1);
+  const brightnessRef = useRef(1);
+  useEffect(() => { brightnessRef.current = brightness; }, [brightness]);
   const [qualities, setQualities] = useState([]);
   const [currentQuality, setCurrentQuality] = useState(null);
   const [audioTracks, setAudioTracks] = useState([]);
@@ -442,7 +444,6 @@ const CustomVideoPlayer = ({
   const [orientation, setOrientation] = useState(() =>
     typeof window !== 'undefined' && window.innerWidth > window.innerHeight ? 'landscape' : 'portrait'
   );
-  const isPortrait = orientation === 'portrait';
 
   /* Track orientation with state so layout and aspect ratio update on device rotation */
   useEffect(() => {
@@ -484,6 +485,7 @@ const CustomVideoPlayer = ({
   const containerRef = useRef(null);
   const controlsTimeoutRef = useRef(null);
   const clickTimeoutRef = useRef(null);
+  const singleTapTimerRef = useRef(null);
   const progressBarRef = useRef(null);
   const progressTrackRef = useRef(null); // the actual bar (inside the padded hit area)
   const targetSeekTimeRef = useRef(null);
@@ -681,7 +683,7 @@ const CustomVideoPlayer = ({
   /* Cleanup ALL timers on unmount to prevent memory leaks */
   useEffect(() => {
     return () => {
-      [controlsTimeoutRef, clickTimeoutRef, seekTimeoutRef,
+      [controlsTimeoutRef, clickTimeoutRef, singleTapTimerRef, seekTimeoutRef,
        centerIconTimeoutRef, sideIconTimeoutRef, skipIntroTimeoutRef,
        toastTimeoutRef, volumeArcTimerRef, aspectRatioArcTimerRef,
        gestureHudTimerRef, previewThumbTimerRef].forEach(r => { if (r.current) clearTimeout(r.current); });
@@ -1534,9 +1536,12 @@ const CustomVideoPlayer = ({
         setIsPlaying(true);
         if (showCustomUI) triggerCenterIcon("play");
         setShowPausedInfo(false);
+        if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+        controlsTimeoutRef.current = setTimeout(() => setShowControls(false), 3500);
       } else {
         v.pause();
         setIsPlaying(false);
+        setShowControls(true);
         if (showCustomUI) triggerCenterIcon("pause");
       }
       return;
@@ -1544,12 +1549,15 @@ const CustomVideoPlayer = ({
     if (isPlaying) {
       sendCommand("pause");
       setIsPlaying(false);
+      setShowControls(true);
       if (showCustomUI) triggerCenterIcon("pause");
     } else {
       sendCommand("play");
       setIsPlaying(true);
       if (showCustomUI) triggerCenterIcon("play");
       setShowPausedInfo(false);
+      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+      controlsTimeoutRef.current = setTimeout(() => setShowControls(false), 3500);
     }
   }, [isPlaying, isDirectStream, sendCommand, triggerCenterIcon, showCustomUI]);
 
@@ -1810,9 +1818,9 @@ const CustomVideoPlayer = ({
   }, [showCustomUI, changeVolume, showSettings, showSubtitlesMenu, showAudioMenu, showShortcuts]);
 
   /* ═══ Touch Gestures — VLC/MX Player Style ═══════════════════════════════
-     LEFT 30%:   swipe ↑↓ = brightness
-     CENTER 40%: swipe ←→ = seek, double-tap = play/pause
-     RIGHT 30%:  swipe ↑↓ = volume
+     LEFT 35%:   swipe ↑↓ = brightness
+     CENTER 30%: swipe ←→ = seek, single-tap = toggle controls, double-tap = seek/play
+     RIGHT 35%:  swipe ↑↓ = volume
      ══════════════════════════════════════════════════════════════════════ */
   const handleTouchStart = useCallback((e) => {
     if (!isTouch || !showCustomUI) return;
@@ -1824,8 +1832,10 @@ const CustomVideoPlayer = ({
       pinchStartDistRef.current = Math.hypot(dx, dy);
       pinchStartFullscreenRef.current = isFullscreen;
       gestureStartRef.current = null;
+      gestureLockRef.current = null;
       return;
     }
+    if (e.touches.length > 1) return;
     /* Single finger: record start position */
     const touch = e.touches[0];
     const r = containerRef.current?.getBoundingClientRect();
@@ -1836,7 +1846,10 @@ const CustomVideoPlayer = ({
       y: touch.clientY,
       time: Date.now(),
       relX,
-      zone: relX < 0.3 ? 'left' : relX > 0.7 ? 'right' : 'center',
+      zone: relX < 0.35 ? 'left' : relX > 0.65 ? 'right' : 'center',
+      startVolume: isMutedRef.current ? 0 : volumeRef.current,
+      startBrightness: brightnessRef.current,
+      hasMoved: false,
     };
     gestureLockRef.current = null;
   }, [isTouch, showCustomUI, isFullscreen]);
@@ -1860,7 +1873,7 @@ const CustomVideoPlayer = ({
       }
       return;
     }
-    if (!gestureStartRef.current) return;
+    if (!gestureStartRef.current || e.touches.length !== 1) return;
     const touch = e.touches[0];
     const dx = touch.clientX - gestureStartRef.current.x;
     const dy = gestureStartRef.current.y - touch.clientY; /* positive = up */
@@ -1868,61 +1881,79 @@ const CustomVideoPlayer = ({
     const absDy = Math.abs(dy);
     const r = containerRef.current?.getBoundingClientRect();
     if (!r) return;
-    /* Lock gesture direction after 15px of movement */
-    if (!gestureLockRef.current && (absDx > 15 || absDy > 15)) {
+
+    /* Lock gesture direction after 12px of movement */
+    if (!gestureLockRef.current && (absDx > 12 || absDy > 12)) {
       if (absDx > absDy) {
         gestureLockRef.current = 'horizontal'; /* seek */
       } else {
         gestureLockRef.current = 'vertical'; /* brightness or volume */
       }
+      gestureStartRef.current.hasMoved = true;
     }
+
     if (!gestureLockRef.current) return;
     e.preventDefault(); /* Prevent scrolling */
+    gestureStartRef.current.hasMoved = true;
+
     if (gestureLockRef.current === 'vertical') {
       const zone = gestureStartRef.current.zone;
-      const sensitivity = r.height * 0.35;
-      const pct = Math.max(-1, Math.min(1, dy / sensitivity));
+      // Proportional vertical sensitivity: full scale takes 70% player height or min 220px
+      const sensitivity = Math.max(220, r.height * 0.7);
+      const delta = dy / sensitivity;
+
       if (zone === 'right') {
-        /* Volume */
-        const newVol = Math.max(0, Math.min(1, volume + pct * 0.5));
+        /* Volume: calculated cleanly from startVolume without compounding */
+        const newVol = Math.max(0, Math.min(1, gestureStartRef.current.startVolume + delta));
         setVolume(newVol);
+        volumeRef.current = newVol;
         localStorage.setItem('streamly_volume', newVol.toString());
-        sendCommand('setVolume', [newVol]);
-        if (newVol > 0 && isMuted) {
+        if (isDirectStream && videoRef.current) {
+          videoRef.current.volume = newVol;
+          if (newVol > 0) videoRef.current.muted = false;
+        } else {
+          sendCommand('setVolume', [newVol]);
+        }
+        if (newVol > 0 && isMutedRef.current) {
           setIsMuted(false);
+          isMutedRef.current = false;
           localStorage.setItem('streamly_muted', 'false');
         }
         setGestureType('volume');
         setGestureValue(newVol);
       } else if (zone === 'left') {
-        /* Brightness */
-        const newBright = Math.max(0.2, Math.min(1.5, brightness + pct * 0.3));
+        /* Brightness: calculated cleanly from startBrightness without compounding */
+        // Span is 0.2 to 1.5 = 1.3
+        const newBright = Math.max(0.2, Math.min(1.5, gestureStartRef.current.startBrightness + delta * 1.3));
         setBrightness(newBright);
+        brightnessRef.current = newBright;
         setGestureType('brightness');
-        setGestureValue(newBright / 1.5);
+        setGestureValue((newBright - 0.2) / 1.3);
       }
     } else if (gestureLockRef.current === 'horizontal') {
       /* Seek — swipe right = forward, left = backward */
-      const seekSensitivity = r.width * 0.3;
-      const seekAmount = (dx / seekSensitivity) * 30; /* 30s per 30% screen width */
+      const seekSensitivity = Math.max(220, r.width * 0.45);
+      const seekAmount = (dx / seekSensitivity) * 30; /* 30s per 45% screen width */
       setGestureType('seek');
       setSeekDelta(seekAmount);
     }
+
     if (gestureHudTimerRef.current) clearTimeout(gestureHudTimerRef.current);
     gestureHudTimerRef.current = setTimeout(() => {
       setGestureType(null);
       setSeekDelta(0);
     }, 800);
-  }, [isTouch, showCustomUI, volume, isMuted, brightness, sendCommand, toggleFullscreen]);
+  }, [isTouch, showCustomUI, isDirectStream, sendCommand, toggleFullscreen]);
 
   const handleTouchEnd = useCallback((e) => {
+    lastTouchEndRef.current = Date.now();
     if (gestureLockRef.current === 'horizontal' && gestureStartRef.current) {
       /* Apply seek on release */
       const touch = e.changedTouches[0];
       const dx = touch.clientX - gestureStartRef.current.x;
       const r = containerRef.current?.getBoundingClientRect();
       if (r) {
-        const seekSensitivity = r.width * 0.3;
+        const seekSensitivity = Math.max(220, r.width * 0.45);
         const seekAmount = (dx / seekSensitivity) * 30;
         if (Math.abs(seekAmount) > 2) seekRelative(Math.round(seekAmount));
       }
@@ -1937,28 +1968,39 @@ const CustomVideoPlayer = ({
     }, 600);
   }, [seekRelative]);
 
-  /* Auto-hide controls — longer on touch (5s), always show when paused */
+  /* Auto-hide controls — ignore synthetic mouse events on touch devices */
   const handleMouseMove = useCallback(() => {
+    if (isTouch || Date.now() - lastTouchEndRef.current < 600) return;
     setShowControls(true);
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     if (isPlaying && !showSettings && !showSubtitlesMenu && !showAudioMenu && !isLoading && !isScrubbing) {
-      const hideDelay = isTouch ? 5000 : 3000;
-      controlsTimeoutRef.current = setTimeout(() => setShowControls(false), hideDelay);
+      controlsTimeoutRef.current = setTimeout(() => setShowControls(false), 3000);
     }
   }, [isPlaying, showSettings, showSubtitlesMenu, showAudioMenu, isLoading, isScrubbing, isTouch]);
 
-  /* Touch double-tap to seek — uses touchend with preventDefault to block browser zoom */
+  /* Touch single-tap to show/hide controls, double-tap to seek */
   const lastTapRef = useRef(0);
   const handleTouchOverlay = useCallback((e) => {
     if (isLoading) return;
+    // Bail out if user was swiping (volume, brightness, seek) or pinching
+    if (gestureStartRef.current?.hasMoved || gestureLockRef.current !== null || pinchStartDistRef.current) {
+      return;
+    }
     const now = Date.now();
-    lastTouchEndRef.current = now; // Prevent onClick from double-firing
+    lastTouchEndRef.current = now; // Suppress synthetic desktop mousemove/clicks
     const tapGap = now - lastTapRef.current;
-    lastTapRef.current = now;
-    if (tapGap < 300 && tapGap > 0) {
+
+    if (tapGap < 280 && tapGap > 0) {
+      // Double tap detected: cancel pending single-tap toggle and perform seek
+      if (singleTapTimerRef.current) {
+        clearTimeout(singleTapTimerRef.current);
+        singleTapTimerRef.current = null;
+      }
+      lastTapRef.current = 0; // Prevent triple-tap retrigger
       e.preventDefault();
       const touch = e.changedTouches[0];
-      const r = containerRef.current.getBoundingClientRect();
+      const r = containerRef.current?.getBoundingClientRect();
+      if (!r) return;
       const pct = (touch.clientX - r.left) / r.width;
       if (pct < 0.35) {
         seekRelative(-10);
@@ -1972,21 +2014,34 @@ const CustomVideoPlayer = ({
         togglePlay();
       }
     } else {
-      /* Single tap: toggle controls visibility with auto-hide timer */
-      setShowControls((prev) => {
-        const next = !prev;
-        if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-        if (next && isPlaying && !showSettings && !showSubtitlesMenu && !showAudioMenu && !isLoading && !isScrubbing) {
-          controlsTimeoutRef.current = setTimeout(() => setShowControls(false), 4500);
+      // Single tap: schedule toggle with 250ms debounce so double-tap can cancel it
+      lastTapRef.current = now;
+      if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
+      singleTapTimerRef.current = setTimeout(() => {
+        singleTapTimerRef.current = null;
+        // If a popup menu is open, dismiss it first
+        if (showSettings || showSubtitlesMenu || showAudioMenu || showShortcuts) {
+          setShowSettings(false);
+          setShowSubtitlesMenu(false);
+          setShowAudioMenu(false);
+          setShowShortcuts(false);
+          return;
         }
-        return next;
-      });
+        setShowControls((prev) => {
+          const next = !prev;
+          if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+          if (next && isPlaying && !isLoading && !isScrubbing) {
+            controlsTimeoutRef.current = setTimeout(() => setShowControls(false), 4500);
+          }
+          return next;
+        });
+      }, 250);
     }
-  }, [isLoading, seekRelative, togglePlay, isPlaying, showSettings, showSubtitlesMenu, showAudioMenu, isScrubbing]);
+  }, [isLoading, seekRelative, togglePlay, showSettings, showSubtitlesMenu, showAudioMenu, showShortcuts, isPlaying, isScrubbing]);
 
   const pp = duration > 0 ? Math.max(0, Math.min((currentTime / duration) * 100, 100)) : 0;
   const bp = duration > 0 ? Math.max(0, Math.min((buffered / duration) * 100, 100)) : 0;
-  const controlsVisible = showControls || !isPlaying || isScrubbing;
+  const controlsVisible = (showControls || isScrubbing) && !isLoading;
   const effVolume = isMuted ? 0 : volume;
 
   /* ═══════════════════════════════════════════════════════════════
@@ -2172,7 +2227,7 @@ const CustomVideoPlayer = ({
           onClick={(e) => {
             e.stopPropagation();
             // Skip if a touch just handled this (prevents double-fire on mobile)
-            if (Date.now() - lastTouchEndRef.current < 300) return;
+            if (Date.now() - lastTouchEndRef.current < 500) return;
             // Desktop: click to play/pause, double-click to seek/fullscreen
             if (clickTimeoutRef.current) {
               clearTimeout(clickTimeoutRef.current);
@@ -2303,7 +2358,7 @@ const CustomVideoPlayer = ({
 
       {/* ═══ PAUSED INFO OVERLAY ═════════════════════════════════ */}
       <AnimatePresence>
-        {showPausedInfo && showCustomUI && !isPlaying && (
+        {showPausedInfo && showCustomUI && !isPlaying && controlsVisible && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -2892,7 +2947,7 @@ const CustomVideoPlayer = ({
             </svg>
             <span style={{ color: '#FBBF24', fontSize: 9, fontWeight: 700, marginTop: 2,
               fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', fontVariantNumeric: 'tabular-nums' }}>
-              {Math.round(brightness * 100)}
+              {Math.round(gestureValue * 100)}%
             </span>
           </motion.div>
         )}
@@ -2959,7 +3014,7 @@ const CustomVideoPlayer = ({
             </motion.div>
             <span style={{ color: (isMuted || volume === 0) ? '#ff453a' : '#fff', fontSize: 9, fontWeight: 700, marginTop: 2,
               fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', fontVariantNumeric: 'tabular-nums' }}>
-              {Math.round((isMuted ? 0 : volume) * 100)}
+              {Math.round((isMuted ? 0 : volume) * 100)}%
             </span>
           </motion.div>
         )}

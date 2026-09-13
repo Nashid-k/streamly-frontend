@@ -52,4 +52,12 @@
   calls to the proxy function instead of 404ing, Vite `/api/tmdb` dev/preview proxy
   with `host: true` for LAN access. Verified: lint 0 errors, 209 tests pass,
   build ok.
+- [x] 13. Mobile video player touch gestures & controls show/hide:
+  - Fixed volume/brightness hyper-sensitivity and exponential compounding: gesture now computes linearly relative to swipe start value (`startVolume`, `startBrightness`) without compounding touchmove events.
+  - Proportional sensitivity curve (`Math.max(220, r.height * 0.7)`) ensures a smooth swipe travel distance without jumping 100% on small movements.
+  - Removed state variables from `handleTouchMove` dependency array to eliminate callback recreation churn and stutter.
+  - Added single-tap toggle to show/hide controls on mobile with a 250ms debounce that gracefully cancels if a double-tap seek occurs.
+  - Filtered swipe release events and synthetic `mousemove`/`click` events so swiping never triggers single-tap toggling and touch releases do not immediately un-hide controls.
+  - Decoupled `controlsVisible` from `!isPlaying` (`(showControls || isScrubbing) && !isLoading`), allowing player controls and paused info overlay to be cleanly hidden while paused.
+  - Verified: `npm run lint` (0 errors), `npm run test` (219 passed), `npm run build` (success).
 
