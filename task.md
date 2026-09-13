@@ -214,3 +214,31 @@
     proxy reality; GIT.md stale claims patched.
   - Verified: `npm run lint` (0 errors, 1 pre-existing warning), `npm run test`
     (248 passed across 22 files), `npm run build` (success, 2.0s).
+- [x] **Task 26 — Theme-blind brand/hero UI fixed + shared Netflix-style TitleInfoModal**
+  - **Theme reactivity**: Streamly brand SVG mark now fills from an accent
+    gradient (`--accent-primary`/`--accent-secondary` via style-attr
+    `stop-color`, presentation attrs can't resolve `var()`) with
+    `--on-accent` glyph — re-skins on all 6 themes; `.hero-cta-play` Play
+    button switched from hardcoded white/black to `--accent-gradient` +
+    `--on-accent` + accent glow; hero `+|Info` pill moved fully into
+    `.hero-action-pill` CSS using `rgba(var(--accent-primary-rgb), …)`
+    (removed hardcoded `bg-white/10 border-white/10` Tailwind classes).
+  - **`TitleInfoModal`** (new shared component): Netflix anatomy — backdrop
+    header with gradient fade, close ✕, title + tagline, "84% Match · 1999 ·
+    2h 19m" meta facts (`buildMetaFacts` in `src/utils/metaFacts.js`), genre
+    chips, full overview, cast strip, and Play / + My List (state + toast) /
+    Full Details actions; live details via `getMovieDetails` React Query
+    (summary object renders instantly, then enriches). Ergonomics fix for the
+    old full-width/no-margins Quick View: centered `min(92vw, 780px)` card,
+    `max-height: min(86vh, 92svh)` with internal scroll; ≤640px becomes a
+    full-width bottom sheet with rounded top + safe-area padding. Scroll lock,
+    Escape, backdrop click, focus on open.
+  - **Wiring**: hero Info button always opens the modal (Netflix behavior —
+    the Detail View Type setting governs card clicks, not the explicit Info
+    affordance); `MovieCard` modal mode now opens the same shared modal
+    (−115 lines of inline Quick View markup removed).
+  - **Tests**: new `TitleInfoModal.test.jsx` +7 (anatomy, navigation via
+    router-location probe, Escape/onClose, scroll lock/restore, My List
+    persistence, `buildMetaFacts` composition + edge cases).
+  - Verified: `npm run lint` (0 errors, 1 pre-existing warning), `npm run test`
+    (255 passed across 23 files, was 248), `npm run build` (success, 2.1s).

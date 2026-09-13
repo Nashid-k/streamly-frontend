@@ -17,6 +17,7 @@ import ContinueWatchingRail from "../components/ContinueWatchingRail";
 import AmbientBackground from "../components/AmbientBackground";
 import HeroTitleLogo from "../components/HeroTitleLogo";
 import RatingsCluster from "../components/RatingsCluster";
+import TitleInfoModal from "../components/TitleInfoModal";
 
 import RailArrow from "../components/RailArrow";
 import useRailArrows from "../hooks/useRailArrows";
@@ -581,6 +582,10 @@ export default function Home({
 
   const [isHeroHovered, setIsHeroHovered] = useState(false);
   const isHeroHoveredRef = useRef(false);
+  /* Netflix behavior: the banner's Info button always opens the in-place
+     info modal — regardless of the Detail View Type setting (that setting
+     governs card/banner-card clicks, not the explicit Info affordance). */
+  const [heroInfoMovie, setHeroInfoMovie] = useState(null);
   // Interval logic moved below totalFeatured
 
   useEffect(() => {
@@ -1335,7 +1340,7 @@ export default function Home({
                       whileTap={{ scale: 0.92 }}
                       aria-label="More info"
                       title="More info"
-                      onClick={() => navigate(`/watch/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`)}
+                      onClick={() => setHeroInfoMovie(activeFeaturedMovie)}
                     >
                       <Info size={18} strokeWidth={2.5} />
                     </motion.button>
@@ -1592,6 +1597,15 @@ export default function Home({
           </>
         )}
       </section>
+
+      {/* Hero Info modal — Netflix behavior: the banner Info button always
+          opens the in-place modal instead of navigating. */}
+      {heroInfoMovie && (
+        <TitleInfoModal
+          movie={heroInfoMovie}
+          onClose={() => setHeroInfoMovie(null)}
+        />
+      )}
     </div>
   );
 }

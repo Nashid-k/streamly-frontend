@@ -154,9 +154,19 @@ function Layout({ children }) {
         <Link to="/" className="app-brand-link" aria-label="Streamly home">
           <span className="app-brand-mark">
             <svg viewBox="0 0 48 48" width="44" height="44" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <rect x="1.5" y="1.5" width="45" height="45" rx="14" fill="#ffffff" />
-              <path d="M20.5 16 L32.5 24 L20.5 32 Z" fill="#050505" />
-              <circle cx="13" cy="35" r="2.2" fill="#050505" />
+              {/* Theme-reactive mark: the gradient follows --accent-primary/
+                  --accent-secondary so the logo re-skins with every theme.
+                  stop-color lives in style attrs — SVG presentation attributes
+                  don't resolve CSS variables (same trick as Loader.jsx). */}
+              <defs>
+                <linearGradient id="brand-accent-grad" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+                  <stop offset="0" style={{ stopColor: "var(--accent-primary, #f43f5e)" }} />
+                  <stop offset="1" style={{ stopColor: "var(--accent-secondary, #fb923c)" }} />
+                </linearGradient>
+              </defs>
+              <rect x="1.5" y="1.5" width="45" height="45" rx="14" style={{ fill: "url(#brand-accent-grad)" }} />
+              <path d="M20.5 16 L32.5 24 L20.5 32 Z" style={{ fill: "var(--on-accent, #ffffff)" }} />
+              <circle cx="13" cy="35" r="2.2" style={{ fill: "var(--on-accent, #ffffff)" }} />
             </svg>
           </span>
           <span className="app-brand-word">
