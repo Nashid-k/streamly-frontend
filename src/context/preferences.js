@@ -6,6 +6,38 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   hdThumbs: true,
   reduceMotion: false,
   notifications: true,
+  // Appearance
+  theme: "default",
+  episodeViewStyle: "carousel",
+  detailViewType: "page",
+  useImageLogos: true,
+  trailers: true,
+  spoilerFreeMode: false,
+  // Playback
+  autoSkipIntro: false,
+  seekTime: 10,
+  autoSubtitles: true,
+  defaultLanguage: "en",
+  // Servers
+  serverOrder: [
+    "Lisbon",
+    "Nebula",
+    "Solara",
+    "Athens",
+    "Joy",
+    "Castle",
+    "Sakura",
+    "Canaias",
+  ],
+  // Subtitles
+  subtitleFont: "cinejoy",
+  subtitleSize: 100,
+  subtitleColor: "#ffffff",
+  subtitleBgBlur: true,
+  // Ads
+  enableAds: true,
+  // Febbox
+  febboxCookie: "",
 });
 
 export const PreferencesContext = createContext(null);

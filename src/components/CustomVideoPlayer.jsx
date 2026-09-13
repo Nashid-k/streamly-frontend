@@ -349,7 +349,19 @@ const CustomVideoPlayer = ({
   movie, season, episode, preferredServerIndex = 0, onServerChange,
   hasNextEpisode, onNextEpisode, onClose, thumbnailUrl, startTime = 0, onProgressUpdate,
 }) => {
-  const { autoplay, setPreference } = usePreferences();
+  const {
+    autoplay,
+    setPreference,
+    autoSkipIntro,
+    seekTime = 10,
+    subtitleSize = 100,
+    subtitleColor = "#ffffff",
+    subtitleFont = "cinejoy",
+    subtitleBgBlur = true,
+  } = usePreferences();
+  const seekStep = Number(seekTime) || 10;
+  const seekStepRef = useRef(seekStep);
+  useEffect(() => { seekStepRef.current = seekStep; }, [seekStep]);
   /* State */
   const [activeServerIndex, setActiveServerIndex] = useState(preferredServerIndex);
   const activeServerIndexRef = useRef(activeServerIndex);
@@ -382,7 +394,6 @@ const CustomVideoPlayer = ({
   const isMutedRef = useRef(false);
   const [showVolumeArc, setShowVolumeArc] = useState(false);
   const [showAspectRatioArc, setShowAspectRatioArc] = useState(false);
-  const [autoSkipIntro, setAutoSkipIntro] = useState(() => localStorage.getItem("streamly_autoSkip") === "true");
   const autoPlayNext = autoplay;
   const [doubleTapRipple, setDoubleTapRipple] = useState(null);
   const [showControls, setShowControls] = useState(true);
@@ -1822,8 +1833,8 @@ const CustomVideoPlayer = ({
         case " ": case "k": e.preventDefault(); togglePlay(); break;
         case "f": e.preventDefault(); toggleFullscreen(); break;
         case "m": e.preventDefault(); toggleMute(); break;
-        case "arrowright": case "l": case ">": case ".": e.preventDefault(); seekRelative(10); break;
-        case "arrowleft": case "j": case "<": case ",": e.preventDefault(); seekRelative(-10); break;
+        case "arrowright": case "l": case ">": case ".": e.preventDefault(); seekRelative(seekStepRef.current); break;
+        case "arrowleft": case "j": case "<": case ",": e.preventDefault(); seekRelative(-seekStepRef.current); break;
         case "arrowup": e.preventDefault(); changeVolume(volumeRef.current + 0.1); break;
         case "arrowdown": e.preventDefault(); changeVolume(volumeRef.current - 0.1); break;
         case "a": e.preventDefault(); aspectManuallySetRef.current = true; setAspectRatioIndex((p) => (p + 1) % ASPECT_RATIOS.length); setShowAspectRatioArc(true); if (aspectRatioArcTimerRef.current) clearTimeout(aspectRatioArcTimerRef.current); aspectRatioArcTimerRef.current = setTimeout(() => setShowAspectRatioArc(false), 1200); break;
@@ -2035,11 +2046,11 @@ const CustomVideoPlayer = ({
       if (!r) return;
       const pct = (touch.clientX - r.left) / r.width;
       if (pct < 0.35) {
-        seekRelative(-10);
+        seekRelative(-seekStepRef.current);
         setDoubleTapRipple({ side: "left", id: now });
         setTimeout(() => setDoubleTapRipple(null), 500);
       } else if (pct > 0.65) {
-        seekRelative(10);
+        seekRelative(seekStepRef.current);
         setDoubleTapRipple({ side: "right", id: now });
         setTimeout(() => setDoubleTapRipple(null), 500);
       } else {
@@ -2305,18 +2316,19 @@ const CustomVideoPlayer = ({
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15, ease: "easeOut" }}
               style={{
-                color: "#fff",
+                color: subtitleColor || "#fff",
                 padding: isTouch ? "2px 8px" : `${R.padSmall} ${R.padLarge}`,
-                fontSize: "clamp(15px, 2.5vw, 24px)",
+                fontSize: `calc(clamp(15px, 2.5vw, 24px) * ${(subtitleSize || 100) / 100})`,
+                fontFamily: subtitleFont === "montserrat" ? "'Montserrat', sans-serif" : (subtitleFont === "netflix" ? "'Arial', sans-serif" : "'Inter', sans-serif"),
                 lineHeight: 1.35,
                 fontWeight: 600,
                 textAlign: "center",
                 maxWidth: "88%",
                 whiteSpace: "pre-wrap",
-                background: isTouch ? "transparent" : "rgba(0,0,0,0.5)",
-                borderRadius: isTouch ? 0 : 6,
-                backdropFilter: isTouch ? "none" : "blur(8px)",
-                WebkitBackdropFilter: isTouch ? "none" : "blur(8px)",
+                background: subtitleBgBlur ? (isTouch ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.6)") : (isTouch ? "transparent" : "rgba(0,0,0,0.5)"),
+                borderRadius: subtitleBgBlur ? 8 : (isTouch ? 0 : 6),
+                backdropFilter: subtitleBgBlur ? "blur(8px)" : "none",
+                WebkitBackdropFilter: subtitleBgBlur ? "blur(8px)" : "none",
                 textShadow: isTouch
                   ? "0 2px 4px rgba(0,0,0,0.95), 0 0 2px #000, 0 0 12px rgba(0,0,0,0.95), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000"
                   : "0 1px 8px rgba(0,0,0,0.95), 0 0 3px rgba(0,0,0,0.8)",
@@ -4300,7 +4312,7 @@ const CustomVideoPlayer = ({
               <div style={{ fontSize: R.fontTiny, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "1.5px", fontWeight: 700, marginBottom: 10, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif" }}>Automations</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {[
-                  { label: "Auto-Skip Intro", val: autoSkipIntro, set: setAutoSkipIntro, key: "streamly_autoSkip" },
+                  { label: "Auto-Skip Intro", val: autoSkipIntro, set: (value) => setPreference("autoSkipIntro", value), key: "streamly_autoSkip" },
                   ...(movie?.isSeries ? [{ label: "Auto-Play Next", val: autoPlayNext, set: (value) => setPreference("autoplay", value) }] : []),
                 ].map((item, i) => (
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

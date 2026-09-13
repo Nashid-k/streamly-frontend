@@ -3,11 +3,23 @@ import { DEFAULT_PREFERENCES, PreferencesContext } from "./preferences";
 const SETTING_PREFIX = "setting-";
 const LEGACY_AUTOPLAY_KEY = "streamly_autoNext";
 
-function parseBoolean(raw, fallback) {
+function parseValue(raw, fallback) {
   if (raw === null || raw === undefined) return fallback;
   try {
     const value = JSON.parse(raw);
-    return typeof value === "boolean" ? value : fallback;
+    if (typeof fallback === "boolean") {
+      return typeof value === "boolean" ? value : fallback;
+    }
+    if (typeof fallback === "number") {
+      return typeof value === "number" ? value : fallback;
+    }
+    if (typeof fallback === "string") {
+      return typeof value === "string" ? value : fallback;
+    }
+    if (Array.isArray(fallback)) {
+      return Array.isArray(value) ? value : fallback;
+    }
+    return value ?? fallback;
   } catch {
     return fallback;
   }
@@ -17,7 +29,7 @@ function readPreference(key) {
   const fallback = DEFAULT_PREFERENCES[key];
   try {
     const stored = localStorage.getItem(`${SETTING_PREFIX}${key}`);
-    if (stored !== null) return parseBoolean(stored, fallback);
+    if (stored !== null) return parseValue(stored, fallback);
 
     // The player owned this value before the Settings page existed. Preserve a
     // viewer's established autoplay preference during the migration.
@@ -42,7 +54,9 @@ export function PreferencesProvider({ children }) {
 
   const setPreference = useCallback((key, value) => {
     if (!Object.hasOwn(DEFAULT_PREFERENCES, key)) return;
-    const nextValue = Boolean(value);
+    const fallback = DEFAULT_PREFERENCES[key];
+    const nextValue =
+      typeof fallback === "boolean" ? Boolean(value) : value;
     setPreferences((current) =>
       current[key] === nextValue ? current : { ...current, [key]: nextValue },
     );
@@ -60,7 +74,7 @@ export function PreferencesProvider({ children }) {
       if (!Object.hasOwn(DEFAULT_PREFERENCES, key)) return;
       setPreferences((current) => ({
         ...current,
-        [key]: parseBoolean(event.newValue, DEFAULT_PREFERENCES[key]),
+        [key]: parseValue(event.newValue, DEFAULT_PREFERENCES[key]),
       }));
     };
     window.addEventListener("storage", syncFromAnotherTab);
@@ -70,6 +84,10 @@ export function PreferencesProvider({ children }) {
   useEffect(() => {
     document.documentElement.dataset.reduceMotion = preferences.reduceMotion ? "true" : "false";
   }, [preferences.reduceMotion]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = preferences.theme || "default";
+  }, [preferences.theme]);
 
   const value = useMemo(
     () => ({ ...preferences, setPreference }),
