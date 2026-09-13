@@ -45,3 +45,8 @@
 - [ ] 11. Decide the stream-backend future: either delete the `env.js` stub +
   NetMirror/Direct dead paths or re-spec them in `prd.md` §4 first — do not
   half-revive.
+- [x] 12. Same-origin TMDB proxy so blocked ISPs work on every device:
+  `api/tmdb/[...path].js` (Vercel function), proxy-first `tmdbClient` with
+  direct fallback, Vite `/api/tmdb` dev proxy, `vercel.json` excludes `/api/`
+  from SPA rewrite. Verified: lint 0 errors, 201 tests pass, build ok, live
+  proxy returns TMDB JSON, headless Edge renders populated rails.

@@ -20,8 +20,15 @@
 | Tests | `vitest` 5, `jsdom` 30, `@testing-library/react` 16.3.3 | dev |
 | Lint | `oxlint` | `1.75.0` (`npm run lint`) |
 
-Data flow: **TMDB REST (browser `fetch`) → `movieService.normalizeResult`
-→ React Query cache (`src/queryClient.js`) → pages/rails.** No axios, no
+Data flow: **same-origin `/api/tmdb` proxy → TMDB REST, direct TMDB as
+fallback** (`src/api/tmdbClient.js`). The proxy is the Vercel function in
+`api/tmdb/[...path].js` (production) and the Vite dev proxy in
+`vite.config.js` (local `npm run dev`) — requests leave from the host's
+network, so visitors on ISPs that block `api.themoviedb.org` still get data.
+Fallback triggers only when no proxy is deployed (plain static hosting:
+proxy answers HTML/404/501) or outside browsers (node scripts/tests).
+`normalizeResult` shapes every response into the domain contract consumed by
+**React Query cache (`src/queryClient.js`) → pages/rails.** No axios, no
 Firebase SDK in the bundle.
 
 ## 2. User → Route → Data ("user-route-db")
@@ -54,9 +61,9 @@ through the `env.js` stub to `''` and fail soft (logged, non-blocking).
 
 ## 3. Folders — where things go
 
-- `src/api/` — network boundary. `tmdbClient.js` (fetch+timeout+`[Streamly][tmdb]`
-  logs), `movieService.js` (all domain calls + normalize, each method logs
-  failure/empty), `omdbClient.js`, `ratingService.js`, `videoSourceAdapter.js`,
+- `src/api/` — network boundary. `tmdbClient.js` (proxy-first fetch+timeout+
+  `[Streamly][tmdb]` logs, direct fallback), `movieService.js` (all domain
+  calls + normalize, each method logs failure/empty), `omdbClient.js`, `ratingService.js`, `videoSourceAdapter.js`,
   `subtitleFetcher.js`, `prefetchAdapter.js`, `cdnImageAdapter.js`,
   `virtualRenderAdapter.js`, `env.js` (**stub — do not revive**).
 - `src/pages/` — one file per route (see table). Pages own query keys and
@@ -78,9 +85,12 @@ through the `env.js` stub to `''` and fail soft (logged, non-blocking).
 - `src/__tests__/` — vitest suites (service shape, ranking, engines,
   components). `src/queryClient.js` — QueryClient + global `QueryCache.onError`
   logger. `src/main.jsx` — boot diagnostics + global error hooks.
+- `api/` — Vercel serverless functions (not bundled to the client).
+  `api/tmdb/[...path].js` is the TMDB passthrough proxy — the reason
+  visitors on ISPs that block `api.themoviedb.org` still get data.
   Root: `index.html` (fonts/CDN preconnect, SW cache-buster), `vite.config.js`
-  (vendor chunk split, `hls.js` isolated), `vercel.json` (SPA rewrite + cache
-  headers), `.env` / `.env.example`, `test-movie.js` (manual TMDB probe).
+  (vendor chunk split, `hls.js` isolated, `/api/tmdb` dev proxy), `vercel.json`
+  (SPA rewrite + cache headers), `.env` / `.env.example`, `test-movie.js` (manual TMDB probe).
 
 ## 4. Five architecture decisions + why
 
