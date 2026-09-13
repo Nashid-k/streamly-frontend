@@ -26,12 +26,15 @@ export default function useRailArrows(ref, { enabled = true, threshold = 8 } = {
     update();
     el.addEventListener("scroll", update, { passive: true });
     window.addEventListener("resize", update);
-    const observer = new ResizeObserver(update);
-    observer.observe(el);
+    let observer;
+    if (typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(update);
+      observer.observe(el);
+    }
     return () => {
       el.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
-      observer.disconnect();
+      if (observer) observer.disconnect();
     };
   }, [ref, enabled, threshold, update]);
 

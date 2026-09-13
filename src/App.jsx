@@ -254,6 +254,7 @@ function AppRoutes() {
               <Route path="/watchlist" element={<WatchlistPage />} />
               <Route path="/mylist" element={<Navigate to="/watchlist" replace />} />
               <Route path="/history" element={<HistoryPage />} />
+              <Route path="/continue-watching" element={<Navigate to="/history" replace />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </Suspense>

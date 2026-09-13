@@ -88,11 +88,16 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // HTML navigations — network-first, but NEVER serve a stale app shell on a
+  // HTML / SPA navigations — network-first, but NEVER serve a stale app shell on a
   // live deploy. A cached index.html references old hashed chunks that no
-  // longer exist after redeploy, which is exactly what produces the 404s.
-  // Cache only on network success; fall back to cache only when truly offline.
-  if (request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html')) {
+  // longer exist after redeploy. Cache only on network success; fall back to
+  // cached shell when truly offline.
+  const isNavOrSpaRoute =
+    request.mode === 'navigate' ||
+    request.headers.get('accept')?.includes('text/html') ||
+    (!url.pathname.includes('.') && request.method === 'GET');
+
+  if (isNavOrSpaRoute) {
     const cacheKey = cacheKeyFor(request);
 
     const handle = async () => {
@@ -100,11 +105,17 @@ self.addEventListener('fetch', (event) => {
         const response = await fetch(request);
         if (response && response.status === 200) {
           const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(cacheKey, responseClone));
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(cacheKey, responseClone.clone());
+            cache.put('/index.html', responseClone);
+          });
         }
         return response;
       } catch {
-        const cached = await caches.match(cacheKey).catch(() => null);
+        const cached =
+          (await caches.match(cacheKey).catch(() => null)) ||
+          (await caches.match('/index.html').catch(() => null)) ||
+          (await caches.match('/').catch(() => null));
         if (cached) return cached; // offline — serve last-known-good shell
         return new Response('', { status: 502, statusText: 'Offline' });
       }
@@ -143,7 +154,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
         }
         return response;
-      }).catch(() => new Response('', { status: 408, statusText: 'Offline' }));
+      }).catch(() => new Response('', { status: 504, statusText: 'Gateway Timeout' }));
     })
   );
 });

@@ -5208,3 +5208,17 @@ html[data-theme="solar"] {
   color: #fff;
 }
 
+/* ── Continue Watching & Scrollbar Utilities ── */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.theme-progress-bar {
+  background-color: var(--accent-color, #95ff50);
+  box-shadow: 0 0 8px var(--accent-glow, rgba(149, 255, 80, 0.4));
+}
+

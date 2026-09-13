@@ -45,17 +45,25 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 );
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', async () => {
-    try {
-      const buildTime = typeof __BUILD_TIME !== 'undefined' ? __BUILD_TIME : Date.now();
-      const reg = await navigator.serviceWorker.register(`/sw.js?v=${buildTime}`);
-      setInterval(() => {
-        if (document.visibilityState !== 'visible') return;
-        reg.update().catch(() => {});
-      }, 60000);
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') reg.update().catch(() => {});
-      });
-    } catch {}
-  });
+  if (import.meta.env.PROD) {
+    window.addEventListener('load', async () => {
+      try {
+        const buildTime = typeof __BUILD_TIME !== 'undefined' ? __BUILD_TIME : Date.now();
+        const reg = await navigator.serviceWorker.register(`/sw.js?v=${buildTime}`);
+        setInterval(() => {
+          if (document.visibilityState !== 'visible') return;
+          reg.update().catch(() => {});
+        }, 60000);
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') reg.update().catch(() => {});
+        });
+      } catch {}
+    });
+  } else {
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      for (const reg of registrations) {
+        reg.unregister();
+      }
+    }).catch(() => {});
+  }
 }
