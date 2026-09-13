@@ -5298,6 +5298,24 @@ html[data-theme="solar"] {
 }
 
 /* ── Player UI Studio ── */
+/* Mini HUD chip in the live preview — reads the skin's HUD tokens so the
+   Studio preview shows each preset's floating-card surface truthfully. */
+.player-preview-hudchip {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  z-index: 3;
+  pointer-events: none;
+  letter-spacing: 0.3px;
+}
 .player-preview {
   position: relative;
   border-radius: 16px;

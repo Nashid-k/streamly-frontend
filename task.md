@@ -303,3 +303,31 @@ null guard). Lint 0 errors, 259 passed across 24 files, build success.
     Studio presets apply live (toast confirmed) with the demo-video preview. `npm run lint`
     (0 warnings, 0 errors), `npm run test` (280 passed across 25 files — +4 chunk-recovery cases),
     `npm run build` (✓ 2.5s).
+- [x] **Task 29 — Presets are now complete player UI/UX overhauls (HUDs, toasts, motion, typography)**
+  - **19 new full-UI skin tokens per preset** in `PLAYER_UI_SKINS` (`playerUIDef.js`): `hudBg/
+hudBlur/hudBorder/hudRadius/hudShadow/hudFont` (every floating card), `toastBg`, `badgeBg`,
+  `centerIconBg/centerIconBlur/centerIconBorder/centerIconTone` (ghost | solid | gilded |
+  flat-red — colors the burst glyph), `progressTrack/progressBuffered`, `barInset` (Compact
+  floats its capsule bar 14px off the edges), `entrance` (fade | rise | pop | unfold | slide) +
+  `motionMs` timing profile, `fontBody` (system / Georgia serif / SF Mono), and a Theater-only
+  `vignette` opera-box overlay layer.
+  - **Every hard-coded chrome surface tokenized** in `CustomVideoPlayer.jsx` via `--skin-*` CSS
+  vars (Classic values preserved as fallbacks, so Classic stays pixel-identical): top toast +
+  error toast, volume ArcRing HUD, seek-pill HUD, hover time tooltip, center play/pause burst
+  (surface + glyph tone), big paused Play, paused-info card, keyboard-shortcuts sheet, skip-intro
+  pill, up-next card, next-episode countdown, progress track + buffered segment, control-row bar
+  geometry (inset), title row + S/E pill typography. Top zones, bottom stack and center burst now
+  animate with per-skin entrance choreography (Theater rises, Compact springs, Studio slides,
+  Classic/Minimal fade).
+  - **Preview truth**: `PlayerPreview.jsx` renders the same tokens (new mini volume-HUD chip
+  `.player-preview-hudchip`, skinned center glyph, progress track, badge pill, vignette layer) so
+  the Studio modal keeps matching the real player.
+  - **Tests**: new `CustomVideoPlayer.test.jsx` (+4, mounts the real player per preset via stored
+  preferences — TDZ regression guard, token emission, preset-swap token diff) and
+  `playerUIDef.test.js` (+2: complete token set per skin; presets measurably distinct — unique
+  HUD surfaces/radii/timings, tone variety, only-Theater vignette, only-Compact inset).
+  - **Verified live**: clicked all five presets in the Studio preview and measured the HUD chip's
+  computed style — five distinct surfaces (frosted 18px system / hairline 10px no-shadow / solid
+  16px / amber Georgia 22px / flat 4px SF Mono), screenshot captured with Studio applied.
+  `npm run lint` (0 warnings, 0 errors), `npm run test` (286 passed across 26 files),
+  `npm run build` (✓ 2.4s).

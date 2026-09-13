@@ -105,6 +105,42 @@ describe("playerUIDef skins", () => {
     expect(resolveSkin("nope").id).toBe(DEFAULT_SKIN_ID);
     expect(resolveSkin(undefined).id).toBe(DEFAULT_SKIN_ID);
   });
+
+  it("gives every skin a complete full-UI token set (HUD, toast, badges, center burst, motion)", () => {
+    const REQUIRED_TOKENS = [
+      "hudBg", "hudBlur", "hudBorder", "hudRadius", "hudShadow", "hudFont",
+      "toastBg", "badgeBg",
+      "centerIconBg", "centerIconBlur", "centerIconBorder", "centerIconTone",
+      "progressTrack", "progressBuffered", "barInset",
+      "entrance", "motionMs", "fontBody", "vignette",
+    ];
+    for (const skin of Object.values(PLAYER_UI_SKINS)) {
+      for (const token of REQUIRED_TOKENS) {
+        expect(skin[token], `${skin.id}.${token}`).toBeDefined();
+      }
+      expect(["ghost", "solid", "gilded", "flat-red"]).toContain(skin.centerIconTone);
+      expect(["fade", "rise", "pop", "unfold", "slide"]).toContain(skin.entrance);
+      expect(skin.motionMs).toBeGreaterThan(0);
+    }
+  });
+
+  it("makes presets genuinely different experiences, not recolors", () => {
+    const skins = Object.values(PLAYER_UI_SKINS);
+    // Distinct HUD surfaces across all five presets.
+    expect(new Set(skins.map((s) => s.hudBg)).size).toBe(skins.length);
+    expect(new Set(skins.map((s) => s.hudRadius)).size).toBe(skins.length);
+    // Distinct entrance choreography + timing.
+    expect(new Set(skins.map((s) => s.entrance)).size).toBe(4); // minimal+classic share fade
+    expect(new Set(skins.map((s) => s.motionMs)).size).toBe(skins.length);
+    // Center burst tone varies by preset identity.
+    expect(new Set(skins.map((s) => s.centerIconTone)).size).toBe(4); // classic+minimal share ghost
+    // Only Theater carries the cinematic vignette; Compact alone floats its bar.
+    expect(skins.filter((s) => s.vignette !== "none").map((s) => s.id)).toEqual(["theater"]);
+    expect(skins.filter((s) => s.barInset !== "0px").map((s) => s.id)).toEqual(["compact"]);
+    // Per-skin typography extends beyond the time row.
+    expect(new Set(skins.map((s) => s.fontBody)).size).toBe(3); // system / serif / mono
+    expect(new Set(skins.map((s) => s.hudFont)).size).toBe(3);
+  });
 });
 
 describe("playerUIDef layout resolution", () => {

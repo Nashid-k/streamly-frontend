@@ -309,6 +309,7 @@ const CustomVideoPlayer = ({
       "--skin-bar-blur": skin.barBlur,
       "--skin-bar-border": skin.barBorder,
       "--skin-bar-radius": skin.barRadius,
+      "--skin-bar-inset": skin.barInset || "0px",
       "--skin-btn-bg": skin.btnBg,
       "--skin-btn-ghost-bg": skin.btnGhostBg || "transparent",
       "--skin-btn-border": skin.btnBorder,
@@ -316,6 +317,8 @@ const CustomVideoPlayer = ({
       "--skin-progress-height": skin.progressHeight,
       "--skin-progress-fill": skin.progressFill,
       "--skin-progress-glow": skin.progressGlow,
+      "--skin-progress-track": skin.progressTrack || "rgba(255,255,255,0.12)",
+      "--skin-progress-buffered": skin.progressBuffered || "rgba(255,255,255,0.14)",
       "--skin-time-font": skin.timeFont,
       "--skin-accent": skin.accent,
       "--skin-panel-bg": skin.panelBg,
@@ -323,9 +326,64 @@ const CustomVideoPlayer = ({
       "--skin-panel-border": skin.panelBorder,
       "--skin-scrim": skin.scrim,
       "--skin-chrome-shadow": skin.chromeShadow,
+      /* Full-UI tokens — HUDs, toasts, badges, center burst, typography,
+         entrance motion. Every floating surface reads these so a preset
+         swap restyles the ENTIRE player, not just the control bar. */
+      "--skin-hud-bg": skin.hudBg,
+      "--skin-hud-blur": skin.hudBlur,
+      "--skin-hud-border": skin.hudBorder,
+      "--skin-hud-radius": skin.hudRadius,
+      "--skin-hud-shadow": skin.hudShadow,
+      "--skin-hud-font": skin.hudFont,
+      "--skin-toast-bg": skin.toastBg || skin.hudBg,
+      "--skin-badge-bg": skin.badgeBg || skin.hudBg,
+      "--skin-center-icon-bg": skin.centerIconBg,
+      "--skin-center-icon-blur": skin.centerIconBlur,
+      "--skin-center-icon-border": skin.centerIconBorder,
+      "--skin-font-body": skin.fontBody || skin.hudFont,
+      "--skin-vignette": skin.vignette || "none",
     }),
     [skin],
   );
+  /* Entrance-motion contract shared by every animated chrome surface:
+     initial/animate/exit per skin. Theater rises, Compact pops, Studio
+     slides, Minimal/Classic fade — timings come from skin.motionMs. */
+  const entranceVariants = useMemo(() => {
+    const ms = (skin.motionMs || 250) / 1000;
+    const ease = [0.16, 1, 0.3, 1];
+    switch (skin.entrance) {
+      case "rise":
+        return {
+          bar: { initial: { opacity: 0, y: 34 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: 26 }, transition: { duration: ms, ease } },
+          hud: { initial: { opacity: 0, y: -26, scale: 0.96 }, animate: { opacity: 1, y: 0, scale: 1 }, exit: { opacity: 0, y: -14, scale: 0.97 }, transition: { duration: ms, ease } },
+          center: { initial: { opacity: 0, scale: 0.7, y: 10 }, animate: { opacity: 1, scale: 1, y: 0 }, exit: { opacity: 0, scale: 1.3, y: -6 }, transition: { duration: ms, ease } },
+        };
+      case "pop":
+        return {
+          bar: { initial: { opacity: 0, scale: 0.94, y: 14 }, animate: { opacity: 1, scale: 1, y: 0 }, exit: { opacity: 0, scale: 0.96, y: 8 }, transition: { type: "spring", stiffness: 460, damping: 30 } },
+          hud: { initial: { opacity: 0, scale: 0.82 }, animate: { opacity: 1, scale: 1 }, exit: { opacity: 0, scale: 0.9 }, transition: { type: "spring", stiffness: 480, damping: 26 } },
+          center: { initial: { opacity: 0, scale: 0.4 }, animate: { opacity: 1, scale: 1 }, exit: { opacity: 0, scale: 1.6 }, transition: { type: "spring", stiffness: 500, damping: 24 } },
+        };
+      case "slide":
+        return {
+          bar: { initial: { opacity: 0, y: 22 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: 22 }, transition: { duration: ms, ease: "easeOut" } },
+          hud: { initial: { opacity: 0, x: -18 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: -18 }, transition: { duration: ms, ease: "easeOut" } },
+          center: { initial: { opacity: 0, scale: 0.85 }, animate: { opacity: 1, scale: 1 }, exit: { opacity: 0, scale: 1.25 }, transition: { duration: ms, ease: "easeOut" } },
+        };
+      case "unfold":
+        return {
+          bar: { initial: { opacity: 0, scaleY: 0.4, y: 18 }, animate: { opacity: 1, scaleY: 1, y: 0 }, exit: { opacity: 0, scaleY: 0.5, y: 10 }, transition: { duration: ms, ease } },
+          hud: { initial: { opacity: 0, scaleY: 0.3, y: -14 }, animate: { opacity: 1, scaleY: 1, y: 0 }, exit: { opacity: 0, scaleY: 0.4, y: -8 }, transition: { duration: ms, ease } },
+          center: { initial: { opacity: 0, scale: 0.6, rotate: -6 }, animate: { opacity: 1, scale: 1, rotate: 0 }, exit: { opacity: 0, scale: 1.4, rotate: 4 }, transition: { duration: ms, ease } },
+        };
+      default: /* fade */
+        return {
+          bar: { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: 8 }, transition: { duration: ms, ease } },
+          hud: { initial: { opacity: 0, y: -18, scale: 0.9 }, animate: { opacity: 1, y: 0, scale: 1 }, exit: { opacity: 0, y: -8, scale: 0.95 }, transition: { duration: ms, ease } },
+          center: { initial: { opacity: 0, scale: 0.5 }, animate: { opacity: 1, scale: 1 }, exit: { opacity: 0, scale: 1.5 }, transition: { duration: ms, ease } },
+        };
+    }
+  }, [skin]);
   /* Touch detection must live above topZoneKeys — the skin-era callback
      below reads it in both its body and deps array (a later declaration
      here put it in the temporal dead zone and crashed every render). */
@@ -2118,6 +2176,14 @@ const CustomVideoPlayer = ({
         }} />
       )}
 
+      {/* Skin vignette — Theater's opera-box edge darkening (decor only) */}
+      {showCustomUI && skin.vignette && skin.vignette !== "none" && (
+        <div style={{
+          position: "absolute", inset: 0, zIndex: 12, pointerEvents: "none",
+          background: "var(--skin-vignette)",
+        }} />
+      )}
+
       {/* ═══ CENTER PLAY/PAUSE ═══════════════════════════════════ */}
       <AnimatePresence>
         {showCustomUI && !isLoading && (
@@ -2136,16 +2202,13 @@ const CustomVideoPlayer = ({
               {centerIcon ? (
                 <motion.div
                   key={centerIcon.type + centerIconKeyRef.current}
-                  initial={{ opacity: 0, scale: 0.5 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 1.5 }}
-                  transition={SPRING_SNAPPY}
+                  {...entranceVariants.center}
                   style={{
-                    width: "clamp(56px, 10vw, 76px)", height: "clamp(56px, 10vw, 76px)", borderRadius: "50%",
-                    background: "rgba(0,0,0,0.35)", backdropFilter: "blur(24px)",
-                    WebkitBackdropFilter: "blur(24px)",
+                    width: "clamp(56px, 10vw, 76px)", height: "clamp(56px, 10vw, 76px)", borderRadius: "var(--skin-hud-radius, 50%)",
+                    background: "var(--skin-center-icon-bg, rgba(0,0,0,0.35))", backdropFilter: "blur(var(--skin-center-icon-blur, 24px))",
+                    WebkitBackdropFilter: "blur(var(--skin-center-icon-blur, 24px))",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    border: "1px solid rgba(255,255,255,0.08)",
+                    border: "var(--skin-center-icon-border, 1px solid rgba(255,255,255,0.08))",
                   }}
                 >
                   {/* Expanding arc ring — the Apple motif */}
@@ -2161,8 +2224,8 @@ const CustomVideoPlayer = ({
                     </svg>
                   </motion.div>
                   {centerIcon.type === "play"
-                    ? <Play size={30} fill="#fff" color="#fff" style={{ marginLeft: 3 }} />
-                    : <Pause size={30} fill="#fff" color="#fff" />}
+                    ? <Play size={30} fill={skin.centerIconTone === "flat-red" || skin.centerIconTone === "gilded" ? skin.accent : "#fff"} color={skin.centerIconTone === "flat-red" || skin.centerIconTone === "gilded" ? skin.accent : "#fff"} style={{ marginLeft: 3 }} />
+                    : <Pause size={30} fill={skin.centerIconTone === "flat-red" || skin.centerIconTone === "gilded" ? skin.accent : "#fff"} color={skin.centerIconTone === "flat-red" || skin.centerIconTone === "gilded" ? skin.accent : "#fff"} />}
                 </motion.div>
               ) : !isPlaying && !controlsVisible ? (
                 <motion.div
@@ -2172,14 +2235,14 @@ const CustomVideoPlayer = ({
                   exit={{ opacity: 0, scale: 0.9 }}
                   transition={SPRING}
                   style={{
-                    width: "clamp(52px, 9vw, 68px)", height: "clamp(52px, 9vw, 68px)", borderRadius: "50%",
-                    background: "rgba(0,0,0,0.35)", backdropFilter: "blur(20px)",
-                    WebkitBackdropFilter: "blur(20px)",
+                    width: "clamp(52px, 9vw, 68px)", height: "clamp(52px, 9vw, 68px)", borderRadius: "var(--skin-hud-radius, 50%)",
+                    background: "var(--skin-center-icon-bg, rgba(0,0,0,0.35))", backdropFilter: "blur(var(--skin-center-icon-blur, 20px))",
+                    WebkitBackdropFilter: "blur(var(--skin-center-icon-blur, 20px))",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    border: "1px solid rgba(255,255,255,0.06)",
+                    border: "var(--skin-center-icon-border, 1px solid rgba(255,255,255,0.06))",
                   }}
                 >
-                  <Play size={26} fill="#fff" color="#fff" style={{ marginLeft: 2 }} />
+                  <Play size={26} fill={skin.centerIconTone === "flat-red" || skin.centerIconTone === "gilded" ? skin.accent : "#fff"} color={skin.centerIconTone === "flat-red" || skin.centerIconTone === "gilded" ? skin.accent : "#fff"} style={{ marginLeft: 2 }} />
                 </motion.div>
               ) : null}
             </AnimatePresence>
@@ -2422,22 +2485,24 @@ const CustomVideoPlayer = ({
         )}
       </AnimatePresence>
 
-      {/* Toast */}
+      {/* Toast — fully skinned (surface, radius, blur, border, font) */}
       <AnimatePresence>
         {toastMessage && (
           <motion.div
             initial={{ opacity: 0, y: -8, x: "-50%" }}
             animate={{ opacity: 1, y: 0, x: "-50%" }}
             exit={{ opacity: 0, y: -5, x: "-50%" }}
+            transition={{ duration: (skin.motionMs || 250) / 1000, ease: [0.16, 1, 0.3, 1] }}
             style={{
               position: "absolute", top: 16, left: "50%",
-              background: "rgba(28,28,30,0.78)", color: "#fff",
-              padding: `${R.padSmall} clamp(10px, 2vw, 16px)`, borderRadius: 100,
-              backdropFilter: "blur(40px) saturate(180%)",
-              WebkitBackdropFilter: "blur(40px) saturate(180%)",
-              border: "1px solid rgba(255,255,255,0.08)",
+              background: "var(--skin-toast-bg, rgba(28,28,30,0.78))", color: "#fff",
+              padding: `${R.padSmall} clamp(10px, 2vw, 16px)`, borderRadius: "var(--skin-hud-radius, 18px)",
+              backdropFilter: "blur(var(--skin-hud-blur, 40px)) saturate(180%)",
+              WebkitBackdropFilter: "blur(var(--skin-hud-blur, 40px)) saturate(180%)",
+              border: "var(--skin-hud-border, 1px solid rgba(255,255,255,0.08))",
+              boxShadow: "var(--skin-hud-shadow, none)",
               zIndex: 62, fontWeight: 600, fontSize: R.fontSmall, pointerEvents: "none",
-              fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+              fontFamily: "var(--skin-hud-font, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif)",
             }}
           >
             {toastMessage}
@@ -2470,13 +2535,13 @@ const CustomVideoPlayer = ({
               }}
               style={{
                 display: "flex", flexDirection: "row", alignItems: "center", gap: Math.round(11 * hudScale),
-                background: "linear-gradient(180deg, rgba(22,22,26,0.9), rgba(10,10,12,0.9))",
-                backdropFilter: "blur(24px) saturate(160%)",
-                WebkitBackdropFilter: "blur(24px) saturate(160%)",
+                background: "var(--skin-hud-bg, linear-gradient(180deg, rgba(22,22,26,0.9), rgba(10,10,12,0.9)))",
+                backdropFilter: "blur(var(--skin-hud-blur, 24px)) saturate(160%)",
+                WebkitBackdropFilter: "blur(var(--skin-hud-blur, 24px)) saturate(160%)",
                 border: isMuted || volume === 0
                   ? "1px solid rgba(255,69,58,0.35)"
-                  : "1px solid rgba(255,255,255,0.12)",
-                borderRadius: Math.round(18 * hudScale),
+                  : "var(--skin-hud-border, 1px solid rgba(255,255,255,0.12))",
+                borderRadius: `var(--skin-hud-radius, ${Math.round(18 * hudScale)}px)`,
                 padding: `${Math.round(8 * hudScale)}px ${Math.round(13 * hudScale)}px`,
               }}
             >
@@ -2583,14 +2648,14 @@ const CustomVideoPlayer = ({
               transition={{ type: "spring", stiffness: 380, damping: 34, mass: 0.9 }}
               style={{
                 display: "flex", alignItems: "center", gap: isTouch ? 10 : Math.round(12 * hudScale),
-                background: "linear-gradient(180deg, rgba(22,22,26,0.92), rgba(10,10,12,0.92))",
-                backdropFilter: "blur(24px) saturate(160%)",
-                WebkitBackdropFilter: "blur(24px) saturate(160%)",
-                border: "1px solid rgba(255,255,255,0.12)",
-                borderRadius: 999,
+                background: "var(--skin-hud-bg, linear-gradient(180deg, rgba(22,22,26,0.92), rgba(10,10,12,0.92)))",
+                backdropFilter: "blur(var(--skin-hud-blur, 24px)) saturate(160%)",
+                WebkitBackdropFilter: "blur(var(--skin-hud-blur, 24px)) saturate(160%)",
+                border: "var(--skin-hud-border, 1px solid rgba(255,255,255,0.12))",
+                borderRadius: "var(--skin-hud-radius, 999px)",
                 padding: isTouch ? "6px 14px" : `${Math.round(7 * hudScale)}px ${Math.round(14 * hudScale)}px`,
                 boxShadow:
-                  "0 16px 48px rgba(0,0,0,0.6), 0 0 0 0.5px rgba(255,255,255,0.04), inset 0 0.5px 0 rgba(255,255,255,0.14)",
+                  "var(--skin-hud-shadow, 0 16px 48px rgba(0,0,0,0.6), 0 0 0 0.5px rgba(255,255,255,0.04), inset 0 0.5px 0 rgba(255,255,255,0.14))",
               }}
             >
               {/* ── Dynamic glyph stage — scales with the player box ── */}
@@ -2949,11 +3014,11 @@ const CustomVideoPlayer = ({
               transition={SPRING}
               onClick={(e) => e.stopPropagation()}
               style={{
-                background: "rgba(18,18,20,0.95)",
-                border: "1px solid rgba(255,255,255,0.06)",
+                background: "var(--skin-panel-bg, rgba(18,18,20,0.95))",
+                border: "var(--skin-panel-border, 1px solid rgba(255,255,255,0.06))",
                 borderRadius: R.radiusMedium, padding: `${R.padLarge} clamp(16px, 3vw, 26px)`, width: isTouch ? "min(92vw, 360px)" : R.panelShortcuts,
                 color: "#fff", boxShadow: "0 40px 80px rgba(0,0,0,0.8)",
-                backdropFilter: "blur(40px)", WebkitBackdropFilter: "blur(40px)",
+                backdropFilter: "blur(var(--skin-panel-blur, 40px))", WebkitBackdropFilter: "blur(var(--skin-panel-blur, 40px))",
               }}
             >
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
@@ -3281,7 +3346,10 @@ const CustomVideoPlayer = ({
           above already covers topLeft — it is excluded there. */}
       {showCustomUI && controlsVisible && !isScreenLocked &&
         (topZoneKeys("topLeft").length > 0 || topZoneKeys("topRight").length > 0) && (
-        <div
+        <motion.div
+          initial={entranceVariants.hud.initial}
+          animate={entranceVariants.hud.animate}
+          transition={entranceVariants.hud.transition}
           style={{
             position: "absolute",
             top: "calc(clamp(52px, 10vw, 76px) + var(--sat))",
@@ -3304,17 +3372,17 @@ const CustomVideoPlayer = ({
               <React.Fragment key={key}>{barControl(key, "icon")}</React.Fragment>
             ))}
           </div>
-        </div>
+        </motion.div>
       )}
 
-      {/* ═══ BOTTOM CONTROLS ═════════════════════════════════════ */}
+      {/* ═══ BOTTOM CONTROLS — entrance choreography per skin ═══ */}
       <AnimatePresence>
         {showCustomUI && controlsVisible && (
           <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            initial={entranceVariants.bar.initial}
+            animate={entranceVariants.bar.animate}
+            exit={entranceVariants.bar.exit}
+            transition={entranceVariants.bar.transition}
             style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 20, pointerEvents: "none", paddingBottom: "var(--sab)" }}
           >
             {/* Skip Intro / Up Next */}
@@ -3339,12 +3407,12 @@ const CustomVideoPlayer = ({
                         border: "1px solid rgba(255,255,255,0.08)",
                         padding: isTouch ? "9px 18px" : `${R.padMedium} ${R.padMedium}`,
                         minHeight: isTouch ? 42 : "auto",
-                        borderRadius: 100, cursor: "pointer",
-                        fontWeight: 700, backdropFilter: "blur(24px)",
-                        WebkitBackdropFilter: "blur(24px)",
+                        borderRadius: "var(--skin-hud-radius, 100px)", cursor: "pointer",
+                        fontWeight: 700, backdropFilter: "blur(var(--skin-hud-blur, 24px))",
+                        WebkitBackdropFilter: "blur(var(--skin-hud-blur, 24px))",
                         boxShadow: "0 8px 24px var(--accent-glow, rgba(0,0,0,0.4))",
                         display: "flex", alignItems: "center", gap: "clamp(4px, 1vw, 6px)", fontSize: R.fontMedium,
-                        fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+                        fontFamily: "var(--skin-hud-font, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif)",
                       }}
                     >
                       <FastForward size={13} fill="currentColor" color="currentColor" /> Skip Intro
@@ -3361,7 +3429,7 @@ const CustomVideoPlayer = ({
                       exit={{ opacity: 0, x: 10 }}
                       transition={SPRING}
                       style={{
-                        background: "rgba(28,28,30,0.7)", border: "1px solid rgba(255,255,255,0.06)",
+                        background: "var(--skin-badge-bg, rgba(28,28,30,0.7))", border: "var(--skin-hud-border, 1px solid rgba(255,255,255,0.06))",
                         borderRadius: 12, padding: `${R.padMedium} ${R.padSmall}`,
                         display: "flex", alignItems: "center", gap: "clamp(6px, 1.5vw, 10px)",
                         backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
@@ -3449,9 +3517,9 @@ const CustomVideoPlayer = ({
                       return (
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
                           <div style={{
-                            background: "rgba(28,28,30,0.92)",
-                            backdropFilter: "blur(24px) saturate(160%)",
-                            WebkitBackdropFilter: "blur(24px) saturate(160%)",
+                            background: "var(--skin-badge-bg, rgba(28,28,30,0.92))",
+                            backdropFilter: "blur(var(--skin-hud-blur, 24px)) saturate(160%)",
+                            WebkitBackdropFilter: "blur(var(--skin-hud-blur, 24px)) saturate(160%)",
                             color: "#fff",
                             padding: `4px ${R.padSmall}`, borderRadius: R.radiusSmall,
                             fontSize: R.fontSmall, fontWeight: 700, letterSpacing: "0.5px",
@@ -3475,7 +3543,7 @@ const CustomVideoPlayer = ({
                 style={{
                 position: isFullscreen ? "fixed" : "relative", width: "100%",
                 height: hoverTime != null || isScrubbing ? (isTouch ? 6 : 5) : (isTouch ? 4 : 3),
-                background: "rgba(255,255,255,0.12)",
+                background: "var(--skin-progress-track, rgba(255,255,255,0.12))",
                 borderRadius: 3,
                 transition: "height 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
               }}>
@@ -3485,7 +3553,7 @@ const CustomVideoPlayer = ({
                   position: "absolute", inset: 0,
                   left: `${Math.min(pp, 100)}%`,
                   width: `${Math.min(bp - pp, 100 - pp)}%`,
-                  background: "rgba(255,255,255,0.14)", borderRadius: 3,
+                  background: "var(--skin-progress-buffered, rgba(255,255,255,0.14))", borderRadius: 3,
                   transition: "width 0.3s ease",
                 }} />}
                 {duration > 0 && <div style={{
@@ -3541,7 +3609,7 @@ const CustomVideoPlayer = ({
                   textShadow: "0 1px 10px rgba(0,0,0,0.9), 0 0 24px rgba(0,0,0,0.5)",
                   whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                   maxWidth: isTouch ? "min(190px, 36vw)" : "min(320px, 44vw)",
-                  fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+                  fontFamily: "var(--skin-font-body, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif)",
                 }}>
                   {movie?.title || movie?.name}
                 </span>
@@ -3553,7 +3621,7 @@ const CustomVideoPlayer = ({
                     padding: "3px 10px", borderRadius: 100,
                     border: "1px solid rgba(255,255,255,0.06)",
                     whiteSpace: "nowrap", flexShrink: 0,
-                    fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+                    fontFamily: "var(--skin-font-body, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif)",
                   }}>
                     S{season} E{episode}
                   </span>
@@ -3575,6 +3643,7 @@ const CustomVideoPlayer = ({
             <div className="streamly-player-control-row" onClick={(e) => e.stopPropagation()} style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
               padding: `${R.controlRowPad} ${R.padMedium} ${R.padMedium}`, pointerEvents: "auto",
+              margin: "0 var(--skin-bar-inset, 0px) var(--skin-bar-inset, 0px)",
               background: "var(--skin-bar-bg, transparent)",
               backdropFilter: "blur(var(--skin-bar-blur, 16px))",
               WebkitBackdropFilter: "blur(var(--skin-bar-blur, 16px))",
@@ -3997,8 +4066,8 @@ const CustomVideoPlayer = ({
             transition={{ duration: 0.1 }}
             style={{
               position: "absolute", left: contextMenu.x, top: contextMenu.y, zIndex: 100,
-              background: "rgba(12,12,14,0.94)", backdropFilter: "blur(24px)",
-              WebkitBackdropFilter: "blur(24px)",
+              background: "var(--skin-badge-bg, rgba(12,12,14,0.94))", backdropFilter: "blur(var(--skin-hud-blur, 24px))",
+              WebkitBackdropFilter: "blur(var(--skin-hud-blur, 24px))",
               border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12,
               padding: "4px 0", minWidth: "clamp(140px, 30vw, 180px)",
               boxShadow: "0 16px 48px rgba(0,0,0,0.6)", pointerEvents: "auto",
