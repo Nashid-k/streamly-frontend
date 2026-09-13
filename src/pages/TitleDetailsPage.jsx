@@ -363,12 +363,16 @@ function ServerDropdown({ servers, selectedIndex, onSelect }) {
   );
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
 export default function TitleDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { muteTrailers } = usePreferences();
+  const {
+    muteTrailers,
+    useImageLogos = true,
+    episodeViewStyle = "carousel",
+    spoilerFreeMode = false,
+    trailers = true,
+  } = usePreferences();
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [playingEpisode, setPlayingEpisode] = useState(1);
   const { isInList, toggleMyList, continueWatching, updateProgress, addNotification } = useAppAuth();
@@ -424,7 +428,7 @@ export default function TitleDetails() {
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [iframeLoading, setIframeLoading] = useState(false);
-  const [episodeLayout, setEpisodeLayout] = useState("grid"); // 'grid' | 'list'
+  const [episodeLayout, setEpisodeLayout] = useState(() => (episodeViewStyle === "grid" ? "grid" : "list"));
   const [showAllEpisodes, setShowAllEpisodes] = useState(false);
   const EPISODES_INITIAL_COUNT = 8;
 
@@ -889,7 +893,7 @@ export default function TitleDetails() {
         <div className="relative z-20 -mt-20 lg:-mt-[10rem] xl:-mt-[13rem] lg:flex lg:items-start lg:justify-between lg:gap-10 px-6 lg:px-16 max-w-[1800px] mx-auto">
           {/* Left Column */}
           <div className="w-full max-w-[700px] lg:max-w-[650px] lg:min-w-0 flex flex-col items-center lg:items-start">
-            {movie.logoUrl ? (
+            {useImageLogos && movie.logoUrl ? (
               <img className="max-h-16 xl:max-h-28 max-w-[75%] xl:max-w-[500px] object-contain drop-shadow-2xl" src={movie.logoUrl} alt={movie.title} />
             ) : (
               <h1 className="text-2xl lg:text-3xl xl:text-4xl font-bold text-white drop-shadow-2xl text-center lg:text-left">{movie.title}</h1>
@@ -1435,7 +1439,9 @@ export default function TitleDetails() {
                                     </span>
                                   )}
                                 </div>
-                                <p style={{ fontSize: '0.8rem', color: '#a1a1aa', margin: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.5 }}>{ep.description}</p>
+                                <p style={{ fontSize: '0.8rem', color: spoilerFreeMode ? '#71717a' : '#a1a1aa', fontStyle: spoilerFreeMode ? 'italic' : 'normal', margin: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.5 }}>
+                                  {spoilerFreeMode ? "Episode details hidden (Spoiler-Free Mode)" : ep.description}
+                                </p>
                               </div>
                             </div>
                             {isWatched && (
@@ -1522,7 +1528,9 @@ export default function TitleDetails() {
                               </span>
                             )}
                           </div>
-                          <p style={{ fontSize: '0.78rem', color: '#71717a', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ep.description}</p>
+                          <p style={{ fontSize: '0.78rem', color: spoilerFreeMode ? '#52525b' : '#71717a', fontStyle: spoilerFreeMode ? 'italic' : 'normal', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {spoilerFreeMode ? "Episode details hidden (Spoiler-Free Mode)" : ep.description}
+                          </p>
                           {isWatched && (
                             <div style={{ marginTop: '0.4rem' }}>
                               <div style={{ height: '2px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden', maxWidth: '120px' }}>
@@ -2041,7 +2049,7 @@ export default function TitleDetails() {
                   )}
                   <iframe
                     key={playingTrailerKey || movie.trailerUrl || movie.trailer}
-                    src={`https://www.youtube.com/embed/${playingTrailerKey || movie.trailerUrl || movie.trailer}?autoplay=1&rel=0&modestbranding=1&mute=${muteTrailers ? 1 : 0}`}
+                    src={`https://www.youtube.com/embed/${playingTrailerKey || movie.trailerUrl || movie.trailer}?autoplay=${trailers ? 1 : 0}&rel=0&modestbranding=1&mute=${muteTrailers ? 1 : 0}`}
                     onLoad={() => setIframeLoading(false)}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen

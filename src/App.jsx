@@ -205,6 +205,14 @@ function Layout({ children }) {
           <Search size={22} strokeWidth={2} />
           <span>Search</span>
         </Link>
+        <Link
+          to="/settings"
+          className={`bottom-nav-item ${location.pathname === "/settings" ? "active" : ""}`}
+          aria-current={location.pathname === "/settings" ? "page" : undefined}
+        >
+          <Settings size={22} strokeWidth={2} />
+          <span>Settings</span>
+        </Link>
       </nav>
     </div>
   );

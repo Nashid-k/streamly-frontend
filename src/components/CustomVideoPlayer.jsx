@@ -358,6 +358,8 @@ const CustomVideoPlayer = ({
     subtitleColor = "#ffffff",
     subtitleFont = "cinejoy",
     subtitleBgBlur = true,
+    autoSubtitles = true,
+    defaultLanguage = "en",
   } = usePreferences();
   const seekStep = Number(seekTime) || 10;
   const seekStepRef = useRef(seekStep);
@@ -1734,6 +1736,22 @@ const CustomVideoPlayer = ({
     } catch { showToast("Error"); }
     finally { setIsFetchingSubtitles(false); }
   };
+  const handleSubtitleLanguageSelectRef = useRef(handleSubtitleLanguageSelect);
+  handleSubtitleLanguageSelectRef.current = handleSubtitleLanguageSelect;
+
+  useEffect(() => {
+    if (autoSubtitles && !hasSubtitles && availableSubtitleLangs?.length) {
+      const match = availableSubtitleLangs.find(
+        (l) =>
+          l.code?.toLowerCase() === defaultLanguage?.toLowerCase() ||
+          l.language?.toLowerCase() === defaultLanguage?.toLowerCase() ||
+          (defaultLanguage === "en" && l.language?.toLowerCase().includes("english")),
+      ) || availableSubtitleLangs[0];
+      if (match?.downloadLink) {
+        handleSubtitleLanguageSelectRef.current(match.downloadLink);
+      }
+    }
+  }, [availableSubtitleLangs, autoSubtitles, defaultLanguage, hasSubtitles]);
 
   const toggleFullscreen = useCallback((e) => {
     if (e) e.stopPropagation();

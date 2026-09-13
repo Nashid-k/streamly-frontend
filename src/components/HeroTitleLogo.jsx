@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useOptionalPreferences } from "../context/preferences";
 import { movieService } from "../api/movieService";
 import { logDebug, reportQueryError } from "../utils/debugLogger";
 
@@ -9,10 +10,12 @@ import { logDebug, reportQueryError } from "../utils/debugLogger";
    React Query — subsequent slides render immediately. Falls back to the
    styled text title only when the title genuinely has no logo on TMDB. */
 export default function HeroTitleLogo({ movie }) {
+  const prefs = useOptionalPreferences();
+  const useImageLogos = prefs?.useImageLogos ?? true;
   const { data: url, error } = useQuery({
     queryKey: ["titleLogo", movie.id],
     queryFn: () => movieService.getTitleLogo(movie.id),
-    enabled: !movie.logoUrl,
+    enabled: !movie.logoUrl && useImageLogos,
     staleTime: 1000 * 60 * 60 * 24,
     retry: 1,
   });
@@ -31,7 +34,7 @@ export default function HeroTitleLogo({ movie }) {
     }
   }, [logoUrl, movie?.id, movie?.title]);
 
-  if (logoUrl) {
+  if (useImageLogos && logoUrl) {
     return (
       <img
         src={logoUrl}
