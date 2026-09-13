@@ -135,6 +135,21 @@ export default function MovieCard({
   const detailViewType = preferences?.detailViewType || "page";
   const [showQuickView, setShowQuickView] = useState(false);
 
+  // Netflix-style quick view: Escape dismisses, background scroll locks.
+  useEffect(() => {
+    if (!showQuickView) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e) => {
+      if (e.key === "Escape") setShowQuickView(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [showQuickView]);
+
   const navigateToDetails = useCallback(() => {
     const slug = slugify(movie.title, { lower: true, strict: true });
     if (detailViewType === "modal") {
@@ -518,10 +533,10 @@ export default function MovieCard({
                   justifyContent: "center",
                   background: "var(--accent-gradient)",
                   border: "none",
-                  color: "#fff",
+                  color: "var(--on-accent, #fff)",
                   cursor: "pointer",
                   boxShadow:
-                    "0 8px 22px rgba(244,63,94,0.5), inset 0 1px 0 rgba(255,255,255,0.25)",
+                    "0 8px 22px var(--accent-glow, rgba(244,63,94,0.5)), inset 0 1px 0 rgba(255,255,255,0.25)",
                 }}
               >
                 <Play
@@ -608,6 +623,9 @@ export default function MovieCard({
             className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
             style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(12px)" }}
             onClick={() => setShowQuickView(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${movie.title} quick view`}
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.92, y: 20 }}
@@ -676,11 +694,24 @@ export default function MovieCard({
                       const slug = slugify(movie.title, { lower: true, strict: true });
                       navigate(`/watch/${movie.id}/${slug}`);
                     }}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm text-black transition-colors"
-                    style={{ background: "var(--accent-primary, #f43f5e)" }}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-colors"
+                    style={{ background: "var(--accent-gradient, var(--accent-primary, #f43f5e))", color: "var(--on-accent, #fff)" }}
                   >
                     <Play size={14} fill="currentColor" />
                     Play Now
+                  </button>
+                  <button
+                    onClick={(e) => handleToggleMyList(e)}
+                    aria-label={inList ? "Remove from My List" : "Add to My List"}
+                    title={inList ? "Remove from My List" : "Add to My List"}
+                    className="w-11 shrink-0 py-2.5 rounded-xl font-semibold text-sm transition-colors flex items-center justify-center"
+                    style={{
+                      background: inList ? "rgba(var(--accent-primary-rgb), 0.16)" : "rgba(255,255,255,0.08)",
+                      border: inList ? "1px solid rgba(var(--accent-primary-rgb), 0.45)" : "1px solid rgba(255,255,255,0.12)",
+                      color: inList ? "var(--accent-primary, #fff)" : "rgba(255,255,255,0.8)",
+                    }}
+                  >
+                    {inList ? <Check size={16} /> : <Plus size={16} />}
                   </button>
                   <button
                     onClick={() => {

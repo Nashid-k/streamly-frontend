@@ -124,6 +124,37 @@ export class VideoSourceAdapter {
     return server.url(movieId, season, episode, imdbId);
   }
 
+  /* ── Ordered-list helpers ──────────────────────────────────────────
+     The Settings page lets viewers re-order servers, and TitleDetails
+     passes that ordered list into CustomVideoPlayer via the `servers`
+     prop. These helpers resolve everything against the *passed* list so
+     the player's indices always match the dropdown the viewer sees.
+     Every helper falls back to the static base list when no list (or an
+     empty list) is provided, so existing callers and tests keep working. */
+  static count(list) {
+    return Array.isArray(list) && list.length > 0 ? list.length : this.SERVERS.length;
+  }
+
+  static entryAt(list, serverIndex) {
+    if (Array.isArray(list) && list.length > 0) {
+      const bounded = serverIndex >= 0 && serverIndex < list.length ? serverIndex : 0;
+      if (list[bounded]) return list[bounded];
+    }
+    return this.SERVERS[serverIndex] || this.SERVERS[0];
+  }
+
+  static resolveStreamUrl(list, serverIndex, movieId, season, episode, imdbId, title) {
+    return this.entryAt(list, serverIndex).url(movieId, season, episode, imdbId, title);
+  }
+
+  static isDirectEntry(entry) {
+    return entry?.direct === true;
+  }
+
+  static isNetMirrorEntry(entry) {
+    return entry?.netmirror === true;
+  }
+
   static isDirectServer(serverIndex) {
     return this.SERVERS[serverIndex]?.direct === true;
   }

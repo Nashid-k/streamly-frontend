@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, Reorder, useDragControls } from "framer-motion";
 import {
   ArrowLeft,
   Settings,
@@ -11,8 +11,9 @@ import {
   Captions,
   Megaphone,
   KeyRound,
+  Bell,
+  LayoutGrid,
   ChevronDown,
-  ChevronUp,
   ChevronRight,
   Check,
   X,
@@ -31,6 +32,15 @@ import {
 import SEO from "../components/SEO";
 import { usePreferences } from "../context/preferences";
 import { useToast } from "../components/Toast.jsx";
+import { logDebug } from "../utils/debugLogger";
+import {
+  PLAYER_ZONES,
+  PLAYER_CONTROLS,
+  PLAYER_CONTROL_ORDER,
+  PLAYER_UI_PRESETS,
+  resolveUILayout,
+  zoneOf,
+} from "../components/playerUIDef";
 
 const THEMES = [
   {
@@ -117,6 +127,7 @@ const DEFAULT_SERVER_ORDER = [
 ];
 
 const TABS = [
+  { id: "all", label: "All", icon: LayoutGrid },
   { id: "account", label: "Account", icon: User },
   { id: "appearance", label: "Appearance", icon: Palette },
   { id: "playback", label: "Playback", icon: Play },
@@ -124,6 +135,7 @@ const TABS = [
   { id: "subtitles", label: "Subtitles", icon: Captions },
   { id: "ads", label: "Ads", icon: Megaphone },
   { id: "febbox", label: "Febbox", icon: KeyRound },
+  { id: "notifications", label: "Notifications", icon: Bell },
 ];
 
 function TraktLogo({ className = "w-5 h-5 text-[#ed1c24]" }) {
@@ -193,10 +205,345 @@ function SettingRow({ title, description, children, highlight = false }) {
   );
 }
 
+// Drag-and-drop server priority list. Pointer dragging starts from the grip
+// handle (mouse + touch via framer-motion Reorder); keyboard users reorder
+// with ArrowUp/ArrowDown on a focused row. No up/down arrow buttons.
+function ServerOrderList({ list, onReorder, onMoveKeyboard }) {
+  const dragControls = useDragControls();
+  return (
+    <Reorder.Group
+      axis="y"
+      values={list}
+      onReorder={onReorder}
+      className="order-list"
+      role="listbox"
+      aria-label="Server priority order"
+      aria-orientation="vertical"
+    >
+      {list.map((srv, idx) => (
+        <Reorder.Item
+          key={srv}
+          value={srv}
+          dragListener={false}
+          dragControls={dragControls}
+          whileDrag={{ scale: 1.02 }}
+          transition={{ type: "spring", stiffness: 400, damping: 32 }}
+          className="order-item"
+          role="option"
+          aria-selected="false"
+          aria-posinset={idx + 1}
+          aria-setsize={list.length}
+          aria-label={`${srv}, priority ${idx + 1} of ${list.length}. Press arrow up or down to reorder.`}
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowUp") {
+              e.preventDefault();
+              onMoveKeyboard(idx, -1);
+            } else if (e.key === "ArrowDown") {
+              e.preventDefault();
+              onMoveKeyboard(idx, 1);
+            }
+          }}
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <span
+              className="order-grip order-grip--drag"
+              role="button"
+              tabIndex={-1}
+              aria-hidden="true"
+              title="Drag to reorder"
+              onPointerDown={(e) => dragControls.start(e)}
+            >
+              <GripVertical className="w-4 h-4" />
+            </span>
+            <span className="w-6 h-6 rounded-full bg-white/10 text-[11px] font-bold flex items-center justify-center text-white/80 shrink-0">
+              {idx + 1}
+            </span>
+            <span className="order-name">{srv}</span>
+          </div>
+          <span className="order-hint" aria-hidden="true">
+            {idx === 0 ? "Default" : `Priority ${idx + 1}`}
+          </span>
+        </Reorder.Item>
+      ))}
+    </Reorder.Group>
+  );
+}
+
+/* ── Player UI Studio ────────────────────────────────────────────────
+   Presets + drag-anywhere placement + live subtitle preview. Reads and
+   writes the same playerControls / playerUILayout preferences the video
+   player renders, so every change previews exactly what will play. */
+function PlayerUIStudio() {
+  const {
+    playerControls = {},
+    playerUIPreset = "classic",
+    playerUILayout,
+    subtitleFont = "cinejoy",
+    subtitleSize = 100,
+    subtitleColor = "#ffffff",
+    subtitleBgBlur = true,
+    setPreference,
+    setPlayerControl,
+  } = usePreferences();
+  const { toast } = useToast();
+  const layout = resolveUILayout(playerUILayout);
+  // Tap-to-move fallback (touch + keyboard users): pick a chip, drop a zone.
+  const [pickedKey, setPickedKey] = useState(null);
+
+  const markCustom = () => {
+    if (playerUIPreset !== "custom") setPreference("playerUIPreset", "custom");
+  };
+
+  const applyPreset = (preset) => {
+    setPreference("playerUIPreset", preset.id);
+    setPreference("playerUILayout", { ...preset.layout });
+    for (const { key } of PLAYER_CONTROLS) {
+      setPlayerControl?.(key, preset.visibility[key] !== false);
+    }
+    logDebug("settings", `Player UI preset applied: ${preset.name}.`, { preset: preset.id });
+    toast({
+      type: "success",
+      title: `${preset.name} layout applied`,
+      message: "Player buttons rearranged — preview below matches the player.",
+    });
+  };
+
+  const moveControl = (key, zoneId) => {
+    if (!key || zoneOf(layout, key) === zoneId) return;
+    setPreference("playerUILayout", { ...layout, [key]: zoneId });
+    markCustom();
+    logDebug("settings", `Player control "${key}" moved to ${zoneId}.`, { key, zoneId });
+  };
+
+  const toggleControl = (key, val) => {
+    setPlayerControl?.(key, val);
+    markCustom();
+  };
+
+  const onChipDragStart = (e, key) => {
+    e.dataTransfer.setData("text/plain", key);
+    e.dataTransfer.effectAllowed = "move";
+    setPickedKey(key);
+  };
+
+  const onZoneDrop = (e, zoneId) => {
+    e.preventDefault();
+    const key = e.dataTransfer.getData("text/plain") || pickedKey;
+    if (key) moveControl(key, zoneId);
+    setPickedKey(null);
+  };
+
+  const previewFont = SUBTITLE_FONTS.find((f) => f.id === subtitleFont) || SUBTITLE_FONTS[0];
+
+  const PreviewIcon = ({ controlKey, size = 13 }) => {
+    const meta = PLAYER_CONTROLS.find((c) => c.key === controlKey);
+    if (!meta) return null;
+    const Icon = meta.Icon;
+    return <Icon style={{ width: size, height: size }} />;
+  };
+
+  const renderPreviewCluster = (zoneId) => {
+    const keys = PLAYER_CONTROL_ORDER.filter((k) => layout[k] === zoneId && playerControls[k] !== false);
+    if (keys.length === 0) return <span className="studio-preview-empty">—</span>;
+    return keys.map((k) => (
+      <span key={k} className="studio-preview-btn" title={k}>
+        {k === "volume" && (zoneId === "bottomLeft" || zoneId === "bottomRight") ? (
+          <span className="studio-preview-vol">
+            <PreviewIcon controlKey={k} />
+            <span className="studio-preview-volbar" />
+          </span>
+        ) : (
+          <PreviewIcon controlKey={k} />
+        )}
+      </span>
+    ));
+  };
+
+  return (
+    <div className="studio">
+      {/* Presets */}
+      <p className="studio-label">Preset layouts</p>
+      <div className="studio-presets" role="radiogroup" aria-label="Player UI presets">
+        {PLAYER_UI_PRESETS.map((preset) => {
+          const selected = playerUIPreset === preset.id;
+          return (
+            <button
+              key={preset.id}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              onClick={() => applyPreset(preset)}
+              className={`studio-preset${selected ? " is-selected" : ""}`}
+            >
+              <span className="studio-minimap" aria-hidden="true">
+                <span className="studio-minimap-top">
+                  <i data-n={zoneCountFor(preset.layout, "topLeft")} />
+                  <i data-n={zoneCountFor(preset.layout, "topRight")} />
+                </span>
+                <span className="studio-minimap-bar" />
+                <span className="studio-minimap-bottom">
+                  <i data-n={zoneCountFor(preset.layout, "bottomLeft")} />
+                  <i data-n={zoneCountFor(preset.layout, "bottomRight")} />
+                </span>
+              </span>
+              <span className="studio-preset-name">{preset.name}</span>
+              <span className="studio-preset-blurb">{preset.blurb}</span>
+            </button>
+          );
+        })}
+        <div
+          className={`studio-preset studio-preset--custom${playerUIPreset === "custom" ? " is-selected" : ""}`}
+          aria-hidden={playerUIPreset !== "custom"}
+        >
+          <span className="studio-preset-name">Custom</span>
+          <span className="studio-preset-blurb">
+            {playerUIPreset === "custom" ? "Your arrangement — live now" : "Drag anything to create yours"}
+          </span>
+        </div>
+      </div>
+
+      {/* Live preview */}
+      <p className="studio-label">Live preview <span className="studio-label-note">matches the player + your subtitles</span></p>
+      <div className="studio-preview" aria-label="Player layout preview">
+        <div className="studio-preview-screen">
+          <div className="studio-preview-top">
+            <div className="studio-preview-cluster">{renderPreviewCluster("topLeft")}</div>
+            <div className="studio-preview-cluster">{renderPreviewCluster("topRight")}</div>
+          </div>
+          <div className="studio-preview-play" aria-hidden="true">
+            <PreviewIcon controlKey="playPause" size={18} />
+          </div>
+          <div
+            className="studio-preview-sub"
+            style={{
+              fontFamily: previewFont.family,
+              fontSize: `${(Number(subtitleSize) / 100) * 0.85}rem`,
+              color: subtitleColor,
+              textShadow: subtitleBgBlur
+                ? `0 0 8px rgba(0,0,0,0.9), 0 0 14px ${subtitleColor}55, 0 1px 3px #000`
+                : "0 1px 3px rgba(0,0,0,0.9)",
+              backgroundColor: subtitleBgBlur ? "rgba(0,0,0,0.4)" : "transparent",
+            }}
+          >
+            Here is what your subtitles will look like.
+          </div>
+          <div className="studio-preview-bottom">
+            <div className="studio-preview-progress" aria-hidden="true">
+              <span style={{ width: "35%" }} />
+            </div>
+            <div className="studio-preview-bar">
+              <div className="studio-preview-cluster">{renderPreviewCluster("bottomLeft")}</div>
+              <div className="studio-preview-cluster">{renderPreviewCluster("bottomRight")}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Placement board */}
+      <p className="studio-label">Placement <span className="studio-label-note">drag, tap-tap, or use the menu</span></p>
+      <div className="studio-zones">
+        {PLAYER_ZONES.map((zone) => {
+          const keys = PLAYER_CONTROL_ORDER.filter((k) => layout[k] === zone.id);
+          const isDropTarget = pickedKey && zoneOf(layout, pickedKey) !== zone.id;
+          return (
+            <div
+              key={zone.id}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => onZoneDrop(e, zone.id)}
+              onClick={() => {
+                if (pickedKey) {
+                  moveControl(pickedKey, zone.id);
+                  setPickedKey(null);
+                }
+              }}
+              className={`studio-zone${isDropTarget ? " is-drop-target" : ""}`}
+              aria-label={`${zone.label} zone, ${keys.length} controls`}
+            >
+              <div className="studio-zone-head">
+                <span className="studio-zone-name">{zone.label}</span>
+                <span className="studio-zone-count">{keys.length}</span>
+              </div>
+              <p className="studio-zone-blurb">{zone.blurb}</p>
+              <div className="studio-chips">
+                {keys.length === 0 && <span className="studio-zone-empty">Drop controls here</span>}
+                {keys.map((key) => {
+                  const meta = PLAYER_CONTROLS.find((c) => c.key === key);
+                  const visible = playerControls[key] !== false;
+                  const picked = pickedKey === key;
+                  return (
+                    <div
+                      key={key}
+                      draggable
+                      onDragStart={(e) => onChipDragStart(e, key)}
+                      onDragEnd={() => setPickedKey(null)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPickedKey(picked ? null : key);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setPickedKey(picked ? null : key);
+                        }
+                      }}
+                      tabIndex={0}
+                      role="button"
+                      aria-pressed={picked}
+                      aria-label={`${meta.label}, in ${zone.label}. Activate to pick up, then choose a zone.`}
+                      title="Drag to another zone, or activate and choose a zone"
+                      className={`studio-chip${picked ? " is-picked" : ""}${visible ? "" : " is-off"}`}
+                    >
+                      <GripVertical className="studio-chip-grip" aria-hidden="true" />
+                      <meta.Icon className="studio-chip-icon" aria-hidden="true" />
+                      <span className="studio-chip-label">{meta.label}</span>
+                      <select
+                        aria-label={`${meta.label} placement`}
+                        value={zone.id}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => moveControl(key, e.target.value)}
+                        className="studio-chip-select"
+                      >
+                        {PLAYER_ZONES.map((z) => (
+                          <option key={z.id} value={z.id}>{z.label}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        aria-label={visible ? `Hide ${meta.label}` : `Show ${meta.label}`}
+                        aria-pressed={visible}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleControl(key, !visible);
+                        }}
+                        className={`studio-eye${visible ? " is-on" : ""}`}
+                      >
+                        {visible ? <Eye className="studio-eye-icon" aria-hidden="true" /> : <EyeOff className="studio-eye-icon" aria-hidden="true" />}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p className="studio-footnote">
+        Hidden controls stay reachable in the player&apos;s settings menu. Volume shows its slider in the
+        bottom zones and a compact mute button up top.
+      </p>
+    </div>
+  );
+}
+
+function zoneCountFor(layout, zoneId) {
+  return PLAYER_CONTROL_ORDER.filter((k) => layout[k] === zoneId).length;
+}
+
 export default function SettingsPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("account");
+  const [activeTab, setActiveTab] = useState("all");
   const [query, setQuery] = useState("");
   const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
   const [seekDropdownOpen, setSeekDropdownOpen] = useState(false);
@@ -212,21 +559,24 @@ export default function SettingsPage() {
     try {
       const stored = localStorage.getItem("streamly_user");
       return stored ? JSON.parse(stored) : null;
-    } catch {
+    } catch (error) {
+      logDebug("settings", "Stored user profile is corrupt — starting signed out.", { message: error?.message });
       return null;
     }
   });
   const [traktUsername, setTraktUsername] = useState(() => {
     try {
       return localStorage.getItem("streamly_trakt") || "";
-    } catch {
+    } catch (error) {
+      logDebug("settings", "Trakt handle unreadable — treating as disconnected.", { message: error?.message });
       return "";
     }
   });
   const [simklUsername, setSimklUsername] = useState(() => {
     try {
       return localStorage.getItem("streamly_simkl") || "";
-    } catch {
+    } catch (error) {
+      logDebug("settings", "Simkl handle unreadable — treating as disconnected.", { message: error?.message });
       return "";
     }
   });
@@ -250,8 +600,6 @@ export default function SettingsPage() {
     seekTime = 10,
     autoSubtitles = true,
     defaultLanguage = "en",
-    // Player Controls
-    playerControls = {},
     // Servers
     serverOrder = DEFAULT_SERVER_ORDER,
     // Subtitles
@@ -265,7 +613,6 @@ export default function SettingsPage() {
     febboxCookie = "",
     // Setter
     setPreference,
-    setPlayerControl,
   } = usePreferences();
 
   // Febbox local input
@@ -293,8 +640,9 @@ export default function SettingsPage() {
     [subtitleFont],
   );
 
-  // Close dropdowns on outside click
+  // Close dropdowns on outside click or Escape
   const dropdownRef = useRef(null);
+  const sectionsTopRef = useRef(null);
   useEffect(() => {
     const handleOutsideClick = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -303,43 +651,54 @@ export default function SettingsPage() {
         setLangDropdownOpen(false);
       }
     };
+    const handleEscape = (e) => {
+      if (e.key === "Escape") {
+        setThemeDropdownOpen(false);
+        setSeekDropdownOpen(false);
+        setLangDropdownOpen(false);
+      }
+    };
     document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("keydown", handleEscape);
+    };
   }, []);
 
-  // IntersectionObserver to auto-update active tab as user scrolls
+  // Lock body scroll while any modal is open + allow Escape to dismiss.
+  const anyModalOpen = showFebboxGuide || showSignInModal || showTraktModal || showSimklModal || showControlsModal;
   useEffect(() => {
-    if (typeof window === "undefined" || !("IntersectionObserver" in window)) return;
-    const sections = TABS.map((t) => document.getElementById(t.id)).filter(Boolean);
-    if (!sections.length) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries.find((e) => e.isIntersecting);
-        if (visible?.target?.id) {
-          setActiveTab(visible.target.id);
-        }
-      },
-      { rootMargin: "-80px 0px -60% 0px", threshold: 0.1 }
-    );
-
-    sections.forEach((s) => observer.observe(s));
-    return () => observer.disconnect();
-  }, []);
+    if (!anyModalOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleEscape = (e) => {
+      if (e.key === "Escape") {
+        setShowFebboxGuide(false);
+        setShowSignInModal(false);
+        setShowTraktModal(false);
+        setShowSimklModal(false);
+        setShowControlsModal(false);
+      }
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [anyModalOpen]);
 
   const openShortcuts = () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "?", shiftKey: true }));
   };
 
+  // Tabs are filters: "All" shows every section, any other tab isolates one.
+  // After switching, bring the sections list into view under the sticky bar.
   const handleTabClick = (tabId) => {
     setActiveTab(tabId);
-    const el = document.getElementById(tabId);
-    if (el) {
-      const topOffset = 100;
-      const elementPosition = el.getBoundingClientRect().top;
-      const offsetPosition = elementPosition + window.pageYOffset - topOffset;
-      window.scrollTo({ top: offsetPosition, behavior: "smooth" });
-    }
+    requestAnimationFrame(() => {
+      sectionsTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   };
 
   const handleSaveCookie = () => {
@@ -352,14 +711,26 @@ export default function SettingsPage() {
     });
   };
 
-  // Server reordering
-  const moveServer = (index, dir) => {
-    const current = Array.isArray(serverOrder) ? [...serverOrder] : [...DEFAULT_SERVER_ORDER];
+  // Server reordering — drag-and-drop (mouse + touch via Reorder) and
+  // keyboard (ArrowUp/ArrowDown on a focused row) land here. The order is
+  // the single source of truth for TitleDetails + CustomVideoPlayer.
+  const serverList = Array.isArray(serverOrder) && serverOrder.length > 0
+    ? serverOrder
+    : DEFAULT_SERVER_ORDER;
+
+  const reorderServers = (next) => {
+    if (!Array.isArray(next) || next.length === 0) return;
+    setPreference("serverOrder", [...next]);
+    logDebug("settings", "Server order updated.", { order: next });
+  };
+
+  const moveServerKeyboard = (index, dir) => {
+    const current = [...serverList];
     const target = index + dir;
     if (target < 0 || target >= current.length) return;
-    const item = current.splice(index, 1)[0];
+    const [item] = current.splice(index, 1);
     current.splice(target, 0, item);
-    setPreference("serverOrder", current);
+    reorderServers(current);
   };
 
   const resetServerOrder = () => {
@@ -377,8 +748,8 @@ export default function SettingsPage() {
     setUser(u);
     try {
       localStorage.setItem("streamly_user", JSON.stringify(u));
-    } catch {
-      // Storage fallback
+    } catch (error) {
+      logDebug("settings", "Sign-in will not persist — storage unavailable.", { message: error?.message });
     }
     setShowSignInModal(false);
     toast({
@@ -392,8 +763,8 @@ export default function SettingsPage() {
     setUser(null);
     try {
       localStorage.removeItem("streamly_user");
-    } catch {
-      // Storage fallback
+    } catch (error) {
+      logDebug("settings", "Stored user could not be cleared.", { message: error?.message });
     }
     toast({
       type: "info",
@@ -403,44 +774,103 @@ export default function SettingsPage() {
   };
 
   const handleConnectTrakt = (username) => {
-    setTraktUsername(username);
+    const name = (username || "").trim();
+    if (!name) return;
+    setTraktUsername(name);
     try {
-      localStorage.setItem("streamly_trakt", username);
-    } catch {
-      // Storage fallback
+      localStorage.setItem("streamly_trakt", name);
+    } catch (error) {
+      logDebug("settings", "Trakt handle will not persist — storage unavailable.", { message: error?.message });
     }
     setShowTraktModal(false);
     toast({
       type: "success",
       title: "Trakt Connected",
-      message: `Connected to Trakt account @${username}.`,
+      message: `Connected to Trakt account @${name}.`,
+    });
+  };
+
+  const handleDisconnectTrakt = () => {
+    setTraktUsername("");
+    try {
+      localStorage.removeItem("streamly_trakt");
+    } catch (error) {
+      logDebug("settings", "Trakt handle could not be cleared.", { message: error?.message });
+    }
+    setShowTraktModal(false);
+    toast({
+      type: "info",
+      title: "Trakt Disconnected",
+      message: "Your Trakt account was unlinked from this device.",
     });
   };
 
   const handleConnectSimkl = (username) => {
-    setSimklUsername(username);
+    const name = (username || "").trim();
+    if (!name) return;
+    setSimklUsername(name);
     try {
-      localStorage.setItem("streamly_simkl", username);
-    } catch {
-      // Storage fallback
+      localStorage.setItem("streamly_simkl", name);
+    } catch (error) {
+      logDebug("settings", "Simkl handle will not persist — storage unavailable.", { message: error?.message });
     }
     setShowSimklModal(false);
     toast({
       type: "success",
       title: "Simkl Connected",
-      message: `Connected to Simkl account @${username}.`,
+      message: `Connected to Simkl account @${name}.`,
     });
   };
 
-  // Search filter helper
-  const matchesSearch = (text) => !q || text.toLowerCase().includes(q);
+  const handleDisconnectSimkl = () => {
+    setSimklUsername("");
+    try {
+      localStorage.removeItem("streamly_simkl");
+    } catch (error) {
+      logDebug("settings", "Simkl handle could not be cleared.", { message: error?.message });
+    }
+    setShowSimklModal(false);
+    toast({
+      type: "info",
+      title: "Simkl Disconnected",
+      message: "Your Simkl account was unlinked from this device.",
+    });
+  };
+
+  const handleClearCookie = () => {
+    setCookieInput("");
+    setPreference("febboxCookie", "");
+    logDebug("settings", "Febbox cookie cleared — VIP server removed from rotation.");
+    toast({
+      type: "info",
+      title: "Febbox Cookie Removed",
+      message: "4K VIP streaming is now disabled.",
+    });
+  };
+
+  // A section shows when the active tab selects it ("All" shows everything)
+  // AND the search filter matches its keywords.
+  const visibleSection = (id, keywords) =>
+    (activeTab === "all" || activeTab === id) && (!q || keywords.toLowerCase().includes(q));
+
+  const sectionVisible = {
+    account: visibleSection("account", "account sign in trakt simkl list history shortcuts user"),
+    appearance: visibleSection("appearance", "appearance theme episode style view logo trailer spoiler motion thumbnail"),
+    playback: visibleSection("playback", "playback autoplay skip intro controls seek time subtitle language audio mute"),
+    servers: visibleSection("servers", "server order lisbon nebula solara athens joy castle sakura canaias stream priority"),
+    subtitles: visibleSection("subtitles", "subtitles font size color background blur preview style"),
+    ads: visibleSection("ads", "advertisements ads enable support"),
+    febbox: visibleSection("febbox", "febbox integration cookie token 4k streams"),
+    notifications: visibleSection("notifications", "notifications alert toast popup banner"),
+  };
+  const nothingVisible = Object.values(sectionVisible).every((v) => !v);
 
   return (
     <div className="main-content content-page settings-page min-h-screen" ref={dropdownRef}>
       <SEO title="Settings - Streamly" description="Configure player, servers, appearance, subtitles and accounts." />
       <div className="settings-page__glow" aria-hidden="true" />
 
-      <div className="relative z-10 pt-4 md:pt-14 pb-28 px-4 sm:px-6 md:px-10 lg:px-14">
+      <div className="relative z-10 pt-4 md:pt-8 pb-28 px-4 sm:px-6 md:px-10 lg:px-14">
         <div className="mx-auto max-w-[780px]">
           {/* Header Row */}
           <div className="mb-6 flex items-center justify-between gap-4">
@@ -461,50 +891,82 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Quick Search Bar */}
-          <div className="mb-6 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Filter settings..."
-              aria-label="Filter settings"
-              className="w-full bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.16] focus:border-white/[0.28] rounded-2xl py-3 pl-11 pr-10 text-sm text-white placeholder-white/40 backdrop-blur-md outline-none transition-all"
-            />
-            {query && (
-              <button
-                onClick={() => setQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-white/40 hover:text-white"
-                aria-label="Clear search"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
+          {/* Sticky header bar — search + section tabs stay pinned under the
+              navbar while scrolling so every section is always one tap away. */}
+          <div className="settings-sticky-bar">
+            {/* Quick Search Bar */}
+            <div className="mb-3 relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Filter settings..."
+                aria-label="Filter settings"
+                className="w-full bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.16] focus:border-white/[0.28] rounded-2xl py-3 pl-11 pr-10 text-sm text-white placeholder-white/40 backdrop-blur-md outline-none transition-all"
+              />
+              {query && (
+                <button
+                  onClick={() => setQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-white/40 hover:text-white"
+                  aria-label="Clear search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Section Tabs (All + filters) */}
+            <nav aria-label="Settings sections" className="settings-nav">
+              {TABS.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    aria-pressed={isActive}
+                    className={`settings-tab${isActive ? " is-active" : ""}`}
+                    onClick={() => handleTabClick(tab.id)}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </nav>
           </div>
 
-          {/* Top Tabs Navigation Bar (Scroll spy anchor nav) */}
-          <nav aria-label="Settings sections" className="settings-nav mb-6 sticky top-20 z-30">
-            {TABS.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  className={`settings-tab${isActive ? " is-active" : ""}`}
-                  onClick={() => handleTabClick(tab.id)}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </nav>
-
-          {/* Sections Stack — ALL 7 SECTIONS ALWAYS RENDERED SIMULTANEOUSLY */}
-          <div className="space-y-6">
+          {/* Sections Stack — filtered by the active tab ("All" shows everything) */}
+          <div className="space-y-6 settings-sections" ref={sectionsTopRef}>
+            {nothingVisible && (
+              <div className="glass-card text-center py-10 px-6" role="status">
+                <p className="text-white/80 font-semibold">No settings match{q ? ` “${query.trim()}”` : ""}{activeTab !== "all" ? " in this section" : ""}.</p>
+                <p className="section-subtitle mt-1">Try a different search, or switch back to All.</p>
+                <div className="mt-4 flex items-center justify-center gap-2 flex-wrap">
+                  {q && (
+                    <button
+                      type="button"
+                      onClick={() => setQuery("")}
+                      className="px-4 py-2 text-xs font-semibold rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                    >
+                      Clear search
+                    </button>
+                  )}
+                  {activeTab !== "all" && (
+                    <button
+                      type="button"
+                      onClick={() => handleTabClick("all")}
+                      className="px-4 py-2 text-xs font-semibold rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                    >
+                      Show all
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
             {/* ── 1. ACCOUNT SECTION ── */}
-            {(!q || matchesSearch("account sign in trakt simkl list history shortcuts user")) && (
+            {sectionVisible.account && (
               <section id="account" className="glass-card">
                 <div className="section-header">
                   <h2 className="section-title">Account</h2>
@@ -636,8 +1098,8 @@ export default function SettingsPage() {
             )}
 
             {/* ── 2. APPEARANCE SECTION ── */}
-            {(!q || matchesSearch("appearance theme episode style view logo trailer spoiler motion thumbnail")) && (
-              <section id="appearance" style={{ position: "relative", zIndex: 20 }} className="glass-card">
+            {sectionVisible.appearance && (
+              <section id="appearance" className="glass-card">
                 <div className="section-header">
                   <h2 className="section-title">Appearance</h2>
                   <p className="section-subtitle">
@@ -658,6 +1120,9 @@ export default function SettingsPage() {
                       <div className="relative theme-dropdown-wrap">
                         <button
                           type="button"
+                          aria-expanded={themeDropdownOpen}
+                          aria-haspopup="listbox"
+                          aria-label={`Theme, current: ${activeTheme.name}`}
                           onClick={() => setThemeDropdownOpen(!themeDropdownOpen)}
                           className="flex items-center gap-2 px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all duration-300 backdrop-blur-md group min-w-[150px] justify-between"
                         >
@@ -688,7 +1153,7 @@ export default function SettingsPage() {
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: 8, scale: 0.96 }}
                               transition={{ duration: 0.15 }}
-                              className="absolute right-0 top-full mt-2 w-56 rounded-2xl bg-[#14121a] border border-white/15 p-2 shadow-2xl backdrop-blur-xl z-50 flex flex-col gap-1"
+                              className="absolute right-0 top-full mt-2 w-56 rounded-2xl bg-[#14121a] border border-white/15 p-2 shadow-2xl backdrop-blur-xl z-50 flex flex-col gap-1 settings-dropdown"
                             >
                               {THEMES.map((t) => {
                                 const selected = theme === t.id;
@@ -731,15 +1196,16 @@ export default function SettingsPage() {
                   {/* Episode View Style */}
                   <SettingRow
                     title="Episode View Style"
-                    description="Choose how episodes appear on series pages."
+                    description="Carousel rails, grids, or lists on series pages."
                   >
                     <SegmentControl
                       label="Episode View Style"
                       options={[
-                        { id: "carousel", name: "Carrousel" },
+                        { id: "carousel", name: "Carousel" },
                         { id: "grid", name: "Grid" },
+                        { id: "list", name: "List" },
                       ]}
-                      value={episodeViewStyle}
+                      value={["carousel", "grid", "list"].includes(episodeViewStyle) ? episodeViewStyle : "carousel"}
                       onChange={(val) => setPreference("episodeViewStyle", val)}
                     />
                   </SettingRow>
@@ -747,7 +1213,7 @@ export default function SettingsPage() {
                   {/* Detail View Type */}
                   <SettingRow
                     title="Detail View Type"
-                    description="Pick between a full page or a compact modal."
+                    description="Full info page, or a Netflix-style quick modal."
                   >
                     <SegmentControl
                       label="Detail View Type"
@@ -824,8 +1290,8 @@ export default function SettingsPage() {
             )}
 
             {/* ── 3. PLAYBACK SECTION ── */}
-            {(!q || matchesSearch("playback autoplay skip intro controls seek time subtitle language audio mute")) && (
-              <section id="playback" style={{ position: "relative", zIndex: 15 }} className="glass-card">
+            {sectionVisible.playback && (
+              <section id="playback" className="glass-card">
                 <div className="section-header">
                   <h2 className="section-title">Playback</h2>
                   <p className="section-subtitle">
@@ -858,17 +1324,17 @@ export default function SettingsPage() {
                     />
                   </SettingRow>
 
-                  {/* Player Controls */}
+                  {/* Player UI Studio */}
                   <SettingRow
-                    title="Player Controls"
-                    description="Rearrange the player's buttons, or take the ones you don't use off it."
+                    title="Player UI Studio"
+                    description="Presets, drag buttons anywhere, live subtitle preview."
                   >
                     <button
                       type="button"
                       onClick={() => setShowControlsModal(true)}
                       className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all duration-300 backdrop-blur-md text-sm font-medium text-white/90 whitespace-nowrap"
                     >
-                      <span>Customize</span>
+                      <span>Open Studio</span>
                       <ChevronRight className="w-4 h-4 text-white/50" />
                     </button>
                   </SettingRow>
@@ -885,6 +1351,9 @@ export default function SettingsPage() {
                       <div className="relative seek-dropdown-wrap">
                         <button
                           type="button"
+                          aria-expanded={seekDropdownOpen}
+                          aria-haspopup="listbox"
+                          aria-label={`Seek time, current: ${seekTime} seconds`}
                           onClick={() => setSeekDropdownOpen(!seekDropdownOpen)}
                           className="flex items-center gap-2 px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all duration-300 backdrop-blur-md group min-w-[160px] justify-between"
                         >
@@ -901,7 +1370,7 @@ export default function SettingsPage() {
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: 8, scale: 0.96 }}
                               transition={{ duration: 0.15 }}
-                              className="absolute right-0 top-full mt-2 w-44 rounded-2xl bg-[#14121a] border border-white/15 p-2 shadow-2xl backdrop-blur-xl z-50 flex flex-col gap-1"
+                              className="absolute right-0 top-full mt-2 w-44 rounded-2xl bg-[#14121a] border border-white/15 p-2 shadow-2xl backdrop-blur-xl z-50 flex flex-col gap-1 settings-dropdown"
                             >
                               {SEEK_TIMES.map((st) => {
                                 const selected = Number(seekTime) === st.value;
@@ -953,6 +1422,9 @@ export default function SettingsPage() {
                       <div className="relative lang-dropdown-wrap">
                         <button
                           type="button"
+                          aria-expanded={langDropdownOpen}
+                          aria-haspopup="listbox"
+                          aria-label={`Default subtitle language, current: ${activeLang.name}`}
                           onClick={() => setLangDropdownOpen(!langDropdownOpen)}
                           className="flex items-center gap-2 px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all duration-300 backdrop-blur-md group min-w-[160px] justify-between"
                         >
@@ -974,7 +1446,7 @@ export default function SettingsPage() {
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: 8, scale: 0.96 }}
                               transition={{ duration: 0.15 }}
-                              className="absolute right-0 top-full mt-2 w-52 max-h-60 overflow-y-auto rounded-2xl bg-[#14121a] border border-white/15 p-2 shadow-2xl backdrop-blur-xl z-50 flex flex-col gap-1"
+                              className="absolute right-0 top-full mt-2 w-52 max-h-60 overflow-y-auto rounded-2xl bg-[#14121a] border border-white/15 p-2 shadow-2xl backdrop-blur-xl z-50 flex flex-col gap-1 settings-dropdown"
                             >
                               {LANGUAGES.map((l) => {
                                 const selected = defaultLanguage === l.code;
@@ -1025,13 +1497,13 @@ export default function SettingsPage() {
             )}
 
             {/* ── 4. SERVER ORDER SECTION ── */}
-            {(!q || matchesSearch("server order lisbon nebula solara athens joy castle sakura canaias stream priority")) && (
+            {sectionVisible.servers && (
               <section id="servers" className="glass-card">
                 <div className="section-header flex items-center justify-between">
                   <div>
                     <h2 className="section-title">Server Order</h2>
                     <p className="section-subtitle">
-                      Drag to set which sources are tried first when a title loads.
+                      Drag the handle to set which sources are tried first when a title loads. The same order plays in the video player.
                     </p>
                   </div>
                   <button
@@ -1044,46 +1516,12 @@ export default function SettingsPage() {
                   </button>
                 </div>
 
-                <div className="order-list">
-                  {(Array.isArray(serverOrder) ? serverOrder : DEFAULT_SERVER_ORDER).map((srv, idx) => (
-                    <div key={srv} className="order-item">
-                      <div className="flex items-center gap-3">
-                        <span className="order-grip">
-                          <GripVertical className="w-4 h-4" />
-                        </span>
-                        <span className="w-6 h-6 rounded-full bg-white/10 text-[11px] font-bold flex items-center justify-center text-white/80 shrink-0">
-                          {idx + 1}
-                        </span>
-                        <span className="order-name">{srv}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          disabled={idx === 0}
-                          onClick={() => moveServer(idx, -1)}
-                          className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-20 text-white transition-colors"
-                          aria-label={`Move ${srv} up`}
-                        >
-                          <ChevronUp className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          disabled={idx === serverOrder.length - 1}
-                          onClick={() => moveServer(idx, 1)}
-                          className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-20 text-white transition-colors"
-                          aria-label={`Move ${srv} down`}
-                        >
-                          <ChevronDown className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <ServerOrderList list={serverList} onReorder={reorderServers} onMoveKeyboard={moveServerKeyboard} />
               </section>
             )}
 
             {/* ── 5. SUBTITLES SECTION ── */}
-            {(!q || matchesSearch("subtitles font size color background blur preview style")) && (
+            {sectionVisible.subtitles && (
               <section id="subtitles" className="glass-card">
                 <div className="section-header">
                   <h2 className="section-title">Subtitles</h2>
@@ -1119,6 +1557,7 @@ export default function SettingsPage() {
                         max="150"
                         step="10"
                         value={subtitleSize}
+                        aria-label={`Subtitle text size, ${subtitleSize} percent`}
                         onChange={(e) => setPreference("subtitleSize", Number(e.target.value))}
                         className="range-slider"
                       />
@@ -1136,6 +1575,8 @@ export default function SettingsPage() {
                           key={c.value}
                           type="button"
                           title={c.name}
+                          aria-label={`Subtitle color ${c.name}`}
+                          aria-pressed={subtitleColor === c.value}
                           onClick={() => setPreference("subtitleColor", c.value)}
                           className={`color-dot${subtitleColor === c.value ? " active" : ""}`}
                           style={{ backgroundColor: c.value }}
@@ -1190,7 +1631,7 @@ export default function SettingsPage() {
             )}
 
             {/* ── 6. ADVERTISEMENTS SECTION ── */}
-            {(!q || matchesSearch("advertisements ads enable support")) && (
+            {sectionVisible.ads && (
               <section id="ads" className="glass-card">
                 <div className="section-header">
                   <h2 className="section-title">Advertisements</h2>
@@ -1215,7 +1656,7 @@ export default function SettingsPage() {
             )}
 
             {/* ── 7. FEBBOX INTEGRATION SECTION ── */}
-            {(!q || matchesSearch("febbox integration cookie token 4k streams")) && (
+            {sectionVisible.febbox && (
               <section id="febbox" className="glass-card">
                 <div className="section-header flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -1262,6 +1703,15 @@ export default function SettingsPage() {
                     >
                       Save
                     </button>
+                    {febboxCookie && (
+                      <button
+                        type="button"
+                        onClick={handleClearCookie}
+                        className="px-4 py-2.5 text-xs font-semibold rounded-xl bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 transition-colors whitespace-nowrap"
+                      >
+                        Remove
+                      </button>
+                    )}
                   </div>
                   {febboxCookie && (
                     <div className="flex items-center gap-2 text-xs text-emerald-400 mt-1">
@@ -1274,7 +1724,7 @@ export default function SettingsPage() {
             )}
 
             {/* ── 8. IN-APP NOTIFICATIONS ── */}
-            {(!q || matchesSearch("notifications alert toast popup banner")) && (
+            {sectionVisible.notifications && (
               <section id="notifications" className="glass-card">
                 <div className="section-header">
                   <h2 className="section-title">Notifications</h2>
@@ -1333,8 +1783,10 @@ export default function SettingsPage() {
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  const form = e.target;
-                  handleSignIn(form.name.value, form.email.value);
+                  // NOTE: form.name would resolve to the form's own `name`
+                  // attribute (a string), never the input — read via FormData.
+                  const data = new FormData(e.target);
+                  handleSignIn(data.get("name"), data.get("email"));
                 }}
                 className="space-y-4"
               >
@@ -1427,7 +1879,7 @@ export default function SettingsPage() {
                   {traktUsername && (
                     <button
                       type="button"
-                      onClick={() => handleConnectTrakt("")}
+                      onClick={handleDisconnectTrakt}
                       className="py-2.5 px-4 rounded-xl bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 text-xs font-semibold"
                     >
                       Disconnect
@@ -1497,7 +1949,7 @@ export default function SettingsPage() {
                   {simklUsername && (
                     <button
                       type="button"
-                      onClick={() => handleConnectSimkl("")}
+                      onClick={handleDisconnectSimkl}
                       className="py-2.5 px-4 rounded-xl bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 text-xs font-semibold"
                     >
                       Disconnect
@@ -1576,7 +2028,7 @@ export default function SettingsPage() {
         )}
       </AnimatePresence>
 
-      {/* Player Controls Customization Modal */}
+      {/* Player UI Studio Modal */}
       <AnimatePresence>
         {showControlsModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
@@ -1584,10 +2036,14 @@ export default function SettingsPage() {
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="w-full max-w-md bg-[#13111c] border border-white/15 rounded-3xl p-6 shadow-2xl relative"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Player UI studio"
+              className="w-full max-w-3xl bg-[#13111c] border border-white/15 rounded-3xl p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto"
             >
               <button
                 onClick={() => setShowControlsModal(false)}
+                aria-label="Close player studio"
                 className="absolute right-5 top-5 p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/10"
               >
                 <X className="w-5 h-5" />
@@ -1598,52 +2054,27 @@ export default function SettingsPage() {
                   <Sliders className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white">Player Controls Layout</h3>
-                  <p className="text-xs text-white/50">Toggle which buttons appear in the video player.</p>
+                  <h3 className="text-lg font-bold text-white">Player UI Studio</h3>
+                  <p className="text-xs text-white/50">Presets, drag buttons anywhere, live subtitle preview.</p>
                 </div>
               </div>
 
-              <div className="space-y-0 text-xs text-white/80">
-                <div className="rounded-2xl bg-white/[0.04] border border-white/5 divide-y divide-white/5 overflow-hidden">
-                  {[
-                    { key: "playPause", label: "Play / Pause" },
-                    { key: "jumpForwardBackward", label: "Forward / Backward Jump" },
-                    { key: "volume", label: "Volume Slider & Mute" },
-                    { key: "aspectRatio", label: "Aspect Ratio & Stretch" },
-                    { key: "subtitles", label: "Subtitles & Audio Menus" },
-                    { key: "playbackSpeed", label: "Playback Speed" },
-                    { key: "screenLock", label: "Screen Lock (Mobile)" },
-                    { key: "fullscreen", label: "Fullscreen" },
-                  ].map(({ key, label }) => {
-                    const enabled = playerControls[key] !== false;
-                    return (
-                      <div key={key} className="flex items-center justify-between px-4 py-3">
-                        <span className="text-sm text-white/80">{label}</span>
-                        <Toggle
-                          label={label}
-                          checked={enabled}
-                          onChange={(val) => setPlayerControl?.(key, val)}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
+              <PlayerUIStudio />
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowControlsModal(false);
-                    toast({
-                      type: "success",
-                      title: "Player Layout Saved",
-                      message: "Player button preferences updated.",
-                    });
-                  }}
-                  className="w-full py-2.5 rounded-xl bg-white text-black hover:bg-gray-200 text-sm font-bold transition-colors mt-4"
-                >
-                  Done
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowControlsModal(false);
+                  toast({
+                    type: "success",
+                    title: "Player Studio Saved",
+                    message: "Your player layout is live on the next video.",
+                  });
+                }}
+                className="w-full py-2.5 rounded-xl bg-white text-black hover:bg-gray-200 text-sm font-bold transition-colors mt-4"
+              >
+                Done
+              </button>
             </motion.div>
           </div>
         )}

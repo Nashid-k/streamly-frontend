@@ -30,6 +30,20 @@ export const DEFAULT_PREFERENCES = Object.freeze({
     screenLock: true,
     fullscreen: true,
   },
+  // Player UI studio: preset id + per-control zone placement.
+  // Zones: topLeft | topRight | bottomLeft | bottomRight | tray (hidden).
+  playerUIPreset: "classic",
+  playerUILayout: {
+    playPause: "bottomLeft",
+    jumpForwardBackward: "bottomLeft",
+    volume: "bottomLeft",
+    subtitles: "bottomRight",
+    audio: "bottomRight",
+    aspectRatio: "bottomRight",
+    playbackSpeed: "tray",
+    screenLock: "topLeft",
+    fullscreen: "bottomRight",
+  },
   // Servers
   serverOrder: [
     "Lisbon",

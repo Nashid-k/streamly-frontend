@@ -38,11 +38,21 @@ export default function Loader({ variant = "page", size, color }) {
   else if (variant === "global") dimensions = "28px";
 
   const useGradient = !color;
-  const primaryColor = color || "#f43f5e";
-  const secondaryColor = "#fb923c";
+  const primaryColor = color || "var(--accent-primary, #f43f5e)";
+  const secondaryColor = color || "var(--accent-secondary, #fb923c)";
   const gradientId = "streamly-loader-grad";
 
-  const stroke = useGradient ? `url(#${gradientId})` : primaryColor;
+  const gradientUrl = `url(#${gradientId})`;
+  // NOTE: SVG geometry attributes (stroke, stop-color) do not resolve
+  // CSS var() as presentation attributes — they must go through `style`.
+  const ringStyle = (extra) => ({
+    stroke: useGradient ? gradientUrl : primaryColor,
+    ...extra,
+  });
+  const innerStyle = (extra) => ({
+    stroke: useGradient ? secondaryColor : primaryColor,
+    ...extra,
+  });
 
   const spinnerCore = (
     <div style={{ position: "relative", width: dimensions, height: dimensions }}>
@@ -53,9 +63,9 @@ export default function Loader({ variant = "page", size, color }) {
         {useGradient && (
           <defs>
             <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#f43f5e" />
-              <stop offset="55%" stopColor="#fb7185" />
-              <stop offset="100%" stopColor="#fb923c" />
+              <stop offset="0%" style={{ stopColor: "var(--accent-primary, #f43f5e)" }} />
+              <stop offset="55%" style={{ stopColor: "var(--accent-primary, #fb7185)" }} />
+              <stop offset="100%" style={{ stopColor: "var(--accent-secondary, #fb923c)" }} />
             </linearGradient>
           </defs>
         )}
@@ -63,44 +73,41 @@ export default function Loader({ variant = "page", size, color }) {
         <circle
           cx="22" cy="22" r="18"
           fill="none"
-          stroke={stroke}
           strokeWidth="3"
           strokeLinecap="round"
           strokeDasharray="113"
           strokeDashoffset="75"
           opacity="0.2"
+          style={ringStyle()}
         />
         <circle
           cx="22" cy="22" r="18"
           fill="none"
-          stroke={stroke}
           strokeWidth="3"
           strokeLinecap="round"
           strokeDasharray="113"
           strokeDashoffset="75"
-          style={{ animation: "loader-dash 1.4s ease-in-out infinite" }}
+          style={ringStyle({ animation: "loader-dash 1.4s ease-in-out infinite" })}
         />
         {/* Inner ring (counter-rotate) */}
         <circle
           cx="22" cy="22" r="11"
           fill="none"
-          stroke={secondaryColor}
           strokeWidth="2.5"
           strokeLinecap="round"
           strokeDasharray="69"
           strokeDashoffset="40"
           opacity="0.2"
-          style={{ animation: "loader-spin-ccw 1.8s linear infinite", transformOrigin: "center" }}
+          style={innerStyle({ animation: "loader-spin-ccw 1.8s linear infinite", transformOrigin: "center" })}
         />
         <circle
           cx="22" cy="22" r="11"
           fill="none"
-          stroke={secondaryColor}
           strokeWidth="2.5"
           strokeLinecap="round"
           strokeDasharray="69"
           strokeDashoffset="40"
-          style={{ animation: "loader-dash 2s ease-in-out infinite 0.3s" }}
+          style={innerStyle({ animation: "loader-dash 2s ease-in-out infinite 0.3s" })}
         />
       </svg>
       {/* Center dot */}
@@ -113,10 +120,10 @@ export default function Loader({ variant = "page", size, color }) {
           height: "20%",
           borderRadius: "50%",
           background: useGradient
-            ? "linear-gradient(135deg, #f43f5e, #fb923c)"
+            ? "var(--accent-gradient, linear-gradient(135deg, #f43f5e, #fb923c))"
             : primaryColor,
           boxShadow: useGradient
-            ? "0 0 10px rgba(244,63,94,0.6), 0 0 22px rgba(251,146,60,0.35)"
+            ? "0 0 10px var(--accent-glow, rgba(244,63,94,0.6)), 0 0 22px var(--accent-glow, rgba(251,146,60,0.35))"
             : `0 0 8px ${primaryColor}80`,
           animation: "loader-pulse-center 1.2s ease-in-out infinite",
         }}

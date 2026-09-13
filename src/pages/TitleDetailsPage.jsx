@@ -25,6 +25,9 @@ import {
   Film,
   LayoutGrid,
   List,
+  GalleryHorizontal,
+  ChevronLeft,
+  ChevronRight,
   Popcorn,
   Calendar,
   ChevronDown as ChevronDownIcon,
@@ -184,10 +187,10 @@ function SeasonDropdown({ seasons, selectedSeason, airingSeasonNumber, onSelect 
                       gap: "10px",
                       padding: "0.65rem 1rem",
                       background: isSelected
-                        ? "rgba(244,63,94,0.1)"
+                        ? "rgba(var(--accent-primary-rgb), 0.1)"
                         : "transparent",
                       border: "none",
-                      color: isSelected ? "#f43f5e" : "#e4e4e7",
+                      color: isSelected ? "var(--accent-primary, #f43f5e)" : "#e4e4e7",
                       fontSize: "0.9rem",
                       fontWeight: isSelected ? 700 : 500,
                       cursor: "pointer",
@@ -327,10 +330,10 @@ function ServerDropdown({ servers, selectedIndex, onSelect }) {
                     gap: "10px",
                     padding: "0.6rem 1rem",
                     background: isSelected
-                      ? "rgba(244,63,94,0.1)"
+                      ? "rgba(var(--accent-primary-rgb), 0.1)"
                       : "transparent",
                     border: "none",
-                    color: isSelected ? "#f43f5e" : "#e4e4e7",
+                    color: isSelected ? "var(--accent-primary, #f43f5e)" : "#e4e4e7",
                     fontSize: "0.85rem",
                     fontWeight: isSelected ? 700 : 500,
                     cursor: "pointer",
@@ -436,9 +439,27 @@ export default function TitleDetails() {
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [iframeLoading, setIframeLoading] = useState(false);
-  const [episodeLayout, setEpisodeLayout] = useState(() => (episodeViewStyle === "grid" ? "grid" : "list"));
+  const [episodeLayout, setEpisodeLayout] = useState(() => (
+    episodeViewStyle === "grid" || episodeViewStyle === "list" || episodeViewStyle === "carousel"
+      ? episodeViewStyle
+      : "carousel"
+  ));
+  // Live-sync the episode layout when the Appearance setting changes (the
+  // manual toggle below still wins until the preference changes again).
+  useEffect(() => {
+    if (episodeViewStyle === "grid" || episodeViewStyle === "list" || episodeViewStyle === "carousel") {
+      setEpisodeLayout(episodeViewStyle);
+    }
+  }, [episodeViewStyle]);
   const [showAllEpisodes, setShowAllEpisodes] = useState(false);
   const EPISODES_INITIAL_COUNT = 8;
+  // Horizontal rail ref for the carousel layout.
+  const epRailRef = useRef(null);
+  const scrollEpRail = (dir) => {
+    const el = epRailRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir === "left" ? -el.clientWidth * 0.8 : el.clientWidth * 0.8, behavior: "smooth" });
+  };
 
   const [playMode, setPlayMode] = useState("movie");
   const [playingTrailerKey, setPlayingTrailerKey] = useState(null);
@@ -981,8 +1002,8 @@ export default function TitleDetails() {
                   }
                   updateProgress(movie, isTvContent ? selectedSeason : null, isTvContent ? episodeToPlay : null, 0);
                 }}
-                className="relative rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 font-semibold tracking-wide h-[40px] lg:h-[44px] xl:h-[52px] px-5 lg:px-6 xl:px-8 py-3 text-sm xl:text-base min-w-[110px] text-white border-none"
-                style={{ background: "var(--accent-gradient)", boxShadow: "0 8px 24px rgba(244,63,94,0.5)" }}
+                className="relative rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 font-semibold tracking-wide h-[40px] lg:h-[44px] xl:h-[52px] px-5 lg:px-6 xl:px-8 py-3 text-sm xl:text-base min-w-[110px] border-none"
+                style={{ background: "var(--accent-gradient)", color: "var(--on-accent, #fff)", boxShadow: "0 8px 24px var(--accent-glow, rgba(244,63,94,0.5))" }}
               >
                 <Play size={18} className="mr-1.5 fill-current" /> Play
               </button>
@@ -1165,7 +1186,21 @@ export default function TitleDetails() {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
               {/* Layout toggle */}
-              <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }} role="radiogroup" aria-label="Episode layout">
+                <motion.button
+                  whileTap={{ scale: 0.92 }}
+                  onClick={() => setEpisodeLayout('carousel')}
+                  aria-pressed={episodeLayout === 'carousel'}
+                  style={{
+                    padding: '8px 12px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: episodeLayout === 'carousel' ? 'rgba(255,255,255,0.12)' : 'transparent',
+                    color: episodeLayout === 'carousel' ? '#fff' : '#71717a',
+                    transition: 'all 0.2s',
+                  }}
+                  title="Carousel view"
+                >
+                  <GalleryHorizontal size={16} />
+                </motion.button>
                 <motion.button
                   whileTap={{ scale: 0.92 }}
                   onClick={() => setEpisodeLayout('grid')}
@@ -1194,6 +1229,28 @@ export default function TitleDetails() {
                 </motion.button>
               </div>
 
+              {/* Carousel rail arrows */}
+              {episodeLayout === 'carousel' && (
+                <div style={{ display: 'flex', gap: '0.4rem' }}>
+                  <motion.button
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => scrollEpRail('left')}
+                    aria-label="Scroll episodes left"
+                    style={{ width: '34px', height: '34px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: '#e4e4e7', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                  >
+                    <ChevronLeft size={16} />
+                  </motion.button>
+                  <motion.button
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => scrollEpRail('right')}
+                    aria-label="Scroll episodes right"
+                    style={{ width: '34px', height: '34px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: '#e4e4e7', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                  >
+                    <ChevronRight size={16} />
+                  </motion.button>
+                </div>
+              )}
+
               {/* Season dropdown */}
             <SeasonDropdown
               seasons={availableSeasons}
@@ -1204,21 +1261,35 @@ export default function TitleDetails() {
             </div>
           </div>
 
-          {/* Episode Grid/List */}
+          {/* Episode Grid/List/Carousel */}
           <AnimatePresence mode="wait">
           <motion.div
+            ref={episodeLayout === 'carousel' ? epRailRef : undefined}
             key={`season-${selectedSeason}-${episodesLoading}-${episodeLayout}`}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            style={{
-              display: episodeLayout === 'grid' ? 'grid' : 'flex',
-              flexDirection: episodeLayout === 'list' ? 'column' : undefined,
-              gridTemplateColumns: episodeLayout === 'grid' ? 'repeat(auto-fill, minmax(min(100%, 240px), 1fr))' : undefined,
-              gap: episodeLayout === 'grid' ? '0.8rem' : '0.5rem',
-            }}
-            className="episode-grid"
+            style={
+              episodeLayout === 'carousel'
+                ? {
+                    display: 'flex',
+                    flexDirection: 'row',
+                    gap: '0.8rem',
+                    overflowX: 'auto',
+                    scrollSnapType: 'x mandatory',
+                    paddingBottom: '0.75rem',
+                    scrollbarWidth: 'none',
+                    WebkitOverflowScrolling: 'touch',
+                  }
+                : {
+                    display: episodeLayout === 'grid' ? 'grid' : 'flex',
+                    flexDirection: episodeLayout === 'list' ? 'column' : undefined,
+                    gridTemplateColumns: episodeLayout === 'grid' ? 'repeat(auto-fill, minmax(min(100%, 240px), 1fr))' : undefined,
+                    gap: episodeLayout === 'grid' ? '0.8rem' : '0.5rem',
+                  }
+            }
+            className="episode-grid hide-scrollbar"
           >
             {episodesLoading ? (
               // Skeleton placeholders while episodes load
@@ -1331,13 +1402,17 @@ export default function TitleDetails() {
                 )}
               </div>
             ) : (() => {
-                const visibleEps = showAllEpisodes ? episodes : episodes.slice(0, EPISODES_INITIAL_COUNT);
-                const hasMore = episodes.length > EPISODES_INITIAL_COUNT;
+                // Carousel rails scroll horizontally, so they always show the
+                // full season; grid/list paginate with "show all".
+                const isCarouselLayout = episodeLayout === 'carousel';
+                const visibleEps = (showAllEpisodes || isCarouselLayout) ? episodes : episodes.slice(0, EPISODES_INITIAL_COUNT);
+                const hasMore = !isCarouselLayout && episodes.length > EPISODES_INITIAL_COUNT;
                 return (
                   <>
                   {visibleEps.map((ep, idx) => {
                     const isEpPlaying = isPlaying && playingEpisode === ep.episodeNumber && playMode !== 'trailer';
                     const isGrid = episodeLayout === 'grid';
+                    const isCard = isGrid || isCarouselLayout;
                     const isWatched = continueWatching?.some(m => String(m.id) === String(movie.id) && m.savedEpisode === ep.episodeNumber && m.timestamp > 0);
                     const watchedTs = continueWatching?.find(m => String(m.id) === String(movie.id) && m.savedEpisode === ep.episodeNumber)?.timestamp || 0;
                     const isAired = !ep.airDate || new Date(ep.airDate) <= new Date();
@@ -1359,8 +1434,8 @@ export default function TitleDetails() {
                       }
                     };
 
-                    if (isGrid) {
-                      // ── GRID CARD ──
+                    if (isCard) {
+                      // ── GRID / CAROUSEL CARD ──
                       return (
                         <motion.div
                           key={ep.id || idx}
@@ -1377,13 +1452,14 @@ export default function TitleDetails() {
                           onClick={playEpisode}
                           onKeyDown={playEpKeyboard}
                           style={{
-                            background: isEpPlaying ? 'linear-gradient(180deg, rgba(244,63,94,0.1) 0%, #050505 100%)' : '#0a0a0c',
+                            background: isEpPlaying ? 'linear-gradient(180deg, rgba(var(--accent-primary-rgb), 0.1) 0%, #050505 100%)' : '#0a0a0c',
                             borderRadius: '16px', overflow: 'hidden',
-                            border: isEpPlaying ? '1px solid rgba(244,63,94,0.4)' : '1px solid rgba(255,255,255,0.05)',
+                            border: isEpPlaying ? '1px solid rgba(var(--accent-primary-rgb), 0.4)' : '1px solid rgba(255,255,255,0.05)',
                             cursor: playable ? 'pointer' : 'default', opacity: (!isAired) ? 0.35 : (SERVERS.length > 0 ? 1 : 0.6),
                             position: 'relative',
-                            boxShadow: isEpPlaying ? '0 10px 30px -10px rgba(244,63,94,0.15)' : '0 10px 30px -10px rgba(0,0,0,0.5)',
+                            boxShadow: isEpPlaying ? '0 10px 30px -10px var(--accent-glow, rgba(244,63,94,0.15))' : '0 10px 30px -10px rgba(0,0,0,0.5)',
                             transition: 'border 0.3s ease, background 0.3s ease',
+                            ...(isCarouselLayout ? { flex: '0 0 clamp(220px, 62vw, 300px)', scrollSnapAlign: 'start' } : {}),
                           }}
                         >
                           <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', overflow: 'hidden', background: '#18181b' }}>
@@ -1424,17 +1500,17 @@ export default function TitleDetails() {
                             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 50%)', pointerEvents: 'none' }} />
                             {playable && (
                               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s' }} className="ep-play-overlay">
-                                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--accent-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', boxShadow: '0 8px 24px rgba(244,63,94,0.5)' }}>
+                                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--accent-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--on-accent, #fff)', boxShadow: '0 8px 24px var(--accent-glow, rgba(244,63,94,0.5))' }}>
                                   <Play size={22} fill="currentColor" stroke="none" style={{ marginLeft: '3px' }} />
                                 </div>
                               </div>
                             )}
-                            {isEpPlaying && <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'var(--accent-gradient)', color: 'white', padding: '3px 8px', borderRadius: '6px', fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', zIndex: 10 }}>Playing</div>}
+                            {isEpPlaying && <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'var(--accent-gradient)', color: 'var(--on-accent, white)', padding: '3px 8px', borderRadius: '6px', fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', zIndex: 10 }}>Playing</div>}
                             <div style={{ position: 'absolute', bottom: '8px', right: '8px', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', padding: '2px 7px', borderRadius: '5px', fontSize: '0.65rem', fontWeight: 700, border: '1px solid rgba(255,255,255,0.08)' }}>{ep.duration}</div>
                           </div>
                           <div style={{ padding: '0.7rem 0.9rem', position: 'relative', zIndex: 2 }}>
                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                              <span style={{ fontSize: '1.2rem', fontWeight: 800, color: isEpPlaying ? '#f43f5e' : '#3f3f46', lineHeight: 1, fontFamily: 'monospace' }}>{String(ep.episodeNumber).padStart(2, '0')}</span>
+                              <span style={{ fontSize: '1.2rem', fontWeight: 800, color: isEpPlaying ? 'var(--accent-primary, #f43f5e)' : '#3f3f46', lineHeight: 1, fontFamily: 'monospace' }}>{String(ep.episodeNumber).padStart(2, '0')}</span>
                               <div style={{ flex: 1 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', margin: '0 0 0.35rem' }}>
                                   <h3 style={{ fontSize: '0.95rem', fontWeight: 600, margin: 0, color: isEpPlaying ? '#fff' : '#e4e4e7' }}>{ep.title}</h3>
@@ -1455,7 +1531,7 @@ export default function TitleDetails() {
                             {isWatched && (
                               <div style={{ marginTop: '0.6rem' }}>
                                 <div style={{ height: '3px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden' }}>
-                                  <div style={{ height: '100%', width: `${Math.min(100, (watchedTs / (ep.durationMins ? ep.durationMins * 60 : 3600)) * 100)}%`, background: 'linear-gradient(90deg, #f43f5e, #fb923c)', borderRadius: '2px' }} />
+                                  <div style={{ height: '100%', width: `${Math.min(100, (watchedTs / (ep.durationMins ? ep.durationMins * 60 : 3600)) * 100)}%`, background: 'var(--accent-gradient, linear-gradient(90deg, #f43f5e, #fb923c))', borderRadius: '2px' }} />
                                 </div>
                                 <span style={{ fontSize: '0.65rem', color: '#71717a', marginTop: '3px', display: 'block' }}>{formatTime(watchedTs)} watched</span>
                               </div>
@@ -1484,8 +1560,8 @@ export default function TitleDetails() {
                         style={{
                           display: 'flex', alignItems: 'center', gap: '1rem',
                           padding: '0.75rem 1rem', borderRadius: '12px',
-                          background: isEpPlaying ? 'rgba(244,63,94,0.08)' : 'transparent',
-                          border: isEpPlaying ? '1px solid rgba(244,63,94,0.2)' : '1px solid transparent',
+                          background: isEpPlaying ? 'rgba(var(--accent-primary-rgb), 0.08)' : 'transparent',
+                          border: isEpPlaying ? '1px solid rgba(var(--accent-primary-rgb), 0.2)' : '1px solid transparent',
                           cursor: playable ? 'pointer' : 'default', opacity: (!isAired) ? 0.35 : (SERVERS.length > 0 ? 1 : 0.6),
                           transition: 'background 0.2s, border 0.2s',
                         }}
@@ -1517,14 +1593,14 @@ export default function TitleDetails() {
                               </div>
                             )}
                           </div>
-                          {isEpPlaying && <div style={{ position: 'absolute', top: '4px', right: '4px', background: '#f43f5e', color: 'white', padding: '1px 5px', borderRadius: '4px', fontSize: '0.5rem', fontWeight: 800, textTransform: 'uppercase' }}>Playing</div>}
+                          {isEpPlaying && <div style={{ position: 'absolute', top: '4px', right: '4px', background: 'var(--accent-primary, #f43f5e)', color: 'var(--on-accent, white)', padding: '1px 5px', borderRadius: '4px', fontSize: '0.5rem', fontWeight: 800, textTransform: 'uppercase' }}>Playing</div>}
                           <div style={{ position: 'absolute', bottom: '4px', right: '4px', background: 'rgba(0,0,0,0.7)', padding: '1px 5px', borderRadius: '4px', fontSize: '0.55rem', fontWeight: 700 }}>{ep.duration}</div>
                         </div>
                         {/* Info */}
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '0.25rem' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: isEpPlaying ? '#f43f5e' : '#52525b', fontFamily: 'monospace', flexShrink: 0 }}>E{String(ep.episodeNumber).padStart(2, '0')}</span>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: isEpPlaying ? 'var(--accent-primary, #f43f5e)' : '#52525b', fontFamily: 'monospace', flexShrink: 0 }}>E{String(ep.episodeNumber).padStart(2, '0')}</span>
                               <h3 style={{ fontSize: '0.9rem', fontWeight: 600, margin: 0, color: isEpPlaying ? '#fff' : '#e4e4e7', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ep.title}</h3>
                             </div>
                             {ep.voteAverage > 0 && (
@@ -1542,7 +1618,7 @@ export default function TitleDetails() {
                           {isWatched && (
                             <div style={{ marginTop: '0.4rem' }}>
                               <div style={{ height: '2px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden', maxWidth: '120px' }}>
-                                <div style={{ height: '100%', width: `${Math.min(100, (watchedTs / (ep.durationMins ? ep.durationMins * 60 : 3600)) * 100)}%`, background: 'linear-gradient(90deg, #f43f5e, #fb923c)', borderRadius: '2px' }} />
+                                <div style={{ height: '100%', width: `${Math.min(100, (watchedTs / (ep.durationMins ? ep.durationMins * 60 : 3600)) * 100)}%`, background: 'var(--accent-gradient, linear-gradient(90deg, #f43f5e, #fb923c))', borderRadius: '2px' }} />
                               </div>
                             </div>
                           )}
@@ -1620,8 +1696,8 @@ export default function TitleDetails() {
                 <div style={{ position: 'relative', aspectRatio: '16/9' }}>
                   <img src={`https://img.youtube.com/vi/${vid.key}/mqdefault.jpg`} alt={vid.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)' }}>
-                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(244,63,94,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
-                      <Play size={18} fill="#fff" stroke="none" style={{ marginLeft: '2px' }} />
+                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--accent-gradient, rgba(244,63,94,0.8))', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+                      <Play size={18} fill="var(--on-accent, #fff)" stroke="none" style={{ marginLeft: '2px' }} />
                     </div>
                   </div>
                   {viewLabel && (
@@ -2079,6 +2155,7 @@ export default function TitleDetails() {
                     movie={movie}
                     season={isTvContent ? selectedSeason : undefined}
                     episode={isTvContent ? playingEpisode : undefined}
+                    servers={SERVERS}
                     preferredServerIndex={playingServerIndex}
                     onServerChange={(i) => { serverManuallySetRef.current = true; setPlayingServerIndex(i); }}
                     onClose={() => setIsPlaying(false)}

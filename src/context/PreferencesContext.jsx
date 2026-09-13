@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DEFAULT_PREFERENCES, PreferencesContext } from "./preferences";
+import { logDebug } from "../utils/debugLogger";
 const SETTING_PREFIX = "setting-";
 const LEGACY_AUTOPLAY_KEY = "streamly_autoNext";
+
+function isPlainObject(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 function parseValue(raw, fallback) {
   if (raw === null || raw === undefined) return fallback;
@@ -18,6 +23,12 @@ function parseValue(raw, fallback) {
     }
     if (Array.isArray(fallback)) {
       return Array.isArray(value) ? value : fallback;
+    }
+    if (isPlainObject(fallback)) {
+      // Merge over the defaults so newly added control keys default to on
+      // even for visitors with older stored objects, and so corrupt stored
+      // values (strings, numbers, arrays) can never break consumers.
+      return { ...fallback, ...(isPlainObject(value) ? value : {}) };
     }
     return value ?? fallback;
   } catch {
@@ -70,8 +81,10 @@ export function PreferencesProvider({ children }) {
   // Convenience: toggle one individual player-control button (e.g. "volume", "fullscreen")
   const setPlayerControl = useCallback((controlKey, enabled) => {
     setPreferences((current) => {
-      const current_controls = current.playerControls || DEFAULT_PREFERENCES.playerControls;
-      const next = { ...current_controls, [controlKey]: Boolean(enabled) };
+      const currentControls = isPlainObject(current.playerControls)
+        ? current.playerControls
+        : DEFAULT_PREFERENCES.playerControls;
+      const next = { ...currentControls, [controlKey]: Boolean(enabled) };
       try {
         localStorage.setItem(`${SETTING_PREFIX}playerControls`, JSON.stringify(next));
       } catch {
@@ -100,8 +113,19 @@ export function PreferencesProvider({ children }) {
   }, [preferences.reduceMotion]);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = preferences.theme || "default";
+    const theme = preferences.theme || "default";
+    document.documentElement.dataset.theme = theme;
+    logDebug("preferences", `theme applied: "${theme}". Accent-driven UI reads --accent-* vars.`, { theme });
   }, [preferences.theme]);
+
+  // `enableAds` currently gates no third-party slot yet — exposing it on
+  // <html> keeps the toggle observable (and future ad slots honest) instead
+  // of silently doing nothing.
+  useEffect(() => {
+    const enabled = preferences.enableAds !== false;
+    document.documentElement.dataset.adsEnabled = enabled ? "true" : "false";
+    logDebug("preferences", `ads ${enabled ? "enabled" : "disabled"}.`, { enabled });
+  }, [preferences.enableAds]);
 
   const value = useMemo(
     () => ({ ...preferences, setPreference, setPlayerControl }),

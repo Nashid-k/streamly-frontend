@@ -346,9 +346,9 @@ export default function PersonDetails() {
                 <button
                   onClick={() => setBioExpanded(!bioExpanded)}
                   style={{
-                    background: "rgba(251, 146, 60, 0.08)",
-                    border: "1px solid rgba(251, 146, 60, 0.2)",
-                    color: "#fb923c",
+                    background: "rgba(var(--accent-secondary-rgb), 0.08)",
+                    border: "1px solid rgba(var(--accent-secondary-rgb), 0.2)",
+                    color: "var(--accent-secondary, #fb923c)",
                     cursor: "pointer",
                     fontWeight: 600,
                     fontSize: "0.85rem",

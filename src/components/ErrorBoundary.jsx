@@ -71,8 +71,8 @@ export default class ErrorBoundary extends React.Component {
               style={{
                 width: "48px",
                 height: "48px",
-                border: "3px solid rgba(244,63,94,0.2)",
-                borderTopColor: "#f43f5e",
+                border: "3px solid rgba(var(--accent-primary-rgb), 0.2)",
+                borderTopColor: "var(--accent-primary, #f43f5e)",
                 borderRadius: "50%",
                 animation: "spin 0.8s linear infinite",
               }}
@@ -120,8 +120,8 @@ export default class ErrorBoundary extends React.Component {
               window.location.href = "/";
             }}
             style={{
-              background: "#e50914",
-              color: "white",
+              background: "var(--accent-gradient, #e50914)",
+              color: "var(--on-accent, white)",
               border: "none",
               padding: "0.8rem 1.5rem",
               borderRadius: "8px",

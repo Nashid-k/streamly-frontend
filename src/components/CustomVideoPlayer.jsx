@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { VideoSourceAdapter } from "../api/videoSourceAdapter";
 
 import { movieService } from "../api/movieService";
@@ -14,6 +14,7 @@ import { SubtitleEngine } from "../utils/subtitleEngine";
 import { logWarn } from "../utils/debugLogger";
 import { streamUrl, STREAM_BASE } from "../api/env";
 import { usePreferences } from "../context/preferences";
+import { resolveUILayout, PLAYER_CONTROL_ORDER, PLAYER_SPEEDS } from "./playerUIDef";
 
 const getNumericId = (s) => {
   if (!s) return null;
@@ -202,14 +203,14 @@ const ArcRing = ({ progress = 0, size = 48, strokeWidth = 3, color = "#fff", bgC
   return (
     <div style={{ position: "relative", width: responsive || size, height: responsive || size, flexShrink: 0 }} className={className}>
       <svg width={size} height={size} style={{ position: "absolute", inset: 0, transform: "rotate(-90deg)" }}>
-        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={bgColor} strokeWidth={strokeWidth} />
+        <circle cx={size/2} cy={size/2} r={r} fill="none" strokeWidth={strokeWidth} style={{ stroke: bgColor }} />
         <circle
           cx={size/2} cy={size/2} r={r} fill="none"
-          stroke={color} strokeWidth={strokeWidth}
+          strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={circ}
           strokeDashoffset={offset}
-          style={{ transition: "stroke-dashoffset 0.25s cubic-bezier(0.4, 0, 0.2, 1)" }}
+          style={{ stroke: color, transition: "stroke-dashoffset 0.25s cubic-bezier(0.4, 0, 0.2, 1)" }}
         />
       </svg>
       {glowColor && (
@@ -217,11 +218,11 @@ const ArcRing = ({ progress = 0, size = 48, strokeWidth = 3, color = "#fff", bgC
           <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="transparent" strokeWidth={strokeWidth} />
           <circle
             cx={size/2} cy={size/2} r={r} fill="none"
-            stroke={glowColor} strokeWidth={strokeWidth}
+            strokeWidth={strokeWidth}
             strokeLinecap="round"
             strokeDasharray={circ}
             strokeDashoffset={offset}
-            style={{ transition: "stroke-dashoffset 0.25s cubic-bezier(0.4, 0, 0.2, 1)" }}
+            style={{ stroke: glowColor, transition: "stroke-dashoffset 0.25s cubic-bezier(0.4, 0, 0.2, 1)" }}
           />
         </svg>
       )}
@@ -348,6 +349,10 @@ const MAX_THUMBNAIL_BUCKETS = 600;
 const CustomVideoPlayer = ({
   movie, season, episode, preferredServerIndex = 0, onServerChange,
   hasNextEpisode, onNextEpisode, onClose, thumbnailUrl, startTime = 0, onProgressUpdate,
+  /* Ordered server list from TitleDetails (user's Settings → Server Order).
+     Indices everywhere in this player refer to THIS list. Falls back to the
+     static base order when the parent renders without it (tests, reuse). */
+  servers: serversProp,
 }) => {
   const {
     autoplay,
@@ -361,6 +366,7 @@ const CustomVideoPlayer = ({
     autoSubtitles = true,
     defaultLanguage = "en",
     playerControls = {},
+    playerUILayout,
   } = usePreferences();
   // Per-button visibility flags — default to true when not explicitly set
   const ctrl = {
@@ -377,20 +383,48 @@ const CustomVideoPlayer = ({
   const seekStep = Number(seekTime) || 10;
   const seekStepRef = useRef(seekStep);
   useEffect(() => { seekStepRef.current = seekStep; }, [seekStep]);
+
+  /* ── Player UI Studio layout ─────────────────────────────────────
+     Zone placement for every control (topLeft/topRight/bottomLeft/
+     bottomRight/tray). Corrupt/partial storage falls back to Classic.
+     Visibility still honors the playerControls toggles (default-on). */
+  const uiLayout = useMemo(() => resolveUILayout(playerUILayout), [playerUILayout]);
+  const zoneKeys = useCallback((zone) => (
+    PLAYER_CONTROL_ORDER.filter((k) => uiLayout[k] === zone && playerControls[k] !== false)
+  ), [uiLayout, playerControls]);
+  /* The floating touch lock button already covers topLeft — don't double it. */
+  const topZoneKeys = useCallback((zone) => (
+    zoneKeys(zone).filter((k) => !(k === "screenLock" && zone === "topLeft" && isTouch))
+  ), [zoneKeys, isTouch]);
+
+  /* Cycle playback speed for the placeable speed pill. */
+  const cycleSpeed = useCallback(() => {
+    const i = PLAYER_SPEEDS.indexOf(playbackRate);
+    const next = PLAYER_SPEEDS[(i + 1) % PLAYER_SPEEDS.length] ?? 1;
+    sendCommand("setPlaybackRate", [next]);
+    setPlaybackRate(next);
+  }, [playbackRate, sendCommand]);
   /* State */
   const [activeServerIndex, setActiveServerIndex] = useState(preferredServerIndex);
   const activeServerIndexRef = useRef(activeServerIndex);
   useEffect(() => { activeServerIndexRef.current = activeServerIndex; }, [activeServerIndex]);
 
+  // The playable rotation — the user's ordered list when provided.
+  const SERVERS = useMemo(
+    () => (Array.isArray(serversProp) && serversProp.length > 0 ? serversProp : VideoSourceAdapter.getServers()),
+    [serversProp],
+  );
+  const serverCount = SERVERS.length;
+
   const failoverToNextServer = useCallback((msg = "Stream unavailable — trying next server") => {
     setErrorMessage(msg);
     setTimeout(() => {
       setErrorMessage("");
-      const ni = (activeServerIndexRef.current + 1) % VideoSourceAdapter.getServers().length;
+      const ni = (activeServerIndexRef.current + 1) % serverCount;
       setActiveServerIndex(ni);
       onServerChange?.(ni);
     }, 2000);
-  }, [onServerChange]);
+  }, [onServerChange, serverCount]);
 
   const [iframeUrl, setIframeUrl] = useState("");
   const [directStreamUrl, setDirectStreamUrl] = useState("");
@@ -773,7 +807,7 @@ const CustomVideoPlayer = ({
       /* NetMirror server — CORS-open multi-audio HLS. Resolved by title via the
          stream service (its JSON lookups carry no CORS headers), then the master
          plays directly — no proxy needed for the m3u8 or its segments. */
-      if (VideoSourceAdapter.isNetMirrorServer(activeServerIndex)) {
+      if (VideoSourceAdapter.isNetMirrorEntry(SERVERS[activeServerIndex])) {
         setIframeUrl("");
         try {
           const streamData = await VideoSourceAdapter.fetchNetMirrorStream(
@@ -827,7 +861,7 @@ const CustomVideoPlayer = ({
       }
 
       /* Direct streaming server — fetch m3u8 via stream service */
-      if (VideoSourceAdapter.isDirectServer(activeServerIndex)) {
+      if (VideoSourceAdapter.isDirectEntry(SERVERS[activeServerIndex])) {
         setIframeUrl("");
         try {
           const streamData = await VideoSourceAdapter.fetchDirectStreamUrl(
@@ -881,8 +915,7 @@ const CustomVideoPlayer = ({
               setTimeout(() => {
                 if (cancelled) return;
                 setErrorMessage("");
-                const servers = VideoSourceAdapter.getServers();
-                const cinesrcIndex = servers.findIndex((_, i) => !VideoSourceAdapter.isDirectServer(i));
+                const cinesrcIndex = SERVERS.findIndex((e) => !VideoSourceAdapter.isDirectEntry(e));
                 const ni = cinesrcIndex >= 0 ? cinesrcIndex : 1;
                 setActiveServerIndex(ni);
                 onServerChange?.(ni);
@@ -896,8 +929,9 @@ const CustomVideoPlayer = ({
         return;
       }
 
-      /* Iframe-based servers */
-      let url = VideoSourceAdapter.getStreamUrl(activeServerIndex, tid, isTv ? season : null, isTv ? episode : null, imdbId, movie.title);
+      /* Iframe-based servers — resolved from the user's ordered list so the
+         Settings → Server Order rotation is what actually plays. */
+      let url = VideoSourceAdapter.resolveStreamUrl(SERVERS, activeServerIndex, tid, isTv ? season : null, isTv ? episode : null, imdbId, movie.title);
       const isCineServer = url.includes("cinesrc.st");
       if (isCineServer) {
         if (!isNew && currentTime > 0 && !targetSeekTimeRef.current) url += `&t=${Math.floor(currentTime)}&continueprompt=false`;
@@ -920,7 +954,7 @@ const CustomVideoPlayer = ({
                 setErrorMessage(`Server ${si + 1} timed out`);
                 setTimeout(() => {
                   setErrorMessage("");
-                  const ni = (si + 1) % VideoSourceAdapter.getServers().length;
+                  const ni = (si + 1) % serverCount;
                   setActiveServerIndex(ni);
                   onServerChange?.(ni);
                 }, 2000);
@@ -1447,7 +1481,7 @@ const CustomVideoPlayer = ({
                 setErrorMessage("Stream unavailable — trying next server");
                 setTimeout(() => {
                   setErrorMessage("");
-                  const ni = (ei + 1) % VideoSourceAdapter.getServers().length;
+                  const ni = (ei + 1) % serverCount;
                   setActiveServerIndex(ni);
                   onServerChange?.(ni);
                 }, 2500);
@@ -1465,7 +1499,7 @@ const CustomVideoPlayer = ({
     window.addEventListener("message", h);
     return () => window.removeEventListener("message", h);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- onServerChange/autoSkipIntro/showToast/onClose are read inside the listener but the listener is keyed to playback state; re-adding it when these parent-provided callbacks change would churn message handling on unrelated re-renders.
-  }, [isCineSrc, isScrubbing, playbackRate, sendCommand, hasNextEpisode, onNextEpisode, activeServerIndex, startUpNextCountdown, onProgressUpdate]);
+  }, [isCineSrc, isScrubbing, playbackRate, sendCommand, hasNextEpisode, onNextEpisode, activeServerIndex, startUpNextCountdown, onProgressUpdate, serverCount]);
 
   /* External-iframes PostMessage Listener (VidCore + Peachify + VidUp) — events as
      { type: "timeupdate", data: { currentTime, duration, percent } } (VidCore),
@@ -2186,6 +2220,310 @@ const CustomVideoPlayer = ({
     mediaTransform = `scale(${selectedAspect.scale})`;
     videoObjectFit = 'cover';
   }
+
+  /* ── Zone-driven control renderer (Player UI Studio) ───────────────
+     Each placeable control renders here for any zone. `variant` is "bar"
+     (full control, e.g. volume slider) or "icon" (compact, for the top
+     floating zones). Visibility gates + tray zone return null. */
+  const barControl = (key, variant = "bar") => {
+    if (playerControls[key] === false || uiLayout[key] === "tray") return null;
+    const ghostCircle = {
+      background: "transparent", border: "none", color: "rgba(255,255,255,0.6)",
+      cursor: "pointer", width: R.btnSmall, height: R.btnSmall, borderRadius: "50%",
+      display: "flex", alignItems: "center", justifyContent: "center",
+    };
+    if (key === "playPause") {
+      return (
+        <motion.button
+          onClick={togglePlay}
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.88 }}
+          transition={SPRING}
+          aria-label={isPlaying ? "Pause" : "Play"}
+          style={{
+            background: "rgba(255,255,255,0.12)", border: "none", color: "#fff",
+            cursor: "pointer", width: R.btnMedium, height: R.btnMedium, borderRadius: "50%",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
+            boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
+          }}
+        >
+          {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" style={{ marginLeft: 2 }} />}
+        </motion.button>
+      );
+    }
+    if (key === "jumpForwardBackward") {
+      return (
+        <>
+          <motion.button onClick={(e) => { e.stopPropagation(); seekRelative(-10); }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              seekLongPressRef.current = setInterval(() => seekRelative(-10), 300);
+            }}
+            onPointerUp={() => { clearInterval(seekLongPressRef.current); seekLongPressRef.current = null; }}
+            onPointerLeave={() => { clearInterval(seekLongPressRef.current); seekLongPressRef.current = null; }}
+            whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
+            transition={SPRING}
+            aria-label="Back 10 seconds"
+            style={ghostCircle}
+          >
+            <RotateCcw size={15} />
+          </motion.button>
+          <motion.button onClick={(e) => { e.stopPropagation(); seekRelative(10); }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              seekLongPressRef.current = setInterval(() => seekRelative(10), 300);
+            }}
+            onPointerUp={() => { clearInterval(seekLongPressRef.current); seekLongPressRef.current = null; }}
+            onPointerLeave={() => { clearInterval(seekLongPressRef.current); seekLongPressRef.current = null; }}
+            whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
+            transition={SPRING}
+            aria-label="Forward 10 seconds"
+            style={ghostCircle}
+          >
+            <RotateCw size={15} />
+          </motion.button>
+        </>
+      );
+    }
+    if (key === "volume") {
+      if (variant === "icon") {
+        return (
+          <motion.button onClick={toggleMute}
+            whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
+            transition={SPRING}
+            aria-label={isMuted || volume === 0 ? "Unmute" : "Mute"}
+            style={ghostCircle}
+          >
+            {isMuted || volume === 0 ? <VolumeX size={15} /> : <Volume2 size={15} />}
+          </motion.button>
+        );
+      }
+      return (
+        <div
+          onMouseEnter={() => setIsVolumeHovered(true)}
+          onMouseLeave={() => setIsVolumeHovered(false)}
+          onTouchStart={(e) => { e.stopPropagation(); setIsVolumeHovered(!isVolumeHovered); }}
+          style={{ display: "flex", alignItems: "center", gap: 0, position: "relative" }}
+        >
+          <motion.button onClick={toggleMute}
+            whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
+            transition={SPRING}
+            aria-label={isMuted || volume === 0 ? "Unmute" : "Mute"}
+            style={ghostCircle}
+          >
+            <AnimatePresence mode="wait">
+              <motion.div key={isMuted || volume === 0 ? "off" : "on"}
+                initial={{ scale: 0.5, opacity: 0, rotate: -20 }}
+                animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                exit={{ scale: 0.5, opacity: 0, rotate: 20 }}
+                transition={SPRING_FAST}
+              >
+                {isMuted || volume === 0 ? <VolumeX size={15} /> : <Volume2 size={15} />}
+              </motion.div>
+            </AnimatePresence>
+          </motion.button>
+          {/* Volume bar: always visible on touch, hover-expand on desktop */}
+          <motion.div
+            initial={false}
+            animate={{ width: (isTouch && isVolumeHovered) || (!isTouch && isVolumeHovered) ? 64 : isTouch ? 48 : 0, opacity: (isTouch && isVolumeHovered) || (!isTouch && isVolumeHovered) || (isTouch && controlsVisible) ? 1 : 0 }}
+            transition={SPRING}
+            style={{ overflow: "hidden", position: "relative", height: 24, display: "flex", alignItems: "center" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              ref={volumeBarRef}
+              style={{
+                width: "clamp(44px, 8vw, 56px)", height: 4, borderRadius: 2,
+                background: "rgba(255,255,255,0.1)", position: "relative",
+                cursor: "pointer",
+                touchAction: "none",
+              }}
+              onMouseDown={(e) => {
+                e.stopPropagation(); e.preventDefault();
+                isDraggingVolumeRef.current = true;
+                const r = e.currentTarget.getBoundingClientRect();
+                const x = Math.max(0, Math.min(e.clientX - r.left, r.width));
+                changeVolume(x / r.width);
+                const mm = (ev) => {
+                  if (!isDraggingVolumeRef.current || !volumeBarRef.current) return;
+                  const rr = volumeBarRef.current.getBoundingClientRect();
+                  const xx = Math.max(0, Math.min(ev.clientX - rr.left, rr.width));
+                  changeVolume(xx / rr.width);
+                };
+                const mu = () => {
+                  isDraggingVolumeRef.current = false;
+                  window.removeEventListener("mousemove", mm);
+                  window.removeEventListener("mouseup", mu);
+                };
+                window.addEventListener("mousemove", mm);
+                window.addEventListener("mouseup", mu);
+              }}
+              onTouchStart={(e) => {
+                e.stopPropagation(); e.preventDefault();
+                isDraggingVolumeRef.current = true;
+                const touch = e.touches[0];
+                const r = e.currentTarget.getBoundingClientRect();
+                const x = Math.max(0, Math.min(touch.clientX - r.left, r.width));
+                changeVolume(x / r.width);
+              }}
+              onTouchMove={(e) => {
+                if (!isDraggingVolumeRef.current || !volumeBarRef.current) return;
+                const touch = e.touches[0];
+                const r = volumeBarRef.current.getBoundingClientRect();
+                const x = Math.max(0, Math.min(touch.clientX - r.left, r.width));
+                changeVolume(x / r.width);
+              }}
+              onTouchEnd={() => { isDraggingVolumeRef.current = false; }}
+            >
+              <div style={{
+                position: "absolute", left: 0, top: 0, bottom: 0,
+                width: `${effVolume * 100}%`,
+                background: "var(--accent-gradient, rgba(255,255,255,0.8))",
+                borderRadius: 2,
+                transition: isDraggingVolumeRef.current ? "none" : "width 0.1s ease",
+              }} />
+              <div style={{
+                position: "absolute", top: "50%",
+                left: `${effVolume * 100}%`,
+                transform: "translate(-50%, -50%)",
+                width: 10, height: 10, borderRadius: "50%",
+                background: "#fff",
+                boxShadow: "0 1px 4px rgba(0,0,0,0.4)",
+                transition: isDraggingVolumeRef.current ? "none" : "left 0.1s ease",
+              }} />
+            </div>
+          </motion.div>
+        </div>
+      );
+    }
+    if (key === "subtitles") {
+      return (
+        <motion.button onClick={(e) => { e.stopPropagation(); setShowSubtitlesMenu(!showSubtitlesMenu); setShowSettings(false); }}
+          whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
+          transition={SPRING}
+          aria-label="Subtitles"
+          style={{
+            background: subtitleEnabled || showSubtitlesMenu ? "rgba(255,255,255,0.08)" : "transparent",
+            border: subtitleEnabled || showSubtitlesMenu ? "1px solid rgba(255,255,255,0.08)" : "none",
+            color: subtitleEnabled || showSubtitlesMenu ? "#fff" : "rgba(255,255,255,0.6)",
+            cursor: "pointer", width: R.btnSmall, height: R.btnSmall, borderRadius: "50%",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            position: "relative",
+          }}
+        >
+          <Captions size={15} />
+          {subtitleEnabled && <div style={{ position: "absolute", top: 4, right: 4, width: "clamp(3px, 0.5vw, 4px)", height: "clamp(3px, 0.5vw, 4px)", background: "var(--accent-primary, #fff)", borderRadius: "50%" }} />}
+        </motion.button>
+      );
+    }
+    if (key === "audio") {
+      if (!(audioTracks?.length > 1)) return null;
+      return (
+        <motion.button onClick={(e) => { e.stopPropagation(); setShowAudioMenu(!showAudioMenu); setShowSettings(false); setShowSubtitlesMenu(false); }}
+          whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
+          transition={SPRING}
+          aria-label="Audio tracks"
+          style={{
+            background: showAudioMenu ? "rgba(255,255,255,0.08)" : "transparent",
+            border: showAudioMenu ? "1px solid rgba(255,255,255,0.08)" : "none",
+            color: showAudioMenu ? "#fff" : "rgba(255,255,255,0.6)",
+            cursor: "pointer", width: R.btnSmall, height: R.btnSmall, borderRadius: "50%",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            position: "relative",
+          }}
+        >
+          <AudioLines size={15} />
+        </motion.button>
+      );
+    }
+    if (key === "aspectRatio") {
+      return (
+        <motion.button onClick={(e) => {
+            e.stopPropagation();
+            aspectManuallySetRef.current = true;
+            setAspectRatioIndex((p) => (p + 1) % ASPECT_RATIOS.length);
+            setShowAspectRatioArc(true);
+            if (aspectRatioArcTimerRef.current) clearTimeout(aspectRatioArcTimerRef.current);
+            aspectRatioArcTimerRef.current = setTimeout(() => setShowAspectRatioArc(false), 1200);
+          }}
+            whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
+            transition={SPRING}
+            aria-label="Change aspect ratio"
+            style={{
+              background: "transparent",
+              border: "1px solid rgba(255,255,255,0.06)",
+              color: "rgba(255,255,255,0.6)",
+              cursor: "pointer", width: R.btnSmall, height: R.btnSmall, borderRadius: "50%",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              position: "relative",
+            }}
+          >
+            <Maximize size={14} />
+            <span style={{
+              position: "absolute", bottom: -1, right: -1,
+              fontSize: "7px", fontWeight: 800, color: "rgba(255,255,255,0.5)",
+              lineHeight: 1, fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
+            }}>{aspectRatioIndex + 1}</span>
+          </motion.button>
+      );
+    }
+    if (key === "playbackSpeed") {
+      return (
+        <motion.button onClick={(e) => { e.stopPropagation(); cycleSpeed(); }}
+          whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.9 }}
+          transition={SPRING}
+          aria-label={`Playback speed ${playbackRate}x. Activate to change.`}
+          title={`Speed: ${playbackRate}x`}
+          style={{
+            background: playbackRate !== 1 ? "rgba(var(--accent-primary-rgb), 0.16)" : "rgba(255,255,255,0.08)",
+            border: playbackRate !== 1 ? "1px solid rgba(var(--accent-primary-rgb), 0.4)" : "1px solid rgba(255,255,255,0.1)",
+            color: playbackRate !== 1 ? "var(--accent-primary, #fff)" : "#fff",
+            cursor: "pointer", height: R.btnSmall, padding: "0 10px", borderRadius: 100,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 11, fontWeight: 800,
+            fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+          }}
+        >
+          {playbackRate}x
+        </motion.button>
+      );
+    }
+    if (key === "screenLock") {
+      // Touch top-left already has the floating lock button — never double it.
+      if (variant === "icon" && uiLayout.screenLock === "topLeft" && isTouch) return null;
+      return (
+        <motion.button onClick={(e) => {
+            e.stopPropagation();
+            setIsScreenLocked(true);
+            setShowControls(false);
+            setToastMessage("Controls Locked");
+            if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+            toastTimeoutRef.current = setTimeout(() => setToastMessage(""), 2000);
+          }}
+          whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
+          transition={SPRING}
+          aria-label="Lock screen controls"
+          style={ghostCircle}
+        >
+          <Unlock size={15} />
+        </motion.button>
+      );
+    }
+    if (key === "fullscreen") {
+      return (
+        <motion.button onClick={toggleFullscreen}
+          whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
+          transition={SPRING}
+          aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+          style={ghostCircle}
+        >
+          {isFullscreen ? <Minimize size={15} /> : <Maximize size={15} />}
+        </motion.button>
+      );
+    }
+    return null;
+  };
 
   /* ═══════════════════════════════════════════════════════════════
      RENDER — Apple TV+ inspired player
@@ -3456,7 +3794,7 @@ const CustomVideoPlayer = ({
       </div>
 
       {/* Mobile Screen Lock Button & Unlock HUD */}
-      {isTouch && showCustomUI && (
+      {isTouch && showCustomUI && ctrl.screenLock && (
         <AnimatePresence>
           {isScreenLocked ? (
             <motion.button
@@ -3496,7 +3834,7 @@ const CustomVideoPlayer = ({
             >
               <Lock size={15} color="#FBBF24" /> Tap to Unlock
             </motion.button>
-          ) : controlsVisible && (
+          ) : controlsVisible && uiLayout.screenLock === "topLeft" && (
             <motion.button
               key="lock-btn"
               initial={{ opacity: 0, scale: 0.8, y: -6 }}
@@ -3538,6 +3876,37 @@ const CustomVideoPlayer = ({
         </AnimatePresence>
       )}
 
+      {/* ═══ TOP ZONES (Player UI Studio) ═════════════════════════════
+          Floating control clusters over the video. The touch lock button
+          above already covers topLeft — it is excluded there. */}
+      {showCustomUI && controlsVisible && !isScreenLocked &&
+        (topZoneKeys("topLeft").length > 0 || topZoneKeys("topRight").length > 0) && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(clamp(52px, 10vw, 76px) + var(--sat))",
+            left: "calc(14px + var(--sal))",
+            right: "calc(14px + var(--sar))",
+            zIndex: 40,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            pointerEvents: "none",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 4, pointerEvents: "auto" }}>
+            {topZoneKeys("topLeft").map((key) => (
+              <React.Fragment key={key}>{barControl(key, "icon")}</React.Fragment>
+            ))}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, pointerEvents: "auto" }}>
+            {topZoneKeys("topRight").map((key) => (
+              <React.Fragment key={key}>{barControl(key, "icon")}</React.Fragment>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ═══ BOTTOM CONTROLS ═════════════════════════════════════ */}
       <AnimatePresence>
         {showCustomUI && controlsVisible && (
@@ -3566,18 +3935,19 @@ const CustomVideoPlayer = ({
                       transition={SPRING}
                       onClick={(e) => { e.stopPropagation(); sendCommand("seek", [skipIntroTime]); setShowSkipIntro(false); }}
                       style={{
-                        background: "rgba(28,28,30,0.7)", color: "#fff",
+                        background: "var(--accent-gradient, rgba(28,28,30,0.7))", color: "var(--on-accent, #fff)",
                         border: "1px solid rgba(255,255,255,0.08)",
                         padding: isTouch ? "9px 18px" : `${R.padMedium} ${R.padMedium}`,
                         minHeight: isTouch ? 42 : "auto",
                         borderRadius: 100, cursor: "pointer",
                         fontWeight: 700, backdropFilter: "blur(24px)",
                         WebkitBackdropFilter: "blur(24px)",
+                        boxShadow: "0 8px 24px var(--accent-glow, rgba(0,0,0,0.4))",
                         display: "flex", alignItems: "center", gap: "clamp(4px, 1vw, 6px)", fontSize: R.fontMedium,
                         fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
                       }}
                     >
-                      <FastForward size={13} fill="rgba(255,255,255,0.7)" color="rgba(255,255,255,0.7)" /> Skip Intro
+                      <FastForward size={13} fill="currentColor" color="currentColor" /> Skip Intro
                     </motion.button>
                   )}
                 </AnimatePresence>
@@ -3602,7 +3972,7 @@ const CustomVideoPlayer = ({
                         <div style={{ fontSize: R.fontMedium, color: "#fff", fontWeight: 700, fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif" }}>Ep {(episode || 0) + 1}</div>
                       </div>
                       {/* Countdown arc */}
-                      <ArcRing progress={upNextCountdown / 15} size={32} strokeWidth={2} color="rgba(255,255,255,0.8)" bgColor="rgba(255,255,255,0.06)">
+                      <ArcRing progress={upNextCountdown / 15} size={32} strokeWidth={2} color="var(--accent-primary, rgba(255,255,255,0.8))" bgColor="rgba(255,255,255,0.06)">
                         <span style={{ fontSize: R.fontTiny, fontWeight: 800, color: "#fff", fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif" }}>{upNextCountdown}</span>
                       </ArcRing>
                       <button onClick={(e) => { e.stopPropagation(); dismissUpNext(); }}
@@ -3786,9 +4156,9 @@ const CustomVideoPlayer = ({
                 }} />}
                 {duration > 0 && <div style={{
                   position: "absolute", inset: 0, width: `${Math.min(pp, 100)}%`,
-                  background: "rgba(255,255,255,0.85)",
+                  background: "var(--accent-gradient, rgba(255,255,255,0.85))",
                   borderRadius: 3,
-                  boxShadow: "0 0 6px rgba(255,255,255,0.15)",
+                  boxShadow: "0 0 6px var(--accent-glow, rgba(255,255,255,0.15))",
                   transition: isScrubbing ? "none" : "width 0.1s linear",
                 }} />}
                 {/* Scrubber dot */}
@@ -3895,221 +4265,25 @@ const CustomVideoPlayer = ({
               <div style={{ flexShrink: 0, minWidth: "clamp(50px, 10vw, 70px)" }} />
             </div>
 
+            {/* Zone-driven controls render via barControl above the component return. */}
+
             {/* ═══ CONTROL ROW ════════════════════════════════════ */}
             <div className="streamly-player-control-row" onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: `${R.controlRowPad} ${R.padMedium} ${R.padMedium}`, pointerEvents: "auto" }}>
-              {/* Left: Play + Seek + Volume */}
+              {/* Left cluster — Player UI Studio zone: bottomLeft */}
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                {ctrl.playPause && (
-                <motion.button
-                  onClick={togglePlay}
-                  whileHover={{ scale: 1.08 }}
-                  whileTap={{ scale: 0.88 }}
-                  transition={SPRING}
-                  style={{
-                    background: "rgba(255,255,255,0.12)", border: "none", color: "#fff",
-                    cursor: "pointer", width: R.btnMedium, height: R.btnMedium, borderRadius: "50%",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
-                    boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
-                  }}
-                >
-                  {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" style={{ marginLeft: 2 }} />}
-                </motion.button>
-                )}
-                {ctrl.jumpForwardBackward && (
-                <>
-                <motion.button onClick={(e) => { e.stopPropagation(); seekRelative(-10); }}
-                  onPointerDown={(e) => {
-                    e.stopPropagation();
-                    seekLongPressRef.current = setInterval(() => seekRelative(-10), 300);
-                  }}
-                  onPointerUp={() => { clearInterval(seekLongPressRef.current); seekLongPressRef.current = null; }}
-                  onPointerLeave={() => { clearInterval(seekLongPressRef.current); seekLongPressRef.current = null; }}
-                  whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
-                  transition={SPRING}
-                  style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.6)", cursor: "pointer", width: R.btnSmall, height: R.btnSmall, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
-                >
-                  <RotateCcw size={15} />
-                </motion.button>
-                <motion.button onClick={(e) => { e.stopPropagation(); seekRelative(10); }}
-                  onPointerDown={(e) => {
-                    e.stopPropagation();
-                    seekLongPressRef.current = setInterval(() => seekRelative(10), 300);
-                  }}
-                  onPointerUp={() => { clearInterval(seekLongPressRef.current); seekLongPressRef.current = null; }}
-                  onPointerLeave={() => { clearInterval(seekLongPressRef.current); seekLongPressRef.current = null; }}
-                  whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
-                  transition={SPRING}
-                  style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.6)", cursor: "pointer", width: R.btnSmall, height: R.btnSmall, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
-                >
-                  <RotateCw size={15} />
-                </motion.button>
-                </>
-                )}
-                {/* Volume with expand-on-hover bar */}
-                {ctrl.volume && (
-                <div
-                  onMouseEnter={() => setIsVolumeHovered(true)}
-                  onMouseLeave={() => setIsVolumeHovered(false)}
-                  onTouchStart={(e) => { e.stopPropagation(); setIsVolumeHovered(!isVolumeHovered); }}
-                  style={{ display: "flex", alignItems: "center", gap: 0, position: "relative" }}
-                >
-                  <motion.button onClick={toggleMute}
-                    whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
-                    transition={SPRING}
-                    style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.6)", cursor: "pointer", width: R.btnSmall, height: R.btnSmall, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
-                  >
-                    <AnimatePresence mode="wait">
-                      <motion.div key={isMuted || volume === 0 ? "off" : "on"}
-                        initial={{ scale: 0.5, opacity: 0, rotate: -20 }}
-                        animate={{ scale: 1, opacity: 1, rotate: 0 }}
-                        exit={{ scale: 0.5, opacity: 0, rotate: 20 }}
-                        transition={SPRING_FAST}
-                      >
-                        {isMuted || volume === 0 ? <VolumeX size={15} /> : <Volume2 size={15} />}
-                      </motion.div>
-                    </AnimatePresence>
-                  </motion.button>
-                  {/* Volume bar: always visible on touch, hover-expand on desktop */}
-                  <motion.div
-                    initial={false}
-                    animate={{ width: (isTouch && isVolumeHovered) || (!isTouch && isVolumeHovered) ? 64 : isTouch ? 48 : 0, opacity: (isTouch && isVolumeHovered) || (!isTouch && isVolumeHovered) || (isTouch && controlsVisible) ? 1 : 0 }}
-                    transition={SPRING}
-                    style={{ overflow: "hidden", position: "relative", height: 24, display: "flex", alignItems: "center" }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div
-                      ref={volumeBarRef}
-                      style={{
-                        width: "clamp(44px, 8vw, 56px)", height: 4, borderRadius: 2,
-                        background: "rgba(255,255,255,0.1)", position: "relative",
-                        cursor: "pointer",
-                        touchAction: "none",
-                      }}
-                      onMouseDown={(e) => {
-                        e.stopPropagation(); e.preventDefault();
-                        isDraggingVolumeRef.current = true;
-                        const r = e.currentTarget.getBoundingClientRect();
-                        const x = Math.max(0, Math.min(e.clientX - r.left, r.width));
-                        changeVolume(x / r.width);
-                        const mm = (ev) => {
-                          if (!isDraggingVolumeRef.current || !volumeBarRef.current) return;
-                          const rr = volumeBarRef.current.getBoundingClientRect();
-                          const xx = Math.max(0, Math.min(ev.clientX - rr.left, rr.width));
-                          changeVolume(xx / rr.width);
-                        };
-                        const mu = () => {
-                          isDraggingVolumeRef.current = false;
-                          window.removeEventListener("mousemove", mm);
-                          window.removeEventListener("mouseup", mu);
-                        };
-                        window.addEventListener("mousemove", mm);
-                        window.addEventListener("mouseup", mu);
-                      }}
-                      onTouchStart={(e) => {
-                        e.stopPropagation(); e.preventDefault();
-                        isDraggingVolumeRef.current = true;
-                        const touch = e.touches[0];
-                        const r = e.currentTarget.getBoundingClientRect();
-                        const x = Math.max(0, Math.min(touch.clientX - r.left, r.width));
-                        changeVolume(x / r.width);
-                      }}
-                      onTouchMove={(e) => {
-                        if (!isDraggingVolumeRef.current || !volumeBarRef.current) return;
-                        const touch = e.touches[0];
-                        const r = volumeBarRef.current.getBoundingClientRect();
-                        const x = Math.max(0, Math.min(touch.clientX - r.left, r.width));
-                        changeVolume(x / r.width);
-                      }}
-                      onTouchEnd={() => { isDraggingVolumeRef.current = false; }}
-                    >
-                      <div style={{
-                        position: "absolute", left: 0, top: 0, bottom: 0,
-                        width: `${effVolume * 100}%`,
-                        background: "rgba(255,255,255,0.8)",
-                        borderRadius: 2,
-                        transition: isDraggingVolumeRef.current ? "none" : "width 0.1s ease",
-                      }} />
-                      <div style={{
-                        position: "absolute", top: "50%",
-                        left: `${effVolume * 100}%`,
-                        transform: "translate(-50%, -50%)",
-                        width: 10, height: 10, borderRadius: "50%",
-                        background: "#fff",
-                        boxShadow: "0 1px 4px rgba(0,0,0,0.4)",
-                        transition: isDraggingVolumeRef.current ? "none" : "left 0.1s ease",
-                      }} />
-                    </div>
-                  </motion.div>
-                </div>
-                )}
+                {zoneKeys("bottomLeft").map((key) => (
+                  <React.Fragment key={key}>{barControl(key, "bar")}</React.Fragment>
+                ))}
               </div>
 
-              {/* Right: Subtitles + Shortcuts + Settings + Fullscreen */}
+              {/* Right cluster — Player UI Studio zone: bottomRight */}
               <div style={{ display: "flex", alignItems: "center", gap: isTouch ? 2 : 4 }}>
                 <input type="file" accept=".srt,.vtt" ref={subtitleInputRef} onChange={handleSubtitleUpload} style={{ display: "none" }} />
-                {ctrl.subtitles && (
-                <motion.button onClick={(e) => { e.stopPropagation(); setShowSubtitlesMenu(!showSubtitlesMenu); setShowSettings(false); }}
-                  whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
-                  transition={SPRING}
-                  style={{
-                    background: subtitleEnabled || showSubtitlesMenu ? "rgba(255,255,255,0.08)" : "transparent",
-                    border: subtitleEnabled || showSubtitlesMenu ? "1px solid rgba(255,255,255,0.08)" : "none",
-                    color: subtitleEnabled || showSubtitlesMenu ? "#fff" : "rgba(255,255,255,0.6)",
-                    cursor: "pointer", width: R.btnSmall, height: R.btnSmall, borderRadius: "50%",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    position: "relative",
-                  }}
-                >
-                  <Captions size={15} />
-                  {subtitleEnabled && <div style={{ position: "absolute", top: 4, right: 4, width: "clamp(3px, 0.5vw, 4px)", height: "clamp(3px, 0.5vw, 4px)", background: "#fff", borderRadius: "50%" }} />}
-                </motion.button>
-                )}
-                {/* Audio track button — only show when multiple audio tracks exist */}
-                {ctrl.audio && audioTracks?.length > 1 && (
-                  <motion.button onClick={(e) => { e.stopPropagation(); setShowAudioMenu(!showAudioMenu); setShowSettings(false); setShowSubtitlesMenu(false); }}
-                    whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
-                    transition={SPRING}
-                    style={{
-                      background: showAudioMenu ? "rgba(255,255,255,0.08)" : "transparent",
-                      border: showAudioMenu ? "1px solid rgba(255,255,255,0.08)" : "none",
-                      color: showAudioMenu ? "#fff" : "rgba(255,255,255,0.6)",
-                      cursor: "pointer", width: R.btnSmall, height: R.btnSmall, borderRadius: "50%",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      position: "relative",
-                    }}
-                  >
-                    <AudioLines size={15} />
-                  </motion.button>
-                )}
-                {ctrl.aspectRatio && (
-                <motion.button onClick={(e) => {
-                    e.stopPropagation();
-                    aspectManuallySetRef.current = true;
-                    setAspectRatioIndex((p) => (p + 1) % ASPECT_RATIOS.length);
-                    setShowAspectRatioArc(true);
-                    if (aspectRatioArcTimerRef.current) clearTimeout(aspectRatioArcTimerRef.current);
-                    aspectRatioArcTimerRef.current = setTimeout(() => setShowAspectRatioArc(false), 1200);
-                  }}
-                    whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
-                    transition={SPRING}
-                    style={{
-                      background: "transparent",
-                      border: "1px solid rgba(255,255,255,0.06)",
-                      color: "rgba(255,255,255,0.6)",
-                      cursor: "pointer", width: R.btnSmall, height: R.btnSmall, borderRadius: "50%",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      position: "relative",
-                    }}
-                  >
-                    <Maximize size={14} />
-                    <span style={{
-                      position: "absolute", bottom: -1, right: -1,
-                      fontSize: "7px", fontWeight: 800, color: "rgba(255,255,255,0.5)",
-                      lineHeight: 1, fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
-                    }}>{aspectRatioIndex + 1}</span>
-                  </motion.button>
-                )}
+                {zoneKeys("bottomRight").map((key) => (
+                  <React.Fragment key={key}>{barControl(key, "bar")}</React.Fragment>
+                ))}
+                {/* Audio track button lives in barControl (zone-driven) */}
+                {/* Aspect-ratio button lives in barControl (zone-driven) */}
                 {hasManagedSettings && (
                 <motion.button onClick={(e) => {
                     e.stopPropagation();
@@ -4157,15 +4331,7 @@ const CustomVideoPlayer = ({
                     <Maximize size={15} style={{ transform: "scale(0.8) translate(-1px, 1px)" }} />
                   </motion.button>
                 )}
-                {ctrl.fullscreen && (
-                <motion.button onClick={toggleFullscreen}
-                  whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
-                  transition={SPRING}
-                  style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.6)", cursor: "pointer", width: R.btnSmall, height: R.btnSmall, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
-                >
-                  {isFullscreen ? <Minimize size={15} /> : <Maximize size={15} />}
-                </motion.button>
-                )}
+                {/* Fullscreen button lives in barControl (zone-driven) */}
               </div>
             </div>
           </motion.div>
@@ -4231,9 +4397,9 @@ const CustomVideoPlayer = ({
                     whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
                     transition={SPRING}
                     style={{
-                      background: playbackRate === r ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.02)",
-                      color: playbackRate === r ? "#fff" : "rgba(255,255,255,0.5)",
-                      border: playbackRate === r ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(255,255,255,0.04)",
+                      background: playbackRate === r ? "rgba(var(--accent-primary-rgb), 0.16)" : "rgba(255,255,255,0.02)",
+                      color: playbackRate === r ? "var(--accent-primary, #fff)" : "rgba(255,255,255,0.5)",
+                      border: playbackRate === r ? "1px solid rgba(var(--accent-primary-rgb), 0.4)" : "1px solid rgba(255,255,255,0.04)",
                       padding: `${R.padSmall} ${R.padSmall}`, borderRadius: 100, cursor: "pointer",
                       fontSize: R.fontSmall, fontWeight: 700,
                       fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
@@ -4265,9 +4431,9 @@ const CustomVideoPlayer = ({
                   }}
                     whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }} transition={SPRING}
                     style={{
-                      background: (currentQuality?.id === -1 || (!currentQuality && qualities.length > 1)) ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.02)",
-                      color: (currentQuality?.id === -1 || (!currentQuality && qualities.length > 1)) ? "#fff" : "rgba(255,255,255,0.5)",
-                      border: (currentQuality?.id === -1) ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(255,255,255,0.04)",
+                      background: (currentQuality?.id === -1 || (!currentQuality && qualities.length > 1)) ? "rgba(var(--accent-primary-rgb), 0.16)" : "rgba(255,255,255,0.02)",
+                      color: (currentQuality?.id === -1 || (!currentQuality && qualities.length > 1)) ? "var(--accent-primary, #fff)" : "rgba(255,255,255,0.5)",
+                      border: (currentQuality?.id === -1) ? "1px solid rgba(var(--accent-primary-rgb), 0.4)" : "1px solid rgba(255,255,255,0.04)",
                       padding: `${R.padSmall} ${R.padSmall}`, borderRadius: 100, cursor: "pointer", fontSize: R.fontSmall, fontWeight: 700,
                       fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
                     }}
@@ -4291,9 +4457,9 @@ const CustomVideoPlayer = ({
                     }}
                       whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }} transition={SPRING}
                       style={{
-                        background: (currentQuality?.id === q.id) ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.02)",
-                        color: (currentQuality?.id === q.id) ? "#fff" : "rgba(255,255,255,0.5)",
-                        border: (currentQuality?.id === q.id) ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(255,255,255,0.04)",
+                        background: (currentQuality?.id === q.id) ? "rgba(var(--accent-primary-rgb), 0.16)" : "rgba(255,255,255,0.02)",
+                        color: (currentQuality?.id === q.id) ? "var(--accent-primary, #fff)" : "rgba(255,255,255,0.5)",
+                        border: (currentQuality?.id === q.id) ? "1px solid rgba(var(--accent-primary-rgb), 0.4)" : "1px solid rgba(255,255,255,0.04)",
                         padding: `${R.padSmall} ${R.padSmall}`, borderRadius: 100, cursor: "pointer", fontSize: R.fontSmall, fontWeight: 700,
                         fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
                       }}
@@ -4317,8 +4483,8 @@ const CustomVideoPlayer = ({
                       setCurrentAudioTrack(t); setShowSettings(false);
                     }}
                       style={{
-                        background: (currentAudioTrack?.id === t.id) ? "rgba(255,255,255,0.06)" : "transparent",
-                        color: (currentAudioTrack?.id === t.id) ? "#fff" : "rgba(255,255,255,0.5)",
+                        background: (currentAudioTrack?.id === t.id) ? "rgba(var(--accent-primary-rgb), 0.12)" : "transparent",
+                        color: (currentAudioTrack?.id === t.id) ? "var(--accent-primary, #fff)" : "rgba(255,255,255,0.5)",
                         border: "none", padding: `${R.padSmall} ${R.padSmall}`, borderRadius: 10,
                         cursor: "pointer", fontSize: R.fontMedium, fontWeight: 600, textAlign: "left",
                         fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
@@ -4338,9 +4504,9 @@ const CustomVideoPlayer = ({
                 {ASPECT_RATIOS.map((ar, i) => (
                   <button key={ar.name} onClick={() => { aspectManuallySetRef.current = true; setAspectRatioIndex(i); setShowSettings(false); setShowAspectRatioArc(true); if (aspectRatioArcTimerRef.current) clearTimeout(aspectRatioArcTimerRef.current); aspectRatioArcTimerRef.current = setTimeout(() => setShowAspectRatioArc(false), 1200); }}
                     style={{
-                      background: aspectRatioIndex === i ? "rgba(255,255,255,0.06)" : "transparent",
-                      color: aspectRatioIndex === i ? "#fff" : "rgba(255,255,255,0.5)",
-                      border: aspectRatioIndex === i ? "1px solid rgba(255,255,255,0.08)" : "none",
+                      background: aspectRatioIndex === i ? "rgba(var(--accent-primary-rgb), 0.12)" : "transparent",
+                      color: aspectRatioIndex === i ? "var(--accent-primary, #fff)" : "rgba(255,255,255,0.5)",
+                      border: aspectRatioIndex === i ? "1px solid rgba(var(--accent-primary-rgb), 0.3)" : "none",
                       padding: `${R.padSmall} ${R.padSmall}`, borderRadius: 10, cursor: "pointer",
                       fontSize: R.fontMedium, fontWeight: 600, display: "flex", justifyContent: "space-between",
                       fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
@@ -4365,13 +4531,13 @@ const CustomVideoPlayer = ({
                     <div onClick={() => { const v = !item.val; item.set(v); if (item.key) localStorage.setItem(item.key, String(v)); }}
                       style={{
                         width: isTouch ? 44 : 36, height: isTouch ? 24 : 20,
-                        background: item.val ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.1)",
+                        background: item.val ? "var(--accent-gradient, rgba(255,255,255,0.85))" : "rgba(255,255,255,0.1)",
                         borderRadius: 100, position: "relative", cursor: "pointer",
                         transition: "background 0.25s",
                       }}
                     >
                       <div style={{
-                        width: isTouch ? 20 : 16, height: isTouch ? 20 : 16, background: item.val ? "#000" : "rgba(255,255,255,0.6)", borderRadius: "50%",
+                        width: isTouch ? 20 : 16, height: isTouch ? 20 : 16, background: "#fff", borderRadius: "50%",
                         position: "absolute", top: 2,
                         left: item.val ? (isTouch ? 22 : 18) : 2,
                         transition: "left 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.25s",
@@ -4432,13 +4598,13 @@ const CustomVideoPlayer = ({
               <div onClick={(e) => { e.stopPropagation(); setSubtitleEnabled(!subtitleEnabled); }}
                 style={{
                   width: isTouch ? 44 : 36, height: isTouch ? 24 : 20,
-                  background: subtitleEnabled ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.1)",
+                  background: subtitleEnabled ? "var(--accent-gradient, rgba(255,255,255,0.85))" : "rgba(255,255,255,0.1)",
                   borderRadius: 100, position: "relative", cursor: "pointer",
                   transition: "background 0.25s",
                 }}
               >
                 <div style={{
-                  width: isTouch ? 20 : 16, height: isTouch ? 20 : 16, background: subtitleEnabled ? "#000" : "rgba(255,255,255,0.6)", borderRadius: "50%",
+                  width: isTouch ? 20 : 16, height: isTouch ? 20 : 16, background: "#fff", borderRadius: "50%",
                   position: "absolute", top: 2,
                   left: subtitleEnabled ? (isTouch ? 22 : 18) : 2,
                   transition: "left 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.25s",
@@ -4525,8 +4691,8 @@ const CustomVideoPlayer = ({
                   setCurrentAudioTrack(t); setShowAudioMenu(false);
                 }}
                   style={{
-                    width: "100%", background: (currentAudioTrack?.id === t.id) ? "rgba(255,255,255,0.06)" : "transparent",
-                    color: (currentAudioTrack?.id === t.id) ? "#fff" : "rgba(255,255,255,0.6)",
+                    width: "100%", background: (currentAudioTrack?.id === t.id) ? "rgba(var(--accent-primary-rgb), 0.12)" : "transparent",
+                    color: (currentAudioTrack?.id === t.id) ? "var(--accent-primary, #fff)" : "rgba(255,255,255,0.6)",
                     border: "none", padding: `${R.padSmall} ${R.padSmall}`, borderRadius: 10,
                     cursor: "pointer", fontSize: R.fontMedium, fontWeight: 600, textAlign: "left",
                     display: "flex", alignItems: "center", gap: 8,
