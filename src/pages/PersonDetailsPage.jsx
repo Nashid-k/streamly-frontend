@@ -62,9 +62,9 @@ export default function PersonDetails() {
           style={{
             position: "relative", zIndex: 1,
             display: "flex",
-            gap: "3rem",
+            gap: "clamp(1.25rem, 4vw, 3rem)",
             flexWrap: "wrap",
-            marginBottom: "4rem",
+            marginBottom: "clamp(2rem, 5vw, 4rem)",
           }}
         >
           <div
@@ -213,9 +213,9 @@ export default function PersonDetails() {
       <div
         style={{
           display: "flex",
-          gap: "3rem",
+          gap: "clamp(1.25rem, 4vw, 3rem)",
           flexWrap: "wrap",
-          marginBottom: "4rem",
+          marginBottom: "clamp(2rem, 5vw, 4rem)",
         }}
       >
         {/* Profile Image */}

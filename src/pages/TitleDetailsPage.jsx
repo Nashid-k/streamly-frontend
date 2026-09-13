@@ -72,14 +72,18 @@ function SeasonDropdown({ seasons, selectedSeason, airingSeasonNumber, onSelect 
     ? seasons
     : [{ seasonNumber: selectedSeason, name: `Season ${selectedSeason}` }];
 
-  // Close on outside click
+  // Close on outside click / tap
   useEffect(() => {
     if (!open) return;
     const handler = (e) => {
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);
     };
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("touchstart", handler, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("touchstart", handler);
+    };
   }, [open]);
 
   return (
@@ -240,7 +244,11 @@ function ServerDropdown({ servers, selectedIndex, onSelect }) {
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);
     };
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("touchstart", handler, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("touchstart", handler);
+    };
   }, [open]);
 
   return (
@@ -1833,7 +1841,7 @@ export default function TitleDetails() {
               className={`video-modal-header${playMode === "trailer" ? "" : " hidden md:flex"}`}
               style={{
                 position: "relative",
-                padding: "clamp(0.65rem, 1.2vh, 1.25rem) clamp(1rem, 2vw, 2rem)",
+                padding: "calc(clamp(0.65rem, 1.2vh, 1.25rem) + env(safe-area-inset-top, 0px)) clamp(1rem, 2vw, 2rem) clamp(0.65rem, 1.2vh, 1.25rem)",
                 display: "flex",
                 justifyContent: "space-between",
                 background:

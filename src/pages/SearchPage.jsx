@@ -23,6 +23,13 @@ export default function SearchPage() {
 
   const [localQuery, setLocalQuery] = useState(query);
   const { searchHistory, addSearch, clearSearchHistory } = useAppAuth();
+  const [isTouchDevice] = useState(() =>
+    typeof window !== "undefined" && (
+      "ontouchstart" in window ||
+      navigator.maxTouchPoints > 0 ||
+      window.matchMedia("(pointer: coarse)").matches
+    )
+  );
 
   useEffect(() => {
     setLocalQuery(query);
@@ -203,7 +210,7 @@ export default function SearchPage() {
               onChange={(e) => setLocalQuery(e.target.value)}
               placeholder="Search movies, shows, actors..."
               aria-label="Search"
-              autoFocus
+              autoFocus={!isTouchDevice}
             />
             {localQuery && (
               <button

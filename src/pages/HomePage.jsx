@@ -1077,6 +1077,32 @@ export default function Home({
     }
   }, [featuredIndex, totalFeatured, finalPool]);
 
+  const heroTouchStartRef = useRef({ x: 0, y: 0 });
+
+  const handleHeroTouchStart = useCallback((e) => {
+    if (!e.touches || e.touches.length === 0) return;
+    heroTouchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+    };
+  }, []);
+
+  const handleHeroTouchEnd = useCallback((e) => {
+    if (totalFeatured <= 1) return;
+    if (!e.changedTouches || e.changedTouches.length === 0) return;
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - heroTouchStartRef.current.x;
+    const dy = touch.clientY - heroTouchStartRef.current.y;
+    // Horizontal swipe threshold: > 45px and predominantly horizontal
+    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (dx < 0) {
+        setFeaturedIndex((current) => (current + 1) % totalFeatured);
+      } else {
+        setFeaturedIndex((current) => (current - 1 + totalFeatured) % totalFeatured);
+      }
+    }
+  }, [totalFeatured]);
+
   return (
     <div className="main-content" style={{ paddingBottom: "2rem" }}>
       <AmbientBackground
@@ -1155,6 +1181,8 @@ export default function Home({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.65, ease: "easeOut" }}
             style={{ willChange: "opacity" }}
+            onTouchStart={handleHeroTouchStart}
+            onTouchEnd={handleHeroTouchEnd}
             onMouseEnter={() => { isHeroHoveredRef.current = true; setIsHeroHovered(true); }}
             onMouseLeave={() => { isHeroHoveredRef.current = false; setIsHeroHovered(false); }}
             onFocus={() => { isHeroHoveredRef.current = true; setIsHeroHovered(true); }}
@@ -1325,6 +1353,7 @@ export default function Home({
                     <motion.button
                       key={i}
                       onClick={() => setFeaturedIndex(i)}
+                      whileTap={{ scale: 0.88 }}
                       aria-label={`Show ${finalPool[i]?.title || `featured title ${i + 1}`}`}
                       aria-current={isActive ? "true" : undefined}
                       className={`hero-dot${isActive ? " hero-dot--active" : ""}`}

@@ -219,6 +219,7 @@ export default function MovieCard({
           variants={cardVariants}
           initial="rest"
           whileHover={reduceMotion ? undefined : "hover"}
+          whileTap={reduceMotion ? undefined : { scale: 0.96 }}
           animate={isHovered ? "hover" : "rest"}
           role="button"
           tabIndex={0}
