@@ -360,7 +360,20 @@ const CustomVideoPlayer = ({
     subtitleBgBlur = true,
     autoSubtitles = true,
     defaultLanguage = "en",
+    playerControls = {},
   } = usePreferences();
+  // Per-button visibility flags — default to true when not explicitly set
+  const ctrl = {
+    playPause: playerControls.playPause !== false,
+    jumpForwardBackward: playerControls.jumpForwardBackward !== false,
+    volume: playerControls.volume !== false,
+    aspectRatio: playerControls.aspectRatio !== false,
+    subtitles: playerControls.subtitles !== false,
+    audio: playerControls.audio !== false,
+    playbackSpeed: playerControls.playbackSpeed !== false,
+    screenLock: playerControls.screenLock !== false,
+    fullscreen: playerControls.fullscreen !== false,
+  };
   const seekStep = Number(seekTime) || 10;
   const seekStepRef = useRef(seekStep);
   useEffect(() => { seekStepRef.current = seekStep; }, [seekStep]);
@@ -3886,6 +3899,7 @@ const CustomVideoPlayer = ({
             <div className="streamly-player-control-row" onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: `${R.controlRowPad} ${R.padMedium} ${R.padMedium}`, pointerEvents: "auto" }}>
               {/* Left: Play + Seek + Volume */}
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                {ctrl.playPause && (
                 <motion.button
                   onClick={togglePlay}
                   whileHover={{ scale: 1.08 }}
@@ -3901,6 +3915,9 @@ const CustomVideoPlayer = ({
                 >
                   {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" style={{ marginLeft: 2 }} />}
                 </motion.button>
+                )}
+                {ctrl.jumpForwardBackward && (
+                <>
                 <motion.button onClick={(e) => { e.stopPropagation(); seekRelative(-10); }}
                   onPointerDown={(e) => {
                     e.stopPropagation();
@@ -3927,7 +3944,10 @@ const CustomVideoPlayer = ({
                 >
                   <RotateCw size={15} />
                 </motion.button>
+                </>
+                )}
                 {/* Volume with expand-on-hover bar */}
+                {ctrl.volume && (
                 <div
                   onMouseEnter={() => setIsVolumeHovered(true)}
                   onMouseLeave={() => setIsVolumeHovered(false)}
@@ -4022,11 +4042,13 @@ const CustomVideoPlayer = ({
                     </div>
                   </motion.div>
                 </div>
+                )}
               </div>
 
               {/* Right: Subtitles + Shortcuts + Settings + Fullscreen */}
               <div style={{ display: "flex", alignItems: "center", gap: isTouch ? 2 : 4 }}>
                 <input type="file" accept=".srt,.vtt" ref={subtitleInputRef} onChange={handleSubtitleUpload} style={{ display: "none" }} />
+                {ctrl.subtitles && (
                 <motion.button onClick={(e) => { e.stopPropagation(); setShowSubtitlesMenu(!showSubtitlesMenu); setShowSettings(false); }}
                   whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
                   transition={SPRING}
@@ -4042,8 +4064,9 @@ const CustomVideoPlayer = ({
                   <Captions size={15} />
                   {subtitleEnabled && <div style={{ position: "absolute", top: 4, right: 4, width: "clamp(3px, 0.5vw, 4px)", height: "clamp(3px, 0.5vw, 4px)", background: "#fff", borderRadius: "50%" }} />}
                 </motion.button>
+                )}
                 {/* Audio track button — only show when multiple audio tracks exist */}
-                {audioTracks?.length > 1 && (
+                {ctrl.audio && audioTracks?.length > 1 && (
                   <motion.button onClick={(e) => { e.stopPropagation(); setShowAudioMenu(!showAudioMenu); setShowSettings(false); setShowSubtitlesMenu(false); }}
                     whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
                     transition={SPRING}
@@ -4059,6 +4082,7 @@ const CustomVideoPlayer = ({
                     <AudioLines size={15} />
                   </motion.button>
                 )}
+                {ctrl.aspectRatio && (
                 <motion.button onClick={(e) => {
                     e.stopPropagation();
                     aspectManuallySetRef.current = true;
@@ -4085,6 +4109,7 @@ const CustomVideoPlayer = ({
                       lineHeight: 1, fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
                     }}>{aspectRatioIndex + 1}</span>
                   </motion.button>
+                )}
                 {hasManagedSettings && (
                 <motion.button onClick={(e) => {
                     e.stopPropagation();
@@ -4132,6 +4157,7 @@ const CustomVideoPlayer = ({
                     <Maximize size={15} style={{ transform: "scale(0.8) translate(-1px, 1px)" }} />
                   </motion.button>
                 )}
+                {ctrl.fullscreen && (
                 <motion.button onClick={toggleFullscreen}
                   whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
                   transition={SPRING}
@@ -4139,6 +4165,7 @@ const CustomVideoPlayer = ({
                 >
                   {isFullscreen ? <Minimize size={15} /> : <Maximize size={15} />}
                 </motion.button>
+                )}
               </div>
             </div>
           </motion.div>

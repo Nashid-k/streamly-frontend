@@ -1,6 +1,6 @@
 import { useCallback, useState, useEffect, useRef } from "react";
-import { motion, useReducedMotion } from "framer-motion";
-import { Play, Plus, Check, Star } from "lucide-react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { Play, Plus, Check, Star, X } from "lucide-react";
 import slugify from "slugify";
 import { getTMDBWeekdayShort } from "../utils/timezone";
 import { useNavigate } from "react-router-dom";
@@ -132,10 +132,17 @@ export default function MovieCard({
     };
   }, []);
 
+  const detailViewType = preferences?.detailViewType || "page";
+  const [showQuickView, setShowQuickView] = useState(false);
+
   const navigateToDetails = useCallback(() => {
     const slug = slugify(movie.title, { lower: true, strict: true });
-    navigate(`/watch/${movie.id}/${slug}`);
-  }, [navigate, movie]);
+    if (detailViewType === "modal") {
+      setShowQuickView(true);
+    } else {
+      navigate(`/watch/${movie.id}/${slug}`);
+    }
+  }, [navigate, movie, detailViewType]);
 
   const handleToggleMyList = useCallback(
     (e) => {
@@ -593,6 +600,105 @@ export default function MovieCard({
           </div>
         </motion.div>
       ) : null}
+
+      {/* Quick View Modal — shown when detailViewType === "modal" */}
+      <AnimatePresence>
+        {showQuickView && (
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+            style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(12px)" }}
+            onClick={() => setShowQuickView(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 20 }}
+              transition={{ type: "spring", stiffness: 400, damping: 32 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl"
+              style={{ background: "#13111c", border: "1px solid rgba(255,255,255,0.12)" }}
+            >
+              {/* Backdrop */}
+              {(movie.backdropUrl || movie.posterUrl) && (
+                <div
+                  className="w-full aspect-video relative overflow-hidden"
+                  style={{
+                    backgroundImage: `url(${movie.backdropUrl || movie.posterUrl})`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                  }}
+                >
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      background: "linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(19,17,28,0.95) 100%)",
+                    }}
+                  />
+                  {/* Rating badge */}
+                  {movie.imdbRating && (
+                    <div
+                      className="absolute top-3 left-3 flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold"
+                      style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.15)" }}
+                    >
+                      <Star size={10} fill="#fbbf24" color="#fbbf24" />
+                      <span style={{ color: "#fbbf24" }}>{movie.imdbRating}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Close button */}
+              <button
+                onClick={() => setShowQuickView(false)}
+                className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+                style={{ background: "rgba(0,0,0,0.5)", color: "rgba(255,255,255,0.7)" }}
+              >
+                <X size={16} />
+              </button>
+
+              {/* Info */}
+              <div className="p-5">
+                <h2 className="text-xl font-bold text-white mb-1 leading-tight">{movie.title}</h2>
+                <div className="flex items-center gap-2 text-xs text-white/50 mb-3">
+                  {movie.releaseYear && <span>{movie.releaseYear}</span>}
+                  {movie.genre && <><span>·</span><span>{Array.isArray(movie.genre) ? movie.genre[0] : movie.genre}</span></>}
+                  {movie.duration && <><span>·</span><span>{movie.duration}</span></>}
+                </div>
+                {movie.overview && (
+                  <p className="text-sm text-white/60 leading-relaxed mb-4 line-clamp-3">{movie.overview}</p>
+                )}
+
+                {/* Actions */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowQuickView(false);
+                      const slug = slugify(movie.title, { lower: true, strict: true });
+                      navigate(`/watch/${movie.id}/${slug}`);
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm text-black transition-colors"
+                    style={{ background: "var(--accent-primary, #f43f5e)" }}
+                  >
+                    <Play size={14} fill="currentColor" />
+                    Play Now
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowQuickView(false);
+                      const slug = slugify(movie.title, { lower: true, strict: true });
+                      navigate(`/watch/${movie.id}/${slug}`);
+                    }}
+                    className="flex-1 py-2.5 rounded-xl font-semibold text-sm text-white/80 transition-colors"
+                    style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)" }}
+                  >
+                    Full Details
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

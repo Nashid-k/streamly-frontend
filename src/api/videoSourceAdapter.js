@@ -3,65 +3,118 @@ import { logDebug, logError, logWarn } from "../utils/debugLogger";
 
 const BASE_SERVERS = [
   {
-    name: "Server 1",
+    name: "Lisbon",
     url: (id, s, e) =>
       s
         ? `https://cinesrc.st/embed/tv/${id}?s=${s}&e=${e}&color=%230A84FF&autoplay=true&controls=false&autoskip=false&autonext=false`
         : `https://cinesrc.st/embed/movie/${id}?color=%230A84FF&autoplay=true&controls=false`,
   },
   {
-    name: "Server 2 (Fast)",
+    name: "Nebula",
     url: (id, s, e, imdb) =>
       s
         ? `https://vidlink.pro/tv/${imdb || id}/${s}/${e}`
         : `https://vidlink.pro/movie/${imdb || id}`,
   },
   {
-    name: "Server 3 (HD)",
+    name: "Solara",
     url: (id, s, e, imdb) =>
       s
         ? `https://www.2embed.cc/embedtv/${imdb || id}&s=${s}&e=${e}`
         : `https://www.2embed.cc/embed/${imdb || id}`,
   },
   {
-    name: "Server 4 (Backup)",
+    name: "Athens",
     url: (id, s, e, imdb) =>
       s
         ? `https://vidsrcme.ru/embed/tv?${imdb ? "imdb=" + imdb : "tmdb=" + id}&season=${s}&episode=${e}`
         : `https://vidsrcme.ru/embed/movie?${imdb ? "imdb=" + imdb : "tmdb=" + id}`,
   },
   {
-    name: "Server 5 (VidCore)",
+    name: "Joy",
     url: (id, s, e, imdb) =>
       s
         ? `https://vidcore.io/tv/${id}/${s}/${e}?autoPlay=true&theme=0A84FF`
         : `https://vidcore.io/movie/${imdb || id}?autoPlay=true&theme=0A84FF`,
   },
   {
-    name: "Server 6 (Peachify)",
+    name: "Castle",
     url: (id, s, e, imdb) =>
       s
         ? `https://peachify.top/embed/tv/${id}/${s}/${e}?autoNext=false&showNextBtn=false&accent=0A84FF`
         : `https://peachify.top/embed/movie/${imdb || id}?accent=0A84FF`,
   },
   {
-    name: "Server 7 (VidUp)",
+    name: "Sakura",
     url: (id, s, e, imdb) =>
       s
         ? `https://vidup.to/tv/${id}/${s}/${e}?autoPlay=true&theme=0A84FF&nextButton=false&autoNext=false`
         : `https://vidup.to/movie/${imdb || id}?autoPlay=true&theme=0A84FF`,
   },
+  {
+    name: "Canaias",
+    url: (id, s, e, _imdb) =>
+      s
+        ? `https://embed.smashystream.com/playere.php?tmdb=${id}&season=${s}&episode=${e}`
+        : `https://embed.smashystream.com/playere.php?tmdb=${id}`,
+  },
 ];
 
 export class VideoSourceAdapter {
-  /* Server 1 (CineSrc iframe) is the default. Direct extraction and NetMirror
+  /* Lisbon (CineSrc iframe) is the default. Direct extraction and NetMirror
      were removed from the rotation: Direct relayed every segment through the
      stream-service proxy (buffer-stall source), and NetMirror's media CDN is
-     unreliable — Server 1 + the iframe fallbacks are the stable path. */
+     unreliable — Lisbon + the iframe fallbacks are the stable path. */
   static SERVERS = BASE_SERVERS;
 
   static getServers() {
     return this.SERVERS;
+  }
+
+  /**
+   * Returns the server list re-ordered by the user's saved preference array.
+   * Servers not in the preference list are appended at the end in default order.
+   * If febboxCookie is provided, a Febbox 4K VIP server is prepended.
+   *
+   * @param {string[]} serverOrder - Ordered names from preferences.serverOrder
+   * @param {string}   febboxCookie - Optional ui_cookie for Febbox VIP 4K access
+   */
+  static getOrderedServers(serverOrder, febboxCookie) {
+    const base = [...this.SERVERS];
+    let ordered;
+    if (Array.isArray(serverOrder) && serverOrder.length > 0) {
+      const nameMap = Object.fromEntries(base.map((s) => [s.name, s]));
+      const seen = new Set();
+      const result = [];
+      for (const name of serverOrder) {
+        if (nameMap[name] && !seen.has(name)) {
+          result.push(nameMap[name]);
+          seen.add(name);
+        }
+      }
+      // Append any servers not referenced in the saved order
+      for (const s of base) {
+        if (!seen.has(s.name)) result.push(s);
+      }
+      ordered = result;
+    } else {
+      ordered = base;
+    }
+
+    // Prepend Febbox 4K VIP entry when cookie is available
+    if (febboxCookie) {
+      const febboxServer = {
+        name: "Lisbon 4K (Febbox VIP)",
+        febbox: true,
+        url: (id, s, e) =>
+          s
+            ? `https://www.febbox.com/file/share?tmdb=${id}&type=tv&season=${s}&episode=${e}`
+            : `https://www.febbox.com/file/share?tmdb=${id}&type=movie`,
+      };
+      return [febboxServer, ...ordered];
+    }
+
+    return ordered;
   }
 
   static getStreamUrl(serverIndex, movieId, season, episode, imdbId) {

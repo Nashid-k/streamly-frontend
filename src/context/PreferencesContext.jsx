@@ -67,6 +67,20 @@ export function PreferencesProvider({ children }) {
     }
   }, []);
 
+  // Convenience: toggle one individual player-control button (e.g. "volume", "fullscreen")
+  const setPlayerControl = useCallback((controlKey, enabled) => {
+    setPreferences((current) => {
+      const current_controls = current.playerControls || DEFAULT_PREFERENCES.playerControls;
+      const next = { ...current_controls, [controlKey]: Boolean(enabled) };
+      try {
+        localStorage.setItem(`${SETTING_PREFIX}playerControls`, JSON.stringify(next));
+      } catch {
+        // Storage fallback
+      }
+      return { ...current, playerControls: next };
+    });
+  }, []);
+
   useEffect(() => {
     const syncFromAnotherTab = (event) => {
       if (!event.key || !event.key.startsWith(SETTING_PREFIX)) return;
@@ -90,8 +104,8 @@ export function PreferencesProvider({ children }) {
   }, [preferences.theme]);
 
   const value = useMemo(
-    () => ({ ...preferences, setPreference }),
-    [preferences, setPreference],
+    () => ({ ...preferences, setPreference, setPlayerControl }),
+    [preferences, setPreference, setPlayerControl],
   );
 
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;

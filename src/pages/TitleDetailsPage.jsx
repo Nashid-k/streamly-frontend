@@ -8,7 +8,7 @@ import { movieService, classifyTrailer } from "../api/movieService";
 import Loader from "../components/Loader";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import { createPortal } from "react-dom";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Play,
@@ -48,8 +48,6 @@ import { usePreferences } from "../context/preferences";
 const EMPTY_ARRAY = [];
 
 import { VideoSourceAdapter } from "../api/videoSourceAdapter";
-
-const SERVERS = VideoSourceAdapter.getServers();
 
 // Compact "Airs Thu, Sep 9"-style date for upcoming episode chips.
 const formatAirsDate = (dateStr) => {
@@ -372,7 +370,17 @@ export default function TitleDetails() {
     episodeViewStyle = "carousel",
     spoilerFreeMode = false,
     trailers = true,
+    serverOrder,
+    febboxCookie = "",
   } = usePreferences();
+
+  // Compute ordered server list from user preferences — re-computed reactively
+  // when serverOrder or febboxCookie changes (e.g. after settings page edit).
+  const SERVERS = useMemo(
+    () => VideoSourceAdapter.getOrderedServers(serverOrder, febboxCookie || ""),
+    [serverOrder, febboxCookie],
+  );
+
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [playingEpisode, setPlayingEpisode] = useState(1);
   const { isInList, toggleMyList, continueWatching, updateProgress, addNotification } = useAppAuth();

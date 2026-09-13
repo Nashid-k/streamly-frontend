@@ -18,6 +18,18 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   seekTime: 10,
   autoSubtitles: true,
   defaultLanguage: "en",
+  // Player control visibility toggles
+  playerControls: {
+    playPause: true,
+    jumpForwardBackward: true,
+    volume: true,
+    aspectRatio: true,
+    subtitles: true,
+    audio: true,
+    playbackSpeed: true,
+    screenLock: true,
+    fullscreen: true,
+  },
   // Servers
   serverOrder: [
     "Lisbon",

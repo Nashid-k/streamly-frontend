@@ -4785,6 +4785,8 @@ html {
 html[data-theme="emerald"] {
   --accent-gradient: linear-gradient(135deg, #95ff50, #43861e) !important;
   --accent-color: #95ff50 !important;
+  --accent-primary: #95ff50 !important;
+  --accent-secondary: #43861e !important;
   --accent-glow: rgba(149, 255, 80, 0.4) !important;
   --theme-buttons-toggle: #3f8a1d !important;
 }
@@ -4792,24 +4794,32 @@ html[data-theme="emerald"] {
 html[data-theme="amethyst"] {
   --accent-gradient: linear-gradient(135deg, #c084fc, #7c3aed) !important;
   --accent-color: #c084fc !important;
+  --accent-primary: #c084fc !important;
+  --accent-secondary: #7c3aed !important;
   --accent-glow: rgba(192, 132, 252, 0.4) !important;
 }
 
 html[data-theme="ocean"] {
   --accent-gradient: linear-gradient(135deg, #22d3ee, #2563eb) !important;
   --accent-color: #22d3ee !important;
+  --accent-primary: #22d3ee !important;
+  --accent-secondary: #2563eb !important;
   --accent-glow: rgba(34, 211, 238, 0.4) !important;
 }
 
 html[data-theme="crimson"] {
   --accent-gradient: linear-gradient(135deg, #f87171, #dc2626) !important;
   --accent-color: #f87171 !important;
+  --accent-primary: #f87171 !important;
+  --accent-secondary: #dc2626 !important;
   --accent-glow: rgba(248, 113, 113, 0.4) !important;
 }
 
 html[data-theme="solar"] {
   --accent-gradient: linear-gradient(135deg, #fbbf24, #d97706) !important;
   --accent-color: #fbbf24 !important;
+  --accent-primary: #fbbf24 !important;
+  --accent-secondary: #d97706 !important;
   --accent-glow: rgba(251, 191, 36, 0.4) !important;
 }
 

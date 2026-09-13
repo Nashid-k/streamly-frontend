@@ -250,6 +250,8 @@ export default function SettingsPage() {
     seekTime = 10,
     autoSubtitles = true,
     defaultLanguage = "en",
+    // Player Controls
+    playerControls = {},
     // Servers
     serverOrder = DEFAULT_SERVER_ORDER,
     // Subtitles
@@ -263,6 +265,7 @@ export default function SettingsPage() {
     febboxCookie = "",
     // Setter
     setPreference,
+    setPlayerControl,
   } = usePreferences();
 
   // Febbox local input
@@ -1596,41 +1599,34 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-white">Player Controls Layout</h3>
-                  <p className="text-xs text-white/50">Customize on-screen player buttons.</p>
+                  <p className="text-xs text-white/50">Toggle which buttons appear in the video player.</p>
                 </div>
               </div>
 
-              <div className="space-y-3 text-xs text-white/80">
-                <p className="text-white/60">The following buttons are visible on your player control bar:</p>
-                <div className="p-3 rounded-2xl bg-white/[0.04] border border-white/5 space-y-2">
-                  <div className="flex items-center justify-between py-1">
-                    <span>Play / Pause</span>
-                    <span className="text-emerald-400 font-semibold">Enabled</span>
-                  </div>
-                  <div className="flex items-center justify-between py-1 border-t border-white/5">
-                    <span>Forward / Backward Jump</span>
-                    <span className="text-emerald-400 font-semibold">Enabled</span>
-                  </div>
-                  <div className="flex items-center justify-between py-1 border-t border-white/5">
-                    <span>Volume Slider & Mute</span>
-                    <span className="text-emerald-400 font-semibold">Enabled</span>
-                  </div>
-                  <div className="flex items-center justify-between py-1 border-t border-white/5">
-                    <span>Aspect Ratio & Stretch</span>
-                    <span className="text-emerald-400 font-semibold">Enabled</span>
-                  </div>
-                  <div className="flex items-center justify-between py-1 border-t border-white/5">
-                    <span>Subtitles & Audio Menus</span>
-                    <span className="text-emerald-400 font-semibold">Enabled</span>
-                  </div>
-                  <div className="flex items-center justify-between py-1 border-t border-white/5">
-                    <span>Screen Lock (Mobile)</span>
-                    <span className="text-emerald-400 font-semibold">Enabled</span>
-                  </div>
-                  <div className="flex items-center justify-between py-1 border-t border-white/5">
-                    <span>Fullscreen</span>
-                    <span className="text-emerald-400 font-semibold">Enabled</span>
-                  </div>
+              <div className="space-y-0 text-xs text-white/80">
+                <div className="rounded-2xl bg-white/[0.04] border border-white/5 divide-y divide-white/5 overflow-hidden">
+                  {[
+                    { key: "playPause", label: "Play / Pause" },
+                    { key: "jumpForwardBackward", label: "Forward / Backward Jump" },
+                    { key: "volume", label: "Volume Slider & Mute" },
+                    { key: "aspectRatio", label: "Aspect Ratio & Stretch" },
+                    { key: "subtitles", label: "Subtitles & Audio Menus" },
+                    { key: "playbackSpeed", label: "Playback Speed" },
+                    { key: "screenLock", label: "Screen Lock (Mobile)" },
+                    { key: "fullscreen", label: "Fullscreen" },
+                  ].map(({ key, label }) => {
+                    const enabled = playerControls[key] !== false;
+                    return (
+                      <div key={key} className="flex items-center justify-between px-4 py-3">
+                        <span className="text-sm text-white/80">{label}</span>
+                        <Toggle
+                          label={label}
+                          checked={enabled}
+                          onChange={(val) => setPlayerControl?.(key, val)}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <button
@@ -1639,11 +1635,11 @@ export default function SettingsPage() {
                     setShowControlsModal(false);
                     toast({
                       type: "success",
-                      title: "Player Layout Synced",
-                      message: "All controls optimized for your display.",
+                      title: "Player Layout Saved",
+                      message: "Player button preferences updated.",
                     });
                   }}
-                  className="w-full py-2.5 rounded-xl bg-white text-black hover:bg-gray-200 text-sm font-bold transition-colors mt-2"
+                  className="w-full py-2.5 rounded-xl bg-white text-black hover:bg-gray-200 text-sm font-bold transition-colors mt-4"
                 >
                   Done
                 </button>
