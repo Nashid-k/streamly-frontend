@@ -74,14 +74,11 @@ export class VideoSourceAdapter {
   /**
    * Returns the server list re-ordered by the user's saved preference array.
    * Servers not in the preference list are appended at the end in default order.
-   * If febboxCookie is provided, a Febbox 4K VIP server is prepended.
    *
    * @param {string[]} serverOrder - Ordered names from preferences.serverOrder
-   * @param {string}   febboxCookie - Optional ui_cookie for Febbox VIP 4K access
    */
-  static getOrderedServers(serverOrder, febboxCookie) {
+  static getOrderedServers(serverOrder) {
     const base = [...this.SERVERS];
-    let ordered;
     if (Array.isArray(serverOrder) && serverOrder.length > 0) {
       const nameMap = Object.fromEntries(base.map((s) => [s.name, s]));
       const seen = new Set();
@@ -96,25 +93,10 @@ export class VideoSourceAdapter {
       for (const s of base) {
         if (!seen.has(s.name)) result.push(s);
       }
-      ordered = result;
-    } else {
-      ordered = base;
+      return result;
     }
 
-    // Prepend Febbox 4K VIP entry when cookie is available
-    if (febboxCookie) {
-      const febboxServer = {
-        name: "Lisbon 4K (Febbox VIP)",
-        febbox: true,
-        url: (id, s, e) =>
-          s
-            ? `https://www.febbox.com/file/share?tmdb=${id}&type=tv&season=${s}&episode=${e}`
-            : `https://www.febbox.com/file/share?tmdb=${id}&type=movie`,
-      };
-      return [febboxServer, ...ordered];
-    }
-
-    return ordered;
+    return base;
   }
 
   static getStreamUrl(serverIndex, movieId, season, episode, imdbId) {

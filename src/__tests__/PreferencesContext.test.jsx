@@ -4,10 +4,10 @@ import { PreferencesProvider } from "../context/PreferencesContext";
 import { usePreferences } from "../context/preferences";
 
 function PreferenceProbe() {
-  const { autoplay, notifications, theme, enableAds, setPreference } = usePreferences();
+  const { autoplay, notifications, theme, setPreference } = usePreferences();
   return (
     <>
-      <output>{`${autoplay}:${notifications}:${theme}:${enableAds}`}</output>
+      <output>{`${autoplay}:${notifications}:${theme}`}</output>
       <button type="button" onClick={() => setPreference("notifications", false)}>
         Disable notifications
       </button>
@@ -16,9 +16,6 @@ function PreferenceProbe() {
       </button>
       <button type="button" onClick={() => setPreference("theme", "emerald")}>
         Emerald theme
-      </button>
-      <button type="button" onClick={() => setPreference("enableAds", false)}>
-        Disable ads
       </button>
     </>
   );
@@ -34,7 +31,7 @@ describe("PreferencesProvider", () => {
       </PreferencesProvider>,
     );
 
-    expect(screen.getByText("true:true:default:true")).toBeInTheDocument();
+    expect(screen.getByText("true:true:default")).toBeInTheDocument();
   });
 
   it("preserves the player autoplay setting from earlier versions", () => {
@@ -46,7 +43,7 @@ describe("PreferencesProvider", () => {
       </PreferencesProvider>,
     );
 
-    expect(screen.getByText("false:true:default:true")).toBeInTheDocument();
+    expect(screen.getByText("false:true:default")).toBeInTheDocument();
   });
 
   it("updates the active UI and persists a setting", () => {
@@ -58,7 +55,7 @@ describe("PreferencesProvider", () => {
 
     act(() => screen.getByText("Disable notifications").click());
 
-    expect(screen.getByText("true:false:default:true")).toBeInTheDocument();
+    expect(screen.getByText("true:false:default")).toBeInTheDocument();
     expect(localStorage.getItem("setting-notifications")).toBe("false");
   });
 
@@ -83,25 +80,28 @@ describe("PreferencesProvider", () => {
 
     act(() => screen.getByText("Emerald theme").click());
 
-    expect(screen.getByText("true:true:emerald:true")).toBeInTheDocument();
+    expect(screen.getByText("true:true:emerald")).toBeInTheDocument();
     expect(document.documentElement.dataset.theme).toBe("emerald");
     expect(localStorage.getItem("setting-theme")).toBe('"emerald"');
   });
 
-  it("exposes the ads toggle on the document so it never silently no-ops", () => {
+  it("retires keys from removed integrations on boot", () => {
+    localStorage.setItem("streamly_trakt", "moviebuff");
+    localStorage.setItem("streamly_simkl", "animefan");
+    localStorage.setItem("setting-enableAds", "false");
+    localStorage.setItem("setting-febboxCookie", '"abc123"');
+
     render(
       <PreferencesProvider>
         <PreferenceProbe />
       </PreferencesProvider>,
     );
 
-    expect(document.documentElement.dataset.adsEnabled).toBe("true");
-
-    act(() => screen.getByText("Disable ads").click());
-
-    expect(screen.getByText("true:true:default:false")).toBeInTheDocument();
-    expect(document.documentElement.dataset.adsEnabled).toBe("false");
-    expect(localStorage.getItem("setting-enableAds")).toBe("false");
+    expect(localStorage.getItem("streamly_trakt")).toBeNull();
+    expect(localStorage.getItem("streamly_simkl")).toBeNull();
+    expect(localStorage.getItem("setting-enableAds")).toBeNull();
+    expect(localStorage.getItem("setting-febboxCookie")).toBeNull();
+    expect(document.documentElement.dataset.adsEnabled).toBeUndefined();
   });
 
   it("recovers playerControls from corrupt storage instead of breaking toggles", () => {
@@ -114,6 +114,6 @@ describe("PreferencesProvider", () => {
     );
 
     // Defaults survive corrupt storage; the settings UI stays usable.
-    expect(screen.getByText("true:true:default:true")).toBeInTheDocument();
+    expect(screen.getByText("true:true:default")).toBeInTheDocument();
   });
 });

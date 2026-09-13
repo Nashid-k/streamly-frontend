@@ -3,25 +3,19 @@ import { VideoSourceAdapter } from "../api/videoSourceAdapter";
 
 describe("VideoSourceAdapter ordering", () => {
   it("re-orders servers by the saved preference, appending unknown ones last", () => {
-    const ordered = VideoSourceAdapter.getOrderedServers(["Joy", "Lisbon"], "");
+    const ordered = VideoSourceAdapter.getOrderedServers(["Joy", "Lisbon"]);
     expect(ordered.map((s) => s.name).slice(0, 2)).toEqual(["Joy", "Lisbon"]);
     expect(ordered).toHaveLength(8);
   });
 
-  it("prepends the Febbox VIP entry when a cookie is set", () => {
-    const ordered = VideoSourceAdapter.getOrderedServers(["Lisbon"], "cookie123");
-    expect(ordered[0].name).toBe("Lisbon 4K (Febbox VIP)");
-    expect(ordered).toHaveLength(9);
-  });
-
   it("falls back to the default rotation for empty input", () => {
-    const ordered = VideoSourceAdapter.getOrderedServers([], "");
+    const ordered = VideoSourceAdapter.getOrderedServers([]);
     expect(ordered.map((s) => s.name)[0]).toBe("Lisbon");
   });
 });
 
 describe("VideoSourceAdapter ordered-list helpers (custom player)", () => {
-  const ordered = VideoSourceAdapter.getOrderedServers(["Joy", "Lisbon"], "");
+  const ordered = VideoSourceAdapter.getOrderedServers(["Joy", "Lisbon"]);
 
   it("counts the passed list, falling back to the base list", () => {
     expect(VideoSourceAdapter.count(ordered)).toBe(8);

@@ -5250,68 +5250,6 @@ html[data-theme="solar"] {
   color: #fff;
 }
 
-/* ── Febbox Input ── */
-.fem-token-row {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.fem-input-wrap {
-  flex: 1;
-  position: relative;
-}
-
-.fem-token-input {
-  width: 100%;
-  padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  color: #fff;
-  font-size: 0.9rem;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.fem-token-input:focus {
-  border-color: rgba(255, 255, 255, 0.3);
-}
-
-.fem-save-btn {
-  padding: 10px 20px;
-  background: var(--accent-gradient, linear-gradient(135deg, #f43f5e, #fb923c));
-  color: var(--on-accent, #fff);
-  font-size: 0.9rem;
-  font-weight: 600;
-  border-radius: 12px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-
-.fem-save-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.fem-info-icon {
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.5);
-  cursor: pointer;
-  padding: 2px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: color 0.2s;
-}
-
-.fem-info-icon:hover {
-  color: #fff;
-}
-
 /* ── Continue Watching & Scrollbar Utilities ── */
 .scrollbar-hide {
   -ms-overflow-style: none;
@@ -5484,6 +5422,13 @@ html[data-theme="solar"] {
   min-width: 26px;
 }
 
+.studio-preview-cluster--center {
+  flex: 1;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
 .studio-preview-btn {
   display: inline-flex;
   align-items: center;
@@ -5575,7 +5520,7 @@ html[data-theme="solar"] {
 /* Placement board */
 .studio-zones {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.6rem;
 }
 
@@ -5909,10 +5854,6 @@ html[data-theme="solar"] {
 
   .order-item {
     flex-wrap: wrap;
-  }
-
-  .fem-save-btn {
-    width: 100%;
   }
 }
 

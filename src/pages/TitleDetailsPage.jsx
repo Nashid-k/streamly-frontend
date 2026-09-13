@@ -374,14 +374,13 @@ export default function TitleDetails() {
     spoilerFreeMode = false,
     trailers = true,
     serverOrder,
-    febboxCookie = "",
   } = usePreferences();
 
   // Compute ordered server list from user preferences — re-computed reactively
-  // when serverOrder or febboxCookie changes (e.g. after settings page edit).
+  // when serverOrder changes (e.g. after settings page edit).
   const SERVERS = useMemo(
-    () => VideoSourceAdapter.getOrderedServers(serverOrder, febboxCookie || ""),
-    [serverOrder, febboxCookie],
+    () => VideoSourceAdapter.getOrderedServers(serverOrder),
+    [serverOrder],
   );
 
   const [selectedSeason, setSelectedSeason] = useState(1);

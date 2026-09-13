@@ -9,8 +9,6 @@ import {
   Play,
   Server,
   Captions,
-  Megaphone,
-  KeyRound,
   Bell,
   LayoutGrid,
   ChevronDown,
@@ -20,7 +18,6 @@ import {
   Search,
   GripVertical,
   RotateCcw,
-  CircleHelp,
   Eye,
   EyeOff,
   LogOut,
@@ -133,26 +130,8 @@ const TABS = [
   { id: "playback", label: "Playback", icon: Play },
   { id: "servers", label: "Servers", icon: Server },
   { id: "subtitles", label: "Subtitles", icon: Captions },
-  { id: "ads", label: "Ads", icon: Megaphone },
-  { id: "febbox", label: "Febbox", icon: KeyRound },
   { id: "notifications", label: "Notifications", icon: Bell },
 ];
-
-function TraktLogo({ className = "w-5 h-5 text-[#ed1c24]" }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="1em" height="1em" className={className} aria-hidden="true">
-      <path fill="currentColor" d="m15.082 15.107l-.73-.73l9.578-9.583a5 5 0 0 0-.115-.575L13.662 14.382l1.08 1.08l-.73.73l-1.81-1.81l11.22-11.238c-.075-.15-.155-.3-.25-.44L11.508 14.377l2.154 2.155l-.73.73l-7.193-7.199l.73-.73l4.309 4.31L22.546 1.86A5.62 5.62 0 0 0 18.362 0H5.635A5.637 5.637 0 0 0 0 5.634V18.37A5.63 5.63 0 0 0 5.635 24h12.732C21.477 24 24 21.48 24 18.37V6.19l-8.913 8.918zm-4.314-2.155L6.814 8.988l.73-.73l3.954 3.96zm1.075-1.084l-3.954-3.96l.73-.73l3.959 3.96zm9.853 5.688a4.14 4.14 0 0 1-4.14 4.14H6.438a4.144 4.144 0 0 1-4.139-4.14V6.438A4.14 4.14 0 0 1 6.44 2.3h10.387v1.04H6.438a3.1 3.1 0 0 0-3.099 3.1v11.11c0 1.71 1.39 3.105 3.1 3.105h11.117c1.71 0 3.1-1.395 3.1-3.105v-1.754h1.04v1.754z" />
-    </svg>
-  );
-}
-
-function SimklLogo({ className = "w-5 h-5 text-[#00c2ff]" }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="1em" height="1em" className={className} aria-hidden="true">
-      <path fill="currentColor" d="M3.84 0A3.83 3.83 0 0 0 0 3.84v16.32A3.83 3.83 0 0 0 3.84 24h16.32A3.83 3.83 0 0 0 24 20.16V3.84A3.83 3.83 0 0 0 20.16 0zm8.567 4.11q3.11 0 4.393.186q1.69.252 2.438.877q1.009.867 1.009 3.104q0 .241-.01.768h-4.234q-.021-.537-.074-.746q-.147-.615-.966-.692q-.725-.065-3.53-.066q-2.775 0-3.289.165q-.578.2-.578 1.024q0 .792.61.969q.514.143 4.633.275q3.73.11 4.76.275q1.04.165 1.654.495t.983.936q.556.892.557 2.873q0 2.212-.546 3.247q-.547 1.024-1.785 1.398q-1.219.374-6.71.374q-3.338 0-4.82-.187q-1.806-.22-2.593-.86q-.85-.684-1.008-1.93a10.5 10.5 0 0 1-.085-1.434v-.789H7.44q-.01 1.11.43 1.428q.232.151.525.203q.294.056 1.03.077a166 166 0 0 0 2.405.022q2.793-.01 3.234-.033q.83-.065 1.092-.23q.368-.242.368-1.077q0-.57-.231-.802q-.316-.318-1.503-.34q-.82 0-3.425-.132q-2.69-.133-3.488-.154q-2.08-.066-2.932-.505q-1.092-.56-1.429-1.91q-.189-.747-.189-1.956q0-2.547.925-3.59q.693-.79 2.102-1.044q1.271-.22 6.053-.22z" />
-    </svg>
-  );
-}
 
 function Toggle({ checked, onChange, label }) {
   return (
@@ -384,6 +363,7 @@ function PlayerUIStudio() {
                 <span className="studio-minimap-bar" />
                 <span className="studio-minimap-bottom">
                   <i data-n={zoneCountFor(preset.layout, "bottomLeft")} />
+                  <i data-n={zoneCountFor(preset.layout, "bottomCenter")} />
                   <i data-n={zoneCountFor(preset.layout, "bottomRight")} />
                 </span>
               </span>
@@ -434,6 +414,7 @@ function PlayerUIStudio() {
             </div>
             <div className="studio-preview-bar">
               <div className="studio-preview-cluster">{renderPreviewCluster("bottomLeft")}</div>
+              <div className="studio-preview-cluster studio-preview-cluster--center">{renderPreviewCluster("bottomCenter")}</div>
               <div className="studio-preview-cluster">{renderPreviewCluster("bottomRight")}</div>
             </div>
           </div>
@@ -529,8 +510,8 @@ function PlayerUIStudio() {
         })}
       </div>
       <p className="studio-footnote">
-        Hidden controls stay reachable in the player&apos;s settings menu. Volume shows its slider in the
-        bottom zones and a compact mute button up top.
+        Hidden controls stay reachable in the player&apos;s settings menu. Volume shows its full slider on
+        the outer bottom corners and a compact mute button everywhere else.
       </p>
     </div>
   );
@@ -548,10 +529,7 @@ export default function SettingsPage() {
   const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
   const [seekDropdownOpen, setSeekDropdownOpen] = useState(false);
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
-  const [showFebboxGuide, setShowFebboxGuide] = useState(false);
   const [showSignInModal, setShowSignInModal] = useState(false);
-  const [showTraktModal, setShowTraktModal] = useState(false);
-  const [showSimklModal, setShowSimklModal] = useState(false);
   const [showControlsModal, setShowControlsModal] = useState(false);
 
   // Auth / Accounts state
@@ -562,22 +540,6 @@ export default function SettingsPage() {
     } catch (error) {
       logDebug("settings", "Stored user profile is corrupt — starting signed out.", { message: error?.message });
       return null;
-    }
-  });
-  const [traktUsername, setTraktUsername] = useState(() => {
-    try {
-      return localStorage.getItem("streamly_trakt") || "";
-    } catch (error) {
-      logDebug("settings", "Trakt handle unreadable — treating as disconnected.", { message: error?.message });
-      return "";
-    }
-  });
-  const [simklUsername, setSimklUsername] = useState(() => {
-    try {
-      return localStorage.getItem("streamly_simkl") || "";
-    } catch (error) {
-      logDebug("settings", "Simkl handle unreadable — treating as disconnected.", { message: error?.message });
-      return "";
     }
   });
 
@@ -607,21 +569,9 @@ export default function SettingsPage() {
     subtitleSize = 100,
     subtitleColor = "#ffffff",
     subtitleBgBlur = true,
-    // Ads
-    enableAds = true,
-    // Febbox
-    febboxCookie = "",
     // Setter
     setPreference,
   } = usePreferences();
-
-  // Febbox local input
-  const [cookieInput, setCookieInput] = useState(febboxCookie);
-  const [showCookie, setShowCookie] = useState(false);
-
-  useEffect(() => {
-    setCookieInput(febboxCookie || "");
-  }, [febboxCookie]);
 
   const q = useMemo(() => query.trim().toLowerCase(), [query]);
 
@@ -667,17 +617,14 @@ export default function SettingsPage() {
   }, []);
 
   // Lock body scroll while any modal is open + allow Escape to dismiss.
-  const anyModalOpen = showFebboxGuide || showSignInModal || showTraktModal || showSimklModal || showControlsModal;
+  const anyModalOpen = showSignInModal || showControlsModal;
   useEffect(() => {
     if (!anyModalOpen) return;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const handleEscape = (e) => {
       if (e.key === "Escape") {
-        setShowFebboxGuide(false);
         setShowSignInModal(false);
-        setShowTraktModal(false);
-        setShowSimklModal(false);
         setShowControlsModal(false);
       }
     };
@@ -698,16 +645,6 @@ export default function SettingsPage() {
     setActiveTab(tabId);
     requestAnimationFrame(() => {
       sectionsTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  };
-
-  const handleSaveCookie = () => {
-    setPreference("febboxCookie", cookieInput.trim());
-    toast({
-      type: "success",
-      title: "Febbox Cookie Saved",
-      message: "Your 4K streaming cookie has been updated.",
-      duration: 3000,
     });
   };
 
@@ -773,94 +710,17 @@ export default function SettingsPage() {
     });
   };
 
-  const handleConnectTrakt = (username) => {
-    const name = (username || "").trim();
-    if (!name) return;
-    setTraktUsername(name);
-    try {
-      localStorage.setItem("streamly_trakt", name);
-    } catch (error) {
-      logDebug("settings", "Trakt handle will not persist — storage unavailable.", { message: error?.message });
-    }
-    setShowTraktModal(false);
-    toast({
-      type: "success",
-      title: "Trakt Connected",
-      message: `Connected to Trakt account @${name}.`,
-    });
-  };
-
-  const handleDisconnectTrakt = () => {
-    setTraktUsername("");
-    try {
-      localStorage.removeItem("streamly_trakt");
-    } catch (error) {
-      logDebug("settings", "Trakt handle could not be cleared.", { message: error?.message });
-    }
-    setShowTraktModal(false);
-    toast({
-      type: "info",
-      title: "Trakt Disconnected",
-      message: "Your Trakt account was unlinked from this device.",
-    });
-  };
-
-  const handleConnectSimkl = (username) => {
-    const name = (username || "").trim();
-    if (!name) return;
-    setSimklUsername(name);
-    try {
-      localStorage.setItem("streamly_simkl", name);
-    } catch (error) {
-      logDebug("settings", "Simkl handle will not persist — storage unavailable.", { message: error?.message });
-    }
-    setShowSimklModal(false);
-    toast({
-      type: "success",
-      title: "Simkl Connected",
-      message: `Connected to Simkl account @${name}.`,
-    });
-  };
-
-  const handleDisconnectSimkl = () => {
-    setSimklUsername("");
-    try {
-      localStorage.removeItem("streamly_simkl");
-    } catch (error) {
-      logDebug("settings", "Simkl handle could not be cleared.", { message: error?.message });
-    }
-    setShowSimklModal(false);
-    toast({
-      type: "info",
-      title: "Simkl Disconnected",
-      message: "Your Simkl account was unlinked from this device.",
-    });
-  };
-
-  const handleClearCookie = () => {
-    setCookieInput("");
-    setPreference("febboxCookie", "");
-    logDebug("settings", "Febbox cookie cleared — VIP server removed from rotation.");
-    toast({
-      type: "info",
-      title: "Febbox Cookie Removed",
-      message: "4K VIP streaming is now disabled.",
-    });
-  };
-
   // A section shows when the active tab selects it ("All" shows everything)
   // AND the search filter matches its keywords.
   const visibleSection = (id, keywords) =>
     (activeTab === "all" || activeTab === id) && (!q || keywords.toLowerCase().includes(q));
 
   const sectionVisible = {
-    account: visibleSection("account", "account sign in trakt simkl list history shortcuts user"),
+    account: visibleSection("account", "account sign in list history shortcuts user"),
     appearance: visibleSection("appearance", "appearance theme episode style view logo trailer spoiler motion thumbnail"),
     playback: visibleSection("playback", "playback autoplay skip intro controls seek time subtitle language audio mute"),
     servers: visibleSection("servers", "server order lisbon nebula solara athens joy castle sakura canaias stream priority"),
     subtitles: visibleSection("subtitles", "subtitles font size color background blur preview style"),
-    ads: visibleSection("ads", "advertisements ads enable support"),
-    febbox: visibleSection("febbox", "febbox integration cookie token 4k streams"),
     notifications: visibleSection("notifications", "notifications alert toast popup banner"),
   };
   const nothingVisible = Object.values(sectionVisible).every((v) => !v);
@@ -1005,57 +865,6 @@ export default function SettingsPage() {
                           Sign In
                         </button>
                       )}
-                    </div>
-                  </div>
-
-                  {/* Connect Trakt & Simkl */}
-                  <div className="mt-2 pt-2 border-t border-white/[0.06] flex flex-col gap-1.5">
-                    {/* Trakt */}
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => setShowTraktModal(true)}
-                        className="flex-1 min-w-0 flex items-center gap-4 px-3 py-3.5 rounded-xl hover:bg-white/[0.04] text-white/80 transition-all text-left"
-                      >
-                        <div className="w-9 h-9 shrink-0 rounded-full bg-white/[0.06] flex items-center justify-center transition-colors">
-                          <TraktLogo />
-                        </div>
-                        <div className="flex flex-col items-start gap-0.5 text-left min-w-0">
-                          <span className="text-[14.5px] font-medium text-white/90">Connect Trakt</span>
-                          <span className="text-[13px] text-white/45 truncate">
-                            {traktUsername ? `Connected as @${traktUsername}` : "Sync your watchlist, history and progress from Trakt"}
-                          </span>
-                        </div>
-                      </button>
-                      <button
-                        onClick={() => setShowTraktModal(true)}
-                        className="px-4 py-2 text-xs font-semibold rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors shrink-0"
-                      >
-                        {traktUsername ? "Manage" : "Connect"}
-                      </button>
-                    </div>
-
-                    {/* Simkl */}
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => setShowSimklModal(true)}
-                        className="flex-1 min-w-0 flex items-center gap-4 px-3 py-3.5 rounded-xl hover:bg-white/[0.04] text-white/80 transition-all text-left"
-                      >
-                        <div className="w-9 h-9 shrink-0 rounded-full bg-white/[0.06] flex items-center justify-center transition-colors">
-                          <SimklLogo />
-                        </div>
-                        <div className="flex flex-col items-start gap-0.5 text-left min-w-0">
-                          <span className="text-[14.5px] font-medium text-white/90">Connect Simkl</span>
-                          <span className="text-[13px] text-white/45 truncate">
-                            {simklUsername ? `Connected as @${simklUsername}` : "Sync your watchlist, history and progress from Simkl"}
-                          </span>
-                        </div>
-                      </button>
-                      <button
-                        onClick={() => setShowSimklModal(true)}
-                        className="px-4 py-2 text-xs font-semibold rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors shrink-0"
-                      >
-                        {simklUsername ? "Manage" : "Connect"}
-                      </button>
                     </div>
                   </div>
 
@@ -1630,100 +1439,7 @@ export default function SettingsPage() {
               </section>
             )}
 
-            {/* ── 6. ADVERTISEMENTS SECTION ── */}
-            {sectionVisible.ads && (
-              <section id="ads" className="glass-card">
-                <div className="section-header">
-                  <h2 className="section-title">Advertisements</h2>
-                  <p className="section-subtitle">
-                    Manage how advertisements are displayed on the site.
-                  </p>
-                </div>
-
-                <div className="settings-list">
-                  <SettingRow
-                    title="Enable Advertisements"
-                    description="Ads help us keep Cinejoy free for everyone. Consider keeping them enabled to support the site."
-                  >
-                    <Toggle
-                      label="Enable Advertisements"
-                      checked={enableAds}
-                      onChange={(val) => setPreference("enableAds", val)}
-                    />
-                  </SettingRow>
-                </div>
-              </section>
-            )}
-
-            {/* ── 7. FEBBOX INTEGRATION SECTION ── */}
-            {sectionVisible.febbox && (
-              <section id="febbox" className="glass-card">
-                <div className="section-header flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <h2 className="section-title">Febbox Integration</h2>
-                    <div className="fem-guide-anchor">
-                      <button
-                        type="button"
-                        onClick={() => setShowFebboxGuide(true)}
-                        aria-label="How to get your token"
-                        className="fem-info-icon"
-                      >
-                        <CircleHelp className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <p className="section-subtitle mb-4">
-                  Import your UI cookie from febbox to get access to 4K Streams with no buffers and multiple audio tracks.
-                </p>
-
-                <div className="fem-token-row">
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-                    <div className="fem-input-wrap">
-                      <input
-                        type={showCookie ? "text" : "password"}
-                        value={cookieInput}
-                        onChange={(e) => setCookieInput(e.target.value)}
-                        placeholder="Paste your ui cookie here..."
-                        className="fem-token-input pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowCookie(!showCookie)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white p-1"
-                      >
-                        {showCookie ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleSaveCookie}
-                      disabled={!cookieInput.trim() || cookieInput === febboxCookie}
-                      className="fem-save-btn"
-                    >
-                      Save
-                    </button>
-                    {febboxCookie && (
-                      <button
-                        type="button"
-                        onClick={handleClearCookie}
-                        className="px-4 py-2.5 text-xs font-semibold rounded-xl bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 transition-colors whitespace-nowrap"
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                  {febboxCookie && (
-                    <div className="flex items-center gap-2 text-xs text-emerald-400 mt-1">
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Cookie active and authenticated</span>
-                    </div>
-                  )}
-                </div>
-              </section>
-            )}
-
-            {/* ── 8. IN-APP NOTIFICATIONS ── */}
+            {/* ── 6. IN-APP NOTIFICATIONS ── */}
             {sectionVisible.notifications && (
               <section id="notifications" className="glass-card">
                 <div className="section-header">
@@ -1827,202 +1543,6 @@ export default function SettingsPage() {
                   </button>
                 </div>
               </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Trakt Connection Modal */}
-      <AnimatePresence>
-        {showTraktModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="w-full max-w-md bg-[#13111c] border border-white/15 rounded-3xl p-6 shadow-2xl relative"
-            >
-              <button
-                onClick={() => setShowTraktModal(false)}
-                className="absolute right-5 top-5 p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/10"
-              >
-                <X className="w-5 h-5" />
-              </button>
-
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-2xl bg-[#ed1c24]/20 flex items-center justify-center text-[#ed1c24]">
-                  <TraktLogo className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-white">Connect Trakt</h3>
-                  <p className="text-xs text-white/50">Two-way sync for movies, episodes, and history.</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-white/70 mb-1.5">Trakt Username</label>
-                  <input
-                    id="trakt-input"
-                    type="text"
-                    defaultValue={traktUsername}
-                    placeholder="Enter your Trakt username..."
-                    className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm outline-none focus:border-white/30"
-                  />
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-white/[0.04] border border-white/5 text-xs text-white/60 leading-relaxed">
-                  Streamly will record watching progress, automatically track finished episodes, and retrieve your Trakt watchlist.
-                </div>
-
-                <div className="flex gap-3">
-                  {traktUsername && (
-                    <button
-                      type="button"
-                      onClick={handleDisconnectTrakt}
-                      className="py-2.5 px-4 rounded-xl bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 text-xs font-semibold"
-                    >
-                      Disconnect
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const val = document.getElementById("trakt-input")?.value?.trim();
-                      if (val) handleConnectTrakt(val);
-                    }}
-                    className="flex-1 py-2.5 rounded-xl bg-[#ed1c24] text-white hover:bg-[#d91920] text-sm font-bold shadow-lg"
-                  >
-                    Save Connection
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Simkl Connection Modal */}
-      <AnimatePresence>
-        {showSimklModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="w-full max-w-md bg-[#13111c] border border-white/15 rounded-3xl p-6 shadow-2xl relative"
-            >
-              <button
-                onClick={() => setShowSimklModal(false)}
-                className="absolute right-5 top-5 p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/10"
-              >
-                <X className="w-5 h-5" />
-              </button>
-
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-2xl bg-[#00c2ff]/20 flex items-center justify-center text-[#00c2ff]">
-                  <SimklLogo className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-white">Connect Simkl</h3>
-                  <p className="text-xs text-white/50">Synchronize anime, movies, and TV show watchlists.</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-white/70 mb-1.5">Simkl Username / ID</label>
-                  <input
-                    id="simkl-input"
-                    type="text"
-                    defaultValue={simklUsername}
-                    placeholder="Enter your Simkl handle..."
-                    className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm outline-none focus:border-white/30"
-                  />
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-white/[0.04] border border-white/5 text-xs text-white/60 leading-relaxed">
-                  Automatic scrobbling ensures everything you watch on Streamly updates on your Simkl profile instantly.
-                </div>
-
-                <div className="flex gap-3">
-                  {simklUsername && (
-                    <button
-                      type="button"
-                      onClick={handleDisconnectSimkl}
-                      className="py-2.5 px-4 rounded-xl bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 text-xs font-semibold"
-                    >
-                      Disconnect
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const val = document.getElementById("simkl-input")?.value?.trim();
-                      if (val) handleConnectSimkl(val);
-                    }}
-                    className="flex-1 py-2.5 rounded-xl bg-[#00c2ff] text-black hover:bg-[#00ade4] text-sm font-bold shadow-lg"
-                  >
-                    Save Connection
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Febbox Extraction Guide Modal */}
-      <AnimatePresence>
-        {showFebboxGuide && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="w-full max-w-lg bg-[#13111c] border border-white/15 rounded-3xl p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto"
-            >
-              <button
-                onClick={() => setShowFebboxGuide(false)}
-                className="absolute right-5 top-5 p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/10"
-              >
-                <X className="w-5 h-5" />
-              </button>
-
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-400">
-                  <KeyRound className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-white">How to Get Your Febbox Token</h3>
-                  <p className="text-xs text-white/50">Follow these steps to enable ultra-fast 4K streaming.</p>
-                </div>
-              </div>
-
-              <div className="space-y-4 text-xs text-white/80 leading-relaxed">
-                <div className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/5 space-y-2">
-                  <div className="font-bold text-white text-sm">Step 1: Open Febbox</div>
-                  <p>Navigate to <a href="https://www.febbox.com" target="_blank" rel="noreferrer" className="text-emerald-400 underline">febbox.com</a> and make sure you are logged into your account.</p>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/5 space-y-2">
-                  <div className="font-bold text-white text-sm">Step 2: Copy your ui_cookie</div>
-                  <p>Press <code className="bg-white/10 px-1.5 py-0.5 rounded text-white">F12</code> to open Developer Tools, switch to the <b>Application</b> (or <b>Storage</b>) tab, expand <b>Cookies</b>, and copy the value of the cookie named <code className="bg-white/10 px-1.5 py-0.5 rounded text-white">ui</code>.</p>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/5 space-y-2">
-                  <div className="font-bold text-white text-sm">Step 3: Paste and Save</div>
-                  <p>Paste your cookie token into the input box on this Settings page and click <b>Save</b>.</p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setShowFebboxGuide(false)}
-                  className="w-full py-2.5 rounded-xl bg-white text-black hover:bg-gray-200 text-sm font-bold transition-colors"
-                >
-                  Got it
-                </button>
-              </div>
             </motion.div>
           </div>
         )}

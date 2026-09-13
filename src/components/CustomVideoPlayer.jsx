@@ -4272,14 +4272,24 @@ const CustomVideoPlayer = ({
             {/* ═══ CONTROL ROW ════════════════════════════════════ */}
             <div className="streamly-player-control-row" onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: `${R.controlRowPad} ${R.padMedium} ${R.padMedium}`, pointerEvents: "auto" }}>
               {/* Left cluster — Player UI Studio zone: bottomLeft */}
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
                 {zoneKeys("bottomLeft").map((key) => (
                   <React.Fragment key={key}>{barControl(key, "bar")}</React.Fragment>
                 ))}
               </div>
 
+              {/* Center cluster — Player UI Studio zone: bottomCenter.
+                  Compact icon shapes only, so the middle never crowds the bar. */}
+              {zoneKeys("bottomCenter").length > 0 && (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 2, flex: "1 1 auto", minWidth: 0, overflow: "hidden", padding: "0 4px" }}>
+                  {zoneKeys("bottomCenter").map((key) => (
+                    <React.Fragment key={key}>{barControl(key, "icon")}</React.Fragment>
+                  ))}
+                </div>
+              )}
+
               {/* Right cluster — Player UI Studio zone: bottomRight */}
-              <div style={{ display: "flex", alignItems: "center", gap: isTouch ? 2 : 4 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: isTouch ? 2 : 4, flexShrink: 0 }}>
                 <input type="file" accept=".srt,.vtt" ref={subtitleInputRef} onChange={handleSubtitleUpload} style={{ display: "none" }} />
                 {zoneKeys("bottomRight").map((key) => (
                   <React.Fragment key={key}>{barControl(key, "bar")}</React.Fragment>

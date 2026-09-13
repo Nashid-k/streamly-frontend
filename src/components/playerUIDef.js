@@ -21,6 +21,7 @@ export const PLAYER_ZONES = [
   { id: "topLeft", label: "Top left", blurb: "Floating cluster over the video" },
   { id: "topRight", label: "Top right", blurb: "Floating cluster over the video" },
   { id: "bottomLeft", label: "Bottom left", blurb: "Left side of the control bar" },
+  { id: "bottomCenter", label: "Bottom center", blurb: "Middle of the control bar" },
   { id: "bottomRight", label: "Bottom right", blurb: "Right side of the control bar" },
   { id: "tray", label: "Hidden", blurb: "Menus only — off the bar" },
 ];
@@ -215,8 +216,10 @@ export function zoneOf(layout, key) {
 }
 
 /* Controls visible in a zone, in canonical order, honoring the
-   visibility toggles (default-on, same semantics as the player). */
+   visibility toggles (default-on, same semantics as the player).
+   The tray is not a visible zone — it always resolves empty. */
 export function controlsInZone(layout, visibility, zoneId) {
+  if (zoneId === "tray") return [];
   const resolved = resolveUILayout(layout);
   return PLAYER_CONTROL_ORDER.filter(
     (key) => resolved[key] === zoneId && visibility?.[key] !== false,

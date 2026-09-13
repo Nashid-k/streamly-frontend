@@ -118,14 +118,31 @@ export function PreferencesProvider({ children }) {
     logDebug("preferences", `theme applied: "${theme}". Accent-driven UI reads --accent-* vars.`, { theme });
   }, [preferences.theme]);
 
-  // `enableAds` currently gates no third-party slot yet — exposing it on
-  // <html> keeps the toggle observable (and future ad slots honest) instead
-  // of silently doing nothing.
+  // One-time cleanup of retired integrations (Trakt/Simkl handles, Ads and
+  // Febbox settings). Runs on boot so removed features leave no stale keys.
   useEffect(() => {
-    const enabled = preferences.enableAds !== false;
-    document.documentElement.dataset.adsEnabled = enabled ? "true" : "false";
-    logDebug("preferences", `ads ${enabled ? "enabled" : "disabled"}.`, { enabled });
-  }, [preferences.enableAds]);
+    const retired = [
+      "streamly_trakt",
+      "streamly_simkl",
+      "setting-enableAds",
+      "setting-febboxCookie",
+    ];
+    for (const key of retired) {
+      try {
+        if (localStorage.getItem(key) !== null) {
+          localStorage.removeItem(key);
+          logDebug("preferences", `Retired stale key "${key}".`, { key });
+        }
+      } catch (error) {
+        logDebug("preferences", `Could not retire stale key "${key}".`, { key, message: error?.message });
+      }
+    }
+    try {
+      delete document.documentElement.dataset.adsEnabled;
+    } catch {
+      // Non-DOM test environments may not support dataset mutation.
+    }
+  }, []);
 
   const value = useMemo(
     () => ({ ...preferences, setPreference, setPlayerControl }),

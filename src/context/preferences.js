@@ -60,10 +60,6 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   subtitleSize: 100,
   subtitleColor: "#ffffff",
   subtitleBgBlur: true,
-  // Ads
-  enableAds: true,
-  // Febbox
-  febboxCookie: "",
 });
 
 export const PreferencesContext = createContext(null);

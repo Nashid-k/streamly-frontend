@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import SettingsPage from "../pages/SettingsPage";
 import { PreferencesProvider } from "../context/PreferencesContext";
@@ -22,14 +22,18 @@ describe("SettingsPage", () => {
       </MemoryRouter>
     );
 
-    // All 7 sections are present in the DOM
+    // All 6 sections are present in the DOM
     expect(screen.getByRole("heading", { name: /^account$/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /^appearance$/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /^playback$/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /^server order$/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /^subtitles$/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /^advertisements$/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /^febbox integration/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^notifications$/i })).toBeInTheDocument();
+    // Removed integrations stay gone.
+    expect(screen.queryByRole("heading", { name: /^advertisements$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /^febbox integration/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/connect trakt/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/connect simkl/i)).not.toBeInTheDocument();
 
     // Key settings and controls
     expect(screen.getByText(/^theme$/i)).toBeInTheDocument();
@@ -38,7 +42,7 @@ describe("SettingsPage", () => {
     expect(screen.getByText(/^use image logos$/i)).toBeInTheDocument();
     expect(screen.getByText(/^auto skip intro$/i)).toBeInTheDocument();
     expect(screen.getByText(/^default language$/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/paste your ui cookie here/i)).toBeInTheDocument();
+    expect(screen.getByText(/^player ui studio$/i)).toBeInTheDocument();
   });
 
   it("can toggle switches and segmented buttons", () => {
@@ -92,9 +96,12 @@ describe("SettingsPage", () => {
       </MemoryRouter>
     );
 
-    for (const name of ["All", "Account", "Appearance", "Playback", "Servers", "Subtitles", "Ads", "Febbox", "Notifications"]) {
+    for (const name of ["All", "Account", "Appearance", "Playback", "Servers", "Subtitles", "Notifications"]) {
       expect(screen.getByRole("button", { name })).toBeInTheDocument();
     }
+    // Removed integrations have no tabs.
+    expect(screen.queryByRole("button", { name: "Ads" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Febbox" })).not.toBeInTheDocument();
     // All is active by default — every section renders.
     expect(screen.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("heading", { name: /^notifications$/i })).toBeInTheDocument();
@@ -145,8 +152,7 @@ describe("SettingsPage", () => {
     expect(screen.getByRole("option", { name: /lisbon, priority 2/i })).toBeInTheDocument();
   });
 
-  it("disconnects Trakt without a bogus connected toast", () => {
-    localStorage.setItem("streamly_trakt", "moviebuff");
+  it("opens the player UI studio with 5 presets and a live preview", () => {
     render(
       <MemoryRouter initialEntries={["/settings"]}>
         <PreferencesProvider>
@@ -157,12 +163,62 @@ describe("SettingsPage", () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText(/connected as @moviebuff/i)).toBeInTheDocument();
-    // Trakt's Manage button comes first in the DOM (Simkl's follows).
-    fireEvent.click(screen.getAllByRole("button", { name: "Manage" })[0]);
-    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+    fireEvent.click(screen.getByRole("button", { name: /open studio/i }));
+    const studio = within(screen.getByRole("dialog", { name: /player ui studio/i }));
 
-    expect(localStorage.getItem("streamly_trakt")).toBeNull();
-    expect(screen.queryByText(/connected as @moviebuff/i)).not.toBeInTheDocument();
+    // All five presets plus the live subtitle preview render.
+    for (const name of ["Classic", "Minimal", "Compact", "Theater", "Studio"]) {
+      expect(studio.getByRole("radio", { name: new RegExp(`^${name}`) })).toBeInTheDocument();
+    }
+    expect(studio.getByRole("radio", { name: /^classic/i })).toHaveAttribute("aria-checked", "true");
+    expect(studio.getByText(/here is what your subtitles will look like/i)).toBeInTheDocument();
+    // Every placeable control has a zone menu, including the new bottom center.
+    expect(studio.getByLabelText(/play \/ pause placement/i)).toBeInTheDocument();
+  });
+
+  it("applies a studio preset to visibility, layout and storage", () => {
+    render(
+      <MemoryRouter initialEntries={["/settings"]}>
+        <PreferencesProvider>
+          <ToastProvider>
+            <SettingsPage />
+          </ToastProvider>
+        </PreferencesProvider>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /open studio/i }));
+    fireEvent.click(screen.getByRole("radio", { name: /^minimal/i }));
+
+    expect(localStorage.getItem("setting-playerUIPreset")).toBe('"minimal"');
+    const layout = JSON.parse(localStorage.getItem("setting-playerUILayout"));
+    expect(layout.playPause).toBe("bottomLeft");
+    expect(layout.fullscreen).toBe("bottomRight");
+    const controls = JSON.parse(localStorage.getItem("setting-playerControls"));
+    expect(controls.playPause).toBe(true);
+    expect(controls.jumpForwardBackward).toBe(false);
+    expect(screen.getByRole("radio", { name: /^minimal/i })).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("moves a control between zones and drops to a custom preset", () => {
+    render(
+      <MemoryRouter initialEntries={["/settings"]}>
+        <PreferencesProvider>
+          <ToastProvider>
+            <SettingsPage />
+          </ToastProvider>
+        </PreferencesProvider>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /open studio/i }));
+    // Move Play/Pause to the bottom center via its placement menu.
+    fireEvent.change(screen.getByLabelText(/play \/ pause placement/i), {
+      target: { value: "bottomCenter" },
+    });
+
+    const layout = JSON.parse(localStorage.getItem("setting-playerUILayout"));
+    expect(layout.playPause).toBe("bottomCenter");
+    expect(localStorage.getItem("setting-playerUIPreset")).toBe('"custom"');
   });
 });
