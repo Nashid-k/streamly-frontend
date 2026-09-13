@@ -1,0 +1,43 @@
+name: Keep backend warm
+
+# The merged backend (API + stream router) now runs on the same Vercel
+# deployment as the SPA, so there are no Render services to wake anymore.
+# This action merely pings the live deployment every 10 minutes to keep the
+# serverless function warm and "instant" for users. Both URLs below map to the
+# SAME function via vercel.json (`/api` and `/health` rewrites).
+
+# Tips:
+#  - The cron cadence (10 min) is comfortably under typical idle timeouts.
+#  - Replace the base URL below if the Vercel project is renamed.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: false
+
+jobs:
+  ping-backends:
+    name: Ping API + stream service
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Wake API backend
+        run: |
+          curl -sS --fail --max-time 30 \
+            -H "User-Agent: keepalive" \
+            "https://streamlyvercelin.vercel.app/health" \
+            || echo "::warning::API health ping failed (may be mid cold-start)"
+
+      - name: Wake stream router
+        run: |
+          curl -sS --fail --max-time 30 \
+            -H "User-Agent: keepalive" \
+            "https://streamlyvercelin.vercel.app/api/health" \
+            || echo "::warning::Stream health ping failed (may be mid cold-start)"

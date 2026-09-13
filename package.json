@@ -1,0 +1,39 @@
+{
+  "name": "streamly",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "vitest run",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.102.1",
+    "@vitejs/plugin-react": "^6.0.4",
+    "framer-motion": "^13.1.0",
+    "hls.js": "^1.7.2",
+    "lucide-react": "^1.31.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-helmet-async": "^3.0.0",
+    "react-router-dom": "^7.18.2",
+    "slugify": "^1.6.9",
+    "vite": "^8.2.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "autoprefixer": "^10.5.5",
+    "jsdom": "^30.0.1",
+    "oxlint": "^1.75.0",
+    "postcss": "^8.5.28",
+    "tailwindcss": "^4.3.3",
+    "vitest": "^5.0.0"
+  }
+}

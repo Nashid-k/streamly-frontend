@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#050505" />
+    <meta name="description" content="Streamly - Your favorite movies and TV shows in one place." />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    
+    <!-- Preconnect for faster image loading and fonts -->
+    <link rel="preconnect" href="https://image.tmdb.org" crossorigin />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Load fonts directly from HTML instead of @import in CSS for faster FCP -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <title>Streamly</title>
+    <link rel="manifest" href="/manifest.json" />
+    <script>
+      // Clear stale SW caches on new deploy (no reload — let ErrorBoundary handle it)
+      (function() {
+        var V = 'v18.0';
+        var prev = null;
+        try { prev = localStorage.getItem('_sv'); } catch(e) {}
+        if (prev !== V) {
+          try {
+            localStorage.setItem('_sv', V);
+            var tasks = [];
+            if ('caches' in window) tasks.push(caches.keys().then(function(n) { n.forEach(function(k) { caches.delete(k); }); }));
+            if ('serviceWorker' in navigator) tasks.push(navigator.serviceWorker.getRegistrations().then(function(r) { r.forEach(function(x) { x.unregister(); }); }));
+            Promise.all(tasks).then(function() { window.location.reload(); });
+          } catch(e) {}
+        }
+      })();
+    </script>
+  <link rel="apple-touch-icon" href="/favicon.svg" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+    <script>
+      document.addEventListener('contextmenu', function(e) {
+        // Allow context menu only inside the video player container
+        if (!e.target.closest('#root')) return; 
+        // We will just let React handle the player context menu via its synthetic event.
+        // But to stop the native one everywhere else:
+      });
+      // Actually, a simpler way is to just block it completely in JS, and since React's onContextMenu runs before the native one (or we call preventDefault in React), we can just block it everywhere EXCEPT when default is prevented.
+      document.addEventListener('contextmenu', event => {
+        if (!event.defaultPrevented) {
+          event.preventDefault();
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,1568 @@
+import SEO from "../components/SEO";
+import slugify from "slugify";
+import ErrorBoundary from "../components/ErrorBoundary";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Play, ChevronLeft, ChevronRight, Check, Plus, Info, Calendar, Heart } from "lucide-react";
+import {
+  motion,
+  AnimatePresence,
+  useReducedMotion,
+} from "framer-motion";
+import { useAppAuth } from "../context/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { movieService } from "../api/movieService";
+import MovieCard from "../components/MovieCard";
+import ContinueWatchingRail from "../components/ContinueWatchingRail";
+import AmbientBackground from "../components/AmbientBackground";
+import HeroTitleLogo from "../components/HeroTitleLogo";
+import RatingsCluster from "../components/RatingsCluster";
+
+import RailArrow from "../components/RailArrow";
+import useRailArrows from "../hooks/useRailArrows";
+import LeavingSoonBanner from "../components/LeavingSoonBanner";
+import GenreShowcase from "../components/GenreShowcase";
+import { detectLeavingSoon, buildUpcoming } from "../utils/releaseCalendar";
+import { asArray, EMPTY_ARRAY } from "../utils";
+import { logEmptyData, logError, reportQueryError } from "../utils/debugLogger";
+
+// Shared content-type predicates. Anime is merged into Movies/TV Shows by
+// whether each title is a movie or a series, so both stay discoverable
+// without a dedicated tab.
+const isSeriesLike = (m) =>
+  Boolean(
+    m.isSeries ||
+      String(m.id || "").startsWith("tmdb-tv-") ||
+      m.type === "tv" ||
+      (m.seasonsCount && m.seasonsCount > 0),
+  );
+const isAnime = (m) =>
+  Boolean(
+    m.genres?.includes("Animation") ||
+      (m.tags && m.tags.some((t) => t.toLowerCase().includes("anime"))),
+  );
+
+// ... (skipping MovieRail and Top10Rail for brevity, they remain unchanged)
+const FadeInSection = ({ children, delay = 0 }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 30 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true, margin: "-50px" }}
+    transition={{ duration: 0.6, delay, ease: "easeOut" }}
+  >
+    {children}
+  </motion.div>
+);
+
+const MovieRail = React.memo(
+  function MovieRail({ category, railIndex: _railIndex = 0 }) {
+    const railRef = useRef(null);
+    const containerRef = useRef(null);
+    // Windowing: render the rail's cards only while it is near the viewport.
+    // Rails scrolled far away unmount (releasing their DOM + decoded images),
+    // keeping total Home memory bounded no matter how long the page is.
+    const [inView, setInView] = useState(false);
+    const scrollPosRef = useRef(0);
+    const isDynamicRail =
+      category.name === "Continue Watching" ||
+      category.name === "My List" ||
+      category.name === "Upcoming" ||
+      category.name === "Upcoming Movies" ||
+      category.name === "Upcoming TV Shows" ||
+      category.name === "Upcoming Anime" ||
+      category.name === "Releases This Month" ||
+      category.name === "Coming This Month" ||
+      category.name.startsWith("Because you watched");
+
+    useEffect(() => {
+      if (!("IntersectionObserver" in window)) {
+        setInView(true);
+        return undefined;
+      }
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          const visible = entry.isIntersecting;
+          // Keep the horizontal scroll position across unmount/remount cycles
+          if (!visible && railRef.current) {
+            scrollPosRef.current = railRef.current.scrollLeft;
+          }
+          setInView(visible);
+        },
+        // Generous band (±2200px) so remounting happens well before the rail
+        // is actually on screen — no visible pop-in while scrolling.
+        { rootMargin: "2200px 0px 2200px 0px" },
+      );
+      if (containerRef.current) {
+        observer.observe(containerRef.current);
+      }
+      return () => observer.disconnect();
+    }, []);
+
+    // Restore horizontal position after the rail is windowed back in
+    useEffect(() => {
+      if (inView && railRef.current && scrollPosRef.current > 0) {
+        railRef.current.scrollLeft = scrollPosRef.current;
+      }
+    }, [inView]);
+
+    const { canScrollLeft, canScrollRight, refresh } = useRailArrows(railRef, {
+      enabled: inView,
+    });
+
+    const [visibleCount, setVisibleCount] = useState(15);
+    const inThrottle = useRef(false);
+    const throttleTimeoutRef = useRef(null);
+
+    useEffect(() => {
+      setVisibleCount(15);
+      if (railRef.current) {
+        railRef.current.scrollLeft = 0;
+      }
+    }, [category.name]);
+
+    const handleScroll = (e) => {
+      if (inThrottle.current) return;
+      const { scrollLeft, clientWidth, scrollWidth } = e.target;
+      if (scrollLeft + clientWidth >= scrollWidth - 400) {
+        setVisibleCount((prev) =>
+          prev >= category.movies.length
+            ? prev
+            : Math.min(prev + 10, category.movies.length),
+        );
+      }
+      inThrottle.current = true;
+      if (throttleTimeoutRef.current) clearTimeout(throttleTimeoutRef.current);
+      throttleTimeoutRef.current = setTimeout(() => (inThrottle.current = false), 150);
+      refresh();
+    };
+
+    const scroll = (dir) => {
+      if (railRef.current) {
+        const clientWidth = railRef.current.clientWidth;
+        const scrollAmount =
+          clientWidth > 800 ? clientWidth * 0.8 : clientWidth * 0.9;
+        railRef.current.scrollBy({
+          left: dir === "left" ? -scrollAmount : scrollAmount,
+          behavior: "smooth",
+        });
+        refresh();
+      }
+    };
+
+    if (!category?.movies || category.movies.length === 0) return null;
+
+    return (
+      <div
+        ref={containerRef}
+        className="movie-rail-wrapper"
+        style={{ position: "relative" }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "baseline",
+            marginBottom: "0.25rem",
+            paddingLeft: "0.25rem",
+          }}
+        >
+          <h3
+            className={`rail-title${isDynamicRail ? " rail-title--dynamic" : ""}${category.name.startsWith("Because you watched") ? " rail-title--because" : ""}`}
+            style={{
+              fontSize: "20px",
+              fontWeight: 600,
+              margin: 0,
+              letterSpacing: "-0.02em",
+              color: "#ffffff",
+            }}
+          >
+            {category.name}
+          </h3>
+          {!isDynamicRail && (
+            <Link
+              to={`/category/${encodeURIComponent(category.name)}`}
+              state={{ movies: category.movies, name: category.name }}
+              style={{
+                fontSize: "0.72rem",
+                color: "rgba(255,255,255,0.35)",
+                textDecoration: "none",
+                fontWeight: 500,
+                padding: "2px 8px",
+                borderRadius: "4px",
+                border: "none",
+                transition: "color 0.2s",
+                background: "transparent",
+              }}
+            >
+              Show all ›
+            </Link>
+          )}
+        </div>
+
+        {inView && (
+          <>
+            {canScrollLeft && <RailArrow dir="left" onClick={() => scroll("left")} />}
+            {canScrollRight && <RailArrow dir="right" onClick={() => scroll("right")} />}
+
+            <div
+              ref={railRef}
+              className="movie-rail"
+              onScroll={handleScroll}
+              style={{
+                display: "flex",
+                gap: "1.5rem",
+                WebkitOverflowScrolling: "touch",
+                overscrollBehaviorX: "contain",
+                overflowX: "auto",
+                scrollbarWidth: "none",
+                padding: "0.75rem 0.5rem",
+              }}
+            >
+              {(Array.isArray(category.movies) ? category.movies : []).slice(0, visibleCount).map((movie, i) => (
+                <motion.div
+                  key={`${movie.id}-${i}`}
+                  initial={{ opacity: 0, y: 10 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-10px" }}
+                  transition={{
+                    duration: 0.35,
+                    delay: Math.min((i % 10) * 0.03, 0.15),
+                    ease: "easeOut",
+                  }}
+                  style={{ flexShrink: 0 }}
+                >
+                  <div className="movie-rail-item">
+                    <MovieCard movie={movie} />
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  },
+  (prev, next) =>
+    prev.category.name === next.category.name &&
+    prev.category.movies === next.category.movies,
+);
+
+const Top10Rail = React.memo(
+  function Top10Rail({ movies, filter, railIndex = 0 }) {
+    const railRef = useRef(null);
+    const containerRef = useRef(null);
+    // Windowing identical to MovieRail — unmount when far offscreen
+    const [inView, setInView] = useState(false);
+    const scrollPosRef = useRef(0);
+    const top10 = movies.slice(0, 10);
+
+    useEffect(() => {
+      if (!("IntersectionObserver" in window)) {
+        setInView(true);
+        return undefined;
+      }
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          const visible = entry.isIntersecting;
+          if (!visible && railRef.current) {
+            scrollPosRef.current = railRef.current.scrollLeft;
+          }
+          setInView(visible);
+        },
+        { rootMargin: "2200px 0px 2200px 0px" },
+      );
+      if (containerRef.current) {
+        observer.observe(containerRef.current);
+      }
+      return () => observer.disconnect();
+    }, []);
+
+    const { canScrollLeft, canScrollRight, refresh } = useRailArrows(railRef, {
+      enabled: inView,
+    });
+
+    // Restore horizontal position after the rail is windowed back in
+    useEffect(() => {
+      if (inView && railRef.current && scrollPosRef.current > 0) {
+        railRef.current.scrollLeft = scrollPosRef.current;
+      }
+    }, [inView]);
+
+    useEffect(() => {
+      if (railRef.current) {
+        railRef.current.scrollLeft = 0;
+        refresh();
+      }
+    }, [filter, refresh]);
+
+    const scroll = (dir) => {
+      if (railRef.current) {
+        const clientWidth = railRef.current.clientWidth;
+        const scrollAmount =
+          clientWidth > 800 ? clientWidth * 0.8 : clientWidth * 0.9;
+        railRef.current.scrollBy({
+          left: dir === "left" ? -scrollAmount : scrollAmount,
+          behavior: "smooth",
+        });
+        refresh();
+      }
+    };
+
+    if (top10.length === 0) return null;
+
+    return (
+      <div
+        ref={containerRef}
+        className="movie-rail-wrapper"
+        style={{ position: "relative" }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "baseline",
+            marginBottom: "0.25rem",
+            paddingLeft: "0.25rem",
+          }}
+        >
+        <h3
+          style={{
+            fontSize: "1.1rem",
+            fontWeight: 700,
+            margin: 0,
+            letterSpacing: "-0.02em",
+          }}
+        >
+          <span style={{ background: "var(--accent-gradient)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", marginRight: "6px" }}>Top 10</span>
+          {filter === "series" || filter === "tv shows"
+            ? "TV Shows"
+            : filter === "movies"
+              ? "Movies"
+              : "Today"}
+        </h3>
+        </div>
+
+        {inView && (
+          <>
+            {canScrollLeft && <RailArrow dir="left" onClick={() => scroll("left")} />}
+            {canScrollRight && <RailArrow dir="right" onClick={() => scroll("right")} />}
+
+            <div
+              ref={railRef}
+              className="movie-rail"
+              style={{
+                display: "flex",
+                gap: "1.5rem",
+                WebkitOverflowScrolling: "touch",
+                overscrollBehaviorX: "contain",
+                overflowX: "auto",
+                scrollbarWidth: "none",
+                padding: "0.75rem 0.5rem",
+              }}
+            >
+              {top10.map((movie, i) => (
+                <motion.div
+                  key={`top10-${movie.id}`}
+                  initial={{ opacity: 0, x: 30 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true, margin: "-10px" }}
+                  transition={{
+                    duration: 0.5,
+                    delay: (railIndex % 4) * 0.15 + i * 0.05,
+                    ease: "easeOut",
+                  }}
+                  style={{ flexShrink: 0 }}
+                >
+                  <div
+                    className="movie-rail-item"
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: "0.35rem",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <span
+                      className="top10-number"
+                      style={{
+                        display: "block",
+                        whiteSpace: "nowrap",
+                        lineHeight: 1,
+                        fontWeight: 900,
+                        letterSpacing: "-0.04em",
+                        fontSize: "clamp(1.2rem, 2.2vw, 1.85rem)",
+                        pointerEvents: "none",
+                        userSelect: "none",
+                        color:
+                          i === 0
+                            ? "rgba(251,191,36,0.9)"
+                            : i === 1
+                              ? "rgba(180,192,205,0.85)"
+                              : i === 2
+                                ? "rgba(201,124,74,0.85)"
+                                : "rgba(255,255,255,0.35)",
+                        WebkitTextStroke:
+                          "1px " +
+                          (i === 0
+                            ? "rgba(251,191,36,0.5)"
+                            : i === 1
+                              ? "rgba(180,192,205,0.4)"
+                              : i === 2
+                                ? "rgba(201,124,74,0.45)"
+                                : "rgba(255,255,255,0.14)"),
+                        textShadow: "0 2px 16px rgba(0,0,0,0.6)",
+                      }}
+                      aria-hidden="true"
+                    >
+                      {i + 1}
+                    </span>
+                    <div style={{ width: "100%", flexShrink: 0 }}>
+                      <MovieCard movie={movie} />
+                    </div>
+                  </div>
+                </motion.div>
+              ))}            </div>
+          </>
+        )}
+      </div>
+    );
+  },
+  (prev, next) => prev.movies === next.movies && prev.filter === next.filter,
+);
+
+export default function Home({
+  filter = "all",
+  title = "Trending Across Platforms",
+}) {
+  const [featuredIndex, setFeaturedIndex] = useState(0);
+  const navigate = useNavigate();
+  const reduceMotion = useReducedMotion();
+  const [visibleCatCount, setVisibleCatCount] = useState(4);
+  const [activeGenre, setActiveGenre] = useState("All");
+  const [activePlatform, setActivePlatform] = useState("all");
+  const { continueWatching, myList, isInList, toggleMyList } = useAppAuth();
+
+  const {
+    data: featuredData,
+    isLoading: featuredLoading,
+    isError: featuredError,
+    error: featuredQueryError,
+    refetch: refetchFeatured,
+  } = useQuery({
+    queryKey: ["featuredMovies"],
+    queryFn: movieService.getFeaturedMovies,
+  });
+
+  const {
+    data: categoriesData,
+    isLoading: catsLoading,
+    isError: categoriesError,
+    error: categoriesQueryError,
+    refetch: refetchCategories,
+  } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () => movieService.getCategories("all"),
+  });
+
+  const { data: airingData, error: airingError } = useQuery({
+    queryKey: ["airing-this-week"],
+    queryFn: () => movieService.getAiringThisWeek("all"),
+    staleTime: 1000 * 60 * 5,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: trendingData, error: trendingError } = useQuery({
+    queryKey: ["trending-this-week"],
+    queryFn: () => movieService.getTrendingThisWeek("all"),
+    staleTime: 1000 * 60 * 5,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: top10Data, error: top10Error } = useQuery({
+    queryKey: ["top10"],
+    queryFn: () => movieService.getTop10("all"),
+    staleTime: 1000 * 60 * 5,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: popularData, error: popularError } = useQuery({
+    queryKey: ["popular"],
+    queryFn: () => movieService.getPopular(),
+    staleTime: 1000 * 60 * 10,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: topRatedData, error: topRatedError } = useQuery({
+    queryKey: ["topRated"],
+    queryFn: () => movieService.getTopRated(),
+    staleTime: 1000 * 60 * 10,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: nowPlayingData, error: nowPlayingError } = useQuery({
+    queryKey: ["nowPlaying"],
+    queryFn: () => movieService.getNowPlaying(),
+    staleTime: 1000 * 60 * 10,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  // ── Data-failure diagnostics ──────────────────────────────────────────
+  // Every silent empty rail on Home used to be invisible in the console.
+  // Log each failed query (with key + HTTP status) and each query that
+  // succeeded but returned nothing usable, so "no data" is always traceable.
+  // NOTE: `loading` is declared here (before these effects) — referencing it
+  // earlier in the component body throws "Cannot access before initialization".
+  const loading = featuredLoading || catsLoading;
+
+  useEffect(() => {
+    if (featuredQueryError) reportQueryError("HomePage", ["featuredMovies"], featuredQueryError, { filter });
+    if (categoriesQueryError) reportQueryError("HomePage", ["categories"], categoriesQueryError, { filter });
+    if (airingError) reportQueryError("HomePage", ["airing-this-week"], airingError, { filter });
+    if (trendingError) reportQueryError("HomePage", ["trending-this-week"], trendingError, { filter });
+    if (top10Error) reportQueryError("HomePage", ["top10"], top10Error, { filter });
+    if (popularError) reportQueryError("HomePage", ["popular"], popularError, { filter });
+    if (topRatedError) reportQueryError("HomePage", ["topRated"], topRatedError, { filter });
+    if (nowPlayingError) reportQueryError("HomePage", ["nowPlaying"], nowPlayingError, { filter });
+  }, [featuredQueryError, categoriesQueryError, airingError, trendingError, top10Error, popularError, topRatedError, nowPlayingError, filter]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (!featuredData || asArray(featuredData).length === 0) {
+      logEmptyData("HomePage", "featuredMovies is empty — hero shows fallback. Check /trending/all/week.", { filter });
+    }
+    if (!categoriesData || asArray(categoriesData).length === 0) {
+      logEmptyData("HomePage", "categories is empty — rails show fallback. Check /trending/movie/week + /trending/tv/week.", { filter });
+    }
+  }, [loading, featuredData, categoriesData, filter]);
+
+  const rawCategories = asArray(categoriesData);
+  const featuredMovies = useMemo(
+    () => {
+      try {
+        return featuredData
+          ? asArray(featuredData).filter(Boolean)
+          : EMPTY_ARRAY;
+      } catch (e) {
+        logError("HomePage", "featuredMovies memo failed — hero falls back to empty.", e);
+        return EMPTY_ARRAY;
+      }
+    },
+    [featuredData],
+  );
+
+  useEffect(() => {
+    let inThrottle;
+    const handleScroll = () => {
+      if (!inThrottle) {
+        if (
+          window.innerHeight + window.scrollY >=
+          document.body.offsetHeight - 800
+        ) {
+          setVisibleCatCount((prev) => {
+            // Don't load more than what we have (#27 fix)
+            const maxCategories = (rawCategories?.length || 0) + 4; // +4 for dynamic rails
+            return Math.min(prev + 3, maxCategories);
+          });
+        }
+        inThrottle = true;
+        setTimeout(() => (inThrottle = false), 200);
+      }
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [rawCategories?.length]);
+
+  const [isHeroHovered, setIsHeroHovered] = useState(false);
+  const isHeroHoveredRef = useRef(false);
+  // Interval logic moved below totalFeatured
+
+  useEffect(() => {
+    // Reset visible count and featured index when filter changes (#7 fix)
+    setVisibleCatCount(4);
+    setActiveGenre("All");
+    setActivePlatform("all");
+    setFeaturedIndex(0);
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [filter]);
+
+  const categories = useMemo(() => {
+    try {
+    // 1. Collect all unique movies for dynamic rails
+    const allUniqueMovies = new Map();
+    for (const cat of asArray(rawCategories)) {
+      for (const m of (Array.isArray(cat.movies) ? cat.movies : [])) {
+        if (m && m.id && !allUniqueMovies.has(m.id)) allUniqueMovies.set(m.id, m);
+      }
+    }
+    let allMovies = Array.from(allUniqueMovies.values());
+
+    // Apply base tab filter to allMovies
+    if (filter === "series" || filter === "tv shows")
+      allMovies = allMovies.filter((m) => m.isSeries);
+    else if (filter === "movies") allMovies = allMovies.filter((m) => !m.isSeries);
+
+    const getMoviesByLanguage = (lang) => {
+      const regex = new RegExp(lang, "i");
+      return allMovies
+        .filter(
+          (m) =>
+            (m.audioLanguages &&
+              m.audioLanguages.some((l) => l.match(regex))) ||
+            (m.languages && m.languages.some((l) => l.match(regex))) ||
+            (m.title && m.title.match(regex)),
+        )
+        .sort((a, b) => (b.imdbRating || 0) - (a.imdbRating || 0));
+    };
+
+    // 2. Generate dynamic discovery rails (authentic Netflix/Prime pattern):
+    //    New & Popular on Home, and anime split into Movies vs TV Shows,
+    //    interleaved with the regional rails below.
+    let dynamicRails = [];
+    if (activeGenre === "All" && activePlatform === "all") {
+      if (filter === "all") {
+        // New & Popular — newest releases first, highest-rated within a year.
+        const fresh = allMovies
+          .filter((m) => !!m.releaseYear)
+          .sort(
+            (a, b) =>
+              b.releaseYear - a.releaseYear ||
+              (b.imdbRating || 0) - (a.imdbRating || 0),
+          )
+          .slice(0, 30);
+        if (fresh.length > 0)
+          dynamicRails.push({ name: "New & Popular", movies: fresh });
+      }
+
+      const isTV = filter === "series" || filter === "tv shows";
+      if (filter === "movies") {
+        const animeMovies = allMovies.filter(
+          (m) => isAnime(m) && !isSeriesLike(m),
+        );
+        if (animeMovies.length >= 4)
+          dynamicRails.push({ name: "Anime Movies", movies: animeMovies });
+      } else if (isTV) {
+        const animeSeries = allMovies.filter(
+          (m) => isAnime(m) && isSeriesLike(m),
+        );
+        if (animeSeries.length >= 4)
+          dynamicRails.push({ name: "Anime Series", movies: animeSeries });
+      }
+
+      const malayalam = getMoviesByLanguage("Malayalam");
+      const tamil = getMoviesByLanguage("Tamil");
+      const hindi = getMoviesByLanguage("Hindi");
+      const telugu = getMoviesByLanguage("Telugu");
+
+      if (malayalam.length >= 4)
+        dynamicRails.push({
+          name: isTV
+            ? "Malayalam TV Shows"
+            : "Critically Acclaimed Malayalam Movies",
+          movies: malayalam,
+        });
+      if (tamil.length >= 4)
+        dynamicRails.push({
+          name: isTV ? "Tamil TV Shows" : "Blockbuster Tamil Movies",
+          movies: tamil,
+        });
+      if (hindi.length >= 4)
+        dynamicRails.push({
+          name: isTV ? "Hindi TV Shows" : "Trending in Hindi",
+          movies: hindi,
+        });
+      if (telugu.length >= 4)
+        dynamicRails.push({
+          name: isTV ? "Telugu TV Shows" : "Popular Telugu Movies",
+          movies: telugu,
+        });
+    }
+
+    const standardCategories = [];
+    for (const cat of rawCategories) {
+      // Normalize every movie's source/sourceName from availablePlatforms
+      let filtered = (Array.isArray(cat.movies) ? cat.movies : []).filter(Boolean);
+      let dynamicName = cat.name;
+
+      if (filter === "series" || filter === "tv shows") {
+        filtered = filtered.filter((m) =>
+          Boolean(m.isSeries || String(m.id).startsWith("tmdb-tv-") || m.type === "tv" || (m.seasonsCount && m.seasonsCount > 0))
+        );
+        if (
+          !dynamicName.toLowerCase().includes("series") &&
+          !dynamicName.toLowerCase().includes("tv")
+        )
+          dynamicName = `${dynamicName} TV Shows`;
+      } else if (filter === "movies") {
+        filtered = filtered.filter((m) =>
+          !(m.isSeries || String(m.id).startsWith("tmdb-tv-") || m.type === "tv" || (m.seasonsCount && m.seasonsCount > 0))
+        );
+        if (!dynamicName.toLowerCase().includes("movie"))
+          dynamicName = `${dynamicName} Movies`;
+      }
+
+      if (activeGenre !== "All") {
+        const isRegional = ["Malayalam", "Tamil", "Hindi", "Telugu"].includes(
+          activeGenre,
+        );
+        filtered = filtered.filter((m) => {
+          if (isRegional) {
+            const regex = new RegExp(activeGenre, "i");
+            return (
+              (m.audioLanguages &&
+                m.audioLanguages.some((l) => l.match(regex))) ||
+              (m.languages && m.languages.some((l) => l.match(regex))) ||
+              (m.title && m.title.match(regex)) ||
+              (m.genres &&
+                m.genres.some((g) =>
+                  g.toLowerCase().includes(activeGenre.toLowerCase()),
+                ))
+            );
+          }
+          return (m.genres || []).some((g) =>
+            g.toLowerCase().includes(activeGenre.toLowerCase()),
+          );
+        });
+      }
+
+
+
+      if (
+        filter === "all" ||
+        filter === "series" ||
+        filter === "tv shows" ||
+        filter === "movies"
+      ) {
+        // Sort by rating descending for quality-first ordering
+        filtered = filtered.sort(
+          (a, b) => (b.imdbRating || 0) - (a.imdbRating || 0),
+        );
+      }
+
+      if (filtered.length > 0) {
+        standardCategories.push({ name: dynamicName, movies: filtered });
+      }
+    }
+
+    // 3. Interleave dynamic rails (New & Popular / Anime / Regional) with standard backend rails
+    const finalCategories = [];
+    let dynamicIdx = 0;
+
+    for (let i = 0; i < standardCategories.length; i++) {
+      finalCategories.push(standardCategories[i]);
+      // Insert a dynamic rail every 2 standard rails to distribute them beautifully
+      if ((i + 1) % 2 === 0 && dynamicIdx < dynamicRails.length) {
+        finalCategories.push(dynamicRails[dynamicIdx]);
+        dynamicIdx++;
+      }
+    }
+
+    // Append any remaining dynamic rails at the end
+    while (dynamicIdx < dynamicRails.length) {
+      finalCategories.push(dynamicRails[dynamicIdx]);
+      dynamicIdx++;
+    }
+
+    return finalCategories;
+    } catch (e) {
+      logError("HomePage", "categories memo failed — rails fall back to empty.", e, { filter });
+      return [];
+    }
+  }, [rawCategories, filter, activeGenre, activePlatform]);
+
+  // Shared predicates for the Top 10 / Trending / Airing rails
+  const isSeriesMovie = isSeriesLike;
+
+  const applyPageFilter = (list) => {
+    if (filter === "series" || filter === "tv shows")
+      return (list || []).filter(isSeriesMovie);
+    if (filter === "movies") return (list || []).filter((m) => !isSeriesMovie(m));
+    return Array.isArray(list) ? list : [];
+  };
+
+  // enrich a movie array: (No-op now since platforms are removed)
+  const enrichWithPlatforms = useCallback((movies) => {
+    return Array.isArray(movies) ? movies : [];
+  }, []);
+
+  // Real cross-platform Top 10 from the backend (ranked, not a client-side shuffle).
+
+  const trendingThisWeek = useMemo(
+    () => enrichWithPlatforms(applyPageFilter(asArray(trendingData)).slice(0, 20)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [trendingData, filter, enrichWithPlatforms],
+  );
+
+  const airingThisWeek = useMemo(
+    () => enrichWithPlatforms(applyPageFilter(asArray(airingData)).slice(0, 20)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [airingData, filter, enrichWithPlatforms],
+  );
+
+  const popularNow = useMemo(
+    () => enrichWithPlatforms(applyPageFilter(asArray(popularData)).slice(0, 20)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [popularData, filter, enrichWithPlatforms],
+  );
+
+  const topRated = useMemo(
+    () => enrichWithPlatforms(applyPageFilter(asArray(topRatedData)).slice(0, 20)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [topRatedData, filter, enrichWithPlatforms],
+  );
+
+  const nowPlaying = useMemo(
+    () =>
+      enrichWithPlatforms(
+        applyPageFilter(
+          asArray(nowPlayingData).map((m) => ({ ...m, isSeries: false })),
+        ).slice(0, 20),
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [nowPlayingData, filter, enrichWithPlatforms],
+  );
+
+  // "Upcoming" — only PREMIERES: movies with a future release date plus series
+  // the backend explicitly flags isUpcoming (first-air date in the future).
+  // Ongoing shows whose *next episode* is in the future are excluded — those
+  // airings already live in the Airing rail. Mirrors how Netflix/JustWatch
+  // split "Coming Soon" (premieres) from ongoing new episodes. Rail rows are
+  // anchored to the current date (TODAY/TOMORROW/weekday/month-day chips),
+  // sorted soonest-first, given a 365-day window. The rail is NEVER padded
+  // with trending/airing titles: released films are not "coming soon", so if
+  // fewer premieres exist the rail simply shows what's genuinely upcoming.
+  const upcomingReleases = useMemo(() => {
+    const pool = [
+      ...asArray(airingData),
+      ...asArray(trendingData),
+      ...asArray(top10Data),
+      ...asArray(featuredData),
+      ...asArray(rawCategories).flatMap((c) => (Array.isArray(c.movies) ? c.movies : [])),
+    ];
+    const hasArtwork = (m) => m && (m.posterUrl || m.backdropUrl);
+    return applyPageFilter(buildUpcoming(pool, 365))
+      .filter((m) => !isSeriesMovie(m) || m.isUpcoming === true)
+      
+      .map(enrichWithPlatforms)
+      .filter(hasArtwork)
+      .slice(0, 12);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [airingData, trendingData, top10Data, featuredData, rawCategories, filter, enrichWithPlatforms]);
+
+  // Proximity-aware heading: surface when the next premiere drops instead of
+  // always saying a flat "Upcoming".
+  const upcomingTitle = (() => {
+    const scope =
+      filter === "series" || filter === "tv shows"
+        ? "TV Shows"
+        : filter === "movies"
+          ? "Movies"
+          : "";
+    const nearest = upcomingReleases[0];
+    if (nearest && nearest.daysUntil <= 7)
+      return scope ? `Coming This Week — ${scope}` : "Coming This Week";
+    if (nearest && nearest.daysUntil <= 30)
+      return scope ? `Coming This Month — ${scope}` : "Coming This Month";
+    return scope ? `Upcoming ${scope}` : "Upcoming";
+  })();
+
+  // Top 10 — backend rank first, padded to a full 10 per tab. The backend
+  // list is filtered per page type, which can leave fewer than 10 (e.g. only a
+  // handful of movies on the "Movies" tab). Pad the rest with tab-filtered
+  // trending/airing/upcoming entries, deduped by id so the real backend
+  // ranking keeps leading and the rank badges always count 1–10.
+  const top10Movies = useMemo(() => {
+    const ranked = enrichWithPlatforms(applyPageFilter(asArray(top10Data)))
+      
+      .slice(0, 10);
+    if (ranked.length >= 10) return ranked;
+
+    const seen = new Set(ranked.map((m) => m.id));
+    const padded = [...ranked];
+    for (const m of [...trendingThisWeek, ...airingThisWeek, ...upcomingReleases]) {
+      if (m && m.id && !seen.has(m.id)) {
+        seen.add(m.id);
+        padded.push(m);
+        if (padded.length >= 10) break;
+      }
+    }
+    return padded;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [top10Data, filter, trendingThisWeek, airingThisWeek, upcomingReleases, enrichWithPlatforms]);
+
+  const lastWatched =
+    continueWatching && continueWatching.length > 0
+      ? continueWatching[0]
+      : null;
+
+  // Real "Because you watched X" recommendations from the backend
+  const { data: rawRecommendations, error: recommendationsError } = useQuery({
+    queryKey: ["recommendations", lastWatched?.id],
+    queryFn: () => movieService.getRecommendations(lastWatched.id),
+    enabled: Boolean(lastWatched && lastWatched.id),
+    staleTime: 1000 * 60 * 10,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  useEffect(() => {
+    if (recommendationsError) {
+      reportQueryError("HomePage", ["recommendations", lastWatched?.id], recommendationsError, { lastWatchedId: lastWatched?.id });
+    }
+  }, [recommendationsError, lastWatched?.id]);
+  const recommendations = useMemo(
+    () => Array.isArray(rawRecommendations) ? enrichWithPlatforms(rawRecommendations) : [],
+    [rawRecommendations, enrichWithPlatforms],
+  );
+
+  const finalPool = useMemo(() => {
+    try {
+    let globalPool = [];
+    let regionalPool = [];
+    let recommendedPool = [];
+    let tabFilteredMovies = [];
+
+    // 1. Gather Global Featured
+    if (featuredMovies.length > 0) {
+      featuredMovies.forEach((fm) => {
+        if ((filter === "series" || filter === "tv shows") && fm.isSeries)
+          globalPool.push(fm);
+        else if (filter === "movies" && !fm.isSeries) globalPool.push(fm);
+        else if (filter === "all" || filter === "mylist")
+          globalPool.push(fm);
+      });
+    }
+
+    // 2. Gather Regional & Recommended from Categories
+    if (categories.length > 0) {
+      const allCategoryMovies = [];
+      categories.forEach((c) => {
+        (Array.isArray(c.movies) ? c.movies : []).filter(Boolean).forEach((m) => {
+          if (m.backdropUrl && !allCategoryMovies.find((p) => p.id === m.id)) {
+            allCategoryMovies.push(m);
+          }
+        });
+      });
+
+      // Filter for the current tab (Movies vs Series)
+      tabFilteredMovies = allCategoryMovies;
+      if (filter === "series" || filter === "tv shows")
+        tabFilteredMovies = tabFilteredMovies.filter((m) => m.isSeries);
+      if (filter === "movies")
+        tabFilteredMovies = tabFilteredMovies.filter((m) => !m.isSeries);
+
+      // Extract Regional Content (Tamil, Malayalam, Hindi, Telugu, etc.)
+      regionalPool = tabFilteredMovies.filter(
+        (m) =>
+          m.audioLanguages?.some((l) =>
+            l.match(/Tamil|Malayalam|Hindi|Telugu/i),
+          ) ||
+          m.languages?.some((l) => l.match(/Tamil|Malayalam|Hindi|Telugu/i)) ||
+          m.title.match(/Tamil|Malayalam|Hindi|Telugu/i),
+      );
+
+      // Extract Recommended Content based on User History
+      const lastWatchedGenres = lastWatched?.genres || [];
+      recommendedPool = tabFilteredMovies.filter(
+        (m) =>
+          m.genres?.some((g) => lastWatchedGenres.includes(g)) &&
+          m.imdbRating >= 7.5,
+      );
+
+      // Fallback for empty regional
+      if (regionalPool.length === 0) {
+        regionalPool = tabFilteredMovies.filter(
+          (m) => m.genres?.includes("Drama") && m.imdbRating >= 8.0,
+        );
+      }
+    }
+
+    // 3. Filter strictly for items with a title image (logoUrl).
+    //    New OTT releases often lack a TMDB logo, so also accept a
+    //    backdrop (hero renders an <h1> fallback in that case) — this is
+    //    what lets fresh titles like "DC"/"Blast" surface in the banner.
+    const bannerReady = (m) =>
+      m.logoUrl || m.backdropUrl || m.posterUrl || m.poster;
+    globalPool = globalPool.filter(bannerReady);
+    regionalPool = regionalPool.filter(bannerReady);
+    recommendedPool = recommendedPool.filter(bannerReady);
+
+    // 4. The "Surpass Authentic" Mixing Algorithm
+    const pool = [];
+    const usedIds = new Set();
+
+    const pushToPool = (movie) => {
+      if (movie && !usedIds.has(movie.id)) {
+        pool.push(movie);
+        usedIds.add(movie.id);
+      }
+    };
+
+    let gIdx = 0,
+      rIdx = 0,
+      recIdx = 0;
+    while (
+      pool.length < 7 &&
+      (gIdx < globalPool.length ||
+        rIdx < regionalPool.length ||
+        recIdx < recommendedPool.length)
+    ) {
+      pushToPool(globalPool[gIdx++]);
+      pushToPool(regionalPool[rIdx++]);
+      pushToPool(recommendedPool[recIdx++]);
+    }
+
+    // 5. Always find better: If the pool didn't reach 7 banner-ready items,
+    // backfill from any featured movie that is banner-ready.
+    if (pool.length < 7 && featuredMovies.length > 0) {
+      for (const fm of featuredMovies) {
+        if (pool.length >= 7) break;
+        if (bannerReady(fm)) {
+          pushToPool(fm);
+        }
+      }
+    }
+
+    // 6. Last resort: if we still didn't hit 7, pull from ANY source movie
+    // with an image so the hero always has a full rotation.
+    if (pool.length < 7) {
+      const allCandidates = [...tabFilteredMovies, ...featuredMovies];
+      for (const m of allCandidates) {
+        if (pool.length >= 7) break;
+        if (m && (m.backdropUrl || m.posterUrl || m.poster)) {
+          pushToPool(m);
+        }
+      }
+    }
+
+    return pool;
+    } catch (e) {
+      logError("HomePage", "hero-pool memo failed — hero falls back to empty.", e, { filter });
+      return [];
+    }
+  }, [featuredMovies, categories, filter, lastWatched]);
+
+  const totalFeatured = finalPool.length;
+  const activeFeaturedMovie =
+    totalFeatured > 0 ? finalPool[featuredIndex % totalFeatured] : null;
+  const hasInitialLoadError = !activeFeaturedMovie && (featuredError || categoriesError);
+
+  // Auto-rotation: use ref for hover state to avoid stale closures and unnecessary interval restarts
+  useEffect(() => {
+    if (totalFeatured <= 1 || reduceMotion) return;
+    const timer = setInterval(() => {
+      if (!isHeroHoveredRef.current) {
+        setFeaturedIndex((prev) => prev + 1);
+      }
+    }, 10000);
+    return () => clearInterval(timer);
+  }, [totalFeatured, reduceMotion]);
+
+  // Preload next hero image to eliminate flash on slide change
+  useEffect(() => {
+    if (totalFeatured <= 1) return;
+    const nextMovie = finalPool[(featuredIndex + 1) % totalFeatured];
+    if (!nextMovie) return;
+    const preloadUrl =
+      nextMovie.backdropUrl || nextMovie.posterUrl || nextMovie.poster;
+    if (preloadUrl) {
+      const img = new window.Image();
+      img.src = preloadUrl;
+    }
+  }, [featuredIndex, totalFeatured, finalPool]);
+
+  return (
+    <div className="main-content" style={{ paddingBottom: "2rem" }}>
+      <AmbientBackground
+        src={
+          activeFeaturedMovie
+            ? activeFeaturedMovie.backdropUrl ||
+              activeFeaturedMovie.posterUrl ||
+              activeFeaturedMovie.poster
+            : null
+        }
+      />
+      <SEO title={title || "Discover Movies & TV Shows"} />
+      <AnimatePresence mode="wait">
+        {loading && !activeFeaturedMovie ? (
+          <motion.div
+            key="skeleton-hero"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="skeleton skeleton-hero"
+            style={{ overflow: "hidden" }}
+          >
+            <div className="hero-content" style={{ zIndex: 2 }}>
+              <div
+                className="skeleton"
+                style={{
+                  width: "min(420px, 70%)",
+                  height: "clamp(2.2rem, 4vw, 3.4rem)",
+                  borderRadius: "8px",
+                  marginBottom: "1.2rem",
+                }}
+              />
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.6rem",
+                  flexWrap: "wrap",
+                  marginBottom: "1.1rem",
+                }}
+              >
+                {[70, 95, 60, 85].map((w, i) => (
+                  <div
+                    key={i}
+                    className="skeleton"
+                    style={{ width: `${w}px`, height: "22px", borderRadius: "6px" }}
+                  />
+                ))}
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.45rem",
+                  marginBottom: "1.5rem",
+                  maxWidth: "560px",
+                }}
+              >
+                <div className="skeleton" style={{ width: "100%", height: "12px", borderRadius: "4px" }} />
+                <div className="skeleton" style={{ width: "86%", height: "12px", borderRadius: "4px" }} />
+                <div className="skeleton" style={{ width: "62%", height: "12px", borderRadius: "4px" }} />
+              </div>
+              <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+                <div className="skeleton" style={{ width: "150px", height: "48px", borderRadius: "100px" }} />
+                <div className="skeleton" style={{ width: "120px", height: "48px", borderRadius: "100px" }} />
+              </div>
+            </div>
+          </motion.div>
+        ) : activeFeaturedMovie ? (
+          <ErrorBoundary>
+          <motion.div
+            key={activeFeaturedMovie.id}
+            className="hero-container"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.65, ease: "easeOut" }}
+            style={{ willChange: "opacity" }}
+            onMouseEnter={() => { isHeroHoveredRef.current = true; setIsHeroHovered(true); }}
+            onMouseLeave={() => { isHeroHoveredRef.current = false; setIsHeroHovered(false); }}
+            onFocus={() => { isHeroHoveredRef.current = true; setIsHeroHovered(true); }}
+            onBlur={(event) => {
+              if (event.currentTarget.contains(event.relatedTarget)) return;
+              isHeroHoveredRef.current = false;
+              setIsHeroHovered(false);
+            }}
+            onKeyDown={(event) => {
+              if (totalFeatured <= 1) return;
+              if (event.key === "ArrowLeft") {
+                event.preventDefault();
+                setFeaturedIndex((current) => (current - 1 + totalFeatured) % totalFeatured);
+              }
+              if (event.key === "ArrowRight") {
+                event.preventDefault();
+                setFeaturedIndex((current) => (current + 1) % totalFeatured);
+              }
+            }}
+          >
+            {/* Backdrop — static framing keeps the hero calm while titles rotate. */}
+            <motion.img
+              src={activeFeaturedMovie.backdropUrl || activeFeaturedMovie.posterUrl || activeFeaturedMovie.poster}
+              alt={activeFeaturedMovie.title}
+              className="hero-bg desktop-bg"
+              fetchpriority="high"
+              loading="eager"
+              decoding="async"
+            />
+            <motion.img
+              src={activeFeaturedMovie.posterUrl || activeFeaturedMovie.poster || activeFeaturedMovie.backdropUrl}
+              alt={activeFeaturedMovie.title}
+              className="hero-bg mobile-bg"
+              fetchpriority="high"
+              loading="eager"
+              decoding="async"
+            />
+
+            {/* Apple-style gradient overlay — gradient from bottom and left, no hard black */}
+            <div className="hero-overlay hero-overlay--apple" />
+
+            {/* Prev / Next arrows — appear on hover */}
+            <AnimatePresence>
+              {isHeroHovered && totalFeatured > 1 && (
+                <>
+                  <motion.button
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    className="hero-nav-arrow left"
+                    aria-label="Previous featured title"
+                    onClick={(e) => { e.stopPropagation(); setFeaturedIndex((featuredIndex - 1 + totalFeatured) % totalFeatured); }}
+                  >
+                    <ChevronLeft size={28} />
+                  </motion.button>
+                  <motion.button
+                    initial={{ opacity: 0, x: 10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 10 }}
+                    className="hero-nav-arrow right"
+                    aria-label="Next featured title"
+                    onClick={(e) => { e.stopPropagation(); setFeaturedIndex((featuredIndex + 1) % totalFeatured); }}
+                  >
+                    <ChevronRight size={28} />
+                  </motion.button>
+                </>
+              )}
+            </AnimatePresence>
+
+            {/* ── Apple Hero Content ─────────────────────────────────────── */}
+            <div className="hero-content hero-content--apple">
+              <motion.div
+                key={activeFeaturedMovie.id + "-content"}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.55, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+                style={{ willChange: "transform, opacity" }}
+              >
+                {/* Eyebrow — platform + genre tags */}
+                <div className="hero-eyebrow">
+
+                  {activeFeaturedMovie.genres?.slice(0, 2).map((g) => (
+                    <span key={g} className="hero-eyebrow-tag">{g}</span>
+                  ))}
+                </div>
+
+                {/* Title / Logo — real show wordmark, lazy-fetched on demand */}
+                <HeroTitleLogo movie={activeFeaturedMovie} />
+
+                {/* Meta row — gold star rating · calendar year · genre · runtime */}
+                <div className="hero-meta hero-meta--apple">
+                  {activeFeaturedMovie.imdbRating > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', borderRight: '1px solid rgba(255,255,255,0.2)', paddingRight: '16px', marginRight: '4px' }}>
+                      <RatingsCluster movie={activeFeaturedMovie} size="lg" itemClassName="hero-meta-item" />
+                    </div>
+                  )}
+                  {(activeFeaturedMovie.releaseYear || activeFeaturedMovie.year) && (
+                    <span className="hero-meta-item">
+                      <Calendar size={14} />
+                      {String(activeFeaturedMovie.releaseYear || activeFeaturedMovie.year).substring(0, 4)}
+                    </span>
+                  )}
+                  {activeFeaturedMovie.genres?.[0] ? (
+                    <span className="hero-meta-item">
+                      <Heart size={14} fill="currentColor" />
+                      {activeFeaturedMovie.genres[0]}
+                    </span>
+                  ) : (
+                    <span className="maturity-badge">{activeFeaturedMovie.maturityRating || "TV-MA"}</span>
+                  )}
+                  {activeFeaturedMovie.duration && !activeFeaturedMovie.duration.match(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/) && (
+                    <span className="hero-meta-item">{activeFeaturedMovie.duration}</span>
+                  )}
+                </div>
+
+                {/* Description */}
+                {(activeFeaturedMovie.description || activeFeaturedMovie.longDescription || activeFeaturedMovie.overview) && (
+                  <p className="hero-desc hero-desc--apple">
+                    {activeFeaturedMovie.description || activeFeaturedMovie.longDescription || activeFeaturedMovie.overview}
+                  </p>
+                )}
+
+                {/* CTA row — white Play pill · single pill with list toggle | info */}
+                <div className="hero-ctas">
+                  <motion.button
+                    className="hero-cta-play"
+                    whileHover={{ scale: 1.04 }}
+                    whileTap={{ scale: 0.96 }}
+                    onClick={() => navigate(`/watch/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`)}
+                  >
+                    <Play size={20} strokeWidth={2.5} fill="currentColor" stroke="none" />
+                    Play
+                  </motion.button>
+
+                  <div className="hero-action-pill inline-flex items-center shrink-0 rounded-full bg-white/10 backdrop-blur-[20px] backdrop-saturate-150 border border-white/10 shadow-lg shadow-black/5">
+                    <motion.button
+                      className="hero-cta-secondary-icon"
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.92 }}
+                      onClick={() => toggleMyList(activeFeaturedMovie)}
+                      aria-label={isInList(activeFeaturedMovie?.id) ? "Remove from My List" : "Add to My List"}
+                      title={isInList(activeFeaturedMovie?.id) ? "Remove from My List" : "Add to My List"}
+                    >
+                      {isInList(activeFeaturedMovie?.id) ? <Check size={18} strokeWidth={2.5} /> : <Plus size={18} strokeWidth={2.5} />}
+                    </motion.button>
+                    <span className="hero-cta-separator" aria-hidden="true">|</span>
+                    <motion.button
+                      className="hero-cta-secondary-icon"
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.92 }}
+                      aria-label="More info"
+                      title="More info"
+                      onClick={() => navigate(`/watch/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`)}
+                    >
+                      <Info size={18} strokeWidth={2.5} />
+                    </motion.button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+
+            {/* Slim progress dots */}
+            {totalFeatured > 1 && (
+              <div className="hero-dots hero-dots--apple" aria-label="Featured titles">
+                {Array.from({ length: totalFeatured }).map((_, i) => {
+                  const isActive = i === featuredIndex % totalFeatured;
+                  return (
+                    <motion.button
+                      key={i}
+                      onClick={() => setFeaturedIndex(i)}
+                      aria-label={`Show ${finalPool[i]?.title || `featured title ${i + 1}`}`}
+                      aria-current={isActive ? "true" : undefined}
+                      className={`hero-dot${isActive ? " hero-dot--active" : ""}`}
+                    >
+                      {isActive && (
+                        <div className="dot-filler" />
+                      )}
+                    </motion.button>
+                  );
+                })}
+              </div>
+            )}
+          </motion.div>
+          </ErrorBoundary>
+        ) : (
+          <motion.div
+            key="empty-hero"
+            className="hero-container"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              minHeight: "min(82vh, 900px)",
+              background:
+                "radial-gradient(ellipse 60% 50% at 50% 40%, rgba(244,63,94,0.08) 0%, transparent 70%), #050505",
+            }}
+          >
+            <div style={{ textAlign: "center", padding: "2rem" }}>
+              <div className="logo-icon" style={{ margin: "0 auto 1rem", width: "56px", height: "56px" }}>
+                <Play size={28} fill="currentColor" stroke="none" />
+              </div>
+              <h2 style={{ color: "#fff", marginBottom: "0.5rem" }}>
+                {hasInitialLoadError ? "Couldn't load Streamly" : "Welcome to Streamly"}
+              </h2>
+              <p style={{ color: "#a1a1aa", maxWidth: "420px", margin: "0 auto" }}>
+                {hasInitialLoadError
+                  ? "Check your connection and try again. Your saved list and history are still available."
+                  : "Discover movies and TV shows across all your favorite streaming platforms."}
+              </p>
+              {hasInitialLoadError && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ marginTop: "1.25rem" }}
+                  onClick={() => {
+                    refetchFeatured();
+                    refetchCategories();
+                  }}
+                >
+                  Try again
+                </button>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Leaving Soon — home page only */}
+      {!loading && filter === 'all' && activeGenre === 'All' && (
+<LeavingSoonBanner items={detectLeavingSoon(
+            categories.flatMap(c => (Array.isArray(c.movies) ? c.movies : [])), 14
+          )} />
+      )}
+
+      {/* Upcoming — standard rail UI on every tab; tab-filtered (all on Home,
+          movies/series on their pages) and padded so the rail always fills. */}
+      {!loading && activeGenre === "All" && upcomingReleases.length > 0 && (
+        <FadeInSection>
+          <ErrorBoundary>
+            <MovieRail
+              railIndex={0}
+              category={{ name: upcomingTitle, movies: upcomingReleases }}
+            />
+          </ErrorBoundary>
+        </FadeInSection>
+      )}
+
+      {/* Categories Section */}
+      <section
+        style={{ display: "flex", flexDirection: "column", gap: "3.5rem" }}
+      >
+        <div className="section-header" style={{ marginBottom: 0 }}>
+          <h2 className="section-title">{title}</h2>
+        </div>
+
+        {loading ? (
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "3.5rem" }}
+          >
+            {[1, 2, 3, 4].map((rail) => (
+              <div key={rail}>
+                <div className="skeleton skeleton-title"></div>
+                <div className="skeleton-rail">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((card) => (
+                    <div key={card} className="skeleton-moviecard">
+                      <div className="skeleton sk-poster"></div>
+                      <div className="skeleton sk-line sk-line--w70"></div>
+                      <div className="skeleton sk-line sk-line--sub"></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : categories.length === 0 ? (
+          <h3 style={{ textAlign: "center", color: "#a1a1aa" }}>
+            No titles found
+          </h3>
+        ) : (
+          <>
+            {/* 1. Continue Watching — resume-first (highest intent, Netflix surfaces near top) */}
+            {continueWatching &&
+              continueWatching.length > 0 &&
+              filter === "all" && (
+                <FadeInSection>
+                  <ErrorBoundary>
+                    <ContinueWatchingRail
+                      railIndex={0}
+                      items={continueWatching}
+                    />
+                  </ErrorBoundary>
+                </FadeInSection>
+              )}
+            {/* 2. Because you watched — personalized discovery ranker */}
+            {filter === "all" && lastWatched && recommendations?.length > 0 && (
+              <FadeInSection>
+                <ErrorBoundary>
+                  <MovieRail
+                    railIndex={1}
+                    category={{
+                      name: `Because you watched ${lastWatched.title}`,
+                      movies: recommendations,
+                    }}
+                  />
+                </ErrorBoundary>
+              </FadeInSection>
+            )}
+            {/* 3. Top 10 — social proof & fresh discovery */}
+            {(filter === "all" ||
+              filter === "series" ||
+              filter === "tv shows" ||
+              filter === "movies") &&
+              top10Movies.length > 0 &&
+              activeGenre === "All" && (
+                <FadeInSection>
+                  <Top10Rail
+                    railIndex={2}
+                    movies={top10Movies}
+                    filter={filter}
+                  />
+                </FadeInSection>
+              )}
+            {/* 4. Trending This Week */}
+            {trendingThisWeek.length > 0 && activeGenre === "All" && (
+              <FadeInSection>
+                <ErrorBoundary>
+                  <MovieRail
+                    railIndex={3}
+                    category={{ name: "Trending This Week", movies: trendingThisWeek }}
+                  />
+                </ErrorBoundary>
+              </FadeInSection>
+            )}
+            {/* 5. Airing This Week — currently-airing TV, the "On the Air" row */}
+            {airingThisWeek.length > 0 && activeGenre === "All" && (
+              <FadeInSection>
+                <ErrorBoundary>
+                  <MovieRail
+                    railIndex={4}
+                    category={{ name: "Airing This Week", movies: airingThisWeek }}
+                  />
+                </ErrorBoundary>
+              </FadeInSection>
+            )}
+            {/* 6. Popular Now */}
+            {popularNow.length > 0 && activeGenre === "All" && (
+              <FadeInSection>
+                <ErrorBoundary>
+                  <MovieRail
+                    railIndex={5}
+                    category={{ name: "Popular Now", movies: popularNow }}
+                  />
+                </ErrorBoundary>
+              </FadeInSection>
+            )}
+            {/* 7. Top Rated */}
+            {topRated.length > 0 && activeGenre === "All" && (
+              <FadeInSection>
+                <ErrorBoundary>
+                  <MovieRail
+                    railIndex={6}
+                    category={{ name: "Top Rated", movies: topRated }}
+                  />
+                </ErrorBoundary>
+              </FadeInSection>
+            )}
+            {/* 8. Now Playing / In Theaters */}
+            {nowPlaying.length > 0 && activeGenre === "All" && (
+              <FadeInSection>
+                <ErrorBoundary>
+                  <MovieRail
+                    railIndex={7}
+                    category={{ name: "Now Playing / In Theaters", movies: nowPlaying }}
+                  />
+                </ErrorBoundary>
+              </FadeInSection>
+            )}
+
+            {/* 9. My List */}
+            {myList && myList.length > 0 && filter === "all" && (
+              <FadeInSection>
+                <ErrorBoundary>
+                  <MovieRail
+                    railIndex={8}
+                    category={{ name: "My List", movies: myList }}
+                  />
+                </ErrorBoundary>
+              </FadeInSection>
+            )}
+
+            {/* 10. Genre showcase — Netflix/Prime-style rows (tab-aware) */}
+            <ErrorBoundary>
+              <GenreShowcase filter={filter} activeGenre={activeGenre} />
+            </ErrorBoundary>
+
+            {/* 11. Category rails */}
+            {categories.slice(0, visibleCatCount).map((category, catIdx) => (
+              <FadeInSection key={catIdx} delay={0.1}>
+                <ErrorBoundary key={category.id || catIdx}>
+                  <MovieRail railIndex={catIdx + 9} category={category} />
+                </ErrorBoundary>
+              </FadeInSection>
+            ))}
+          </>
+        )}
+      </section>
+    </div>
+  );
+}
