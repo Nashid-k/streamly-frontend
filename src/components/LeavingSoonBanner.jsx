@@ -54,6 +54,7 @@ export default function LeavingSoonBanner({ items = [], maxDisplay = 3 }) {
           <motion.div
             key={item.id || idx}
             whileHover={{ background: "rgba(255,255,255,0.06)" }}
+            whileTap={{ scale: 0.98, background: "rgba(255,255,255,0.08)" }}
             onClick={() => {
               const slug = slugify(item.title, { lower: true, strict: true });
               navigate(`/watch/${item.id}/${slug}`);

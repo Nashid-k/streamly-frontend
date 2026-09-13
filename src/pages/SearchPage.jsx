@@ -375,6 +375,8 @@ export default function SearchPage() {
                           key={s}
                           variant="accent"
                           pill
+                          size="sm"
+                          style={{ minHeight: "38px" }}
                           onClick={() => navigate(`/search?q=${encodeURIComponent(s)}`)}
                         >
                           {s}

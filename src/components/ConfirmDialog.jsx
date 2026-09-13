@@ -132,7 +132,7 @@ export function useConfirmDialog() {
                 flexDirection: "column",
                 gap: "1.25rem",
               }}
-              className="modal-container"
+              className="modal-container confirm-dialog-panel"
               ref={panelRef}
               role="alertdialog"
               aria-modal="true"
@@ -199,6 +199,7 @@ export function useConfirmDialog() {
                     color: "#e4e4e7",
                     padding: "10px 20px",
                     borderRadius: "100px",
+                    minHeight: "42px",
                     fontSize: "0.9rem",
                     fontWeight: 600,
                     cursor: "pointer",
@@ -224,6 +225,7 @@ export function useConfirmDialog() {
                     color: "#fff",
                     padding: "10px 20px",
                     borderRadius: "100px",
+                    minHeight: "42px",
                     fontSize: "0.9rem",
                     fontWeight: 700,
                     cursor: "pointer",

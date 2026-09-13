@@ -2864,10 +2864,23 @@ input:focus-visible {
   background: linear-gradient(to left, #050505, transparent);
 }
 
-/* ── Cast rail ─────────────────────────────────────────────── */
 .cast-rail__scroll {
+  -webkit-overflow-scrolling: touch;
   -webkit-mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
   mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
+  transition: -webkit-mask-image 0.2s ease, mask-image 0.2s ease;
+}
+.cast-rail__scroll.is-at-start {
+  -webkit-mask-image: linear-gradient(to right, #000 0%, #000 95%, transparent);
+  mask-image: linear-gradient(to right, #000 0%, #000 95%, transparent);
+}
+.cast-rail__scroll.is-at-end {
+  -webkit-mask-image: linear-gradient(to left, #000 0%, #000 95%, transparent);
+  mask-image: linear-gradient(to left, #000 0%, #000 95%, transparent);
+}
+.cast-rail__scroll.is-at-start.is-at-end {
+  -webkit-mask-image: none;
+  mask-image: none;
 }
 .cast-rail__avatar {
   width: 90px;
@@ -4629,3 +4642,138 @@ html {
     padding: 0.7rem 1rem !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE & TABLET ERGONOMICS OVERHAUL
+   Touch targets, safe-area insets, bottom sheets, hitboxes
+   ═══════════════════════════════════════════════════════════ */
+
+/* Landscape phone hero container & content */
+@media (max-height: 500px) and (orientation: landscape) {
+  .hero-container,
+  .skeleton-hero {
+    height: min(92vh, 380px) !important;
+    min-height: 260px !important;
+  }
+  .hero-content,
+  .hero-content--apple {
+    padding-bottom: clamp(1.2rem, 3.5vh, 2.2rem) !important;
+    padding-top: 0.75rem !important;
+  }
+  .hero-title {
+    font-size: clamp(1.3rem, 4.5vh, 1.9rem) !important;
+    margin-bottom: 0.25rem !important;
+  }
+  .hero-desc {
+    display: none !important;
+  }
+  .hero-dots,
+  .hero-dots--apple {
+    bottom: 0.5rem !important;
+  }
+}
+
+/* Hero CTA vs Dots spacing on narrow mobile */
+@media (max-width: 480px) {
+  .hero-content--apple {
+    padding-bottom: 4.8rem !important;
+  }
+  .hero-dots--apple {
+    bottom: 0.75rem !important;
+    padding: 8px 14px !important;
+    gap: 8px !important;
+  }
+}
+
+/* Search panel clear button hit area */
+.search-panel__clear::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+}
+.search-panel__clear:active {
+  transform: translateY(-50%) scale(0.92);
+}
+
+/* Search history pills & heading buttons touch targets on mobile */
+@media (max-width: 768px) {
+  .search-history__items button {
+    min-height: 38px;
+    padding: 0.5rem 0.85rem !important;
+    font-size: 0.85rem !important;
+  }
+  .search-history__items button:active {
+    transform: scale(0.95);
+  }
+  .search-history__heading button {
+    min-height: 36px;
+  }
+}
+
+/* History timeline gap on mobile */
+@media (max-width: 768px) {
+  .history-groups {
+    gap: 1.5rem !important;
+  }
+  .history-group__title {
+    margin: 0 0 0.75rem !important;
+  }
+}
+
+/* Setting toggle expanded touch target */
+.setting-toggle::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+}
+
+/* Confirm dialog bottom sheet on mobile */
+@media (max-width: 640px) {
+  .confirm-dialog-panel {
+    top: auto !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 24px 24px 0 0 !important;
+    padding-bottom: calc(1.5rem + var(--sab)) !important;
+  }
+}
+
+/* Filter group touch momentum and chip sizing */
+@media (max-width: 768px) {
+  .filter-group {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    padding: 0.35rem 0.5rem !important;
+  }
+  .filter-group .chip {
+    min-height: 2.35rem !important;
+    padding: 0.45rem 0.85rem !important;
+  }
+}
+
+/* Page danger action comfortable tap target */
+@media (max-width: 768px) {
+  .page-danger-action {
+    min-height: 38px;
+    padding: 0.45rem 0.95rem !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* Video modal back button hit size on mobile */
+@media (max-width: 768px) {
+  .video-modal-back-button {
+    width: 2.65rem !important;
+    height: 2.65rem !important;
+  }
+  .video-modal-back-button:active {
+    transform: scale(0.92);
+  }
+}
+

@@ -346,14 +346,20 @@ export default function PersonDetails() {
                 <button
                   onClick={() => setBioExpanded(!bioExpanded)}
                   style={{
-                    background: "none",
-                    border: "none",
+                    background: "rgba(251, 146, 60, 0.08)",
+                    border: "1px solid rgba(251, 146, 60, 0.2)",
                     color: "#fb923c",
                     cursor: "pointer",
                     fontWeight: 600,
-                    fontSize: "0.95rem",
-                    marginTop: "0.5rem",
-                    padding: 0,
+                    fontSize: "0.85rem",
+                    marginTop: "0.75rem",
+                    padding: "6px 14px",
+                    borderRadius: "8px",
+                    minHeight: "38px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    transition: "all 0.2s ease",
                   }}
                 >
                   {bioExpanded ? "Show less" : "Read more"}

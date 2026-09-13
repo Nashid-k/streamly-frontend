@@ -86,7 +86,7 @@ export default function CastRail({ cast }) {
         initial="hidden"
         animate="show"
         onScroll={updateArrows}
-        className="cast-rail__scroll"
+        className={`cast-rail__scroll${!canLeft ? " is-at-start" : ""}${!canRight ? " is-at-end" : ""}`}
         style={{
           display: "flex",
           gap: "1rem",

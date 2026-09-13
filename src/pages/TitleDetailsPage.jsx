@@ -1043,7 +1043,7 @@ export default function TitleDetails() {
                   {movie.productionCompanies && movie.productionCompanies.length > 0 && (
                     <div className="flex items-center justify-between px-3.5 py-2.5">
                       <span className="text-xs text-white/40 shrink-0">Production</span>
-                      <span className="text-xs text-white/80 text-right">{movie.productionCompanies.slice(0, 3).map(c => c.name).join(", ")}</span>
+                      <span className="text-xs text-white/80 text-right truncate max-w-[60%] ml-2">{movie.productionCompanies.slice(0, 3).map(c => c.name).join(", ")}</span>
                     </div>
                   )}
                 </div>
@@ -1151,7 +1151,7 @@ export default function TitleDetails() {
                 : episodes.length > 0 && <span style={{ fontSize: '0.7em', color: '#52525b', fontWeight: 400 }}>({episodes.length})</span>}
             </motion.h2>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
               {/* Layout toggle */}
               <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
                 <motion.button
@@ -1357,6 +1357,7 @@ export default function TitleDetails() {
                           exit={{ opacity: 0, scale: 0.95, y: -8 }}
                           transition={{ duration: 0.35, delay: Math.min(idx * 0.04, 0.3), ease: [0.16, 1, 0.3, 1] }}
                           whileHover={{ y: -4, boxShadow: '0 16px 40px -10px rgba(0,0,0,0.7)' }}
+                          whileTap={playable ? { scale: 0.97 } : undefined}
                           role={playable ? "button" : undefined}
                           tabIndex={playable ? 0 : undefined}
                           aria-disabled={playable ? undefined : true}
@@ -1459,6 +1460,7 @@ export default function TitleDetails() {
                         exit={{ opacity: 0, x: 12 }}
                         transition={{ duration: 0.3, delay: Math.min(idx * 0.03, 0.25) }}
                         whileHover={{ background: 'rgba(255,255,255,0.04)' }}
+                        whileTap={playable ? { scale: 0.98 } : undefined}
                         role={playable ? "button" : undefined}
                         tabIndex={playable ? 0 : undefined}
                         aria-disabled={playable ? undefined : true}
@@ -1475,7 +1477,7 @@ export default function TitleDetails() {
                         }}
                       >
                         {/* Thumbnail */}
-                        <div style={{ position: 'relative', width: '140px', flexShrink: 0, borderRadius: '8px', overflow: 'hidden', aspectRatio: '16/9', background: '#18181b' }}>
+                        <div style={{ position: 'relative', width: 'clamp(96px, 26vw, 140px)', flexShrink: 0, borderRadius: '8px', overflow: 'hidden', aspectRatio: '16/9', background: '#18181b' }}>
                           {epThumb ? (
                             <img src={CdnImageAdapter.getUrl(epThumb, 'w500')} alt={ep.title} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: !isAired ? 'grayscale(0.85) brightness(0.55)' : undefined }} />
                           ) : (
@@ -1872,6 +1874,7 @@ export default function TitleDetails() {
                     fontWeight: 600,
                     padding: "0.5rem 1rem",
                     borderRadius: "100px",
+                    minHeight: "44px",
                   }}
                   whileHover={{
                     background: "rgba(255,255,255,0.16)",

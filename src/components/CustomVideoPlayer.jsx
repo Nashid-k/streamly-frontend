@@ -7,6 +7,7 @@ import {
   Settings, AlertCircle, Check, RotateCcw, RotateCw,
   SkipForward, FastForward, Rewind,
   Keyboard, X, Upload, Captions, Film, Link, Repeat, AudioLines,
+  Lock, Unlock,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SubtitleEngine } from "../utils/subtitleEngine";
@@ -121,6 +122,15 @@ const KEYBOARD_SHORTCUTS = [
   { key: "↑↓", action: "Volume" },
   { key: "A", action: "Aspect Ratio" },
   { key: "?", action: "Shortcuts" },
+];
+
+const TOUCH_GESTURES = [
+  { gesture: "Single Tap", action: "Show / Hide Controls" },
+  { gesture: "Double Tap Left / Right", action: "Rewind / Forward 10s" },
+  { gesture: "Swipe Left (Up / Down)", action: "Adjust Brightness" },
+  { gesture: "Swipe Right (Up / Down)", action: "Adjust Volume" },
+  { gesture: "Horizontal Swipe", action: "Seek Timeline" },
+  { gesture: "Aspect Button", action: "Change Aspect Ratio" },
 ];
 
 const LOADING_TIPS_DESKTOP = [
@@ -407,6 +417,7 @@ const CustomVideoPlayer = ({
   const [toastMessage, setToastMessage] = useState("");
   const [useNativeControls, setUseNativeControls] = useState(false);
   const [isScrubbing, setIsScrubbing] = useState(false);
+  const [isScreenLocked, setIsScreenLocked] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [hoverTime, setHoverTime] = useState(null);
   const [hoverX, setHoverX] = useState(0);
@@ -1843,7 +1854,7 @@ const CustomVideoPlayer = ({
      RIGHT 35%:  swipe ↑↓ = volume
      ══════════════════════════════════════════════════════════════════════ */
   const handleTouchStart = useCallback((e) => {
-    if (!isTouch || !showCustomUI) return;
+    if (!isTouch || !showCustomUI || isScreenLocked) return;
     /* Pinch detection: two fingers */
     if (e.touches.length === 2) {
       e.preventDefault();
@@ -1872,10 +1883,10 @@ const CustomVideoPlayer = ({
       hasMoved: false,
     };
     gestureLockRef.current = null;
-  }, [isTouch, showCustomUI, isFullscreen]);
+  }, [isTouch, showCustomUI, isFullscreen, isScreenLocked]);
 
   const handleTouchMove = useCallback((e) => {
-    if (!isTouch || !showCustomUI) return;
+    if (!isTouch || !showCustomUI || isScreenLocked) return;
     /* Pinch to fullscreen */
     if (e.touches.length === 2 && pinchStartDistRef.current) {
       e.preventDefault();
@@ -1963,7 +1974,7 @@ const CustomVideoPlayer = ({
       setGestureType(null);
       setSeekDelta(0);
     }, 800);
-  }, [isTouch, showCustomUI, isDirectStream, sendCommand, toggleFullscreen]);
+  }, [isTouch, showCustomUI, isDirectStream, sendCommand, toggleFullscreen, isScreenLocked]);
 
   const handleTouchEnd = useCallback((e) => {
     lastTouchEndRef.current = Date.now();
@@ -2002,6 +2013,7 @@ const CustomVideoPlayer = ({
   const lastTapRef = useRef(0);
   const handleTouchOverlay = useCallback((e) => {
     if (isLoading) return;
+    if (isScreenLocked) return;
     // Bail out if user was swiping (volume, brightness, seek) or pinching
     if (gestureStartRef.current?.hasMoved || gestureLockRef.current !== null || pinchStartDistRef.current) {
       return;
@@ -2057,11 +2069,11 @@ const CustomVideoPlayer = ({
         });
       }, 250);
     }
-  }, [isLoading, seekRelative, togglePlay, showSettings, showSubtitlesMenu, showAudioMenu, showShortcuts, isPlaying, isScrubbing]);
+  }, [isLoading, isScreenLocked, seekRelative, togglePlay, showSettings, showSubtitlesMenu, showAudioMenu, showShortcuts, isPlaying, isScrubbing]);
 
   const pp = duration > 0 ? Math.max(0, Math.min((currentTime / duration) * 100, 100)) : 0;
   const bp = duration > 0 ? Math.max(0, Math.min((buffered / duration) * 100, 100)) : 0;
-  const controlsVisible = (showControls || isScrubbing) && !isLoading;
+  const controlsVisible = (showControls || isScrubbing) && !isLoading && !isScreenLocked;
   const effVolume = isMuted ? 0 : volume;
 
   /* ═══════════════════════════════════════════════════════════════
@@ -2416,8 +2428,8 @@ const CustomVideoPlayer = ({
               exit={{ y: 20, opacity: 0 }}
               transition={{ delay: 0.1, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
               style={{
-                display: "flex", gap: "clamp(20px, 4vw, 36px)",
-                alignItems: "center", maxWidth: "min(640px, 88%)", padding: `0 ${R.padLarge}`,
+                display: "flex", gap: isTouch ? "clamp(12px, 3vw, 24px)" : "clamp(20px, 4vw, 36px)",
+                alignItems: "center", maxWidth: "min(640px, 88%)", padding: isTouch ? "0 clamp(12px, 3vw, 24px)" : `0 ${R.padLarge}`,
               }}
             >
               {(movie?.posterUrl || thumbnailUrl) && (
@@ -2426,7 +2438,7 @@ const CustomVideoPlayer = ({
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.2, duration: 0.5 }}
                   style={{
-                    width: "clamp(80px, 14vw, 150px)", aspectRatio: "2/3",
+                    width: isTouch ? "clamp(60px, 16vw, 110px)" : "clamp(80px, 14vw, 150px)", aspectRatio: "2/3",
                     borderRadius: 12, overflow: "hidden", flexShrink: 0,
                     boxShadow: "0 24px 64px rgba(0,0,0,0.85)",
                     border: "1px solid rgba(255,255,255,0.08)",
@@ -2441,14 +2453,14 @@ const CustomVideoPlayer = ({
                 </motion.div>
               )}
               <div style={{ minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "clamp(6px, 1.5vw, 10px)", marginBottom: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "clamp(6px, 1.5vw, 10px)", marginBottom: isTouch ? 6 : 10 }}>
                   <div style={{
-                    width: "clamp(22px, 4vw, 28px)", height: "clamp(22px, 4vw, 28px)", borderRadius: "50%",
+                    width: "clamp(20px, 3.5vw, 28px)", height: "clamp(20px, 3.5vw, 28px)", borderRadius: "50%",
                     background: "rgba(255,255,255,0.06)", display: "flex",
                     alignItems: "center", justifyContent: "center",
                     border: "1px solid rgba(255,255,255,0.08)",
                   }}>
-                    <Pause size={12} fill="rgba(255,255,255,0.8)" color="rgba(255,255,255,0.8)" />
+                    <Pause size={isTouch ? 10 : 12} fill="rgba(255,255,255,0.8)" color="rgba(255,255,255,0.8)" />
                   </div>
                   <span style={{
                     color: "rgba(255,255,255,0.5)", fontSize: R.fontTiny, fontWeight: 700,
@@ -2460,10 +2472,10 @@ const CustomVideoPlayer = ({
                   <img
                     src={movie.logoUrl} alt={movie?.title}
                     style={{
-                      maxHeight: "clamp(40px, 8vw, 72px)", width: "auto",
+                      maxHeight: isTouch ? "clamp(32px, 6vw, 56px)" : "clamp(40px, 8vw, 72px)", width: "auto",
                       maxWidth: "min(380px, 72vw)", objectFit: "contain",
                       filter: "drop-shadow(0 4px 20px rgba(0,0,0,0.95))",
-                      marginBottom: 8,
+                      marginBottom: isTouch ? 4 : 8,
                     }}
                     onError={(e) => {
                       const img = e.target;
@@ -2474,27 +2486,29 @@ const CustomVideoPlayer = ({
                 ) : null}
                 <div style={{
                   color: "#fff", fontWeight: 800,
-                  fontSize: "clamp(1.3rem, 3.2vw, 2.2rem)", lineHeight: 1.05,
-                  marginBottom: 8, letterSpacing: "-0.03em",
+                  fontSize: isTouch ? "clamp(1.1rem, 2.6vw, 1.8rem)" : "clamp(1.3rem, 3.2vw, 2.2rem)", lineHeight: 1.05,
+                  marginBottom: isTouch ? 6 : 8, letterSpacing: "-0.03em",
                   display: movie?.logoUrl ? 'none' : 'block',
                   fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif",
                 }}>
                   {movie?.title || movie?.name}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "clamp(6px, 1.5vw, 10px)", marginBottom: 12, flexWrap: "wrap" }}>
-                  {movie?.releaseYear && <span style={{ color: "rgba(255,255,255,0.5)", fontSize: R.fontLarge, fontWeight: 600, fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif" }}>{movie.releaseYear}</span>}
-                  {movie?.imdbRating > 0 && <span style={{ color: "#FBBF24", fontSize: R.fontLarge, fontWeight: 700 }}>★ {movie.imdbRating}</span>}
-                  {isTvContent && season && <span style={{ color: "rgba(255,255,255,0.7)", fontSize: R.fontLarge, fontWeight: 700, fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif" }}>S{season} E{episode}</span>}
-                  {movie?.duration && <span style={{ color: "rgba(255,255,255,0.4)", fontSize: R.fontLarge, fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif" }}>{movie.duration}</span>}
+                <div style={{ display: "flex", alignItems: "center", gap: isTouch ? "4px 8px" : "clamp(6px, 1.5vw, 10px)", marginBottom: isTouch ? 6 : 12, flexWrap: "wrap" }}>
+                  {movie?.releaseYear && <span style={{ color: "rgba(255,255,255,0.5)", fontSize: isTouch ? R.fontMedium : R.fontLarge, fontWeight: 600, fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif" }}>{movie.releaseYear}</span>}
+                  {movie?.imdbRating > 0 && <span style={{ color: "#FBBF24", fontSize: isTouch ? R.fontMedium : R.fontLarge, fontWeight: 700 }}>★ {movie.imdbRating}</span>}
+                  {isTvContent && season && <span style={{ color: "rgba(255,255,255,0.7)", fontSize: isTouch ? R.fontMedium : R.fontLarge, fontWeight: 700, fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif" }}>S{season} E{episode}</span>}
+                  {movie?.duration && <span style={{ color: "rgba(255,255,255,0.4)", fontSize: isTouch ? R.fontMedium : R.fontLarge, fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif" }}>{movie.duration}</span>}
                   {movie?.genres?.slice(0, 3).map((g, i) => (
                     <span key={i} style={{ color: "rgba(255,255,255,0.4)", fontSize: R.fontSmall, fontWeight: 600, background: "rgba(255,255,255,0.04)", padding: "2px 8px", borderRadius: 6, fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif" }}>{g}</span>
                   ))}
                 </div>
                 {(movie?.longDescription || movie?.description || movie?.overview) && (
                   <div style={{
-                    color: "rgba(255,255,255,0.55)", fontSize: "clamp(0.8rem, 1.4vw, 0.95rem)",
-                    lineHeight: 1.65, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
-                    display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden",
+                    color: "rgba(255,255,255,0.55)", fontSize: "clamp(0.75rem, 1.2vw, 0.92rem)",
+                    lineHeight: 1.55, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+                    display: (playerH && playerH < 440) ? "none" : "-webkit-box",
+                    WebkitLineClamp: isTouch ? 2 : 4,
+                    WebkitBoxOrient: "vertical", overflow: "hidden",
                   }}>
                     {movie?.longDescription || movie?.description || movie?.overview}
                   </div>
@@ -3156,7 +3170,7 @@ const CustomVideoPlayer = ({
               style={{
                 background: "rgba(18,18,20,0.95)",
                 border: "1px solid rgba(255,255,255,0.06)",
-                borderRadius: R.radiusMedium, padding: `${R.padLarge} clamp(16px, 3vw, 26px)`, width: R.panelShortcuts,
+                borderRadius: R.radiusMedium, padding: `${R.padLarge} clamp(16px, 3vw, 26px)`, width: isTouch ? "min(92vw, 360px)" : R.panelShortcuts,
                 color: "#fff", boxShadow: "0 40px 80px rgba(0,0,0,0.8)",
                 backdropFilter: "blur(40px)", WebkitBackdropFilter: "blur(40px)",
               }}
@@ -3165,25 +3179,26 @@ const CustomVideoPlayer = ({
                 <span style={{
                   fontWeight: 700, fontSize: R.fontLarge,
                   fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif",
-                }}>Shortcuts</span>
-                <button onClick={() => setShowShortcuts(false)} style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer", display: "flex" }}>
-                  <X size={14} />
+                }}>{isTouch ? "Touch Gestures" : "Shortcuts"}</span>
+                <button onClick={() => setShowShortcuts(false)} style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", display: "flex", padding: 6 }}>
+                  <X size={16} />
                 </button>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {KEYBOARD_SHORTCUTS.map(({ key, action }) => (
-                  <div key={key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {(isTouch ? TOUCH_GESTURES : KEYBOARD_SHORTCUTS).map((item) => (
+                  <div key={item.key || item.gesture} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                     <span style={{
-                      color: "rgba(255,255,255,0.5)", fontSize: R.fontMedium,
+                      color: "rgba(255,255,255,0.6)", fontSize: R.fontMedium,
                       fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
-                    }}>{action}</span>
+                    }}>{item.action}</span>
                     <span style={{
-                      background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)",
-                      padding: "3px 10px", borderRadius: 6,
-                      fontFamily: "SF Mono, Menlo, monospace",
-                      fontWeight: 700, fontSize: R.fontTiny, color: "rgba(255,255,255,0.7)",
+                      background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)",
+                      padding: isTouch ? "4px 10px" : "3px 10px", borderRadius: 6,
+                      fontFamily: isTouch ? "-apple-system, BlinkMacSystemFont, sans-serif" : "SF Mono, Menlo, monospace",
+                      fontWeight: 700, fontSize: R.fontTiny, color: "rgba(255,255,255,0.85)",
+                      whiteSpace: "nowrap", flexShrink: 0,
                     }}>
-                      {key}
+                      {item.key || item.gesture}
                     </span>
                   </div>
                 ))}
@@ -3397,6 +3412,89 @@ const CustomVideoPlayer = ({
         </AnimatePresence>
       </div>
 
+      {/* Mobile Screen Lock Button & Unlock HUD */}
+      {isTouch && showCustomUI && (
+        <AnimatePresence>
+          {isScreenLocked ? (
+            <motion.button
+              key="unlock-btn"
+              initial={{ opacity: 0, scale: 0.8, y: -6 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.8, y: -6 }}
+              whileTap={{ scale: 0.92 }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsScreenLocked(false);
+                setToastMessage("Controls Unlocked");
+                if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+                toastTimeoutRef.current = setTimeout(() => setToastMessage(""), 2000);
+              }}
+              style={{
+                position: "absolute",
+                top: "calc(14px + var(--sat))",
+                left: "calc(14px + var(--sal))",
+                zIndex: 75,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "9px 18px",
+                borderRadius: 999,
+                background: "rgba(18, 18, 24, 0.90)",
+                backdropFilter: "blur(24px)",
+                WebkitBackdropFilter: "blur(24px)",
+                border: "1px solid rgba(251, 191, 36, 0.4)",
+                color: "#fff",
+                fontSize: 13,
+                fontWeight: 700,
+                boxShadow: "0 8px 30px rgba(0,0,0,0.6), 0 0 16px rgba(251, 191, 36, 0.2)",
+                cursor: "pointer",
+                fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+              }}
+            >
+              <Lock size={15} color="#FBBF24" /> Tap to Unlock
+            </motion.button>
+          ) : controlsVisible && (
+            <motion.button
+              key="lock-btn"
+              initial={{ opacity: 0, scale: 0.8, y: -6 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.8, y: -6 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsScreenLocked(true);
+                setShowControls(false);
+                setToastMessage("Controls Locked");
+                if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+                toastTimeoutRef.current = setTimeout(() => setToastMessage(""), 2000);
+              }}
+              aria-label="Lock screen controls"
+              style={{
+                position: "absolute",
+                top: "calc(14px + var(--sat))",
+                left: "calc(14px + var(--sal))",
+                zIndex: 65,
+                width: 44,
+                height: 44,
+                borderRadius: "50%",
+                background: "rgba(18, 18, 24, 0.78)",
+                backdropFilter: "blur(20px)",
+                WebkitBackdropFilter: "blur(20px)",
+                border: "1px solid rgba(255, 255, 255, 0.14)",
+                color: "rgba(255, 255, 255, 0.9)",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 6px 20px rgba(0,0,0,0.5)",
+                cursor: "pointer",
+              }}
+            >
+              <Unlock size={17} />
+            </motion.button>
+          )}
+        </AnimatePresence>
+      )}
+
       {/* ═══ BOTTOM CONTROLS ═════════════════════════════════════ */}
       <AnimatePresence>
         {showCustomUI && controlsVisible && (
@@ -3408,7 +3506,11 @@ const CustomVideoPlayer = ({
             style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 20, pointerEvents: "none", paddingBottom: "var(--sab)" }}
           >
             {/* Skip Intro / Up Next */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", padding: `0 ${R.progressBarPad}`, marginBottom: 8, pointerEvents: "none" }}>
+            <div style={{
+              display: "flex", justifyContent: "space-between", alignItems: "flex-end",
+              padding: `0 ${R.progressBarPad}`, marginBottom: 8, pointerEvents: "none",
+              marginLeft: "var(--sal, 0px)", marginRight: "var(--sar, 0px)",
+            }}>
               <div style={{ pointerEvents: "auto" }}>
                 <AnimatePresence>
                   {showSkipIntro && skipIntroTime != null && (
@@ -3423,7 +3525,9 @@ const CustomVideoPlayer = ({
                       style={{
                         background: "rgba(28,28,30,0.7)", color: "#fff",
                         border: "1px solid rgba(255,255,255,0.08)",
-                        padding: `${R.padMedium} ${R.padMedium}`, borderRadius: 100, cursor: "pointer",
+                        padding: isTouch ? "9px 18px" : `${R.padMedium} ${R.padMedium}`,
+                        minHeight: isTouch ? 42 : "auto",
+                        borderRadius: 100, cursor: "pointer",
                         fontWeight: 700, backdropFilter: "blur(24px)",
                         WebkitBackdropFilter: "blur(24px)",
                         display: "flex", alignItems: "center", gap: "clamp(4px, 1vw, 6px)", fontSize: R.fontMedium,
@@ -3511,6 +3615,7 @@ const CustomVideoPlayer = ({
                 position: "relative", height: isTouch ? 44 : 32, display: "flex",
                 alignItems: "center", cursor: "pointer",
                 padding: `0 ${R.progressBarPad}`, pointerEvents: "auto",
+                touchAction: "none",
               }}
             >
               {/* Hover time tooltip with preview thumbnail */}
@@ -3622,7 +3727,7 @@ const CustomVideoPlayer = ({
                 ref={progressTrackRef}
                 style={{
                 position: isFullscreen ? "fixed" : "relative", width: "100%",
-                height: hoverTime != null || isScrubbing ? 5 : 3,
+                height: hoverTime != null || isScrubbing ? (isTouch ? 6 : 5) : (isTouch ? 4 : 3),
                 background: "rgba(255,255,255,0.12)",
                 borderRadius: 3,
                 transition: "height 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
@@ -3648,9 +3753,9 @@ const CustomVideoPlayer = ({
                   <motion.div
                     animate={{
                       left: `${Math.max(0, Math.min(pp, 100))}%`,
-                      width: hoverTime != null || isScrubbing ? 14 : 0,
-                      height: hoverTime != null || isScrubbing ? 14 : 0,
-                      opacity: hoverTime != null || isScrubbing ? 1 : 0,
+                      width: hoverTime != null || isScrubbing ? (isTouch ? 18 : 14) : (isTouch ? 10 : 0),
+                      height: hoverTime != null || isScrubbing ? (isTouch ? 18 : 14) : (isTouch ? 10 : 0),
+                      opacity: hoverTime != null || isScrubbing || isTouch ? 1 : 0,
                     }}
                     transition={SPRING}
                     style={{
@@ -3658,7 +3763,7 @@ const CustomVideoPlayer = ({
                       transform: "translate(-50%, -50%)",
                       borderRadius: "50%",
                       background: "#fff",
-                      boxShadow: "0 2px 10px rgba(0,0,0,0.5)",
+                      boxShadow: isScrubbing ? "0 0 14px rgba(255,255,255,0.9), 0 2px 10px rgba(0,0,0,0.7)" : isTouch ? "0 0 8px rgba(255,255,255,0.4)" : "0 2px 10px rgba(0,0,0,0.5)",
                       cursor: "grab", pointerEvents: "none",
                     }}
                   />
@@ -3684,11 +3789,11 @@ const CustomVideoPlayer = ({
                 minWidth: 0, flex: 1, justifyContent: "center",
               }}>
                 <span style={{
-                  color: "rgba(255,255,255,0.85)", fontSize: "clamp(13px, 1.5vw, 15px)",
+                  color: "rgba(255,255,255,0.85)", fontSize: "clamp(12px, 1.5vw, 15px)",
                   fontWeight: 700, letterSpacing: "-0.01em",
                   textShadow: "0 1px 10px rgba(0,0,0,0.9), 0 0 24px rgba(0,0,0,0.5)",
                   whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                  maxWidth: "min(320px, 44vw)",
+                  maxWidth: isTouch ? "min(190px, 36vw)" : "min(320px, 44vw)",
                   fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
                 }}>
                   {movie?.title || movie?.name}
@@ -3829,6 +3934,7 @@ const CustomVideoPlayer = ({
                         width: "clamp(44px, 8vw, 56px)", height: 4, borderRadius: 2,
                         background: "rgba(255,255,255,0.1)", position: "relative",
                         cursor: "pointer",
+                        touchAction: "none",
                       }}
                       onMouseDown={(e) => {
                         e.stopPropagation(); e.preventDefault();
@@ -3889,7 +3995,7 @@ const CustomVideoPlayer = ({
               </div>
 
               {/* Right: Subtitles + Shortcuts + Settings + Fullscreen */}
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: isTouch ? 2 : 4 }}>
                 <input type="file" accept=".srt,.vtt" ref={subtitleInputRef} onChange={handleSubtitleUpload} style={{ display: "none" }} />
                 <motion.button onClick={(e) => { e.stopPropagation(); setShowSubtitlesMenu(!showSubtitlesMenu); setShowSettings(false); }}
                   whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
@@ -4009,6 +4115,26 @@ const CustomVideoPlayer = ({
         )}
       </AnimatePresence>
 
+      {/* Mobile tap-outside dismiss backdrop for popup menus */}
+      {isTouch && (showSettings || showSubtitlesMenu || showAudioMenu) && (
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowSettings(false);
+            setShowSubtitlesMenu(false);
+            setShowAudioMenu(false);
+          }}
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 48,
+            background: "rgba(0,0,0,0.5)",
+            backdropFilter: "blur(4px)",
+            WebkitBackdropFilter: "blur(4px)",
+          }}
+        />
+      )}
+
       {/* ═══ SETTINGS PANEL ═════════════════════════════════════ */}
       <AnimatePresence>
         {showSettings && (
@@ -4019,15 +4145,23 @@ const CustomVideoPlayer = ({
             transition={SPRING}
             onClick={(e) => e.stopPropagation()}
             style={{
-              position: "absolute", bottom: "calc(clamp(40px, 8vw, 60px) + var(--sab))", right: "calc(clamp(8px, 2vw, 16px) + var(--sar))", zIndex: 50,
-              width: R.panelSettings, maxHeight: "50vh",
-              background: "rgba(18,18,20,0.88)",
+              position: "absolute",
+              bottom: isTouch ? "calc(12px + var(--sab))" : "calc(clamp(40px, 8vw, 60px) + var(--sab))",
+              right: isTouch ? "auto" : "calc(clamp(8px, 2vw, 16px) + var(--sar))",
+              left: isTouch ? "50%" : "auto",
+              transform: isTouch ? "translateX(-50%)" : "none",
+              zIndex: 50,
+              width: isTouch ? "min(calc(100% - 24px), 360px)" : R.panelSettings,
+              maxHeight: isTouch ? "min(68vh, 420px)" : "50vh",
+              background: "rgba(18,18,20,0.92)",
               backdropFilter: "blur(40px) saturate(180%)",
               WebkitBackdropFilter: "blur(40px) saturate(180%)",
-              border: "1px solid rgba(255,255,255,0.06)",
-              borderRadius: R.radiusMedium, padding: `${R.padMedium} ${R.padMedium}`, color: "#fff",
+              border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: isTouch ? 20 : R.radiusMedium,
+              padding: `${R.padMedium} ${R.padMedium}`,
+              color: "#fff",
               overflowY: "auto",
-              boxShadow: "0 16px 56px rgba(0,0,0,0.6), inset 0 0.5px 0 rgba(255,255,255,0.04)",
+              boxShadow: "0 16px 56px rgba(0,0,0,0.7), inset 0 0.5px 0 rgba(255,255,255,0.08)",
             }}
           >
             {/* Speed */}
@@ -4217,15 +4351,23 @@ const CustomVideoPlayer = ({
             transition={SPRING}
             onClick={(e) => e.stopPropagation()}
             style={{
-              position: "absolute", bottom: "calc(clamp(40px, 8vw, 60px) + var(--sab))", right: "calc(clamp(36px, 8vw, 56px) + var(--sar))", zIndex: 50,
-              width: R.panelSubtitles, maxHeight: "45vh",
-              background: "rgba(18,18,20,0.88)",
+              position: "absolute",
+              bottom: isTouch ? "calc(12px + var(--sab))" : "calc(clamp(40px, 8vw, 60px) + var(--sab))",
+              right: isTouch ? "auto" : "calc(clamp(36px, 8vw, 56px) + var(--sar))",
+              left: isTouch ? "50%" : "auto",
+              transform: isTouch ? "translateX(-50%)" : "none",
+              zIndex: 50,
+              width: isTouch ? "min(calc(100% - 24px), 360px)" : R.panelSubtitles,
+              maxHeight: isTouch ? "min(68vh, 420px)" : "45vh",
+              background: "rgba(18,18,20,0.92)",
               backdropFilter: "blur(40px) saturate(180%)",
               WebkitBackdropFilter: "blur(40px) saturate(180%)",
-              border: "1px solid rgba(255,255,255,0.06)",
-              borderRadius: R.radiusMedium, padding: `${R.padMedium} ${R.padMedium}`, color: "#fff",
+              border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: isTouch ? 20 : R.radiusMedium,
+              padding: `${R.padMedium} ${R.padMedium}`,
+              color: "#fff",
               overflowY: "auto",
-              boxShadow: "0 16px 56px rgba(0,0,0,0.6), inset 0 0.5px 0 rgba(255,255,255,0.04)",
+              boxShadow: "0 16px 56px rgba(0,0,0,0.7), inset 0 0.5px 0 rgba(255,255,255,0.08)",
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -4298,15 +4440,23 @@ const CustomVideoPlayer = ({
             transition={SPRING}
             onClick={(e) => e.stopPropagation()}
             style={{
-              position: "absolute", bottom: "calc(clamp(40px, 8vw, 60px) + var(--sab))", right: "calc(clamp(68px, 14vw, 96px) + var(--sar))", zIndex: 50,
-              width: R.panelSubtitles, maxHeight: "40vh",
-              background: "rgba(18,18,20,0.88)",
+              position: "absolute",
+              bottom: isTouch ? "calc(12px + var(--sab))" : "calc(clamp(40px, 8vw, 60px) + var(--sab))",
+              right: isTouch ? "auto" : "calc(clamp(68px, 14vw, 96px) + var(--sar))",
+              left: isTouch ? "50%" : "auto",
+              transform: isTouch ? "translateX(-50%)" : "none",
+              zIndex: 50,
+              width: isTouch ? "min(calc(100% - 24px), 360px)" : R.panelSubtitles,
+              maxHeight: isTouch ? "min(68vh, 420px)" : "40vh",
+              background: "rgba(18,18,20,0.92)",
               backdropFilter: "blur(40px) saturate(180%)",
               WebkitBackdropFilter: "blur(40px) saturate(180%)",
-              border: "1px solid rgba(255,255,255,0.06)",
-              borderRadius: R.radiusMedium, padding: `${R.padMedium} ${R.padMedium}`, color: "#fff",
+              border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: isTouch ? 20 : R.radiusMedium,
+              padding: `${R.padMedium} ${R.padMedium}`,
+              color: "#fff",
               overflowY: "auto",
-              boxShadow: "0 16px 56px rgba(0,0,0,0.6), inset 0 0.5px 0 rgba(255,255,255,0.04)",
+              boxShadow: "0 16px 56px rgba(0,0,0,0.7), inset 0 0.5px 0 rgba(255,255,255,0.08)",
             }}
           >
             <div style={{ fontSize: R.fontTiny, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "1.5px", fontWeight: 700, marginBottom: 12, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif" }}>Audio Track</div>

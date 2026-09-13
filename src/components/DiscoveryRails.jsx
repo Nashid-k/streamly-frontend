@@ -55,7 +55,7 @@ export const DiscoveryRail = ({ section }) => {
         className="movie-rail"
         style={{
           display: "flex",
-          gap: "1.5rem",
+          gap: "clamp(0.75rem, 2.5vw, 1.25rem)",
           WebkitOverflowScrolling: "touch",
           overscrollBehaviorX: "contain",
           overflowX: "auto",

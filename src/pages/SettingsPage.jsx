@@ -52,6 +52,9 @@ function SettingRow({ icon: Icon, title, description, children }) {
 export default function SettingsPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
+  const [isTouchDevice] = useState(
+    () => typeof window !== "undefined" && ("ontouchstart" in window || navigator.maxTouchPoints > 0)
+  );
   const {
     autoplay,
     muteTrailers,
@@ -127,14 +130,14 @@ export default function SettingsPage() {
     },
     {
       section: "Account",
-      title: "Keyboard Shortcuts",
-      description: "Play, pause, timelines and more",
+      title: isTouchDevice ? "Gestures & Shortcuts" : "Keyboard Shortcuts",
+      description: isTouchDevice ? "Player gestures, swipes, and shortcuts" : "Play, pause, timelines and more",
       icon: Keyboard,
       control: (
         <button
           type="button"
           onClick={openShortcuts}
-          aria-label="Show Keyboard Shortcuts"
+          aria-label={isTouchDevice ? "Show Gestures & Shortcuts" : "Show Keyboard Shortcuts"}
           className="setting-row__link"
         >
           <ChevronRight size={18} />
