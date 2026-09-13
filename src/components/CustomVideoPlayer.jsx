@@ -1564,6 +1564,7 @@ const CustomVideoPlayer = ({
   const changeVolume = useCallback((nv) => {
     const v = Math.max(0, Math.min(nv, 1));
     setVolume(v);
+    volumeRef.current = v;
     localStorage.setItem("streamly_volume", v.toString());
     if (isDirectStream && videoRef.current) {
       videoRef.current.volume = v;
@@ -1573,18 +1574,27 @@ const CustomVideoPlayer = ({
     }
     if (v > 0 && isMuted) {
       setIsMuted(false);
+      isMutedRef.current = false;
       localStorage.setItem("streamly_muted", "false");
     }
-    /* Show the circular arc volume HUD */
-    setShowVolumeArc(true);
-    if (volumeArcTimerRef.current) clearTimeout(volumeArcTimerRef.current);
-    volumeArcTimerRef.current = setTimeout(() => setShowVolumeArc(false), 1200);
-  }, [isMuted, isDirectStream, sendCommand]);
+    if (isTouch) {
+      setGestureType("volume");
+      setGestureValue(v);
+      if (gestureHudTimerRef.current) clearTimeout(gestureHudTimerRef.current);
+      gestureHudTimerRef.current = setTimeout(() => setGestureType(null), 1000);
+    } else {
+      /* Show the circular arc volume HUD on desktop */
+      setShowVolumeArc(true);
+      if (volumeArcTimerRef.current) clearTimeout(volumeArcTimerRef.current);
+      volumeArcTimerRef.current = setTimeout(() => setShowVolumeArc(false), 1200);
+    }
+  }, [isMuted, isDirectStream, sendCommand, isTouch]);
 
   const toggleMute = useCallback((e) => {
     if (e) e.stopPropagation();
     const n = !isMuted;
     setIsMuted(n);
+    isMutedRef.current = n;
     localStorage.setItem("streamly_muted", n.toString());
     if (isDirectStream && videoRef.current) {
       videoRef.current.muted = n;
@@ -1595,17 +1605,25 @@ const CustomVideoPlayer = ({
         const restoreVol = volume <= 0 ? 0.7 : volume;
         if (volume <= 0) {
           setVolume(restoreVol);
+          volumeRef.current = restoreVol;
           localStorage.setItem("streamly_volume", restoreVol.toString());
         }
         sendCommand("setVolume", [restoreVol]);
       }
     }
-    setShowVolumeArc(true);
-    if (volumeArcTimerRef.current) clearTimeout(volumeArcTimerRef.current);
-    volumeArcTimerRef.current = setTimeout(() => setShowVolumeArc(false), 1200);
-  }, [isMuted, volume, isDirectStream, sendCommand]);
+    if (isTouch) {
+      setGestureType("volume");
+      setGestureValue(n ? 0 : volume);
+      if (gestureHudTimerRef.current) clearTimeout(gestureHudTimerRef.current);
+      gestureHudTimerRef.current = setTimeout(() => setGestureType(null), 1000);
+    } else {
+      setShowVolumeArc(true);
+      if (volumeArcTimerRef.current) clearTimeout(volumeArcTimerRef.current);
+      volumeArcTimerRef.current = setTimeout(() => setShowVolumeArc(false), 1200);
+    }
+  }, [isMuted, volume, isDirectStream, sendCommand, isTouch]);
 
-  const seekRelative = useCallback((s) => {
+  const seekRelative = useCallback((s, showSideFeedback = true) => {
     const base = targetSeekTimeRef.current ?? currentTime;
     const nt = Math.max(0, Math.min(base + s, duration || Infinity));
     targetSeekTimeRef.current = nt;
@@ -1617,8 +1635,10 @@ const CustomVideoPlayer = ({
     }
     seekAccumulatorRef.current += s;
     const a = seekAccumulatorRef.current;
-    if (a > 0) triggerSideIcon("forward", `+${a}s`);
-    else if (a < 0) triggerSideIcon("backward", `${a}s`);
+    if (showSideFeedback) {
+      if (a > 0) triggerSideIcon("forward", `+${a}s`);
+      else if (a < 0) triggerSideIcon("backward", `${a}s`);
+    }
     if (seekTimeoutRef.current) clearTimeout(seekTimeoutRef.current);
     seekTimeoutRef.current = setTimeout(() => { seekAccumulatorRef.current = 0; }, 1000);
   }, [currentTime, duration, isDirectStream, sendCommand, triggerSideIcon]);
@@ -1955,7 +1975,7 @@ const CustomVideoPlayer = ({
       if (r) {
         const seekSensitivity = Math.max(220, r.width * 0.45);
         const seekAmount = (dx / seekSensitivity) * 30;
-        if (Math.abs(seekAmount) > 2) seekRelative(Math.round(seekAmount));
+        if (Math.abs(seekAmount) > 2) seekRelative(Math.round(seekAmount), false);
       }
     }
     gestureStartRef.current = null;
@@ -2265,16 +2285,34 @@ const CustomVideoPlayer = ({
           pointerEvents: "none", zIndex: 15,
           transition: "bottom 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
         }}>
-          <div style={{
-            color: "#fff", padding: `${R.padSmall} ${R.padLarge}`,
-            fontSize: "clamp(15px, 2.5vw, 26px)", lineHeight: 1.4, fontWeight: 500,
-            textShadow: "0 1px 8px rgba(0,0,0,0.95), 0 0 3px rgba(0,0,0,0.8)",
-            textAlign: "center", maxWidth: "85%", whiteSpace: "pre-wrap",
-            background: "rgba(0,0,0,0.5)", borderRadius: 6,
-            backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
-          }}>
-            {activeSubtitleCue.text}
-          </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeSubtitleCue.text}
+              initial={{ opacity: 0, y: 3 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              style={{
+                color: "#fff",
+                padding: isTouch ? "2px 8px" : `${R.padSmall} ${R.padLarge}`,
+                fontSize: "clamp(15px, 2.5vw, 24px)",
+                lineHeight: 1.35,
+                fontWeight: 600,
+                textAlign: "center",
+                maxWidth: "88%",
+                whiteSpace: "pre-wrap",
+                background: isTouch ? "transparent" : "rgba(0,0,0,0.5)",
+                borderRadius: isTouch ? 0 : 6,
+                backdropFilter: isTouch ? "none" : "blur(8px)",
+                WebkitBackdropFilter: isTouch ? "none" : "blur(8px)",
+                textShadow: isTouch
+                  ? "0 2px 4px rgba(0,0,0,0.95), 0 0 2px #000, 0 0 12px rgba(0,0,0,0.95), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000"
+                  : "0 1px 8px rgba(0,0,0,0.95), 0 0 3px rgba(0,0,0,0.8)",
+              }}
+            >
+              {activeSubtitleCue.text}
+            </motion.div>
+          </AnimatePresence>
         </div>
       )}
 
@@ -2614,7 +2652,7 @@ const CustomVideoPlayer = ({
 
       {/* ═══ VOLUME HUD — compact horizontal gauge: live arc fill + morphing icon + spring % ═══ */}
       <AnimatePresence>
-        {showVolumeArc && (
+        {showVolumeArc && !isTouch && (
           <motion.div
             key="volume-hud"
             initial={{ opacity: 0, y: -18, scale: 0.9, x: "-50%" }}
@@ -2740,7 +2778,7 @@ const CustomVideoPlayer = ({
             transition={SPRING_SNAPPY}
             style={{
               position: "absolute", left: "50%",
-              top: hudTop,
+              top: isTouch ? "calc(clamp(14px, 3vh, 28px) + var(--sat))" : hudTop,
               zIndex: 65, pointerEvents: "none",
             }}
           >
@@ -2749,13 +2787,13 @@ const CustomVideoPlayer = ({
               layout
               transition={{ type: "spring", stiffness: 380, damping: 34, mass: 0.9 }}
               style={{
-                display: "flex", alignItems: "center", gap: Math.round(12 * hudScale),
-                background: "linear-gradient(180deg, rgba(22,22,26,0.9), rgba(10,10,12,0.9))",
+                display: "flex", alignItems: "center", gap: isTouch ? 10 : Math.round(12 * hudScale),
+                background: "linear-gradient(180deg, rgba(22,22,26,0.92), rgba(10,10,12,0.92))",
                 backdropFilter: "blur(24px) saturate(160%)",
                 WebkitBackdropFilter: "blur(24px) saturate(160%)",
                 border: "1px solid rgba(255,255,255,0.12)",
                 borderRadius: 999,
-                padding: `${Math.round(7 * hudScale)}px ${Math.round(14 * hudScale)}px`,
+                padding: isTouch ? "6px 14px" : `${Math.round(7 * hudScale)}px ${Math.round(14 * hudScale)}px`,
                 boxShadow:
                   "0 16px 48px rgba(0,0,0,0.6), 0 0 0 0.5px rgba(255,255,255,0.04), inset 0 0.5px 0 rgba(255,255,255,0.14)",
               }}
@@ -2893,61 +2931,70 @@ const CustomVideoPlayer = ({
         {gestureType === 'brightness' && isTouch && (
           <motion.div
             key="brightness-bar"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
+            initial={{ opacity: 0, x: -28, y: "-50%" }}
+            animate={{ opacity: 1, x: 0, y: "-50%" }}
+            exit={{ opacity: 0, x: -24, y: "-50%" }}
             transition={SPRING_SNAPPY}
             style={{
-              position: 'absolute', left: 'clamp(12px, 3vw, 20px)',
-              top: '15%', bottom: '15%', width: 36,
+              position: 'absolute',
+              left: 'calc(clamp(14px, 3.5vw, 28px) + var(--sal))',
+              top: '50%',
+              width: 44,
+              height: 'clamp(170px, 42vh, 230px)',
               display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center',
+              alignItems: 'center', justifyContent: 'space-between',
+              padding: '12px 0 10px',
               zIndex: 65, pointerEvents: 'none',
-              background: 'rgba(0,0,0,0.55)',
-              backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-              borderRadius: 18, border: '1px solid rgba(255,255,255,0.06)',
+              background: 'rgba(18,18,22,0.84)',
+              backdropFilter: 'blur(30px) saturate(190%)',
+              WebkitBackdropFilter: 'blur(30px) saturate(190%)',
+              borderRadius: 22,
+              border: '1px solid rgba(255,255,255,0.12)',
+              boxShadow: '0 20px 48px rgba(0,0,0,0.7), inset 0 0.5px 0 rgba(255,255,255,0.2)',
               overflow: 'hidden',
             }}>
+            {/* Sun icon at top with glow */}
+            <motion.div
+              animate={{ scale: [0.95, 1.05, 1] }}
+              transition={{ duration: 0.3 }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" strokeWidth="2.2" strokeLinecap="round" style={{ filter: 'drop-shadow(0 0 6px rgba(251,191,36,0.6))' }}>
+                <circle cx="12" cy="12" r="5"/>
+                <line x1="12" y1="1" x2="12" y2="3"/>
+                <line x1="12" y1="21" x2="12" y2="23"/>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                <line x1="1" y1="12" x2="3" y2="12"/>
+                <line x1="21" y1="12" x2="23" y2="12"/>
+              </svg>
+            </motion.div>
             {/* Track */}
             <div style={{
-              position: 'relative', width: 4, height: '70%',
-              background: 'rgba(255,255,255,0.08)', borderRadius: 2,
+              position: 'relative', width: 6, flex: 1, margin: '10px 0',
+              background: 'rgba(255,255,255,0.12)', borderRadius: 3,
+              overflow: 'hidden',
             }}>
               {/* Fill */}
               <motion.div
-                animate={{ height: `${gestureValue * 100}%` }}
-                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                animate={{ height: `${Math.max(0, Math.min(100, Math.round(gestureValue * 100)))}%` }}
+                transition={{ type: 'spring', stiffness: 450, damping: 32 }}
                 style={{
                   position: 'absolute', bottom: 0, left: 0, right: 0,
-                  background: '#FBBF24', borderRadius: 2,
-                }}
-              />
-              {/* Thumb */}
-              <motion.div
-                animate={{ bottom: `${gestureValue * 100}%` }}
-                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                style={{
-                  position: 'absolute', left: '50%',
-                  transform: 'translate(-50%, 50%)',
-                  width: 10, height: 10, borderRadius: '50%',
-                  background: '#FBBF24',
-                  boxShadow: '0 0 8px rgba(251,191,36,0.5)',
+                  background: 'linear-gradient(to top, #F59E0B, #FBBF24)',
+                  borderRadius: 3,
+                  boxShadow: '0 0 10px rgba(251,191,36,0.5)',
                 }}
               />
             </div>
-            {/* Sun icon at bottom */}
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" strokeWidth="2" strokeLinecap="round" style={{ marginTop: 6 }}>
-              <circle cx="12" cy="12" r="5"/>
-              <line x1="12" y1="1" x2="12" y2="3"/>
-              <line x1="12" y1="21" x2="12" y2="23"/>
-              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-              <line x1="1" y1="12" x2="3" y2="12"/>
-              <line x1="21" y1="12" x2="23" y2="12"/>
-            </svg>
-            <span style={{ color: '#FBBF24', fontSize: 9, fontWeight: 700, marginTop: 2,
-              fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', fontVariantNumeric: 'tabular-nums' }}>
-              {Math.round(gestureValue * 100)}%
+            {/* Percentage */}
+            <span style={{
+              color: '#FBBF24', fontSize: 11, fontWeight: 800,
+              fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+              fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em',
+              textShadow: '0 1px 4px rgba(0,0,0,0.8)',
+            }}>
+              {Math.max(0, Math.min(100, Math.round(gestureValue * 100)))}%
             </span>
           </motion.div>
         )}
@@ -2958,102 +3005,131 @@ const CustomVideoPlayer = ({
         {gestureType === 'volume' && isTouch && (
           <motion.div
             key="volume-bar"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
+            initial={{ opacity: 0, x: 28, y: "-50%" }}
+            animate={{ opacity: 1, x: 0, y: "-50%" }}
+            exit={{ opacity: 0, x: 24, y: "-50%" }}
             transition={SPRING_SNAPPY}
             style={{
-              position: 'absolute', right: 'clamp(12px, 3vw, 20px)',
-              top: '15%', bottom: '15%', width: 36,
+              position: 'absolute',
+              right: 'calc(clamp(14px, 3.5vw, 28px) + var(--sar))',
+              top: '50%',
+              width: 44,
+              height: 'clamp(170px, 42vh, 230px)',
               display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center',
+              alignItems: 'center', justifyContent: 'space-between',
+              padding: '12px 0 10px',
               zIndex: 65, pointerEvents: 'none',
-              background: 'rgba(0,0,0,0.55)',
-              backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-              borderRadius: 18, border: '1px solid rgba(255,255,255,0.06)',
+              background: 'rgba(18,18,22,0.84)',
+              backdropFilter: 'blur(30px) saturate(190%)',
+              WebkitBackdropFilter: 'blur(30px) saturate(190%)',
+              borderRadius: 22,
+              border: '1px solid rgba(255,255,255,0.12)',
+              boxShadow: '0 20px 48px rgba(0,0,0,0.7), inset 0 0.5px 0 rgba(255,255,255,0.2)',
               overflow: 'hidden',
             }}>
+            {/* Speaker icon at top */}
+            <motion.div
+              key={isMuted || volume === 0 ? 'off' : 'on'}
+              initial={{ scale: 0.6 }} animate={{ scale: 1 }}
+              transition={SPRING_FAST}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              {isMuted || volume === 0 ? (
+                <VolumeX size={18} color="#ff453a" strokeWidth={2.2} style={{ filter: 'drop-shadow(0 0 6px rgba(255,69,58,0.6))' }} />
+              ) : (
+                <Volume2 size={18} color="#fff" strokeWidth={2.2} style={{ filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.4))' }} />
+              )}
+            </motion.div>
             {/* Track */}
             <div style={{
-              position: 'relative', width: 4, height: '70%',
-              background: 'rgba(255,255,255,0.08)', borderRadius: 2,
+              position: 'relative', width: 6, flex: 1, margin: '10px 0',
+              background: 'rgba(255,255,255,0.12)', borderRadius: 3,
+              overflow: 'hidden',
             }}>
               <motion.div
-                animate={{ height: `${gestureValue * 100}%` }}
-                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                animate={{ height: `${Math.max(0, Math.min(100, Math.round((isMuted ? 0 : volume) * 100)))}%` }}
+                transition={{ type: 'spring', stiffness: 450, damping: 32 }}
                 style={{
                   position: 'absolute', bottom: 0, left: 0, right: 0,
-                  background: (isMuted || volume === 0) ? '#ff453a' : '#fff',
-                  borderRadius: 2,
-                }}
-              />
-              <motion.div
-                animate={{ bottom: `${gestureValue * 100}%` }}
-                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                style={{
-                  position: 'absolute', left: '50%',
-                  transform: 'translate(-50%, 50%)',
-                  width: 10, height: 10, borderRadius: '50%',
-                  background: (isMuted || volume === 0) ? '#ff453a' : '#fff',
-                  boxShadow: '0 0 8px rgba(0,0,0,0.5)',
+                  background: (isMuted || volume === 0) ? '#ff453a' : 'linear-gradient(to top, rgba(255,255,255,0.8), #fff)',
+                  borderRadius: 3,
+                  boxShadow: (isMuted || volume === 0) ? '0 0 10px rgba(255,69,58,0.5)' : '0 0 10px rgba(255,255,255,0.4)',
                 }}
               />
             </div>
-            {/* Speaker icon at bottom */}
-            <motion.div
-              key={isMuted || volume === 0 ? 'off' : 'on'}
-              initial={{ scale: 0.5 }} animate={{ scale: 1 }}
-              transition={SPRING_FAST}
-              style={{ marginTop: 6 }}
-            >
-              {isMuted || volume === 0 ? (
-                <VolumeX size={14} color="#ff453a" strokeWidth={2} />
-              ) : (
-                <Volume2 size={14} color="#fff" strokeWidth={2} />
-              )}
-            </motion.div>
-            <span style={{ color: (isMuted || volume === 0) ? '#ff453a' : '#fff', fontSize: 9, fontWeight: 700, marginTop: 2,
-              fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', fontVariantNumeric: 'tabular-nums' }}>
-              {Math.round((isMuted ? 0 : volume) * 100)}%
+            {/* Percentage */}
+            <span style={{
+              color: (isMuted || volume === 0) ? '#ff453a' : '#fff',
+              fontSize: 11, fontWeight: 800,
+              fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+              fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em',
+              textShadow: '0 1px 4px rgba(0,0,0,0.8)',
+            }}>
+              {Math.max(0, Math.min(100, Math.round((isMuted ? 0 : volume) * 100)))}%
             </span>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Seek indicator — center */}
+      {/* Seek indicator — center (Framer Motion x/y: -50% ensures perfect viewport centering) */}
       <AnimatePresence>
         {gestureType === 'seek' && isTouch && (
           <motion.div
             key="seek-indicator"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.85 }}
+            initial={{ opacity: 0, scale: 0.85, x: "-50%", y: "-50%" }}
+            animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
+            exit={{ opacity: 0, scale: 0.9, x: "-50%", y: "-50%" }}
             transition={SPRING_SNAPPY}
             style={{
               position: 'absolute', top: '50%', left: '50%',
-              transform: 'translate(-50%, -50%)',
               zIndex: 65, pointerEvents: 'none',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-              background: 'rgba(0,0,0,0.65)',
-              backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-              borderRadius: 14, padding: '12px 20px',
-              border: '1px solid rgba(255,255,255,0.06)',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+              background: 'rgba(18,18,22,0.88)',
+              backdropFilter: 'blur(32px) saturate(190%)',
+              WebkitBackdropFilter: 'blur(32px) saturate(190%)',
+              borderRadius: 20, padding: '14px 24px', minWidth: 160,
+              border: '1px solid rgba(255,255,255,0.12)',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.8), inset 0 0.5px 0 rgba(255,255,255,0.2)',
             }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {/* Seek direction & delta */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               {seekDelta > 0 ? (
-                <FastForward size={16} color="#fff" strokeWidth={2} />
+                <FastForward size={20} color="#7DD3FC" strokeWidth={2.4} style={{ filter: 'drop-shadow(0 0 8px rgba(125,211,252,0.6))' }} />
               ) : (
-                <Rewind size={16} color="#fff" strokeWidth={2} />
+                <Rewind size={20} color="#7DD3FC" strokeWidth={2.4} style={{ filter: 'drop-shadow(0 0 8px rgba(125,211,252,0.6))' }} />
               )}
-              <span style={{ color: '#fff', fontSize: 16, fontWeight: 700,
-                fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
-                fontVariantNumeric: 'tabular-nums' }}>
+              <span style={{
+                color: '#fff', fontSize: 20, fontWeight: 800,
+                fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif",
+                fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em',
+              }}>
                 {seekDelta > 0 ? '+' : ''}{Math.round(seekDelta)}s
               </span>
             </div>
-            <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: 600 }}>
-              {fmt(Math.max(0, currentTime + seekDelta))} / {fmt(duration)}
-            </span>
+            {/* Destination time display */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              fontSize: 12, fontWeight: 600,
+              fontFamily: "SF Mono, Menlo, monospace", fontVariantNumeric: 'tabular-nums',
+            }}>
+              <span style={{ color: '#7DD3FC' }}>{fmt(Math.max(0, Math.min(currentTime + seekDelta, duration || 0)))}</span>
+              <span style={{ color: 'rgba(255,255,255,0.35)' }}>/</span>
+              <span style={{ color: 'rgba(255,255,255,0.5)' }}>{fmt(duration)}</span>
+            </div>
+            {/* Mini destination progress bar */}
+            {duration > 0 && (
+              <div style={{
+                width: 120, height: 3, background: 'rgba(255,255,255,0.12)',
+                borderRadius: 2, overflow: 'hidden', marginTop: 2, position: 'relative',
+              }}>
+                <div style={{
+                  position: 'absolute', left: 0, top: 0, bottom: 0,
+                  width: `${Math.max(0, Math.min(((currentTime + seekDelta) / duration) * 100, 100))}%`,
+                  background: '#7DD3FC', borderRadius: 2,
+                  boxShadow: '0 0 6px #7DD3FC',
+                }} />
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -3123,48 +3199,88 @@ const CustomVideoPlayer = ({
         <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "30%", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <AnimatePresence>
             {sideIcon?.type === "backward" && (
-              <motion.div
-                key="bwd"
-                initial={{ opacity: 0, scale: 0.3 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 1.4 }}
-                transition={SPRING_SNAPPY}
-                style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}
-              >
-                <div style={{ position: "relative" }}>
-                  <motion.div
-                    initial={{ rotate: 0 }}
-                    animate={{ rotate: [0, -360] }}
-                    transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                  >
-                    <ArcRing
-                      progress={0.4}
-                      size={64} responsive="clamp(48px, 8vw, 68px)" strokeWidth={2.5}
-                      color="rgba(255,255,255,0.8)"
-                      bgColor="rgba(255,255,255,0.04)"
-                      glowColor="rgba(255,255,255,0.12)"
-                    >
-                      <motion.div
-                        initial={{ scale: 0.4, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        transition={{ delay: 0.1, ...SPRING_SNAPPY }}
-                      >
-                        <Rewind size={22} color="#fff" strokeWidth={2} />
-                      </motion.div>
-                    </ArcRing>
-                  </motion.div>
-                </div>
-                <motion.span
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.15, ...SPRING_FAST }}
+              isTouch ? (
+                <motion.div
+                  key="bwd-touch"
+                  initial={{ opacity: 0, scale: 0.7, x: -14 }}
+                  animate={{ opacity: 1, scale: 1, x: 0 }}
+                  exit={{ opacity: 0, scale: 0.85, x: -8 }}
+                  transition={SPRING_SNAPPY}
                   style={{
-                    fontSize: R.fontMedium, fontWeight: 700, color: "#fff",
-                    fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
-                    textShadow: "0 1px 12px rgba(0,0,0,0.9)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "8px 16px",
+                    borderRadius: 9999,
+                    background: "rgba(18, 18, 24, 0.84)",
+                    backdropFilter: "blur(24px)",
+                    WebkitBackdropFilter: "blur(24px)",
+                    border: "1px solid rgba(255, 255, 255, 0.12)",
+                    boxShadow: "0 10px 32px rgba(0,0,0,0.65), 0 0 16px rgba(0, 229, 255, 0.15)",
+                    marginLeft: "var(--sal, 0px)",
+                  }}
+                >
+                  <motion.div
+                    animate={{ x: [0, -3, 0] }}
+                    transition={{ repeat: 2, duration: 0.25 }}
+                  >
+                    <Rewind size={18} color="#00e5ff" strokeWidth={2.5} />
+                  </motion.div>
+                  <span style={{
+                    fontSize: 14,
+                    fontWeight: 700,
+                    color: "#fff",
+                    fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif",
+                    letterSpacing: "0.2px",
                     fontVariantNumeric: "tabular-nums",
-                  }}>{sideIcon.text}</motion.span>
-              </motion.div>
+                  }}>
+                    {sideIcon.text}
+                  </span>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="bwd"
+                  initial={{ opacity: 0, scale: 0.3 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 1.4 }}
+                  transition={SPRING_SNAPPY}
+                  style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}
+                >
+                  <div style={{ position: "relative" }}>
+                    <motion.div
+                      initial={{ rotate: 0 }}
+                      animate={{ rotate: [0, -360] }}
+                      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                    >
+                      <ArcRing
+                        progress={0.4}
+                        size={64} responsive="clamp(48px, 8vw, 68px)" strokeWidth={2.5}
+                        color="rgba(255,255,255,0.8)"
+                        bgColor="rgba(255,255,255,0.04)"
+                        glowColor="rgba(255,255,255,0.12)"
+                      >
+                        <motion.div
+                          initial={{ scale: 0.4, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ delay: 0.1, ...SPRING_SNAPPY }}
+                        >
+                          <Rewind size={22} color="#fff" strokeWidth={2} />
+                        </motion.div>
+                      </ArcRing>
+                    </motion.div>
+                  </div>
+                  <motion.span
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.15, ...SPRING_FAST }}
+                    style={{
+                      fontSize: R.fontMedium, fontWeight: 700, color: "#fff",
+                      fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+                      textShadow: "0 1px 12px rgba(0,0,0,0.9)",
+                      fontVariantNumeric: "tabular-nums",
+                    }}>{sideIcon.text}</motion.span>
+                </motion.div>
+              )
             )}
           </AnimatePresence>
         </div>
@@ -3172,48 +3288,88 @@ const CustomVideoPlayer = ({
         <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: "30%", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <AnimatePresence>
             {sideIcon?.type === "forward" && (
-              <motion.div
-                key="fwd"
-                initial={{ opacity: 0, scale: 0.3 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 1.4 }}
-                transition={SPRING_SNAPPY}
-                style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}
-              >
-                <div style={{ position: "relative" }}>
-                  <motion.div
-                    initial={{ rotate: 0 }}
-                    animate={{ rotate: [0, 360] }}
-                    transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                  >
-                    <ArcRing
-                      progress={0.4}
-                      size={64} responsive="clamp(48px, 8vw, 68px)" strokeWidth={2.5}
-                      color="rgba(255,255,255,0.8)"
-                      bgColor="rgba(255,255,255,0.04)"
-                      glowColor="rgba(255,255,255,0.12)"
-                    >
-                      <motion.div
-                        initial={{ scale: 0.4, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        transition={{ delay: 0.1, ...SPRING_SNAPPY }}
-                      >
-                        <FastForward size={22} color="#fff" strokeWidth={2} />
-                      </motion.div>
-                    </ArcRing>
-                  </motion.div>
-                </div>
-                <motion.span
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.15, ...SPRING_FAST }}
+              isTouch ? (
+                <motion.div
+                  key="fwd-touch"
+                  initial={{ opacity: 0, scale: 0.7, x: 14 }}
+                  animate={{ opacity: 1, scale: 1, x: 0 }}
+                  exit={{ opacity: 0, scale: 0.85, x: 8 }}
+                  transition={SPRING_SNAPPY}
                   style={{
-                    fontSize: R.fontMedium, fontWeight: 700, color: "#fff",
-                    fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
-                    textShadow: "0 1px 12px rgba(0,0,0,0.9)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "8px 16px",
+                    borderRadius: 9999,
+                    background: "rgba(18, 18, 24, 0.84)",
+                    backdropFilter: "blur(24px)",
+                    WebkitBackdropFilter: "blur(24px)",
+                    border: "1px solid rgba(255, 255, 255, 0.12)",
+                    boxShadow: "0 10px 32px rgba(0,0,0,0.65), 0 0 16px rgba(0, 229, 255, 0.15)",
+                    marginRight: "var(--sar, 0px)",
+                  }}
+                >
+                  <span style={{
+                    fontSize: 14,
+                    fontWeight: 700,
+                    color: "#fff",
+                    fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif",
+                    letterSpacing: "0.2px",
                     fontVariantNumeric: "tabular-nums",
-                  }}>{sideIcon.text}</motion.span>
-              </motion.div>
+                  }}>
+                    {sideIcon.text}
+                  </span>
+                  <motion.div
+                    animate={{ x: [0, 3, 0] }}
+                    transition={{ repeat: 2, duration: 0.25 }}
+                  >
+                    <FastForward size={18} color="#00e5ff" strokeWidth={2.5} />
+                  </motion.div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="fwd"
+                  initial={{ opacity: 0, scale: 0.3 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 1.4 }}
+                  transition={SPRING_SNAPPY}
+                  style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}
+                >
+                  <div style={{ position: "relative" }}>
+                    <motion.div
+                      initial={{ rotate: 0 }}
+                      animate={{ rotate: [0, 360] }}
+                      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                    >
+                      <ArcRing
+                        progress={0.4}
+                        size={64} responsive="clamp(48px, 8vw, 68px)" strokeWidth={2.5}
+                        color="rgba(255,255,255,0.8)"
+                        bgColor="rgba(255,255,255,0.04)"
+                        glowColor="rgba(255,255,255,0.12)"
+                      >
+                        <motion.div
+                          initial={{ scale: 0.4, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ delay: 0.1, ...SPRING_SNAPPY }}
+                        >
+                          <FastForward size={22} color="#fff" strokeWidth={2} />
+                        </motion.div>
+                      </ArcRing>
+                    </motion.div>
+                  </div>
+                  <motion.span
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.15, ...SPRING_FAST }}
+                    style={{
+                      fontSize: R.fontMedium, fontWeight: 700, color: "#fff",
+                      fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+                      textShadow: "0 1px 12px rgba(0,0,0,0.9)",
+                      fontVariantNumeric: "tabular-nums",
+                    }}>{sideIcon.text}</motion.span>
+                </motion.div>
+              )
             )}
           </AnimatePresence>
         </div>
@@ -3225,14 +3381,16 @@ const CustomVideoPlayer = ({
           {doubleTapRipple && (
             <motion.div
               key={doubleTapRipple.id}
-              initial={{ opacity: 0.4 }}
+              initial={{ opacity: isTouch ? 0.3 : 0.4 }}
               animate={{ opacity: 0 }}
-              transition={{ duration: 0.4 }}
+              transition={{ duration: 0.45 }}
               style={{
                 position: "absolute",
                 [doubleTapRipple.side]: 0,
-                width: "40%", height: "100%",
-                background: `radial-gradient(ellipse at ${doubleTapRipple.side} center, rgba(255,255,255,0.04) 0%, transparent 70%)`,
+                width: isTouch ? "35%" : "40%", height: "100%",
+                background: isTouch
+                  ? `radial-gradient(ellipse at ${doubleTapRipple.side === "left" ? "0%" : "100%"} center, rgba(0,229,255,0.16) 0%, rgba(255,255,255,0.05) 40%, transparent 75%)`
+                  : `radial-gradient(ellipse at ${doubleTapRipple.side} center, rgba(255,255,255,0.04) 0%, transparent 70%)`,
               }}
             />
           )}
