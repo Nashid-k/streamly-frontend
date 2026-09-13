@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SubtitleEngine } from "../utils/subtitleEngine";
-import { logWarn } from "../utils/debugLogger";
+import { logDebug, logWarn } from "../utils/debugLogger";
 import { streamUrl, STREAM_BASE } from "../api/env";
 import { usePreferences } from "../context/preferences";
 import { resolveUILayout, PLAYER_CONTROL_ORDER, PLAYER_SPEEDS } from "./playerUIDef";
@@ -795,6 +795,8 @@ const CustomVideoPlayer = ({
         return;
       }
       genKeyRef.current = key;
+      // Console trace: which ordered server this session plays (Settings → Server Order).
+      logDebug("player", `Loading "${movie?.title || movie?.name || tid}" via server #${activeServerIndex + 1} "${SERVERS[activeServerIndex]?.name || "unknown"}" (${serverCount} in rotation).`, { tid, serverIndex: activeServerIndex, serverCount });
       const sig = `${tid}-${isTv ? season : "m"}-${isTv ? episode : "m"}`;
       const isNew = contentSignatureRef.current !== sig;
       contentSignatureRef.current = sig;
