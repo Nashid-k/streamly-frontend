@@ -43,22 +43,34 @@ function buildQuery(params) {
   return q.toString();
 }
 
-// A deployed proxy always answers JSON (TMDB payload or TMDB error). HTML
-// means something else answered — typically the SPA fallback on hosts with
-// no function deployed — so the caller should retry direct instead.
-function isHtmlResponse(res) {
+// A deployed proxy always answers JSON (TMDB payload or TMDB error).
+// Anything else means no function served the request and the caller should
+// retry direct instead:
+//   - text/html → SPA fallback on plain static hosts (index.html, often 200)
+//   - text/plain 404 → Vercel "NOT_FOUND" when the deployment predates the
+//     api function (or the function failed to deploy)
+// Headerless responses (unit-test mocks) count as TMDB-shaped.
+function proxyLooksLikeTmdb(res) {
+  let ct = '';
   try {
-    return (res.headers?.get?.('content-type') || '').includes('text/html');
+    ct = res.headers?.get?.('content-type') || '';
   } catch {
-    return false;
+    ct = '';
   }
+  if (ct.includes('text/html')) return false;
+  if (ct.includes('json')) return true;
+  return ct === '';
 }
 
 async function handleResponse(res, path, via, safeUrl, params) {
   if (!res.ok) {
     let hint = '';
     if (res.status === 401) hint = 'Invalid/blocked TMDB API key. Check VITE_TMDB_API_KEY in .env.';
-    else if (res.status === 404) hint = 'TMDB has no resource at this path/id (removed or wrong media type).';
+    else if (res.status === 404) {
+      hint = via === 'proxy'
+        ? 'TMDB reports no such resource — or this deployment predates the /api function. Redeploy on Vercel.'
+        : 'TMDB has no resource at this path/id (removed or wrong media type).';
+    }
     else if (res.status === 429) hint = 'TMDB rate limit hit — retry shortly.';
     else if (res.status >= 500) hint = 'TMDB server error — retry shortly.';
     const err = new Error(`TMDB ${path} failed: ${res.status}${hint ? ` — ${hint}` : ''}`);
@@ -117,10 +129,17 @@ async function tmdb(path, params = {}) {
       let proxyUnusable = false;
       try {
         proxyRes = await fetch(`${proxy}${path}?${query}`, { signal: controller.signal });
-        // Proxy absent (static host serving index.html)? Fall back to direct.
-        proxyUnusable = !proxyRes.ok && isHtmlResponse(proxyRes);
+        // No function served this (static host fallback, stale Vercel
+        // deploy, failed function)? Fall back to direct TMDB.
+        proxyUnusable = !proxyLooksLikeTmdb(proxyRes);
         if (proxyUnusable) {
-          logWarn('tmdb', `Same-origin proxy missing for ${path} (no function deployed) — falling back to direct TMDB.`, { path });
+          let ct = '';
+          try {
+            ct = proxyRes.headers?.get?.('content-type') || 'no content-type';
+          } catch {
+            ct = 'unknown content-type';
+          }
+          logWarn('tmdb', `Same-origin proxy missing for ${path} (HTTP ${proxyRes.status}, ${ct}) — falling back to direct TMDB.`, { path, status: proxyRes.status });
         }
       } catch (error) {
         if (error?.name === 'AbortError') throw error; // converted once, below
