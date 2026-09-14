@@ -6708,3 +6708,185 @@ html[data-theme="solar"] {
 .player-preset-studio-telemetry { height: 22px; background: #0a0a0c; border-bottom: 1px solid rgba(255,255,255,0.07); display: flex; align-items: center; gap: 0; padding: 0 12px; font-family: 'SF Mono', Consolas, monospace; font-size: 10px; color: rgba(255,255,255,0.6); overflow: hidden; white-space: nowrap; }
 .player-preset-studio-ruler { height: 32px; background: #111113; position: relative; display: flex; align-items: center; padding: 0 16px; cursor: pointer; }
 .player-preset-studio-console { height: 54px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; background: #0d0d0f; gap: 8px; }
+
+/* ══ DnD Drop Zone Overlays on Player Preview ══ */
+.player-preview-dropzone {
+  position: absolute;
+  border: 2px dashed rgba(255,255,255,0.3);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: rgba(255,255,255,0.4);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  z-index: 55;
+  pointer-events: auto;
+  transition: background 0.12s, border-color 0.12s;
+}
+.player-preview-dropzone.is-over {
+  background: rgba(255,255,255,0.13);
+  border-color: rgba(255,255,255,0.75);
+  color: #fff;
+}
+.player-preview-dropzone.is-tray {
+  border-color: rgba(255,80,80,0.45);
+  background: rgba(255,60,60,0.05);
+  color: rgba(255,100,100,0.6);
+}
+.player-preview-dropzone.is-tray.is-over {
+  background: rgba(255,60,60,0.14);
+  border-color: rgba(255,100,100,0.9);
+  color: #ff6464;
+}
+
+/* ══ Icon variant styles inside preview zones ══ */
+.player-preview-chip-outline {
+  background: transparent;
+  border: 1.5px solid rgba(255,255,255,0.55);
+  color: rgba(255,255,255,0.9);
+  border-radius: 50%;
+}
+.player-preview-chip-filled {
+  background: rgba(255,255,255,0.88);
+  color: #111;
+  border: none;
+  border-radius: 50%;
+}
+.player-preview-chip-neon {
+  background: transparent;
+  border: 1.5px solid var(--accent-primary, #f43f5e);
+  color: var(--accent-primary, #f43f5e);
+  box-shadow: 0 0 8px var(--accent-primary, #f43f5e);
+  border-radius: 50%;
+}
+.player-preview-chip-glass {
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: rgba(255,255,255,0.95);
+  border-radius: 50%;
+}
+
+/* ══ Studio Icon Palette ══ */
+.studio-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 14px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px;
+  margin-bottom: 8px;
+}
+.studio-palette-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 10px 10px 8px;
+  cursor: grab;
+  min-width: 72px;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  position: relative;
+  user-select: none;
+}
+.studio-palette-chip:active { cursor: grabbing; }
+.studio-palette-chip:hover {
+  background: rgba(255,255,255,0.07);
+  border-color: rgba(255,255,255,0.16);
+  transform: translateY(-2px);
+}
+.studio-palette-chip.is-active {
+  border-color: rgba(255,255,255,0.4);
+  background: rgba(255,255,255,0.09);
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.1);
+}
+.studio-palette-chip.is-in-tray {
+  border-style: dashed;
+  opacity: 0.65;
+}
+.studio-palette-chip-icon {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.9);
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.studio-palette-chip-icon.is-filled {
+  background: rgba(255,255,255,0.88);
+  color: #111;
+}
+.studio-palette-chip-icon.is-neon {
+  background: transparent;
+  color: var(--accent-primary, #f43f5e);
+  box-shadow: 0 0 8px var(--accent-primary, #f43f5e);
+  border: 1px solid var(--accent-primary, #f43f5e);
+}
+.studio-palette-chip-icon.is-glass {
+  background: rgba(255,255,255,0.12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.14);
+}
+.studio-palette-chip-label {
+  font-size: 10px;
+  color: rgba(255,255,255,0.6);
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  max-width: 68px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.studio-palette-chip-zone {
+  font-size: 9px;
+  color: rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.06);
+  border-radius: 4px;
+  padding: 1px 5px;
+  white-space: nowrap;
+}
+.studio-chip-variants {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  margin-top: 2px;
+}
+.studio-chip-variant {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.04);
+  cursor: pointer;
+  position: relative;
+  transition: border-color 0.12s, background 0.12s;
+  padding: 0;
+}
+.studio-chip-variant.is-active {
+  border-color: rgba(255,255,255,0.75);
+  background: rgba(255,255,255,0.12);
+}
+.studio-chip-variant::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 2px;
+}
+.studio-chip-variant[data-v="outline"]::after { border: 1px solid rgba(255,255,255,0.55); }
+.studio-chip-variant[data-v="filled"]::after { background: rgba(255,255,255,0.8); }
+.studio-chip-variant[data-v="neon"]::after { background: var(--accent-primary,#f43f5e); box-shadow: 0 0 3px var(--accent-primary,#f43f5e); }
+.studio-chip-variant[data-v="glass"]::after { background: rgba(255,255,255,0.25); }
+

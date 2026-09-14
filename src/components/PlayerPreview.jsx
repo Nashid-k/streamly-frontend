@@ -99,7 +99,13 @@ const PlayerPreview = ({
   presetId,
   title = "Streamly Originals",
   episodeTag = "S1:E1",
+  draggable = false,
+  iconVariants = {},
+  onZoneDrop,
+  onChipDragStart,
 }) => {
+  const [dragOverZone, setDragOverZone] = React.useState(null);
+
   const {
     playerControls = {},
     playerUILayout,
@@ -127,6 +133,28 @@ const PlayerPreview = ({
      - playbackSpeed: "1x" pill on the bar, plain gauge icon in icon zones.
      - jumpForwardBackward: two buttons (back + forward). */
   const renderControl = (key, variant) => {
+    if (draggable) {
+      const variantStyle = iconVariants[key] || "outline";
+      const meta = PLAYER_CONTROLS.find((c) => c.key === key);
+      const Icon = meta?.Icon;
+      return (
+        <span
+          key={key}
+          draggable
+          onDragStart={(e) => {
+            e.stopPropagation();
+            e.dataTransfer.setData("text/plain", key);
+            e.dataTransfer.effectAllowed = "move";
+            onChipDragStart?.(e, key);
+          }}
+          className={`player-preview-chip-${variantStyle}`}
+          style={{ width: 20, height: 20, display: "inline-flex", alignItems: "center", justifyContent: "center", margin: "0 2px", cursor: "grab" }}
+        >
+          {Icon && <Icon size={12} />}
+        </span>
+      );
+    }
+
     if (key === "volume") {
       if (variant === "icon") {
         return <PreviewButton key={key} controlKey={key} variant="icon" size={14} />;
@@ -485,6 +513,65 @@ const PlayerPreview = ({
               </>
             )}
           </div>
+        )}
+
+        {draggable && (effectivePreset === "classic" || effectivePreset === "custom") && (
+          <>
+            <div
+              className={`player-preview-dropzone${dragOverZone === "topLeft" ? " is-over" : ""}`}
+              style={{ position: "absolute", top: 4, left: 4, width: "42%", height: "30%" }}
+              onDragOver={(e) => { e.preventDefault(); setDragOverZone("topLeft"); }}
+              onDragLeave={() => setDragOverZone(null)}
+              onDrop={(e) => { e.preventDefault(); const k = e.dataTransfer.getData("text/plain"); onZoneDrop?.(k, "topLeft"); setDragOverZone(null); }}
+            >
+              {dragOverZone === "topLeft" ? "Top left" : ""}
+            </div>
+            <div
+              className={`player-preview-dropzone${dragOverZone === "topRight" ? " is-over" : ""}`}
+              style={{ position: "absolute", top: 4, right: 4, width: "42%", height: "30%" }}
+              onDragOver={(e) => { e.preventDefault(); setDragOverZone("topRight"); }}
+              onDragLeave={() => setDragOverZone(null)}
+              onDrop={(e) => { e.preventDefault(); const k = e.dataTransfer.getData("text/plain"); onZoneDrop?.(k, "topRight"); setDragOverZone(null); }}
+            >
+              {dragOverZone === "topRight" ? "Top right" : ""}
+            </div>
+            <div
+              className={`player-preview-dropzone${dragOverZone === "bottomLeft" ? " is-over" : ""}`}
+              style={{ position: "absolute", bottom: 4, left: 4, width: "30%", height: "30%" }}
+              onDragOver={(e) => { e.preventDefault(); setDragOverZone("bottomLeft"); }}
+              onDragLeave={() => setDragOverZone(null)}
+              onDrop={(e) => { e.preventDefault(); const k = e.dataTransfer.getData("text/plain"); onZoneDrop?.(k, "bottomLeft"); setDragOverZone(null); }}
+            >
+              {dragOverZone === "bottomLeft" ? "Bottom left" : ""}
+            </div>
+            <div
+              className={`player-preview-dropzone${dragOverZone === "bottomCenter" ? " is-over" : ""}`}
+              style={{ position: "absolute", bottom: 4, left: "35%", width: "30%", height: "30%" }}
+              onDragOver={(e) => { e.preventDefault(); setDragOverZone("bottomCenter"); }}
+              onDragLeave={() => setDragOverZone(null)}
+              onDrop={(e) => { e.preventDefault(); const k = e.dataTransfer.getData("text/plain"); onZoneDrop?.(k, "bottomCenter"); setDragOverZone(null); }}
+            >
+              {dragOverZone === "bottomCenter" ? "Bottom center" : ""}
+            </div>
+            <div
+              className={`player-preview-dropzone${dragOverZone === "bottomRight" ? " is-over" : ""}`}
+              style={{ position: "absolute", bottom: 4, right: 4, width: "30%", height: "30%" }}
+              onDragOver={(e) => { e.preventDefault(); setDragOverZone("bottomRight"); }}
+              onDragLeave={() => setDragOverZone(null)}
+              onDrop={(e) => { e.preventDefault(); const k = e.dataTransfer.getData("text/plain"); onZoneDrop?.(k, "bottomRight"); setDragOverZone(null); }}
+            >
+              {dragOverZone === "bottomRight" ? "Bottom right" : ""}
+            </div>
+            <div
+              className={`player-preview-dropzone is-tray${dragOverZone === "tray" ? " is-over" : ""}`}
+              style={{ position: "absolute", bottom: 4, left: "50%", transform: "translateX(-50%)", width: 60, height: 18 }}
+              onDragOver={(e) => { e.preventDefault(); setDragOverZone("tray"); }}
+              onDragLeave={() => setDragOverZone(null)}
+              onDrop={(e) => { e.preventDefault(); const k = e.dataTransfer.getData("text/plain"); onZoneDrop?.(k, "tray"); setDragOverZone(null); }}
+            >
+              {dragOverZone === "tray" ? "Remove" : ""}
+            </div>
+          </>
         )}
 
         {!showChrome && (

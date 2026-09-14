@@ -41,6 +41,7 @@ import {
   zoneOf,
   presetById,
   resolveSkin,
+  ICON_VARIANTS,
 } from "../components/playerUIDef";
 
 const THEMES = [
@@ -265,6 +266,7 @@ function PlayerUIStudio() {
     playerControls = {},
     playerUIPreset = "classic",
     playerUILayout,
+    playerIconVariants = {},
     setPreference,
     setPlayerControl,
   } = usePreferences();
@@ -272,6 +274,10 @@ function PlayerUIStudio() {
   const layout = resolveUILayout(playerUILayout);
   // Tap-to-move fallback (touch + keyboard users): pick a chip, drop a zone.
   const [pickedKey, setPickedKey] = useState(null);
+
+  const setIconVariant = (key, variantId) => {
+    setPreference("playerIconVariants", { ...playerIconVariants, [key]: variantId });
+  };
 
   const markCustom = () => {
     if (playerUIPreset !== "custom") setPreference("playerUIPreset", "custom");
@@ -419,92 +425,72 @@ function PlayerUIStudio() {
         visibility={playerControls}
         label={playerUIPreset === "custom" ? "Custom" : (presetById(playerUIPreset)?.name || "Classic")}
         presetId={playerUIPreset}
+        draggable={playerUIPreset === "classic" || playerUIPreset === "custom"}
+        iconVariants={playerIconVariants}
+        onZoneDrop={(key, zoneId) => moveControl(key, zoneId)}
+        onChipDragStart={(e, key) => { e.dataTransfer.setData("text/plain", key); setPickedKey(key); }}
       />
 
-      {/* Placement board */}
-      <p className="studio-label">Placement <span className="studio-label-note">drag, tap-tap, or use the menu</span></p>
-      <div className="studio-zones">
-        {PLAYER_ZONES.map((zone) => {
-          const keys = PLAYER_CONTROL_ORDER.filter((k) => layout[k] === zone.id);
-          const isDropTarget = pickedKey && zoneOf(layout, pickedKey) !== zone.id;
+      <p className="studio-label">Controls <span className="studio-label-note">drag onto the preview · pick icon style</span></p>
+      <div className="studio-palette">
+        {PLAYER_CONTROL_ORDER.map((key) => {
+          const meta = PLAYER_CONTROLS.find((c) => c.key === key);
+          if (!meta) return null;
+          const visible = playerControls[key] !== false;
+          const variant = playerIconVariants[key] || "outline";
+          const zone = layout[key] || "tray";
+          const inTray = zone === "tray";
+          const picked = pickedKey === key;
           return (
             <div
-              key={zone.id}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => onZoneDrop(e, zone.id)}
-              onClick={() => {
-                if (pickedKey) {
-                  moveControl(pickedKey, zone.id);
-                  setPickedKey(null);
-                }
-              }}
-              className={`studio-zone${isDropTarget ? " is-drop-target" : ""}`}
-              aria-label={`${zone.label} zone, ${keys.length} controls`}
+              key={key}
+              draggable
+              onDragStart={(e) => onChipDragStart(e, key)}
+              onDragEnd={() => setPickedKey(null)}
+              onClick={(e) => { e.stopPropagation(); setPickedKey(picked ? null : key); }}
+              className={`studio-palette-chip${picked ? " is-active" : ""}${inTray ? " is-in-tray" : ""}`}
+              title={`${meta.label} — drag onto the preview to place`}
             >
-              <div className="studio-zone-head">
-                <span className="studio-zone-name">{zone.label}</span>
-                <span className="studio-zone-count">{keys.length}</span>
+              <div className={`studio-palette-chip-icon is-${variant}`}>
+                <meta.Icon size={16} />
               </div>
-              <p className="studio-zone-blurb">{zone.blurb}</p>
-              <div className="studio-chips">
-                {keys.length === 0 && <span className="studio-zone-empty">Drop controls here</span>}
-                {keys.map((key) => {
-                  const meta = PLAYER_CONTROLS.find((c) => c.key === key);
-                  const visible = playerControls[key] !== false;
-                  const picked = pickedKey === key;
-                  return (
-                    <div
-                      key={key}
-                      draggable
-                      onDragStart={(e) => onChipDragStart(e, key)}
-                      onDragEnd={() => setPickedKey(null)}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setPickedKey(picked ? null : key);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          setPickedKey(picked ? null : key);
-                        }
-                      }}
-                      tabIndex={0}
-                      role="button"
-                      aria-pressed={picked}
-                      aria-label={`${meta.label}, in ${zone.label}. Activate to pick up, then choose a zone.`}
-                      title="Drag to another zone, or activate and choose a zone"
-                      className={`studio-chip${picked ? " is-picked" : ""}${visible ? "" : " is-off"}`}
-                    >
-                      <GripVertical className="studio-chip-grip" aria-hidden="true" />
-                      <meta.Icon className="studio-chip-icon" aria-hidden="true" />
-                      <span className="studio-chip-label">{meta.label}</span>
-                      <select
-                        aria-label={`${meta.label} placement`}
-                        value={zone.id}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => moveControl(key, e.target.value)}
-                        className="studio-chip-select"
-                      >
-                        {PLAYER_ZONES.map((z) => (
-                          <option key={z.id} value={z.id}>{z.label}</option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        aria-label={visible ? `Hide ${meta.label}` : `Show ${meta.label}`}
-                        aria-pressed={visible}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleControl(key, !visible);
-                        }}
-                        className={`studio-eye${visible ? " is-on" : ""}`}
-                      >
-                        {visible ? <Eye className="studio-eye-icon" aria-hidden="true" /> : <EyeOff className="studio-eye-icon" aria-hidden="true" />}
-                      </button>
-                    </div>
-                  );
-                })}
+              <span className="studio-palette-chip-label">{meta.label}</span>
+              {!inTray && (
+                <span className="studio-palette-chip-zone">{PLAYER_ZONES.find((z) => z.id === zone)?.label}</span>
+              )}
+              {/* Icon variant picker */}
+              <div className="studio-chip-variants">
+                {ICON_VARIANTS.map((v) => (
+                  <button
+                    key={v.id}
+                    data-v={v.id}
+                    title={v.label}
+                    className={`studio-chip-variant${variant === v.id ? " is-active" : ""}`}
+                    onClick={(e) => { e.stopPropagation(); setIconVariant(key, v.id); }}
+                  />
+                ))}
               </div>
+              {/* Eye toggle */}
+              <button
+                type="button"
+                aria-label={visible ? `Hide ${meta.label}` : `Show ${meta.label}`}
+                onClick={(e) => { e.stopPropagation(); toggleControl(key, !visible); }}
+                className={`studio-eye${visible ? " is-on" : ""}`}
+              >
+                {visible ? <Eye className="studio-eye-icon" /> : <EyeOff className="studio-eye-icon" />}
+              </button>
+              {/* Accessible zone select */}
+              <select
+                aria-label={`${meta.label} placement`}
+                value={zone}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => moveControl(key, e.target.value)}
+                className="studio-chip-select"
+              >
+                {PLAYER_ZONES.map((z) => (
+                  <option key={z.id} value={z.id}>{z.label}</option>
+                ))}
+              </select>
             </div>
           );
         })}

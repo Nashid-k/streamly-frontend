@@ -8,6 +8,12 @@ import {
   Gauge,
   Lock,
   Maximize,
+  Sun,
+  PictureInPicture2,
+  RefreshCw,
+  BookMarked,
+  SkipForward,
+  Cast,
 } from "lucide-react";
 
 /* ── Player UI Studio shared definitions ─────────────────────────────
@@ -36,6 +42,12 @@ export const PLAYER_CONTROLS = [
   { key: "playbackSpeed", label: "Speed", Icon: Gauge },
   { key: "screenLock", label: "Screen lock", Icon: Lock },
   { key: "fullscreen", label: "Fullscreen", Icon: Maximize },
+  { key: "brightness", label: "Brightness", Icon: Sun },
+  { key: "pip", label: "Picture-in-Picture", Icon: PictureInPicture2 },
+  { key: "loop", label: "Loop", Icon: RefreshCw },
+  { key: "chapters", label: "Chapters", Icon: BookMarked },
+  { key: "nextEpisode", label: "Next Episode", Icon: SkipForward },
+  { key: "cast", label: "Cast", Icon: Cast },
 ];
 
 /* Canonical left-to-right order inside a zone. */
@@ -49,9 +61,26 @@ export const PLAYER_CONTROL_ORDER = [
   "aspectRatio",
   "screenLock",
   "fullscreen",
+  "brightness",
+  "pip",
+  "loop",
+  "chapters",
+  "nextEpisode",
+  "cast",
 ];
 
 export const PLAYER_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
+export const ICON_VARIANTS = [
+  { id: "outline", label: "Outline" },
+  { id: "filled", label: "Filled" },
+  { id: "neon", label: "Neon" },
+  { id: "glass", label: "Glass" },
+];
+
+export const DEFAULT_ICON_VARIANTS = Object.fromEntries(
+  ["playPause","jumpForwardBackward","volume","subtitles","audio","aspectRatio","playbackSpeed","screenLock","fullscreen","brightness","pip","loop","chapters","nextEpisode","cast"].map((k) => [k, "outline"])
+);
 
 /* ── Player UI Skins ──────────────────────────────────────────────
    Each preset is a complete end-to-end look, not just an icon
@@ -316,6 +345,12 @@ export const PLAYER_UI_PRESETS = [
       playbackSpeed: true,
       screenLock: true,
       fullscreen: true,
+      brightness: false,
+      pip: false,
+      loop: false,
+      chapters: false,
+      nextEpisode: false,
+      cast: false,
     },
     layout: {
       playPause: "bottomLeft",
@@ -327,6 +362,12 @@ export const PLAYER_UI_PRESETS = [
       playbackSpeed: "tray",
       screenLock: "topLeft",
       fullscreen: "bottomRight",
+      brightness: "tray",
+      pip: "tray",
+      loop: "tray",
+      chapters: "tray",
+      nextEpisode: "tray",
+      cast: "tray",
     },
   },
   {
@@ -347,6 +388,12 @@ export const PLAYER_UI_PRESETS = [
       playbackSpeed: false,
       screenLock: true,
       fullscreen: true,
+      brightness: false,
+      pip: false,
+      loop: false,
+      chapters: false,
+      nextEpisode: false,
+      cast: false,
     },
     layout: {
       playPause: "bottomLeft",
@@ -358,6 +405,12 @@ export const PLAYER_UI_PRESETS = [
       playbackSpeed: "tray",
       screenLock: "topLeft",
       fullscreen: "bottomRight",
+      brightness: "tray",
+      pip: "tray",
+      loop: "tray",
+      chapters: "tray",
+      nextEpisode: "tray",
+      cast: "tray",
     },
   },
   {
@@ -378,6 +431,12 @@ export const PLAYER_UI_PRESETS = [
       playbackSpeed: true,
       screenLock: true,
       fullscreen: true,
+      brightness: false,
+      pip: false,
+      loop: false,
+      chapters: false,
+      nextEpisode: false,
+      cast: false,
     },
     layout: {
       playPause: "bottomLeft",
@@ -389,6 +448,12 @@ export const PLAYER_UI_PRESETS = [
       playbackSpeed: "bottomLeft",
       screenLock: "topLeft",
       fullscreen: "bottomLeft",
+      brightness: "tray",
+      pip: "tray",
+      loop: "tray",
+      chapters: "tray",
+      nextEpisode: "tray",
+      cast: "tray",
     },
   },
   {
@@ -409,6 +474,12 @@ export const PLAYER_UI_PRESETS = [
       playbackSpeed: true,
       screenLock: true,
       fullscreen: true,
+      brightness: false,
+      pip: false,
+      loop: false,
+      chapters: false,
+      nextEpisode: false,
+      cast: false,
     },
     layout: {
       playPause: "bottomLeft",
@@ -420,6 +491,12 @@ export const PLAYER_UI_PRESETS = [
       playbackSpeed: "topRight",
       screenLock: "topLeft",
       fullscreen: "topRight",
+      brightness: "tray",
+      pip: "tray",
+      loop: "tray",
+      chapters: "tray",
+      nextEpisode: "tray",
+      cast: "tray",
     },
   },
   {
@@ -440,6 +517,12 @@ export const PLAYER_UI_PRESETS = [
       playbackSpeed: true,
       screenLock: true,
       fullscreen: true,
+      brightness: false,
+      pip: false,
+      loop: false,
+      chapters: false,
+      nextEpisode: false,
+      cast: false,
     },
     layout: {
       playPause: "bottomLeft",
@@ -451,6 +534,12 @@ export const PLAYER_UI_PRESETS = [
       playbackSpeed: "bottomRight",
       screenLock: "topLeft",
       fullscreen: "bottomRight",
+      brightness: "tray",
+      pip: "tray",
+      loop: "tray",
+      chapters: "tray",
+      nextEpisode: "tray",
+      cast: "tray",
     },
   },
 ];

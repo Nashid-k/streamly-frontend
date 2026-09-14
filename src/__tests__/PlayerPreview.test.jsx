@@ -99,13 +99,13 @@ describe("PlayerPreview", () => {
     const classic = PLAYER_UI_PRESETS.find((p) => p.id === "classic");
     renderPreview({ layout: classic.layout, visibility: classic.visibility });
     const preview = screen.getByTestId("player-preview");
-    // Classic keeps Speed in the tray — every other control is on the bar.
+    // Verify controls render based on their layout and visibility in Classic
     for (const { key, label } of PLAYER_CONTROLS) {
       if (key === "jumpForwardBackward") {
         expect(within(preview).getByTitle("Back 10s")).toBeInTheDocument();
       } else if (key === "volume") {
         expect(within(preview).getByTitle("Volume")).toBeInTheDocument();
-      } else if (key !== "playbackSpeed") {
+      } else if (classic.layout[key] !== "tray" && classic.visibility[key] !== false) {
         expect(within(preview).getByTitle(label)).toBeInTheDocument();
       } else {
         expect(within(preview).queryByTitle(label)).not.toBeInTheDocument();
