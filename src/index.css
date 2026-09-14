@@ -6697,3 +6697,14 @@ html[data-theme="solar"] {
   .title-info-hero { min-height: 150px; }
   .title-info-actions .title-info-play { flex: 1 1 100%; }
 }
+
+.player-preset-minimal-hairline { position: absolute; bottom: 0; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.12); z-index: 15; pointer-events: none; }
+.player-preset-minimal-pill { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; background: rgba(8,8,12,0.88); backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px); border: 1px solid rgba(255,255,255,0.14); border-radius: 999px; padding: 0 16px; height: 44px; z-index: 30; min-width: 280px; pointer-events: auto; }
+.player-preset-compact-sidebar { position: absolute; left: 0; top: 0; bottom: 0; width: 56px; background: rgba(0,0,0,0.55); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-right: none; border-radius: 0 12px 12px 0; z-index: 30; display: flex; flex-direction: column; align-items: center; padding: 16px 0; gap: 8px; pointer-events: auto; }
+.player-preset-compact-vtrack { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: rgba(255,255,255,0.08); z-index: 35; cursor: pointer; pointer-events: auto; }
+.player-preset-theater-header { position: absolute; top: 0; left: 0; right: 0; height: 52px; background: linear-gradient(to bottom, rgba(10,6,0,0.88), transparent); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 40; pointer-events: auto; }
+.player-preset-theater-amber-cluster { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 20px; z-index: 40; pointer-events: auto; }
+.player-preset-theater-bar { position: absolute; bottom: 0; left: 0; right: 0; height: 64px; background: linear-gradient(to top, rgba(6,4,0,0.95), rgba(6,4,0,0.7), transparent); display: flex; flex-direction: column; justify-content: flex-end; padding-bottom: var(--sab, 0px); z-index: 30; pointer-events: auto; }
+.player-preset-studio-telemetry { height: 22px; background: #0a0a0c; border-bottom: 1px solid rgba(255,255,255,0.07); display: flex; align-items: center; gap: 0; padding: 0 12px; font-family: 'SF Mono', Consolas, monospace; font-size: 10px; color: rgba(255,255,255,0.6); overflow: hidden; white-space: nowrap; }
+.player-preset-studio-ruler { height: 32px; background: #111113; position: relative; display: flex; align-items: center; padding: 0 16px; cursor: pointer; }
+.player-preset-studio-console { height: 54px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; background: #0d0d0f; gap: 8px; }

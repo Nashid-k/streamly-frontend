@@ -1,5 +1,5 @@
 import React from "react";
-import { Play, RotateCcw, RotateCw, Volume2 } from "lucide-react";
+import { Play, RotateCcw, RotateCw, Volume2, Maximize, Captions } from "lucide-react";
 import { logDebug } from "../utils/debugLogger";
 import { usePreferences } from "../context/preferences";
 import {
@@ -304,196 +304,92 @@ const PlayerPreview = ({
 
             {/* ══ ARCHETYPE 1: MINIMAL (Zen Floating Island & Center Trio) ══ */}
             {effectivePreset === "minimal" ? (
-              <>
-                {/* Center playback trio */}
-                <div className="player-preview-minimal-center">
-                  {visibility.jumpForwardBackward !== false && (
-                    <PreviewButton controlKey="jumpForwardBackward" size={13} title="Back 10s">
-                      <RotateCcw size={13} />
-                    </PreviewButton>
-                  )}
-                  <PreviewButton controlKey="playPause" size={18} title="Play / Pause">
-                    <Play size={18} fill="currentColor" />
-                  </PreviewButton>
-                  {visibility.jumpForwardBackward !== false && (
-                    <PreviewButton controlKey="jumpForwardBackward" size={13} title="Forward 10s">
-                      <RotateCw size={13} />
-                    </PreviewButton>
-                  )}
+              <div style={{ position: "absolute", bottom: 0, left: 0, right: 0 }}>
+                <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1, background: "rgba(255,255,255,0.12)" }}>
+                   <div style={{ width: "30%", height: "100%", background: "#fff" }} />
                 </div>
-
-                {/* Floating bottom capsule dock */}
-                <div className="player-preview-minimal-island">
-                  <PreviewButton controlKey="playPause" size={12} title="Play">
-                    <Play size={12} fill="currentColor" />
-                  </PreviewButton>
-                  <span className="player-preview-time">{DEMO_CURRENT}</span>
-                  <div className="player-preview-progress" style={{ flex: 1, height: "2px" }}>
-                    <span className="player-preview-progress-fill" style={{ background: "var(--skin-progress-fill)" }} />
-                    <span className="player-preview-progress-dot" style={{ width: 6, height: 6 }} />
+                <div style={{ position: "absolute", bottom: 20, left: "50%", transform: "translateX(-50%)", display: "flex", alignItems: "center", gap: 8, background: "rgba(8,8,12,0.88)", backdropFilter: "blur(28px)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 999, padding: "0 16px", height: 32 }}>
+                  <Play size={12} fill="#fff" title="Play / Pause" />
+                  <span style={{ color: "#fff", fontSize: 10, fontWeight: 700, fontFamily: "monospace" }}>{DEMO_CURRENT}</span>
+                  <div style={{ width: 80, height: 2, background: "rgba(255,255,255,0.2)", borderRadius: 2 }}>
+                    <div style={{ width: "30%", height: "100%", background: "#fff", borderRadius: 2 }} />
                   </div>
-                  <span className="player-preview-time">{DEMO_DURATION}</span>
-                  {visibility.volume !== false && (
-                    <PreviewButton controlKey="volume" size={12} title="Volume">
-                      <Volume2 size={12} />
-                    </PreviewButton>
-                  )}
-                  {visibility.fullscreen !== false && (
-                    <PreviewButton controlKey="fullscreen" size={12} title="Fullscreen" />
-                  )}
+                  <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 10, fontWeight: 700, fontFamily: "monospace" }}>-{DEMO_DURATION}</span>
                 </div>
-              </>
+              </div>
             ) : effectivePreset === "compact" ? (
               /* ══ ARCHETYPE 2: COMPACT (Floating Dock & Vertical Action Rail) ══ */
               <>
-                {/* Vertical right action rail */}
-                <div className="player-preview-compact-rail">
-                  {visibility.subtitles !== false && <PreviewButton controlKey="subtitles" size={13} title="Subtitles" />}
-                  {visibility.audio !== false && <PreviewButton controlKey="audio" size={13} title="Audio tracks" />}
-                  {visibility.playbackSpeed !== false && <span className="player-preview-speedpill" style={{ height: 18, padding: "0 5px", fontSize: "0.55rem" }}>1x</span>}
-                  {visibility.aspectRatio !== false && <PreviewButton controlKey="aspectRatio" size={13} title="Aspect ratio" />}
-                  {visibility.fullscreen !== false && <PreviewButton controlKey="fullscreen" size={13} title="Fullscreen" />}
+                <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 44, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(20px)", borderRadius: "0 12px 12px 0", display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 0", gap: 6 }}>
+                  <Volume2 size={14} color="#fff" />
+                  <div style={{ flex: 1 }} />
+                  <span style={{ color: "#fff", fontSize: 8, fontWeight: 700 }}>-10s</span>
+                  <Play size={20} fill="#fff" color="#fff" style={{ margin: "4px 0" }} />
+                  <span style={{ color: "#fff", fontSize: 8, fontWeight: 700 }}>+10s</span>
+                  <div style={{ flex: 1 }} />
+                  <Captions size={14} color="#fff" />
+                  <span style={{ color: "#fff", fontSize: 10, fontWeight: 700, background: "rgba(255,255,255,0.2)", borderRadius: 8, padding: "2px 4px" }}>1x</span>
+                  <Maximize size={14} color="#fff" />
                 </div>
-
-                {/* Floating bottom squircle dock */}
-                <div className="player-preview-compact-dock">
-                  <div className="player-preview-timerow" style={{ marginBottom: 2 }}>
-                    <span className="player-preview-title">{title}</span>
-                    <span className="player-preview-time">{DEMO_CURRENT} / {DEMO_DURATION}</span>
-                  </div>
-                  <div className="player-preview-progress" style={{ height: 5, marginBottom: 4 }}>
-                    <span className="player-preview-progress-fill" style={{ background: "var(--skin-progress-fill)" }} />
-                    <span className="player-preview-progress-dot" />
-                  </div>
-                  <div className="player-preview-bar">
-                    <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                      <PreviewButton controlKey="playPause" size={13} title="Play / Pause">
-                        <Play size={13} fill="currentColor" />
-                      </PreviewButton>
-                      {visibility.jumpForwardBackward !== false && (
-                        <>
-                          <PreviewButton controlKey="jumpForwardBackward" size={12} title="Back 10s"><RotateCcw size={12} /></PreviewButton>
-                          <PreviewButton controlKey="jumpForwardBackward" size={12} title="Forward 10s"><RotateCw size={12} /></PreviewButton>
-                        </>
-                      )}
-                    </div>
-                    {visibility.volume !== false && (
-                      <span className="player-preview-volume">
-                        <PreviewButton controlKey="volume" size={13} title="Volume" />
-                        <span className="player-preview-volbar"><span className="player-preview-volfill" /></span>
-                      </span>
-                    )}
-                  </div>
+                <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: "rgba(255,255,255,0.08)" }}>
+                  <div style={{ position: "absolute", bottom: 0, left: 0, width: "100%", height: "30%", background: "#fff" }} />
+                  <div style={{ position: "absolute", bottom: "30%", left: "50%", transform: "translate(-50%, 50%)", width: 6, height: 6, borderRadius: "50%", background: "#fff" }} />
                 </div>
               </>
             ) : effectivePreset === "theater" ? (
               /* ══ ARCHETYPE 3: THEATER (Top Cinema Marquee, Grand Stage & Gold Timeline) ══ */
               <>
-                <div className="player-preview-theater-marquee">
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 36, background: "linear-gradient(to bottom, rgba(10,6,0,0.88), transparent)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontFamily: "Georgia, serif", fontSize: "0.74rem", color: "#ffd166", fontWeight: 700 }}>{title}</span>
-                    <span style={{ background: "rgba(255,190,80,0.2)", border: "1px solid rgba(255,200,100,0.3)", color: "#ffd166", fontSize: "0.52rem", fontWeight: 800, padding: "1px 5px", borderRadius: 3 }}>4K CINEMA</span>
-                    <span style={{ color: "rgba(255,200,100,0.6)", fontSize: "0.52rem" }}>{episodeTag}</span>
+                    <span style={{ fontFamily: "Georgia, serif", fontSize: 12, color: "#ffd166", fontWeight: 700, fontStyle: "italic" }}>{title}</span>
+                    <span style={{ color: "#ffd166", fontSize: 8, border: "1px solid rgba(255,209,102,0.4)", borderRadius: 2, padding: "1px 3px" }}>★ 4K IMAX</span>
                   </div>
-                  <div style={{ display: "flex", gap: 4 }}>
-                    {visibility.subtitles !== false && <PreviewButton controlKey="subtitles" size={12} title="Subtitles" />}
-                    {visibility.audio !== false && <PreviewButton controlKey="audio" size={12} title="Audio tracks" />}
+                  <div style={{ display: "flex", gap: 8, color: "#ffd166", fontSize: 8, fontWeight: 700 }}>
+                    <span>SUBTITLES</span><span>AUDIO</span>
                   </div>
                 </div>
-
-                <div className="player-preview-theater-stage">
-                  {visibility.jumpForwardBackward !== false && (
-                    <PreviewButton controlKey="jumpForwardBackward" size={14} title="Back 10s">
-                      <RotateCcw size={14} />
-                    </PreviewButton>
-                  )}
-                  <span
-                    style={{
-                      display: "inline-flex", alignItems: "center", justifyContent: "center",
-                      width: 36, height: 36, borderRadius: "50%",
-                      background: "linear-gradient(135deg, #ffd166, #ff9e2c)",
-                      color: "#1a1006", boxShadow: "0 0 16px rgba(255, 209, 102, 0.7)",
-                    }}
-                    title="Play / Pause"
-                  >
-                    <Play size={16} fill="currentColor" />
-                  </span>
-                  {visibility.jumpForwardBackward !== false && (
-                    <PreviewButton controlKey="jumpForwardBackward" size={14} title="Forward 10s">
-                      <RotateCw size={14} />
-                    </PreviewButton>
-                  )}
-                </div>
-
-                <div className="player-preview-theater-timeline">
-                  <div className="player-preview-progress" style={{ height: 4, marginBottom: 4 }}>
-                    <span className="player-preview-progress-fill" style={{ background: "linear-gradient(90deg, #ffd166, #ff9e2c)", boxShadow: "0 0 8px rgba(255,178,64,0.6)" }} />
-                    <span className="player-preview-progress-dot" style={{ background: "#ffd166" }} />
+                <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", display: "flex", alignItems: "center", gap: 12 }}>
+                  <RotateCcw size={16} color="#ffd166" style={{ border: "1px solid #ffd166", borderRadius: "50%", padding: 4 }} />
+                  <div style={{ width: 48, height: 48, borderRadius: "50%", boxShadow: "0 0 0 8px rgba(255,209,102,0.08)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Play size={24} fill="#ffd166" color="#ffd166" style={{ marginLeft: 2 }} />
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontFamily: "Georgia, serif", fontSize: "0.6rem", color: "#ffce6b" }}>
-                      {DEMO_CURRENT} / {DEMO_DURATION} <span style={{ opacity: 0.6 }}>· 8m left</span>
-                    </span>
-                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                      {visibility.volume !== false && (
-                        <span className="player-preview-volume">
-                          <PreviewButton controlKey="volume" size={12} title="Volume" />
-                          <span className="player-preview-volbar"><span className="player-preview-volfill" style={{ background: "#ffd166" }} /></span>
-                        </span>
-                      )}
-                      {visibility.fullscreen !== false && <PreviewButton controlKey="fullscreen" size={12} title="Fullscreen" />}
-                    </div>
+                  <RotateCw size={16} color="#ffd166" style={{ border: "1px solid #ffd166", borderRadius: "50%", padding: 4 }} />
+                </div>
+                <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 42, background: "linear-gradient(to top, rgba(6,4,0,0.95), transparent)", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+                  <div style={{ width: "100%", height: 3, background: "rgba(255,209,102,0.15)" }}>
+                    <div style={{ width: "30%", height: "100%", background: "#ffd166", boxShadow: "0 0 4px #ffd166" }} />
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 12px" }}>
+                    <div style={{ fontFamily: "Georgia, serif", fontSize: 10, color: "#ffd166", fontWeight: 700 }}>{DEMO_CURRENT} / {DEMO_DURATION}</div>
+                    <div style={{ fontFamily: "Georgia, serif", fontSize: 9, color: "#ffd166", fontStyle: "italic", opacity: 0.8, position: "absolute", left: "50%", transform: "translateX(-50%)" }}>42min remaining</div>
+                    <div style={{ display: "flex", gap: 8 }} className="player-preview-volume"><Volume2 size={12} color="#ffd166" /><Maximize size={12} color="#ffd166" /></div>
                   </div>
                 </div>
               </>
             ) : effectivePreset === "studio" ? (
               /* ══ ARCHETYPE 4: STUDIO (Broadcast Telemetry Strip, Timecode Ruler & Pro Console) ══ */
-              <>
-                <div className="player-preview-studio-top">
-                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                    <span style={{ color: "#ff3b4e", fontWeight: 800, fontSize: "0.55rem" }}>● REC</span>
-                    <span style={{ color: "rgba(255,255,255,0.8)", fontSize: "0.58rem" }}>TC 00:01:47:12</span>
-                  </div>
-                  <span style={{ color: "rgba(255,255,255,0.45)", fontSize: "0.52rem", letterSpacing: "0.04em" }}>SRV-1 • 1080P • 24FPS</span>
+              <div style={{ position: "absolute", bottom: 0, left: 0, right: 0 }}>
+                <div style={{ height: 16, background: "#0a0a0c", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "center", padding: "0 8px", gap: 6, fontSize: 8, fontFamily: "monospace", color: "rgba(255,255,255,0.6)" }}>
+                  <span style={{ color: "#ff3b4e" }}>● LIVE</span><span>|</span><span style={{ color: "#fff" }}>{title}</span><span>|</span><span style={{ color: "#ff3b4e" }}>TC 01:47:12</span><span>|</span><span>1080P</span>
                 </div>
-
-                <div className="player-preview-bottom" style={{ padding: 0 }}>
-                  <div className="player-preview-studio-ruler">
-                    <div className="player-preview-progress" style={{ height: 4, borderRadius: 0 }}>
-                      <span className="player-preview-progress-fill" style={{ background: "linear-gradient(90deg, #ff3b4e, #ff6a5e)" }} />
-                      <span className="player-preview-progress-dot" style={{ borderRadius: 1, width: 6, height: 10, background: "#ff3b4e" }} />
-                    </div>
-                  </div>
-                  <div className="player-preview-studio-console">
-                    <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
-                      <PreviewButton controlKey="playPause" size={13} title="Play / Pause">
-                        <Play size={13} fill="currentColor" />
-                      </PreviewButton>
-                      {visibility.jumpForwardBackward !== false && (
-                        <>
-                          <PreviewButton controlKey="jumpForwardBackward" size={11} title="Back 10s"><RotateCcw size={11} /></PreviewButton>
-                          <PreviewButton controlKey="jumpForwardBackward" size={11} title="Forward 10s"><RotateCw size={11} /></PreviewButton>
-                        </>
-                      )}
-                      <div style={{ display: "flex", gap: 2, marginLeft: 4 }}>
-                        <span style={{ fontSize: "0.52rem", padding: "1px 3px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff" }}>1x</span>
-                        <span style={{ fontSize: "0.52rem", padding: "1px 3px", background: "rgba(255,59,78,0.2)", border: "1px solid rgba(255,59,78,0.5)", color: "#ff3b4e" }}>1.5x</span>
-                      </div>
-                    </div>
-                    {/* Mini animated VU meter */}
-                    <div style={{ display: "flex", gap: 1.5, alignItems: "flex-end", height: 12 }}>
-                      <span className="player-vu-bar" style={{ background: "#10b981", height: 8 }} />
-                      <span className="player-vu-bar" style={{ background: "#10b981", height: 11 }} />
-                      <span className="player-vu-bar" style={{ background: "#f59e0b", height: 9 }} />
-                      <span className="player-vu-bar" style={{ background: "#ef4444", height: 6 }} />
-                    </div>
-                    <div style={{ display: "flex", gap: 3 }}>
-                      {visibility.subtitles !== false && <PreviewButton controlKey="subtitles" size={12} title="Subtitles" />}
-                      {visibility.fullscreen !== false && <PreviewButton controlKey="fullscreen" size={12} title="Fullscreen" />}
-                    </div>
+                <div style={{ height: 20, background: "#111113", position: "relative" }}>
+                  <div style={{ position: "absolute", top: 8, left: 0, right: 0, height: 4, background: "rgba(255,255,255,0.08)" }}>
+                    <div style={{ width: "30%", height: "100%", background: "linear-gradient(90deg, #e63946, #ff6b6b)" }} />
+                    <div style={{ position: "absolute", left: "30%", top: -4, bottom: -4, width: 2, background: "#ff3b4e" }} />
                   </div>
                 </div>
-              </>
+                <div style={{ height: 36, background: "#0d0d0f", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 8px" }}>
+                  <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                    <span style={{ color: "#fff", fontSize: 8 }}>|◀◀</span>
+                    <span style={{ color: "#fff", fontSize: 8 }}>◀◀</span>
+                    <Play size={16} fill="#ff3b4e" color="#ff3b4e" style={{ border: "1px solid #ff3b4e", borderRadius: "50%", padding: 2 }} />
+                    <span style={{ color: "#fff", fontSize: 8 }}>▶▶</span>
+                    <span style={{ color: "#fff", fontSize: 8 }}>▶▶|</span>
+                  </div>
+                  <div style={{ display: "flex", gap: 2, fontSize: 8, color: "rgba(255,255,255,0.5)" }}><span>[0.5x]</span><span style={{ color: "#ff3b4e" }}>[1x]</span><span>[2x]</span></div>
+                  <div style={{ display: "flex", gap: 2, fontSize: 8, color: "#fff" }}><span>[SUB]</span><span>[AUD]</span><span>[AR]</span></div>
+                </div>
+              </div>
             ) : (
               /* ══ ARCHETYPE 5: CLASSIC (Traditional Web Streaming Player with Zone Clusters) ══ */
               <>
