@@ -71,8 +71,8 @@ export const PLAYER_UI_SKINS = {
   classic: {
     id: "classic",
     name: "Classic",
-    barBg: "rgba(12, 12, 16, 0.55)",
-    barBlur: "16px",
+    barBg: "transparent",
+    barBlur: "0px",
     barBorder: "none",
     barRadius: "0px",
     btnBg: "rgba(255, 255, 255, 0.12)",
@@ -88,8 +88,8 @@ export const PLAYER_UI_SKINS = {
     panelBg: "rgba(18, 18, 20, 0.92)",
     panelBlur: "40px",
     panelBorder: "1px solid rgba(255, 255, 255, 0.08)",
-    scrim: "linear-gradient(to top, rgba(0,0,0,0.75), transparent 30%, transparent 70%, rgba(0,0,0,0.45))",
-    chromeShadow: "0 2px 12px rgba(0, 0, 0, 0.3)",
+    scrim: "linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 28%)",
+    chromeShadow: "none",
     /* Full-UI tokens — Classic keeps today's shipped look exactly. */
     hudBg: "linear-gradient(180deg, rgba(22,22,26,0.9), rgba(10,10,12,0.9))",
     hudBlur: "24px",
@@ -114,7 +114,7 @@ export const PLAYER_UI_SKINS = {
   minimal: {
     id: "minimal",
     name: "Minimal",
-    barBg: "transparent",
+    barBg: "rgba(0, 0, 0, 0)",
     barBlur: "0px",
     barBorder: "none",
     barRadius: "0px",
