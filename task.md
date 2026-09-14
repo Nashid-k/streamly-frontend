@@ -341,4 +341,19 @@ hudBlur/hudBorder/hudRadius/hudShadow/hudFont` (every floating card), `toastBg`,
   - Implemented consistently across both `CustomVideoPlayer.jsx` and `PlayerPreview.jsx`, honoring custom zone overrides for drag-and-drop customization while matching the live player.
   - Upgraded Settings Player UI Studio with distinct blueprint minimaps (`.studio-minimap--minimal`, `--compact`, `--theater`, `--studio`, `--classic`) and archetype badges.
   - Verified: `npm run lint` (0 warnings, 0 errors), `npm run test` (286/286 passed across 26 files), `npm run build` (✓ 3.23s).
+- [x] **Task 31 — Radical from-scratch player architectures from the void + transparent Classic player** (commits `3b7ce06`, `8ea120a`)
+  - **Radical UI Presets**: Replaced all shared zone structures in Minimal, Compact, Theater, and Studio presets with structurally alien designs:
+    1. **Minimal**: Ghost Cinema with zero chrome during playback; 1px hairline bottom progress bar; on hover/tap a single floating pill rises with play/pause, time, and scrubber.
+    2. **Compact**: Mobile-first vertical left-rail sidebar (56px) hosting stacked buttons, 4px vertical progress track on the left edge, and large ghost play button overlay. Zero horizontal bars.
+    3. **Theater**: Full IMAX presentation with amber-gradient header marquee (Georgia serif title, 4K IMAX & Dolby Atmos badges), 96px glowing amber circular playback cluster, and 64px widescreen golden timeline with remaining countdown.
+    4. **Studio**: 3-row NLE editing console with Row 1 broadcast telemetry (SMPTE timecode, live monitor), Row 2 ruler with chapter ticks, and Row 3 transport console with frame-by-frame stepping, speed matrix, and animated VU meters.
+  - **Transparent Classic Player**: Removed dark/black background from Classic player skin (`barBg: "transparent"`, `barBlur: "0px"`, lighter scrim) so controls float seamlessly over the video.
+  - **Preview parity**: `PlayerPreview.jsx` updated with exact matching scaled architectures.
+  - Verified: `npm run lint` (0 errors), `npm run test` (286/286 passed), `npm run build` (✓ 2.45s).
 
+- [x] **Task 32 — Drag-and-drop Player UI Studio with 15 controls, 4 icon variants & real-time preview canvas** (commit `c47d4c8`)
+  - **Expanded controls**: Added 6 new controls (`brightness`, `pip`, `loop`, `chapters`, `nextEpisode`, `cast`) to `PLAYER_CONTROLS` and presets (15 total).
+  - **4 icon aesthetic variants**: `outline`, `filled`, `neon`, and `glass` with interactive style-picker buttons per control chip, persisted via `playerIconVariants` in preferences.
+  - **Direct drag-and-drop onto PlayerPreview**: Draggable icon chips inside the preview canvas and interactive zone drop targets (`topLeft`, `topRight`, `bottomLeft`, `bottomCenter`, `bottomRight`, `tray`) with glowing drag-over states.
+  - **Interactive Icon Palette**: Replaced static placement grid with a draggable chip palette showing zone badges, style-variant selectors, eye toggles, and accessible select fallbacks.
+  - Verified: `npm run lint` (0 warnings, 0 errors), `npm run test` (286/286 passed across 26 files), `npm run build` (✓ 1.96s clean).
