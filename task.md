@@ -331,3 +331,14 @@ hudBlur/hudBorder/hudRadius/hudShadow/hudFont` (every floating card), `toastBg`,
   16px / amber Georgia 22px / flat 4px SF Mono), screenshot captured with Studio applied.
   `npm run lint` (0 warnings, 0 errors), `npm run test` (286 passed across 26 files),
   `npm run build` (✓ 2.4s).
+- [x] **Task 30 — End-to-end distinct player architectures across all 5 presets**
+  - Built 5 completely distinct player archetypes end-to-end with structural DOM layout, control positioning, interaction model, and visual identity:
+    1. **Classic (`classic`)**: The streaming web standard with full-width bottom bar, edge-to-edge scrub rail, time/title row, and left/center/right zone clusters.
+    2. **Minimal (`minimal`)**: Zen floating dynamic island capsule docked at bottom center (`.player-minimal-island`) with embedded hairline progress bar, clean center circular playback trio (`.player-minimal-center` with ±10s jump and play/pause), and top-left minimal title pill.
+    3. **Compact (`compact`)**: Mobile/social streaming layout (TikTok / Twitch style) featuring a floating bottom squircle capsule dock (`.player-compact-dock`) with chunky progress, paired with a dedicated floating vertical right Action Rail (`.player-compact-rail`) hosting Subtitles, Audio, Speed, Aspect Ratio, Screen Lock, and Fullscreen.
+    4. **Theater (`theater`)**: Cinema IMAX / Disney+ grand presentation with top Cinema Marquee Header (`.player-theater-marquee` with serif title, gold 4K IMAX / Atmos badges, quick audio/sub buttons), grand center-stage amber glowing playback cluster (`.player-theater-stage`), and wide bottom glowing gold timeline (`.player-theater-timeline`) with countdown.
+    5. **Studio (`studio`)**: Broadcast Pro NLE / Video Editor console (DaVinci/Premiere style) with top broadcast telemetry strip (`.player-studio-top` with `● LIVE MONITOR`, SMPTE frame timecode, resolution, and audio specs), ruler scrubber with tick marks (`.player-studio-ruler`), and modular bottom pro console (`.player-studio-console`) with frame-by-frame jog buttons, direct speed strip (`[0.5x]`–`[2x]`), and real-time animated VU audio meters.
+  - Implemented consistently across both `CustomVideoPlayer.jsx` and `PlayerPreview.jsx`, honoring custom zone overrides for drag-and-drop customization while matching the live player.
+  - Upgraded Settings Player UI Studio with distinct blueprint minimaps (`.studio-minimap--minimal`, `--compact`, `--theater`, `--studio`, `--classic`) and archetype badges.
+  - Verified: `npm run lint` (0 warnings, 0 errors), `npm run test` (286/286 passed across 26 files), `npm run build` (✓ 3.23s).
+

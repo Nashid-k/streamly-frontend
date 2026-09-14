@@ -5767,6 +5767,303 @@ html[data-theme="solar"] {
   background: linear-gradient(90deg, rgba(255,255,255,0.12), rgba(255,255,255,0.3));
 }
 
+.studio-preset-archetype {
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--accent-primary, #f43f5e);
+  margin-bottom: 2px;
+  display: inline-block;
+}
+
+/* Distinct architectural minimap blueprints */
+.studio-minimap--minimal .studio-minimap-center {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin: 3px 0;
+}
+.studio-minimap--minimal .studio-minimap-center i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-primary, #fff);
+}
+.studio-minimap--minimal .studio-minimap-capsule {
+  height: 6px;
+  width: 60%;
+  margin: 0 auto;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.studio-minimap--compact .studio-minimap-body {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 4px;
+  height: 22px;
+}
+.studio-minimap--compact .studio-minimap-dock {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+.studio-minimap--compact .studio-minimap-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.studio-minimap--compact .studio-minimap-rail i {
+  width: 5px;
+  height: 5px;
+  border-radius: 2px;
+  background: var(--accent-primary, #fff);
+}
+
+.studio-minimap--theater .studio-minimap-marquee {
+  height: 4px;
+  width: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #ffd166, #ff9e2c);
+  margin-bottom: 2px;
+}
+.studio-minimap--theater .studio-minimap-stage {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 0;
+}
+.studio-minimap--theater .studio-minimap-stage i:nth-child(2) {
+  width: 9px;
+  height: 9px;
+  background: #ffd166;
+  box-shadow: 0 0 6px rgba(255, 209, 102, 0.6);
+}
+
+.studio-minimap--studio .studio-minimap-topline {
+  height: 3px;
+  width: 100%;
+  border-radius: 1px;
+  background: #ff3b4e;
+  margin-bottom: 2px;
+}
+.studio-minimap--studio .studio-minimap-ruler {
+  display: flex;
+  justify-content: space-between;
+  height: 3px;
+  margin: 2px 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.25);
+}
+.studio-minimap--studio .studio-minimap-console {
+  display: flex;
+  justify-content: space-between;
+  gap: 2px;
+}
+.studio-minimap--studio .studio-minimap-console i {
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ═══ End-to-End Player Architectures (Styles) ═══ */
+
+/* 1. Minimal Player Archetype */
+.player-minimal-island,
+.player-preview-minimal-island {
+  position: absolute;
+  bottom: calc(20px + var(--sab, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(520px, calc(100% - 28px));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(14, 14, 18, 0.88);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.7);
+  z-index: 30;
+  pointer-events: auto;
+}
+.player-preview-minimal-island {
+  bottom: 8px;
+  width: calc(100% - 16px);
+  padding: 4px 10px;
+  gap: 6px;
+  font-size: 0.6rem;
+}
+.player-minimal-center,
+.player-preview-minimal-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(14px, 3vw, 26px);
+  z-index: 25;
+  pointer-events: auto;
+}
+
+/* 2. Compact Player Archetype */
+.player-compact-dock,
+.player-preview-compact-dock {
+  position: absolute;
+  bottom: calc(16px + var(--sab, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(560px, calc(100% - 28px));
+  border-radius: 22px;
+  background: rgba(16, 16, 22, 0.92);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.75);
+  padding: 10px 16px;
+  z-index: 30;
+  pointer-events: auto;
+}
+.player-preview-compact-dock {
+  bottom: 8px;
+  width: calc(100% - 16px);
+  padding: 5px 10px;
+}
+.player-compact-rail,
+.player-preview-compact-rail {
+  position: absolute;
+  right: calc(16px + var(--sar, 0px));
+  bottom: calc(92px + var(--sab, 0px));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 35;
+  pointer-events: auto;
+}
+.player-preview-compact-rail {
+  right: 8px;
+  bottom: 48px;
+  gap: 4px;
+}
+
+/* 3. Theater Player Archetype */
+.player-theater-marquee,
+.player-preview-theater-marquee {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: calc(14px + var(--sat, 0px)) calc(20px + var(--sar, 0px)) 16px calc(20px + var(--sal, 0px));
+  background: linear-gradient(to bottom, rgba(20, 10, 2, 0.95), rgba(20, 10, 2, 0.6) 70%, transparent);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 30;
+  pointer-events: auto;
+}
+.player-preview-theater-marquee {
+  padding: 8px 10px 6px;
+}
+.player-theater-stage,
+.player-preview-theater-stage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(16px, 3.5vw, 32px);
+  z-index: 25;
+  pointer-events: auto;
+}
+.player-theater-timeline,
+.player-preview-theater-timeline {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 12px calc(20px + var(--sar, 0px)) calc(14px + var(--sab, 0px)) calc(20px + var(--sal, 0px));
+  background: linear-gradient(to top, rgba(20, 10, 2, 0.95), rgba(20, 10, 2, 0.6) 70%, transparent);
+  z-index: 30;
+  pointer-events: auto;
+}
+.player-preview-theater-timeline {
+  padding: 4px 10px 6px;
+}
+
+/* 4. Studio Player Archetype */
+.player-studio-top,
+.player-preview-studio-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: calc(8px + var(--sat, 0px)) calc(16px + var(--sar, 0px)) 8px calc(16px + var(--sal, 0px));
+  background: rgba(10, 10, 14, 0.97);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 30;
+  font-family: 'SF Mono', Consolas, Menlo, monospace;
+  pointer-events: auto;
+}
+.player-preview-studio-top {
+  padding: 4px 8px;
+  font-size: 0.58rem;
+}
+.player-studio-ruler,
+.player-preview-studio-ruler {
+  position: relative;
+  width: 100%;
+  background-image: repeating-linear-gradient(to right, rgba(255,255,255,0.2) 0px, rgba(255,255,255,0.2) 1px, transparent 1px, transparent 10%);
+}
+.player-studio-console,
+.player-preview-studio-console {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: rgba(10, 10, 14, 0.97);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 8px calc(16px + var(--sar, 0px)) calc(10px + var(--sab, 0px)) calc(16px + var(--sal, 0px));
+  z-index: 30;
+  pointer-events: auto;
+}
+.player-preview-studio-console {
+  padding: 4px 8px;
+  gap: 4px;
+}
+
+/* VU meter animation */
+@keyframes vu-bounce {
+  0% { transform: scaleY(0.2); }
+  50% { transform: scaleY(0.9); }
+  100% { transform: scaleY(0.4); }
+}
+.player-vu-bar {
+  width: 3px;
+  height: 14px;
+  border-radius: 1px;
+  transform-origin: bottom;
+  animation: vu-bounce 0.4s ease-in-out infinite alternate;
+}
+
 /* Placement board */
 .studio-zones {
   display: grid;

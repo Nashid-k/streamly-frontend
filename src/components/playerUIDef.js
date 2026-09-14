@@ -301,7 +301,10 @@ export const PLAYER_UI_PRESETS = [
   {
     id: "classic",
     name: "Classic",
-    blurb: "The default Streamly look — frosted glass",
+    blurb: "Traditional web player — full-width frosted bar & edge-to-edge scrub rail",
+    tagline: "Streaming Standard",
+    archetype: "classic",
+    features: ["Full-width frosted glass bar", "Edge-to-edge scrub rail", "Classic left/center/right clusters"],
     skinId: "classic",
     visibility: {
       playPause: true,
@@ -329,7 +332,10 @@ export const PLAYER_UI_PRESETS = [
   {
     id: "minimal",
     name: "Minimal",
-    blurb: "Ghost chrome — borderless, hairline progress",
+    blurb: "Apple TV style — floating bottom island with embedded scrubber & center trio",
+    tagline: "Zen Floating Island",
+    archetype: "minimal",
+    features: ["Floating dynamic island capsule", "Embedded hairline progress bar", "Center circular playback trio"],
     skinId: "minimal",
     visibility: {
       playPause: true,
@@ -357,7 +363,10 @@ export const PLAYER_UI_PRESETS = [
   {
     id: "compact",
     name: "Compact",
-    blurb: "One solid capsule bar, squircle buttons",
+    blurb: "Mobile & social streaming — floating bottom dock with vertical right action rail",
+    tagline: "Mobile Dock & Action Rail",
+    archetype: "compact",
+    features: ["Floating elevated capsule dock", "Vertical right-side action rail", "Chunky squircle buttons"],
     skinId: "compact",
     visibility: {
       playPause: true,
@@ -385,7 +394,10 @@ export const PLAYER_UI_PRESETS = [
   {
     id: "theater",
     name: "Theater",
-    blurb: "Cinema gold — deep scrims, glowing rail",
+    blurb: "IMAX cinema room — top metadata marquee, grand center stage & gold timeline",
+    tagline: "Cinema Marquee & Stage",
+    archetype: "theater",
+    features: ["Top cinematic marquee header", "Grand center-screen amber stage", "Glowing gold timeline with countdown"],
     skinId: "theater",
     visibility: {
       playPause: true,
@@ -413,7 +425,10 @@ export const PLAYER_UI_PRESETS = [
   {
     id: "studio",
     name: "Studio",
-    blurb: "Pro editor — flat panels, mono timecode",
+    blurb: "Broadcast NLE editor — live telemetry, SMPTE frame timecode, ruler & VU meters",
+    tagline: "Broadcast Pro NLE",
+    archetype: "studio",
+    features: ["Live broadcast telemetry bar", "SMPTE frame timecode & ruler", "Frame jog, speed strip & VU meters"],
     skinId: "studio",
     visibility: {
       playPause: true,

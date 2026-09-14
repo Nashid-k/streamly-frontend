@@ -337,19 +337,56 @@ function PlayerUIStudio() {
               onClick={() => applyPreset(preset)}
               className={`studio-preset${selected ? " is-selected" : ""}`}
             >
-              <span className="studio-minimap" aria-hidden="true">
-                <span className="studio-minimap-top">
-                  <i data-n={zoneCountFor(preset.layout, "topLeft")} />
-                  <i data-n={zoneCountFor(preset.layout, "topRight")} />
+              {preset.id === "minimal" ? (
+                <span className="studio-minimap studio-minimap--minimal" aria-hidden="true">
+                  <span className="studio-minimap-center">
+                    <i /><i /><i />
+                  </span>
+                  <span className="studio-minimap-capsule" />
                 </span>
-                <span className="studio-minimap-bar" />
-                <span className="studio-minimap-bottom">
-                  <i data-n={zoneCountFor(preset.layout, "bottomLeft")} />
-                  <i data-n={zoneCountFor(preset.layout, "bottomCenter")} />
-                  <i data-n={zoneCountFor(preset.layout, "bottomRight")} />
+              ) : preset.id === "compact" ? (
+                <span className="studio-minimap studio-minimap--compact" aria-hidden="true">
+                  <span className="studio-minimap-body">
+                    <span className="studio-minimap-dock" />
+                    <span className="studio-minimap-rail">
+                      <i /><i /><i />
+                    </span>
+                  </span>
                 </span>
-              </span>
+              ) : preset.id === "theater" ? (
+                <span className="studio-minimap studio-minimap--theater" aria-hidden="true">
+                  <span className="studio-minimap-marquee" />
+                  <span className="studio-minimap-stage">
+                    <i /><i /><i />
+                  </span>
+                  <span className="studio-minimap-bar" style={{ background: "linear-gradient(90deg, #ffd166, #ff9e2c)" }} />
+                </span>
+              ) : preset.id === "studio" ? (
+                <span className="studio-minimap studio-minimap--studio" aria-hidden="true">
+                  <span className="studio-minimap-topline" />
+                  <span className="studio-minimap-ruler" />
+                  <span className="studio-minimap-console">
+                    <i /><i /><i /><i />
+                  </span>
+                </span>
+              ) : (
+                <span className="studio-minimap studio-minimap--classic" aria-hidden="true">
+                  <span className="studio-minimap-top">
+                    <i data-n={zoneCountFor(preset.layout, "topLeft")} />
+                    <i data-n={zoneCountFor(preset.layout, "topRight")} />
+                  </span>
+                  <span className="studio-minimap-bar" />
+                  <span className="studio-minimap-bottom">
+                    <i data-n={zoneCountFor(preset.layout, "bottomLeft")} />
+                    <i data-n={zoneCountFor(preset.layout, "bottomCenter")} />
+                    <i data-n={zoneCountFor(preset.layout, "bottomRight")} />
+                  </span>
+                </span>
+              )}
               <span className="studio-preset-name">{preset.name}</span>
+              {preset.tagline && (
+                <span className="studio-preset-archetype">{preset.tagline}</span>
+              )}
               <span className="studio-preset-blurb">{preset.blurb}</span>
               <span
                 className="studio-preset-swatch"
