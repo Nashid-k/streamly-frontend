@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useOptionalPreferences } from "../context/preferences";
 import { movieService } from "../api/movieService";
@@ -12,6 +12,12 @@ import { logDebug, reportQueryError } from "../utils/debugLogger";
 export default function HeroTitleLogo({ movie }) {
   const prefs = useOptionalPreferences();
   const useImageLogos = prefs?.useImageLogos ?? true;
+  const [imageError, setImageError] = useState(false);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [movie?.id]);
+
   const { data: url, error } = useQuery({
     queryKey: ["titleLogo", movie.id],
     queryFn: () => movieService.getTitleLogo(movie.id),
@@ -34,7 +40,7 @@ export default function HeroTitleLogo({ movie }) {
     }
   }, [logoUrl, movie?.id, movie?.title]);
 
-  if (useImageLogos && logoUrl) {
+  if (useImageLogos && logoUrl && !imageError) {
     return (
       <img
         src={logoUrl}
@@ -42,6 +48,7 @@ export default function HeroTitleLogo({ movie }) {
         className="hero-logo-img"
         loading="eager"
         decoding="async"
+        onError={() => setImageError(true)}
       />
     );
   }

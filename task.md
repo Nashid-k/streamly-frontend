@@ -519,5 +519,22 @@ hudBlur/hudBorder/hudRadius/hudShadow/hudFont` (every floating card), `toastBg`,
     - `npm test`: 305/305 tests passing across 29 test suites (added `auth.test.jsx`).
     - `npm run build`: Production build succeeded in 2.60s.
 
-
-
+- [x] **Task 42 — Fix Duplicate Title Logo Images on Mobile and Tablet Page Banners**
+  - **Diagnosed Root Cause**:
+    - In `src/pages/HomePage.jsx` (which powers `/`, `/movies`, and `/series`), the hero banner rendered two separate background image layers:
+      - `desktop-bg`: prioritized `backdropUrl` (the clean, horizontal 16:9 cinematic still without promotional text).
+      - `mobile-bg`: prioritized `posterUrl` (the vertical theatrical poster).
+    - In `src/index.css` under `@media (max-width: 768px)` (mobile and iPad portrait viewports):
+      - `.desktop-bg` was hidden (`display: none !important`).
+      - `.mobile-bg` was forced active (`display: block !important`).
+    - Because movie and TV show posters on TMDB have the **title logo / wordmark** designed directly onto the poster artwork, displaying the poster as the background caused the title logo to appear inside the background image.
+    - Concurrently, `<HeroTitleLogo movie={activeFeaturedMovie} />` rendered the isolated transparent title logo PNG directly on top in the hero overlay.
+    - This caused **two title logos** to appear simultaneously on mobile and tablet banners. Desktop was unaffected because it displayed the textless `backdropUrl`.
+  - **Implemented Solution**:
+    - In `src/pages/HomePage.jsx`: Replaced the dual `desktop-bg` and `mobile-bg` image tags with a single unified `<motion.img className="hero-bg" ...>` element that consistently prioritizes `backdropUrl` across all devices and viewports.
+    - In `src/index.css`: Removed `.desktop-bg` and `.mobile-bg` display toggles; styled `.hero-bg` with `object-fit: cover` and `object-position: center top` on mobile/tablet viewports to provide a clean, scenic backdrop without duplicate poster titles.
+    - In `src/components/HeroTitleLogo.jsx`: Added `imageError` state and `onError` fallback to ensure graceful fallback to `<h1 className="hero-title">{movie.title}</h1>` if any title logo PNG fails to load.
+  - **Verification**:
+    - `npm run lint`: 0 errors, 0 warnings across 120 files.
+    - `npm test`: 305/305 tests passing across 29 test suites.
+    - `npm run build`: Production build succeeded in 3.37s.

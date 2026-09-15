@@ -2828,21 +2828,12 @@ input:focus-visible {
   }
 }
 
-/* Stunning Custom Mobile UI Fixes */
-.mobile-bg {
-  display: none !important;
-}
-
 @media (max-width: 768px) {
-  /* 1. Portrait Hero Poster */
-  .desktop-bg {
-    display: none !important;
-  }
-  .mobile-bg {
-    display: block !important;
+  /* 1. Responsive Hero Backdrop — clean framing on mobile & tablet without duplicate poster title */
+  .hero-bg {
     object-fit: cover !important;
-    object-position: top center !important;
-    filter: brightness(0.9) contrast(1.1) !important;
+    object-position: center top !important;
+    filter: brightness(0.88) contrast(1.08) !important;
   }
 
   /* 2. Massive, native-app edge-to-edge Hero */

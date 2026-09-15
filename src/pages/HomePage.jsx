@@ -1229,19 +1229,11 @@ export default function Home({
               }
             }}
           >
-            {/* Backdrop — static framing keeps the hero calm while titles rotate. */}
+            {/* Backdrop — static framing keeps the hero calm while titles rotate. Clean textless backdrop across all viewports. */}
             <motion.img
               src={activeFeaturedMovie.backdropUrl || activeFeaturedMovie.posterUrl || activeFeaturedMovie.poster}
               alt={activeFeaturedMovie.title}
-              className="hero-bg desktop-bg"
-              fetchpriority="high"
-              loading="eager"
-              decoding="async"
-            />
-            <motion.img
-              src={activeFeaturedMovie.posterUrl || activeFeaturedMovie.poster || activeFeaturedMovie.backdropUrl}
-              alt={activeFeaturedMovie.title}
-              className="hero-bg mobile-bg"
+              className="hero-bg"
               fetchpriority="high"
               loading="eager"
               decoding="async"
