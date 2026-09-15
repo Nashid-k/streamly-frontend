@@ -214,6 +214,95 @@ function LandscapeCard({ item, badgeLabel, onOpen }) {
   );
 }
 
+// ── Month-grouped "Upcoming" rail ─────────────────────────────────────────
+// Cinejoy's movies page surfaces the full theatrical slate, not one sparse
+// row. Groups railItems (already date-sorted soonest-first) into per-month
+// rails with a count pill and self-contained fade-in arrows. Series mode
+// keeps its single consolidated "New Seasons Airing" rail instead.
+function UpcomingMonthRail({ heading, itemCount, items, onOpen }) {
+  const reduceMotion = useReducedMotion();
+  const railRef = useRef(null);
+  const [canLeft, setCanLeft] = useState(false);
+  const [canRight, setCanRight] = useState(false);
+
+  useEffect(() => {
+    const el = railRef.current;
+    const update = () => {
+      if (!el) return;
+      const max = el.scrollWidth - el.clientWidth;
+      setCanLeft(el.scrollLeft > 4);
+      setCanRight(max > 0 && el.scrollLeft < max - 4);
+    };
+    if (!el) return undefined;
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
+    if (observer) observer.observe(el);
+    return () => {
+      el.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+      if (observer) observer.disconnect();
+    };
+  }, [itemCount]);
+
+  const scrollRail = (dir) => {
+    railRef.current?.scrollBy({ left: dir * 420, behavior: reduceMotion ? "auto" : "smooth" });
+  };
+
+  const railArrowBase =
+    "hidden lg:flex absolute top-1/2 -translate-y-1/2 z-[60] w-12 h-12 bg-transparent drop-shadow-lg transition-all duration-300 items-center justify-center hover:scale-110 cursor-pointer";
+
+  return (
+    <section className="relative z-10 mt-2">
+      <div className="flex items-center gap-3 px-4 md:px-8">
+        <h2 className="text-lg sm:text-xl font-semibold text-white/90 drop-shadow-md">
+          {heading}
+        </h2>
+        <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-0.5 text-[0.7rem] font-medium text-white/60">
+          <CalendarDays size={11} className="text-white/45" />
+          {itemCount}
+        </span>
+      </div>
+      <div className="relative group/row mt-6">
+        {canLeft && (
+          <button
+            type="button"
+            aria-label="Scroll left"
+            onClick={() => scrollRail(-1)}
+            className={`${railArrowBase} -left-2 opacity-100 pointer-events-auto`}
+          >
+            <ChevronLeft size={40} className="w-10 h-10 text-white drop-shadow-md" />
+          </button>
+        )}
+        <div
+          ref={railRef}
+          className="discovery-rail-mask flex gap-3 sm:gap-4 overflow-x-auto overflow-y-clip pt-4 pb-12 px-4 md:px-8 scroll-pl-4 md:scroll-pl-8 snap-x snap-mandatory sm:snap-none scrollbar-hide items-start isolate"
+        >
+          {items.map((item) => (
+            <LandscapeCard
+              key={item.id}
+              item={item}
+              badgeLabel="Coming Soon"
+              onOpen={() => onOpen(item)}
+            />
+          ))}
+        </div>
+        {canRight && (
+          <button
+            type="button"
+            aria-label="Scroll right"
+            onClick={() => scrollRail(1)}
+            className={`${railArrowBase} -right-2 opacity-0 group-hover/row:opacity-100 pointer-events-none group-hover/row:pointer-events-auto`}
+          >
+            <ChevronRight size={40} className="w-10 h-10 text-white drop-shadow-md" />
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────
 export default function DiscoveryPage({ mode = "movies" }) {
   const cfg = MODE_CONFIG[mode] || MODE_CONFIG.movies;
@@ -285,19 +374,55 @@ export default function DiscoveryPage({ mode = "movies" }) {
   });
 
   // ── Top editorial rail — movies: upcoming; series: new seasons airing ───
+  // Movies merge TMDB /movie/upcoming (paginated) with a /discover sweep of
+  // the next year so the rail is dense instead of a single sparse page.
+  const loadUpcomingFilmSlate = async () => {
+    const [upcoming, future] = await Promise.allSettled([
+      movieService.getUpcomingMovies(),
+      movieService.getFutureMovies(),
+    ]);
+    return [
+      ...(upcoming.status === "fulfilled" ? upcoming.value : []),
+      ...(future.status === "fulfilled" ? future.value : []),
+    ];
+  };
+
   const railQuery = useQuery({
     queryKey: ["discover-rail", cfg.mediaType],
     queryFn: () =>
-      isSeries ? movieService.getAiringRail(10) : movieService.getUpcomingMovies(),
+      isSeries ? movieService.getAiringRail(10) : loadUpcomingFilmSlate(),
     staleTime: 1000 * 60 * 10,
     retry: false,
     refetchOnWindowFocus: false,
   });
 
   const railItems = useMemo(
-    () => buildUpcoming(railQuery.data || [], 120),
+    () => buildUpcoming(railQuery.data || [], 365),
     [railQuery.data],
   );
+
+  // Movies: split the date-sorted slate into per-month sections so the page
+  // reads like a full release calendar, not one sparse row.
+  const monthSections = useMemo(() => {
+    if (isSeries) return [];
+    const map = new Map();
+    for (const item of railItems) {
+      const key = String(item.releaseDate || "").slice(0, 7);
+      if (key.length !== 7) continue;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(item);
+    }
+    const now = new Date();
+    const curKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    return [...map.entries()].map(([key, items]) => {
+      const [y, m] = key.split("-").map((s) => Number(s));
+      const heading =
+        key === curKey
+          ? "Coming This Month"
+          : `${new Date(y, m - 1, 1).toLocaleString("en-US", { month: "long" })} ${y}`;
+      return { key, heading, itemCount: items.length, items };
+    });
+  }, [railItems, isSeries]);
 
   const gridItems = useMemo(() => gridQuery.data || [], [gridQuery.data]);
 
@@ -522,7 +647,24 @@ export default function DiscoveryPage({ mode = "movies" }) {
         </header>
 
         {/* ── Editorial rail ──────────────────────────────────────────── */}
-        {!railQuery.isLoading && !railQuery.error && railItems.length > 0 && (
+        {!railQuery.isLoading &&
+          !railQuery.error &&
+          !isSeries &&
+          monthSections.length > 0 && (
+            <div className="space-y-10 mt-2">
+              {monthSections.map((section) => (
+                <UpcomingMonthRail
+                  key={section.key}
+                  heading={section.heading}
+                  itemCount={section.itemCount}
+                  items={section.items}
+                  onOpen={openDetails}
+                />
+              ))}
+            </div>
+          )}
+
+        {!railQuery.isLoading && !railQuery.error && isSeries && railItems.length > 0 && (
           <section className="relative z-10 mt-2">
             <div className="flex items-center justify-between px-4 md:px-8 mb-[-12px]">
               <h2 className="text-lg sm:text-xl font-semibold text-white/90 drop-shadow-md">

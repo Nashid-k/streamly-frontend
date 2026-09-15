@@ -17,6 +17,7 @@ import {
   Clapperboard,
   History,
   LogIn,
+  ChevronLeft,
 } from "lucide-react";
 import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "framer-motion";
 
@@ -159,6 +160,26 @@ function Layout({ children }) {
           • the desktop-nav glass pill (tabs · divider · icons) floats at the
             right end — no single connected navbar bar between them. */}
       <div className={`header-row${isScrolled ? " scrolled" : ""}`}>
+        {/* Cinejoy-style back arrow — sits right before the brand logo on
+            every non-home page; prefers history, falls back to home. */}
+        {location.pathname !== "/" && (
+          <button
+            type="button"
+            className="back-btn"
+            aria-label="Go back"
+            title="Go back"
+            onClick={() => {
+              if (window.history.length > 1) {
+                navigate(-1);
+              } else {
+                navigate("/");
+              }
+            }}
+          >
+            <ChevronLeft size={18} strokeWidth={2.5} />
+          </button>
+        )}
+
         <Link to="/" className="app-brand-link" aria-label="Cinejoy home">
           <img
             src="/brand/cinejoy-logo.svg"

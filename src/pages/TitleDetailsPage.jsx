@@ -979,13 +979,13 @@ export default function TitleDetails() {
       <div className="fixed inset-0 w-full h-full z-0 pointer-events-none bg-[#050505]" style={{ contain: "strict", willChange: "transform" }}>
         <div className="absolute inset-0 w-full h-full">
           <img
-            className="w-full h-full object-cover scale-[1.2] blur-[80px] saturate-100 opacity-50"
+            className="w-full h-full object-cover scale-[1.25] blur-[100px] saturate-150 opacity-60"
             alt=""
             src={backdropOptimized || movie.posterUrl}
           />
           <div className="absolute top-0 left-0 w-full h-[40vh] mix-blend-screen opacity-20 hidden lg:block">
             <img
-              className="w-full h-full object-cover scale-[1.2] blur-[50px] saturate-100"
+              className="w-full h-full object-cover scale-[1.25] blur-[60px] saturate-150"
               alt=""
               loading="lazy"
               decoding="async"
@@ -998,43 +998,31 @@ export default function TitleDetails() {
         </div>
       </div>
 
-      {/* ── Topbar: Back + Actions ───────────────────────────────────────────── */}
-      <motion.div
-        initial={{ opacity: 0, y: -16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15, duration: 0.5, ease: "easeOut" }}
-        className="fixed top-[56px] md:top-[72px] left-0 right-0 z-50 flex items-center justify-between px-6 lg:px-12 py-4 lg:py-6 pointer-events-none"
-      >
-        <div className="flex items-center gap-4 pointer-events-auto">
-          <button
-            onClick={() => {
-              if (window.history.length > 1) {
-                navigate(-1);
-              } else {
-                navigate("/");
-              }
-            }}
-            className="btn btn-glass"
-            style={{ padding: "10px 18px", borderRadius: "100px", fontSize: "0.9rem" }}
-            aria-label="Go back"
-          >
-            <ArrowLeft size={18} /> Back
-          </button>
-        </div>
-      </motion.div>
+      {/* Back is handled globally by the header .back-btn beside the logo */}
 
       <div className="relative w-full">
         {/* Hero Image Mask */}
         <div
           className="relative w-full overflow-hidden"
           style={{
-            height: "clamp(280px, 55vh, 520px)",
+            height: "clamp(340px, 62vh, 620px)",
             maskImage: "linear-gradient(to bottom, black 40%, transparent 98%)",
             WebkitMaskImage: "linear-gradient(to bottom, black 40%, transparent 98%)"
           }}
         >
-<img
-              className="h-full w-full object-cover object-top"
+          {/* Blurred full-bleed edge-fill — the fade zone keeps the banner's
+              color instead of dropping to pure black on the mask drops. */}
+          <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
+            <img
+              className="w-full h-full object-cover object-center blur-[40px] saturate-125 scale-[1.12]"
+              src={backdropOptimized || movie.posterUrl}
+              alt=""
+              loading="eager"
+              decoding="async"
+            />
+          </div>
+          <img
+              className="relative h-full w-full object-cover object-top"
               src={backdropOptimized || movie.posterUrl}
               alt={movie.title}
               fetchPriority="high"

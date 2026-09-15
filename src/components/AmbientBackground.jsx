@@ -15,7 +15,7 @@ function AmbientBackground({ src, alt = "" }) {
     >
       <div className="absolute inset-0 w-full h-full">
         <img
-          className="w-full h-full object-cover scale-[1.25] blur-[72px] saturate-100 opacity-50"
+          className="w-full h-full object-cover scale-[1.25] blur-[100px] saturate-150 opacity-60"
           alt={alt}
           loading="eager"
           decoding="async"
@@ -23,7 +23,7 @@ function AmbientBackground({ src, alt = "" }) {
         />
         <div className="absolute top-0 left-0 w-full h-[40vh] mix-blend-screen opacity-25 hidden lg:block">
           <img
-            className="w-full h-full object-cover scale-[1.25] blur-[44px] saturate-100"
+            className="w-full h-full object-cover scale-[1.25] blur-[60px] saturate-150"
             alt={alt}
             loading="eager"
             decoding="async"

@@ -6,6 +6,8 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { Search, Film, Tv, Flame, Sparkles, Star, Clock, X, RotateCw } from "lucide-react";
 import { motion } from "framer-motion";
 import MovieCard from "../components/MovieCard";
+import SearchResultRow from "../components/SearchResultRow";
+import useDetailView from "../hooks/useDetailView";
 import EmptyState from "../components/EmptyState";
 import Button from "../components/Button";
 import Chip from "../components/Chip";
@@ -54,6 +56,8 @@ export default function SearchPage() {
 
   const [filterType, setFilterType] = useState("All");
   const [sortBy, setSortBy] = useState("Relevance");
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const { openDetails, modalHost } = useDetailView();
 
   useEffect(() => {
     if (!query.trim()) return;
@@ -496,25 +500,23 @@ export default function SearchPage() {
             }
           />
         ) : (
-          <div className="movie-grid" style={{ marginTop: "1rem" }}>
+          <section className="mt-6 space-y-1.5" aria-label={`${results.length} results for "${query}"`}>
             {visibleResults.map((movie, idx) => (
-              <motion.div
+              <SearchResultRow
                 key={movie.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{
-                  duration: 0.4,
-                  delay: (idx % 20) * 0.05,
-                  ease: "easeOut",
-                }}
-              >
-                <MovieCard movie={movie} />
-              </motion.div>
+                r={movie}
+                i={idx}
+                selectedResultIndex={selectedIndex}
+                setSelectedResultIndex={setSelectedIndex}
+                onClick={() => openDetails(movie)}
+              />
             ))}
-          </div>
+          </section>
         )}
         </ErrorBoundary>
       </div>
+
+      {modalHost}
     </div>
   );
 }

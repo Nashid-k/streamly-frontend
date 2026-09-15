@@ -1,28 +1,23 @@
 import { memo } from "react";
 
-/* ── Global footer — Streamly-branded mirror of the Cinejoy footer bar ──
-   Wordmark + divider + disclaimer + contact link, compact and glassy, with
-   a generous bottom pad so the floating mobile nav pill never overlaps it. */
+/* ── Global footer — Cinejoy-style bar: green brand logo + wordmark,
+   divider, disclaimer, and contact link. Compact and glassy, with a
+   generous bottom pad so the floating mobile nav pill never overlaps it. */
 function Footer() {
   return (
     <footer className="site-footer" role="contentinfo">
       <div className="mx-auto max-w-7xl flex flex-col md:flex-row items-start md:items-center gap-5 md:gap-8">
         <div className="flex items-center gap-4">
-          <span className="flex items-center gap-2 text-white font-semibold tracking-tight">
-            <svg viewBox="0 0 48 48" width="30" height="30" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <defs>
-                <linearGradient id="footer-brand-grad" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-                  <stop offset="0" stopColor="var(--accent-primary, #95ff50)" />
-                  <stop offset="1" stopColor="var(--accent-secondary, #5ce21c)" />
-                </linearGradient>
-              </defs>
-              <rect x="1.5" y="1.5" width="45" height="45" rx="14" fill="url(#footer-brand-grad)" />
-              <path d="M20.5 16 L32.5 24 L20.5 32 Z" fill="var(--on-accent, #ffffff)" />
-              <circle cx="13" cy="35" r="2.2" fill="var(--on-accent, #ffffff)" />
-            </svg>
-            <span className="text-sm">
-              Stream<span className="app-brand-word-accent">ly</span>
-            </span>
+          <span className="flex items-center gap-3 text-white font-semibold tracking-tight">
+            <img
+              src="/favicon.svg"
+              alt="Cinejoy logo"
+              width={28}
+              height={28}
+              className="w-7 h-7 object-contain drop-shadow-[0_0_10px_rgba(149,255,80,0.35)]"
+              draggable={false}
+            />
+            <span className="text-sm">Cinejoy</span>
           </span>
           <span className="w-px h-8 bg-white/10" aria-hidden="true" />
         </div>

@@ -308,6 +308,44 @@ a {
     drop-shadow(0 0 3px rgba(0, 0, 0, 0.35)) drop-shadow(0 2px 12px rgba(255, 255, 255, 0.16));
 }
 
+/* Cinejoy-style back arrow — glass circle docked beside the brand logo. */
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: rgba(14, 14, 16, 0.38);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  pointer-events: auto;
+  margin-right: 10px;
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease,
+    transform 0.2s ease;
+}
+.back-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
+.back-btn:active {
+  transform: scale(0.94);
+}
+.back-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .back-btn {
+    transition: none !important;
+  }
+}
+
 /* ── Desktop nav — right-docked floating glass pill (Cinejoy .desktop-nav
    + .glass-header): padding condenses with --nav-pad on scroll, and the
    frosting deepens. NOT connected to the brand island. */
@@ -1016,9 +1054,9 @@ a {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(0deg, rgba(5,5,5,0.98) 0%, rgba(5,5,5,0.92) 8%, rgba(5,5,5,0.6) 22%, rgba(5,5,5,0.25) 45%, transparent 65%),
-    radial-gradient(ellipse 65% 100% at 0% 50%, rgba(5,5,5,0.8) 0%, rgba(5,5,5,0.35) 40%, transparent 70%),
-    radial-gradient(ellipse 35% 100% at 100% 50%, rgba(5,5,5,0.45) 0%, transparent 60%);
+    linear-gradient(0deg, rgba(5,5,5,0.98) 0%, rgba(5,5,5,0.9) 6%, rgba(5,5,5,0.55) 20%, rgba(5,5,5,0.22) 44%, transparent 62%),
+    radial-gradient(ellipse 70% 100% at 0% 50%, rgba(5,5,5,0.8) 0%, rgba(5,5,5,0.32) 42%, transparent 72%),
+    radial-gradient(ellipse 38% 100% at 100% 50%, rgba(5,5,5,0.42) 0%, transparent 62%);
   /* Fade the overlay out with the image (same mask as .hero-bg, exactly like
      the watch/details page where the mask wraps image + gradient together).
      This removes the opaque bottom band that was creating the visible
@@ -1031,14 +1069,14 @@ a {
 /* ── Watch/details page — reuse the exact hero banner gradient stack ── */
 .watch-hero-gradient {
   background:
-    linear-gradient(0deg, #050505 0%, rgba(5,5,5,0.92) 8%, rgba(5,5,5,0.6) 22%, rgba(5,5,5,0.25) 45%, transparent 65%),
-    radial-gradient(ellipse 65% 100% at 0% 50%, rgba(5,5,5,0.8) 0%, rgba(5,5,5,0.35) 40%, transparent 70%),
-    radial-gradient(ellipse 35% 100% at 100% 50%, rgba(5,5,5,0.45) 0%, transparent 60%);
+    linear-gradient(0deg, rgba(5,5,5,0.98) 0%, rgba(5,5,5,0.9) 6%, rgba(5,5,5,0.55) 20%, rgba(5,5,5,0.22) 44%, transparent 62%),
+    radial-gradient(ellipse 70% 100% at 0% 50%, rgba(5,5,5,0.8) 0%, rgba(5,5,5,0.32) 42%, transparent 72%),
+    radial-gradient(ellipse 38% 100% at 100% 50%, rgba(5,5,5,0.42) 0%, transparent 62%);
 }
 .watch-hero-gradient + .left-vignette,
 .left-vignette {
   background:
-    radial-gradient(ellipse 40% 100% at 0% 50%, rgba(5,5,5,0.8) 0%, transparent 70%);
+    radial-gradient(ellipse 52% 100% at 0% 50%, rgba(5,5,5,0.8) 0%, transparent 75%);
 }
 
 /* ── Cinejoy-style liquid backdrop ────────────────────────────────────────

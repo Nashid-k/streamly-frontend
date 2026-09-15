@@ -1,5 +1,5 @@
 import React, { useState, useRef, memo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Clock, ChevronRight, ChevronLeft, Play, X } from "lucide-react";
 import slugify from "slugify";
 import { useAppAuth } from "../context/auth";
@@ -41,6 +41,7 @@ const remainingLabel = (item) => {
 const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) {
   const { removeFromContinueWatching } = useAppAuth();
   const scrollRef = useRef(null);
+  const navigate = useNavigate();
   const [editMode, setEditMode] = useState(false);
   const { canScrollLeft, canScrollRight, refresh } = useRailArrows(scrollRef);
 
@@ -168,14 +169,14 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
               <div
                 key={`${item.id}-${i}`}
                 role="group"
-                className="relative flex-none w-60 md:w-72 group/card"
+                className="relative flex-none w-60 md:w-72 group/card hover:z-30"
               >
                 <Link
                   to={editMode ? undefined : watchTo}
                   onClick={(e) => {
                     if (editMode) e.preventDefault();
                   }}
-                  className="block w-full aspect-video rounded-2xl overflow-hidden cursor-pointer bg-[#1a1a1a] relative shadow-lg shadow-black/40 transition-transform duration-300 active:scale-95 group-hover/card:scale-[1.02]"
+                  className="block w-full aspect-video rounded-2xl overflow-hidden cursor-pointer bg-[#1a1a1a] relative shadow-lg shadow-black/40 transition-transform duration-300 ease-out origin-bottom active:scale-95 group-hover/card:scale-[1.07] group-hover/card:shadow-2xl group-hover/card:shadow-black/70"
                 >
                   {art ? (
                     <img
@@ -214,6 +215,56 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
                     >
                       <X size={15} strokeWidth={3} />
                     </button>
+                  )}
+
+                  {/* Hover preview panel — Cinejoy-style popup that slides up
+                      over the thumbnail: gradient scrim, title, episode +
+                      remaining + pct, and a solid-white Resume pill. */}
+                  {!editMode && (
+                    <div className="absolute inset-x-0 bottom-0 z-10 max-h-0 overflow-hidden opacity-0 transition-all duration-300 ease-out group-hover/card:max-h-28 group-hover/card:opacity-100">
+                      <div
+                        className="absolute inset-0 pointer-events-none"
+                        style={{
+                          background:
+                            "linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.45) 55%, transparent)",
+                        }}
+                      />
+                      <div className="relative p-3 md:p-3.5">
+                        <p className="truncate text-sm font-semibold text-white drop-shadow-md">
+                          {item.title}
+                        </p>
+                        <p className="mt-0.5 text-[0.7rem] text-white/70 flex items-center gap-1.5">
+                          {label && (
+                            <span className="font-medium text-white/85">{label}</span>
+                          )}
+                          {remaining && (
+                            <>
+                              <span className="text-white/35" aria-hidden="true">•</span>
+                              <span>{remaining}</span>
+                            </>
+                          )}
+                          {pct > 0 && (
+                            <>
+                              <span className="text-white/35" aria-hidden="true">•</span>
+                              <span className="font-semibold text-white">{Math.round(pct)}%</span>
+                            </>
+                          )}
+                        </p>
+                        <button
+                          type="button"
+                          className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-[0.75rem] font-bold text-black shadow-lg cursor-pointer transition-transform duration-150 active:scale-95 hover:bg-white/90"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            navigate(watchTo);
+                          }}
+                          aria-label={`Resume ${item.title}`}
+                        >
+                          <Play size={12} className="ml-0.5" fill="currentColor" stroke="none" />
+                          Resume
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </Link>
 

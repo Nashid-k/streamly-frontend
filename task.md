@@ -824,6 +824,63 @@ Cinejoy set. Original "don't edit" constraint was lifted by the user.
     recipe + `scroll-margin-top` + `.is-flash` ring, dropped hover + heavy shadow.
   - Verified: `npm run lint` (0), `npm run test` (305/305), `npm run build` (✓).
 
+## Task 62 — Cinejoy parity: white nav logo + green footer mark + back button, row-list search, continue-watching hover popup, month-grouped Upcoming, details banner/ambient gradients
+
+- [x] **Task 62 - White nav logo (header) + green logo (footer) + header back button**
+  - Nav logo: `public/brand/cinejoy-logo.svg` `.st0` arcs recolored `#95ff50` → `#ffffff`
+    (monochrome white mark top-left; body already white).
+  - Footer: replaced the custom gradient play icon + "Streamly" wordmark with the real
+    green `public/favicon.svg` (w-7 h-7, green drop-shadow glow) + "Cinejoy" wordmark in
+    `src/components/Footer.jsx` — brand now matches Cinejoy exactly in both header and footer.
+  - Back button: `src/App.jsx` now renders a `.back-btn` (ChevronLeft, 40px glass circle —
+    blur 20 sat 160, white/12 border, hover white/12 + white text, active scale .94,
+    focus-visible ring, reduced-motion guard) inside `.header-row` BEFORE the brand link,
+    visible on every route except `/`, behaviour `navigate(-1)` when history allows, else `/`.
+    Per-page fixed topbar Back bar on TitleDetails was removed (global header button replaces it).
+- [x] **Task 62 - Search page results → Cinejoy-style row list**
+  - `SearchResultRow.jsx` rewritten (was an unused compact command-palette row): a hoverable
+    result row — landscape 16:9 thumb (w32/w44) with `scale-105` image, 42%-density bottom
+    gradient scrim, white circle play orb on hover, title + `•` year / TV-Show|Movie / IMDb
+    star rating row (rating colored via `getRatingColor`), selected-state highlight track and
+    keyboard `Enter`/`Space` (kept `roleOption` support). All Tailwind, no inline styles.
+  - `SearchPage.jsx`: the filtered `movie-grid` of `MovieCard`s became a `SearchResultRow`
+    list (staggered entrance via existing `idx*0.04` physics); clicks open details through the
+    existing `useDetailView` hook (`modalHost` mounted on the page). Kept hero input, quick
+    starts, Trending Today grid, filter pills + EmptyState.
+- [x] **Task 62 - Continue-watching hover popup (Cinejoy preview panel)**
+  - `ContinueWatchingRail.jsx`: card pop now scales `1.07` from `origin-bottom` with a deeper
+    shadow `(0 0 0/70)` and `hover:z-30` so it pops above the row (rail is `overflow-y-clip`).
+    A hover preview panel slides up over the thumbnail (`max-h-0 → max-h-28`, 300ms ease-out):
+    bottom gradient scrim, title, `Sx:Ey • Xm left • NN%`, and a solid-white **Resume** pill
+    (`active:scale-95`; stopPropagation + `navigate(watchTo)`). Panel hidden in edit mode;
+    reduced-motion unaffected (CSS transitions only). Update: test 1 now uses `getAllByText`
+    for title/`S2:E4`/remaining strings since the popup intentionally repeats card meta.
+- [x] **Task 62 - Movies Upcoming rail → dense month-grouped release calendar**
+  - Root cause of "only one upcoming": `getUpcomingMovies` fetched `/movie/upcoming` page 1
+    only (~20 rows, many null `release_date`) → `buildUpcoming(…,120)` → 0–5 cards.
+  - `movieService.js`: `getUpcomingMovies` now paginates pages 1–3 via `Promise.allSettled`
+    (skips rows without `release_date`); new `getFutureMovies` sweeps `/discover/movie`
+    (`primary_release_date_gte=today`, `.lte=+365d`, `sort_by=primary_release_date.asc`,
+    pages 1–2, English only) so the slate never runs dry.
+  - `DiscoveryPage.jsx`: rail query merges both via `Promise.allSettled`; `buildUpcoming`
+    window 120 → 365 days; new `UpcomingMonthRail` subcomponent renders each calendar month
+    as its OWN landscape rail with a heading ("Coming This Month" when current, else
+    "September 2026" etc.), a count pill, and self-contained fade-in arrows. Series mode
+    keeps the single "New Seasons Airing" rail, untouched.
+- [x] **Task 62 - Details/banner gradient & ambient parity (Cinejoy melt)**
+  - `TitleDetailsPage.jsx`: hero height `clamp(280px,55vh,520px)` → `clamp(340px,62vh,620px)`;
+    added a blurred full-bleed edge-fill image behind the masked hero (`blur-[40px] saturate-125
+    scale-[1.12]`) so the mask fade melts into banner color instead of dropping to pure black.
+    Ambient layer strengthened: `blur-[80px] saturate-100 opacity-50` → `blur-[100px] saturate-150
+    opacity-60`, top screen-blend glow `blur-[50px] → blur-[60px]` satur-150.
+  - `AmbientBackground.jsx`: same boost to match the details page (`blur-[100px] saturate-150
+    opacity-60`, glow `blur-[60px]`).
+  - `src/index.css`: `.watch-hero-gradient` + `.hero-overlay--apple` gradient stacks retuned —
+    bottom band softened (`0.98/0.9/0.55/0.22 → transparent 62%`) and side vignettes widened
+    (left ellipse 70% at 42% stop, right 38%); `.left-vignette` spread 40% → 52% at 75% fade.
+  - Verified: `npm run lint` (0), `npm run test` (305/305, 29 files), `npm run build` (✓ 1.31s).
+    Committed + pushed (token URL) + `git update-ref refs/remotes/origin/main`.
+
 ## Real Cinejoy logo + separated nav islands + sliding pill — Task 60
 
 - [x] **Task 60 - Two-island header (brand-mark END | nav pill END), official logo, real transitions**

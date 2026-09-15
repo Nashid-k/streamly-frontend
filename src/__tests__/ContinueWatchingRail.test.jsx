@@ -40,11 +40,13 @@ describe("ContinueWatchingRail", () => {
     );
 
     expect(screen.getByText("Continue Watching")).toBeInTheDocument();
-    expect(screen.getByText("Moana")).toBeInTheDocument();
-    expect(screen.getByText("Breaking Bad")).toBeInTheDocument();
-    expect(screen.getByText("S2:E4")).toBeInTheDocument();
-    expect(screen.getByText("1hr 53m left")).toBeInTheDocument();
-    expect(screen.getByText("40m left")).toBeInTheDocument();
+    // Title / progress strings intentionally repeat in the desktop hover
+    // preview panel, so assert presence via getAllByText.
+    expect(screen.getAllByText("Moana")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("Breaking Bad")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("S2:E4")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("1hr 53m left")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("40m left")[0]).toBeInTheDocument();
   });
 
   it("toggles edit mode and allows removing items", () => {

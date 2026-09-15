@@ -602,17 +602,63 @@ export const movieService = {
 
   // Movies rail — near-term theatrical release schedule enriched with the
   // release dates buildUpcoming needs to power the "Upcoming / Coming Soon"
-  // landscape rail on the Movies discovery page.
+  // landscape rail on the Movies discovery page. Paginates the first three
+  // pages so the rail is dense, not a single sparse page.
   getUpcomingMovies: async () => {
     try {
-      const data = await tmdb('/movie/upcoming');
-      const out = (data.results || [])
-        .filter((r) => r.release_date)
-        .map((r) => ({ ...normalizeResult({ ...r, media_type: 'movie' }), releaseDate: r.release_date }));
+      const pages = await Promise.allSettled(
+        [1, 2, 3].map((page) => tmdb('/movie/upcoming', { page })),
+      );
+      const out = [];
+      for (const res of pages) {
+        if (res.status !== 'fulfilled') continue;
+        for (const r of (res.value.results || [])) {
+          if (!r.release_date) continue;
+          out.push({ ...normalizeResult({ ...r, media_type: 'movie' }), releaseDate: r.release_date });
+        }
+      }
       warnIfEmpty('getUpcomingMovies', out, {});
       return out;
     } catch (error) {
       logServiceError('getUpcomingMovies', error, {});
+      throw error;
+    }
+  },
+
+  // Future theatrical slate — a /discover/movie sweep of English-language
+  // titles with a release date within the next year, sorted soonest-first.
+  // Keeps the Upcoming rail populated when TMDB's /movie/upcoming window is thin.
+  getFutureMovies: async () => {
+    try {
+      const pad = (n) => String(n).padStart(2, '0');
+      const now = new Date();
+      const start = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+      const end = new Date(now);
+      end.setDate(now.getDate() + 365);
+      const endStr = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
+      const pages = await Promise.allSettled(
+        [1, 2].map((page) =>
+          tmdb('/discover/movie', {
+            page,
+            sort_by: 'primary_release_date.asc',
+            primary_release_date_gte: start,
+            primary_release_date_lte: endStr,
+            with_original_language: 'en',
+          }),
+        ),
+      );
+      const out = [];
+      for (const res of pages) {
+        if (res.status !== 'fulfilled') continue;
+        for (const r of (res.value.results || [])) {
+          if (!r.release_date) continue;
+          out.push({ ...normalizeResult({ ...r, media_type: 'movie' }), releaseDate: r.release_date });
+        }
+      }
+      warnIfEmpty('getFutureMovies', out, {});
+      return out;
+    } catch (error) {
+      logServiceError('getFutureMovies', error, {});
       throw error;
     }
   },
