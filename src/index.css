@@ -1073,11 +1073,6 @@ a {
     radial-gradient(ellipse 70% 100% at 0% 50%, rgba(5,5,5,0.8) 0%, rgba(5,5,5,0.32) 42%, transparent 72%),
     radial-gradient(ellipse 38% 100% at 100% 50%, rgba(5,5,5,0.42) 0%, transparent 62%);
 }
-.watch-hero-gradient + .left-vignette,
-.left-vignette {
-  background:
-    radial-gradient(ellipse 52% 100% at 0% 50%, rgba(5,5,5,0.8) 0%, transparent 75%);
-}
 
 /* ── Cinejoy-style liquid backdrop ────────────────────────────────────────
    Fixed blurred color blobs drifting slowly behind every page. Transform-only
@@ -3235,19 +3230,37 @@ input:focus-visible {
   mask-image: none;
 }
 .cast-rail__avatar {
-  width: 90px;
-  height: 90px;
+  width: 96px;
+  height: 96px;
   border-radius: 50%;
   object-fit: cover;
-  background: #27272a;
-  margin-bottom: 0.5rem;
-  border: 2px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 1.6rem;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.85);
+  transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+@media (min-width: 768px) {
+  .cast-rail__avatar {
+    width: 112px;
+    height: 112px;
+  }
+}
+.cast-card > * {
+  transition: transform 0.3s ease;
+}
+.cast-card:hover .cast-rail__avatar {
+  transform: scale(1.1);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 24px rgba(255, 255, 255, 0.2);
+}
+.cast-card:hover > *:last-child {
+  transform: translateY(4px);
 }
 .cast-rail__avatar--monogram {
   background: linear-gradient(135deg, rgba(var(--accent-primary-rgb), 0.28), rgba(var(--accent-secondary-rgb), 0.16));

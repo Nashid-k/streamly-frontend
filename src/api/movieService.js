@@ -45,6 +45,25 @@ function logoUrlFromImages(images, size = 'w500') {
   return CdnImageAdapter.getUrl(best.file_path, resolvedSize);
 }
 
+// Helper: US (fallback any-country) certification from an appended
+// release_dates (movies) / content_ratings (TV) payload.
+export function certificationFromDetail(detail, isTV) {
+  if (isTV) {
+    const results = detail?.content_ratings?.results || [];
+    const us = results.find((r) => r.iso_3166_1 === 'US' && r.rating);
+    const any = results.find((r) => r.rating);
+    return (us || any)?.rating || null;
+  }
+  const results = detail?.release_dates?.results || [];
+  const pick = (code) => {
+    const entry = results.find((r) => r.iso_3166_1 === code);
+    return entry?.release_dates?.find((rd) => rd.certification)?.certification || null;
+  };
+  return pick('US') || results
+    .map((r) => (r.release_dates || []).find((rd) => rd.certification)?.certification)
+    .find(Boolean) || null;
+}
+
 export function isBrowsableTitle(item) {
   return item?.media_type === 'movie' || item?.media_type === 'tv';
 }
@@ -259,7 +278,9 @@ export const movieService = {
     const endpoint = isTV ? 'tv' : 'movie';
     try {
       const [detail, externalIds] = await Promise.all([
-        tmdb(`/${endpoint}/${rid}`, { append_to_response: 'credits,videos,images' }),
+        tmdb(`/${endpoint}/${rid}`, {
+          append_to_response: `credits,videos,images,${isTV ? 'content_ratings' : 'release_dates'}`,
+        }),
         // Ratings enrich the page but should not make a perfectly usable title
         // fail when TMDB's external-id endpoint is temporarily unavailable.
         tmdb(`/${endpoint}/${rid}/external_ids`).catch((error) => {
@@ -289,6 +310,7 @@ export const movieService = {
         profileUrl: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null,
       })),
       director: (credits.crew || []).find(c => c.job === 'Director')?.name || null,
+      directorId: (credits.crew || []).find(c => c.job === 'Director')?.id || null,
       writers: (credits.crew || []).filter(c => c.department === 'Writing').map(c => c.name),
       budget: detail.budget || 0,
       revenue: detail.revenue || 0,
@@ -341,6 +363,7 @@ export const movieService = {
       imdbId: externalIds.imdb_id || null,
       voteCount: detail.vote_count || 0,
       status: detail.status || null,
+      certification: certificationFromDetail(detail, isTV),
       networks: (detail.networks || []).map(n => n.name),
     };
     } catch (error) {

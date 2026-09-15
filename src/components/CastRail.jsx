@@ -77,7 +77,7 @@ const CastRail = memo(function CastRail({ cast }) {
           marginBottom: "1.25rem",
         }}
       >
-        <h2 style={{ fontSize: "1.4rem", fontWeight: 700 }}>Cast & Crew</h2>
+        <h2 className="text-xl lg:text-2xl font-bold text-white/90 px-2">Cast</h2>
         <div className="cast-rail__nav">
           {["left", "right"].map(arrowBtn)}
         </div>
@@ -91,9 +91,10 @@ const CastRail = memo(function CastRail({ cast }) {
         className={`cast-rail__scroll${!canLeft ? " is-at-start" : ""}${!canRight ? " is-at-end" : ""}`}
         style={{
           display: "flex",
-          gap: "1rem",
+          gap: "1.25rem",
           overflowX: "auto",
-          paddingBottom: "0.5rem",
+          overflowY: "visible",
+          padding: "1rem 1.5rem",
           scrollbarWidth: "none",
         }}
       >
@@ -107,7 +108,8 @@ const CastRail = memo(function CastRail({ cast }) {
             <motion.div
               key={m.id || m.name}
               variants={castItemVariants}
-              style={{ flexShrink: 0, width: "110px", textAlign: "center" }}
+              className="cast-card flex-none w-32 lg:w-36 flex flex-col items-center gap-3"
+              style={{ textAlign: "center" }}
             >
               {m.id ? (
                 <Link
@@ -148,9 +150,9 @@ const CastRail = memo(function CastRail({ cast }) {
                   )}
                   <div
                     style={{
-                      fontSize: "0.8rem",
-                      fontWeight: 600,
-                      color: "#e4e4e7",
+                      fontSize: "0.875rem",
+                      fontWeight: 500,
+                      color: "rgba(255,255,255,0.9)",
                       lineHeight: 1.3,
                       overflow: "hidden",
                       textOverflow: "ellipsis",
@@ -162,8 +164,8 @@ const CastRail = memo(function CastRail({ cast }) {
                   {m.character && (
                     <div
                       style={{
-                        fontSize: "0.7rem",
-                        color: "#71717a",
+                        fontSize: "0.75rem",
+                        color: "rgba(255,255,255,0.5)",
                         marginTop: "2px",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
@@ -181,9 +183,9 @@ const CastRail = memo(function CastRail({ cast }) {
                   </div>
                   <div
                     style={{
-                      fontSize: "0.8rem",
-                      fontWeight: 600,
-                      color: "#e4e4e7",
+                      fontSize: "0.875rem",
+                      fontWeight: 500,
+                      color: "rgba(255,255,255,0.9)",
                     }}
                   >
                     {m.name}

@@ -824,6 +824,69 @@ Cinejoy set. Original "don't edit" constraint was lifted by the user.
     recipe + `scroll-margin-top` + `.is-flash` ring, dropped hover + heavy shadow.
   - Verified: `npm run lint` (0), `npm run test` (305/305), `npm run build` (✓).
 
+## Task 63 — Cinejoy details-page parity: ambient/banner gradients corrected, logo-as-headline + genre row, cert badge + upcoming chip + vote pill, info cards, cast/trailer/similar rails, unreleased Play modal, white wordmark footer
+
+- [x] **Task 63 - Ambient + banner corrected to the real Cinejoy details page**
+  - The Task 62 blur guess was wrong; the authoritative dump uses:
+    ambient `scale-[1.2] blur-[80px] saturate-100 opacity-50` + top glow
+    `h-[40vh] mix-blend-screen opacity-20 blur-[50px] saturate-100` (was 100/150/60 +
+    glow 60/150/25). `AmbientBackground.jsx` matched to the same values.
+  - Banner: dropped the `clamp(340px,62vh,620px)` height + blurred edge-fill layer;
+    now `h-[65vh] lg:h-[75vh]` with the mask `black 40% → transparent 98%` and exactly the
+    dump's two overlays (`bg-gradient-to-t from-[#050505] via-[#050505]/40 to-transparent`
+    + `bg-gradient-to-r from-[#050505] via-transparent to-transparent hidden lg:block`).
+    Removed the now-dead `.watch-hero-gradient` use in the ambient and the unused
+    `.left-vignette` CSS rule.
+  - Content overlap `-mt-44 lg:-mt-[22rem]` (was `-mt-20 …`), removed the `max-w-[1800px]`
+    content cap (sections + social-proof bar now full-bleed like the dump).
+- [x] **Task 63 - Hero column restructured to Cinejoy order**
+  - Logo `max-h-20 lg:max-h-36 max-w-[75%] lg:max-w-[500px] object-contain drop-shadow-2xl`.
+  - New standalone genre row (`mt-3 lg:mt-4 text-sm lg:text-lg text-white/90 font-medium`)
+    directly under the logo; genres removed from the meta row.
+  - Actions: Play pill `h-[44px] px-6 text-base font-bold min-w-[120px] hover:scale-105
+    shadow-xl shadow-black/10` + `w-5 h-5 mr-1.5 fill-current` icon; Download circle no longer
+    dimmed (still shows the "web app" toast).
+  - New upcoming release chip (only when `releaseDate` is in the future): Clock +
+    "Not released yet" · "Available <date>" in the pill recipe from the dump.
+  - Meta row now `year • runtime (2h 45m) • cert badge • vote pill`; IMDB `RatingsCluster`
+    and the `border-l` dividers removed from the row (vote split restyled as a subtle pill,
+    still percentage-based as agreed).
+  - Director row `mt-1.5`, rendered as a `/person/<directorId>` link with the Cinejoy hover
+    underline when an id is present. Description `mt-4 lg:mt-5 text-white/70 line-clamp-3`
+    plus a **Show more / Show less** toggle for long overviews.
+- [x] **Task 63 - Info cards + production logos**
+  - Desktop column `w-[280px] mt-40` (was `w-[260px] xl:w-[280px] mt-12 xl:mt-28`); both
+    cards now show only Runtime (+ `Ends <time>`) / Language / Release Date; Budget/Revenue
+    rows removed to match the dump, runtime shown via `formatRuntimeLabel` (`2h 45m`).
+  - `ProductionCompaniesBlock`: dropped the "Production" label, `mt-4 grid gap-2 grid-cols-2`,
+    cells `h-10 px-2`, logos `max-h-7 object-contain brightness-0 invert opacity-50`.
+- [x] **Task 63 - Cast / Trailers / Similar rails**
+  - `CastRail.jsx`: heading → "Cast" (`text-xl lg:text-2xl font-bold text-white/90 px-2`);
+    cards `w-32 lg:w-36` gap-3, avatars 96/112px with `scale-110` + white ring/shadow hover,
+    name/role recolored to `white/90` / `white/50` with the slide-up text hover.
+  - Trailers → heading "Trailers"; cards `w-64 md:w-80 aspect-video` with the dump's
+    ring-1/scale-105/brightness/label-gradient treatment (replaced the inline 280px box +
+    accent play orb, kind label moved into the bottom bar).
+  - "More Like This" → heading "You Might Also Like", converted from `.movie-grid` to a
+    fixed poster rail (`flex gap-4 … px-6 lg:px-16 min-h-[310px] lg:min-h-[356px]`,
+    edge mask, `flex-none w-[140px] lg:w-[200px]`) reusing `MovieCard`'s white-orb curtain.
+- [x] **Task 63 - Unreleased Play modal**
+  - Play (hero) now checks `isUnreleased(releaseDate)` and opens a glass modal instead of the
+    player: Clock badge, "This Hasn't Released Yet", "Releases on <long date>", Back button;
+    backdrop click + Escape close it (new effect). Episode cards were already gated by `isAired`.
+- [x] **Task 63 - Data + Footer**
+  - `movieService.getMovieDetails` appends `release_dates` (movies) / `content_ratings` (TV)
+    and exposes `certification` (US first, then any country) + `directorId` from the existing
+    `credits.crew`. `certificationFromDetail` is exported and unit-tested.
+  - `Footer.jsx` → the real `/brand/wordmark.svg` (copied from cinejoy.to into
+    `public/brand/`) + `w-px h-8 bg-white/10` divider + Discord glyph (white→`#a1a1aa`
+    gradient) + disclaimer + contact link.
+- [x] **Task 63 - Verification**
+  - New pure helpers in `src/utils/titleDetails.js` (`formatRuntimeLabel`, `isUnreleased`,
+    `voteSplitPct`) + `src/__tests__/titleDetailsHelpers.test.jsx` (7 cases incl.
+    certification extraction). Verified: `npm run lint` (0), `npm run test` (312/312, 30
+    files), `npm run build` (✓).
+
 ## Task 62 — Cinejoy parity: white nav logo + green footer mark + back button, row-list search, continue-watching hover popup, month-grouped Upcoming, details banner/ambient gradients
 
 - [x] **Task 62 - White nav logo (header) + green logo (footer) + header back button**

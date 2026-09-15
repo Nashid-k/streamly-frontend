@@ -9,7 +9,7 @@ import Loader from "../components/Loader";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import { createPortal } from "react-dom";
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   Play,
   ArrowLeft,
@@ -36,6 +36,7 @@ import {
   Download,
   Eye,
   EyeOff,
+  Clock,
 } from "lucide-react";
 import {
   motion,
@@ -44,10 +45,10 @@ import {
 import { useAppAuth } from "../context/auth";
 import { useToast } from "../components/Toast.jsx";
 import MovieCard from "../components/MovieCard";
-import RatingsCluster from "../components/RatingsCluster";
 
 import { buildMovieAddedNotification } from "../utils/notificationEngine";
 import { formatTMDBDate, getTMDBWeekday } from "../utils/timezone";
+import { formatRuntimeLabel, isUnreleased, voteSplitPct } from "../utils/titleDetails";
 import { getPlatformName } from "../utils/platforms";
 import { logEmptyData, logError, reportQueryError } from "../utils/debugLogger";
 import CustomVideoPlayer from "../components/CustomVideoPlayer";
@@ -397,26 +398,21 @@ function ProductionCompaniesBlock({ companies }) {
   const displayCompanies = normalized.slice(0, 6);
 
   return (
-    <div className="mt-3.5 w-full">
-      <span className="text-[11px] font-semibold uppercase tracking-wider text-white/40 block mb-2">
-        Production
-      </span>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 gap-2">
-        {displayCompanies.map((company) => (
-          <div
-            key={company.id}
-            title={company.name}
-            className="flex items-center justify-center p-2 rounded-xl hover:bg-white/[0.04] transition-all duration-200 h-12 group overflow-hidden"
-          >
-            <img
-              loading="lazy"
-              src={company.logoUrl}
-              alt={company.name}
-              className="max-h-8 w-auto max-w-[85%] object-contain brightness-0 invert opacity-60 transition-opacity duration-200 group-hover:opacity-90"
-            />
-          </div>
-        ))}
-      </div>
+    <div className="mt-4 grid gap-2 grid-cols-2">
+      {displayCompanies.map((company) => (
+        <div
+          key={company.id}
+          title={company.name}
+          className="flex items-center justify-center h-10 px-2"
+        >
+          <img
+            loading="lazy"
+            src={company.logoUrl}
+            alt={company.name}
+            className="w-auto max-h-7 max-w-full object-contain brightness-0 invert opacity-50"
+          />
+        </div>
+      ))}
     </div>
   );
 }
@@ -430,15 +426,6 @@ function formatEndsAt(durationMins) {
     hour: "numeric",
     minute: "2-digit",
   });
-}
-
-/* Simple "split" derived from the IMDb-style score (Cinejoy's vote-split):
-   the share of the max score counts as the "up" proportion. */
-function voteSplitPct(imdbRating) {
-  const rating = Number(imdbRating) || 0;
-  if (rating <= 0) return null;
-  const up = Math.max(1, Math.min(99, Math.round((rating / 10) * 100)));
-  return { up, down: 100 - up };
 }
 
 export default function TitleDetails() {
@@ -566,6 +553,8 @@ export default function TitleDetails() {
 
 
   const [isPlaying, setIsPlaying] = useState(false);
+  const [showFullDescription, setShowFullDescription] = useState(false);
+  const [unreleasedModalOpen, setUnreleasedModalOpen] = useState(false);
   const [iframeLoading, setIframeLoading] = useState(false);
   const [episodeLayout, setEpisodeLayout] = useState(() => (
     episodeViewStyle === "grid" || episodeViewStyle === "list" || episodeViewStyle === "carousel"
@@ -784,6 +773,16 @@ export default function TitleDetails() {
     return () => window.removeEventListener("keydown", handleKey);
   }, [isPlaying]);
 
+  // Close the unreleased-notice modal on Escape key
+  useEffect(() => {
+    if (!unreleasedModalOpen) return;
+    const handleKey = (e) => {
+      if (e.key === "Escape") setUnreleasedModalOpen(false);
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [unreleasedModalOpen]);
+
   // Track which episode the saved timestamp belongs to — only apply it once
   const initialEpisodeRef = useRef(null);
   useEffect(() => {
@@ -963,6 +962,8 @@ export default function TitleDetails() {
   const backdropOptimized = backdropSrc ? CdnImageAdapter.getBackdropUrl(backdropSrc) : null;
   const endsAt = formatEndsAt(movie.durationMins);
   const voteSplit = voteSplitPct(movie.imdbRating);
+  const runtimeLabel = formatRuntimeLabel(movie.durationMins);
+  const unreleased = isUnreleased(movie.releaseDate);
 
 
 
@@ -979,13 +980,13 @@ export default function TitleDetails() {
       <div className="fixed inset-0 w-full h-full z-0 pointer-events-none bg-[#050505]" style={{ contain: "strict", willChange: "transform" }}>
         <div className="absolute inset-0 w-full h-full">
           <img
-            className="w-full h-full object-cover scale-[1.25] blur-[100px] saturate-150 opacity-60"
+            className="w-full h-full object-cover scale-[1.2] blur-[80px] saturate-100 opacity-50"
             alt=""
             src={backdropOptimized || movie.posterUrl}
           />
           <div className="absolute top-0 left-0 w-full h-[40vh] mix-blend-screen opacity-20 hidden lg:block">
             <img
-              className="w-full h-full object-cover scale-[1.25] blur-[60px] saturate-150"
+              className="w-full h-full object-cover scale-[1.2] blur-[50px] saturate-100"
               alt=""
               loading="lazy"
               decoding="async"
@@ -993,8 +994,6 @@ export default function TitleDetails() {
               src={backdropOptimized || movie.posterUrl}
             />
           </div>
-          {/* Same gradient stack as the hero banner overlay — bottom fade + soft side vignettes */}
-          <div className="absolute inset-0 z-0 pointer-events-none watch-hero-gradient" />
         </div>
       </div>
 
@@ -1003,50 +1002,49 @@ export default function TitleDetails() {
       <div className="relative w-full">
         {/* Hero Image Mask */}
         <div
-          className="relative w-full overflow-hidden"
+          className="relative w-full h-[65vh] lg:h-[75vh] overflow-hidden"
           style={{
-            height: "clamp(340px, 62vh, 620px)",
             maskImage: "linear-gradient(to bottom, black 40%, transparent 98%)",
             WebkitMaskImage: "linear-gradient(to bottom, black 40%, transparent 98%)"
           }}
         >
-          {/* Blurred full-bleed edge-fill — the fade zone keeps the banner's
-              color instead of dropping to pure black on the mask drops. */}
-          <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
-            <img
-              className="w-full h-full object-cover object-center blur-[40px] saturate-125 scale-[1.12]"
-              src={backdropOptimized || movie.posterUrl}
-              alt=""
-              loading="eager"
-              decoding="async"
-            />
-          </div>
           <img
-              className="relative h-full w-full object-cover object-top"
+              className="h-full w-full object-cover object-top"
               src={backdropOptimized || movie.posterUrl}
               alt={movie.title}
               fetchPriority="high"
               loading="eager"
               decoding="async"
             />
-          <div className="absolute inset-0 watch-hero-gradient pointer-events-none"></div>
-          <div className="absolute inset-0 left-vignette pointer-events-none hidden lg:block"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/40 to-transparent pointer-events-none"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-[#050505] via-transparent to-transparent pointer-events-none hidden lg:block"></div>
         </div>
 
         {/* Content Overlap */}
-        <div className="relative z-20 -mt-20 lg:-mt-[10rem] xl:-mt-[13rem] lg:flex lg:items-start lg:justify-between lg:gap-10 px-6 lg:px-16 max-w-[1800px] mx-auto">
+        <div className="relative z-20 -mt-44 lg:-mt-[22rem] lg:flex lg:items-start lg:justify-between lg:gap-10 px-6 lg:px-16">
           {/* Left Column */}
           <div className="w-full max-w-[700px] lg:max-w-[650px] lg:min-w-0 flex flex-col items-center lg:items-start">
             {useImageLogos && movie.logoUrl ? (
               <img
-                className="max-h-20 sm:max-h-28 md:max-h-36 lg:max-h-44 xl:max-h-48 max-w-[85%] sm:max-w-[75%] lg:max-w-[520px] w-auto object-contain drop-shadow-[0_4px_24px_rgba(0,0,0,0.85)] mb-2"
+                className="max-h-20 lg:max-h-36 max-w-[75%] lg:max-w-[500px] w-auto object-contain drop-shadow-2xl"
                 src={movie.logoUrl}
                 alt={movie.title}
               />
             ) : (
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-white drop-shadow-2xl text-center lg:text-left mb-2">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-white drop-shadow-2xl text-center lg:text-left">
                 {movie.title}
               </h1>
+            )}
+
+            {movie.genres?.length > 0 && (
+              <div className="mt-3 lg:mt-4 flex flex-wrap items-center gap-2 text-sm lg:text-lg text-white/90 font-medium">
+                {movie.genres.map((genre, idx) => (
+                  <span key={genre} className="flex items-center gap-2">
+                    <span>{genre}</span>
+                    {idx < movie.genres.length - 1 && <span className="text-white/40">•</span>}
+                  </span>
+                ))}
+              </div>
             )}
 
             {seriesIsAiring && (
@@ -1103,57 +1101,11 @@ export default function TitleDetails() {
               </div>
             )}
 
-            {/* Meta: Year, Duration, Ratings, Genres */}
-            <div className="mt-3 lg:mt-4 w-full flex flex-wrap items-center gap-x-3.5 gap-y-2 text-sm lg:text-base text-white/80 font-medium justify-center lg:justify-start">
-              <span>{new Date(movie.releaseDate).getFullYear()}</span>
-              {movie.durationMins && <span>{movie.durationMins}m</span>}
-
-              {movie.imdbRating > 0 && (
-                <div className="flex items-center gap-3 lg:gap-4 border-l border-white/20 pl-3.5 ml-0.5">
-                  <RatingsCluster movie={movie} size="md" />
-                  {voteSplit && (
-                    <div
-                      className="flex items-center gap-1.5 text-xs font-semibold"
-                      aria-label={`${voteSplit.up}% up ${voteSplit.down}% down split`}
-                    >
-                      <span className="inline-flex items-center gap-0.5 text-emerald-400">
-                        <ArrowUp size={14} aria-hidden="true" />
-                        {voteSplit.up}%
-                      </span>
-                      <span className="inline-flex items-center gap-0.5 text-red-400/90">
-                        <ArrowDown size={14} aria-hidden="true" />
-                        {voteSplit.down}%
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {movie.genres?.length > 0 && (
-                <div className="flex items-center gap-2 border-l border-white/20 pl-3.5 ml-0.5 flex-wrap">
-                  {movie.genres.map((genre, idx) => (
-                    <span key={genre} className="flex items-center gap-2">
-                      <span className="text-white/90">{genre}</span>
-                      {idx < movie.genres.length - 1 && <span className="text-white/40">•</span>}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Overview / Description */}
-            {(movie.description || movie.longDescription || movie.overview) && (
-              <div className="mt-3.5 lg:mt-4 w-full text-center lg:text-left">
-                <p className="text-sm lg:text-base text-white/75 leading-relaxed line-clamp-3 lg:line-clamp-4 max-w-[650px]">
-                  {movie.description || movie.longDescription || movie.overview}
-                </p>
-              </div>
-            )}
-
             {/* Actions */}
             <div className="mt-5 lg:mt-6 flex items-center gap-3 flex-wrap justify-center lg:justify-start">
               <button
                 onClick={() => {
+                  if (unreleased) { setUnreleasedModalOpen(true); return; }
                   setPlayMode("movie");
                   setIsPlaying(true);
                   if (isTvContent) {
@@ -1161,10 +1113,10 @@ export default function TitleDetails() {
                   }
                   updateProgress(movie, isTvContent ? selectedSeason : null, isTvContent ? episodeToPlay : null, 0);
                 }}
-                className="relative rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 font-semibold tracking-wide h-[40px] lg:h-[44px] xl:h-[52px] px-5 lg:px-6 xl:px-8 py-3 text-sm xl:text-base min-w-[110px] border-none"
+                className="relative rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 font-bold tracking-wide h-[44px] px-6 py-3 text-base min-w-[120px] border-none hover:scale-105 shadow-xl shadow-black/10"
                 style={{ background: "var(--accent-gradient)", color: "var(--on-accent, #fff)", boxShadow: "0 8px 24px var(--accent-glow, rgba(149,255,80,0.5))" }}
               >
-                <Play size={18} className="mr-1.5 fill-current" /> Play
+                <Play className="w-5 h-5 mr-1.5 fill-current" /> Play
               </button>
 
               {/* Cinejoy-style circular actions: Add to List | Download | Mark watched */}
@@ -1186,8 +1138,7 @@ export default function TitleDetails() {
                 <button
                   type="button"
                   onClick={handleDownloadDisabled}
-                  className="hero-circle-btn hero-circle-btn--disabled"
-                  aria-disabled="true"
+                  className="hero-circle-btn"
                   aria-label="Download (coming soon)"
                   title="Download isn't available in the web app yet"
                 >
@@ -1206,9 +1157,74 @@ export default function TitleDetails() {
               </div>
             </div>
 
+            {unreleased && (
+              <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] backdrop-blur-md px-3.5 py-1.5">
+                <Clock className="w-3.5 h-3.5 text-white/45" aria-hidden="true" />
+                <span className="text-[13px] font-semibold text-white">Not released yet</span>
+                <span className="text-white/25">·</span>
+                <span className="text-[13px] text-white/55">
+                  Available {formatTMDBDate(movie.releaseDate, { month: "short", day: "numeric", year: "numeric" })}
+                </span>
+              </div>
+            )}
+
+            {/* Meta: Year · Runtime · Certification · Votes */}
+            <div className="mt-5 lg:mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm lg:text-base text-white/80 font-medium">
+              {movie.releaseDate && <span>{new Date(movie.releaseDate).getFullYear()}</span>}
+              {runtimeLabel && <span>{runtimeLabel}</span>}
+              {movie.certification && (
+                <span className="px-1.5 py-0.5 border border-white/30 rounded text-xs lg:text-sm">
+                  {movie.certification}
+                </span>
+              )}
+              {voteSplit && (
+                <span
+                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-0.5 text-xs font-semibold"
+                  aria-label={`${voteSplit.up}% up ${voteSplit.down}% down split`}
+                >
+                  <span className="inline-flex items-center gap-0.5 text-emerald-400 tabular-nums">
+                    <ArrowUp size={13} aria-hidden="true" />
+                    {voteSplit.up}%
+                  </span>
+                  <span className="inline-flex items-center gap-0.5 text-red-400/90 tabular-nums">
+                    <ArrowDown size={13} aria-hidden="true" />
+                    {voteSplit.down}%
+                  </span>
+                </span>
+              )}
+            </div>
+
             {movie.director && (
-              <div className="mt-3.5 w-full text-sm lg:text-base text-white/60 text-center lg:text-left">
-                <span className="text-white/40">Director:</span> <span className="text-white/80">{movie.director}</span>
+              <div className="mt-1.5 text-sm lg:text-base text-white/60">
+                <span className="text-white/40">Director:</span>{" "}
+                {movie.directorId ? (
+                  <Link
+                    to={`/person/${movie.directorId}`}
+                    className="text-white/80 hover:text-white hover:underline decoration-white/60 underline-offset-4"
+                  >
+                    {movie.director}
+                  </Link>
+                ) : (
+                  <span className="text-white/80">{movie.director}</span>
+                )}
+              </div>
+            )}
+
+            {/* Overview / Description */}
+            {(movie.description || movie.longDescription || movie.overview) && (
+              <div className="mt-4 lg:mt-5">
+                <p className={`text-sm lg:text-base text-white/70 leading-relaxed ${showFullDescription ? "" : "line-clamp-3"}`}>
+                  {movie.description || movie.longDescription || movie.overview}
+                </p>
+                {(movie.description || movie.longDescription || movie.overview).length > 220 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowFullDescription((v) => !v)}
+                    className="mt-1.5 text-sm font-semibold text-white/80 hover:text-white transition-colors"
+                  >
+                    {showFullDescription ? "Show less" : "Show more"}
+                  </button>
+                )}
               </div>
             )}
 
@@ -1216,11 +1232,11 @@ export default function TitleDetails() {
             <div className="mt-6 w-full lg:hidden">
               <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] overflow-hidden backdrop-blur-sm">
                 <div className="divide-y divide-white/[0.06]">
-                  {movie.durationMins && (
+                  {runtimeLabel && (
                     <div className="flex items-center justify-between px-3.5 py-2.5">
                       <span className="text-xs text-white/40">Runtime</span>
                       <span className="text-xs text-white/80">
-                        {movie.durationMins}m
+                        {runtimeLabel}
                         {endsAt && <span className="text-white/50">{" "}• Ends {endsAt}</span>}
                       </span>
                     </div>
@@ -1237,18 +1253,6 @@ export default function TitleDetails() {
                       <span className="text-xs text-white/80">{formatTMDBDate(movie.releaseDate, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
                     </div>
                   )}
-                  {movie.budget > 0 && (
-                    <div className="flex items-center justify-between px-3.5 py-2.5">
-                      <span className="text-xs text-white/40">Budget</span>
-                      <span className="text-xs text-white/80">{movie.budget.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })}</span>
-                    </div>
-                  )}
-                  {movie.revenue > 0 && (
-                    <div className="flex items-center justify-between px-3.5 py-2.5">
-                      <span className="text-xs text-white/40">Revenue</span>
-                      <span className="text-xs text-white/80">{movie.revenue.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })}</span>
-                    </div>
-                  )}
                 </div>
               </div>
               <ProductionCompaniesBlock companies={movie.productionCompanies} />
@@ -1256,14 +1260,14 @@ export default function TitleDetails() {
           </div>
 
           {/* Right Column (Desktop) */}
-          <div className="hidden lg:block w-[260px] xl:w-[280px] shrink-0 mt-12 xl:mt-28">
+          <div className="hidden lg:block w-[280px] shrink-0 mt-40">
             <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] overflow-hidden backdrop-blur-sm">
               <div className="divide-y divide-white/[0.06]">
-                {movie.durationMins && (
+                {runtimeLabel && (
                   <div className="flex items-center justify-between px-4 py-2.5">
                     <span className="text-xs text-white/40">Runtime</span>
                     <span className="text-xs text-white/80">
-                      {movie.durationMins}m
+                      {runtimeLabel}
                       {endsAt && <span className="text-white/50">{" "}• Ends {endsAt}</span>}
                     </span>
                   </div>
@@ -1280,18 +1284,6 @@ export default function TitleDetails() {
                     <span className="text-xs text-white/80">{formatTMDBDate(movie.releaseDate, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
                   </div>
                 )}
-                {movie.budget > 0 && (
-                  <div className="flex items-center justify-between px-4 py-2.5">
-                    <span className="text-xs text-white/40">Budget</span>
-                    <span className="text-xs text-white/80">{movie.budget.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })}</span>
-                  </div>
-                )}
-                {movie.revenue > 0 && (
-                  <div className="flex items-center justify-between px-4 py-2.5">
-                    <span className="text-xs text-white/40">Revenue</span>
-                    <span className="text-xs text-white/80">{movie.revenue.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })}</span>
-                  </div>
-                )}
               </div>
             </div>
             <ProductionCompaniesBlock companies={movie.productionCompanies} />
@@ -1300,7 +1292,7 @@ export default function TitleDetails() {
       </div>
 
       {/* ── Cast & Rest ─────────────────────────────────────────────────────────────── */}
-      <div id="title-details-more" className="relative z-20 mt-10 lg:mt-14 px-6 lg:px-16 max-w-[1800px] mx-auto space-y-10 lg:space-y-14 pb-20">
+      <div id="title-details-more" className="relative z-20 mt-10 lg:mt-14 px-6 lg:px-16 space-y-10 lg:space-y-14 pb-20">
 {/* ── Cast ─────────────────────────────────────────────────────────────── */}
       {movie.cast && movie.cast.length > 0 && (
         <motion.section
@@ -1338,7 +1330,7 @@ export default function TitleDetails() {
             }}
           >
             <motion.h2
-              className="section-title"
+              className="text-xl lg:text-2xl font-bold text-white/90 px-2"
               style={{ margin: 0 }}
               initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
@@ -1888,42 +1880,33 @@ export default function TitleDetails() {
           transition={{ duration: 0.4 }}
         >
           <motion.h2
-            className="section-title"
+            className="text-xl lg:text-2xl font-bold text-white/90 px-2"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5, ease: "easeOut" }}
           >
-            Official Trailers
+            Trailers
           </motion.h2>
-          <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '1rem', scrollbarWidth: 'none' }} className="hide-scrollbar">
+          <div className="flex gap-5 overflow-x-auto p-4 px-6 hide-scrollbar">
             {movie.videos.map((vid) => {
               const rankLabel = classifyTrailer(vid);
-              const viewLabel = rankLabel ? rankLabel[0].toUpperCase() + rankLabel.slice(1) : null;
+              const kindLabel = rankLabel ? rankLabel[0].toUpperCase() + rankLabel.slice(1) : "Trailer";
               return (
-              <motion.div
+              <div
                 key={vid.key}
-                whileHover={{ scale: 1.02 }}
-                style={{ flexShrink: 0, width: '280px', borderRadius: '12px', overflow: 'hidden', cursor: 'pointer', background: '#18181b', position: 'relative' }}
+                className="flex-none w-64 md:w-80 aspect-video group cursor-pointer transition-transform duration-200 active:scale-95"
                 onClick={() => { setIsPlaying(true); setPlayMode('trailer'); setPlayingTrailerKey(vid.key); setPlayingEpisode(null); }}
               >
-                <div style={{ position: 'relative', aspectRatio: '16/9' }}>
-                  <img src={`https://img.youtube.com/vi/${vid.key}/mqdefault.jpg`} alt={vid.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
-                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)' }}>
-                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--accent-gradient, rgba(149,255,80,0.8))', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
-                      <Play size={18} fill="var(--on-accent, #fff)" stroke="none" style={{ marginLeft: '2px' }} />
-                    </div>
+                <div className="relative w-full h-full rounded-xl overflow-hidden bg-black/20 border border-white/5 transition-all duration-300 group-hover:scale-105 group-hover:ring-1 group-hover:ring-white/50 shadow-lg group-hover:shadow-2xl">
+                  <img src={`https://img.youtube.com/vi/${vid.key}/mqdefault.jpg`} alt={vid.name} className="w-full h-full object-cover transition-all duration-300 group-hover:brightness-110" loading="lazy" />
+                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors duration-300" />
+                  <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/90 to-transparent">
+                    <h4 className="text-sm font-bold text-white line-clamp-1">{vid.name}</h4>
+                    <span className="text-xs text-white/70">{kindLabel}</span>
                   </div>
-                  {viewLabel && (
-                    <span style={{ position: 'absolute', top: '8px', left: '8px', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)', border: '1px solid rgba(255,255,255,0.15)', color: '#fda4af', padding: '3px 8px', borderRadius: '999px' }}>
-                      {viewLabel}
-                    </span>
-                  )}
                 </div>
-                <div style={{ padding: '0.75rem' }}>
-                  <h4 style={{ margin: 0, fontSize: '0.85rem', color: '#e4e4e7', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.4 }}>{vid.name}</h4>
-                </div>
-              </motion.div>
+              </div>
               );
             })}
           </div>
@@ -1941,13 +1924,13 @@ export default function TitleDetails() {
           transition={{ duration: 0.4 }}
         >
           <motion.h2
-            className="section-title"
+            className="text-xl lg:text-2xl font-bold text-white/90 px-2"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5, ease: "easeOut" }}
           >
-            More Like This
+            You Might Also Like
           </motion.h2>
           {loading ? (
             <div className="movie-grid">
@@ -1985,13 +1968,17 @@ export default function TitleDetails() {
           ) : (
             <ErrorBoundary>
             <motion.div
-              className="movie-grid"
-
+              className="flex gap-4 overflow-x-auto overflow-y-clip pb-10 pt-4 px-6 lg:px-16 hide-scrollbar items-start isolate min-h-[310px] lg:min-h-[356px]"
+              style={{
+                maskImage: "linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%)",
+                WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%)",
+              }}
               viewport={{ once: true, margin: "-100px" }}
             >
               {similar.slice(0, visibleCount).map((sim, idx) => (
                 <motion.div
                   key={`${sim.id}-${idx}`}
+                  className="flex-none w-[140px] lg:w-[200px]"
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
@@ -2015,14 +2002,14 @@ export default function TitleDetails() {
       {/* ── More from Director ──────────────────────────────────────────────── */}
       {movie.director && similar.some(s => s.director && s.director === movie.director) && (
         <motion.section
-          style={{ position: "relative", zIndex: 1, marginTop: "2rem", maxWidth: "1600px", marginLeft: "auto", marginRight: "auto" }}
+          style={{ position: "relative", zIndex: 1, marginTop: "2rem", maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true, margin: "-40px" }}
           transition={{ duration: 0.4 }}
         >
           <motion.h2
-            className="section-title"
+            className="text-xl lg:text-2xl font-bold text-white/90 px-2"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -2070,7 +2057,7 @@ export default function TitleDetails() {
         style={{
           position: 'relative', zIndex: 1, marginTop: '2rem',
           padding: '1rem 1rem',
-          maxWidth: '1600px', marginLeft: 'auto', marginRight: 'auto',
+          maxWidth: '100%', marginLeft: 'auto', marginRight: 'auto',
           display: 'flex', flexWrap: 'wrap', gap: '1.5rem',
           justifyContent: 'center', alignItems: 'center',
           borderTop: '1px solid rgba(255,255,255,0.05)',
@@ -2392,6 +2379,46 @@ export default function TitleDetails() {
                   />
                 </ErrorBoundary>
               )}
+            </motion.div>
+          </motion.div>
+        )}
+        {unreleasedModalOpen && (
+          <motion.div
+            key="unreleased"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-md px-6"
+            onClick={() => setUnreleasedModalOpen(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="unreleased-title"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 8 }}
+              transition={{ type: "spring", stiffness: 320, damping: 28 }}
+              className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#0c0c0e]/95 p-6 text-center shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/[0.06]">
+                <Clock className="h-6 w-6 text-white/60" aria-hidden="true" />
+              </div>
+              <h3 id="unreleased-title" className="text-lg font-bold text-white">
+                This Hasn&apos;t Released Yet
+              </h3>
+              <p className="mt-1.5 text-sm text-white/60">
+                Releases on {formatTMDBDate(movie.releaseDate, { month: "long", day: "numeric", year: "numeric" })}
+              </p>
+              <button
+                type="button"
+                onClick={() => setUnreleasedModalOpen(false)}
+                className="mt-6 inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/[0.12]"
+              >
+                <ArrowLeft size={16} aria-hidden="true" /> Back
+              </button>
             </motion.div>
           </motion.div>
         )}
