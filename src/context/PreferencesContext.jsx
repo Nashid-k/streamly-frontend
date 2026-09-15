@@ -6,6 +6,7 @@ import {
   PreferencesContext,
 } from "./preferences";
 import { logDebug } from "../utils/debugLogger";
+import { queryClient } from "../queryClient";
 const SETTING_PREFIX = "setting-";
 const LEGACY_AUTOPLAY_KEY = "streamly_autoNext";
 
@@ -100,6 +101,16 @@ export function PreferencesProvider({ children }) {
     } catch {
       // Keep the in-memory choice for this visit even when persistence fails.
     }
+    if (key === "defaultLanguage") {
+      try {
+        if (typeof document !== "undefined" && document.documentElement) {
+          document.documentElement.lang = String(nextValue || "en");
+        }
+        queryClient.invalidateQueries();
+      } catch {
+        // Non-DOM test environments
+      }
+    }
   }, []);
 
   // Convenience: toggle one individual player-control button (e.g. "volume", "fullscreen")
@@ -131,6 +142,17 @@ export function PreferencesProvider({ children }) {
     window.addEventListener("storage", syncFromAnotherTab);
     return () => window.removeEventListener("storage", syncFromAnotherTab);
   }, []);
+
+  useEffect(() => {
+    const lang = preferences.defaultLanguage || "en";
+    try {
+      if (typeof document !== "undefined" && document.documentElement) {
+        document.documentElement.lang = lang;
+      }
+    } catch {
+      // Non-DOM
+    }
+  }, [preferences.defaultLanguage]);
 
   useEffect(() => {
     document.documentElement.dataset.reduceMotion = preferences.reduceMotion ? "true" : "false";
@@ -177,6 +199,14 @@ export function PreferencesProvider({ children }) {
       }
     });
     setPreferences(DEFAULT_PREFERENCES);
+    try {
+      if (typeof document !== "undefined" && document.documentElement) {
+        document.documentElement.lang = "en";
+      }
+      queryClient.invalidateQueries();
+    } catch {
+      // test safe
+    }
     logDebug("preferences", "All preferences reset to factory defaults.");
   }, []);
 

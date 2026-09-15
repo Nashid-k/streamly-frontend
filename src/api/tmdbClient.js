@@ -38,10 +38,30 @@ function redact(url) {
   return String(url).replace(/api_key=[^&]*/i, 'api_key=***');
 }
 
-function buildQuery(params) {
+export function getActiveLanguage() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const stored = localStorage.getItem('setting-defaultLanguage');
+      if (stored) {
+        const lang = JSON.parse(stored);
+        if (typeof lang === 'string' && lang.trim()) return lang.trim();
+      }
+    }
+  } catch {
+    // fallback
+  }
+  return 'en';
+}
+
+function buildQuery(params = {}) {
   const q = new URLSearchParams();
   q.set('api_key', API_KEY);
+  const activeLang = params.language !== undefined ? params.language : getActiveLanguage();
+  if (activeLang && activeLang !== 'none') {
+    q.set('language', activeLang);
+  }
   for (const [k, v] of Object.entries(params)) {
+    if (k === 'language') continue;
     if (v !== undefined && v !== null) q.set(k, v);
   }
   return q.toString();

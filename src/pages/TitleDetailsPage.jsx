@@ -370,30 +370,26 @@ function ProductionCompaniesBlock({ companies }) {
   const normalized = companies
     .map((c, i) => {
       if (!c) return null;
-      if (typeof c === "string") {
-        return { id: `pc-${i}`, name: c, logoUrl: null };
-      }
+      if (typeof c === "string") return null;
       const logoPath = c.logoUrl || c.logo_path;
       const fullLogoUrl = logoPath
         ? (logoPath.startsWith("http")
             ? logoPath
             : `https://image.tmdb.org/t/p/w300${logoPath.startsWith("/") ? logoPath : `/${logoPath}`}`)
         : null;
+      if (!fullLogoUrl) return null;
       return {
         id: c.id || `pc-${i}`,
-        name: c.name,
+        name: c.name || "Production",
         logoUrl: fullLogoUrl,
       };
     })
-    .filter(Boolean)
-    .filter((c) => Boolean(c.name || c.logoUrl));
+    .filter(Boolean);
 
   if (normalized.length === 0) return null;
 
-  // Prioritize companies with actual logos, display up to 6
-  const displayCompanies = [...normalized]
-    .sort((a, b) => (b.logoUrl ? 1 : 0) - (a.logoUrl ? 1 : 0))
-    .slice(0, 6);
+  // Display up to 6 authentic company logos
+  const displayCompanies = normalized.slice(0, 6);
 
   return (
     <div className="mt-3.5 w-full">
@@ -407,18 +403,12 @@ function ProductionCompaniesBlock({ companies }) {
             title={company.name}
             className="flex items-center justify-center p-2 rounded-xl hover:bg-white/[0.04] transition-all duration-200 h-12 group overflow-hidden"
           >
-            {company.logoUrl ? (
-              <img
-                loading="lazy"
-                src={company.logoUrl}
-                alt={company.name}
-                className="max-h-7 w-auto max-w-[85%] object-contain filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] transition-transform duration-200 group-hover:scale-105"
-              />
-            ) : (
-              <span className="text-xs font-medium text-white/70 text-center truncate px-2 py-1 rounded-md bg-white/[0.04]">
-                {company.name}
-              </span>
-            )}
+            <img
+              loading="lazy"
+              src={company.logoUrl}
+              alt={company.name}
+              className="max-h-8 w-auto max-w-[85%] object-contain filter drop-shadow-[0_1px_3px_rgba(0,0,0,0.7)] transition-transform duration-200 group-hover:scale-105"
+            />
           </div>
         ))}
       </div>
@@ -981,9 +971,15 @@ export default function TitleDetails() {
           {/* Left Column */}
           <div className="w-full max-w-[700px] lg:max-w-[650px] lg:min-w-0 flex flex-col items-center lg:items-start">
             {useImageLogos && movie.logoUrl ? (
-              <img className="max-h-16 xl:max-h-28 max-w-[75%] xl:max-w-[500px] object-contain drop-shadow-2xl" src={movie.logoUrl} alt={movie.title} />
+              <img
+                className="max-h-20 sm:max-h-28 md:max-h-36 lg:max-h-44 xl:max-h-48 max-w-[85%] sm:max-w-[75%] lg:max-w-[520px] w-auto object-contain drop-shadow-[0_4px_24px_rgba(0,0,0,0.85)] mb-2"
+                src={movie.logoUrl}
+                alt={movie.title}
+              />
             ) : (
-              <h1 className="text-2xl lg:text-3xl xl:text-4xl font-bold text-white drop-shadow-2xl text-center lg:text-left">{movie.title}</h1>
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-white drop-shadow-2xl text-center lg:text-left mb-2">
+                {movie.title}
+              </h1>
             )}
 
             {seriesIsAiring && (
@@ -1040,14 +1036,37 @@ export default function TitleDetails() {
               </div>
             )}
 
-            <div className="mt-3 lg:mt-4 flex items-center gap-2 text-sm lg:text-lg text-white/90 font-medium flex-wrap justify-center lg:justify-start">
-              {movie.genres?.map((genre, idx) => (
-                <span key={genre} className="flex items-center gap-2">
-                  <span>{genre}</span>
-                  {idx < movie.genres.length - 1 && <span className="text-white/40">•</span>}
-                </span>
-              ))}
+            {/* Meta: Year, Duration, Ratings, Genres */}
+            <div className="mt-3 lg:mt-4 w-full flex flex-wrap items-center gap-x-3.5 gap-y-2 text-sm lg:text-base text-white/80 font-medium justify-center lg:justify-start">
+              <span>{new Date(movie.releaseDate).getFullYear()}</span>
+              {movie.durationMins && <span>{movie.durationMins}m</span>}
+
+              {movie.imdbRating > 0 && (
+                <div className="flex items-center gap-3 lg:gap-4 border-l border-white/20 pl-3.5 ml-0.5">
+                  <RatingsCluster movie={movie} size="md" />
+                </div>
+              )}
+
+              {movie.genres?.length > 0 && (
+                <div className="flex items-center gap-2 border-l border-white/20 pl-3.5 ml-0.5 flex-wrap">
+                  {movie.genres.map((genre, idx) => (
+                    <span key={genre} className="flex items-center gap-2">
+                      <span className="text-white/90">{genre}</span>
+                      {idx < movie.genres.length - 1 && <span className="text-white/40">•</span>}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
+
+            {/* Overview / Description */}
+            {(movie.description || movie.longDescription || movie.overview) && (
+              <div className="mt-3.5 lg:mt-4 w-full text-center lg:text-left">
+                <p className="text-sm lg:text-base text-white/75 leading-relaxed line-clamp-3 lg:line-clamp-4 max-w-[650px]">
+                  {movie.description || movie.longDescription || movie.overview}
+                </p>
+              </div>
+            )}
 
             {/* Actions */}
             <div className="mt-5 lg:mt-6 flex items-center gap-3 flex-wrap justify-center lg:justify-start">
@@ -1075,27 +1094,11 @@ export default function TitleDetails() {
               </button>
             </div>
 
-            {/* Meta */}
-            <div className="mt-5 lg:mt-6 w-full flex flex-wrap items-center gap-x-4 gap-y-2 text-sm lg:text-base text-white/80 font-medium justify-center lg:justify-start">
-              <span>{new Date(movie.releaseDate).getFullYear()}</span>
-              {movie.durationMins && <span>{movie.durationMins}m</span>}
-              
-              {movie.imdbRating > 0 && (
-                <div className="flex items-center gap-3 lg:gap-4 border-l border-white/20 pl-4 ml-1">
-                  <RatingsCluster movie={movie} size="md" />
-                </div>
-              )}
-            </div>
-
             {movie.director && (
-              <div className="mt-1.5 w-full text-sm lg:text-base text-white/60 text-center lg:text-left">
+              <div className="mt-3.5 w-full text-sm lg:text-base text-white/60 text-center lg:text-left">
                 <span className="text-white/40">Director:</span> <span className="text-white/80">{movie.director}</span>
               </div>
             )}
-
-            <div className="mt-4 lg:mt-5 w-full text-center lg:text-left">
-              <p className="text-sm lg:text-base text-white/70 leading-relaxed max-w-[650px]">{movie.description || movie.longDescription || movie.overview || ''}</p>
-            </div>
 
             {/* Mobile details block */}
             <div className="mt-6 w-full lg:hidden">

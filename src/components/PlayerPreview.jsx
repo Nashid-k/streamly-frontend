@@ -351,7 +351,7 @@ const PlayerPreview = ({
 
         {showChrome && (
           <div className="player-preview-chrome" aria-hidden="true">
-            {/* Mini volume HUD — floats top-center */}
+            {/* Preset-specific HUD Chip — floats top-center */}
             <div
               className="player-preview-hudchip"
               aria-hidden="true"
@@ -363,10 +363,83 @@ const PlayerPreview = ({
                 borderRadius: "var(--skin-hud-radius, 18px)",
                 boxShadow: "var(--skin-hud-shadow, none)",
                 fontFamily: "var(--skin-hud-font, inherit)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
               }}
             >
-              <Volume2 size={11} />
-              <span>72%</span>
+              {effectivePreset === "theater" ? (
+                <>
+                  <span style={{ color: "#ffd166", fontSize: 10 }}>★</span>
+                  <Volume2 size={11} color="#ffd166" />
+                  <span style={{ color: "#ffd166", fontWeight: 700 }}>72%</span>
+                  <span style={{
+                    fontSize: 9,
+                    padding: "1px 6px",
+                    borderRadius: 4,
+                    background: "rgba(255,209,102,0.18)",
+                    border: "1px solid rgba(255,209,102,0.3)",
+                    color: "#ffd166",
+                    fontWeight: 700,
+                  }}>SCOPE</span>
+                </>
+              ) : effectivePreset === "studio" ? (
+                <>
+                  <span style={{ color: "#ff3b4e", fontSize: 9, fontWeight: 800 }}>● REC</span>
+                  <span style={{ fontFamily: "monospace", fontSize: 9, color: "#00e676" }}>CH-1 [|||||| ] 72%</span>
+                  <span style={{
+                    fontSize: 8,
+                    padding: "1px 4px",
+                    borderRadius: 2,
+                    background: "rgba(255,59,78,0.2)",
+                    border: "1px solid rgba(255,59,78,0.4)",
+                    color: "#00e5ff",
+                  }}>16:9</span>
+                </>
+              ) : effectivePreset === "material" ? (
+                <>
+                  <span style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 3,
+                    borderRadius: 8,
+                    background: "#d0bcff",
+                    color: "#1e1b22",
+                  }}>
+                    <Volume2 size={10} />
+                  </span>
+                  <span style={{ fontWeight: 700 }}>72%</span>
+                  <span style={{
+                    fontSize: 9,
+                    padding: "1px 6px",
+                    borderRadius: 12,
+                    background: "rgba(208,188,255,0.18)",
+                    color: "#d0bcff",
+                    fontWeight: 700,
+                  }}>Fill</span>
+                </>
+              ) : effectivePreset === "minimal" ? (
+                <>
+                  <Volume2 size={10} />
+                  <span style={{ fontSize: 10, fontWeight: 500 }}>72%</span>
+                  <span style={{ fontSize: 9, opacity: 0.7 }}>16:9</span>
+                </>
+              ) : (
+                /* Apple / Classic */
+                <>
+                  <Volume2 size={11} />
+                  <span>72%</span>
+                  <span style={{
+                    fontSize: 9,
+                    padding: "1px 5px",
+                    borderRadius: 999,
+                    background: "rgba(255,255,255,0.14)",
+                    color: effectivePreset === "apple" ? "#7DD3FC" : "inherit",
+                    fontWeight: 600,
+                  }}>16:9</span>
+                </>
+              )}
             </div>
 
             {/* Subtitle line */}

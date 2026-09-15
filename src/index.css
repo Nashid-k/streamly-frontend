@@ -840,14 +840,21 @@ a {
 @media (max-height: 650px) {
   .hero-container,
   .skeleton-hero {
-    height: 65vh !important;
-    min-height: 360px !important;
+    height: 70vh !important;
+    min-height: 380px !important;
   }
   .hero-content {
-    padding-bottom: 1rem !important;
+    padding-bottom: 1.25rem !important;
   }
-  .hero-desc {
-    display: none !important;
+  .hero-desc,
+  .hero-desc--apple {
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+    font-size: 0.84rem !important;
+    line-height: 1.4 !important;
+    margin-bottom: 0.75rem !important;
   }
 }
 
@@ -914,10 +921,14 @@ a {
 
 /* Logo image */
 .hero-logo-img {
-  max-height: 140px;
-  max-width: min(520px, 85%);
+  max-height: clamp(90px, 15vw, 150px);
+  max-width: min(540px, 90%);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  object-position: left bottom;
   margin-bottom: 1.1rem;
-  filter: drop-shadow(0 2px 16px rgba(0, 0, 0, 0.85));
+  filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.85));
   display: block;
 }
 
@@ -4707,7 +4718,7 @@ html {
   }
 
   .hero-logo-img {
-    max-height: 80px !important;
+    max-height: clamp(80px, 13vh, 120px) !important;
   }
 
   /* Collection/history empty states */
@@ -4718,9 +4729,9 @@ html {
 }
 
 @media (max-height: 680px) and (min-width: 1024px) {
-  /* Even shorter (1366×768 at 100%, or 1280px at 150% scaling) */
+  /* Short laptop viewports (e.g. 1366×768 or scaled 1080p) */
   .hero-logo-img {
-    max-height: 60px !important;
+    max-height: clamp(75px, 14vh, 110px) !important;
   }
 
   .hero-eyebrow {
@@ -4763,8 +4774,15 @@ html {
     font-size: clamp(1.3rem, 4.5vh, 1.9rem) !important;
     margin-bottom: 0.25rem !important;
   }
-  .hero-desc {
-    display: none !important;
+  .hero-desc,
+  .hero-desc--apple {
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+    font-size: 0.8rem !important;
+    line-height: 1.35 !important;
+    margin-bottom: 0.5rem !important;
   }
   .hero-dots,
   .hero-dots--apple {

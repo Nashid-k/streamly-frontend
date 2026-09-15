@@ -179,6 +179,721 @@ const ArcRing = ({ progress = 0, size = 48, strokeWidth = 3, color = "#fff", bgC
   );
 };
 
+/* ─── PRESET-SPECIFIC HUD COMPONENTS ─────────────────────────────────────── */
+function PresetVolumeHUD({ skin, effVolume, isMuted, volume, hudScale, hudTop }) {
+  const isZero = isMuted || volume === 0;
+  const pct = isZero ? 0 : Math.round(effVolume * 100);
+  const skinId = skin?.id || "classic";
+
+  return (
+    <motion.div
+      key="volume-hud"
+      initial={{ opacity: 0, y: -18, scale: 0.9, x: "-50%" }}
+      animate={{ opacity: 1, y: 0, scale: 1, x: "-50%" }}
+      exit={{ opacity: 0, y: -8, scale: 0.95, x: "-50%" }}
+      transition={SPRING_SNAPPY}
+      style={{
+        position: "absolute", left: "50%",
+        top: hudTop,
+        zIndex: 65, pointerEvents: "none",
+      }}
+    >
+      {skinId === "material" ? (
+        <motion.div
+          layout
+          style={{
+            display: "flex", alignItems: "center", gap: Math.round(12 * hudScale),
+            background: "var(--skin-hud-bg, rgba(43, 38, 48, 0.94))",
+            backdropFilter: "blur(var(--skin-hud-blur, 20px))",
+            WebkitBackdropFilter: "blur(var(--skin-hud-blur, 20px))",
+            border: "var(--skin-hud-border, 1px solid rgba(255,255,255,0.12))",
+            borderRadius: "var(--skin-hud-radius, 20px)",
+            padding: `${Math.round(8 * hudScale)}px ${Math.round(16 * hudScale)}px`,
+            boxShadow: "var(--skin-hud-shadow, 0 8px 32px rgba(0,0,0,0.5))",
+            fontFamily: "var(--skin-hud-font, 'Roboto', sans-serif)",
+          }}
+        >
+          <div style={{
+            background: isZero ? "rgba(255,82,82,0.2)" : "rgba(208,188,255,0.22)",
+            color: isZero ? "#ff5252" : "var(--skin-accent, #d0bcff)",
+            borderRadius: 12, padding: 6, display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            {isZero ? <VolumeX size={17 * hudScale} /> : effVolume <= 0.33 ? <Volume1 size={17 * hudScale} /> : <Volume2 size={17 * hudScale} />}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", minWidth: 100 * hudScale }}>
+              <span style={{ fontSize: 10 * hudScale, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.6)", fontWeight: 700 }}>Volume</span>
+              <span style={{ fontSize: 12 * hudScale, fontWeight: 700, color: isZero ? "#ff5252" : "var(--skin-accent, #d0bcff)" }}>{isZero ? "Muted" : `${pct}%`}</span>
+            </div>
+            <div style={{ width: 100 * hudScale, height: 6, background: "rgba(255,255,255,0.14)", borderRadius: 3, overflow: "hidden" }}>
+              <motion.div
+                animate={{ width: `${pct}%` }}
+                transition={{ type: "spring", stiffness: 450, damping: 32 }}
+                style={{ height: "100%", background: isZero ? "#ff5252" : "var(--skin-accent, #d0bcff)", borderRadius: 3 }}
+              />
+            </div>
+          </div>
+        </motion.div>
+      ) : skinId === "theater" ? (
+        <motion.div
+          layout
+          style={{
+            display: "flex", alignItems: "center", gap: Math.round(14 * hudScale),
+            background: "linear-gradient(180deg, rgba(32,18,6,0.96), rgba(16,8,2,0.96))",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            border: "1.5px solid rgba(255,200,100,0.35)",
+            borderRadius: "var(--skin-hud-radius, 22px)",
+            padding: `${Math.round(8 * hudScale)}px ${Math.round(18 * hudScale)}px`,
+            boxShadow: "0 0 28px rgba(255,178,64,0.35), inset 0 0 14px rgba(255,178,64,0.08)",
+            fontFamily: "var(--skin-hud-font, Georgia, serif)",
+          }}
+        >
+          <span style={{ color: "#ffd166", fontSize: 14 * hudScale, filter: "drop-shadow(0 0 6px rgba(255,209,102,0.8))" }}>★</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {isZero ? <VolumeX size={17 * hudScale} color="#ff5252" /> : <Volume2 size={17 * hudScale} color="#ffd166" />}
+            <span style={{ fontSize: 13 * hudScale, fontWeight: 700, color: isZero ? "#ff5252" : "#ffd166", letterSpacing: "0.04em" }}>
+              {isZero ? "MUTED" : `${pct}%`}
+            </span>
+          </div>
+          <div style={{ width: 80 * hudScale, height: 5, background: "rgba(255,209,102,0.18)", borderRadius: 3, overflow: "hidden" }}>
+            <motion.div
+              animate={{ width: `${pct}%` }}
+              transition={{ type: "spring", stiffness: 450, damping: 32 }}
+              style={{ height: "100%", background: isZero ? "#ff5252" : "linear-gradient(90deg, #ffd166, #ff9e2c)", borderRadius: 3 }}
+            />
+          </div>
+          <span style={{ fontSize: 9 * hudScale, letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(255,209,102,0.7)" }}>SOUNDSTAGE</span>
+        </motion.div>
+      ) : skinId === "studio" ? (
+        <motion.div
+          layout
+          style={{
+            display: "flex", alignItems: "center", gap: Math.round(12 * hudScale),
+            background: "rgba(10,10,12,0.98)",
+            border: "1px solid rgba(255,59,78,0.45)",
+            borderRadius: 4,
+            padding: `${Math.round(6 * hudScale)}px ${Math.round(14 * hudScale)}px`,
+            boxShadow: "0 4px 20px rgba(0,0,0,0.85), inset 0 0 10px rgba(255,59,78,0.1)",
+            fontFamily: "var(--skin-hud-font, 'SF Mono', monospace)",
+          }}
+        >
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "#ff3b4e", fontSize: 10 * hudScale, fontWeight: 800 }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#ff3b4e" }} />
+            CH-1
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+            {[1,2,3,4,5,6,7,8,9,10].map(step => {
+              const active = !isZero && (pct / 10) >= step;
+              const isPeak = step >= 9;
+              const isHigh = step >= 7;
+              return (
+                <div
+                  key={step}
+                  style={{
+                    width: 5 * hudScale,
+                    height: 12 * hudScale,
+                    borderRadius: 1,
+                    background: active
+                      ? (isPeak ? "#ff3b4e" : isHigh ? "#ffd600" : "#00e676")
+                      : "rgba(255,255,255,0.08)",
+                  }}
+                />
+              );
+            })}
+          </div>
+          <span style={{ fontSize: 11 * hudScale, fontWeight: 700, color: isZero ? "#ff3b4e" : "#00e676", fontVariantNumeric: "tabular-nums" }}>
+            {isZero ? "MUTE" : `${pct}%`}
+          </span>
+          <span style={{ fontSize: 9 * hudScale, color: "rgba(255,255,255,0.4)" }}>
+            {isZero ? "-INF" : `${(effVolume * 12 - 12).toFixed(0)}dB`}
+          </span>
+        </motion.div>
+      ) : skinId === "minimal" ? (
+        <motion.div
+          layout
+          style={{
+            display: "flex", alignItems: "center", gap: Math.round(10 * hudScale),
+            background: "rgba(12,12,16,0.75)",
+            backdropFilter: "blur(18px)",
+            WebkitBackdropFilter: "blur(18px)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: 999,
+            padding: `${Math.round(6 * hudScale)}px ${Math.round(14 * hudScale)}px`,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+            fontFamily: "var(--skin-hud-font, sans-serif)",
+          }}
+        >
+          {isZero ? <VolumeX size={14 * hudScale} color="#ff5252" /> : <Volume2 size={14 * hudScale} color="#fff" />}
+          <div style={{ width: 70 * hudScale, height: 2.5, background: "rgba(255,255,255,0.15)", borderRadius: 2, overflow: "hidden" }}>
+            <motion.div
+              animate={{ width: `${pct}%` }}
+              transition={{ type: "spring", stiffness: 450, damping: 32 }}
+              style={{ height: "100%", background: isZero ? "#ff5252" : "#fff", borderRadius: 2 }}
+            />
+          </div>
+          <span style={{ fontSize: 11 * hudScale, fontWeight: 600, color: isZero ? "#ff5252" : "#fff" }}>
+            {isZero ? "0%" : `${pct}%`}
+          </span>
+        </motion.div>
+      ) : skinId === "apple" ? (
+        <motion.div
+          layout
+          style={{
+            display: "flex", flexDirection: "row", alignItems: "center", gap: Math.round(11 * hudScale),
+            background: "var(--skin-hud-bg, rgba(30, 30, 36, 0.88))",
+            backdropFilter: "blur(var(--skin-hud-blur, 36px)) saturate(160%)",
+            WebkitBackdropFilter: "blur(var(--skin-hud-blur, 36px)) saturate(160%)",
+            border: isZero ? "1px solid rgba(255,69,58,0.35)" : "var(--skin-hud-border, 1px solid rgba(255,255,255,0.18))",
+            borderRadius: "var(--skin-hud-radius, 24px)",
+            padding: `${Math.round(8 * hudScale)}px ${Math.round(13 * hudScale)}px`,
+            boxShadow: "var(--skin-hud-shadow, 0 14px 40px rgba(0,0,0,0.45))",
+          }}
+        >
+          <ArcRing
+            progress={effVolume}
+            size={Math.round(40 * hudScale)}
+            strokeWidth={3}
+            color={isZero ? "#ff453a" : "#fff"}
+            bgColor="rgba(255,255,255,0.1)"
+            glowColor={isZero ? "#ff453a" : "#fff"}
+          >
+            <motion.span
+              key={isZero ? "muted" : effVolume <= 0.33 ? "low" : "high"}
+              initial={{ scale: 0.4, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={SPRING_FAST}
+              style={{ display: "flex", alignItems: "center" }}
+            >
+              {isZero ? (
+                <VolumeX size={Math.round(17 * hudScale)} color="#ff453a" strokeWidth={2.2} />
+              ) : effVolume <= 0.33 ? (
+                <Volume1 size={Math.round(17 * hudScale)} color="rgba(255,255,255,0.92)" strokeWidth={2.2} />
+              ) : (
+                <Volume2 size={Math.round(17 * hudScale)} color="#fff" strokeWidth={2.2} />
+              )}
+            </motion.span>
+          </ArcRing>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: Math.round(2 * hudScale), lineHeight: 1.1 }}>
+            <span style={{
+              color: isZero ? "#ff453a" : "rgba(255,255,255,0.95)",
+              fontSize: Math.round(12 * hudScale) + 'px',
+              fontWeight: 700,
+              fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+              fontVariantNumeric: "tabular-nums",
+            }}>
+              {isZero ? "Muted" : `${pct}%`}
+            </span>
+            <span style={{
+              color: "rgba(255,255,255,0.45)",
+              fontSize: Math.round(8 * hudScale) + 'px',
+              fontWeight: 600, letterSpacing: "0.18em", textTransform: "uppercase",
+              fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+            }}>
+              Volume
+            </span>
+          </div>
+        </motion.div>
+      ) : (
+        /* Classic Streaming Standard */
+        <motion.div
+          layout
+          style={{
+            display: "flex", alignItems: "center", gap: Math.round(12 * hudScale),
+            background: "linear-gradient(180deg, rgba(22,22,26,0.92), rgba(10,10,12,0.92))",
+            backdropFilter: "blur(24px)",
+            WebkitBackdropFilter: "blur(24px)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: 18,
+            padding: `${Math.round(8 * hudScale)}px ${Math.round(16 * hudScale)}px`,
+            boxShadow: "0 14px 40px rgba(0,0,0,0.6)",
+            fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+          }}
+        >
+          {isZero ? <VolumeX size={17 * hudScale} color="#ff453a" /> : <Volume2 size={17 * hudScale} color="#fff" />}
+          <div style={{ width: 90 * hudScale, height: 4, background: "rgba(255,255,255,0.12)", borderRadius: 2, overflow: "hidden" }}>
+            <motion.div
+              animate={{ width: `${pct}%` }}
+              transition={{ type: "spring", stiffness: 450, damping: 32 }}
+              style={{ height: "100%", background: isZero ? "#ff453a" : "var(--accent-gradient, linear-gradient(90deg, #f43f5e, #f59e0b))", borderRadius: 2 }}
+            />
+          </div>
+          <span style={{ fontSize: 12 * hudScale, fontWeight: 700, color: isZero ? "#ff453a" : "#fff" }}>
+            {isZero ? "Muted" : `${pct}%`}
+          </span>
+        </motion.div>
+      )}
+    </motion.div>
+  );
+}
+
+function PresetBrightnessHUD({ skin, brightness, hudScale, hudTop }) {
+  const pct = Math.round(brightness * 100);
+  const skinId = skin?.id || "classic";
+
+  return (
+    <motion.div
+      key="brightness-hud"
+      initial={{ opacity: 0, y: -18, scale: 0.9, x: "-50%" }}
+      animate={{ opacity: 1, y: 0, scale: 1, x: "-50%" }}
+      exit={{ opacity: 0, y: -8, scale: 0.95, x: "-50%" }}
+      transition={SPRING_SNAPPY}
+      style={{
+        position: "absolute", left: "50%",
+        top: hudTop,
+        zIndex: 65, pointerEvents: "none",
+      }}
+    >
+      {skinId === "material" ? (
+        <motion.div
+          layout
+          style={{
+            display: "flex", alignItems: "center", gap: Math.round(12 * hudScale),
+            background: "var(--skin-hud-bg, rgba(43, 38, 48, 0.94))",
+            backdropFilter: "blur(var(--skin-hud-blur, 20px))",
+            WebkitBackdropFilter: "blur(var(--skin-hud-blur, 20px))",
+            border: "var(--skin-hud-border, 1px solid rgba(255,255,255,0.12))",
+            borderRadius: "var(--skin-hud-radius, 20px)",
+            padding: `${Math.round(8 * hudScale)}px ${Math.round(16 * hudScale)}px`,
+            boxShadow: "var(--skin-hud-shadow, 0 8px 32px rgba(0,0,0,0.5))",
+            fontFamily: "var(--skin-hud-font, 'Roboto', sans-serif)",
+          }}
+        >
+          <div style={{ background: "rgba(208,188,255,0.22)", color: "var(--skin-accent, #d0bcff)", borderRadius: 12, padding: 6, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Sun size={17 * hudScale} />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", minWidth: 100 * hudScale }}>
+              <span style={{ fontSize: 10 * hudScale, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.6)", fontWeight: 700 }}>Brightness</span>
+              <span style={{ fontSize: 12 * hudScale, fontWeight: 700, color: "var(--skin-accent, #d0bcff)" }}>{pct}%</span>
+            </div>
+            <div style={{ width: 100 * hudScale, height: 6, background: "rgba(255,255,255,0.14)", borderRadius: 3, overflow: "hidden" }}>
+              <motion.div
+                animate={{ width: `${Math.min(100, Math.round((brightness / 1.5) * 100))}%` }}
+                transition={{ type: "spring", stiffness: 450, damping: 32 }}
+                style={{ height: "100%", background: "var(--skin-accent, #d0bcff)", borderRadius: 3 }}
+              />
+            </div>
+          </div>
+        </motion.div>
+      ) : skinId === "theater" ? (
+        <motion.div
+          layout
+          style={{
+            display: "flex", alignItems: "center", gap: Math.round(14 * hudScale),
+            background: "linear-gradient(180deg, rgba(32,18,6,0.96), rgba(16,8,2,0.96))",
+            backdropFilter: "blur(20px)",
+            border: "1.5px solid rgba(255,200,100,0.35)",
+            borderRadius: "var(--skin-hud-radius, 22px)",
+            padding: `${Math.round(8 * hudScale)}px ${Math.round(18 * hudScale)}px`,
+            boxShadow: "0 0 28px rgba(255,178,64,0.35)",
+            fontFamily: "var(--skin-hud-font, Georgia, serif)",
+          }}
+        >
+          <span style={{ color: "#ffd166", fontSize: 14 * hudScale }}>★</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Sun size={17 * hudScale} color="#ffd166" />
+            <span style={{ fontSize: 13 * hudScale, fontWeight: 700, color: "#ffd166", letterSpacing: "0.04em" }}>
+              {pct}%
+            </span>
+          </div>
+          <div style={{ width: 80 * hudScale, height: 5, background: "rgba(255,209,102,0.18)", borderRadius: 3, overflow: "hidden" }}>
+            <motion.div
+              animate={{ width: `${Math.min(100, Math.round((brightness / 1.5) * 100))}%` }}
+              transition={{ type: "spring", stiffness: 450, damping: 32 }}
+              style={{ height: "100%", background: "linear-gradient(90deg, #ffd166, #ff9e2c)", borderRadius: 3 }}
+            />
+          </div>
+          <span style={{ fontSize: 9 * hudScale, letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(255,209,102,0.7)" }}>PROJECTION LUMA</span>
+        </motion.div>
+      ) : skinId === "studio" ? (
+        <motion.div
+          layout
+          style={{
+            display: "flex", alignItems: "center", gap: Math.round(12 * hudScale),
+            background: "rgba(10,10,12,0.98)",
+            border: "1px solid rgba(255,59,78,0.45)",
+            borderRadius: 4,
+            padding: `${Math.round(6 * hudScale)}px ${Math.round(14 * hudScale)}px`,
+            boxShadow: "0 4px 20px rgba(0,0,0,0.85)",
+            fontFamily: "var(--skin-hud-font, 'SF Mono', monospace)",
+          }}
+        >
+          <span style={{ color: "#ff3b4e", fontSize: 10 * hudScale, fontWeight: 800 }}>LUMA</span>
+          <div style={{ width: 80 * hudScale, height: 6, background: "rgba(255,255,255,0.1)", borderRadius: 2, overflow: "hidden" }}>
+            <motion.div
+              animate={{ width: `${Math.min(100, Math.round((brightness / 1.5) * 100))}%` }}
+              style={{ height: "100%", background: "#00e5ff", borderRadius: 2 }}
+            />
+          </div>
+          <span style={{ fontSize: 11 * hudScale, fontWeight: 700, color: "#00e5ff" }}>{pct}% IRE</span>
+          <span style={{ fontSize: 9 * hudScale, color: "rgba(255,255,255,0.4)" }}>[CALIBRATED]</span>
+        </motion.div>
+      ) : skinId === "minimal" ? (
+        <motion.div
+          layout
+          style={{
+            display: "flex", alignItems: "center", gap: Math.round(10 * hudScale),
+            background: "rgba(12,12,16,0.75)",
+            backdropFilter: "blur(18px)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: 999,
+            padding: `${Math.round(6 * hudScale)}px ${Math.round(14 * hudScale)}px`,
+            fontFamily: "var(--skin-hud-font, sans-serif)",
+          }}
+        >
+          <Sun size={14 * hudScale} color="#fff" />
+          <div style={{ width: 70 * hudScale, height: 2.5, background: "rgba(255,255,255,0.15)", borderRadius: 2, overflow: "hidden" }}>
+            <motion.div
+              animate={{ width: `${Math.min(100, Math.round((brightness / 1.5) * 100))}%` }}
+              style={{ height: "100%", background: "#fff", borderRadius: 2 }}
+            />
+          </div>
+          <span style={{ fontSize: 11 * hudScale, fontWeight: 600, color: "#fff" }}>{pct}%</span>
+        </motion.div>
+      ) : (
+        /* Apple / Classic */
+        <motion.div
+          layout
+          style={{
+            display: "flex", alignItems: "center", gap: Math.round(12 * hudScale),
+            background: "var(--skin-hud-bg, rgba(30, 30, 36, 0.88))",
+            backdropFilter: "blur(var(--skin-hud-blur, 36px))",
+            border: "var(--skin-hud-border, 1px solid rgba(255,255,255,0.18))",
+            borderRadius: "var(--skin-hud-radius, 24px)",
+            padding: `${Math.round(8 * hudScale)}px ${Math.round(14 * hudScale)}px`,
+            boxShadow: "var(--skin-hud-shadow, 0 14px 40px rgba(0,0,0,0.45))",
+          }}
+        >
+          <ArcRing
+            progress={Math.min(1, brightness / 1.5)}
+            size={Math.round(40 * hudScale)}
+            strokeWidth={3}
+            color="#fbbf24"
+            bgColor="rgba(255,255,255,0.1)"
+            glowColor="#fbbf24"
+          >
+            <Sun size={Math.round(17 * hudScale)} color="#fbbf24" strokeWidth={2.2} />
+          </ArcRing>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <span style={{ color: "#fff", fontSize: Math.round(12 * hudScale) + 'px', fontWeight: 700 }}>
+              {pct}%
+            </span>
+            <span style={{ color: "rgba(255,255,255,0.45)", fontSize: Math.round(8 * hudScale) + 'px', fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.18em" }}>
+              Brightness
+            </span>
+          </div>
+        </motion.div>
+      )}
+    </motion.div>
+  );
+}
+
+function PresetAspectRatioHUD({ skin, aspectRatioIndex, hudScale, hudTop, isTouch }) {
+  const skinId = skin?.id || "classic";
+  const currentAr = ASPECT_RATIOS[aspectRatioIndex] || ASPECT_RATIOS[0];
+
+  return (
+    <motion.div
+      key="aspect-hud"
+      initial={{ opacity: 0, y: -18, scale: 0.88, x: "-50%" }}
+      animate={{ opacity: 1, y: 0, scale: 1, x: "-50%" }}
+      exit={{ opacity: 0, y: -6, scale: 0.92, x: "-50%" }}
+      transition={SPRING_SNAPPY}
+      style={{
+        position: "absolute", left: "50%",
+        top: isTouch ? "calc(clamp(14px, 3vh, 28px) + var(--sat))" : hudTop,
+        zIndex: 65, pointerEvents: "none",
+      }}
+    >
+      {skinId === "material" ? (
+        <motion.div
+          layout
+          style={{
+            display: "flex", alignItems: "center", gap: isTouch ? 10 : Math.round(14 * hudScale),
+            background: "var(--skin-hud-bg, rgba(43, 38, 48, 0.94))",
+            backdropFilter: "blur(var(--skin-hud-blur, 20px))",
+            WebkitBackdropFilter: "blur(var(--skin-hud-blur, 20px))",
+            border: "var(--skin-hud-border, 1px solid rgba(255,255,255,0.12))",
+            borderRadius: "var(--skin-hud-radius, 20px)",
+            padding: isTouch ? "8px 16px" : `${Math.round(8 * hudScale)}px ${Math.round(18 * hudScale)}px`,
+            boxShadow: "var(--skin-hud-shadow, 0 8px 32px rgba(0,0,0,0.5))",
+            fontFamily: "var(--skin-hud-font, 'Roboto', sans-serif)",
+          }}
+        >
+          <div style={{
+            background: "var(--skin-accent, #d0bcff)",
+            color: "#1e1b22",
+            borderRadius: 14,
+            padding: 8,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <Maximize size={16 * hudScale} strokeWidth={2.5} />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <span style={{ fontSize: 13 * hudScale, fontWeight: 700, color: "#fff" }}>
+              {currentAr.name}
+            </span>
+            <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+              {ASPECT_RATIOS.map((ar, idx) => (
+                <span
+                  key={ar.name}
+                  style={{
+                    padding: "2px 6px",
+                    borderRadius: 8,
+                    fontSize: 9 * hudScale,
+                    fontWeight: 700,
+                    background: idx === aspectRatioIndex ? "var(--skin-accent, #d0bcff)" : "rgba(255,255,255,0.08)",
+                    color: idx === aspectRatioIndex ? "#1e1b22" : "rgba(255,255,255,0.6)",
+                  }}
+                >
+                  {ar.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+      ) : skinId === "theater" ? (
+        <motion.div
+          layout
+          style={{
+            display: "flex", alignItems: "center", gap: isTouch ? 10 : Math.round(14 * hudScale),
+            background: "linear-gradient(180deg, rgba(32,18,6,0.96), rgba(16,8,2,0.96))",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            border: "1.5px solid rgba(255,200,100,0.45)",
+            borderRadius: "var(--skin-hud-radius, 22px)",
+            padding: isTouch ? "8px 18px" : `${Math.round(9 * hudScale)}px ${Math.round(20 * hudScale)}px`,
+            boxShadow: "0 0 32px rgba(255,178,64,0.4), inset 0 0 12px rgba(255,178,64,0.1)",
+            fontFamily: "var(--skin-hud-font, Georgia, serif)",
+          }}
+        >
+          <span style={{ color: "#ffd166", fontSize: 15 * hudScale, filter: "drop-shadow(0 0 8px rgba(255,209,102,0.9))" }}>★</span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <span style={{ fontSize: 13 * hudScale, fontWeight: 700, color: "#ffd166", letterSpacing: "0.06em" }}>
+              CINEMA FRAME: {currentAr.name.toUpperCase()}
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 10 * hudScale, color: "rgba(255,209,102,0.8)", letterSpacing: "0.08em" }}>
+                {aspectRatioIndex === 0 ? "1.78:1 FLAT" : aspectRatioIndex === 1 ? "16:9 EXPANDED" : aspectRatioIndex === 2 ? "4:3 ACADEMY" : "2.39:1 ANAMORPHIC"}
+              </span>
+              <div style={{ display: "flex", gap: 4 }}>
+                {ASPECT_RATIOS.map((_, idx) => (
+                  <span
+                    key={idx}
+                    style={{
+                      width: idx === aspectRatioIndex ? 10 : 4,
+                      height: 4,
+                      borderRadius: 2,
+                      background: idx === aspectRatioIndex ? "#ffd166" : "rgba(255,209,102,0.25)",
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      ) : skinId === "studio" ? (
+        <motion.div
+          layout
+          style={{
+            display: "flex", alignItems: "center", gap: isTouch ? 10 : Math.round(14 * hudScale),
+            background: "rgba(10,10,12,0.98)",
+            border: "1px solid rgba(255,59,78,0.5)",
+            borderRadius: 4,
+            padding: isTouch ? "7px 14px" : `${Math.round(7 * hudScale)}px ${Math.round(16 * hudScale)}px`,
+            boxShadow: "0 4px 24px rgba(0,0,0,0.85), inset 0 0 12px rgba(255,59,78,0.12)",
+            fontFamily: "var(--skin-hud-font, 'SF Mono', monospace)",
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ background: "#ff3b4e", color: "#fff", padding: "1px 5px", borderRadius: 2, fontSize: 9 * hudScale, fontWeight: 800 }}>
+                RASTER
+              </span>
+              <span style={{ color: "#00e5ff", fontSize: 11 * hudScale, fontWeight: 700 }}>
+                [{currentAr.name.toUpperCase()}] 1920x1080 SCAN
+              </span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 9 * hudScale }}>
+                SCALE: {(currentAr.scale).toFixed(2)}x
+              </span>
+              <span style={{ color: "rgba(255,255,255,0.2)" }}>|</span>
+              <span style={{ color: "#00e676", fontSize: 9 * hudScale }}>
+                SMPTE GRID ON
+              </span>
+            </div>
+          </div>
+        </motion.div>
+      ) : skinId === "minimal" ? (
+        <motion.div
+          layout
+          style={{
+            display: "flex", alignItems: "center", gap: isTouch ? 8 : Math.round(10 * hudScale),
+            background: "rgba(12,12,16,0.75)",
+            backdropFilter: "blur(18px)",
+            WebkitBackdropFilter: "blur(18px)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: 999,
+            padding: isTouch ? "6px 14px" : `${Math.round(6 * hudScale)}px ${Math.round(14 * hudScale)}px`,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+            fontFamily: "var(--skin-hud-font, sans-serif)",
+          }}
+        >
+          <Maximize size={13 * hudScale} color="#fff" />
+          <span style={{ fontSize: 12 * hudScale, fontWeight: 600, color: "#fff" }}>
+            {currentAr.name}
+          </span>
+          <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
+            {ASPECT_RATIOS.map((_, idx) => (
+              <span
+                key={idx}
+                style={{
+                  width: idx === aspectRatioIndex ? 6 : 3,
+                  height: 3,
+                  borderRadius: 2,
+                  background: idx === aspectRatioIndex ? "#fff" : "rgba(255,255,255,0.2)",
+                }}
+              />
+            ))}
+          </div>
+        </motion.div>
+      ) : (
+        /* Apple TV & Classic */
+        <motion.div
+          layout
+          transition={{ type: "spring", stiffness: 380, damping: 34, mass: 0.9 }}
+          style={{
+            display: "flex", alignItems: "center", gap: isTouch ? 10 : Math.round(12 * hudScale),
+            background: "var(--skin-hud-bg, linear-gradient(180deg, rgba(22,22,26,0.92), rgba(10,10,12,0.92)))",
+            backdropFilter: "blur(var(--skin-hud-blur, 24px)) saturate(160%)",
+            WebkitBackdropFilter: "blur(var(--skin-hud-blur, 24px)) saturate(160%)",
+            border: "var(--skin-hud-border, 1px solid rgba(255,255,255,0.12))",
+            borderRadius: "var(--skin-hud-radius, 999px)",
+            padding: isTouch ? "6px 14px" : `${Math.round(7 * hudScale)}px ${Math.round(14 * hudScale)}px`,
+            boxShadow:
+              "var(--skin-hud-shadow, 0 16px 48px rgba(0,0,0,0.6), 0 0 0 0.5px rgba(255,255,255,0.04), inset 0 0.5px 0 rgba(255,255,255,0.14))",
+          }}
+        >
+          <motion.div
+            animate={{ width: Math.round(44 * hudScale), height: Math.round(44 * hudScale) }}
+            transition={{ type: "spring", stiffness: 380, damping: 30, mass: 0.9 }}
+            style={{
+              position: "relative", flexShrink: 0,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+          >
+            <div style={{
+              position: "absolute", inset: 0, borderRadius: "50%",
+              background: "radial-gradient(circle at 50% 35%, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.02) 70%)",
+              border: "1px solid rgba(255,255,255,0.07)",
+            }} />
+            <motion.div
+              key={aspectRatioIndex}
+              initial={{ scale: 0.7, opacity: 0.6 }}
+              animate={{ scale: 1.8, opacity: 0 }}
+              transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
+              style={{
+                position: "absolute", width: Math.round(36 * hudScale), height: Math.round(36 * hudScale),
+                borderRadius: "50%",
+                border: "1.5px solid rgba(255,255,255,0.35)",
+              }}
+            />
+            <motion.div
+              initial={false}
+              animate={{
+                width: AR_GLYPH[aspectRatioIndex][0] * hudScale,
+                height: AR_GLYPH[aspectRatioIndex][1] * hudScale,
+              }}
+              transition={{ type: "spring", stiffness: 430, damping: 24, mass: 0.9 }}
+              style={{
+                position: "relative", zIndex: 1, flexShrink: 0,
+                borderRadius: 3, overflow: "hidden",
+                border: "1.5px solid rgba(255,255,255,0.92)",
+                background:
+                  "radial-gradient(circle at 50% 40%, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.04) 100%)",
+                boxShadow: "0 0 16px rgba(255,255,255,0.22), inset 0 0 12px rgba(255,255,255,0.06)",
+              }}
+            >
+              <motion.div
+                key={aspectRatioIndex}
+                initial={{ x: "-85%", opacity: 0 }}
+                animate={{ x: "85%", opacity: [0, 0.85, 0] }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
+                style={{
+                  position: "absolute", top: 0, bottom: 0, width: "55%",
+                  background: "linear-gradient(100deg, transparent 0%, rgba(255,255,255,0.18) 50%, transparent 100%)",
+                }}
+              />
+            </motion.div>
+            <motion.div
+              key={aspectRatioIndex}
+              initial={{ opacity: 0, scale: 1.25 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.08, type: "spring", stiffness: 500, damping: 32 }}
+              style={{ position: "absolute", inset: 0, zIndex: 2 }}
+            >
+              <div style={{ position: "absolute", top: -2, left: -2, width: 7, height: 7, borderTop: "2px solid rgba(255,255,255,0.85)", borderLeft: "2px solid rgba(255,255,255,0.85)", borderTopLeftRadius: 2 }} />
+              <div style={{ position: "absolute", top: -2, right: -2, width: 7, height: 7, borderTop: "2px solid rgba(255,255,255,0.85)", borderRight: "2px solid rgba(255,255,255,0.85)", borderTopRightRadius: 2 }} />
+              <div style={{ position: "absolute", bottom: -2, left: -2, width: 7, height: 7, borderBottom: "2px solid rgba(255,255,255,0.85)", borderLeft: "2px solid rgba(255,255,255,0.85)", borderBottomLeftRadius: 2 }} />
+              <div style={{ position: "absolute", bottom: -2, right: -2, width: 7, height: 7, borderBottom: "2px solid rgba(255,255,255,0.85)", borderRight: "2px solid rgba(255,255,255,0.85)", borderBottomRightRadius: 2 }} />
+            </motion.div>
+          </motion.div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: Math.round(5 * hudScale) }}>
+            <motion.span
+              key={`${aspectRatioIndex}-name`}
+              initial={{ opacity: 0, y: 6, filter: "blur(3px)" }}
+              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+              transition={SPRING_SNAPPY}
+              style={{
+                color: "#fff", fontSize: Math.round(13 * hudScale) + 'px', fontWeight: 700, lineHeight: 1.2,
+                fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {currentAr.name}
+            </motion.span>
+            <div style={{ display: "flex", alignItems: "center", gap: Math.round(6 * hudScale) }}>
+              <motion.span
+                key={`${aspectRatioIndex}-pct`}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={SPRING_FAST}
+                style={{
+                  color: aspectRatioIndex === 0 ? "rgba(255,255,255,0.9)" : "#7DD3FC",
+                  fontSize: Math.round(10 * hudScale) + 'px', fontWeight: 700,
+                  fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                {aspectRatioIndex === 0 ? "Original" : `+${Math.round((currentAr.scale - 1) * 100)}%`}
+              </motion.span>
+              <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
+                {ASPECT_RATIOS.map((_, i) => (
+                  <motion.i
+                    key={i}
+                    animate={{
+                      width: i === aspectRatioIndex ? 7 : 4,
+                      height: 3.5,
+                      backgroundColor: i === aspectRatioIndex
+                        ? (aspectRatioIndex === 0 ? "rgba(255,255,255,0.95)" : "#7DD3FC")
+                        : "rgba(255,255,255,0.18)",
+                    }}
+                    transition={{ type: "spring", stiffness: 600, damping: 32 }}
+                    style={{ display: "block", borderRadius: 2 }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </motion.div>
+  );
+}
+
 /* Apple TV+ style loading arc — clean spinning gradient trail */
 const LoadingArc = ({ size = 56, strokeWidth = 2.5, progress = 0 }) => {
   const r = (size - strokeWidth) / 2;
@@ -507,6 +1222,8 @@ const CustomVideoPlayer = ({
   const [brightness, setBrightness] = useState(1);
   const brightnessRef = useRef(1);
   useEffect(() => { brightnessRef.current = brightness; }, [brightness]);
+  const [showBrightnessArc, setShowBrightnessArc] = useState(false);
+  const brightnessArcTimerRef = useRef(null);
   const [qualities, setQualities] = useState([]);
   const [currentQuality, setCurrentQuality] = useState(null);
   const [audioTracks, setAudioTracks] = useState([]);
@@ -754,7 +1471,7 @@ const CustomVideoPlayer = ({
     return () => {
       [controlsTimeoutRef, clickTimeoutRef, singleTapTimerRef, seekTimeoutRef,
        centerIconTimeoutRef, sideIconTimeoutRef, skipIntroTimeoutRef,
-       toastTimeoutRef, volumeArcTimerRef, aspectRatioArcTimerRef,
+       toastTimeoutRef, volumeArcTimerRef, aspectRatioArcTimerRef, brightnessArcTimerRef,
        gestureHudTimerRef, previewThumbTimerRef].forEach(r => { if (r.current) clearTimeout(r.current); });
       if (upNextIntervalRef.current) clearInterval(upNextIntervalRef.current);
       if (seekLongPressRef.current) clearInterval(seekLongPressRef.current);
@@ -1403,7 +2120,19 @@ const CustomVideoPlayer = ({
     };
   }, [isScrubbing, handleProgressScrub]);
 
-  /* Keyboard */
+  const triggerBrightnessCycle = useCallback(() => {
+    const levels = [1, 1.2, 1.4, 0.6, 0.8];
+    const curr = brightnessRef.current;
+    const matchIdx = levels.findIndex((l) => Math.abs(l - curr) < 0.08);
+    const next = levels[(matchIdx + 1) % levels.length] || 1;
+    setBrightness(next);
+    brightnessRef.current = next;
+    setShowBrightnessArc(true);
+    if (brightnessArcTimerRef.current) clearTimeout(brightnessArcTimerRef.current);
+    brightnessArcTimerRef.current = setTimeout(() => setShowBrightnessArc(false), 1200);
+  }, []);
+
+  /* Keyboard Shortcuts */
   useEffect(() => {
     if (!isCineSrc) return;
     const h = (e) => {
@@ -1417,6 +2146,7 @@ const CustomVideoPlayer = ({
         case "arrowup": e.preventDefault(); changeVolume(volumeRef.current + 0.1); break;
         case "arrowdown": e.preventDefault(); changeVolume(volumeRef.current - 0.1); break;
         case "a": e.preventDefault(); aspectManuallySetRef.current = true; setAspectRatioIndex((p) => (p + 1) % ASPECT_RATIOS.length); setShowAspectRatioArc(true); if (aspectRatioArcTimerRef.current) clearTimeout(aspectRatioArcTimerRef.current); aspectRatioArcTimerRef.current = setTimeout(() => setShowAspectRatioArc(false), 1200); break;
+        case "b": e.preventDefault(); triggerBrightnessCycle(); break;
         case "?": e.preventDefault(); setShowShortcuts((p) => !p); break;
         case "escape": setShowShortcuts(false); setShowSettings(false); setShowSubtitlesMenu(false); setShowAudioMenu(false); break;
         default: break;
@@ -1424,7 +2154,7 @@ const CustomVideoPlayer = ({
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [isCineSrc, togglePlay, toggleFullscreen, toggleMute, seekRelative, changeVolume]);
+  }, [isCineSrc, togglePlay, toggleFullscreen, toggleMute, seekRelative, changeVolume, triggerBrightnessCycle]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -2074,6 +2804,10 @@ const CustomVideoPlayer = ({
       );
     }
     if (key === "aspectRatio") {
+      const arMeta = ASPECT_RATIOS[aspectRatioIndex] || ASPECT_RATIOS[0];
+      const isStudio = skin.id === "studio";
+      const isTheater = skin.id === "theater";
+      const isMaterial = skin.id === "material";
       return (
         <motion.button onClick={(e) => {
             e.stopPropagation();
@@ -2085,17 +2819,22 @@ const CustomVideoPlayer = ({
           }}
             whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
             transition={SPRING}
-            aria-label="Change aspect ratio"
+            aria-label={`Change aspect ratio (${arMeta.name})`}
+            title={`Aspect Ratio: ${arMeta.name}`}
             style={{
               ...ghostCircle,
               position: "relative",
+              ...(isTheater ? { borderColor: "rgba(255,200,100,0.45)", color: "#ffd166" } : {}),
+              ...(isMaterial ? { borderRadius: "14px" } : {}),
+              ...(isStudio ? { borderRadius: "3px", borderColor: "rgba(255,59,78,0.4)" } : {}),
             }}
           >
-            <Maximize size={14} />
+            {resolvePlayerIcon("aspectRatio", 14, { strokeWidth: 2 })}
             <span style={{
               position: "absolute", bottom: -1, right: -1,
-              fontSize: "7px", fontWeight: 800, color: ghostCircle.color || "rgba(255,255,255,0.5)",
-              lineHeight: 1, fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
+              fontSize: "7px", fontWeight: 800,
+              color: isTheater ? "#ffd166" : isMaterial ? "#d0bcff" : isStudio ? "#00e5ff" : (ghostCircle.color || "rgba(255,255,255,0.7)"),
+              lineHeight: 1, fontFamily: isStudio ? "'SF Mono', monospace" : isTheater ? "Georgia, serif" : "-apple-system, BlinkMacSystemFont, sans-serif",
             }}>{aspectRatioIndex + 1}</span>
           </motion.button>
       );
@@ -2235,20 +2974,37 @@ const CustomVideoPlayer = ({
       );
     }
     if (key === "brightness") {
+      const isTheater = skin.id === "theater";
+      const isMaterial = skin.id === "material";
+      const isStudio = skin.id === "studio";
       return (
         <motion.button
           onClick={(e) => {
             e.stopPropagation();
-            setToastMessage("Brightness adjusted");
-            if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-            toastTimeoutRef.current = setTimeout(() => setToastMessage(""), 2000);
+            triggerBrightnessCycle();
           }}
           whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
           transition={SPRING}
-          aria-label="Brightness"
-          style={ghostCircle}
+          aria-label={`Brightness ${Math.round(brightness * 100)}%`}
+          title={`Brightness: ${Math.round(brightness * 100)}%`}
+          style={{
+            ...ghostCircle,
+            position: "relative",
+            ...(isTheater ? { borderColor: "rgba(255,200,100,0.45)", color: "#ffd166" } : {}),
+            ...(isMaterial ? { borderRadius: "14px" } : {}),
+            ...(isStudio ? { borderRadius: "3px", borderColor: "rgba(255,59,78,0.4)" } : {}),
+          }}
         >
-          <Sun size={15} />
+          {resolvePlayerIcon("brightness", 15, { strokeWidth: 2 })}
+          <span style={{
+            position: "absolute", bottom: -1, right: -1,
+            fontSize: "7px", fontWeight: 800,
+            lineHeight: 1,
+            color: isTheater ? "#ffd166" : isMaterial ? "#d0bcff" : isStudio ? "#00e5ff" : (ghostCircle.color || "rgba(255,255,255,0.7)"),
+            fontFamily: isStudio ? "'SF Mono', monospace" : isTheater ? "Georgia, serif" : "-apple-system, BlinkMacSystemFont, sans-serif",
+          }}>
+            {brightness === 1 ? "" : `${Math.round(brightness * 10)}`}
+          </span>
         </motion.button>
       );
     }
@@ -2784,488 +3540,276 @@ const CustomVideoPlayer = ({
         )}
       </AnimatePresence>
 
-      {/* ═══ VOLUME HUD — compact horizontal gauge: live arc fill + morphing icon + spring % ═══ */}
+      {/* ═══ VOLUME HUD ═══ */}
       <AnimatePresence>
         {showVolumeArc && !isTouch && (
-          <motion.div
-            key="volume-hud"
-            initial={{ opacity: 0, y: -18, scale: 0.9, x: "-50%" }}
-            animate={{ opacity: 1, y: 0, scale: 1, x: "-50%" }}
-            exit={{ opacity: 0, y: -8, scale: 0.95, x: "-50%" }}
-            transition={SPRING_SNAPPY}
-            style={{
-              position: "absolute", left: "50%",
-              top: hudTop,
-              zIndex: 65, pointerEvents: "none",
-            }}
-          >
-            <motion.div
-              layout
-              transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.9 }}
-              animate={{
-                boxShadow: isMuted || volume === 0
-                  ? "0 14px 40px rgba(255,69,58,0.22), inset 0 0.5px 0 rgba(255,255,255,0.1)"
-                  : `0 14px 40px rgba(0,0,0,0.6), inset 0 0.5px 0 rgba(255,255,255,0.14)`,
-              }}
-              style={{
-                display: "flex", flexDirection: "row", alignItems: "center", gap: Math.round(11 * hudScale),
-                background: "var(--skin-hud-bg, linear-gradient(180deg, rgba(22,22,26,0.9), rgba(10,10,12,0.9)))",
-                backdropFilter: "blur(var(--skin-hud-blur, 24px)) saturate(160%)",
-                WebkitBackdropFilter: "blur(var(--skin-hud-blur, 24px)) saturate(160%)",
-                border: isMuted || volume === 0
-                  ? "1px solid rgba(255,69,58,0.35)"
-                  : "var(--skin-hud-border, 1px solid rgba(255,255,255,0.12))",
-                borderRadius: `var(--skin-hud-radius, ${Math.round(18 * hudScale)}px)`,
-                padding: `${Math.round(8 * hudScale)}px ${Math.round(13 * hudScale)}px`,
-              }}
-            >
-              {/* Pulsing ambient glow — breathes with the level */}
-              <motion.div
-                animate={{
-                  opacity: 0.15 + effVolume * 0.35,
-                  scale: 1 + effVolume * 0.12,
-                }}
-                transition={{ type: "spring", stiffness: 260, damping: 20 }}
-                style={{
-                  position: "absolute",
-                  inset: 0, borderRadius: "inherit",
-                  background: isMuted || volume === 0
-                    ? "radial-gradient(circle at 50% 100%, rgba(255,69,58,0.5) 0%, transparent 70%)"
-                    : "radial-gradient(circle at 50% 100%, rgba(255,255,255,0.35) 0%, transparent 70%)",
-                  filter: "blur(6px)",
-                }}
-              />
-              {/* Live arc gauge — ring sweeps to the current level */}
-              <ArcRing
-                progress={effVolume}
-                size={Math.round(40 * hudScale)}
-                strokeWidth={3}
-                color={isMuted || volume === 0 ? "#ff453a" : "#fff"}
-                bgColor="rgba(255,255,255,0.1)"
-                glowColor={isMuted || volume === 0 ? "#ff453a" : "#fff"}
-              >
-                <motion.span
-                  key={isMuted || volume === 0 ? "muted" : effVolume <= 0.33 ? "low" : "high"}
-                  initial={{ scale: 0.4, rotate: -12, opacity: 0 }}
-                  animate={{ scale: 1, rotate: 0, opacity: 1 }}
-                  transition={SPRING_FAST}
-                  style={{ display: "flex", alignItems: "center" }}
-                >
-                  {isMuted || volume === 0 ? (
-                    <VolumeX size={Math.round(17 * hudScale)} color="#ff453a" strokeWidth={2.2} />
-                  ) : effVolume <= 0.33 ? (
-                    <Volume1 size={Math.round(17 * hudScale)} color="rgba(255,255,255,0.92)" strokeWidth={2.2} />
-                  ) : (
-                    <Volume2 size={Math.round(17 * hudScale)} color="#fff" strokeWidth={2.2} />
-                  )}
-                </motion.span>
-              </ArcRing>
-
-              {/* Label + live percent — stacked, springs on every change */}
-              <div
-                style={{
-                  display: "flex", flexDirection: "column", alignItems: "flex-start",
-                  gap: Math.round(2 * hudScale), lineHeight: 1.1,
-                }}
-              >
-                <motion.span
-                  key={isMuted || volume === 0 ? "muted" : Math.round(effVolume * 100)}
-                  initial={{ opacity: 0, y: 4, scale: 1.2 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={SPRING_FAST}
-                  style={{
-                    color: isMuted || volume === 0 ? "#ff453a" : "rgba(255,255,255,0.95)",
-                    fontSize: Math.round(12 * hudScale) + 'px',
-                    fontWeight: 700,
-                    fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
-                    fontVariantNumeric: "tabular-nums",
-                    letterSpacing: "0.02em",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {isMuted || volume === 0 ? "Muted" : `${Math.round(effVolume * 100)}%`}
-                </motion.span>
-
-                <span style={{
-                  color: "rgba(255,255,255,0.45)",
-                  fontSize: Math.round(8 * hudScale) + 'px',
-                  fontWeight: 600, letterSpacing: "0.18em", textTransform: "uppercase",
-                  fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
-                  whiteSpace: "nowrap",
-                }}>
-                  Volume
-                </span>
-              </div>
-            </motion.div>
-          </motion.div>
+          <PresetVolumeHUD
+            skin={skin}
+            effVolume={effVolume}
+            isMuted={isMuted}
+            volume={volume}
+            hudScale={hudScale}
+            hudTop={hudTop}
+          />
         )}
       </AnimatePresence>
 
-      {/* ═══ ASPECT RATIO HUD — dynamic crop-frame glyph + live ratio readout ═══ */}
+      {/* ═══ BRIGHTNESS HUD (Desktop) ═══ */}
+      <AnimatePresence>
+        {showBrightnessArc && !isTouch && (
+          <PresetBrightnessHUD
+            skin={skin}
+            brightness={brightness}
+            hudScale={hudScale}
+            hudTop={hudTop}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ═══ ASPECT RATIO HUD ═══ */}
       <AnimatePresence>
         {showAspectRatioArc && (
-          <motion.div
-            key="aspect-hud"
-            initial={{ opacity: 0, y: -18, scale: 0.88, x: "-50%" }}
-            animate={{ opacity: 1, y: 0, scale: 1, x: "-50%" }}
-            exit={{ opacity: 0, y: -6, scale: 0.92, x: "-50%" }}
-            transition={SPRING_SNAPPY}
-            style={{
-              position: "absolute", left: "50%",
-              top: isTouch ? "calc(clamp(14px, 3vh, 28px) + var(--sat))" : hudTop,
-              zIndex: 65, pointerEvents: "none",
-            }}
-          >
-            {/* layout → the pill resizes with a spring as the label + glyph change */}
-            <motion.div
-              layout
-              transition={{ type: "spring", stiffness: 380, damping: 34, mass: 0.9 }}
-              style={{
-                display: "flex", alignItems: "center", gap: isTouch ? 10 : Math.round(12 * hudScale),
-                background: "var(--skin-hud-bg, linear-gradient(180deg, rgba(22,22,26,0.92), rgba(10,10,12,0.92)))",
-                backdropFilter: "blur(var(--skin-hud-blur, 24px)) saturate(160%)",
-                WebkitBackdropFilter: "blur(var(--skin-hud-blur, 24px)) saturate(160%)",
-                border: "var(--skin-hud-border, 1px solid rgba(255,255,255,0.12))",
-                borderRadius: "var(--skin-hud-radius, 999px)",
-                padding: isTouch ? "6px 14px" : `${Math.round(7 * hudScale)}px ${Math.round(14 * hudScale)}px`,
-                boxShadow:
-                  "var(--skin-hud-shadow, 0 16px 48px rgba(0,0,0,0.6), 0 0 0 0.5px rgba(255,255,255,0.04), inset 0 0.5px 0 rgba(255,255,255,0.14))",
-              }}
-            >
-              {/* ── Dynamic glyph stage — scales with the player box ── */}
-              <motion.div
-                animate={{ width: Math.round(44 * hudScale), height: Math.round(44 * hudScale) }}
-                transition={{ type: "spring", stiffness: 380, damping: 30, mass: 0.9 }}
-                style={{
-                  position: "relative", flexShrink: 0,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}
-              >
-                {/* Frosted backdrop disc */}
-                <div style={{
-                  position: "absolute", inset: 0, borderRadius: "50%",
-                  background: "radial-gradient(circle at 50% 35%, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.02) 70%)",
-                  border: "1px solid rgba(255,255,255,0.07)",
-                }} />
-                {/* Expanding halo ring — replays on every ratio change (Apple motif) */}
-                <motion.div
-                  key={aspectRatioIndex}
-                  initial={{ scale: 0.7, opacity: 0.6 }}
-                  animate={{ scale: 1.8, opacity: 0 }}
-                  transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
-                  style={{
-                    position: "absolute", width: Math.round(36 * hudScale), height: Math.round(36 * hudScale),
-                    borderRadius: "50%",
-                    border: "1.5px solid rgba(255,255,255,0.35)",
-                  }}
-                />
-                {/* The morphing crop frame — springy overshoot as it changes shape */}
-                <motion.div
-                  initial={false}
-                  animate={{
-                    width: AR_GLYPH[aspectRatioIndex][0] * hudScale,
-                    height: AR_GLYPH[aspectRatioIndex][1] * hudScale,
-                  }}
-                  transition={{ type: "spring", stiffness: 430, damping: 24, mass: 0.9 }}
-                  style={{
-                    position: "relative", zIndex: 1, flexShrink: 0,
-                    borderRadius: 3, overflow: "hidden",
-                    border: "1.5px solid rgba(255,255,255,0.92)",
-                    background:
-                      "radial-gradient(circle at 50% 40%, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.04) 100%)",
-                    boxShadow: "0 0 16px rgba(255,255,255,0.22), inset 0 0 12px rgba(255,255,255,0.06)",
-                  }}
-                >
-                  {/* Light sweep across the frame — replays on every change */}
-                  <motion.div
-                    key={aspectRatioIndex}
-                    initial={{ x: "-85%", opacity: 0 }}
-                    animate={{ x: "85%", opacity: [0, 0.85, 0] }}
-                    transition={{ duration: 0.6, ease: "easeOut" }}
-                    style={{
-                      position: "absolute", top: 0, bottom: 0, width: "55%",
-                      background: "linear-gradient(100deg, transparent 0%, rgba(255,255,255,0.18) 50%, transparent 100%)",
-                    }}
-                  />
-                </motion.div>
-                {/* Corner crop brackets — re-grip on every change */}
-                <motion.div
-                  key={aspectRatioIndex}
-                  initial={{ opacity: 0, scale: 1.25 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.08, type: "spring", stiffness: 500, damping: 32 }}
-                  style={{ position: "absolute", inset: 0, zIndex: 2 }}
-                >
-                  <div style={{ position: "absolute", top: -2, left: -2, width: 7, height: 7, borderTop: "2px solid rgba(255,255,255,0.85)", borderLeft: "2px solid rgba(255,255,255,0.85)", borderTopLeftRadius: 2 }} />
-                  <div style={{ position: "absolute", top: -2, right: -2, width: 7, height: 7, borderTop: "2px solid rgba(255,255,255,0.85)", borderRight: "2px solid rgba(255,255,255,0.85)", borderTopRightRadius: 2 }} />
-                  <div style={{ position: "absolute", bottom: -2, left: -2, width: 7, height: 7, borderBottom: "2px solid rgba(255,255,255,0.85)", borderLeft: "2px solid rgba(255,255,255,0.85)", borderBottomLeftRadius: 2 }} />
-                  <div style={{ position: "absolute", bottom: -2, right: -2, width: 7, height: 7, borderBottom: "2px solid rgba(255,255,255,0.85)", borderRight: "2px solid rgba(255,255,255,0.85)", borderBottomRightRadius: 2 }} />
-                </motion.div>
-              </motion.div>
-
-              {/* ── Label block — live ratio readout ── */}
-              <div style={{ display: "flex", flexDirection: "column", gap: Math.round(5 * hudScale) }}>
-                {/* Name — blur-to-crisp rise, replaying on each change */}
-                <motion.span
-                  key={`${aspectRatioIndex}-name`}
-                  initial={{ opacity: 0, y: 6, filter: "blur(3px)" }}
-                  animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                  transition={SPRING_SNAPPY}
-                  style={{
-                    color: "#fff", fontSize: Math.round(13 * hudScale) + 'px', fontWeight: 700, lineHeight: 1.2,
-                    fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {ASPECT_RATIOS[aspectRatioIndex].name}
-                </motion.span>
-                {/* Live readout — shows the active scale/accent */}
-                <div style={{ display: "flex", alignItems: "center", gap: Math.round(6 * hudScale) }}>
-                  <motion.span
-                    key={`${aspectRatioIndex}-pct`}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={SPRING_FAST}
-                    style={{
-                      color: aspectRatioIndex === 0 ? "rgba(255,255,255,0.9)" : "#7DD3FC",
-                      fontSize: Math.round(10 * hudScale) + 'px', fontWeight: 700,
-                      fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {aspectRatioIndex === 0 ? "Original" : `+${Math.round((ASPECT_RATIOS[aspectRatioIndex].scale - 1) * 100)}%`}
-                  </motion.span>
-                  {/* Segmented position track — sleek dot progression */}
-                  <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
-                    {ASPECT_RATIOS.map((_, i) => (
-                      <motion.i
-                        key={i}
-                        animate={{
-                          width: i === aspectRatioIndex ? 7 : 4,
-                          height: 3.5,
-                          backgroundColor: i === aspectRatioIndex
-                            ? (aspectRatioIndex === 0 ? "rgba(255,255,255,0.95)" : "#7DD3FC")
-                            : "rgba(255,255,255,0.18)",
-                        }}
-                        transition={{ type: "spring", stiffness: 600, damping: 32 }}
-                        style={{ display: "block", borderRadius: 2 }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
+          <PresetAspectRatioHUD
+            skin={skin}
+            aspectRatioIndex={aspectRatioIndex}
+            hudScale={hudScale}
+            hudTop={hudTop}
+            isTouch={isTouch}
+          />
         )}
       </AnimatePresence>
 
-      {/* ═══ TOUCH GESTURE HUDS — VLC/MX Player Style ═══════════════════════ */}
+      {/* ═══ TOUCH GESTURE HUDS — VLC/MX Player Style (Skin Adaptable) ═══════ */}
       {/* Brightness vertical bar — left edge */}
       <AnimatePresence>
-        {gestureType === 'brightness' && isTouch && (
-          <motion.div
-            key="brightness-bar"
-            initial={{ opacity: 0, x: -28, y: "-50%" }}
-            animate={{ opacity: 1, x: 0, y: "-50%" }}
-            exit={{ opacity: 0, x: -24, y: "-50%" }}
-            transition={SPRING_SNAPPY}
-            style={{
-              position: 'absolute',
-              left: 'calc(clamp(14px, 3.5vw, 28px) + var(--sal))',
-              top: '50%',
-              width: 44,
-              height: 'clamp(170px, 42vh, 230px)',
-              display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'space-between',
-              padding: '12px 0 10px',
-              zIndex: 65, pointerEvents: 'none',
-              background: 'rgba(18,18,22,0.84)',
-              backdropFilter: 'blur(30px) saturate(190%)',
-              WebkitBackdropFilter: 'blur(30px) saturate(190%)',
-              borderRadius: 22,
-              border: '1px solid rgba(255,255,255,0.12)',
-              boxShadow: '0 20px 48px rgba(0,0,0,0.7), inset 0 0.5px 0 rgba(255,255,255,0.2)',
-              overflow: 'hidden',
-            }}>
-            {/* Sun icon at top with glow */}
+        {gestureType === 'brightness' && isTouch && (() => {
+          const skinId = skin?.id || "classic";
+          const sunColor = skinId === "theater" ? "#ffd166" : skinId === "material" ? "var(--skin-accent, #d0bcff)" : skinId === "studio" ? "#00e5ff" : skinId === "minimal" ? "#ffffff" : "#FBBF24";
+          const trackGradient = skinId === "theater" ? "linear-gradient(to top, #b8860b, #ffd166)" : skinId === "material" ? "linear-gradient(to top, #7c4dff, var(--skin-accent, #d0bcff))" : skinId === "studio" ? "linear-gradient(to top, #008ba3, #00e5ff)" : skinId === "minimal" ? "#ffffff" : "linear-gradient(to top, #F59E0B, #FBBF24)";
+          const barRadius = skinId === "studio" ? 4 : skinId === "theater" ? 6 : "var(--skin-hud-radius, 22px)";
+
+          return (
             <motion.div
-              animate={{ scale: [0.95, 1.05, 1] }}
-              transition={{ duration: 0.3 }}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" strokeWidth="2.2" strokeLinecap="round" style={{ filter: 'drop-shadow(0 0 6px rgba(251,191,36,0.6))' }}>
-                <circle cx="12" cy="12" r="5"/>
-                <line x1="12" y1="1" x2="12" y2="3"/>
-                <line x1="12" y1="21" x2="12" y2="23"/>
-                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                <line x1="1" y1="12" x2="3" y2="12"/>
-                <line x1="21" y1="12" x2="23" y2="12"/>
-              </svg>
-            </motion.div>
-            {/* Track */}
-            <div style={{
-              position: 'relative', width: 6, flex: 1, margin: '10px 0',
-              background: 'rgba(255,255,255,0.12)', borderRadius: 3,
-              overflow: 'hidden',
-            }}>
-              {/* Fill */}
+              key="brightness-bar"
+              initial={{ opacity: 0, x: -28, y: "-50%" }}
+              animate={{ opacity: 1, x: 0, y: "-50%" }}
+              exit={{ opacity: 0, x: -24, y: "-50%" }}
+              transition={SPRING_SNAPPY}
+              style={{
+                position: 'absolute',
+                left: 'calc(clamp(14px, 3.5vw, 28px) + var(--sal))',
+                top: '50%',
+                width: 44,
+                height: 'clamp(170px, 42vh, 230px)',
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'space-between',
+                padding: '12px 0 10px',
+                zIndex: 65, pointerEvents: 'none',
+                background: 'var(--skin-hud-bg, rgba(18,18,22,0.84))',
+                backdropFilter: 'blur(var(--skin-hud-blur, 30px)) saturate(190%)',
+                WebkitBackdropFilter: 'blur(var(--skin-hud-blur, 30px)) saturate(190%)',
+                borderRadius: barRadius,
+                border: 'var(--skin-hud-border, 1px solid rgba(255,255,255,0.12))',
+                boxShadow: 'var(--skin-hud-shadow, 0 20px 48px rgba(0,0,0,0.7))',
+                overflow: 'hidden',
+                fontFamily: 'var(--skin-hud-font, inherit)',
+              }}>
+              {/* Sun icon at top with glow */}
               <motion.div
-                animate={{ height: `${Math.max(0, Math.min(100, Math.round(gestureValue * 100)))}%` }}
-                transition={{ type: 'spring', stiffness: 450, damping: 32 }}
-                style={{
-                  position: 'absolute', bottom: 0, left: 0, right: 0,
-                  background: 'linear-gradient(to top, #F59E0B, #FBBF24)',
-                  borderRadius: 3,
-                  boxShadow: '0 0 10px rgba(251,191,36,0.5)',
-                }}
-              />
-            </div>
-            {/* Percentage */}
-            <span style={{
-              color: '#FBBF24', fontSize: 11, fontWeight: 800,
-              fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
-              fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em',
-              textShadow: '0 1px 4px rgba(0,0,0,0.8)',
-            }}>
-              {Math.max(0, Math.min(100, Math.round(gestureValue * 100)))}%
-            </span>
-          </motion.div>
-        )}
+                animate={{ scale: [0.95, 1.05, 1] }}
+                transition={{ duration: 0.3 }}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={sunColor} strokeWidth="2.2" strokeLinecap="round" style={{ filter: `drop-shadow(0 0 6px ${sunColor})` }}>
+                  <circle cx="12" cy="12" r="5"/>
+                  <line x1="12" y1="1" x2="12" y2="3"/>
+                  <line x1="12" y1="21" x2="12" y2="23"/>
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                  <line x1="1" y1="12" x2="3" y2="12"/>
+                  <line x1="21" y1="12" x2="23" y2="12"/>
+                </svg>
+              </motion.div>
+              {/* Track */}
+              <div style={{
+                position: 'relative', width: 6, flex: 1, margin: '10px 0',
+                background: 'rgba(255,255,255,0.12)', borderRadius: skinId === 'studio' ? 1 : 3,
+                overflow: 'hidden',
+              }}>
+                {/* Fill */}
+                <motion.div
+                  animate={{ height: `${Math.max(0, Math.min(100, Math.round(gestureValue * 100)))}%` }}
+                  transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                  style={{
+                    position: 'absolute', bottom: 0, left: 0, right: 0,
+                    background: trackGradient,
+                    borderRadius: skinId === 'studio' ? 1 : 3,
+                    boxShadow: `0 0 10px ${sunColor}`,
+                  }}
+                />
+              </div>
+              {/* Percentage */}
+              <span style={{
+                color: sunColor, fontSize: 11, fontWeight: 800,
+                fontFamily: "var(--skin-hud-font, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif)",
+                fontVariantNumeric: 'tabular-nums', letterSpacing: skinId === 'studio' ? '0.04em' : '-0.02em',
+                textShadow: '0 1px 4px rgba(0,0,0,0.8)',
+              }}>
+                {Math.max(0, Math.min(100, Math.round(gestureValue * 100)))}%
+              </span>
+            </motion.div>
+          );
+        })()}
       </AnimatePresence>
 
       {/* Volume vertical bar — right edge */}
       <AnimatePresence>
-        {gestureType === 'volume' && isTouch && (
-          <motion.div
-            key="volume-bar"
-            initial={{ opacity: 0, x: 28, y: "-50%" }}
-            animate={{ opacity: 1, x: 0, y: "-50%" }}
-            exit={{ opacity: 0, x: 24, y: "-50%" }}
-            transition={SPRING_SNAPPY}
-            style={{
-              position: 'absolute',
-              right: 'calc(clamp(14px, 3.5vw, 28px) + var(--sar))',
-              top: '50%',
-              width: 44,
-              height: 'clamp(170px, 42vh, 230px)',
-              display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'space-between',
-              padding: '12px 0 10px',
-              zIndex: 65, pointerEvents: 'none',
-              background: 'rgba(18,18,22,0.84)',
-              backdropFilter: 'blur(30px) saturate(190%)',
-              WebkitBackdropFilter: 'blur(30px) saturate(190%)',
-              borderRadius: 22,
-              border: '1px solid rgba(255,255,255,0.12)',
-              boxShadow: '0 20px 48px rgba(0,0,0,0.7), inset 0 0.5px 0 rgba(255,255,255,0.2)',
-              overflow: 'hidden',
-            }}>
-            {/* Speaker icon at top */}
+        {gestureType === 'volume' && isTouch && (() => {
+          const skinId = skin?.id || "classic";
+          const isZero = isMuted || volume === 0;
+          const volColor = isZero ? "#ff453a" : skinId === "theater" ? "#ffd166" : skinId === "material" ? "var(--skin-accent, #d0bcff)" : skinId === "studio" ? "#00e5ff" : "#fff";
+          const trackGradient = isZero ? "#ff453a" : skinId === "theater" ? "linear-gradient(to top, #b8860b, #ffd166)" : skinId === "material" ? "linear-gradient(to top, #7c4dff, var(--skin-accent, #d0bcff))" : skinId === "studio" ? "linear-gradient(to top, #008ba3, #00e5ff)" : skinId === "minimal" ? "#ffffff" : "linear-gradient(to top, rgba(255,255,255,0.8), #fff)";
+          const barRadius = skinId === "studio" ? 4 : skinId === "theater" ? 6 : "var(--skin-hud-radius, 22px)";
+
+          return (
             <motion.div
-              key={isMuted || volume === 0 ? 'off' : 'on'}
-              initial={{ scale: 0.6 }} animate={{ scale: 1 }}
-              transition={SPRING_FAST}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
-              {isMuted || volume === 0 ? (
-                <VolumeX size={18} color="#ff453a" strokeWidth={2.2} style={{ filter: 'drop-shadow(0 0 6px rgba(255,69,58,0.6))' }} />
-              ) : (
-                <Volume2 size={18} color="#fff" strokeWidth={2.2} style={{ filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.4))' }} />
-              )}
-            </motion.div>
-            {/* Track */}
-            <div style={{
-              position: 'relative', width: 6, flex: 1, margin: '10px 0',
-              background: 'rgba(255,255,255,0.12)', borderRadius: 3,
-              overflow: 'hidden',
-            }}>
+              key="volume-bar"
+              initial={{ opacity: 0, x: 28, y: "-50%" }}
+              animate={{ opacity: 1, x: 0, y: "-50%" }}
+              exit={{ opacity: 0, x: 24, y: "-50%" }}
+              transition={SPRING_SNAPPY}
+              style={{
+                position: 'absolute',
+                right: 'calc(clamp(14px, 3.5vw, 28px) + var(--sar))',
+                top: '50%',
+                width: 44,
+                height: 'clamp(170px, 42vh, 230px)',
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'space-between',
+                padding: '12px 0 10px',
+                zIndex: 65, pointerEvents: 'none',
+                background: 'var(--skin-hud-bg, rgba(18,18,22,0.84))',
+                backdropFilter: 'blur(var(--skin-hud-blur, 30px)) saturate(190%)',
+                WebkitBackdropFilter: 'blur(var(--skin-hud-blur, 30px)) saturate(190%)',
+                borderRadius: barRadius,
+                border: 'var(--skin-hud-border, 1px solid rgba(255,255,255,0.12))',
+                boxShadow: 'var(--skin-hud-shadow, 0 20px 48px rgba(0,0,0,0.7))',
+                overflow: 'hidden',
+                fontFamily: 'var(--skin-hud-font, inherit)',
+              }}>
+              {/* Speaker icon at top */}
               <motion.div
-                animate={{ height: `${Math.max(0, Math.min(100, Math.round((isMuted ? 0 : volume) * 100)))}%` }}
-                transition={{ type: 'spring', stiffness: 450, damping: 32 }}
-                style={{
-                  position: 'absolute', bottom: 0, left: 0, right: 0,
-                  background: (isMuted || volume === 0) ? '#ff453a' : 'linear-gradient(to top, rgba(255,255,255,0.8), #fff)',
-                  borderRadius: 3,
-                  boxShadow: (isMuted || volume === 0) ? '0 0 10px rgba(255,69,58,0.5)' : '0 0 10px rgba(255,255,255,0.4)',
-                }}
-              />
-            </div>
-            {/* Percentage */}
-            <span style={{
-              color: (isMuted || volume === 0) ? '#ff453a' : '#fff',
-              fontSize: 11, fontWeight: 800,
-              fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
-              fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em',
-              textShadow: '0 1px 4px rgba(0,0,0,0.8)',
-            }}>
-              {Math.max(0, Math.min(100, Math.round((isMuted ? 0 : volume) * 100)))}%
-            </span>
-          </motion.div>
-        )}
+                key={isMuted || volume === 0 ? 'off' : 'on'}
+                initial={{ scale: 0.6 }} animate={{ scale: 1 }}
+                transition={SPRING_FAST}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                {isZero ? (
+                  <VolumeX size={18} color="#ff453a" strokeWidth={2.2} style={{ filter: 'drop-shadow(0 0 6px rgba(255,69,58,0.6))' }} />
+                ) : (
+                  <Volume2 size={18} color={volColor} strokeWidth={2.2} style={{ filter: `drop-shadow(0 0 6px ${volColor})` }} />
+                )}
+              </motion.div>
+              {/* Track */}
+              <div style={{
+                position: 'relative', width: 6, flex: 1, margin: '10px 0',
+                background: 'rgba(255,255,255,0.12)', borderRadius: skinId === 'studio' ? 1 : 3,
+                overflow: 'hidden',
+              }}>
+                <motion.div
+                  animate={{ height: `${Math.max(0, Math.min(100, Math.round((isMuted ? 0 : volume) * 100)))}%` }}
+                  transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                  style={{
+                    position: 'absolute', bottom: 0, left: 0, right: 0,
+                    background: trackGradient,
+                    borderRadius: skinId === 'studio' ? 1 : 3,
+                    boxShadow: isZero ? '0 0 10px rgba(255,69,58,0.5)' : `0 0 10px ${volColor}`,
+                  }}
+                />
+              </div>
+              {/* Percentage */}
+              <span style={{
+                color: volColor,
+                fontSize: 11, fontWeight: 800,
+                fontFamily: "var(--skin-hud-font, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif)",
+                fontVariantNumeric: 'tabular-nums', letterSpacing: skinId === 'studio' ? '0.04em' : '-0.02em',
+                textShadow: '0 1px 4px rgba(0,0,0,0.8)',
+              }}>
+                {Math.max(0, Math.min(100, Math.round((isMuted ? 0 : volume) * 100)))}%
+              </span>
+            </motion.div>
+          );
+        })()}
       </AnimatePresence>
 
       {/* Seek indicator — center (Framer Motion x/y: -50% ensures perfect viewport centering) */}
       <AnimatePresence>
-        {gestureType === 'seek' && isTouch && (
-          <motion.div
-            key="seek-indicator"
-            initial={{ opacity: 0, scale: 0.85, x: "-50%", y: "-50%" }}
-            animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
-            exit={{ opacity: 0, scale: 0.9, x: "-50%", y: "-50%" }}
-            transition={SPRING_SNAPPY}
-            style={{
-              position: 'absolute', top: '50%', left: '50%',
-              zIndex: 65, pointerEvents: 'none',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-              background: 'rgba(18,18,22,0.88)',
-              backdropFilter: 'blur(32px) saturate(190%)',
-              WebkitBackdropFilter: 'blur(32px) saturate(190%)',
-              borderRadius: 20, padding: '14px 24px', minWidth: 160,
-              border: '1px solid rgba(255,255,255,0.12)',
-              boxShadow: '0 24px 60px rgba(0,0,0,0.8), inset 0 0.5px 0 rgba(255,255,255,0.2)',
-            }}>
-            {/* Seek direction & delta */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {seekDelta > 0 ? (
-                <FastForward size={20} color="#7DD3FC" strokeWidth={2.4} style={{ filter: 'drop-shadow(0 0 8px rgba(125,211,252,0.6))' }} />
-              ) : (
-                <Rewind size={20} color="#7DD3FC" strokeWidth={2.4} style={{ filter: 'drop-shadow(0 0 8px rgba(125,211,252,0.6))' }} />
-              )}
-              <span style={{
-                color: '#fff', fontSize: 20, fontWeight: 800,
-                fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif",
-                fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em',
+        {gestureType === 'seek' && isTouch && (() => {
+          const skinId = skin?.id || "classic";
+          const accentColor = skinId === "theater" ? "#ffd166" : skinId === "material" ? "var(--skin-accent, #d0bcff)" : skinId === "studio" ? "#00e5ff" : skinId === "minimal" ? "#ffffff" : "#7DD3FC";
+          const barRadius = skinId === "studio" ? 4 : skinId === "theater" ? 6 : "var(--skin-hud-radius, 20px)";
+
+          return (
+            <motion.div
+              key="seek-indicator"
+              initial={{ opacity: 0, scale: 0.85, x: "-50%", y: "-50%" }}
+              animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
+              exit={{ opacity: 0, scale: 0.9, x: "-50%", y: "-50%" }}
+              transition={SPRING_SNAPPY}
+              style={{
+                position: 'absolute', top: '50%', left: '50%',
+                zIndex: 65, pointerEvents: 'none',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                background: 'var(--skin-hud-bg, rgba(18,18,22,0.88))',
+                backdropFilter: 'blur(var(--skin-hud-blur, 32px)) saturate(190%)',
+                WebkitBackdropFilter: 'blur(var(--skin-hud-blur, 32px)) saturate(190%)',
+                borderRadius: barRadius, padding: '14px 24px', minWidth: 160,
+                border: 'var(--skin-hud-border, 1px solid rgba(255,255,255,0.12))',
+                boxShadow: 'var(--skin-hud-shadow, 0 24px 60px rgba(0,0,0,0.8))',
+                fontFamily: 'var(--skin-hud-font, inherit)',
               }}>
-                {seekDelta > 0 ? '+' : ''}{Math.round(seekDelta)}s
-              </span>
-            </div>
-            {/* Destination time display */}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 4,
-              fontSize: 12, fontWeight: 600,
-              fontFamily: "SF Mono, Menlo, monospace", fontVariantNumeric: 'tabular-nums',
-            }}>
-              <span style={{ color: '#7DD3FC' }}>{fmt(Math.max(0, Math.min(currentTime + seekDelta, duration || 0)))}</span>
-              <span style={{ color: 'rgba(255,255,255,0.35)' }}>/</span>
-              <span style={{ color: 'rgba(255,255,255,0.5)' }}>{fmt(duration)}</span>
-            </div>
-            {/* Mini destination progress bar */}
-            {duration > 0 && (
-              <div style={{
-                width: 120, height: 3, background: 'rgba(255,255,255,0.12)',
-                borderRadius: 2, overflow: 'hidden', marginTop: 2, position: 'relative',
-              }}>
-                <div style={{
-                  position: 'absolute', left: 0, top: 0, bottom: 0,
-                  width: `${Math.max(0, Math.min(((currentTime + seekDelta) / duration) * 100, 100))}%`,
-                  background: '#7DD3FC', borderRadius: 2,
-                  boxShadow: '0 0 6px #7DD3FC',
-                }} />
+              {/* Seek direction & delta */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {seekDelta > 0 ? (
+                  <FastForward size={20} color={accentColor} strokeWidth={2.4} style={{ filter: `drop-shadow(0 0 8px ${accentColor})` }} />
+                ) : (
+                  <Rewind size={20} color={accentColor} strokeWidth={2.4} style={{ filter: `drop-shadow(0 0 8px ${accentColor})` }} />
+                )}
+                <span style={{
+                  color: '#fff', fontSize: 20, fontWeight: 800,
+                  fontFamily: "var(--skin-hud-font, -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif)",
+                  fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em',
+                }}>
+                  {seekDelta > 0 ? '+' : ''}{Math.round(seekDelta)}s
+                </span>
               </div>
-            )}
-          </motion.div>
-        )}
+              {/* Destination time display */}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                fontSize: 12, fontWeight: 600,
+                fontFamily: skinId === "studio" ? "var(--skin-hud-font, monospace)" : "SF Mono, Menlo, monospace", fontVariantNumeric: 'tabular-nums',
+              }}>
+                <span style={{ color: accentColor }}>{fmt(Math.max(0, Math.min(currentTime + seekDelta, duration || 0)))}</span>
+                <span style={{ color: 'rgba(255,255,255,0.35)' }}>/</span>
+                <span style={{ color: 'rgba(255,255,255,0.5)' }}>{fmt(duration)}</span>
+              </div>
+              {/* Mini destination progress bar */}
+              {duration > 0 && (
+                <div style={{
+                  width: 120, height: 3, background: 'rgba(255,255,255,0.12)',
+                  borderRadius: skinId === 'studio' ? 1 : 2, overflow: 'hidden', marginTop: 2, position: 'relative',
+                }}>
+                  <div style={{
+                    position: 'absolute', left: 0, top: 0, bottom: 0,
+                    width: `${Math.max(0, Math.min(((currentTime + seekDelta) / duration) * 100, 100))}%`,
+                    background: accentColor, borderRadius: skinId === 'studio' ? 1 : 2,
+                    boxShadow: `0 0 6px ${accentColor}`,
+                  }} />
+                </div>
+              )}
+            </motion.div>
+          );
+        })()}
       </AnimatePresence>
 
       {/* ═══ SHORTCUTS OVERLAY ═══════════════════════════════════ */}

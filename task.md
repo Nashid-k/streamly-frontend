@@ -465,3 +465,33 @@ hudBlur/hudBorder/hudRadius/hudShadow/hudFont` (every floating card), `toastBg`,
     - `npm run test`: 301/301 tests passing across 28 test suites (was 294).
     - `npm run build`: Production build succeeded in 2.88s.
 
+- [x] **Task 40 — Production company logo isolation, responsive hero banner & title logo overhaul, app default language TMDB integration, and player preset HUD & aspect ratio morphing**
+  - **Production Companies Clean Aesthetic**:
+    - In `src/pages/TitleDetailsPage.jsx`: Filtered `production_companies` strictly for authentic company logos (`logoUrl`). Removed all plain-text company name fallback pills, keeping exclusively pristine company logos on dark cards with hover scale effects.
+  - **Hero Banner & Title Logo Responsiveness & Overview Fix**:
+    - In `src/index.css`: Removed destructive `display: none !important;` on `.hero-desc` and `.hero-desc--apple` across `@media (max-height: 650px)` and landscape viewports; replaced with responsive 2-line clamps (`-webkit-line-clamp: 2`).
+    - Upgraded `.hero-logo-img` from rigid `max-height: 60px !important` to responsive clamps (`clamp(90px, 15vw, 150px)` on standard viewports, `clamp(75px, 14vh, 110px)` on short laptops/landscape), preventing title logo shrinking or squishing across device aspect ratios.
+    - In `src/pages/TitleDetailsPage.jsx`: Upgraded title logo sizing from `max-h-16 xl:max-h-28` to `max-h-20 sm:max-h-28 md:max-h-36 lg:max-h-44 xl:max-h-48 max-w-[85%] sm:max-w-[75%] lg:max-w-[520px]`.
+    - Repositioned the overview/synopsis description directly into the hero banner block above the action buttons (Play, My List) and alongside meta facts and genres, ensuring synopsis is consistently visible and beautifully styled across all screen heights.
+  - **App Language Setting Integration with TMDB & React Query**:
+    - In `src/api/tmdbClient.js`: Added `getActiveLanguage()` reading `setting-defaultLanguage` and injected `language: activeLang` into `buildQuery` for all TMDB requests.
+    - In `src/context/PreferencesContext.jsx`: Wired `setPreference("defaultLanguage", ...)` and `resetPreferences()` to update `document.documentElement.lang` and automatically call `queryClient.invalidateQueries()`, ensuring content (titles, overviews, genres, metadata) instantly switches to the selected language.
+  - **Player Preset HUD & Aspect Ratio Overhaul**:
+    - In `src/components/CustomVideoPlayer.jsx`:
+      - Created dedicated preset archetype components: `PresetVolumeHUD`, `PresetBrightnessHUD`, and `PresetAspectRatioHUD`.
+      - Engineered 5 distinct archetype appearances matching active player presets:
+        - `material`: M3 tonal container, squircle pills, lavender accent (`#d0bcff`), active aspect ratio chip indicator.
+        - `theater`: Cinematic marquee frame, warm amber glow (`#ffd166`), serif typography, cinema aspect ratios (e.g. `[SCOPE 2.39:1]`).
+        - `studio`: Broadcast raster telemetry, cyan/green diagnostics (`#00e5ff`/`#22c55e`), square monospace telemetry readouts, broadcast raster flags (`[SMPTE 16:9]`).
+        - `minimal`: Hairline ultra-clean pill, micro typography, zero-distraction layout.
+        - `apple`/`classic`: VisionOS frosted glass, fluid ArcRing circular indicator, tabular numerals.
+      - Added brightness cycle trigger (`triggerBrightnessCycle`), keyboard shortcut `"b"`, and desktop/touch brightness HUDs.
+      - Updated touch gesture vertical bars (brightness and volume) and center seek indicator to respect `var(--skin-hud-*)` styling variables and preset track gradients.
+    - In `src/components/PlayerPreview.jsx`:
+      - Replaced generic static volume HUD chip with live archetype-accurate HUD chips and aspect ratio badges matching `skinDef.archetype`.
+  - **Verification**:
+    - `npm run lint`: 0 errors, 0 warnings across 114 files.
+    - `npm test`: 301/301 tests passing across 28 test suites.
+    - `npm run build`: Production build succeeded in 2.68s.
+
+
