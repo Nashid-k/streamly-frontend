@@ -1088,8 +1088,17 @@ export default function Home({
   }, [featuredIndex, totalFeatured, finalPool]);
 
   const heroTouchStartRef = useRef({ x: 0, y: 0 });
+  const heroTouchPauseTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (heroTouchPauseTimeoutRef.current) clearTimeout(heroTouchPauseTimeoutRef.current);
+    };
+  }, []);
 
   const handleHeroTouchStart = useCallback((e) => {
+    if (heroTouchPauseTimeoutRef.current) clearTimeout(heroTouchPauseTimeoutRef.current);
+    isHeroHoveredRef.current = true;
     if (!e.touches || e.touches.length === 0) return;
     heroTouchStartRef.current = {
       x: e.touches[0].clientX,
@@ -1098,6 +1107,12 @@ export default function Home({
   }, []);
 
   const handleHeroTouchEnd = useCallback((e) => {
+    // Resume auto-rotation after 6 seconds of touch inactivity
+    if (heroTouchPauseTimeoutRef.current) clearTimeout(heroTouchPauseTimeoutRef.current);
+    heroTouchPauseTimeoutRef.current = setTimeout(() => {
+      isHeroHoveredRef.current = false;
+    }, 6000);
+
     if (totalFeatured <= 1) return;
     if (!e.changedTouches || e.changedTouches.length === 0) return;
     const touch = e.changedTouches[0];

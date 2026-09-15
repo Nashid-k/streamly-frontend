@@ -450,9 +450,12 @@ export default function TitleDetails() {
       setEpisodeLayout(episodeViewStyle);
     }
   }, [episodeViewStyle]);
-  const [showAllEpisodes, setShowAllEpisodes] = useState(false);
-  const EPISODES_INITIAL_COUNT = 8;
-  // Horizontal rail ref for the carousel layout.
+
+  const EPISODES_CHUNK_SIZE = 24;
+  const [visibleEpisodeCount, setVisibleEpisodeCount] = useState(EPISODES_CHUNK_SIZE);
+  useEffect(() => {
+    setVisibleEpisodeCount(EPISODES_CHUNK_SIZE);
+  }, [selectedSeason, id]);
   const epRailRef = useRef(null);
   const scrollEpRail = (dir) => {
     const el = epRailRef.current;
@@ -1401,11 +1404,10 @@ export default function TitleDetails() {
                 )}
               </div>
             ) : (() => {
-                // Carousel rails scroll horizontally, so they always show the
-                // full season; grid/list paginate with "show all".
                 const isCarouselLayout = episodeLayout === 'carousel';
-                const visibleEps = (showAllEpisodes || isCarouselLayout) ? episodes : episodes.slice(0, EPISODES_INITIAL_COUNT);
-                const hasMore = !isCarouselLayout && episodes.length > EPISODES_INITIAL_COUNT;
+                const visibleEps = isCarouselLayout ? episodes : episodes.slice(0, visibleEpisodeCount);
+                const hasMore = !isCarouselLayout && episodes.length > visibleEpisodeCount;
+                const isExpanded = !isCarouselLayout && visibleEpisodeCount > EPISODES_CHUNK_SIZE;
                 return (
                   <>
                   {visibleEps.map((ep, idx) => {
@@ -1632,13 +1634,59 @@ export default function TitleDetails() {
                       animate={{ opacity: 1 }}
                       style={{
                         gridColumn: episodeLayout === 'grid' ? '1 / -1' : undefined,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '12px',
+                        paddingTop: '1rem',
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <motion.button
+                        whileHover={{ scale: 1.03, background: 'rgba(255,255,255,0.1)' }}
+                        whileTap={{ scale: 0.97 }}
+                        onClick={() => setVisibleEpisodeCount((prev) => Math.min(episodes.length, prev + EPISODES_CHUNK_SIZE))}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '6px',
+                          background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                          color: '#fff', padding: '8px 20px', borderRadius: '100px',
+                          fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
+                          letterSpacing: '0.02em', transition: 'all 0.2s',
+                        }}
+                      >
+                        {`Load more (${episodes.length - visibleEpisodeCount} remaining)`}
+                        <ChevronDownIcon size={14} />
+                      </motion.button>
+                      {episodes.length - visibleEpisodeCount > EPISODES_CHUNK_SIZE && (
+                        <button
+                          type="button"
+                          onClick={() => setVisibleEpisodeCount(episodes.length)}
+                          style={{
+                            background: 'transparent', border: 'none',
+                            color: '#a1a1aa', padding: '8px 12px',
+                            fontSize: '0.78rem', fontWeight: 500, cursor: 'pointer',
+                            textDecoration: 'underline',
+                          }}
+                        >
+                          Show all ({episodes.length})
+                        </button>
+                      )}
+                    </motion.div>
+                  )}
+                  {!hasMore && isExpanded && (
+                    <motion.div
+                      key="show-less"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      style={{
+                        gridColumn: episodeLayout === 'grid' ? '1 / -1' : undefined,
                         display: 'flex', justifyContent: 'center', paddingTop: '1rem',
                       }}
                     >
                       <motion.button
                         whileHover={{ scale: 1.03, background: 'rgba(255,255,255,0.1)' }}
                         whileTap={{ scale: 0.97 }}
-                        onClick={() => setShowAllEpisodes(!showAllEpisodes)}
+                        onClick={() => setVisibleEpisodeCount(EPISODES_CHUNK_SIZE)}
                         style={{
                           display: 'flex', alignItems: 'center', gap: '6px',
                           background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
@@ -1647,8 +1695,8 @@ export default function TitleDetails() {
                           letterSpacing: '0.02em', transition: 'all 0.2s',
                         }}
                       >
-                        {showAllEpisodes ? 'Show less' : `Show all ${episodes.length} episodes`}
-                        <motion.span animate={{ rotate: showAllEpisodes ? 180 : 0 }} transition={{ duration: 0.25 }} style={{ display: 'flex' }}>
+                        Show less
+                        <motion.span animate={{ rotate: 180 }} style={{ display: 'flex' }}>
                           <ChevronDownIcon size={14} />
                         </motion.span>
                       </motion.button>

@@ -627,6 +627,9 @@ const CustomVideoPlayer = ({
   const [isFetchingSubtitles, setIsFetchingSubtitles] = useState(false);
   const [subtitleEnabled, setSubtitleEnabled] = useState(false);
   const [subtitleFileName, setSubtitleFileName] = useState("");
+  const [subtitleOffset, setSubtitleOffset] = useState(0);
+  const subtitleOffsetRef = useRef(0);
+  useEffect(() => { subtitleOffsetRef.current = subtitleOffset; }, [subtitleOffset]);
 
   const isTvContent = movie?.isSeries || String(movie?.id || "").startsWith("tmdb-tv-");
 
@@ -638,6 +641,7 @@ const CustomVideoPlayer = ({
     setShowSkipIntro(false);
     setUpNextCountdown(15);
     setHasInitiallyLoaded(false);
+    setSubtitleOffset(0);
   }, [movie?.id, season, episode]);
 
   // Reset next-episode trigger on mount (player opened) and on unmount (player closed)
@@ -947,7 +951,7 @@ const CustomVideoPlayer = ({
                 onProgressUpdate?.(d.currentTime, d.duration);
               }
               if (hasSubtitlesRef.current) {
-                const cue = subtitleEngineRef.current.getActiveCue(d.currentTime);
+                const cue = subtitleEngineRef.current.getActiveCue(d.currentTime + subtitleOffsetRef.current);
                 setActiveSubtitleCue((p) => p?.start === cue?.start && p?.end === cue?.end ? p : cue);
               }
             }
@@ -4272,6 +4276,91 @@ const CustomVideoPlayer = ({
                   {isFetchingSubtitles ? "Searching..." : "No subtitles found"}
                 </div>
               )}
+            </div>
+            {/* Subtitle Sync Offset */}
+            <div style={{
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.06)",
+              borderRadius: 10,
+              padding: "8px 10px",
+              marginBottom: 10,
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontSize: R.fontSmall, color: "rgba(255,255,255,0.6)", fontWeight: 500, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif" }}>
+                  Sync Offset
+                </span>
+                <span style={{
+                  fontSize: R.fontSmall,
+                  fontVariantNumeric: "tabular-nums",
+                  color: subtitleOffset === 0 ? "rgba(255,255,255,0.4)" : "var(--accent-primary, #60a5fa)",
+                  fontWeight: 600,
+                  fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+                }}>
+                  {subtitleOffset > 0 ? `+${subtitleOffset.toFixed(1)}s` : `${subtitleOffset.toFixed(1)}s`}
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSubtitleOffset((o) => Math.max(-10, Math.round((o - 0.5) * 10) / 10));
+                  }}
+                  style={{
+                    flex: 1,
+                    background: "rgba(255,255,255,0.06)",
+                    border: "none",
+                    color: "#fff",
+                    borderRadius: 6,
+                    padding: "4px 0",
+                    fontSize: R.fontSmall,
+                    cursor: "pointer",
+                    fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+                  }}
+                >
+                  -0.5s
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSubtitleOffset(0);
+                  }}
+                  style={{
+                    flex: 1,
+                    background: "rgba(255,255,255,0.06)",
+                    border: "none",
+                    color: "rgba(255,255,255,0.6)",
+                    borderRadius: 6,
+                    padding: "4px 0",
+                    fontSize: R.fontSmall,
+                    cursor: "pointer",
+                    fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+                  }}
+                >
+                  Reset
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSubtitleOffset((o) => Math.min(10, Math.round((o + 0.5) * 10) / 10));
+                  }}
+                  style={{
+                    flex: 1,
+                    background: "rgba(255,255,255,0.06)",
+                    border: "none",
+                    color: "#fff",
+                    borderRadius: 6,
+                    padding: "4px 0",
+                    fontSize: R.fontSmall,
+                    cursor: "pointer",
+                    fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+                  }}
+                >
+                  +0.5s
+                </button>
+              </div>
             </div>
             <button onClick={(e) => { e.stopPropagation(); subtitleInputRef.current?.click(); setShowSubtitlesMenu(false); }}
               style={{
