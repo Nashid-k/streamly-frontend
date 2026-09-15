@@ -292,7 +292,13 @@ export const movieService = {
       writers: (credits.crew || []).filter(c => c.department === 'Writing').map(c => c.name),
       budget: detail.budget || 0,
       revenue: detail.revenue || 0,
-      productionCompanies: (detail.production_companies || []).map(p => p.name),
+      productionCompanies: (detail.production_companies || []).map(p => ({
+        id: p.id,
+        name: p.name,
+        logo_path: p.logo_path || null,
+        logoUrl: p.logo_path ? `https://image.tmdb.org/t/p/w300${p.logo_path}` : null,
+        originCountry: p.origin_country || null,
+      })),
       filmingLocations: (detail.production_countries || []).map(p => p.name),
       // Curated trailer set — Final → Official → Trailer → Teaser → Extended,
       // one per rank, max 4. No clip/featurette spam.

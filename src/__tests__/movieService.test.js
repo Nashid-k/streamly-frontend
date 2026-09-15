@@ -87,4 +87,44 @@ describe("movieService", () => {
     expect(title.airingSeasonNumber).toBe(3);
     expect(title.nextEpisode).toMatchObject({ seasonNumber: 3, episodeNumber: 4 });
   });
+
+  it("normalizes production companies with rich logo metadata", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: 42,
+          title: "Production Test",
+          genres: [],
+          credits: { cast: [], crew: [] },
+          videos: { results: [] },
+          production_companies: [
+            { id: 101, name: "Warner Bros. Pictures", logo_path: "/warner.png", origin_country: "US" },
+            { id: 102, name: "Legendary", logo_path: null, origin_country: "US" },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({}));
+    vi.stubGlobal("fetch", fetch);
+
+    const title = await movieService.getMovieDetails("movie-42");
+
+    expect(title.productionCompanies).toEqual([
+      {
+        id: 101,
+        name: "Warner Bros. Pictures",
+        logo_path: "/warner.png",
+        logoUrl: "https://image.tmdb.org/t/p/w300/warner.png",
+        originCountry: "US",
+      },
+      {
+        id: 102,
+        name: "Legendary",
+        logo_path: null,
+        logoUrl: null,
+        originCountry: "US",
+      },
+    ]);
+  });
 });
+

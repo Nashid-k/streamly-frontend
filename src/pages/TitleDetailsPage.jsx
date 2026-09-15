@@ -364,6 +364,68 @@ function ServerDropdown({ servers, selectedIndex, onSelect }) {
   );
 }
 
+function ProductionCompaniesBlock({ companies }) {
+  if (!companies || companies.length === 0) return null;
+
+  const normalized = companies
+    .map((c, i) => {
+      if (!c) return null;
+      if (typeof c === "string") {
+        return { id: `pc-${i}`, name: c, logoUrl: null };
+      }
+      const logoPath = c.logoUrl || c.logo_path;
+      const fullLogoUrl = logoPath
+        ? (logoPath.startsWith("http")
+            ? logoPath
+            : `https://image.tmdb.org/t/p/w300${logoPath.startsWith("/") ? logoPath : `/${logoPath}`}`)
+        : null;
+      return {
+        id: c.id || `pc-${i}`,
+        name: c.name,
+        logoUrl: fullLogoUrl,
+      };
+    })
+    .filter(Boolean)
+    .filter((c) => Boolean(c.name || c.logoUrl));
+
+  if (normalized.length === 0) return null;
+
+  // Prioritize companies with actual logos, display up to 6
+  const displayCompanies = [...normalized]
+    .sort((a, b) => (b.logoUrl ? 1 : 0) - (a.logoUrl ? 1 : 0))
+    .slice(0, 6);
+
+  return (
+    <div className="mt-3.5 w-full">
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-white/40 block mb-2">
+        Production
+      </span>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 gap-2">
+        {displayCompanies.map((company) => (
+          <div
+            key={company.id}
+            title={company.name}
+            className="flex items-center justify-center p-2 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] hover:border-white/[0.16] transition-all duration-200 h-12 group overflow-hidden"
+          >
+            {company.logoUrl ? (
+              <img
+                loading="lazy"
+                src={company.logoUrl}
+                alt={company.name}
+                className="max-h-7 w-auto max-w-[85%] object-contain filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] transition-transform duration-200 group-hover:scale-105"
+              />
+            ) : (
+              <span className="text-xs font-medium text-white/70 text-center truncate px-1.5">
+                {company.name}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function TitleDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -628,13 +690,13 @@ export default function TitleDetails() {
       (m) => String(m.id) === String(movieId),
     );
     const savedSeason = Number(saved?.savedSeason);
-    const preferredSeason = seasonNumbers.includes(savedSeason)
+    const preferredSeason = (savedSeason > 0 && seasonNumbers.includes(savedSeason))
       ? savedSeason
-      : airingSeasonNumber || seasonNumbers[0] || 1;
+      : (seasonNumbers.includes(1) ? 1 : (seasonNumbers[0] || 1));
 
     setSelectedSeason(preferredSeason);
-    setPlayingEpisode(saved?.savedEpisode || 1);
-  }, [movieId, isTvContent, airingSeasonNumber, availableSeasonKey]);
+    setPlayingEpisode(Number(saved?.savedEpisode) > 0 ? Number(saved.savedEpisode) : 1);
+  }, [movieId, isTvContent, availableSeasonKey]);
 
   // Scroll handled by useScrollRestoration in Layout
 
@@ -748,30 +810,24 @@ export default function TitleDetails() {
 
   const resolvedPlatform = effectivePlatform;
   const sourceName = movie?.sourceName || getPlatformName(resolvedPlatform) || "Streaming";
+  const airedEpisodeNumbers = episodes
+    .filter((ep) => !ep.airDate || new Date(ep.airDate) <= new Date())
+    .sort((a, b) => (a.episodeNumber || 0) - (b.episodeNumber || 0))
+    .map((ep) => ep.episodeNumber);
+
   const savedEpisodeForSelectedSeason = continueWatching?.find(
     (item) => String(item.id) === String(movie.id)
       && Number(item.savedSeason) === Number(selectedSeason)
       && Number(item.savedEpisode) > 0,
   );
-  const latestAiredEpisode = episodes
-    .filter((ep) => !ep.airDate || new Date(ep.airDate) <= new Date())
-    .at(-1)?.episodeNumber
-    || (movie.lastEpisode?.seasonNumber === selectedSeason
-      ? movie.lastEpisode.episodeNumber
-      : null);
   const episodeToPlay = savedEpisodeForSelectedSeason?.savedEpisode
-    || latestAiredEpisode
-    || 1;
+    || (airedEpisodeNumbers.length > 0 ? airedEpisodeNumbers[0] : 1);
 
   // ── Season-aware episode navigation ─────────────────────────────────────
   // Same philosophy as the hero Play button: step within the *aired* episodes
   // of the selected season, and roll across season boundaries to the previous
   // season's last / next season's first episode instead of landing on an
   // episode number that doesn't exist.
-  const airedEpisodeNumbers = episodes
-    .filter((ep) => !ep.airDate || new Date(ep.airDate) <= new Date())
-    .sort((a, b) => (a.episodeNumber || 0) - (b.episodeNumber || 0))
-    .map((ep) => ep.episodeNumber);
   const currentSeasonIndex = availableSeasonNumbers.indexOf(selectedSeason);
   const hasPrevSeason = currentSeasonIndex > 0;
   const hasNextSeason =
@@ -1075,14 +1131,9 @@ export default function TitleDetails() {
                       <span className="text-xs text-white/80">{movie.revenue.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })}</span>
                     </div>
                   )}
-                  {movie.productionCompanies && movie.productionCompanies.length > 0 && (
-                    <div className="flex items-center justify-between px-3.5 py-2.5">
-                      <span className="text-xs text-white/40 shrink-0">Production</span>
-                      <span className="text-xs text-white/80 text-right truncate max-w-[60%] ml-2">{movie.productionCompanies.slice(0, 3).map(c => c.name).join(", ")}</span>
-                    </div>
-                  )}
                 </div>
               </div>
+              <ProductionCompaniesBlock companies={movie.productionCompanies} />
             </div>
           </div>
 
@@ -1122,15 +1173,7 @@ export default function TitleDetails() {
                 )}
               </div>
             </div>
-            {movie.productionCompanies && movie.productionCompanies.length > 0 && (
-              <div className="mt-4 grid gap-2 grid-cols-2">
-                {movie.productionCompanies.slice(0, 4).map(company => company.logo_path && (
-                  <div key={company.id} className="flex items-center justify-center h-10 px-2">
-                    <img loading="lazy" src={`https://image.tmdb.org/t/p/w200${company.logo_path}`} alt={company.name} title={company.name} className="w-auto max-h-7 object-contain brightness-0 invert opacity-50 max-w-full" />
-                  </div>
-                ))}
-              </div>
-            )}
+            <ProductionCompaniesBlock companies={movie.productionCompanies} />
           </div>
         </div>
       </div>
