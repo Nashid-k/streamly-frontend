@@ -194,35 +194,27 @@ function Layout({ children }) {
       {/* Back to top */}
       <BackToTop />
 
-      {/* Mobile Bottom Navigation Bar */}
+      {/* Mobile Bottom Navigation Bar — 4 spacious, ergonomic touch tabs */}
       <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
-        {NAV_ITEMS.map((item) => (
-          <Link
-            key={`bottom-${item.id}`}
-            to={item.to}
-            className={`bottom-nav-item ${item.match(location.pathname) ? "active" : ""}`}
-            aria-current={item.match(location.pathname) ? "page" : undefined}
-          >
-            <item.icon size={22} strokeWidth={2} />
-            <span>{item.label}</span>
-          </Link>
-        ))}
-        <Link
-          to="/search"
-          className={`bottom-nav-item ${location.pathname === "/search" ? "active" : ""}`}
-          aria-current={location.pathname === "/search" ? "page" : undefined}
-        >
-          <Search size={22} strokeWidth={2} />
-          <span>Search</span>
-        </Link>
-        <Link
-          to="/settings"
-          className={`bottom-nav-item ${location.pathname === "/settings" ? "active" : ""}`}
-          aria-current={location.pathname === "/settings" ? "page" : undefined}
-        >
-          <Settings size={22} strokeWidth={2} />
-          <span>Settings</span>
-        </Link>
+        {[
+          { id: "home", label: "Home", to: "/", icon: Home, match: (p) => p === "/" || p.startsWith("/movies") || p.startsWith("/series") },
+          { id: "explore", label: "Explore", to: "/search", icon: Search, match: (p) => p === "/search" || p.startsWith("/genre/") || p.startsWith("/category/") },
+          { id: "mylist", label: "My List", to: "/watchlist", icon: Bookmark, match: (p) => p === "/watchlist" || p === "/history" },
+          { id: "settings", label: "Settings", to: "/settings", icon: Settings, match: (p) => p === "/settings" },
+        ].map((item) => {
+          const active = item.match(location.pathname);
+          return (
+            <Link
+              key={`bottom-${item.id}`}
+              to={item.to}
+              className={`bottom-nav-item ${active ? "active" : ""}`}
+              aria-current={active ? "page" : undefined}
+            >
+              <item.icon size={21} strokeWidth={2} />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
       </nav>
     </div>
   );

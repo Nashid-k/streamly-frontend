@@ -97,7 +97,14 @@ export default function MovieCard({
   const reduceMotion = useReducedMotion();
   const isTvContent = movie?.isSeries || String(movie?.id || '').startsWith('tmdb-tv-');
 
+  const isTouchDevice = typeof window !== "undefined" && (
+    "ontouchstart" in window ||
+    navigator.maxTouchPoints > 0 ||
+    (window.matchMedia && window.matchMedia("(hover: none), (pointer: coarse)").matches)
+  );
+
   const handleMouseEnter = useCallback(() => {
+    if (isTouchDevice) return;
     // 1. Instantly trigger background data prefetch for 0ms load times if clicked
     PrefetchAdapter.prefetchMovieDetails(movie.id);
 
@@ -105,7 +112,7 @@ export default function MovieCard({
     hoverTimeoutRef.current = setTimeout(() => {
       setIsHovered(true);
     }, 150);
-  }, [movie]);
+  }, [movie, isTouchDevice]);
 
   const handleMouseLeave = useCallback(() => {
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
@@ -216,9 +223,9 @@ export default function MovieCard({
           className="movie-card"
           variants={cardVariants}
           initial="rest"
-          whileHover={reduceMotion ? undefined : "hover"}
-          whileTap={reduceMotion ? undefined : { scale: 0.96 }}
-          animate={isHovered ? "hover" : "rest"}
+          whileHover={reduceMotion || isTouchDevice ? undefined : "hover"}
+          whileTap={reduceMotion ? undefined : { scale: 0.97 }}
+          animate={isHovered && !isTouchDevice ? "hover" : "rest"}
           role="button"
           tabIndex={0}
           aria-label={`View details for ${movie.title}`}

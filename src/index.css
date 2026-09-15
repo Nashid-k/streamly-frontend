@@ -225,6 +225,23 @@ a {
   position: relative;
   background: #050505;
 }
+/* Top ambient scrim — guarantees legibility for brand mark and nav on bright backdrops */
+.app-container::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 110px;
+  background: linear-gradient(180deg, rgba(5, 5, 5, 0.75) 0%, rgba(5, 5, 5, 0.3) 65%, transparent 100%);
+  z-index: 99;
+  pointer-events: none;
+}
+
+/* Mobile & Touch: ensure horizontal rails allow vertical page scrolling on first touch */
+.movie-rail {
+  touch-action: pan-x pan-y;
+}
 
 /* ── Floating pill Navbar — right-docked ───────────────────────────────────
    Right edges the viewport: brand mark sits standalone on the left, the nav
@@ -678,6 +695,7 @@ a {
   margin-bottom: 0;
   box-shadow: none;
   border: none;
+  touch-action: pan-y;
 }
 
 .hero-bg {
@@ -2948,7 +2966,10 @@ input:focus-visible {
   color: rgba(255, 255, 255, 0.85);
 }
 .cast-rail__avatar--monogram {
-  background: linear-gradient(160deg, #3f3f46, #18181b);
+  background: linear-gradient(135deg, rgba(var(--accent-primary-rgb), 0.28), rgba(var(--accent-secondary-rgb), 0.16));
+  border: 1px solid rgba(var(--accent-primary-rgb), 0.4);
+  color: var(--text-primary);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
 }
 .cast-rail__nav {
   display: none;
@@ -6783,6 +6804,9 @@ html[data-theme="solar"] {
   border-radius: 16px;
   margin-bottom: 8px;
 }
+
+
+
 .studio-palette-chip {
   display: flex;
   flex-direction: column;

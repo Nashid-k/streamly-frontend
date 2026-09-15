@@ -64,11 +64,21 @@ export default function CategoryPage() {
 
   const { state } = useLocation();
 
+  const { data: fallbackSearch, isLoading: isFallbackLoading } = useQuery({
+    queryKey: ["category-fallback", categoryName],
+    queryFn: () => movieService.searchMovies(categoryName),
+    enabled: !isLoading && !category && (!state?.movies || state.movies.length === 0),
+  });
+
   const allMovies = useMemo(() => {
     if (state?.movies && state.movies.length > 0) return state.movies;
     if (category?.movies && category.movies.length > 0) return category.movies;
+    if (fallbackSearch) {
+      const list = Array.isArray(fallbackSearch) ? fallbackSearch : fallbackSearch.movies;
+      if (list && list.length > 0) return list;
+    }
     return [];
-  }, [state?.movies, category?.movies]);
+  }, [state?.movies, category?.movies, fallbackSearch]);
 
   // Infinite scroll logic
   const [visibleCount, setVisibleCount] = useState(20);
@@ -96,7 +106,7 @@ export default function CategoryPage() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [allMovies.length]);
 
-  if (isLoading)
+  if (isLoading || isFallbackLoading)
     return (
       <div className="main-content content-page content-page--collection">
         <div className="content-page__inner">
@@ -112,7 +122,7 @@ export default function CategoryPage() {
             <div key={i} className="skeleton-moviecard">
               <div className="skeleton sk-poster"></div>
               <div className="skeleton sk-line sk-line--w70"></div>
-              <div className="skeleton sk-line sk-line--sub"></div>
+              <div className="skeleton sk-line sk-line--w40"></div>
             </div>
           ))}
         </div>
@@ -126,14 +136,24 @@ export default function CategoryPage() {
         <div className="content-page__inner">
         <ContentPageHeader
           eyebrow="Collection"
-          title="Category unavailable"
-          description="This collection may have moved or is no longer available."
+          title={categoryName}
+          description="Collection not found."
           backTo="/"
           backLabel="Browse"
         />
-        <p className="content-page__notice">
-          No category matching "{categoryName}" was found.
-        </p>
+        <div style={{ textAlign: "center", padding: "4rem 1rem" }}>
+          <p className="content-page__notice" style={{ marginBottom: "1.5rem" }}>
+            No titles matching "{categoryName}" were found.
+          </p>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => window.location.assign("/")}
+            style={{ padding: "0.65rem 1.5rem", borderRadius: "999px", cursor: "pointer" }}
+          >
+            Explore Trending Titles
+          </button>
+        </div>
         </div>
       </div>
     );

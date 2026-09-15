@@ -113,18 +113,27 @@ export default function CastRail({ cast }) {
                   style={{ textDecoration: "none", color: "inherit" }}
                 >
                   {m.profileUrl ? (
-                    <img
-                      src={m.profileUrl}
-                      alt={m.name}
-                      loading="lazy"
-                      decoding="async"
-                      className="cast-rail__avatar"
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                        const sib = e.currentTarget.nextElementSibling;
-                        if (sib) sib.style.display = "flex";
-                      }}
-                    />
+                    <>
+                      <img
+                        src={m.profileUrl}
+                        alt={m.name}
+                        loading="lazy"
+                        decoding="async"
+                        className="cast-rail__avatar"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                          const sib = e.currentTarget.nextElementSibling;
+                          if (sib) sib.style.display = "flex";
+                        }}
+                      />
+                      <div
+                        className="cast-rail__avatar cast-rail__avatar--monogram"
+                        aria-hidden="true"
+                        style={{ display: "none" }}
+                      >
+                        {initial}
+                      </div>
+                    </>
                   ) : (
                     <div className="cast-rail__avatar cast-rail__avatar--monogram" aria-hidden="true">
                       {initial}
