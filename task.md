@@ -854,3 +854,37 @@ Cinejoy set. Original "don't edit" constraint was lifted by the user.
     that hard-set `display:none` on `.nav-active-pill` and re-added per-link white pills).
   - Verified: `npm run lint` (0, no warnings), `npm run test` (305/305), `npm run build`
     (✓, `/brand/cinejoy-logo.svg` + `/favicon.svg` emitted into `dist`).
+
+- [x] **Task 61 - Cinejoy nav parity: pill = Home/Movies/Shows/My List/search/settings, settings dropdown, whiter nav hover, neutral card hover**
+  - **Nav inventory (the ask):** Cinejoy's desktop pill is exactly Home · Movies · Shows ·
+    My List · search icon · settings icon — there is NO watch-history icon in the pill.
+    Removed the Watch History `<Link>` from `src/App.jsx` `nav-right` (history still reachable
+    via the new settings dropdown → Watch History, and mobile bottom bar).
+  - **Settings dropdown (Cinejoy `.head-menu`):** clicking the settings icon now drops a
+    Cinejoy-style menu — signed out: **Login · Settings · Watch History** (Shorts deliberately
+    omitted); signed in: account header (32px avatar/initial + name + email) then
+    **Settings · Watch History**. Items navigate to `/settings` (login tab) and `/history`.
+    Rendered with the existing `Popover` component (outside-click + Escape close, spring
+    animate) but as a sibling of `</nav>` INSIDE `.header-row` with `position:fixed` coords
+    measured off the toggle button — escaping `.navbar`'s `overflow:hidden` pill clip AND its
+    `backdrop-filter` containing-block quirk (fixed descendants get trapped otherwise).
+    Position recomputed on resize; menu closes on route change/scroll. Surface = the real
+    Cinejoy glass recipe: `rgba(15,15,15,0.72)`, `blur(28px) saturate(180%)`, border
+    `white/8`, `0 20px 50px`, radius 18 — new `.head-menu*` classes in `src/index.css`.
+    Settings button keeps `data-nav-active` for `/settings` so the shared white `.nav-active-pill`
+    still glides under it; on `/history` the pill simply retracts (Cinejoy has no history item).
+  - **Nav hover (the ask):** hovering the pill now ONLY whitens non-active text — `.nav-link:hover`
+    and `.nav-icon-btn:hover` backgrounds (white/8 chips) deleted; added
+    `.navbar:hover .nav-link:not(.nav-link--active)` → `color:#fff; opacity:1` and same for
+    icon buttons, with explicit guards keeping `.nav-link--active`/`.nav-icon-btn--active`
+    black-on-white and `background:transparent`. Added white `focus-visible` outlines for
+    keyboard users. Active pill is untouched by hover.
+  - **Card / poster hover (the ask — "even the amount of gradient blur"):** replaced the green
+    accent ring glow on `.movie-card:hover .poster-wrapper` (both the base ruleset and the
+    `@media (min-width…)` better-grid override at line ~3958) with a neutral white hairline +
+    deeper black lift (`0 26px 56px`), and `.movie-card:hover .movie-title` green → `#fff`.
+    Poster bottom scrim deepened to match Cinejoy's density: 42% height,
+    `linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.4) 55%, transparent)`. Continue
+    Watching cards already ship the canonical Cinejoy treatment (16:9, image `scale-105`,
+    white glass play orb, 3px white progress bar, edge mask) — left as-is.
+  - Verified: `npm run lint` (0), `npm run test` (305/305), `npm run build` (✓ 2.2s).

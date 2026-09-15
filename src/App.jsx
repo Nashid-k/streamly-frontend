@@ -15,12 +15,14 @@ import {
   Tv,
   Bookmark,
   Clapperboard,
-  Clock,
+  History,
+  LogIn,
 } from "lucide-react";
 import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "framer-motion";
 
 import ErrorBoundary from "./components/ErrorBoundary";
 import GlobalShortcuts from "./components/GlobalShortcuts";
+import Popover from "./components/Popover";
 import Loader from "./components/Loader";
 import BackToTop from "./components/BackToTop";
 import Footer from "./components/Footer";
@@ -53,6 +55,39 @@ function Layout({ children }) {
   const navigate = useNavigate();
   const reduceMotion = useReducedMotion();
   const { user } = useAppAuth();
+
+  /* ── Settings dropdown (Cinejoy .head-menu) ──────────────────────────────
+     Clicking the settings icon drops a menu with Login / Settings / Watch
+     History (no Shorts). The menu is positioned with fixed coords measured
+     off the button so it escapes the pill's overflow/backdrop root. */
+  const settingsBtnRef = useRef(null);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState(null);
+
+  const toggleAccountMenu = useCallback(() => {
+    const el = settingsBtnRef.current;
+    if (!accountMenuOpen && el) {
+      const rect = el.getBoundingClientRect();
+      setMenuPos({ top: rect.bottom + 10, left: Math.max(8, rect.right - 240) });
+    }
+    setAccountMenuOpen((open) => !open);
+  }, [accountMenuOpen]);
+
+  useEffect(() => {
+    if (!accountMenuOpen) return;
+    const reposition = () => {
+      const el = settingsBtnRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      setMenuPos({ top: rect.bottom + 10, left: Math.max(8, rect.right - 240) });
+    };
+    window.addEventListener("resize", reposition);
+    return () => window.removeEventListener("resize", reposition);
+  }, [accountMenuOpen]);
+
+  useEffect(() => {
+    setAccountMenuOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -169,54 +204,123 @@ function Layout({ children }) {
             {/* Cinejoy-style divider between tabs and utility icons */}
             <span className="nav-separator" aria-hidden="true" />
 
-            {/* Right — icon cluster: search · history · settings */}
-          <div className="nav-right">
-            {/* Search */}
-            <Link
-              to="/search"
-              data-nav-active={location.pathname === "/search" ? "true" : undefined}
-              className={`nav-icon-btn${location.pathname === "/search" ? " nav-icon-btn--active" : ""}`}
-              aria-label="Search"
-              title="Search (Ctrl+K)"
-            >
-              <Search size={18} strokeWidth={2} />
-            </Link>
+            {/* Right — icon cluster: search · settings (Cinejoy: home,
+                movies, shows, my list, search icon, settings icon — no
+                watch-history icon; history lives in the settings dropdown) */}
+            <div className="nav-right">
+              {/* Search */}
+              <Link
+                to="/search"
+                data-nav-active={location.pathname === "/search" ? "true" : undefined}
+                className={`nav-icon-btn${location.pathname === "/search" ? " nav-icon-btn--active" : ""}`}
+                aria-label="Search"
+                title="Search (Ctrl+K)"
+              >
+                <Search size={18} strokeWidth={2} />
+              </Link>
 
-            {/* History */}
-            <Link
-              to="/history"
-              data-nav-active={location.pathname === "/history" ? "true" : undefined}
-              className={`nav-icon-btn${location.pathname === "/history" ? " nav-icon-btn--active" : ""}`}
-              aria-label="Watch History"
-              title="Watch History"
-            >
-              <Clock size={18} strokeWidth={2} />
-            </Link>
+              {/* Settings / Account → dropdown */}
+              <button
+                ref={settingsBtnRef}
+                type="button"
+                data-nav-active={location.pathname === "/settings" ? "true" : undefined}
+                className={`nav-icon-btn${location.pathname === "/settings" ? " nav-icon-btn--active" : ""}`}
+                aria-label={user ? `Account (${user.name || user.email})` : "Settings"}
+                aria-haspopup="menu"
+                aria-expanded={accountMenuOpen}
+                title={user ? `Account (${user.name || user.email})` : "Settings"}
+                style={user?.picture ? { padding: 3 } : undefined}
+                onClick={toggleAccountMenu}
+              >
+                {user?.picture ? (
+                  <img
+                    src={user.picture}
+                    alt={user.name || "User"}
+                    className="w-[26px] h-[26px] rounded-full object-cover border border-white/30"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <Settings size={18} strokeWidth={2} />
+                )}
+              </button>
+            </div>
+          </div>
+</nav>
 
-            {/* Settings / Account */}
-            <Link
-              to="/settings"
-              data-nav-active={location.pathname === "/settings" ? "true" : undefined}
-              className={`nav-icon-btn${location.pathname === "/settings" ? " nav-icon-btn--active" : ""}`}
-              aria-label={user ? `Account (${user.name || user.email})` : "Settings"}
-              title={user ? `Account (${user.name || user.email})` : "Settings"}
-              style={user?.picture ? { padding: 3 } : undefined}
+          {/* Settings dropdown — sibling of the pill so it isn't clipped by
+              overflow:hidden nor trapped by the navbar's backdrop-filter root.
+              Positioned with fixed coords measured off the toggle button. */}
+          <Popover
+            isOpen={accountMenuOpen}
+            onClose={() => setAccountMenuOpen(false)}
+            triggerRef={settingsBtnRef}
+            className="head-menu"
+            align="left"
+            style={menuPos ? { position: "fixed", top: menuPos.top, left: menuPos.left } : undefined}
+            role="menu"
+          >
+            {user && (
+              <>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="head-menu-item head-menu-item--account"
+                  onClick={() => navigate("/settings")}
+                >
+                  {user.picture ? (
+                    <img
+                      src={user.picture}
+                      alt={user.name || "User"}
+                      className="head-menu-avatar"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <span className="head-menu-avatar head-menu-avatar--initial">
+                      {(user.name || user.email || "?").charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                  <span className="head-menu-account-text">
+                    <span className="head-menu-account-name">{user.name}</span>
+                    <span className="head-menu-account-email">{user.email}</span>
+                  </span>
+                </button>
+                <div className="head-menu-sep" />
+              </>
+            )}
+            {!user && (
+              <>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="head-menu-item"
+                  onClick={() => navigate("/settings")}
+                >
+                  <LogIn size={16} className="head-menu-item-icon" />
+                  <span>Login</span>
+                </button>
+                <div className="head-menu-sep" />
+              </>
+            )}
+            <button
+              type="button"
+              role="menuitem"
+              className="head-menu-item"
+              onClick={() => navigate("/settings")}
             >
-              {user?.picture ? (
-                <img
-                  src={user.picture}
-                  alt={user.name || "User"}
-                  className="w-[26px] h-[26px] rounded-full object-cover border border-white/30"
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <Settings size={18} strokeWidth={2} />
-              )}
-            </Link>
-          </div>
-          </div>
-        </nav>
-      </div>
+              <Settings size={16} className="head-menu-item-icon" />
+              <span>Settings</span>
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="head-menu-item"
+              onClick={() => navigate("/history")}
+            >
+              <History size={16} className="head-menu-item-icon" />
+              <span>Watch History</span>
+            </button>
+          </Popover>
+        </div>
 
       {/* Main Content Area with Page Transitions */}
       <main className="app-main" id="main-content" tabIndex={-1}>

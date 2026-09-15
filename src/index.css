@@ -400,7 +400,6 @@ a {
 }
 .nav-link:hover {
   opacity: 1;
-  background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
 }
 .nav-link:active {
@@ -442,6 +441,27 @@ a {
 .nav-cluster .nav-link,
 .nav-cluster .nav-icon-btn {
   transition: color var(--nav-fade), background-color var(--nav-fade), opacity var(--nav-fade), transform 0.25s ease;
+}
+
+/* ── Nav hover (Cinejoy): hovering anywhere on the pill whitens every
+   non-active label — no background chips on individual items, and the
+   shared white active pill stays exactly as it is (black ink). */
+.navbar:hover .nav-link:not(.nav-link--active) {
+  opacity: 1;
+  color: #ffffff;
+}
+.navbar:hover .nav-icon-btn:not(.nav-icon-btn--active) {
+  color: #ffffff;
+}
+.navbar:hover .nav-link--active,
+.navbar:hover .nav-icon-btn--active {
+  color: #000000;
+  background: transparent;
+}
+.nav-link:focus-visible,
+.nav-icon-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 2px;
 }
 .nav-link-label,
 .nav-link svg {
@@ -509,7 +529,6 @@ a {
 }
 .nav-icon-btn:hover {
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.08);
 }
 .nav-icon-btn--active {
   color: #000000;
@@ -600,6 +619,101 @@ a {
 .glass-popover--scrollable {
   overflow-y: auto;
   max-height: 70vh;
+}
+
+/* Cinejoy .head-menu — nav settings dropdown. Glass recipe from the real site:
+   #0f0f0fb8, blur(28px) saturate(180%), white/8 border, 0 20px 50px shadow.
+   Rendered with fixed coords (escapes the pill) so it stays above the page. */
+.head-menu {
+  width: 240px;
+  max-width: calc(100vw - 16px);
+  background: rgba(15, 15, 15, 0.72);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  padding: 6px;
+}
+.head-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 11px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.85rem;
+  font-weight: 500;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.head-menu-item:hover,
+.head-menu-item:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  outline: none;
+}
+.head-menu-item-icon {
+  color: rgba(255, 255, 255, 0.6);
+  flex-shrink: 0;
+  transition: color 0.15s ease;
+}
+.head-menu-item:hover .head-menu-item-icon,
+.head-menu-item:focus-visible .head-menu-item-icon {
+  color: #ffffff;
+}
+.head-menu-sep {
+  height: 1px;
+  margin: 5px 8px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.head-menu-item--account {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+}
+.head-menu-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  flex-shrink: 0;
+}
+.head-menu-avatar--initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-gradient, linear-gradient(135deg, #95ff50, #5ce21c));
+  color: #000;
+  font-weight: 700;
+  font-size: 1rem;
+}
+.head-menu-account-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.head-menu-account-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.head-menu-account-email {
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Shared menu item row (used by user menu, dropdown options). */
@@ -1529,21 +1643,21 @@ a {
   content: "";
   position: absolute;
   inset: auto 0 0 0;
-  height: 38%;
-  background: linear-gradient(to top, rgba(0,0,0,0.72), rgba(0,0,0,0.12), transparent);
+  height: 42%;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.4) 55%, transparent);
   pointer-events: none;
 }
 
-/* Subtle border + shadow glow on hover — framer-motion handles scale */
+/* Neutral white hairline + deep lift on hover — framer-motion handles scale */
 .movie-card:hover .poster-wrapper {
   transition:
     box-shadow 0.3s ease-out,
     border-color 0.3s ease-out;
   box-shadow:
-    0 24px 52px -8px rgba(0, 0, 0, 0.9),
-    0 0 0 1px rgba(var(--accent-primary-rgb), 0.32),
-    0 0 32px -12px var(--accent-glow, rgba(149, 255, 80, 0.35));
-  border-color: rgba(255, 255, 255, 0.18);
+    0 26px 56px -14px rgba(0, 0, 0, 0.85),
+    0 0 0 1px rgba(255, 255, 255, 0.14),
+    0 0 30px -16px rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.22);
 }
 
 .movie-poster {
@@ -1620,7 +1734,7 @@ a {
   transition: color 0.25s ease;
 }
 .movie-card:hover .movie-title {
-  color: var(--accent-primary, #95ff50);
+  color: #ffffff;
 }
 .movie-meta {
   display: flex;
@@ -3956,8 +4070,8 @@ body::after {
 }
 
 .movie-card:hover .poster-wrapper {
-  border-color: rgba(var(--accent-secondary-rgb), 0.35);
-  box-shadow: 0 24px 52px -14px rgba(0, 0, 0, 0.88), 0 0 0 1px rgba(var(--accent-primary-rgb), 0.28), 0 0 32px -14px var(--accent-glow, rgba(149, 255, 80, 0.36));
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 26px 56px -14px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.12), 0 0 30px -16px rgba(255, 255, 255, 0.18);
 }
 
 .movie-card:focus-visible {
