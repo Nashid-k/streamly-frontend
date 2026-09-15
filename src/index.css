@@ -261,95 +261,102 @@ a {
   touch-action: pan-x pan-y;
 }
 
-/* ── Floating pill Navbar — right-docked ───────────────────────────────────
-   Right edges the viewport: brand mark sits standalone on the left, the nav
-   links + icon cluster dock right. Subtle glass over hero; deep frosted glass
-   once scrolled. */
-.navbar {
+/* ── Header row: two independent floating islands ──────────────────────────
+   Cinejoy .header-row — a transparent full-width frame (NO connected bar).
+   Brand-mark hangs alone on the left; the desktop-nav glass pill floats at
+   the right. Row is pointer-events:none so it never blocks clicks, children
+   re-enable it. */
+.header-row {
   position: fixed;
-  top: calc(env(safe-area-inset-top, 0px) + 12px);
-  left: 50%;
-  right: auto;
-  transform: translateX(-50%);
+  inset: 0 0 auto 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: calc(env(safe-area-inset-top, 0px) + 12px) clamp(0.75rem, 2vw, 1.25rem) 0;
+  pointer-events: none;
+  transition: padding 0.32s var(--condense-ease);
+}
+.header-row:hover,
+.header-row:has(:focus-visible) {
+  --row-hover: 1;
+}
+
+/* Brand — standalone floating logo at the left end (Cinejoy .brand-mark) */
+.app-brand-link {
+  display: inline-flex;
+  align-items: center;
+  pointer-events: auto;
+  border-radius: 999px;
+  line-height: 0;
+}
+.brand-mark {
+  display: block;
+  height: var(--brand-h, 44px);
+  width: auto;
+  filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.45));
+  transition: height 0.32s var(--condense-ease), filter 0.3s ease;
+}
+.header-row.scrolled {
+  --brand-h: 38px;
+}
+
+/* Cinejoy .logo-legible — soft glow so the mark stays crisp over art */
+.logo-legible {
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.55))
+    drop-shadow(0 0 3px rgba(0, 0, 0, 0.35)) drop-shadow(0 2px 12px rgba(255, 255, 255, 0.16));
+}
+
+/* ── Desktop nav — right-docked floating glass pill (Cinejoy .desktop-nav
+   + .glass-header): padding condenses with --nav-pad on scroll, and the
+   frosting deepens. NOT connected to the brand island. */
+.navbar {
+  position: relative;
+  margin-left: auto;
+  pointer-events: auto;
+  isolation: isolate;
+  overflow: hidden;
   z-index: var(--z-sticky);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 20px;
   padding: var(--nav-pad) 10px var(--nav-pad) var(--nav-pad);
-  max-width: calc(100vw - 2rem);
   border-radius: 999px;
   background: rgba(14, 14, 16, 0.38);
   backdrop-filter: blur(20px) saturate(160%);
   -webkit-backdrop-filter: blur(20px) saturate(160%);
   border: 1px solid rgba(255, 255, 255, 0.07);
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.07), 0 8px 30px rgba(0, 0, 0, 0.3);
-  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, padding 0.32s var(--condense-ease);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.12), 0 8px 30px rgba(0, 0, 0, 0.3);
+  transition: padding 0.32s var(--condense-ease), background-color 0.3s ease, border-color 0.3s ease,
+    box-shadow 0.3s ease;
   will-change: background, backdrop-filter, border-color, box-shadow;
 }
 .navbar.scrolled {
-  padding-top: 3px;
-  padding-bottom: 3px;
-  background: rgba(12, 12, 14, 0.52);
+  --nav-pad: 3px;
+  background: rgba(12, 12, 14, 0.85);
   backdrop-filter: blur(20px) saturate(160%);
   -webkit-backdrop-filter: blur(20px) saturate(160%);
   border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.08), 0 10px 36px rgba(0, 0, 0, 0.4);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.14), 0 10px 36px rgba(0, 0, 0, 0.4);
+}
+@media (min-width: 1024px) {
+  .navbar:not(.scrolled):hover {
+    border-color: rgba(255, 255, 255, 0.14);
+  }
 }
 
-/* Right zone — nav links + icons grouped together */
+/* Right zone — nav links + icons grouped together inside the pill */
 .nav-cluster {
   display: flex;
   align-items: center;
   gap: 22px;
   flex: 0 1 auto;
   min-width: 0;
+  position: relative;
+  z-index: 1;
 }
 
-/* ── Brand mark — first child inside the pill (no longer fixed/standalone) ── */
-.app-brand {
-  display: flex;
-  align-items: center;
-  flex: 0 0 auto;
-}
-.app-brand-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.65rem;
-  color: #ffffff;
-  text-decoration: none;
-  padding: 6px 14px 6px 8px;
-  border-radius: 999px;
-  background: transparent;
-  border: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  box-shadow: none;
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), filter 0.3s ease, background 0.3s ease;
-  white-space: nowrap;
-}
-.app-brand-link:hover {
-  background: rgba(255, 255, 255, 0.06);
-  transform: translateY(-1px);
-}
-.app-brand-link.scrolled {
-  background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-}
-.app-brand-mark {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.45));
-  flex-shrink: 0;
-}
-.app-brand-word {
-  font-weight: 800;
-  font-size: 1.18rem;
-  letter-spacing: -0.03em;
-  line-height: 1;
-}
+/* Gradient accent used by the footer wordmark */
 .app-brand-word-accent {
   background: var(--accent-gradient, linear-gradient(135deg, #95ff50, #5ce21c));
   -webkit-background-clip: text;
@@ -400,48 +407,55 @@ a {
   transform: scale(0.96);
 }
 
-/* Home — renders as a normal nav link, and becomes the solid white Cinejoy
-   pill (.theme-pill-bg) ONLY while on the home route. */
+/* Active state — the shared pill provides the white background; the link only
+   flips its ink to black with the same --nav-fade the real site uses. */
 .nav-link--home {
   gap: 6px;
   padding: 0 16px;
   font-weight: 600;
 }
-.nav-link--home:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
-}
-.nav-link--home.nav-link--active {
-  background: #ffffff;
-  color: #000000;
-  opacity: 1;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 16px 1px rgba(255, 255, 255, 0.18);
-}
-
 .nav-link--active {
   opacity: 1;
   font-weight: 600;
   color: #000000;
-  background: #ffffff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 16px 1px rgba(255, 255, 255, 0.18);
+}
+.nav-link--active .nav-link-icon {
+  color: inherit;
 }
 
-.nav-link {
-  position: relative;
-  z-index: 0;
-}
+/* ── Cinejoy .nav-pill — ONE shared highlight that glides between items.
+   x/width are injected from real measurements in App.jsx and animated with
+   the identical --nav-transition spring cubic-bezier. */
 .nav-active-pill {
   position: absolute;
-  inset: 0;
+  left: 0;
+  top: var(--nav-pad);
+  bottom: var(--nav-pad);
   border-radius: 999px;
   background: #ffffff;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 16px 1px rgba(255, 255, 255, 0.18);
   z-index: 0;
+  pointer-events: none;
+  will-change: transform, width;
+  transition: transform var(--nav-transition), width var(--nav-transition), opacity var(--nav-fade);
+}
+.nav-cluster .nav-link,
+.nav-cluster .nav-icon-btn {
+  transition: color var(--nav-fade), background-color var(--nav-fade), opacity var(--nav-fade), transform 0.25s ease;
 }
 .nav-link-label,
 .nav-link svg {
   position: relative;
   z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-active-pill,
+  .navbar,
+  .header-row,
+  .brand-mark {
+    transition: none !important;
+  }
 }
 .nav-link:not(.nav-link--home):not(.nav-link--active) .nav-link-icon {
   display: none;
@@ -499,8 +513,6 @@ a {
 }
 .nav-icon-btn--active {
   color: #000000;
-  background: #ffffff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 16px 1px rgba(255, 255, 255, 0.15);
 }
 
 /* Notification badge */
@@ -2502,9 +2514,10 @@ input:focus-visible {
     height: 320px;
   }
 
-  /* Keep the floating pill navbar on tablet, just tucked closer to the top with safe area */
-  .navbar {
-    top: calc(8px + env(safe-area-inset-top, 0px));
+  /* Desktop nav pill sits inside the header row — just keep comfortable gutters */
+  .header-row {
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
   .main-content {
     padding: 0 2rem 4rem;
@@ -2513,11 +2526,6 @@ input:focus-visible {
 
 /* Tablet viewport between 769px and 1024px — keep nav comfortable and prevent collision with brand */
 @media (min-width: 769px) and (max-width: 1024px) {
-  .navbar {
-    top: calc(10px + env(safe-area-inset-top, 0px));
-    gap: 0.5rem;
-    padding: 6px 10px 6px 4px;
-  }
   .nav-cluster {
     gap: 12px;
   }
@@ -2606,40 +2614,17 @@ input:focus-visible {
     padding-top: 0 !important;
   }
 
-  /* Navbar with safe area insets — centered one-piece pill */
-  .navbar {
-    top: calc(8px + env(safe-area-inset-top, 0px)) !important;
-    left: 50% !important;
-    right: auto !important;
-    transform: translateX(-50%) !important;
-    padding: 6px !important;
-    gap: 0.5rem !important;
-    height: auto;
-    background: rgba(12, 12, 15, 0.75) !important;
-    backdrop-filter: blur(32px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(32px) saturate(180%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  /* Mobile: bottom bar is primary — the desktop nav pill hides, brand floats
+     alone top-left exactly like the real mobile header */
+  .header-row {
+    padding: calc(env(safe-area-inset-top, 0px) + 8px) 0.75rem 0;
   }
-  .nav-cluster {
-    gap: 8px !important;
+  .header-row .navbar {
+    display: none;
   }
-  .nav-links,
-  .nav-pill,
-  .search-container {
-    display: none !important;
-  }
-  .logo,
-  .app-brand-link {
-    font-size: 1.05rem !important;
-    gap: 4px !important;
-    padding: 4px 10px 4px 4px !important;
-  }
-  .app-brand-word {
-    display: none !important;
-  }
-  .app-brand-mark svg {
-    width: 36px;
-    height: 36px;
+  .header-row .brand-mark {
+    --brand-h: 36px;
+    height: var(--brand-h);
   }
   .nav-icon-btn {
     width: 36px;
@@ -3187,85 +3172,7 @@ body::after {
     radial-gradient(34rem 22rem at 100% 35%, rgba(92, 226, 28, 0.035), transparent 76%);
 }
 
-/* ── Navigation: official Cinejoy glass dock (final override) ──────────── */
-.navbar {
-  isolation: isolate;
-  overflow: hidden;
-  background: rgba(14, 14, 16, 0.38);
-  border-color: rgba(255, 255, 255, 0.07);
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.07), 0 8px 30px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-}
-
-.navbar::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background: linear-gradient(110deg, rgba(255, 255, 255, 0.06), transparent 34%, rgba(149, 255, 80, 0.05));
-  opacity: 0.7;
-}
-
-.navbar.scrolled {
-  background: rgba(12, 12, 14, 0.52);
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.08), 0 10px 36px rgba(0, 0, 0, 0.4);
-}
-
-.app-brand-link {
-  padding-right: 0.85rem;
-  border: 1px solid transparent;
-}
-
-.app-brand-link:hover,
-.app-brand-link:focus-visible {
-  background: rgba(255, 255, 255, 0.055);
-  border-color: rgba(255, 255, 255, 0.09);
-}
-
-.nav-link {
-  position: relative;
-  z-index: 0;
-  opacity: 0.72;
-}
-
-.nav-link:hover,
-.nav-link:focus-visible {
-  opacity: 1;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.nav-link--active,
-.nav-link--home.nav-link--active {
-  opacity: 1;
-  background: #ffffff;
-  color: #000000;
-  border-color: transparent;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 16px 1px rgba(255, 255, 255, 0.18);
-}
-
-.nav-active-pill {
-  display: none;
-}
-
-.nav-icon-btn {
-  border-radius: 50%;
-  color: rgba(255, 255, 255, 0.72);
-}
-
-.nav-icon-btn:hover,
-.nav-icon-btn:focus-visible,
-.nav-icon-btn--active {
-  background: #ffffff;
-  color: #000000;
-}
-
-.nav-icon-btn--active {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 16px 1px rgba(255, 255, 255, 0.15);
-}
-
+/* ── Shared browse-page hierarchy ──────────────────────────────────────── */
 .nav-link:focus-visible,
 .nav-icon-btn:focus-visible,
 .app-brand-link:focus-visible,
@@ -4146,14 +4053,6 @@ body::after {
 }
 
 @media (max-width: 768px) {
-  .navbar {
-    overflow: visible;
-  }
-
-  .navbar::before {
-    border-radius: inherit;
-  }
-
   .nav-right {
     gap: 0.2rem;
   }

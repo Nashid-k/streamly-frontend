@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense, lazy } from "react";
+import { useState, useEffect, useRef, useCallback, useLayoutEffect, Suspense, lazy } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -85,107 +85,138 @@ function Layout({ children }) {
     };
   }, []);
 
+  /* ── Sliding active pill (Cinejoy .nav-pill) ─────────────────────────────
+     One shared highlight that glides between whatever nav item is active —
+     brand links AND icon buttons on the same track. Position/width are driven
+     by real DOM measurements fed into CSS vars so the transition uses the
+     exact same `--nav-transition` cubic-bezier as the real site. */
+  const navRef = useRef(null);
+  const [pill, setPill] = useState({ x: 0, w: 0, ready: false });
+
+  const measurePill = useCallback(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    const active = nav.querySelector('[data-nav-active="true"]');
+    const x = active ? active.offsetLeft : 0;
+    const w = active ? active.offsetWidth : 0;
+    setPill((prev) => (prev.x === x && prev.w === w ? prev : { x, w, ready: true }));
+  }, []);
+
+  useLayoutEffect(() => {
+    measurePill();
+  });
+
+  useEffect(() => {
+    window.addEventListener("resize", measurePill);
+    window.addEventListener("scroll", measurePill, { passive: true });
+    if (document.fonts?.ready) document.fonts.ready.then(measurePill);
+    return () => {
+      window.removeEventListener("resize", measurePill);
+      window.removeEventListener("scroll", measurePill);
+    };
+  }, [measurePill]);
+
   return (
     <div className="app-container">
-      {/* ── Primary navigation ─────────────────────────────────────────────────
-          One-piece centered frosted pill (Cinejoy-style): brand mark sits at
-          the pill's left edge, tabs in the middle, a divider, then the
-          utility icon cluster (search · history · settings) on the right. */}
-      <nav className={`navbar${isScrolled ? " scrolled" : ""}`} aria-label="Primary navigation">
-        <div className="app-brand">
-          <Link to="/" className="app-brand-link" aria-label="Streamly home">
-            <span className="app-brand-mark">
-              <svg viewBox="0 0 48 48" width="44" height="44" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <defs>
-                  <linearGradient id="brand-accent-grad" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-                    <stop offset="0" style={{ stopColor: "var(--accent-primary, #95ff50)" }} />
-                    <stop offset="1" style={{ stopColor: "var(--accent-secondary, #5ce21c)" }} />
-                  </linearGradient>
-                </defs>
-                <rect x="1.5" y="1.5" width="45" height="45" rx="14" style={{ fill: "url(#brand-accent-grad)" }} />
-                <path d="M20.5 16 L32.5 24 L20.5 32 Z" style={{ fill: "var(--on-accent, #ffffff)" }} />
-                <circle cx="13" cy="35" r="2.2" style={{ fill: "var(--on-accent, #ffffff)" }} />
-              </svg>
-            </span>
-            <span className="app-brand-word">
-              Stream<span className="app-brand-word-accent">ly</span>
-            </span>
-          </Link>
-        </div>
-        {/* Right — nav links + icon cluster */}
-        <div className="nav-cluster">
-          <div className="nav-links">
-            {NAV_ITEMS.map((item) => {
-              const active = item.match(location.pathname);
-              return (
-                <Link
-                  key={item.id}
-                  to={item.to}
-                  className={`nav-link${item.home ? " nav-link--home" : ""}${active ? " nav-link--active" : ""}`}
-                  aria-current={active ? "page" : undefined}
-                >
-                  {active && !item.home && (
-                    <motion.span
-                      layoutId="nav-active-pill"
-                      className="nav-active-pill"
-                      transition={{ type: "spring", stiffness: 320, damping: 28 }}
-                    />
-                  )}
-                  {/* Icon shows on compact/tablet viewports, and on Home or active page in desktop */}
-                  <item.icon size={16} strokeWidth={2} className="nav-link-icon" />
-                  <span className="nav-link-label">{item.label}</span>
-                </Link>
-              );
-            })}
+      {/* ── Primary navigation ────────────────────────────────────────────────
+          Two independent floating islands (Cinejoy .header-row):
+          • brand-mark hangs ALONE at the left end
+          • the desktop-nav glass pill (tabs · divider · icons) floats at the
+            right end — no single connected navbar bar between them. */}
+      <div className={`header-row${isScrolled ? " scrolled" : ""}`}>
+        <Link to="/" className="app-brand-link" aria-label="Cinejoy home">
+          <img
+            src="/brand/cinejoy-logo.svg"
+            alt="Cinejoy"
+            className="brand-mark logo-legible"
+            width={512}
+            height={543}
+            draggable={false}
+          />
+        </Link>
+
+        <nav ref={navRef} className={`navbar${isScrolled ? " scrolled" : ""}`} aria-label="Primary navigation">
+          {/* Shared sliding highlight (Cinejoy .nav-pill) */}
+          <span
+            className="nav-active-pill"
+            style={{
+              transform: `translateX(${pill.x}px)`,
+              width: `${pill.w}px`,
+              opacity: pill.ready ? 1 : 0,
+            }}
+            aria-hidden="true"
+          />
+          <div className="nav-cluster">
+            <div className="nav-links">
+              {NAV_ITEMS.map((item) => {
+                const active = item.match(location.pathname);
+                return (
+                  <Link
+                    key={item.id}
+                    to={item.to}
+                    data-nav-active={active ? "true" : undefined}
+                    className={`nav-link${item.home ? " nav-link--home" : ""}${active ? " nav-link--active" : ""}`}
+                    aria-current={active ? "page" : undefined}
+                  >
+                    {/* Icon shows on compact/tablet viewports, and on Home or active page in desktop */}
+                    <item.icon size={16} strokeWidth={2} className="nav-link-icon" />
+                    <span className="nav-link-label">{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+
+            {/* Cinejoy-style divider between tabs and utility icons */}
+            <span className="nav-separator" aria-hidden="true" />
+
+            {/* Right — icon cluster: search · history · settings */}
+          <div className="nav-right">
+            {/* Search */}
+            <Link
+              to="/search"
+              data-nav-active={location.pathname === "/search" ? "true" : undefined}
+              className={`nav-icon-btn${location.pathname === "/search" ? " nav-icon-btn--active" : ""}`}
+              aria-label="Search"
+              title="Search (Ctrl+K)"
+            >
+              <Search size={18} strokeWidth={2} />
+            </Link>
+
+            {/* History */}
+            <Link
+              to="/history"
+              data-nav-active={location.pathname === "/history" ? "true" : undefined}
+              className={`nav-icon-btn${location.pathname === "/history" ? " nav-icon-btn--active" : ""}`}
+              aria-label="Watch History"
+              title="Watch History"
+            >
+              <Clock size={18} strokeWidth={2} />
+            </Link>
+
+            {/* Settings / Account */}
+            <Link
+              to="/settings"
+              data-nav-active={location.pathname === "/settings" ? "true" : undefined}
+              className={`nav-icon-btn${location.pathname === "/settings" ? " nav-icon-btn--active" : ""}`}
+              aria-label={user ? `Account (${user.name || user.email})` : "Settings"}
+              title={user ? `Account (${user.name || user.email})` : "Settings"}
+              style={user?.picture ? { padding: 3 } : undefined}
+            >
+              {user?.picture ? (
+                <img
+                  src={user.picture}
+                  alt={user.name || "User"}
+                  className="w-[26px] h-[26px] rounded-full object-cover border border-white/30"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <Settings size={18} strokeWidth={2} />
+              )}
+            </Link>
           </div>
-
-          {/* Cinejoy-style divider between tabs and utility icons */}
-          <span className="nav-separator" aria-hidden="true" />
-
-          {/* Right — icon cluster: search · history · settings */}
-        <div className="nav-right">
-          {/* Search */}
-          <Link
-            to="/search"
-            className={`nav-icon-btn${location.pathname === "/search" ? " nav-icon-btn--active" : ""}`}
-            aria-label="Search"
-            title="Search (Ctrl+K)"
-          >
-            <Search size={18} strokeWidth={2} />
-          </Link>
-
-          {/* History */}
-          <Link
-            to="/history"
-            className={`nav-icon-btn${location.pathname === "/history" ? " nav-icon-btn--active" : ""}`}
-            aria-label="Watch History"
-            title="Watch History"
-          >
-            <Clock size={18} strokeWidth={2} />
-          </Link>
-
-          {/* Settings / Account */}
-          <Link
-            to="/settings"
-            className={`nav-icon-btn${location.pathname === "/settings" ? " nav-icon-btn--active" : ""}`}
-            aria-label={user ? `Account (${user.name || user.email})` : "Settings"}
-            title={user ? `Account (${user.name || user.email})` : "Settings"}
-            style={user?.picture ? { padding: 3 } : undefined}
-          >
-            {user?.picture ? (
-              <img
-                src={user.picture}
-                alt={user.name || "User"}
-                className="w-[26px] h-[26px] rounded-full object-cover border border-white/30"
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <Settings size={18} strokeWidth={2} />
-            )}
-          </Link>
-        </div>
-        </div>
-      </nav>
+          </div>
+        </nav>
+      </div>
 
       {/* Main Content Area with Page Transitions */}
       <main className="app-main" id="main-content" tabIndex={-1}>

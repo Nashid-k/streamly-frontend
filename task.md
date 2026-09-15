@@ -823,3 +823,34 @@ Cinejoy set. Original "don't edit" constraint was lifted by the user.
     `.settings-nav` → centered safe rail (dock pill provided by sticky bar); `.glass-card` → dark glass
     recipe + `scroll-margin-top` + `.is-flash` ring, dropped hover + heavy shadow.
   - Verified: `npm run lint` (0), `npm run test` (305/305), `npm run build` (✓).
+
+## Real Cinejoy logo + separated nav islands + sliding pill — Task 60
+
+- [x] **Task 60 - Two-island header (brand-mark END | nav pill END), official logo, real transitions**
+  - Reverse-engineered the header's FULL component CSS (scope `.svelte-1elxaub`, tail of `0.ugGWN4mw.css`):
+    `.header-row` (`margin-top:safe-area`, `transition:padding .32s var(--condense-ease)`), `.brand-mark`
+    (height condenses on scroll), `.desktop-nav` (`.glass-header` frosting, `padding:var(--nav-pad)`,
+    `--nav-pad:3px` when `is-scrolled`), `.nav-pill` (`top/bottom:var(--nav-pad)`,
+    `transition:transform/width var(--nav-transition)`), `--pill-glow` shadow,
+    `--logo-legible` drop-shadow. Browser nav: `min-width:280px;max-width:95vw;justify-content:space-around`,
+    landscape `scale(.75)` origin bottom (already mirrored).
+  - Recovered the **real logo**: Cinejoy ships it as `favicon.svg`
+    (`https://cinejoy.to/favicon.svg`, Adobe-export; `#95ff50` arcs + `#0c0c0c` body + white accents).
+    Copied verbatim → `public/favicon.svg` (now linked from `index.html`) and a light-on-dark recolor
+    (body → white) → `public/brand/cinejoy-logo.svg` for the nav. The old gradient "Streamly ≤" SVG+wordmark
+    is gone from the header.
+  - **Layout fix (the ask):** no more single connected pill. `.header-row` is now `position:fixed`
+    full-width, `display:flex; justify-content:space-between`, `pointer-events:none` (children re-enable),
+    transparent — brand link floats ALONE top-left (`.brand-mark.logo-legible`, height `--brand-h`
+    44→38px on scroll), and the `.navbar` glass pill floats independently at the right end with
+    `margin-left:auto`. On ≤768px the desktop pill hides (mobile bottom bar is primary) and the brand
+    floats alone at 36px.
+  - **Real sliding pill animation** (`.nav-active-pill`): ONE shared white highlight that glides between
+    tabs AND icon buttons on the same track — measured in `App.jsx` via `offsetLeft/offsetWidth`, fed as
+    CSS vars x/width, animated with the identical `--nav-transition` spring cubic-bezier + `--nav-fade`
+    for ink. Removed per-item solid-white active pills and the framer `layoutId` hack. Condense pill
+    (`top/bottom:var(--nav-pad)`) animates with the same `.32s condense-ease`. `prefers-reduced-motion`
+    guard added. Removed three legacy `.navbar` override blocks that fought this (the "final override"
+    that hard-set `display:none` on `.nav-active-pill` and re-added per-link white pills).
+  - Verified: `npm run lint` (0, no warnings), `npm run test` (305/305), `npm run build`
+    (✓, `/brand/cinejoy-logo.svg` + `/favicon.svg` emitted into `dist`).
