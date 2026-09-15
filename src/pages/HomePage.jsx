@@ -1129,7 +1129,7 @@ export default function Home({
   }, [totalFeatured]);
 
   return (
-    <div className="main-content" style={{ paddingBottom: "2rem" }}>
+    <div className="main-content main-content--has-hero" style={{ paddingBottom: "2rem" }}>
       <AmbientBackground
         src={
           activeFeaturedMovie

@@ -174,6 +174,16 @@ textarea {
   -webkit-tap-highlight-color: transparent;
 }
 
+button {
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  background-color: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
 ::selection {
   background: rgba(var(--accent-primary-rgb), 0.35);
   color: #fff;
@@ -2398,6 +2408,15 @@ input:focus-visible {
     padding: 56px clamp(1rem, 4vw, 2rem) 5rem !important;
   }
 
+  /* Don't add top padding to main-content when it starts with a hero banner,
+     so the banner sits flush at the very top of the screen behind the floating navbar. */
+  .main-content:has(.hero-container),
+  .main-content:has([class*="skeleton-hero"]),
+  .main-content.main-content--has-hero,
+  .main-content.main-content--has-hero[style] {
+    padding-top: 0 !important;
+  }
+
   .details-content-wrapper {
     margin-top: 15vh;
   }
@@ -2449,6 +2468,15 @@ input:focus-visible {
   .main-content,
   .main-content[style] {
     padding: calc(52px + env(safe-area-inset-top, 0px)) clamp(1rem, 4vw, 2rem) calc(5rem + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  /* Don't add top padding to main-content when it starts with a hero banner,
+     so the banner sits flush at the very top of the screen behind the floating navbar. */
+  .main-content:has(.hero-container),
+  .main-content:has([class*="skeleton-hero"]),
+  .main-content.main-content--has-hero,
+  .main-content.main-content--has-hero[style] {
+    padding-top: 0 !important;
   }
 
   /* Navbar with safe area insets */

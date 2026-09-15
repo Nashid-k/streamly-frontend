@@ -803,7 +803,7 @@ export default function SettingsPage() {
                     <button
                       type="button"
                       onClick={() => setQuery("")}
-                      className="px-4 py-2 text-xs font-semibold rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                      className="px-4 py-2 text-xs font-semibold rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors border-none"
                     >
                       Clear search
                     </button>
@@ -812,7 +812,7 @@ export default function SettingsPage() {
                     <button
                       type="button"
                       onClick={() => handleTabClick("all")}
-                      className="px-4 py-2 text-xs font-semibold rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                      className="px-4 py-2 text-xs font-semibold rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors border-none"
                     >
                       Show all
                     </button>
@@ -847,7 +847,7 @@ export default function SettingsPage() {
                       {user ? (
                         <button
                           onClick={handleSignOut}
-                          className="px-4 py-2 text-[13.5px] font-semibold rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1.5"
+                          className="px-4 py-2 text-[13.5px] font-semibold rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1.5 border-none"
                         >
                           <LogOut className="w-4 h-4" />
                           Sign Out
@@ -855,7 +855,7 @@ export default function SettingsPage() {
                       ) : (
                         <button
                           onClick={() => setShowSignInModal(true)}
-                          className="px-5 py-2.5 text-[14px] font-semibold rounded-full bg-white text-black hover:bg-gray-100 transition-colors shadow-[0_2px_10px_rgba(255,255,255,0.1)] focus:outline-none focus-visible:ring-4 focus-visible:ring-white/30"
+                          className="px-5 py-2.5 text-[14px] font-semibold rounded-full bg-white text-black hover:bg-gray-100 transition-colors shadow-[0_2px_10px_rgba(255,255,255,0.1)] focus:outline-none focus-visible:ring-4 focus-visible:ring-white/30 border-none"
                         >
                           Sign In
                         </button>
@@ -889,7 +889,7 @@ export default function SettingsPage() {
                       <button
                         type="button"
                         onClick={openShortcuts}
-                        className="px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white text-xs font-medium flex items-center gap-1 transition-colors"
+                        className="px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white text-xs font-medium flex items-center gap-1 transition-colors border-none"
                       >
                         <SlidersHorizontal className="w-3.5 h-3.5" />
                         Open Guide
@@ -1545,13 +1545,13 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => setShowSignInModal(false)}
-                    className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 text-sm font-semibold transition-colors"
+                    className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 text-sm font-semibold transition-colors border-none"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 py-2.5 rounded-xl [background:var(--accent-gradient)] [color:var(--on-accent,#fff)] hover:brightness-110 text-sm font-bold transition-colors shadow-lg"
+                    className="flex-1 py-2.5 rounded-xl [background:var(--accent-gradient)] [color:var(--on-accent,#fff)] hover:brightness-110 text-sm font-bold transition-colors shadow-lg border-none"
                   >
                     Sign In
                   </button>
@@ -1608,7 +1608,7 @@ export default function SettingsPage() {
                     message: "Your player layout is live on the next video.",
                   });
                 }}
-                className="w-full py-2.5 rounded-xl bg-white text-black hover:bg-gray-200 text-sm font-bold transition-colors mt-4"
+                className="w-full py-2.5 rounded-xl bg-white text-black hover:bg-gray-200 text-sm font-bold transition-colors mt-4 border-none"
               >
                 Done
               </button>

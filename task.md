@@ -388,3 +388,16 @@ hudBlur/hudBorder/hudRadius/hudShadow/hudFont` (every floating card), `toastBg`,
     - Factory Reset Preferences action with confirmation modal in `src/pages/SettingsPage.jsx` backed by `resetPreferences` in `src/context/PreferencesContext.jsx`.
   - **Verification**: `npm run lint` (0 errors, 0 warnings across 114 files), `npm run test` (293/293 passed across 28 test suites), `npm run build` (production build succeeded in 2.56s).
 
+- [x] **Task 35 — Fix mobile and tablet hero banner top spacing parity with movie details page**
+  - **Diagnosed root cause**: Mobile & tablet media queries (`@media (max-width: 768px)`) forced `padding-top: calc(52px + env(safe-area-inset-top, 0px)) !important;` (and `56px !important;`) on `.main-content` to push utility pages below fixed navbar/brand. Unlike `TitleDetailsPage` (which does not use `main-content` and starts at `top: 0`), `HomePage` (and `/movies`, `/series`) wraps its `.hero-container` inside `.main-content`, causing a 52px-56px gap above the banner.
+  - **Implemented fix**:
+    - In `src/index.css`: Added rules to zero out `padding-top` on `.main-content:has(.hero-container)`, `.main-content:has([class*="skeleton-hero"])`, and `.main-content.main-content--has-hero` under both tablet and mobile `@media (max-width: 768px)` blocks so hero banners sit flush edge-to-edge at the very top behind the floating glass header.
+    - In `src/pages/HomePage.jsx`: Added `main-content--has-hero` class to the main wrapper to guarantee zero top padding on mobile/tablet across all browser engines.
+  - **Verification**: `npm run lint` (0 errors, 0 warnings), `npm run test` (293/293 passed across 28 test suites), `npm run build` (success in 2.62s).
+
+- [x] **Task 36 — Remove white half outerline on buttons across Settings and application**
+  - **Diagnosed root cause**: Tailwind v4 was imported without `@import "tailwindcss/preflight";`. Without CSS preflight, browser User Agent stylesheets apply default `border: 2px outset buttonborder;` to HTML `<button>` tags. The 3D `outset` style draws a light/white highlight along the top and left edges while darkening the bottom and right. On dark backgrounds (`#050505`), the darkened half vanishes, leaving a noticeable white half outerline / bevel on buttons that lacked an explicit border reset (e.g. Sign In, Sign Out, Clear Search, Show All, Shortcuts guide, modal action buttons).
+  - **Implemented fix**:
+    - In `src/index.css`: Added a global element reset for `button` (`appearance: none; -webkit-appearance: none; border: none; background-color: transparent; font: inherit; color: inherit; cursor: pointer;`) eliminating browser UA outset borders across the board while allowing explicit border utility classes to style borders as intended.
+    - In `src/pages/SettingsPage.jsx`: Added explicit `border-none` class to buttons in Settings (Clear search, Show all, Sign Out, Sign In, Shortcuts guide, modal action buttons).
+  - **Verification**: `npm run lint` (0 errors, 0 warnings across 114 files), `npm run test` (293/293 passed across 28 test suites), `npm run build` (success in 1.99s).
