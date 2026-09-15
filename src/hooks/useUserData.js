@@ -59,9 +59,19 @@ export function useMyList() {
     dispatch('aios_sync_mylist');
   }, []);
 
+  const removeBatchFromMyList = useCallback((movieIds) => {
+    if (!Array.isArray(movieIds) || movieIds.length === 0) return;
+    const idSet = new Set(movieIds);
+    const prev = myListRef.current;
+    const next = prev.filter(m => !idSet.has(m.id));
+    setMyList(next);
+    writeStorage('aios_my_list', next);
+    dispatch('aios_sync_mylist');
+  }, []);
+
   const isInList = useCallback((id) => myList.some(m => m.id === id), [myList]);
 
-  return { myList, toggleMyList, isInList };
+  return { myList, toggleMyList, removeBatchFromMyList, isInList };
 }
 
 export function useContinueWatching() {
@@ -101,13 +111,30 @@ export function useContinueWatching() {
     });
   }, []);
 
+  const removeBatchFromContinueWatching = useCallback((movieIds) => {
+    if (!Array.isArray(movieIds) || movieIds.length === 0) return;
+    const idSet = new Set(movieIds);
+    setContinueWatching(prev => {
+      const updated = prev.filter(m => !idSet.has(m.id));
+      writeStorage('aios_continue_watching', updated);
+      dispatch('aios_sync_cw');
+      return updated;
+    });
+  }, []);
+
   const clearContinueWatching = useCallback(() => {
     setContinueWatching([]);
     removeStorage('aios_continue_watching');
     dispatch('aios_sync_cw');
   }, []);
 
-  return { continueWatching, updateProgress, removeFromContinueWatching, clearContinueWatching };
+  return {
+    continueWatching,
+    updateProgress,
+    removeFromContinueWatching,
+    removeBatchFromContinueWatching,
+    clearContinueWatching,
+  };
 }
 
 export function useSearchHistory() {

@@ -12,6 +12,7 @@ export default function PersonDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [bioExpanded, setBioExpanded] = useState(false);
+  const [roleTab, setRoleTab] = useState("all");
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -175,6 +176,14 @@ export default function PersonDetails() {
         .sort((a, b) => (b.imdbRating || 0) - (a.imdbRating || 0))
         .slice(0, 4)
     : [];
+
+  const hasMultipleRoles = Boolean(person.castCredits?.length > 0 && person.crewCredits?.length > 0);
+  const activeCredits =
+    roleTab === "acting"
+      ? person.castCredits || []
+      : roleTab === "directing"
+        ? person.crewCredits || []
+        : person.credits || [];
 
   return (
     <div className="main-content person-page">
@@ -410,16 +419,53 @@ export default function PersonDetails() {
       )}
 
       {/* Credits Grid */}
-      {person.credits && person.credits.length > 4 && (
+      {activeCredits && activeCredits.length > 0 && (
         <section>
-          <div className="section-header">
+          <div
+            className="section-header"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "1rem",
+            }}
+          >
             <h2 className="section-title">Full Filmography</h2>
+            {hasMultipleRoles && (
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                {[
+                  { id: "all", label: `All (${person.credits?.length || 0})` },
+                  { id: "acting", label: `Acting (${person.castCredits?.length || 0})` },
+                  { id: "directing", label: `Directing & Crew (${person.crewCredits?.length || 0})` },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setRoleTab(tab.id)}
+                    style={{
+                      background: roleTab === tab.id ? "rgba(var(--accent-primary-rgb), 0.2)" : "rgba(255, 255, 255, 0.05)",
+                      border: roleTab === tab.id ? "1px solid rgba(var(--accent-primary-rgb), 0.4)" : "1px solid rgba(255, 255, 255, 0.1)",
+                      color: roleTab === tab.id ? "var(--accent-primary, #60a5fa)" : "rgba(255, 255, 255, 0.75)",
+                      borderRadius: "999px",
+                      padding: "4px 14px",
+                      fontSize: "0.8rem",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <ErrorBoundary>
           <div className="movie-grid" style={{ marginTop: "1.5rem" }}>
-            {person.credits.map((movie, idx) => (
+            {activeCredits.map((movie, idx) => (
               <motion.div
-                key={`${movie.id}-${idx}`}
+                key={`${movie.id}-${idx}-${roleTab}`}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}

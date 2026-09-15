@@ -31,6 +31,7 @@ import SEO from "../components/SEO";
 import PlayerPreview from "../components/PlayerPreview.jsx";
 import { usePreferences } from "../context/preferences";
 import { useToast } from "../components/Toast.jsx";
+import { useConfirmDialog } from "../components/ConfirmDialog.jsx";
 import { logDebug } from "../utils/debugLogger";
 import {
   PLAYER_ZONES,
@@ -550,7 +551,10 @@ export default function SettingsPage() {
     subtitleBgBlur = true,
     // Setter
     setPreference,
+    resetPreferences,
   } = usePreferences();
+
+  const { confirmDialog, ConfirmDialogRenderer } = useConfirmDialog();
 
   const q = useMemo(() => query.trim().toLowerCase(), [query]);
 
@@ -650,6 +654,23 @@ export default function SettingsPage() {
       type: "info",
       title: "Servers Reset",
       message: "Server priority reset to factory default.",
+    });
+  };
+
+  const handleResetAllPreferences = async () => {
+    const confirmed = await confirmDialog({
+      title: "Reset All Preferences?",
+      message:
+        "This will restore your theme, player layout, and playback preferences to default settings. Your saved watchlist and watch history will remain untouched.",
+      confirmLabel: "Reset to Defaults",
+      cancelLabel: "Cancel",
+    });
+    if (!confirmed) return;
+    resetPreferences?.();
+    toast({
+      type: "success",
+      title: "Preferences Reset",
+      message: "All settings have been restored to defaults.",
     });
   };
 
@@ -1413,9 +1434,53 @@ export default function SettingsPage() {
                 </div>
               </section>
             )}
+
+            {/* ── 7. FACTORY RESET PREFERENCES ── */}
+            {(activeTab === "all" || activeTab === "account") && (
+              <section id="reset-preferences" className="glass-card" style={{ border: "1px solid rgba(244, 63, 94, 0.25)" }}>
+                <div className="section-header">
+                  <h2 className="section-title" style={{ color: "#f87171" }}>Reset All Preferences</h2>
+                  <p className="section-subtitle">
+                    Restore theme, player layout, and playback preferences back to factory defaults. Your My List and Watch History will not be affected.
+                  </p>
+                </div>
+
+                <div className="settings-list">
+                  <SettingRow
+                    title="Factory Reset Preferences"
+                    description="Clears custom themes, subtitle styling, player studio layouts, and server order."
+                  >
+                    <button
+                      type="button"
+                      onClick={handleResetAllPreferences}
+                      style={{
+                        background: "rgba(244, 63, 94, 0.12)",
+                        border: "1px solid rgba(244, 63, 94, 0.3)",
+                        color: "#f87171",
+                        padding: "8px 18px",
+                        borderRadius: "100px",
+                        fontSize: "0.82rem",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        transition: "all 0.2s",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(244, 63, 94, 0.25)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(244, 63, 94, 0.12)")}
+                    >
+                      <RotateCcw size={14} /> Reset Preferences
+                    </button>
+                  </SettingRow>
+                </div>
+              </section>
+            )}
           </div>
         </div>
       </div>
+
+      <ConfirmDialogRenderer />
 
       {/* ── MODALS ── */}
 

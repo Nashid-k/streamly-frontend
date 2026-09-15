@@ -168,9 +168,21 @@ export function PreferencesProvider({ children }) {
     }
   }, []);
 
+  const resetPreferences = useCallback(() => {
+    Object.keys(DEFAULT_PREFERENCES).forEach((key) => {
+      try {
+        localStorage.removeItem(`${SETTING_PREFIX}${key}`);
+      } catch {
+        // Storage fallback
+      }
+    });
+    setPreferences(DEFAULT_PREFERENCES);
+    logDebug("preferences", "All preferences reset to factory defaults.");
+  }, []);
+
   const value = useMemo(
-    () => ({ ...preferences, setPreference, setPlayerControl }),
-    [preferences, setPreference, setPlayerControl],
+    () => ({ ...preferences, setPreference, setPlayerControl, resetPreferences }),
+    [preferences, setPreference, setPlayerControl, resetPreferences],
   );
 
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;

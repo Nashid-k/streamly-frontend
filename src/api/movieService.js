@@ -421,7 +421,15 @@ export const movieService = {
       knownForDepartment: person.known_for_department || null,
       credits: (credits.cast || [])
         .filter(isBrowsableTitle)
-        .map((c) => normalizeResult({ ...c, media_type: c.media_type }))
+        .map((c) => normalizeResult({ ...c, media_type: c.media_type, roleDepartment: 'Acting' }))
+        .slice(0, 50),
+      castCredits: (credits.cast || [])
+        .filter(isBrowsableTitle)
+        .map((c) => normalizeResult({ ...c, media_type: c.media_type, roleDepartment: 'Acting' }))
+        .slice(0, 40),
+      crewCredits: (credits.crew || [])
+        .filter(isBrowsableTitle)
+        .map((c) => normalizeResult({ ...c, media_type: c.media_type, roleDepartment: c.department || 'Production' }))
         .slice(0, 40),
     };
     } catch (error) {
