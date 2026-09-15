@@ -134,9 +134,33 @@ describe("PlayerPreview", () => {
     expect(preview.style.getPropertyValue("--skin-accent")).toBe("#ff3b4e");
   });
 
-  it("resolves custom arrangements to the Classic skin", () => {
+  it("resolves custom arrangements to the Classic skin by default", () => {
     localStorage.setItem("setting-playerUIPreset", JSON.stringify("custom"));
     renderPreview();
     expect(screen.getByTestId("player-preview")).toHaveAttribute("data-player-skin", "classic");
   });
+
+  it("preserves chosen playerUISkin when in custom preset mode", () => {
+    localStorage.setItem("setting-playerUIPreset", JSON.stringify("custom"));
+    localStorage.setItem("setting-playerUISkin", JSON.stringify("apple"));
+    renderPreview();
+    expect(screen.getByTestId("player-preview")).toHaveAttribute("data-player-skin", "apple");
+  });
+
+  it("enables drag-and-drop dropzones across all presets when draggable is true", () => {
+    const { container } = renderPreview({ presetId: "theater", draggable: true });
+    const dropzones = container.querySelectorAll(".player-preview-dropzone");
+    expect(dropzones.length).toBeGreaterThan(0);
+  });
+
+  it("renders buttons with is-variant-* class according to iconVariants", () => {
+    const { container } = renderPreview({
+      iconVariants: { fullscreen: "neon", subtitles: "glass" },
+    });
+    const neonBtn = container.querySelector(".player-preview-btn.is-variant-neon");
+    expect(neonBtn).toBeInTheDocument();
+    const glassBtn = container.querySelector(".player-preview-btn.is-variant-glass");
+    expect(glassBtn).toBeInTheDocument();
+  });
 });
+

@@ -69,7 +69,15 @@ const DemoVideo = () => {
 /* Render one icon like the real player's ghost circles. The real
    barControl only fills playPause's circle; every other icon-variant
    button is a transparent ghost (speed is always a text pill). */
-const PreviewButton = ({ controlKey, variant = "bar", size = 14, children, title }) => {
+const PreviewButton = ({
+  controlKey,
+  variant = "bar",
+  size = 14,
+  children,
+  title,
+  iconVariant = "outline",
+  ...props
+}) => {
   const meta = PLAYER_CONTROLS.find((c) => c.key === controlKey);
   const Icon = meta ? meta.Icon : null;
   const tone =
@@ -79,8 +87,9 @@ const PreviewButton = ({ controlKey, variant = "bar", size = 14, children, title
           : "";
   return (
     <span
-      className={`player-preview-btn${tone}`}
+      className={`player-preview-btn${tone} is-variant-${iconVariant}`}
       title={title || (meta ? meta.label : controlKey)}
+      {...props}
     >
       {Icon ? <Icon size={size} /> : children}
     </span>
@@ -95,8 +104,9 @@ const PlayerPreview = ({
   layout: layoutOverride,
   visibility: visibilityOverride,
   showChrome = true,
-  label,
+  label = "Classic",
   presetId,
+  playerUISkin: playerUISkinProp,
   title = "Streamly Originals",
   episodeTag = "S1:E1",
   draggable = false,
@@ -110,11 +120,15 @@ const PlayerPreview = ({
     playerControls = {},
     playerUILayout,
     playerUIPreset = "classic",
+    playerUISkin: playerUISkinPref = "classic",
+    playerGlobalIconStyle = "auto",
     subtitleFont = "cinejoy",
     subtitleSize = 100,
     subtitleColor = "#ffffff",
     subtitleBgBlur = true,
   } = usePreferences();
+
+  const activeSkin = playerUISkinProp || playerUISkinPref || "classic";
 
   const resolved = React.useMemo(() => {
     if (layoutOverride) return resolveUILayout(layoutOverride);
@@ -133,35 +147,40 @@ const PlayerPreview = ({
      - playbackSpeed: "1x" pill on the bar, plain gauge icon in icon zones.
      - jumpForwardBackward: two buttons (back + forward). */
   const renderControl = (key, variant) => {
-    if (draggable) {
-      const variantStyle = iconVariants[key] || "outline";
-      const meta = PLAYER_CONTROLS.find((c) => c.key === key);
-      const Icon = meta?.Icon;
-      return (
-        <span
-          key={key}
-          draggable
-          onDragStart={(e) => {
+    const variantStyle =
+      iconVariants[key] ||
+      (playerGlobalIconStyle && playerGlobalIconStyle !== "auto" ? playerGlobalIconStyle : null) ||
+      skin.iconVariant ||
+      "outline";
+    const dragProps = draggable
+      ? {
+          draggable: true,
+          onDragStart: (e) => {
             e.stopPropagation();
             e.dataTransfer.setData("text/plain", key);
             e.dataTransfer.effectAllowed = "move";
             onChipDragStart?.(e, key);
-          }}
-          className={`player-preview-chip-${variantStyle}`}
-          style={{ width: 20, height: 20, display: "inline-flex", alignItems: "center", justifyContent: "center", margin: "0 2px", cursor: "grab" }}
-        >
-          {Icon && <Icon size={12} />}
-        </span>
-      );
-    }
+          },
+          style: { cursor: "grab" },
+        }
+      : {};
 
     if (key === "volume") {
       if (variant === "icon") {
-        return <PreviewButton key={key} controlKey={key} variant="icon" size={14} />;
+        return (
+          <PreviewButton
+            key={key}
+            controlKey={key}
+            variant="icon"
+            size={14}
+            iconVariant={variantStyle}
+            {...dragProps}
+          />
+        );
       }
       return (
-        <span key={key} className="player-preview-volume">
-          <PreviewButton controlKey={key} size={14} />
+        <span key={key} className="player-preview-volume" {...dragProps}>
+          <PreviewButton controlKey={key} size={14} iconVariant={variantStyle} />
           <span className="player-preview-volbar" aria-hidden="true">
             <span className="player-preview-volfill" />
           </span>
@@ -171,10 +190,24 @@ const PlayerPreview = ({
     if (key === "jumpForwardBackward") {
       return (
         <React.Fragment key={key}>
-          <PreviewButton controlKey={key} variant={variant} size={13} title="Back 10s">
+          <PreviewButton
+            controlKey={key}
+            variant={variant}
+            size={13}
+            title="Back 10s"
+            iconVariant={variantStyle}
+            {...dragProps}
+          >
             <RotateCcw size={13} />
           </PreviewButton>
-          <PreviewButton controlKey={key} variant={variant} size={13} title="Forward 10s">
+          <PreviewButton
+            controlKey={key}
+            variant={variant}
+            size={13}
+            title="Forward 10s"
+            iconVariant={variantStyle}
+            {...dragProps}
+          >
             <RotateCw size={13} />
           </PreviewButton>
         </React.Fragment>
@@ -183,12 +216,21 @@ const PlayerPreview = ({
     if (key === "playbackSpeed") {
       /* The real player renders the rate pill in every variant. */
       return (
-        <span key={key} className="player-preview-speedpill" title="Speed">
+        <span key={key} className="player-preview-speedpill" title="Speed" {...dragProps}>
           1x
         </span>
       );
     }
-    return <PreviewButton key={key} controlKey={key} variant={variant} size={14} />;
+    return (
+      <PreviewButton
+        key={key}
+        controlKey={key}
+        variant={variant}
+        size={14}
+        iconVariant={variantStyle}
+        {...dragProps}
+      />
+    );
   };
 
   /* Which bottom corner gets the slider — mirrors the real player: the
@@ -206,8 +248,8 @@ const PlayerPreview = ({
      prop overrides the stored preset so the Studio preset cards can show
      each look live; "custom" resolves to the Classic tokens. */
   const skin = React.useMemo(
-    () => resolveSkin(presetId || playerUIPreset),
-    [presetId, playerUIPreset],
+    () => resolveSkin(presetId || (playerUIPreset === "custom" ? activeSkin : playerUIPreset)),
+    [presetId, playerUIPreset, activeSkin],
   );
   const skinVars = React.useMemo(
     () => ({
@@ -269,16 +311,20 @@ const PlayerPreview = ({
   };
 
   const effectivePreset = React.useMemo(() => {
-    if (presetId) return presetId;
+    if (presetId) {
+      if (presetId === "custom") return activeSkin;
+      return presetId === "compact" ? "material" : presetId;
+    }
     if (label && typeof label === "string") {
       const match = PLAYER_UI_PRESETS.find(
         (p) => p.name.toLowerCase() === label.toLowerCase() || p.id === label.toLowerCase(),
       );
       if (match) return match.id;
     }
+    if (playerUIPreset === "custom") return activeSkin;
     if (layoutOverride) return "custom";
     return playerUIPreset || "classic";
-  }, [presetId, label, layoutOverride, playerUIPreset]);
+  }, [presetId, label, layoutOverride, playerUIPreset, activeSkin]);
 
   return (
     <div
@@ -584,7 +630,7 @@ const PlayerPreview = ({
           </div>
         )}
 
-        {draggable && (effectivePreset === "classic" || effectivePreset === "custom") && (
+        {draggable && (
           <>
             <div
               className={`player-preview-dropzone${dragOverZone === "topLeft" ? " is-over" : ""}`}

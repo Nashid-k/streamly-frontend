@@ -107,4 +107,25 @@ describe("CustomVideoPlayer skins", () => {
     expect(document.body.textContent).not.toContain("Oops! Something went wrong");
     expect(container.querySelector(".streamly-player")).toBeInTheDocument();
   });
+
+  it("respects custom playerUISkin and playerIconVariants without crashing", () => {
+    localStorage.setItem("setting-playerUIPreset", JSON.stringify("custom"));
+    localStorage.setItem("setting-playerUISkin", JSON.stringify("apple"));
+    localStorage.setItem(
+      "setting-playerIconVariants",
+      JSON.stringify({ playPause: "neon", subtitles: "glass" })
+    );
+    const { container } = render(
+      <PreferencesProvider>
+        <CustomVideoPlayer
+          movie={MOVIE}
+          servers={VideoSourceAdapter.getServers()}
+        />
+      </PreferencesProvider>
+    );
+    const root = container.querySelector(".streamly-player");
+    expect(root).toBeInTheDocument();
+    expect(root.dataset.playerSkin).toBe("apple");
+  });
 });
+

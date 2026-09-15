@@ -72,10 +72,14 @@ export const PLAYER_CONTROL_ORDER = [
 export const PLAYER_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
 export const ICON_VARIANTS = [
-  { id: "outline", label: "Outline" },
-  { id: "filled", label: "Filled" },
-  { id: "neon", label: "Neon" },
-  { id: "glass", label: "Glass" },
+  { id: "outline", label: "Outline", desc: "Clean modern hairline vector strokes" },
+  { id: "filled", label: "Filled", desc: "Solid filled bold geometric silhouettes" },
+  { id: "neon", label: "Neon Glow", desc: "Vibrant electric cyber luminescence" },
+  { id: "glass", label: "Vision Glass", desc: "Frosted translucent vision glass pods" },
+  { id: "material", label: "Material M3", desc: "Tonal rounded squircle containers" },
+  { id: "retro", label: "Retro Cyber", desc: "Tactile mechanical broadcast deck" },
+  { id: "minimal", label: "Minimalist", desc: "Hairline ultra-lightweight geometry" },
+  { id: "duotone", label: "Duotone", desc: "Layered two-tone contrast styling" },
 ];
 
 export const DEFAULT_ICON_VARIANTS = Object.fromEntries(
@@ -100,6 +104,7 @@ export const PLAYER_UI_SKINS = {
   classic: {
     id: "classic",
     name: "Classic",
+    iconVariant: "outline",
     barBg: "transparent",
     barBlur: "0px",
     barBorder: "none",
@@ -142,6 +147,7 @@ export const PLAYER_UI_SKINS = {
   apple: {
     id: "apple",
     name: "Apple TV",
+    iconVariant: "glass",
     barBg: "rgba(24, 24, 28, 0.82)",
     barBlur: "36px",
     barBorder: "1px solid rgba(255, 255, 255, 0.16)",
@@ -184,6 +190,7 @@ export const PLAYER_UI_SKINS = {
   material: {
     id: "material",
     name: "Material",
+    iconVariant: "material",
     barBg: "rgba(30, 27, 34, 0.95)",
     barBlur: "20px",
     barBorder: "1px solid rgba(255, 255, 255, 0.08)",
@@ -226,6 +233,7 @@ export const PLAYER_UI_SKINS = {
   theater: {
     id: "theater",
     name: "Theater",
+    iconVariant: "neon",
     barBg: "linear-gradient(to top, rgba(24, 14, 4, 0.95), rgba(24, 14, 4, 0.7))",
     barBlur: "16px",
     barBorder: "none",
@@ -268,6 +276,7 @@ export const PLAYER_UI_SKINS = {
   studio: {
     id: "studio",
     name: "Studio",
+    iconVariant: "retro",
     barBg: "rgba(10, 10, 12, 0.98)",
     barBlur: "0px",
     barBorder: "1px solid rgba(255, 255, 255, 0.12)",
@@ -310,6 +319,7 @@ export const PLAYER_UI_SKINS = {
   minimal: {
     id: "minimal",
     name: "Minimal",
+    iconVariant: "minimal",
     barBg: "rgba(0, 0, 0, 0)",
     barBlur: "0px",
     barBorder: "none",

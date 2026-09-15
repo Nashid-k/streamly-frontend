@@ -221,5 +221,28 @@ describe("SettingsPage", () => {
     const layout = JSON.parse(localStorage.getItem("setting-playerUILayout"));
     expect(layout.playPause).toBe("bottomCenter");
     expect(localStorage.getItem("setting-playerUIPreset")).toBe('"custom"');
+    expect(localStorage.getItem("setting-playerUISkin")).toBe('"classic"');
+  });
+
+  it("allows selecting a global icon style across all player controls", () => {
+    render(
+      <MemoryRouter initialEntries={["/settings"]}>
+        <PreferencesProvider>
+          <ToastProvider>
+            <SettingsPage />
+          </ToastProvider>
+        </PreferencesProvider>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /open studio/i }));
+    const studio = within(screen.getByRole("dialog", { name: /player ui studio/i }));
+    const globalNeonBtn = studio.getAllByRole("button", { name: /neon glow/i })[0];
+    fireEvent.click(globalNeonBtn);
+
+    expect(localStorage.getItem("setting-playerGlobalIconStyle")).toBe('"neon"');
+    const iconVariants = JSON.parse(localStorage.getItem("setting-playerIconVariants"));
+    expect(iconVariants.playPause).toBe("neon");
   });
 });
+

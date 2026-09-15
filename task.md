@@ -438,3 +438,30 @@ hudBlur/hudBorder/hudRadius/hudShadow/hudFont` (every floating card), `toastBg`,
     - `npm run lint`: 0 errors, 0 warnings across 114 files.
     - `npm run test`: 294/294 tests passing across 28 test suites.
     - `npm run build`: Production build succeeded in 2.02s.
+
+- [x] **Task 39 — Universal player drag-and-drop customization across all presets & 8 icon aesthetic variants**
+  - **Universal Drag-and-Drop for All Presets**:
+    - Removed conditional preset restrictions in `src/components/PlayerPreview.jsx` and `src/pages/SettingsPage.jsx`, enabling interactive dropzones (`topLeft`, `topRight`, `bottomLeft`, `bottomCenter`, `bottomRight`, `tray`) across all presets (`apple`, `material`, `theater`, `studio`, `minimal`, `classic`).
+    - Made all preview buttons draggable with proper `dataTransfer` key payloads and tactile grab cursor.
+    - Added `playerUISkin` preference so when a user rearranges controls from any preset archetype (e.g. Apple TV, Theater, Studio), the chosen aesthetic styling is preserved in `custom` mode instead of reverting to Classic.
+    - Added base aesthetic archetype switcher in Settings when in Custom mode.
+  - **8 Distinct Icon Aesthetic Variants & Live Player Integration**:
+    - Expanded `ICON_VARIANTS` in `src/components/playerUIDef.js` to 8 styles with descriptive summaries:
+      1. `outline`: Clean modern hairline vector strokes.
+      2. `filled`: Solid filled bold geometric silhouettes.
+      3. `neon`: Vibrant electric cyber luminescence.
+      4. `glass`: Frosted translucent vision glass pods.
+      5. `material`: Tonal rounded squircle containers (M3).
+      6. `retro`: Tactile mechanical broadcast deck.
+      7. `minimal`: Hairline ultra-lightweight geometry.
+      8. `duotone`: Layered two-tone contrast styling.
+    - Bound authentic default icon variants to each skin: `classic` (`outline`), `apple` (`glass`), `material` (`material`), `theater` (`neon`), `studio` (`retro`), `minimal` (`minimal`).
+    - Added `playerGlobalIconStyle` preference and global style pill selector in `PlayerUIStudio` with Auto (Theme default) and per-variant bulk apply.
+    - Wired `playerIconVariants` and `playerGlobalIconStyle` into `CustomVideoPlayer.jsx` `barControl` so the real video player faithfully reflects chosen icon variants across play/pause, jump, volume, subtitles, audio, aspect ratio, lock, fullscreen, pip, next episode, loop, brightness, chapters, and cast.
+    - Added complete CSS rules in `src/index.css` for palette chip icons, variant selector badges, style pills, and player preview buttons.
+  - **Verification**:
+    - Added test coverage in `playerUIDef.test.js`, `PlayerPreview.test.jsx`, `SettingsPage.test.jsx`, and `CustomVideoPlayer.test.jsx`.
+    - `npm run lint`: 0 errors, 0 warnings across 114 files.
+    - `npm run test`: 301/301 tests passing across 28 test suites (was 294).
+    - `npm run build`: Production build succeeded in 2.88s.
+

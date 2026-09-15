@@ -60,6 +60,8 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   // Player UI studio: preset id + per-control zone placement.
   // Zones: topLeft | topRight | bottomLeft | bottomRight | tray (hidden).
   playerUIPreset: "classic",
+  playerUISkin: "classic",
+  playerGlobalIconStyle: "auto",
   playerIconVariants: {},
   playerUILayout: {
     playPause: "bottomLeft",

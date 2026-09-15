@@ -6,6 +6,7 @@ import {
   PLAYER_UI_PRESETS,
   PLAYER_UI_SKINS,
   DEFAULT_SKIN_ID,
+  ICON_VARIANTS,
   resolveUILayout,
   resolveSkin,
   zoneOf,
@@ -171,3 +172,39 @@ describe("playerUIDef layout resolution", () => {
     expect(controlsInZone(trayLayout, {}, "tray")).toEqual([]);
   });
 });
+
+describe("playerUIDef icon variants", () => {
+  it("ships exactly eight distinct icon aesthetic variants with rich descriptions", () => {
+    expect(ICON_VARIANTS.map((v) => v.id)).toEqual([
+      "outline",
+      "filled",
+      "neon",
+      "glass",
+      "material",
+      "retro",
+      "minimal",
+      "duotone",
+    ]);
+    for (const variant of ICON_VARIANTS) {
+      expect(typeof variant.label).toBe("string");
+      expect(variant.label.length).toBeGreaterThan(0);
+      expect(typeof variant.desc).toBe("string");
+      expect(variant.desc.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("assigns each preset skin an appropriate default icon variant", () => {
+    const validIds = new Set(ICON_VARIANTS.map((v) => v.id));
+    for (const [skinId, skin] of Object.entries(PLAYER_UI_SKINS)) {
+      expect(skin.iconVariant, `skin ${skinId} iconVariant`).toBeDefined();
+      expect(validIds.has(skin.iconVariant)).toBe(true);
+    }
+    expect(PLAYER_UI_SKINS.classic.iconVariant).toBe("outline");
+    expect(PLAYER_UI_SKINS.apple.iconVariant).toBe("glass");
+    expect(PLAYER_UI_SKINS.material.iconVariant).toBe("material");
+    expect(PLAYER_UI_SKINS.theater.iconVariant).toBe("neon");
+    expect(PLAYER_UI_SKINS.studio.iconVariant).toBe("retro");
+    expect(PLAYER_UI_SKINS.minimal.iconVariant).toBe("minimal");
+  });
+});
+

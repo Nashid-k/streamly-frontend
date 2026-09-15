@@ -266,6 +266,8 @@ function PlayerUIStudio() {
   const {
     playerControls = {},
     playerUIPreset = "classic",
+    playerUISkin = "classic",
+    playerGlobalIconStyle = "auto",
     playerUILayout,
     playerIconVariants = {},
     setPreference,
@@ -281,11 +283,15 @@ function PlayerUIStudio() {
   };
 
   const markCustom = () => {
-    if (playerUIPreset !== "custom") setPreference("playerUIPreset", "custom");
+    if (playerUIPreset !== "custom") {
+      setPreference("playerUISkin", playerUIPreset);
+      setPreference("playerUIPreset", "custom");
+    }
   };
 
   const applyPreset = (preset) => {
     setPreference("playerUIPreset", preset.id);
+    setPreference("playerUISkin", preset.skinId || preset.id);
     setPreference("playerUILayout", { ...preset.layout });
     for (const { key } of PLAYER_CONTROLS) {
       setPlayerControl?.(key, preset.visibility[key] !== false);
@@ -429,13 +435,85 @@ function PlayerUIStudio() {
       <PlayerPreview
         layout={layout}
         visibility={playerControls}
-        label={playerUIPreset === "custom" ? "Custom" : (presetById(playerUIPreset)?.name || "Classic")}
+        label={playerUIPreset === "custom" ? `Custom (${PLAYER_UI_PRESETS.find((p) => p.id === playerUISkin)?.name || "Classic"})` : (presetById(playerUIPreset)?.name || "Classic")}
         presetId={playerUIPreset}
-        draggable={playerUIPreset === "classic" || playerUIPreset === "custom"}
+        playerUISkin={playerUISkin}
+        draggable={true}
         iconVariants={playerIconVariants}
         onZoneDrop={(key, zoneId) => moveControl(key, zoneId)}
         onChipDragStart={(e, key) => { e.dataTransfer.setData("text/plain", key); setPickedKey(key); }}
       />
+
+      {/* Visual archetype selection when in custom layout mode */}
+      {playerUIPreset === "custom" && (
+        <div className="studio-archetype-row">
+          <p className="studio-label" style={{ marginBottom: 6 }}>
+            Custom layout archetype <span className="studio-label-note">visual styling for your custom layout</span>
+          </p>
+          <div className="studio-style-pills">
+            {PLAYER_UI_PRESETS.map((p) => {
+              const active = (playerUISkin || "classic") === p.id;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={`studio-style-pill${active ? " is-active" : ""}`}
+                  onClick={() => {
+                    setPreference("playerUISkin", p.id);
+                    toast({
+                      type: "success",
+                      title: `${p.name} look applied`,
+                      message: `Restyled your custom arrangement with ${p.name} aesthetics.`,
+                    });
+                  }}
+                >
+                  {p.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Global Icon Style picker */}
+      <div className="studio-global-icons">
+        <p className="studio-label" style={{ marginBottom: 6 }}>
+          Icon Style <span className="studio-label-note">apply style to all controls or tune each below</span>
+        </p>
+        <div className="studio-style-pills">
+          <button
+            type="button"
+            className={`studio-style-pill${playerGlobalIconStyle === "auto" ? " is-active" : ""}`}
+            onClick={() => {
+              setPreference("playerGlobalIconStyle", "auto");
+              setPreference("playerIconVariants", {});
+            }}
+          >
+            Auto (Preset Default)
+          </button>
+          {ICON_VARIANTS.map((v) => {
+            const active = playerGlobalIconStyle === v.id;
+            return (
+              <button
+                key={v.id}
+                type="button"
+                className={`studio-style-pill${active ? " is-active" : ""}`}
+                onClick={() => {
+                  setPreference("playerGlobalIconStyle", v.id);
+                  const bulk = {};
+                  for (const { key } of PLAYER_CONTROLS) {
+                    bulk[key] = v.id;
+                  }
+                  setPreference("playerIconVariants", bulk);
+                }}
+                title={v.desc}
+              >
+                {v.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       <p className="studio-label">Controls <span className="studio-label-note">drag onto the preview · pick icon style</span></p>
       <div className="studio-palette">

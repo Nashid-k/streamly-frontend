@@ -287,6 +287,9 @@ const CustomVideoPlayer = ({
     playerControls = {},
     playerUILayout,
     playerUIPreset = "classic",
+    playerUISkin = "classic",
+    playerGlobalIconStyle = "auto",
+    playerIconVariants = {},
   } = usePreferences();
   // Per-button visibility flags — default to true when not explicitly set
   const ctrl = {
@@ -312,7 +315,10 @@ const CustomVideoPlayer = ({
   /* ── Player UI skin (end-to-end look per preset) ────────────────
      Custom arrangements and unknown ids resolve to the Classic tokens.
      Emitted as --skin-* CSS variables on the player root below. */
-  const skin = useMemo(() => resolveSkin(playerUIPreset), [playerUIPreset]);
+  const skin = useMemo(
+    () => resolveSkin(playerUIPreset === "custom" ? (playerUISkin || "classic") : playerUIPreset),
+    [playerUIPreset, playerUISkin],
+  );
   const skinVars = useMemo(
     () => ({
       "--skin-bar-bg": skin.barBg,
@@ -1709,42 +1715,114 @@ const CustomVideoPlayer = ({
      floating zones). Visibility gates + tray zone return null. */
   const barControl = (key, variant = "bar") => {
     if (playerControls[key] === false || uiLayout[key] === "tray") return null;
-    const isApple = playerUIPreset === "apple";
-    const isMaterial = playerUIPreset === "material" || playerUIPreset === "compact";
-    const isTheater = playerUIPreset === "theater";
-    const isStudio = playerUIPreset === "studio";
+    const effectiveSkin = playerUIPreset === "custom" ? (playerUISkin || "classic") : playerUIPreset;
+    const isApple = effectiveSkin === "apple";
+    const isMaterial = effectiveSkin === "material" || effectiveSkin === "compact";
+    const isTheater = effectiveSkin === "theater";
+    const isStudio = effectiveSkin === "studio";
+
+    const variantStyle =
+      playerIconVariants[key] ||
+      (playerGlobalIconStyle && playerGlobalIconStyle !== "auto" ? playerGlobalIconStyle : null) ||
+      skin.iconVariant ||
+      "outline";
+
+    let variantProps = {};
+    if (variantStyle === "neon") {
+      variantProps = {
+        background: "rgba(0, 240, 255, 0.12)",
+        border: "1px solid rgba(0, 240, 255, 0.65)",
+        color: "#00f0ff",
+        boxShadow: "0 0 12px rgba(0, 240, 255, 0.45)",
+        borderRadius: "50%",
+      };
+    } else if (variantStyle === "filled") {
+      variantProps = {
+        background: "rgba(255, 255, 255, 0.88)",
+        border: "none",
+        color: "#111115",
+        borderRadius: "50%",
+      };
+    } else if (variantStyle === "glass") {
+      variantProps = {
+        background: "rgba(255, 255, 255, 0.16)",
+        border: "1px solid rgba(255, 255, 255, 0.28)",
+        backdropFilter: "blur(24px)",
+        WebkitBackdropFilter: "blur(24px)",
+        color: "#ffffff",
+        borderRadius: "999px",
+        boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
+      };
+    } else if (variantStyle === "material") {
+      variantProps = {
+        background: "rgba(230, 225, 235, 0.14)",
+        border: "1px solid rgba(255, 255, 255, 0.12)",
+        color: "#e6e1e5",
+        borderRadius: "14px",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+      };
+    } else if (variantStyle === "retro") {
+      variantProps = {
+        background: "linear-gradient(180deg, rgba(40,40,48,0.92) 0%, rgba(20,20,24,0.96) 100%)",
+        border: "1px solid rgba(255, 80, 80, 0.45)",
+        color: "#ff5050",
+        borderRadius: "4px",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12), 0 2px 4px rgba(0,0,0,0.6)",
+      };
+    } else if (variantStyle === "minimal") {
+      variantProps = {
+        background: "transparent",
+        border: "none",
+        color: "rgba(255, 255, 255, 0.85)",
+        borderRadius: "0px",
+        boxShadow: "none",
+      };
+    } else if (variantStyle === "duotone") {
+      variantProps = {
+        background: "rgba(255, 209, 102, 0.15)",
+        border: "1px solid rgba(255, 209, 102, 0.45)",
+        color: "#ffd166",
+        boxShadow: "0 0 10px rgba(255, 209, 102, 0.35)",
+        borderRadius: "50%",
+      };
+    } else {
+      variantProps = {
+        background: isApple
+          ? "rgba(255, 255, 255, 0.14)"
+          : isMaterial
+            ? "rgba(255, 255, 255, 0.08)"
+            : isTheater
+              ? "rgba(255, 190, 80, 0.12)"
+              : isStudio
+                ? "rgba(255, 255, 255, 0.06)"
+                : "var(--skin-btn-ghost-bg, transparent)",
+        border: isApple
+          ? "1px solid rgba(255, 255, 255, 0.16)"
+          : isMaterial
+            ? "none"
+            : isTheater
+              ? "1px solid rgba(255, 200, 100, 0.28)"
+              : isStudio
+                ? "1px solid rgba(255, 255, 255, 0.14)"
+                : "var(--skin-btn-border, 1px solid rgba(255,255,255,0.16))",
+        color: isTheater ? "#ffd166" : isStudio ? "rgba(255,255,255,0.85)" : isMaterial ? "#e6e1e5" : "rgba(255,255,255,0.85)",
+        borderRadius: isMaterial ? "16px" : isStudio ? "6px" : isApple ? "999px" : "var(--skin-btn-radius, 50%)",
+        backdropFilter: isApple ? "blur(20px)" : undefined,
+        WebkitBackdropFilter: isApple ? "blur(20px)" : undefined,
+        boxShadow: isTheater ? "0 0 10px rgba(255, 209, 102, 0.25)" : undefined,
+      };
+    }
 
     const ghostCircle = {
-      background: isApple
-        ? "rgba(255, 255, 255, 0.14)"
-        : isMaterial
-          ? "rgba(255, 255, 255, 0.08)"
-          : isTheater
-            ? "rgba(255, 190, 80, 0.12)"
-            : isStudio
-              ? "rgba(255, 255, 255, 0.06)"
-              : "var(--skin-btn-ghost-bg, transparent)",
-      border: isApple
-        ? "1px solid rgba(255, 255, 255, 0.16)"
-        : isMaterial
-          ? "none"
-          : isTheater
-            ? "1px solid rgba(255, 200, 100, 0.28)"
-            : isStudio
-              ? "1px solid rgba(255, 255, 255, 0.14)"
-              : "var(--skin-btn-border, none)",
-      color: isTheater ? "#ffd166" : isStudio ? "rgba(255,255,255,0.85)" : isMaterial ? "#e6e1e5" : "rgba(255,255,255,0.75)",
       cursor: "pointer",
       width: isMaterial ? (isTouch ? 42 : 36) : isApple ? (isTouch ? 42 : 36) : R.btnSmall,
       height: isMaterial ? (isTouch ? 42 : 36) : isApple ? (isTouch ? 42 : 36) : R.btnSmall,
-      borderRadius: isMaterial ? "16px" : isStudio ? "6px" : isApple ? "999px" : "var(--skin-btn-radius, 50%)",
       display: "flex", alignItems: "center", justifyContent: "center",
-      backdropFilter: isApple ? "blur(20px)" : undefined,
-      WebkitBackdropFilter: isApple ? "blur(20px)" : undefined,
-      boxShadow: isTheater ? "0 0 10px rgba(255, 209, 102, 0.25)" : undefined,
+      flexShrink: 0,
+      ...variantProps,
     };
     if (key === "playPause") {
-      const playBg = isMaterial
+      let playBg = isMaterial
         ? "#d0bcff"
         : isTheater
           ? "linear-gradient(135deg, rgba(255, 209, 102, 0.35), rgba(255, 158, 44, 0.25))"
@@ -1753,10 +1831,37 @@ const CustomVideoPlayer = ({
             : isApple
               ? "rgba(255, 255, 255, 0.25)"
               : "var(--skin-btn-bg, rgba(255,255,255,0.12))";
-      const playColor = isMaterial ? "#1d192b" : isTheater ? "#ffd166" : isStudio ? "#ff3b4e" : "#fff";
-      const playBorder = isTheater ? "1px solid rgba(255, 209, 102, 0.6)" : isStudio ? "1px solid #ff3b4e" : isApple ? "1px solid rgba(255, 255, 255, 0.25)" : "var(--skin-btn-border, none)";
-      const playRadius = isMaterial ? "20px" : isStudio ? "6px" : isApple ? "999px" : "var(--skin-btn-radius, 50%)";
-      const playShadow = isTheater ? "0 0 24px rgba(255, 209, 102, 0.6)" : isMaterial ? "0 4px 14px rgba(208, 188, 255, 0.45)" : isApple ? "0 8px 24px rgba(0,0,0,0.35)" : "var(--skin-chrome-shadow, 0 2px 12px rgba(0,0,0,0.3))";
+      let playColor = isMaterial ? "#1d192b" : isTheater ? "#ffd166" : isStudio ? "#ff3b4e" : "#fff";
+      let playBorder = isTheater ? "1px solid rgba(255, 209, 102, 0.6)" : isStudio ? "1px solid #ff3b4e" : isApple ? "1px solid rgba(255, 255, 255, 0.25)" : "var(--skin-btn-border, none)";
+      let playRadius = isMaterial ? "20px" : isStudio ? "6px" : isApple ? "999px" : "var(--skin-btn-radius, 50%)";
+      let playShadow = isTheater ? "0 0 24px rgba(255, 209, 102, 0.6)" : isMaterial ? "0 4px 14px rgba(208, 188, 255, 0.45)" : isApple ? "0 8px 24px rgba(0,0,0,0.35)" : "var(--skin-chrome-shadow, 0 2px 12px rgba(0,0,0,0.3))";
+
+      if (variantStyle === "neon") {
+        playBg = "rgba(0, 240, 255, 0.2)";
+        playColor = "#00f0ff";
+        playBorder = "1.5px solid #00f0ff";
+        playShadow = "0 0 20px rgba(0, 240, 255, 0.7)";
+      } else if (variantStyle === "filled") {
+        playBg = "#ffffff";
+        playColor = "#000000";
+        playBorder = "none";
+        playShadow = "0 4px 16px rgba(0,0,0,0.4)";
+      } else if (variantStyle === "glass") {
+        playBg = "rgba(255, 255, 255, 0.28)";
+        playBorder = "1.5px solid rgba(255, 255, 255, 0.35)";
+        playColor = "#ffffff";
+        playShadow = "0 8px 28px rgba(0,0,0,0.4)";
+      } else if (variantStyle === "retro") {
+        playBg = "rgba(255, 59, 78, 0.35)";
+        playColor = "#ff3b4e";
+        playBorder = "1px solid #ff3b4e";
+        playShadow = "0 0 16px rgba(255, 59, 78, 0.5)";
+      } else if (variantStyle === "duotone") {
+        playBg = "rgba(255, 209, 102, 0.25)";
+        playColor = "#ffd166";
+        playBorder = "1.5px solid rgba(255, 209, 102, 0.7)";
+        playShadow = "0 0 18px rgba(255, 209, 102, 0.55)";
+      }
 
       return (
         <motion.button
@@ -1935,12 +2040,12 @@ const CustomVideoPlayer = ({
           transition={SPRING}
           aria-label="Subtitles"
           style={{
-            background: subtitleEnabled || showSubtitlesMenu ? "rgba(255,255,255,0.08)" : "transparent",
-            border: subtitleEnabled || showSubtitlesMenu ? "1px solid rgba(255,255,255,0.08)" : "none",
-            color: subtitleEnabled || showSubtitlesMenu ? "#fff" : "rgba(255,255,255,0.6)",
-            cursor: "pointer", width: R.btnSmall, height: R.btnSmall, borderRadius: "50%",
-            display: "flex", alignItems: "center", justifyContent: "center",
+            ...ghostCircle,
             position: "relative",
+            ...(subtitleEnabled || showSubtitlesMenu ? {
+              borderColor: "var(--accent-primary, #fff)",
+              boxShadow: "0 0 8px var(--accent-primary, rgba(255,255,255,0.4))",
+            } : {}),
           }}
         >
           <Captions size={15} />
@@ -1956,12 +2061,12 @@ const CustomVideoPlayer = ({
           transition={SPRING}
           aria-label="Audio tracks"
           style={{
-            background: showAudioMenu ? "rgba(255,255,255,0.08)" : "transparent",
-            border: showAudioMenu ? "1px solid rgba(255,255,255,0.08)" : "none",
-            color: showAudioMenu ? "#fff" : "rgba(255,255,255,0.6)",
-            cursor: "pointer", width: R.btnSmall, height: R.btnSmall, borderRadius: "50%",
-            display: "flex", alignItems: "center", justifyContent: "center",
+            ...ghostCircle,
             position: "relative",
+            ...(showAudioMenu ? {
+              borderColor: "var(--accent-primary, #fff)",
+              boxShadow: "0 0 8px var(--accent-primary, rgba(255,255,255,0.4))",
+            } : {}),
           }}
         >
           <AudioLines size={15} />
@@ -1982,18 +2087,14 @@ const CustomVideoPlayer = ({
             transition={SPRING}
             aria-label="Change aspect ratio"
             style={{
-              background: "transparent",
-              border: "1px solid rgba(255,255,255,0.06)",
-              color: "rgba(255,255,255,0.6)",
-              cursor: "pointer", width: R.btnSmall, height: R.btnSmall, borderRadius: "50%",
-              display: "flex", alignItems: "center", justifyContent: "center",
+              ...ghostCircle,
               position: "relative",
             }}
           >
             <Maximize size={14} />
             <span style={{
               position: "absolute", bottom: -1, right: -1,
-              fontSize: "7px", fontWeight: 800, color: "rgba(255,255,255,0.5)",
+              fontSize: "7px", fontWeight: 800, color: ghostCircle.color || "rgba(255,255,255,0.5)",
               lineHeight: 1, fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
             }}>{aspectRatioIndex + 1}</span>
           </motion.button>
