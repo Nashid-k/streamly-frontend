@@ -2829,7 +2829,7 @@ const CustomVideoPlayer = ({
               ...(isStudio ? { borderRadius: "3px", borderColor: "rgba(255,59,78,0.4)" } : {}),
             }}
           >
-            {resolvePlayerIcon("aspectRatio", 14, { strokeWidth: 2 })}
+            <Maximize size={14} strokeWidth={2} />
             <span style={{
               position: "absolute", bottom: -1, right: -1,
               fontSize: "7px", fontWeight: 800,
@@ -2995,7 +2995,7 @@ const CustomVideoPlayer = ({
             ...(isStudio ? { borderRadius: "3px", borderColor: "rgba(255,59,78,0.4)" } : {}),
           }}
         >
-          {resolvePlayerIcon("brightness", 15, { strokeWidth: 2 })}
+          <Sun size={15} strokeWidth={2} />
           <span style={{
             position: "absolute", bottom: -1, right: -1,
             fontSize: "7px", fontWeight: 800,

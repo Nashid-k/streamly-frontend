@@ -1,5 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import CustomVideoPlayer from "../components/CustomVideoPlayer";
 import { PreferencesProvider } from "../context/PreferencesContext";
 import { VideoSourceAdapter } from "../api/videoSourceAdapter";
@@ -108,12 +107,32 @@ describe("CustomVideoPlayer skins", () => {
     expect(container.querySelector(".streamly-player")).toBeInTheDocument();
   });
 
-  it("respects custom playerUISkin and playerIconVariants without crashing", () => {
-    localStorage.setItem("setting-playerUIPreset", JSON.stringify("custom"));
-    localStorage.setItem("setting-playerUISkin", JSON.stringify("apple"));
+  it("renders all controls including aspectRatio and brightness without crashing", () => {
     localStorage.setItem(
-      "setting-playerIconVariants",
-      JSON.stringify({ playPause: "neon", subtitles: "glass" })
+      "setting-playerControls",
+      JSON.stringify({
+        playPause: true,
+        backward: true,
+        forward: true,
+        volume: true,
+        subtitles: true,
+        audio: true,
+        aspectRatio: true,
+        playbackSpeed: true,
+        fullscreen: true,
+        pip: true,
+        server: true,
+        source: true,
+        brightness: true,
+        chapters: true,
+      })
+    );
+    localStorage.setItem(
+      "setting-playerUILayout",
+      JSON.stringify({
+        aspectRatio: "bottomRight",
+        brightness: "bottomRight",
+      })
     );
     const { container } = render(
       <PreferencesProvider>
@@ -125,7 +144,26 @@ describe("CustomVideoPlayer skins", () => {
     );
     const root = container.querySelector(".streamly-player");
     expect(root).toBeInTheDocument();
-    expect(root.dataset.playerSkin).toBe("apple");
+    
+    const iframe = container.querySelector("iframe");
+    if (iframe) fireEvent.load(iframe);
+    
+    // Simulate cinesrc player starting playback to set isLoading to false
+    // so controls become visible and get rendered in the DOM.
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent("message", { 
+          origin: "https://cinesrc.st",
+          data: { type: "cinesrc:playing" } 
+        })
+      );
+      fireEvent.mouseMove(root);
+    });
+    
+    
+    // Now that it's "playing" and hovered, controls should mount
+    expect(container.querySelector('[aria-label*="aspect ratio" i]')).toBeInTheDocument();
+    expect(container.querySelector('[aria-label*="brightness" i]')).toBeInTheDocument();
   });
 });
 
