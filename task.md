@@ -575,8 +575,12 @@ pm run build succeeds.
     `memo`; `DiscoveryRails` + `CastRail` scroll handlers now `useCallback`-stable (memoized child
     arrows get stable refs); `HomePage` `FadeInSection` memoized; `AmbientBackground` blur reduced
     90→72px (detail overlay 55→44px) for GPU savings on mobile.
-  - **Verification & code hygiene**: `vercel.json` gains 1-year immutable cache for all hashed
-    `js|css|woff2|woff|ttf|svg|png|ico|webp|avif` assets (already hashed paths from the build);
+  - **Verification & code hygiene**: `vercel.json` relies on the pre-existing `/assets/(.*)`
+    immutable header rule for 1-year caching of all hashed build assets (a new
+    `/(.*)\.(?:js|css|…)` extension rule was rejected by Vercel — `source` follows path-to-regexp
+    v6, not RegExp, so `(?:…)` and `\.` raised "Invalid route source pattern" and failed the
+    deployment; the invalid rule was removed and `(?!…)` rewrites already exist in the wrapped
+    `/((?!assets/|api/).*)` form the docs require);
     `App.jsx` misplaced `GlobalShortcuts` import moved to the top import block; `movieService.js`
     title-logo URLs routed through `CdnImageAdapter` (logos get WebP/AVIF too); `CastRail` avatar
     URLs routed through `CdnImageAdapter.getAvatarUrl`; `SettingsPage` Player UI Studio palette now
