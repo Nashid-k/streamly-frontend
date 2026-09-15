@@ -51,8 +51,8 @@ const THEMES = [
   {
     id: "default",
     name: "Default (Streamly)",
-    primary: "#f43f5e",
-    secondary: "#fb923c",
+    primary: "#95ff50",
+    secondary: "#5ce21c",
   },
   {
     id: "emerald",
@@ -1615,7 +1615,7 @@ export default function SettingsPage() {
 
             {/* ── 7. FACTORY RESET PREFERENCES ── */}
             {(activeTab === "all" || activeTab === "account") && (
-              <section id="reset-preferences" className="glass-card" style={{ border: "1px solid rgba(244, 63, 94, 0.25)" }}>
+              <section id="reset-preferences" className="glass-card" style={{ border: "1px solid rgba(239, 68, 68, 0.25)" }}>
                 <div className="section-header">
                   <h2 className="section-title" style={{ color: "#f87171" }}>Reset All Preferences</h2>
                   <p className="section-subtitle">
@@ -1632,8 +1632,8 @@ export default function SettingsPage() {
                       type="button"
                       onClick={handleResetAllPreferences}
                       style={{
-                        background: "rgba(244, 63, 94, 0.12)",
-                        border: "1px solid rgba(244, 63, 94, 0.3)",
+                        background: "rgba(239, 68, 68, 0.12)",
+                        border: "1px solid rgba(239, 68, 68, 0.3)",
                         color: "#f87171",
                         padding: "8px 18px",
                         borderRadius: "100px",
@@ -1645,8 +1645,8 @@ export default function SettingsPage() {
                         gap: "6px",
                         transition: "all 0.2s",
                       }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(244, 63, 94, 0.25)")}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(244, 63, 94, 0.12)")}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(239, 68, 68, 0.25)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(239, 68, 68, 0.12)")}
                     >
                       <RotateCcw size={14} /> Reset Preferences
                     </button>

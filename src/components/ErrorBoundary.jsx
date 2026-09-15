@@ -57,7 +57,7 @@ export default class ErrorBoundary extends React.Component {
                 width: "48px",
                 height: "48px",
                 border: "3px solid rgba(var(--accent-primary-rgb), 0.2)",
-                borderTopColor: "var(--accent-primary, #f43f5e)",
+                borderTopColor: "var(--accent-primary, #95ff50)",
                 borderRadius: "50%",
                 animation: "spin 0.8s linear infinite",
               }}

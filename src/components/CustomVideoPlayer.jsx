@@ -415,7 +415,7 @@ function PresetVolumeHUD({ skin, effVolume, isMuted, volume, hudScale, hudTop })
             <motion.div
               animate={{ width: `${pct}%` }}
               transition={{ type: "spring", stiffness: 450, damping: 32 }}
-              style={{ height: "100%", background: isZero ? "#ff453a" : "var(--accent-gradient, linear-gradient(90deg, #f43f5e, #f59e0b))", borderRadius: 2 }}
+              style={{ height: "100%", background: isZero ? "#ff453a" : "var(--accent-gradient, linear-gradient(90deg, #95ff50, #5ce21c))", borderRadius: 2 }}
             />
           </div>
           <span style={{ fontSize: 12 * hudScale, fontWeight: 700, color: isZero ? "#ff453a" : "#fff" }}>

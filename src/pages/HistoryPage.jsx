@@ -436,7 +436,7 @@ export default function HistoryPage() {
                 disabled={selectedIds.size === 0}
                 onClick={handleBatchDelete}
                 style={{
-                  background: selectedIds.size > 0 ? "rgba(244, 63, 94, 0.95)" : "rgba(255,255,255,0.06)",
+                  background: selectedIds.size > 0 ? "rgba(239, 68, 68, 0.95)" : "rgba(255,255,255,0.06)",
                   border: "none",
                   color: selectedIds.size > 0 ? "#fff" : "rgba(255,255,255,0.3)",
                   padding: "5px 14px",

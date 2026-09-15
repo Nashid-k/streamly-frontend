@@ -38,8 +38,8 @@ export default function Loader({ variant = "page", size, color }) {
   else if (variant === "global") dimensions = "28px";
 
   const useGradient = !color;
-  const primaryColor = color || "var(--accent-primary, #f43f5e)";
-  const secondaryColor = color || "var(--accent-secondary, #fb923c)";
+  const primaryColor = color || "var(--accent-primary, #95ff50)";
+  const secondaryColor = color || "var(--accent-secondary, #5ce21c)";
   const gradientId = "streamly-loader-grad";
 
   const gradientUrl = `url(#${gradientId})`;
@@ -63,9 +63,9 @@ export default function Loader({ variant = "page", size, color }) {
         {useGradient && (
           <defs>
             <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" style={{ stopColor: "var(--accent-primary, #f43f5e)" }} />
-              <stop offset="55%" style={{ stopColor: "var(--accent-primary, #fb7185)" }} />
-              <stop offset="100%" style={{ stopColor: "var(--accent-secondary, #fb923c)" }} />
+              <stop offset="0%" style={{ stopColor: "var(--accent-primary, #95ff50)" }} />
+              <stop offset="55%" style={{ stopColor: "var(--accent-primary, #95ff50)" }} />
+              <stop offset="100%" style={{ stopColor: "var(--accent-secondary, #5ce21c)" }} />
             </linearGradient>
           </defs>
         )}
@@ -120,10 +120,10 @@ export default function Loader({ variant = "page", size, color }) {
           height: "20%",
           borderRadius: "50%",
           background: useGradient
-            ? "var(--accent-gradient, linear-gradient(135deg, #f43f5e, #fb923c))"
+            ? "var(--accent-gradient, linear-gradient(135deg, #95ff50, #5ce21c))"
             : primaryColor,
           boxShadow: useGradient
-            ? "0 0 10px var(--accent-glow, rgba(244,63,94,0.6)), 0 0 22px var(--accent-glow, rgba(251,146,60,0.35))"
+            ? "0 0 10px var(--accent-glow, rgba(149,255,80,0.6)), 0 0 22px var(--accent-glow, rgba(92,226,28,0.35))"
             : `0 0 8px ${primaryColor}80`,
           animation: "loader-pulse-center 1.2s ease-in-out infinite",
         }}

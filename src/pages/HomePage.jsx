@@ -1441,7 +1441,7 @@ export default function Home({
               justifyContent: "center",
               minHeight: "min(82vh, 900px)",
               background:
-                "radial-gradient(ellipse 60% 50% at 50% 40%, rgba(244,63,94,0.08) 0%, transparent 70%), #050505",
+                "radial-gradient(ellipse 60% 50% at 50% 40%, rgba(149,255,80,0.08) 0%, transparent 70%), #050505",
             }}
           >
             <div style={{ textAlign: "center", padding: "2rem" }}>

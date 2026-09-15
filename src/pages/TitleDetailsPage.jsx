@@ -195,7 +195,7 @@ function SeasonDropdown({ seasons, selectedSeason, airingSeasonNumber, onSelect 
                         ? "rgba(var(--accent-primary-rgb), 0.1)"
                         : "transparent",
                       border: "none",
-                      color: isSelected ? "var(--accent-primary, #f43f5e)" : "#e4e4e7",
+                      color: isSelected ? "var(--accent-primary, #95ff50)" : "#e4e4e7",
                       fontSize: "0.9rem",
                       fontWeight: isSelected ? 700 : 500,
                       cursor: "pointer",
@@ -338,7 +338,7 @@ function ServerDropdown({ servers, selectedIndex, onSelect }) {
                       ? "rgba(var(--accent-primary-rgb), 0.1)"
                       : "transparent",
                     border: "none",
-                    color: isSelected ? "var(--accent-primary, #f43f5e)" : "#e4e4e7",
+                    color: isSelected ? "var(--accent-primary, #95ff50)" : "#e4e4e7",
                     fontSize: "0.85rem",
                     fontWeight: isSelected ? 700 : 500,
                     cursor: "pointer",
@@ -1174,7 +1174,7 @@ export default function TitleDetails() {
                   updateProgress(movie, isTvContent ? selectedSeason : null, isTvContent ? episodeToPlay : null, 0);
                 }}
                 className="relative rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 font-semibold tracking-wide h-[40px] lg:h-[44px] xl:h-[52px] px-5 lg:px-6 xl:px-8 py-3 text-sm xl:text-base min-w-[110px] border-none"
-                style={{ background: "var(--accent-gradient)", color: "var(--on-accent, #fff)", boxShadow: "0 8px 24px var(--accent-glow, rgba(244,63,94,0.5))" }}
+                style={{ background: "var(--accent-gradient)", color: "var(--on-accent, #fff)", boxShadow: "0 8px 24px var(--accent-glow, rgba(149,255,80,0.5))" }}
               >
                 <Play size={18} className="mr-1.5 fill-current" /> Play
               </button>
@@ -1562,9 +1562,9 @@ export default function TitleDetails() {
                       setSelectedSeason(availableSeasonNumbers[nextIndex]);
                     }}
                     style={{
-                      background: "rgba(244,63,94,0.08)",
-                      border: "1px solid rgba(244,63,94,0.2)",
-                      color: "#f43f5e",
+                      background: "rgba(149,255,80,0.08)",
+                      border: "1px solid rgba(149,255,80,0.2)",
+                      color: "#95ff50",
                       padding: "8px 20px",
                       borderRadius: "10px",
                       fontSize: "0.85rem",
@@ -1635,7 +1635,7 @@ export default function TitleDetails() {
                             border: isEpPlaying ? '1px solid rgba(var(--accent-primary-rgb), 0.4)' : '1px solid rgba(255,255,255,0.05)',
                             cursor: playable ? 'pointer' : 'default', opacity: (!isAired) ? 0.35 : (SERVERS.length > 0 ? 1 : 0.6),
                             position: 'relative',
-                            boxShadow: isEpPlaying ? '0 10px 30px -10px var(--accent-glow, rgba(244,63,94,0.15))' : '0 10px 30px -10px rgba(0,0,0,0.5)',
+                            boxShadow: isEpPlaying ? '0 10px 30px -10px var(--accent-glow, rgba(149,255,80,0.15))' : '0 10px 30px -10px rgba(0,0,0,0.5)',
                             transition: 'border 0.3s ease, background 0.3s ease',
                             ...(isCarouselLayout ? { flex: '0 0 clamp(220px, 62vw, 300px)', scrollSnapAlign: 'start' } : {}),
                           }}
@@ -1652,7 +1652,7 @@ export default function TitleDetails() {
                                 style={{ width: '100%', height: '100%', objectFit: 'cover', filter: !isAired ? 'grayscale(0.85) brightness(0.55)' : undefined }}
                               />
                             ) : (
-                              <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '5px', background: 'linear-gradient(135deg, #18181b 0%, rgba(244,63,94,0.12) 55%, #211519 100%)' }}>
+                              <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '5px', background: 'linear-gradient(135deg, #18181b 0%, rgba(149,255,80,0.12) 55%, #211519 100%)' }}>
                                 <span style={{ fontSize: '1.7rem', fontWeight: 800, color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace', lineHeight: 1 }}>{String(ep.episodeNumber).padStart(2, '0')}</span>
                                 <Film size={18} strokeWidth={1.5} color="rgba(255,255,255,0.28)" />
                               </div>
@@ -1669,7 +1669,7 @@ export default function TitleDetails() {
                                   </div>
                                 )
                               ) : (
-                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'linear-gradient(135deg, rgba(251,191,36,0.95), rgba(244,63,94,0.9))', color: '#fff', padding: '6px 12px', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.02em', backdropFilter: 'blur(6px)', boxShadow: '0 6px 20px rgba(244,63,94,0.4)' }}>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'linear-gradient(135deg, rgba(149,255,80,0.95), rgba(149,255,80,0.9))', color: '#fff', padding: '6px 12px', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.02em', backdropFilter: 'blur(6px)', boxShadow: '0 6px 20px rgba(149,255,80,0.4)' }}>
                                   <Calendar size={13} strokeWidth={2.5} aria-hidden="true" />
                                   <span style={{ opacity: 0.9, fontWeight: 700 }}>Airs</span>
                                   {formatAirsDate(ep.airDate)}
@@ -1679,7 +1679,7 @@ export default function TitleDetails() {
                             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 50%)', pointerEvents: 'none' }} />
                             {playable && (
                               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s' }} className="ep-play-overlay">
-                                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--accent-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--on-accent, #fff)', boxShadow: '0 8px 24px var(--accent-glow, rgba(244,63,94,0.5))' }}>
+                                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--accent-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--on-accent, #fff)', boxShadow: '0 8px 24px var(--accent-glow, rgba(149,255,80,0.5))' }}>
                                   <Play size={22} fill="currentColor" stroke="none" style={{ marginLeft: '3px' }} />
                                 </div>
                               </div>
@@ -1689,7 +1689,7 @@ export default function TitleDetails() {
                           </div>
                           <div style={{ padding: '0.7rem 0.9rem', position: 'relative', zIndex: 2 }}>
                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                              <span style={{ fontSize: '1.2rem', fontWeight: 800, color: isEpPlaying ? 'var(--accent-primary, #f43f5e)' : '#3f3f46', lineHeight: 1, fontFamily: 'monospace' }}>{String(ep.episodeNumber).padStart(2, '0')}</span>
+                              <span style={{ fontSize: '1.2rem', fontWeight: 800, color: isEpPlaying ? 'var(--accent-primary, #95ff50)' : '#3f3f46', lineHeight: 1, fontFamily: 'monospace' }}>{String(ep.episodeNumber).padStart(2, '0')}</span>
                               <div style={{ flex: 1 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', margin: '0 0 0.35rem' }}>
                                   <h3 style={{ fontSize: '0.95rem', fontWeight: 600, margin: 0, color: isEpPlaying ? '#fff' : '#e4e4e7' }}>{ep.title}</h3>
@@ -1710,7 +1710,7 @@ export default function TitleDetails() {
                             {isWatched && (
                               <div style={{ marginTop: '0.6rem' }}>
                                 <div style={{ height: '3px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden' }}>
-                                  <div style={{ height: '100%', width: `${Math.min(100, (watchedTs / (ep.durationMins ? ep.durationMins * 60 : 3600)) * 100)}%`, background: 'var(--accent-gradient, linear-gradient(90deg, #f43f5e, #fb923c))', borderRadius: '2px' }} />
+                                  <div style={{ height: '100%', width: `${Math.min(100, (watchedTs / (ep.durationMins ? ep.durationMins * 60 : 3600)) * 100)}%`, background: 'var(--accent-gradient, linear-gradient(90deg, #95ff50, #5ce21c))', borderRadius: '2px' }} />
                                 </div>
                                 <span style={{ fontSize: '0.65rem', color: '#71717a', marginTop: '3px', display: 'block' }}>{formatTime(watchedTs)} watched</span>
                               </div>
@@ -1750,7 +1750,7 @@ export default function TitleDetails() {
                           {epThumb ? (
                             <img src={CdnImageAdapter.getUrl(epThumb, 'w500')} alt={ep.title} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: !isAired ? 'grayscale(0.85) brightness(0.55)' : undefined }} />
                           ) : (
-                            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', background: 'linear-gradient(135deg, #18181b 0%, rgba(244,63,94,0.12) 55%, #211519 100%)' }}>
+                            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', background: 'linear-gradient(135deg, #18181b 0%, rgba(149,255,80,0.12) 55%, #211519 100%)' }}>
                               <span style={{ fontSize: '1.05rem', fontWeight: 800, color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace', lineHeight: 1 }}>{String(ep.episodeNumber).padStart(2, '0')}</span>
                               <Film size={13} strokeWidth={1.5} color="rgba(255,255,255,0.28)" />
                             </div>
@@ -1767,20 +1767,20 @@ export default function TitleDetails() {
                                 </div>
                               )
                             ) : (
-                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'linear-gradient(135deg, rgba(251,191,36,0.9), rgba(244,63,94,0.9))', color: '#fff', padding: '3px 9px', borderRadius: '999px', fontSize: '0.64rem', fontWeight: 800, backdropFilter: 'blur(6px)', boxShadow: '0 4px 14px rgba(244,63,94,0.35)' }}>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'linear-gradient(135deg, rgba(149,255,80,0.9), rgba(149,255,80,0.9))', color: '#fff', padding: '3px 9px', borderRadius: '999px', fontSize: '0.64rem', fontWeight: 800, backdropFilter: 'blur(6px)', boxShadow: '0 4px 14px rgba(149,255,80,0.35)' }}>
                                 <Calendar size={11} strokeWidth={2.5} aria-hidden="true" />
                                 {formatAirsDate(ep.airDate)}
                               </div>
                             )}
                           </div>
-                          {isEpPlaying && <div style={{ position: 'absolute', top: '4px', right: '4px', background: 'var(--accent-primary, #f43f5e)', color: 'var(--on-accent, white)', padding: '1px 5px', borderRadius: '4px', fontSize: '0.5rem', fontWeight: 800, textTransform: 'uppercase' }}>Playing</div>}
+                          {isEpPlaying && <div style={{ position: 'absolute', top: '4px', right: '4px', background: 'var(--accent-primary, #95ff50)', color: 'var(--on-accent, white)', padding: '1px 5px', borderRadius: '4px', fontSize: '0.5rem', fontWeight: 800, textTransform: 'uppercase' }}>Playing</div>}
                           <div style={{ position: 'absolute', bottom: '4px', right: '4px', background: 'rgba(0,0,0,0.7)', padding: '1px 5px', borderRadius: '4px', fontSize: '0.55rem', fontWeight: 700 }}>{ep.duration}</div>
                         </div>
                         {/* Info */}
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '0.25rem' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: isEpPlaying ? 'var(--accent-primary, #f43f5e)' : '#52525b', fontFamily: 'monospace', flexShrink: 0 }}>E{String(ep.episodeNumber).padStart(2, '0')}</span>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: isEpPlaying ? 'var(--accent-primary, #95ff50)' : '#52525b', fontFamily: 'monospace', flexShrink: 0 }}>E{String(ep.episodeNumber).padStart(2, '0')}</span>
                               <h3 style={{ fontSize: '0.9rem', fontWeight: 600, margin: 0, color: isEpPlaying ? '#fff' : '#e4e4e7', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ep.title}</h3>
                             </div>
                             {ep.voteAverage > 0 && (
@@ -1798,7 +1798,7 @@ export default function TitleDetails() {
                           {isWatched && (
                             <div style={{ marginTop: '0.4rem' }}>
                               <div style={{ height: '2px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden', maxWidth: '120px' }}>
-                                <div style={{ height: '100%', width: `${Math.min(100, (watchedTs / (ep.durationMins ? ep.durationMins * 60 : 3600)) * 100)}%`, background: 'var(--accent-gradient, linear-gradient(90deg, #f43f5e, #fb923c))', borderRadius: '2px' }} />
+                                <div style={{ height: '100%', width: `${Math.min(100, (watchedTs / (ep.durationMins ? ep.durationMins * 60 : 3600)) * 100)}%`, background: 'var(--accent-gradient, linear-gradient(90deg, #95ff50, #5ce21c))', borderRadius: '2px' }} />
                               </div>
                             </div>
                           )}
@@ -1922,7 +1922,7 @@ export default function TitleDetails() {
                 <div style={{ position: 'relative', aspectRatio: '16/9' }}>
                   <img src={`https://img.youtube.com/vi/${vid.key}/mqdefault.jpg`} alt={vid.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)' }}>
-                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--accent-gradient, rgba(244,63,94,0.8))', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--accent-gradient, rgba(149,255,80,0.8))', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
                       <Play size={18} fill="var(--on-accent, #fff)" stroke="none" style={{ marginLeft: '2px' }} />
                     </div>
                   </div>

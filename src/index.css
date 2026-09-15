@@ -16,14 +16,15 @@
   --text-secondary: #a1a1aa;
   --text-muted: #71717a;
   --text-faint: #52525b;
-  --accent-color: #f43f5e;
-  --accent-primary: #f43f5e;
-  --accent-secondary: #fb923c;
-  --accent-gradient: linear-gradient(135deg, #f43f5e 0%, #fb923c 100%);
+  --accent-color: #95ff50;
+  --accent-primary: #95ff50;
+  --accent-secondary: #5ce21c;
+  --accent-gradient: linear-gradient(135deg, #95ff50 0%, #5ce21c 100%);
+  --accent-glow: rgba(149, 255, 80, 0.35);
   /* RGB triplets let translucent surfaces (chips, glows, selected rows)
      follow the active theme via rgba(var(--accent-primary-rgb), <alpha>). */
-  --accent-primary-rgb: 244, 63, 94;
-  --accent-secondary-rgb: 251, 146, 60;
+  --accent-primary-rgb: 149, 255, 80;
+  --accent-secondary-rgb: 92, 226, 28;
   /* Text color that stays legible on top of --accent-gradient. Light
      accents (emerald, ocean, solar) need dark text; saturated ones use white. */
   --on-accent: #ffffff;
@@ -34,6 +35,13 @@
   --border-subtle: rgba(255, 255, 255, 0.06);
   --border-medium: rgba(255, 255, 255, 0.1);
   --border-strong: rgba(255, 255, 255, 0.15);
+
+  /* ── Nav (official Cinejoy tokens) ──────────────────────── */
+  --nav-pad: 6px;
+  --nav-item-h: 40px;
+  --nav-fade: 0.3s ease;
+  --nav-transition: 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --condense-ease: cubic-bezier(0.4, 0, 0.2, 1);
 
   /* ── Spacing Scale ─────────────────────────────────────── */
   --spacing-xs: 0.25rem;
@@ -58,7 +66,7 @@
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 12px 24px -4px rgba(0, 0, 0, 0.8);
   --shadow-xl: 0 20px 40px -8px rgba(0, 0, 0, 0.9);
-  --shadow-glow: 0 0 20px rgba(244, 63, 94, 0.15);
+  --shadow-glow: 0 0 20px rgba(149, 255, 80, 0.15);
 
   /* ── Glass / Blur ──────────────────────────────────────── */
   --glass-bg: rgba(18, 18, 24, 0.72);
@@ -158,8 +166,8 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(55% 45% at 10% 5%, rgba(244, 63, 94, 0.13), transparent 62%),
-    radial-gradient(45% 40% at 90% 8%, rgba(251, 146, 60, 0.11), transparent 60%),
+    radial-gradient(55% 45% at 10% 5%, rgba(149, 255, 80, 0.13), transparent 62%),
+    radial-gradient(45% 40% at 90% 8%, rgba(92, 226, 28, 0.11), transparent 60%),
     radial-gradient(60% 50% at 78% 95%, rgba(96, 165, 250, 0.09), transparent 62%),
     radial-gradient(40% 35% at 25% 88%, rgba(167, 139, 250, 0.07), transparent 60%),
     #050505;
@@ -259,7 +267,7 @@ a {
    once scrolled. */
 .navbar {
   position: fixed;
-  top: 18px;
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
   left: 50%;
   right: auto;
   transform: translateX(-50%);
@@ -268,23 +276,25 @@ a {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: 8px 10px 8px 8px;
+  padding: var(--nav-pad) 10px var(--nav-pad) var(--nav-pad);
   max-width: calc(100vw - 2rem);
   border-radius: 999px;
-  background: rgba(20, 20, 24, 0.42);
-  backdrop-filter: blur(28px) saturate(160%);
-  -webkit-backdrop-filter: blur(28px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25), 0 4px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  background: rgba(14, 14, 16, 0.38);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.07), 0 8px 30px rgba(0, 0, 0, 0.3);
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, padding 0.32s var(--condense-ease);
   will-change: background, backdrop-filter, border-color, box-shadow;
 }
 .navbar.scrolled {
-  background: rgba(20, 20, 24, 0.6);
-  backdrop-filter: blur(48px) saturate(200%);
-  -webkit-backdrop-filter: blur(48px) saturate(200%);
-  border-color: rgba(255, 255, 255, 0.16);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  padding-top: 3px;
+  padding-bottom: 3px;
+  background: rgba(12, 12, 14, 0.52);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.08), 0 10px 36px rgba(0, 0, 0, 0.4);
 }
 
 /* Right zone — nav links + icons grouped together */
@@ -341,7 +351,7 @@ a {
   line-height: 1;
 }
 .app-brand-word-accent {
-  background: var(--accent-gradient, linear-gradient(135deg, #f43f5e, #fb923c));
+  background: var(--accent-gradient, linear-gradient(135deg, #95ff50, #5ce21c));
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -351,9 +361,9 @@ a {
 /* Cinejoy-style divider between the tabs and the utility icon cluster */
 .nav-separator {
   width: 1px;
-  height: 26px;
+  height: 18px;
   flex: 0 0 auto;
-  background: rgba(255, 255, 255, 0.14);
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0));
   border-radius: 1px;
 }
 
@@ -369,7 +379,8 @@ a {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 7px 8px;
+  height: var(--nav-item-h);
+  padding: 0 14px;
   font-size: 14px;
   font-weight: 500;
   color: #ffffff;
@@ -377,41 +388,42 @@ a {
   text-decoration: none;
   border-radius: 999px;
   letter-spacing: -0.01em;
-  transition: opacity 0.25s ease, background 0.25s ease, color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+  transition: color var(--nav-fade), background-color var(--nav-fade), opacity var(--nav-fade), transform 0.25s ease;
   white-space: nowrap;
 }
 .nav-link:hover {
   opacity: 1;
-  background: linear-gradient(135deg, rgba(var(--accent-primary-rgb), 0.55), rgba(var(--accent-secondary-rgb), 0.55));
+  background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
 }
 .nav-link:active {
   transform: scale(0.96);
 }
 
-/* Home — renders as a normal nav link, and becomes the solid accent pill
-   ONLY while on the home route (i.e. when it's the active page). This stops
-   Home from appearing "active" on every other page. */
+/* Home — renders as a normal nav link, and becomes the solid white Cinejoy
+   pill (.theme-pill-bg) ONLY while on the home route. */
 .nav-link--home {
   gap: 6px;
-  padding: 7px 16px;
+  padding: 0 16px;
   font-weight: 600;
 }
 .nav-link--home:hover {
-  background: linear-gradient(135deg, rgba(var(--accent-primary-rgb), 0.55), rgba(var(--accent-secondary-rgb), 0.55));
+  background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
 }
 .nav-link--home.nav-link--active {
-  background: var(--accent-gradient, linear-gradient(135deg, rgba(244, 63, 94, 0.9), rgba(251, 146, 60, 0.9)));
-  color: var(--on-accent, #ffffff);
+  background: #ffffff;
+  color: #000000;
   opacity: 1;
-  box-shadow: 0 4px 18px var(--accent-glow, rgba(244, 63, 94, 0.4)), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 16px 1px rgba(255, 255, 255, 0.18);
 }
 
 .nav-link--active {
   opacity: 1;
   font-weight: 600;
-  color: #ffffff;
+  color: #000000;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 16px 1px rgba(255, 255, 255, 0.18);
 }
 
 .nav-link {
@@ -422,8 +434,8 @@ a {
   position: absolute;
   inset: 0;
   border-radius: 999px;
-  background: linear-gradient(135deg, rgba(var(--accent-primary-rgb), 0.85), rgba(var(--accent-secondary-rgb), 0.85));
-  box-shadow: 0 4px 18px var(--accent-glow, rgba(244, 63, 94, 0.4));
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 16px 1px rgba(255, 255, 255, 0.18);
   z-index: 0;
 }
 .nav-link-label,
@@ -464,30 +476,31 @@ a {
   gap: 16px;
 }
 
-/* Ghost icon buttons */
+/* Ghost icon buttons — Cinejoy `.nav-item.is-icon` 40px circles */
 .nav-icon-btn {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: var(--nav-item-h);
+  height: var(--nav-item-h);
   border-radius: 50%;
   color: rgba(255, 255, 255, 0.8);
   background: transparent;
   border: none;
   cursor: pointer;
   text-decoration: none;
-  transition: color 0.15s ease, background 0.15s ease;
+  transition: color var(--nav-fade), background-color var(--nav-fade), box-shadow var(--nav-fade);
   flex-shrink: 0;
 }
 .nav-icon-btn:hover {
   color: #ffffff;
-  background: linear-gradient(135deg, rgba(var(--accent-primary-rgb), 0.55), rgba(var(--accent-secondary-rgb), 0.55));
+  background: rgba(255, 255, 255, 0.08);
 }
 .nav-icon-btn--active {
-  color: #ffffff;
-  background: linear-gradient(135deg, rgba(var(--accent-primary-rgb), 0.75), rgba(var(--accent-secondary-rgb), 0.75));
+  color: #000000;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 16px 1px rgba(255, 255, 255, 0.15);
 }
 
 /* Notification badge */
@@ -498,7 +511,7 @@ a {
   min-width: 17px;
   height: 17px;
   padding: 0 4px;
-  background: var(--accent-gradient, linear-gradient(135deg, #f43f5e, #e11d48));
+  background: var(--accent-gradient, linear-gradient(135deg, #95ff50, #4bc915));
   border-radius: 999px;
   border: 2px solid rgba(10, 10, 12, 0.9);
   display: flex;
@@ -516,7 +529,7 @@ a {
   width: 25px;
   height: 25px;
   border-radius: 50%;
-  background: var(--accent-gradient, linear-gradient(135deg, #f43f5e, #fb923c));
+  background: var(--accent-gradient, linear-gradient(135deg, #95ff50, #5ce21c));
   color: #fff;
   font-size: 0.7rem;
   font-weight: 700;
@@ -655,7 +668,7 @@ a {
   border-color: transparent;
   color: var(--on-accent, #fff);
   font-weight: 600;
-  box-shadow: 0 4px 18px var(--accent-glow, rgba(244, 63, 94, 0.35)), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  box-shadow: 0 4px 18px var(--accent-glow, rgba(149, 255, 80, 0.35)), inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 .chip--active:hover,
 .chip--active:focus-visible {
@@ -926,7 +939,7 @@ a {
   height: 44vw;
   left: -10%;
   top: -14%;
-  background: radial-gradient(circle at 35% 35%, rgba(244, 63, 94, 0.55), rgba(244, 63, 94, 0) 70%);
+  background: radial-gradient(circle at 35% 35%, rgba(149, 255, 80, 0.55), rgba(149, 255, 80, 0) 70%);
   animation: ambient-blob-a 46s ease-in-out infinite alternate;
 }
 .ambient-liquid__blob--b {
@@ -934,7 +947,7 @@ a {
   height: 36vw;
   right: -8%;
   top: 18%;
-  background: radial-gradient(circle at 60% 40%, rgba(251, 146, 60, 0.5), rgba(251, 146, 60, 0) 70%);
+  background: radial-gradient(circle at 60% 40%, rgba(92, 226, 28, 0.5), rgba(92, 226, 28, 0) 70%);
   animation: ambient-blob-b 58s ease-in-out infinite alternate;
 }
 .ambient-liquid__blob--c {
@@ -1064,21 +1077,20 @@ a {
   padding: 0 clamp(14px, 1.2vw, 20px);
   border-radius: 999px;
   border: none;
-  /* Theme-reactive: accent gradient + legible on-accent text on every theme. */
-  background: var(--accent-gradient, linear-gradient(135deg, #f43f5e, #fb923c));
-  color: var(--on-accent, #ffffff);
+  /* Cinejoy `.theme-btn-primary`: white pill, black text */
+  background: rgba(242, 242, 242, 0.96);
+  color: #000000;
   font-size: clamp(13px, 0.95vw, 15px);
   font-weight: 700;
   font-family: inherit;
   line-height: 1;
   cursor: pointer;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45), 0 4px 18px var(--accent-glow, rgba(0, 0, 0, 0.25));
-  transition: filter 0.2s ease, transform 0.2s ease;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.35);
+  transition: background-color 0.2s ease, transform 0.2s ease;
 }
 .hero-cta-play:hover {
-  filter: brightness(1.08) saturate(1.05);
+  background: rgba(255, 255, 255, 1);
 }
-.hero-cta-play:hover { background: rgba(255, 255, 255, 0.85); }
 .hero-cta-circle {
   display: inline-flex;
   align-items: center;
@@ -1109,15 +1121,16 @@ a {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  background-color: rgba(var(--accent-primary-rgb), 0.16);
-  border: 1px solid rgba(var(--accent-primary-rgb), 0.32);
+  /* Cinejoy `.theme-btn-secondary`: white/10 glass, white hairline border */
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(20px) saturate(150%);
   -webkit-backdrop-filter: blur(20px) saturate(150%);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 .hero-action-pill:hover {
-  background-color: rgba(var(--accent-primary-rgb), 0.28);
-  border-color: rgba(var(--accent-primary-rgb), 0.5);
+  background-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 .hero-action-pill > a {
   display: inline-flex;
@@ -1242,7 +1255,7 @@ a {
   box-shadow: none;
 }
 .hero-dot--active .dot-filler {
-  background: var(--accent-gradient, linear-gradient(90deg, #f43f5e, #fb923c));
+  background: var(--accent-gradient, linear-gradient(90deg, #95ff50, #5ce21c));
 }
 
 /* Buttons */
@@ -1284,38 +1297,36 @@ a {
 .btn:hover::after { opacity: 1; }
 
 /* ── Primary Button (Play, Watch Trailer) ── */
+/* Cinejoy `.theme-btn-primary`: solid white pill, black text */
 .btn-primary {
-  background: var(--accent-gradient, linear-gradient(135deg, #f43f5e 0%, #e11d48 50%, #be123c 100%));
-  background-size: 200% 200%;
-  background-position: 0% 50%;
-  color: var(--on-accent, white);
-  box-shadow: 0 8px 24px var(--accent-glow, rgba(225, 29, 72, 0.3)), inset 0 1px 0 rgba(255,255,255,0.15);
-  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  background: rgba(242, 242, 242, 0.96);
+  color: #000000;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 .btn-primary:hover {
   transform: translateY(-3px) scale(1.03);
-  background-position: 100% 50%;
-  box-shadow: 0 14px 36px var(--accent-glow, rgba(225, 29, 72, 0.45)), inset 0 1px 0 rgba(255,255,255,0.2);
+  background: #ffffff;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.5);
 }
 .btn-primary:active {
   transform: translateY(1px) scale(0.97);
-  box-shadow: 0 4px 12px var(--accent-glow, rgba(225, 29, 72, 0.3));
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
   transition-duration: 0.1s;
 }
 
-/* ── Secondary Button (retry / neutral accent-tinted actions) ── */
+/* ── Secondary Button — Cinejoy `.theme-btn-secondary` white/10 glass ── */
 .btn-secondary {
-  background: rgba(var(--accent-primary-rgb), 0.14);
-  color: var(--accent-primary, #fb7185);
-  border: 1px solid rgba(var(--accent-primary-rgb), 0.35);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 .btn-secondary:hover {
-  background: rgba(var(--accent-primary-rgb), 0.24);
-  border-color: rgba(var(--accent-primary-rgb), 0.55);
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.35);
   color: #ffffff;
   transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 8px 24px var(--accent-glow, rgba(244, 63, 94, 0.25));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 .btn-secondary:active {
   transform: translateY(1px) scale(0.97);
@@ -1436,8 +1447,8 @@ a {
   width: 3px;
   height: 1em;
   border-radius: 999px;
-  background: var(--accent-gradient, linear-gradient(180deg, #f43f5e, #fb923c));
-  box-shadow: 0 0 12px var(--accent-glow, rgba(244, 63, 94, 0.25));
+  background: var(--accent-gradient, linear-gradient(180deg, #95ff50, #5ce21c));
+  box-shadow: 0 0 12px var(--accent-glow, rgba(149, 255, 80, 0.25));
 }
 
 .movie-grid {
@@ -1519,7 +1530,7 @@ a {
   box-shadow:
     0 24px 52px -8px rgba(0, 0, 0, 0.9),
     0 0 0 1px rgba(var(--accent-primary-rgb), 0.32),
-    0 0 32px -12px var(--accent-glow, rgba(244, 63, 94, 0.35));
+    0 0 32px -12px var(--accent-glow, rgba(149, 255, 80, 0.35));
   border-color: rgba(255, 255, 255, 0.18);
 }
 
@@ -1549,7 +1560,7 @@ a {
 .curtain-list-btn:hover {
   background: rgba(var(--accent-primary-rgb), 0.22) !important;
   border-color: rgba(var(--accent-primary-rgb), 0.6) !important;
-  color: var(--accent-primary, #f43f5e) !important;
+  color: var(--accent-primary, #95ff50) !important;
 }
 
 /* Mobile-only quick list toggle — appears on the poster corner for
@@ -1597,7 +1608,7 @@ a {
   transition: color 0.25s ease;
 }
 .movie-card:hover .movie-title {
-  color: var(--accent-primary, #fb7185);
+  color: var(--accent-primary, #95ff50);
 }
 .movie-meta {
   display: flex;
@@ -1817,9 +1828,9 @@ a {
     105deg,
     transparent 0%,
     transparent 40%,
-    rgba(244, 63, 94, 0.08) 45%,
-    rgba(244, 63, 94, 0.15) 50%,
-    rgba(244, 63, 94, 0.08) 55%,
+    rgba(149, 255, 80, 0.08) 45%,
+    rgba(149, 255, 80, 0.15) 50%,
+    rgba(149, 255, 80, 0.08) 55%,
     transparent 60%,
     transparent 100%
   );
@@ -2045,7 +2056,7 @@ input:focus-visible {
   width: 3px;
   height: 1.1em;
   border-radius: 3px;
-  background: var(--accent-gradient, linear-gradient(to bottom, #f43f5e, #fb923c));
+  background: var(--accent-gradient, linear-gradient(to bottom, #95ff50, #5ce21c));
   flex-shrink: 0;
 }
 
@@ -2646,7 +2657,7 @@ input:focus-visible {
   .mobile-bottom-nav {
     display: flex !important;
     position: fixed;
-    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
     left: 50% !important;
     right: auto !important;
     transform: translateX(-50%);
@@ -2686,13 +2697,13 @@ input:focus-visible {
     color: #fff;
   }
   .bottom-nav-item.active {
-    color: #fff;
-    background: rgba(255, 255, 255, 0.12);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    color: #000;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 16px 1px rgba(255, 255, 255, 0.18);
   }
   .bottom-nav-item.active svg {
-    color: #fff;
-    filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.35));
+    color: #000;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
   }
   body {
     padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
@@ -2767,7 +2778,7 @@ input:focus-visible {
     margin-bottom: 0.5rem;
   }
   .btn-primary {
-    background: var(--accent-gradient, linear-gradient(135deg, #f43f5e, #e11d48, #be123c)) !important;
+    background: var(--accent-gradient, linear-gradient(135deg, #95ff50, #4bc915, #2f9908)) !important;
     box-shadow: 0 6px 20px var(--accent-glow, rgba(225, 29, 72, 0.45)) !important;
     border: none !important;
   }
@@ -3029,7 +3040,7 @@ input:focus-visible {
   top: 0;
   left: 0;
   height: 100%;
-  background: var(--accent-gradient, linear-gradient(90deg, #f43f5e, #fb923c));
+  background: var(--accent-gradient, linear-gradient(90deg, #95ff50, #5ce21c));
   animation: bannerProgress 10s linear forwards;
   transform-origin: left;
   width: 100%;
@@ -3172,17 +3183,19 @@ body::after {
   z-index: -1;
   opacity: 0.58;
   background:
-    radial-gradient(40rem 22rem at 50% -8rem, rgba(244, 63, 94, 0.07), transparent 72%),
-    radial-gradient(34rem 22rem at 100% 35%, rgba(251, 146, 60, 0.035), transparent 76%);
+    radial-gradient(40rem 22rem at 50% -8rem, rgba(149, 255, 80, 0.07), transparent 72%),
+    radial-gradient(34rem 22rem at 100% 35%, rgba(92, 226, 28, 0.035), transparent 76%);
 }
 
-/* ── Navigation: one restrained glass system ───────────────────────────── */
+/* ── Navigation: official Cinejoy glass dock (final override) ──────────── */
 .navbar {
   isolation: isolate;
   overflow: hidden;
-  background: linear-gradient(135deg, rgba(22, 22, 28, 0.82), rgba(10, 10, 13, 0.74));
-  border-color: rgba(255, 255, 255, 0.13);
-  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  background: rgba(14, 14, 16, 0.38);
+  border-color: rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.07), 0 8px 30px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
 }
 
 .navbar::before {
@@ -3191,13 +3204,14 @@ body::after {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background: linear-gradient(110deg, rgba(244, 63, 94, 0.13), transparent 34%, rgba(251, 146, 60, 0.1));
-  opacity: 0.72;
+  background: linear-gradient(110deg, rgba(255, 255, 255, 0.06), transparent 34%, rgba(149, 255, 80, 0.05));
+  opacity: 0.7;
 }
 
 .navbar.scrolled {
-  background: linear-gradient(135deg, rgba(20, 20, 26, 0.9), rgba(10, 10, 13, 0.88));
-  border-color: rgba(255, 255, 255, 0.17);
+  background: rgba(12, 12, 14, 0.52);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.08), 0 10px 36px rgba(0, 0, 0, 0.4);
 }
 
 .app-brand-link {
@@ -3226,10 +3240,10 @@ body::after {
 .nav-link--active,
 .nav-link--home.nav-link--active {
   opacity: 1;
-  background: var(--accent-gradient);
-  color: var(--on-accent, #fff);
+  background: #ffffff;
+  color: #000000;
   border-color: transparent;
-  box-shadow: 0 7px 18px var(--accent-glow, rgba(244, 63, 94, 0.28)), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 16px 1px rgba(255, 255, 255, 0.18);
 }
 
 .nav-active-pill {
@@ -3237,20 +3251,19 @@ body::after {
 }
 
 .nav-icon-btn {
-  border-radius: 12px;
+  border-radius: 50%;
   color: rgba(255, 255, 255, 0.72);
 }
 
 .nav-icon-btn:hover,
 .nav-icon-btn:focus-visible,
 .nav-icon-btn--active {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: #ffffff;
+  color: #000000;
 }
 
 .nav-icon-btn--active {
-  color: var(--accent-primary, #fb7185);
-  box-shadow: inset 0 0 0 1px rgba(var(--accent-primary-rgb), 0.24);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 16px 1px rgba(255, 255, 255, 0.15);
 }
 
 .nav-link:focus-visible,
@@ -3294,7 +3307,7 @@ body::after {
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: clamp(0.9rem, 1.4vw, 1.35rem);
   background:
-    linear-gradient(120deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.018) 54%, rgba(244, 63, 94, 0.05)),
+    linear-gradient(120deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.018) 54%, rgba(149, 255, 80, 0.05)),
     rgba(11, 11, 14, 0.54);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 25px 56px -42px rgba(0, 0, 0, 0.95);
   backdrop-filter: blur(24px) saturate(145%);
@@ -3310,7 +3323,7 @@ body::after {
   right: -8rem;
   pointer-events: none;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(251, 146, 60, 0.18), rgba(244, 63, 94, 0.08) 42%, transparent 70%);
+  background: radial-gradient(circle, rgba(92, 226, 28, 0.18), rgba(149, 255, 80, 0.08) 42%, transparent 70%);
   filter: blur(12px);
 }
 
@@ -3433,12 +3446,12 @@ body::after {
 .page-danger-action {
   color: #fda4af;
   border-color: rgba(251, 113, 133, 0.26);
-  background: rgba(244, 63, 94, 0.07);
+  background: rgba(149, 255, 80, 0.07);
 }
 
 .page-danger-action:hover {
   transform: translateY(-1px);
-  background: rgba(244, 63, 94, 0.15);
+  background: rgba(149, 255, 80, 0.15);
   border-color: rgba(251, 113, 133, 0.48);
   color: #ffe4e6;
 }
@@ -3487,7 +3500,7 @@ body::after {
   border-color: transparent;
   background: var(--accent-gradient);
   color: var(--on-accent, #fff);
-  box-shadow: 0 6px 16px var(--accent-glow, rgba(244, 63, 94, 0.22));
+  box-shadow: 0 6px 16px var(--accent-glow, rgba(149, 255, 80, 0.22));
 }
 
 .content-page__notice {
@@ -3551,7 +3564,7 @@ body::after {
 .settings-search:focus-within .settings-search__input {
   border-color: rgba(251, 113, 133, 0.58);
   background: rgba(255, 255, 255, 0.085);
-  box-shadow: var(--focus-ring), 0 20px 50px -34px var(--accent-glow, rgba(244, 63, 94, 0.45));
+  box-shadow: var(--focus-ring), 0 20px 50px -34px var(--accent-glow, rgba(149, 255, 80, 0.45));
 }
 
 .search-panel__clear {
@@ -3718,8 +3731,8 @@ body::after {
   width: 0.32rem;
   height: 1.1em;
   border-radius: 999px;
-  background: var(--accent-gradient, linear-gradient(135deg, #f43f5e, #f97316));
-  box-shadow: 0 4px 14px var(--accent-glow, rgba(244, 63, 94, 0.4));
+  background: var(--accent-gradient, linear-gradient(135deg, #95ff50, #5ce21c));
+  box-shadow: 0 4px 14px var(--accent-glow, rgba(149, 255, 80, 0.4));
 }
 
 /* ── Collection and history states ────────────────────────────────────── */
@@ -3732,7 +3745,7 @@ body::after {
   padding: clamp(2rem, 4vh, 4.5rem) 1.5rem;
   border: 1px dashed rgba(255, 255, 255, 0.11);
   border-radius: 1.5rem;
-  background: radial-gradient(30rem 16rem at 50% 0%, rgba(244, 63, 94, 0.07), transparent 74%);
+  background: radial-gradient(30rem 16rem at 50% 0%, rgba(149, 255, 80, 0.07), transparent 74%);
   color: rgba(255, 255, 255, 0.58);
   text-align: center;
 }
@@ -3833,7 +3846,7 @@ body::after {
 .card-remove-button:hover {
   transform: scale(1.08);
   border-color: rgba(251, 113, 133, 0.65);
-  background: #e11d48;
+  background: #4bc915;
 }
 
 /* ── Settings ─────────────────────────────────────────────────────────── */
@@ -3850,7 +3863,7 @@ body::after {
   height: 28rem;
   transform: translateX(-50%);
   pointer-events: none;
-  background: radial-gradient(ellipse 50% 40% at 50% 0%, var(--accent-glow, rgba(244, 63, 94, 0.13)), transparent 72%);
+  background: radial-gradient(ellipse 50% 40% at 50% 0%, var(--accent-glow, rgba(149, 255, 80, 0.13)), transparent 72%);
   filter: blur(8px);
 }
 
@@ -3991,7 +4004,7 @@ body::after {
 .setting-toggle--checked {
   border-color: rgba(var(--accent-secondary-rgb), 0.32);
   background: var(--accent-gradient);
-  box-shadow: 0 0 16px var(--accent-glow, rgba(244, 63, 94, 0.3));
+  box-shadow: 0 0 16px var(--accent-glow, rgba(149, 255, 80, 0.3));
 }
 
 .setting-toggle--checked .setting-toggle__thumb {
@@ -4037,7 +4050,7 @@ body::after {
 
 .movie-card:hover .poster-wrapper {
   border-color: rgba(var(--accent-secondary-rgb), 0.35);
-  box-shadow: 0 24px 52px -14px rgba(0, 0, 0, 0.88), 0 0 0 1px rgba(var(--accent-primary-rgb), 0.28), 0 0 32px -14px var(--accent-glow, rgba(244, 63, 94, 0.36));
+  box-shadow: 0 24px 52px -14px rgba(0, 0, 0, 0.88), 0 0 0 1px rgba(var(--accent-primary-rgb), 0.28), 0 0 32px -14px var(--accent-glow, rgba(149, 255, 80, 0.36));
 }
 
 .movie-card:focus-visible {
@@ -4162,8 +4175,9 @@ body::after {
   }
 
   .bottom-nav-item.active {
-    background: rgba(255, 255, 255, 0.12);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    background: #ffffff;
+    color: #000;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 16px 1px rgba(255, 255, 255, 0.18);
   }
 
   .content-page.main-content {
@@ -4615,7 +4629,7 @@ body::after {
   100% { background-position: 0% 50%; }
 }
 .gradient-text-animated {
-  background: var(--accent-gradient, linear-gradient(135deg, #f43f5e, #fb923c, #f43f5e));
+  background: var(--accent-gradient, linear-gradient(135deg, #95ff50, #5ce21c, #95ff50));
   background-size: 200% 200%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -5383,8 +5397,8 @@ html[data-theme="solar"] {
 
 .toggle.toggle-on {
   border-color: rgba(var(--accent-secondary-rgb), 0.4);
-  background: var(--accent-gradient, linear-gradient(135deg, #f43f5e, #fb923c));
-  box-shadow: 0 0 16px var(--accent-glow, rgba(244, 63, 94, 0.35));
+  background: var(--accent-gradient, linear-gradient(135deg, #95ff50, #5ce21c));
+  box-shadow: 0 0 16px var(--accent-glow, rgba(149, 255, 80, 0.35));
 }
 
 .toggle-dot {
@@ -5489,7 +5503,7 @@ html[data-theme="solar"] {
   background: #fff;
   cursor: pointer;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-  border: 2px solid var(--accent-secondary, #fb923c);
+  border: 2px solid var(--accent-secondary, #5ce21c);
 }
 
 .range-slider::-moz-range-thumb {
@@ -5499,7 +5513,7 @@ html[data-theme="solar"] {
   background: #fff;
   cursor: pointer;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-  border: 2px solid var(--accent-secondary, #fb923c);
+  border: 2px solid var(--accent-secondary, #5ce21c);
 }
 
 /* ── Server Order List ── */
@@ -5599,8 +5613,8 @@ html[data-theme="solar"] {
 }
 
 .theme-progress-bar {
-  background-color: var(--accent-color, #f43f5e);
-  box-shadow: 0 0 8px var(--accent-glow, rgba(244, 63, 94, 0.4));
+  background-color: var(--accent-color, #95ff50);
+  box-shadow: 0 0 8px var(--accent-glow, rgba(149, 255, 80, 0.4));
 }
 
 /* ── Player UI Studio ── */
@@ -6063,7 +6077,7 @@ html[data-theme="solar"] {
 }
 
 .studio-minimap i:not([data-n="0"]) {
-  background: var(--accent-primary, #f43f5e);
+  background: var(--accent-primary, #95ff50);
   box-shadow: 0 0 6px var(--accent-glow, transparent);
 }
 
@@ -6081,7 +6095,7 @@ html[data-theme="solar"] {
   padding: 1px 6px;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.08);
-  color: var(--accent-primary, #f43f5e);
+  color: var(--accent-primary, #95ff50);
   margin-bottom: 2px;
   display: inline-block;
 }
@@ -6700,12 +6714,12 @@ html[data-theme="solar"] {
 }
 
 .settings-dropdown-item:hover {
-  background: rgba(var(--accent-primary-rgb, 244, 63, 94), 0.1);
+  background: rgba(var(--accent-primary-rgb, 149, 255, 80), 0.1);
   color: var(--text-primary, #fff);
 }
 
 .settings-dropdown-item.is-selected {
-  background: rgba(var(--accent-primary-rgb, 244, 63, 94), 0.16);
+  background: rgba(var(--accent-primary-rgb, 149, 255, 80), 0.16);
   color: var(--text-primary, #fff);
 }
 
@@ -6878,7 +6892,7 @@ html[data-theme="solar"] {
   transition: background 0.2s ease, transform 0.2s ease;
 }
 .title-info-close:hover { background: rgba(40, 40, 52, 0.95); transform: scale(1.06); }
-.title-info-close:focus-visible { outline: 2px solid var(--accent-primary, #f43f5e); outline-offset: 2px; }
+.title-info-close:focus-visible { outline: 2px solid var(--accent-primary, #95ff50); outline-offset: 2px; }
 .title-info-name {
   position: absolute;
   left: clamp(16px, 4vw, 34px);
@@ -6978,7 +6992,7 @@ html[data-theme="solar"] {
   font-weight: 800;
   font-size: 0.92rem;
   font-family: inherit;
-  background: var(--accent-gradient, linear-gradient(135deg, #f43f5e, #fb923c));
+  background: var(--accent-gradient, linear-gradient(135deg, #95ff50, #5ce21c));
   color: var(--on-accent, #ffffff);
   box-shadow: 0 8px 26px rgba(0, 0, 0, 0.4), 0 3px 14px var(--accent-glow, rgba(0, 0, 0, 0.2));
   transition: filter 0.2s ease, transform 0.2s ease;
@@ -7004,7 +7018,7 @@ html[data-theme="solar"] {
 }
 .title-info-list:hover { background: rgba(255, 255, 255, 0.13); }
 .title-info-list.is-in-list {
-  color: var(--accent-primary, #f43f5e);
+  color: var(--accent-primary, #95ff50);
   border-color: rgba(var(--accent-primary-rgb), 0.5);
   background: rgba(var(--accent-primary-rgb), 0.12);
 }
@@ -7028,7 +7042,7 @@ html[data-theme="solar"] {
 .title-info-details:hover { background: rgba(255, 255, 255, 0.09); }
 .title-info-play:focus-visible,
 .title-info-list:focus-visible,
-.title-info-details:focus-visible { outline: 2px solid var(--accent-primary, #f43f5e); outline-offset: 2px; }
+.title-info-details:focus-visible { outline: 2px solid var(--accent-primary, #95ff50); outline-offset: 2px; }
 
 /* ≤640px: Netflix mobile bottom sheet — full width, rounded top, safe area */
 @media (max-width: 640px) {
@@ -7108,9 +7122,9 @@ html[data-theme="solar"] {
 }
 .player-preview-chip-neon {
   background: transparent;
-  border: 1.5px solid var(--accent-primary, #f43f5e);
-  color: var(--accent-primary, #f43f5e);
-  box-shadow: 0 0 8px var(--accent-primary, #f43f5e);
+  border: 1.5px solid var(--accent-primary, #95ff50);
+  color: var(--accent-primary, #95ff50);
+  box-shadow: 0 0 8px var(--accent-primary, #95ff50);
   border-radius: 50%;
 }
 .player-preview-chip-glass {
@@ -7434,17 +7448,24 @@ html[data-theme="solar"] {
   opacity: 1;
 }
 
-/* Dropdown menu panels — dark glass with a green-tinted scrollbar. */
+/* Dropdown menu panels — dark glass with a green-tinted scrollbar.
+   Mirrors Cinejoy FilterDropdown `.custom-scrollbar`: 4px, no buttons. */
 .discovery-menu {
   scrollbar-width: thin;
-  scrollbar-color: rgba(149, 255, 80, 0.35) transparent;
+  scrollbar-color: rgba(149, 255, 80, 0.4) transparent;
 }
 .discovery-menu::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
+}
+.discovery-menu::-webkit-scrollbar-track {
+  background: transparent;
 }
 .discovery-menu::-webkit-scrollbar-thumb {
-  background: rgba(149, 255, 80, 0.35);
-  border-radius: 999px;
+  background: rgba(149, 255, 80, 0.4);
+  border-radius: 4px;
+}
+.discovery-menu::-webkit-scrollbar-button {
+  display: none;
 }
 
 /* Rail — soft edge fade so cards entering/leaving the viewport feel masked
@@ -7468,6 +7489,14 @@ html[data-theme="solar"] {
   .site-footer {
     padding: 2rem 4rem;
     padding-bottom: 2rem;
+  }
+}
+
+/* ── Cinejoy parity: landscape phone nav (official scale rule) ─────────── */
+@media (orientation: landscape) and (max-height: 500px) {
+  .mobile-bottom-nav {
+    scale: 0.75;
+    transform-origin: bottom;
   }
 }
 

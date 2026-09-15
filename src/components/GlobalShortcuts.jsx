@@ -150,7 +150,7 @@ export default function GlobalShortcuts() {
                   color: "#fff",
                 }}
               >
-                <Keyboard size={20} color="var(--accent-secondary, #fb923c)" />
+                <Keyboard size={20} color="var(--accent-secondary, #5ce21c)" />
                 Keyboard Shortcuts
               </h2>
               <button

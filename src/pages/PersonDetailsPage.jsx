@@ -357,7 +357,7 @@ export default function PersonDetails() {
                   style={{
                     background: "rgba(var(--accent-secondary-rgb), 0.08)",
                     border: "1px solid rgba(var(--accent-secondary-rgb), 0.2)",
-                    color: "var(--accent-secondary, #fb923c)",
+                    color: "var(--accent-secondary, #5ce21c)",
                     cursor: "pointer",
                     fontWeight: 600,
                     fontSize: "0.85rem",

@@ -765,3 +765,29 @@ Cinejoy set. Original "don't edit" constraint was lifted by the user.
   - Recorded the full port map in `docs/cinejoy-reference/ANALYSIS.md` (27 assets → component →
     Streamly class, theme-var machinery, verbatim primitives, port backlog).
   - Verified: `npm run lint` (0), `npm run test` (305/305), `npm run build` (✓), harness output idempotent.
+
+## Nav + app-wide Cinejoy parity — Task 58 (user: "update each page CSS based on official Cinejoy CSS/UI/UX, mainly nav")
+
+- [x] **Task 58 - Official-Cinejoy nav, global white-pill button system, green identity sweep**
+  - Reverse-engineered the full nav CSS out of the real build (`.svelte-1elxaub` scope in `0.ugGWN4mw.css`):
+    `.glass-header` (`#0e0e1061`, blur 20 saturate 160%, border white/7, `inset 0 1px #fff/12 + 0 8px 30px #0000004d`),
+    `.is-scrolled` (`#0c0c0e85`, border white/10), `--nav-pad` 6px→3px condense (scroll, `.32s condense-ease`),
+    `--nav-item-h:40px`, `.nav-item.is-icon` 40px circles, `.theme-pill-bg` = solid white active pill with
+    `.pill-glow` (`0 2px 8px #00000059, 0 0 16px 1px #fff2e`), hairliner gradient `.nav-divider` (1px × 18px),
+    `.mobile-nav-bar` bottom `safe-area + 1rem`, landscape ≤500h `scale(.75)`.
+  - `src/index.css` nav: `.navbar`/`.navbar.scrolled` now the official glass recipe with condense padding;
+    active nav pill (links AND icon buttons) = solid white + black text + pill-glow; hover = white/8 neutral
+    (rose gradient gone); divider = gradient hairline; added `--nav-*`/`--condense-ease` tokens to `:root`;
+    mobile bottom-nav active = white pill + black icon + pill-glow; landscape scale rule.
+  - Default accent rebranded rose→Cinejoy green in `:root` (`--accent-primary #95ff50`,
+    `--accent-secondary #5ce21c`, `--accent-glow rgba(149,255,80,.35)`), plus every hard-coded rose fallback
+    across `index.css` + 12 components/pages swapped to green (`Loader`, `Footer`, `App` brand mark,
+    `playerUIDef`, `CustomVideoPlayer`, `TitleDetailsPage`, `PersonDetails`, `SearchPage`, etc.).
+    Semantic colors preserved: red danger (History/Watchlist bulk-delete, Settings factory-reset) and amber
+    ratings/warning (`LeavingSoonBanner`, score bands).
+  - Hero + global buttons → official Cinejoy `PillButton` recipes: `.hero-cta-play`/`.btn-primary` = solid
+    white pill + black text (hover pure `#fff`); `.hero-action-pill`/`.btn-secondary` = white/10 glass +
+    white/20 hairline (hover white/20). `.spotlight-badge`/`.discovery-menu` scrollbar already official (Task 57).
+  - Verified: `npm run lint` (0), `npm run test` (305/305 across 29 files), `npm run build` (✓).
+  - Follow-ups (backlog): reconcile duplicated "emerald" theme vs new default green swatch name; deep
+    watch-page WheelPicker/ScrapingScreen chrome if further parity desired.
