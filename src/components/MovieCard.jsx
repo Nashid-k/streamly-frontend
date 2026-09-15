@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, useRef } from "react";
+import { useCallback, useState, useEffect, useRef, memo } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Play, Plus, Check, Star } from "lucide-react";
 import { getTMDBWeekdayShort } from "../utils/timezone";
@@ -80,7 +80,15 @@ import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import { useOptionalPreferences } from "../context/preferences";
 import { logWarn } from "../utils/debugLogger";
 
-export default function MovieCard({
+// Device capability is static per session - computed once at module scope so
+// it never re-runs on every card render (object churn / memo invalidation).
+const isTouchDevice =
+  typeof window !== "undefined" &&
+  ("ontouchstart" in window ||
+    navigator.maxTouchPoints > 0 ||
+    (window.matchMedia && window.matchMedia("(hover: none), (pointer: coarse)").matches));
+
+const MovieCard = memo(function MovieCard({
   movie,
   showProgress = false,
   progressValue = 0,
@@ -97,11 +105,6 @@ export default function MovieCard({
   const reduceMotion = useReducedMotion();
   const isTvContent = movie?.isSeries || String(movie?.id || '').startsWith('tmdb-tv-');
 
-  const isTouchDevice = typeof window !== "undefined" && (
-    "ontouchstart" in window ||
-    navigator.maxTouchPoints > 0 ||
-    (window.matchMedia && window.matchMedia("(hover: none), (pointer: coarse)").matches)
-  );
 
   const handleMouseEnter = useCallback(() => {
     if (isTouchDevice) return;
@@ -112,7 +115,7 @@ export default function MovieCard({
     hoverTimeoutRef.current = setTimeout(() => {
       setIsHovered(true);
     }, 150);
-  }, [movie, isTouchDevice]);
+  }, [movie]);
 
   const handleMouseLeave = useCallback(() => {
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
@@ -604,4 +607,6 @@ export default function MovieCard({
       {modalHost}
     </div>
   );
-}
+});
+
+export default MovieCard;

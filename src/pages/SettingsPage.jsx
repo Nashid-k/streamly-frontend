@@ -518,7 +518,15 @@ function PlayerUIStudio() {
       </div>
 
       <p className="studio-label">Controls <span className="studio-label-note">drag onto the preview · pick icon style</span></p>
-      <div className="studio-palette">
+      <div
+        className="studio-palette"
+        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
+        onDrop={(e) => {
+          e.preventDefault();
+          const k = e.dataTransfer.getData("text/plain");
+          if (k) moveControl(k, "tray");
+        }}
+      >
         {PLAYER_CONTROL_ORDER.map((key) => {
           const meta = PLAYER_CONTROLS.find((c) => c.key === key);
           if (!meta) return null;

@@ -149,7 +149,7 @@ describe("PlayerPreview", () => {
 
   it("enables drag-and-drop dropzones across all presets when draggable is true", () => {
     const { container } = renderPreview({ presetId: "theater", draggable: true });
-    const dropzones = container.querySelectorAll(".player-preview-dropzone");
+    const dropzones = container.querySelectorAll(".player-preview-cluster");
     expect(dropzones.length).toBeGreaterThan(0);
   });
 

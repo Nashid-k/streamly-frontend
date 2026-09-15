@@ -1,8 +1,9 @@
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState, memo } from "react";
 import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 import slugify from "slugify";
+import { CdnImageAdapter } from "../api/cdnImageAdapter";
 
 const castContainerVariants = {
   hidden: { opacity: 0 },
@@ -21,7 +22,7 @@ const castItemVariants = {
   },
 };
 
-export default function CastRail({ cast }) {
+const CastRail = memo(function CastRail({ cast }) {
   const railRef = useRef(null);
   const [canLeft, setCanLeft] = useState(false);
   const [canRight, setCanRight] = useState(false);
@@ -39,15 +40,16 @@ export default function CastRail({ cast }) {
     updateArrows();
   }, [updateArrows, cast]);
 
-  if (!cast || cast.length === 0) return null;
-
-  const scroll = (dir) => {
+  // useCallback so memoized children get a stable scroll reference
+  const scroll = useCallback((dir) => {
     if (railRef.current)
       railRef.current.scrollBy({
         left: dir === "left" ? -400 : 400,
         behavior: "smooth",
       });
-  };
+  }, []);
+
+  if (!cast || cast.length === 0) return null;
 
   const arrowBtn = (dir) => {
     const disabled = dir === "left" ? !canLeft : !canRight;
@@ -115,7 +117,12 @@ export default function CastRail({ cast }) {
                   {m.profileUrl ? (
                     <>
                       <img
-                        src={m.profileUrl}
+                        src={CdnImageAdapter.getAvatarUrl(
+                          // profileUrl may be a full URL or a path — extract just the path
+                          m.profileUrl.includes('image.tmdb.org')
+                            ? m.profileUrl.replace(/.*\/t\/p\/\w+/, '')
+                            : m.profileUrl
+                        )}
                         alt={m.name}
                         loading="lazy"
                         decoding="async"
@@ -189,4 +196,7 @@ export default function CastRail({ cast }) {
       </motion.div>
     </section>
   );
-}
+});
+
+export default CastRail;
+

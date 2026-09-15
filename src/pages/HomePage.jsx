@@ -44,16 +44,18 @@ const isAnime = (m) =>
   );
 
 // ... (skipping MovieRail and Top10Rail for brevity, they remain unchanged)
-const FadeInSection = ({ children, delay = 0 }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 30 }}
-    whileInView={{ opacity: 1, y: 0 }}
-    viewport={{ once: true, margin: "-50px" }}
-    transition={{ duration: 0.6, delay, ease: "easeOut" }}
-  >
-    {children}
-  </motion.div>
-);
+const FadeInSection = React.memo(function FadeInSection({ children, delay = 0 }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-50px" }}
+      transition={{ duration: 0.6, delay, ease: "easeOut" }}
+    >
+      {children}
+    </motion.div>
+  );
+});
 
 const MovieRail = React.memo(
   function MovieRail({ category, railIndex: _railIndex = 0 }) {

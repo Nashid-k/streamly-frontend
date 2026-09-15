@@ -42,7 +42,7 @@ function logoUrlFromImages(images, size = 'w500') {
   const best = logos.find((l) => l.iso_639_1 === 'en') || logos.find((l) => !l.iso_639_1) || logos[0];
   if (!best) return null;
   const resolvedSize = LOGO_SIZE_SCORE[size] != null ? size : 'w500';
-  return `https://image.tmdb.org/t/p/${resolvedSize}${best.file_path}`;
+  return CdnImageAdapter.getUrl(best.file_path, resolvedSize);
 }
 
 export function isBrowsableTitle(item) {

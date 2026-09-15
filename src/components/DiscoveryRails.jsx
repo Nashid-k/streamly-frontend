@@ -1,4 +1,4 @@
-import { useMemo, useRef, useEffect } from "react";
+import { useMemo, useRef, useEffect, useCallback, memo } from "react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
@@ -18,13 +18,14 @@ export const DiscoveryRail = ({ section }) => {
   const railRef = useRef(null);
   const { canScrollLeft, canScrollRight, refresh } = useRailArrows(railRef);
 
-  const scroll = (dir) => {
+  // useCallback so the stable ref never re-renders memoized RailArrow children
+  const scroll = useCallback((dir) => {
     const el = railRef.current;
     if (!el) return;
     const amount = el.clientWidth > 800 ? el.clientWidth * 0.8 : el.clientWidth * 0.9;
     el.scrollBy({ left: dir === "left" ? -amount : amount, behavior: "smooth" });
     refresh();
-  };
+  }, [refresh]);
 
   return (
     <div className="discovery-rail" style={{ position: "relative" }}>
@@ -80,7 +81,7 @@ export const DiscoveryRail = ({ section }) => {
 // Compact banner-style discovery rails for listing pages. Mirrors the
 // authentic streaming pattern: Trend / Airing / Latest / Popular rows on
 // top of genre + search results so fresh OTT releases are always visible.
-export default function DiscoveryRails({ limit = 20 } = {}) {
+const DiscoveryRails = memo(function DiscoveryRails({ limit = 20 } = {}) {
   const trendingQuery = useQuery({
     queryKey: ["trending-this-week"],
     queryFn: () => movieService.getTrendingThisWeek("all"),
@@ -245,4 +246,6 @@ export default function DiscoveryRails({ limit = 20 } = {}) {
           ))}
     </div>
   );
-}
+});
+
+export default DiscoveryRails;

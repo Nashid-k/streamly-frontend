@@ -20,7 +20,7 @@ import {
 import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "framer-motion";
 
 import ErrorBoundary from "./components/ErrorBoundary";
-
+import GlobalShortcuts from "./components/GlobalShortcuts";
 import Loader from "./components/Loader";
 import BackToTop from "./components/BackToTop";
 import { useScrollRestoration } from "./hooks/useScrollRestoration";
@@ -240,8 +240,6 @@ function Layout({ children }) {
     </div>
   );
 }
-
-import GlobalShortcuts from "./components/GlobalShortcuts";
 
 /* Routes wrapped in a route-keyed ErrorBoundary + Suspense so a page that
    crashes shows the fallback once but recovers automatically the moment the

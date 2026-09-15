@@ -101,7 +101,12 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
-      modulePreload: false,
+      // Inject <link rel="modulepreload"> for every chunk — measurable LCP win on first visit
+      modulePreload: { polyfill: true },
+      cssCodeSplit: true,
+      // Skip per-chunk gzip stats in CI output for faster builds
+      reportCompressedSize: false,
+      chunkSizeWarningLimit: 600,
       rollupOptions: {
         output: {
           manualChunks(id) {
@@ -113,6 +118,10 @@ export default defineConfig(({ mode }) => {
             if (id.includes('slugify')) return 'slugify-vendor';
             return 'vendor';
           },
+          // Stable, content-hashed filenames — lets Vercel/CDN cache assets for 1 year
+          entryFileNames: 'assets/[name]-[hash].js',
+          chunkFileNames: 'assets/[name]-[hash].js',
+          assetFileNames: 'assets/[name]-[hash][extname]',
         },
       },
     },

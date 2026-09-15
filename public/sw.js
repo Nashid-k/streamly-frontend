@@ -1,4 +1,7 @@
-const CACHE_NAME = 'streamly-v10';
+const CACHE_NAME = 'streamly-v11';
+// Separate long-lived image cache — stale-while-revalidate so images load
+// from disk in <10ms on repeat visits, then silently refresh in background.
+const IMAGE_CACHE = 'streamly-images-v1';
 
 self.addEventListener('install', (event) => {
   // Pre-cache core shell so navigations always have index.html
@@ -11,12 +14,16 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  // Delete OLD caches only, preserving the current CACHE_NAME
+  // Delete OLD caches only, preserving the current CACHE_NAME and IMAGE_CACHE
   event.waitUntil(
     caches
       .keys()
       .then((keys) =>
-        Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+        Promise.all(
+          keys
+            .filter((k) => k !== CACHE_NAME && k !== IMAGE_CACHE)
+            .map((k) => caches.delete(k))
+        )
       )
       .then(() => self.clients.claim())
   );
@@ -51,6 +58,26 @@ function cacheKeyFor(request) {
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
+
+  // 0. wsrv.nl CDN images — stale-while-revalidate, 7-day freshness.
+  //    Serve from cache instantly; refresh in the background so the next
+  //    visit gets the latest version. Enables offline poster viewing.
+  if (url.origin === 'https://wsrv.nl' && request.method === 'GET') {
+    event.respondWith(
+      caches.open(IMAGE_CACHE).then(async (cache) => {
+        const cached = await cache.match(request);
+        const fetchPromise = fetch(request)
+          .then((res) => {
+            if (res && res.ok) cache.put(request, res.clone());
+            return res;
+          })
+          .catch(() => cached);
+        // Return cached immediately (stale-while-revalidate)
+        return cached ?? fetchPromise;
+      })
+    );
+    return;
+  }
 
   // 1. Cross-origin requests (TMDB API, fonts, CDN images) pass through untouched.
   if (url.origin !== self.location.origin) return;

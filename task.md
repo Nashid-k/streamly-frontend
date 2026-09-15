@@ -538,11 +538,52 @@ hudBlur/hudBorder/hudRadius/hudShadow/hudFont` (every floating card), `toastBg`,
     - `npm run lint`: 0 errors, 0 warnings across 120 files.
     - `npm test`: 305/305 tests passing across 29 test suites.
     - `npm run build`: Production build succeeded in 3.37s.
-
 - [x] **Task 43 - Fix player watch route crash (ReferenceError resolvePlayerIcon)**
-  - **Diagnosed**: Commits modifying spectRatio and rightness controls called a non-existent esolvePlayerIcon function instead of importing React Lucide icons.
-  - **Fixed**: Replaced esolvePlayerIcon with explicit <Maximize size={14} /> and <Sun size={15} /> in src/components/CustomVideoPlayer.jsx.
+  - **Diagnosed**: Commits modifying spectRatio and rightness controls called a non-existent 
+esolvePlayerIcon function instead of importing React Lucide icons.
+  - **Fixed**: Replaced 
+esolvePlayerIcon with explicit <Maximize size={14} /> and <Sun size={15} /> in src/components/CustomVideoPlayer.jsx.
   - **Tested**: Added a regression test and fixed JSDOM loading race conditions. 
 pm test passes (305/305) and 
 pm run build succeeds.
 
+- [x] **Task 44 — 18-point performance/caching plan (image CDN, service worker, memoization, asset caching)**
+  - **Note**: items 1-2, 4-18 from the plan landed; item 3 (`vitest.config.js` pool) was
+    attempted and **reverted** — Vitest 5 removed `test.poolOptions` (deprecation warning printed),
+    the `isolate: false` hint was silently ignored, and the pooled env caused 2 test failures
+    (dropzone render race + a 5s preset-mount timeout) plus `EnvironmentTeardownError` RPC
+    complaints. Reverted to the default pool; rationale documented in `vitest.config.js`.
+  - **index.html**: wsrv.nl preconnect (crossorigin) + `dns-prefetch` to `image.tmdb.org` up front;
+    Google Fonts now load non-blocking via the `media="print"` reload trick with a `<noscript>`
+    fallback; duplicate metas (apple/mobile web-app capable, status-bar style, stale cache-control
+    http-equiv tags) removed; layout cleaned (`</head>` fixed, contextmenu handler simplified);
+    SW-clear version bumped to `v19.0`.
+  - **vite.config.js**: re-enabled `modulePreload` (polyfill on) so Vite injects modulepreload links
+    for every chunk; stable content-hashed filenames (`assets/[name]-[hash].js` / `[extname]`) for
+    1-year CDN caching; `reportCompressedSize` off, `chunkSizeWarningLimit` 600, `cssCodeSplit` on.
+  - **queryClient.js**: `staleTime` 5→8min, `gcTime` 15min (fewer background refetches on tab focus /
+    back-nav / rail remounts); explicit `networkMode: 'online'` (default, documented).
+  - **cdnImageAdapter.js**: wsrv.nl proxy now enabled as the default image path — outputs WebP at
+    q80 with `af=true` (AVIF-first with graceful fallback); `getAvatarUrl` (w185) for cast photos;
+    `getSizes(context)` media-sizes helper; `getSrcSet` starts at w154. Tests updated to the wsrv
+    URL contract.
+  - **public/sw.js**: cache version bumped `streamly-v10` → `v11`; new separate `streamly-images-v1`
+    stale-while-revalidate cache for `wsrv.nl` (instant disk hits on repeat visits, background
+    refresh, offline poster support); `activate` prunes only old caches (preserves both).
+  - **Components**: `MovieCard` gets `React.memo` + `isTouchDevice` hoisted to module scope (computed
+    once, removed from hover deps); `ContinueWatchingRail`, `CastRail`, `DiscoveryRails` wrapped in
+    `memo`; `DiscoveryRails` + `CastRail` scroll handlers now `useCallback`-stable (memoized child
+    arrows get stable refs); `HomePage` `FadeInSection` memoized; `AmbientBackground` blur reduced
+    90→72px (detail overlay 55→44px) for GPU savings on mobile.
+  - **Verification & code hygiene**: `vercel.json` gains 1-year immutable cache for all hashed
+    `js|css|woff2|woff|ttf|svg|png|ico|webp|avif` assets (already hashed paths from the build);
+    `App.jsx` misplaced `GlobalShortcuts` import moved to the top import block; `movieService.js`
+    title-logo URLs routed through `CdnImageAdapter` (logos get WebP/AVIF too); `CastRail` avatar
+    URLs routed through `CdnImageAdapter.getAvatarUrl`; `SettingsPage` Player UI Studio palette now
+    accepts drops (drop a control chip on the palette to move it back to the tray); `PlayerPreview`
+    replaced the floating overlay dropzones with `Cluster` inline drop-targets per zone (draggable
+    mode), keeping the preview WYSIWYG with the real player's zone layout — palette → tray and
+    clusters → zones are now the two symmetric drop paths.
+  - **Verification**: `npm run lint` (0 errors, 0 warnings), `npm run test` (305/305 passed across
+    29 files — re-confirmed after pool revert), `npm run build` (success in 2.17s with hashed
+    assets). Leftover `fix_*.py`/`patch_preview.py` helper scripts removed.

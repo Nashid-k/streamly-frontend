@@ -141,6 +141,31 @@ const PlayerPreview = ({
   const zoneKeys = (zone) =>
     PLAYER_CONTROL_ORDER.filter((k) => resolved[k] === zone && visibility[k] !== false);
 
+
+  const Cluster = ({ zoneId, children, className = "" }) => {
+    if (!draggable) {
+      return <div className={`player-preview-cluster ${className}`}>{children}</div>;
+    }
+    const isOver = dragOverZone === zoneId;
+    return (
+      <div
+        className={`player-preview-cluster ${className}${isOver ? " is-over" : ""}`}
+        onDragOver={(e) => { e.preventDefault(); setDragOverZone(zoneId); }}
+        onDragLeave={() => setDragOverZone(null)}
+        onDrop={(e) => {
+          e.preventDefault();
+          const k = e.dataTransfer.getData("text/plain");
+          if (k) onZoneDrop?.(k, zoneId);
+          setDragOverZone(null);
+        }}
+        style={isOver ? { background: "rgba(255,255,255,0.1)", borderRadius: 4, minWidth: 24, minHeight: 24 } : { minWidth: 24, minHeight: 24 }}
+      >
+        {children}
+      </div>
+    );
+  };
+
+
   /* Variant rules copied from the real player so the preview never lies:
      - volume: full icon+slider only on the outer bottom corners, compact
        mute icon everywhere else (bottom center / top zones).
@@ -452,12 +477,10 @@ const PlayerPreview = ({
             {/* ══ ARCHETYPE 1: MINIMAL ══ */}
             {effectivePreset === "minimal" ? (
               <>
-                {(topLeftKeys.length > 0 || topRightKeys.length > 0) && (
-                  <div className="player-preview-top">
-                    <div className="player-preview-cluster">{topLeftKeys.map((k) => renderControl(k, "icon"))}</div>
-                    <div className="player-preview-cluster">{topRightKeys.map((k) => renderControl(k, "icon"))}</div>
-                  </div>
-                )}
+                {(draggable || topLeftKeys.length > 0 || topRightKeys.length > 0) && (<div className="player-preview-top">
+                    <Cluster zoneId="topLeft">{topLeftKeys.map((k) => renderControl(k, "icon"))}</Cluster>
+                    <Cluster zoneId="topRight">{topRightKeys.map((k) => renderControl(k, "icon"))}</Cluster>
+                  </div>)}
                 <div className="player-preview-bottom">
                   <div style={{ height: 2, background: "rgba(255,255,255,0.15)", position: "relative", marginBottom: 6 }}>
                     <div style={{ width: "30%", height: "100%", background: "#fff" }} />
@@ -468,42 +491,28 @@ const PlayerPreview = ({
                     <span className="player-preview-time player-preview-time--ghost" aria-hidden="true" />
                   </div>
                   <div className="player-preview-bar">
-                    <div className="player-preview-cluster">
-                      {bottomLeftKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomLeft") : "bar"))}
-                    </div>
-                    <div className="player-preview-cluster player-preview-cluster--center">
-                      {bottomCenterKeys.map((k) => renderControl(k, "icon"))}
-                    </div>
-                    <div className="player-preview-cluster">
-                      {bottomRightKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomRight") : "bar"))}
-                    </div>
+                    <Cluster zoneId="bottomLeft">{bottomLeftKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomLeft") : "bar"))}</Cluster>
+                    <Cluster zoneId="bottomCenter" className="player-preview-cluster--center">{bottomCenterKeys.map((k) => renderControl(k, "icon"))}</Cluster>
+                    <Cluster zoneId="bottomRight">{bottomRightKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomRight") : "bar"))}</Cluster>
                   </div>
                 </div>
               </>
             ) : effectivePreset === "apple" ? (
               /* ══ ARCHETYPE 2: APPLE TV (Floating Island Capsule) ══ */
               <>
-                {(topLeftKeys.length > 0 || topRightKeys.length > 0) && (
-                  <div className="player-preview-top">
-                    <div className="player-preview-cluster">{topLeftKeys.map((k) => renderControl(k, "icon"))}</div>
-                    <div className="player-preview-cluster">{topRightKeys.map((k) => renderControl(k, "icon"))}</div>
-                  </div>
-                )}
+                {(draggable || topLeftKeys.length > 0 || topRightKeys.length > 0) && (<div className="player-preview-top">
+                    <Cluster zoneId="topLeft">{topLeftKeys.map((k) => renderControl(k, "icon"))}</Cluster>
+                    <Cluster zoneId="topRight">{topRightKeys.map((k) => renderControl(k, "icon"))}</Cluster>
+                  </div>)}
                 <div className="player-preview-bottom" style={{ padding: "0 10px 8px" }}>
                   <div style={{ background: "rgba(24,24,30,0.8)", border: "1px solid rgba(255,255,255,0.16)", borderRadius: 999, padding: "6px 12px", boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}>
                     <div style={{ height: 4, background: "rgba(255,255,255,0.14)", borderRadius: 999, position: "relative", marginBottom: 6 }}>
                       <div style={{ width: "30%", height: "100%", background: "#fff", borderRadius: 999 }} />
                     </div>
                     <div className="player-preview-bar" style={{ padding: 0 }}>
-                      <div className="player-preview-cluster">
-                        {bottomLeftKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomLeft") : "bar"))}
-                      </div>
-                      <div className="player-preview-cluster player-preview-cluster--center">
-                        {bottomCenterKeys.map((k) => renderControl(k, "icon"))}
-                      </div>
-                      <div className="player-preview-cluster">
-                        {bottomRightKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomRight") : "bar"))}
-                      </div>
+                      <Cluster zoneId="bottomLeft">{bottomLeftKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomLeft") : "bar"))}</Cluster>
+                      <Cluster zoneId="bottomCenter" className="player-preview-cluster--center">{bottomCenterKeys.map((k) => renderControl(k, "icon"))}</Cluster>
+                      <Cluster zoneId="bottomRight">{bottomRightKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomRight") : "bar"))}</Cluster>
                     </div>
                   </div>
                 </div>
@@ -511,27 +520,19 @@ const PlayerPreview = ({
             ) : (effectivePreset === "material" || effectivePreset === "compact") ? (
               /* ══ ARCHETYPE 3: MATERIAL (Rounded Tonal Dock) ══ */
               <>
-                {(topLeftKeys.length > 0 || topRightKeys.length > 0) && (
-                  <div className="player-preview-top">
-                    <div className="player-preview-cluster">{topLeftKeys.map((k) => renderControl(k, "icon"))}</div>
-                    <div className="player-preview-cluster">{topRightKeys.map((k) => renderControl(k, "icon"))}</div>
-                  </div>
-                )}
+                {(draggable || topLeftKeys.length > 0 || topRightKeys.length > 0) && (<div className="player-preview-top">
+                    <Cluster zoneId="topLeft">{topLeftKeys.map((k) => renderControl(k, "icon"))}</Cluster>
+                    <Cluster zoneId="topRight">{topRightKeys.map((k) => renderControl(k, "icon"))}</Cluster>
+                  </div>)}
                 <div className="player-preview-bottom" style={{ padding: "0 10px 8px" }}>
                   <div style={{ background: "rgba(30,27,34,0.95)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: "6px 12px", boxShadow: "0 6px 20px rgba(0,0,0,0.5)" }}>
                     <div style={{ height: 4, background: "rgba(230,225,229,0.16)", borderRadius: 999, position: "relative", marginBottom: 6 }}>
                       <div style={{ width: "30%", height: "100%", background: "#d0bcff", borderRadius: 999 }} />
                     </div>
                     <div className="player-preview-bar" style={{ padding: 0 }}>
-                      <div className="player-preview-cluster">
-                        {bottomLeftKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomLeft") : "bar"))}
-                      </div>
-                      <div className="player-preview-cluster player-preview-cluster--center">
-                        {bottomCenterKeys.map((k) => renderControl(k, "icon"))}
-                      </div>
-                      <div className="player-preview-cluster">
-                        {bottomRightKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomRight") : "bar"))}
-                      </div>
+                      <Cluster zoneId="bottomLeft">{bottomLeftKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomLeft") : "bar"))}</Cluster>
+                      <Cluster zoneId="bottomCenter" className="player-preview-cluster--center">{bottomCenterKeys.map((k) => renderControl(k, "icon"))}</Cluster>
+                      <Cluster zoneId="bottomRight">{bottomRightKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomRight") : "bar"))}</Cluster>
                     </div>
                   </div>
                 </div>
@@ -544,9 +545,7 @@ const PlayerPreview = ({
                     <span style={{ fontFamily: "Georgia, serif", fontSize: 11, color: "#ffd166", fontWeight: 700, fontStyle: "italic" }}>{title}</span>
                     <span style={{ color: "#ffd166", fontSize: 8, border: "1px solid rgba(255,209,102,0.4)", borderRadius: 2, padding: "1px 3px" }}>★ 4K IMAX</span>
                   </div>
-                  <div className="player-preview-cluster">
-                    {topRightKeys.map((k) => renderControl(k, "icon"))}
-                  </div>
+                  <Cluster zoneId="topRight">{topRightKeys.map((k) => renderControl(k, "icon"))}</Cluster>
                 </div>
                 <div className="player-preview-bottom" style={{ background: "linear-gradient(to top, rgba(6,4,0,0.95), transparent)" }}>
                   <div style={{ width: "100%", height: 3, background: "rgba(255,209,102,0.15)", position: "relative", marginBottom: 4 }}>
@@ -558,15 +557,9 @@ const PlayerPreview = ({
                     <span className="player-preview-time player-preview-time--ghost" aria-hidden="true" />
                   </div>
                   <div className="player-preview-bar">
-                    <div className="player-preview-cluster">
-                      {bottomLeftKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomLeft") : "bar"))}
-                    </div>
-                    <div className="player-preview-cluster player-preview-cluster--center">
-                      {bottomCenterKeys.map((k) => renderControl(k, "icon"))}
-                    </div>
-                    <div className="player-preview-cluster">
-                      {bottomRightKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomRight") : "bar"))}
-                    </div>
+                    <Cluster zoneId="bottomLeft">{bottomLeftKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomLeft") : "bar"))}</Cluster>
+                    <Cluster zoneId="bottomCenter" className="player-preview-cluster--center">{bottomCenterKeys.map((k) => renderControl(k, "icon"))}</Cluster>
+                    <Cluster zoneId="bottomRight">{bottomRightKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomRight") : "bar"))}</Cluster>
                   </div>
                 </div>
               </>
@@ -577,9 +570,7 @@ const PlayerPreview = ({
                   <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                     <span style={{ color: "#ff3b4e" }}>● LIVE</span><span>|</span><span style={{ color: "#fff" }}>{title}</span><span>|</span><span style={{ color: "#ff3b4e" }}>TC 01:47:12</span>
                   </div>
-                  <div className="player-preview-cluster">
-                    {topRightKeys.map((k) => renderControl(k, "icon"))}
-                  </div>
+                  <Cluster zoneId="topRight">{topRightKeys.map((k) => renderControl(k, "icon"))}</Cluster>
                 </div>
                 <div className="player-preview-bottom" style={{ background: "#0d0d0f", borderTop: "1px solid rgba(255,255,255,0.12)" }}>
                   <div style={{ height: 14, background: "#111113", position: "relative", marginBottom: 2 }}>
@@ -594,15 +585,9 @@ const PlayerPreview = ({
                     <div style={{ display: "flex", gap: 2 }}><span>[0.5x]</span><span style={{ color: "#ff3b4e" }}>[1x]</span><span>[2x]</span></div>
                   </div>
                   <div className="player-preview-bar">
-                    <div className="player-preview-cluster">
-                      {bottomLeftKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomLeft") : "bar"))}
-                    </div>
-                    <div className="player-preview-cluster player-preview-cluster--center">
-                      {bottomCenterKeys.map((k) => renderControl(k, "icon"))}
-                    </div>
-                    <div className="player-preview-cluster">
-                      {bottomRightKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomRight") : "bar"))}
-                    </div>
+                    <Cluster zoneId="bottomLeft">{bottomLeftKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomLeft") : "bar"))}</Cluster>
+                    <Cluster zoneId="bottomCenter" className="player-preview-cluster--center">{bottomCenterKeys.map((k) => renderControl(k, "icon"))}</Cluster>
+                    <Cluster zoneId="bottomRight">{bottomRightKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomRight") : "bar"))}</Cluster>
                   </div>
                 </div>
               </>
@@ -610,16 +595,10 @@ const PlayerPreview = ({
               /* ══ ARCHETYPE 5: CLASSIC (Traditional Web Streaming Player with Zone Clusters) ══ */
               <>
                 {/* Top zones */}
-                {(topLeftKeys.length > 0 || topRightKeys.length > 0) && (
-                  <div className="player-preview-top">
-                    <div className="player-preview-cluster">
-                      {topLeftKeys.map((k) => renderControl(k, "icon"))}
-                    </div>
-                    <div className="player-preview-cluster">
-                      {topRightKeys.map((k) => renderControl(k, "icon"))}
-                    </div>
-                  </div>
-                )}
+                {(draggable || topLeftKeys.length > 0 || topRightKeys.length > 0) && (<div className="player-preview-top">
+                    <Cluster zoneId="topLeft">{topLeftKeys.map((k) => renderControl(k, "icon"))}</Cluster>
+                    <Cluster zoneId="topRight">{topRightKeys.map((k) => renderControl(k, "icon"))}</Cluster>
+                  </div>)}
 
                 {/* Center play glyph */}
                 {!isPlaying && (
@@ -687,15 +666,9 @@ const PlayerPreview = ({
                       boxShadow: "var(--skin-chrome-shadow, none)",
                     }}
                   >
-                    <div className="player-preview-cluster">
-                      {bottomLeftKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomLeft") : "bar"))}
-                    </div>
-                    <div className="player-preview-cluster player-preview-cluster--center">
-                      {bottomCenterKeys.map((k) => renderControl(k, "icon"))}
-                    </div>
-                    <div className="player-preview-cluster">
-                      {bottomRightKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomRight") : "bar"))}
-                    </div>
+                    <Cluster zoneId="bottomLeft">{bottomLeftKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomLeft") : "bar"))}</Cluster>
+                    <Cluster zoneId="bottomCenter" className="player-preview-cluster--center">{bottomCenterKeys.map((k) => renderControl(k, "icon"))}</Cluster>
+                    <Cluster zoneId="bottomRight">{bottomRightKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomRight") : "bar"))}</Cluster>
                   </div>
                 </div>
               </>
@@ -703,64 +676,7 @@ const PlayerPreview = ({
           </div>
         )}
 
-        {draggable && (
-          <>
-            <div
-              className={`player-preview-dropzone${dragOverZone === "topLeft" ? " is-over" : ""}`}
-              style={{ position: "absolute", top: 4, left: 4, width: "42%", height: "30%" }}
-              onDragOver={(e) => { e.preventDefault(); setDragOverZone("topLeft"); }}
-              onDragLeave={() => setDragOverZone(null)}
-              onDrop={(e) => { e.preventDefault(); const k = e.dataTransfer.getData("text/plain"); onZoneDrop?.(k, "topLeft"); setDragOverZone(null); }}
-            >
-              {dragOverZone === "topLeft" ? "Top left" : ""}
-            </div>
-            <div
-              className={`player-preview-dropzone${dragOverZone === "topRight" ? " is-over" : ""}`}
-              style={{ position: "absolute", top: 4, right: 4, width: "42%", height: "30%" }}
-              onDragOver={(e) => { e.preventDefault(); setDragOverZone("topRight"); }}
-              onDragLeave={() => setDragOverZone(null)}
-              onDrop={(e) => { e.preventDefault(); const k = e.dataTransfer.getData("text/plain"); onZoneDrop?.(k, "topRight"); setDragOverZone(null); }}
-            >
-              {dragOverZone === "topRight" ? "Top right" : ""}
-            </div>
-            <div
-              className={`player-preview-dropzone${dragOverZone === "bottomLeft" ? " is-over" : ""}`}
-              style={{ position: "absolute", bottom: 4, left: 4, width: "30%", height: "30%" }}
-              onDragOver={(e) => { e.preventDefault(); setDragOverZone("bottomLeft"); }}
-              onDragLeave={() => setDragOverZone(null)}
-              onDrop={(e) => { e.preventDefault(); const k = e.dataTransfer.getData("text/plain"); onZoneDrop?.(k, "bottomLeft"); setDragOverZone(null); }}
-            >
-              {dragOverZone === "bottomLeft" ? "Bottom left" : ""}
-            </div>
-            <div
-              className={`player-preview-dropzone${dragOverZone === "bottomCenter" ? " is-over" : ""}`}
-              style={{ position: "absolute", bottom: 4, left: "35%", width: "30%", height: "30%" }}
-              onDragOver={(e) => { e.preventDefault(); setDragOverZone("bottomCenter"); }}
-              onDragLeave={() => setDragOverZone(null)}
-              onDrop={(e) => { e.preventDefault(); const k = e.dataTransfer.getData("text/plain"); onZoneDrop?.(k, "bottomCenter"); setDragOverZone(null); }}
-            >
-              {dragOverZone === "bottomCenter" ? "Bottom center" : ""}
-            </div>
-            <div
-              className={`player-preview-dropzone${dragOverZone === "bottomRight" ? " is-over" : ""}`}
-              style={{ position: "absolute", bottom: 4, right: 4, width: "30%", height: "30%" }}
-              onDragOver={(e) => { e.preventDefault(); setDragOverZone("bottomRight"); }}
-              onDragLeave={() => setDragOverZone(null)}
-              onDrop={(e) => { e.preventDefault(); const k = e.dataTransfer.getData("text/plain"); onZoneDrop?.(k, "bottomRight"); setDragOverZone(null); }}
-            >
-              {dragOverZone === "bottomRight" ? "Bottom right" : ""}
-            </div>
-            <div
-              className={`player-preview-dropzone is-tray${dragOverZone === "tray" ? " is-over" : ""}`}
-              style={{ position: "absolute", bottom: 4, left: "50%", transform: "translateX(-50%)", width: 60, height: 18 }}
-              onDragOver={(e) => { e.preventDefault(); setDragOverZone("tray"); }}
-              onDragLeave={() => setDragOverZone(null)}
-              onDrop={(e) => { e.preventDefault(); const k = e.dataTransfer.getData("text/plain"); onZoneDrop?.(k, "tray"); setDragOverZone(null); }}
-            >
-              {dragOverZone === "tray" ? "Remove" : ""}
-            </div>
-          </>
-        )}
+        
 
         {!showChrome && (
           <div className="player-preview-subwrap">

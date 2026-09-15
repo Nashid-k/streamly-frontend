@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, memo } from "react";
 import { Link } from "react-router-dom";
 import { Clock, ChevronRight, ChevronLeft, Play, X } from "lucide-react";
 import slugify from "slugify";
@@ -38,7 +38,7 @@ const remainingLabel = (item) => {
   return null;
 };
 
-export default function ContinueWatchingRail({ items = [] }) {
+const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) {
   const { removeFromContinueWatching } = useAppAuth();
   const scrollRef = useRef(null);
   const [editMode, setEditMode] = useState(false);
@@ -256,4 +256,7 @@ export default function ContinueWatchingRail({ items = [] }) {
       </div>
     </div>
   );
-}
+});
+
+export default ContinueWatchingRail;
+
