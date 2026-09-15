@@ -61,36 +61,37 @@ through the `env.js` stub to `''` and fail soft (logged, non-blocking).
 
 ## 3. Folders — where things go
 
-- `src/api/` — network boundary. `tmdbClient.js` (proxy-first fetch+timeout+
+Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in `vite.config.js`, `vitest.config.js`, and `jsconfig.json`). Each layer exposes a clean `index.js` barrel export while maintaining full backwards compatibility with direct imports:
+
+- `src/api/` — network boundary (`@/api`). `index.js` barrel. `tmdbClient.js` (proxy-first fetch+timeout+
   `[Streamly][tmdb]` logs, direct fallback), `movieService.js` (all domain
   calls + normalize, each method logs failure/empty), `omdbClient.js`, `ratingService.js`, `videoSourceAdapter.js`,
-  `subtitleFetcher.js`, `prefetchAdapter.js`, `cdnImageAdapter.js`,
-  `virtualRenderAdapter.js`, `env.js` (**stub — do not revive**).
+  `subtitleFetcher.js`, `prefetchAdapter.js`, `cdnImageAdapter.js`, `virtualRenderAdapter.js` (re-export of hook).
 - `src/pages/` — one file per route (see table). Pages own query keys and
   log every `error` + empty-data state via `reportQueryError`/`logEmptyData`.
-- `src/components/` — reusable UI. Rail primitives (`MovieRail`, `Top10Rail`,
-  `DiscoveryRail`, `ContinueWatchingRail`), `MovieCard` (prefetch on hover,
-  logs image failure), `CustomVideoPlayer` (logs tip/VTT/preview/server
-  failures), `HeroTitleLogo`, `RatingsCluster`, `ErrorBoundary` (logs route +
-  component stack), `SEO`, `Toast`, `EmptyState`.
-- `src/hooks/` — `useUserData.js` (localStorage lists, logs corrupt/quota
-  failures), `useDebounce`, `useMediaQuery`, `useRailArrows`,
-  `useScrollRestoration`.
-- `src/context/` — `AuthContext.jsx` (merges the three `useUserData` hooks),
-  `PreferencesContext.jsx` + `preferences.js` (settings + `setting-*`).
-- `src/utils/` — `debugLogger.js` (**all console output goes through here**),
-  `index.js` (`asArray`/`EMPTY_ARRAY` null-safety), `timezone`,
-  `searchRanking`, `genreResults`, `releaseCalendar`, `ratings`,
-  `notificationEngine`, `subtitleEngine`, `platforms`.
-- `src/__tests__/` — vitest suites (service shape, ranking, engines,
-  components). `src/queryClient.js` — QueryClient + global `QueryCache.onError`
-  logger. `src/main.jsx` — boot diagnostics + global error hooks.
+- `src/components/` — reusable UI (`@/components`). `index.js` categorized barrel. Rail primitives
+  (`CastRail`, `DiscoveryRails`, `ContinueWatchingRail`, `GenreShowcase`, `LeavingSoonBanner`),
+  cards (`MovieCard`, `SearchResultRow`), player subsystem (`CustomVideoPlayer`, `PlayerPreview`,
+  `playerUIDef.js`, `YoutubeRawTrailer`), modals (`TitleInfoModal`, `GlobalShortcuts`), and primitives
+  (`Button`, `Chip`, `Toast`, `ConfirmDialog`, `Loader`, `EmptyState`, `SEO`, `ErrorBoundary`).
+- `src/hooks/` — custom React hooks (`@/hooks`). `index.js` barrel. `useUserData.js` (localStorage lists,
+  logs corrupt/quota failures), `useDebounce`, `useDetailView`, `useMediaQuery`, `useRailArrows`,
+  `useScrollRestoration`, `useVirtualRenderAdapter` (IntersectionObserver adapter for heavy elements).
+- `src/context/` — React contexts (`@/context`). `index.js` barrel. `AuthContext.jsx` + `auth.js`
+  (merges user data hooks), `PreferencesContext.jsx` + `preferences.js` (settings + `setting-*`).
+- `src/utils/` — shared utilities (`@/utils`). `index.js` barrel. `debugLogger.js` (**all console output
+  goes through here**), `index.js` (`asArray`/`EMPTY_ARRAY` null-safety + re-exports), `timezone`,
+  `searchRanking`, `genreResults`, `releaseCalendar`, `ratings`, `notificationEngine`, `subtitleEngine`,
+  `platforms`, `metaFacts`, `chunkRecovery`.
+- `src/__tests__/` — vitest suites (service shape, ranking, engines, components, barrels).
+  `src/queryClient.js` — QueryClient + global `QueryCache.onError` logger. `src/main.jsx` — boot
+  diagnostics + global error hooks.
 - `api/` — Vercel serverless functions (not bundled to the client).
   `api/tmdb.js` is the TMDB passthrough proxy — the reason
   visitors on ISPs that block `api.themoviedb.org` still get data.
   Root: `index.html` (fonts/CDN preconnect, SW cache-buster), `vite.config.js`
-  (vendor chunk split, `hls.js` isolated, `/api/tmdb` dev proxy), `vercel.json`
-  (`/api/tmdb/(.*)` proxy rewrite + SPA rewrite + cache headers), `.env` / `.env.example`, `test-movie.js` (manual TMDB probe).
+  (vendor chunk split, `@/` path alias, `/api/tmdb` dev proxy), `vercel.json`
+  (`/api/tmdb/(.*)` proxy rewrite + SPA rewrite + cache headers), `.env` / `.env.example`, `test-movie.js` (manual TMDB probe; runnable via `npm run probe:movie`).
 
 ## 4. Five architecture decisions + why
 

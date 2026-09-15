@@ -1,12 +1,12 @@
 /**
- * Shared utilities.
+ * Streamly Shared Utilities
  *
- * `asArray`/`EMPTY_ARRAY` normalize backend payloads that can briefly return
- * non-array bodies (cold-start errors, object envelopes, 503 stubs) so a
- * single truthy-but-not-array value can never crash a render.
+ * Core runtime utilities and consolidated re-exports for diagnostics,
+ * metadata normalization, chunk recovery, platform names, and ratings.
  */
-export const EMPTY_ARRAY = [];
 
+// Defensive Array Normalization & Legacy URL Helpers
+export const EMPTY_ARRAY = [];
 export const asArray = (x) => (Array.isArray(x) ? x : EMPTY_ARRAY);
 
 export const decodeUrl = (encodedStr) => {
@@ -27,3 +27,25 @@ export const decodeUrl = (encodedStr) => {
     return encodedStr;
   }
 };
+
+// Logging & Diagnostics
+export {
+  logError,
+  logWarn,
+  logInfo,
+  logDebug,
+  reportQueryError,
+  logEmptyData,
+} from "./debugLogger";
+
+// Metadata, Formatting & Ratings
+export { normalizePlatformKey, getPlatformName } from "./platforms";
+export { getRatingColor } from "./ratings";
+export { buildMetaFacts } from "./metaFacts";
+
+// Dynamic Import Chunk Recovery
+export {
+  isChunkLoadError,
+  clearRuntimeCaches,
+  shouldAttemptRecovery,
+} from "./chunkRecovery";

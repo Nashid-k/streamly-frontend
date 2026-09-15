@@ -315,13 +315,6 @@ function PlayerUIStudio() {
     setPickedKey(key);
   };
 
-  const onZoneDrop = (e, zoneId) => {
-    e.preventDefault();
-    const key = e.dataTransfer.getData("text/plain") || pickedKey;
-    if (key) moveControl(key, zoneId);
-    setPickedKey(null);
-  };
-
   /* previewFont/PreviewIcon/renderPreviewCluster are retired — the live
      preview is now the shared PlayerPreview mini-player (demo video +
      real zone chrome, styled from the same preferences). */

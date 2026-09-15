@@ -75,7 +75,7 @@ const btnVariants = {
 
 import { PrefetchAdapter } from "../api/prefetchAdapter";
 
-import { useVirtualRenderAdapter } from "../api/virtualRenderAdapter";
+import { useVirtualRenderAdapter } from "../hooks/useVirtualRenderAdapter";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import { useOptionalPreferences } from "../context/preferences";
 import { logWarn } from "../utils/debugLogger";

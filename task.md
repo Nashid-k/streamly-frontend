@@ -357,3 +357,13 @@ hudBlur/hudBorder/hudRadius/hudShadow/hudFont` (every floating card), `toastBg`,
   - **Direct drag-and-drop onto PlayerPreview**: Draggable icon chips inside the preview canvas and interactive zone drop targets (`topLeft`, `topRight`, `bottomLeft`, `bottomCenter`, `bottomRight`, `tray`) with glowing drag-over states.
   - **Interactive Icon Palette**: Replaced static placement grid with a draggable chip palette showing zone badges, style-variant selectors, eye toggles, and accessible select fallbacks.
   - Verified: `npm run lint` (0 warnings, 0 errors), `npm run test` (286/286 passed across 26 files), `npm run build` (✓ 1.96s clean).
+
+- [x] **Task 33 — Architecture analysis, folder structure simplification, cleanup & developer experience overhaul**
+  - **Dead code elimination**: Deleted dead legacy stub `src/api/apiClient.js` (0 consumers); removed unused `onZoneDrop` in `SettingsPage.jsx` (bringing oxlint to 0 errors, 0 warnings).
+  - **Hook categorization**: Moved `useVirtualRenderAdapter` from `src/api/virtualRenderAdapter.js` to `src/hooks/useVirtualRenderAdapter.js` with backwards-compatible re-export in `src/api/` and updated `MovieCard.jsx`.
+  - **Path alias `@/`**: Configured `@/` mapped to `src/` across `vite.config.js`, `vitest.config.js`, and added root `jsconfig.json` for IDE autocomplete and path resolution.
+  - **Barrel exports**: Added clean, domain-grouped `index.js` barrels for `@/components`, `@/hooks`, `@/context`, `@/api`, and expanded `@/utils` while preserving 100% backwards compatibility for direct path imports.
+  - **NPM scripts**: Added `"probe:movie": "node test-movie.js"` to `package.json` for manual TMDB connectivity checks.
+  - **Automated test coverage**: Added `src/__tests__/barrels.test.js` (testing all layer barrels & `@/` alias resolution) and `src/__tests__/useVirtualRenderAdapter.test.jsx` (testing observer lifecycle and fallback mode).
+  - **Verification**: `npm run lint` (0 errors, 0 warnings), `npm run test` (28 files, 293/293 passed), `npm run build` (success in 3.08s).
+
