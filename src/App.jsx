@@ -206,12 +206,14 @@ function Layout({ children }) {
       {/* Back to top */}
       <BackToTop />
 
-      {/* Mobile Bottom Navigation Bar — 4 spacious, ergonomic touch tabs */}
+      {/* Mobile Bottom Navigation — Cinejoy-style floating icon pill */}
       <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
         {[
-          { id: "home", label: "Home", to: "/", icon: Home, match: (p) => p === "/" || p.startsWith("/movies") || p.startsWith("/series") },
-          { id: "explore", label: "Explore", to: "/search", icon: Search, match: (p) => p === "/search" || p.startsWith("/genre/") || p.startsWith("/category/") },
+          { id: "home", label: "Home", to: "/", icon: Home, match: (p) => p === "/" },
+          { id: "movies", label: "Movies", to: "/movies", icon: Clapperboard, match: (p) => p.startsWith("/movies") },
+          { id: "shows", label: "Shows", to: "/series", icon: Tv, match: (p) => p.startsWith("/series") },
           { id: "mylist", label: "My List", to: "/watchlist", icon: Bookmark, match: (p) => p === "/watchlist" || p === "/history" },
+          { id: "search", label: "Search", to: "/search", icon: Search, match: (p) => p === "/search" },
           { id: "settings", label: user ? "Account" : "Settings", to: "/settings", icon: Settings, match: (p) => p === "/settings" },
         ].map((item) => {
           const active = item.match(location.pathname);
@@ -221,18 +223,19 @@ function Layout({ children }) {
               to={item.to}
               className={`bottom-nav-item ${active ? "active" : ""}`}
               aria-current={active ? "page" : undefined}
+              aria-label={item.label}
+              title={item.label}
             >
               {item.id === "settings" && user?.picture ? (
                 <img
                   src={user.picture}
                   alt={user.name || "User"}
-                  className="w-5 h-5 rounded-full object-cover border border-white/30"
+                  className="w-6 h-6 rounded-full object-cover border border-white/40"
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <item.icon size={21} strokeWidth={2} />
+                <item.icon size={24} strokeWidth={2} />
               )}
-              <span>{item.label}</span>
             </Link>
           );
         })}

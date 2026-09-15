@@ -610,3 +610,24 @@ pm run build succeeds.
     font-size `!important` (16px, no iOS zoom) still wins on phone inputs.
   - **Verification**: `npm run lint` (0 errors/0 warnings), `npm run test` (305/305 across 29 files),
     `npm run build` (success, 2.97s, hashed assets).
+- [x] **Task 46 - Episode thumbnails, Cinejoy mobile pill nav, hero Add-to-list + More-Info pill**
+  - **Episode thumbnails** (`TitleDetailsPage.jsx`): episode cards show a Film placeholder when no
+    image resolves. Root cause: catalog-style movie objects store artwork in the non-Url fields
+    (`poster`/`backdrop`) that the `epThumb` fallback chain never checked, so `still_path`-less
+    episodes rendered blank. `epThumb` now falls back through `ep.thumbnailUrl → ep.posterUrl /
+    ep.backdropUrl → movie.backdropUrl / movie.posterUrl → movie.backdrop / movie.poster /
+    movie.thumbnailUrl`. When every source is empty the placeholder is now a branded gradient tile
+    with the episode number instead of a bare Film icon, so no card ever looks "image missing".
+    (Verified TMDB `/tv/{id}/season/{n}` still_path flows through `getSeasonEpisodes` → wsrv.nl WebP.)
+  - **Cinejoy mobile nav** (`App.jsx` mobile bottom bar): mirrored the Cinejoy floating pill — icon-only
+    items (Home / Movies / Shows / My List / Search / Settings), 24px lucide icons, `clamp(48px, 14vw,
+    60px)` round hover caps, neutral slate inactive color, and a white glass-tint active state
+    (`rgba(255,255,255,.12)` + white icon) instead of the accent-gradient pill. `body` clearance
+    unchanged; tablet media query aligned to the same pill styles.
+  - **Hero action pill** (`TitleDetailsPage.jsx` hero): replaced the single circular My List button
+    with the Cinejoy `hero-action-pill` — a 52px segmented capsule (`bg-white/10 backdrop-blur-20
+    saturate-150`, white/25 divider) with {Plus/Check "My List"} | {Info "More Info"}; the Info button
+    smooth-scrolls to the new `#title-details-more` details block (cast/episodes). Imported lucide
+    `Info`, added `scrollToDetails`.
+  - **Verification**: `npm run lint` (0 errors/0 warnings), `npm run test` (305/305 across 29 files),
+    `npm run build` (success, 2.00s, hashed assets). Leftover `_probe_eps.mjs` probe removed.

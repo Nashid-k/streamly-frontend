@@ -17,6 +17,7 @@ import {
   Plus,
   Check,
   X,
+  Info,
   MonitorPlay,
   ChevronDown,
   RotateCcw,
@@ -485,6 +486,13 @@ export default function TitleDetails() {
         duration: 3000,
       });
     }
+  };
+
+  // Cinejoy-style hero "More Info" — smooth-scroll to the details block below
+  const scrollToDetails = () => {
+    if (typeof window === "undefined") return;
+    const el = document.getElementById("title-details-more");
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
 
@@ -1085,13 +1093,32 @@ export default function TitleDetails() {
                 <Play size={18} className="mr-1.5 fill-current" /> Play
               </button>
 
-              <button
-                onClick={() => handleToggleMyList(movie)}
-                className="relative rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 h-[40px] w-[40px] lg:h-[44px] lg:w-[44px] xl:h-[52px] xl:w-[52px] bg-white/10 backdrop-blur-md border border-white/10 hover:border-white/20 hover:bg-white/20 text-white shadow-lg"
-                title="My List"
-              >
-                {isInList(movie.id) ? <Check size={20} color="#95ff50" /> : <Plus size={20} />}
-              </button>
+              {/* Cinejoy-style segmented action pill: Add to List | More Info */}
+              <div className="hero-action-pill inline-flex items-center h-[52px] shrink-0 rounded-full bg-white/10 backdrop-blur-[20px] backdrop-saturate-150 border border-white/10 shadow-lg shadow-black/5">
+                <button
+                  type="button"
+                  onClick={() => handleToggleMyList(movie)}
+                  className="group/btn inline-flex items-center justify-center h-full px-5 rounded-l-full transition-colors hover:bg-white/10 active:bg-white/20 outline-none cursor-pointer"
+                  aria-label={isInList(movie.id) ? "Remove from My List" : "Add to My List"}
+                  title={isInList(movie.id) ? "Remove from My List" : "Add to My List"}
+                >
+                  {isInList(movie.id) ? (
+                    <Check size={22} color="#95ff50" className="transition-transform duration-300 group-hover/btn:scale-110" />
+                  ) : (
+                    <Plus size={22} className="text-white transition-transform duration-300 group-hover/btn:scale-110" />
+                  )}
+                </button>
+                <div className="w-px h-6 bg-white/25 shrink-0" />
+                <button
+                  type="button"
+                  onClick={scrollToDetails}
+                  className="group/btn inline-flex items-center justify-center h-full px-5 rounded-r-full transition-colors hover:bg-white/10 active:bg-white/20 outline-none"
+                  aria-label="More Info"
+                  title="More Info"
+                >
+                  <Info size={22} className="text-white transition-transform duration-300 group-hover/btn:scale-110" />
+                </button>
+              </div>
             </div>
 
             {movie.director && (
@@ -1182,7 +1209,7 @@ export default function TitleDetails() {
       </div>
 
       {/* ── Cast & Rest ─────────────────────────────────────────────────────────────── */}
-      <div className="relative z-20 mt-10 lg:mt-14 px-6 lg:px-16 max-w-[1800px] mx-auto space-y-10 lg:space-y-14 pb-20">
+      <div id="title-details-more" className="relative z-20 mt-10 lg:mt-14 px-6 lg:px-16 max-w-[1800px] mx-auto space-y-10 lg:space-y-14 pb-20">
 {/* ── Cast ─────────────────────────────────────────────────────────────── */}
       {movie.cast && movie.cast.length > 0 && (
         <motion.section
@@ -1466,7 +1493,8 @@ export default function TitleDetails() {
                     const playable = SERVERS.length > 0 && isAired;
                     // Upcoming episodes have no TMDB still — fall back to the
                     // series artwork so every card shows an image (grayed out).
-                    const epThumb = ep.thumbnailUrl || movie.backdropUrl || movie.posterUrl;
+                    // Catalog objects sometimes store art in the non-Url fields.
+                    const epThumb = ep.thumbnailUrl || ep.posterUrl || ep.backdropUrl || movie.backdropUrl || movie.posterUrl || movie.backdrop || movie.poster || movie.thumbnailUrl || null;
                     const playEpisode = () => {
                       if (!playable) return;
                       setIsPlaying(true);
@@ -1521,8 +1549,9 @@ export default function TitleDetails() {
                                 style={{ width: '100%', height: '100%', objectFit: 'cover', filter: !isAired ? 'grayscale(0.85) brightness(0.55)' : undefined }}
                               />
                             ) : (
-                              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3f3f46' }}>
-                                <Film size={28} strokeWidth={1.5} />
+                              <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '5px', background: 'linear-gradient(135deg, #18181b 0%, rgba(244,63,94,0.12) 55%, #211519 100%)' }}>
+                                <span style={{ fontSize: '1.7rem', fontWeight: 800, color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace', lineHeight: 1 }}>{String(ep.episodeNumber).padStart(2, '0')}</span>
+                                <Film size={18} strokeWidth={1.5} color="rgba(255,255,255,0.28)" />
                               </div>
                             )}
                             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1618,8 +1647,9 @@ export default function TitleDetails() {
                           {epThumb ? (
                             <img src={CdnImageAdapter.getUrl(epThumb, 'w500')} alt={ep.title} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: !isAired ? 'grayscale(0.85) brightness(0.55)' : undefined }} />
                           ) : (
-                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3f3f46' }}>
-                              <Film size={22} strokeWidth={1.5} />
+                            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', background: 'linear-gradient(135deg, #18181b 0%, rgba(244,63,94,0.12) 55%, #211519 100%)' }}>
+                              <span style={{ fontSize: '1.05rem', fontWeight: 800, color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace', lineHeight: 1 }}>{String(ep.episodeNumber).padStart(2, '0')}</span>
+                              <Film size={13} strokeWidth={1.5} color="rgba(255,255,255,0.28)" />
                             </div>
                           )}
                           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
