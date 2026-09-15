@@ -3472,6 +3472,150 @@ body::after {
   color: #fff;
 }
 
+/* ── Cinejoy-style search hero & landing ─────────────────────────────── */
+.search-hero {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(1.1rem, 2.4vw, 1.6rem);
+  width: 100%;
+  padding: clamp(1.25rem, 3.5vh, 2.5rem) 1rem clamp(1.5rem, 4vh, 2.75rem);
+  text-align: center;
+}
+
+.search-hero__title {
+  max-width: 22ch;
+  margin: 0;
+  font-size: clamp(1.75rem, 4.8vw, 3.2rem);
+  font-weight: 700;
+  line-height: 1.06;
+  letter-spacing: -0.03em;
+  color: #fff;
+  text-shadow: 0 2px 26px rgba(0, 0, 0, 0.65), 0 1px 3px rgba(0, 0, 0, 0.55);
+}
+
+/* Hero search pill */
+.search-panel--hero {
+  width: min(100%, 40rem);
+}
+
+.search-panel--hero .search-panel__input {
+  min-height: 3.6rem;
+  padding-left: 3.4rem;
+  border-radius: 999px;
+  font-size: 1.02rem;
+  box-shadow: 0 26px 64px -44px rgba(0, 0, 0, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.search-panel--hero .search-panel__icon {
+  left: 1.4rem;
+}
+
+.search-panel--hero:focus-within {
+  transform: scale(1.015);
+}
+
+.search-panel--hero:focus-within .search-panel__input {
+  border-color: rgba(var(--accent-primary-rgb), 0.65);
+  background: rgba(255, 255, 255, 0.09);
+  box-shadow: var(--focus-ring), 0 0 44px rgba(var(--accent-primary-rgb), 0.28);
+}
+
+.search-panel--hero .search-panel__clear {
+  right: 1.05rem;
+}
+
+/* Compact variant while an active query is being shown */
+.search-hero--compact {
+  gap: 1rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.75rem;
+}
+
+/* Quick-start pills (recent searches + popular keywords) */
+.search-hero__quick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem 1rem;
+  max-width: min(100%, 52rem);
+}
+
+.search-hero__quick-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.search-chippill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  min-height: 2.1rem;
+  padding: 0.35rem 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.055);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: rgba(255, 255, 255, 0.68);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, transform 160ms var(--ease-out);
+  touch-action: manipulation;
+}
+
+.search-chippill:hover,
+.search-chippill:focus-visible {
+  background: rgba(var(--accent-primary-rgb), 0.16);
+  color: #fff;
+}
+
+.search-chippill:active {
+  transform: scale(0.94);
+}
+
+.search-chippill--clear {
+  border-style: dashed;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* Landing "Trending Today" section */
+.search-trending {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1rem, 2vw, 1.4rem);
+}
+
+.search-trending__head h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin: 0;
+  font-size: clamp(1.1rem, 2.1vw, 1.45rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+
+.search-trending__head h2::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 0.32rem;
+  height: 1.1em;
+  border-radius: 999px;
+  background: var(--accent-gradient, linear-gradient(135deg, #f43f5e, #f97316));
+  box-shadow: 0 4px 14px var(--accent-glow, rgba(244, 63, 94, 0.4));
+}
+
 /* ── Collection and history states ────────────────────────────────────── */
 .collection-empty {
   display: flex;

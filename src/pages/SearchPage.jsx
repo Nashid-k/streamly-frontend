@@ -3,10 +3,9 @@ import { movieService } from "../api/movieService";
 import { rankSearchResults, getDidYouMean } from "../utils/searchRanking";
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { Search, Film, Tv, Flame, Sparkles, Star, X, RotateCw } from "lucide-react";
+import { Search, Film, Tv, Flame, Sparkles, Star, Clock, X, RotateCw } from "lucide-react";
 import { motion } from "framer-motion";
 import MovieCard from "../components/MovieCard";
-import DiscoveryRails from "../components/DiscoveryRails";
 import EmptyState from "../components/EmptyState";
 import Button from "../components/Button";
 import Chip from "../components/Chip";
@@ -15,6 +14,14 @@ import ErrorBoundary from "../components/ErrorBoundary";
 import ContentPageHeader from "../components/ContentPageHeader";
 import { useAppAuth } from "../context/auth";
 import { logEmptyData, reportQueryError } from "../utils/debugLogger";
+
+const QUICK_STARTS = [
+  { label: "Trending Now", query: "trending", icon: Flame },
+  { label: "New Releases", query: "new", icon: Sparkles },
+  { label: "Top Rated", query: "top rated", icon: Star },
+  { label: "K-Drama", query: "korean drama", icon: Tv },
+  { label: "Marvel", query: "marvel", icon: Film },
+];
 
 export default function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -176,6 +183,27 @@ export default function SearchPage() {
 
   const visibleResults = filteredAndSortedList.slice(0, visibleCount);
 
+  // Landing rail — "Trending Today" grid, fetched only while browsing
+  const trendingQuery = useQuery({
+    queryKey: ["trending-this-week"],
+    queryFn: () => movieService.getTrendingThisWeek("all"),
+    enabled: !query,
+    staleTime: 1000 * 60 * 5,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  const trendingTitles = useMemo(
+    () => (Array.isArray(trendingQuery.data) ? trendingQuery.data : []),
+    [trendingQuery.data],
+  );
+
+  useEffect(() => {
+    if (trendingQuery.error) {
+      reportQueryError("SearchPage", ["trending-this-week"], trendingQuery.error, {});
+    }
+  }, [trendingQuery.error]);
+
   return (
     <div className="main-content content-page content-page--search">
       <AmbientBackground
@@ -183,13 +211,19 @@ export default function SearchPage() {
           visibleResults[0]?.backdropUrl ||
           visibleResults[0]?.posterUrl ||
           visibleResults[0]?.poster ||
-          (results[0] && (results[0].backdropUrl || results[0].posterUrl || results[0].poster))
+          (results[0] && (results[0].backdropUrl || results[0].posterUrl || results[0].poster)) ||
+          (trendingTitles[0]?.backdropUrl || trendingTitles[0]?.posterUrl)
         }
       />
-      <div className="content-page__inner">
+      {/* ── Cinejoy-style search hero ── */}
+      <section className={`search-hero${query ? " search-hero--compact" : ""}`}>
+        {!query && (
+          <h1 className="search-hero__title">What would you like to watch?</h1>
+        )}
+
         {/* Search input — live, dynamic search */}
         <form
-          className="search-panel"
+          className={`search-panel ${query ? "" : "search-panel--hero"}`}
           role="search"
           onSubmit={(e) => {
             e.preventDefault();
@@ -227,44 +261,82 @@ export default function SearchPage() {
             )}
         </form>
 
-        {/* Header */}
-          <ContentPageHeader
-          eyebrow={query ? "Search" : "Explore Streamly"}
-          title={query ? <>Results for <span className="page-title-quote">“{query}”</span></> : "Find something worth watching"}
-          description={query ? "Fine-tune the results or keep exploring." : "Search a title, a person, or the mood you are in."}
-          count={query ? results.length : undefined}
-          actions={results.length > 0 && (
-            <div className="filter-controls">
-              <div className="filter-group" aria-label="Filter results by type">
-                {["All", "Movies", "TV Shows", "Anime"].map((f) => (
-                  <Chip key={f} active={filterType === f} onClick={() => setFilterType(f)}>
-                    {f}
-                  </Chip>
-                ))}
-              </div>
-              <div className="filter-group filter-group--quiet" aria-label="Sort results">
-                {[
-                  { label: "Relevant", value: "Relevance" },
-                  { label: "Rating", value: "Rating" },
-                  { label: "Newest", value: "Year (Newest)" },
-                  { label: "Oldest", value: "Year (Oldest)" },
-                ].map((opt) => (
-                  <Chip
-                    key={opt.value}
-                    size="sm"
-                    active={sortBy === opt.value}
-                    onClick={() => setSortBy(opt.value)}
+        {/* Quick starts — recent searches + popular keywords */}
+        {!query && (
+          <div className="search-hero__quick" aria-label="Quick searches">
+            {searchHistory.length > 0 && (
+              <div className="search-hero__quick-group" aria-label="Recent searches">
+                {searchHistory.map((term) => (
+                  <button
+                    key={term}
+                    type="button"
+                    className="search-chippill"
+                    onClick={() => navigate(`/search?q=${encodeURIComponent(term)}`)}
                   >
-                    {opt.label}
-                  </Chip>
+                    <Clock size={13} aria-hidden="true" /> {term}
+                  </button>
                 ))}
+                <button
+                  type="button"
+                  className="search-chippill search-chippill--clear"
+                  onClick={clearSearchHistory}
+                >
+                  Clear
+                </button>
               </div>
-            </div>
-          )}
-        />
+            )}
+            {QUICK_STARTS.map((item) => (
+              <button
+                key={item.query}
+                type="button"
+                className="search-chippill"
+                onClick={() => navigate(`/search?q=${encodeURIComponent(item.query)}`)}
+              >
+                <item.icon size={13} aria-hidden="true" /> {item.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
 
-        {/* Discovery banners — only when browsing (no active query), not while searching */}
-        {!query && <DiscoveryRails />}
+      <div className="content-page__inner">
+        {/* Header — shown while searching */}
+        {query && (
+          <ContentPageHeader
+            eyebrow="Search"
+            title={<>Results for <span className="page-title-quote">“{query}”</span></>}
+            description="Fine-tune the results or keep exploring."
+            count={results.length}
+            actions={results.length > 0 && (
+              <div className="filter-controls">
+                <div className="filter-group" aria-label="Filter results by type">
+                  {["All", "Movies", "TV Shows", "Anime"].map((f) => (
+                    <Chip key={f} active={filterType === f} onClick={() => setFilterType(f)}>
+                      {f}
+                    </Chip>
+                  ))}
+                </div>
+                <div className="filter-group filter-group--quiet" aria-label="Sort results">
+                  {[
+                    { label: "Relevant", value: "Relevance" },
+                    { label: "Rating", value: "Rating" },
+                    { label: "Newest", value: "Year (Newest)" },
+                    { label: "Oldest", value: "Year (Oldest)" },
+                  ].map((opt) => (
+                    <Chip
+                      key={opt.value}
+                      size="sm"
+                      active={sortBy === opt.value}
+                      onClick={() => setSortBy(opt.value)}
+                    >
+                      {opt.label}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
+            )}
+          />
+        )}
 
         {/* Content */}
         <ErrorBoundary>
@@ -290,51 +362,58 @@ export default function SearchPage() {
             }
           />
         ) : !query ? (
-          <EmptyState
-            icon="search"
-            title="What are you looking for?"
-            description="Search for movies, TV shows, actors, or genres."
-            actions={
-              <>
-                {searchHistory.length > 0 && (
-                  <div className="search-history" aria-label="Recent searches">
-                    <div className="search-history__heading">
-                      <span>Recent searches</span>
-                      <button type="button" onClick={clearSearchHistory}>Clear</button>
-                    </div>
-                    <div className="search-history__items">
-                      {searchHistory.map((term) => (
-                        <button
-                          key={term}
-                          type="button"
-                          onClick={() => navigate(`/search?q=${encodeURIComponent(term)}`)}
-                        >
-                          {term}
-                        </button>
-                      ))}
-                    </div>
+          /* Landing — Cinejoy-style "Trending Today" grid */
+          <section className="search-trending" aria-label="Trending Today">
+            <div className="search-trending__head">
+              <h2>Trending Today</h2>
+            </div>
+
+            {trendingQuery.isLoading ? (
+              <div className="movie-grid">
+                {[...Array(10)].map((_, i) => (
+                  <div key={i} className="skeleton-moviecard">
+                    <div className="skeleton sk-poster"></div>
+                    <div className="skeleton sk-line sk-line--w70"></div>
+                    <div className="skeleton sk-line sk-line--sub"></div>
                   </div>
-                )}
-                {[
-                  { label: "Trending Now", query: "trending", icon: Flame },
-                  { label: "New Releases", query: "new", icon: Sparkles },
-                  { label: "Top Rated", query: "top rated", icon: Star },
-                  { label: "K-Drama", query: "korean drama", icon: Tv },
-                  { label: "Marvel", query: "marvel", icon: Film },
-                ].map((item) => (
-                  <Button
-                    key={item.query}
-                    variant="secondary"
-                    pill
-                    icon={item.icon}
-                    onClick={() => navigate(`/search?q=${encodeURIComponent(item.query)}`)}
-                  >
-                    {item.label}
-                  </Button>
                 ))}
-              </>
-            }
-          />
+              </div>
+            ) : trendingQuery.isError ? (
+              <EmptyState
+                icon="error"
+                title="Couldn't load trending"
+                description="Trending titles are unavailable right now."
+                actions={
+                  <Button variant="secondary" pill icon={RotateCw} onClick={() => trendingQuery.refetch()}>
+                    Try Again
+                  </Button>
+                }
+              />
+            ) : trendingTitles.length === 0 ? (
+              <EmptyState
+                icon="film"
+                title="Nothing trending yet"
+                description="Check back soon — trending titles will appear here."
+              />
+            ) : (
+              <div className="movie-grid">
+                {trendingTitles.map((movie, idx) => (
+                  <motion.div
+                    key={movie.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{
+                      duration: 0.4,
+                      delay: (idx % 10) * 0.05,
+                      ease: "easeOut",
+                    }}
+                  >
+                    <MovieCard movie={movie} />
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </section>
         ) : filteredAndSortedList.length === 0 ? (
           <EmptyState
             icon="search"

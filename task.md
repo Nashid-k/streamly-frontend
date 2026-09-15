@@ -591,3 +591,22 @@ pm run build succeeds.
   - **Verification**: `npm run lint` (0 errors, 0 warnings), `npm run test` (305/305 passed across
     29 files — re-confirmed after pool revert), `npm run build` (success in 2.17s with hashed
     assets). Leftover `fix_*.py`/`patch_preview.py` helper scripts removed.
+- [x] **Task 45 - Cinejoy-style search page redesign (hero + pill + Trending Today grid)**
+  - `src/pages/SearchPage.jsx`: replaced the old browse-landing (DiscoveryRails banners + EmptyState
+    empty prompt) with a Cinejoy-style landing. New centered hero: "What would you like to watch?"
+    headline + large frosted-glass rounded search pill (`.search-panel--hero`: `rounded-full`,
+    3.6rem tall, focus-within scale 1.015 + accent glow). Quick-start pills under the bar re-use the
+    same recipe: recent searches (with Clear) + popular keywords (Trending Now / New Releases / Top
+    Rated / K-Drama / Marvel). While actively searching the hero compacts (`.search-hero--compact`),
+    the pill returns to the standard panel, and the existing filter chips + results grid render.
+  - Landing now shows a "Trending Today" section: lazy `useQuery(["trending-this-week"])`
+    (mirrors DiscoveryRails config, `enabled: !query`, 5m stale) rendered as the app's existing
+    `.movie-grid` + `MovieCard` with skeletons, error retry, and empty states; AmbientBackground
+    also falls back to the first trending poster. DiscoveryRails no longer imported here
+    (still used by GenrePage etc.); `Clock` icon added, the old EmptyState quick-buttons and
+    `.search-history` landing block were removed (history + quick starts moved into the hero rows).
+  - `src/index.css`: new `.search-hero`, `.search-panel--hero`, `.search-chippill`,
+    `.search-trending` (accent-bar heading) blocks after the `.search-panel__*` rules; mobile
+    font-size `!important` (16px, no iOS zoom) still wins on phone inputs.
+  - **Verification**: `npm run lint` (0 errors/0 warnings), `npm run test` (305/305 across 29 files),
+    `npm run build` (success, 2.97s, hashed assets).
