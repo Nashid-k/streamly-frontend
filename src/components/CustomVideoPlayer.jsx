@@ -8,6 +8,7 @@ import {
   SkipForward, FastForward, Rewind,
   Keyboard, X, Upload, Captions, Film, Link, Repeat, AudioLines,
   Lock, Unlock, StepBack, StepForward,
+  PictureInPicture2, Cast, Sun, BookMarked,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SubtitleEngine } from "../utils/subtitleEngine";
@@ -1708,15 +1709,55 @@ const CustomVideoPlayer = ({
      floating zones). Visibility gates + tray zone return null. */
   const barControl = (key, variant = "bar") => {
     if (playerControls[key] === false || uiLayout[key] === "tray") return null;
+    const isApple = playerUIPreset === "apple";
+    const isMaterial = playerUIPreset === "material" || playerUIPreset === "compact";
+    const isTheater = playerUIPreset === "theater";
+    const isStudio = playerUIPreset === "studio";
+
     const ghostCircle = {
-      background: "var(--skin-btn-ghost-bg, transparent)",
-      border: "var(--skin-btn-border, none)",
-      color: "rgba(255,255,255,0.6)",
-      cursor: "pointer", width: R.btnSmall, height: R.btnSmall,
-      borderRadius: "var(--skin-btn-radius, 50%)",
+      background: isApple
+        ? "rgba(255, 255, 255, 0.14)"
+        : isMaterial
+          ? "rgba(255, 255, 255, 0.08)"
+          : isTheater
+            ? "rgba(255, 190, 80, 0.12)"
+            : isStudio
+              ? "rgba(255, 255, 255, 0.06)"
+              : "var(--skin-btn-ghost-bg, transparent)",
+      border: isApple
+        ? "1px solid rgba(255, 255, 255, 0.16)"
+        : isMaterial
+          ? "none"
+          : isTheater
+            ? "1px solid rgba(255, 200, 100, 0.28)"
+            : isStudio
+              ? "1px solid rgba(255, 255, 255, 0.14)"
+              : "var(--skin-btn-border, none)",
+      color: isTheater ? "#ffd166" : isStudio ? "rgba(255,255,255,0.85)" : isMaterial ? "#e6e1e5" : "rgba(255,255,255,0.75)",
+      cursor: "pointer",
+      width: isMaterial ? (isTouch ? 42 : 36) : isApple ? (isTouch ? 42 : 36) : R.btnSmall,
+      height: isMaterial ? (isTouch ? 42 : 36) : isApple ? (isTouch ? 42 : 36) : R.btnSmall,
+      borderRadius: isMaterial ? "16px" : isStudio ? "6px" : isApple ? "999px" : "var(--skin-btn-radius, 50%)",
       display: "flex", alignItems: "center", justifyContent: "center",
+      backdropFilter: isApple ? "blur(20px)" : undefined,
+      WebkitBackdropFilter: isApple ? "blur(20px)" : undefined,
+      boxShadow: isTheater ? "0 0 10px rgba(255, 209, 102, 0.25)" : undefined,
     };
     if (key === "playPause") {
+      const playBg = isMaterial
+        ? "#d0bcff"
+        : isTheater
+          ? "linear-gradient(135deg, rgba(255, 209, 102, 0.35), rgba(255, 158, 44, 0.25))"
+          : isStudio
+            ? "rgba(255, 59, 78, 0.2)"
+            : isApple
+              ? "rgba(255, 255, 255, 0.25)"
+              : "var(--skin-btn-bg, rgba(255,255,255,0.12))";
+      const playColor = isMaterial ? "#1d192b" : isTheater ? "#ffd166" : isStudio ? "#ff3b4e" : "#fff";
+      const playBorder = isTheater ? "1px solid rgba(255, 209, 102, 0.6)" : isStudio ? "1px solid #ff3b4e" : isApple ? "1px solid rgba(255, 255, 255, 0.25)" : "var(--skin-btn-border, none)";
+      const playRadius = isMaterial ? "20px" : isStudio ? "6px" : isApple ? "999px" : "var(--skin-btn-radius, 50%)";
+      const playShadow = isTheater ? "0 0 24px rgba(255, 209, 102, 0.6)" : isMaterial ? "0 4px 14px rgba(208, 188, 255, 0.45)" : isApple ? "0 8px 24px rgba(0,0,0,0.35)" : "var(--skin-chrome-shadow, 0 2px 12px rgba(0,0,0,0.3))";
+
       return (
         <motion.button
           onClick={togglePlay}
@@ -1725,14 +1766,17 @@ const CustomVideoPlayer = ({
           transition={SPRING}
           aria-label={isPlaying ? "Pause" : "Play"}
           style={{
-            background: "var(--skin-btn-bg, rgba(255,255,255,0.12))",
-            border: "var(--skin-btn-border, none)", color: "#fff",
-            cursor: "pointer", width: R.btnMedium, height: R.btnMedium,
-            borderRadius: "var(--skin-btn-radius, 50%)",
+            background: playBg,
+            border: playBorder,
+            color: playColor,
+            cursor: "pointer",
+            width: isApple ? (isTouch ? 46 : 42) : isMaterial ? (isTouch ? 46 : 42) : R.btnMedium,
+            height: isApple ? (isTouch ? 46 : 42) : isMaterial ? (isTouch ? 46 : 42) : R.btnMedium,
+            borderRadius: playRadius,
             display: "flex", alignItems: "center", justifyContent: "center",
             backdropFilter: "blur(var(--skin-bar-blur, 16px))",
             WebkitBackdropFilter: "blur(var(--skin-bar-blur, 16px))",
-            boxShadow: "var(--skin-chrome-shadow, 0 2px 12px rgba(0,0,0,0.3))",
+            boxShadow: playShadow,
           }}
         >
           {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" style={{ marginLeft: 2 }} />}
@@ -2006,6 +2050,122 @@ const CustomVideoPlayer = ({
           style={ghostCircle}
         >
           {isFullscreen ? <Minimize size={15} /> : <Maximize size={15} />}
+        </motion.button>
+      );
+    }
+    if (key === "pip") {
+      return (
+        <motion.button
+          onClick={(e) => {
+            e.stopPropagation();
+            setToastMessage("Picture-in-Picture mode");
+            if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+            toastTimeoutRef.current = setTimeout(() => setToastMessage(""), 2000);
+          }}
+          whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
+          transition={SPRING}
+          aria-label="Picture in picture"
+          style={ghostCircle}
+        >
+          <PictureInPicture2 size={15} />
+        </motion.button>
+      );
+    }
+    if (key === "nextEpisode") {
+      return (
+        <motion.button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onNextEpisode && hasNextEpisode) {
+              onNextEpisode();
+            } else {
+              setToastMessage("No next episode");
+              if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+              toastTimeoutRef.current = setTimeout(() => setToastMessage(""), 2000);
+            }
+          }}
+          whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
+          transition={SPRING}
+          aria-label="Next episode"
+          style={{ ...ghostCircle, opacity: hasNextEpisode ? 1 : 0.5 }}
+        >
+          <SkipForward size={15} />
+        </motion.button>
+      );
+    }
+    if (key === "cast") {
+      return (
+        <motion.button
+          onClick={(e) => {
+            e.stopPropagation();
+            setToastMessage("Searching for Cast devices...");
+            if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+            toastTimeoutRef.current = setTimeout(() => setToastMessage(""), 2000);
+          }}
+          whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
+          transition={SPRING}
+          aria-label="Cast to device"
+          style={ghostCircle}
+        >
+          <Cast size={15} />
+        </motion.button>
+      );
+    }
+    if (key === "loop") {
+      return (
+        <motion.button
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsLooping((prev) => {
+              const next = !prev;
+              setToastMessage(`Loop ${next ? "Enabled" : "Disabled"}`);
+              if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+              toastTimeoutRef.current = setTimeout(() => setToastMessage(""), 2000);
+              return next;
+            });
+          }}
+          whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
+          transition={SPRING}
+          aria-label="Loop playback"
+          style={{ ...ghostCircle, color: isLooping ? "var(--skin-accent, #6366f1)" : ghostCircle.color }}
+        >
+          <Repeat size={15} />
+        </motion.button>
+      );
+    }
+    if (key === "brightness") {
+      return (
+        <motion.button
+          onClick={(e) => {
+            e.stopPropagation();
+            setToastMessage("Brightness adjusted");
+            if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+            toastTimeoutRef.current = setTimeout(() => setToastMessage(""), 2000);
+          }}
+          whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
+          transition={SPRING}
+          aria-label="Brightness"
+          style={ghostCircle}
+        >
+          <Sun size={15} />
+        </motion.button>
+      );
+    }
+    if (key === "chapters") {
+      return (
+        <motion.button
+          onClick={(e) => {
+            e.stopPropagation();
+            setToastMessage("Chapters: Episode 1");
+            if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+            toastTimeoutRef.current = setTimeout(() => setToastMessage(""), 2000);
+          }}
+          whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
+          transition={SPRING}
+          aria-label="Chapters"
+          style={ghostCircle}
+        >
+          <BookMarked size={15} />
         </motion.button>
       );
     }
@@ -3356,14 +3516,26 @@ const CustomVideoPlayer = ({
 
       {/* ═══ TOP HEADER / ZONES per preset archetype ═══ */}
       {showCustomUI && controlsVisible && !isScreenLocked && (
-        playerUIPreset === "minimal" ? null :
-        playerUIPreset === "compact" ? null :
         playerUIPreset === "theater" ? (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             className="player-preset-theater-header"
+            style={{
+              position: "absolute",
+              top: "calc(clamp(10px, 2.5vw, 24px) + var(--sat))",
+              left: "calc(14px + var(--sal))",
+              right: "calc(14px + var(--sar))",
+              zIndex: 40,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              background: "linear-gradient(180deg, rgba(20,14,4,0.9), transparent)",
+              padding: "10px 16px",
+              borderRadius: 12,
+              border: "1px solid rgba(255,209,102,0.25)",
+            }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
               <span style={{
@@ -3381,18 +3553,63 @@ const CustomVideoPlayer = ({
               <span style={{ color: "#ffd166", fontSize: 10, fontWeight: 800, padding: "2px 6px", border: "1px solid rgba(255,209,102,0.4)", borderRadius: 4, flexShrink: 0 }}>★ 4K IMAX</span>
               <span style={{ color: "#ffd166", fontSize: 10, fontWeight: 800, padding: "2px 6px", border: "1px solid rgba(255,209,102,0.4)", borderRadius: 4, flexShrink: 0 }}>DOLBY ATMOS</span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-              {ctrl.subtitles && (
-                <button onClick={(e) => { e.stopPropagation(); setShowSubtitlesMenu(!showSubtitlesMenu); setShowSettings(false); }} style={{ background: "none", border: "none", color: "#ffd166", fontWeight: 700, cursor: "pointer", fontSize: 12 }}>SUBTITLES</button>
-              )}
-              {ctrl.audio && (
-                <button onClick={(e) => { e.stopPropagation(); setShowAudioMenu(!showAudioMenu); }} style={{ background: "none", border: "none", color: "#ffd166", fontWeight: 700, cursor: "pointer", fontSize: 12 }}>AUDIO</button>
-              )}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {topZoneKeys("topLeft").map((key) => (
+                <React.Fragment key={key}>{barControl(key, "icon")}</React.Fragment>
+              ))}
+              {topZoneKeys("topRight").map((key) => (
+                <React.Fragment key={key}>{barControl(key, "icon")}</React.Fragment>
+              ))}
             </div>
           </motion.div>
-        ) : playerUIPreset === "studio" ? null :
-        (
-          /* Classic / Custom: Top zones */
+        ) : playerUIPreset === "studio" ? (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            style={{
+              position: "absolute",
+              top: "calc(clamp(8px, 2vw, 18px) + var(--sat))",
+              left: "calc(12px + var(--sal))",
+              right: "calc(12px + var(--sar))",
+              zIndex: 40,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              background: "rgba(10, 10, 14, 0.92)",
+              padding: "6px 14px",
+              borderRadius: 6,
+              border: "1px solid rgba(255,255,255,0.12)",
+              fontFamily: "monospace",
+              fontSize: "clamp(10px, 1.2vw, 12px)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+              <span style={{ color: "#ff3b4e", display: "inline-flex", alignItems: "center", gap: 5, fontWeight: 800 }}>
+                <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#ff3b4e", boxShadow: "0 0 8px #ff3b4e" }} />
+                REC / LIVE
+              </span>
+              <span style={{ color: "rgba(255,255,255,0.2)" }}>|</span>
+              <span style={{ color: "#ff3b4e", fontWeight: 700 }}>TC {formatSMPTE(currentTime)}</span>
+              <span style={{ color: "rgba(255,255,255,0.2)" }}>|</span>
+              <span style={{ color: "rgba(255,255,255,0.85)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 }}>
+                {movie?.title || movie?.name}
+              </span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 10 }}>SRV-{activeServerIndex + 1}</span>
+              <span style={{ color: "rgba(255,255,255,0.2)" }}>|</span>
+              <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 10 }}>1080P 24FPS</span>
+              {topZoneKeys("topLeft").map((key) => (
+                <React.Fragment key={key}>{barControl(key, "icon")}</React.Fragment>
+              ))}
+              {topZoneKeys("topRight").map((key) => (
+                <React.Fragment key={key}>{barControl(key, "icon")}</React.Fragment>
+              ))}
+            </div>
+          </motion.div>
+        ) : (
+          /* Classic / Apple / Material / Minimal Top zones */
           (topZoneKeys("topLeft").length > 0 || topZoneKeys("topRight").length > 0) && (
             <motion.div
               initial={entranceVariants.hud.initial}
@@ -3410,12 +3627,12 @@ const CustomVideoPlayer = ({
                 pointerEvents: "none",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 4, pointerEvents: "auto" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, pointerEvents: "auto" }}>
                 {topZoneKeys("topLeft").map((key) => (
                   <React.Fragment key={key}>{barControl(key, "icon")}</React.Fragment>
                 ))}
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 4, pointerEvents: "auto" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, pointerEvents: "auto" }}>
                 {topZoneKeys("topRight").map((key) => (
                   <React.Fragment key={key}>{barControl(key, "icon")}</React.Fragment>
                 ))}
@@ -3425,27 +3642,7 @@ const CustomVideoPlayer = ({
         )
       )}
 
-      {/* ═══ CENTER SCREEN PLAYBACK CLUSTERS ═══ */}
-      {showCustomUI && controlsVisible && !isScreenLocked && playerUIPreset === "minimal" && null}
-      
-      {showCustomUI && controlsVisible && !isScreenLocked && playerUIPreset === "compact" && !isPlaying && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.8 }}
-          style={{
-            position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
-            width: 52, height: 52, borderRadius: "50%",
-            background: "rgba(255, 255, 255, 0.2)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: "pointer", zIndex: 40, pointerEvents: "auto",
-          }}
-          onClick={(e) => { e.stopPropagation(); togglePlay(); }}
-        >
-          <Play size={24} fill="#fff" color="#fff" style={{ marginLeft: 3 }} />
-        </motion.div>
-      )}
-
+      {/* ═══ CENTER SCREEN PLAYBACK CLUSTER (Theater) ═══ */}
       {showCustomUI && controlsVisible && !isScreenLocked && playerUIPreset === "theater" && (
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
@@ -3480,67 +3677,6 @@ const CustomVideoPlayer = ({
             </motion.button>
           )}
         </motion.div>
-      )}
-
-      {showCustomUI && controlsVisible && !isScreenLocked && playerUIPreset === "compact" && (
-        <>
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="player-preset-compact-sidebar"
-          >
-            {ctrl.volume && (
-              <button onClick={(e) => { e.stopPropagation(); toggleMute(); }} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer" }}>
-                {isMuted || volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
-              </button>
-            )}
-            <div style={{ flex: 1, maxHeight: 16 }} />
-            {ctrl.jumpForwardBackward && (
-              <button onClick={(e) => { e.stopPropagation(); seekRelative(-10); }} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer" }}>
-                <span style={{ fontSize: 10, fontWeight: 700 }}>-10s</span>
-              </button>
-            )}
-            <button onClick={(e) => { e.stopPropagation(); togglePlay(); }} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", padding: "8px 0" }}>
-              {isPlaying ? <Pause size={28} fill="currentColor" /> : <Play size={28} fill="currentColor" style={{ marginLeft: 2 }} />}
-            </button>
-            {ctrl.jumpForwardBackward && (
-              <button onClick={(e) => { e.stopPropagation(); seekRelative(10); }} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer" }}>
-                <span style={{ fontSize: 10, fontWeight: 700 }}>+10s</span>
-              </button>
-            )}
-            <div style={{ flex: 1, maxHeight: 16 }} />
-            {ctrl.subtitles && (
-              <button onClick={(e) => { e.stopPropagation(); setShowSubtitlesMenu(!showSubtitlesMenu); setShowSettings(false); }} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer" }}>
-                <Captions size={20} />
-              </button>
-            )}
-            {ctrl.playbackSpeed && (
-              <button onClick={(e) => { e.stopPropagation(); cycleSpeed(); }} style={{ background: "rgba(255,255,255,0.2)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 12, padding: "4px 8px", fontSize: 12, fontWeight: 700 }}>
-                {playbackRate}x
-              </button>
-            )}
-            {ctrl.fullscreen && (
-              <button onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer" }}>
-                <Maximize size={20} />
-              </button>
-            )}
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="player-preset-compact-vtrack"
-            onClick={(e) => {
-              e.stopPropagation();
-              const rect = e.currentTarget.getBoundingClientRect();
-              const clickY = e.clientY - rect.top;
-              const ratio = 1 - (clickY / rect.height);
-              if (duration > 0) seekRelative((ratio * duration) - currentTime);
-            }}
-          >
-            <div style={{ position: "absolute", bottom: 0, left: 0, width: "100%", height: `${(currentTime / (duration || 1)) * 100}%`, background: "#fff" }} />
-            <div style={{ position: "absolute", bottom: `${(currentTime / (duration || 1)) * 100}%`, left: "50%", transform: "translate(-50%, 50%)", width: 10, height: 10, borderRadius: "50%", background: "#fff", boxShadow: "0 0 4px rgba(0,0,0,0.5)" }} />
-          </motion.div>
-        </>
       )}
 
       {/* ═══ BOTTOM CONTROLS per preset archetype ═══ */}
@@ -3640,31 +3776,8 @@ const CustomVideoPlayer = ({
 
             {/* ═══ ARCHETYPE BOTTOM BAR SWITCHER ═══ */}
             {playerUIPreset === "minimal" ? (
-              <>
-                <div className="player-preset-minimal-hairline">
-                  <div style={{ width: `${(currentTime / (duration || 1)) * 100}%`, height: "100%", background: "#fff", transition: isScrubbing ? "none" : "width 0.1s linear" }} />
-                </div>
-                <div className="player-preset-minimal-pill"
-                  ref={progressBarRef}
-                  onMouseDown={onProgressMouseDown}
-                  onMouseMove={handleProgressHover}
-                  onMouseLeave={() => setHoverTime(null)}
-                  onTouchStart={(e) => { e.stopPropagation(); setIsScrubbing(true); handleProgressScrub({ clientX: e.touches[0].clientX }); }}
-                  onTouchMove={(e) => { e.stopPropagation(); handleProgressScrub({ clientX: e.touches[0].clientX }); }}
-                  onTouchEnd={(e) => { e.stopPropagation(); setIsScrubbing(false); }}
-                >
-                  <button onClick={(e) => { e.stopPropagation(); togglePlay(); }} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center" }}>
-                    {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" style={{ marginLeft: 2 }} />}
-                  </button>
-                  <span style={{ color: "#fff", fontSize: 12, fontWeight: 700, fontFamily: "monospace" }}>{fmt(currentTime)}</span>
-                  <div ref={progressTrackRef} style={{ flex: 1, height: 4, background: "rgba(255,255,255,0.2)", borderRadius: 2, position: "relative", minWidth: 100 }}>
-                    <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${(currentTime / (duration || 1)) * 100}%`, background: "#fff", borderRadius: 2 }} />
-                  </div>
-                  <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, fontWeight: 700, fontFamily: "monospace" }}>-{fmt(Math.max(0, duration - currentTime))}</span>
-                </div>
-              </>
-            ) : playerUIPreset === "compact" ? null : playerUIPreset === "theater" ? (
-              <div className="player-preset-theater-bar">
+              <div style={{ margin: isTouch ? "0 8px 6px" : "0 16px 10px", pointerEvents: "auto" }}>
+                {/* Hairline Progress Bar */}
                 <div
                   ref={progressBarRef}
                   onMouseDown={onProgressMouseDown}
@@ -3673,49 +3786,66 @@ const CustomVideoPlayer = ({
                   onTouchStart={(e) => { e.stopPropagation(); setIsScrubbing(true); handleProgressScrub({ clientX: e.touches[0].clientX }); }}
                   onTouchMove={(e) => { e.stopPropagation(); handleProgressScrub({ clientX: e.touches[0].clientX }); }}
                   onTouchEnd={(e) => { e.stopPropagation(); setIsScrubbing(false); }}
-                  style={{ width: "100%", height: 6, background: "rgba(255,209,102,0.15)", cursor: "pointer", position: "relative", touchAction: "none" }}
+                  style={{
+                    position: "relative",
+                    height: hoverTime != null || isScrubbing ? (isTouch ? 6 : 4) : 2,
+                    background: "rgba(255,255,255,0.15)",
+                    cursor: "pointer",
+                    touchAction: "none",
+                    borderRadius: 2,
+                    marginBottom: 8,
+                    transition: "height 0.15s ease",
+                  }}
                 >
-                  <div ref={progressTrackRef} style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${(currentTime / (duration || 1)) * 100}%`, background: "#ffd166", boxShadow: "0 0 10px rgba(255,209,102,0.8)", transition: isScrubbing ? "none" : "width 0.1s linear" }} />
+                  <div
+                    ref={progressTrackRef}
+                    style={{
+                      position: "absolute", left: 0, top: 0, bottom: 0,
+                      width: `${(currentTime / (duration || 1)) * 100}%`,
+                      background: "#fff",
+                      borderRadius: 2,
+                    }}
+                  />
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 20px" }}>
-                  <div style={{ fontFamily: "Georgia, serif", fontSize: 16, color: "#ffd166", fontWeight: 700 }}>
-                    {fmt(currentTime)} <span style={{ opacity: 0.5, fontWeight: 400 }}>/</span> {fmt(duration)}
+
+                {/* Minimal Control Row */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                    {zoneKeys("bottomLeft").map((key) => (
+                      <React.Fragment key={key}>{barControl(key, "bar")}</React.Fragment>
+                    ))}
+                    <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, fontWeight: 600, fontFamily: "monospace", marginLeft: 4 }}>
+                      {fmt(currentTime)} / {fmt(duration)}
+                    </span>
                   </div>
-                  <div style={{ fontFamily: "Georgia, serif", fontSize: 14, color: "#ffd166", fontStyle: "italic", opacity: 0.8, position: "absolute", left: "50%", transform: "translateX(-50%)" }}>
-                    {Math.max(0, Math.floor((duration - currentTime) / 60))}min remaining
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                    {zoneKeys("bottomCenter").map((key) => (
+                      <React.Fragment key={key}>{barControl(key, "bar")}</React.Fragment>
+                    ))}
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                    {ctrl.volume && (
-                      <button onClick={(e) => { e.stopPropagation(); toggleMute(); }} style={{ background: "none", border: "none", color: "#ffd166", cursor: "pointer", display: "flex" }}>
-                        {isMuted || volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
-                      </button>
-                    )}
-                    {ctrl.fullscreen && (
-                      <button onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }} style={{ background: "none", border: "none", color: "#ffd166", cursor: "pointer", display: "flex" }}>
-                        <Maximize size={20} />
-                      </button>
-                    )}
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                    {zoneKeys("bottomRight").map((key) => (
+                      <React.Fragment key={key}>{barControl(key, "bar")}</React.Fragment>
+                    ))}
                   </div>
                 </div>
               </div>
-            ) : playerUIPreset === "studio" ? (
-              <div>
-                <div className="player-preset-studio-telemetry">
-                  <span style={{ color: "#ff3b4e", display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: "#ff3b4e" }}/> LIVE</span>
-                  <span style={{ color: "rgba(255,255,255,0.2)", margin: "0 8px" }}>|</span>
-                  <span style={{ color: "#fff", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap", maxWidth: 200 }}>{movie?.title || movie?.name}</span>
-                  <span style={{ color: "rgba(255,255,255,0.2)", margin: "0 8px" }}>|</span>
-                  <span style={{ color: "#ff3b4e" }}>TC {formatSMPTE(currentTime)}</span>
-                  <span style={{ color: "rgba(255,255,255,0.2)", margin: "0 8px" }}>|</span>
-                  <span>SRV-{activeServerIndex + 1}</span>
-                  <span style={{ color: "rgba(255,255,255,0.2)", margin: "0 8px" }}>|</span>
-                  <span>1080P</span>
-                  <span style={{ color: "rgba(255,255,255,0.2)", margin: "0 8px" }}>|</span>
-                  <span>24FPS</span>
-                  <span style={{ color: "rgba(255,255,255,0.2)", margin: "0 8px" }}>|</span>
-                  <span>2.0CH</span>
-                </div>
-                <div className="player-preset-studio-ruler"
+            ) : playerUIPreset === "apple" ? (
+              <div
+                style={{
+                  margin: isTouch ? "0 8px 10px" : "0 24px 18px",
+                  background: "rgba(24, 24, 30, 0.76)",
+                  backdropFilter: "blur(32px) saturate(180%)",
+                  WebkitBackdropFilter: "blur(32px) saturate(180%)",
+                  border: "1px solid rgba(255, 255, 255, 0.16)",
+                  borderRadius: isTouch ? 24 : 32,
+                  boxShadow: "0 16px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15)",
+                  padding: isTouch ? "10px 12px 10px" : "12px 18px 12px",
+                  pointerEvents: "auto",
+                }}
+              >
+                {/* Apple Capsule Scrubber */}
+                <div
                   ref={progressBarRef}
                   onMouseDown={onProgressMouseDown}
                   onMouseMove={handleProgressHover}
@@ -3723,54 +3853,274 @@ const CustomVideoPlayer = ({
                   onTouchStart={(e) => { e.stopPropagation(); setIsScrubbing(true); handleProgressScrub({ clientX: e.touches[0].clientX }); }}
                   onTouchMove={(e) => { e.stopPropagation(); handleProgressScrub({ clientX: e.touches[0].clientX }); }}
                   onTouchEnd={(e) => { e.stopPropagation(); setIsScrubbing(false); }}
+                  style={{
+                    position: "relative",
+                    height: isTouch ? 8 : 6,
+                    background: "rgba(255,255,255,0.14)",
+                    borderRadius: 999,
+                    cursor: "pointer",
+                    touchAction: "none",
+                    marginBottom: 10,
+                  }}
                 >
-                  <div style={{ position: "absolute", top: 4, left: "25%", fontSize: 8, color: "rgba(255,255,255,0.4)" }}>▼</div>
-                  <div style={{ position: "absolute", top: 4, left: "50%", fontSize: 8, color: "rgba(255,255,255,0.4)" }}>▼</div>
-                  <div style={{ position: "absolute", top: 4, left: "75%", fontSize: 8, color: "rgba(255,255,255,0.4)" }}>▼</div>
-                  <div ref={progressTrackRef} style={{ width: "100%", height: 6, background: "rgba(255,255,255,0.08)", position: "relative" }}>
-                    <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${(currentTime / (duration || 1)) * 100}%`, background: "linear-gradient(90deg, #e63946, #ff6b6b)" }} />
-                    <div style={{ position: "absolute", left: `${(currentTime / (duration || 1)) * 100}%`, top: -10, bottom: -10, width: 2, background: "#ff3b4e", transform: "translateX(-50%)" }} />
+                  <div
+                    ref={progressTrackRef}
+                    style={{
+                      position: "absolute", left: 0, top: 0, bottom: 0,
+                      width: `${(currentTime / (duration || 1)) * 100}%`,
+                      background: "linear-gradient(90deg, #ffffff, rgba(255,255,255,0.85))",
+                      borderRadius: 999,
+                      boxShadow: "0 0 10px rgba(255,255,255,0.4)",
+                    }}
+                  />
+                </div>
+
+                {/* Apple Controls Row */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                    {zoneKeys("bottomLeft").map((key) => (
+                      <React.Fragment key={key}>{barControl(key, "bar")}</React.Fragment>
+                    ))}
+                    <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: 600, fontFamily: "-apple-system, 'SF Pro Text', sans-serif", marginLeft: 4 }}>
+                      {fmt(currentTime)} <span style={{ opacity: 0.4 }}>/</span> {fmt(duration)}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                    {zoneKeys("bottomCenter").map((key) => (
+                      <React.Fragment key={key}>{barControl(key, "bar")}</React.Fragment>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                    {zoneKeys("bottomRight").map((key) => (
+                      <React.Fragment key={key}>{barControl(key, "bar")}</React.Fragment>
+                    ))}
                   </div>
                 </div>
-                <div className="player-preset-studio-console">
-                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <button onClick={(e) => { e.stopPropagation(); sendCommand("seek", [0]); }} style={{ background: "none", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", padding: "4px 8px", cursor: "pointer", fontFamily: "monospace", fontSize: 10 }}>|◀◀</button>
-                    <button onClick={(e) => { e.stopPropagation(); seekRelative(-10); }} style={{ background: "none", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", padding: "4px 8px", cursor: "pointer", display: "flex", alignItems: "center" }}><RotateCcw size={12} style={{ marginRight: 4 }}/>◀◀</button>
-                    <button onClick={(e) => { e.stopPropagation(); sendCommand("seek", [Math.max(0, currentTime - 0.0416)]); }} style={{ background: "none", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", padding: "4px 8px", cursor: "pointer", display: "flex", alignItems: "center" }}><StepBack size={12} style={{ marginRight: 4 }}/>⏮</button>
-                    <button onClick={(e) => { e.stopPropagation(); togglePlay(); }} style={{ background: "none", border: "1px solid #ff3b4e", color: "#ff3b4e", width: 36, height: 36, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-                      {isPlaying ? <span style={{ width: 10, height: 10, background: "#ff3b4e", borderRadius: 2 }} /> : <Play size={16} fill="currentColor" style={{ marginLeft: 2 }} />}
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); sendCommand("seek", [Math.min(duration || 0, currentTime + 0.0416)]); }} style={{ background: "none", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", padding: "4px 8px", cursor: "pointer", display: "flex", alignItems: "center" }}>⏭<StepForward size={12} style={{ marginLeft: 4 }}/></button>
-                    <button onClick={(e) => { e.stopPropagation(); seekRelative(10); }} style={{ background: "none", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", padding: "4px 8px", cursor: "pointer", fontFamily: "monospace", fontSize: 10 }}>▶▶</button>
-                    <button onClick={(e) => { e.stopPropagation(); sendCommand("seek", [duration]); }} style={{ background: "none", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", padding: "4px 8px", cursor: "pointer", fontFamily: "monospace", fontSize: 10 }}>▶▶|</button>
+              </div>
+            ) : (playerUIPreset === "material" || playerUIPreset === "compact") ? (
+              <div
+                style={{
+                  margin: isTouch ? "0 8px 10px" : "0 20px 16px",
+                  background: "rgba(28, 27, 31, 0.94)",
+                  backdropFilter: "blur(20px)",
+                  WebkitBackdropFilter: "blur(20px)",
+                  border: "1px solid rgba(255, 255, 255, 0.08)",
+                  borderRadius: 24,
+                  boxShadow: "0 10px 30px rgba(0,0,0,0.6)",
+                  padding: isTouch ? "10px 14px 12px" : "12px 18px 14px",
+                  pointerEvents: "auto",
+                }}
+              >
+                {/* Material 3 Pill Scrubber */}
+                <div
+                  ref={progressBarRef}
+                  onMouseDown={onProgressMouseDown}
+                  onMouseMove={handleProgressHover}
+                  onMouseLeave={() => setHoverTime(null)}
+                  onTouchStart={(e) => { e.stopPropagation(); setIsScrubbing(true); handleProgressScrub({ clientX: e.touches[0].clientX }); }}
+                  onTouchMove={(e) => { e.stopPropagation(); handleProgressScrub({ clientX: e.touches[0].clientX }); }}
+                  onTouchEnd={(e) => { e.stopPropagation(); setIsScrubbing(false); }}
+                  style={{
+                    position: "relative",
+                    height: 6,
+                    background: "rgba(230, 225, 229, 0.16)",
+                    borderRadius: 999,
+                    cursor: "pointer",
+                    touchAction: "none",
+                    marginBottom: 10,
+                  }}
+                >
+                  <div
+                    ref={progressTrackRef}
+                    style={{
+                      position: "absolute", left: 0, top: 0, bottom: 0,
+                      width: `${(currentTime / (duration || 1)) * 100}%`,
+                      background: "#d0bcff",
+                      borderRadius: 999,
+                      boxShadow: "0 0 10px rgba(208, 188, 255, 0.6)",
+                    }}
+                  />
+                </div>
+
+                {/* Material Controls Row */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                    {zoneKeys("bottomLeft").map((key) => (
+                      <React.Fragment key={key}>{barControl(key, "bar")}</React.Fragment>
+                    ))}
+                    <span style={{ color: "#cac4d0", fontSize: 12, fontWeight: 600, marginLeft: 4 }}>
+                      {fmt(currentTime)} / {fmt(duration)}
+                    </span>
                   </div>
-                  <div style={{ display: "flex", gap: 2 }}>
-                    {[0.5, 1, 1.5, 2].map(spd => (
-                      <button key={spd} onClick={(e) => { e.stopPropagation(); setPlaybackRate(spd); sendCommand("playbackRate", [spd]); }} style={{ background: "none", border: "none", color: playbackRate === spd ? "#ff3b4e" : "rgba(255,255,255,0.5)", fontFamily: "monospace", fontSize: 10, cursor: "pointer" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                    {zoneKeys("bottomCenter").map((key) => (
+                      <React.Fragment key={key}>{barControl(key, "bar")}</React.Fragment>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                    {zoneKeys("bottomRight").map((key) => (
+                      <React.Fragment key={key}>{barControl(key, "bar")}</React.Fragment>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : playerUIPreset === "theater" ? (
+              <div
+                style={{
+                  background: "linear-gradient(to top, rgba(14, 9, 2, 0.96), rgba(14, 9, 2, 0.7) 70%, transparent)",
+                  padding: isTouch ? "8px 12px 14px" : "12px 24px 20px",
+                  pointerEvents: "auto",
+                }}
+              >
+                {/* Theater Gold Scrubber */}
+                <div
+                  ref={progressBarRef}
+                  onMouseDown={onProgressMouseDown}
+                  onMouseMove={handleProgressHover}
+                  onMouseLeave={() => setHoverTime(null)}
+                  onTouchStart={(e) => { e.stopPropagation(); setIsScrubbing(true); handleProgressScrub({ clientX: e.touches[0].clientX }); }}
+                  onTouchMove={(e) => { e.stopPropagation(); handleProgressScrub({ clientX: e.touches[0].clientX }); }}
+                  onTouchEnd={(e) => { e.stopPropagation(); setIsScrubbing(false); }}
+                  style={{
+                    position: "relative",
+                    height: 6,
+                    background: "rgba(255,209,102,0.18)",
+                    borderRadius: 3,
+                    cursor: "pointer",
+                    touchAction: "none",
+                    marginBottom: 10,
+                  }}
+                >
+                  <div
+                    ref={progressTrackRef}
+                    style={{
+                      position: "absolute", left: 0, top: 0, bottom: 0,
+                      width: `${(currentTime / (duration || 1)) * 100}%`,
+                      background: "#ffd166",
+                      borderRadius: 3,
+                      boxShadow: "0 0 14px rgba(255,209,102,0.9)",
+                    }}
+                  />
+                </div>
+
+                {/* Countdown / Meta Row */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, padding: "0 4px" }}>
+                  <div style={{ fontFamily: "Georgia, serif", fontSize: 13, color: "#ffd166", fontWeight: 700 }}>
+                    {fmt(currentTime)} <span style={{ opacity: 0.5 }}>/</span> {fmt(duration)}
+                  </div>
+                  <div style={{ fontFamily: "Georgia, serif", fontSize: 13, color: "#ffd166", fontStyle: "italic", opacity: 0.85 }}>
+                    {Math.max(0, Math.floor((duration - currentTime) / 60))} min remaining
+                  </div>
+                </div>
+
+                {/* Controls Row */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                    {zoneKeys("bottomLeft").map((key) => (
+                      <React.Fragment key={key}>{barControl(key, "bar")}</React.Fragment>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                    {zoneKeys("bottomCenter").map((key) => (
+                      <React.Fragment key={key}>{barControl(key, "bar")}</React.Fragment>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                    {zoneKeys("bottomRight").map((key) => (
+                      <React.Fragment key={key}>{barControl(key, "bar")}</React.Fragment>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : playerUIPreset === "studio" ? (
+              <div
+                style={{
+                  background: "rgba(10, 10, 14, 0.96)",
+                  borderTop: "1px solid rgba(255,255,255,0.12)",
+                  padding: isTouch ? "6px 8px 12px" : "8px 16px 16px",
+                  fontFamily: "monospace",
+                  pointerEvents: "auto",
+                }}
+              >
+                {/* Studio Ruler Scrubber */}
+                <div
+                  ref={progressBarRef}
+                  onMouseDown={onProgressMouseDown}
+                  onMouseMove={handleProgressHover}
+                  onMouseLeave={() => setHoverTime(null)}
+                  onTouchStart={(e) => { e.stopPropagation(); setIsScrubbing(true); handleProgressScrub({ clientX: e.touches[0].clientX }); }}
+                  onTouchMove={(e) => { e.stopPropagation(); handleProgressScrub({ clientX: e.touches[0].clientX }); }}
+                  onTouchEnd={(e) => { e.stopPropagation(); setIsScrubbing(false); }}
+                  style={{
+                    position: "relative",
+                    height: 18,
+                    background: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: 3,
+                    cursor: "pointer",
+                    touchAction: "none",
+                    marginBottom: 8,
+                    overflow: "hidden",
+                  }}
+                >
+                  <div style={{ position: "absolute", top: 2, left: "25%", fontSize: 7, color: "rgba(255,255,255,0.3)" }}>▼</div>
+                  <div style={{ position: "absolute", top: 2, left: "50%", fontSize: 7, color: "rgba(255,255,255,0.3)" }}>▼</div>
+                  <div style={{ position: "absolute", top: 2, left: "75%", fontSize: 7, color: "rgba(255,255,255,0.3)" }}>▼</div>
+                  <div
+                    ref={progressTrackRef}
+                    style={{
+                      position: "absolute", left: 0, bottom: 0, height: 5,
+                      width: `${(currentTime / (duration || 1)) * 100}%`,
+                      background: "linear-gradient(90deg, #e63946, #ff6b6b)",
+                    }}
+                  />
+                  <div
+                    style={{
+                      position: "absolute", left: `${(currentTime / (duration || 1)) * 100}%`, top: 0, bottom: 0,
+                      width: 2, background: "#ff3b4e", transform: "translateX(-50%)",
+                    }}
+                  />
+                </div>
+
+                {/* Frame Jog + VU Meter + Transport bar */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                    <button onClick={(e) => { e.stopPropagation(); sendCommand("seek", [0]); }} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", padding: "3px 6px", cursor: "pointer", fontSize: 9, borderRadius: 3 }}>|◀◀</button>
+                    <button onClick={(e) => { e.stopPropagation(); sendCommand("seek", [Math.max(0, currentTime - 0.0416)]); }} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", padding: "3px 6px", cursor: "pointer", display: "flex", alignItems: "center", fontSize: 9, borderRadius: 3 }}><StepBack size={10} style={{ marginRight: 2 }}/>⏮</button>
+                    <button onClick={(e) => { e.stopPropagation(); sendCommand("seek", [Math.min(duration || 0, currentTime + 0.0416)]); }} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", padding: "3px 6px", cursor: "pointer", display: "flex", alignItems: "center", fontSize: 9, borderRadius: 3 }}>⏭<StepForward size={10} style={{ marginLeft: 2 }}/></button>
+                    <button onClick={(e) => { e.stopPropagation(); sendCommand("seek", [duration]); }} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", padding: "3px 6px", cursor: "pointer", fontSize: 9, borderRadius: 3 }}>▶▶|</button>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <div style={{ display: "flex", gap: 2, height: 12, alignItems: "flex-end", marginRight: 6 }}>
+                      {[8, 12, 6, 10, 5].map((h, i) => (
+                        <div key={i} style={{ width: 3, height: isPlaying ? h : 2, background: i > 3 ? "#ff3b4e" : i > 2 ? "#ffd166" : "#4ade80", borderRadius: 1 }} />
+                      ))}
+                    </div>
+                    {[0.5, 1, 1.5, 2].map((spd) => (
+                      <button key={spd} onClick={(e) => { e.stopPropagation(); setPlaybackRate(spd); sendCommand("playbackRate", [spd]); }} style={{ background: playbackRate === spd ? "rgba(255,59,78,0.2)" : "none", border: playbackRate === spd ? "1px solid #ff3b4e" : "1px solid transparent", color: playbackRate === spd ? "#ff3b4e" : "rgba(255,255,255,0.5)", fontSize: 9, padding: "2px 4px", borderRadius: 3, cursor: "pointer" }}>
                         [{spd}x]
                       </button>
                     ))}
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ display: "flex", gap: 2, height: 16, alignItems: "flex-end" }}>
-                      {[12,16,10,14,8].map((h, i) => <div key={i} style={{ width: 4, height: isPlaying ? h : 2, background: i > 3 ? "#ff3b4e" : i > 2 ? "#ffd166" : "#4ade80", transition: "height 0.2s" }}/>)}
-                    </div>
-                    <div style={{ display: "flex", gap: 2 }}>
-                      <button onClick={(e) => { e.stopPropagation(); setShowSubtitlesMenu(!showSubtitlesMenu); }} style={{ background: "none", border: "none", color: "#fff", fontFamily: "monospace", fontSize: 10, cursor: "pointer" }}>[SUB]</button>
-                      <button onClick={(e) => { e.stopPropagation(); setShowAudioMenu(!showAudioMenu); }} style={{ background: "none", border: "none", color: "#fff", fontFamily: "monospace", fontSize: 10, cursor: "pointer" }}>[AUD]</button>
-                      <button onClick={(e) => { e.stopPropagation(); cycleAspectRatio(); }} style={{ background: "none", border: "none", color: "#fff", fontFamily: "monospace", fontSize: 10, cursor: "pointer" }}>[AR]</button>
-                      <button onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }} style={{ background: "none", border: "none", color: "#fff", fontFamily: "monospace", fontSize: 10, cursor: "pointer" }}>[FS]</button>
-                    </div>
-                    {ctrl.volume && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                        <button onClick={(e) => { e.stopPropagation(); toggleMute(); }} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer" }}>
-                          {isMuted || volume === 0 ? <VolumeX size={14} /> : <Volume2 size={14} />}
-                        </button>
-                        <div ref={volumeBarRef} onClick={(e) => { e.stopPropagation(); handleVolumeChange(e); }} style={{ width: 50, height: 4, background: "rgba(255,255,255,0.1)", cursor: "pointer" }}>
-                          <div style={{ width: `${isMuted ? 0 : volume * 100}%`, height: "100%", background: "#ff3b4e" }} />
-                        </div>
-                      </div>
-                    )}
+                </div>
+
+                {/* Studio Controls Zone Row */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+                    {zoneKeys("bottomLeft").map((key) => (
+                      <React.Fragment key={key}>{barControl(key, "bar")}</React.Fragment>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+                    {zoneKeys("bottomCenter").map((key) => (
+                      <React.Fragment key={key}>{barControl(key, "bar")}</React.Fragment>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+                    {zoneKeys("bottomRight").map((key) => (
+                      <React.Fragment key={key}>{barControl(key, "bar")}</React.Fragment>
+                    ))}
                   </div>
                 </div>
               </div>

@@ -1,5 +1,5 @@
 import React from "react";
-import { Play, RotateCcw, RotateCw, Volume2, Maximize, Captions } from "lucide-react";
+import { Play, RotateCcw, RotateCw, Volume2 } from "lucide-react";
 import { logDebug } from "../utils/debugLogger";
 import { usePreferences } from "../context/preferences";
 import {
@@ -330,94 +330,163 @@ const PlayerPreview = ({
               </span>
             </div>
 
-            {/* ══ ARCHETYPE 1: MINIMAL (Zen Floating Island & Center Trio) ══ */}
+            {/* ══ ARCHETYPE 1: MINIMAL ══ */}
             {effectivePreset === "minimal" ? (
-              <div style={{ position: "absolute", bottom: 0, left: 0, right: 0 }}>
-                <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1, background: "rgba(255,255,255,0.12)" }}>
-                   <div style={{ width: "30%", height: "100%", background: "#fff" }} />
-                </div>
-                <div style={{ position: "absolute", bottom: 20, left: "50%", transform: "translateX(-50%)", display: "flex", alignItems: "center", gap: 8, background: "rgba(8,8,12,0.88)", backdropFilter: "blur(28px)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 999, padding: "0 16px", height: 32 }}>
-                  <Play size={12} fill="#fff" title="Play / Pause" />
-                  <span style={{ color: "#fff", fontSize: 10, fontWeight: 700, fontFamily: "monospace" }}>{DEMO_CURRENT}</span>
-                  <div style={{ width: 80, height: 2, background: "rgba(255,255,255,0.2)", borderRadius: 2 }}>
-                    <div style={{ width: "30%", height: "100%", background: "#fff", borderRadius: 2 }} />
-                  </div>
-                  <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 10, fontWeight: 700, fontFamily: "monospace" }}>-{DEMO_DURATION}</span>
-                </div>
-              </div>
-            ) : effectivePreset === "compact" ? (
-              /* ══ ARCHETYPE 2: COMPACT (Floating Dock & Vertical Action Rail) ══ */
               <>
-                <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 44, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(20px)", borderRadius: "0 12px 12px 0", display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 0", gap: 6 }}>
-                  <Volume2 size={14} color="#fff" />
-                  <div style={{ flex: 1 }} />
-                  <span style={{ color: "#fff", fontSize: 8, fontWeight: 700 }}>-10s</span>
-                  <Play size={20} fill="#fff" color="#fff" style={{ margin: "4px 0" }} />
-                  <span style={{ color: "#fff", fontSize: 8, fontWeight: 700 }}>+10s</span>
-                  <div style={{ flex: 1 }} />
-                  <Captions size={14} color="#fff" />
-                  <span style={{ color: "#fff", fontSize: 10, fontWeight: 700, background: "rgba(255,255,255,0.2)", borderRadius: 8, padding: "2px 4px" }}>1x</span>
-                  <Maximize size={14} color="#fff" />
+                {(topLeftKeys.length > 0 || topRightKeys.length > 0) && (
+                  <div className="player-preview-top">
+                    <div className="player-preview-cluster">{topLeftKeys.map((k) => renderControl(k, "icon"))}</div>
+                    <div className="player-preview-cluster">{topRightKeys.map((k) => renderControl(k, "icon"))}</div>
+                  </div>
+                )}
+                <div className="player-preview-bottom">
+                  <div style={{ height: 2, background: "rgba(255,255,255,0.15)", position: "relative", marginBottom: 6 }}>
+                    <div style={{ width: "30%", height: "100%", background: "#fff" }} />
+                  </div>
+                  <div className="player-preview-timerow" style={{ fontFamily: "monospace" }}>
+                    <span className="player-preview-time">{DEMO_CURRENT} / {DEMO_DURATION}</span>
+                    <span className="player-preview-titlemeta"><span className="player-preview-title">{title}</span></span>
+                    <span className="player-preview-time player-preview-time--ghost" aria-hidden="true" />
+                  </div>
+                  <div className="player-preview-bar">
+                    <div className="player-preview-cluster">
+                      {bottomLeftKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomLeft") : "bar"))}
+                    </div>
+                    <div className="player-preview-cluster player-preview-cluster--center">
+                      {bottomCenterKeys.map((k) => renderControl(k, "icon"))}
+                    </div>
+                    <div className="player-preview-cluster">
+                      {bottomRightKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomRight") : "bar"))}
+                    </div>
+                  </div>
                 </div>
-                <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: "rgba(255,255,255,0.08)" }}>
-                  <div style={{ position: "absolute", bottom: 0, left: 0, width: "100%", height: "30%", background: "#fff" }} />
-                  <div style={{ position: "absolute", bottom: "30%", left: "50%", transform: "translate(-50%, 50%)", width: 6, height: 6, borderRadius: "50%", background: "#fff" }} />
+              </>
+            ) : effectivePreset === "apple" ? (
+              /* ══ ARCHETYPE 2: APPLE TV (Floating Island Capsule) ══ */
+              <>
+                {(topLeftKeys.length > 0 || topRightKeys.length > 0) && (
+                  <div className="player-preview-top">
+                    <div className="player-preview-cluster">{topLeftKeys.map((k) => renderControl(k, "icon"))}</div>
+                    <div className="player-preview-cluster">{topRightKeys.map((k) => renderControl(k, "icon"))}</div>
+                  </div>
+                )}
+                <div className="player-preview-bottom" style={{ padding: "0 10px 8px" }}>
+                  <div style={{ background: "rgba(24,24,30,0.8)", border: "1px solid rgba(255,255,255,0.16)", borderRadius: 999, padding: "6px 12px", boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}>
+                    <div style={{ height: 4, background: "rgba(255,255,255,0.14)", borderRadius: 999, position: "relative", marginBottom: 6 }}>
+                      <div style={{ width: "30%", height: "100%", background: "#fff", borderRadius: 999 }} />
+                    </div>
+                    <div className="player-preview-bar" style={{ padding: 0 }}>
+                      <div className="player-preview-cluster">
+                        {bottomLeftKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomLeft") : "bar"))}
+                      </div>
+                      <div className="player-preview-cluster player-preview-cluster--center">
+                        {bottomCenterKeys.map((k) => renderControl(k, "icon"))}
+                      </div>
+                      <div className="player-preview-cluster">
+                        {bottomRightKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomRight") : "bar"))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (effectivePreset === "material" || effectivePreset === "compact") ? (
+              /* ══ ARCHETYPE 3: MATERIAL (Rounded Tonal Dock) ══ */
+              <>
+                {(topLeftKeys.length > 0 || topRightKeys.length > 0) && (
+                  <div className="player-preview-top">
+                    <div className="player-preview-cluster">{topLeftKeys.map((k) => renderControl(k, "icon"))}</div>
+                    <div className="player-preview-cluster">{topRightKeys.map((k) => renderControl(k, "icon"))}</div>
+                  </div>
+                )}
+                <div className="player-preview-bottom" style={{ padding: "0 10px 8px" }}>
+                  <div style={{ background: "rgba(30,27,34,0.95)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: "6px 12px", boxShadow: "0 6px 20px rgba(0,0,0,0.5)" }}>
+                    <div style={{ height: 4, background: "rgba(230,225,229,0.16)", borderRadius: 999, position: "relative", marginBottom: 6 }}>
+                      <div style={{ width: "30%", height: "100%", background: "#d0bcff", borderRadius: 999 }} />
+                    </div>
+                    <div className="player-preview-bar" style={{ padding: 0 }}>
+                      <div className="player-preview-cluster">
+                        {bottomLeftKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomLeft") : "bar"))}
+                      </div>
+                      <div className="player-preview-cluster player-preview-cluster--center">
+                        {bottomCenterKeys.map((k) => renderControl(k, "icon"))}
+                      </div>
+                      <div className="player-preview-cluster">
+                        {bottomRightKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomRight") : "bar"))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </>
             ) : effectivePreset === "theater" ? (
-              /* ══ ARCHETYPE 3: THEATER (Top Cinema Marquee, Grand Stage & Gold Timeline) ══ */
+              /* ══ ARCHETYPE 4: THEATER (Top Cinema Marquee, Grand Stage & Gold Timeline) ══ */
               <>
-                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 36, background: "linear-gradient(to bottom, rgba(10,6,0,0.88), transparent)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px" }}>
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 32, background: "linear-gradient(to bottom, rgba(10,6,0,0.88), transparent)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontFamily: "Georgia, serif", fontSize: 12, color: "#ffd166", fontWeight: 700, fontStyle: "italic" }}>{title}</span>
+                    <span style={{ fontFamily: "Georgia, serif", fontSize: 11, color: "#ffd166", fontWeight: 700, fontStyle: "italic" }}>{title}</span>
                     <span style={{ color: "#ffd166", fontSize: 8, border: "1px solid rgba(255,209,102,0.4)", borderRadius: 2, padding: "1px 3px" }}>★ 4K IMAX</span>
                   </div>
-                  <div style={{ display: "flex", gap: 8, color: "#ffd166", fontSize: 8, fontWeight: 700 }}>
-                    <span>SUBTITLES</span><span>AUDIO</span>
+                  <div className="player-preview-cluster">
+                    {topRightKeys.map((k) => renderControl(k, "icon"))}
                   </div>
                 </div>
-                <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", display: "flex", alignItems: "center", gap: 12 }}>
-                  <RotateCcw size={16} color="#ffd166" style={{ border: "1px solid #ffd166", borderRadius: "50%", padding: 4 }} />
-                  <div style={{ width: 48, height: 48, borderRadius: "50%", boxShadow: "0 0 0 8px rgba(255,209,102,0.08)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Play size={24} fill="#ffd166" color="#ffd166" style={{ marginLeft: 2 }} />
+                <div className="player-preview-bottom" style={{ background: "linear-gradient(to top, rgba(6,4,0,0.95), transparent)" }}>
+                  <div style={{ width: "100%", height: 3, background: "rgba(255,209,102,0.15)", position: "relative", marginBottom: 4 }}>
+                    <div style={{ width: "30%", height: "100%", background: "#ffd166", boxShadow: "0 0 6px #ffd166" }} />
                   </div>
-                  <RotateCw size={16} color="#ffd166" style={{ border: "1px solid #ffd166", borderRadius: "50%", padding: 4 }} />
-                </div>
-                <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 42, background: "linear-gradient(to top, rgba(6,4,0,0.95), transparent)", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
-                  <div style={{ width: "100%", height: 3, background: "rgba(255,209,102,0.15)" }}>
-                    <div style={{ width: "30%", height: "100%", background: "#ffd166", boxShadow: "0 0 4px #ffd166" }} />
+                  <div className="player-preview-timerow" style={{ fontFamily: "Georgia, serif", padding: "0 12px 2px" }}>
+                    <span style={{ fontFamily: "Georgia, serif", fontSize: 10, color: "#ffd166", fontWeight: 700 }}>{DEMO_CURRENT} / {DEMO_DURATION}</span>
+                    <span style={{ fontFamily: "Georgia, serif", fontSize: 9, color: "#ffd166", fontStyle: "italic", opacity: 0.85 }}>42min remaining</span>
+                    <span className="player-preview-time player-preview-time--ghost" aria-hidden="true" />
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 12px" }}>
-                    <div style={{ fontFamily: "Georgia, serif", fontSize: 10, color: "#ffd166", fontWeight: 700 }}>{DEMO_CURRENT} / {DEMO_DURATION}</div>
-                    <div style={{ fontFamily: "Georgia, serif", fontSize: 9, color: "#ffd166", fontStyle: "italic", opacity: 0.8, position: "absolute", left: "50%", transform: "translateX(-50%)" }}>42min remaining</div>
-                    <div style={{ display: "flex", gap: 8 }} className="player-preview-volume"><Volume2 size={12} color="#ffd166" /><Maximize size={12} color="#ffd166" /></div>
+                  <div className="player-preview-bar">
+                    <div className="player-preview-cluster">
+                      {bottomLeftKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomLeft") : "bar"))}
+                    </div>
+                    <div className="player-preview-cluster player-preview-cluster--center">
+                      {bottomCenterKeys.map((k) => renderControl(k, "icon"))}
+                    </div>
+                    <div className="player-preview-cluster">
+                      {bottomRightKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomRight") : "bar"))}
+                    </div>
                   </div>
                 </div>
               </>
             ) : effectivePreset === "studio" ? (
-              /* ══ ARCHETYPE 4: STUDIO (Broadcast Telemetry Strip, Timecode Ruler & Pro Console) ══ */
-              <div style={{ position: "absolute", bottom: 0, left: 0, right: 0 }}>
-                <div style={{ height: 16, background: "#0a0a0c", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "center", padding: "0 8px", gap: 6, fontSize: 8, fontFamily: "monospace", color: "rgba(255,255,255,0.6)" }}>
-                  <span style={{ color: "#ff3b4e" }}>● LIVE</span><span>|</span><span style={{ color: "#fff" }}>{title}</span><span>|</span><span style={{ color: "#ff3b4e" }}>TC 01:47:12</span><span>|</span><span>1080P</span>
-                </div>
-                <div style={{ height: 20, background: "#111113", position: "relative" }}>
-                  <div style={{ position: "absolute", top: 8, left: 0, right: 0, height: 4, background: "rgba(255,255,255,0.08)" }}>
-                    <div style={{ width: "30%", height: "100%", background: "linear-gradient(90deg, #e63946, #ff6b6b)" }} />
-                    <div style={{ position: "absolute", left: "30%", top: -4, bottom: -4, width: 2, background: "#ff3b4e" }} />
+              /* ══ ARCHETYPE 5: STUDIO (Broadcast Telemetry Strip, Timecode Ruler & Pro Console) ══ */
+              <>
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 18, background: "#0a0a0c", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 8px", fontSize: 8, fontFamily: "monospace", color: "rgba(255,255,255,0.6)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <span style={{ color: "#ff3b4e" }}>● LIVE</span><span>|</span><span style={{ color: "#fff" }}>{title}</span><span>|</span><span style={{ color: "#ff3b4e" }}>TC 01:47:12</span>
+                  </div>
+                  <div className="player-preview-cluster">
+                    {topRightKeys.map((k) => renderControl(k, "icon"))}
                   </div>
                 </div>
-                <div style={{ height: 36, background: "#0d0d0f", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 8px" }}>
-                  <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                    <span style={{ color: "#fff", fontSize: 8 }}>|◀◀</span>
-                    <span style={{ color: "#fff", fontSize: 8 }}>◀◀</span>
-                    <Play size={16} fill="#ff3b4e" color="#ff3b4e" style={{ border: "1px solid #ff3b4e", borderRadius: "50%", padding: 2 }} />
-                    <span style={{ color: "#fff", fontSize: 8 }}>▶▶</span>
-                    <span style={{ color: "#fff", fontSize: 8 }}>▶▶|</span>
+                <div className="player-preview-bottom" style={{ background: "#0d0d0f", borderTop: "1px solid rgba(255,255,255,0.12)" }}>
+                  <div style={{ height: 14, background: "#111113", position: "relative", marginBottom: 2 }}>
+                    <div style={{ position: "absolute", left: "25%", top: 0, fontSize: 6, color: "rgba(255,255,255,0.4)" }}>▼</div>
+                    <div style={{ position: "absolute", left: "50%", top: 0, fontSize: 6, color: "rgba(255,255,255,0.4)" }}>▼</div>
+                    <div style={{ position: "absolute", left: "75%", top: 0, fontSize: 6, color: "rgba(255,255,255,0.4)" }}>▼</div>
+                    <div style={{ position: "absolute", left: 0, bottom: 0, width: "30%", height: 3, background: "linear-gradient(90deg, #e63946, #ff6b6b)" }} />
+                    <div style={{ position: "absolute", left: "30%", top: 0, bottom: 0, width: 2, background: "#ff3b4e" }} />
                   </div>
-                  <div style={{ display: "flex", gap: 2, fontSize: 8, color: "rgba(255,255,255,0.5)" }}><span>[0.5x]</span><span style={{ color: "#ff3b4e" }}>[1x]</span><span>[2x]</span></div>
-                  <div style={{ display: "flex", gap: 2, fontSize: 8, color: "#fff" }}><span>[SUB]</span><span>[AUD]</span><span>[AR]</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "0 8px", fontSize: 8, color: "rgba(255,255,255,0.5)" }}>
+                    <div style={{ display: "flex", gap: 3 }}><span>|◀◀</span><span>◀◀</span><span>▶▶</span><span>▶▶|</span></div>
+                    <div style={{ display: "flex", gap: 2 }}><span>[0.5x]</span><span style={{ color: "#ff3b4e" }}>[1x]</span><span>[2x]</span></div>
+                  </div>
+                  <div className="player-preview-bar">
+                    <div className="player-preview-cluster">
+                      {bottomLeftKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomLeft") : "bar"))}
+                    </div>
+                    <div className="player-preview-cluster player-preview-cluster--center">
+                      {bottomCenterKeys.map((k) => renderControl(k, "icon"))}
+                    </div>
+                    <div className="player-preview-cluster">
+                      {bottomRightKeys.map((k) => renderControl(k, k === "volume" ? volumeVariant("bottomRight") : "bar"))}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              </>
             ) : (
               /* ══ ARCHETYPE 5: CLASSIC (Traditional Web Streaming Player with Zone Clusters) ══ */
               <>

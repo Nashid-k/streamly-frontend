@@ -337,7 +337,19 @@ function PlayerUIStudio() {
               onClick={() => applyPreset(preset)}
               className={`studio-preset${selected ? " is-selected" : ""}`}
             >
-              {preset.id === "minimal" ? (
+              {preset.id === "apple" ? (
+                <span className="studio-minimap studio-minimap--apple" aria-hidden="true">
+                  <span className="studio-minimap-island">
+                    <i /><i /><i />
+                  </span>
+                </span>
+              ) : preset.id === "material" ? (
+                <span className="studio-minimap studio-minimap--material" aria-hidden="true">
+                  <span className="studio-minimap-tonal">
+                    <i /><span className="fab" /><i />
+                  </span>
+                </span>
+              ) : preset.id === "minimal" ? (
                 <span className="studio-minimap studio-minimap--minimal" aria-hidden="true">
                   <span className="studio-minimap-center">
                     <i /><i /><i />

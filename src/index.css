@@ -5830,6 +5830,50 @@ html[data-theme="solar"] {
 }
 
 /* Distinct architectural minimap blueprints */
+.studio-minimap--apple .studio-minimap-island {
+  height: 12px;
+  width: 80%;
+  margin: 5px auto;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+.studio-minimap--apple .studio-minimap-island i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.studio-minimap--material .studio-minimap-tonal {
+  height: 12px;
+  width: 85%;
+  margin: 5px auto;
+  border-radius: 6px;
+  background: rgba(208, 188, 255, 0.2);
+  border: 1px solid rgba(208, 188, 255, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 4px;
+}
+.studio-minimap--material .studio-minimap-tonal .fab {
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  background: #d0bcff;
+}
+.studio-minimap--material .studio-minimap-tonal i {
+  width: 4px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.35);
+}
+
 .studio-minimap--minimal .studio-minimap-center {
   display: flex;
   justify-content: center;

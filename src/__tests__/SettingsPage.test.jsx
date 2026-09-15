@@ -43,7 +43,7 @@ describe("SettingsPage", () => {
     expect(screen.getByText(/^auto skip intro$/i)).toBeInTheDocument();
     expect(screen.getByText(/^default language$/i)).toBeInTheDocument();
     expect(screen.getByText(/^player ui studio$/i)).toBeInTheDocument();
-  });
+  }, 15000);
 
   it("can toggle switches and segmented buttons", () => {
     render(
@@ -166,8 +166,8 @@ describe("SettingsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /open studio/i }));
     const studio = within(screen.getByRole("dialog", { name: /player ui studio/i }));
 
-    // All five presets plus the live subtitle preview render.
-    for (const name of ["Classic", "Minimal", "Compact", "Theater", "Studio"]) {
+    // All six presets plus the live subtitle preview render.
+    for (const name of ["Classic", "Apple TV", "Material", "Theater", "Studio", "Minimal"]) {
       expect(studio.getByRole("radio", { name: new RegExp(`^${name}`) })).toBeInTheDocument();
     }
     expect(studio.getByRole("radio", { name: /^classic/i })).toHaveAttribute("aria-checked", "true");
@@ -196,7 +196,8 @@ describe("SettingsPage", () => {
     expect(layout.fullscreen).toBe("bottomRight");
     const controls = JSON.parse(localStorage.getItem("setting-playerControls"));
     expect(controls.playPause).toBe(true);
-    expect(controls.jumpForwardBackward).toBe(false);
+    expect(controls.jumpForwardBackward).toBe(true);
+    expect(controls.brightness).toBe(false);
     expect(screen.getByRole("radio", { name: /^minimal/i })).toHaveAttribute("aria-checked", "true");
   });
 

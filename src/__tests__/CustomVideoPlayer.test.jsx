@@ -93,13 +93,13 @@ describe("CustomVideoPlayer skins", () => {
     const classicHud = root.style.getPropertyValue("--skin-hud-bg");
     classic.unmount();
 
-    const compact = renderPlayer("compact");
-    const root2 = compact.container.querySelector(".streamly-player");
-    expect(root2.dataset.playerSkin).toBe("compact");
+    const material = renderPlayer("material");
+    const root2 = material.container.querySelector(".streamly-player");
+    expect(root2.dataset.playerSkin).toBe("material");
     expect(root2.style.getPropertyValue("--skin-hud-bg")).not.toBe(classicHud);
     expect(root2.style.getPropertyValue("--skin-bar-inset")).toBe("14px");
-    expect(root2.style.getPropertyValue("--skin-hud-radius")).toBe("16px");
-    compact.unmount();
+    expect(root2.style.getPropertyValue("--skin-hud-radius")).toBe("20px");
+    material.unmount();
   });
 
   it("keeps the player interactive after preset swaps (error boundary not hit)", () => {

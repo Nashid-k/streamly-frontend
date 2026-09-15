@@ -415,5 +415,26 @@ hudBlur/hudBorder/hudRadius/hudShadow/hudFont` (every floating card), `toastBg`,
     - `npm run lint` (0 errors, 0 warnings across 114 files).
     - `npm run test` (294/294 tests passed across 28 suites).
     - `npm run build` (production build succeeded in 4.87s).
-
-
+- [x] **Task 38 — Complete revamp of 5 distinct player UI presets plus default (total 6 presets) across mobile, tablet, and desktop**
+  - **Identified root causes of missing buttons**:
+    - In `CustomVideoPlayer.jsx` and `PlayerPreview.jsx`, non-classic presets previously bypassed zone rendering with hardcoded JSX blocks:
+      - `minimal` rendered a 1-button pill with only Play/Pause, discarding all other controls.
+      - `compact` returned `null` for the bottom bar and a broken left rail without full controls.
+      - `theater` only rendered Volume and Fullscreen, dropping seek, time, aspect ratio, pip, and subtitles.
+      - `studio` rendered only frame jog buttons without zone controls.
+    - In `playerUIDef.js`, presets had controls disabled or hidden in the tray.
+  - **Implemented full revamp**:
+    - Exactly 6 distinct presets and skins configured in `src/components/playerUIDef.js`:
+      1. `classic` (Streaming Standard): Full-width frosted glass bar, edge-to-edge scrub rail, classic left/center/right clusters.
+      2. `apple` (VisionOS Floating Island): Dynamic floating frosted glass island capsule (`borderRadius: 999px`, `backdropFilter: blur(36px)`), circular frosted icon pods, embedded capsule progress rail, SF Pro typography.
+      3. `material` (Material 3 Tonal Dock): Rounded-3xl floating tonal dock (`borderRadius: 28px`, `background: rgba(30, 27, 34, 0.95)`), filled tonal FAB for Play/Pause, squircle button containers (`borderRadius: 20px`), pill badges, thicker M3 slider track.
+      4. `theater` (Cinema Marquee & Amber Stage): IMAX cinema marquee header (`★ 4K IMAX`, `DOLBY ATMOS`), grand center stage with amber glowing playback cluster, wide golden timeline (`#ffd166` glow) with serif countdown.
+      5. `studio` (Broadcast Pro NLE Telemetry): Broadcast Pro NLE cyber console with top `● REC / LIVE` telemetry bar, SMPTE timecode (`TC 00:00:00:00`), frame ruler scrubber with tick marks, bottom editing console with frame-by-frame jog buttons (`⏮`, `⏭`, `|◀◀`, `▶▶|`), direct speed strip `[0.5x]`–`[2x]`, and real-time animated VU audio meter bars.
+      6. `minimal` (Modern Clean & Hairline): Ultra-clean hairline 2px/4px progress track and transparent ghost controls.
+    - Backward-compatibility alias: `"compact"` seamlessly maps to `"material"`.
+    - Every preset has 100% feature completeness and visibility enabled for all primary controls across mobile, tablet, and desktop (`playPause`, `jumpForwardBackward`, `volume`, `subtitles`, `audio`, `aspectRatio`, `playbackSpeed`, `screenLock`, `fullscreen`, `pip`, `nextEpisode`).
+    - Synchronized `CustomVideoPlayer.jsx`, `PlayerPreview.jsx`, `SettingsPage.jsx`, and `src/index.css` to render complete archetypes with all zones on every device.
+  - **Verification**:
+    - `npm run lint`: 0 errors, 0 warnings across 114 files.
+    - `npm run test`: 294/294 tests passing across 28 test suites.
+    - `npm run build`: Production build succeeded in 2.02s.

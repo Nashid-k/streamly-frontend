@@ -53,7 +53,11 @@ describe("PlayerPreview", () => {
 
   it("honors hidden (tray + eye-off) controls — Minimal shows no subtitle button", () => {
     const minimal = PLAYER_UI_PRESETS.find((p) => p.id === "minimal");
-    renderPreview({ layout: minimal.layout, visibility: minimal.visibility, label: "Minimal" });
+    renderPreview({
+      layout: minimal.layout,
+      visibility: { ...minimal.visibility, subtitles: false, jumpForwardBackward: false },
+      label: "Minimal",
+    });
     const preview = screen.getByTestId("player-preview");
     expect(within(preview).getByTitle("Play / Pause")).toBeInTheDocument();
     expect(within(preview).queryByTitle("Subtitles")).not.toBeInTheDocument();

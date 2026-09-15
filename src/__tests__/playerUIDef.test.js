@@ -34,13 +34,14 @@ describe("playerUIDef zones", () => {
 });
 
 describe("playerUIDef presets", () => {
-  it("ships exactly five presets with full visibility + layout maps", () => {
+  it("ships exactly six presets with full visibility + layout maps", () => {
     expect(PLAYER_UI_PRESETS.map((p) => p.id)).toEqual([
       "classic",
-      "minimal",
-      "compact",
+      "apple",
+      "material",
       "theater",
       "studio",
+      "minimal",
     ]);
     const zoneIds = new Set(PLAYER_ZONES.map((z) => z.id));
     for (const preset of PLAYER_UI_PRESETS) {
@@ -83,18 +84,19 @@ describe("playerUIDef skins", () => {
     }
   });
 
-  it("gives each of the five looks a genuinely different visual identity", () => {
-    const { classic, minimal, compact, theater, studio } = PLAYER_UI_SKINS;
+  it("gives each of the six looks a genuinely different visual identity", () => {
+    const { classic, apple, material, theater, studio, minimal } = PLAYER_UI_SKINS;
     // Bar surfaces all differ.
-    const barBgs = new Set([classic.barBg, minimal.barBg, compact.barBg, theater.barBg, studio.barBg]);
-    expect(barBgs.size).toBe(5);
+    const barBgs = new Set([classic.barBg, apple.barBg, material.barBg, theater.barBg, studio.barBg, minimal.barBg]);
+    expect(barBgs.size).toBe(6);
     // Fill colors / gradients all differ.
-    const fills = new Set([classic.progressFill, minimal.progressFill, compact.progressFill, theater.progressFill, studio.progressFill]);
-    expect(fills.size).toBe(5);
-    // Button shapes are not all the same (squircle/flat vs circle).
-    expect(new Set([classic.btnRadius, compact.btnRadius, studio.btnRadius]).size).toBe(3);
-    // Theater glows; Minimal and Studio do not.
+    const fills = new Set([classic.progressFill, apple.progressFill, material.progressFill, theater.progressFill, studio.progressFill, minimal.progressFill]);
+    expect(fills.size).toBe(6);
+    // Button shapes differ (squircle, circle, boxed).
+    expect(new Set([classic.btnRadius, material.btnRadius, studio.btnRadius]).size).toBe(3);
+    // Theater, Apple, Material glow; Minimal and Studio do not.
     expect(theater.progressGlow).not.toBe("none");
+    expect(apple.progressGlow).not.toBe("none");
     expect(minimal.progressGlow).toBe("none");
     expect(studio.progressGlow).toBe("none");
   });
@@ -126,20 +128,21 @@ describe("playerUIDef skins", () => {
 
   it("makes presets genuinely different experiences, not recolors", () => {
     const skins = Object.values(PLAYER_UI_SKINS);
-    // Distinct HUD surfaces across all five presets.
+    // Distinct HUD surfaces across all six presets.
     expect(new Set(skins.map((s) => s.hudBg)).size).toBe(skins.length);
     expect(new Set(skins.map((s) => s.hudRadius)).size).toBe(skins.length);
     // Distinct entrance choreography + timing.
-    expect(new Set(skins.map((s) => s.entrance)).size).toBe(4); // minimal+classic share fade
+    expect(new Set(skins.map((s) => s.entrance)).size).toBe(5); // minimal+classic share fade
     expect(new Set(skins.map((s) => s.motionMs)).size).toBe(skins.length);
     // Center burst tone varies by preset identity.
-    expect(new Set(skins.map((s) => s.centerIconTone)).size).toBe(4); // classic+minimal share ghost
-    // Only Theater carries the cinematic vignette; Compact alone floats its bar.
+    expect(new Set(skins.map((s) => s.centerIconTone)).size).toBe(4);
+    // Only Theater carries the cinematic vignette.
     expect(skins.filter((s) => s.vignette !== "none").map((s) => s.id)).toEqual(["theater"]);
-    expect(skins.filter((s) => s.barInset !== "0px").map((s) => s.id)).toEqual(["compact"]);
+    // Floating bars have non-zero barInset.
+    expect(skins.filter((s) => s.barInset !== "0px").map((s) => s.id).sort()).toEqual(["apple", "material"].sort());
     // Per-skin typography extends beyond the time row.
-    expect(new Set(skins.map((s) => s.fontBody)).size).toBe(3); // system / serif / mono
-    expect(new Set(skins.map((s) => s.hudFont)).size).toBe(3);
+    expect(new Set(skins.map((s) => s.fontBody)).size).toBe(4); // system / roboto / serif / mono
+    expect(new Set(skins.map((s) => s.hudFont)).size).toBe(4);
   });
 });
 
