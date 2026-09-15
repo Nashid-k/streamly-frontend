@@ -791,3 +791,35 @@ Cinejoy set. Original "don't edit" constraint was lifted by the user.
   - Verified: `npm run lint` (0), `npm run test` (305/305 across 29 files), `npm run build` (✓).
   - Follow-ups (backlog): reconcile duplicated "emerald" theme vs new default green swatch name; deep
     watch-page WheelPicker/ScrapingScreen chrome if further parity desired.
+
+## Deep parity audit — Task 59 (user: "done everything? analyse deeper")
+
+- [x] **Task 59 - Full-page audit vs every real CSS asset + settings tab/glass-card correction**
+  - Audited ALL 27 extracted assets + dev-only chunks. Verdict per surface:
+    - `20.BLodlHfJ.css` (Settings): real `.settings-tab` is a **underline tab** (`padding:.5rem 0`,
+      `border-bottom:2px solid transparent`, active = white text + white underline), not our green accent
+      chip; `.settings-nav` is a bare centered rail that turns into the frosted dock pill only when
+      `.is-docked`; `.glass-card` = `rgba(20,20,20,.6)`/`#14141499`, blur 20, radius 20, padding 24,
+      `scroll-margin-top:100px`, `.is-flash` ring, NO hover. → **Applied exactly** (our sticky
+      `.settings-sticky-bar` already acts as the docked rail, so the always-docked parity holds).
+    - `11.DDe79v4G.css` (My List editor `.list-card`/`.list-input`/`.list-icon-btn`/`.row-icon-btn-danger`):
+      our Watchlist/History pages don't use these classes (Cinejoy has no standalone list page —
+      ours is a frozen-contract page). Recipe documented; accent sweep already applied.
+    - `TitleVote.BQ5-nsye.css` (up/down vote + Turnstile): out of scope — Streamly has no voting
+      backend; our RatingsCluster is IMDb/RT badges and matches.
+    - `ScrapingScreen` / `WheelPicker` / `DownloadModal` / `DisplayNameModal` / `AddToListPopover`:
+      Cinejoy has download/scraping/name-modal flows we don't ship; scrollbar recipes (4px thumb) already
+      mirrored in `.discovery-menu`/`.glass-scrollbar`.
+    - `VideoPlayer.amzfpZvj.css` (182 selectors): our player is a bespoke skin system whose tokens
+      (`panelBg/panelBlur/panelBorder`) already mirror `.settings-popover` = `#0f0f0fb8`, blur 28 sat 180,
+      border white/10, radius 1rem, `0 20px 50px #00000080`; `html[data-flat-ui]`/
+      `data-glass-refract`/`data-theme-id` variants are app-level theme states we replicate via the
+      `--theme-*`/accent machinery. Pixel-perfect port of all 182 selectors remains an optional follow-up.
+    - Dev-only (skip): `8` dev panel, `21` skin editor, `22` shorts, `4` connect, `6` date, `7` preview,
+      `2`/`12`/`14`/`19` utilities — no user-facing UI.
+    - Emerald vs default theme: verified NOT a true duplicate (`#95ff50`/`#5ce21c` default vs
+      `#95ff50`/`#43861e` "Cinejoy Emerald") — label kept, no change.
+  - Applied: `.settings-tab` → real underline-tab recipe (desktop gap 1.75rem, active white underline);
+    `.settings-nav` → centered safe rail (dock pill provided by sticky bar); `.glass-card` → dark glass
+    recipe + `scroll-margin-top` + `.is-flash` ring, dropped hover + heavy shadow.
+  - Verified: `npm run lint` (0), `npm run test` (305/305), `npm run build` (✓).
