@@ -505,6 +505,159 @@ export const movieService = {
     }
   },
 
+  // ── Discovery browse (Cinejoy-style Movies / Series pages) ─────────────
+  // Both /movies and /series render a shared DiscoveryPage: a header + filter
+  // pills (Random, Genre, Year, Sort, Provider, Country), an editorial rail,
+  // and a poster grid. Everything the pills control maps onto TMDB /discover.
+
+  // Resolve a browse filter set to TMDB request params. Kept tiny and pure so
+  // new filters (provider, country) land in exactly one place.
+  getDiscover: async ({ mediaType = 'movie', genreId, year, sortBy = 'popular', region, providerId, country } = {}) => {
+    const mt = mediaType === 'tv' ? 'tv' : 'movie';
+    try {
+      const params = {
+        include_adult: 'false',
+        include_video: 'false',
+        sort_by:
+          sortBy === 'top_rated' ? 'vote_average.desc'
+            : sortBy === 'newest'
+              ? (mt === 'movie' ? 'primary_release_date.desc' : 'first_air_date.desc')
+              : 'popularity.desc',
+      };
+      if (sortBy === 'top_rated') params.vote_count_gte = 200;
+      if (genreId) params.with_genres = String(genreId);
+      if (year) params[mt === 'movie' ? 'primary_release_year' : 'first_air_date_year'] = String(year);
+      if (country) params.with_origin_country = String(country);
+      if (providerId) {
+        // Provider filtering always needs the region TMDB watches in; default
+        // to the chosen region, the passed country, else US.
+        params.watch_region = String(region || country || 'US');
+        params.with_watch_providers = String(providerId);
+      } else if (region) {
+        params.watch_region = String(region);
+      }
+      const data = await tmdb(`/discover/${mt}`, params);
+      const out = (data.results || []).map(r => normalizeResult({ ...r, media_type: mt }));
+      warnIfEmpty('getDiscover', out, { mt, genreId, year, sortBy, region, providerId, country });
+      return out;
+    } catch (error) {
+      logServiceError('getDiscover', error, { mt, genreId, year, sortBy, region, providerId, country });
+      throw error;
+    }
+  },
+
+  getGenres: async (mediaType = 'movie') => {
+    const mt = mediaType === 'tv' ? 'tv' : 'movie';
+    try {
+      const data = await tmdb(`/genre/${mt}/list`);
+      const out = (data.genres || []).map((g) => ({ id: g.id, name: g.name }));
+      if (out.length === 0) {
+        logEmptyData('movieService', `getGenres: TMDB returned an empty ${mt} genre list.`, { mt });
+      }
+      return out;
+    } catch (error) {
+      logServiceError('getGenres', error, { mt });
+      throw error;
+    }
+  },
+
+  getWatchProviders: async (mediaType = 'movie') => {
+    const mt = mediaType === 'tv' ? 'tv' : 'movie';
+    try {
+      const data = await tmdb(`/watch/providers/${mt}`);
+      const out = (data.results || [])
+        .slice()
+        .sort((a, b) => (a.display_priority ?? 999) - (b.display_priority ?? 999))
+        .map((p) => ({
+          id: p.provider_id,
+          name: p.provider_name,
+          logoUrl: p.logo_path ? CdnImageAdapter.getUrl(p.logo_path, 'w92') : null,
+        }));
+      if (out.length === 0) {
+        logEmptyData('movieService', `getWatchProviders: TMDB returned an empty ${mt} provider list.`, { mt });
+      }
+      return out;
+    } catch (error) {
+      logServiceError('getWatchProviders', error, { mt });
+      throw error;
+    }
+  },
+
+  getRegions: async () => {
+    try {
+      const data = await tmdb('/watch/providers/regions');
+      const out = (data.results || [])
+        .slice()
+        .sort((a, b) => String(a.english_name || a.native_name || '').localeCompare(String(b.english_name || b.native_name || '')))
+        .map((r) => ({ code: r.iso_3166_1, name: r.english_name || r.native_name }));
+      if (out.length === 0) {
+        logEmptyData('movieService', 'getRegions: TMDB returned an empty region list.', {});
+      }
+      return out;
+    } catch (error) {
+      logServiceError('getRegions', error, {});
+      throw error;
+    }
+  },
+
+  // Movies rail — near-term theatrical release schedule enriched with the
+  // release dates buildUpcoming needs to power the "Upcoming / Coming Soon"
+  // landscape rail on the Movies discovery page.
+  getUpcomingMovies: async () => {
+    try {
+      const data = await tmdb('/movie/upcoming');
+      const out = (data.results || [])
+        .filter((r) => r.release_date)
+        .map((r) => ({ ...normalizeResult({ ...r, media_type: 'movie' }), releaseDate: r.release_date }));
+      warnIfEmpty('getUpcomingMovies', out, {});
+      return out;
+    } catch (error) {
+      logServiceError('getUpcomingMovies', error, {});
+      throw error;
+    }
+  },
+
+  // Series rail ("New Seasons Airing") — /tv/on_the_air plus a light
+  // next-episode look-up for the first few titles so cards can show the
+  // "Season N" badge and "Ep X · Mon DD" overlay, exactly like Cinejoy.
+  // A failed detail look-up never kills the rail: it falls back to the plain
+  // list item and keeps going.
+  getAiringRail: async (limit = 10) => {
+    try {
+      const data = await tmdb('/tv/on_the_air');
+      const base = (data.results || []).map(r => normalizeResult({ ...r, media_type: 'tv' }));
+      if (base.length === 0) {
+        logEmptyData('movieService', 'getAiringRail: /tv/on_the_air returned 0 titles.', {});
+        return [];
+      }
+      const slice = base.slice(0, Math.min(limit, base.length));
+      const enriched = await Promise.allSettled(
+        slice.map(async (item) => {
+          const rid = rawId(item.id);
+          const brief = await tmdb(`/tv/${rid}`, { append_to_response: 'next_episode_to_air' });
+          const nx = brief.next_episode_to_air;
+          if (!nx || !nx.air_date) return item;
+          return {
+            ...item,
+            nextEpisode: {
+              releaseDate: nx.air_date,
+              season: nx.season_number,
+              episode: nx.episode_number,
+              title: nx.name || null,
+            },
+            airingSeasonNumber: nx.season_number || null,
+          };
+        }),
+      );
+      const out = enriched.map((r, i) => (r.status === 'fulfilled' ? r.value : slice[i]));
+      warnIfEmpty('getAiringRail', out, { limit });
+      return out;
+    } catch (error) {
+      logServiceError('getAiringRail', error, { limit });
+      throw error;
+    }
+  },
+
   getTrendingThisWeek: async () => {
     try {
       const data = await tmdb('/trending/all/week');

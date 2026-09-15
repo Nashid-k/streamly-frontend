@@ -23,6 +23,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import GlobalShortcuts from "./components/GlobalShortcuts";
 import Loader from "./components/Loader";
 import BackToTop from "./components/BackToTop";
+import Footer from "./components/Footer";
 import { useScrollRestoration } from "./hooks/useScrollRestoration";
 import { usePreferences } from "./context/preferences";
 import { useAppAuth } from "./context/auth";
@@ -37,6 +38,7 @@ const NAV_ITEMS = [
 ];
 
 const HomePage = lazy(() => import("./pages/HomePage"));
+const DiscoveryPage = lazy(() => import("./pages/DiscoveryPage"));
 const TitleDetails = lazy(() => import("./pages/TitleDetailsPage"));
 const PersonDetails = lazy(() => import("./pages/PersonDetailsPage"));
 const SearchPage = lazy(() => import("./pages/SearchPage"));
@@ -204,6 +206,9 @@ function Layout({ children }) {
       {/* Back to top */}
       <BackToTop />
 
+      {/* Global footer — Streamly wordmark, disclaimer, contact */}
+      <Footer />
+
       {/* Mobile Bottom Navigation — Cinejoy-style floating icon pill */}
       <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
         {[
@@ -259,13 +264,11 @@ function AppRoutes() {
               />
               <Route
                 path="/series"
-                element={<HomePage filter="series" title="Top TV Shows" />}
+                element={<DiscoveryPage mode="series" />}
               />
               <Route
                 path="/movies"
-                element={
-                  <HomePage filter="movies" title="Blockbuster Movies" />
-                }
+                element={<DiscoveryPage mode="movies" />}
               />
               <Route path="/search" element={<SearchPage />} />
               <Route path="/category/:name" element={<CategoryPage />} />

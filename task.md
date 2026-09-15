@@ -703,3 +703,46 @@ Cinejoy set. Original "don't edit" constraint was lifted by the user.
 - [x] **Task 53 - Record + full verification of the whole batch**
   - `npm run lint` (0 errors / 0 warnings), `npm run test` (305/305 across 29 files),
     `npm run build` (✓ 1.41s). This `task.md` entry documents Tasks 47–52.
+
+## Cinejoy movies/series pages — Tasks 54-56 (verified as one batch)
+
+- [x] **Task 54 - Discovery data layer (`movieService`)**
+  - `getDiscover({ mediaType, genreId, year, sortBy, region, providerId, country })` → `/discover/{movie|tv}`
+    with `sort_by` (Popular `popularity.desc` · Top Rated `vote_average.desc` + `vote_count_gte:200` ·
+    Newest `primary_release_date.desc`/`first_air_date.desc`), `with_genres`,
+    `primary_release_year`/`first_air_date_year`, `watch_region` + `with_watch_providers` (provider
+    filter auto-sets `watch_region` = region → country → `US`), `with_origin_country`.
+  - `getGenres(mediaType)` → `/genre/{movie|tv}/list`; `getWatchProviders(mediaType)` →
+    `/watch/providers/{movie|tv}` (priority-sorted, logo via `CdnImageAdapter`); `getRegions()` →
+    `/watch/providers/regions` (alpha-sorted country code list).
+  - `getUpcomingMovies()` → `/movie/upcoming`, normalized + `releaseDate` for the Upcoming rail;
+    `getAiringRail(limit=10)` → `/tv/on_the_air` + per-title `next_episode_to_air` look-up
+    (`Promise.allSettled`, failure falls back to the plain item) for the Season/Ep/date badges.
+  - All methods follow the house `logServiceError`/`warnIfEmpty`/`logEmptyData` convention.
+- [x] **Task 55 - `DiscoveryPage` + route swap**
+  - New `src/pages/DiscoveryPage.jsx` (lazy-loaded) drives BOTH `/movies` (`mode="movies"`) and
+    `/series` (`mode="series"`), replacing the two `HomePage filter=` routes in `App.jsx`; nav
+    `match` predicates (`/movies*`, `/series*`) unchanged so both pills stay highlighted.
+  - Mirror of `cinejoy.to/movies` + `cinejoy.to/series`: glass header (`text-4xl/5xl` title +
+    subtitle, `max-w-[1600px] pt-24`), filter pills — Random expand-pill (`Dices`, `h-[38px]` →
+    hover `max-w-[130px]`), Genre, Year, Sort (Popular/Top Rated/Newest), Provider, Country —
+    each dropping a frosted `listbox` panel (Escape / click-outside close). Filters are URL-driven
+    via `useSearchParams`, so combos are shareable + back/forward friendly.
+  - Editorial rail (`buildUpcoming(…, 120)`): movies = "Upcoming" + `Coming Soon` spotlight badge,
+    series = "New Seasons Airing" + `Season N` badge; landscape `w-[70vw]→264→316px` aspect-video
+    snap cards with edge-mask, hover veil, "Ep X · Mon DD" overlay, mobile below-meta; hover-reveal
+    arrows via `scrollBy`. Grid = `2/4/5/6` cols `gap-x-6 gap-y-12`, reuses `MovieCard` (white play
+    + yellow star). Random opens a random grid title via the shared `useDetailView` gateway.
+  - Loading skeletons (`skeleton-moviecard`), error + empty states, `reportQueryError` /
+    `logEmptyData` for every query, one shared `modalHost` per page.
+- [x] **Task 56 - CSS + global footer**
+  - `index.css`: `.discovery-grid` (2→4→5→6 cols), `.spotlight-badge` (green `#95ff50` glow pill),
+    `.card-hover-veil` (white/10 lens, 500ms), `.discovery-menu` (green scrollbar), `.discovery-rail-mask`
+    (clean edge fade), `.site-footer`. Green accent is scoped to the discovery chrome — the rest of
+    the app keeps the rose/amber brand (user approved green for these pages only).
+  - New `src/components/Footer.jsx` rendered globally in `Layout` after `<main>`: Streamly wordmark
+    + divider + demo disclaimer + `mailto:contact@streamly.app` (sentinel address — user asked for
+    wordmark/disclaimer/mailto, no social icon). `pb-28 lg:pb-8` clears the floating mobile nav pill.
+  - Verified: `npm run lint` (0), `npm run test` (305/305 across 29 files), `npm run build` (✓,
+    `DiscoveryPage` chunk emitted). Follow-up after review: visual-consistency sweep of
+    Settings/Watchlist/History against the same glass+green language.

@@ -7372,3 +7372,106 @@ html[data-theme="solar"] {
   border-radius: 50% !important;
 }
 
+/* ── Discovery page (Cinejoy-mirrored /movies + /series) ─────────────────
+   Scoped to .discovery-page so the shimmering green accent (#95ff50 = the
+   Cinejoy brand green) never bleeds into the rest of the app. */
+
+/* Poster grid: Cinejoy's exact column rhythm — 2 → 4 → 5 → 6, with the
+   loose 6-rem row gap that gives the hover-encoded cards breathing room. */
+.discovery-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3rem 1.5rem;
+  padding: 0 0.15rem 2rem;
+}
+@media (min-width: 768px) {
+  .discovery-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1024px) {
+  .discovery-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1280px) {
+  .discovery-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+/* Cinejoy "spotlight badge" — the capsulated season / coming-soon tag with
+   a green spotlight glow, e.g. "SEASON 4", "COMING SOON". */
+.spotlight-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 10;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #d9ffc4;
+  background: linear-gradient(135deg, rgba(149, 255, 80, 0.24), rgba(149, 255, 80, 0.05));
+  border: 1px solid rgba(149, 255, 80, 0.38);
+  box-shadow: 0 0 18px rgba(149, 255, 80, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+}
+
+/* Card hover veil — a frosted light-lens that fades in 500ms over the
+   artwork as the card scales up (driven by group-hover/card). */
+.card-hover-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: linear-gradient(to bottom right, rgba(255, 255, 255, 0.1), transparent);
+  transition: opacity 500ms ease;
+  pointer-events: none;
+  opacity: 0;
+}
+.group\/card:hover .card-hover-veil {
+  opacity: 1;
+}
+
+/* Dropdown menu panels — dark glass with a green-tinted scrollbar. */
+.discovery-menu {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(149, 255, 80, 0.35) transparent;
+}
+.discovery-menu::-webkit-scrollbar {
+  width: 6px;
+}
+.discovery-menu::-webkit-scrollbar-thumb {
+  background: rgba(149, 255, 80, 0.35);
+  border-radius: 999px;
+}
+
+/* Rail — soft edge fade so cards entering/leaving the viewport feel masked
+   (mirrors Cinejoy's inline mask-image on the landscape row). */
+.discovery-rail-mask {
+  mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
+}
+
+/* Footer — global Streamly wordmark bar, glassy and compact (site takes its
+   styling cues from the Cinejoy footer line). */
+.site-footer {
+  width: 100%;
+  position: relative;
+  z-index: 20;
+  margin-top: auto;
+  padding: 2rem 1.5rem;
+  padding-bottom: 7rem;
+}
+@media (min-width: 1024px) {
+  .site-footer {
+    padding: 2rem 4rem;
+    padding-bottom: 2rem;
+  }
+}
+
