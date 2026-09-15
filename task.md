@@ -746,3 +746,22 @@ Cinejoy set. Original "don't edit" constraint was lifted by the user.
   - Verified: `npm run lint` (0), `npm run test` (305/305 across 29 files), `npm run build` (✓,
     `DiscoveryPage` chunk emitted). Follow-up after review: visual-consistency sweep of
     Settings/Watchlist/History against the same glass+green language.
+
+## Cinejoy CSS reverse-engineering — Task 57 (user: "dig deeper, find a way to reverse-engineer the CSS")
+
+- [x] **Task 57 - Real-CSS harness + applied corrections**
+  - Built `scripts/fetch-cinejoy-css.mjs` — the repeatable "way": fetch every route shell, resolve the
+    SvelteKit entry JS from it, crawl the module graph (BFS) pulling every `assets/*.css` reference
+    (including on-demand chunks), write shells + 27 real CSS assets into `docs/cinejoy-reference/`,
+    emit `index.md`. Clicking any page's CSS is now: `node scripts/fetch-cinejoy-css.mjs` +
+    `node scripts/cinejoy-rules.mjs <class>`.
+  - Built `scripts/cinejoy-rules.mjs` — rule blotter: prints any minified rule containing a class /
+    variable / animation across the extracted CSS (offsets included). Used it to confirm the real
+    ground truth: `.spotlight-badge` is a bottom-center `#3c8217` tab (7px 7px 0 0 radius, 11px/500,
+    NO uppercase, NO glow) — our shipped version had it top-left + uppercase + glow. `.scroll-to-top-btn`
+    is a 44px glass circle with `2px solid #95ff50` ring + `blur(20px) saturate(150%)`.
+  - Applied: `src/index.css` `.spotlight-badge` → real Cinejoy tab; `BackToTop.jsx` knob → green
+    `#95ff50` ring glass (mirrors `.scroll-to-top-btn`).
+  - Recorded the full port map in `docs/cinejoy-reference/ANALYSIS.md` (27 assets → component →
+    Streamly class, theme-var machinery, verbatim primitives, port backlog).
+  - Verified: `npm run lint` (0), `npm run test` (305/305), `npm run build` (✓), harness output idempotent.

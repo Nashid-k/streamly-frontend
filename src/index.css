@@ -7400,27 +7400,23 @@ html[data-theme="solar"] {
   }
 }
 
-/* Cinejoy "spotlight badge" — the capsulated season / coming-soon tag with
-   a green spotlight glow, e.g. "SEASON 4", "COMING SOON". */
+/* Cinejoy "spotlight badge" — the scene-select / coming-soon tab that sits
+   centered on the bottom edge of a landscape rail card (real Cinejoy value:
+   green #3c8217 tab, radius 7px 7px 0 0, 11px/500, no uppercase). */
 .spotlight-badge {
   position: absolute;
-  top: 10px;
-  left: 10px;
+  bottom: 0;
+  left: 50%;
+  transform: translate(-50%);
   z-index: 10;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: #d9ffc4;
-  background: linear-gradient(135deg, rgba(149, 255, 80, 0.24), rgba(149, 255, 80, 0.05));
-  border: 1px solid rgba(149, 255, 80, 0.38);
-  box-shadow: 0 0 18px rgba(149, 255, 80, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.16);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  padding: 4px 12px;
+  border-radius: 7px 7px 0 0;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.45;
   white-space: nowrap;
+  background: #3c8217;
+  color: #fff;
 }
 
 /* Card hover veil — a frosted light-lens that fades in 500ms over the

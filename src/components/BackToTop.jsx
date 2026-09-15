@@ -55,16 +55,16 @@ export default function BackToTop() {
             width: "44px",
             height: "44px",
             borderRadius: "50%",
-            background: "rgba(9, 9, 11, 0.9)",
-            backdropFilter: "blur(16px)",
-            WebkitBackdropFilter: "blur(16px)",
-            border: "1px solid rgba(255,255,255,0.15)",
+            background: "rgba(255,255,255,0.10)",
+            backdropFilter: "blur(20px) saturate(150%)",
+            WebkitBackdropFilter: "blur(20px) saturate(150%)",
+            border: "2px solid #95ff50",
             color: "#fff",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             cursor: "pointer",
-            boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
           }}
         >
           <ChevronUp size={20} />
