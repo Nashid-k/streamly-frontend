@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { readFileSync } from 'node:fs'
@@ -6,10 +6,64 @@ import { fileURLToPath, URL } from 'node:url'
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8'))
 
-// https://vitejs.dev/config/
-export default defineConfig(() => {
+function apiDevServerPlugin() {
   return {
-    plugins: [react(), tailwindcss()],
+    name: 'api-dev-server',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        const url = new URL(req.url, 'http://localhost');
+        if (url.pathname === '/api/auth' || url.pathname === '/api/sync') {
+          try {
+            const endpoint = url.pathname === '/api/auth' ? './api/auth.js' : './api/sync.js';
+            const { default: handler } = await import(endpoint);
+            let body = {};
+            if (req.method === 'POST') {
+              const buffers = [];
+              for await (const chunk of req) {
+                buffers.push(chunk);
+              }
+              const raw = Buffer.concat(buffers).toString('utf-8');
+              try {
+                body = JSON.parse(raw);
+              } catch {
+                body = {};
+              }
+            }
+            req.body = body;
+            req.query = Object.fromEntries(url.searchParams.entries());
+            res.status = function(code) {
+              this.statusCode = code;
+              return this;
+            };
+            res.json = function(data) {
+              this.setHeader('Content-Type', 'application/json');
+              this.end(JSON.stringify(data));
+            };
+            res.send = function(data) {
+              this.end(data);
+            };
+            await handler(req, res);
+            return;
+          } catch (err) {
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: err?.message || 'Dev API execution error' }));
+            return;
+          }
+        }
+        next();
+      });
+    },
+  };
+}
+
+// https://vitejs.dev/config/
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  Object.assign(process.env, env);
+
+  return {
+    plugins: [react(), tailwindcss(), apiDevServerPlugin()],
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),

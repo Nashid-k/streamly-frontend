@@ -25,6 +25,7 @@ import Loader from "./components/Loader";
 import BackToTop from "./components/BackToTop";
 import { useScrollRestoration } from "./hooks/useScrollRestoration";
 import { usePreferences } from "./context/preferences";
+import { useAppAuth } from "./context/auth";
 
 /* Single source of truth for navigation — feeds the desktop glass dock and
    the concise five-item mobile bar. */
@@ -49,6 +50,7 @@ function Layout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
   const reduceMotion = useReducedMotion();
+  const { user } = useAppAuth();
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -136,14 +138,24 @@ function Layout({ children }) {
             <Clock size={18} strokeWidth={2} />
           </Link>
 
-          {/* Settings */}
+          {/* Settings / Account */}
           <Link
             to="/settings"
             className={`nav-icon-btn${location.pathname === "/settings" ? " nav-icon-btn--active" : ""}`}
-            aria-label="Settings"
-            title="Settings"
+            aria-label={user ? `Account (${user.name || user.email})` : "Settings"}
+            title={user ? `Account (${user.name || user.email})` : "Settings"}
+            style={user?.picture ? { padding: 3 } : undefined}
           >
-            <Settings size={18} strokeWidth={2} />
+            {user?.picture ? (
+              <img
+                src={user.picture}
+                alt={user.name || "User"}
+                className="w-[26px] h-[26px] rounded-full object-cover border border-white/30"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <Settings size={18} strokeWidth={2} />
+            )}
           </Link>
         </div>
         </div>
@@ -200,7 +212,7 @@ function Layout({ children }) {
           { id: "home", label: "Home", to: "/", icon: Home, match: (p) => p === "/" || p.startsWith("/movies") || p.startsWith("/series") },
           { id: "explore", label: "Explore", to: "/search", icon: Search, match: (p) => p === "/search" || p.startsWith("/genre/") || p.startsWith("/category/") },
           { id: "mylist", label: "My List", to: "/watchlist", icon: Bookmark, match: (p) => p === "/watchlist" || p === "/history" },
-          { id: "settings", label: "Settings", to: "/settings", icon: Settings, match: (p) => p === "/settings" },
+          { id: "settings", label: user ? "Account" : "Settings", to: "/settings", icon: Settings, match: (p) => p === "/settings" },
         ].map((item) => {
           const active = item.match(location.pathname);
           return (
@@ -210,7 +222,16 @@ function Layout({ children }) {
               className={`bottom-nav-item ${active ? "active" : ""}`}
               aria-current={active ? "page" : undefined}
             >
-              <item.icon size={21} strokeWidth={2} />
+              {item.id === "settings" && user?.picture ? (
+                <img
+                  src={user.picture}
+                  alt={user.name || "User"}
+                  className="w-5 h-5 rounded-full object-cover border border-white/30"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <item.icon size={21} strokeWidth={2} />
+              )}
               <span>{item.label}</span>
             </Link>
           );

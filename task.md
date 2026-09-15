@@ -494,4 +494,30 @@ hudBlur/hudBorder/hudRadius/hudShadow/hudFont` (every floating card), `toastBg`,
     - `npm test`: 301/301 tests passing across 28 test suites.
     - `npm run build`: Production build succeeded in 2.68s.
 
+- [x] **Task 41 — MongoDB Database & Google OAuth 2.0 Sign-In Integration**
+  - **Database Integration (`api/lib/db.js`)**:
+    - Installed official `mongodb` driver.
+    - Created connection pool singleton `connectToDatabase()` with connection caching supporting both Vercel Serverless Functions and Vite dev environment.
+    - Authenticated and verified connection against MongoDB Atlas cluster `cluster0.5pnfadv.mongodb.net` targeting `streamly` database.
+    - Built schemas for `users` (`googleId`, `email`, `name`, `picture`, `lastLogin`, `createdAt`) and `userData` (`googleId`, `email`, `watchlist`, `watchHistory`, `preferences`, `updatedAt`).
+  - **Backend Serverless API Endpoints**:
+    - `api/auth.js`: Handles Google OAuth token verification against Google's `tokeninfo` endpoint with client ID audience validation, user profile upsert in MongoDB, and guest login fallback.
+    - `api/sync.js`: Provides two-way cloud synchronization of user watchlist, continue watching progress, and preferences with MongoDB Atlas.
+    - `vite.config.js`: Added `apiDevServerPlugin` to execute serverless endpoints in local development (`npm run dev`), ensuring parity with production Vercel deployment.
+  - **Frontend Google Sign-In & Auth State**:
+    - `src/utils/googleAuth.js`: Google Identity Services (GIS) Web SDK client helper for SDK dynamic loading, initialization, button rendering, and One Tap prompt.
+    - `src/components/GoogleSignInButton.jsx`: Reusable Google Sign-In component with official Google multicolor G logo, GIS SDK rendering, and fallback prompt.
+    - `src/context/AuthContext.jsx`: Extended `AuthProvider` with `user`, `loginWithGoogle`, `loginAsGuest`, `logout`, `syncStatus`, and automatic debounced cloud synchronization to MongoDB.
+    - `src/context/auth.js`: Added resilient fallback context for isolated test runs.
+    - `src/pages/SettingsPage.jsx`: Updated Account section to display Google profile picture, connected Google badge, live MongoDB Atlas sync status with manual "Sync Now" trigger, and Google Sign-In button in both the account list and sign-in modal.
+    - `src/App.jsx`: Updated header navigation and mobile bottom dock to render user avatar image when authenticated with Google.
+  - **Environment & Secrets**:
+    - Added `MONGODB_URI`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `VITE_GOOGLE_CLIENT_ID` to gitignored `.env`.
+    - Documented environment variables in `.env.example` with clean template placeholders.
+  - **Verification**:
+    - `npm run lint`: 0 errors, 0 warnings across 119 files.
+    - `npm test`: 305/305 tests passing across 29 test suites (added `auth.test.jsx`).
+    - `npm run build`: Production build succeeded in 2.60s.
+
+
 

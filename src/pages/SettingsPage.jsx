@@ -30,6 +30,8 @@ import {
 import SEO from "../components/SEO";
 import PlayerPreview from "../components/PlayerPreview.jsx";
 import { usePreferences } from "../context/preferences";
+import { useAppAuth } from "../context/auth";
+import GoogleSignInButton, { GoogleLogoIcon } from "../components/GoogleSignInButton.jsx";
 import { useToast } from "../components/Toast.jsx";
 import { useConfirmDialog } from "../components/ConfirmDialog.jsx";
 import { logDebug } from "../utils/debugLogger";
@@ -603,7 +605,8 @@ export default function SettingsPage() {
   const [showControlsModal, setShowControlsModal] = useState(false);
 
   // Auth / Accounts state
-  const [user, setUser] = useState(() => {
+  const auth = useAppAuth();
+  const [localUser, setLocalUser] = useState(() => {
     try {
       const stored = localStorage.getItem("streamly_user");
       return stored ? JSON.parse(stored) : null;
@@ -612,6 +615,7 @@ export default function SettingsPage() {
       return null;
     }
   });
+  const user = auth?.user || localUser;
 
   const {
     // Existing
@@ -766,8 +770,11 @@ export default function SettingsPage() {
 
   // Modal Sign-in actions
   const handleSignIn = (name, email) => {
-    const u = { name: name || "Streamly User", email: email || "user@streamly.io" };
-    setUser(u);
+    if (auth?.loginAsGuest) {
+      auth.loginAsGuest(name, email);
+    }
+    const u = { name: name || "Streamly User", email: email || "user@streamly.io", provider: "guest" };
+    setLocalUser(u);
     try {
       localStorage.setItem("streamly_user", JSON.stringify(u));
     } catch (error) {
@@ -782,7 +789,10 @@ export default function SettingsPage() {
   };
 
   const handleSignOut = () => {
-    setUser(null);
+    if (auth?.logout) {
+      auth.logout();
+    }
+    setLocalUser(null);
     try {
       localStorage.removeItem("streamly_user");
     } catch (error) {
@@ -923,34 +933,104 @@ export default function SettingsPage() {
                 <div className="settings-list">
                   {/* Sign In / User Status */}
                   <div className="setting-row">
-                    <div className="setting-meta">
-                      <span className="setting-title">
-                        {user ? `Signed in as ${user.name || user.email}` : "Not signed in"}
-                      </span>
-                      <span className="setting-desc">
-                        {user
-                          ? user.email || "Your profile and library are actively synchronized."
-                          : "Create an account or sign in to sync your data"}
-                      </span>
+                    <div className="setting-meta flex items-center gap-3">
+                      {user?.picture ? (
+                        <img
+                          src={user.picture}
+                          alt={user.name || "User"}
+                          className="w-10 h-10 rounded-full object-cover border border-white/20 shadow-md"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white font-bold text-sm">
+                          {user?.name ? user.name.charAt(0).toUpperCase() : <User className="w-5 h-5" />}
+                        </div>
+                      )}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="setting-title">
+                            {user ? user.name || user.email : "Not signed in"}
+                          </span>
+                          {user?.provider === "google" && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center gap-1">
+                              <GoogleLogoIcon size={11} /> Google
+                            </span>
+                          )}
+                        </div>
+                        <span className="setting-desc">
+                          {user
+                            ? user.email || "Your profile and library are actively synchronized."
+                            : "Sign in with Google to sync your watchlist and settings across devices."}
+                        </span>
+                      </div>
                     </div>
-                    <div className="setting-control">
+                    <div className="setting-control flex items-center gap-2">
                       {user ? (
                         <button
                           onClick={handleSignOut}
-                          className="px-4 py-2 text-[13.5px] font-semibold rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1.5 border-none"
+                          className="px-4 py-2 text-[13.5px] font-semibold rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1.5 border-none cursor-pointer"
                         >
                           <LogOut className="w-4 h-4" />
                           Sign Out
                         </button>
                       ) : (
-                        <button
-                          onClick={() => setShowSignInModal(true)}
-                          className="px-5 py-2.5 text-[14px] font-semibold rounded-full bg-white text-black hover:bg-gray-100 transition-colors shadow-[0_2px_10px_rgba(255,255,255,0.1)] focus:outline-none focus-visible:ring-4 focus-visible:ring-white/30 border-none"
-                        >
-                          Sign In
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <GoogleSignInButton
+                            onSuccess={() => setShowSignInModal(false)}
+                            className="hidden sm:block"
+                            style={{ minWidth: 200 }}
+                            text="Sign in with Google"
+                          />
+                          <button
+                            onClick={() => setShowSignInModal(true)}
+                            className="px-5 py-2.5 text-[14px] font-semibold rounded-full bg-white text-black hover:bg-gray-100 transition-colors shadow-[0_2px_10px_rgba(255,255,255,0.1)] focus:outline-none focus-visible:ring-4 focus-visible:ring-white/30 border-none cursor-pointer"
+                          >
+                            Sign In
+                          </button>
+                        </div>
                       )}
                     </div>
+                  </div>
+
+                  {/* Database Cloud Sync Status */}
+                  <div className="setting-row mt-2 pt-2 border-t border-white/[0.06]">
+                    <div className="setting-meta">
+                      <div className="flex items-center gap-2">
+                        <span className="setting-title">MongoDB Cloud Sync</span>
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          Atlas Connected
+                        </span>
+                      </div>
+                      <span className="setting-desc">
+                        {user
+                          ? auth?.syncStatus === "syncing"
+                            ? "Synchronizing watchlist and history with MongoDB cluster..."
+                            : auth?.lastSyncedAt
+                            ? `Last synced: ${new Date(auth.lastSyncedAt).toLocaleTimeString()}`
+                            : "Your library and watch history automatically synchronize to MongoDB."
+                          : "Cloud database connected. Sign in with Google to synchronize your library."}
+                      </span>
+                    </div>
+                    {user && (
+                      <div className="setting-control">
+                        <button
+                          onClick={() => {
+                            auth?.syncToCloud?.();
+                            toast({
+                              type: "success",
+                              title: "Cloud Sync Initiated",
+                              message: "Your watchlist and progress are synchronizing to MongoDB.",
+                            });
+                          }}
+                          disabled={auth?.syncStatus === "syncing"}
+                          className="px-3.5 py-1.5 text-xs font-semibold rounded-full bg-white/10 hover:bg-white/15 text-white transition-colors flex items-center gap-1.5 border border-white/10 cursor-pointer disabled:opacity-50"
+                        >
+                          <RotateCcw className={`w-3.5 h-3.5 ${auth?.syncStatus === "syncing" ? "animate-spin" : ""}`} />
+                          Sync Now
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Library & Shortcuts navigation */}
@@ -1590,14 +1670,32 @@ export default function SettingsPage() {
                 <X className="w-5 h-5" />
               </button>
 
-              <div className="flex items-center gap-3 mb-4">
+              <div className="flex items-center gap-3 mb-5">
                 <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-white">
                   <User className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-white">Sign In to Streamly</h3>
-                  <p className="text-xs text-white/50">Sync preferences and watchlist across all devices.</p>
+                  <p className="text-xs text-white/50">Sync preferences and watchlist to MongoDB Cloud.</p>
                 </div>
+              </div>
+
+              {/* Google OAuth Button */}
+              <div className="mb-4">
+                <GoogleSignInButton
+                  onSuccess={() => setShowSignInModal(false)}
+                  shape="pill"
+                  text="Sign in with Google"
+                />
+              </div>
+
+              <div className="relative flex items-center justify-center my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-white/10" />
+                </div>
+                <span className="relative px-3 [background:var(--bg-elevated,#181622)] text-[11px] font-semibold text-white/40 uppercase tracking-wider">
+                  or guest account
+                </span>
               </div>
 
               <form
