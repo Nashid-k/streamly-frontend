@@ -367,3 +367,24 @@ hudBlur/hudBorder/hudRadius/hudShadow/hudFont` (every floating card), `toastBg`,
   - **Automated test coverage**: Added `src/__tests__/barrels.test.js` (testing all layer barrels & `@/` alias resolution) and `src/__tests__/useVirtualRenderAdapter.test.jsx` (testing observer lifecycle and fallback mode).
   - **Verification**: `npm run lint` (0 errors, 0 warnings), `npm run test` (28 files, 293/293 passed), `npm run build` (success in 3.08s).
 
+- [x] **Task 34 — Mobile double-touch fix & comprehensive UI/UX overhaul (Phase 1, 2, 3)**
+  - **Mobile & Tablet Touch-Twice Resolution**:
+    - Diagnosed the root cause: mobile WebKit and Chrome treat `:hover` styles, `onMouseEnter`, and Framer Motion's `whileHover` as synthetic hover-emulation on first tap, swallowing the click event and requiring a second tap to trigger navigation or scrolling.
+    - Updated `src/components/MovieCard.jsx` to dynamically detect touch/coarse pointers (`(hover: none), (pointer: coarse)`) and bypass `whileHover` and mouse hover listeners on touch screens.
+    - In `src/index.css`: Added `touch-action: pan-y;` to `.hero-container` and `touch-action: pan-x pan-y;` to `.movie-rail` so first touches immediately dispatch native vertical page scrolling without hesitation.
+  - **Phase 1 — Quick Wins & Navigation Polish**:
+    - Streamlined mobile bottom navigation in `src/App.jsx` from 6 cramped buttons down to 4 ergonomic tabs (Home, Explore, My List, Settings), clearing thumb crowding.
+    - Fixed CategoryPage direct URL navigation state loss in `src/pages/CategoryPage.jsx` with search query fallback and recovery CTA.
+    - Fixed CastRail avatar fallback monogram initials in `src/components/CastRail.jsx` and `src/index.css`.
+  - **Phase 2 — Player, Media Experience & Engagement**:
+    - Added Subtitle Sync Offset slider (`-10.0s` to `+10.0s`, `0.5s` steps, with reset) in `src/components/CustomVideoPlayer.jsx` subtitle popup, adjusting active cue timings in real-time.
+    - Added chunked episode pagination in `src/pages/TitleDetailsPage.jsx` (loads 24 episodes at a time with "Load more (X remaining)" and "Show all" to eliminate DOM bloat on long seasons).
+    - Added touch and hover pause handlers to the Hero Carousel auto-advance timer in `src/pages/HomePage.jsx`.
+  - **Phase 3 — Library & Productivity Enhancements**:
+    - In-library instant title search in both `src/pages/WatchlistPage.jsx` and `src/pages/HistoryPage.jsx`.
+    - Batch selection mode with circular checkboxes and floating glassmorphic bulk deletion action bar in both `WatchlistPage.jsx` and `HistoryPage.jsx`.
+    - Added `removeBatchFromMyList` and `removeBatchFromContinueWatching` in `src/hooks/useUserData.js`.
+    - Person Credits Role Filtering (All / Acting / Directing & Crew) in `src/pages/PersonDetailsPage.jsx` and updated `src/api/movieService.js` to include crew credits.
+    - Factory Reset Preferences action with confirmation modal in `src/pages/SettingsPage.jsx` backed by `resetPreferences` in `src/context/PreferencesContext.jsx`.
+  - **Verification**: `npm run lint` (0 errors, 0 warnings across 114 files), `npm run test` (293/293 passed across 28 test suites), `npm run build` (production build succeeded in 2.56s).
+
