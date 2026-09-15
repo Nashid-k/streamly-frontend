@@ -405,7 +405,7 @@ function ProductionCompaniesBlock({ companies }) {
           <div
             key={company.id}
             title={company.name}
-            className="flex items-center justify-center p-2 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] hover:border-white/[0.16] transition-all duration-200 h-12 group overflow-hidden"
+            className="flex items-center justify-center p-2 rounded-xl hover:bg-white/[0.04] transition-all duration-200 h-12 group overflow-hidden"
           >
             {company.logoUrl ? (
               <img
@@ -415,7 +415,7 @@ function ProductionCompaniesBlock({ companies }) {
                 className="max-h-7 w-auto max-w-[85%] object-contain filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] transition-transform duration-200 group-hover:scale-105"
               />
             ) : (
-              <span className="text-xs font-medium text-white/70 text-center truncate px-1.5">
+              <span className="text-xs font-medium text-white/70 text-center truncate px-2 py-1 rounded-md bg-white/[0.04]">
                 {company.name}
               </span>
             )}

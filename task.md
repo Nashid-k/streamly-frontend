@@ -405,7 +405,8 @@ hudBlur/hudBorder/hudRadius/hudShadow/hudFont` (every floating card), `toastBg`,
 - [x] **Task 37 — Actual production company logos below metadata table & default S1 E1 playback for series**
   - **Production Company Logos Below Table**:
     - Updated `src/api/movieService.js` to preserve rich company objects (`id`, `name`, `logo_path`, `logoUrl`, `originCountry`) from TMDB rather than collapsing them to plain strings.
-    - Built `ProductionCompaniesBlock` in `src/pages/TitleDetailsPage.jsx`: renders styled cards with authentic company logos (with crisp drop shadow on dark themes) and graceful text fallbacks, positioned cleanly **below** the metadata table on both mobile and desktop views instead of crammed inside the table rows.
+    - Built `ProductionCompaniesBlock` in `src/pages/TitleDetailsPage.jsx`: renders authentic company logos (with crisp drop shadow on dark themes) and graceful text fallbacks, positioned cleanly **below** the metadata table on both mobile and desktop views instead of crammed inside the table rows.
+    - Removed card box borders and resting backgrounds (`border-white/[0.08]` removed, transparent resting state with subtle hover highlight `hover:bg-white/[0.04]`), giving logos a clean, borderless presentation.
     - Replaced the desktop monochrome inverted logo grid and removed the mobile inline text row.
   - **Default S1 E1 Series Playback**:
     - Resolved series auto-jump issue in `src/pages/TitleDetailsPage.jsx`: series without prior `continueWatching` history now consistently initialize to **Season 1, Episode 1 (S1 E1)** by default rather than defaulting to `airingSeasonNumber` or `latestAiredEpisode`.
@@ -413,5 +414,6 @@ hudBlur/hudBorder/hudRadius/hudShadow/hudFont` (every floating card), `toastBg`,
     - Added unit test in `src/__tests__/movieService.test.js` validating production companies metadata normalization.
     - `npm run lint` (0 errors, 0 warnings across 114 files).
     - `npm run test` (294/294 tests passed across 28 suites).
-    - `npm run build` (production build succeeded in 1.95s).
+    - `npm run build` (production build succeeded in 4.87s).
+
 
