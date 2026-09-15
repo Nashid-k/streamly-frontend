@@ -104,6 +104,9 @@ const MovieCard = memo(function MovieCard({
   const hoverTimeoutRef = useRef(null);
   const reduceMotion = useReducedMotion();
   const isTvContent = movie?.isSeries || String(movie?.id || '').startsWith('tmdb-tv-');
+  // Touch devices never see the hover curtain, so metadata moves below the
+  // poster (Cinejoy-style "mobile card meta").
+  const showBelowMeta = isTouchDevice;
 
 
   const handleMouseEnter = useCallback(() => {
@@ -501,7 +504,7 @@ const MovieCard = memo(function MovieCard({
                 zIndex: 5,
               }}
             >
-              {/* Single centered circular play button */}
+              {/* Single centered circular play button — Cinejoy white circle */}
               <motion.button
                 variants={btnVariants}
                 onClick={(e) => {
@@ -517,12 +520,12 @@ const MovieCard = memo(function MovieCard({
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  background: "var(--accent-gradient)",
+                  background: "#ffffff",
                   border: "none",
-                  color: "var(--on-accent, #fff)",
+                  color: "#0b0b0f",
                   cursor: "pointer",
                   boxShadow:
-                    "0 8px 22px var(--accent-glow, rgba(244,63,94,0.5)), inset 0 1px 0 rgba(255,255,255,0.25)",
+                    "0 8px 24px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.9)",
                 }}
               >
                 <Play
@@ -601,6 +604,35 @@ const MovieCard = memo(function MovieCard({
           </div>
         </motion.div>
       ) : null}
+
+      {/* Below-card metadata — touch devices (no hover curtain) */}
+      {isVisible && showBelowMeta && (
+        <div className="movie-info" role="presentation">
+          <p className="movie-title" title={movie.title}>
+            {movie.title}
+          </p>
+          <div className="movie-meta">
+            {rating > 0 ? (
+              <span className="movie-meta-rating">
+                <Star
+                  size={11}
+                  fill="currentColor"
+                  stroke="none"
+                  aria-hidden="true"
+                />
+                {Number(rating).toFixed(1)}
+              </span>
+            ) : (
+              <span />
+            )}
+            {(movie.releaseYear || movie.year) && (
+              <span className="movie-meta-year">
+                {(movie.releaseYear || movie.year).toString().substring(0, 4)}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Netflix-style info modal host — shown when Detail View Type = "modal".
           One shared modal for cards and the hero banner (TitleInfoModal). */}

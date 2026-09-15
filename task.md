@@ -631,3 +631,75 @@ pm run build succeeds.
     `Info`, added `scrollToDetails`.
   - **Verification**: `npm run lint` (0 errors/0 warnings), `npm run test` (305/305 across 29 files),
     `npm run build` (success, 2.00s, hashed assets). Leftover `_probe_eps.mjs` probe removed.
+
+## Cinejoy parity batch (home + details, from the comparison of the two HTML mockups)
+
+Scope agreed with the user: implement everything except **Browse by Providers**
+(provider tiles / provider-selector rows). User answers: details buttons = **all
+three + disabled Download** (toast); comments = **skip**; editorial rows = full
+Cinejoy set. Original "don't edit" constraint was lifted by the user.
+
+- [x] **Task 47 - Desktop one-piece floating pill nav with the brand inside**
+  - `App.jsx` moved `.app-brand` (mark + wordmark SVG, `#brand-accent-grad`) *inside*
+    `<nav className="navbar">` as the first flex child and added a `.nav-separator`
+    (1px × 26px `rgba(255,255,255,0.14)`) between `.nav-links` and `.nav-right`.
+  - `index.css`: `.navbar` centered via `left:50%; translateX(-50%)`, `justify-content:space-between`,
+    `padding: 8px 10px 8px 8px`, `max-width: calc(100vw - 2rem)`; `.app-brand` became a static flex
+    child (no more fixed top-left block); tablet (769–1024) and mobile override blocks updated to the
+    same structure; mobile keeps the 36px mark only (`.app-brand-word` hidden).
+  - No test references the nav markup (grep verified). Lint 0, 305/305 tests, build ✓.
+- [x] **Task 48 - Animated liquid ambient background (Cinejoy's drifting blobs)**
+  - `AmbientBackground.jsx` renders `.ambient-liquid` (3 blobs `--a` rose `rgba(244,63,94,.55)`,
+    `--b` orange `rgba(251,146,60,.5)`, `--c` indigo `rgba(129,140,248,.42)`) before
+    `.watch-hero-gradient`.
+  - `index.css`: `filter: blur(90px) saturate(130%)`, `mix-blend-mode: screen`, `inset:-15%`,
+    `overflow:hidden`, opacity .5 (mobile .32), transform-only keyframes `ambient-blob-a/b/c`
+    (46s/58s/66s alternate), hidden under `prefers-reduced-motion`.
+  - Lint clean; full suite run after the batch.
+- [x] **Task 49 - Editorial curated rails on Home (the Cinejoy editorial block)**
+  - `movieService.js`: `getEditorialRail(key)` — keyword-keyed rails resolve the TMDB keyword id at
+    runtime via `/search/keyword` (module `editorKeywordCache`, never hardcoded ids) then
+    `/discover/{media_type}` with `with_keywords`; sort-mode rails use `sort_by` +
+    `vote_count_gte`; results interleave movie/tv and slice to 24. Exported `EDITORIAL_RAILS`
+    (9 rails: top-rated-editors, award-winning, oscar-nominees, psychological-thrillers,
+    cannes-film-festival, top-100-halloween, rotten-tomatoes-best, mindfuck-movies,
+    based-on-true-story) + `resolveEditorialKeyword`.
+  - `HomePage.jsx`: `EditorialRails` / `EditorialRailRow` gates on `filter==="all"` + "All" genre,
+    query key `["editorial", cfg.key]`, staleTime 10min, `retry:false`, `reportQueryError`,
+    renders as `FadeInSection` + `ErrorBoundary` + `MovieRail` (railIndex 20), hides when empty;
+    rendered right after "Now Playing" (comment numbering updated to 11/12).
+  - Lint clean; full suite run after the batch.
+- [x] **Task 50 - MovieCard white circular play + below-card mobile metadata**
+  - `MovieCard.jsx`: `showBelowMeta = isTouchDevice`; below-card `.movie-info` (title + star rating +
+    year) renders only when visible AND on touch devices; play button becomes a white circle
+    (`#ffffff` bg, `#0b0b0f` icon, `0 8px 24px rgba(0,0,0,0.55)` glow), matching Cinejoy cards.
+  - Lint clean; full suite run after the batch.
+- [x] **Task 51 - Title details hero info card additions (right of Cinejoy's two-column)**
+  - The details page already had the overlapping two-column hero + right info card (Runtime, Language,
+    Release Date, Budget, Revenue) + `ProductionCompaniesBlock` — closed the remaining gaps:
+  - **Runtime "Ends h:mm AM"** (`formatEndsAt` helper): computed from `durationMins` + now, appended
+    to both the mobile meta card and the desktop info-card Runtime rows.
+  - **Vote-split widget** (`voteSplitPct` + ArrowUp/ArrowDown): derived from the IMDb-style score
+    (`up = round(rating/10*100)`, `down = 100-up`), rendered emerald/red inside the meta row next to
+    `RatingsCluster` (documented as a derived value, Cinejoy-style).
+  - **Production logos** (`ProductionCompaniesBlock`): images now render Cinejoy-white —
+    `brightness-0 invert opacity-60` (hover 90) on the existing 2-col grid instead of color logos.
+  - `movieService.getMovieDetails` now also returns `voteCount` (from `detail.vote_count`) — not
+    displayed yet, available for the homeroom/score future use.
+  - Note: the "R" certification badge and the linked director are **not** fabricated — this app has
+    no certification source and no director-id, so both are omitted rather than faked.
+- [x] **Task 52 - Three circular hero action buttons (Cinejoy) replace the Task 46 segmented pill**
+  - Replaced the `hero-action-pill` (My List | More Info) + `scrollToDetails` with Cinejoy's
+    three 44px frosted circles next to Play (`hero-circle-btn`, `rgba(255,255,255,.1)` +
+    blur-20 + 1px `white/10` border, hover scale 1.05 / active 0.92):
+    1. **Add to List** — Plus/Check (`#95ff50`), `handleToggleMyList` + toast + notification (unchanged).
+    2. **Download** — disabled affordance (`hero-circle-btn--disabled`, opacity .55): pressing shows a
+       "Download coming soon" info toast (honest: no offline downloads in a web app).
+    3. **Mark watched** — Eye/Eye-off toggling `isMarkedWatched(id)` (a `continueWatching` entry with
+       `timestamp > 0`); watched writes a full-run history entry via
+       `updateProgress(movie, season|null, episode|null, (durationMins||60)*60)`, unwatched calls
+       `removeFromContinueWatching`; both toast.
+  - `Info` lucide import removed (only the comment reference remained). Lint 0.
+- [x] **Task 53 - Record + full verification of the whole batch**
+  - `npm run lint` (0 errors / 0 warnings), `npm run test` (305/305 across 29 files),
+    `npm run build` (✓ 1.41s). This `task.md` entry documents Tasks 47–52.

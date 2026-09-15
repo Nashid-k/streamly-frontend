@@ -17,7 +17,6 @@ import {
   Plus,
   Check,
   X,
-  Info,
   MonitorPlay,
   ChevronDown,
   RotateCcw,
@@ -32,6 +31,11 @@ import {
   Popcorn,
   Calendar,
   ChevronDown as ChevronDownIcon,
+  ArrowUp,
+  ArrowDown,
+  Download,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import {
   motion,
@@ -408,13 +412,33 @@ function ProductionCompaniesBlock({ companies }) {
               loading="lazy"
               src={company.logoUrl}
               alt={company.name}
-              className="max-h-8 w-auto max-w-[85%] object-contain filter drop-shadow-[0_1px_3px_rgba(0,0,0,0.7)] transition-transform duration-200 group-hover:scale-105"
+              className="max-h-8 w-auto max-w-[85%] object-contain brightness-0 invert opacity-60 transition-opacity duration-200 group-hover:opacity-90"
             />
           </div>
         ))}
       </div>
     </div>
   );
+}
+
+/* "Ends 5:53 AM" — runtime end time if the viewer pressed play right now
+   (mirrors Cinejoy's Runtime row). Null when no runtime is known. */
+function formatEndsAt(durationMins) {
+  if (!durationMins || durationMins <= 0) return null;
+  const end = new Date(Date.now() + durationMins * 60000);
+  return end.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+/* Simple "split" derived from the IMDb-style score (Cinejoy's vote-split):
+   the share of the max score counts as the "up" proportion. */
+function voteSplitPct(imdbRating) {
+  const rating = Number(imdbRating) || 0;
+  if (rating <= 0) return null;
+  const up = Math.max(1, Math.min(99, Math.round((rating / 10) * 100)));
+  return { up, down: 100 - up };
 }
 
 export default function TitleDetails() {
@@ -438,7 +462,14 @@ export default function TitleDetails() {
 
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [playingEpisode, setPlayingEpisode] = useState(1);
-  const { isInList, toggleMyList, continueWatching, updateProgress, addNotification } = useAppAuth();
+  const {
+    isInList,
+    toggleMyList,
+    continueWatching,
+    updateProgress,
+    removeFromContinueWatching,
+    addNotification,
+  } = useAppAuth();
   const { toast } = useToast();
   const cwRef = useRef(continueWatching);
   useEffect(() => {
@@ -488,11 +519,49 @@ export default function TitleDetails() {
     }
   };
 
-  // Cinejoy-style hero "More Info" — smooth-scroll to the details block below
-  const scrollToDetails = () => {
-    if (typeof window === "undefined") return;
-    const el = document.getElementById("title-details-more");
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  // "Marked watched" state — a full-run history entry counts as watched.
+  const isMarkedWatched = (movieId) =>
+    continueWatching?.some(
+      (m) => String(m.id) === String(movieId) && (m.timestamp || 0) > 0,
+    ) || false;
+
+  // Cinejoy mirrors Download, but offline downloads don't exist in the web
+  // app — show an honest toast when the disabled button is pressed.
+  const handleDownloadDisabled = () => {
+    toast({
+      title: "Download coming soon",
+      message: "Offline downloads aren't available in the web app yet.",
+      type: "info",
+      duration: 2500,
+    });
+  };
+
+  // Mark watched / unwatched — records a full run in watch history (or
+  // removes it), mirroring Cinejoy's "Mark As Watched" circular action.
+  const handleMarkWatched = (movieObj) => {
+    if (!movieObj) return;
+    if (isMarkedWatched(movieObj.id)) {
+      removeFromContinueWatching(movieObj.id);
+      toast({
+        title: "Marked as not watched",
+        message: `"${movieObj.title}" removed from history.`,
+        type: "info",
+        duration: 2500,
+      });
+    } else {
+      updateProgress(
+        movieObj,
+        isTvContent ? (selectedSeason ?? 1) : null,
+        isTvContent ? (episodeToPlay ?? 1) : null,
+        (movieObj.durationMins || 60) * 60,
+      );
+      toast({
+        title: "Marked as watched",
+        message: `"${movieObj.title}" added to history.`,
+        type: "success",
+        duration: 2500,
+      });
+    }
   };
 
 
@@ -892,6 +961,8 @@ export default function TitleDetails() {
   );
   const backdropSrc = movie?.backdropUrl || movie?.posterUrl;
   const backdropOptimized = backdropSrc ? CdnImageAdapter.getBackdropUrl(backdropSrc) : null;
+  const endsAt = formatEndsAt(movie.durationMins);
+  const voteSplit = voteSplitPct(movie.imdbRating);
 
 
 
@@ -1052,6 +1123,21 @@ export default function TitleDetails() {
               {movie.imdbRating > 0 && (
                 <div className="flex items-center gap-3 lg:gap-4 border-l border-white/20 pl-3.5 ml-0.5">
                   <RatingsCluster movie={movie} size="md" />
+                  {voteSplit && (
+                    <div
+                      className="flex items-center gap-1.5 text-xs font-semibold"
+                      aria-label={`${voteSplit.up}% up ${voteSplit.down}% down split`}
+                    >
+                      <span className="inline-flex items-center gap-0.5 text-emerald-400">
+                        <ArrowUp size={14} aria-hidden="true" />
+                        {voteSplit.up}%
+                      </span>
+                      <span className="inline-flex items-center gap-0.5 text-red-400/90">
+                        <ArrowDown size={14} aria-hidden="true" />
+                        {voteSplit.down}%
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1093,30 +1179,41 @@ export default function TitleDetails() {
                 <Play size={18} className="mr-1.5 fill-current" /> Play
               </button>
 
-              {/* Cinejoy-style segmented action pill: Add to List | More Info */}
-              <div className="hero-action-pill inline-flex items-center h-[52px] shrink-0 rounded-full bg-white/10 backdrop-blur-[20px] backdrop-saturate-150 border border-white/10 shadow-lg shadow-black/5">
+              {/* Cinejoy-style circular actions: Add to List | Download | Mark watched */}
+              <div className="flex items-center gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => handleToggleMyList(movie)}
-                  className="group/btn inline-flex items-center justify-center h-full px-5 rounded-l-full transition-colors hover:bg-white/10 active:bg-white/20 outline-none cursor-pointer"
+                  className="hero-circle-btn"
                   aria-label={isInList(movie.id) ? "Remove from My List" : "Add to My List"}
                   title={isInList(movie.id) ? "Remove from My List" : "Add to My List"}
                 >
                   {isInList(movie.id) ? (
-                    <Check size={22} color="#95ff50" className="transition-transform duration-300 group-hover/btn:scale-110" />
+                    <Check size={20} color="#95ff50" />
                   ) : (
-                    <Plus size={22} className="text-white transition-transform duration-300 group-hover/btn:scale-110" />
+                    <Plus size={20} />
                   )}
                 </button>
-                <div className="w-px h-6 bg-white/25 shrink-0" />
+
                 <button
                   type="button"
-                  onClick={scrollToDetails}
-                  className="group/btn inline-flex items-center justify-center h-full px-5 rounded-r-full transition-colors hover:bg-white/10 active:bg-white/20 outline-none"
-                  aria-label="More Info"
-                  title="More Info"
+                  onClick={handleDownloadDisabled}
+                  className="hero-circle-btn hero-circle-btn--disabled"
+                  aria-disabled="true"
+                  aria-label="Download (coming soon)"
+                  title="Download isn't available in the web app yet"
                 >
-                  <Info size={22} className="text-white transition-transform duration-300 group-hover/btn:scale-110" />
+                  <Download size={20} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleMarkWatched(movie)}
+                  className="hero-circle-btn"
+                  aria-label={isMarkedWatched(movie.id) ? "Mark as not watched" : "Mark as watched"}
+                  title={isMarkedWatched(movie.id) ? "Mark as not watched" : "Mark as watched"}
+                >
+                  {isMarkedWatched(movie.id) ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
             </div>
@@ -1134,7 +1231,10 @@ export default function TitleDetails() {
                   {movie.durationMins && (
                     <div className="flex items-center justify-between px-3.5 py-2.5">
                       <span className="text-xs text-white/40">Runtime</span>
-                      <span className="text-xs text-white/80">{movie.durationMins}m</span>
+                      <span className="text-xs text-white/80">
+                        {movie.durationMins}m
+                        {endsAt && <span className="text-white/50">{" "}• Ends {endsAt}</span>}
+                      </span>
                     </div>
                   )}
                   {movie.originalLanguage && (
@@ -1174,7 +1274,10 @@ export default function TitleDetails() {
                 {movie.durationMins && (
                   <div className="flex items-center justify-between px-4 py-2.5">
                     <span className="text-xs text-white/40">Runtime</span>
-                    <span className="text-xs text-white/80">{movie.durationMins}m</span>
+                    <span className="text-xs text-white/80">
+                      {movie.durationMins}m
+                      {endsAt && <span className="text-white/50">{" "}• Ends {endsAt}</span>}
+                    </span>
                   </div>
                 )}
                 {movie.originalLanguage && (

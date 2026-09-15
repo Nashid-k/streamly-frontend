@@ -86,9 +86,30 @@ function Layout({ children }) {
   return (
     <div className="app-container">
       {/* ── Primary navigation ─────────────────────────────────────────────────
-          Right-docked frosted glass dock · brand mark lives as a standalone
-          fixed element on the left (opposite the nav) · nav links + utilities right. */}
+          One-piece centered frosted pill (Cinejoy-style): brand mark sits at
+          the pill's left edge, tabs in the middle, a divider, then the
+          utility icon cluster (search · history · settings) on the right. */}
       <nav className={`navbar${isScrolled ? " scrolled" : ""}`} aria-label="Primary navigation">
+        <div className="app-brand">
+          <Link to="/" className="app-brand-link" aria-label="Streamly home">
+            <span className="app-brand-mark">
+              <svg viewBox="0 0 48 48" width="44" height="44" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <defs>
+                  <linearGradient id="brand-accent-grad" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+                    <stop offset="0" style={{ stopColor: "var(--accent-primary, #f43f5e)" }} />
+                    <stop offset="1" style={{ stopColor: "var(--accent-secondary, #fb923c)" }} />
+                  </linearGradient>
+                </defs>
+                <rect x="1.5" y="1.5" width="45" height="45" rx="14" style={{ fill: "url(#brand-accent-grad)" }} />
+                <path d="M20.5 16 L32.5 24 L20.5 32 Z" style={{ fill: "var(--on-accent, #ffffff)" }} />
+                <circle cx="13" cy="35" r="2.2" style={{ fill: "var(--on-accent, #ffffff)" }} />
+              </svg>
+            </span>
+            <span className="app-brand-word">
+              Stream<span className="app-brand-word-accent">ly</span>
+            </span>
+          </Link>
+        </div>
         {/* Right — nav links + icon cluster */}
         <div className="nav-cluster">
           <div className="nav-links">
@@ -115,6 +136,9 @@ function Layout({ children }) {
               );
             })}
           </div>
+
+          {/* Cinejoy-style divider between tabs and utility icons */}
+          <span className="nav-separator" aria-hidden="true" />
 
           {/* Right — icon cluster: search · history · settings */}
         <div className="nav-right">
@@ -160,32 +184,6 @@ function Layout({ children }) {
         </div>
         </div>
       </nav>
-
-      {/* Left — standalone brand mark, opposite the right-docked nav */}
-      <div className="app-brand">
-        <Link to="/" className="app-brand-link" aria-label="Streamly home">
-          <span className="app-brand-mark">
-            <svg viewBox="0 0 48 48" width="44" height="44" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              {/* Theme-reactive mark: the gradient follows --accent-primary/
-                  --accent-secondary so the logo re-skins with every theme.
-                  stop-color lives in style attrs — SVG presentation attributes
-                  don't resolve CSS variables (same trick as Loader.jsx). */}
-              <defs>
-                <linearGradient id="brand-accent-grad" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-                  <stop offset="0" style={{ stopColor: "var(--accent-primary, #f43f5e)" }} />
-                  <stop offset="1" style={{ stopColor: "var(--accent-secondary, #fb923c)" }} />
-                </linearGradient>
-              </defs>
-              <rect x="1.5" y="1.5" width="45" height="45" rx="14" style={{ fill: "url(#brand-accent-grad)" }} />
-              <path d="M20.5 16 L32.5 24 L20.5 32 Z" style={{ fill: "var(--on-accent, #ffffff)" }} />
-              <circle cx="13" cy="35" r="2.2" style={{ fill: "var(--on-accent, #ffffff)" }} />
-            </svg>
-          </span>
-          <span className="app-brand-word">
-            Stream<span className="app-brand-word-accent">ly</span>
-          </span>
-        </Link>
-      </div>
 
       {/* Main Content Area with Page Transitions */}
       <main className="app-main" id="main-content" tabIndex={-1}>

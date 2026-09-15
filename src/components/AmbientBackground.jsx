@@ -34,6 +34,14 @@ function AmbientBackground({ src, alt = "" }) {
             src={src}
           />
         </div>
+        {/* Cinejoy-style liquid backdrop — a few blurred color blobs drifting
+            slowly. Transform-only animation (GPU-cheap); disabled for
+            prefers-reduced-motion via CSS. */}
+        <div className="ambient-liquid" aria-hidden="true">
+          <div className="ambient-liquid__blob ambient-liquid__blob--a" />
+          <div className="ambient-liquid__blob ambient-liquid__blob--b" />
+          <div className="ambient-liquid__blob ambient-liquid__blob--c" />
+        </div>
         {/* Same gradient stack as the hero banner overlay — bottom fade + soft side vignettes */}
         <div className="absolute inset-0 z-0 pointer-events-none watch-hero-gradient" />
       </div>

@@ -260,14 +260,16 @@ a {
 .navbar {
   position: fixed;
   top: 18px;
-  right: clamp(1rem, 2.5vw, 2.25rem);
-  left: auto;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
   z-index: var(--z-sticky);
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 1rem;
-  padding: 8px clamp(0.75rem, 2vw, 1.5rem);
+  justify-content: space-between;
+  gap: 20px;
+  padding: 8px 10px 8px 8px;
+  max-width: calc(100vw - 2rem);
   border-radius: 999px;
   background: rgba(20, 20, 24, 0.42);
   backdrop-filter: blur(28px) saturate(160%);
@@ -294,12 +296,11 @@ a {
   min-width: 0;
 }
 
-/* ── Standalone brand mark — fixed at top-left, opposite the nav ───────── */
+/* ── Brand mark — first child inside the pill (no longer fixed/standalone) ── */
 .app-brand {
-  position: fixed;
-  top: 12px;
-  left: clamp(1rem, 2.5vw, 2.25rem);
-  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
 }
 .app-brand-link {
   display: inline-flex;
@@ -307,7 +308,7 @@ a {
   gap: 0.65rem;
   color: #ffffff;
   text-decoration: none;
-  padding: 6px 18px 6px 8px;
+  padding: 6px 14px 6px 8px;
   border-radius: 999px;
   background: transparent;
   border: none;
@@ -345,6 +346,15 @@ a {
   background-clip: text;
   -webkit-text-fill-color: transparent;
   color: transparent;
+}
+
+/* Cinejoy-style divider between the tabs and the utility icon cluster */
+.nav-separator {
+  width: 1px;
+  height: 26px;
+  flex: 0 0 auto;
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 1px;
 }
 
 /* ── Right nav links — Home as a solid white pill, rest as text ────────── */
@@ -892,6 +902,73 @@ a {
     radial-gradient(ellipse 40% 100% at 0% 50%, rgba(5,5,5,0.8) 0%, transparent 70%);
 }
 
+/* ── Cinejoy-style liquid backdrop ────────────────────────────────────────
+   Fixed blurred color blobs drifting slowly behind every page. Transform-only
+   keyframes (no paint per frame) keep it GPU-cheap; disabled entirely for
+   prefers-reduced-motion. */
+.ambient-liquid {
+  position: absolute;
+  inset: -15%;
+  overflow: hidden;
+  filter: blur(90px) saturate(130%);
+  -webkit-filter: blur(90px) saturate(130%);
+  mix-blend-mode: screen;
+  opacity: 0.5;
+  pointer-events: none;
+}
+.ambient-liquid__blob {
+  position: absolute;
+  border-radius: 50%;
+  will-change: transform;
+}
+.ambient-liquid__blob--a {
+  width: 44vw;
+  height: 44vw;
+  left: -10%;
+  top: -14%;
+  background: radial-gradient(circle at 35% 35%, rgba(244, 63, 94, 0.55), rgba(244, 63, 94, 0) 70%);
+  animation: ambient-blob-a 46s ease-in-out infinite alternate;
+}
+.ambient-liquid__blob--b {
+  width: 36vw;
+  height: 36vw;
+  right: -8%;
+  top: 18%;
+  background: radial-gradient(circle at 60% 40%, rgba(251, 146, 60, 0.5), rgba(251, 146, 60, 0) 70%);
+  animation: ambient-blob-b 58s ease-in-out infinite alternate;
+}
+.ambient-liquid__blob--c {
+  width: 40vw;
+  height: 40vw;
+  left: 22%;
+  bottom: -20%;
+  background: radial-gradient(circle at 50% 50%, rgba(129, 140, 248, 0.42), rgba(129, 140, 248, 0) 70%);
+  animation: ambient-blob-c 66s ease-in-out infinite alternate;
+}
+@keyframes ambient-blob-a {
+  from { transform: translate3d(-6%, -4%, 0) scale(1); }
+  to   { transform: translate3d(12%, 9%, 0) scale(1.18); }
+}
+@keyframes ambient-blob-b {
+  from { transform: translate3d(7%, 11%, 0) scale(1.12); }
+  to   { transform: translate3d(-9%, -7%, 0) scale(0.94); }
+}
+@keyframes ambient-blob-c {
+  from { transform: translate3d(0%, 2%, 0) scale(1); }
+  to   { transform: translate3d(-7%, 11%, 0) scale(1.22); }
+}
+@media (max-width: 768px) {
+  .ambient-liquid {
+    opacity: 0.32;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ambient-liquid,
+  .ambient-liquid__blob {
+    display: none;
+  }
+}
+
 /* ── Apple-variant content panel ── */
 .hero-content--apple {
   padding-bottom: 3.5rem !important;
@@ -1049,6 +1126,39 @@ a {
   height: 100%;
   flex: 1 1 0;
   min-width: 0;
+}
+.hero-circle-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+.hero-circle-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.22);
+  transform: scale(1.05);
+}
+.hero-circle-btn:active {
+  transform: scale(0.92);
+}
+.hero-circle-btn--disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.hero-circle-btn--disabled:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.1);
+  transform: none;
 }
 .hero-cta-secondary-icon {
   display: inline-flex;
@@ -2394,9 +2504,8 @@ input:focus-visible {
 @media (min-width: 769px) and (max-width: 1024px) {
   .navbar {
     top: calc(10px + env(safe-area-inset-top, 0px));
-    right: calc(clamp(0.75rem, 2vw, 1.5rem) + env(safe-area-inset-right, 0px));
-    padding: 6px 12px;
     gap: 0.5rem;
+    padding: 6px 10px 6px 4px;
   }
   .nav-cluster {
     gap: 12px;
@@ -2405,10 +2514,6 @@ input:focus-visible {
     padding: 5px 10px;
     font-size: 0.82rem;
     gap: 5px;
-  }
-  .app-brand {
-    top: calc(10px + env(safe-area-inset-top, 0px));
-    left: calc(clamp(0.75rem, 2vw, 1.5rem) + env(safe-area-inset-left, 0px));
   }
 }
 
@@ -2490,11 +2595,14 @@ input:focus-visible {
     padding-top: 0 !important;
   }
 
-  /* Navbar with safe area insets */
+  /* Navbar with safe area insets — centered one-piece pill */
   .navbar {
     top: calc(8px + env(safe-area-inset-top, 0px)) !important;
-    right: calc(0.75rem + env(safe-area-inset-right, 0px)) !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
     padding: 6px !important;
+    gap: 0.5rem !important;
     height: auto;
     background: rgba(12, 12, 15, 0.75) !important;
     backdrop-filter: blur(32px) saturate(180%) !important;
@@ -2515,9 +2623,8 @@ input:focus-visible {
     gap: 4px !important;
     padding: 4px 10px 4px 4px !important;
   }
-  .app-brand {
-    top: calc(8px + env(safe-area-inset-top, 0px)) !important;
-    left: calc(0.75rem + env(safe-area-inset-left, 0px)) !important;
+  .app-brand-word {
+    display: none !important;
   }
   .app-brand-mark svg {
     width: 36px;
