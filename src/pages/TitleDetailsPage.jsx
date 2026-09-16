@@ -728,6 +728,30 @@ export default function TitleDetails() {
   // selected, so the banner can surface a currently-airing show (e.g. S7 headlights).
   const seriesIsAiring = isTvContent && airingSeasonNumber != null;
 
+  const endsAt = formatEndsAt(movie?.durationMins);
+  const runtimeLabel = formatRuntimeLabel(movie?.durationMins);
+  // Cinejoy-style series info table — Status / Language / First Aired /
+  // Last Aired / Seasons / Episodes. Movies keep Runtime / Language / Release
+  // Date. Rendered identically in the mobile and desktop info blocks. Lives
+  // above the loading early-return so hook order stays unconditional.
+  const infoRows = useMemo(() => {
+    const rows = [];
+    const dateOpts = { year: "numeric", month: "short", day: "numeric" };
+    if (isTvContent) {
+      if (movie?.status) rows.push({ label: "Status", value: movie.status });
+      if (movie?.originalLanguage) rows.push({ label: "Language", value: movie.originalLanguage, uppercase: true });
+      if (movie?.releaseDate) rows.push({ label: "First Aired", value: formatTMDBDate(movie.releaseDate, dateOpts) });
+      if (movie?.lastAiredDate) rows.push({ label: "Last Aired", value: formatTMDBDate(movie.lastAiredDate, dateOpts) });
+      if (movie?.seasonsCount) rows.push({ label: "Seasons", value: String(movie.seasonsCount) });
+      if (movie?.episodesCount) rows.push({ label: "Episodes", value: String(movie.episodesCount) });
+    } else {
+      if (runtimeLabel) rows.push({ label: "Runtime", value: runtimeLabel, extra: endsAt ? `\u2022 Ends ${endsAt}` : null });
+      if (movie?.originalLanguage) rows.push({ label: "Language", value: movie.originalLanguage, uppercase: true });
+      if (movie?.releaseDate) rows.push({ label: "Release Date", value: formatTMDBDate(movie.releaseDate, dateOpts) });
+    }
+    return rows;
+  }, [isTvContent, runtimeLabel, endsAt, movie]);
+
   const { data: episodesData, isLoading: episodesLoading, error: episodesError } = useQuery({
     queryKey: ["episodes", id, selectedSeason, effectivePlatform],
     queryFn: () => movieService.getSeasonEpisodes(id, selectedSeason, effectivePlatform),
@@ -1114,12 +1138,8 @@ export default function TitleDetails() {
   );
   const backdropSrc = movie?.backdropUrl || movie?.posterUrl;
   const backdropOptimized = backdropSrc ? CdnImageAdapter.getBackdropUrl(backdropSrc) : null;
-  const endsAt = formatEndsAt(movie.durationMins);
   const voteSplit = voteSplitPct(movie.imdbRating);
-  const runtimeLabel = formatRuntimeLabel(movie.durationMins);
   const unreleased = isUnreleased(movie.releaseDate);
-
-
 
   return (
     <div ref={pageRef} className="relative min-h-screen font-sans overflow-x-hidden pb-24 bg-[#050505] w-[100vw] ml-[calc(50%-50vw)] max-md:-mt-[56px]">
@@ -1386,27 +1406,15 @@ export default function TitleDetails() {
             <div className="mt-6 w-full lg:hidden">
               <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] overflow-hidden backdrop-blur-sm">
                 <div className="divide-y divide-white/[0.06]">
-                  {runtimeLabel && (
-                    <div className="flex items-center justify-between px-3.5 py-2.5">
-                      <span className="text-xs text-white/40">Runtime</span>
-                      <span className="text-xs text-white/80">
-                        {runtimeLabel}
-                        {endsAt && <span className="text-white/50">{" "}• Ends {endsAt}</span>}
+                  {infoRows.map((row) => (
+                    <div key={row.label} className="flex items-center justify-between px-3.5 py-2.5">
+                      <span className="text-xs text-white/40">{row.label}</span>
+                      <span className={`text-xs text-white/80${row.uppercase ? " uppercase" : ""}`}>
+                        {row.value}
+                        {row.extra && <span className="text-white/50">{" "}{row.extra}</span>}
                       </span>
                     </div>
-                  )}
-                  {movie.originalLanguage && (
-                    <div className="flex items-center justify-between px-3.5 py-2.5">
-                      <span className="text-xs text-white/40">Language</span>
-                      <span className="text-xs text-white/80 uppercase">{movie.originalLanguage}</span>
-                    </div>
-                  )}
-                  {movie.releaseDate && (
-                    <div className="flex items-center justify-between px-3.5 py-2.5">
-                      <span className="text-xs text-white/40">Release Date</span>
-                      <span className="text-xs text-white/80">{formatTMDBDate(movie.releaseDate, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
-                    </div>
-                  )}
+                  ))}
                 </div>
               </div>
               <ProductionCompaniesBlock companies={movie.productionCompanies} />
@@ -1417,27 +1425,15 @@ export default function TitleDetails() {
           <div className="hidden lg:block w-[280px] shrink-0 mt-40">
             <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] overflow-hidden backdrop-blur-sm">
               <div className="divide-y divide-white/[0.06]">
-                {runtimeLabel && (
-                  <div className="flex items-center justify-between px-4 py-2.5">
-                    <span className="text-xs text-white/40">Runtime</span>
-                    <span className="text-xs text-white/80">
-                      {runtimeLabel}
-                      {endsAt && <span className="text-white/50">{" "}• Ends {endsAt}</span>}
+                {infoRows.map((row) => (
+                  <div key={row.label} className="flex items-center justify-between px-4 py-2.5">
+                    <span className="text-xs text-white/40">{row.label}</span>
+                    <span className={`text-xs text-white/80${row.uppercase ? " uppercase" : ""}`}>
+                      {row.value}
+                      {row.extra && <span className="text-white/50">{" "}{row.extra}</span>}
                     </span>
                   </div>
-                )}
-                {movie.originalLanguage && (
-                  <div className="flex items-center justify-between px-4 py-2.5">
-                    <span className="text-xs text-white/40">Language</span>
-                    <span className="text-xs text-white/80 uppercase">{movie.originalLanguage}</span>
-                  </div>
-                )}
-                {movie.releaseDate && (
-                  <div className="flex items-center justify-between px-4 py-2.5">
-                    <span className="text-xs text-white/40">Release Date</span>
-                    <span className="text-xs text-white/80">{formatTMDBDate(movie.releaseDate, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
-                  </div>
-                )}
+                ))}
               </div>
             </div>
             <ProductionCompaniesBlock companies={movie.productionCompanies} />

@@ -1106,3 +1106,31 @@ Cinejoy set. Original "don't edit" constraint was lifted by the user.
     was 318/30; +2 TitleDetailsPage guard tests), `npm run build` (✓ 2.44s;
     `TitleDetailsPage-Gqa5Nrvv.js`, `SearchPage-CqmtapvR.js`,
     `SettingsPage-bwKydEPI.js`).
+
+## Task 66 - Cinejoy parity round 3: original brand-mark colors + series info table
+
+- [x] **Task 66 - Nav logo restored to the original (non-white) brand mark**
+  - `public/brand/cinejoy-logo.svg` had been recolored to all-white (`.st0` and
+    `.st1` both `#ffffff`) for the glass nav (Task 62), which read as "extra
+    white blocks" on dark backdrops. Restored it to the official mark by
+    copying `public/favicon.svg` verbatim: `.st0` film-reel arcs green
+    (`#95ff50`), `.st1` body near-black (`#0c0c0c`), `.st2` white accents —
+    exactly the shapes, no color drift. `App.jsx` `logo-legible` glow shadow
+    still keeps it crisp over hero art.
+- [x] **Task 66 - Cinejoy series info table (Status/First/Last Aired/Seasons/Episodes)**
+  - `movieService.getMovieDetails` now also maps `episodesCount`
+    (`detail.number_of_episodes`) and `lastAiredDate` (`detail.last_air_date`)
+    on top of the existing `status` / `originalLanguage` / `releaseDate`
+    (= `first_air_date`) / `seasonsCount`.
+  - `TitleDetailsPage` renders one shared `infoRows` memo (single source of
+    truth, above the loading early-return so hook order stays unconditional;
+    `movie?.` guards keep the loading pass safe) feeding BOTH the mobile and
+    desktop info blocks: series get Status / Language / First Aired / Last
+    Aired / Seasons / Episodes (Cinejoy order, no Runtime row); movies keep
+    Runtime / Language / Release Date exactly as before.
+  - Guard test extended: mock now carries `episodesCount`/`lastAiredDate` and
+    the suite asserts all six series-table labels plus values render in both
+    blocks.
+- [x] **Task 66 - Verification**
+  - `npm run lint` (0 errors / 0 warnings), `npm run test` (321/321 across 31
+    files — was 320/31; +1 series-table assertion), `npm run build` (✓ 1.90s).

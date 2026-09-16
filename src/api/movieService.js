@@ -333,6 +333,8 @@ export const movieService = {
       trailer: (rankTrailerVideos(detail.videos?.results || [], 1)[0] ||
         (detail.videos?.results || []).find(v => v.type === 'Trailer' && v.site === 'YouTube'))?.key || null,
       seasonsCount: detail.number_of_seasons || null,
+      episodesCount: detail.number_of_episodes || null,
+      lastAiredDate: detail.last_air_date || null,
       // Preserve the real season numbers instead of deriving options from the
       // count. TMDB includes specials in the count, so counting from one can
       // point the watch page at a season that does not exist.

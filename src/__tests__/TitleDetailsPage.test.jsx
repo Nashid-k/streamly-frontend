@@ -23,6 +23,8 @@ vi.mock("../api/movieService", () => ({
       releaseDate: "2022-02-04",
       status: "Returning Series",
       seasonsCount: 4,
+      episodesCount: 32,
+      lastAiredDate: "2026-06-30",
       seasons: [1, 2, 3, 4].map((n) => ({
         seasonNumber: n,
         name: `Season ${n}`,
@@ -126,6 +128,18 @@ describe("TitleDetailsPage TDZ regression guard", () => {
     // header + rail. Failing to appear means a render-time crash.
     expect(await screen.findByText("Reacher")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: /episodes/i })).toBeInTheDocument();
+  });
+
+  it("renders the Cinejoy-style series info table", async () => {
+    renderPage();
+    // Status / Language / First Aired / Last Aired / Seasons / Episodes rows
+    // (mobile + desktop blocks both render, so use getAllByText).
+    expect((await screen.findAllByText("Status")).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("First Aired").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Last Aired").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Seasons").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Returning Series").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("32").length).toBeGreaterThan(0);
   });
 
   it("renders each episode card after the season query resolves", async () => {
