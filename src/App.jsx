@@ -23,6 +23,7 @@ import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "framer-
 
 import ErrorBoundary from "./components/ErrorBoundary";
 import GlobalShortcuts from "./components/GlobalShortcuts";
+import LiquidGlassDefs from "./components/LiquidGlassDefs";
 import Popover from "./components/Popover";
 import Loader from "./components/Loader";
 import BackToTop from "./components/BackToTop";
@@ -166,6 +167,7 @@ function Layout({ children }) {
 
   return (
     <div className="app-container">
+      <LiquidGlassDefs />
       {/* ── Primary navigation ────────────────────────────────────────────────
           Two independent floating islands (Cinejoy .header-row):
           • brand-mark hangs ALONE at the left end

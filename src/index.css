@@ -112,7 +112,11 @@
 
 html {
   scroll-behavior: smooth;
+  /* `clip` (not `hidden`) — `hidden` computes `overflow-y: auto` on the box
+     and turns <body> into a non-scrolling scroll container, which silently
+     disables `position: sticky` everywhere (the settings nav never docked). */
   overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* Respect Streamly's in-app motion preference as well as Framer Motion's
@@ -154,7 +158,10 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  /* See `html` above: `clip` keeps <body> from becoming a scroll container
+     that would break `position: sticky`. */
   overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* ── Ambient Apple glow ────────────────────────────────────────────────────
@@ -241,7 +248,13 @@ a {
   min-height: 100vh;
   width: 100%;
   max-width: 100%;
+  /* `overflow-x: hidden` computes `overflow-y: auto`, turning this element
+     into a scroll container that never scrolls — which silently kills
+     `position: sticky` on every descendant (the settings nav never docked).
+     `clip` still clips horizontally but does NOT create a scroll container,
+     so sticky pins to the viewport again. `hidden` stays as the fallback. */
   overflow-x: hidden;
+  overflow-x: clip;
   position: relative;
   background: #050505;
 }
@@ -5377,12 +5390,6 @@ html[data-theme]:not([data-theme=default]) .settings-nav.is-docked {
   }
 }
 
-@media (max-width: 768px) {
-  .settings-nav {
-    top: calc(64px + var(--sat));
-  }
-}
-
 .settings-tab {
   display: inline-flex;
   align-items: center;
@@ -7040,10 +7047,6 @@ html[data-theme]:not([data-theme=default]) .settings-page .glass-card {
 }
 
 @media (max-width: 768px) {
-  .settings-nav {
-    top: calc(64px + var(--sat));
-  }
-
   .settings-sections,
   .settings-page section.glass-card {
     scroll-margin-top: calc(196px + var(--sat));
@@ -7825,6 +7828,324 @@ html[data-theme]:not([data-theme=default]) .settings-page .glass-card {
   .mobile-bottom-nav {
     scale: 0.75;
     transform-origin: bottom;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   Task 71 — Liquid Glass (Cinejoy refraction + inner-glow + glass login)
+   ────────────────────────────────────────────────────────────────────────
+   Every glassy surface gets a dedicated refraction layer (::before) that
+   samples the page behind it, blurs it, and runs it through the global
+   #streamly-lg-dist displacement filter so the backdrop ripples like real
+   glass. A layered inset-glow rim (the Cinejoy recipe) sells the liquid
+   edge, and the surfaces are noticeably more translucent than before.
+   Applied to settings + key surfaces only (perf budget — Task 67).
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* The SVG filter itself paints nothing. */
+.liquid-glass-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Refraction hosts. `.settings-nav` stays `sticky`, `.glass-popover` /
+   `.settings-dropdown` stay `absolute` via their own utilities — so only the
+   plain cards/panels get `position: relative` here. `isolation` keeps the
+   negative-z refraction layer from escaping behind the page. */
+.settings-page .glass-card,
+.login-panel {
+  position: relative;
+}
+
+.settings-page .glass-card,
+.settings-nav.is-docked,
+.settings-dropdown,
+.glass-popover,
+.login-panel {
+  isolation: isolate;
+}
+
+/* Refraction layer — blur + displacement of the live backdrop. */
+.settings-page .glass-card::before,
+.settings-nav.is-docked::before,
+.settings-dropdown::before,
+.glass-popover::before,
+.login-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.055),
+    rgba(255, 255, 255, 0) 44%,
+    rgba(255, 255, 255, 0.025)
+  );
+  backdrop-filter: blur(4px) saturate(150%);
+  -webkit-backdrop-filter: blur(4px) saturate(150%);
+}
+
+/* Displacement ripple only when motion is welcome. */
+@media (prefers-reduced-motion: no-preference) {
+  .settings-page .glass-card::before,
+  .settings-nav.is-docked::before,
+  .settings-dropdown::before,
+  .glass-popover::before,
+  .login-panel::before {
+    filter: url(#streamly-lg-dist);
+    -webkit-filter: url(#streamly-lg-dist);
+  }
+}
+
+/* Liquid inner rim + deep drop — the Cinejoy composition. */
+.settings-page .glass-card,
+.settings-nav.is-docked,
+.settings-dropdown,
+.glass-popover,
+.login-panel {
+  box-shadow: inset 0 0 2px 1px rgba(255, 255, 255, 0.16),
+    inset 0 0 12px 5px rgba(255, 255, 255, 0.055),
+    0 8px 30px rgba(0, 0, 0, 0.4);
+}
+
+/* Settings cards: markedly more translucent than the old .6 black. */
+.settings-page .glass-card {
+  background: rgba(10, 10, 12, 0.44);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+html[data-theme]:not([data-theme=default]) .settings-page .glass-card {
+  background: color-mix(
+    in srgb,
+    var(--theme-global-accentA, var(--accent-primary)) 8%,
+    rgba(12, 12, 14, 0.5)
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--theme-global-accentA, var(--accent-primary)) 16%,
+    rgba(255, 255, 255, 0.09)
+  );
+}
+
+/* Accent-tinted translucent glass utility (Cinejoy .theme-glass-tint). */
+.theme-glass-tint {
+  background: rgba(20, 20, 20, 0.35);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme]:not([data-theme=default]) .theme-glass-tint {
+  background: color-mix(
+    in srgb,
+    var(--theme-global-accentA, var(--accent-primary)) 15%,
+    rgba(20, 20, 20, 0.6)
+  );
+}
+
+/* ── Glassy buttons (account row, panel actions) ─────────────────────── */
+.glassy-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.15rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05));
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 6px 18px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s ease, background 0.2s ease, border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.glassy-button:hover {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.08));
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.glassy-button:active {
+  transform: scale(0.96);
+}
+
+.glassy-button--primary {
+  color: #0b0b0d;
+  background: linear-gradient(180deg, #ffffff, #e7e7ea);
+  border-color: rgba(255, 255, 255, 0.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 6px 18px rgba(0, 0, 0, 0.4);
+}
+
+.glassy-button--primary:hover {
+  background: linear-gradient(180deg, #ffffff, #f4f4f6);
+}
+
+/* ── Glass login panel (Cinejoy .login-panel) ────────────────────────── */
+.login-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+@media (min-width: 640px) {
+  .login-backdrop {
+    align-items: center;
+    padding: 1rem;
+  }
+}
+
+.login-panel {
+  width: 100%;
+  max-width: 420px;
+  max-height: 92svh;
+  overflow-y: auto;
+  padding: 1.75rem;
+  padding-bottom: calc(1.75rem + var(--sab, 0px));
+  border-radius: 30px;
+  background: rgba(16, 16, 18, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(40px) saturate(160%);
+  -webkit-backdrop-filter: blur(40px) saturate(160%);
+}
+
+@media (max-width: 640px) {
+  .login-panel {
+    border-radius: 30px 30px 0 0;
+    max-height: 88svh;
+  }
+}
+
+.login-tabs {
+  position: relative;
+  display: flex;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.login-tab {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  padding: 0.55rem 0;
+  border: none;
+  background: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13.5px;
+  font-weight: 600;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.login-tab:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.login-tab.is-active {
+  color: #0b0b0d;
+}
+
+.login-tab-pill {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  transition: left 0.28s cubic-bezier(0.34, 1.56, 0.64, 1),
+    width 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.login-tab-pill.is-right {
+  left: 50%;
+  width: calc(50% - 4px);
+}
+
+.login-field {
+  width: 100%;
+  padding: 0.7rem 1rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.login-field:focus {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.login-field::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.login-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  height: 52px;
+  border: none;
+  border-radius: 999px;
+  background: #fff;
+  color: #0b0b0d;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.2s ease;
+}
+
+.login-cta:hover {
+  background: #f1f1f3;
+}
+
+.login-cta:active {
+  transform: scale(0.98);
+}
+
+/* ── Graceful fallback when the browser cannot blur ─────────────────── */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .settings-page .glass-card,
+  .settings-nav.is-docked,
+  .settings-dropdown,
+  .glass-popover,
+  .login-panel,
+  .theme-glass-tint,
+  .glassy-button {
+    background: rgba(14, 14, 16, 0.92);
+  }
+
+  .settings-page .glass-card::before,
+  .settings-nav.is-docked::before,
+  .settings-dropdown::before,
+  .glass-popover::before,
+  .login-panel::before {
+    display: none;
   }
 }
 

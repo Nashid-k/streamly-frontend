@@ -271,6 +271,7 @@ export default function SettingsPage() {
   const [seekDropdownOpen, setSeekDropdownOpen] = useState(false);
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
   const [showSignInModal, setShowSignInModal] = useState(false);
+  const [signInTab, setSignInTab] = useState("signin");
   const [navDocked, setNavDocked] = useState(false);
 
   // Auth / Accounts state
@@ -343,6 +344,7 @@ export default function SettingsPage() {
   const dropdownRef = useRef(null);
   const sectionsTopRef = useRef(null);
   const headerRef = useRef(null);
+  const navRef = useRef(null);
   useEffect(() => {
     const handleOutsideClick = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -376,6 +378,57 @@ export default function SettingsPage() {
     );
     observer.observe(headerRef.current);
     return () => observer.disconnect();
+  }, []);
+
+  // Cinejoy dock geometry: `--dock-top` centres the sticky pill inside the
+  // live floating header band (so it glides up as the header condenses) and
+  // `--dock-left` aligns it just right of the brand on narrow viewports. Both
+  // are written to CSS vars, so the `.settings-nav` `top`/`margin` transitions
+  // animate exactly like the real site.
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav || typeof window === "undefined") return;
+    const header = document.querySelector(".header-row");
+    const brand = document.querySelector(".app-brand-link");
+
+    let rafId = 0;
+    const measure = () => {
+      rafId = 0;
+      const headerH = header?.offsetHeight ?? 56;
+      const navH = nav.offsetHeight || 40;
+      const top = Math.max(6, Math.round((headerH - navH) / 2));
+      nav.style.setProperty("--dock-top", `${top}px`);
+
+      if (window.innerWidth <= 1023 && brand) {
+        // navLeft = parentLeft + used margin-left, so the true parent origin
+        // is recoverable even while the pill is still auto-centred.
+        const currentMargin = parseFloat(getComputedStyle(nav).marginLeft) || 0;
+        const parentLeft = nav.getBoundingClientRect().left - currentMargin;
+        const desiredLeft = brand.getBoundingClientRect().right + 10;
+        nav.style.setProperty("--dock-left", `${Math.max(0, Math.round(desiredLeft - parentLeft))}px`);
+      } else {
+        nav.style.setProperty("--dock-left", "0px");
+      }
+    };
+    const schedule = () => {
+      if (rafId) return;
+      rafId = window.requestAnimationFrame(measure);
+    };
+
+    measure();
+    window.addEventListener("resize", schedule);
+    let resizeObserver;
+    if (typeof ResizeObserver === "function") {
+      resizeObserver = new ResizeObserver(schedule);
+      if (header) resizeObserver.observe(header);
+      resizeObserver.observe(nav);
+    }
+    if (document.fonts?.ready) document.fonts.ready.then(schedule).catch(() => {});
+    return () => {
+      window.removeEventListener("resize", schedule);
+      resizeObserver?.disconnect();
+      if (rafId) window.cancelAnimationFrame(rafId);
+    };
   }, []);
 
   // Lock body scroll while the sign-in modal is open + allow Escape to dismiss.
@@ -561,7 +614,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Section Tabs (All + filters) */}
-            <nav aria-label="Settings sections" className={`settings-nav${navDocked ? " is-docked" : ""}`}>
+            <nav ref={navRef} aria-label="Settings sections" className={`settings-nav${navDocked ? " is-docked" : ""}`}>
               {TABS.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
@@ -657,7 +710,7 @@ export default function SettingsPage() {
                       {user ? (
                         <button
                           onClick={handleSignOut}
-                          className="px-4 py-2 text-[13.5px] font-semibold rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1.5 border-none cursor-pointer"
+                          className="glassy-button"
                         >
                           <LogOut className="w-4 h-4" />
                           Sign Out
@@ -672,7 +725,7 @@ export default function SettingsPage() {
                           />
                           <button
                             onClick={() => setShowSignInModal(true)}
-                            className="px-5 py-2.5 text-[14px] font-semibold rounded-full bg-white text-black hover:bg-gray-100 transition-colors shadow-[0_2px_10px_rgba(255,255,255,0.1)] focus:outline-none focus-visible:ring-4 focus-visible:ring-white/30 border-none cursor-pointer"
+                            className="glassy-button glassy-button--primary px-5 py-2.5 text-[14px]"
                           >
                             Sign In
                           </button>
@@ -1376,18 +1429,28 @@ export default function SettingsPage() {
 
       {/* ── MODALS ── */}
 
-      {/* Sign-In Modal */}
+      {/* Sign-In Modal — Cinejoy glass login panel */}
       {showSignInModal && createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div
+            className="login-backdrop"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) setShowSignInModal(false);
+            }}
+          >
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="w-full max-w-md [background:var(--bg-elevated)] border [border-color:var(--border-subtle)] rounded-3xl p-6 shadow-2xl relative"
+              initial={{ opacity: 0, y: 24, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 24, scale: 0.97 }}
+              transition={{ type: "spring", stiffness: 380, damping: 32 }}
+              className="login-panel"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="login-panel-title"
             >
               <button
                 onClick={() => setShowSignInModal(false)}
-                className="absolute right-5 top-5 p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/10"
+                aria-label="Close sign in"
+                className="absolute right-5 top-5 p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1397,76 +1460,101 @@ export default function SettingsPage() {
                   <User className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white">Sign In to Streamly</h3>
-                  <p className="text-xs text-white/50">Sync preferences and watchlist to MongoDB Cloud.</p>
+                  <h3 id="login-panel-title" className="text-lg font-bold text-white">
+                    Welcome to Streamly
+                  </h3>
+                  <p className="text-xs text-white/50">Sync preferences and watchlist across devices.</p>
                 </div>
               </div>
 
-              {/* Google OAuth Button */}
-              <div className="mb-4">
-                <GoogleSignInButton
-                  onSuccess={() => setShowSignInModal(false)}
-                  shape="pill"
-                  text="Sign in with Google"
+              {/* Sign In / Guest tabs with a sliding white pill */}
+              <div className="login-tabs mb-5" role="tablist" aria-label="Sign in method">
+                <span
+                  className={`login-tab-pill${signInTab === "guest" ? " is-right" : ""}`}
+                  aria-hidden="true"
                 />
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={signInTab === "signin"}
+                  className={`login-tab${signInTab === "signin" ? " is-active" : ""}`}
+                  onClick={() => setSignInTab("signin")}
+                >
+                  Sign In
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={signInTab === "guest"}
+                  className={`login-tab${signInTab === "guest" ? " is-active" : ""}`}
+                  onClick={() => setSignInTab("guest")}
+                >
+                  Guest
+                </button>
               </div>
 
-              <div className="relative flex items-center justify-center my-4">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-white/10" />
-                </div>
-                <span className="relative px-3 [background:var(--bg-elevated,#181622)] text-[11px] font-semibold text-white/40 uppercase tracking-wider">
-                  or guest account
-                </span>
-              </div>
-
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  // NOTE: form.name would resolve to the form's own `name`
-                  // attribute (a string), never the input — read via FormData.
-                  const data = new FormData(e.target);
-                  handleSignIn(data.get("name"), data.get("email"));
-                }}
-                className="space-y-4"
-              >
-                <div>
-                  <label className="block text-xs font-semibold text-white/70 mb-1.5">Your Name</label>
-                  <input
-                    name="name"
-                    type="text"
-                    required
-                    defaultValue="Streamly Viewer"
-                    className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm outline-none focus:border-white/30"
+              {signInTab === "signin" ? (
+                <div className="space-y-4">
+                  <GoogleSignInButton
+                    onSuccess={() => setShowSignInModal(false)}
+                    shape="pill"
+                    text="Continue with Google"
                   />
+                  <p className="text-center text-xs text-white/40 leading-relaxed">
+                    Use your Google account to sync your library across devices. Prefer to stay
+                    local? Switch to the Guest tab.
+                  </p>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-white/70 mb-1.5">Email Address</label>
-                  <input
-                    name="email"
-                    type="email"
-                    required
-                    defaultValue="viewer@streamly.io"
-                    className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm outline-none focus:border-white/30"
-                  />
-                </div>
+              ) : (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    // NOTE: form.name would resolve to the form's own `name`
+                    // attribute (a string), never the input — read via FormData.
+                    const data = new FormData(e.target);
+                    handleSignIn(data.get("name"), data.get("email"));
+                  }}
+                  className="space-y-4"
+                >
+                  <div>
+                    <label htmlFor="login-name" className="block text-xs font-semibold text-white/70 mb-1.5">
+                      Your Name
+                    </label>
+                    <input
+                      id="login-name"
+                      name="name"
+                      type="text"
+                      required
+                      defaultValue="Streamly Viewer"
+                      className="login-field"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="login-email" className="block text-xs font-semibold text-white/70 mb-1.5">
+                      Email Address
+                    </label>
+                    <input
+                      id="login-email"
+                      name="email"
+                      type="email"
+                      required
+                      defaultValue="viewer@streamly.io"
+                      className="login-field"
+                    />
+                  </div>
 
-                <div className="pt-2 flex gap-3">
+                  <button type="submit" className="login-cta mt-1">
+                    Continue as Guest
+                  </button>
                   <button
                     type="button"
                     onClick={() => setShowSignInModal(false)}
-                    className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 text-sm font-semibold transition-colors border-none"
+                    className="w-full py-2.5 rounded-full bg-white/5 hover:bg-white/10 text-white/70 text-sm font-semibold transition-colors border-none"
                   >
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    className="flex-1 py-2.5 rounded-xl [background:var(--accent-gradient)] [color:var(--on-accent,#fff)] hover:brightness-110 text-sm font-bold transition-colors shadow-lg border-none"
-                  >
-                    Sign In
-                  </button>
-                </div>
-              </form>
+                </form>
+              )}
             </motion.div>
           </div>,
           document.body

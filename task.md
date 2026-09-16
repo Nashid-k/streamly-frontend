@@ -1304,3 +1304,66 @@ frosted glass capsule on scroll (`--dock-top`), and an "every theme is a
     in isolation and on re-run), `npm run build` (✓ 1.71s);
     `SettingsPage.jsx` still serves 200 on the dev server; built CSS contains
     `segment-slider`, `is-docked`, `seed-pill`, `--theme-global-accentA`.
+
+## Task 71 - Settings nav actually stays docked, glass login panel + liquid glass
+
+Reverse-engineered live cinejoy.pk and found the settings tab pill *did* stick
+on Cinejoy but never on Streamly: `html`, `body` and `.app-container` all used
+`overflow-x: hidden`, which computes `overflow-y: auto` and turns each box into
+a non-scrolling scroll container — silently disabling `position: sticky` on
+every descendant. Headless Chrome confirmed the nav scrolled clean off
+(`top: 257 → -143 → -252`). With the scroll containers removed the pill pins at
+the live dock offset and animates exactly like Cinejoy.
+
+- [x] **Task 71 - Sticky root cause fixed**
+  - `src/index.css`: `html`, `body` and `.app-container` now declare
+    `overflow-x: hidden; overflow-x: clip;`. `clip` still clips horizontally but
+    does **not** create a scroll container, so sticky pins to the viewport
+    again. Verified via headless CDP: at scroll 400/800/1200/2000 the nav's
+    `getBoundingClientRect().top` stays at the dock offset (`~6–12px`) instead
+    of scrolling away, and no page gains a horizontal scrollbar (desktop
+    1280 / mobile 390 checked on `/`, `/settings`, `/movies`).
+- [x] **Task 71 - Animated Cinejoy dock geometry**
+  - `src/pages/SettingsPage.jsx`: new `navRef` + a scroll/`ResizeObserver`
+    effect writes inline `--dock-top` (pill vertically centred in the live
+    floating header band, `12px → 6px` as the header condenses) and
+    `--dock-left` (aligns the docked pill beside the brand at ≤1023px),
+    preserving the existing `top` transition. `is-docked` still toggles from
+    the header `IntersectionObserver`.
+  - `src/index.css`: removed the `@media (max-width: 768px)` `top` overrides so
+    the JS-driven `--dock-top` is never clobbered.
+  - Verified at 1280 (centred, `--dock-left: 0`) and 800 (left-inset,
+    `left: 144`, `--dock-left: 72px`) — matching Cinejoy's centred-desktop /
+    left-inset-narrow behaviour.
+- [x] **Task 71 - Glass sign-in login panel**
+  - `SettingsPage.jsx`: the sign-in modal is now Cinejoy's `.login-panel` —
+    blurred `rgba(0,0,0,.6)` backdrop that becomes a bottom sheet ≤640px,
+    `rgba(16,16,18,.72)` panel with `blur(40px) saturate(160%)`, `30px`
+    radius, spring entrance, and a Sign In / Guest tab pair with a sliding
+    white pill. Guests get glass `.login-field` inputs + a white `.login-cta`
+    button (52px); Google OAuth stays on the Sign In tab. Account-row Sign In /
+    Sign Out buttons moved to the new `.glassy-button` /
+    `.glassy-button--primary` treatments.
+- [x] **Task 71 - Liquid glass refraction on settings + key surfaces**
+  - `src/components/LiquidGlassDefs.jsx` (new): global hidden SVG
+    `#streamly-lg-dist` filter (`feTurbulence` → `feGaussianBlur` →
+    `feDisplacementMap`), mounted once inside `.app-container` in `App.jsx`.
+  - `src/index.css`: settings cards, the docked nav, dropdowns, popovers and
+    the login panel each get a `::before` refraction layer
+    (`backdrop-filter: blur(4px) saturate(150%)` + `filter: url(#streamly-lg-dist)`)
+    plus the Cinejoy layered inner-glow rim (`inset 0 0 2px 1px #ffffff24`,
+    `inset 0 0 12px 5px #ffffff0f`, `0 8px 30px #000`). Settings cards are now
+    markedly more translucent (`rgba(10,10,12,.44)` vs the old `rgba(20,20,20,.6)`).
+    Added `.theme-glass-tint` and `@supports` / `prefers-reduced-motion`
+    fallbacks (opaque surfaces when blur is unavailable, no displacement ripple
+    when motion is reduced).
+  - Verified via headless CDP: `#streamly-lg-dist` present, refraction layer's
+    computed `filter: url("#streamly-lg-dist")`, nav `is-docked` background
+    `rgba(12,12,14,.55)` + glow shadow, settings card `rgba(10,10,12,.44)`,
+    login panel `rgba(16,16,18,.72)` / `blur(40px) saturate(1.6)` / `30px` with
+    2 tabs.
+- [x] **Task 71 - Verification**
+  - `npm run lint` (0 errors / 0 warnings), `npm run test` (316/317 across 31
+    files; the 1 failure is the pre-existing flaky `TitleDetailsPage`
+    episode-timing test, which passes in isolation and on re-run), `npm run
+    build` (✓ 2.25s).
