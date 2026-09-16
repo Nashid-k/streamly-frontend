@@ -35,6 +35,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   notifications: true,
   // Appearance
   theme: "default",
+  accentSeed: null,
   episodeViewStyle: "carousel",
   detailViewType: "page",
   useImageLogos: true,

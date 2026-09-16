@@ -146,8 +146,24 @@ function Toggle({ checked, onChange, label }) {
 }
 
 function SegmentControl({ options, value, onChange, label }) {
+  const groupRef = useRef(null);
+  const sliderRef = useRef(null);
+
+  // Cinejoy animated segment slider: the white/accent pill slides to the
+  // active option instead of re-drawing each button background.
+  useEffect(() => {
+    const group = groupRef.current;
+    const slider = sliderRef.current;
+    if (!group || !slider) return;
+    const activeBtn = group.querySelector(".segment-btn.segment-active");
+    if (!activeBtn) return;
+    slider.style.left = `${activeBtn.offsetLeft}px`;
+    slider.style.width = `${activeBtn.offsetWidth}px`;
+  }, [value]);
+
   return (
-    <div className="segment" role="radiogroup" aria-label={label}>
+    <div ref={groupRef} className="segment" role="radiogroup" aria-label={label}>
+      <div ref={sliderRef} className="segment-slider" aria-hidden="true" />
       {options.map((opt) => {
         const id = typeof opt === "string" ? opt : opt.id;
         const name = typeof opt === "string" ? opt : opt.name;
@@ -255,6 +271,7 @@ export default function SettingsPage() {
   const [seekDropdownOpen, setSeekDropdownOpen] = useState(false);
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
   const [showSignInModal, setShowSignInModal] = useState(false);
+  const [navDocked, setNavDocked] = useState(false);
 
   // Auth / Accounts state
   const auth = useAppAuth();
@@ -278,6 +295,7 @@ export default function SettingsPage() {
     notifications,
     // Appearance
     theme = "default",
+    accentSeed = null,
     episodeViewStyle = "carousel",
     detailViewType = "page",
     useImageLogos = true,
@@ -304,10 +322,17 @@ export default function SettingsPage() {
 
   const q = useMemo(() => query.trim().toLowerCase(), [query]);
 
-  const activeTheme = useMemo(
-    () => THEMES.find((t) => t.id === theme) || THEMES[0],
-    [theme],
-  );
+  const activeTheme = useMemo(() => {
+  if (theme === "custom" && accentSeed) {
+    return {
+      id: "custom",
+      name: "Custom Accent",
+      primary: accentSeed,
+      secondary: accentSeed,
+    };
+  }
+  return THEMES.find((t) => t.id === theme) || THEMES[0];
+}, [theme, accentSeed]);
 
   const activeLang = useMemo(
     () => LANGUAGES.find((l) => l.code === defaultLanguage) || LANGUAGES[0],
@@ -317,6 +342,7 @@ export default function SettingsPage() {
   // Close dropdowns on outside click or Escape
   const dropdownRef = useRef(null);
   const sectionsTopRef = useRef(null);
+  const headerRef = useRef(null);
   useEffect(() => {
     const handleOutsideClick = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -338,6 +364,18 @@ export default function SettingsPage() {
       document.removeEventListener("mousedown", handleOutsideClick);
       document.removeEventListener("keydown", handleEscape);
     };
+  }, []);
+
+  // Cinejoy settings-nav docking: the tab pill starts transparent and
+  // gains a frosted glass surface (is-docked) once the header scrolls off.
+  useEffect(() => {
+    if (!headerRef.current || typeof IntersectionObserver !== "function") return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setNavDocked(!entry.isIntersecting),
+      { threshold: 0 },
+    );
+    observer.observe(headerRef.current);
+    return () => observer.disconnect();
   }, []);
 
   // Lock body scroll while the sign-in modal is open + allow Escape to dismiss.
@@ -463,7 +501,7 @@ export default function SettingsPage() {
 
   const sectionVisible = {
     account: visibleSection("account", "account sign in list history shortcuts user"),
-    appearance: visibleSection("appearance", "appearance theme episode style view logo trailer spoiler motion thumbnail"),
+    appearance: visibleSection("appearance", "appearance theme accent seed custom episode style view logo trailer spoiler motion thumbnail"),
     playback: visibleSection("playback", "playback autoplay skip intro seek time subtitle language audio mute"),
     servers: visibleSection("servers", "server order server 1 fast hd backup vidcore peachify vidup smashy stream priority"),
     subtitles: visibleSection("subtitles", "subtitles font size color background blur preview style"),
@@ -479,7 +517,7 @@ export default function SettingsPage() {
       <div className="relative z-10 pt-4 md:pt-8 pb-28 px-4 sm:px-6 md:px-10 lg:px-14">
         <div className="mx-auto max-w-[780px]">
           {/* Header Row */}
-          <div className="mb-6 flex items-center justify-between gap-4">
+          <div ref={headerRef} className="mb-6 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <button
                 onClick={() => navigate(-1)}
@@ -497,9 +535,9 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Sticky header bar — search + section tabs stay pinned under the
-              navbar while scrolling so every section is always one tap away. */}
-          <div className="settings-sticky-bar">
+          {/* Sticky section tabs — Cinejoy .settings-nav docking: transparent
+              until scrolled, then a frosted glass pill (is-docked). */}
+          <>
             {/* Quick Search Bar */}
             <div className="mb-3 relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
@@ -523,7 +561,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Section Tabs (All + filters) */}
-            <nav aria-label="Settings sections" className="settings-nav">
+            <nav aria-label="Settings sections" className={`settings-nav${navDocked ? " is-docked" : ""}`}>
               {TABS.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
@@ -541,7 +579,7 @@ export default function SettingsPage() {
                 );
               })}
             </nav>
-          </div>
+          </>
 
           {/* Sections Stack — filtered by the active tab ("All" shows everything) */}
           <div className="space-y-6 settings-sections" ref={sectionsTopRef}>
@@ -778,7 +816,7 @@ export default function SettingsPage() {
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: 8, scale: 0.96 }}
                               transition={{ duration: 0.15 }}
-                              className="absolute right-0 top-full mt-2 w-56 rounded-2xl p-2 shadow-2xl z-50 flex flex-col gap-1 settings-dropdown"
+                              className="absolute right-0 top-full mt-2 w-64 rounded-2xl p-2 shadow-2xl z-50 flex flex-col gap-1 settings-dropdown"
                             >
                               {THEMES.map((t) => {
                                 const selected = theme === t.id;
@@ -811,6 +849,54 @@ export default function SettingsPage() {
                                   </button>
                                 );
                               })}
+
+                              <div className="theme-picker-divider" role="separator" />
+
+                              {/* Custom accent seed — Cinejoy .seed-* recipe: a
+                                  hidden color input tucked inside a pill. */}
+                              <div className="seed-row px-1 py-1 w-full">
+                                <div className="setting-meta">
+                                  <span className="setting-title">Custom Accent</span>
+                                  <span className="setting-desc">Pick any color as the interface accent.</span>
+                                </div>
+                                <div className="seed-row-pills">
+                                  <label className="seed-pill" title="Pick a custom accent color">
+                                    <span
+                                      className="seed-dot"
+                                      style={{ background: accentSeed || "#ffffff" }}
+                                    />
+                                    <span className="seed-text">
+                                      <span className="seed-label">
+                                        {theme === "custom" ? "Custom" : "Customize"}
+                                      </span>
+                                      <span className="seed-hex">
+                                        {(accentSeed || "#ffffff").toUpperCase()}
+                                      </span>
+                                    </span>
+                                    <input
+                                      type="color"
+                                      value={accentSeed || "#95ff50"}
+                                      aria-label="Custom accent color"
+                                      onChange={(e) => {
+                                        setPreference("accentSeed", e.target.value);
+                                        setPreference("theme", "custom");
+                                      }}
+                                    />
+                                  </label>
+                                  {(theme === "custom" || accentSeed) && (
+                                    <button
+                                      type="button"
+                                      className="seed-reset"
+                                      onClick={() => {
+                                        setPreference("accentSeed", null);
+                                        setPreference("theme", "default");
+                                      }}
+                                    >
+                                      Reset
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
                             </motion.div>
                           )}
                         </AnimatePresence>

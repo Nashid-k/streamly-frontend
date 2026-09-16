@@ -38,6 +38,8 @@
 
   /* ── Nav (official Cinejoy tokens) ──────────────────────── */
   --nav-pad: 6px;
+  --dock-top: calc(74px + var(--sat, 0px));
+  --dock-left: 0px;
   --nav-item-h: 40px;
   --nav-fade: 0.3s ease;
   --nav-transition: 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -5241,6 +5243,9 @@ html {
    ═══════════════════════════════════════════════════════════ */
 
 /* ── Theme Overrides ── */
+/* Cinejoy-style: every theme injects --theme-global-accentA/B on <html> via
+   PreferencesProvider. CSS rules reference them for accent-aware elements.
+   The --accent-* triplets keep existing translucent surfaces working. */
 html[data-theme="emerald"] {
   --accent-gradient: linear-gradient(135deg, #95ff50, #43861e) !important;
   --accent-color: #95ff50 !important;
@@ -5250,7 +5255,8 @@ html[data-theme="emerald"] {
   --accent-secondary-rgb: 67, 134, 30 !important;
   --accent-glow: rgba(149, 255, 80, 0.4) !important;
   --on-accent: #0e1a06 !important;
-  --theme-buttons-toggle: #3f8a1d !important;
+  --theme-global-accentA: #95ff50;
+  --theme-global-accentB: #43861e;
 }
 
 html[data-theme="amethyst"] {
@@ -5262,6 +5268,8 @@ html[data-theme="amethyst"] {
   --accent-secondary-rgb: 124, 58, 237 !important;
   --accent-glow: rgba(192, 132, 252, 0.4) !important;
   --on-accent: #ffffff !important;
+  --theme-global-accentA: #c084fc;
+  --theme-global-accentB: #7c3aed;
 }
 
 html[data-theme="ocean"] {
@@ -5273,6 +5281,8 @@ html[data-theme="ocean"] {
   --accent-secondary-rgb: 37, 99, 235 !important;
   --accent-glow: rgba(34, 211, 238, 0.4) !important;
   --on-accent: #04252b !important;
+  --theme-global-accentA: #22d3ee;
+  --theme-global-accentB: #2563eb;
 }
 
 html[data-theme="crimson"] {
@@ -5284,6 +5294,8 @@ html[data-theme="crimson"] {
   --accent-secondary-rgb: 220, 38, 38 !important;
   --accent-glow: rgba(248, 113, 113, 0.4) !important;
   --on-accent: #ffffff !important;
+  --theme-global-accentA: #f87171;
+  --theme-global-accentB: #dc2626;
 }
 
 html[data-theme="solar"] {
@@ -5295,10 +5307,26 @@ html[data-theme="solar"] {
   --accent-secondary-rgb: 217, 119, 6 !important;
   --accent-glow: rgba(251, 191, 36, 0.4) !important;
   --on-accent: #241100 !important;
+  --theme-global-accentA: #fbbf24;
+  --theme-global-accentB: #d97706;
+}
+
+html[data-theme="custom"] {
+  --accent-gradient: linear-gradient(135deg, var(--theme-global-accentA), var(--theme-global-accentB)) !important;
+  --accent-color: var(--theme-global-accentA) !important;
+  --accent-primary: var(--theme-global-accentA) !important;
+  --accent-secondary: var(--theme-global-accentB) !important;
+  --accent-glow: rgba(0,0,0,0.4) !important;
 }
 
 /* ── Settings Nav Tabs (Cinejoy .settings-nav / .settings-tab recipe) ── */
 .settings-nav {
+  position: sticky;
+  top: var(--dock-top, 84px);
+  z-index: 30;
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -5311,10 +5339,48 @@ html[data-theme="solar"] {
   border-radius: 9999px;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
+  transition: top 0.26s cubic-bezier(0.4, 0, 0.2, 1),
+    padding 0.26s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.26s ease,
+    border-color 0.26s ease,
+    box-shadow 0.26s ease;
 }
 
 .settings-nav::-webkit-scrollbar {
   display: none;
+}
+
+/* Docked state: frosted glass pill when scrolled past the header. Applied
+   by SettingsPage scroll observer adding/removing the class. */
+.settings-nav.is-docked {
+  padding: 0.25rem 1.25rem;
+  background: rgba(12, 12, 14, 0.55);
+  border-color: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.07),
+    0 8px 30px rgba(0, 0, 0, 0.35);
+}
+
+/* Themed docked state */
+html[data-theme]:not([data-theme=default]) .settings-nav.is-docked {
+  background: color-mix(in srgb, var(--theme-global-accentA, var(--accent-primary)) 10%, rgba(12, 12, 14, 0.6));
+  border-color: color-mix(in srgb, var(--theme-global-accentA, var(--accent-primary)) 18%, rgba(255, 255, 255, 0.1));
+}
+
+@media (max-width: 1023px) {
+  .settings-nav.is-docked {
+    margin-left: var(--dock-left, 0px);
+    margin-right: 0;
+    max-width: calc(100% - var(--dock-left, 0px));
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 768px) {
+  .settings-nav {
+    top: calc(64px + var(--sat));
+  }
 }
 
 .settings-tab {
@@ -5323,6 +5389,7 @@ html[data-theme="solar"] {
   gap: 0.5rem;
   flex: none;
   padding: 0.5rem 0;
+  min-height: 38px;
   border: none;
   border-bottom: 2px solid transparent;
   background: none;
@@ -5341,6 +5408,10 @@ html[data-theme="solar"] {
 .settings-tab.is-active {
   color: #fff;
   border-bottom-color: #fff;
+}
+
+html[data-theme]:not([data-theme=default]) .settings-tab.is-active {
+  border-bottom-color: var(--theme-global-accentA, var(--accent-primary));
 }
 
 /* ── Glass Card (Cinejoy .glass-card recipe) ── */
@@ -5391,11 +5462,10 @@ html[data-theme="solar"] {
   justify-content: space-between;
   gap: 1rem;
   padding: 1rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.setting-row:last-child {
-  border-bottom: none;
+.setting-row + .setting-row {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .setting-meta {
@@ -5424,15 +5494,34 @@ html[data-theme="solar"] {
   flex-shrink: 0;
 }
 
-/* ── Segment Control ── */
+/* ── Segment Control (Cinejoy animated sliding pill) ── */
 .segment {
-  display: inline-flex;
+  display: flex;
   position: relative;
+  gap: 0;
+  padding: 4px;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 9999px;
-  padding: 3px;
-  gap: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.segment-slider {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 0;
+  width: 0;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 9999px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+  transition: left 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    width 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 0;
+  pointer-events: none;
+}
+
+html[data-theme]:not([data-theme=default]) .segment-slider {
+  background: var(--theme-global-accentA, var(--accent-primary));
 }
 
 .segment-btn {
@@ -5440,14 +5529,14 @@ html[data-theme="solar"] {
   z-index: 1;
   padding: 6px 14px;
   border-radius: 9999px;
-  font-size: 0.82rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.85);
   background: transparent;
   border: none;
   cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
+  transition: color 0.25s ease;
 }
 
 .segment-btn:hover {
@@ -5456,22 +5545,21 @@ html[data-theme="solar"] {
 
 .segment-btn.segment-active {
   color: var(--on-accent, #fff);
-  background: var(--accent-gradient, rgba(255, 255, 255, 0.16));
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 12px var(--accent-glow, transparent);
 }
 
-/* ── Toggle Switch ── */
+/* ── Toggle Switch (Cinejoy .toggle recipe: 44x24 flat, accent on) ── */
 .toggle {
   position: relative;
-  width: 2.8rem;
-  height: 1.65rem;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
   flex: 0 0 auto;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.12);
   cursor: pointer;
-  transition: background 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+  transition: background 220ms ease, border-color 220ms ease;
 }
 
 .toggle::before {
@@ -5481,26 +5569,31 @@ html[data-theme="solar"] {
 }
 
 .toggle.toggle-on {
-  border-color: rgba(var(--accent-secondary-rgb), 0.4);
-  background: var(--accent-gradient, linear-gradient(135deg, #95ff50, #5ce21c));
-  box-shadow: 0 0 16px var(--accent-glow, rgba(149, 255, 80, 0.35));
+  background: #3f8a1d;
+  border-color: #3f8a1d;
+}
+
+html[data-theme]:not([data-theme=default]) .toggle.toggle-on {
+  background: var(--theme-global-accentA, var(--accent-primary));
+  border-color: var(--theme-global-accentA, var(--accent-primary));
 }
 
 .toggle-dot {
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 1.25rem;
-  height: 1.25rem;
-  border-radius: 50%;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.18);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35);
-  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  height: 18px;
+  width: 18px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.7);
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+    background 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
 }
 
 .toggle.toggle-on .toggle-dot {
-  transform: translateX(1.15rem);
+  transform: translate(20px);
+  background: #fff;
 }
 
 /* ── Theme Swatches ── */
@@ -5522,6 +5615,126 @@ html[data-theme="solar"] {
 .theme-swatch-inline-right {
   width: 50%;
   height: 100%;
+}
+
+/* ── Theme seed accent picker (Cinejoy .seed-* recipe) ── */
+.seed-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+}
+
+.seed-row .setting-meta {
+  max-width: none;
+}
+
+.seed-row-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.seed-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.seed-pill:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.seed-pill:focus-within {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.seed-dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22) inset;
+}
+
+.seed-text {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 9px;
+}
+
+.seed-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  white-space: nowrap;
+}
+
+.seed-hex {
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+  color: rgba(255, 255, 255, 0.4);
+  white-space: nowrap;
+}
+
+.seed-pill input[type="color"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  border: none;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.seed-reset,
+.order-reset {
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.seed-reset:hover,
+.order-reset:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.theme-picker-divider {
+  height: 1px;
+  margin: 4px 12px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.theme-swatch-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px dashed rgba(255, 255, 255, 0.3);
 }
 
 /* ── Color Picker ── */
@@ -6723,32 +6936,23 @@ html[data-theme="solar"] {
      instead of permanent inline z-indexes (removed from JSX).
    ═══════════════════════════════════════════════════════════ */
 
-/* Sticky header bar: search + tabs pinned as one frosted unit */
-.settings-sticky-bar {
-  position: sticky;
-  top: calc(74px + var(--sat));
-  z-index: 30;
-  margin-bottom: 1.5rem;
-  padding: 10px;
-  border-radius: 22px;
-  background: rgba(10, 10, 13, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
-  box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.7);
-}
-
-.settings-sticky-bar .settings-nav {
-  margin-bottom: 0;
-}
+/* Settings header row above the nav: title + subtitle sit on the page, the
+   nav itself docks into a frosted pill on scroll (see .settings-nav.is-docked). */
 
 .settings-sections {
   scroll-margin-top: calc(216px + var(--sat));
 }
 
 .settings-page .glass-card {
+  background: rgba(20, 20, 20, 0.6);
+  padding: 24px;
   overflow: visible;
   min-width: 0;
+}
+
+html[data-theme]:not([data-theme=default]) .settings-page .glass-card {
+  background: color-mix(in srgb, var(--theme-global-accentA, var(--accent-primary)) 6%, rgba(20, 20, 20, 0.72));
+  border-color: color-mix(in srgb, var(--theme-global-accentA, var(--accent-primary)) 12%, rgba(255, 255, 255, 0.08));
 }
 
 .settings-page section.glass-card {
@@ -6761,19 +6965,13 @@ html[data-theme="solar"] {
   z-index: 30;
 }
 
-.settings-nav {
-  top: calc(74px + var(--sat));
-}
-
-.settings-tab {
-  min-height: 38px;
-}
-
 .settings-dropdown {
   max-width: calc(100vw - 2.5rem);
-  background: var(--bg-elevated, #0f0f13);
-  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55), 0 2px 10px rgba(0, 0, 0, 0.4);
+  background: rgba(15, 15, 15, 0.72);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 /* Settings section headers stack title above subtitle — the global
@@ -6842,12 +7040,6 @@ html[data-theme="solar"] {
 }
 
 @media (max-width: 768px) {
-  .settings-sticky-bar {
-    top: calc(64px + var(--sat));
-    border-radius: 18px;
-    padding: 8px;
-  }
-
   .settings-nav {
     top: calc(64px + var(--sat));
   }

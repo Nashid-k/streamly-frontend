@@ -1243,3 +1243,64 @@ single page and had no loader.
 - [x] **Verification**
   - `npm run lint` (0 errors / 0 warnings), `npm run test` (317/317 across 31
     files; 4 studio tests removed), `npm run build` (✓ 1.36s).
+
+## Task 70 - Settings nav docking, custom accent seed picker + Cinejoy appearance parity
+
+Reverse-engineered from the cinejoy.to settings dump
+(`docs/cinejoy-reference/html/6--settings.html` + scoped component CSS
+`css/20.BLodlHfJ.css`, global `css/0.ugGWN4mw.css`) and the live cinejoy.pk
+theme chunk: the settings page ships a transparent pill nav that docks into a
+frosted glass capsule on scroll (`--dock-top`), and an "every theme is a
+`--theme-global-accentA/B` CSS variable" model with a hidden
+`input[type=color]` seed pill for any custom accent.
+
+- [x] **Task 70 - Settings nav docks into a Cinejoy frosted pill on scroll**
+  - `src/pages/SettingsPage.jsx`: new `navDocked` state driven by an
+    `IntersectionObserver` on the header row (jsdom-guarded); the search bar
+    sits on the page and the `settings-nav` pill gains `is-docked` once the
+    header scrolls under the navbar.
+  - `src/index.css`: `.settings-nav` is now `position: sticky;
+    top: var(--dock-top, 84px)` (desktop `calc(74px + var(--sat))`, mobile
+    `calc(64px + var(--sat))`), `width: fit-content`, `margin-inline: auto`;
+    `.settings-nav.is-docked` gets the Cinejoy frosted capsule (`rgba(12,12,14,.55)`
+    + `blur(20px) saturate(160%)` + hairline border + soft shadow) and a
+    themed tint via `color-mix(in srgb, var(--theme-global-accentA) 10%, …)`;
+    active tab underline reads `var(--theme-global-accentA)`. Added
+    `--dock-top` / `--dock-left` to `:root`. Removed the old
+    always-pinned `.settings-sticky-bar` and its media rules.
+  - Section `scroll-margin-top` bumped so tab jumps never park under the bar.
+- [x] **Task 70 - Custom accent seed picker (any color theme)**
+  - `src/context/preferences.js`: new `accentSeed: null` preference.
+  - `src/context/PreferencesContext.jsx`: the theme effect now pushes
+    `--theme-global-accentA/B` (+ `--accent-primary-rgb`/`--accent-secondary-rgb`
+    derived via new `hexToRgbTriplet`/`deriveSecondary` helpers) when
+    `theme === "custom"` and clears them otherwise (incl. `resetPreferences`);
+    `html[data-theme="custom"]` maps all `--accent-*` vars to the picked color.
+  - `src/pages/SettingsPage.jsx`: dropdown widened `w-56 → w-64`; below the
+    presets a `theme-picker-divider` + Cinejoy `.seed-row`/`.seed-pill`
+    (hidden full-pill `input[type=color]`, dot, "Customize"/"Custom" label +
+    live hex readout) and a pill `Reset` that restores the default theme (on
+    change it sets `theme: "custom"`). Appearance search keywords gained
+    "accent seed custom". `activeTheme` memo resolves name/preview swatch for
+    the custom theme instead of silently falling back to the first preset.
+  - `src/index.css`: full `.seed-*` recipe + `.theme-picker-divider` +
+    `html[data-theme="custom"]` block; preset blocks now also set
+    `--theme-global-accentA/B` so pure-accent rules stay in sync.
+- [x] **Task 70 - Appearance controls restyled to the Cinejoy recipes**
+  - Segment control: real sliding pill (`.segment-slider` measures the active
+    button via `offsetLeft`/`offsetWidth`, animated `left`/`width`), options
+    are transparent text that the accent-on-accent pill highlights; reset UA
+    button chrome (`appearance: none`, `white-space: nowrap`).
+  - Toggle switch: 44×24 pill, flat `#3f8a1d` on-state (accent on themed
+    themes), lighter track + subtle dot, no glow — Cinejoy's quiet `.toggle`.
+  - Dropdown glass: `.settings-dropdown` → `rgba(15,15,15,.72)` +
+    `backdrop-filter: blur(28px) saturate(180%)` + inset hairline highlight.
+  - Glass card (`overflow: visible` kept) + `.setting-row` now use
+    `.setting-row + .setting-row { border-top: 1px solid rgba(255,255,255,.08) }`
+    (Cinejoy lighter separators) and pinch accent tint via `color-mix`.
+- [x] **Task 70 - Verification**
+  - `npm run lint` (0 errors / 0 warnings), `npm run test` (317/317 across 31
+    files; one pre-existing flaky TitleDetailsPage episode-timing test passed
+    in isolation and on re-run), `npm run build` (✓ 1.71s);
+    `SettingsPage.jsx` still serves 200 on the dev server; built CSS contains
+    `segment-slider`, `is-docked`, `seed-pill`, `--theme-global-accentA`.

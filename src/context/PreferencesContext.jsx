@@ -16,6 +16,28 @@ function isPlainObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/* Convert "#rrggbb" → "r, g, b" triplet for rgba() surfaces, or null. */
+function hexToRgbTriplet(hex) {
+  const match = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
+  if (!match) return null;
+  const n = parseInt(match[1], 16);
+  return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
+}
+
+/* Darken a hex accent to produce the secondary "--accent-secondary" tone used
+   by gradients / translucent surfaces. Malformed input falls back to the
+   default Streamly toggle green. */
+function deriveSecondary(hex) {
+  const match = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
+  if (!match) return "#3f8a1d";
+  const n = parseInt(match[1], 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  const d = (v) => Math.round(v * 0.6);
+  return `#${[d(r), d(g), d(b)].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+}
+
 function parseValue(raw, fallback) {
   if (raw === null || raw === undefined) return fallback;
   try {
@@ -160,9 +182,27 @@ export function PreferencesProvider({ children }) {
 
   useEffect(() => {
     const theme = preferences.theme || "default";
-    document.documentElement.dataset.theme = theme;
+    const seed = preferences.accentSeed;
+    const root = document.documentElement;
+    root.dataset.theme = theme;
+    // Cinejoy-style custom accent ("seed"): set theme as "custom" and push
+    // --theme-global-accentA/B so accent-aware CSS follows the picked color.
+    if (theme === "custom" && typeof seed === "string" && seed) {
+      const secondary = deriveSecondary(seed);
+      root.style.setProperty("--theme-global-accentA", seed);
+      root.style.setProperty("--theme-global-accentB", secondary);
+      const rgb = hexToRgbTriplet(seed);
+      if (rgb) root.style.setProperty("--accent-primary-rgb", rgb);
+      const rgb2 = hexToRgbTriplet(secondary);
+      if (rgb2) root.style.setProperty("--accent-secondary-rgb", rgb2);
+    } else {
+      root.style.removeProperty("--theme-global-accentA");
+      root.style.removeProperty("--theme-global-accentB");
+      root.style.removeProperty("--accent-primary-rgb");
+      root.style.removeProperty("--accent-secondary-rgb");
+    }
     logDebug("preferences", `theme applied: "${theme}". Accent-driven UI reads --accent-* vars.`, { theme });
-  }, [preferences.theme]);
+  }, [preferences.theme, preferences.accentSeed]);
 
   // One-time cleanup of retired integrations (Trakt/Simkl handles, Ads and
   // Febbox settings). Runs on boot so removed features leave no stale keys.
@@ -202,6 +242,10 @@ export function PreferencesProvider({ children }) {
     try {
       if (typeof document !== "undefined" && document.documentElement) {
         document.documentElement.lang = "en";
+        document.documentElement.style.removeProperty("--theme-global-accentA");
+        document.documentElement.style.removeProperty("--theme-global-accentB");
+        document.documentElement.style.removeProperty("--accent-primary-rgb");
+        document.documentElement.style.removeProperty("--accent-secondary-rgb");
       }
       queryClient.invalidateQueries();
     } catch {
