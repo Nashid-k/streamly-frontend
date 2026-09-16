@@ -1177,4 +1177,40 @@ switches).
   - `npm run lint` (0 errors / 0 warnings), `npm run test` (321/321 across 31
     files), `npm run build` (✓ 1.96s; `index-DcqU0K2I.css`,
     `MovieCard-BqMkxgBF.js`, `AmbientBackground-BL3MLFwQ.js`).
-  - Not committed/pushed (awaiting explicit order).
+  - Committed `d842b91`, pushed to `main` (`91bad38..d842b91`).
+
+## Task 68 - Discovery grid now loads by scrolling (Cinejoy infinite scroll + dot loader)
+
+Reverse-engineered Cinejoy's progressive loading from the extracted bundle: the
+`/movies` `/series` grids do not fetch the whole catalogue, they append the next
+TMDB page as you approach the bottom, and the wait is covered by their small
+`.dots` loader — three spans running `dot-pulse 1.4s ease-in-out`
+(`opacity .3 → 1`, `translateY(-2px)`, staggered). Our DiscoveryPage fetched a
+single page and had no loader.
+
+- [x] **Task 68 - `movieService.getDiscover` accepts a `page`**
+  - Added `page = 1` to the params (passed through as `page: String(page)` to
+    `/discover/{movie|tv}`), and included it in the `warnIfEmpty` /
+    `logServiceError` diagnostics. Return shape is unchanged (normalized array)
+    so no React Query key or data-contract migration was needed.
+- [x] **Task 68 - DiscoveryPage uses `useInfiniteQuery` + scroll sentinel**
+  - Swapped `useQuery` → `useInfiniteQuery` with `initialPageParam: 1` and
+    `getNextPageParam` that advances while the last page is a full
+    `DISCOVER_PAGE_SIZE` (20) of results; `gridItems` now flattens
+    `data.pages`. Changing any filter pill changes the query key, which resets
+    the infinite query to page 1 automatically.
+  - Added a `loadMoreRef` sentinel below the grid with an `IntersectionObserver`
+    (`rootMargin: "900px 0px"`), so the next page starts fetching before the
+    user reaches the floor — content grows with the scroll instead of loading
+    everything at once.
+  - While `isFetchingNextPage`, the sentinel shows Cinejoy's three-dot pulse
+    (`.loading-dots`); once the catalogue is exhausted it shows a quiet
+    "You have reached the end".
+- [x] **Task 68 - Cinejoy dot-loader CSS**
+  - `src/index.css`: `.discover-loadmore`, `.loading-dots` (7px green dots,
+    staggered `dot-pulse`) and `@keyframes dot-pulse`, mirrored from Cinejoy's
+    `.dots` rule; disabled under `prefers-reduced-motion`.
+- [x] **Task 68 - Verification**
+  - `npm run lint` (0 errors / 0 warnings), `npm run test` (321/321 across 31
+    files), `npm run build` (✓ 1.99s; `index-DuP6LvjX.css`,
+    `DiscoveryPage-DVbHgprb.js`, `query-vendor-DfaHkKCg.js`).

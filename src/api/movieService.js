@@ -540,12 +540,13 @@ export const movieService = {
 
   // Resolve a browse filter set to TMDB request params. Kept tiny and pure so
   // new filters (provider, country) land in exactly one place.
-  getDiscover: async ({ mediaType = 'movie', genreId, year, sortBy = 'popular', region, providerId, country } = {}) => {
+  getDiscover: async ({ mediaType = 'movie', genreId, year, sortBy = 'popular', region, providerId, country, page = 1 } = {}) => {
     const mt = mediaType === 'tv' ? 'tv' : 'movie';
     try {
       const params = {
         include_adult: 'false',
         include_video: 'false',
+        page: String(page),
         sort_by:
           sortBy === 'top_rated' ? 'vote_average.desc'
             : sortBy === 'newest'
@@ -566,10 +567,10 @@ export const movieService = {
       }
       const data = await tmdb(`/discover/${mt}`, params);
       const out = (data.results || []).map(r => normalizeResult({ ...r, media_type: mt }));
-      warnIfEmpty('getDiscover', out, { mt, genreId, year, sortBy, region, providerId, country });
+      warnIfEmpty('getDiscover', out, { mt, genreId, year, sortBy, region, providerId, country, page });
       return out;
     } catch (error) {
-      logServiceError('getDiscover', error, { mt, genreId, year, sortBy, region, providerId, country });
+      logServiceError('getDiscover', error, { mt, genreId, year, sortBy, region, providerId, country, page });
       throw error;
     }
   },

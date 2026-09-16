@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
   CalendarDays,
   ChevronDown,
@@ -52,6 +52,11 @@ const SORT_OPTIONS = [
 ];
 
 const YEAR_START = 1975;
+
+// TMDB's /discover returns 20 titles per page. The grid appends the next page
+// when the sentinel below the last row scrolls into view (Cinejoy behavior),
+// so we stop when a short page proves there is nothing left to fetch.
+const DISCOVER_PAGE_SIZE = 20;
 
 // ── Filter pill ──────────────────────────────────────────────────────────
 // Frosted capsule that drops a listbox panel. One click-outside / Escape
@@ -348,8 +353,10 @@ export default function DiscoveryPage({ mode = "movies" }) {
     refetchOnWindowFocus: false,
   });
 
-  // ── The browse grid — refetches whenever any pill changes ───────────────
-  const gridQuery = useQuery({
+  // ── The browse grid — refetches whenever any pill changes. Paginated so it
+  // loads progressively as the user scrolls (Cinejoy behavior) instead of
+  // fetching the whole catalogue at once. ─────────────────────────────────
+  const gridQuery = useInfiniteQuery({
     queryKey: [
       "discover",
       cfg.mediaType,
@@ -359,7 +366,7 @@ export default function DiscoveryPage({ mode = "movies" }) {
       providerParam,
       countryParam,
     ],
-    queryFn: () =>
+    queryFn: ({ pageParam = 1 }) =>
       movieService.getDiscover({
         mediaType: cfg.mediaType,
         genreId: genreParam,
@@ -367,7 +374,11 @@ export default function DiscoveryPage({ mode = "movies" }) {
         sortBy: sortParam,
         providerId: providerParam,
         country: countryParam,
+        page: pageParam,
       }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) =>
+      (lastPage?.length || 0) >= DISCOVER_PAGE_SIZE ? allPages.length + 1 : undefined,
     staleTime: 1000 * 60 * 5,
     retry: false,
     refetchOnWindowFocus: false,
@@ -424,7 +435,31 @@ export default function DiscoveryPage({ mode = "movies" }) {
     });
   }, [railItems, isSeries]);
 
-  const gridItems = useMemo(() => gridQuery.data || [], [gridQuery.data]);
+  const gridItems = useMemo(
+    () => (gridQuery.data?.pages || []).flat(),
+    [gridQuery.data],
+  );
+
+  // ── Scroll-triggered pagination ─────────────────────────────────────────
+  // A sentinel below the last grid row; a generous bottom rootMargin starts
+  // the next page before the user hits the floor, so the grid appears to grow
+  // with the scroll rather than loading everything up front.
+  const loadMoreRef = useRef(null);
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = gridQuery;
+  useEffect(() => {
+    const el = loadMoreRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return undefined;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { rootMargin: "900px 0px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage, gridItems.length]);
 
   // ── Diagnostics — no silent failures (debugLogger protocol) ─────────────
   const gridKey = [
@@ -736,18 +771,33 @@ export default function DiscoveryPage({ mode = "movies" }) {
                 <p>Try clearing a filter or choosing another category.</p>
               </div>
             ) : (
-              <div className="discovery-grid">
-                {gridItems.map((movie, idx) => (
-                  <motion.div
-                    key={movie.id}
-                    initial={reduceMotion ? false : { opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.35, delay: (idx % 12) * 0.04, ease: "easeOut" }}
-                  >
-                    <MovieCard movie={movie} />
-                  </motion.div>
-                ))}
-              </div>
+              <>
+                <div className="discovery-grid">
+                  {gridItems.map((movie, idx) => (
+                    <motion.div
+                      key={movie.id}
+                      initial={reduceMotion ? false : { opacity: 0, y: 16 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.35, delay: (idx % 12) * 0.04, ease: "easeOut" }}
+                    >
+                      <MovieCard movie={movie} />
+                    </motion.div>
+                  ))}
+                </div>
+                {/* Scroll sentinel — the next page loads as this nears the
+                    viewport; the Cinejoy three-dot pulse shows while fetching. */}
+                <div ref={loadMoreRef} className="discover-loadmore" aria-live="polite">
+                  {isFetchingNextPage ? (
+                    <span className="loading-dots" role="status" aria-label="Loading more titles">
+                      <span />
+                      <span />
+                      <span />
+                    </span>
+                  ) : hasNextPage ? null : (
+                    <span className="discover-loadmore__end">You have reached the end</span>
+                  )}
+                </div>
+              </>
             )}
           </ErrorBoundary>
           {railEmpty && !gridLoading && (
