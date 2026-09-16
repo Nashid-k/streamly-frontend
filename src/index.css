@@ -1172,8 +1172,8 @@ a {
 
 /* Logo image */
 .hero-logo-img {
-  max-height: clamp(90px, 15vw, 150px);
-  max-width: min(540px, 90%);
+  max-height: clamp(110px, 20vw, 200px);
+  max-width: min(640px, 95%);
   width: auto;
   height: auto;
   object-fit: contain;
@@ -5059,7 +5059,7 @@ html {
   }
 
   .hero-logo-img {
-    max-height: clamp(80px, 13vh, 120px) !important;
+    max-height: clamp(95px, 15vh, 150px) !important;
   }
 
   /* Collection/history empty states */
@@ -5072,7 +5072,7 @@ html {
 @media (max-height: 680px) and (min-width: 1024px) {
   /* Short laptop viewports (e.g. 1366×768 or scaled 1080p) */
   .hero-logo-img {
-    max-height: clamp(75px, 14vh, 110px) !important;
+    max-height: clamp(90px, 16vh, 135px) !important;
   }
 
   .hero-eyebrow {
