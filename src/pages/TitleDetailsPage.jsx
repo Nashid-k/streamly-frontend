@@ -610,13 +610,6 @@ export default function TitleDetails() {
     el.scrollBy({ left: dir === "left" ? -el.clientWidth * 0.8 : el.clientWidth * 0.8, behavior: "smooth" });
   };
   const epArrows = useRailArrows(epRailRef, { enabled: episodeLayout === "carousel" });
-  // Refresh arrow availability every time the rail remounts (season/layout).
-  useEffect(() => {
-    if (episodeLayout !== "carousel") return;
-    const t = window.setTimeout(() => epArrows.refresh(), 80);
-    return () => window.clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [episodeLayout, selectedSeason, episodesLoading]);
 
   const [playMode, setPlayMode] = useState("movie");
   const [playingTrailerKey, setPlayingTrailerKey] = useState(null);
@@ -759,6 +752,15 @@ export default function TitleDetails() {
       }
     }
   }, [isTvContent, movie, episodesLoading, episodesError, episodesData, id, selectedSeason]);
+  // Refresh arrow availability every time the rail remounts (season/layout/load).
+  // Lives below the episodes query so the deps array can read `episodesLoading`
+  // (declared above) without a TDZ crash.
+  useEffect(() => {
+    if (episodeLayout !== "carousel") return;
+    const t = window.setTimeout(() => epArrows.refresh(), 80);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [episodeLayout, selectedSeason, episodesLoading]);
   // Backend returns { episodes, totalEpisodes, releasedEpisodes, isAiring } for running series
   // But also handle plain array format for backward compatibility
   const episodes = useMemo(

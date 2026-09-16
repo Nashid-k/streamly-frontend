@@ -1064,3 +1064,45 @@ Cinejoy set. Original "don't edit" constraint was lifted by the user.
   - `npm run lint` (0 errors / 0 warnings), `npm run test` (318/318 across 30 files — was
     312/30), `npm run build` (✓ 2.02s). Committed + pushed (token URL) +
     `git update-ref refs/remotes/origin/main`.
+
+## Task 65 - Live crash + search UI fixes from browser diagnostics
+
+- [x] **Task 65 - TDZ crash on `/watch/tv-108978/reacher` fixed**
+  - Root cause: the arrow-refresh `useEffect` at the old line 619 referenced
+    `episodesLoading` in its deps array, but the episodes `useQuery` that
+    declares `episodesLoading` is *declared later* in the component (line 738).
+    Deps arrays are evaluated eagerly → `Cannot access 'episodesLoading' before
+    initialization` on every mount of a series page (bundler-minified to
+    `Cannot access 'z'`). Same bug class as Tasks 7/28.
+  - Fix: physically moved that `useEffect` to just below the episodes query so
+    the deps array reads `episodesLoading` after declaration.
+  - Added `src/__tests__/TitleDetailsPage.test.jsx` — mounts the real page over
+    a resolved TV data path (Reacher-like) and fails the suite if ANY binding is
+    read before its declaration (TDZ regression guard, same pattern as the
+    CustomVideoPlayer guard from Task 28). It reproduced the crash before the
+    fix and passes after.
+- [x] **Task 65 - Search results are now Trending-style cards**
+  - Removed the `SearchResultRow` list + the `ContentPageHeader` block from
+    `/search`. The `content-page-header` div no longer renders during searches.
+  - Results render in a `movie-grid` of `MovieCard`s with the exact stagger
+    animation the Trending Today rail uses; filter/sort chips live in a compact
+    `.search-toolbar` row above the grid (new CSS in `index.css`), so All /
+    Movies / TV Shows / Anime + Relevance / Rating / Newest / Oldest still work.
+  - Dropped now-unused imports/state (`SearchResultRow`, `ContentPageHeader`,
+    `useDetailView`/`openDetails`/`modalHost`, `selectedIndex`). `MovieCard`
+    self-navigates so nothing else was needed.
+- [x] **Task 65 - Settings dropdowns: verified working in current source**
+  - `SettingsPage.test.jsx` already clicks the theme trigger and asserts the
+    menu opens + applies (`fireEvent.click` → emerald) — dropdowns open fine in
+    the current build. No code change made (no regression to fix).
+  - User-reported "not clickable" + the crash chunk hash
+    `TitleDetailsPage-Gdnu7S09.js` (≠ local `Gqa5Nrvv.js`/`Cw4X9qfI.js`) point
+    to a stale deployed/Server-Worker-cached build: the running `/watch` chunk
+    was the pre-Task-65 TDZ bundle. Fix on the user's side = redeploy the new
+    build + hard refresh (the `streamly-*` SW cache re-fetches new hashed
+    chunks once the bundle is fresh).
+- [x] **Task 65 - Verification**
+  - `npm run lint` (0 errors / 0 warnings), `npm run test` (320/320 across 31 files —
+    was 318/30; +2 TitleDetailsPage guard tests), `npm run build` (✓ 2.44s;
+    `TitleDetailsPage-Gqa5Nrvv.js`, `SearchPage-CqmtapvR.js`,
+    `SettingsPage-bwKydEPI.js`).

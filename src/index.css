@@ -3536,6 +3536,31 @@ body::after {
   gap: 0.55rem;
 }
 
+/* Search results toolbar — compact chips row that replaces the page header
+   so the result grid looks identical to the Trending Today rail. */
+.search-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1.4rem;
+}
+
+.search-toolbar__filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.search-toolbar__count {
+  margin: 0;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+}
+
 .filter-group {
   display: flex;
   align-items: center;

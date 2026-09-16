@@ -6,14 +6,11 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { Search, Film, Tv, Flame, Sparkles, Star, Clock, X, RotateCw } from "lucide-react";
 import { motion } from "framer-motion";
 import MovieCard from "../components/MovieCard";
-import SearchResultRow from "../components/SearchResultRow";
-import useDetailView from "../hooks/useDetailView";
 import EmptyState from "../components/EmptyState";
 import Button from "../components/Button";
 import Chip from "../components/Chip";
 import AmbientBackground from "../components/AmbientBackground";
 import ErrorBoundary from "../components/ErrorBoundary";
-import ContentPageHeader from "../components/ContentPageHeader";
 import { useAppAuth } from "../context/auth";
 import { logEmptyData, reportQueryError } from "../utils/debugLogger";
 
@@ -56,8 +53,6 @@ export default function SearchPage() {
 
   const [filterType, setFilterType] = useState("All");
   const [sortBy, setSortBy] = useState("Relevance");
-  const [selectedIndex, setSelectedIndex] = useState(-1);
-  const { openDetails, modalHost } = useDetailView();
 
   useEffect(() => {
     if (!query.trim()) return;
@@ -304,42 +299,41 @@ export default function SearchPage() {
       </section>
 
       <div className="content-page__inner">
-        {/* Header — shown while searching */}
-        {query && (
-          <ContentPageHeader
-            eyebrow="Search"
-            title={<>Results for <span className="page-title-quote">“{query}”</span></>}
-            description="Fine-tune the results or keep exploring."
-            count={results.length}
-            actions={results.length > 0 && (
-              <div className="filter-controls">
-                <div className="filter-group" aria-label="Filter results by type">
-                  {["All", "Movies", "TV Shows", "Anime"].map((f) => (
-                    <Chip key={f} active={filterType === f} onClick={() => setFilterType(f)}>
-                      {f}
-                    </Chip>
-                  ))}
-                </div>
-                <div className="filter-group filter-group--quiet" aria-label="Sort results">
-                  {[
-                    { label: "Relevant", value: "Relevance" },
-                    { label: "Rating", value: "Rating" },
-                    { label: "Newest", value: "Year (Newest)" },
-                    { label: "Oldest", value: "Year (Oldest)" },
-                  ].map((opt) => (
-                    <Chip
-                      key={opt.value}
-                      size="sm"
-                      active={sortBy === opt.value}
-                      onClick={() => setSortBy(opt.value)}
-                    >
-                      {opt.label}
-                    </Chip>
-                  ))}
-                </div>
+        {/* Compact filter toolbar — results share the trending card look, so
+            the page header is gone and only the chips keep control of what to
+            show next to the grid. */}
+        {query && results.length > 0 && (
+          <div className="search-toolbar">
+            <div className="search-toolbar__filters">
+              <div className="filter-group" aria-label="Filter results by type">
+                {["All", "Movies", "TV Shows", "Anime"].map((f) => (
+                  <Chip key={f} active={filterType === f} onClick={() => setFilterType(f)}>
+                    {f}
+                  </Chip>
+                ))}
               </div>
-            )}
-          />
+              <div className="filter-group filter-group--quiet" aria-label="Sort results">
+                {[
+                  { label: "Relevant", value: "Relevance" },
+                  { label: "Rating", value: "Rating" },
+                  { label: "Newest", value: "Year (Newest)" },
+                  { label: "Oldest", value: "Year (Oldest)" },
+                ].map((opt) => (
+                  <Chip
+                    key={opt.value}
+                    size="sm"
+                    active={sortBy === opt.value}
+                    onClick={() => setSortBy(opt.value)}
+                  >
+                    {opt.label}
+                  </Chip>
+                ))}
+              </div>
+            </div>
+            <p className="search-toolbar__count" aria-live="polite">
+              {results.length} {results.length === 1 ? "result" : "results"}
+            </p>
+          </div>
         )}
 
         {/* Content */}
@@ -500,23 +494,27 @@ export default function SearchPage() {
             }
           />
         ) : (
-          <section className="mt-6 space-y-1.5" aria-label={`${results.length} results for "${query}"`}>
-            {visibleResults.map((movie, idx) => (
-              <SearchResultRow
-                key={movie.id}
-                r={movie}
-                i={idx}
-                selectedResultIndex={selectedIndex}
-                setSelectedResultIndex={setSelectedIndex}
-                onClick={() => openDetails(movie)}
-              />
-            ))}
+          <section className="mt-6" aria-label={`${results.length} results for "${query}"`}>
+            <div className="movie-grid">
+              {visibleResults.map((movie, idx) => (
+                <motion.div
+                  key={movie.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    duration: 0.4,
+                    delay: (idx % 10) * 0.05,
+                    ease: "easeOut",
+                  }}
+                >
+                  <MovieCard movie={movie} />
+                </motion.div>
+              ))}
+            </div>
           </section>
         )}
         </ErrorBoundary>
       </div>
-
-      {modalHost}
     </div>
   );
 }
