@@ -25,3 +25,25 @@ export function voteSplitPct(imdbRating) {
   const up = Math.max(1, Math.min(99, Math.round((rating / 10) * 100)));
   return { up, down: 100 - up };
 }
+
+/* Episode ordering for the Episodes section — Cinejoy sorts "Oldest"
+   (default) or "Newest" — and is a pure (non-mutating) copy+reverse. */
+export function buildEpisodeOrder(episodes, newest = false) {
+  const list = Array.isArray(episodes) ? [...episodes] : [];
+  if (newest) list.reverse();
+  return list;
+}
+
+/* "E1" chip label exactly like the Cinejoy episode-card badge. */
+export function episodeNumberLabel(episodeNumber) {
+  if (episodeNumber == null) return "";
+  return `E${episodeNumber}`;
+}
+
+/* An episode is playable once its air date is not in the future (null date
+   counts as aired). Rule shared by the card, list and controls. */
+export function isEpAired(ep, now = new Date()) {
+  if (!ep || !ep.airDate) return true;
+  const t = new Date(ep.airDate).getTime();
+  return !Number.isFinite(t) || t <= now.getTime();
+}

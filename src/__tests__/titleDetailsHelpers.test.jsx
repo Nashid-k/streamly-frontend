@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatRuntimeLabel, isUnreleased, voteSplitPct } from "../utils/titleDetails";
+import { formatRuntimeLabel, isUnreleased, voteSplitPct, buildEpisodeOrder, episodeNumberLabel, isEpAired } from "../utils/titleDetails";
 import { certificationFromDetail } from "../api/movieService";
 
 describe("TitleDetails meta helpers", () => {
@@ -24,6 +24,53 @@ describe("TitleDetails meta helpers", () => {
     expect(voteSplitPct(8.4)).toEqual({ up: 84, down: 16 });
     expect(voteSplitPct(0)).toBeNull();
     expect(voteSplitPct(null)).toBeNull();
+  });
+});
+
+describe("episode layout helpers (Cinejoy episodes section)", () => {
+  const eps = [
+    { episodeNumber: 1, title: "A" },
+    { episodeNumber: 2, title: "B" },
+    { episodeNumber: 3, title: "C" },
+  ];
+
+  it("keeps the default order (Oldest) and returns a copy", () => {
+    const order = buildEpisodeOrder(eps);
+    expect(order.map((e) => e.episodeNumber)).toEqual([1, 2, 3]);
+    expect(order).not.toBe(eps);
+  });
+
+  it("reverses for Newest without mutating the source", () => {
+    const order = buildEpisodeOrder(eps, true);
+    expect(order.map((e) => e.episodeNumber)).toEqual([3, 2, 1]);
+    expect(eps.map((e) => e.episodeNumber)).toEqual([1, 2, 3]);
+  });
+
+  it("handles empty input", () => {
+    expect(buildEpisodeOrder([])).toEqual([]);
+    expect(buildEpisodeOrder(null)).toEqual([]);
+    expect(buildEpisodeOrder(undefined, true)).toEqual([]);
+  });
+
+  it("labels episode numbers like the Cinejoy E-badge", () => {
+    expect(episodeNumberLabel(1)).toBe("E1");
+    expect(episodeNumberLabel(25)).toBe("E25");
+    expect(episodeNumberLabel(null)).toBe("");
+    expect(episodeNumberLabel(undefined)).toBe("");
+  });
+
+  it("treats an episode without an air date as aired", () => {
+    expect(isEpAired({ episodeNumber: 1 })).toBe(true);
+  });
+
+  it("reports only aired episodes as playable", () => {
+    const past = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const future = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const now = new Date();
+    expect(isEpAired({ episodeNumber: 1, airDate: past }, now)).toBe(true);
+    expect(isEpAired({ episodeNumber: 2, airDate: future }, now)).toBe(false);
+    expect(isEpAired({ episodeNumber: 2, airDate: future })).toBe(false);
+    expect(isEpAired({ episodeNumber: 3, airDate: "not-a-date" }, now)).toBe(true);
   });
 });
 

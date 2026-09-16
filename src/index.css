@@ -7535,6 +7535,14 @@ html[data-theme="solar"] {
   -webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
 }
 
+/* Episodes rail — the exact edge-fade Cinejoy applies inline
+   (linear-gradient(to right, transparent 0%, black 0px, black calc(100% - 60px), transparent 100%))
+   so the leftmost card bleeds out of the section padding. */
+.episodes-rail-mask {
+  mask-image: linear-gradient(to right, transparent 0%, black 0px, black calc(100% - 60px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 0px, black calc(100% - 60px), transparent 100%);
+}
+
 /* Footer — global Streamly wordmark bar, glassy and compact (site takes its
    styling cues from the Cinejoy footer line). */
 .site-footer {

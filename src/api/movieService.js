@@ -399,7 +399,10 @@ export const movieService = {
       title: ep.name,
       description: ep.overview,
       airDate: ep.air_date,
-      thumbnailUrl: ep.still_path ? CdnImageAdapter.getUrl(ep.still_path, 'w500') : null,
+      // Cinejoy episode thumbs come straight from TMDB's still CDN (w500) —
+      // the same src the dumped series page ships. Avoid the wsrv proxy
+      // here so a still can never be dropped by an upstream optimizer.
+      thumbnailUrl: ep.still_path ? `https://image.tmdb.org/t/p/w500${ep.still_path}` : null,
       durationMins: ep.runtime,
       duration: ep.runtime ? `${ep.runtime}m` : '',
       voteAverage: ep.vote_average,

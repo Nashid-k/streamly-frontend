@@ -1008,3 +1008,59 @@ Cinejoy set. Original "don't edit" constraint was lifted by the user.
     Watching cards already ship the canonical Cinejoy treatment (16:9, image `scale-105`,
     white glass play orb, 3px white progress bar, edge mask) — left as-is.
   - Verified: `npm run lint` (0), `npm run test` (305/305), `npm run build` (✓ 2.2s).
+
+## Task 64 — Episodes section parity (Cinejoy dump), green airing badge, nav pill on details pages, TMDB episode stills
+
+- [x] **Task 64 - Episodes header + rail + cards restyled to the dumped Kamen Rider episodes UI**
+  - Header (`flex flex-wrap items-center gap-x-2 gap-y-3 px-2` + `shrink-0 ml-auto` control row):
+    - **Ratings** pill (`Grid3x3`, desktop label "Ratings / Hide ratings", aria-pressed) toggles
+      `showEpisodeRatings` — episode vote badges are now hidden by default (dump has none) and
+      only appear when the toggle is on (both card + list rows).
+    - **Sort** pill (desktop ArrowUpDown + "Oldest"/"Newest", mobile icon-only) drops a frosted
+      dropdown (Oldest default / Newest via `buildEpisodeOrder` pure util) with Escape +
+      click-outside close (`sortRef`).
+    - **Mark watched** pill (`Eye`) toggles the whole season: sets/clears a
+      `watchedEpisodes: { [season]: number[] }` set on the continue-watching entry (same
+      `aios_continue_watching` key — `useUserData.updateProgress` now merges the existing entry
+      so extra fields survive every play). Toasts both directions.
+    - Restyled **Season** pill (`h-10 px-4 rounded-full bg-white/10`, "NEW SEASON" green chip
+      dot on the airing season) and the **layout toggle** as three round icon pills (carousel/
+      grid/list).
+  - Rail: wrapped in `relative group/episodes`; Cinejoy edge-fade `.episodes-rail-mask` +
+      `scrollbar-hide`, `gap-1.5rem pt-4 pb-12 px-8`, `scroll-snap-align:start`; overlay
+      chevron arrows (`w-12 h-12`, right shows on rail hover via `group-hover/episodes:opacity-100`,
+      both disabled/dimmed by `useRailArrows` state on the carousel container).
+  - Card recipe (dump-verbatim): `flex flex-col gap-3 shrink-0 group`, thumb
+    `relative aspect-video w-full rounded-xl overflow-hidden bg-black/20 border-white/5
+    group-hover:scale-105 group-hover:ring-1 group-hover:ring-white/50`, img
+    `group-hover:brightness-110`, **E-badge** (`E{n}` pill top-left), **watched Eye/EyeOff**
+    toggle top-right (stopPropagation), duration chip bottom-right, "Airs <date>" pill for
+    unaired + "No stream available" chip, white Playing badge, `text-base font-bold` title +
+    `text-white/60` two-line description, 3px watched progress bar. Removed the persistent
+    center play orb + bottom gradient. List rows keep the accent bar but gate ratings behind
+    `showEpisodeRatings` and share `pctWatched`/`isEpAired`.
+  - New pure helpers + tests: `buildEpisodeOrder`, `episodeNumberLabel`, `isEpAired` in
+    `src/utils/titleDetails.js`; 10 new cases.
+- [x] **Task 64 - Green airing badge replaces red on the details page**
+  - Hero chip (was red `#ef4444` pulse + `#fecaca` text) → the updated green pill recipe:
+    `rgba(149,255,80,…)` gradient tint, `#d9f99d` text, pulsing accent dot, "Season N Airing".
+  - `SeasonDropdown` pill/menu (was red dot + red "AIRING") → green `NEW SEASON` chip with
+    white dot (accent gradient, same family as the cards' `Season N` badge). Season label "Season N" kept.
+- [x] **Task 64 - Nav active pill lights up on series/movie info pages**
+  - Root cause: `NAV_ITEMS`/mobile-matchers only matched `/movies`/`/series` prefixes, so the
+    shared white pill retracted on `/watch/<id>/<slug>` (a movie page) and `/watch/<tv-id>/…`.
+  - `App.jsx`: new `navWatchKind(path)` reads the `/watch/:id` segment and classifies via the
+    same `isTvId` rules (`tmdb-tv-`/`tv-`/`-tv-` → series, else movie); Movies/Shows `match`
+    predicates now `p.startsWith(...) || navWatchKind(p) === kind` in BOTH the desktop
+    `NAV_ITEMS` and the mobile bottom array. Pill measurement is reactive every render, so the
+    highlight glides under the right tab instantly.
+- [x] **Task 64 - Episode thumbnails reversed out of the dump (direct TMDB stills)**
+  - `movieService.getSeasonEpisodes` now maps `thumbnailUrl` to the direct TMDB CDN
+    (`https://image.tmdb.org/t/p/w500${still_path}`) exactly like the dumped series page's
+    `<img>` srcs instead of the wsrv proxy `CdnImageAdapter` URL.
+  - Cards render that URL verbatim (`src={epThumb}`), with the existing series-artwork fallback
+    chain for still-less episodes (`ep.posterUrl → backdrop → movie art → monogram`).
+- [x] **Task 64 - Verification**
+  - `npm run lint` (0 errors / 0 warnings), `npm run test` (318/318 across 30 files — was
+    312/30), `npm run build` (✓ 2.02s). Committed + pushed (token URL) +
+    `git update-ref refs/remotes/origin/main`.

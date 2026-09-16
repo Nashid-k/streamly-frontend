@@ -94,7 +94,16 @@ export function useContinueWatching() {
     setContinueWatching(prev => {
       const existing = prev.find(m => m.id === movie.id);
       const finalTimestamp = timestamp !== null ? timestamp : existing?.timestamp ?? null;
-      const newItem = { ...movie, lastWatched: Date.now(), savedSeason: season, savedEpisode: episode, timestamp: finalTimestamp };
+      // Keep every field the caller didn't set (e.g. watchedEpisodes) so
+      // playing an episode never wipes the per-episode watch set.
+      const newItem = {
+        ...(existing || {}),
+        ...movie,
+        lastWatched: Date.now(),
+        savedSeason: season !== null && season !== undefined ? season : existing?.savedSeason ?? null,
+        savedEpisode: episode !== null && episode !== undefined ? episode : existing?.savedEpisode ?? null,
+        timestamp: finalTimestamp,
+      };
       const updated = [newItem, ...prev.filter(m => m.id !== movie.id)].slice(0, 20);
       writeStorage('aios_continue_watching', updated);
       dispatch('aios_sync_cw');

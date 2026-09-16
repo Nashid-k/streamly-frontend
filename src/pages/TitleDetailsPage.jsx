@@ -37,6 +37,8 @@ import {
   Eye,
   EyeOff,
   Clock,
+  Grid3x3,
+  ArrowUpDown,
 } from "lucide-react";
 import {
   motion,
@@ -49,6 +51,7 @@ import MovieCard from "../components/MovieCard";
 import { buildMovieAddedNotification } from "../utils/notificationEngine";
 import { formatTMDBDate, getTMDBWeekday } from "../utils/timezone";
 import { formatRuntimeLabel, isUnreleased, voteSplitPct } from "../utils/titleDetails";
+import { buildEpisodeOrder, episodeNumberLabel, isEpAired } from "../utils/titleDetails";
 import { getPlatformName } from "../utils/platforms";
 import { logEmptyData, logError, reportQueryError } from "../utils/debugLogger";
 import CustomVideoPlayer from "../components/CustomVideoPlayer";
@@ -103,25 +106,25 @@ function SeasonDropdown({ seasons, selectedSeason, airingSeasonNumber, onSelect 
           display: "flex",
           alignItems: "center",
           gap: "10px",
-          background: "rgba(255,255,255,0.07)",
-          border: "1px solid rgba(255,255,255,0.15)",
+          background: "rgba(255,255,255,0.1)",
+          border: "1px solid rgba(255,255,255,0.1)",
           color: "#fff",
-          padding: "0.6rem 1.1rem",
-          borderRadius: "12px",
-          fontSize: "0.95rem",
-          fontWeight: 700,
+          padding: "0 16px",
+          height: "40px",
+          borderRadius: "9999px",
+          fontSize: "0.875rem",
+          fontWeight: 600,
           cursor: "pointer",
-          minWidth: "150px",
-          justifyContent: "space-between",
-          backdropFilter: "blur(8px)",
-          transition: "border-color 0.2s",
+          backdropFilter: "blur(12px)",
+          transition: "background 0.2s, border-color 0.2s",
+          whiteSpace: "nowrap",
         }}
       >
-        <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <span
             style={{
-              width: "8px",
-              height: "8px",
+              width: "7px",
+              height: "7px",
               borderRadius: "50%",
               background: "var(--accent-gradient)",
               flexShrink: 0,
@@ -133,13 +136,22 @@ function SeasonDropdown({ seasons, selectedSeason, airingSeasonNumber, onSelect 
               aria-label="Currently airing"
               title="Currently airing"
               style={{
-                width: "6px",
-                height: "6px",
-                borderRadius: "50%",
-                background: "#ef4444",
-                boxShadow: "0 0 0 3px rgba(239,68,68,0.18)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+                padding: "2px 8px",
+                borderRadius: "999px",
+                background: "var(--accent-gradient, linear-gradient(90deg, #95ff50, #5ce21c))",
+                color: "var(--on-accent, #fff)",
+                fontSize: "0.6rem",
+                fontWeight: 800,
+                letterSpacing: "0.05em",
+                flexShrink: 0,
               }}
-            />
+            >
+              <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#fff", flexShrink: 0 }} />
+              NEW SEASON
+            </span>
           )}
         </span>
         <motion.span
@@ -225,8 +237,25 @@ function SeasonDropdown({ seasons, selectedSeason, airingSeasonNumber, onSelect 
                     {!isSelected && <span style={{ width: "6px" }} />}
                     <span style={{ flex: 1 }}>Season {seasonNumber}</span>
                     {isAiringSeason && (
-                      <span style={{ color: "#fca5a5", fontSize: "0.68rem", fontWeight: 700 }}>
-                        AIRING
+                      <span
+                        aria-label="Currently airing"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "5px",
+                          padding: "2px 8px",
+                          borderRadius: "999px",
+                          background: "var(--accent-gradient, linear-gradient(90deg, #95ff50, #5ce21c))",
+                          color: "var(--on-accent, #fff)",
+                          fontSize: "0.62rem",
+                          fontWeight: 800,
+                          letterSpacing: "0.04em",
+                          flexShrink: 0,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#fff", flexShrink: 0 }} />
+                        NEW SEASON
                       </span>
                     )}
                   </motion.button>
@@ -580,6 +609,14 @@ export default function TitleDetails() {
     if (!el) return;
     el.scrollBy({ left: dir === "left" ? -el.clientWidth * 0.8 : el.clientWidth * 0.8, behavior: "smooth" });
   };
+  const epArrows = useRailArrows(epRailRef, { enabled: episodeLayout === "carousel" });
+  // Refresh arrow availability every time the rail remounts (season/layout).
+  useEffect(() => {
+    if (episodeLayout !== "carousel") return;
+    const t = window.setTimeout(() => epArrows.refresh(), 80);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [episodeLayout, selectedSeason, episodesLoading]);
 
   const [playMode, setPlayMode] = useState("movie");
   const [playingTrailerKey, setPlayingTrailerKey] = useState(null);
@@ -724,17 +761,132 @@ export default function TitleDetails() {
   }, [isTvContent, movie, episodesLoading, episodesError, episodesData, id, selectedSeason]);
   // Backend returns { episodes, totalEpisodes, releasedEpisodes, isAiring } for running series
   // But also handle plain array format for backward compatibility
-  const episodes = Array.isArray(episodesData)
-    ? episodesData
-    : Array.isArray(episodesData?.episodes)
-      ? episodesData.episodes
-      : [];
+  const episodes = useMemo(
+    () => Array.isArray(episodesData)
+      ? episodesData
+      : Array.isArray(episodesData?.episodes)
+        ? episodesData.episodes
+        : [],
+    [episodesData],
+  );
 
   const totalEpisodes = episodesData?.totalEpisodes || episodes.length;
   const releasedEpisodes = episodesData?.releasedEpisodes || episodes.length;
   const isAiring = episodesData?.isAiring
     || (selectedSeason === airingSeasonNumber && !!movie?.nextEpisode?.releaseDate);
   const hasSeriesEpisodes = isTvContent;
+
+  // ── Episode header controls (Cinejoy parity) ─────────────────────────────
+  const [showEpisodeRatings, setShowEpisodeRatings] = useState(false);
+  const [sortNewest, setSortNewest] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
+  const sortRef = useRef(null);
+  useEffect(() => {
+    if (!sortOpen) return undefined;
+    const handler = (e) => {
+      if (sortRef.current && !sortRef.current.contains(e.target)) setSortOpen(false);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") setSortOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [sortOpen]);
+
+  // Oldest (default) / Newest — pure, shared by every layout.
+  const episodesForLayout = useMemo(
+    () => buildEpisodeOrder(episodes, sortNewest),
+    [episodes, sortNewest],
+  );
+
+  const continueEntryForMovie = useMemo(
+    () => continueWatching?.find((m) => String(m.id) === String(movie?.id)),
+    [continueWatching, movie?.id],
+  );
+
+  // Per-episode watch state lives in the single continue-watching entry as a
+  // `watchedEpisodes: { [season]: number[] }` set (same localStorage key).
+  const isEpisodeWatched = (ep) => {
+    const item = continueEntryForMovie;
+    if (!item) return false;
+    if (item.savedEpisode === ep.episodeNumber && (item.timestamp || 0) > 0) return true;
+    return (item.watchedEpisodes?.[selectedSeason] || []).includes(ep.episodeNumber);
+  };
+
+  const setEpisodeWatched = (ep, watched) => {
+    if (!movie) return;
+    const watchedEpisodes = { ...((continueEntryForMovie?.watchedEpisodes) || {}) };
+    const list = new Set(watchedEpisodes[selectedSeason] || []);
+    if (watched) list.add(ep.episodeNumber);
+    else list.delete(ep.episodeNumber);
+    watchedEpisodes[selectedSeason] = [...list];
+    updateProgress(
+      { ...movie, source: resolvedPlatform, sourceName, watchedEpisodes },
+      selectedSeason,
+      ep.episodeNumber,
+      watched ? (ep.durationMins || 60) * 60 : 0,
+    );
+  };
+
+  const toggleEpisodeWatched = (ep) => {
+    const watched = isEpisodeWatched(ep);
+    setEpisodeWatched(ep, !watched);
+    toast({
+      title: watched ? "Marked as not watched" : "Marked as watched",
+      message: `${episodeNumberLabel(ep.episodeNumber)} · ${ep.title}`,
+      type: watched ? "info" : "success",
+      duration: 2200,
+    });
+  };
+
+  const markSeasonWatched = () => {
+    if (!movie || episodesForLayout.length === 0) return;
+    const aired = episodesForLayout.filter((ep) => isEpAired(ep));
+    if (aired.length === 0) return;
+    const allWatched = aired.every((ep) => isEpisodeWatched(ep));
+    if (allWatched) {
+      const watchedEpisodes = { ...((continueEntryForMovie?.watchedEpisodes) || {}) };
+      delete watchedEpisodes[selectedSeason];
+      const keepTs = continueEntryForMovie?.savedSeason === selectedSeason
+        ? continueEntryForMovie?.timestamp ?? null
+        : null;
+      const keepEp = continueEntryForMovie?.savedSeason === selectedSeason
+        ? continueEntryForMovie?.savedEpisode ?? null
+        : null;
+      updateProgress(
+        { ...movie, source: resolvedPlatform, sourceName, watchedEpisodes },
+        keepEp != null ? selectedSeason : null,
+        keepEp,
+        keepTs,
+      );
+      toast({
+        title: "Marked as not watched",
+        message: `Season ${selectedSeason} cleared from history.`,
+        type: "info",
+        duration: 2500,
+      });
+    } else {
+      const numbers = aired.map((ep) => ep.episodeNumber);
+      const watchedEpisodes = { ...((continueEntryForMovie?.watchedEpisodes) || {}), [selectedSeason]: numbers };
+      const last = aired[aired.length - 1];
+      updateProgress(
+        { ...movie, source: resolvedPlatform, sourceName, watchedEpisodes },
+        selectedSeason,
+        last.episodeNumber,
+        (last.durationMins || 60) * 60,
+      );
+      toast({
+        title: "Marked as watched",
+        message: `Season ${selectedSeason} · ${aired.length} episode${aired.length > 1 ? "s" : ""}.`,
+        type: "success",
+        duration: 2500,
+      });
+    }
+  };
 
   useEffect(() => {
     if (!movieId || !isTvContent) return;
@@ -1057,13 +1209,13 @@ export default function TitleDetails() {
                     padding: "6px 14px",
                     borderRadius: "100px",
                     background:
-                      "linear-gradient(135deg, rgba(239,68,68,0.18), rgba(220,38,38,0.08))",
-                    border: "1px solid rgba(239,68,68,0.45)",
-                    color: "#fecaca",
+                      "linear-gradient(135deg, rgba(149,255,80,0.18), rgba(92,226,28,0.08))",
+                    border: "1px solid rgba(149,255,80,0.45)",
+                    color: "#d9f99d",
                     fontSize: "0.8rem",
                     fontWeight: 700,
                     letterSpacing: "0.03em",
-                    boxShadow: "0 4px 20px rgba(220,38,38,0.25)",
+                    boxShadow: "0 4px 20px rgba(149,255,80,0.2)",
                   }}
                 >
                   <span
@@ -1072,8 +1224,8 @@ export default function TitleDetails() {
                       width: 8,
                       height: 8,
                       borderRadius: "50%",
-                      background: "#ef4444",
-                      boxShadow: "0 0 0 0 rgba(239,68,68,0.7)",
+                      background: "var(--accent-primary, #95ff50)",
+                      boxShadow: "0 0 0 0 rgba(149,255,80,0.7)",
                       animation: "pulse 2s ease-in-out infinite",
                       flexShrink: 0,
                     }}
@@ -1319,18 +1471,9 @@ export default function TitleDetails() {
           viewport={{ once: true, margin: "-40px" }}
           transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
         >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "1rem",
-              flexWrap: "wrap",
-              gap: "1rem",
-            }}
-          >
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-3 px-2">
             <motion.h2
-              className="text-xl lg:text-2xl font-bold text-white/90 px-2"
+              className="text-xl lg:text-2xl font-bold text-white/90 shrink-0"
               style={{ margin: 0 }}
               initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
@@ -1342,84 +1485,128 @@ export default function TitleDetails() {
                 : episodes.length > 0 && <span style={{ fontSize: '0.7em', color: '#52525b', fontWeight: 400 }}>({episodes.length})</span>}
             </motion.h2>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-              {/* Layout toggle */}
-              <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }} role="radiogroup" aria-label="Episode layout">
+            <div className="flex items-center gap-2 shrink-0 ml-auto flex-wrap">
+              {/* Ratings toggle (Cinejoy pill) */}
+              <button
+                onClick={() => setShowEpisodeRatings(v => !v)}
+                aria-pressed={showEpisodeRatings}
+                aria-label="View episode ratings"
+                title="Ratings"
+                className="w-10 sm:w-auto h-10 sm:px-4 inline-flex items-center justify-center gap-2 rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-white text-sm font-medium hover:bg-white/15 transition-colors"
+              >
+                <Grid3x3 size={16} />
+                <span className="hidden sm:inline">{showEpisodeRatings ? "Hide ratings" : "Ratings"}</span>
+              </button>
+
+              {/* Sort (Oldest / Newest) */}
+              <div className="relative" ref={sortRef}>
+                <button
+                  onClick={() => setSortOpen(o => !o)}
+                  aria-haspopup="menu"
+                  aria-expanded={sortOpen}
+                  className="hidden sm:inline-flex h-10 px-4 items-center gap-2 rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-white text-sm font-medium hover:bg-white/15 transition-colors"
+                >
+                  <ArrowUpDown size={16} />
+                  {sortNewest ? "Newest" : "Oldest"}
+                </button>
+                <button
+                  onClick={() => setSortOpen(o => !o)}
+                  aria-label="Sort episodes"
+                  aria-haspopup="menu"
+                  aria-expanded={sortOpen}
+                  className="sm:hidden w-10 h-10 inline-flex items-center justify-center rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-white hover:bg-white/15 transition-colors"
+                >
+                  <ArrowUpDown size={16} />
+                </button>
+                {sortOpen && (
+                  <div
+                    role="menu"
+                    aria-label="Sort episodes"
+                    className="absolute right-0 mt-2 z-50 w-44 rounded-2xl border border-white/10 bg-[#0c0c10] shadow-2xl overflow-hidden"
+                  >
+                    <button
+                      role="menuitemradio"
+                      aria-checked={!sortNewest}
+                      onClick={() => { setSortNewest(false); setSortOpen(false); }}
+                      className="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/5 flex items-center justify-between"
+                    >
+                      Oldest {!sortNewest && <Check size={14} />}
+                    </button>
+                    <button
+                      role="menuitemradio"
+                      aria-checked={sortNewest}
+                      onClick={() => { setSortNewest(true); setSortOpen(false); }}
+                      className="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/5 flex items-center justify-between"
+                    >
+                      Newest {sortNewest && <Check size={14} />}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Mark-watched (season toggle, Cinejoy pill) */}
+              <button
+                onClick={markSeasonWatched}
+                className="h-10 px-4 inline-flex items-center gap-2 rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-white text-sm font-medium hover:bg-white/15 transition-colors"
+              >
+                <Eye size={16} /> Mark watched
+              </button>
+
+              {/* Season dropdown */}
+              <SeasonDropdown
+                seasons={availableSeasons}
+                selectedSeason={selectedSeason}
+                airingSeasonNumber={airingSeasonNumber}
+                onSelect={(s) => { setSelectedSeason(s); setShowAllEpisodes(false); }}
+              />
+
+              {/* Layout toggle — three icon pills */}
+              <div className="inline-flex items-center gap-1 rounded-full bg-white/10 backdrop-blur-md border border-white/10 p-1" role="radiogroup" aria-label="Episode layout">
                 <motion.button
                   whileTap={{ scale: 0.92 }}
                   onClick={() => setEpisodeLayout('carousel')}
                   aria-pressed={episodeLayout === 'carousel'}
+                  className="h-8 w-8 inline-flex items-center justify-center rounded-full transition-colors"
                   style={{
-                    padding: '8px 12px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: episodeLayout === 'carousel' ? 'rgba(255,255,255,0.12)' : 'transparent',
-                    color: episodeLayout === 'carousel' ? '#fff' : '#71717a',
-                    transition: 'all 0.2s',
+                    background: episodeLayout === 'carousel' ? 'rgba(255,255,255,0.16)' : 'transparent',
+                    color: episodeLayout === 'carousel' ? '#fff' : '#9ca3af',
                   }}
                   title="Carousel view"
                 >
-                  <GalleryHorizontal size={16} />
+                  <GalleryHorizontal size={15} />
                 </motion.button>
                 <motion.button
                   whileTap={{ scale: 0.92 }}
                   onClick={() => setEpisodeLayout('grid')}
+                  aria-pressed={episodeLayout === 'grid'}
+                  className="h-8 w-8 inline-flex items-center justify-center rounded-full transition-colors"
                   style={{
-                    padding: '8px 12px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: episodeLayout === 'grid' ? 'rgba(255,255,255,0.12)' : 'transparent',
-                    color: episodeLayout === 'grid' ? '#fff' : '#71717a',
-                    transition: 'all 0.2s',
+                    background: episodeLayout === 'grid' ? 'rgba(255,255,255,0.16)' : 'transparent',
+                    color: episodeLayout === 'grid' ? '#fff' : '#9ca3af',
                   }}
                   title="Grid view"
                 >
-                  <LayoutGrid size={16} />
+                  <LayoutGrid size={15} />
                 </motion.button>
                 <motion.button
                   whileTap={{ scale: 0.92 }}
                   onClick={() => setEpisodeLayout('list')}
+                  aria-pressed={episodeLayout === 'list'}
+                  className="h-8 w-8 inline-flex items-center justify-center rounded-full transition-colors"
                   style={{
-                    padding: '8px 12px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: episodeLayout === 'list' ? 'rgba(255,255,255,0.12)' : 'transparent',
-                    color: episodeLayout === 'list' ? '#fff' : '#71717a',
-                    transition: 'all 0.2s',
+                    background: episodeLayout === 'list' ? 'rgba(255,255,255,0.16)' : 'transparent',
+                    color: episodeLayout === 'list' ? '#fff' : '#9ca3af',
                   }}
                   title="List view"
                 >
-                  <List size={16} />
+                  <List size={15} />
                 </motion.button>
               </div>
-
-              {/* Carousel rail arrows */}
-              {episodeLayout === 'carousel' && (
-                <div style={{ display: 'flex', gap: '0.4rem' }}>
-                  <motion.button
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => scrollEpRail('left')}
-                    aria-label="Scroll episodes left"
-                    style={{ width: '34px', height: '34px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: '#e4e4e7', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                  >
-                    <ChevronLeft size={16} />
-                  </motion.button>
-                  <motion.button
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => scrollEpRail('right')}
-                    aria-label="Scroll episodes right"
-                    style={{ width: '34px', height: '34px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: '#e4e4e7', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                  >
-                    <ChevronRight size={16} />
-                  </motion.button>
-                </div>
-              )}
-
-              {/* Season dropdown */}
-            <SeasonDropdown
-              seasons={availableSeasons}
-              selectedSeason={selectedSeason}
-              airingSeasonNumber={airingSeasonNumber}
-              onSelect={(s) => { setSelectedSeason(s); setShowAllEpisodes(false); }}
-            />
             </div>
           </div>
 
           {/* Episode Grid/List/Carousel */}
+          <div className="relative group/episodes">
           <AnimatePresence mode="wait">
           <motion.div
             ref={episodeLayout === 'carousel' ? epRailRef : undefined}
@@ -1433,12 +1620,10 @@ export default function TitleDetails() {
                 ? {
                     display: 'flex',
                     flexDirection: 'row',
-                    gap: '0.8rem',
+                    gap: '1.5rem',
                     overflowX: 'auto',
                     scrollSnapType: 'x mandatory',
-                    paddingBottom: '0.75rem',
-                    scrollbarWidth: 'none',
-                    WebkitOverflowScrolling: 'touch',
+                    padding: '1rem 2rem 3rem',
                   }
                 : {
                     display: episodeLayout === 'grid' ? 'grid' : 'flex',
@@ -1447,7 +1632,7 @@ export default function TitleDetails() {
                     gap: episodeLayout === 'grid' ? '0.8rem' : '0.5rem',
                   }
             }
-            className="episode-grid hide-scrollbar"
+            className={episodeLayout === 'carousel' ? 'episodes-rail-mask scrollbar-hide' : 'episode-grid hide-scrollbar'}
           >
             {episodesLoading ? (
               // Skeleton placeholders while episodes load
@@ -1561,8 +1746,8 @@ export default function TitleDetails() {
               </div>
             ) : (() => {
                 const isCarouselLayout = episodeLayout === 'carousel';
-                const visibleEps = isCarouselLayout ? episodes : episodes.slice(0, visibleEpisodeCount);
-                const hasMore = !isCarouselLayout && episodes.length > visibleEpisodeCount;
+                const visibleEps = episodesForLayout.slice(0, isCarouselLayout ? episodesForLayout.length : visibleEpisodeCount);
+                const hasMore = !isCarouselLayout && episodesForLayout.length > visibleEpisodeCount;
                 const isExpanded = !isCarouselLayout && visibleEpisodeCount > EPISODES_CHUNK_SIZE;
                 return (
                   <>
@@ -1570,14 +1755,18 @@ export default function TitleDetails() {
                     const isEpPlaying = isPlaying && playingEpisode === ep.episodeNumber && playMode !== 'trailer';
                     const isGrid = episodeLayout === 'grid';
                     const isCard = isGrid || isCarouselLayout;
-                    const isWatched = continueWatching?.some(m => String(m.id) === String(movie.id) && m.savedEpisode === ep.episodeNumber && m.timestamp > 0);
-                    const watchedTs = continueWatching?.find(m => String(m.id) === String(movie.id) && m.savedEpisode === ep.episodeNumber)?.timestamp || 0;
-                    const isAired = !ep.airDate || new Date(ep.airDate) <= new Date();
+                    const isWatched = isEpisodeWatched(ep);
+                    const isLiveWatched = continueEntryForMovie?.savedEpisode === ep.episodeNumber && (continueEntryForMovie?.timestamp || 0) > 0;
+                    const watchedTs = isLiveWatched ? (continueEntryForMovie?.timestamp || 0) : 0;
+                    const isAired = isEpAired(ep);
                     const playable = SERVERS.length > 0 && isAired;
                     // Upcoming episodes have no TMDB still — fall back to the
                     // series artwork so every card shows an image (grayed out).
                     // Catalog objects sometimes store art in the non-Url fields.
                     const epThumb = ep.thumbnailUrl || ep.posterUrl || ep.backdropUrl || movie.backdropUrl || movie.posterUrl || movie.backdrop || movie.poster || movie.thumbnailUrl || null;
+                    const pctWatched = isWatched && watchedTs <= 0
+                      ? 100
+                      : Math.min(100, (watchedTs / (ep.durationMins ? ep.durationMins * 60 : 3600)) * 100);
                     const playEpisode = () => {
                       if (!playable) return;
                       setIsPlaying(true);
@@ -1601,7 +1790,7 @@ export default function TitleDetails() {
                           animate={{ opacity: 1, scale: 1, y: 0 }}
                           exit={{ opacity: 0, scale: 0.95, y: -8 }}
                           transition={{ duration: 0.35, delay: Math.min(idx * 0.04, 0.3), ease: [0.16, 1, 0.3, 1] }}
-                          whileHover={{ y: -4, boxShadow: '0 16px 40px -10px rgba(0,0,0,0.7)' }}
+                          whileHover={{ y: -4 }}
                           whileTap={playable ? { scale: 0.97 } : undefined}
                           role={playable ? "button" : undefined}
                           tabIndex={playable ? 0 : undefined}
@@ -1609,27 +1798,23 @@ export default function TitleDetails() {
                           aria-label={playable ? `Play ${ep.title}` : undefined}
                           onClick={playEpisode}
                           onKeyDown={playEpKeyboard}
+                          className="group flex flex-col gap-3 shrink-0 cursor-pointer transition-transform duration-200"
                           style={{
-                            background: isEpPlaying ? 'linear-gradient(180deg, rgba(var(--accent-primary-rgb), 0.1) 0%, #050505 100%)' : '#0a0a0c',
-                            borderRadius: '16px', overflow: 'hidden',
-                            border: isEpPlaying ? '1px solid rgba(var(--accent-primary-rgb), 0.4)' : '1px solid rgba(255,255,255,0.05)',
-                            cursor: playable ? 'pointer' : 'default', opacity: (!isAired) ? 0.35 : (SERVERS.length > 0 ? 1 : 0.6),
-                            position: 'relative',
-                            boxShadow: isEpPlaying ? '0 10px 30px -10px var(--accent-glow, rgba(149,255,80,0.15))' : '0 10px 30px -10px rgba(0,0,0,0.5)',
-                            transition: 'border 0.3s ease, background 0.3s ease',
-                            ...(isCarouselLayout ? { flex: '0 0 clamp(220px, 62vw, 300px)', scrollSnapAlign: 'start' } : {}),
+                            opacity: (!isAired) ? 0.45 : (SERVERS.length > 0 ? 1 : 0.6),
+                            scrollSnapAlign: isCarouselLayout ? 'start' : undefined,
+                            ...(isCarouselLayout ? { flex: '0 0 clamp(220px, 62vw, 300px)' } : {}),
                           }}
                         >
-                          <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', overflow: 'hidden', background: '#18181b' }}>
+                          {/* Thumb */}
+                          <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black/20 shrink-0 border border-white/5 transition-all duration-300 group-hover:scale-105 group-hover:ring-1 group-hover:ring-white/50">
                             {epThumb ? (
-                              <motion.img
-                                src={CdnImageAdapter.getUrl(epThumb, 'w500')}
+                              <img
+                                src={epThumb}
                                 alt={ep.title}
-                                whileHover={playable ? { scale: 1.06 } : undefined}
-                                transition={{ duration: 0.5 }}
                                 loading="lazy"
                                 decoding="async"
-                                style={{ width: '100%', height: '100%', objectFit: 'cover', filter: !isAired ? 'grayscale(0.85) brightness(0.55)' : undefined }}
+                                className="w-full h-full object-cover transition-transform duration-500 group-hover:brightness-110"
+                                style={{ filter: !isAired ? 'grayscale(0.85) brightness(0.55)' : undefined }}
                               />
                             ) : (
                               <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '5px', background: 'linear-gradient(135deg, #18181b 0%, rgba(149,255,80,0.12) 55%, #211519 100%)' }}>
@@ -1637,62 +1822,81 @@ export default function TitleDetails() {
                                 <Film size={18} strokeWidth={1.5} color="rgba(255,255,255,0.28)" />
                               </div>
                             )}
-                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              {isAired ? (
-                                SERVERS.length > 0 ? (
-                                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
-                                    <Play size={18} fill="#fff" stroke="none" style={{ marginLeft: '2px' }} />
-                                  </div>
-                                ) : (
-                                  <div style={{ background: 'rgba(0,0,0,0.85)', color: '#a1a1aa', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 600, backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.12)' }}>
-                                    No stream available
-                                  </div>
-                                )
-                              ) : (
+                            {/* E badge */}
+                            <span className="absolute top-2 left-2 px-2.5 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-[11px] font-semibold text-white">
+                              {episodeNumberLabel(ep.episodeNumber)}
+                            </span>
+                            {/* Watched toggle */}
+                            <button
+                              role="button"
+                              tabIndex={0}
+                              aria-pressed={isWatched}
+                              aria-label={isWatched ? `Mark ${ep.title} as not watched` : `Mark ${ep.title} as watched`}
+                              onClick={(e) => { e.stopPropagation(); toggleEpisodeWatched(ep); }}
+                              onKeyDown={(e) => {
+                                e.stopPropagation();
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  toggleEpisodeWatched(ep);
+                                }
+                              }}
+                              className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-white hover:bg-black/65 flex items-center justify-center"
+                            >
+                              {isWatched ? <EyeOff size={15} /> : <Eye size={15} />}
+                            </button>
+                            {/* Center status */}
+                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                              {!isAired ? (
                                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'linear-gradient(135deg, rgba(149,255,80,0.95), rgba(149,255,80,0.9))', color: '#fff', padding: '6px 12px', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.02em', backdropFilter: 'blur(6px)', boxShadow: '0 6px 20px rgba(149,255,80,0.4)' }}>
                                   <Calendar size={13} strokeWidth={2.5} aria-hidden="true" />
                                   <span style={{ opacity: 0.9, fontWeight: 700 }}>Airs</span>
                                   {formatAirsDate(ep.airDate)}
                                 </div>
-                              )}
-                            </div>
-                            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 50%)', pointerEvents: 'none' }} />
-                            {playable && (
-                              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s' }} className="ep-play-overlay">
-                                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--accent-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--on-accent, #fff)', boxShadow: '0 8px 24px var(--accent-glow, rgba(149,255,80,0.5))' }}>
-                                  <Play size={22} fill="currentColor" stroke="none" style={{ marginLeft: '3px' }} />
+                              ) : SERVERS.length === 0 ? (
+                                <div style={{ background: 'rgba(0,0,0,0.85)', color: '#a1a1aa', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 600, backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                                  No stream available
                                 </div>
+                              ) : null}
+                            </div>
+                            {isEpPlaying && (
+                              <div
+                                className="absolute top-2 right-12 px-2 py-0.5 rounded-md text-[10px] font-extrabold tracking-widest uppercase z-10 pointer-events-none"
+                                style={{ background: 'var(--accent-gradient, linear-gradient(90deg, #95ff50, #5ce21c))', color: 'var(--on-accent, #fff)' }}
+                              >
+                                Playing
                               </div>
                             )}
-                            {isEpPlaying && <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'var(--accent-gradient)', color: 'var(--on-accent, white)', padding: '3px 8px', borderRadius: '6px', fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', zIndex: 10 }}>Playing</div>}
-                            <div style={{ position: 'absolute', bottom: '8px', right: '8px', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', padding: '2px 7px', borderRadius: '5px', fontSize: '0.65rem', fontWeight: 700, border: '1px solid rgba(255,255,255,0.08)' }}>{ep.duration}</div>
+                            {/* Duration chip */}
+                            {ep.duration && (
+                              <span className="absolute bottom-2 right-2 px-2.5 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-[11px] font-medium text-white">
+                                {ep.duration}
+                              </span>
+                            )}
                           </div>
-                          <div style={{ padding: '0.7rem 0.9rem', position: 'relative', zIndex: 2 }}>
-                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                              <span style={{ fontSize: '1.2rem', fontWeight: 800, color: isEpPlaying ? 'var(--accent-primary, #95ff50)' : '#3f3f46', lineHeight: 1, fontFamily: 'monospace' }}>{String(ep.episodeNumber).padStart(2, '0')}</span>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', margin: '0 0 0.35rem' }}>
-                                  <h3 style={{ fontSize: '0.95rem', fontWeight: 600, margin: 0, color: isEpPlaying ? '#fff' : '#e4e4e7' }}>{ep.title}</h3>
-                                  {ep.voteAverage > 0 && (
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#e4e4e7', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                                      <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="TMDB Community Score">
-                                        <Popcorn size={11} fill="currentColor" stroke="none" aria-hidden="true" />
-                                        {ep.voteAverage.toFixed(1)}
-                                      </span>
-                                    </span>
-                                  )}
-                                </div>
-                                <p style={{ fontSize: '0.8rem', color: spoilerFreeMode ? '#71717a' : '#a1a1aa', fontStyle: spoilerFreeMode ? 'italic' : 'normal', margin: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.5 }}>
-                                  {spoilerFreeMode ? "Episode details hidden (Spoiler-Free Mode)" : ep.description}
-                                </p>
-                              </div>
+                          {/* Meta */}
+                          <div className="space-y-1 px-1">
+                            <div className="flex items-start justify-between gap-2">
+                              <h3 className="text-base font-bold text-white group-hover:text-white/90 line-clamp-1">
+                                {ep.title}
+                              </h3>
+                              {showEpisodeRatings && ep.voteAverage > 0 && (
+                                <span className="shrink-0 text-[11px] font-bold text-white/80 flex items-center gap-1" title="TMDB Community Score">
+                                  <Popcorn size={11} fill="currentColor" stroke="none" aria-hidden="true" />
+                                  {ep.voteAverage.toFixed(1)}
+                                </span>
+                              )}
                             </div>
+                            <p className={`text-xs ${spoilerFreeMode ? 'text-white/40 italic' : 'text-white/60'} line-clamp-2 leading-relaxed`}>
+                              {spoilerFreeMode ? "Episode details hidden (Spoiler-Free Mode)" : ep.description}
+                            </p>
                             {isWatched && (
-                              <div style={{ marginTop: '0.6rem' }}>
+                              <div style={{ marginTop: '0.45rem' }}>
                                 <div style={{ height: '3px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden' }}>
-                                  <div style={{ height: '100%', width: `${Math.min(100, (watchedTs / (ep.durationMins ? ep.durationMins * 60 : 3600)) * 100)}%`, background: 'var(--accent-gradient, linear-gradient(90deg, #95ff50, #5ce21c))', borderRadius: '2px' }} />
+                                  <div style={{ height: '100%', width: `${pctWatched}%`, background: 'var(--accent-gradient, linear-gradient(90deg, #95ff50, #5ce21c))', borderRadius: '2px' }} />
                                 </div>
-                                <span style={{ fontSize: '0.65rem', color: '#71717a', marginTop: '3px', display: 'block' }}>{formatTime(watchedTs)} watched</span>
+                                <span style={{ fontSize: '0.65rem', color: '#71717a', marginTop: '3px', display: 'block' }}>
+                                  {watchedTs > 0 ? `${formatTime(watchedTs)} watched` : 'Watched'}
+                                </span>
                               </div>
                             )}
                           </div>
@@ -1763,7 +1967,7 @@ export default function TitleDetails() {
                               <span style={{ fontSize: '0.75rem', fontWeight: 800, color: isEpPlaying ? 'var(--accent-primary, #95ff50)' : '#52525b', fontFamily: 'monospace', flexShrink: 0 }}>E{String(ep.episodeNumber).padStart(2, '0')}</span>
                               <h3 style={{ fontSize: '0.9rem', fontWeight: 600, margin: 0, color: isEpPlaying ? '#fff' : '#e4e4e7', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ep.title}</h3>
                             </div>
-                            {ep.voteAverage > 0 && (
+                            {showEpisodeRatings && ep.voteAverage > 0 && (
                               <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#e4e4e7', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                                 <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="TMDB Community Score">
                                   <Popcorn size={11} fill="currentColor" stroke="none" aria-hidden="true" />
@@ -1778,7 +1982,7 @@ export default function TitleDetails() {
                           {isWatched && (
                             <div style={{ marginTop: '0.4rem' }}>
                               <div style={{ height: '2px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden', maxWidth: '120px' }}>
-                                <div style={{ height: '100%', width: `${Math.min(100, (watchedTs / (ep.durationMins ? ep.durationMins * 60 : 3600)) * 100)}%`, background: 'var(--accent-gradient, linear-gradient(90deg, #95ff50, #5ce21c))', borderRadius: '2px' }} />
+                                <div style={{ height: '100%', width: `${pctWatched}%`, background: 'var(--accent-gradient, linear-gradient(90deg, #95ff50, #5ce21c))', borderRadius: '2px' }} />
                               </div>
                             </div>
                           )}
@@ -1867,6 +2071,31 @@ export default function TitleDetails() {
             }
           </motion.div>
           </AnimatePresence>
+
+          {/* Carousel rail overlay arrows (Cinejoy) */}
+          {episodeLayout === 'carousel' && episodes.length > 0 && (
+            <>
+              <button
+                onClick={() => scrollEpRail('left')}
+                aria-label="Scroll episodes left"
+                disabled={!epArrows.canScrollLeft}
+                className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 z-40 w-12 h-12 items-center justify-center bg-transparent text-white/80 hover:text-white cursor-pointer transition-opacity disabled:cursor-default"
+                style={{ opacity: epArrows.canScrollLeft ? undefined : 0 }}
+              >
+                <ChevronLeft size={40} strokeWidth={1.5} />
+              </button>
+              <button
+                onClick={() => scrollEpRail('right')}
+                aria-label="Scroll episodes right"
+                disabled={!epArrows.canScrollRight}
+                className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 z-40 w-12 h-12 items-center justify-center bg-transparent text-white/80 hover:text-white cursor-pointer transition-opacity opacity-0 group-hover/episodes:opacity-100 disabled:cursor-default"
+                style={{ opacity: epArrows.canScrollRight ? undefined : 0 }}
+              >
+                <ChevronRight size={40} strokeWidth={1.5} />
+              </button>
+            </>
+          )}
+          </div>
         </motion.section>
       )}
 
