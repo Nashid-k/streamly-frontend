@@ -643,6 +643,7 @@ a {
 .glass-popover {
   position: absolute;
   top: 120%;
+  pointer-events: auto;
   background: var(--glass-bg);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);

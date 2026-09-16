@@ -19,12 +19,9 @@ import {
   Search,
   GripVertical,
   RotateCcw,
-  Eye,
-  EyeOff,
   LogOut,
   Bookmark,
   Clock,
-  Sliders,
   SlidersHorizontal,
 } from "lucide-react";
 import SEO from "../components/SEO";
@@ -35,17 +32,6 @@ import GoogleSignInButton, { GoogleLogoIcon } from "../components/GoogleSignInBu
 import { useToast } from "../components/Toast.jsx";
 import { useConfirmDialog } from "../components/ConfirmDialog.jsx";
 import { logDebug } from "../utils/debugLogger";
-import {
-  PLAYER_ZONES,
-  PLAYER_CONTROLS,
-  PLAYER_CONTROL_ORDER,
-  PLAYER_UI_PRESETS,
-  resolveUILayout,
-  zoneOf,
-  presetById,
-  resolveSkin,
-  ICON_VARIANTS,
-} from "../components/playerUIDef";
 
 const THEMES = [
   {
@@ -260,347 +246,6 @@ function ServerOrderList({ list, onReorder, onMoveKeyboard }) {
   );
 }
 
-/* ── Player UI Studio ────────────────────────────────────────────────
-   Presets + drag-anywhere placement + live subtitle preview. Reads and
-   writes the same playerControls / playerUILayout preferences the video
-   player renders, so every change previews exactly what will play. */
-function PlayerUIStudio() {
-  const {
-    playerControls = {},
-    playerUIPreset = "classic",
-    playerUISkin = "classic",
-    playerGlobalIconStyle = "auto",
-    playerUILayout,
-    playerIconVariants = {},
-    setPreference,
-    setPlayerControl,
-  } = usePreferences();
-  const { toast } = useToast();
-  const layout = resolveUILayout(playerUILayout);
-  // Tap-to-move fallback (touch + keyboard users): pick a chip, drop a zone.
-  const [pickedKey, setPickedKey] = useState(null);
-
-  const setIconVariant = (key, variantId) => {
-    setPreference("playerIconVariants", { ...playerIconVariants, [key]: variantId });
-  };
-
-  const markCustom = () => {
-    if (playerUIPreset !== "custom") {
-      setPreference("playerUISkin", playerUIPreset);
-      setPreference("playerUIPreset", "custom");
-    }
-  };
-
-  const applyPreset = (preset) => {
-    setPreference("playerUIPreset", preset.id);
-    setPreference("playerUISkin", preset.skinId || preset.id);
-    setPreference("playerUILayout", { ...preset.layout });
-    for (const { key } of PLAYER_CONTROLS) {
-      setPlayerControl?.(key, preset.visibility[key] !== false);
-    }
-    logDebug("settings", `Player UI preset applied: ${preset.name}.`, { preset: preset.id });
-    toast({
-      type: "success",
-      title: `${preset.name} layout applied`,
-      message: "Player buttons rearranged — preview below matches the player.",
-    });
-  };
-
-  const moveControl = (key, zoneId) => {
-    if (!key || zoneOf(layout, key) === zoneId) return;
-    setPreference("playerUILayout", { ...layout, [key]: zoneId });
-    markCustom();
-    logDebug("settings", `Player control "${key}" moved to ${zoneId}.`, { key, zoneId });
-  };
-
-  const toggleControl = (key, val) => {
-    setPlayerControl?.(key, val);
-    markCustom();
-  };
-
-  const onChipDragStart = (e, key) => {
-    e.dataTransfer.setData("text/plain", key);
-    e.dataTransfer.effectAllowed = "move";
-    setPickedKey(key);
-  };
-
-  /* previewFont/PreviewIcon/renderPreviewCluster are retired — the live
-     preview is now the shared PlayerPreview mini-player (demo video +
-     real zone chrome, styled from the same preferences). */
-
-  return (
-    <div className="studio">
-      {/* Presets */}
-      <p className="studio-label">Preset layouts <span className="studio-label-note">each with its own end-to-end skin</span></p>
-      <div className="studio-presets" role="radiogroup" aria-label="Player UI presets">
-        {PLAYER_UI_PRESETS.map((preset) => {
-          const selected = playerUIPreset === preset.id;
-          const presetSkin = resolveSkin(preset.skinId);
-          return (
-            <button
-              key={preset.id}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              onClick={() => applyPreset(preset)}
-              className={`studio-preset${selected ? " is-selected" : ""}`}
-            >
-              {preset.id === "apple" ? (
-                <span className="studio-minimap studio-minimap--apple" aria-hidden="true">
-                  <span className="studio-minimap-island">
-                    <i /><i /><i />
-                  </span>
-                </span>
-              ) : preset.id === "material" ? (
-                <span className="studio-minimap studio-minimap--material" aria-hidden="true">
-                  <span className="studio-minimap-tonal">
-                    <i /><span className="fab" /><i />
-                  </span>
-                </span>
-              ) : preset.id === "minimal" ? (
-                <span className="studio-minimap studio-minimap--minimal" aria-hidden="true">
-                  <span className="studio-minimap-center">
-                    <i /><i /><i />
-                  </span>
-                  <span className="studio-minimap-capsule" />
-                </span>
-              ) : preset.id === "compact" ? (
-                <span className="studio-minimap studio-minimap--compact" aria-hidden="true">
-                  <span className="studio-minimap-body">
-                    <span className="studio-minimap-dock" />
-                    <span className="studio-minimap-rail">
-                      <i /><i /><i />
-                    </span>
-                  </span>
-                </span>
-              ) : preset.id === "theater" ? (
-                <span className="studio-minimap studio-minimap--theater" aria-hidden="true">
-                  <span className="studio-minimap-marquee" />
-                  <span className="studio-minimap-stage">
-                    <i /><i /><i />
-                  </span>
-                  <span className="studio-minimap-bar" style={{ background: "linear-gradient(90deg, #ffd166, #ff9e2c)" }} />
-                </span>
-              ) : preset.id === "studio" ? (
-                <span className="studio-minimap studio-minimap--studio" aria-hidden="true">
-                  <span className="studio-minimap-topline" />
-                  <span className="studio-minimap-ruler" />
-                  <span className="studio-minimap-console">
-                    <i /><i /><i /><i />
-                  </span>
-                </span>
-              ) : (
-                <span className="studio-minimap studio-minimap--classic" aria-hidden="true">
-                  <span className="studio-minimap-top">
-                    <i data-n={zoneCountFor(preset.layout, "topLeft")} />
-                    <i data-n={zoneCountFor(preset.layout, "topRight")} />
-                  </span>
-                  <span className="studio-minimap-bar" />
-                  <span className="studio-minimap-bottom">
-                    <i data-n={zoneCountFor(preset.layout, "bottomLeft")} />
-                    <i data-n={zoneCountFor(preset.layout, "bottomCenter")} />
-                    <i data-n={zoneCountFor(preset.layout, "bottomRight")} />
-                  </span>
-                </span>
-              )}
-              <span className="studio-preset-name">{preset.name}</span>
-              {preset.tagline && (
-                <span className="studio-preset-archetype">{preset.tagline}</span>
-              )}
-              <span className="studio-preset-blurb">{preset.blurb}</span>
-              <span
-                className="studio-preset-swatch"
-                aria-hidden="true"
-                style={{
-                  background: presetSkin.progressFill,
-                  boxShadow: presetSkin.progressGlow !== "none" ? presetSkin.progressGlow : undefined,
-                }}
-              />
-            </button>
-          );
-        })}
-        <div
-          className={`studio-preset studio-preset--custom${playerUIPreset === "custom" ? " is-selected" : ""}`}
-          aria-hidden={playerUIPreset !== "custom"}
-        >
-          <span className="studio-preset-name">Custom</span>
-          <span className="studio-preset-blurb">
-            {playerUIPreset === "custom" ? "Your arrangement — live now" : "Drag anything to create yours"}
-          </span>
-        </div>
-      </div>
-
-      {/* Live preview — real demo video + the exact zone chrome the
-          player renders. Re-renders instantly on preset click, drag,
-          tap-to-move, and eye toggles (same preferences + live state). */}
-      <p className="studio-label">Live preview <span className="studio-label-note">demo video · matches the player</span></p>
-      <PlayerPreview
-        layout={layout}
-        visibility={playerControls}
-        label={playerUIPreset === "custom" ? `Custom (${PLAYER_UI_PRESETS.find((p) => p.id === playerUISkin)?.name || "Classic"})` : (presetById(playerUIPreset)?.name || "Classic")}
-        presetId={playerUIPreset}
-        playerUISkin={playerUISkin}
-        draggable={true}
-        iconVariants={playerIconVariants}
-        onZoneDrop={(key, zoneId) => moveControl(key, zoneId)}
-        onChipDragStart={(e, key) => { e.dataTransfer.setData("text/plain", key); setPickedKey(key); }}
-      />
-
-      {/* Visual archetype selection when in custom layout mode */}
-      {playerUIPreset === "custom" && (
-        <div className="studio-archetype-row">
-          <p className="studio-label" style={{ marginBottom: 6 }}>
-            Custom layout archetype <span className="studio-label-note">visual styling for your custom layout</span>
-          </p>
-          <div className="studio-style-pills">
-            {PLAYER_UI_PRESETS.map((p) => {
-              const active = (playerUISkin || "classic") === p.id;
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  className={`studio-style-pill${active ? " is-active" : ""}`}
-                  onClick={() => {
-                    setPreference("playerUISkin", p.id);
-                    toast({
-                      type: "success",
-                      title: `${p.name} look applied`,
-                      message: `Restyled your custom arrangement with ${p.name} aesthetics.`,
-                    });
-                  }}
-                >
-                  {p.name}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Global Icon Style picker */}
-      <div className="studio-global-icons">
-        <p className="studio-label" style={{ marginBottom: 6 }}>
-          Icon Style <span className="studio-label-note">apply style to all controls or tune each below</span>
-        </p>
-        <div className="studio-style-pills">
-          <button
-            type="button"
-            className={`studio-style-pill${playerGlobalIconStyle === "auto" ? " is-active" : ""}`}
-            onClick={() => {
-              setPreference("playerGlobalIconStyle", "auto");
-              setPreference("playerIconVariants", {});
-            }}
-          >
-            Auto (Preset Default)
-          </button>
-          {ICON_VARIANTS.map((v) => {
-            const active = playerGlobalIconStyle === v.id;
-            return (
-              <button
-                key={v.id}
-                type="button"
-                className={`studio-style-pill${active ? " is-active" : ""}`}
-                onClick={() => {
-                  setPreference("playerGlobalIconStyle", v.id);
-                  const bulk = {};
-                  for (const { key } of PLAYER_CONTROLS) {
-                    bulk[key] = v.id;
-                  }
-                  setPreference("playerIconVariants", bulk);
-                }}
-                title={v.desc}
-              >
-                {v.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <p className="studio-label">Controls <span className="studio-label-note">drag onto the preview · pick icon style</span></p>
-      <div
-        className="studio-palette"
-        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
-        onDrop={(e) => {
-          e.preventDefault();
-          const k = e.dataTransfer.getData("text/plain");
-          if (k) moveControl(k, "tray");
-        }}
-      >
-        {PLAYER_CONTROL_ORDER.map((key) => {
-          const meta = PLAYER_CONTROLS.find((c) => c.key === key);
-          if (!meta) return null;
-          const visible = playerControls[key] !== false;
-          const variant = playerIconVariants[key] || "outline";
-          const zone = layout[key] || "tray";
-          const inTray = zone === "tray";
-          const picked = pickedKey === key;
-          return (
-            <div
-              key={key}
-              draggable
-              onDragStart={(e) => onChipDragStart(e, key)}
-              onDragEnd={() => setPickedKey(null)}
-              onClick={(e) => { e.stopPropagation(); setPickedKey(picked ? null : key); }}
-              className={`studio-palette-chip${picked ? " is-active" : ""}${inTray ? " is-in-tray" : ""}`}
-              title={`${meta.label} — drag onto the preview to place`}
-            >
-              <div className={`studio-palette-chip-icon is-${variant}`}>
-                <meta.Icon size={16} />
-              </div>
-              <span className="studio-palette-chip-label">{meta.label}</span>
-              {!inTray && (
-                <span className="studio-palette-chip-zone">{PLAYER_ZONES.find((z) => z.id === zone)?.label}</span>
-              )}
-              {/* Icon variant picker */}
-              <div className="studio-chip-variants">
-                {ICON_VARIANTS.map((v) => (
-                  <button
-                    key={v.id}
-                    data-v={v.id}
-                    title={v.label}
-                    className={`studio-chip-variant${variant === v.id ? " is-active" : ""}`}
-                    onClick={(e) => { e.stopPropagation(); setIconVariant(key, v.id); }}
-                  />
-                ))}
-              </div>
-              {/* Eye toggle */}
-              <button
-                type="button"
-                aria-label={visible ? `Hide ${meta.label}` : `Show ${meta.label}`}
-                onClick={(e) => { e.stopPropagation(); toggleControl(key, !visible); }}
-                className={`studio-eye${visible ? " is-on" : ""}`}
-              >
-                {visible ? <Eye className="studio-eye-icon" /> : <EyeOff className="studio-eye-icon" />}
-              </button>
-              {/* Accessible zone select */}
-              <select
-                aria-label={`${meta.label} placement`}
-                value={zone}
-                onClick={(e) => e.stopPropagation()}
-                onChange={(e) => moveControl(key, e.target.value)}
-                className="studio-chip-select"
-              >
-                {PLAYER_ZONES.map((z) => (
-                  <option key={z.id} value={z.id}>{z.label}</option>
-                ))}
-              </select>
-            </div>
-          );
-        })}
-      </div>
-      <p className="studio-footnote">
-        Hidden controls stay reachable in the player&apos;s settings menu. Volume shows its full slider on
-        the outer bottom corners and a compact mute button everywhere else.
-      </p>
-    </div>
-  );
-}
-
-function zoneCountFor(layout, zoneId) {
-  return PLAYER_CONTROL_ORDER.filter((k) => layout[k] === zoneId).length;
-}
-
 export default function SettingsPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -610,7 +255,6 @@ export default function SettingsPage() {
   const [seekDropdownOpen, setSeekDropdownOpen] = useState(false);
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
   const [showSignInModal, setShowSignInModal] = useState(false);
-  const [showControlsModal, setShowControlsModal] = useState(false);
 
   // Auth / Accounts state
   const auth = useAppAuth();
@@ -696,8 +340,8 @@ export default function SettingsPage() {
     };
   }, []);
 
-  // Lock body scroll while any modal is open + allow Escape to dismiss.
-  const anyModalOpen = showSignInModal || showControlsModal;
+  // Lock body scroll while the sign-in modal is open + allow Escape to dismiss.
+  const anyModalOpen = showSignInModal;
   useEffect(() => {
     if (!anyModalOpen) return;
     const prevOverflow = document.body.style.overflow;
@@ -705,7 +349,6 @@ export default function SettingsPage() {
     const handleEscape = (e) => {
       if (e.key === "Escape") {
         setShowSignInModal(false);
-        setShowControlsModal(false);
       }
     };
     document.addEventListener("keydown", handleEscape);
@@ -763,7 +406,7 @@ export default function SettingsPage() {
     const confirmed = await confirmDialog({
       title: "Reset All Preferences?",
       message:
-        "This will restore your theme, player layout, and playback preferences to default settings. Your saved watchlist and watch history will remain untouched.",
+        "This will restore your theme and playback preferences to default settings. Your saved watchlist and watch history will remain untouched.",
       confirmLabel: "Reset to Defaults",
       cancelLabel: "Cancel",
     });
@@ -821,7 +464,7 @@ export default function SettingsPage() {
   const sectionVisible = {
     account: visibleSection("account", "account sign in list history shortcuts user"),
     appearance: visibleSection("appearance", "appearance theme episode style view logo trailer spoiler motion thumbnail"),
-    playback: visibleSection("playback", "playback autoplay skip intro controls seek time subtitle language audio mute"),
+    playback: visibleSection("playback", "playback autoplay skip intro seek time subtitle language audio mute"),
     servers: visibleSection("servers", "server order server 1 fast hd backup vidcore peachify vidup smashy stream priority"),
     subtitles: visibleSection("subtitles", "subtitles font size color background blur preview style"),
     notifications: visibleSection("notifications", "notifications alert toast popup banner"),
@@ -1306,21 +949,6 @@ export default function SettingsPage() {
                     />
                   </SettingRow>
 
-                  {/* Player UI Studio */}
-                  <SettingRow
-                    title="Player UI Studio"
-                    description="Presets, drag buttons anywhere, live subtitle preview."
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setShowControlsModal(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all duration-300 backdrop-blur-md text-sm font-medium text-white/90 whitespace-nowrap"
-                    >
-                      <span>Open Studio</span>
-                      <ChevronRight className="w-4 h-4 text-white/50" />
-                    </button>
-                  </SettingRow>
-
                   {/* Seek Time */}
                   <div className="setting-row">
                     <div className="setting-meta">
@@ -1619,14 +1247,14 @@ export default function SettingsPage() {
                 <div className="section-header">
                   <h2 className="section-title" style={{ color: "#f87171" }}>Reset All Preferences</h2>
                   <p className="section-subtitle">
-                    Restore theme, player layout, and playback preferences back to factory defaults. Your My List and Watch History will not be affected.
+                    Restore theme and playback preferences back to factory defaults. Your My List and Watch History will not be affected.
                   </p>
                 </div>
 
                 <div className="settings-list">
                   <SettingRow
                     title="Factory Reset Preferences"
-                    description="Clears custom themes, subtitle styling, player studio layouts, and server order."
+                    description="Clears custom themes, subtitle styling, and server order."
                   >
                     <button
                       type="button"
@@ -1758,60 +1386,6 @@ export default function SettingsPage() {
           document.body
         )}
 
-      {/* Player UI Studio Modal */}
-      {showControlsModal && createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              role="dialog"
-              aria-modal="true"
-              aria-label="Player UI studio"
-              className="w-full max-w-3xl [background:var(--bg-elevated)] border [border-color:var(--border-subtle)] rounded-3xl p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto"
-            >
-              {/* Sticky close: the modal scrolls — a plain absolute button
-                  scrolls under the fixed navbar and becomes unclickable. */}
-              <div className="studio-modal-close">
-                <button
-                  onClick={() => setShowControlsModal(false)}
-                  aria-label="Close player studio"
-                  className="p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/15 bg-black/50 border border-white/10 backdrop-blur-sm"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-white">
-                  <Sliders className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-white">Player UI Studio</h3>
-                  <p className="text-xs text-white/50">Presets, drag buttons anywhere, live subtitle preview.</p>
-                </div>
-              </div>
-
-              <PlayerUIStudio />
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowControlsModal(false);
-                  toast({
-                    type: "success",
-                    title: "Player Studio Saved",
-                    message: "Your player layout is live on the next video.",
-                  });
-                }}
-                className="w-full py-2.5 rounded-xl bg-white text-black hover:bg-gray-200 text-sm font-bold transition-colors mt-4 border-none"
-              >
-                Done
-              </button>
-            </motion.div>
-          </div>,
-          document.body
-        )}
-    </div>
+      </div>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import SettingsPage from "../pages/SettingsPage";
 import { PreferencesProvider } from "../context/PreferencesContext";
@@ -42,7 +42,8 @@ describe("SettingsPage", () => {
     expect(screen.getByText(/^use image logos$/i)).toBeInTheDocument();
     expect(screen.getByText(/^auto skip intro$/i)).toBeInTheDocument();
     expect(screen.getByText(/^default language$/i)).toBeInTheDocument();
-    expect(screen.getByText(/^player ui studio$/i)).toBeInTheDocument();
+    // Player UI Studio is removed from settings entirely.
+    expect(screen.queryByText(/player ui studio/i)).not.toBeInTheDocument();
   }, 15000);
 
   it("can toggle switches and segmented buttons", () => {
@@ -150,99 +151,6 @@ describe("SettingsPage", () => {
     expect(stored[1]).toBe("Server 1");
     // The rank badge follows the new order.
     expect(screen.getByRole("option", { name: /server 1, priority 2/i })).toBeInTheDocument();
-  });
-
-  it("opens the player UI studio with 5 presets and a live preview", () => {
-    render(
-      <MemoryRouter initialEntries={["/settings"]}>
-        <PreferencesProvider>
-          <ToastProvider>
-            <SettingsPage />
-          </ToastProvider>
-        </PreferencesProvider>
-      </MemoryRouter>
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: /open studio/i }));
-    const studio = within(screen.getByRole("dialog", { name: /player ui studio/i }));
-
-    // All six presets plus the live subtitle preview render.
-    for (const name of ["Classic", "Apple TV", "Material", "Theater", "Studio", "Minimal"]) {
-      expect(studio.getByRole("radio", { name: new RegExp(`^${name}`) })).toBeInTheDocument();
-    }
-    expect(studio.getByRole("radio", { name: /^classic/i })).toHaveAttribute("aria-checked", "true");
-    expect(studio.getByText(/here is what your subtitles will look like/i)).toBeInTheDocument();
-    // Every placeable control has a zone menu, including the new bottom center.
-    expect(studio.getByLabelText(/play \/ pause placement/i)).toBeInTheDocument();
-  });
-
-  it("applies a studio preset to visibility, layout and storage", () => {
-    render(
-      <MemoryRouter initialEntries={["/settings"]}>
-        <PreferencesProvider>
-          <ToastProvider>
-            <SettingsPage />
-          </ToastProvider>
-        </PreferencesProvider>
-      </MemoryRouter>
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: /open studio/i }));
-    fireEvent.click(screen.getByRole("radio", { name: /^minimal/i }));
-
-    expect(localStorage.getItem("setting-playerUIPreset")).toBe('"minimal"');
-    const layout = JSON.parse(localStorage.getItem("setting-playerUILayout"));
-    expect(layout.playPause).toBe("bottomLeft");
-    expect(layout.fullscreen).toBe("bottomRight");
-    const controls = JSON.parse(localStorage.getItem("setting-playerControls"));
-    expect(controls.playPause).toBe(true);
-    expect(controls.jumpForwardBackward).toBe(true);
-    expect(controls.brightness).toBe(false);
-    expect(screen.getByRole("radio", { name: /^minimal/i })).toHaveAttribute("aria-checked", "true");
-  });
-
-  it("moves a control between zones and drops to a custom preset", () => {
-    render(
-      <MemoryRouter initialEntries={["/settings"]}>
-        <PreferencesProvider>
-          <ToastProvider>
-            <SettingsPage />
-          </ToastProvider>
-        </PreferencesProvider>
-      </MemoryRouter>
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: /open studio/i }));
-    // Move Play/Pause to the bottom center via its placement menu.
-    fireEvent.change(screen.getByLabelText(/play \/ pause placement/i), {
-      target: { value: "bottomCenter" },
-    });
-
-    const layout = JSON.parse(localStorage.getItem("setting-playerUILayout"));
-    expect(layout.playPause).toBe("bottomCenter");
-    expect(localStorage.getItem("setting-playerUIPreset")).toBe('"custom"');
-    expect(localStorage.getItem("setting-playerUISkin")).toBe('"classic"');
-  });
-
-  it("allows selecting a global icon style across all player controls", () => {
-    render(
-      <MemoryRouter initialEntries={["/settings"]}>
-        <PreferencesProvider>
-          <ToastProvider>
-            <SettingsPage />
-          </ToastProvider>
-        </PreferencesProvider>
-      </MemoryRouter>
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: /open studio/i }));
-    const studio = within(screen.getByRole("dialog", { name: /player ui studio/i }));
-    const globalNeonBtn = studio.getAllByRole("button", { name: /neon glow/i })[0];
-    fireEvent.click(globalNeonBtn);
-
-    expect(localStorage.getItem("setting-playerGlobalIconStyle")).toBe('"neon"');
-    const iconVariants = JSON.parse(localStorage.getItem("setting-playerIconVariants"));
-    expect(iconVariants.playPause).toBe("neon");
   });
 });
 

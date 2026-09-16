@@ -1214,3 +1214,32 @@ single page and had no loader.
   - `npm run lint` (0 errors / 0 warnings), `npm run test` (321/321 across 31
     files), `npm run build` (✓ 1.99s; `index-DuP6LvjX.css`,
     `DiscoveryPage-DVbHgprb.js`, `query-vendor-DfaHkKCg.js`).
+
+## Task 69 - Settings fixes: clickable head-menu dropdown + remove Player UI Studio
+
+- [x] **Clickable settings dropdown fix**
+  - `src/index.css`: Added `pointer-events: auto` to `.glass-popover`. The
+    head-menu popover is a sibling of `.navbar` inside `.header-row` (which is
+    `pointer-events: none` so it never blocks the page); the navbar re-enables
+    pointer events on itself but the dropdown never did, so every menu item
+    click passed through to the page. One-line fix makes Login / Settings /
+    Watch History clickable.
+- [x] **Remove every player preset from Settings (incl. drag-and-drop)**
+  - `src/pages/SettingsPage.jsx`: Deleted `PlayerUIStudio` component and
+    `zoneCountFor` helper entirely (preset cards, custom archetype pills,
+    global icon style picker, live-drag preview, drag-and-drop controls
+    palette). Removed the "Player UI Studio" row from the Playback section and
+    the Player UI Studio modal portal + `showControlsModal` state. Simplified
+    the modal Escape/scroll-lock effect to the sign-in modal only. Dropped now
+    unused imports (`Sliders`, `Eye`, `EyeOff`, all `playerUIDef` symbols).
+    Updated reset-preferences and factory-reset copy and playback search
+    keywords to drop "player layout" / "player studio" references.
+  - `src/__tests__/SettingsPage.test.jsx`: Removed the 4 Player UI Studio
+    tests (open studio, apply preset, drag control to custom, global icon
+    style); replaced the "player ui studio present" assertion with a
+    `queryByText` not-in-document check; dropped unused `within` import.
+  - Kept: server-order drag-and-drop (`Reorder`/`GripVertical`), subtitle live
+    preview (`PlayerPreview`), sign-in modal.
+- [x] **Verification**
+  - `npm run lint` (0 errors / 0 warnings), `npm run test` (317/317 across 31
+    files; 4 studio tests removed), `npm run build` (✓ 1.36s).
