@@ -367,7 +367,6 @@ a {
   box-shadow: inset 0 1px rgba(255, 255, 255, 0.12), 0 8px 30px rgba(0, 0, 0, 0.3);
   transition: padding 0.32s var(--condense-ease), background-color 0.3s ease, border-color 0.3s ease,
     box-shadow 0.3s ease;
-  will-change: background, backdrop-filter, border-color, box-shadow;
 }
 .navbar.scrolled {
   --nav-pad: 3px;
@@ -1075,22 +1074,25 @@ a {
 }
 
 /* ── Cinejoy-style liquid backdrop ────────────────────────────────────────
-   Fixed blurred color blobs drifting slowly behind every page. Transform-only
-   keyframes (no paint per frame) keep it GPU-cheap; disabled entirely for
+   Fixed blurred color blobs drifting slowly behind every page. The blur lives
+   on each blob (the same element that animates) so the compositor can cache
+   the blurred raster and only transform it — a blur on the animating
+   container would force a full re-blur every frame. Blend mode is per blob
+   too, so it never re-composites the whole page. Disabled for
    prefers-reduced-motion. */
 .ambient-liquid {
   position: absolute;
   inset: -15%;
   overflow: hidden;
-  filter: blur(90px) saturate(130%);
-  -webkit-filter: blur(90px) saturate(130%);
-  mix-blend-mode: screen;
   opacity: 0.5;
   pointer-events: none;
 }
 .ambient-liquid__blob {
   position: absolute;
   border-radius: 50%;
+  filter: blur(60px) saturate(130%);
+  -webkit-filter: blur(60px) saturate(130%);
+  mix-blend-mode: screen;
   will-change: transform;
 }
 .ambient-liquid__blob--a {
@@ -1645,7 +1647,6 @@ a {
 
 .movie-card {
   transform: translateZ(0);
-  will-change: transform, opacity;
   backface-visibility: hidden;
   display: flex;
   flex-direction: column;
@@ -1670,7 +1671,6 @@ a {
     border-color 0.3s ease-out,
     transform 0.3s ease-out;
   border: 1px solid rgba(255, 255, 255, 0.06);
-  will-change: transform, box-shadow;
 }
 .poster-wrapper::after {
   content: "";
@@ -1697,7 +1697,6 @@ a {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  will-change: transform, filter;
 }
 
 /* ── Curtain action button hover polish ──────────────────── */

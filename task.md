@@ -1134,3 +1134,47 @@ Cinejoy set. Original "don't edit" constraint was lifted by the user.
 - [x] **Task 66 - Verification**
   - `npm run lint` (0 errors / 0 warnings), `npm run test` (321/321 across 31
     files — was 320/31; +1 series-table assertion), `npm run build` (✓ 1.90s).
+
+## Task 67 - Performance: reverse-engineered Cinejoy's smoothness (no-JS hover, no live re-blur)
+
+Root cause from diffing our CSS/JS against the extracted Cinejoy bundle: the
+blur *surfaces* were comparable, but we animated expensive things and pinned
+permanent compositor layers, while Cinejoy animates only transform/opacity and
+blurs small transient overlays (their own card hover is a flat `.card-hover-veil`
+background-color, and they ship `data-theme-glass=off` / `data-flat-ui=on` kill
+switches).
+
+- [x] **Task 67 - Ambient backdrop no longer re-blurs a >viewport layer every frame**
+  - `src/index.css` `.ambient-liquid` had `filter: blur(90px) saturate(130%)` +
+    `mix-blend-mode: screen` on the *parent* of three infinitely animating blobs
+    (`inset: -15%`, ~1.7x viewport). Any blob transform invalidated the parent's
+    filtered output, forcing a full 90px re-blur + whole-screen screen-blend
+    every frame on every page (`AmbientBackground` is mounted on Home / Category
+    / Genre / Discovery / Search / TitleDetails).
+  - Moved `filter: blur(60px) saturate(130%)` and `mix-blend-mode: screen` onto
+    each `.ambient-liquid__blob` (the same element that animates) so the
+    compositor can cache the blurred raster and only transform it. Container
+    keeps just `opacity: 0.5` + `overflow: hidden`.
+- [x] **Task 67 - Cards no longer pin 4-5 GPU layers each; hover no longer animates `filter`**
+  - Removed persistent `will-change` from `.movie-card`
+    (`transform, opacity`), `.poster-wrapper` (`transform, box-shadow`),
+    `.movie-poster` (`transform, filter`) and the nav `.nav-capsule`
+    (`background, backdrop-filter, border-color, box-shadow`). With
+    `useVirtualRenderAdapter("400px")` rendering ahead, dozens of cards held
+    repaint-prone `filter`/`box-shadow` layers for the whole session.
+  - `MovieCard.jsx`: removed duplicate inline `willChange` on the root
+    (`transform, z-index`), the poster `<motion.img>` (`transform, opacity,
+    filter`) and the curtain (`opacity`); the poster is now a plain `<img>`.
+  - Replaced the framer-motion `imageVariants` that animated
+    `filter: brightness()/saturate()` (repaint per frame) with
+    `imageVeilVariants`, a flat `rgba(0,0,0,0.45)` opacity veil above the poster
+    (z-index 2) — Cinejoy's own `.card-hover-veil` approach; opacity is
+    compositor-only.
+  - Replaced the 6 inline `backdropFilter: "blur(6px)"` chips/pills inside each
+    card (date / S-E / SERIES / rating) with their existing flat `rgba()`
+    backgrounds, so scrolling a rail no longer forces per-card backdrop sampling.
+- [x] **Task 67 - Verification**
+  - `npm run lint` (0 errors / 0 warnings), `npm run test` (321/321 across 31
+    files), `npm run build` (✓ 1.96s; `index-DcqU0K2I.css`,
+    `MovieCard-BqMkxgBF.js`, `AmbientBackground-BL3MLFwQ.js`).
+  - Not committed/pushed (awaiting explicit order).

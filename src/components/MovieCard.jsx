@@ -16,7 +16,7 @@ import { useToast } from "./Toast";
    • Hover state is driven by framer-motion whileHover on the
      single root div — zero JS state, zero timeouts, zero bugs
    • The curtain panel slides up from translateY(100%) → 0
-   • The image dims + scales cinematically via CSS
+   • The image dims via a flat opacity veil (no filter repaint)
    • Mouse enter/leave is on one element — can never get stuck
    ─────────────────────────────────────────────────────────────*/
 
@@ -44,13 +44,13 @@ const curtainVariants = {
   },
 };
 
-const imageVariants = {
+const imageVeilVariants = {
   rest: {
-    filter: "brightness(1) saturate(1)",
+    opacity: 0,
     transition: { duration: 0.3, ease: "easeOut" },
   },
   hover: {
-    filter: "brightness(0.6) saturate(1.25)",
+    opacity: 1,
     transition: { duration: 0.45, delay: 0.18, ease: EASE_OUT },
   },
 };
@@ -252,7 +252,6 @@ const MovieCard = memo(function MovieCard({
           style={{
             cursor: "pointer",
             position: "relative",
-            willChange: "transform, z-index",
           }}
         >
           {/* ── Poster wrapper ───────────────────────────────── */}
@@ -313,7 +312,6 @@ const MovieCard = memo(function MovieCard({
                   <div
                     style={{
                       background: "rgba(0,0,0,0.65)",
-                      backdropFilter: "blur(6px)",
                       color: "#fff",
                       padding: "2px 6px",
                       borderRadius: "3px",
@@ -346,7 +344,6 @@ const MovieCard = memo(function MovieCard({
                         fontSize: "0.5rem",
                         fontWeight: 800,
                         letterSpacing: "0.04em",
-                        backdropFilter: "blur(6px)",
                         border: "1px solid rgba(96,165,250,0.25)",
                       }}
                     >
@@ -361,7 +358,6 @@ const MovieCard = memo(function MovieCard({
                         fontSize: "0.5rem",
                         fontWeight: 800,
                         letterSpacing: "0.04em",
-                        backdropFilter: "blur(6px)",
                         display: "flex",
                         alignItems: "center",
                         gap: "3px",
@@ -379,7 +375,6 @@ const MovieCard = memo(function MovieCard({
                     <div
                       style={{
                         background: "rgba(0,0,0,0.7)",
-                        backdropFilter: "blur(6px)",
                         color: "#fff",
                         padding: "2px 6px",
                         borderRadius: "3px",
@@ -395,7 +390,6 @@ const MovieCard = memo(function MovieCard({
                       <div
                         style={{
                           background: "rgba(0,0,0,0.65)",
-                          backdropFilter: "blur(6px)",
                           color: "#fff",
                           padding: "2px 6px",
                           borderRadius: "3px",
@@ -439,7 +433,7 @@ const MovieCard = memo(function MovieCard({
 
             {/* Poster image (Always visible, darkens on hover) */}
             {posterSrc && !hasImageError ? (
-              <motion.img
+              <img
                 src={posterSrc}
                 alt={movie.title}
                 className="movie-poster"
@@ -451,7 +445,6 @@ const MovieCard = memo(function MovieCard({
                   setHasImageError(true);
                   setIsLoaded(false);
                 }}
-                variants={imageVariants}
                 style={{
                   position: "absolute",
                   inset: 0,
@@ -459,7 +452,6 @@ const MovieCard = memo(function MovieCard({
                   height: "100%",
                   objectFit: "cover",
                   zIndex: 1,
-                  willChange: "transform, opacity, filter",
                   opacity: isLoaded ? 1 : 0,
                   transition: "opacity 0.4s ease",
                 }}
@@ -485,13 +477,26 @@ const MovieCard = memo(function MovieCard({
               </div>
             )}
 
+            {/* Flat hover veil (Cinejoy-style): a plain opacity fade instead of
+                animating filter: brightness/saturate, which would repaint on
+                every frame. Opacity is compositor-only. */}
+            <motion.div
+              variants={imageVeilVariants}
+              style={{
+                position: "absolute",
+                inset: 0,
+                zIndex: 2,
+                background: "rgba(0, 0, 0, 0.45)",
+                pointerEvents: "none",
+              }}
+            />
+
             {/* ── Cinematic curtain ─────────────────────────── */}
             <motion.div
               variants={curtainVariants}
               style={{
                 position: "absolute",
                 inset: 0,
-                willChange: "opacity",
                 background:
                   "linear-gradient(to top, rgba(9,9,11,0.95) 0%, rgba(9,9,11,0.7) 50%, rgba(9,9,11,0.2) 100%)",
                 display: "flex",
@@ -546,7 +551,6 @@ const MovieCard = memo(function MovieCard({
                   padding: compact ? "3px 10px" : "4px 12px",
                   borderRadius: "100px",
                   background: "rgba(0,0,0,0.45)",
-                  backdropFilter: "blur(6px)",
                   fontSize: compact ? "0.6rem" : "0.7rem",
                   fontWeight: 700,
                   color: "#fff",
