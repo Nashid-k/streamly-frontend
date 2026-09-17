@@ -1612,3 +1612,10 @@ pm run build ok.
   - Fix: vercel.json `connect-src` += `https://wsrv.nl`; bumped `_sv` guard `var V` v19.0 -> v19.1 and sw.js CACHE_NAME/IMAGE_CACHE -> streamly-v19.1 / streamly-images-v19.1 so the new header reaches the SW script and stale image caches rotate.
   - Editorial rails: boot logs `TMDB returned 0 results for /discover/movie` for two keyword editorial rails — confirmed genuine empty TMDB payloads (tmdbClient throws on HTTP errors, so these are real 0-item keyword discovers, not provenance errors); rails self-hide by design, pre-existing, unrelated to Task 78.
   - Verification: npm run lint 0/0, npm run test 336/336, npm run build ok.
+
+- [x] **Task 80 - Autoplay blocked on stream iframes + subtitle search CSP-blocked
+  - Symptom: stream embed loads but never starts ("stays like paused"); console showed `NotAllowedError: play() failed because the user didn't interact with the document first` from the embed, plus `[Streamly][subtitles] Subtitle search failed` with CSP refusal for rest.opensubtitles.org.
+  - Root cause (autoplay): the Task 76 Permissions-Policy `autoplay=(self)` denies the autoplay permission to every cross-origin context, so the stream iframes (cinesrc.st, vidlink.pro, ...) could never autoplay even with `allow="autoplay"` on the iframe and autoplay=true in the embed URL. Changed to an allowlist of the exact embed/trailer hosts (`autoplay=(self "youtube..." "2embed" "vidsrcme" "peachify" "smashystream" "cinesrc.st" "vidlink.pro" "vidcore.io" "vidup.to")`).
+  - Root cause (subtitles): connect-src was missing the OpenSubtitles hosts (`rest.opensubtitles.org` search API, `dl.opensubtitles.org` subtitle downloads) — same class of miss as wsrv.nl in Task 79. Added both.
+  - The remaining console flood (a.cineflix.st 502, introdb.app CORS mismatching to only 'introdb.app' origin, llvpn/burger.js ERR_BLOCKED_BY_CLIENT adblock hits, embed promise postMessage DataCloneError) is the third-party embed's own iframe-scope traffic — governed by the embed's own CSP/origin, not ours.
+  - Verification: vercel.json parses (node JSON.parse); npm run lint 0/0, npm run test 336/336, npm run build ok.
