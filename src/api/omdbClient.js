@@ -1,13 +1,10 @@
 import { logError, logWarn } from "../utils/debugLogger";
 
 const OMDB_BASE = "https://www.omdbapi.com/";
-// Hardcoded (per project decision). 1,000 requests/day — results are cached
-// in localStorage by ratingService so revisits don't burn the quota. If this
-// ships publicly, move the key behind a server-side proxy.
-const OMDB_API_KEY = "7c3c6453";
+const OMDB_API_KEY = import.meta.env.VITE_OMDB_API_KEY || import.meta.env.VITE_OMDB_APIKEY || "";
 
 export function hasOmdbKey() {
-  return true;
+  return !!OMDB_API_KEY;
 }
 
 export async function fetchOmdbByImdbId(imdbId, type) {
