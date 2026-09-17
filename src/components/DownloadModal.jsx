@@ -215,7 +215,29 @@ export default function DownloadModal({
           const index = queue.shift();
           const embedUrl = buildEmbedUrl(servers[index], selectedSeason, targetEpisode);
           try {
-            const { source, variants } = await downloadService.resolveDownload(embedUrl, { signal });
+            // First try direct MP4 downloads from TMDB-Embed API
+            let source, variants;
+            try {
+              const directResult = await downloadService.resolveDirectDownload(
+                movie?.id,
+                isTv ? "tv" : "movie",
+                selectedSeason,
+                targetEpisode,
+                { signal }
+              );
+              source = directResult.source;
+              variants = directResult.variants;
+              logDebug("download", `Direct download from TMDB-Embed API: ${variants.length} quality variant(s).`, {
+                qualities: variants.map((v) => v.label),
+              });
+            } catch (directError) {
+              // Fallback to HLS resolution if direct API fails
+              logDebug("download", `Direct download failed, falling back to HLS: ${directError.message}`);
+              const hlsResult = await downloadService.resolveDownload(embedUrl, { signal });
+              source = hlsResult.source;
+              variants = hlsResult.variants;
+            }
+
             if (signal?.aborted) return;
             resolved += 1;
             const nextRows = variants.map((variant) => ({
@@ -423,6 +445,23 @@ export default function DownloadModal({
       for (let i = 0; i < targets.length; i += 1) {
         const episode = targets[i];
         setDownloadState((prev) => ({ ...prev, episodeIndex: i, episode, progress: null }));
+
+        // For direct MP4 downloads, trigger browser download directly
+        if (row.variant.direct && row.variant.url) {
+          const filename = `${fileNameBase(movie, { isTv, season: selectedSeason, episode, quality: row.variant.label })}.mp4`;
+          const anchor = document.createElement("a");
+          anchor.href = row.variant.url;
+          anchor.download = filename;
+          anchor.target = "_blank";
+          anchor.rel = "noopener noreferrer";
+          document.body.appendChild(anchor);
+          anchor.click();
+          anchor.remove();
+          logInfo("download", `Direct MP4 download triggered: ${filename}`, { url: row.variant.url });
+          continue;
+        }
+
+        // Fallback to HLS download for non-direct variants
         const embedUrl = buildEmbedUrl(server, selectedSeason, episode);
         const { source, variants: fresh } = await downloadService.resolveDownload(embedUrl, { signal: controller.signal });
         const variant = matchVariant(fresh, row.variant);

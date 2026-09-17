@@ -1700,3 +1700,11 @@ pm run build ok.
   - Updated DownloadModal tests to match actual UI patterns (quality badge counts, button selectors). All 5 DownloadModal tests now pass.
   - Added diagnostic logging for clipboard copy failures and save picker fallbacks in DownloadModal for better observability.
   - Full verification: `npm run lint` (62 warnings React best practices, 0 errors), `npm run test` (364/364 passed), `npm run build` (✓ 1.18s). All tools working with Node.js v26.9.0 and latest packages.
+
+- [x] **Task 87 - Fix download functionality by adding Vercel function configuration**
+  - Problem: The download feature was not working because `api/downloadify.js` was missing from `vercel.json` functions section, meaning the serverless function was not properly deployed with the correct timeout settings.
+  - Fix: Added `"api/downloadify.js": { "maxDuration": 60 }` to the functions section in `vercel.json`.
+  - The 60-second maxDuration allows large file downloads to complete without timing out.
+  - Verified that `api/downloadify.js` exists and is properly structured with the same `maxDuration: 60` export config.
+  - Build succeeded without errors. Changes committed and pushed to GitHub.
+  - Next step: After Vercel auto-deploys, test the download flow in production to verify it works end-to-end.
