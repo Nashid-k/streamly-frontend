@@ -1710,7 +1710,7 @@ pm run build ok.
 
 - [x] **Task 88 - Add self-hosted TMDB-Embed API for direct MP4 downloads**
   - Problem: External download APIs tested (15 sites) all failed - 0/15 working due to Cloudflare blocks, 403s, timeouts, or paid-only access. Existing HLS approach was being blocked by embed hosts returning 403 Forbidden to Vercel serverless IPs.
-  - Solution: Implemented self-hosted TMDB-Embed API (`api/tmdb-embed.js`) with direct MP4 providers (dahmermovies, streamflix) that serve direct file links instead of HLS streams.
+  - Solution Attempted: Implemented self-hosted TMDB-Embed API (`api/tmdb-embed.js`) with direct MP4 providers (dahmermovies, streamflix) that serve direct file links instead of HLS streams.
   - Implementation:
     - Created `api/tmdb-embed.js` Vercel function with two providers:
       - `getDahmerMovies()`: Scrapes dahmermovies.site for direct MP4/MKV links
@@ -1723,5 +1723,18 @@ pm run build ok.
   - Direct MP4 download flow: When `variant.direct` is true, triggers browser download via `<a>` tag with `download` attribute, bypassing segment fetching entirely.
   - Hybrid approach: Direct MP4 downloads prioritized for speed and reliability; HLS fallback remains for when direct providers fail.
   - Verification: Build ✓ 1.11s, Tests 364/364 passed. Changes committed and pushed to GitHub (commit ba0cc67).
-  - Note: Production testing after Vercel deployment will determine if the direct MP4 providers are accessible and return valid links. If providers block Vercel IPs similar to the HLS approach, additional proxy/header strategies may be needed.
-  - Next step: After Vercel auto-deploys, test the download flow in production to verify it works end-to-end.
+  - Provider Test Results (Node.js test with TMDB ID 550):
+    - `dahmermovies.site`: Connection failed (fetch failed - site down or blocking)
+    - `flixhq.stream`: Returned HTML (200 OK) but contained 0 MP4/MKV links
+    - `vidlink.pro`: Returned HTML (200 OK) with 21 iframe srcs but 0 M3U8 links (requires browser context/JS to resolve)
+  - Current Status: The implemented providers are NOT returning direct MP4 links. The providers either:
+    1. Block automated requests (like the HLS approach)
+    2. Require browser JavaScript execution to reveal download links
+    3. Don't actually serve direct MP4 files
+  - Next Steps Required:
+    1. Test the deployed Vercel function to see if it behaves differently than local Node.js tests
+    2. If providers still fail, consider alternative approaches:
+       - Use a different set of providers (ones that actually serve direct MP4s)
+       - Implement browser-side download within the iframe context (same as streaming)
+       - Accept that direct MP4 downloads may not be feasible and improve HLS fallback with better headers/proxies
+  - Honest Assessment: Direct MP4 downloads from self-hosted providers appear to have the same blocking issues as the HLS approach. The external provider ecosystem is heavily protected against automated scraping.
