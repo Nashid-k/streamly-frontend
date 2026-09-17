@@ -1547,3 +1547,25 @@ pm run
   - Verified: `npm run lint` (0/0), `npm run test` (321/321 across 31 files),
     `npm run build` (built ok). Existing TitleDetailsPage episode-timing flake
     passes 3/3 in isolation (pre-existing, unrelated).
+
+- [x] **Task 75 - Initial push to GitHub (Nashid-k/streamly-frontend)**
+  - Verified token is valid (any pointer `api.github.com/user` = 200, login
+    Nashid-k, id 151704391) and remote repo exists: default branch `main`,
+    HEAD 3eb3576, private=false, empty=false.
+  - Earlier "invalid credentials" from `git ls-remote`/push was a SCHEME
+    mismatch, not a bad token: GitHub smart-HTTP requires `Authorization:
+    Basic` (not Bearer). Switched to Basic and the same token worked.
+  - Committed the full source (25 files) as a SINGLE commit whose parent is
+    the remote's current main (405e5bc) using the local-only identity
+    `Nashid-k <nashidk1999@gmail.com>` (NEVER written to global config;
+    supplied via `-c user.name/-c user.email` per-command).
+  - Pushed fast-forward: `3eb3576..405e5bc main -> main` (exit 0). No force,
+    no --force-with-lease, no history rewrite; remote content preserved as
+    the parent commit.
+  - Token hygiene: PAT used ONLY as an in-memory `Authorization: Basic` HTTP
+    header on a single push command. It was NEVER stored in `.git/config`,
+    any env file, `node_modules`, or written to disk. Verified post-push:
+    `Select-String` for `ghp_` across the repo returns 0 hits in files and
+    `.git/config` is clean; `git remote get-url origin` shows a token-free
+    URL. **Recommend rotating the PAT since it was previously exposed in
+    chat.**
