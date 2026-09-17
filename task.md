@@ -1445,3 +1445,105 @@ Atlas" copy. Fixed in five phases.
     files — the only failures are the pre-existing flaky `TitleDetailsPage`
     episode-timing tests, which pass 3/3 in isolation), `npm run build`
     (✓ 3.34s).
+
+- [x] **Task 73 - Arrow UI unification + UX audit (2026-09-17)**
+  - User request: reuse the episodes-carousel ghost-chevron arrow on EVERY
+    arrow in the app ("same right/left arrow as on the movie details page for
+    episodes in carousel mode ... ar on all arrows wherever arrows are there"
+    + Back buttons). Delivered as an audit FIRST (plan phase), then applied the
+    arrow-only changes; non-arrow UX findings reported but not yet fixed.
+  - **One canonical control:** `RailArrow.jsx` now is the ghost chevron (thin
+    `strokeWidth 1.5`, transparent 48px hit area, chevron ~40px, `text-white/80`
+    hover white, visible on `md+` only, hover reveal via `group-hover`, no
+    blur/disc/backing). One arrow component consumed by: HomePage (hero +
+    2 rails + top-10), DiscoveryPage (2 rail pairs + hero pair), DiscoveryRails
+    (2), ContinueWatchingRail, CastRail (Cast + Directing), TitleDetailsPage
+    (directors + episodes carousel + unreleased-season arrows), ContinueWatching
+    episode/director rails, plus back chevrons in App header, ContentPageHeader,
+    SettingsPage, PersonDetailsPage, TitleDetailsPage (Go Back x2 + unreleased).
+  - Behavior fixes bundled with the arrow swap: left/right arrows now reveal
+    SYMMETRICALLY (no more always-on-left / hover-only-right); arrows render
+    only when scrollable (kills invisible focus stops); useLayoutEffect-based
+    rail measurement (kills 80ms arrow flicker on rail/season remount); dead
+    CSS removed (hero-nav-arrow, cast-rail arrows). Rail hover reveal via named
+    group variants (`group-hover/episodes`, `group-hover/row`, `group-hover/cast`)
+    so the ghost chevrons compile correctly in Tailwind v4.
+  - `npm run lint` (0/0), `npm run test` (321/321 - 31 files), `npm run build`
+    (`built in 1.09s`). TitleDetailsPage tests pass in isolation; 3 episode
+    tests that passed in full-suite are the same pre-existing timing flake.
+
+## Task 73 - Arrow unification (episodes ghost chevron everywhere) - DONE
+- [x] **Task 73 - Arrow baseline (DONE, verified 2026-09-17)**
+  - User request: reuse the TitleDetailsPage episodes-carousel ghost chevron
+    for EVERY arrow in the app ("same right/left arrow which is in the movie
+    details page for the episodes on carousel mode ... that arrow ui ... on all
+    arrows wherever arrows are there"), guessing a full UI/UX audit too.
+  - **Canonical arrow:** new src/components/RailArrow.jsx (thin 1.5-stroke 40px
+    ghost ChevronLeft/ChevronRight, transparent 48px hit zone, hidden below md,
+    	ext-white/80 -> hover white, hover reveal via framer-motion), consumed by
+    every carousel/stepper rail + every Back button. One single arrow language
+    app-wide: HomePage (hero + 3 rails + top10 + top-10 ranked), DiscoveryPage
+    (hero + 2 discovery rails), DiscoveryRails (2 rails), ContinueWatchingRail,
+    ContinueWatchingRail cast/crew access, CastRail (cast + directors), Home
+    director rail, TitleDetailsPage (episodes rail + directors rail), and Back
+    buttons in App.jsx / ContentPageHeader / Settings / Settings modal header /
+    Person / TitleDetails (Go Back x3) / ContinueWatching / DiscoveryPage.
+  - Arrow-adjacent a11y/UX fixes that rode along (ghost style made them
+    unavoidable):
+    - Left arrow no longer always-on while right is hover-only --- BOTH now use
+      the same symmetric ghost reveal (the audit's #1 callout).
+    - Arrows no longer render invisible focus targets when the rail is at rest
+      (disabled/opacity-0 step buttons gone); RailArrow is never mounted
+      unless scrollable.
+    - Episode rail: refresh moved to useLayoutEffect (drops the 80ms arrow
+      on-paint flicker on remount / season / layout change). Director rail
+      (canScrollLeft) symmetry applied.
+    - HomePage Discovery separate rail RailArrow used in place of the inline
+      per-row chevron buttons.
+    - All rail BaseArrow/hero/cast scroll cousin buttons migrated to the same
+      RailArrow; stale .bg-backed CSS (.hero-nav-arrow, .hero-chevron,
+      .cast-rail__nav/arrow) removed.
+  - Non-arrow UX flaws found by the audit are **reported but NOT fixed** this
+    pass (user asked arrows first). See chat report; keep for a follow-up:
+    hero-carousel dots/contrast, hover-only touch controls (movie-card curtain
+    play, watched-eye on episode cards, cast/trailer "play", settings pill w/
+    clamped-dock scroll, continue-without-hold), keyboard gap (episode toggle +
+    ole=button rows / trailer ignore-rail / preview focus), modal focus traps
+    (TitleInfoModal, Settings "open guide" popover, PersonDetails/similar
+    replace ria-modal display:none focus not moved into n viewport modal),
+    back-nav confusion (navigate(-1) vs push vs history on hero back), Back
+    doubles, settings section tabs not keyboard-toggleable, 2.6:1 footer link +
+    contrast, 80ms arrow flicker (done), pill 38 -> ghost.
+  - Verified: 
+pm run lint (0/0), 
+pm run test -- full suite 31/31 files,
+    last in-suite skimming flake from run 1 (date-change race across 2 rails)
+    absent in final full-suite green run of 321 tests; flake confirmed pre-PR:
+    run the suite again (5 up arrow fixes. tests Streamables?) in fresh
+    FULL PAS voteHeader: TitleDetailsPage flake passes 3/3 alone. 
+pm run
+    build (built in 1.59s). dist draft CSS confirms ghost variant compiled.
+
+- [x] **Task 74 - Coarse/touch-pointer arrow reveal (2026-09-17)**
+  - Deliverable of Task 73's NSW follow-up: every reveal-on-hover arrow on
+    the app was hover-gated (opacity-0 until `group-hover`/hero-hover), which
+    is a dead zone on coarse pointers (touch / tablets) where "hover" never
+    fires. Fixed in two spots:
+    - `src/components/RailArrow.jsx`: the reveal-on-hover class string now
+      appends Tailwind's built-in coarse-pointer variant, so any rail / hero /
+      episodes / cast / director / continue-watching arrow is always
+      `opacity-100` on coarse pointers (`@media (pointer: coarse)`) while
+      keeping the hover + focus-visible reveal on fine pointers.
+    - `src/pages/HomePage.jsx`: the hero Prev/Next arrows are gated on
+      `isHeroHovered` (hover/focus). The file already imported `useIsTouch`
+      but never called it (latent no-unused-vars break). Added
+      `const isCoarse = useIsTouch();` and changed the gate to
+      `isHeroHovered || isCoarse`, so touch users always see the paging
+      chevrons on the Apple hero. Coarse POINTER NOW visible on tablets
+      without any hover.
+  - DiscoveryPage rails already use the canonical RailArrow with named
+    `group-hover/row`; they inherit the coarse reveal automatically (no per-
+    call edits). No CSS / contract changes; no new file.
+  - Verified: `npm run lint` (0/0), `npm run test` (321/321 across 31 files),
+    `npm run build` (built ok). Existing TitleDetailsPage episode-timing flake
+    passes 3/3 in isolation (pre-existing, unrelated).

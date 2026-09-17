@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Link, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence, Reorder, useDragControls } from "framer-motion";
 import {
-  ArrowLeft,
+  ChevronLeft,
   Settings,
   User,
   Palette,
@@ -845,7 +845,7 @@ export default function SettingsPage() {
                 className="flex items-center justify-center text-white drop-shadow-lg transition-transform duration-200 hover:scale-110 active:scale-90 p-1.5 rounded-full hover:bg-white/10"
                 aria-label="Go back"
               >
-                <ArrowLeft className="w-7 h-7 text-white" />
+                <ChevronLeft className="w-6 h-6 text-white/90" strokeWidth={1.5} />
               </button>
               <div className="flex items-center gap-3">
                 <Settings aria-hidden="true" className="h-8 w-8 shrink-0 text-white" />

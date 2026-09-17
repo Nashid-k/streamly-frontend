@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Calendar, MapPin } from "lucide-react";
+import { ChevronLeft, Calendar, MapPin } from "lucide-react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { movieService } from "../api/movieService";
@@ -215,7 +215,7 @@ export default function PersonDetails() {
             fontSize: "0.9rem",
           }}
         >
-          <ArrowLeft size={16} /> Back
+          <ChevronLeft size={20} strokeWidth={1.5} /> Back
         </button>
       </div>
 

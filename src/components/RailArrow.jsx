@@ -1,38 +1,39 @@
-import React from "react";
-import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-export default function RailArrow({ dir, onClick }) {
+/**
+ * Canonical Streamly rail/stepper arrow — the episodes-carousel ghost chevron.
+ * Transparent 48px hit area with a thin 1.5px chevron, vertically centered
+ * over the rail. Call sites render it only when the rail can actually scroll
+ * in that direction (see useRailArrows).
+ */
+export default function RailArrow({
+  dir,
+  onClick,
+  disabled = false,
+  revealOnHover = false,
+  hoverClass = "group-hover:opacity-100",
+  iconSize = 40,
+  sideClass,
+  className = "",
+}) {
+  const reveal = revealOnHover
+    ? `opacity-0 pointer-coarse:opacity-100 ${hoverClass} focus-visible:opacity-100`
+    : "";
   return (
-    <motion.button
-      initial={{ opacity: 0.85 }}
-      animate={{ opacity: 1 }}
-      whileHover={{ scale: 1.08 }}
+    <button
+      type="button"
       onClick={onClick}
+      disabled={disabled}
       aria-label={dir === "left" ? "Scroll left" : "Scroll right"}
-      style={{
-        position: "absolute",
-        [dir === "left" ? "left" : "right"]: "0px",
-        top: "50%",
-        transform: "translateY(-50%)",
-        zIndex: 40,
-        background: "rgba(12,12,15,0.9)",
-        border: "1px solid rgba(255,255,255,0.16)",
-        color: "rgba(255,255,255,0.92)",
-        borderRadius: "50%",
-        width: "40px",
-        height: "40px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        cursor: "pointer",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        boxShadow: "0 6px 20px rgba(0,0,0,0.6)",
-        transition: "background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s",
-      }}
+      className={`hidden md:flex absolute top-1/2 -translate-y-1/2 z-40 w-12 h-12 items-center justify-center bg-transparent text-white/80 hover:text-white cursor-pointer transition duration-200 hover:scale-105 disabled:cursor-default disabled:opacity-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/50 ${reveal} ${
+        sideClass || (dir === "left" ? "left-0" : "right-0")
+      } ${className}`.trim()}
     >
-      {dir === "left" ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
-    </motion.button>
+      {dir === "left" ? (
+        <ChevronLeft size={iconSize} strokeWidth={1.5} />
+      ) : (
+        <ChevronRight size={iconSize} strokeWidth={1.5} />
+      )}
+    </button>
   );
 }

@@ -1,9 +1,10 @@
 import React, { useState, useRef, memo } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Clock, ChevronRight, ChevronLeft, Play, X } from "lucide-react";
+import { Clock, ChevronRight, Play, X } from "lucide-react";
 import slugify from "slugify";
 import { useAppAuth } from "../context/auth";
 import useRailArrows from "../hooks/useRailArrows";
+import RailArrow from "./RailArrow";
 
 const fmtTimeLeft = (seconds) => {
   if (!seconds || seconds <= 0) return null;
@@ -126,29 +127,25 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
 
       {/* ── Rail with Left/Right Arrows ── */}
       <div className="relative">
-        <button
-          aria-label="Scroll left"
-          onClick={() => scroll("left")}
-          className={`hidden lg:flex absolute left-4 top-1/2 -translate-y-1/2 z-[60] w-12 h-12 bg-transparent drop-shadow-lg transition-all duration-300 items-center justify-center hover:scale-110 cursor-pointer ${
-            canScrollLeft
-              ? "opacity-0 group-hover/row:opacity-100 pointer-events-auto"
-              : "opacity-0 pointer-events-none"
-          }`}
-        >
-          <ChevronLeft className="lucide-icon lucide lucide-chevron-left w-10 h-10 text-white drop-shadow-md" />
-        </button>
+        {canScrollLeft && (
+          <RailArrow
+            dir="left"
+            onClick={() => scroll("left")}
+            revealOnHover
+            hoverClass="group-hover/row:opacity-100"
+            className="z-[60]"
+          />
+        )}
 
-        <button
-          aria-label="Scroll right"
-          onClick={() => scroll("right")}
-          className={`hidden lg:flex absolute right-4 top-1/2 -translate-y-1/2 z-[60] w-12 h-12 bg-transparent drop-shadow-lg transition-all duration-300 items-center justify-center hover:scale-110 cursor-pointer ${
-            canScrollRight
-              ? "opacity-0 group-hover/row:opacity-100 pointer-events-auto"
-              : "opacity-0 pointer-events-none"
-          }`}
-        >
-          <ChevronRight className="lucide-icon lucide lucide-chevron-right w-10 h-10 text-white drop-shadow-md" />
-        </button>
+        {canScrollRight && (
+          <RailArrow
+            dir="right"
+            onClick={() => scroll("right")}
+            revealOnHover
+            hoverClass="group-hover/row:opacity-100"
+            className="z-[60]"
+          />
+        )}
 
         <div
           ref={scrollRef}

@@ -8,11 +8,10 @@ import { movieService, classifyTrailer } from "../api/movieService";
 import Loader from "../components/Loader";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import { createPortal } from "react-dom";
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useLayoutEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   Play,
-  ArrowLeft,
   Star,
   Plus,
   Check,
@@ -27,7 +26,6 @@ import {
   List,
   GalleryHorizontal,
   ChevronLeft,
-  ChevronRight,
   Popcorn,
   Calendar,
   ChevronDown as ChevronDownIcon,
@@ -609,7 +607,8 @@ export default function TitleDetails() {
     if (!el) return;
     el.scrollBy({ left: dir === "left" ? -el.clientWidth * 0.8 : el.clientWidth * 0.8, behavior: "smooth" });
   };
-  const epArrows = useRailArrows(epRailRef, { enabled: episodeLayout === "carousel" });
+  const { canScrollLeft: epCanLeft, canScrollRight: epCanRight, refresh: refreshEpArrows } =
+    useRailArrows(epRailRef, { enabled: episodeLayout === "carousel" });
 
   const [playMode, setPlayMode] = useState("movie");
   const [playingTrailerKey, setPlayingTrailerKey] = useState(null);
@@ -776,15 +775,12 @@ export default function TitleDetails() {
       }
     }
   }, [isTvContent, movie, episodesLoading, episodesError, episodesData, id, selectedSeason]);
-  // Refresh arrow availability every time the rail remounts (season/layout/load).
-  // Lives below the episodes query so the deps array can read `episodesLoading`
-  // (declared above) without a TDZ crash.
-  useEffect(() => {
+  // Refresh arrow availability at layout time so carousel arrows are correct
+  // before paint (no flicker) whenever the rail remounts (season/layout/load).
+  useLayoutEffect(() => {
     if (episodeLayout !== "carousel") return;
-    const t = window.setTimeout(() => epArrows.refresh(), 80);
-    return () => window.clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [episodeLayout, selectedSeason, episodesLoading]);
+    refreshEpArrows();
+  }, [episodeLayout, selectedSeason, episodesLoading, refreshEpArrows]);
   // Backend returns { episodes, totalEpisodes, releasedEpisodes, isAiring } for running series
   // But also handle plain array format for backward compatibility
   const episodes = useMemo(
@@ -1028,7 +1024,7 @@ export default function TitleDetails() {
               gap: "8px",
             }}
           >
-            <ArrowLeft size={16} /> Go Back
+            <ChevronLeft size={18} strokeWidth={1.5} /> Go Back
           </motion.button>
           <motion.button
             whileHover={{ scale: 1.05 }}
@@ -2070,27 +2066,15 @@ export default function TitleDetails() {
           </motion.div>
           </AnimatePresence>
 
-          {/* Carousel rail overlay arrows (Cinejoy) */}
+          {/* Carousel rail overlay arrows — canonical ghost chevron */}
           {episodeLayout === 'carousel' && episodes.length > 0 && (
             <>
-              <button
-                onClick={() => scrollEpRail('left')}
-                aria-label="Scroll episodes left"
-                disabled={!epArrows.canScrollLeft}
-                className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 z-40 w-12 h-12 items-center justify-center bg-transparent text-white/80 hover:text-white cursor-pointer transition-opacity disabled:cursor-default"
-                style={{ opacity: epArrows.canScrollLeft ? undefined : 0 }}
-              >
-                <ChevronLeft size={40} strokeWidth={1.5} />
-              </button>
-              <button
-                onClick={() => scrollEpRail('right')}
-                aria-label="Scroll episodes right"
-                disabled={!epArrows.canScrollRight}
-                className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 z-40 w-12 h-12 items-center justify-center bg-transparent text-white/80 hover:text-white cursor-pointer transition-opacity opacity-0 group-hover/episodes:opacity-100 disabled:cursor-default"
-                style={{ opacity: epArrows.canScrollRight ? undefined : 0 }}
-              >
-                <ChevronRight size={40} strokeWidth={1.5} />
-              </button>
+              {epCanLeft && (
+                <RailArrow dir="left" onClick={() => scrollEpRail('left')} revealOnHover hoverClass="group-hover/episodes:opacity-100" />
+              )}
+              {epCanRight && (
+                <RailArrow dir="right" onClick={() => scrollEpRail('right')} revealOnHover hoverClass="group-hover/episodes:opacity-100" />
+              )}
             </>
           )}
           </div>
@@ -2402,7 +2386,7 @@ export default function TitleDetails() {
                   }}
                   whileTap={{ scale: 0.96 }}
                 >
-                  <ArrowLeft size={18} /> <span className="video-modal-back-label">Back</span>
+                  <ChevronLeft size={18} strokeWidth={1.5} /> <span className="video-modal-back-label">Back</span>
                 </motion.button>
                 <h3
                   className="video-modal-title"
@@ -2644,7 +2628,7 @@ export default function TitleDetails() {
                 onClick={() => setUnreleasedModalOpen(false)}
                 className="mt-6 inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/[0.12]"
               >
-                <ArrowLeft size={16} aria-hidden="true" /> Back
+                <ChevronLeft size={16} strokeWidth={1.5} aria-hidden="true" /> Back
               </button>
             </motion.div>
           </motion.div>

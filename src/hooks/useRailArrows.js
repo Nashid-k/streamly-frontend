@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useLayoutEffect, useCallback } from "react";
 
 /* Scroll-aware rail arrows: returns whether the rail can scroll left
    (content hidden on the left) and right (content hidden on the right).
@@ -18,7 +18,9 @@ export default function useRailArrows(ref, { enabled = true, threshold = 8 } = {
     });
   }, [ref, threshold]);
 
-  useEffect(() => {
+  // useLayoutEffect so arrow availability is measured before first paint —
+  // no flicker of disabled/hidden arrows right after the rail mounts.
+  useLayoutEffect(() => {
     if (!enabled) return undefined;
     const el = ref.current;
     if (!el) return undefined;

@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 
 /**
@@ -21,12 +21,12 @@ export default function ContentPageHeader({
 }) {
   const backControl = backTo ? (
     <Link className="page-back" to={backTo}>
-      <ArrowLeft size={16} aria-hidden="true" />
+      <ChevronLeft size={20} strokeWidth={1.5} aria-hidden="true" />
       {backLabel}
     </Link>
   ) : onBack ? (
     <button className="page-back" type="button" onClick={onBack}>
-      <ArrowLeft size={16} aria-hidden="true" />
+      <ChevronLeft size={20} strokeWidth={1.5} aria-hidden="true" />
       {backLabel}
     </button>
   ) : null;

@@ -1,9 +1,9 @@
 import { useCallback, useLayoutEffect, useRef, useState, memo } from "react";
 import { Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 import slugify from "slugify";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
+import RailArrow from "./RailArrow";
 
 const castContainerVariants = {
   hidden: { opacity: 0 },
@@ -51,22 +51,6 @@ const CastRail = memo(function CastRail({ cast }) {
 
   if (!cast || cast.length === 0) return null;
 
-  const arrowBtn = (dir) => {
-    const disabled = dir === "left" ? !canLeft : !canRight;
-    const Icon = dir === "left" ? ChevronLeft : ChevronRight;
-    return (
-      <button
-        key={dir}
-        onClick={() => scroll(dir)}
-        disabled={disabled}
-        aria-label={dir === "left" ? "Scroll cast list left" : "Scroll cast list right"}
-        className="cast-rail__arrow"
-      >
-        <Icon size={18} />
-      </button>
-    );
-  };
-
   return (
     <section style={{ marginTop: "3rem", position: "relative" }}>
       <div
@@ -78,11 +62,12 @@ const CastRail = memo(function CastRail({ cast }) {
         }}
       >
         <h2 className="text-xl lg:text-2xl font-bold text-white/90 px-2">Cast</h2>
-        <div className="cast-rail__nav">
-          {["left", "right"].map(arrowBtn)}
-        </div>
       </div>
-      <motion.div
+      <div className="group/cast relative">
+        {canLeft && (
+          <RailArrow dir="left" onClick={() => scroll("left")} revealOnHover hoverClass="group-hover/cast:opacity-100" iconSize={36} />
+        )}
+        <motion.div
         ref={railRef}
         variants={castContainerVariants}
         initial="hidden"
@@ -196,6 +181,10 @@ const CastRail = memo(function CastRail({ cast }) {
           );
         })}
       </motion.div>
+      {canRight && (
+        <RailArrow dir="right" onClick={() => scroll("right")} revealOnHover hoverClass="group-hover/cast:opacity-100" iconSize={36} />
+      )}
+      </div>
     </section>
   );
 });

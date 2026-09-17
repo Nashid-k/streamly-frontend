@@ -190,7 +190,7 @@ function Layout({ children }) {
               }
             }}
           >
-            <ChevronLeft size={18} strokeWidth={2.5} />
+            <ChevronLeft size={24} strokeWidth={1.5} />
           </button>
         )}
 

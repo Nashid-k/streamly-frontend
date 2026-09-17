@@ -3,7 +3,7 @@ import slugify from "slugify";
 import ErrorBoundary from "../components/ErrorBoundary";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Play, ChevronLeft, ChevronRight, Check, Plus, Info, Calendar, Heart } from "lucide-react";
+import { Play, Check, Plus, Info, Calendar, Heart } from "lucide-react";
 import {
   motion,
   AnimatePresence,
@@ -17,6 +17,7 @@ import ContinueWatchingRail from "../components/ContinueWatchingRail";
 import AmbientBackground from "../components/AmbientBackground";
 import HeroTitleLogo from "../components/HeroTitleLogo";
 import useDetailView from "../hooks/useDetailView";
+import useIsTouch from "../hooks/useIsTouch";
 import RatingsCluster from "../components/RatingsCluster";
 
 import RailArrow from "../components/RailArrow";
@@ -630,6 +631,7 @@ export default function Home({
 
   const [isHeroHovered, setIsHeroHovered] = useState(false);
   const isHeroHoveredRef = useRef(false);
+  const isCoarse = useIsTouch();
   /* Netflix behavior: the banner's Info button always opens the in-place
      info modal — regardless of the Detail View Type setting (that setting
      governs card/banner-card clicks, not the explicit Info affordance). */
@@ -1287,28 +1289,30 @@ export default function Home({
 
             {/* Prev / Next arrows — appear on hover */}
             <AnimatePresence>
-              {isHeroHovered && totalFeatured > 1 && (
+              {(isHeroHovered || isCoarse) && totalFeatured > 1 && (
                 <>
-                  <motion.button
+                  <motion.div
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -10 }}
-                    className="hero-nav-arrow left"
-                    aria-label="Previous featured title"
-                    onClick={(e) => { e.stopPropagation(); setFeaturedIndex((featuredIndex - 1 + totalFeatured) % totalFeatured); }}
                   >
-                    <ChevronLeft size={28} />
-                  </motion.button>
-                  <motion.button
+                    <RailArrow
+                      dir="left"
+                      sideClass="left-4"
+                      onClick={(e) => { e.stopPropagation(); setFeaturedIndex((featuredIndex - 1 + totalFeatured) % totalFeatured); }}
+                    />
+                  </motion.div>
+                  <motion.div
                     initial={{ opacity: 0, x: 10 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 10 }}
-                    className="hero-nav-arrow right"
-                    aria-label="Next featured title"
-                    onClick={(e) => { e.stopPropagation(); setFeaturedIndex((featuredIndex + 1) % totalFeatured); }}
                   >
-                    <ChevronRight size={28} />
-                  </motion.button>
+                    <RailArrow
+                      dir="right"
+                      sideClass="right-4"
+                      onClick={(e) => { e.stopPropagation(); setFeaturedIndex((featuredIndex + 1) % totalFeatured); }}
+                    />
+                  </motion.div>
                 </>
               )}
             </AnimatePresence>

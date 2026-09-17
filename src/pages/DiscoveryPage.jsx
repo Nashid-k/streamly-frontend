@@ -5,8 +5,6 @@ import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
   CalendarDays,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Dices,
 } from "lucide-react";
 import { movieService } from "../api/movieService";
@@ -14,6 +12,7 @@ import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import MovieCard from "../components/MovieCard";
 import AmbientBackground from "../components/AmbientBackground";
 import ErrorBoundary from "../components/ErrorBoundary";
+import RailArrow from "../components/RailArrow";
 import useDetailView from "../hooks/useDetailView";
 import { buildUpcoming } from "../utils/releaseCalendar";
 import { logEmptyData, reportQueryError } from "../utils/debugLogger";
@@ -255,9 +254,6 @@ function UpcomingMonthRail({ heading, itemCount, items, onOpen }) {
     railRef.current?.scrollBy({ left: dir * 420, behavior: reduceMotion ? "auto" : "smooth" });
   };
 
-  const railArrowBase =
-    "hidden lg:flex absolute top-1/2 -translate-y-1/2 z-[60] w-12 h-12 bg-transparent drop-shadow-lg transition-all duration-300 items-center justify-center hover:scale-110 cursor-pointer";
-
   return (
     <section className="relative z-10 mt-2">
       <div className="flex items-center gap-3 px-4 md:px-8">
@@ -271,14 +267,7 @@ function UpcomingMonthRail({ heading, itemCount, items, onOpen }) {
       </div>
       <div className="relative group/row mt-6">
         {canLeft && (
-          <button
-            type="button"
-            aria-label="Scroll left"
-            onClick={() => scrollRail(-1)}
-            className={`${railArrowBase} -left-2 opacity-100 pointer-events-auto`}
-          >
-            <ChevronLeft size={40} className="w-10 h-10 text-white drop-shadow-md" />
-          </button>
+          <RailArrow dir="left" onClick={() => scrollRail(-1)} revealOnHover hoverClass="group-hover/row:opacity-100" />
         )}
         <div
           ref={railRef}
@@ -294,14 +283,7 @@ function UpcomingMonthRail({ heading, itemCount, items, onOpen }) {
           ))}
         </div>
         {canRight && (
-          <button
-            type="button"
-            aria-label="Scroll right"
-            onClick={() => scrollRail(1)}
-            className={`${railArrowBase} -right-2 opacity-0 group-hover/row:opacity-100 pointer-events-none group-hover/row:pointer-events-auto`}
-          >
-            <ChevronRight size={40} className="w-10 h-10 text-white drop-shadow-md" />
-          </button>
+          <RailArrow dir="right" onClick={() => scrollRail(1)} revealOnHover hoverClass="group-hover/row:opacity-100" />
         )}
       </div>
     </section>
@@ -556,9 +538,6 @@ export default function DiscoveryPage({ mode = "movies" }) {
     railRef.current?.scrollBy({ left: dir * 420, behavior: reduceMotion ? "auto" : "smooth" });
   };
 
-  const railArrowBase =
-    "hidden lg:flex absolute top-1/2 -translate-y-1/2 z-[60] w-12 h-12 bg-transparent drop-shadow-lg transition-all duration-300 items-center justify-center hover:scale-110 cursor-pointer";
-
   const gridLoading = gridQuery.isLoading;
   const gridError = gridQuery.error ? "No titles found for these filters." : null;
   const railEmpty = !railQuery.isLoading && !railQuery.error && railItems.length === 0;
@@ -709,14 +688,7 @@ export default function DiscoveryPage({ mode = "movies" }) {
             <div className="relative group/row mt-6">
               {/* Left arrow — only shows when content is hidden to the left */}
               {canLeft && (
-                <button
-                  type="button"
-                  aria-label="Scroll left"
-                  onClick={() => scrollRail(-1)}
-                  className={`${railArrowBase} -left-2 opacity-100 pointer-events-auto`}
-                >
-                  <ChevronLeft size={40} className="w-10 h-10 text-white drop-shadow-md" />
-                </button>
+                <RailArrow dir="left" onClick={() => scrollRail(-1)} revealOnHover hoverClass="group-hover/row:opacity-100" />
               )}
               <div
                 ref={railRef}
@@ -733,14 +705,7 @@ export default function DiscoveryPage({ mode = "movies" }) {
               </div>
               {/* Right arrow — reveals on hover over the row */}
               {canRight && (
-                <button
-                  type="button"
-                  aria-label="Scroll right"
-                  onClick={() => scrollRail(1)}
-                  className={`${railArrowBase} -right-2 opacity-0 group-hover/row:opacity-100 pointer-events-none group-hover/row:pointer-events-auto`}
-                >
-                  <ChevronRight size={40} className="w-10 h-10 text-white drop-shadow-md" />
-                </button>
+                <RailArrow dir="right" onClick={() => scrollRail(1)} revealOnHover hoverClass="group-hover/row:opacity-100" />
               )}
             </div>
           </section>
