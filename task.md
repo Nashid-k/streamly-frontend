@@ -1707,4 +1707,21 @@ pm run build ok.
   - The 60-second maxDuration allows large file downloads to complete without timing out.
   - Verified that `api/downloadify.js` exists and is properly structured with the same `maxDuration: 60` export config.
   - Build succeeded without errors. Changes committed and pushed to GitHub.
+
+- [x] **Task 88 - Add self-hosted TMDB-Embed API for direct MP4 downloads**
+  - Problem: External download APIs tested (15 sites) all failed - 0/15 working due to Cloudflare blocks, 403s, timeouts, or paid-only access. Existing HLS approach was being blocked by embed hosts returning 403 Forbidden to Vercel serverless IPs.
+  - Solution: Implemented self-hosted TMDB-Embed API (`api/tmdb-embed.js`) with direct MP4 providers (dahmermovies, streamflix) that serve direct file links instead of HLS streams.
+  - Implementation:
+    - Created `api/tmdb-embed.js` Vercel function with two providers:
+      - `getDahmerMovies()`: Scrapes dahmermovies.site for direct MP4/MKV links
+      - `getStreamflix()`: Scrapes flixhq.stream for direct MP4 links
+    - Added endpoint: `GET /api/tmdb-embed/movie/:tmdbId` for movies, `GET /api/tmdb-embed/tv/:tmdbId/:season/:episode` for TV
+    - Added `"api/tmdb-embed.js": { "maxDuration": 30 }` to `vercel.json` functions
+    - Updated `downloadService.resolveDirectDownload()` to query TMDB-Embed API with automatic fallback to HLS
+    - Updated `DownloadModal` to try direct downloads first (trigger browser download directly for MP4s), fallback to HLS segment fetching
+    - Added CSP and Permissions-Policy entries for `dahmermovies.site` and `flixhq.stream`
+  - Direct MP4 download flow: When `variant.direct` is true, triggers browser download via `<a>` tag with `download` attribute, bypassing segment fetching entirely.
+  - Hybrid approach: Direct MP4 downloads prioritized for speed and reliability; HLS fallback remains for when direct providers fail.
+  - Verification: Build ✓ 1.11s, Tests 364/364 passed. Changes committed and pushed to GitHub (commit ba0cc67).
+  - Note: Production testing after Vercel deployment will determine if the direct MP4 providers are accessible and return valid links. If providers block Vercel IPs similar to the HLS approach, additional proxy/header strategies may be needed.
   - Next step: After Vercel auto-deploys, test the download flow in production to verify it works end-to-end.
