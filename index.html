@@ -38,7 +38,7 @@
       // PREVIOUS app version (keeps SW registered + image/trailer caches warm so
       // the next request revalidates via SWR instead of re-downloading everything).
       (function() {
-        var V = 'v19.0';
+        var V = 'v19.1';
         var prev = null;
         try { prev = localStorage.getItem('_sv'); } catch(e) {}
         if (prev !== V) {
@@ -48,7 +48,7 @@
             if ('caches' in window) tasks.push(caches.keys().then(function(names) {
               // Nuke every SW-managed cache (they are all named `streamly-*`)
               // on a version bump; the freshly-registered SW re-creates
-              // streamly-v19.0 / streamly-images-v19.0 on first activation.
+              // streamly-v19.1 / streamly-images-v19.1 on first activation.
               var stale = names.filter(function(k) { return k.indexOf('streamly') === 0; });
               return Promise.all(stale.map(function(k) { return caches.delete(k); }));
             }));

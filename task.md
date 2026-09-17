@@ -1604,3 +1604,11 @@ pm run build ok.
   - Player: CustomVideoPlayer now lazy (React.lazy + Suspense) on TitleDetails, cutting the initial bundle (player = separate 149 kB chunk, loaded on watch only); React.memo on ArcRing/PresetVolumeHUD/PresetBrightnessHUD/PresetAspectRatioHUD/LoadingArc (per-tick re-render boundaries); removed orphan write-only `streamly_autoSkip` localStorage (real pref is `setting-autoSkipIntro`).
   - Docs: architecture.md updated (streamly_autoSkip removed, merge policy + updatedAt, JWKS path + JWKS URL, no tokeninfo, GET/guest removed, maxDuration, player lazy row).
   - Verification: npm run lint 0/0, npm run test 336/336 (33 files), npm run build ok; pushed to origin/main.
+
+- [x] **Task 79 - Poster images broken by CSP (SW image pre-cache blocked), v19.1 SW rotate
+  - Symptom (production console flood): every poster 404'd with
+    `Fetch API cannot load https://wsrv.nl/... Refused to connect because it violates the document's Content Security Policy` from sw.js fetch handler, plus `TypeError: Failed to convert value to 'Response'` and `[Streamly][MovieCard] Poster image failed to load` monogram fallbacks.
+  - Root cause: Task 76's CSP put wsrv.nl in `img-src` (governs `<img>` loads) but NOT in `connect-src` — and the service worker's image pre-cache fetches poster URLs with `fetch()` inside the SW context, which is governed by `connect-src`. Every SW-managed image request was refused, so no poster loaded.
+  - Fix: vercel.json `connect-src` += `https://wsrv.nl`; bumped `_sv` guard `var V` v19.0 -> v19.1 and sw.js CACHE_NAME/IMAGE_CACHE -> streamly-v19.1 / streamly-images-v19.1 so the new header reaches the SW script and stale image caches rotate.
+  - Editorial rails: boot logs `TMDB returned 0 results for /discover/movie` for two keyword editorial rails — confirmed genuine empty TMDB payloads (tmdbClient throws on HTTP errors, so these are real 0-item keyword discovers, not provenance errors); rails self-hide by design, pre-existing, unrelated to Task 78.
+  - Verification: npm run lint 0/0, npm run test 336/336, npm run build ok.
