@@ -167,3 +167,31 @@ describe("CustomVideoPlayer skins", () => {
   });
 });
 
+describe("CineSrc embed params follow the integration docs", () => {
+  it("appends seek from the seekTime pref and no autoskip for movies", () => {
+    const { container } = renderPlayer("classic");
+    const src = container.querySelector("iframe").getAttribute("src");
+    expect(src).toContain("cinesrc.st/embed/movie/9806?");
+    expect(src).toContain("&seek=10");
+    expect(src).not.toContain("autoskip");
+    expect(src).not.toContain("continueprompt"); // no saved progress in test
+  });
+
+  it("appends autoskip matching the Auto-Skip Intro pref for TV episodes", () => {
+    const { container } = render(
+      <PreferencesProvider>
+        <CustomVideoPlayer
+          movie={{ id: "tmdb-tv-1396", title: "Game of Thrones", isSeries: true }}
+          servers={VideoSourceAdapter.getServers()}
+          season="1"
+          episode="1"
+        />
+      </PreferencesProvider>
+    );
+    const src = container.querySelector("iframe").getAttribute("src");
+    expect(src).toContain("cinesrc.st/embed/tv/1396?s=1&e=1");
+    expect(src).toContain("&autoskip=false");
+    expect(src).toContain("&seek=10");
+  });
+});
+

@@ -3,7 +3,7 @@ const BASE_SERVERS = [
     name: "Server 1",
     url: (id, s, e) =>
       s
-        ? `https://cinesrc.st/embed/tv/${id}?s=${s}&e=${e}&color=%230A84FF&autoplay=true&controls=false&autoskip=false&autonext=false`
+        ? `https://cinesrc.st/embed/tv/${id}?s=${s}&e=${e}&color=%230A84FF&autoplay=true&controls=false&autonext=false`
         : `https://cinesrc.st/embed/movie/${id}?color=%230A84FF&autoplay=true&controls=false`,
   },
   {

@@ -28,6 +28,26 @@ describe("VideoSourceAdapter ordering", () => {
   });
 });
 
+describe("CineSrc embed URLs follow the integration docs", () => {
+  it("builds the movie embed from the TMDB id", () => {
+    const url = VideoSourceAdapter.resolveStreamUrl(VideoSourceAdapter.getServers(), 0, "245891", null, null, null);
+    expect(url).toMatch(/^https:\/\/cinesrc\.st\/embed\/movie\/245891\?/);
+    expect(url).toContain("color=%230A84FF");
+    expect(url).toContain("autoplay=true");
+    expect(url).toContain("controls=false");
+  });
+
+  it("builds the TV embed with s/e params and keeps autonext off for app-owned navigation", () => {
+    const url = VideoSourceAdapter.resolveStreamUrl(VideoSourceAdapter.getServers(), 0, "1396", "1", "1", null);
+    expect(url).toMatch(/^https:\/\/cinesrc\.st\/embed\/tv\/1396\?s=1&e=1/);
+    expect(url).toContain("autonext=false");
+    // autoskip is not hardcoded here — the player appends it from the
+    // Auto-Skip Intro preference at load time.
+    expect(url).not.toContain("autoskip");
+    expect(url).not.toContain("autonext=null");
+  });
+});
+
 describe("VideoSourceAdapter ordered-list helpers (custom player)", () => {
   const ordered = VideoSourceAdapter.getOrderedServers(["Server 5 (VidCore)", "Server 1"]);
 

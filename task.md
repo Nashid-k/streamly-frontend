@@ -1619,3 +1619,13 @@ pm run build ok.
   - Root cause (subtitles): connect-src was missing the OpenSubtitles hosts (`rest.opensubtitles.org` search API, `dl.opensubtitles.org` subtitle downloads) — same class of miss as wsrv.nl in Task 79. Added both.
   - The remaining console flood (a.cineflix.st 502, introdb.app CORS mismatching to only 'introdb.app' origin, llvpn/burger.js ERR_BLOCKED_BY_CLIENT adblock hits, embed promise postMessage DataCloneError) is the third-party embed's own iframe-scope traffic — governed by the embed's own CSP/origin, not ours.
   - Verification: vercel.json parses (node JSON.parse); npm run lint 0/0, npm run test 336/336, npm run build ok.
+
+- [x] **Task 81 - Align the custom player with the updated CineSrc integration docs
+  - Context: player already had postMessage command API + event handler (cinesrc:ready/play/pause/timeupdate/ended/nextepisode/skipintro/volumechange/ratechange/error), resume via `t` + `continueprompt=false`, iframe `allow="autoplay; fullscreen; encrypted-media; picture-in-picture"`, and doc-exact URL patterns (`/embed/movie/{tmdb_id}`, `/embed/tv/{id}?s=&e=`).
+  - autoskip: was hardcoded `autoskip=false` in the Server 1 URL. Now removed from the adapter; the player appends `&autoskip=<pref>` from the Auto-Skip Intro preference at load time (TV only - movies carry no intros), so the documented param mirrors user choice.
+  - seek: player now appends `&seek=<clamped seekStep>` from the seekTime preference (1-99 per docs, default 10), so CineSrc's own seek affordance honors the user's step.
+  - autonext deliberately stays off: the app owns episode advancement via its up-next overlay + cinesrc:nextepisode/ended handlers, so CineSrc's internal auto-next is disabled to avoid double navigation.
+  - getMuted getter parity: added `getMuted` to the cinesrc:ready handshake and a `case "getMuted"` in the cinesrc:response switch (mirrors getVolume/getPaused/getPlaybackRate handling).
+  - Not taken: `lastserver`/`prioritize` (app rotation already drives server choice; CineSrc manages its own per-title memory), `back=close` (controls=false hides embed chrome; app has its own close button), `febbox` token (never put the auth token in an iframe src query).
+  - Tests: +4. videoSourceAdapter.test.js new "CineSrc embed URLs follow the integration docs" block (movie/TV URL pattern, color/autoplay/controls params, autonext=false, no hardcoded autoskip). CustomVideoPlayer.test.jsx new block asserting the iframe src gets `&seek=10` and pref-matching `&autoskip` (movie: absent; TV: matches the pref).
+  - Verification: npm run lint 0/0, npm run test 340/340 (was 336 + 4 new), npm run build ok.

@@ -1519,6 +1519,12 @@ const CustomVideoPlayer = ({
       let url = VideoSourceAdapter.resolveStreamUrl(SERVERS, activeServerIndex, tid, isTv ? season : null, isTv ? episode : null, imdbId, movie.title);
       const isCineServer = url.includes("cinesrc.st");
       if (isCineServer) {
+        // Doc-aligned CineSrc customization params: seek follows the seekTime
+        // preference and autoskip mirrors the Auto-Skip Intro preference
+        // (TV only — movies never carry intros). autonext stays off so the
+        // app's own up-next overlay owns episode advancement.
+        url += `&seek=${Math.min(99, Math.max(1, seekStep))}`;
+        if (isTv) url += `&autoskip=${autoSkipIntro ? "true" : "false"}`;
         if (!isNew && currentTime > 0 && !targetSeekTimeRef.current) url += `&t=${Math.floor(currentTime)}&continueprompt=false`;
         else if (isNew && startTimeRef.current > 0) url += `&t=${Math.floor(startTimeRef.current)}&continueprompt=false`;
       }
@@ -1641,6 +1647,7 @@ const CustomVideoPlayer = ({
             sendCommand("getCurrentTime");
             sendCommand("getDuration");
             sendCommand("getVolume");
+            sendCommand("getMuted");
             sendCommand("getPaused");
             sendCommand("getPlaybackRate");
             break;
@@ -1649,6 +1656,7 @@ const CustomVideoPlayer = ({
               case "getCurrentTime": if (d.result != null && !targetSeekTimeRef.current) setCurrentTime(d.result); break;
               case "getDuration": if (d.result) setDuration(d.result); break;
               case "getVolume": if (d.result != null) setVolume(d.result); break;
+              case "getMuted": if (d.result != null) setIsMuted(d.result); break;
               case "getPaused": if (d.result != null) setIsPlaying(!d.result); break;
               case "getPlaybackRate": if (d.result != null) setPlaybackRate(d.result); break;
               case "getAudioTracks": case "getTracks": case "getAudio": if (d.result) setAudioTracks(d.result); break;
