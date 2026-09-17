@@ -193,5 +193,22 @@ describe("CineSrc embed params follow the integration docs", () => {
     expect(src).toContain("&autoskip=false");
     expect(src).toContain("&seek=10");
   });
+
+  it("appends the saved quality as the doc quality param", () => {
+    localStorage.setItem("streamly_lastQuality", JSON.stringify({ id: "1080p", name: "1080" }));
+    const { container } = renderPlayer("classic");
+    const src = container.querySelector("iframe").getAttribute("src");
+    expect(src).toContain("&quality=1080");
+    // Auto (id -1) stays an explicit prefer-default — no quality param.
+    localStorage.setItem("streamly_lastQuality", JSON.stringify({ id: -1, name: "Auto" }));
+    const { container: c2 } = renderPlayer("classic");
+    expect(c2.querySelector("iframe").getAttribute("src")).not.toContain("&quality=");
+  });
+
+  it("appends muted=true when the player was left muted", () => {
+    localStorage.setItem("streamly_muted", "true");
+    const { container } = renderPlayer("classic");
+    expect(container.querySelector("iframe").getAttribute("src")).toContain("&muted=true");
+  });
 });
 

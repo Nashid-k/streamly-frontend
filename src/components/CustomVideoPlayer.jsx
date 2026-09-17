@@ -1164,7 +1164,7 @@ const CustomVideoPlayer = ({
   const [volume, setVolume] = useState(1);
   const volumeRef = useRef(1);
   const [isVolumeHovered, setIsVolumeHovered] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(() => localStorage.getItem("streamly_muted") === "true");
   const isMutedRef = useRef(false);
   const [showVolumeArc, setShowVolumeArc] = useState(false);
   const [showAspectRatioArc, setShowAspectRatioArc] = useState(false);
@@ -1225,9 +1225,13 @@ const CustomVideoPlayer = ({
   const [showBrightnessArc, setShowBrightnessArc] = useState(false);
   const brightnessArcTimerRef = useRef(null);
   const [qualities, setQualities] = useState([]);
-  const [currentQuality, setCurrentQuality] = useState(null);
+  const [currentQuality, setCurrentQuality] = useState(() => {
+    try { const s = localStorage.getItem("streamly_lastQuality"); return s ? JSON.parse(s) : null; } catch { return null; }
+  });
   const [audioTracks, setAudioTracks] = useState([]);
-  const [currentAudioTrack, setCurrentAudioTrack] = useState(null);
+  const [currentAudioTrack, setCurrentAudioTrack] = useState(() => {
+    try { const s = localStorage.getItem("streamly_lastAudio"); return s ? JSON.parse(s) : null; } catch { return null; }
+  });
   const [showPausedInfo, setShowPausedInfo] = useState(false);
   const pausedInfoTimerRef = useRef(null);
 
@@ -1378,9 +1382,7 @@ const CustomVideoPlayer = ({
 
   useEffect(() => {
     const sv = localStorage.getItem("streamly_volume");
-    const sm = localStorage.getItem("streamly_muted");
     if (sv !== null) setVolume(parseFloat(sv));
-    if (sm === "true") setIsMuted(true);
   }, []);
 
   useEffect(() => {
@@ -1525,6 +1527,8 @@ const CustomVideoPlayer = ({
         // app's own up-next overlay owns episode advancement.
         url += `&seek=${Math.min(99, Math.max(1, seekStep))}`;
         if (isTv) url += `&autoskip=${autoSkipIntro ? "true" : "false"}`;
+        if (currentQuality?.id && currentQuality.id !== -1) url += `&quality=${encodeURIComponent(currentQuality.name || currentQuality.id)}`;
+        if (isMuted) url += "&muted=true";
         if (!isNew && currentTime > 0 && !targetSeekTimeRef.current) url += `&t=${Math.floor(currentTime)}&continueprompt=false`;
         else if (isNew && startTimeRef.current > 0) url += `&t=${Math.floor(startTimeRef.current)}&continueprompt=false`;
       }
@@ -1650,6 +1654,10 @@ const CustomVideoPlayer = ({
             sendCommand("getMuted");
             sendCommand("getPaused");
             sendCommand("getPlaybackRate");
+            sendCommand("getQualities");
+            sendCommand("getCurrentQuality");
+            sendCommand("getAudioTracks");
+            sendCommand("getCurrentAudioTrack");
             break;
           case "cinesrc:response":
             switch (d.command) {
@@ -1661,8 +1669,8 @@ const CustomVideoPlayer = ({
               case "getPlaybackRate": if (d.result != null) setPlaybackRate(d.result); break;
               case "getAudioTracks": case "getTracks": case "getAudio": if (d.result) setAudioTracks(d.result); break;
               case "getQualities": case "getLevels": case "getResolutions": if (d.result) setQualities(d.result); break;
-              case "getCurrentQuality": case "getCurrentLevel": case "getCurrentResolution": case "getQuality": if (d.result != null) setCurrentQuality(d.result); break;
-              case "getCurrentAudioTrack": case "getCurrentTrack": if (d.result != null) setCurrentAudioTrack(d.result); break;
+              case "getCurrentQuality": case "getCurrentLevel": case "getCurrentResolution": case "getQuality": if (d.result != null) { setCurrentQuality(d.result); try { localStorage.setItem("streamly_lastQuality", JSON.stringify(d.result)); } catch {} } break;
+              case "getCurrentAudioTrack": case "getCurrentTrack": if (d.result != null) { setCurrentAudioTrack(d.result); try { localStorage.setItem("streamly_lastAudio", JSON.stringify(d.result)); } catch {} } break;
               default: break;
             }
             break;
@@ -5082,7 +5090,7 @@ const CustomVideoPlayer = ({
                 <div style={{ display: "flex", gap: "clamp(4px, 1vw, 6px)", flexWrap: "wrap" }}>
                   <motion.button onClick={() => {
                     sendCommand("setQuality", [-1]);
-                    setCurrentQuality({ id: -1, name: 'Auto' }); setShowSettings(false);
+                    setCurrentQuality({ id: -1, name: 'Auto' }); localStorage.setItem("streamly_lastQuality", JSON.stringify({ id: -1, name: 'Auto' })); setShowSettings(false);
                   }}
                     whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }} transition={SPRING}
                     style={{
@@ -5096,7 +5104,7 @@ const CustomVideoPlayer = ({
                   {qualities.map((q) => (
                     <motion.button key={q.id} onClick={() => {
                       sendCommand("setQuality", [q.id]);
-                      setCurrentQuality(q); setShowSettings(false);
+                      setCurrentQuality(q); localStorage.setItem("streamly_lastQuality", JSON.stringify(q)); setShowSettings(false);
                     }}
                       whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }} transition={SPRING}
                       style={{
@@ -5122,7 +5130,7 @@ const CustomVideoPlayer = ({
                   {audioTracks.map((t, i) => (
                     <button key={i} onClick={() => {
                       sendCommand("setAudioTrack", [t.id || i]);
-                      setCurrentAudioTrack(t); setShowSettings(false);
+                      setCurrentAudioTrack(t); localStorage.setItem("streamly_lastAudio", JSON.stringify(t)); setShowSettings(false);
                     }}
                       style={{
                         background: (currentAudioTrack?.id === t.id) ? "rgba(var(--accent-primary-rgb), 0.12)" : "transparent",
@@ -5414,7 +5422,7 @@ const CustomVideoPlayer = ({
               {audioTracks.map((t, i) => (
                 <button key={i} onClick={() => {
                   sendCommand("setAudioTrack", [t.id || i]);
-                  setCurrentAudioTrack(t); setShowAudioMenu(false);
+                  setCurrentAudioTrack(t); localStorage.setItem("streamly_lastAudio", JSON.stringify(t)); setShowAudioMenu(false);
                 }}
                   style={{
                     width: "100%", background: (currentAudioTrack?.id === t.id) ? "rgba(var(--accent-primary-rgb), 0.12)" : "transparent",
