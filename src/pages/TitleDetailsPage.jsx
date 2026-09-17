@@ -2,6 +2,7 @@ import SEO from "../components/SEO";
 import MovieDetailsSkeleton from "../components/MovieDetailsSkeleton";
 import CastRail from "../components/CastRail";
 import RailArrow from "../components/RailArrow";
+import DownloadModal from "../components/DownloadModal";
 import useRailArrows from "../hooks/useRailArrows";
 import { useQuery } from "@tanstack/react-query";
 import { movieService, classifyTrailer } from "../api/movieService";
@@ -542,16 +543,10 @@ export default function TitleDetails() {
       (m) => String(m.id) === String(movieId) && (m.timestamp || 0) > 0,
     ) || false;
 
-  // Cinejoy mirrors Download, but offline downloads don't exist in the web
-  // app — show an honest toast when the disabled button is pressed.
-  const handleDownloadDisabled = () => {
-    toast({
-      title: "Download coming soon",
-      message: "Offline downloads aren't available in the web app yet.",
-      type: "info",
-      duration: 2500,
-    });
-  };
+  // Browser-only offline download: resolve the server's HLS ladder and save
+  // the chosen quality to disk through the /api/downloadify function.
+  const [downloadOpen, setDownloadOpen] = useState(false);
+  const handleDownloadOpen = () => setDownloadOpen(true);
 
   // Mark watched / unwatched — records a full run in watch history (or
   // removes it), mirroring Cinejoy's "Mark As Watched" circular action.
@@ -1312,10 +1307,10 @@ export default function TitleDetails() {
 
                 <button
                   type="button"
-                  onClick={handleDownloadDisabled}
+                  onClick={handleDownloadOpen}
                   className="hero-circle-btn"
-                  aria-label="Download (coming soon)"
-                  title="Download isn't available in the web app yet"
+                  aria-label="Download"
+                  title="Download to your device"
                 >
                   <Download size={20} />
                 </button>
@@ -2652,6 +2647,17 @@ export default function TitleDetails() {
         )}
       </AnimatePresence>,
       document.body
+      )}
+
+      {downloadOpen && movie && (
+        <DownloadModal
+          movie={movie}
+          servers={SERVERS}
+          isTvContent={isTvContent}
+          initialSeason={selectedSeason}
+          initialEpisode={isTvContent ? (episodeToPlay ?? playingEpisode ?? 1) : 1}
+          onClose={() => setDownloadOpen(false)}
+        />
       )}
     </div>
   );

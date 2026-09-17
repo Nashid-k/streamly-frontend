@@ -43,6 +43,17 @@ export { normalizePlatformKey, getPlatformName } from "./platforms";
 export { getRatingColor } from "./ratings";
 export { buildMetaFacts } from "./metaFacts";
 
+// HLS download quality parsing / labels
+export {
+  parseMasterPlaylist,
+  parseMediaPlaylist,
+  variantLabel,
+  resolutionLabel,
+  estimateBytes,
+  formatBytes,
+  safeFileName,
+} from "./downloadQuality";
+
 // Dynamic Import Chunk Recovery
 export {
   isChunkLoadError,

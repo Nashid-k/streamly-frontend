@@ -1,0 +1,122 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import DownloadModal from "../components/DownloadModal";
+import { ToastProvider } from "../components/Toast.jsx";
+import { downloadService } from "../api/downloadService";
+import { movieService } from "../api/movieService";
+
+vi.mock("../api/downloadService", () => ({
+  downloadService: {
+    resolveDownload: vi.fn(),
+    buildManifest: vi.fn(),
+    pickSaveTarget: vi.fn(),
+    saveStream: vi.fn(),
+  },
+  DownloadUnavailableError: class DownloadUnavailableError extends Error {
+    constructor(message, code) {
+      super(message);
+      this.code = code;
+    }
+  },
+}));
+
+vi.mock("../api/movieService", () => ({
+  movieService: {
+    getExternalIds: vi.fn(),
+    getSeasonEpisodes: vi.fn(),
+  },
+}));
+
+const MOVIE = { id: "movie-550", title: "Fight Club", releaseYear: "1999", durationMins: 139 };
+const SERVERS = [
+  { name: "Server 1", url: () => "https://cinesrc.st/embed/movie/550" },
+  { name: "Server 2 (Fast)", url: () => "https://vidlink.pro/movie/550" },
+];
+const VARIANTS = [
+  { uri: "https://cdn/4k.m3u8", bandwidth: 16000000, width: 3840, height: 2160, hdr: true },
+  { uri: "https://cdn/1080.m3u8", bandwidth: 8000000, width: 1920, height: 1080, hdr: false },
+  { uri: "https://cdn/720.m3u8", bandwidth: 3000000, width: 1280, height: 720, hdr: false },
+];
+
+function renderModal(props = {}) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <ToastProvider>
+        <DownloadModal movie={MOVIE} servers={SERVERS} isTvContent={false} onClose={() => {}} {...props} />
+      </ToastProvider>
+    </QueryClientProvider>,
+  );
+}
+
+beforeEach(() => {
+  localStorage.clear();
+  document.body.style.overflow = "";
+  vi.clearAllMocks();
+  movieService.getExternalIds.mockResolvedValue({ imdb_id: "tt0137523" });
+  movieService.getSeasonEpisodes.mockResolvedValue({ episodes: [] });
+  downloadService.pickSaveTarget.mockResolvedValue(null);
+  downloadService.buildManifest.mockResolvedValue({ kind: "fmp4", initUrl: null, segments: ["https://cdn/a.m4s"], count: 1 });
+  downloadService.saveStream.mockResolvedValue({ bytes: 2048, filename: "f.mp4", method: "blob" });
+});
+
+describe("DownloadModal", () => {
+  it("lists only the qualities the server actually offers", async () => {
+    downloadService.resolveDownload.mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
+    renderModal();
+
+    expect(await screen.findByRole("dialog", { name: /download/i })).toBeInTheDocument();
+    // Quality badges appear in source rows and possibly filter rail
+    expect(screen.getAllByText("4K HDR").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText("1080p").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText("720p").length).toBeGreaterThanOrEqual(2);
+    expect(downloadService.resolveDownload).toHaveBeenCalledWith(
+      "https://cinesrc.st/embed/movie/550",
+      expect.objectContaining({ signal: expect.anything() }),
+    );
+  });
+
+  it("downloads the chosen variant through saveStream", async () => {
+    downloadService.resolveDownload.mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
+    renderModal();
+
+    // Find and click the first "Get" button
+    const getButtons = await screen.findAllByText("Get");
+    fireEvent.click(getButtons[0]);
+
+    await waitFor(() => expect(downloadService.saveStream).toHaveBeenCalledTimes(1));
+    expect(downloadService.buildManifest).toHaveBeenCalledTimes(1);
+  });
+
+  it("tries the next server when one has no downloadable source", async () => {
+    downloadService.resolveDownload
+      .mockRejectedValueOnce(new Error("no source"))
+      .mockResolvedValueOnce({ source: { url: "m" }, variants: VARIANTS });
+    renderModal();
+
+    await screen.findAllByText("1080p");
+    expect(downloadService.resolveDownload).toHaveBeenCalledTimes(2);
+  });
+
+  it("shows an honest error when no server can be downloaded", async () => {
+    downloadService.resolveDownload.mockRejectedValue(new Error("no source"));
+    renderModal();
+
+    expect(
+      await screen.findByText(/none of the servers offered a downloadable file/i),
+    ).toBeInTheDocument();
+  });
+
+  it("locks body scroll and closes on Escape", async () => {
+    downloadService.resolveDownload.mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
+    const onClose = vi.fn();
+    renderModal({ onClose });
+
+    await screen.findByRole("dialog", { name: /download/i });
+    expect(document.body.style.overflow).toBe("hidden");
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalled();
+  });
+});

@@ -13,6 +13,7 @@ export {
   BASE_SERVERS,
 } from "./videoSourceAdapter";
 export { SubtitleFetcher } from "./subtitleFetcher";
+export { downloadService, DownloadUnavailableError } from "./downloadService";
 export { PrefetchAdapter } from "./prefetchAdapter";
 export { CdnImageAdapter } from "./cdnImageAdapter";
 export { useVirtualRenderAdapter } from "./virtualRenderAdapter";

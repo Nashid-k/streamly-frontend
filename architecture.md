@@ -41,6 +41,7 @@ Firebase SDK in the bundle.
 | Genre | `/genre/:genre` | `genre-search:<genre>` → `searchMovies` + `selectGenreResults` | network only |
 | Collection | `/category/:name` | `categories` (exact→fuzzy→token match) or `location.state.movies` | network / nav state |
 | Watch title | `/watch/:id/:slug?` (`movie-<n>` / `tv-<n>`) | `movie:<id>` → `getMovieDetails` (credits+videos+images, external_ids best-effort); `similar:<id>`; `episodes:<id>:<season>` → `getSeasonEpisodes` | + `aios_continue_watching` (resume) |
+| Download title | `/watch/:id/:slug?` (in-page `DownloadModal`) | `DownloadModal` → `downloadService` → Vercel `api/downloadify.js` (`resolve` → `manifest` → `segment`); episodes via `getSeasonEpisodes` | file saved to device (File System Access API, Blob fallback); nothing persisted |
 | Person | `/person/:id/:slug?` | `person:<id>` → `getPersonDetails` (`/person`, `/combined_credits`, top-40) | network only |
 | My List | `/watchlist` (`/mylist` redirects) | local only | `aios_my_list` (local) |
 | History | `/history` | local only | `aios_continue_watching` (local) |
@@ -85,7 +86,10 @@ External services: `api.themoviedb.org/3` (catalog, 10s timeout in
 `tmdbClient.js`), `image.tmdb.org` (artwork, `cdnImageAdapter` sizes
 w92→w1280), `omdbapi.com` (IMDb/RT, env-key `VITE_OMDB_API_KEY`, 24h cache),
 `www.googleapis.com/oauth2/v3/certs` (ID-token JWKS), `youtube iframe API`
-(hover trailers), 7 third-party iframe stream hosts (`videoSourceAdapter.js`).
+(hover trailers), 8 third-party iframe stream hosts (`videoSourceAdapter.js`).
+Downloads resolve those hosts' HLS master playlists and proxy segments through
+the same-origin Vercel function `api/downloadify.js`
+(`resolve`/`manifest`/`segment`; embed-host allowlist + private-IP SSRF guard).
 Stream-service/NetMirror HTTP calls resolve through the `env.js` stub to `''`
 and fail soft (logged, non-blocking). Every function is wrapped in a request
 logger (`api/lib/logger.js`); `vercel.json` sets `maxDuration` per function
@@ -98,13 +102,14 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
 - `src/api/` — network boundary (`@/api`). `index.js` barrel. `tmdbClient.js` (proxy-first fetch+timeout+
   `[Streamly][tmdb]` logs, direct fallback), `movieService.js` (all domain
   calls + normalize, each method logs failure/empty), `omdbClient.js`, `ratingService.js`, `videoSourceAdapter.js`,
-  `subtitleFetcher.js`, `prefetchAdapter.js`, `cdnImageAdapter.js`, `virtualRenderAdapter.js` (re-export of hook).
+  `subtitleFetcher.js`, `downloadService.js` (resolve/manifest/segment driver +
+  disk save), `prefetchAdapter.js`, `cdnImageAdapter.js`, `virtualRenderAdapter.js` (re-export of hook).
 - `src/pages/` — one file per route (see table). Pages own query keys and
   log every `error` + empty-data state via `reportQueryError`/`logEmptyData`.
 - `src/components/` — reusable UI (`@/components`). `index.js` categorized barrel. Rail primitives
   (`CastRail`, `DiscoveryRails`, `ContinueWatchingRail`, `GenreShowcase`, `LeavingSoonBanner`),
   cards (`MovieCard`, `SearchResultRow`), player subsystem (`CustomVideoPlayer`, `PlayerPreview`,
-  `playerUIDef.js`, `YoutubeRawTrailer`), modals (`TitleInfoModal`, `GlobalShortcuts`), and primitives
+  `playerUIDef.js`, `YoutubeRawTrailer`), modals (`TitleInfoModal`, `DownloadModal`, `GlobalShortcuts`), and primitives
   (`Button`, `Chip`, `Toast`, `ConfirmDialog`, `Loader`, `EmptyState`, `SEO`, `ErrorBoundary`).
 - `src/hooks/` — custom React hooks (`@/hooks`). `index.js` barrel. `useUserData.js` (localStorage lists,
   logs corrupt/quota failures), `useDebounce`, `useDetailView`, `useMediaQuery`, `useRailArrows`,
@@ -114,6 +119,7 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
 - `src/utils/` — shared utilities (`@/utils`). `index.js` barrel. `debugLogger.js` (**all console output
   goes through here**), `index.js` (`asArray`/`EMPTY_ARRAY` null-safety + re-exports), `timezone`,
   `searchRanking`, `genreResults`, `releaseCalendar`, `ratings`, `notificationEngine`, `subtitleEngine`,
+  `downloadQuality` (pure HLS master/media playlist parser + quality/HDR labels),
   `platforms`, `metaFacts`, `chunkRecovery`.
 - `src/__tests__/` — vitest suites (service shape, ranking, engines, components, barrels).
   `src/queryClient.js` — QueryClient + global `QueryCache.onError` logger. `src/main.jsx` — boot
@@ -121,6 +127,9 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
 - `api/` — Vercel serverless functions (not bundled to the client).
   `api/tmdb.js` is the TMDB passthrough proxy — the reason
   visitors on ISPs that block `api.themoviedb.org` still get data.
+  `api/downloadify.js` resolves embed-host HLS ladders and proxies media
+  segments so the browser can save downloads (allowlisted embed hosts +
+  SSRF guard; stateless, nothing persisted).
   Root: `index.html` (fonts/CDN preconnect, SW cache-buster), `vite.config.js`
   (vendor chunk split, `@/` path alias, `/api/tmdb` dev proxy), `vercel.json`
   (`/api/tmdb/(.*)` proxy rewrite + SPA rewrite + cache headers), `.env` / `.env.example`, `test-movie.js` (manual TMDB probe; runnable via `npm run probe:movie`).
