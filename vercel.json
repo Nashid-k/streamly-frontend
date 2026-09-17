@@ -10,7 +10,7 @@
         { "key": "X-Frame-Options", "value": "DENY" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
         { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), payment=(), usb=(), autoplay=(self)" },
-        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://image.tmdb.org https://wsrv.nl https://via.placeholder.com; connect-src 'self' https://api.themoviedb.org https://www.omdbapi.com https://oauth2.googleapis.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://www.2embed.cc https://vidsrcme.ru https://peachify.top https://embed.smashystream.com https://cinesrc.st; frame-ancestors 'none'; base-uri 'self'; form-action 'none'; object-src 'none'" }
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://www.youtube.com https://www.youtube-nocookie.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://image.tmdb.org https://wsrv.nl https://via.placeholder.com https://img.youtube.com https://i.ytimg.com; connect-src 'self' https://api.themoviedb.org https://www.omdbapi.com https://oauth2.googleapis.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://www.2embed.cc https://vidsrcme.ru https://peachify.top https://embed.smashystream.com https://cinesrc.st https://vidlink.pro https://vidcore.io https://vidup.to https://accounts.google.com; frame-ancestors 'none'; base-uri 'self'; form-action 'none'; object-src 'none'" }
       ]
     },
     {
@@ -32,13 +32,6 @@
       "source": "/assets/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
-    },
-    {
-      "source": "/sw.js",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
-        { "key": "Service-Worker-Allowed", "value": "/" }
       ]
     }
   ],

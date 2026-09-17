@@ -1,5 +1,6 @@
 // api/auth.js — Authentication endpoint with Google OAuth & MongoDB persistence
 import { connectToDatabase } from './lib/db.js';
+import { signSyncToken } from './lib/syncToken.js';
 
 const GOOGLE_CLIENT_ID =
   process.env.GOOGLE_CLIENT_ID ||
@@ -116,6 +117,8 @@ export default async function handler(req, res) {
             preferences: userLibrary.preferences || {},
             lastSyncedAt: userLibrary.updatedAt || new Date(),
           },
+          // Proof-of-ownership for /api/sync — never exposed to other users.
+          syncToken: signSyncToken(googleUser.googleId),
         });
         return;
       }

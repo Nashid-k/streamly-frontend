@@ -63,14 +63,28 @@ export default async function handler(req, res) {
       else params.append(k, String(v));
     }
 
-    // Fallback key if omitted by client
-    if (!params.has('api_key')) {
-      const fallbackKey =
-        process.env.VITE_TMDB_API_KEY ||
-        process.env.TMDB_API_KEY ||
-        '522f1f08eda5e03bf93100ba29471d5d';
-      if (fallbackKey) {
-        params.set('api_key', fallbackKey);
+    // Fallback key: inject the server-side key ONLY when the client omitted one.
+    // (An empty `api_key=` param is still "present" — tmdbClient now omits the
+    // param entirely when it has no client key, so this branch targets exactly
+    // the "deploy has env or client key missing" cases.)
+    const clientKey = params.get('api_key');
+    if (!clientKey) {
+      const serverKey =
+        process.env.TMDB_API_KEY || process.env.VITE_TMDB_API_KEY || '';
+      if (serverKey) {
+        params.set('api_key', serverKey);
+      } else {
+        // No key anywhere: fail loudly with a proxy-gateway 503 so the client's
+        // tmdbClient treats this as "proxy unusable" and falls back to direct
+        // TMDB (which logs 401 guidance). Never hard-code a secret here.
+        res
+          .status(503)
+          .json({
+            status_message:
+              'TMDB api_key missing — set TMDB_API_KEY / VITE_TMDB_API_KEY in Vercel env.',
+            status_code: 503,
+          });
+        return;
       }
     }
 

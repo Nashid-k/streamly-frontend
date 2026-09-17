@@ -55,7 +55,11 @@ export function getActiveLanguage() {
 
 function buildQuery(params = {}) {
   const q = new URLSearchParams();
-  q.set('api_key', API_KEY);
+  // Send api_key only when the client actually has one. An EMPTY api_key
+  // defeats the /api/tmdb proxy's server-side key injection (params.has('api_key')
+  // is true for an empty value), which quietly 401s every request when
+  // VITE_TMDB_API_KEY is unset at build time.
+  if (API_KEY) q.set('api_key', API_KEY);
   const activeLang = params.language !== undefined ? params.language : getActiveLanguage();
   if (activeLang && activeLang !== 'none') {
     q.set('language', activeLang);

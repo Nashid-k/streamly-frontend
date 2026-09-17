@@ -34,13 +34,16 @@ describe("AuthContext and useAppAuth", () => {
   });
 
   it("can log in as guest and persist user to storage", async () => {
-    // Mock fetch for /api/auth guest endpoint
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        success: true,
-        user: { name: "Test User", email: "test@streamly.io", provider: "guest" },
-      }),
+    let fetchCalls = 0;
+    global.fetch = vi.fn().mockImplementation(async () => {
+      fetchCalls += 1;
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          user: { name: "Test User", email: "test@streamly.io", provider: "guest" },
+        }),
+      };
     });
 
     render(
@@ -58,6 +61,12 @@ describe("AuthContext and useAppAuth", () => {
 
     const saved = JSON.parse(localStorage.getItem("streamly_user") || "{}");
     expect(saved.email).toBe("test@streamly.io");
+
+    // Guests are LOCAL-ONLY: no /api/auth call, no cloud write, ever.
+    // (The old flow POSTed every guest to /api/auth, collapsing all anonymous
+    // visitors into one shared viewer@streamly.io Mongo document.)
+    expect(fetchCalls).toBe(0);
+    expect(localStorage.getItem("streamly_sync_token")).toBeNull();
   });
 
   it("logs out cleanly and removes user from storage", async () => {

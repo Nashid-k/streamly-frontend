@@ -115,4 +115,51 @@ describe("api/tmdb proxy", () => {
     expect(traversal.statusCode).toBe(400);
     expect(fetch).not.toHaveBeenCalled();
   });
+
+  it("injects the server-side key when the client omits api_key entirely", async () => {
+    const before = process.env.TMDB_API_KEY;
+    process.env.TMDB_API_KEY = "server-secret-key";
+    try {
+      const fetch = vi.fn().mockResolvedValue({
+        status: 200,
+        headers: new Headers({ "content-type": "application/json" }),
+        text: async () => '{"results":[]}',
+      });
+      vi.stubGlobal("fetch", fetch);
+
+      const res = mockRes();
+      await handler({ method: "GET", query: { path: "trending/all/week" } }, res);
+
+      expect(fetch.mock.calls[0][0]).toBe(
+        "https://api.themoviedb.org/3/trending/all/week?api_key=server-secret-key",
+      );
+      expect(res.statusCode).toBe(200);
+    } finally {
+      if (before === undefined) delete process.env.TMDB_API_KEY;
+      else process.env.TMDB_API_KEY = before;
+    }
+  });
+
+  it("responds 503 (proxy-gateway failure) when no key is configured anywhere", async () => {
+    const tmdbBefore = process.env.TMDB_API_KEY;
+    const viteBefore = process.env.VITE_TMDB_API_KEY;
+    delete process.env.TMDB_API_KEY;
+    delete process.env.VITE_TMDB_API_KEY;
+    try {
+      const fetch = vi.fn();
+      vi.stubGlobal("fetch", fetch);
+
+      const res = mockRes();
+      await handler({ method: "GET", query: { path: "trending/all/week" } }, res);
+
+      expect(res.statusCode).toBe(503);
+      expect(JSON.parse(res.body).status_code).toBe(503);
+      expect(fetch).not.toHaveBeenCalled();
+    } finally {
+      if (tmdbBefore === undefined) delete process.env.TMDB_API_KEY;
+      else process.env.TMDB_API_KEY = tmdbBefore;
+      if (viteBefore === undefined) delete process.env.VITE_TMDB_API_KEY;
+      else process.env.VITE_TMDB_API_KEY = viteBefore;
+    }
+  });
 });

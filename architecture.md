@@ -12,7 +12,7 @@
 | Routing | `react-router-dom` | `7.18.2` |
 | Data | `@tanstack/react-query` | `5.102.1` |
 | Motion | `framer-motion` | `13.1.0` |
-| Player (lazy) | `hls.js` | `1.7.2` (dynamic `import()` only) |
+| Player (iframe) | `CustomVideoPlayer.jsx` | in-repo (native HTML5 + server iframes; no player library) |
 | Icons | `lucide-react` | `1.31.0` |
 | SEO | `react-helmet-async` | `3.0.0` |
 | Slugs | `slugify` | `1.6.9` |
@@ -54,12 +54,24 @@ effect on any persisted key or data contract.
 Persistence keys (all localStorage, no remote DB): `aios_my_list`,
 `aios_continue_watching`, `aios_search_history`, `streamly:realRatings:<id>`
 (24h), `setting-autoplay|muteTrailers|hdThumbs|reduceMotion|notifications`,
-`streamly_volume|muted|aspectRatio|autoSkip|lastserver`, `_sv`, `vite_reload`,
-`chunk_reload_time`. Cross-tab sync via `storage` + `aios_sync_*` events.
+`streamly_volume|muted|aspectRatio|autoSkip|lastserver`, `streamly_user`
+(current profile), `streamly_sync_token` (per-account HMAC token for
+`/api/sync`, issued only to verified Google identities by `/api/auth`), `_sv`,
+`vite_reload`, `chunk_reload_time`. Cross-tab sync via `storage` +
+`aios_sync_*` events.
+
+Cloud sync: **guests are local-only** — `loginAsGuest` never calls `/api/auth`
+or `/api/sync` (the old default email `viewer@streamly.io` collapsed every
+anonymous visitor into one shared Mongo document). Only verified Google
+accounts (`googleId`) sync, and `/api/sync` additionally requires
+`Authorization: Bearer <syncToken>` (HMAC over SYNC_SECRET/GOOGLE_CLIENT_SECRET);
+without a configured secret the endpoint refuses with 503. Payloads are capped
+(watchlist ≤ 500, history ≤ 500, ≤ 512 KB body) and emails are no longer
+accepted as an identity.
 
 External services: `api.themoviedb.org/3` (catalog, 10s timeout in
 `tmdbClient.js`), `image.tmdb.org` (artwork, `cdnImageAdapter` sizes
-w92→w1280), `omdbapi.com` (IMDb/RT, hardcoded key, 24h cache),
+w92→w1280), `omdbapi.com` (IMDb/RT, env-key `VITE_OMDB_API_KEY`, 24h cache),
 `youtube iframe API` (hover trailers), 7 third-party iframe stream hosts
 (`videoSourceAdapter.js`). Stream-service/NetMirror HTTP calls resolve
 through the `env.js` stub to `''` and fail soft (logged, non-blocking).

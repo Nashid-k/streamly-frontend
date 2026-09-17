@@ -1,7 +1,7 @@
-const CACHE_NAME = 'streamly-v11';
+const CACHE_NAME = 'streamly-v19.0';
 // Separate long-lived image cache — stale-while-revalidate so images load
 // from disk in <10ms on repeat visits, then silently refresh in background.
-const IMAGE_CACHE = 'streamly-images-v1';
+const IMAGE_CACHE = 'streamly-images-v19.0';
 
 self.addEventListener('install', (event) => {
   // Pre-cache core shell so navigations always have index.html

@@ -46,7 +46,10 @@
             localStorage.setItem('_sv', V);
             var tasks = [];
             if ('caches' in window) tasks.push(caches.keys().then(function(names) {
-              var stale = names.filter(function(k) { return k.indexOf('streamly') !== -1 && k !== V; });
+              // Nuke every SW-managed cache (they are all named `streamly-*`)
+              // on a version bump; the freshly-registered SW re-creates
+              // streamly-v19.0 / streamly-images-v19.0 on first activation.
+              var stale = names.filter(function(k) { return k.indexOf('streamly') === 0; });
               return Promise.all(stale.map(function(k) { return caches.delete(k); }));
             }));
             if ('serviceWorker' in navigator) tasks.push(navigator.serviceWorker.getRegistrations().then(function(regs) {

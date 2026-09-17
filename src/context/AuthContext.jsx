@@ -4,6 +4,20 @@ import { AppContext } from "./auth";
 import { useMyList, useContinueWatching, useSearchHistory } from "../hooks/useUserData";
 import { logDebug, logError, logWarn } from "../utils/debugLogger";
 
+const SYNC_TOKEN_KEY = "streamly_sync_token";
+
+// Per-account HMAC sync token issued by /api/auth for verified Google users.
+// Stored separately from the user profile so logout doesn't wipe it before
+// the /api/sync calls finish, and so guests never possess one.
+function readSyncToken() {
+  if (typeof window === "undefined") return "";
+  try {
+    return localStorage.getItem(SYNC_TOKEN_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
 function safeUserParse() {
   if (typeof window === "undefined") return null;
   try {
@@ -39,7 +53,20 @@ export function AuthProvider({ children }) {
   // ─── Manual or Automated Cloud Sync to MongoDB ─────────────────────────────
   const syncToCloud = useCallback(async (customPayload = null) => {
     const currentUser = user || safeUserParse();
-    if (!currentUser || (!currentUser.googleId && !currentUser.email)) {
+    // Verified Google users only. Guests and legacy email profiles stay
+    // local — see loginAsGuest notes. /api/sync also rejects anything without
+    // a matching bearer token, so a missing token here is a client bug.
+    if (!currentUser || !currentUser.googleId) {
+      logDebug("auth", "Cloud sync skipped — only verified Google accounts sync.", {
+        provider: currentUser?.provider,
+      });
+      return;
+    }
+
+    const token = readSyncToken();
+    if (!token) {
+      setSyncStatus("error");
+      logWarn("auth", "No sync token — please sign in again (re-issue token via Google Sign-In).");
       return;
     }
 
@@ -55,14 +82,16 @@ export function AuthProvider({ children }) {
 
       const payload = customPayload || {
         googleId: currentUser.googleId,
-        email: currentUser.email,
         watchlist: currentList,
         watchHistory: currentCw,
       };
 
       const res = await fetch("/api/sync", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(payload),
       });
 
@@ -72,7 +101,9 @@ export function AuthProvider({ children }) {
         logDebug("auth", "Cloud data successfully synchronized to MongoDB.");
       } else {
         setSyncStatus("error");
-        logWarn("auth", "Sync to MongoDB answered with non-200 status:", { status: res.status });
+        logWarn("auth", `Sync to MongoDB answered with non-200 status: ${res.status}.`, {
+          status: res.status,
+        });
       }
     } catch (err) {
       setSyncStatus("error");
@@ -82,13 +113,25 @@ export function AuthProvider({ children }) {
 
   // ─── Initial Cloud Sync on Mount if User Logged In ─────────────────────────
   useEffect(() => {
-    if (!user || (!user.googleId && !user.email)) return;
+    // Only verified Google identities pull cloud data; guests stay local.
+    if (!user || !user.googleId) return;
+
+    const token = readSyncToken();
+    if (!token) {
+      logWarn("auth", "Cloud pull skipped — no sync token. Please sign in again.");
+      return;
+    }
 
     let isMounted = true;
     async function pullCloudData() {
       try {
-        const query = user.googleId ? `googleId=${encodeURIComponent(user.googleId)}` : `email=${encodeURIComponent(user.email)}`;
-        const res = await fetch(`/api/sync?${query}`);
+        const res = await fetch(`/api/sync?googleId=${encodeURIComponent(user.googleId)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.status === 401) {
+          logWarn("auth", "Cloud pull rejected (401) — token no longer valid, please re-sign-in.");
+          return;
+        }
         if (!res.ok) return;
 
         const data = await res.json();
@@ -177,6 +220,9 @@ export function AuthProvider({ children }) {
       const authenticatedUser = data.user;
       setUser(authenticatedUser);
       localStorage.setItem("streamly_user", JSON.stringify(authenticatedUser));
+      if (data.syncToken) {
+        localStorage.setItem(SYNC_TOKEN_KEY, data.syncToken);
+      }
       window.dispatchEvent(new Event("aios_user_sync"));
 
       // Merge returned cloud watchlist immediately
@@ -206,6 +252,12 @@ export function AuthProvider({ children }) {
   }, []);
 
   // ─── Guest / Local Sign-In ─────────────────────────────────────────────────
+  // Guests are LOCAL-ONLY by design. Signing in as guest must never write to
+  // MongoDB: the former default email ("viewer@streamly.io") collapsed every
+  // anonymous visitor into ONE shared cloud document, so any viewer's
+  // watchlist/history leaked into everyone else's. Cloud sync is reserved for
+  // verified Google identities (googleId), and even those need a per-account
+  // sync token issued by /api/auth.
   const loginAsGuest = useCallback(async (name, email) => {
     const guestUser = {
       name: name || "Streamly Viewer",
@@ -218,14 +270,9 @@ export function AuthProvider({ children }) {
     localStorage.setItem("streamly_user", JSON.stringify(guestUser));
     window.dispatchEvent(new Event("aios_user_sync"));
 
-    // Attempt guest profile sync in background
-    try {
-      fetch("/api/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "guest", name: guestUser.name, email: guestUser.email }),
-      }).catch(() => {});
-    } catch {}
+    logDebug("auth", "Guest login — local-only (no cloud sync).", {
+      email: guestUser.email,
+    });
 
     return { success: true, user: guestUser };
   }, []);
@@ -235,6 +282,7 @@ export function AuthProvider({ children }) {
     setUser(null);
     try {
       localStorage.removeItem("streamly_user");
+      localStorage.removeItem(SYNC_TOKEN_KEY);
     } catch {}
 
     // Disable Google auto-select
