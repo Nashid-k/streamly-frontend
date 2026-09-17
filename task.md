@@ -1569,3 +1569,18 @@ pm run
     `.git/config` is clean; `git remote get-url origin` shows a token-free
     URL. **Recommend rotating the PAT since it was previously exposed in
     chat.**
+
+
+- [x] **Task 76 - Free-tier invocation diet + security headers + OMDB key to env (audit-driven hardening)
+  - P1 (free-tier 10k invocations/mo): locked with Vercel free in mind.
+    - /api/tmdb edge cache: Cache-Control: public, s-maxage=300, stale-while-revalidate=600 on function responses = caches at edge; identical repeat proxy calls (e.g. Discovery/Home rails) come from the edge cache, NOT re-invoking the function (verified in api/tmdb.js).
+    - React Query client dedupe: staleTime: 8 * 60 * 1000 + gcTime: 15 * 60 * 1000 + efetchOnWindowFocus: false in src/queryClient.js => remount of a rail reuses the in-memory cache instead of re-firing fetch => far fewer /api/tmdb edge hits.
+    - /api/sync coalesced + auth-gated: updateOne in place (no doc bloat), verified the client only calls /api/sync when authed (AuthContext), so guest users don't burn Mongo writes / invocations on every page change.
+  - P0 (secrets): moved the OMDB API key out of a hardcoded literal in src/api/omdbClient.js into VITE_OMDB_API_KEY env (.env.example documents it). TMDB/OAuth keys already env-only. Recommend rotating the old OMDB key (it shipped in a public repo). Never store keys in .env, task.md, or commit them.
+  - P2 (security headers in vercel.json): added CSP (frame-src restricted to exact trailer hosts; connect-src to tmdb/omdb/google; img-src to tmdb/wsrv/placeholder; frame-ancestors 'none'), X-Content-Type-Options: nosniff, X-Frame-Options: DENY, Referrer-Policy: strict-origin-when-cross-origin, Permissions-Policy (camera/mic/geo/force denied).
+  - P3 (SW boot in index.html): selective version-scoped revalidate on new deploy (keeps SW registered, deletes only caches bound to a previous app version) instead of purge-all + unregister-all + hard reload (keeps image/trailer caches warm, avoids reload loop).
+  - Verification: 
+pm run lint 0/0, 
+pm run test 321/321, 
+pm run build ok.
+  - Free tier stays: no new functions, no external proxies (wsrv image egress + edge cache keep bandwidth/invocations within Hobby).
