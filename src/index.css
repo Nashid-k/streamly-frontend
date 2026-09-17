@@ -2174,13 +2174,14 @@ img {
 
 /* Removed old cta-pulse — replaced with cta-glow in button section */
 
-/* Accessibility Focus States */
+/* Accessibility Focus States. The outline follows each element's own
+   border-radius, so pills/segments keep their shape when focused (a global
+   border-radius override here used to snap them to --radius-sm). */
 a:focus-visible,
 button:focus-visible,
 input:focus-visible {
   outline: 2px solid rgba(var(--accent-primary-rgb), 0.75);
   outline-offset: 2px;
-  border-radius: var(--radius-sm);
   box-shadow: 0 0 0 4px rgba(var(--accent-primary-rgb), 0.12);
 }
 
@@ -3360,10 +3361,7 @@ body::after {
 .page-back:focus-visible,
 .page-danger-action:focus-visible,
 .card-remove-button:focus-visible,
-.setting-row__link:focus-visible,
-.setting-toggle:focus-visible,
-.search-panel__input:focus-visible,
-.settings-search__input:focus-visible {
+.search-panel__input:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
 }
@@ -3640,8 +3638,7 @@ body::after {
   margin: 0 auto;
 }
 
-.search-panel__icon,
-.settings-search__icon {
+.search-panel__icon {
   position: absolute;
   top: 50%;
   left: 1.1rem;
@@ -3651,8 +3648,7 @@ body::after {
   pointer-events: none;
 }
 
-.search-panel__input,
-.settings-search__input {
+.search-panel__input {
   width: 100%;
   min-height: 3.25rem;
   padding: 0.75rem 3.5rem 0.75rem 3rem;
@@ -3667,13 +3663,11 @@ body::after {
   transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
 }
 
-.search-panel__input::placeholder,
-.settings-search__input::placeholder {
+.search-panel__input::placeholder {
   color: rgba(255, 255, 255, 0.36);
 }
 
-.search-panel:focus-within .search-panel__input,
-.settings-search:focus-within .settings-search__input {
+.search-panel:focus-within .search-panel__input {
   border-color: rgba(251, 113, 133, 0.58);
   background: rgba(255, 255, 255, 0.085);
   box-shadow: var(--focus-ring), 0 20px 50px -34px var(--accent-glow, rgba(149, 255, 80, 0.45));
@@ -3979,67 +3973,10 @@ body::after {
   filter: blur(8px);
 }
 
-.settings-page__inner {
-  width: min(100%, 48rem);
-  margin: 0 auto;
-}
-
-.settings-search {
-  position: relative;
-}
-
-.settings-search__input {
-  min-height: 3.25rem;
-  padding-left: 2.9rem;
-  border-radius: 1rem;
-  font-size: 0.92rem;
-}
-
-.settings-search__icon {
-  left: 1rem;
-}
-
 .settings-sections {
   display: flex;
   flex-direction: column;
   gap: 1.8rem;
-}
-
-.settings-section__heading {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.7rem;
-}
-
-.settings-section__heading h2 {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.48);
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  line-height: 1;
-  text-transform: uppercase;
-}
-
-.settings-section__heading > div {
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.12), transparent);
-}
-
-.settings-card {
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 1.1rem;
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.025));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055), 0 20px 44px -40px rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(20px) saturate(130%);
-  -webkit-backdrop-filter: blur(20px) saturate(130%);
-}
-
-.settings-card__item--bordered {
-  border-top: 1px solid rgba(255, 255, 255, 0.075);
 }
 
 .setting-row {
@@ -4048,100 +3985,6 @@ body::after {
   gap: 0.85rem;
   min-height: 3.5rem;
   padding: 0.65rem 1rem;
-}
-
-.setting-row__icon {
-  display: inline-flex;
-  width: 2.1rem;
-  height: 2.1rem;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(var(--accent-primary-rgb), 0.2);
-  border-radius: 0.65rem;
-  background: linear-gradient(145deg, rgba(var(--accent-primary-rgb), 0.2), rgba(var(--accent-secondary-rgb), 0.09));
-  color: var(--accent-primary, #fda4af);
-}
-
-.setting-row__copy {
-  min-width: 0;
-  flex: 1;
-}
-
-.setting-row__title {
-  overflow: hidden;
-  color: #fafafa;
-  font-size: 0.92rem;
-  font-weight: 680;
-  letter-spacing: -0.01em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.setting-row__description {
-  margin-top: 0.14rem;
-  overflow: hidden;
-  color: rgba(255, 255, 255, 0.44);
-  font-size: 0.76rem;
-  line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.setting-toggle {
-  position: relative;
-  width: 2.8rem;
-  height: 1.65rem;
-  flex: 0 0 auto;
-  padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
-  cursor: pointer;
-  transition: background 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
-}
-
-.setting-toggle__thumb {
-  position: absolute;
-  top: 0.16rem;
-  left: 0.16rem;
-  width: 1.18rem;
-  height: 1.18rem;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35);
-  transition: transform 240ms var(--ease-out);
-}
-
-.setting-toggle--checked {
-  border-color: rgba(var(--accent-secondary-rgb), 0.32);
-  background: var(--accent-gradient);
-  box-shadow: 0 0 16px var(--accent-glow, rgba(149, 255, 80, 0.3));
-}
-
-.setting-toggle--checked .setting-toggle__thumb {
-  transform: translateX(1.13rem);
-}
-
-.setting-row__link {
-  display: inline-flex;
-  width: 2.1rem;
-  height: 2.1rem;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 0;
-  border-radius: 0.65rem;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.43);
-  cursor: pointer;
-  transition: background 180ms ease, color 180ms ease, transform 180ms var(--ease-out);
-}
-
-.setting-row__link:hover {
-  transform: translateX(2px);
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
 }
 
 /* ── Cards and rails: clearer hierarchy, calmer motion ────────────────── */
@@ -4384,22 +4227,9 @@ body::after {
     font-size: 0.7rem;
   }
 
-  .settings-page__inner {
-    width: 100%;
-  }
-
-  .settings-search__input {
-    min-height: 3.4rem;
-    font-size: 0.92rem !important;
-  }
-
   .setting-row {
     min-height: 4.8rem;
     padding: 0.82rem 0.85rem;
-  }
-
-  .setting-row__description {
-    white-space: normal;
   }
 
   .person-page.main-content {
@@ -5046,8 +4876,7 @@ html {
 
 @media (max-height: 750px) and (min-width: 1024px) {
   /* Details page — shrink the settings / content page search inputs */
-  .search-panel__input,
-  .settings-search__input {
+  .search-panel__input {
     min-height: 2.75rem !important;
     padding-top: 0.55rem !important;
     padding-bottom: 0.55rem !important;
@@ -5192,13 +5021,6 @@ html {
   .history-group__title {
     margin: 0 0 0.75rem !important;
   }
-}
-
-/* Setting toggle expanded touch target */
-.setting-toggle::before {
-  content: "";
-  position: absolute;
-  inset: -8px;
 }
 
 /* Confirm dialog bottom sheet on mobile */
@@ -5388,6 +5210,24 @@ html[data-theme]:not([data-theme=default]) .settings-nav.is-docked {
     max-width: calc(100% - var(--dock-left, 0px));
     justify-content: flex-start;
   }
+
+  /* Narrow screens overflow the pill: tighten the gaps, snap tabs, and fade
+     the edges so it reads as horizontally scrollable. The fade is skipped
+     while docked because a mask over backdrop-filter can smear the glass. */
+  .settings-nav {
+    gap: 1.1rem;
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: 1rem;
+  }
+
+  .settings-nav:not(.is-docked) {
+    mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent);
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent);
+  }
+
+  .settings-tab {
+    scroll-snap-align: center;
+  }
 }
 
 .settings-tab {
@@ -5395,8 +5235,8 @@ html[data-theme]:not([data-theme=default]) .settings-nav.is-docked {
   align-items: center;
   gap: 0.5rem;
   flex: none;
-  padding: 0.5rem 0;
-  min-height: 38px;
+  padding: 0.5rem 0.4rem;
+  min-height: 44px;
   border: none;
   border-bottom: 2px solid transparent;
   background: none;
@@ -5419,6 +5259,36 @@ html[data-theme]:not([data-theme=default]) .settings-nav.is-docked {
 
 html[data-theme]:not([data-theme=default]) .settings-tab.is-active {
   border-bottom-color: var(--theme-global-accentA, var(--accent-primary));
+}
+
+/* Inline controls in setting rows (View List, Sync Now, ...) that would
+   otherwise fall below the 44px touch target on mobile. */
+.settings-hit {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+/* Factory-reset affordance, previously inline styles + JS hover. */
+.reset-preferences-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 8px 18px;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 100px;
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.reset-preferences-button:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: rgba(239, 68, 68, 0.45);
 }
 
 /* ── Glass Card (Cinejoy .glass-card recipe) ── */
@@ -5572,7 +5442,7 @@ html[data-theme]:not([data-theme=default]) .segment-slider {
 .toggle::before {
   content: "";
   position: absolute;
-  inset: -8px;
+  inset: -10px;
 }
 
 .toggle.toggle-on {
@@ -5706,8 +5576,7 @@ html[data-theme]:not([data-theme=default]) .toggle.toggle-on {
   cursor: pointer;
 }
 
-.seed-reset,
-.order-reset {
+.seed-reset {
   padding: 6px 14px;
   font-size: 0.78rem;
   font-weight: 500;
@@ -5719,8 +5588,7 @@ html[data-theme]:not([data-theme=default]) .toggle.toggle-on {
   transition: background 0.2s ease, color 0.2s ease;
 }
 
-.seed-reset:hover,
-.order-reset:hover {
+.seed-reset:hover {
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
 }
@@ -5731,19 +5599,6 @@ html[data-theme]:not([data-theme=default]) .toggle.toggle-on {
   background: rgba(255, 255, 255, 0.1);
 }
 
-.theme-swatch-add {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 999px;
-  flex-shrink: 0;
-  color: rgba(255, 255, 255, 0.75);
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px dashed rgba(255, 255, 255, 0.3);
-}
-
 /* ── Color Picker ── */
 .color-picker {
   display: flex;
@@ -5752,13 +5607,21 @@ html[data-theme]:not([data-theme=default]) .toggle.toggle-on {
 }
 
 .color-dot {
-  width: 24px;
-  height: 24px;
+  position: relative;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   border: 2px solid transparent;
   cursor: pointer;
   transition: all 0.2s ease;
   outline: none;
+}
+
+/* Expand the touch target to 44px without changing the visual size. */
+.color-dot::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
 }
 
 .color-dot:hover {
@@ -6951,15 +6814,24 @@ html[data-theme]:not([data-theme=default]) .toggle.toggle-on {
 }
 
 .settings-page .glass-card {
-  background: rgba(20, 20, 20, 0.6);
+  background: rgba(10, 10, 12, 0.44);
+  border-color: rgba(255, 255, 255, 0.07);
   padding: 24px;
   overflow: visible;
   min-width: 0;
 }
 
 html[data-theme]:not([data-theme=default]) .settings-page .glass-card {
-  background: color-mix(in srgb, var(--theme-global-accentA, var(--accent-primary)) 6%, rgba(20, 20, 20, 0.72));
-  border-color: color-mix(in srgb, var(--theme-global-accentA, var(--accent-primary)) 12%, rgba(255, 255, 255, 0.08));
+  background: color-mix(
+    in srgb,
+    var(--theme-global-accentA, var(--accent-primary)) 8%,
+    rgba(12, 12, 14, 0.5)
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--theme-global-accentA, var(--accent-primary)) 16%,
+    rgba(255, 255, 255, 0.09)
+  );
 }
 
 .settings-page section.glass-card {
@@ -7868,7 +7740,10 @@ html[data-theme]:not([data-theme=default]) .settings-page .glass-card {
   isolation: isolate;
 }
 
-/* Refraction layer — blur + displacement of the live backdrop. */
+/* Refraction layer — a sheen gradient on every glassy surface. The costly
+   blur + displacement is added below for the few, highly visible hosts
+   only: a 4x-CPU scroll probe showed the ripple costing ~20-25% of frame
+   time on /settings, so cards/dropdowns keep only the cheap sheen. */
 .settings-page .glass-card::before,
 .settings-nav.is-docked::before,
 .settings-dropdown::before,
@@ -7886,16 +7761,18 @@ html[data-theme]:not([data-theme=default]) .settings-page .glass-card {
     rgba(255, 255, 255, 0) 44%,
     rgba(255, 255, 255, 0.025)
   );
+}
+
+/* Blur + displacement ripple only where it pays for itself. */
+.settings-nav.is-docked::before,
+.login-panel::before {
   backdrop-filter: blur(4px) saturate(150%);
   -webkit-backdrop-filter: blur(4px) saturate(150%);
 }
 
 /* Displacement ripple only when motion is welcome. */
 @media (prefers-reduced-motion: no-preference) {
-  .settings-page .glass-card::before,
   .settings-nav.is-docked::before,
-  .settings-dropdown::before,
-  .glass-popover::before,
   .login-panel::before {
     filter: url(#streamly-lg-dist);
     -webkit-filter: url(#streamly-lg-dist);
@@ -7913,24 +7790,7 @@ html[data-theme]:not([data-theme=default]) .settings-page .glass-card {
     0 8px 30px rgba(0, 0, 0, 0.4);
 }
 
-/* Settings cards: markedly more translucent than the old .6 black. */
-.settings-page .glass-card {
-  background: rgba(10, 10, 12, 0.44);
-  border-color: rgba(255, 255, 255, 0.07);
-}
-
-html[data-theme]:not([data-theme=default]) .settings-page .glass-card {
-  background: color-mix(
-    in srgb,
-    var(--theme-global-accentA, var(--accent-primary)) 8%,
-    rgba(12, 12, 14, 0.5)
-  );
-  border-color: color-mix(
-    in srgb,
-    var(--theme-global-accentA, var(--accent-primary)) 16%,
-    rgba(255, 255, 255, 0.09)
-  );
-}
+/* Settings cards: translucent glass is set in the main settings block above. */
 
 /* Accent-tinted translucent glass utility (Cinejoy .theme-glass-tint). */
 .theme-glass-tint {
@@ -8138,6 +7998,13 @@ html[data-theme]:not([data-theme=default]) .theme-glass-tint {
   .theme-glass-tint,
   .glassy-button {
     background: rgba(14, 14, 16, 0.92);
+  }
+
+  /* Primary buttons are light-on-dark by design; the generic dark fallback
+     above would leave dark text on a dark fill. */
+  .glassy-button--primary {
+    background: linear-gradient(180deg, #ffffff, #e7e7ea);
+    color: #0b0b0d;
   }
 
   .settings-page .glass-card::before,

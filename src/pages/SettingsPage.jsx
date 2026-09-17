@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence, Reorder, useDragControls } from "framer-motion";
 import {
   ArrowLeft,
@@ -130,6 +130,70 @@ const TABS = [
   { id: "notifications", label: "Notifications", icon: Bell },
 ];
 
+/* Search index for the settings filter. Every term a user can see on the
+   screen must appear here, otherwise filtering looks broken. The value is a
+   plain lowercase "haystack" per section; `visibleSection` tokenises the query
+   and requires every word to be present, so multi-word searches work.
+   When copy changes in a section, update its haystack here in the same edit
+   (the unit test `search resolves real on-screen wording` guards the common
+   terms). */
+const SECTION_SEARCH_TERMS = {
+  account: [
+    "account sign in signed out sync settings watch progress across devices",
+    "profile library synchronized google continue with google",
+    "cloud sync cloud database connected syncing sync now last synced",
+    "my watchlist saved movies television series view list",
+    "watch history recently watched movies shows progress view history",
+    "keyboard touch shortcuts player gestures swipes hotkeys quick actions open guide",
+  ].join(" "),
+  appearance: [
+    "appearance look theme color palette interface default streamly",
+    "cinejoy emerald amethyst violet ocean cyan crimson ruby solar amber",
+    "custom accent pick any color customize",
+    "episode view style carousel rails grids lists series pages",
+    "detail view type full info page netflix-style quick modal page modal",
+    "use image logos movie series titles image logos",
+    "trailers play trailers automatically detail pages hover previews",
+    "spoiler-free mode hide information episodes",
+    "reduce motion reduce effects",
+    "high-quality thumbnails stream higher resolution artwork",
+  ].join(" "),
+  playback: [
+    "playback player behaves autoplay automatically play next episode ends",
+    "auto skip intro jump past intro skip intro button",
+    "seek time skip forwards backwards seconds",
+    "auto subtitles preferred language available",
+    "default language subtitle language auto-select",
+    "mute trailer audio trailers sound off",
+  ].join(" "),
+  servers: [
+    "server order drag handle sources tried first title loads priority stream",
+    "reset server 1 server 2 fast server 3 hd server 4 backup",
+    "server 5 vidcore server 6 peachify server 7 vidup server 8 smashy",
+  ].join(" "),
+  subtitles: [
+    "subtitles readability customization font cinejoy netflix montserrat",
+    "text size adjust subtitle size display",
+    "text color high-contrast subtitle color white yellow cyan magenta emerald",
+    "background blur legibility soft glow preview",
+  ].join(" "),
+  notifications: [
+    "notifications in-app status updates scrobble confirmations activity",
+    "show in-app notifications brief status toasts items added watchlist servers change progress saved alerts toast popup banner",
+  ].join(" "),
+  reset: [
+    "reset all preferences factory reset restore theme playback preferences",
+    "factory defaults clears custom themes subtitle styling server order danger",
+  ].join(" "),
+};
+
+// jsdom and some older browsers expose no scrollIntoView; never crash on it.
+function scrollIntoViewIfSupported(element, options) {
+  if (element && typeof element.scrollIntoView === "function") {
+    element.scrollIntoView(options);
+  }
+}
+
 function Toggle({ checked, onChange, label }) {
   return (
     <button
@@ -148,32 +212,83 @@ function Toggle({ checked, onChange, label }) {
 function SegmentControl({ options, value, onChange, label }) {
   const groupRef = useRef(null);
   const sliderRef = useRef(null);
+  const btnRefs = useRef([]);
 
-  // Cinejoy animated segment slider: the white/accent pill slides to the
-  // active option instead of re-drawing each button background.
-  useEffect(() => {
+  const valueOf = (opt) => (typeof opt === "string" ? opt : opt.id);
+
+  const positionSlider = () => {
     const group = groupRef.current;
     const slider = sliderRef.current;
     if (!group || !slider) return;
     const activeBtn = group.querySelector(".segment-btn.segment-active");
     if (!activeBtn) return;
-    slider.style.left = `${activeBtn.offsetLeft}px`;
-    slider.style.width = `${activeBtn.offsetWidth}px`;
-  }, [value]);
+    // Round to whole pixels so the pill never sits on a half-pixel seam.
+    slider.style.left = `${Math.round(activeBtn.offsetLeft)}px`;
+    slider.style.width = `${Math.round(activeBtn.offsetWidth)}px`;
+  };
+
+  // Cinejoy animated segment slider: the white/accent pill slides to the
+  // active option instead of re-drawing each button background. Laid out
+  // pre-paint so it never animates in from the left on mount, and kept in
+  // sync with the group's real size via ResizeObserver (font load, resize,
+  // label wrap).
+  useLayoutEffect(() => {
+    positionSlider();
+    const group = groupRef.current;
+    if (!group || typeof ResizeObserver !== "function") return undefined;
+    const observer = new ResizeObserver(positionSlider);
+    observer.observe(group);
+    return () => observer.disconnect();
+  }, [value, options]);
+
+  const activeIndex = options.findIndex((opt) => valueOf(opt) === value);
+
+  // ARIA radiogroup contract: Arrow keys move selection (and focus), roving
+  // tabindex keeps the group a single tab stop.
+  const selectAndFocus = (index) => {
+    const next = (index + options.length) % options.length;
+    onChange(valueOf(options[next]));
+    btnRefs.current[next]?.focus();
+  };
+
+  const handleKeyDown = (e) => {
+    const current = activeIndex < 0 ? 0 : activeIndex;
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+      e.preventDefault();
+      selectAndFocus(current + 1);
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+      e.preventDefault();
+      selectAndFocus(current - 1);
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      selectAndFocus(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      selectAndFocus(options.length - 1);
+    }
+  };
 
   return (
-    <div ref={groupRef} className="segment" role="radiogroup" aria-label={label}>
+    <div
+      ref={groupRef}
+      className="segment"
+      role="radiogroup"
+      aria-label={label}
+      onKeyDown={handleKeyDown}
+    >
       <div ref={sliderRef} className="segment-slider" aria-hidden="true" />
-      {options.map((opt) => {
-        const id = typeof opt === "string" ? opt : opt.id;
+      {options.map((opt, i) => {
+        const id = valueOf(opt);
         const name = typeof opt === "string" ? opt : opt.name;
         const active = value === id;
         return (
           <button
             key={id}
+            ref={(el) => { btnRefs.current[i] = el; }}
             type="button"
             role="radio"
             aria-checked={active}
+            tabIndex={active ? 0 : -1}
             onClick={() => onChange(id)}
             className={`segment-btn${active ? " segment-active" : ""}`}
           >
@@ -208,9 +323,8 @@ function ServerOrderList({ list, onReorder, onMoveKeyboard }) {
       values={list}
       onReorder={onReorder}
       className="order-list"
-      role="listbox"
+      role="list"
       aria-label="Server priority order"
-      aria-orientation="vertical"
     >
       {list.map((srv, idx) => (
         <Reorder.Item
@@ -221,8 +335,7 @@ function ServerOrderList({ list, onReorder, onMoveKeyboard }) {
           whileDrag={{ scale: 1.02 }}
           transition={{ type: "spring", stiffness: 400, damping: 32 }}
           className="order-item"
-          role="option"
-          aria-selected="false"
+          role="listitem"
           aria-posinset={idx + 1}
           aria-setsize={list.length}
           aria-label={`${srv}, priority ${idx + 1} of ${list.length}. Press arrow up or down to reorder.`}
@@ -240,7 +353,6 @@ function ServerOrderList({ list, onReorder, onMoveKeyboard }) {
           <div className="flex items-center gap-3 min-w-0">
             <span
               className="order-grip order-grip--drag"
-              role="button"
               tabIndex={-1}
               aria-hidden="true"
               title="Drag to reorder"
@@ -264,12 +376,16 @@ function ServerOrderList({ list, onReorder, onMoveKeyboard }) {
 
 export default function SettingsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("all");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState(
+    TABS.some((t) => t.id === initialTab) ? initialTab : "all",
+  );
   const [query, setQuery] = useState("");
-  const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
-  const [seekDropdownOpen, setSeekDropdownOpen] = useState(false);
-  const [langDropdownOpen, setLangDropdownOpen] = useState(false);
+  // Only one menu may be open at a time: null | "theme" | "seek" | "lang".
+  const [openDropdown, setOpenDropdown] = useState(null);
   const [showSignInModal, setShowSignInModal] = useState(false);
   const [signInTab, setSignInTab] = useState("signin");
   const [navDocked, setNavDocked] = useState(false);
@@ -340,25 +456,46 @@ export default function SettingsPage() {
     [defaultLanguage],
   );
 
-  // Close dropdowns on outside click or Escape
-  const dropdownRef = useRef(null);
+  // Dropdown plumbing. Each trigger gets its own wrapper + trigger ref so an
+  // outside click only closes that menu, and only one menu can be open at a
+  // time (the shared state is a single name, not three booleans).
   const sectionsTopRef = useRef(null);
   const headerRef = useRef(null);
   const navRef = useRef(null);
+  const themeWrapRef = useRef(null);
+  const seekWrapRef = useRef(null);
+  const langWrapRef = useRef(null);
+  const themeTriggerRef = useRef(null);
+  const seekTriggerRef = useRef(null);
+  const langTriggerRef = useRef(null);
+  const loginPanelRef = useRef(null);
+  const dropdownWrapRefs = { theme: themeWrapRef, seek: seekWrapRef, lang: langWrapRef };
+  const dropdownTriggerRefs = {
+    theme: themeTriggerRef,
+    seek: seekTriggerRef,
+    lang: langTriggerRef,
+  };
+
+  const toggleDropdown = (name) =>
+    setOpenDropdown((current) => (current === name ? null : name));
+
+  const selectFromDropdown = (name) => {
+    setOpenDropdown(null);
+    dropdownTriggerRefs[name]?.current?.focus();
+  };
+
+  // Outside click / Escape closes the open menu. Escape also returns focus to
+  // the trigger so keyboard users are not dropped back at <body>.
   useEffect(() => {
+    if (!openDropdown) return undefined;
+    const wrap = dropdownWrapRefs[openDropdown]?.current;
     const handleOutsideClick = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setThemeDropdownOpen(false);
-        setSeekDropdownOpen(false);
-        setLangDropdownOpen(false);
-      }
+      if (wrap && !wrap.contains(e.target)) setOpenDropdown(null);
     };
     const handleEscape = (e) => {
-      if (e.key === "Escape") {
-        setThemeDropdownOpen(false);
-        setSeekDropdownOpen(false);
-        setLangDropdownOpen(false);
-      }
+      if (e.key !== "Escape") return;
+      setOpenDropdown(null);
+      dropdownTriggerRefs[openDropdown]?.current?.focus();
     };
     document.addEventListener("mousedown", handleOutsideClick);
     document.addEventListener("keydown", handleEscape);
@@ -366,7 +503,48 @@ export default function SettingsPage() {
       document.removeEventListener("mousedown", handleOutsideClick);
       document.removeEventListener("keydown", handleEscape);
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openDropdown]);
+
+  // Move focus onto the active option when a popup list opens, so Arrow keys
+  // work immediately and screen readers announce the listbox.
+  useEffect(() => {
+    if (!openDropdown) return undefined;
+    const wrap = dropdownWrapRefs[openDropdown]?.current;
+    if (!wrap) return undefined;
+    const target =
+      wrap.querySelector('[role="option"][aria-selected="true"]') ||
+      wrap.querySelector('[role="option"]');
+    target?.focus?.();
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openDropdown]);
+
+  // Roving focus inside an open menu: Up/Down/Home/End move between options,
+  // Escape closes and restores the trigger. Enter/Space activate the focused
+  // <button> natively.
+  const handleMenuKeyDown = (e) => {
+    const panel = e.currentTarget;
+    if (e.key === "Escape") {
+      e.preventDefault();
+      const name = panel.id.replace("-menu", "");
+      setOpenDropdown(null);
+      dropdownTriggerRefs[name]?.current?.focus();
+      return;
+    }
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return;
+    const options = [...panel.querySelectorAll('[role="option"]')];
+    if (!options.length) return;
+    e.preventDefault();
+    const current = options.indexOf(document.activeElement);
+    let next;
+    if (e.key === "ArrowDown") next = current < 0 ? 0 : (current + 1) % options.length;
+    else if (e.key === "ArrowUp") {
+      next = current < 0 ? options.length - 1 : (current - 1 + options.length) % options.length;
+    } else if (e.key === "Home") next = 0;
+    else next = options.length - 1;
+    options[next]?.focus();
+  };
 
   // Cinejoy settings-nav docking: the tab pill starts transparent and
   // gains a frosted glass surface (is-docked) once the header scrolls off.
@@ -431,21 +609,60 @@ export default function SettingsPage() {
     };
   }, []);
 
-  // Lock body scroll while the sign-in modal is open + allow Escape to dismiss.
+  // Lock body scroll while the sign-in modal is open, move focus into the
+  // panel, trap Tab inside it, allow Escape to dismiss, and return focus to
+  // the element that opened it on close.
   const anyModalOpen = showSignInModal;
   useEffect(() => {
-    if (!anyModalOpen) return;
+    if (!anyModalOpen) return undefined;
     const prevOverflow = document.body.style.overflow;
+    const prevActive = document.activeElement;
     document.body.style.overflow = "hidden";
-    const handleEscape = (e) => {
+
+    const focusables = () => {
+      const panel = loginPanelRef.current;
+      if (!panel) return [];
+      return [
+        ...panel.querySelectorAll(
+          "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
+        ),
+      ].filter((el) => !el.disabled && !el.hidden);
+    };
+
+    const items = focusables();
+    (items[0] || loginPanelRef.current)?.focus?.();
+
+    const handleKey = (e) => {
       if (e.key === "Escape") {
         setShowSignInModal(false);
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const panel = loginPanelRef.current;
+      const items = focusables();
+      if (!panel || items.length === 0) {
+        e.preventDefault();
+        panel?.focus?.();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (!panel.contains(document.activeElement)) {
+        e.preventDefault();
+        first.focus();
+      } else if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
       }
     };
-    document.addEventListener("keydown", handleEscape);
+    document.addEventListener("keydown", handleKey);
     return () => {
       document.body.style.overflow = prevOverflow;
-      document.removeEventListener("keydown", handleEscape);
+      document.removeEventListener("keydown", handleKey);
+      if (prevActive instanceof HTMLElement) prevActive.focus();
     };
   }, [anyModalOpen]);
 
@@ -454,13 +671,45 @@ export default function SettingsPage() {
   };
 
   // Tabs are filters: "All" shows every section, any other tab isolates one.
-  // After switching, bring the sections list into view under the sticky bar.
+  // The active tab lives in the URL (?tab=servers) so it survives refresh and
+  // is shareable. After switching, bring the sections list into view under
+  // the sticky bar — honouring the Reduce Motion preference, which the plain
+  // CSS media query can't see.
   const handleTabClick = (tabId) => {
     setActiveTab(tabId);
+    setSearchParams({ tab: tabId }, { replace: true });
+    const prefersReduced =
+      reduceMotion || window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
     requestAnimationFrame(() => {
-      sectionsTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      scrollIntoViewIfSupported(sectionsTopRef.current, {
+        behavior: prefersReduced ? "auto" : "smooth",
+        block: "start",
+      });
     });
   };
+
+  // Keep the tab in sync when the user navigates back/forward through the URL.
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab !== activeTab) {
+      setActiveTab(TABS.some((t) => t.id === tab) ? tab : "all");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // Keep the active tab in view inside the horizontally scrollable pill. On
+  // narrow screens several tabs sit off-screen; centre the active one the
+  // moment it changes (honouring Reduce Motion).
+  useEffect(() => {
+    const nav = navRef.current;
+    const active = nav?.querySelector(".settings-tab.is-active");
+    if (!nav || !active) return;
+    scrollIntoViewIfSupported(active, {
+      inline: "center",
+      block: "nearest",
+      behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ? "auto" : "smooth",
+    });
+  }, [activeTab, navDocked]);
 
   // Server reordering — drag-and-drop (mouse + touch via Reorder) and
   // keyboard (ArrowUp/ArrowDown on a focused row) land here. The order is
@@ -548,23 +797,42 @@ export default function SettingsPage() {
   };
 
   // A section shows when the active tab selects it ("All" shows everything)
-  // AND the search filter matches its keywords.
-  const visibleSection = (id, keywords) =>
-    (activeTab === "all" || activeTab === id) && (!q || keywords.toLowerCase().includes(q));
+  // AND the search query matches its data-driven index. The Reset card keeps
+  // its Account/All placement but joins search and the empty state so the
+  // page never shows "no matches" next to a visible card.
+  const matchesSearch = (id) => {
+    if (!q) return true;
+    const haystack = (SECTION_SEARCH_TERMS[id] || "").toLowerCase();
+    return q
+      .split(/\s+/)
+      .filter(Boolean)
+      .every((token) => haystack.includes(token));
+  };
+
+  const inAccountScope = activeTab === "all" || activeTab === "account";
 
   const sectionVisible = {
-    account: visibleSection("account", "account sign in list history shortcuts user"),
-    appearance: visibleSection("appearance", "appearance theme accent seed custom episode style view logo trailer spoiler motion thumbnail"),
-    playback: visibleSection("playback", "playback autoplay skip intro seek time subtitle language audio mute"),
-    servers: visibleSection("servers", "server order server 1 fast hd backup vidcore peachify vidup smashy stream priority"),
-    subtitles: visibleSection("subtitles", "subtitles font size color background blur preview style"),
-    notifications: visibleSection("notifications", "notifications alert toast popup banner"),
+    account: inAccountScope && matchesSearch("account"),
+    appearance: (activeTab === "all" || activeTab === "appearance") && matchesSearch("appearance"),
+    playback: (activeTab === "all" || activeTab === "playback") && matchesSearch("playback"),
+    servers: (activeTab === "all" || activeTab === "servers") && matchesSearch("servers"),
+    subtitles: (activeTab === "all" || activeTab === "subtitles") && matchesSearch("subtitles"),
+    notifications: (activeTab === "all" || activeTab === "notifications") && matchesSearch("notifications"),
+    reset: inAccountScope && matchesSearch("reset"),
   };
-  const nothingVisible = Object.values(sectionVisible).every((v) => !v);
+  const visibleCount = Object.values(sectionVisible).filter(Boolean).length;
+  const nothingVisible = visibleCount === 0;
+  const liveSummary =
+    visibleCount === 0
+      ? "No settings sections match."
+      : `${visibleCount} setting section${visibleCount === 1 ? "" : "s"} shown.`;
 
   return (
-    <div className="main-content content-page settings-page min-h-screen" ref={dropdownRef}>
+    <div className="main-content content-page settings-page min-h-screen">
       <SEO title="Settings - Streamly" description="Configure player, servers, appearance, subtitles and accounts." />
+      {/* Visually-hidden results live region: announces search/tab filtering
+          to screen readers without stealing focus or scroll position. */}
+      <p className="sr-only" role="status" aria-live="polite">{liveSummary}</p>
       <div className="settings-page__glow" aria-hidden="true" />
 
       <div className="relative z-10 pt-4 md:pt-8 pb-28 px-4 sm:px-6 md:px-10 lg:px-14">
@@ -573,14 +841,14 @@ export default function SettingsPage() {
           <div ref={headerRef} className="mb-6 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <button
-                onClick={() => navigate(-1)}
+                onClick={() => (location.key === "default" ? navigate("/") : navigate(-1))}
                 className="flex items-center justify-center text-white drop-shadow-lg transition-transform duration-200 hover:scale-110 active:scale-90 p-1.5 rounded-full hover:bg-white/10"
                 aria-label="Go back"
               >
                 <ArrowLeft className="w-7 h-7 text-white" />
               </button>
               <div className="flex items-center gap-3">
-                <Settings className="h-8 w-8 shrink-0 text-white" />
+                <Settings aria-hidden="true" className="h-8 w-8 shrink-0 text-white" />
                 <h1 className="text-3xl md:text-4xl font-semibold tracking-tight leading-none text-white">
                   Settings
                 </h1>
@@ -623,6 +891,7 @@ export default function SettingsPage() {
                     key={tab.id}
                     type="button"
                     aria-pressed={isActive}
+                    aria-controls={tab.id === "all" ? "settings-sections" : `section-${tab.id}`}
                     className={`settings-tab${isActive ? " is-active" : ""}`}
                     onClick={() => handleTabClick(tab.id)}
                   >
@@ -635,7 +904,7 @@ export default function SettingsPage() {
           </>
 
           {/* Sections Stack — filtered by the active tab ("All" shows everything) */}
-          <div className="space-y-6 settings-sections" ref={sectionsTopRef}>
+          <div id="settings-sections" className="space-y-6 settings-sections" ref={sectionsTopRef}>
             {nothingVisible && (
               <div className="glass-card text-center py-10 px-6" role="status">
                 <p className="text-white/80 font-semibold">No settings match{q ? ` “${query.trim()}”` : ""}{activeTab !== "all" ? " in this section" : ""}.</p>
@@ -717,16 +986,11 @@ export default function SettingsPage() {
                         </button>
                       ) : (
                         <div className="flex items-center gap-2">
-                          <GoogleSignInButton
-                            onSuccess={() => setShowSignInModal(false)}
-                            className="hidden sm:block"
-                            style={{ minWidth: 200 }}
-                            text="Sign in with Google"
-                          />
                           <button
                             onClick={() => setShowSignInModal(true)}
                             className="glassy-button glassy-button--primary px-5 py-2.5 text-[14px]"
                           >
+                            <User className="w-4 h-4" />
                             Sign In
                           </button>
                         </div>
@@ -734,39 +998,48 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  {/* Database Cloud Sync Status */}
+                  {/* Cloud Sync Status */}
                   <div className="setting-row mt-2 pt-2 border-t border-white/[0.06]">
                     <div className="setting-meta">
                       <div className="flex items-center gap-2">
-                        <span className="setting-title">MongoDB Cloud Sync</span>
+                        <span className="setting-title">Cloud Sync</span>
                         <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                          Atlas Connected
+                          Connected
                         </span>
                       </div>
                       <span className="setting-desc">
                         {user
                           ? auth?.syncStatus === "syncing"
-                            ? "Synchronizing watchlist and history with MongoDB cluster..."
+                            ? "Synchronizing your watchlist and history..."
                             : auth?.lastSyncedAt
                             ? `Last synced: ${new Date(auth.lastSyncedAt).toLocaleTimeString()}`
-                            : "Your library and watch history automatically synchronize to MongoDB."
-                          : "Cloud database connected. Sign in with Google to synchronize your library."}
+                            : "Your library and watch history are synchronized with your account."
+                          : "Sign in to sync your watchlist and settings across devices."}
                       </span>
                     </div>
                     {user && (
                       <div className="setting-control">
                         <button
-                          onClick={() => {
-                            auth?.syncToCloud?.();
-                            toast({
-                              type: "success",
-                              title: "Cloud Sync Initiated",
-                              message: "Your watchlist and progress are synchronizing to MongoDB.",
-                            });
+                          onClick={async () => {
+                            try {
+                              await auth?.syncToCloud?.();
+                              toast({
+                                type: "success",
+                                title: "Cloud Sync",
+                                message: "Your watchlist and progress are up to date.",
+                              });
+                            } catch (error) {
+                              logDebug("settings", "Cloud sync failed.", { message: error?.message });
+                              toast({
+                                type: "error",
+                                title: "Sync Failed",
+                                message: "Could not reach the sync service. Try again later.",
+                              });
+                            }
                           }}
                           disabled={auth?.syncStatus === "syncing"}
-                          className="px-3.5 py-1.5 text-xs font-semibold rounded-full bg-white/10 hover:bg-white/15 text-white transition-colors flex items-center gap-1.5 border border-white/10 cursor-pointer disabled:opacity-50"
+                          className="settings-hit px-3.5 py-1.5 text-xs font-semibold rounded-full bg-white/10 hover:bg-white/15 text-white transition-colors flex items-center gap-1.5 border border-white/10 cursor-pointer disabled:opacity-50"
                         >
                           <RotateCcw className={`w-3.5 h-3.5 ${auth?.syncStatus === "syncing" ? "animate-spin" : ""}`} />
                           Sync Now
@@ -780,7 +1053,7 @@ export default function SettingsPage() {
                     <SettingRow title="My Watchlist" description="Your saved movies and television series">
                       <Link
                         to="/watchlist"
-                        className="px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white text-xs font-medium flex items-center gap-1 transition-colors"
+                        className="settings-hit px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white text-xs font-medium flex items-center gap-1 transition-colors"
                       >
                         <Bookmark className="w-3.5 h-3.5" />
                         View List
@@ -790,7 +1063,7 @@ export default function SettingsPage() {
                     <SettingRow title="Watch History" description="Recently watched movies, shows, and progress">
                       <Link
                         to="/history"
-                        className="px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white text-xs font-medium flex items-center gap-1 transition-colors"
+                        className="settings-hit px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white text-xs font-medium flex items-center gap-1 transition-colors"
                       >
                         <Clock className="w-3.5 h-3.5" />
                         View History
@@ -801,7 +1074,7 @@ export default function SettingsPage() {
                       <button
                         type="button"
                         onClick={openShortcuts}
-                        className="px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white text-xs font-medium flex items-center gap-1 transition-colors border-none"
+                        className="settings-hit px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white text-xs font-medium flex items-center gap-1 transition-colors border-none"
                       >
                         <SlidersHorizontal className="w-3.5 h-3.5" />
                         Open Guide
@@ -833,13 +1106,15 @@ export default function SettingsPage() {
                       </span>
                     </div>
                     <div className="setting-control">
-                      <div className="relative theme-dropdown-wrap">
+                      <div className="relative theme-dropdown-wrap" ref={themeWrapRef}>
                         <button
                           type="button"
-                          aria-expanded={themeDropdownOpen}
-                          aria-haspopup="listbox"
+                          ref={themeTriggerRef}
+                          aria-expanded={openDropdown === "theme"}
+                          aria-haspopup="dialog"
+                          aria-controls="theme-menu"
                           aria-label={`Theme, current: ${activeTheme.name}`}
-                          onClick={() => setThemeDropdownOpen(!themeDropdownOpen)}
+                          onClick={() => toggleDropdown("theme")}
                           className="flex items-center gap-2 px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all duration-300 backdrop-blur-md group min-w-[150px] justify-between"
                         >
                           <span className="flex items-center gap-2 min-w-0 text-sm font-medium text-white/90">
@@ -859,55 +1134,64 @@ export default function SettingsPage() {
                             </span>
                             <span className="truncate">{activeTheme.name.split(" ")[0]}</span>
                           </span>
-                          <ChevronDown className={`w-4 h-4 text-white/50 transition-transform ${themeDropdownOpen ? "rotate-180" : ""}`} />
+                          <ChevronDown className={`w-4 h-4 text-white/50 transition-transform ${openDropdown === "theme" ? "rotate-180" : ""}`} />
                         </button>
 
                         <AnimatePresence>
-                          {themeDropdownOpen && (
+                          {openDropdown === "theme" && (
                             <motion.div
+                              id="theme-menu"
+                              role="dialog"
+                              aria-label="Choose a theme"
+                              onKeyDown={handleMenuKeyDown}
                               initial={{ opacity: 0, y: 8, scale: 0.96 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: 8, scale: 0.96 }}
                               transition={{ duration: 0.15 }}
-                              className="absolute right-0 top-full mt-2 w-64 rounded-2xl p-2 shadow-2xl z-50 flex flex-col gap-1 settings-dropdown"
+                              className="absolute right-0 top-full mt-2 w-64 rounded-2xl p-2 shadow-2xl z-50 settings-dropdown"
                             >
-                              {THEMES.map((t) => {
-                                const selected = theme === t.id;
-                                return (
-                                  <button
-                                    key={t.id}
-                                    type="button"
-                                    onClick={() => {
-                                      setPreference("theme", t.id);
-                                      setThemeDropdownOpen(false);
-                                    }}
-                                    className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
-                                      selected ? "settings-dropdown-item is-selected" : "settings-dropdown-item text-white/70 hover:text-white"
-                                    }`}
-                                  >
-                                    <span className="flex items-center gap-2">
-                                      <span className="theme-swatch-inline">
-                                        <span
-                                          className="theme-swatch-inline-left"
-                                          style={{ background: t.primary }}
-                                        />
-                                        <span
-                                          className="theme-swatch-inline-right"
-                                          style={{ background: t.secondary }}
-                                        />
+                              <div role="listbox" aria-label="Theme presets" className="flex flex-col gap-1">
+                                {THEMES.map((t) => {
+                                  const selected = theme === t.id;
+                                  return (
+                                    <button
+                                      key={t.id}
+                                      type="button"
+                                      role="option"
+                                      aria-selected={selected}
+                                      tabIndex={selected ? 0 : -1}
+                                      onClick={() => {
+                                        setPreference("theme", t.id);
+                                        selectFromDropdown("theme");
+                                      }}
+                                      className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
+                                        selected ? "settings-dropdown-item is-selected" : "settings-dropdown-item text-white/70 hover:text-white"
+                                      }`}
+                                    >
+                                      <span className="flex items-center gap-2">
+                                        <span className="theme-swatch-inline">
+                                          <span
+                                            className="theme-swatch-inline-left"
+                                            style={{ background: t.primary }}
+                                          />
+                                          <span
+                                            className="theme-swatch-inline-right"
+                                            style={{ background: t.secondary }}
+                                          />
+                                        </span>
+                                        <span>{t.name}</span>
                                       </span>
-                                      <span>{t.name}</span>
-                                    </span>
-                                    {selected && <Check className="w-3.5 h-3.5 text-white" />}
-                                  </button>
-                                );
-                              })}
+                                      {selected && <Check className="w-3.5 h-3.5 text-white" />}
+                                    </button>
+                                  );
+                                })}
+                              </div>
 
                               <div className="theme-picker-divider" role="separator" />
 
                               {/* Custom accent seed — Cinejoy .seed-* recipe: a
                                   hidden color input tucked inside a pill. */}
-                              <div className="seed-row px-1 py-1 w-full">
+                              <div className="seed-row px-1 py-1 w-full" role="group" aria-label="Custom accent">
                                 <div className="setting-meta">
                                   <span className="setting-title">Custom Accent</span>
                                   <span className="setting-desc">Pick any color as the interface accent.</span>
@@ -1097,24 +1381,30 @@ export default function SettingsPage() {
                       </span>
                     </div>
                     <div className="setting-control">
-                      <div className="relative seek-dropdown-wrap">
+                      <div className="relative seek-dropdown-wrap" ref={seekWrapRef}>
                         <button
                           type="button"
-                          aria-expanded={seekDropdownOpen}
+                          ref={seekTriggerRef}
+                          aria-expanded={openDropdown === "seek"}
                           aria-haspopup="listbox"
+                          aria-controls="seek-menu"
                           aria-label={`Seek time, current: ${seekTime} seconds`}
-                          onClick={() => setSeekDropdownOpen(!seekDropdownOpen)}
+                          onClick={() => toggleDropdown("seek")}
                           className="flex items-center gap-2 px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all duration-300 backdrop-blur-md group min-w-[160px] justify-between"
                         >
                           <span className="min-w-0 text-sm font-medium text-white/90 truncate">
                             {seekTime} seconds
                           </span>
-                          <ChevronDown className={`w-4 h-4 text-white/50 transition-transform ${seekDropdownOpen ? "rotate-180" : ""}`} />
+                          <ChevronDown className={`w-4 h-4 text-white/50 transition-transform ${openDropdown === "seek" ? "rotate-180" : ""}`} />
                         </button>
 
                         <AnimatePresence>
-                          {seekDropdownOpen && (
+                          {openDropdown === "seek" && (
                             <motion.div
+                              id="seek-menu"
+                              role="listbox"
+                              aria-label="Seek time"
+                              onKeyDown={handleMenuKeyDown}
                               initial={{ opacity: 0, y: 8, scale: 0.96 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: 8, scale: 0.96 }}
@@ -1127,9 +1417,12 @@ export default function SettingsPage() {
                                   <button
                                     key={st.value}
                                     type="button"
+                                    role="option"
+                                    aria-selected={selected}
+                                    tabIndex={selected ? 0 : -1}
                                     onClick={() => {
                                       setPreference("seekTime", st.value);
-                                      setSeekDropdownOpen(false);
+                                      selectFromDropdown("seek");
                                     }}
                                     className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
                                       selected ? "settings-dropdown-item is-selected" : "settings-dropdown-item text-white/70 hover:text-white"
@@ -1168,13 +1461,15 @@ export default function SettingsPage() {
                       </span>
                     </div>
                     <div className="setting-control">
-                      <div className="relative lang-dropdown-wrap">
+                      <div className="relative lang-dropdown-wrap" ref={langWrapRef}>
                         <button
                           type="button"
-                          aria-expanded={langDropdownOpen}
+                          ref={langTriggerRef}
+                          aria-expanded={openDropdown === "lang"}
                           aria-haspopup="listbox"
+                          aria-controls="lang-menu"
                           aria-label={`Default subtitle language, current: ${activeLang.name}`}
-                          onClick={() => setLangDropdownOpen(!langDropdownOpen)}
+                          onClick={() => toggleDropdown("lang")}
                           className="flex items-center gap-2 px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all duration-300 backdrop-blur-md group min-w-[160px] justify-between"
                         >
                           <span className="flex items-center gap-2.5 min-w-0 text-sm font-medium text-white/90">
@@ -1185,12 +1480,16 @@ export default function SettingsPage() {
                             />
                             <span className="truncate">{activeLang.name}</span>
                           </span>
-                          <ChevronDown className={`w-4 h-4 text-white/50 transition-transform ${langDropdownOpen ? "rotate-180" : ""}`} />
+                          <ChevronDown className={`w-4 h-4 text-white/50 transition-transform ${openDropdown === "lang" ? "rotate-180" : ""}`} />
                         </button>
 
                         <AnimatePresence>
-                          {langDropdownOpen && (
+                          {openDropdown === "lang" && (
                             <motion.div
+                              id="lang-menu"
+                              role="listbox"
+                              aria-label="Default subtitle language"
+                              onKeyDown={handleMenuKeyDown}
                               initial={{ opacity: 0, y: 8, scale: 0.96 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: 8, scale: 0.96 }}
@@ -1203,9 +1502,12 @@ export default function SettingsPage() {
                                   <button
                                     key={l.code}
                                     type="button"
+                                    role="option"
+                                    aria-selected={selected}
+                                    tabIndex={selected ? 0 : -1}
                                     onClick={() => {
                                       setPreference("defaultLanguage", l.code);
-                                      setLangDropdownOpen(false);
+                                      selectFromDropdown("lang");
                                     }}
                                     className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
                                       selected ? "settings-dropdown-item is-selected" : "settings-dropdown-item text-white/70 hover:text-white"
@@ -1381,10 +1683,10 @@ export default function SettingsPage() {
             )}
 
             {/* ── 7. FACTORY RESET PREFERENCES ── */}
-            {(activeTab === "all" || activeTab === "account") && (
-              <section id="reset-preferences" className="glass-card" style={{ border: "1px solid rgba(239, 68, 68, 0.25)" }}>
+            {sectionVisible.reset && (
+              <section id="reset-preferences" className="glass-card">
                 <div className="section-header">
-                  <h2 className="section-title" style={{ color: "#f87171" }}>Reset All Preferences</h2>
+                  <h2 className="section-title">Reset All Preferences</h2>
                   <p className="section-subtitle">
                     Restore theme and playback preferences back to factory defaults. Your My List and Watch History will not be affected.
                   </p>
@@ -1398,22 +1700,7 @@ export default function SettingsPage() {
                     <button
                       type="button"
                       onClick={handleResetAllPreferences}
-                      style={{
-                        background: "rgba(239, 68, 68, 0.12)",
-                        border: "1px solid rgba(239, 68, 68, 0.3)",
-                        color: "#f87171",
-                        padding: "8px 18px",
-                        borderRadius: "100px",
-                        fontSize: "0.82rem",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        transition: "all 0.2s",
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(239, 68, 68, 0.25)")}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(239, 68, 68, 0.12)")}
+                      className="reset-preferences-button"
                     >
                       <RotateCcw size={14} /> Reset Preferences
                     </button>
@@ -1429,15 +1716,25 @@ export default function SettingsPage() {
 
       {/* ── MODALS ── */}
 
-      {/* Sign-In Modal — Cinejoy glass login panel */}
-      {showSignInModal && createPortal(
-          <div
-            className="login-backdrop"
-            onMouseDown={(e) => {
-              if (e.target === e.currentTarget) setShowSignInModal(false);
-            }}
-          >
+      {/* Sign-In Modal — Cinejoy glass login panel. AnimatePresence lives
+              inside the portal so the exit animation actually plays (the old
+              conditional form unmounted immediately). */}
+      {createPortal(
+        <AnimatePresence>
+          {showSignInModal && (
             <motion.div
+              key="login-backdrop"
+              className="login-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onMouseDown={(e) => {
+                if (e.target === e.currentTarget) setShowSignInModal(false);
+              }}
+            >
+            <motion.div
+              ref={loginPanelRef}
               initial={{ opacity: 0, y: 24, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 24, scale: 0.97 }}
@@ -1446,6 +1743,7 @@ export default function SettingsPage() {
               role="dialog"
               aria-modal="true"
               aria-labelledby="login-panel-title"
+              tabIndex={-1}
             >
               <button
                 onClick={() => setShowSignInModal(false)}
@@ -1556,9 +1854,11 @@ export default function SettingsPage() {
                 </form>
               )}
             </motion.div>
-          </div>,
-          document.body
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
       </div>
   );

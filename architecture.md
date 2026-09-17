@@ -44,7 +44,12 @@ Firebase SDK in the bundle.
 | Person | `/person/:id/:slug?` | `person:<id>` → `getPersonDetails` (`/person`, `/combined_credits`, top-40) | network only |
 | My List | `/watchlist` (`/mylist` redirects) | local only | `aios_my_list` (local) |
 | History | `/history` | local only | `aios_continue_watching` (local) |
-| Settings | `/settings` | local only | `setting-*` keys (local) |
+| Settings | `/settings` (+ optional `?tab=<section>`) | local only | `setting-*` keys (local) |
+
+The `?tab=` query param on `/settings` is a navigation affordance only: it
+selects the section filter (see `SECTION_SEARCH_TERMS` in `SettingsPage.jsx`),
+initialises from and stays in sync with the URL (`replace: true`), and has no
+effect on any persisted key or data contract.
 
 Persistence keys (all localStorage, no remote DB): `aios_my_list`,
 `aios_continue_watching`, `aios_search_history`, `streamly:realRatings:<id>`

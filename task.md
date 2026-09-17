@@ -1367,3 +1367,81 @@ the live dock offset and animates exactly like Cinejoy.
     files; the 1 failure is the pre-existing flaky `TitleDetailsPage`
     episode-timing test, which passes in isolation and on re-run), `npm run
     build` (✓ 2.25s).
+
+## Task 72 - Settings deep counter-fix: interaction, a11y, mobile tabs, hygiene
+
+Deep UI/UX audit of `/settings` (headless CDP + forced-pseudo probes) found:
+two dropdowns opened at once (shared page-root ref), the sign-in modal had no
+focus trap and never played its exit animation (no `AnimatePresence`), search
+indexed invisible words ("watchlist/sync/mongodb/reset" → no results) while the
+Reset card ignored the filter, the global `:focus-visible` `border-radius`
+override snapped every pill/segment radius to 6px, tabs/dropdowns/server rows
+lied about their roles, 7 tabs overflowed the mobile pill without any
+affordance, and the account/cloud rows leaked a 320px GIS button + "MongoDB
+Atlas" copy. Fixed in five phases.
+
+- [x] **Task 72 - Interaction fixes**
+  - `SettingsPage.jsx`: three boolean dropdown states replaced by a single
+    shared `openDropdown` ("theme" | "seek" | "lang") so only one popup can be
+    open; outside-click only closes the open menu (per-dropdown wrapper refs);
+    Escape closes and returns focus to the trigger; popup opens move focus onto
+    the selected `role="option"`; shared `handleMenuKeyDown` roving
+    Up/Down/Home/End. Theme popup is a `role="dialog"` with nested listbox,
+    seek/lang are `listbox`es; items are `role="option"` with `aria-selected`
+    + roving `tabIndex`. `SegmentControl` now pre-paints the slider
+    (`useLayoutEffect` + `ResizeObserver`) and supports roving `tabIndex` +
+    arrow/Home/End keys. `ServerOrderList` uses real `list`/`listitem` roles
+    (was fake listbox/option with always-false `aria-selected`), grip is
+    `aria-hidden` instead of a false button. Reset card now participates in
+    search + empty state via the reset section's own `visibleSection` entry
+    (was always rendered, ignoring the filter).
+- [x] **Task 72 - Modal + search**
+  - Sign-in modal wrapped in `AnimatePresence` **inside** the portal so the
+    exit animation plays; `loginPanelRef` focus trap (first control on open,
+    Tab wraps first/last, Escape closes, body scroll lock, focus restored to
+    the opener on close). Search now uses `SECTION_SEARCH_TERMS` data-driven
+    haystacks whose text mirrors the visible copy (incl. Reset); `q` is
+    tokenised-and-ed; added a `sr-only` `aria-live` results summary. Cloud
+    Sync copy neutralised ("MongoDB Cloud Sync / Atlas Connected" → "Cloud
+    Sync / Connected", no backend mentions in copy or toasts), Sync Now awaits
+    the call and toasts success/error instead of fire-and-forget.
+- [x] **Task 72 - Focus + roles + touch targets**
+  - Removed `border-radius: var(--radius-sm)` from the global
+    `:focus-visible` rule (outline follows each element's own radius, so
+    toggles/segments/glassy buttons keep their pill shape; verified computed
+    radius stays 9999px/999px when focused). Fixed the `@supports not
+    backdrop-filter` fallback so `.glassy-button--primary` keeps its
+    light-on-dark styling. Tabs expose `aria-controls`; hit areas bumped
+    (`.settings-tab` 44px, `.settings-hit` 44px on account links/Sync Now,
+    `.color-dot` 28px + 8px ring, toggle hit ring to 10px = 44px). Back button
+    guards `navigate(-1)` when there's no prior page. Gear icon `aria-hidden`.
+- [x] **Task 72 - Mobile pill + hygiene**
+  - Mobile `.settings-nav`: tighter gap, `scroll-snap-type: x proximity` with
+    `scroll-snap-align: center` tabs and a gradient edge mask (non-docked
+    only, so the mask can't smear the docked backdrop-filter); a JS effect
+    scrolls the active tab to center on change. URL-synced tab state
+    (`?tab=servers`), initialised from and kept in sync with `useSearchParams`
+    (deep-linkable, survives refresh). Deleted ~15 dead selectors
+    (settings-search*, settings-page__inner, settings-section__heading,
+    setting-row__*, setting-toggle*, settings-card*, order-reset,
+    theme-swatch-add) and collapsed three duplicate `.settings-page .glass-card`
+    background definitions into one.
+- [x] **Task 72 - Refraction perf trim**
+  - 4x-CPU headless scroll probe (7 hosts): keeping blur +
+    `feDisplacementMap` on every card/dropdown/popover cost ~20-25% of frame
+    time; shipped version now applies the blur + ripple only to
+    `.settings-nav.is-docked` and `.login-panel`, while cards keep the cheap
+    sheen gradient (per the plan's "measure then trim" decision).
+- [x] **Task 72 - Verification**
+  - New tests: search matches visible copy incl. Reset + no-match for
+    "mongodb", single-popup-at-a-time (with exit), modal focus in/restore +
+    scroll-lock release, URL `?tab=` init. `SettingsPage.test.jsx` 10/10.
+  - Headless CDP check: MongoDB/Atlas and inline reset styles gone; theme+seek
+    never both open (`expandedCount 1`); option focus + Escape→trigger restore;
+    Tab trap holds inside the modal; search banner behaves; focus radii keep
+    pills; segment ArrowRight moves roving focus; mobile nav overflows and
+    auto-scrolls the active tab (`scrollLeft 0 → 307`, mask + snap active).
+  - `npm run lint` (0 errors / 0 warnings), `npm run test` (315/317 across 31
+    files — the only failures are the pre-existing flaky `TitleDetailsPage`
+    episode-timing tests, which pass 3/3 in isolation), `npm run build`
+    (✓ 3.34s).
