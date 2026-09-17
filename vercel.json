@@ -6,8 +6,7 @@
     "api/tmdb.js": { "maxDuration": 15 },
     "api/auth.js": { "maxDuration": 30 },
     "api/sync.js": { "maxDuration": 30 },
-    "api/downloadify.js": { "maxDuration": 60 },
-    "api/tmdb-embed.js": { "maxDuration": 30 }
+    "api/downloadify.js": { "maxDuration": 60 }
   },
   "headers": [
     {
@@ -16,8 +15,8 @@
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "X-Frame-Options", "value": "DENY" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), payment=(), usb=(), autoplay=(self \"https://www.youtube.com\" \"https://www.youtube-nocookie.com\" \"https://www.2embed.cc\" \"https://vidsrcme.ru\" \"https://peachify.top\" \"https://embed.smashystream.com\" \"https://cinesrc.st\" \"https://vidlink.pro\" \"https://vidcore.io\" \"https://vidup.to\" \"https://dahmermovies.site\" \"https://flixhq.stream\")" },
-        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://www.youtube.com https://www.youtube-nocookie.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://image.tmdb.org https://wsrv.nl https://via.placeholder.com https://img.youtube.com https://i.ytimg.com; connect-src 'self' https://api.themoviedb.org https://www.omdbapi.com https://oauth2.googleapis.com https://wsrv.nl https://rest.opensubtitles.org https://dl.opensubtitles.org https://dahmermovies.site https://flixhq.stream; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://www.2embed.cc https://vidsrcme.ru https://peachify.top https://embed.smashystream.com https://cinesrc.st https://vidlink.pro https://vidcore.io https://vidup.to https://accounts.google.com https://dahmermovies.site https://flixhq.stream; frame-ancestors 'none'; base-uri 'self'; form-action 'none'; object-src 'none'" }
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), payment=(), usb=(), autoplay=(self \"https://www.youtube.com\" \"https://www.youtube-nocookie.com\" \"https://www.2embed.cc\" \"https://vidsrcme.ru\" \"https://peachify.top\" \"https://embed.smashystream.com\" \"https://cinesrc.st\" \"https://vidlink.pro\" \"https://vidcore.io\" \"https://vidup.to\")" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://www.youtube.com https://www.youtube-nocookie.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://image.tmdb.org https://wsrv.nl https://via.placeholder.com https://img.youtube.com https://i.ytimg.com; connect-src 'self' https://api.themoviedb.org https://www.omdbapi.com https://oauth2.googleapis.com https://wsrv.nl https://rest.opensubtitles.org https://dl.opensubtitles.org; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://www.2embed.cc https://vidsrcme.ru https://peachify.top https://embed.smashystream.com https://cinesrc.st https://vidlink.pro https://vidcore.io https://vidup.to https://accounts.google.com; frame-ancestors 'none'; base-uri 'self'; form-action 'none'; object-src 'none'" }
       ]
     },
     {

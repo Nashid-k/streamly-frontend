@@ -21,7 +21,6 @@ import {
 import { logDebug, logError, logInfo, logWarn } from "../utils/debugLogger.js";
 
 const ENDPOINT = "/api/downloadify";
-const EMBED_ENDPOINT = "/api/tmdb-embed";
 const SEGMENTS_PER_BATCH = 6;
 
 export class DownloadUnavailableError extends Error {
@@ -93,70 +92,8 @@ export const downloadService = {
     return { source: data.source, variants };
   },
 
-  /** Resolve direct MP4 downloads from TMDB-Embed API (self-hosted providers). */
-  async resolveDirectDownload(tmdbId, type = "movie", season = null, episode = null, { signal } = {}) {
-    try {
-      let url;
-      if (type === "movie") {
-        url = `${EMBED_ENDPOINT}/movie/${tmdbId}`;
-      } else {
-        url = `${EMBED_ENDPOINT}/tv/${tmdbId}/${season}/${episode}`;
-      }
-
-      const response = await fetch(url, {
-        headers: { "content-type": "application/json" },
-        signal,
-      });
-
-      if (!response.ok) {
-        const error = new Error(`TMDB-Embed API failed (${response.status})`);
-        error.status = response.status;
-        throw error;
-      }
-
-      const data = await response.json();
-
-      if (!data.ok) {
-        throw new DownloadUnavailableError(data.error || "No downloads available", data.code);
-      }
-
-      const downloads = (data.downloads || []).map((dl, index) => ({
-        ...dl,
-        index,
-        label: dl.quality || "Unknown",
-        estimatedBytes: 0, // Direct files don't have bandwidth estimates
-        direct: true,
-      }));
-
-      logInfo("download", `Resolved ${downloads.length} direct download(s) from TMDB-Embed API.`, {
-        tmdbId,
-        type,
-        season,
-        episode,
-        downloads: downloads.map((d) => d.label),
-      });
-
-      return { source: { kind: "direct", url: null }, variants: downloads };
-    } catch (error) {
-      if (error?.name === "AbortError") throw error;
-      logError("download", "TMDB-Embed API request failed", error, {
-        tmdbId,
-        type,
-        season,
-        episode,
-      });
-      throw new DownloadUnavailableError(
-        "Direct download service unavailable. Using HLS fallback.",
-        "embed-api-failed",
-      );
-    }
-  },
-
   /** Expand a chosen variant into a concrete segment list. */
   async buildManifest(source, variant, { signal } = {}) {
-    if (variant?.direct) {
-      return { kind: KIND_FMP4, direct: true, initUrl: null, segments: [variant.uri], duration: 0, count: 1 };
-    }
     const data = await post(
       {
         action: "manifest",

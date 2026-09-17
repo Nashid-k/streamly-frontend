@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Copy,
   Download,
+  ExternalLink,
   Loader2,
   Server,
   Star,
@@ -28,16 +29,17 @@ import { logDebug, logWarn } from "../utils/debugLogger";
 
 /* ── DownloadModal — browser-only offline downloads ────────────────────
    Vercel has no storage and the app has no backend, so "download" means
-   what a browser download always means: fetch the bytes through our
-   serverless resolver and save them to disk. A quality list is only ever
-   the ladder the embed host actually serves (parsed from its HLS master) —
-   we never upscale, and DRM-protected renditions simply won't resolve.
+   either:
+   1. Opening the HLS stream URL directly (let browser/external tools handle it)
+   2. Fetching bytes through our serverless resolver and saving to disk
+
+   External embed hosts block automated scraping, so direct MP4 downloads are
+   not feasible. The industry pattern is to offer the stream URL that users
+   can open in browser or download with yt-dlp/ffmpeg.
 
    Layout mirrors Cinejoy's download sheet: a quality filter rail plus one
    row per (source server × quality) with the top-quality badge, a size
-   estimate, a copy-link action and a download action. Because our sources
-   are HLS ladders rather than direct files, the row action drives the save
-   flow instead of deep-linking a file.
+   estimate, a copy-link action, an open-stream action, and a download action.
 
    Accessibility mirrors the Settings sign-in modal: portal + scroll lock +
    Tab trap + Escape + focus return. */
@@ -215,29 +217,7 @@ export default function DownloadModal({
           const index = queue.shift();
           const embedUrl = buildEmbedUrl(servers[index], selectedSeason, targetEpisode);
           try {
-            // First try direct MP4 downloads from TMDB-Embed API
-            let source, variants;
-            try {
-              const directResult = await downloadService.resolveDirectDownload(
-                movie?.id,
-                isTv ? "tv" : "movie",
-                selectedSeason,
-                targetEpisode,
-                { signal }
-              );
-              source = directResult.source;
-              variants = directResult.variants;
-              logDebug("download", `Direct download from TMDB-Embed API: ${variants.length} quality variant(s).`, {
-                qualities: variants.map((v) => v.label),
-              });
-            } catch (directError) {
-              // Fallback to HLS resolution if direct API fails
-              logDebug("download", `Direct download failed, falling back to HLS: ${directError.message}`);
-              const hlsResult = await downloadService.resolveDownload(embedUrl, { signal });
-              source = hlsResult.source;
-              variants = hlsResult.variants;
-            }
-
+            const { source, variants } = await downloadService.resolveDownload(embedUrl, { signal });
             if (signal?.aborted) return;
             resolved += 1;
             const nextRows = variants.map((variant) => ({
@@ -357,6 +337,15 @@ export default function DownloadModal({
     [rows],
   );
 
+  const handleOpenStreamUrl = (row) => {
+    const { variant, source } = row;
+    if (variant.uri) {
+      const streamUrl = variant.uri.startsWith("http") ? variant.uri : new URL(variant.uri, source).href;
+      window.open(streamUrl, "_blank", "noopener,noreferrer");
+      logInfo("download", `Opened stream URL in new tab: ${streamUrl}`);
+    }
+  };
+
   const qualityGroups = useMemo(() => {
     const seen = new Map();
     for (const row of sortedRows) {
@@ -445,23 +434,6 @@ export default function DownloadModal({
       for (let i = 0; i < targets.length; i += 1) {
         const episode = targets[i];
         setDownloadState((prev) => ({ ...prev, episodeIndex: i, episode, progress: null }));
-
-        // For direct MP4 downloads, trigger browser download directly
-        if (row.variant.direct && row.variant.url) {
-          const filename = `${fileNameBase(movie, { isTv, season: selectedSeason, episode, quality: row.variant.label })}.mp4`;
-          const anchor = document.createElement("a");
-          anchor.href = row.variant.url;
-          anchor.download = filename;
-          anchor.target = "_blank";
-          anchor.rel = "noopener noreferrer";
-          document.body.appendChild(anchor);
-          anchor.click();
-          anchor.remove();
-          logInfo("download", `Direct MP4 download triggered: ${filename}`, { url: row.variant.url });
-          continue;
-        }
-
-        // Fallback to HLS download for non-direct variants
         const embedUrl = buildEmbedUrl(server, selectedSeason, episode);
         const { source, variants: fresh } = await downloadService.resolveDownload(embedUrl, { signal: controller.signal });
         const variant = matchVariant(fresh, row.variant);
@@ -718,6 +690,15 @@ export default function DownloadModal({
                         ) : (
                           <Copy className="w-4 h-4" />
                         )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenStreamUrl(row)}
+                        aria-label={`Open stream URL for ${row.label} from ${row.serverName}`}
+                        title="Open stream URL"
+                        className="shrink-0 p-2 rounded-lg text-white/50 hover:text-white hover:bg-white/[0.08] transition-colors"
+                      >
+                        <ExternalLink className="w-4 h-4" />
                       </button>
                       <button
                         type="button"

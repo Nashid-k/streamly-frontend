@@ -47,8 +47,17 @@ const ALLOWED_EMBED_HOSTS = new Set([
   "smashystream.com",
 ]);
 
-const UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
+const USER_AGENTS = [
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15",
+];
+
+function getRandomUA() {
+  return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+}
 
 function json(res, status, body) {
   res.status(status).setHeader("content-type", "application/json");
@@ -69,18 +78,34 @@ function isBlockedHost(hostname) {
   return false;
 }
 
-async function fetchUpstream(url, { as = "text", timeoutMs = 12000, referer } = {}) {
+async function fetchUpstream(url, { as = "text", timeoutMs = 12000, referer, retryCount = 0 } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const headers = {
-      "user-agent": UA,
+      "user-agent": getRandomUA(),
       accept: as === "text" ? "*/*" : "*/*",
       "accept-language": "en-US,en;q=0.9",
+      "sec-ch-ua": '"Chromium";v="124", "Google Chrome";v="124", "Not:A=Brand";v="99"',
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": '"Windows"',
+      "sec-fetch-dest": "document",
+      "sec-fetch-mode": "navigate",
+      "sec-fetch-site": "same-origin",
+      "sec-fetch-user": "?1",
     };
-    if (referer) headers.referer = referer;
+    if (referer) {
+      headers.referer = referer;
+      headers["referrer-policy"] = "strict-origin-when-cross-origin";
+    }
     const upstream = await fetch(url, { headers, redirect: "follow", signal: controller.signal });
     if (!upstream.ok) {
+      // Retry with different user agent on 403/429
+      if ((upstream.status === 403 || upstream.status === 429) && retryCount < 3) {
+        clearTimeout(timer);
+        console.log(`[downloadify] Retry ${retryCount + 1}/3 for ${url} with status ${upstream.status}`);
+        return fetchUpstream(url, { as, timeoutMs, referer, retryCount: retryCount + 1 });
+      }
       const err = new Error(`Upstream ${upstream.status}`);
       err.status = upstream.status;
       throw err;
