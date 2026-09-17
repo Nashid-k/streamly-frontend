@@ -25,7 +25,8 @@ import {
   safeFileName,
   variantLabel,
 } from "../utils/downloadQuality";
-import { logDebug, logWarn } from "../utils/debugLogger";
+import { logDebug, logWarn, logInfo, logError } from "../utils/debugLogger";
+import { extractStreamUrl } from "../utils/iframeStreamExtractor.js";
 
 /* ── DownloadModal — browser-only offline downloads ────────────────────
    Vercel has no storage and the app has no backend, so "download" means
@@ -106,6 +107,7 @@ export default function DownloadModal({
   isTvContent = false,
   initialSeason = 1,
   initialEpisode = 1,
+  playerRef,
   onClose,
 }) {
   const { toast } = useToast();
@@ -343,6 +345,52 @@ export default function DownloadModal({
       const streamUrl = variant.uri.startsWith("http") ? variant.uri : new URL(variant.uri, source).href;
       window.open(streamUrl, "_blank", "noopener,noreferrer");
       logInfo("download", `Opened stream URL in new tab: ${streamUrl}`);
+    }
+  };
+
+  const handleExtractFromPlayer = async () => {
+    if (!playerRef?.current) {
+      toast({
+        title: "Player not available",
+        message: "Please play the video first, then try extracting the stream URL.",
+        type: "error",
+        duration: 4000,
+      });
+      return;
+    }
+
+    try {
+      const streamData = await playerRef.current.getStreamUrl();
+      if (streamData && streamData.url) {
+        // Copy to clipboard
+        await navigator.clipboard.writeText(streamData.url);
+        toast({
+          title: "Stream URL extracted",
+          message: `Extracted ${streamData.type} stream URL from playing video and copied to clipboard.`,
+          type: "success",
+          duration: 4000,
+        });
+        logInfo("download", `Extracted stream from player: ${streamData.type}`, { url: streamData.url });
+        
+        // Also open in new tab
+        window.open(streamData.url, "_blank", "noopener,noreferrer");
+      } else {
+        toast({
+          title: "Extraction failed",
+          message: "Could not extract stream URL from the playing video. The player may not support this feature.",
+          type: "error",
+          duration: 4000,
+        });
+        logWarn("download", "Stream extraction returned null");
+      }
+    } catch (error) {
+      logError("download", "Failed to extract stream from player", error);
+      toast({
+        title: "Extraction error",
+        message: error.message || "Failed to extract stream URL",
+        type: "error",
+        duration: 4000,
+      });
     }
   };
 
@@ -588,12 +636,25 @@ export default function DownloadModal({
                 <Server className="w-3.5 h-3.5" />
                 Sources
               </div>
-              {resolveState.status === "resolving" && (
-                <span className="flex items-center gap-1.5 text-[11px] text-white/40">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  {resolveState.done}/{resolveState.total} scanned
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {playerRef && (
+                  <button
+                    type="button"
+                    onClick={handleExtractFromPlayer}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-white/10 text-white/80 hover:bg-white/20 transition-colors"
+                    title="Extract stream URL from playing video"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    Extract from Player
+                  </button>
+                )}
+                {resolveState.status === "resolving" && (
+                  <span className="flex items-center gap-1.5 text-[11px] text-white/40">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    {resolveState.done}/{resolveState.total} scanned
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Quality filter rail */}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback, useMemo, memo } from "react";
+import React, { useEffect, useState, useRef, useCallback, useMemo, memo, forwardRef, useImperativeHandle } from "react";
 import { VideoSourceAdapter } from "../api/videoSourceAdapter";
 
 import { movieService } from "../api/movieService";
@@ -12,9 +12,10 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SubtitleEngine } from "../utils/subtitleEngine";
-import { logDebug, logWarn } from "../utils/debugLogger";
+import { logDebug, logWarn, logInfo, logError } from "../utils/debugLogger";
 import { usePreferences } from "../context/preferences";
 import { resolveUILayout, resolveSkin, PLAYER_CONTROL_ORDER, PLAYER_SPEEDS } from "./playerUIDef";
+import { extractStreamUrl } from "../utils/iframeStreamExtractor.js";
 
 const formatSMPTE = (seconds) => {
   if (!seconds || isNaN(seconds) || seconds < 0) return "00:00:00:00";
@@ -986,14 +987,14 @@ const useContainerSize = (ref) => {
   return size;
 };
 
-const CustomVideoPlayer = ({
+const CustomVideoPlayer = forwardRef(({
   movie, season, episode, preferredServerIndex = 0, onServerChange,
   hasNextEpisode, onNextEpisode, onClose, thumbnailUrl, startTime = 0, onProgressUpdate,
   /* Ordered server list from TitleDetails (user's Settings → Server Order).
      Indices everywhere in this player refer to THIS list. Falls back to the
      static base order when the parent renders without it (tests, reuse). */
   servers: serversProp,
-}) => {
+}, ref) => {
   const {
     autoplay,
     setPreference,
@@ -5365,6 +5366,20 @@ const CustomVideoPlayer = ({
       </AnimatePresence>
     </div>
   );
-};
+
+  // Expose stream extraction method to parent components
+  useImperativeHandle(ref, () => ({
+    getStreamUrl: async () => {
+      if (!iframeRef.current) {
+        logWarn("player", "No iframe available for stream extraction");
+        return null;
+      }
+      const result = await extractStreamUrl(iframeRef.current);
+      return result;
+    },
+  }));
+});
+
+CustomVideoPlayer.displayName = "CustomVideoPlayer";
 
 export default CustomVideoPlayer;

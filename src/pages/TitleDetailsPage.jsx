@@ -655,6 +655,7 @@ export default function TitleDetails() {
   // Resolve the actual platform — now guaranteed to be a canonical key or null
   const effectivePlatform = movie?.source || undefined;
   const serverManuallySetRef = useRef(false);
+  const playerRef = useRef(null);
 
   const { data: similarData, error: similarError } = useQuery({
     queryKey: ["similar", id],
@@ -2575,6 +2576,7 @@ export default function TitleDetails() {
                     }
                   >
                     <CustomVideoPlayer
+                    ref={playerRef}
                     movie={movie}
                     season={isTvContent ? selectedSeason : undefined}
                     episode={isTvContent ? playingEpisode : undefined}
@@ -2656,6 +2658,7 @@ export default function TitleDetails() {
           isTvContent={isTvContent}
           initialSeason={selectedSeason}
           initialEpisode={isTvContent ? (episodeToPlay ?? playingEpisode ?? 1) : 1}
+          playerRef={playerRef}
           onClose={() => setDownloadOpen(false)}
         />
       )}
