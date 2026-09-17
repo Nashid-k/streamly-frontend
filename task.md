@@ -1638,3 +1638,12 @@ pm run build ok.
   - Docs contract: architecture.md persistence-key list updated (`streamly_volume|muted|aspectRatio|lastserver|lastQuality|lastAudio`).
   - Tests: +2 (saved quality -> `quality=1080` URL param, Auto -> no param; muted -> `&muted=true`).
   - Verification: npm run lint 0/0, npm run test 342/342 (was 340 + 2 new), npm run build ok.
+
+- [x] **Task 83 - Custom player UI simplification + responsive condensation
+  - Problem: the default (Classic) bar carried 12 buttons. bottomRight alone stacked subtitles, audio, aspectRatio, playbackSpeed, fullscreen, pip and nextEpisode - even though audio/aspectRatio/playbackSpeed were ALL duplicated inside the gear/settings panel, and pip/cast were cosmetic toast stubs. The bar also ignored viewport width, so clusters overflowed on phones.
+  - Decluttered the default presets (playerUIDef.js): Classic and Minimal now park `audio`, `aspectRatio`, `playbackSpeed` and `pip` in the tray layout (`resolveUILayout` invariants kept: volume bottomLeft, screenLock topLeft, fullscreen bottomRight, playPause bottomLeft). Power users can restore them via the Player UI Studio drag-and-drop.
+  - Responsive condensation (CustomVideoPlayer.jsx): new `(max-width: 720px)` matchMedia hook (`narrow`); `zoneKeys`/`topZoneKeys` now drop `audio`, `aspectRatio`, `playbackSpeed`, `pip`, `cast` from every bar zone under 720px - a single chokepoint so all 6 preset archetypes + custom layouts condense at once, and everything hidden stays reachable through the gear/menus.
+  - Next-episode stub: `nextEpisode` is now hidden when `hasNextEpisode` is falsy (movies / end of season) instead of rendering a dimmed dead button - the studio's bright/dim "stub" treatment was exactly the perceived button clutter.
+  - Title row trim: the release-year chip and the right-hand balancer spacer are dropped on narrow players so the title doesn't crowd the time readout.
+  - Not changed: the other 4 power presets (apple/material/theater/studio) stay rich on purpose; the size tokens already scale via vmin `clamp()`, so the fix is button count + viewport awareness, not more shrinking.
+  - Tests: no assertions depended on classic/minimal bar layout (PlayerPreview tests are data-driven off the preset objects), so 342/342 still pass. Verified: npm run lint 0/0, npm run test 342/342, npm run build ok.

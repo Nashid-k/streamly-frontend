@@ -131,6 +131,12 @@ const R = {
   progressBarPad: 'clamp(8px, 2vw, 20px)',
 };
 
+/* Narrow-viewport condensation: on phone-width players these controls
+   leave the bar to stop the clusters overflowing. Everything demoted is
+   still reachable — audio/aspectRatio/playbackSpeed live in the gear
+   panel, pip/cast/screenLock are opt-in in the Player UI Studio. */
+const NARROW_BAR_HIDES = new Set(["audio", "aspectRatio", "playbackSpeed", "pip", "cast"]);
+
 /* Circular Arc Component — the core Apple TV+ motif
    Used for: volume HUD, seek indicators, loading, up-next countdown */
 const ArcRing = memo(({ progress = 0, size = 48, strokeWidth = 3, color = "#fff", bgColor = "rgba(255,255,255,0.08)", glowColor, children, className, responsive }) => {
@@ -1119,9 +1125,34 @@ const CustomVideoPlayer = ({
      below reads it in both its body and deps array (a later declaration
      here put it in the temporal dead zone and crashed every render). */
   const isTouch = useIsTouch();
+  /* Viewport-aware condensation: below 720px the bar drops low-priority
+     controls (NARROW_BAR_HIDES) so the clusters never overflow on phones. */
+  const [narrow, setNarrow] = useState(() => {
+    try {
+      return typeof window !== "undefined" && typeof window.matchMedia === "function"
+        ? window.matchMedia("(max-width: 720px)").matches
+        : false;
+    } catch { return false; }
+  });
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(max-width: 720px)");
+    const on = () => { try { setNarrow(mq.matches); } catch {} };
+    if (typeof mq.addEventListener === "function") {
+      mq.addEventListener("change", on);
+      return () => mq.removeEventListener("change", on);
+    }
+    on();
+    return undefined;
+  }, []);
   const zoneKeys = useCallback((zone) => (
-    PLAYER_CONTROL_ORDER.filter((k) => uiLayout[k] === zone && playerControls[k] !== false)
-  ), [uiLayout, playerControls]);
+    PLAYER_CONTROL_ORDER.filter((k) =>
+      uiLayout[k] === zone &&
+      playerControls[k] !== false &&
+      !(narrow && NARROW_BAR_HIDES.has(k)) &&
+      !(k === "nextEpisode" && !hasNextEpisode)
+    )
+  ), [uiLayout, playerControls, narrow, hasNextEpisode]);
   /* The floating touch lock button already covers topLeft — don't double it. */
   const topZoneKeys = useCallback((zone) => (
     zoneKeys(zone).filter((k) => !(k === "screenLock" && zone === "topLeft" && isTouch))
@@ -4936,7 +4967,7 @@ const CustomVideoPlayer = ({
                         S{season} E{episode}
                       </span>
                     )}
-                    {movie?.releaseYear && (
+                    {!narrow && movie?.releaseYear && (
                       <span className="streamly-player-release-year" style={{
                         color: "rgba(255,255,255,0.35)", fontSize: R.fontSmall, fontWeight: 600,
                         flexShrink: 0, letterSpacing: "0.3px",
@@ -4944,7 +4975,7 @@ const CustomVideoPlayer = ({
                       }}>{movie.releaseYear}</span>
                     )}
                   </div>
-                  <div style={{ flexShrink: 0, minWidth: "clamp(50px, 10vw, 70px)" }} />
+                  <div style={{ flexShrink: 0, minWidth: narrow ? 0 : "clamp(50px, 10vw, 70px)" }} />
                 </div>
 
                 {/* ═══ CONTROL ROW (skinned by Player UI preset) ══════ */}
