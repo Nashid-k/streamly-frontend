@@ -88,6 +88,38 @@ describe("movieService", () => {
     expect(title.nextEpisode).toMatchObject({ season: 3, episode: 4 });
   });
 
+  it("keeps the popularity floor but relaxes it when a keyword editorial rail surfaces nothing", async () => {
+    // 1 = keyword search resolves the tag id, 2 = discover under the vote
+    // floor returns 0 rows, 3 = relaxed (no floor, English) fallback fills it.
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({ results: [{ id: 11472, name: "cannes" }] }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ results: [] }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          results: [
+            { id: 1, title: "Palm D'or Winner", vote_average: 8.2, media_type: "movie" },
+            { id: 2, title: "Un Certain Regard", vote_average: 7.1, media_type: "movie" },
+          ],
+        }),
+      );
+    vi.stubGlobal("fetch", fetch);
+
+    const items = await movieService.getEditorialRail("cannes-film-festival");
+
+    expect(items.length).toBe(2);
+    // Strict floor attempt runs first...
+    const strictCall = fetch.mock.calls[1][0];
+    expect(strictCall).toContain("vote_count_gte=10");
+    expect(strictCall).toContain("with_keywords=11472");
+    // ...then the fallback drops the floor and forces English.
+    const fallbackCall = fetch.mock.calls[2][0];
+    expect(fallbackCall).not.toContain("vote_count_gte");
+    expect(fallbackCall).toContain("language=en");
+  });
+
   it("normalizes production companies with rich logo metadata", async () => {
     const fetch = vi
       .fn()

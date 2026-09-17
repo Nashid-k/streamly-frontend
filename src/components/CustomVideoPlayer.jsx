@@ -6,7 +6,7 @@ import {
   Play, Pause, Volume1, Volume2, VolumeX, Maximize, Minimize,
   Settings, AlertCircle, Check, RotateCcw, RotateCw,
   SkipForward, FastForward, Rewind,
-  Keyboard, X, Upload, Captions, Film, Link, Repeat, AudioLines,
+  Keyboard, X, Upload, Captions, Film, Link, Repeat,
   Lock, Unlock, StepBack, StepForward,
   PictureInPicture2, Cast, Sun, BookMarked,
 } from "lucide-react";
@@ -133,9 +133,9 @@ const R = {
 
 /* Narrow-viewport condensation: on phone-width players these controls
    leave the bar to stop the clusters overflowing. Everything demoted is
-   still reachable — audio/aspectRatio/playbackSpeed live in the gear
-   panel, pip/cast/screenLock are opt-in in the Player UI Studio. */
-const NARROW_BAR_HIDES = new Set(["audio", "aspectRatio", "playbackSpeed", "pip", "cast"]);
+   still reachable — aspectRatio/playbackSpeed live in the gear panel,
+   pip/screenLock are opt-in in the Player UI Studio. */
+const NARROW_BAR_HIDES = new Set(["aspectRatio", "playbackSpeed", "pip", "cast"]);
 
 /* Circular Arc Component — the core Apple TV+ motif
    Used for: volume HUD, seek indicators, loading, up-next countdown */
@@ -1019,7 +1019,6 @@ const CustomVideoPlayer = ({
     volume: playerControls.volume !== false,
     aspectRatio: playerControls.aspectRatio !== false,
     subtitles: playerControls.subtitles !== false,
-    audio: playerControls.audio !== false,
     playbackSpeed: playerControls.playbackSpeed !== false,
     screenLock: playerControls.screenLock !== false,
     fullscreen: playerControls.fullscreen !== false,
@@ -1207,7 +1206,6 @@ const CustomVideoPlayer = ({
   const [sideIcon, setSideIcon] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showSubtitlesMenu, setShowSubtitlesMenu] = useState(false);
-  const [showAudioMenu, setShowAudioMenu] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [aspectRatioIndex, setAspectRatioIndex] = useState(() => {
     if (typeof window === "undefined") return 0;
@@ -1255,13 +1253,8 @@ const CustomVideoPlayer = ({
   useEffect(() => { brightnessRef.current = brightness; }, [brightness]);
   const [showBrightnessArc, setShowBrightnessArc] = useState(false);
   const brightnessArcTimerRef = useRef(null);
-  const [qualities, setQualities] = useState([]);
   const [currentQuality, setCurrentQuality] = useState(() => {
     try { const s = localStorage.getItem("streamly_lastQuality"); return s ? JSON.parse(s) : null; } catch { return null; }
-  });
-  const [audioTracks, setAudioTracks] = useState([]);
-  const [currentAudioTrack, setCurrentAudioTrack] = useState(() => {
-    try { const s = localStorage.getItem("streamly_lastAudio"); return s ? JSON.parse(s) : null; } catch { return null; }
   });
   const [showPausedInfo, setShowPausedInfo] = useState(false);
   const pausedInfoTimerRef = useRef(null);
@@ -1354,8 +1347,9 @@ const CustomVideoPlayer = ({
   const isVidCore = iframeUrl.includes("vidcore.io");
   const isPeachify = iframeUrl.includes("peachify.top");
   const isVidUp = iframeUrl.includes("vidup.to");
-  // Quality / audio / playback-rate menus are only wired to CineSrc's command
-  // API. VidCore/Peachify/VidUp use their own native controls UI.
+  // Playback-rate menus are wired to CineSrc's command API; quality is
+  // handled through the CineSrc URL `quality` param. VidCore/Peachify/VidUp
+  // use their own native controls UI.
   const hasManagedSettings = isCineSrc;
   const showCustomUI = isCineSrc && !useNativeControls;
 
@@ -1685,10 +1679,7 @@ const CustomVideoPlayer = ({
             sendCommand("getMuted");
             sendCommand("getPaused");
             sendCommand("getPlaybackRate");
-            sendCommand("getQualities");
             sendCommand("getCurrentQuality");
-            sendCommand("getAudioTracks");
-            sendCommand("getCurrentAudioTrack");
             break;
           case "cinesrc:response":
             switch (d.command) {
@@ -1698,10 +1689,7 @@ const CustomVideoPlayer = ({
               case "getMuted": if (d.result != null) setIsMuted(d.result); break;
               case "getPaused": if (d.result != null) setIsPlaying(!d.result); break;
               case "getPlaybackRate": if (d.result != null) setPlaybackRate(d.result); break;
-              case "getAudioTracks": case "getTracks": case "getAudio": if (d.result) setAudioTracks(d.result); break;
-              case "getQualities": case "getLevels": case "getResolutions": if (d.result) setQualities(d.result); break;
               case "getCurrentQuality": case "getCurrentLevel": case "getCurrentResolution": case "getQuality": if (d.result != null) { setCurrentQuality(d.result); try { localStorage.setItem("streamly_lastQuality", JSON.stringify(d.result)); } catch {} } break;
-              case "getCurrentAudioTrack": case "getCurrentTrack": if (d.result != null) { setCurrentAudioTrack(d.result); try { localStorage.setItem("streamly_lastAudio", JSON.stringify(d.result)); } catch {} } break;
               default: break;
             }
             break;
@@ -2195,7 +2183,7 @@ const CustomVideoPlayer = ({
         case "a": e.preventDefault(); aspectManuallySetRef.current = true; setAspectRatioIndex((p) => (p + 1) % ASPECT_RATIOS.length); setShowAspectRatioArc(true); if (aspectRatioArcTimerRef.current) clearTimeout(aspectRatioArcTimerRef.current); aspectRatioArcTimerRef.current = setTimeout(() => setShowAspectRatioArc(false), 1200); break;
         case "b": e.preventDefault(); triggerBrightnessCycle(); break;
         case "?": e.preventDefault(); setShowShortcuts((p) => !p); break;
-        case "escape": setShowShortcuts(false); setShowSettings(false); setShowSubtitlesMenu(false); setShowAudioMenu(false); break;
+        case "escape": setShowShortcuts(false); setShowSettings(false); setShowSubtitlesMenu(false); break;
         default: break;
       }
     };
@@ -2207,13 +2195,13 @@ const CustomVideoPlayer = ({
     const el = containerRef.current;
     if (!el || !showCustomUI) return;
     const h = (e) => {
-      if (showSettings || showSubtitlesMenu || showAudioMenu || showShortcuts) return;
+      if (showSettings || showSubtitlesMenu || showShortcuts) return;
       e.preventDefault();
       changeVolume(volumeRef.current + (e.deltaY < 0 ? 0.05 : -0.05));
     };
     el.addEventListener("wheel", h, { passive: false });
     return () => el.removeEventListener("wheel", h);
-  }, [showCustomUI, changeVolume, showSettings, showSubtitlesMenu, showAudioMenu, showShortcuts]);
+  }, [showCustomUI, changeVolume, showSettings, showSubtitlesMenu, showShortcuts]);
 
   /* ═══ Touch Gestures — VLC/MX Player Style ═══════════════════════════════
      LEFT 35%:   swipe ↑↓ = brightness
@@ -2366,10 +2354,10 @@ const CustomVideoPlayer = ({
     if (isTouch || Date.now() - lastTouchEndRef.current < 600) return;
     setShowControls(true);
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-    if (isPlaying && !showSettings && !showSubtitlesMenu && !showAudioMenu && !isLoading && !isScrubbing) {
+    if (isPlaying && !showSettings && !showSubtitlesMenu && !isLoading && !isScrubbing) {
       controlsTimeoutRef.current = setTimeout(() => setShowControls(false), 3000);
     }
-  }, [isPlaying, showSettings, showSubtitlesMenu, showAudioMenu, isLoading, isScrubbing, isTouch]);
+  }, [isPlaying, showSettings, showSubtitlesMenu, isLoading, isScrubbing, isTouch]);
 
   /* Touch single-tap to show/hide controls, double-tap to seek */
   const lastTapRef = useRef(0);
@@ -2414,10 +2402,9 @@ const CustomVideoPlayer = ({
       singleTapTimerRef.current = setTimeout(() => {
         singleTapTimerRef.current = null;
         // If a popup menu is open, dismiss it first
-        if (showSettings || showSubtitlesMenu || showAudioMenu || showShortcuts) {
+        if (showSettings || showSubtitlesMenu || showShortcuts) {
           setShowSettings(false);
           setShowSubtitlesMenu(false);
-          setShowAudioMenu(false);
           setShowShortcuts(false);
           return;
         }
@@ -2431,7 +2418,7 @@ const CustomVideoPlayer = ({
         });
       }, 250);
     }
-  }, [isLoading, isScreenLocked, seekRelative, togglePlay, showSettings, showSubtitlesMenu, showAudioMenu, showShortcuts, isPlaying, isScrubbing]);
+  }, [isLoading, isScreenLocked, seekRelative, togglePlay, showSettings, showSubtitlesMenu, showShortcuts, isPlaying, isScrubbing]);
 
   const pp = duration > 0 ? Math.max(0, Math.min((currentTime / duration) * 100, 100)) : 0;
   const bp = duration > 0 ? Math.max(0, Math.min((buffered / duration) * 100, 100)) : 0;
@@ -2830,26 +2817,6 @@ const CustomVideoPlayer = ({
         </motion.button>
       );
     }
-    if (key === "audio") {
-      if (!(audioTracks?.length > 1)) return null;
-      return (
-        <motion.button onClick={(e) => { e.stopPropagation(); setShowAudioMenu(!showAudioMenu); setShowSettings(false); setShowSubtitlesMenu(false); }}
-          whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
-          transition={SPRING}
-          aria-label="Audio tracks"
-          style={{
-            ...ghostCircle,
-            position: "relative",
-            ...(showAudioMenu ? {
-              borderColor: "var(--accent-primary, #fff)",
-              boxShadow: "0 0 8px var(--accent-primary, rgba(255,255,255,0.4))",
-            } : {}),
-          }}
-        >
-          <AudioLines size={15} />
-        </motion.button>
-      );
-    }
     if (key === "aspectRatio") {
       const arMeta = ASPECT_RATIOS[aspectRatioIndex] || ASPECT_RATIOS[0];
       const isStudio = skin.id === "studio";
@@ -3111,7 +3078,7 @@ const CustomVideoPlayer = ({
       }}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => {
-        if (isPlaying && !showSettings && !showSubtitlesMenu && !showAudioMenu && !isLoading && !isScrubbing)
+        if (isPlaying && !showSettings && !showSubtitlesMenu && !isLoading && !isScrubbing)
           setShowControls(false);
       }}
       onTouchStart={handleTouchStart}
@@ -5041,13 +5008,12 @@ const CustomVideoPlayer = ({
       </AnimatePresence>
 
       {/* Mobile tap-outside dismiss backdrop for popup menus */}
-      {isTouch && (showSettings || showSubtitlesMenu || showAudioMenu) && (
+      {isTouch && (showSettings || showSubtitlesMenu) && (
         <div
           onClick={(e) => {
             e.stopPropagation();
             setShowSettings(false);
             setShowSubtitlesMenu(false);
-            setShowAudioMenu(false);
           }}
           style={{
             position: "absolute",
@@ -5112,70 +5078,6 @@ const CustomVideoPlayer = ({
                 ))}
               </div>
             </div>
-            )}
-
-            {/* Quality */}
-            {qualities?.length > 0 && (
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: R.fontTiny, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "1.5px", fontWeight: 700, marginBottom: 10, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif" }}>Quality</div>
-                <div style={{ display: "flex", gap: "clamp(4px, 1vw, 6px)", flexWrap: "wrap" }}>
-                  <motion.button onClick={() => {
-                    sendCommand("setQuality", [-1]);
-                    setCurrentQuality({ id: -1, name: 'Auto' }); localStorage.setItem("streamly_lastQuality", JSON.stringify({ id: -1, name: 'Auto' })); setShowSettings(false);
-                  }}
-                    whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }} transition={SPRING}
-                    style={{
-                      background: (currentQuality?.id === -1 || (!currentQuality && qualities.length > 1)) ? "rgba(var(--accent-primary-rgb), 0.16)" : "rgba(255,255,255,0.02)",
-                      color: (currentQuality?.id === -1 || (!currentQuality && qualities.length > 1)) ? "var(--accent-primary, #fff)" : "rgba(255,255,255,0.5)",
-                      border: (currentQuality?.id === -1) ? "1px solid rgba(var(--accent-primary-rgb), 0.4)" : "1px solid rgba(255,255,255,0.04)",
-                      padding: `${R.padSmall} ${R.padSmall}`, borderRadius: 100, cursor: "pointer", fontSize: R.fontSmall, fontWeight: 700,
-                      fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
-                    }}
-                  >Auto</motion.button>
-                  {qualities.map((q) => (
-                    <motion.button key={q.id} onClick={() => {
-                      sendCommand("setQuality", [q.id]);
-                      setCurrentQuality(q); localStorage.setItem("streamly_lastQuality", JSON.stringify(q)); setShowSettings(false);
-                    }}
-                      whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }} transition={SPRING}
-                      style={{
-                        background: (currentQuality?.id === q.id) ? "rgba(var(--accent-primary-rgb), 0.16)" : "rgba(255,255,255,0.02)",
-                        color: (currentQuality?.id === q.id) ? "var(--accent-primary, #fff)" : "rgba(255,255,255,0.5)",
-                        border: (currentQuality?.id === q.id) ? "1px solid rgba(var(--accent-primary-rgb), 0.4)" : "1px solid rgba(255,255,255,0.04)",
-                        padding: `${R.padSmall} ${R.padSmall}`, borderRadius: 100, cursor: "pointer", fontSize: R.fontSmall, fontWeight: 700,
-                        fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
-                      }}
-                    >
-                      {q.name || q.height + "p" || q.id}
-                    </motion.button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Audio */}
-            {audioTracks?.length > 0 && (
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: R.fontTiny, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "1.5px", fontWeight: 700, marginBottom: 10, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif" }}>Audio</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  {audioTracks.map((t, i) => (
-                    <button key={i} onClick={() => {
-                      sendCommand("setAudioTrack", [t.id || i]);
-                      setCurrentAudioTrack(t); localStorage.setItem("streamly_lastAudio", JSON.stringify(t)); setShowSettings(false);
-                    }}
-                      style={{
-                        background: (currentAudioTrack?.id === t.id) ? "rgba(var(--accent-primary-rgb), 0.12)" : "transparent",
-                        color: (currentAudioTrack?.id === t.id) ? "var(--accent-primary, #fff)" : "rgba(255,255,255,0.5)",
-                        border: "none", padding: `${R.padSmall} ${R.padSmall}`, borderRadius: 10,
-                        cursor: "pointer", fontSize: R.fontMedium, fontWeight: 600, textAlign: "left",
-                        fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
-                      }}
-                    >
-                      {t.name || t.language || `Track ${i + 1}`}
-                    </button>
-                  ))}
-                </div>
-              </div>
             )}
 
             {/* Aspect Ratio */}
@@ -5415,65 +5317,6 @@ const CustomVideoPlayer = ({
             >
               <Upload size={12} /> {subtitleFileName || "Upload (.srt)"}
             </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ═══ AUDIO TRACKS PANEL ═══════════════════════════════════ */}
-      <AnimatePresence>
-        {showAudioMenu && audioTracks?.length > 1 && (
-          <motion.div
-            initial={{ opacity: 0, y: 16, scale: 0.94 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 12, scale: 0.96 }}
-            transition={SPRING}
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: "absolute",
-              bottom: isTouch ? "calc(12px + var(--sab))" : "calc(clamp(40px, 8vw, 60px) + var(--sab))",
-              right: isTouch ? "auto" : "calc(clamp(68px, 14vw, 96px) + var(--sar))",
-              left: isTouch ? "50%" : "auto",
-              transform: isTouch ? "translateX(-50%)" : "none",
-              zIndex: 50,
-              width: isTouch ? "min(calc(100% - 24px), 360px)" : R.panelSubtitles,
-              maxHeight: isTouch ? "min(68vh, 420px)" : "40vh",
-              background: "var(--skin-panel-bg, rgba(18,18,20,0.92))",
-              backdropFilter: "blur(var(--skin-panel-blur, 40px)) saturate(180%)",
-              WebkitBackdropFilter: "blur(var(--skin-panel-blur, 40px)) saturate(180%)",
-              border: "var(--skin-panel-border, 1px solid rgba(255,255,255,0.08))",
-              borderRadius: isTouch ? 20 : R.radiusMedium,
-              padding: `${R.padMedium} ${R.padMedium}`,
-              color: "#fff",
-              overflowY: "auto",
-              boxShadow: "0 16px 56px rgba(0,0,0,0.7), inset 0 0.5px 0 rgba(255,255,255,0.08)",
-            }}
-          >
-            <div style={{ fontSize: R.fontTiny, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "1.5px", fontWeight: 700, marginBottom: 12, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif" }}>Audio Track</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {audioTracks.map((t, i) => (
-                <button key={i} onClick={() => {
-                  sendCommand("setAudioTrack", [t.id || i]);
-                  setCurrentAudioTrack(t); localStorage.setItem("streamly_lastAudio", JSON.stringify(t)); setShowAudioMenu(false);
-                }}
-                  style={{
-                    width: "100%", background: (currentAudioTrack?.id === t.id) ? "rgba(var(--accent-primary-rgb), 0.12)" : "transparent",
-                    color: (currentAudioTrack?.id === t.id) ? "var(--accent-primary, #fff)" : "rgba(255,255,255,0.6)",
-                    border: "none", padding: `${R.padSmall} ${R.padSmall}`, borderRadius: 10,
-                    cursor: "pointer", fontSize: R.fontMedium, fontWeight: 600, textAlign: "left",
-                    display: "flex", alignItems: "center", gap: 8,
-                    fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
-                  }}
-                >
-                  <span style={{
-                    width: 6, height: 6, borderRadius: "50%",
-                    background: (currentAudioTrack?.id === t.id) ? "#fff" : "transparent",
-                    border: "1px solid rgba(255,255,255,0.3)",
-                    flexShrink: 0,
-                  }} />
-                  {t.name || t.language || `Track ${i + 1}`}
-                </button>
-              ))}
-            </div>
           </motion.div>
         )}
       </AnimatePresence>

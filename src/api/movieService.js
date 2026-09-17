@@ -827,12 +827,20 @@ export const movieService = {
         }
         params.with_keywords = String(keywordId);
         params.sort_by = 'popularity.desc';
-        params.vote_count_gte = 30;
+        params.vote_count_gte = 10;
       } else {
         params.sort_by = cfg.sort.field;
         params.vote_count_gte = cfg.sort.voteCountGte;
       }
-      const data = await tmdb(`/discover/${mt}`, params);
+      let data = await tmdb(`/discover/${mt}`, params);
+      // Sparse keyword catalogs (festival/niche tags) can sink a strict vote
+      // floor to zero rows. Remove the floor (English fallback) so the rail
+      // still surfaces whatever the matched keyword actually has.
+      if (cfg.keywords && !(data.results || []).length) {
+        delete params.vote_count_gte;
+        params.language = 'en';
+        data = await tmdb(`/discover/${mt}`, params);
+      }
       return (data.results || []).map((r) =>
         normalizeResult({ ...r, media_type: mt }),
       );
@@ -882,7 +890,8 @@ export const EDITORIAL_RAILS = [
 const editorKeywordCache = new Map();
 async function resolveEditorialKeyword(candidates) {
   for (const q of candidates) {
-    const lower = String(q).toLowerCase();
+    const lower = String(q).toLowerCase().replace(/\*/g, '').trim();
+    if (!lower) continue;
     if (editorKeywordCache.has(lower)) {
       const cached = editorKeywordCache.get(lower);
       return cached || null;

@@ -3,7 +3,6 @@ import {
   RotateCcw,
   Volume2,
   Captions,
-  AudioLines,
   Expand,
   Gauge,
   Lock,
@@ -20,7 +19,7 @@ import {
    The video player control bar is divided into overlay zones. Every
    placeable control lives in exactly one zone (or the "tray", which
    hides it from the bar — it stays reachable through the menus).
-   Presets assign all 9 controls; the player merges the stored layout
+   Presets assign all 14 controls; the player merges the stored layout
    over these defaults so corrupt/partial storage can never break it. */
 
 export const PLAYER_ZONES = [
@@ -37,7 +36,6 @@ export const PLAYER_CONTROLS = [
   { key: "jumpForwardBackward", label: "Skip ±10s", Icon: RotateCcw },
   { key: "volume", label: "Volume", Icon: Volume2 },
   { key: "subtitles", label: "Subtitles", Icon: Captions },
-  { key: "audio", label: "Audio tracks", Icon: AudioLines },
   { key: "aspectRatio", label: "Aspect ratio", Icon: Expand },
   { key: "playbackSpeed", label: "Speed", Icon: Gauge },
   { key: "screenLock", label: "Screen lock", Icon: Lock },
@@ -57,7 +55,6 @@ export const PLAYER_CONTROL_ORDER = [
   "volume",
   "playbackSpeed",
   "subtitles",
-  "audio",
   "aspectRatio",
   "screenLock",
   "fullscreen",
@@ -388,7 +385,6 @@ export const PLAYER_UI_PRESETS = [
       jumpForwardBackward: true,
       volume: true,
       subtitles: true,
-      audio: true,
       aspectRatio: true,
       playbackSpeed: true,
       screenLock: true,
@@ -405,7 +401,6 @@ export const PLAYER_UI_PRESETS = [
       jumpForwardBackward: "bottomLeft",
       volume: "bottomLeft",
       subtitles: "bottomRight",
-      audio: "tray",
       aspectRatio: "tray",
       playbackSpeed: "tray",
       screenLock: "topLeft",
@@ -431,7 +426,6 @@ export const PLAYER_UI_PRESETS = [
       jumpForwardBackward: true,
       volume: true,
       subtitles: true,
-      audio: true,
       aspectRatio: true,
       playbackSpeed: true,
       screenLock: true,
@@ -448,7 +442,6 @@ export const PLAYER_UI_PRESETS = [
       jumpForwardBackward: "bottomLeft",
       volume: "bottomLeft",
       subtitles: "bottomRight",
-      audio: "bottomRight",
       aspectRatio: "bottomRight",
       playbackSpeed: "bottomRight",
       screenLock: "topLeft",
@@ -474,7 +467,6 @@ export const PLAYER_UI_PRESETS = [
       jumpForwardBackward: true,
       volume: true,
       subtitles: true,
-      audio: true,
       aspectRatio: true,
       playbackSpeed: true,
       screenLock: true,
@@ -517,7 +509,6 @@ export const PLAYER_UI_PRESETS = [
       jumpForwardBackward: true,
       volume: true,
       subtitles: true,
-      audio: true,
       aspectRatio: true,
       playbackSpeed: true,
       screenLock: true,
@@ -560,7 +551,6 @@ export const PLAYER_UI_PRESETS = [
       jumpForwardBackward: true,
       volume: true,
       subtitles: true,
-      audio: true,
       aspectRatio: true,
       playbackSpeed: true,
       screenLock: true,
@@ -603,7 +593,6 @@ export const PLAYER_UI_PRESETS = [
       jumpForwardBackward: true,
       volume: true,
       subtitles: true,
-      audio: true,
       aspectRatio: true,
       playbackSpeed: true,
       screenLock: true,
@@ -620,7 +609,6 @@ export const PLAYER_UI_PRESETS = [
       jumpForwardBackward: "bottomLeft",
       volume: "bottomLeft",
       subtitles: "bottomRight",
-      audio: "tray",
       aspectRatio: "tray",
       playbackSpeed: "tray",
       screenLock: "topLeft",
