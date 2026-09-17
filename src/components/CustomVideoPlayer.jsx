@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useRef, useCallback, useMemo, memo } from "react";
 import { VideoSourceAdapter } from "../api/videoSourceAdapter";
 
 import { movieService } from "../api/movieService";
@@ -133,7 +133,7 @@ const R = {
 
 /* Circular Arc Component — the core Apple TV+ motif
    Used for: volume HUD, seek indicators, loading, up-next countdown */
-const ArcRing = ({ progress = 0, size = 48, strokeWidth = 3, color = "#fff", bgColor = "rgba(255,255,255,0.08)", glowColor, children, className, responsive }) => {
+const ArcRing = memo(({ progress = 0, size = 48, strokeWidth = 3, color = "#fff", bgColor = "rgba(255,255,255,0.08)", glowColor, children, className, responsive }) => {
   const r = (size - strokeWidth) / 2;
   const circ = 2 * Math.PI * r;
   const offset = circ * (1 - Math.max(0, Math.min(progress, 1)));
@@ -177,10 +177,10 @@ const ArcRing = ({ progress = 0, size = 48, strokeWidth = 3, color = "#fff", bgC
       )}
     </div>
   );
-};
+});
 
 /* ─── PRESET-SPECIFIC HUD COMPONENTS ─────────────────────────────────────── */
-function PresetVolumeHUD({ skin, effVolume, isMuted, volume, hudScale, hudTop }) {
+const PresetVolumeHUD = memo(function PresetVolumeHUD({ skin, effVolume, isMuted, volume, hudScale, hudTop }) {
   const isZero = isMuted || volume === 0;
   const pct = isZero ? 0 : Math.round(effVolume * 100);
   const skinId = skin?.id || "classic";
@@ -425,9 +425,9 @@ function PresetVolumeHUD({ skin, effVolume, isMuted, volume, hudScale, hudTop })
       )}
     </motion.div>
   );
-}
+});
 
-function PresetBrightnessHUD({ skin, brightness, hudScale, hudTop }) {
+const PresetBrightnessHUD = memo(function PresetBrightnessHUD({ skin, brightness, hudScale, hudTop }) {
   const pct = Math.round(brightness * 100);
   const skinId = skin?.id || "classic";
 
@@ -587,9 +587,9 @@ function PresetBrightnessHUD({ skin, brightness, hudScale, hudTop }) {
       )}
     </motion.div>
   );
-}
+});
 
-function PresetAspectRatioHUD({ skin, aspectRatioIndex, hudScale, hudTop, isTouch }) {
+const PresetAspectRatioHUD = memo(function PresetAspectRatioHUD({ skin, aspectRatioIndex, hudScale, hudTop, isTouch }) {
   const skinId = skin?.id || "classic";
   const currentAr = ASPECT_RATIOS[aspectRatioIndex] || ASPECT_RATIOS[0];
 
@@ -892,10 +892,10 @@ function PresetAspectRatioHUD({ skin, aspectRatioIndex, hudScale, hudTop, isTouc
       )}
     </motion.div>
   );
-}
+});
 
 /* Apple TV+ style loading arc — clean spinning gradient trail */
-const LoadingArc = ({ size = 56, strokeWidth = 2.5, progress = 0 }) => {
+const LoadingArc = memo(({ size = 56, strokeWidth = 2.5, progress = 0 }) => {
   const r = (size - strokeWidth) / 2;
   const circ = 2 * Math.PI * r;
   return (
@@ -950,7 +950,7 @@ const LoadingArc = ({ size = 56, strokeWidth = 2.5, progress = 0 }) => {
       )}
     </div>
   );
-};
+});
 
 /* ═══ Main Player ═══════════════════════════════════════════════ */
 /* Detect touch device: has touch screen + no hover = mobile/tablet */
@@ -1493,7 +1493,7 @@ const CustomVideoPlayer = ({
       if (!imdbId && activeServerIndex !== 0) {
         try {
           const e = await movieService.getExternalIds(movie.id);
-          if (e?.imdb_id) imdbId = e.imdb_id;
+          if (e?.imdbId) imdbId = e.imdbId;
         } catch {}
       }
       const isTv = movie?.isSeries || String(movie?.id || "").startsWith("tmdb-tv-");
@@ -5157,12 +5157,12 @@ const CustomVideoPlayer = ({
               <div style={{ fontSize: R.fontTiny, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "1.5px", fontWeight: 700, marginBottom: 10, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif" }}>Automations</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {[
-                  { label: "Auto-Skip Intro", val: autoSkipIntro, set: (value) => setPreference("autoSkipIntro", value), key: "streamly_autoSkip" },
+                  { label: "Auto-Skip Intro", val: autoSkipIntro, set: (value) => setPreference("autoSkipIntro", value) },
                   ...(movie?.isSeries ? [{ label: "Auto-Play Next", val: autoPlayNext, set: (value) => setPreference("autoplay", value) }] : []),
                 ].map((item, i) => (
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: R.fontMedium, fontWeight: 600, color: "rgba(255,255,255,0.6)", fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif" }}>{item.label}</span>
-                    <div onClick={() => { const v = !item.val; item.set(v); if (item.key) localStorage.setItem(item.key, String(v)); }}
+                    <div onClick={() => { const v = !item.val; item.set(v); }}
                       style={{
                         width: isTouch ? 44 : 36, height: isTouch ? 24 : 20,
                         background: item.val ? "var(--accent-gradient, rgba(255,255,255,0.85))" : "rgba(255,255,255,0.1)",

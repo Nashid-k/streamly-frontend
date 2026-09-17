@@ -1,6 +1,8 @@
 // api/auth.js — Authentication endpoint with Google OAuth & MongoDB persistence
 import { connectToDatabase } from './lib/db.js';
 import { signSyncToken } from './lib/syncToken.js';
+import { verifyGoogleIdToken } from './lib/googleVerify.js';
+import { withLog } from './lib/logger.js';
 
 const GOOGLE_CLIENT_ID =
   process.env.GOOGLE_CLIENT_ID ||
@@ -13,7 +15,7 @@ function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
 
-export default async function handler(req, res) {
+export default withLog(async function handler(req, res) {
   setCorsHeaders(res);
 
   if (req.method === 'OPTIONS') {
@@ -24,32 +26,18 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'POST') {
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
-      const { credential, mode, name, email } = body;
+      const { credential } = body;
 
-      // ─── Mode 1: Google OAuth Sign-In (Official ID Token) ───────────────────
+      // ─── Google OAuth Sign-In (official ID Token, verified locally) ─────────
+      // Signature + iss/aud/exp are checked against Google's public JWKS in
+      // verifyGoogleIdToken — no tokeninfo round-trip (dev-only + throttle-prone).
       if (credential) {
-        // Verify ID Token with Google's tokeninfo endpoint
-        const tokenRes = await fetch(
-          `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`
-        );
+        const payload = await verifyGoogleIdToken(credential, GOOGLE_CLIENT_ID);
 
-        if (!tokenRes.ok) {
-          const errText = await tokenRes.text();
+        if (!payload) {
           res.status(401).json({
             success: false,
-            message: 'Invalid Google credential token.',
-            details: errText,
-          });
-          return;
-        }
-
-        const payload = await tokenRes.json();
-
-        // Verify audience matches our Client ID
-        if (GOOGLE_CLIENT_ID && payload.aud !== GOOGLE_CLIENT_ID) {
-          res.status(401).json({
-            success: false,
-            message: 'Google token audience mismatch.',
+            message: 'Invalid or expired Google ID token.',
           });
           return;
         }
@@ -123,109 +111,15 @@ export default async function handler(req, res) {
         return;
       }
 
-      // ─── Mode 2: Guest / Direct Profile Sign-In ────────────────────────────
-      if (mode === 'guest' || (!credential && email)) {
-        const guestEmail = email || 'viewer@streamly.io';
-        const guestName = name || 'Streamly Viewer';
-
-        try {
-          const { db } = await connectToDatabase();
-          const usersCol = db.collection('users');
-          const userDataCol = db.collection('userData');
-
-          const guestUser = await usersCol.findOneAndUpdate(
-            { email: guestEmail },
-            {
-              $set: {
-                email: guestEmail,
-                name: guestName,
-                picture: '',
-                lastLogin: new Date(),
-                provider: 'guest',
-              },
-              $setOnInsert: {
-                createdAt: new Date(),
-              },
-            },
-            { upsert: true, returnDocument: 'after' }
-          );
-
-          let userLibrary = await userDataCol.findOne({ email: guestEmail });
-          if (!userLibrary) {
-            const initialData = {
-              email: guestEmail,
-              watchlist: [],
-              watchHistory: [],
-              preferences: {},
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            };
-            await userDataCol.insertOne(initialData);
-            userLibrary = initialData;
-          }
-
-          res.status(200).json({
-            success: true,
-            user: {
-              id: guestUser?._id || guestUser?.value?._id,
-              email: guestEmail,
-              name: guestName,
-              picture: '',
-              provider: 'guest',
-            },
-            userData: {
-              watchlist: userLibrary.watchlist || [],
-              watchHistory: userLibrary.watchHistory || [],
-              preferences: userLibrary.preferences || {},
-              lastSyncedAt: userLibrary.updatedAt || new Date(),
-            },
-          });
-          return;
-        } catch (dbError) {
-          // If DB is temporarily unreachable in guest mode, return successful client object
-          res.status(200).json({
-            success: true,
-            user: { email: guestEmail, name: guestName, picture: '', provider: 'guest' },
-            userData: { watchlist: [], watchHistory: [], preferences: {} },
-            dbOffline: true,
-            dbError: dbError?.message,
-          });
-          return;
-        }
-      }
-
-      res.status(400).json({ success: false, message: 'Missing credential or login parameters.' });
-      return;
-    }
-
-    if (req.method === 'GET') {
-      const { googleId, email } = req.query || {};
-      if (!googleId && !email) {
-        res.status(400).json({ success: false, message: 'googleId or email query parameter is required.' });
-        return;
-      }
-
-      const { db } = await connectToDatabase();
-      const usersCol = db.collection('users');
-      const query = googleId ? { googleId } : { email };
-      const user = await usersCol.findOne(query);
-
-      if (!user) {
-        res.status(404).json({ success: false, message: 'User not found.' });
-        return;
-      }
-
-      res.status(200).json({
-        success: true,
-        user: {
-          id: user._id,
-          googleId: user.googleId,
-          email: user.email,
-          name: user.name,
-          picture: user.picture,
-          lastLogin: user.lastLogin,
-        },
-      });
+      // No guest mode and no GET /api/auth here:
+      //   • Guests are local-only since Task 77 — the client never calls the
+      //     backend for guest sign-in, so the old guest upsert (which could
+      //     write/read another account's profile by guessing an email) is gone.
+      //   • GET /api/auth was an unauthenticated profile oracle
+      //     (?email= returned name/picture) that no client code called.
+      res
+        .status(400)
+        .json({ success: false, message: 'Missing credential. POST /api/auth requires a Google ID token in `credential`.' });
       return;
     }
 
@@ -236,4 +130,4 @@ export default async function handler(req, res) {
       message: error?.message || 'Internal server error in auth handler.',
     });
   }
-}
+});

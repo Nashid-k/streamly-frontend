@@ -53,15 +53,4 @@ export class PrefetchAdapter {
       logError("prefetch", `Prefetch of similar titles failed for ${movieId}.`, error, { movieId });
     });
   }
-
-  /**
-   * Prefetches categories for a specific platform when switching tabs
-   */
-  static prefetchPlatformCategories(platform) {
-    queryClient.prefetchQuery({
-      queryKey: ["categories", platform],
-      queryFn: () => movieService.getCategories(platform),
-      staleTime: 10 * 60 * 1000,
-    });
-  }
 }

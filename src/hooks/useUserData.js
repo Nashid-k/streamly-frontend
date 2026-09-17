@@ -53,7 +53,10 @@ export function useMyList() {
     if (!movie?.id) return;
     const prev = myListRef.current;
     const exists = prev.some(m => m.id === movie.id);
-    const next = exists ? prev.filter(m => m.id !== movie.id) : [...prev, movie];
+    // updatedAt drives timestamp-aware cloud merges (src/utils/mergeRemote.js).
+    const next = exists
+      ? prev.filter(m => m.id !== movie.id)
+      : [...prev, { ...movie, updatedAt: Date.now() }];
     setMyList(next);
     writeStorage('aios_my_list', next);
     dispatch('aios_sync_mylist');
@@ -100,6 +103,8 @@ export function useContinueWatching() {
         ...(existing || {}),
         ...movie,
         lastWatched: Date.now(),
+        // updatedAt drives timestamp-aware cloud merges (src/utils/mergeRemote.js).
+        updatedAt: Date.now(),
         savedSeason: season !== null && season !== undefined ? season : existing?.savedSeason ?? null,
         savedEpisode: episode !== null && episode !== undefined ? episode : existing?.savedEpisode ?? null,
         timestamp: finalTimestamp,

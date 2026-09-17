@@ -346,9 +346,13 @@ export const movieService = {
           episodeCount: s.episode_count || 0,
           airDate: s.air_date || null,
         })),
+      // Canonical next-episode shape ({ season, episode, releaseDate, title }).
+      // The old getAiringRail emitted this; getMovieDetails used to emit
+      // { seasonNumber, episodeNumber } too. Consumers union both fields today
+      // (MovieCard.jsx:211-213), so unify on ONE shape for the domain contract.
       nextEpisode: detail.next_episode_to_air ? {
-        seasonNumber: detail.next_episode_to_air.season_number,
-        episodeNumber: detail.next_episode_to_air.episode_number,
+        season: detail.next_episode_to_air.season_number,
+        episode: detail.next_episode_to_air.episode_number,
         releaseDate: detail.next_episode_to_air.air_date || null,
         title: detail.next_episode_to_air.name || null,
       } : null,
@@ -431,7 +435,10 @@ export const movieService = {
       if (!data?.imdb_id) {
         logDebug('movieService', `getExternalIds: no IMDb id for ${id} — OMDb ratings will be skipped.`, { id });
       }
-      return { imdbId: data.imdb_id || null, ...data };
+      // Return ONLY the normalized imdbId — earlier this spread the raw TMDB
+      // payload (`...data`), leaking snake_case `imdb_id` across the domain
+      // boundary into the player (CustomVideoPlayer read `e?.imdb_id`).
+      return { imdbId: data?.imdb_id || null };
     } catch (error) {
       logServiceError('getExternalIds', error, { id });
       throw error;

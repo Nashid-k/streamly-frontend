@@ -12,7 +12,7 @@
 | Routing | `react-router-dom` | `7.18.2` |
 | Data | `@tanstack/react-query` | `5.102.1` |
 | Motion | `framer-motion` | `13.1.0` |
-| Player (iframe) | `CustomVideoPlayer.jsx` | in-repo (native HTML5 + server iframes; no player library) |
+| Player (lazy iframe) | `CustomVideoPlayer.jsx` | in-repo, `React.lazy` on `/watch` (native HTML5 + server iframes; no player library) |
 | Icons | `lucide-react` | `1.31.0` |
 | SEO | `react-helmet-async` | `3.0.0` |
 | Slugs | `slugify` | `1.6.9` |
@@ -52,13 +52,15 @@ initialises from and stays in sync with the URL (`replace: true`), and has no
 effect on any persisted key or data contract.
 
 Persistence keys (all localStorage, no remote DB): `aios_my_list`,
-`aios_continue_watching`, `aios_search_history`, `streamly:realRatings:<id>`
+`aios_continue_watching` (each item stamped `updatedAt` — see merge policy
+below), `aios_search_history`, `streamly:realRatings:<id>`
 (24h), `setting-autoplay|muteTrailers|hdThumbs|reduceMotion|notifications`,
-`streamly_volume|muted|aspectRatio|autoSkip|lastserver`, `streamly_user`
+`streamly_volume|muted|aspectRatio|lastserver`, `streamly_user`
 (current profile), `streamly_sync_token` (per-account HMAC token for
 `/api/sync`, issued only to verified Google identities by `/api/auth`), `_sv`,
 `vite_reload`, `chunk_reload_time`. Cross-tab sync via `storage` +
-`aios_sync_*` events.
+`aios_sync_*` events. (`streamly_autoSkip` was a write-only orphan — removed;
+the real pref is `setting-autoSkipIntro`.)
 
 Cloud sync: **guests are local-only** — `loginAsGuest` never calls `/api/auth`
 or `/api/sync` (the old default email `viewer@streamly.io` collapsed every
@@ -67,14 +69,27 @@ accounts (`googleId`) sync, and `/api/sync` additionally requires
 `Authorization: Bearer <syncToken>` (HMAC over SYNC_SECRET/GOOGLE_CLIENT_SECRET);
 without a configured secret the endpoint refuses with 503. Payloads are capped
 (watchlist ≤ 500, history ≤ 500, ≤ 512 KB body) and emails are no longer
-accepted as an identity.
+accepted as an identity. Cloud pulls merge with **timestamp-aware set union**
+(`src/utils/mergeRemote.js`, `mergeListsById`): remote-only ids are appended;
+conflicting ids keep whichever side has the higher `updatedAt` (legacy items
+with no stamp lose to newer remote data); continue-watching is capped to 20.
+
+Auth trust path (`api/auth.js` + `api/lib/googleVerify.js`): the Google ID
+token is verified **locally** with `node:crypto` against Google's public JWKS
+(cached ~6h per warm container; 8s timeout) checking signature (RS256), `iss`,
+`aud`, `exp` — no `tokeninfo` round-trip (dev-only, throttle-prone). `/api/auth`
+is POST-only (credential in `credential`); the old unauthenticated GET profile
+lookup and the backend guest upsert were removed.
 
 External services: `api.themoviedb.org/3` (catalog, 10s timeout in
 `tmdbClient.js`), `image.tmdb.org` (artwork, `cdnImageAdapter` sizes
 w92→w1280), `omdbapi.com` (IMDb/RT, env-key `VITE_OMDB_API_KEY`, 24h cache),
-`youtube iframe API` (hover trailers), 7 third-party iframe stream hosts
-(`videoSourceAdapter.js`). Stream-service/NetMirror HTTP calls resolve
-through the `env.js` stub to `''` and fail soft (logged, non-blocking).
+`www.googleapis.com/oauth2/v3/certs` (ID-token JWKS), `youtube iframe API`
+(hover trailers), 7 third-party iframe stream hosts (`videoSourceAdapter.js`).
+Stream-service/NetMirror HTTP calls resolve through the `env.js` stub to `''`
+and fail soft (logged, non-blocking). Every function is wrapped in a request
+logger (`api/lib/logger.js`); `vercel.json` sets `maxDuration` per function
+(15s tmdb / 30s auth+sync) to stay inside the Hobby ceiling.
 
 ## 3. Folders — where things go
 

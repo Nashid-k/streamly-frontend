@@ -7,6 +7,7 @@
 // bad actor can't bloat the shared 'streamly' collection.
 import { connectToDatabase } from './lib/db.js';
 import { isSyncEnabled, verifySyncToken } from './lib/syncToken.js';
+import { withLog } from './lib/logger.js';
 
 const MAX_WATCHLIST = 500;
 const MAX_HISTORY = 500;
@@ -24,7 +25,7 @@ function bearerToken(req) {
   return match ? match[1].trim() : '';
 }
 
-export default async function handler(req, res) {
+export default withLog(async function handler(req, res) {
   setCorsHeaders(res);
 
   if (req.method === 'OPTIONS') {
@@ -123,4 +124,4 @@ export default async function handler(req, res) {
       message: error?.message || 'Internal server error in sync handler.',
     });
   }
-}
+});

@@ -390,18 +390,13 @@ export default function SettingsPage() {
   const [signInTab, setSignInTab] = useState("signin");
   const [navDocked, setNavDocked] = useState(false);
 
-  // Auth / Accounts state
+  // Auth / Accounts state — the context is the SINGLE source of truth for the
+  // profile. This page previously kept a shadow `localUser` copy in useState
+  // and double-wrote streamly_user with different defaults (user@streamly.io,
+  // no picture) than AuthContext (viewer@streamly.io, picture:""), so context
+  // state and storage diverged until reload.
   const auth = useAppAuth();
-  const [localUser, setLocalUser] = useState(() => {
-    try {
-      const stored = localStorage.getItem("streamly_user");
-      return stored ? JSON.parse(stored) : null;
-    } catch (error) {
-      logDebug("settings", "Stored user profile is corrupt — starting signed out.", { message: error?.message });
-      return null;
-    }
-  });
-  const user = auth?.user || localUser;
+  const user = auth?.user;
 
   const {
     // Existing
@@ -761,34 +756,17 @@ export default function SettingsPage() {
 
   // Modal Sign-in actions
   const handleSignIn = (name, email) => {
-    if (auth?.loginAsGuest) {
-      auth.loginAsGuest(name, email);
-    }
-    const u = { name: name || "Streamly User", email: email || "user@streamly.io", provider: "guest" };
-    setLocalUser(u);
-    try {
-      localStorage.setItem("streamly_user", JSON.stringify(u));
-    } catch (error) {
-      logDebug("settings", "Sign-in will not persist — storage unavailable.", { message: error?.message });
-    }
+    auth?.loginAsGuest(name, email);
     setShowSignInModal(false);
     toast({
       type: "success",
       title: "Signed In",
-      message: `Welcome back, ${u.name}!`,
+      message: `Welcome back, ${name || "Streamly Viewer"}!`,
     });
   };
 
   const handleSignOut = () => {
-    if (auth?.logout) {
-      auth.logout();
-    }
-    setLocalUser(null);
-    try {
-      localStorage.removeItem("streamly_user");
-    } catch (error) {
-      logDebug("settings", "Stored user could not be cleared.", { message: error?.message });
-    }
+    auth?.logout();
     toast({
       type: "info",
       title: "Signed Out",

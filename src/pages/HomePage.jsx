@@ -683,11 +683,13 @@ export default function Home({
     if (activeGenre === "All" && activePlatform === "all") {
       if (filter === "all") {
         // New & Popular — newest releases first, highest-rated within a year.
+        // normalizeResult emits `year` (string); `releaseYear` only appears on
+        // legacy localStorage payloads, so match BOTH or this rail is empty.
         const fresh = allMovies
-          .filter((m) => !!m.releaseYear)
+          .filter((m) => !!m.releaseYear || !!m.year)
           .sort(
             (a, b) =>
-              b.releaseYear - a.releaseYear ||
+              (b.releaseYear || b.year) - (a.releaseYear || a.year) ||
               (b.imdbRating || 0) - (a.imdbRating || 0),
           )
           .slice(0, 30);

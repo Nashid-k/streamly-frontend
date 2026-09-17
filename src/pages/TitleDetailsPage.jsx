@@ -8,7 +8,7 @@ import { movieService, classifyTrailer } from "../api/movieService";
 import Loader from "../components/Loader";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import { createPortal } from "react-dom";
-import { useState, useEffect, useRef, useMemo, useLayoutEffect } from "react";
+import { useState, useEffect, useRef, useMemo, useLayoutEffect, lazy, Suspense } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   Play,
@@ -52,7 +52,10 @@ import { formatRuntimeLabel, isUnreleased, voteSplitPct } from "../utils/titleDe
 import { buildEpisodeOrder, episodeNumberLabel, isEpAired } from "../utils/titleDetails";
 import { getPlatformName } from "../utils/platforms";
 import { logEmptyData, logError, reportQueryError } from "../utils/debugLogger";
-import CustomVideoPlayer from "../components/CustomVideoPlayer";
+// The 5.5k-line player used to ship inside TitleDetailsPage (the app's largest
+// chunk at ~223 KB). Split it so only the /watch route loads it, and so it can
+// be cached independently after first visit.
+const CustomVideoPlayer = lazy(() => import("../components/CustomVideoPlayer"));
 import ErrorBoundary from "../components/ErrorBoundary";
 import { usePreferences } from "../context/preferences";
 const EMPTY_ARRAY = [];
@@ -513,7 +516,7 @@ export default function TitleDetails() {
           const notif = buildMovieAddedNotification({
             title: movieObj.title,
             platform: null,
-            year: movieObj.releaseYear,
+            year: movieObj.releaseYear || movieObj.year,
             duration: movieObj.duration,
             imageUrl: movieObj.backdropUrl || movieObj.posterUrl,
             movieId: movieObj.id,
@@ -752,8 +755,10 @@ export default function TitleDetails() {
   }, [isTvContent, runtimeLabel, endsAt, movie]);
 
   const { data: episodesData, isLoading: episodesLoading, error: episodesError } = useQuery({
-    queryKey: ["episodes", id, selectedSeason, effectivePlatform],
-    queryFn: () => movieService.getSeasonEpisodes(id, selectedSeason, effectivePlatform),
+    // No `platform` in the key: getSeasonEpisodes ignores it, so keying on it
+    // only created duplicate cache rows for identical data per platform switch.
+    queryKey: ["episodes", id, selectedSeason],
+    queryFn: () => movieService.getSeasonEpisodes(id, selectedSeason),
     enabled: isTvContent && !!movie,
     retry: 3,
     retryDelay: 1000,
@@ -2563,7 +2568,18 @@ export default function TitleDetails() {
                 </>
               ) : (
                 <ErrorBoundary>
-                  <CustomVideoPlayer
+                  <Suspense
+                    fallback={
+                      <div
+                        style={{
+                          width: "100%",
+                          aspectRatio: "16 / 9",
+                          background: "#000",
+                        }}
+                      />
+                    }
+                  >
+                    <CustomVideoPlayer
                     movie={movie}
                     season={isTvContent ? selectedSeason : undefined}
                     episode={isTvContent ? playingEpisode : undefined}
@@ -2588,6 +2604,7 @@ export default function TitleDetails() {
                       }
                     }}
                   />
+                  </Suspense>
                 </ErrorBoundary>
               )}
             </motion.div>

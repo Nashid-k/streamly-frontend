@@ -85,7 +85,7 @@ describe("movieService", () => {
 
     expect(title.seasons.map((season) => season.seasonNumber)).toEqual([1, 3]);
     expect(title.airingSeasonNumber).toBe(3);
-    expect(title.nextEpisode).toMatchObject({ seasonNumber: 3, episodeNumber: 4 });
+    expect(title.nextEpisode).toMatchObject({ season: 3, episode: 4 });
   });
 
   it("normalizes production companies with rich logo metadata", async () => {

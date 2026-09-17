@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { AppContext } from "./auth";
 import { useMyList, useContinueWatching, useSearchHistory } from "../hooks/useUserData";
+import { mergeListsById } from "../utils/mergeRemote";
 import { logDebug, logError, logWarn } from "../utils/debugLogger";
 
 const SYNC_TOKEN_KEY = "streamly_sync_token";
@@ -139,30 +140,27 @@ export function AuthProvider({ children }) {
 
         const { watchlist = [], watchHistory = [] } = data.userData;
 
-        // Merge watchlist: remote items union with local items
+        // Timestamp-aware union merge: replace stale-local by newer-remote.
+        // (Legacy local items without updatedAt lose to any new remote data.)
         if (Array.isArray(watchlist) && watchlist.length > 0) {
           try {
             const localList = JSON.parse(localStorage.getItem("aios_my_list") || "[]");
-            const localIds = new Set(localList.map((m) => m.id));
-            const newFromRemote = watchlist.filter((m) => m && m.id && !localIds.has(m.id));
+            const merged = mergeListsById(localList, watchlist);
 
-            if (newFromRemote.length > 0) {
-              const merged = [...localList, ...newFromRemote];
+            if (JSON.stringify(merged) !== JSON.stringify(localList)) {
               localStorage.setItem("aios_my_list", JSON.stringify(merged));
               window.dispatchEvent(new Event("aios_sync_mylist"));
             }
           } catch {}
         }
 
-        // Merge watch history
+        // Merge watch history (capped to 20 like local writes).
         if (Array.isArray(watchHistory) && watchHistory.length > 0) {
           try {
             const localCw = JSON.parse(localStorage.getItem("aios_continue_watching") || "[]");
-            const localIds = new Set(localCw.map((m) => m.id));
-            const newFromRemoteCw = watchHistory.filter((m) => m && m.id && !localIds.has(m.id));
+            const mergedCw = mergeListsById(localCw, watchHistory, { limit: 20 });
 
-            if (newFromRemoteCw.length > 0) {
-              const mergedCw = [...localCw, ...newFromRemoteCw].slice(0, 20);
+            if (JSON.stringify(mergedCw) !== JSON.stringify(localCw)) {
               localStorage.setItem("aios_continue_watching", JSON.stringify(mergedCw));
               window.dispatchEvent(new Event("aios_sync_cw"));
             }
@@ -225,14 +223,12 @@ export function AuthProvider({ children }) {
       }
       window.dispatchEvent(new Event("aios_user_sync"));
 
-      // Merge returned cloud watchlist immediately
+      // Merge returned cloud watchlist immediately (timestamp-aware union).
       if (Array.isArray(data.userData?.watchlist)) {
         try {
           const localList = JSON.parse(localStorage.getItem("aios_my_list") || "[]");
-          const localIds = new Set(localList.map((m) => m.id));
-          const toAdd = data.userData.watchlist.filter((m) => m && m.id && !localIds.has(m.id));
-          if (toAdd.length > 0) {
-            const merged = [...localList, ...toAdd];
+          const merged = mergeListsById(localList, data.userData.watchlist);
+          if (JSON.stringify(merged) !== JSON.stringify(localList)) {
             localStorage.setItem("aios_my_list", JSON.stringify(merged));
             window.dispatchEvent(new Event("aios_sync_mylist"));
           }

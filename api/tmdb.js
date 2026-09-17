@@ -1,4 +1,5 @@
 // api/tmdb.js — same-origin TMDB proxy (Vercel serverless function).
+import { withLog } from './lib/logger.js';
 //
 // Why this exists: some ISPs (e.g. in India) block api.themoviedb.org outright
 // (DNS/IP level). Browsers calling TMDB directly fail on those networks while
@@ -14,7 +15,7 @@
 
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 
-export default async function handler(req, res) {
+export default withLog(async function handler(req, res) {
   try {
     // Enable CORS so any client origin can reach the proxy
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -102,4 +103,4 @@ export default async function handler(req, res) {
       .status(502)
       .json({ status_message: `TMDB proxy failed: ${error?.message || 'unknown'}`, status_code: 502 });
   }
-}
+});

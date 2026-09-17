@@ -9,7 +9,7 @@ import { VideoSourceAdapter } from "../api/videoSourceAdapter";
 
 vi.mock("../api/movieService", () => ({
   movieService: {
-    getExternalIds: vi.fn().mockResolvedValue({ imdb_id: "tt0317705" }),
+    getExternalIds: vi.fn().mockResolvedValue({ imdbId: "tt0317705" }),
     getSimilarMovies: vi.fn().mockResolvedValue([]),
   },
 }));

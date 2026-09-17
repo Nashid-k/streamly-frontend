@@ -2,6 +2,11 @@
   "installCommand": "npm install",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "functions": {
+    "api/tmdb.js": { "maxDuration": 15 },
+    "api/auth.js": { "maxDuration": 30 },
+    "api/sync.js": { "maxDuration": 30 }
+  },
   "headers": [
     {
       "source": "(.*)",
