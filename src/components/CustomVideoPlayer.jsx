@@ -1741,10 +1741,10 @@ on falls back to the provider's native controls. */
       style={{
         position: isFullscreen ? 'fixed' : 'relative',
         width: '100%',
-        height: isFullscreen ? '100dvh' : (isTouch ? '100%' : 'min(calc(100vw * 9 / 16), calc(100vh - 120px))'),
-        maxWidth: isFullscreen || isTouch ? undefined : 'min(1400px, calc((100vh - 120px) * 16 / 9))',
+        height: isFullscreen ? '100dvh' : '100%',
+        maxWidth: isFullscreen ? undefined : '100%',
         minHeight: isTouch && !isFullscreen ? 0 : undefined,
-        maxHeight: isFullscreen || isTouch ? '100dvh' : undefined,
+        maxHeight: isFullscreen ? '100dvh' : '100%',
         background: '#000',
         borderRadius: isFullscreen || isTouch ? 0 : 12,
         inset: isFullscreen ? '0' : undefined,
