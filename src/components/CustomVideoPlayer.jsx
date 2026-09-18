@@ -174,7 +174,10 @@ const ArcRing = memo(({ progress = 0, size = 48, strokeWidth = 3, color = "#fff"
 /* ─── NETFLIX-STYLE HUD COMPONENTS ──────────────────────────────────────── */
 
 /* Volume HUD — appears on volume change (desktop). Netflix-style flat
-   black pill: speaker icon + slim red fill bar + live %. */
+   black pill: speaker icon + slim red fill bar + live %.
+   Positioning is done by a static flex wrapper (absolute, full-width,
+   centered) so framer-motion's scale/opacity animation can never
+   clobber the centering transform. All sizes are viewport-relative. */
 const NetflixVolumeHUD = memo(function NetflixVolumeHUD({ effVolume, isMuted, volume, top }) {
   const isZero = isMuted || volume === 0;
   const pct = isZero ? 0 : Math.round(effVolume * 100);
@@ -185,30 +188,41 @@ const NetflixVolumeHUD = memo(function NetflixVolumeHUD({ effVolume, isMuted, vo
       exit={{ opacity: 0, scale: 0.94 }}
       transition={SPRING_SNAPPY}
       style={{
-        position: "absolute", top, left: "50%", transform: "translateX(-50%)",
-        display: "flex", alignItems: "center", gap: 12,
-        padding: "10px 16px", borderRadius: 8,
+        position: "absolute", top, left: 0, right: 0,
+        display: "flex", justifyContent: "center",
+        pointerEvents: "none", zIndex: 65,
+      }}
+    >
+      <div style={{
+        display: "flex", alignItems: "center",
+        gap: "clamp(8px, 1.4vw, 14px)",
+        padding: "clamp(8px, 1.6vw, 14px) clamp(12px, 2.4vw, 22px)",
+        borderRadius: 8,
         background: "rgba(0,0,0,0.88)",
         border: "1px solid rgba(255,255,255,0.12)",
         boxShadow: "0 16px 48px rgba(0,0,0,0.7)",
-        zIndex: 65, pointerEvents: "none",
-      }}
-    >
-      {isZero ? (
-        <VolumeX size={20} color="#E50914" strokeWidth={2.4} />
-      ) : pct < 40 ? (
-        <Volume1 size={20} color="#fff" strokeWidth={2.4} />
-      ) : (
-        <Volume2 size={20} color="#fff" strokeWidth={2.4} />
-      )}
-      <div style={{ position: "relative", width: 96, height: 4, background: "rgba(255,255,255,0.2)", borderRadius: 1, overflow: "hidden" }}>
-        <div style={{ position: "absolute", inset: 0, width: `${pct}%`, background: "#E50914", borderRadius: 1 }} />
+      }}>
+        {isZero ? (
+          <VolumeX size={20} color="#E50914" strokeWidth={2.4} />
+        ) : pct < 40 ? (
+          <Volume1 size={20} color="#fff" strokeWidth={2.4} />
+        ) : (
+          <Volume2 size={20} color="#fff" strokeWidth={2.4} />
+        )}
+        <div style={{
+          position: "relative",
+          width: "clamp(72px, 11vw, 120px)", height: "clamp(3px, 0.6vw, 5px)",
+          background: "rgba(255,255,255,0.2)", borderRadius: 1, overflow: "hidden",
+        }}>
+          <div style={{ position: "absolute", inset: 0, width: `${pct}%`, background: "#E50914", borderRadius: 1 }} />
+        </div>
+        <span style={{
+          color: "#fff", fontSize: "clamp(11px, 1.7vw, 15px)", fontWeight: 700,
+          minWidth: "clamp(30px, 6vw, 44px)", textAlign: "right",
+          fontVariantNumeric: "tabular-nums",
+          fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
+        }}>{pct}%</span>
       </div>
-      <span style={{
-        color: "#fff", fontSize: 13, fontWeight: 700, minWidth: 34, textAlign: "right",
-        fontVariantNumeric: "tabular-nums",
-        fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
-      }}>{pct}%</span>
     </motion.div>
   );
 });
@@ -223,24 +237,35 @@ const NetflixBrightnessHUD = memo(function NetflixBrightnessHUD({ brightness, to
       exit={{ opacity: 0, scale: 0.94 }}
       transition={SPRING_SNAPPY}
       style={{
-        position: "absolute", top, left: "50%", transform: "translateX(-50%)",
-        display: "flex", alignItems: "center", gap: 12,
-        padding: "10px 16px", borderRadius: 8,
+        position: "absolute", top, left: 0, right: 0,
+        display: "flex", justifyContent: "center",
+        pointerEvents: "none", zIndex: 65,
+      }}
+    >
+      <div style={{
+        display: "flex", alignItems: "center",
+        gap: "clamp(8px, 1.4vw, 14px)",
+        padding: "clamp(8px, 1.6vw, 14px) clamp(12px, 2.4vw, 22px)",
+        borderRadius: 8,
         background: "rgba(0,0,0,0.88)",
         border: "1px solid rgba(255,255,255,0.12)",
         boxShadow: "0 16px 48px rgba(0,0,0,0.7)",
-        zIndex: 65, pointerEvents: "none",
-      }}
-    >
-      <Sun size={20} color={pct >= 100 ? "#ffd166" : "#fff"} strokeWidth={2.4} />
-      <div style={{ position: "relative", width: 96, height: 4, background: "rgba(255,255,255,0.2)", borderRadius: 1, overflow: "hidden" }}>
-        <div style={{ position: "absolute", inset: 0, width: `${Math.min(100, pct)}%`, background: "#E50914", borderRadius: 1 }} />
+      }}>
+        <Sun size={20} color={pct >= 100 ? "#ffd166" : "#fff"} strokeWidth={2.4} />
+        <div style={{
+          position: "relative",
+          width: "clamp(72px, 11vw, 120px)", height: "clamp(3px, 0.6vw, 5px)",
+          background: "rgba(255,255,255,0.2)", borderRadius: 1, overflow: "hidden",
+        }}>
+          <div style={{ position: "absolute", inset: 0, width: `${Math.min(100, pct)}%`, background: "#E50914", borderRadius: 1 }} />
+        </div>
+        <span style={{
+          color: "#fff", fontSize: "clamp(11px, 1.7vw, 15px)", fontWeight: 700,
+          minWidth: "clamp(30px, 6vw, 44px)", textAlign: "right",
+          fontVariantNumeric: "tabular-nums",
+          fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
+        }}>{pct}%</span>
       </div>
-      <span style={{
-        color: "#fff", fontSize: 13, fontWeight: 700, minWidth: 34, textAlign: "right",
-        fontVariantNumeric: "tabular-nums",
-        fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
-      }}>{pct}%</span>
     </motion.div>
   );
 });
@@ -258,27 +283,33 @@ const NetflixAspectHUD = memo(function NetflixAspectHUD({ aspectRatioIndex, top 
       exit={{ opacity: 0, scale: 0.92, y: -6 }}
       transition={SPRING_SNAPPY}
       style={{
-        position: "absolute", top, left: "50%", transform: "translateX(-50%)",
-        display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
-        zIndex: 65, pointerEvents: "none",
+        position: "absolute", top, left: 0, right: 0,
+        display: "flex", justifyContent: "center",
+        pointerEvents: "none", zIndex: 65,
       }}
     >
-      <motion.div
-        animate={{ width: gw, height: gh }}
-        transition={{ type: "spring", stiffness: 420, damping: 30 }}
-        style={{
-          background: "rgba(0,0,0,0.88)", border: "2px solid #E50914",
-          borderRadius: 6, boxShadow: "0 0 18px rgba(229,9,20,0.5)",
-        }}
-      />
-      <span style={{
-        color: "#fff", fontSize: 13, fontWeight: 700,
-        background: "rgba(0,0,0,0.88)", borderRadius: 8, padding: "4px 12px",
-        textShadow: "0 1px 4px rgba(0,0,0,0.8)",
-        border: "1px solid rgba(255,255,255,0.1)",
-        whiteSpace: "nowrap",
-        fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
-      }}>{ar.name}</span>
+      <div style={{
+        display: "flex", flexDirection: "column", alignItems: "center",
+        gap: "clamp(6px, 1.2vw, 10px)",
+      }}>
+        <motion.div
+          animate={{ width: gw, height: gh }}
+          transition={{ type: "spring", stiffness: 420, damping: 30 }}
+          style={{
+            background: "rgba(0,0,0,0.88)", border: "2px solid #E50914",
+            borderRadius: 6, boxShadow: "0 0 18px rgba(229,9,20,0.5)",
+          }}
+        />
+        <span style={{
+          color: "#fff", fontSize: "clamp(11px, 1.6vw, 14px)", fontWeight: 700,
+          background: "rgba(0,0,0,0.88)", borderRadius: 8,
+          padding: "clamp(3px, 0.6vw, 5px) clamp(8px, 1.6vw, 14px)",
+          textShadow: "0 1px 4px rgba(0,0,0,0.8)",
+          border: "1px solid rgba(255,255,255,0.1)",
+          whiteSpace: "nowrap",
+          fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
+        }}>{ar.name}</span>
+      </div>
     </motion.div>
   );
 });
@@ -1685,15 +1716,17 @@ on falls back to the provider's native controls. */
   /* ═══════════════════════════════════════════════════════════════
      UP-CENTER HUD SYSTEM — volume / brightness / aspect indicators
      sit horizontally centered in the UPPER area of the player, at a
-     position derived from the measured player size (30% of its
-     height, clamped to a sane band) so it tracks every screen
-     instead of drifting from hardcoded pixels. Until the container
-     is measured we fall back to a viewport-relative clamp().
+     position derived purely from the measured player size (20% of its
+     height, 64px floor) so it tracks every screen instead of drifting
+     from hardcoded pixels. Until the container is measured we fall
+     back to a viewport-relative clamp(). The pill itself is centered
+     by a static flex wrapper so framer-motion's entrance animation
+     can't displace it.
      ═══════════════════════════════════════════════════════════════ */
   const { w: playerW, h: playerH } = useContainerSize(containerRef);
   const netflixHudTop = playerH > 0
-    ? `${Math.min(Math.max(playerH * 0.3, 84), 240).toFixed(1)}px`
-    : 'clamp(84px, 26vh, 220px)';
+    ? `${Math.max(playerH * 0.2, 64).toFixed(1)}px`
+    : 'clamp(64px, 22vh, 190px)';
   const selectedAspect = ASPECT_RATIOS[aspectRatioIndex] || ASPECT_RATIOS[0];
 
   /* Aspect ratio calculation — dynamic Edge-to-Edge punch-hole camera coverage.
