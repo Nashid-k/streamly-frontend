@@ -175,7 +175,7 @@ const ArcRing = memo(({ progress = 0, size = 48, strokeWidth = 3, color = "#fff"
 
 /* Volume HUD — appears on volume change (desktop). Netflix-style flat
    black pill: speaker icon + slim red fill bar + live %. */
-const NetflixVolumeHUD = memo(function NetflixVolumeHUD({ effVolume, isMuted, volume }) {
+const NetflixVolumeHUD = memo(function NetflixVolumeHUD({ effVolume, isMuted, volume, top }) {
   const isZero = isMuted || volume === 0;
   const pct = isZero ? 0 : Math.round(effVolume * 100);
   return (
@@ -185,7 +185,7 @@ const NetflixVolumeHUD = memo(function NetflixVolumeHUD({ effVolume, isMuted, vo
       exit={{ opacity: 0, scale: 0.94 }}
       transition={SPRING_SNAPPY}
       style={{
-        position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+        position: "absolute", top, left: "50%", transform: "translateX(-50%)",
         display: "flex", alignItems: "center", gap: 12,
         padding: "10px 16px", borderRadius: 8,
         background: "rgba(0,0,0,0.88)",
@@ -214,7 +214,7 @@ const NetflixVolumeHUD = memo(function NetflixVolumeHUD({ effVolume, isMuted, vo
 });
 
 /* Brightness HUD — same Netflix pill, sun icon + red fill bar + %. */
-const NetflixBrightnessHUD = memo(function NetflixBrightnessHUD({ brightness }) {
+const NetflixBrightnessHUD = memo(function NetflixBrightnessHUD({ brightness, top }) {
   const pct = Math.round(brightness * 100);
   return (
     <motion.div
@@ -223,7 +223,7 @@ const NetflixBrightnessHUD = memo(function NetflixBrightnessHUD({ brightness }) 
       exit={{ opacity: 0, scale: 0.94 }}
       transition={SPRING_SNAPPY}
       style={{
-        position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+        position: "absolute", top, left: "50%", transform: "translateX(-50%)",
         display: "flex", alignItems: "center", gap: 12,
         padding: "10px 16px", borderRadius: 8,
         background: "rgba(0,0,0,0.88)",
@@ -247,7 +247,7 @@ const NetflixBrightnessHUD = memo(function NetflixBrightnessHUD({ brightness }) 
 
 /* Aspect Ratio HUD — live frame glyph morphing with the selected ratio
    (AR_GLYPH) plus the ratio name, in Netflix black/red. Centered. */
-const NetflixAspectHUD = memo(function NetflixAspectHUD({ aspectRatioIndex }) {
+const NetflixAspectHUD = memo(function NetflixAspectHUD({ aspectRatioIndex, top }) {
   const ar = ASPECT_RATIOS[aspectRatioIndex] || ASPECT_RATIOS[0];
   const glyph = AR_GLYPH[aspectRatioIndex] || AR_GLYPH[0];
   const [gw, gh] = glyph;
@@ -258,7 +258,7 @@ const NetflixAspectHUD = memo(function NetflixAspectHUD({ aspectRatioIndex }) {
       exit={{ opacity: 0, scale: 0.92, y: -6 }}
       transition={SPRING_SNAPPY}
       style={{
-        position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+        position: "absolute", top, left: "50%", transform: "translateX(-50%)",
         display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
         zIndex: 65, pointerEvents: "none",
       }}
@@ -1683,11 +1683,17 @@ on falls back to the provider's native controls. */
   const effVolume = isMuted ? 0 : volume;
 
   /* ═══════════════════════════════════════════════════════════════
-     CENTER HUD SYSTEM — volume / brightness / aspect indicators are
-     absolutely centered over the video (top+left 50%, translate
-     -50%/-50%), matching Netflix's overlay behavior on all screens.
+     UP-CENTER HUD SYSTEM — volume / brightness / aspect indicators
+     sit horizontally centered in the UPPER area of the player, at a
+     position derived from the measured player size (30% of its
+     height, clamped to a sane band) so it tracks every screen
+     instead of drifting from hardcoded pixels. Until the container
+     is measured we fall back to a viewport-relative clamp().
      ═══════════════════════════════════════════════════════════════ */
   const { w: playerW, h: playerH } = useContainerSize(containerRef);
+  const netflixHudTop = playerH > 0
+    ? `${Math.min(Math.max(playerH * 0.3, 84), 240).toFixed(1)}px`
+    : 'clamp(84px, 26vh, 220px)';
   const selectedAspect = ASPECT_RATIOS[aspectRatioIndex] || ASPECT_RATIOS[0];
 
   /* Aspect ratio calculation — dynamic Edge-to-Edge punch-hole camera coverage.
@@ -2212,21 +2218,21 @@ on falls back to the provider's native controls. */
       {/* ═══ VOLUME HUD ═══ */}
       <AnimatePresence>
         {showVolumeArc && !isTouch && (
-          <NetflixVolumeHUD effVolume={effVolume} isMuted={isMuted} volume={volume} />
+          <NetflixVolumeHUD effVolume={effVolume} isMuted={isMuted} volume={volume} top={netflixHudTop} />
         )}
       </AnimatePresence>
 
       {/* ═══ BRIGHTNESS HUD (Desktop) ═══ */}
       <AnimatePresence>
         {showBrightnessArc && !isTouch && (
-          <NetflixBrightnessHUD brightness={brightness} />
+          <NetflixBrightnessHUD brightness={brightness} top={netflixHudTop} />
         )}
       </AnimatePresence>
 
       {/* ═══ ASPECT RATIO HUD ═══ */}
       <AnimatePresence>
         {showAspectRatioArc && (
-          <NetflixAspectHUD aspectRatioIndex={aspectRatioIndex} />
+          <NetflixAspectHUD aspectRatioIndex={aspectRatioIndex} top={netflixHudTop} />
         )}
       </AnimatePresence>
 
