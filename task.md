@@ -47,6 +47,17 @@
   green folder badge (`.title-collection-badge`) when the title is already in
   a collection. Verified: lint 0 errors, vitest 38 files / 370/370, build OK.
 
+  **Follow-up (glassmorphism pass)**: every dark panel that lived on a glass
+  parent was re-skinned with the same frosted recipe — `linear-gradient` sheen
+  over a translucent base + `backdrop-filter: blur(28px) saturate(160%)` +
+  inner top highlight (`.discovery-menu` dropdowns, `.collection-dialog`,
+  `ConfirmDialog`, the batch select bars on `/watchlist` and `/history`, and
+  the Season/Server dropdowns on `/watch` — the server one was missing a blur
+  entirely). Also raised the per-card overlay z-index (select circle, folder
+  add/remove buttons, folder badge) to 30 so the card's hover scale (z-index
+  20) no longer covers them — the select checkbox stays put on hover now.
+  Verified: lint 0 errors, vitest 38 files / 370/370, build OK.
+
 - [x] **My List collections + movies/series-style UI/UX — Watchlist AND Settings
   (user directive)**: end-to-end named-folder collections on `/watchlist`.
   `useMyCollections` (src/hooks/useUserData.js:85–184) persists under

@@ -102,7 +102,7 @@ function FilterPill({ label, children }) {
         <div
           role="listbox"
           aria-label={label}
-          className="discovery-menu absolute top-[calc(100%+8px)] left-0 z-[70] w-64 max-h-80 overflow-y-auto rounded-2xl border border-white/10 bg-[#121217]/95 backdrop-blur-2xl shadow-2xl p-2"
+          className="discovery-menu absolute top-[calc(100%+8px)] left-0 z-[70] w-64 max-h-80 overflow-y-auto rounded-2xl border border-white/15 shadow-2xl p-2"
         >
           {children({ close: () => setOpen(false) })}
         </div>

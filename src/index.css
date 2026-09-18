@@ -3886,7 +3886,7 @@ body::after {
   position: absolute;
   top: 0.7rem;
   right: 0.7rem;
-  z-index: 15;
+  z-index: 30;
   display: inline-flex;
   width: 2rem;
   height: 2rem;
@@ -3921,7 +3921,7 @@ body::after {
   position: absolute;
   bottom: 0.7rem;
   left: 0.7rem;
-  z-index: 15;
+  z-index: 30;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3962,7 +3962,7 @@ body::after {
   position: absolute;
   top: 0.7rem;
   left: 0.7rem;
-  z-index: 15;
+  z-index: 30;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -4157,9 +4157,9 @@ body::after {
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .collection-dialog {
@@ -4170,11 +4170,12 @@ body::after {
   gap: 1rem;
   padding: 1.4rem;
   border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(18, 18, 20, 0.97);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  box-shadow: 0 32px 64px -12px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.035)),
+    rgba(20, 20, 26, 0.62);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  box-shadow: 0 32px 64px -12px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .collection-dialog--wide {
@@ -7013,6 +7014,11 @@ html[data-theme]:not([data-theme=default]) .toggle.toggle-on {
 /* Dropdown menu panels — dark glass with a green-tinted scrollbar.
    Mirrors Cinejoy FilterDropdown `.custom-scrollbar`: 4px, no buttons. */
 .discovery-menu {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05)),
+    rgba(15, 15, 20, 0.5);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  backdrop-filter: blur(28px) saturate(160%);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   scrollbar-width: thin;
   scrollbar-color: rgba(149, 255, 80, 0.4) transparent;
 }

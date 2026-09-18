@@ -73,7 +73,7 @@ function FilterPill({ label, children }) {
         <div
           role="listbox"
           aria-label={label}
-          className="discovery-menu absolute top-[calc(100%+8px)] left-0 z-[70] w-64 max-h-80 overflow-y-auto rounded-2xl border border-white/10 bg-[#121217]/95 backdrop-blur-2xl shadow-2xl p-2"
+          className="discovery-menu absolute top-[calc(100%+8px)] left-0 z-[70] w-64 max-h-80 overflow-y-auto rounded-2xl border border-white/15 shadow-2xl p-2"
         >
           {children({ close: () => setOpen(false) })}
         </div>
@@ -888,7 +888,7 @@ export default function WatchlistPage() {
                                 position: "absolute",
                                 top: "10px",
                                 left: "10px",
-                                zIndex: 10,
+                                zIndex: 30,
                                 width: "24px",
                                 height: "24px",
                                 borderRadius: "50%",
@@ -986,16 +986,16 @@ export default function WatchlistPage() {
               left: "50%",
               transform: "translateX(-50%)",
               zIndex: 100,
-              background: "rgba(18, 18, 22, 0.92)",
-              backdropFilter: "blur(20px)",
-              WebkitBackdropFilter: "blur(20px)",
+              background: "linear-gradient(120deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04)), rgba(20,20,26,0.58)",
+              backdropFilter: "blur(24px) saturate(160%)",
+              WebkitBackdropFilter: "blur(24px) saturate(160%)",
               border: "1px solid rgba(255, 255, 255, 0.15)",
               borderRadius: "999px",
               padding: "8px 16px",
               display: "flex",
               alignItems: "center",
               gap: "10px",
-              boxShadow: "0 10px 30px rgba(0, 0, 0, 0.6)",
+              boxShadow: "0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.12)",
               maxWidth: "92vw",
             }}
           >
