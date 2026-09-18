@@ -3,6 +3,7 @@ import MovieDetailsSkeleton from "../components/MovieDetailsSkeleton";
 import CastRail from "../components/CastRail";
 import RailArrow from "../components/RailArrow";
 import DownloadModal from "../components/DownloadModal";
+import RatingsTable from "../components/RatingsTable";
 import useRailArrows from "../hooks/useRailArrows";
 import { useQuery } from "@tanstack/react-query";
 import { movieService, classifyTrailer } from "../api/movieService";
@@ -27,7 +28,6 @@ import {
   List,
   GalleryHorizontal,
   ChevronLeft,
-  Popcorn,
   Calendar,
   ChevronDown as ChevronDownIcon,
   ArrowUp,
@@ -59,7 +59,7 @@ import { logEmptyData, logError, reportQueryError } from "../utils/debugLogger";
 const CustomVideoPlayer = lazy(() => import("../components/CustomVideoPlayer"));
 import ErrorBoundary from "../components/ErrorBoundary";
 
-import { durationSeconds } from "../utils/resumeProgress";
+import { progressPct } from "../utils/resumeProgress";
 import { usePreferences } from "../context/preferences";
 const EMPTY_ARRAY = [];
 
@@ -797,7 +797,7 @@ export default function TitleDetails() {
   const hasSeriesEpisodes = isTvContent;
 
   // ── Episode header controls (Cinejoy parity) ─────────────────────────────
-  const [showEpisodeRatings, setShowEpisodeRatings] = useState(false);
+  const [ratingsOpen, setRatingsOpen] = useState(false);
   const [sortNewest, setSortNewest] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const sortRef = useRef(null);
@@ -1128,10 +1128,7 @@ export default function TitleDetails() {
   );
   const savedTimestamp = progressItem?.timestamp || 0;
   const hasResume = Boolean(progressItem && progressItem.timestamp > 0);
-  const resumePct =
-    hasResume && durationSeconds(progressItem) > 0
-      ? Math.min(100, Math.max(2, Math.round((progressItem.timestamp / durationSeconds(progressItem)) * 100)))
-      : 0;
+  const resumePct = hasResume ? Math.round(progressPct(progressItem)) : 0;
   // Track which episode the saved timestamp belongs to — only apply it once
   const effectiveSavedTimestamp = (
     initialEpisodeRef.current !== null && playingEpisode === initialEpisodeRef.current
@@ -1487,16 +1484,15 @@ export default function TitleDetails() {
             </motion.h2>
 
             <div className="flex items-center gap-2 shrink-0 ml-auto flex-wrap">
-              {/* Ratings toggle (Cinejoy pill) */}
+              {/* Ratings (opens the per-season episode ratings table) */}
               <button
-                onClick={() => setShowEpisodeRatings(v => !v)}
-                aria-pressed={showEpisodeRatings}
+                onClick={() => setRatingsOpen(true)}
                 aria-label="View episode ratings"
                 title="Ratings"
                 className="w-10 sm:w-auto h-10 sm:px-4 inline-flex items-center justify-center gap-2 rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-white text-sm font-medium hover:bg-white/15 transition-colors"
               >
                 <Grid3x3 size={16} />
-                <span className="hidden sm:inline">{showEpisodeRatings ? "Hide ratings" : "Ratings"}</span>
+                <span className="hidden sm:inline">Ratings</span>
               </button>
 
               {/* Sort (Oldest / Newest) */}
@@ -1880,12 +1876,6 @@ export default function TitleDetails() {
                               <h3 className="text-base font-bold text-white group-hover:text-white/90 line-clamp-1">
                                 {ep.title}
                               </h3>
-                              {showEpisodeRatings && ep.voteAverage > 0 && (
-                                <span className="shrink-0 text-[11px] font-bold text-white/80 flex items-center gap-1" title="TMDB Community Score">
-                                  <Popcorn size={11} fill="currentColor" stroke="none" aria-hidden="true" />
-                                  {ep.voteAverage.toFixed(1)}
-                                </span>
-                              )}
                             </div>
                             <p className={`text-xs ${spoilerFreeMode ? 'text-white/40 italic' : 'text-white/60'} line-clamp-2 leading-relaxed`}>
                               {spoilerFreeMode ? "Episode details hidden (Spoiler-Free Mode)" : ep.description}
@@ -1968,14 +1958,6 @@ export default function TitleDetails() {
                               <span style={{ fontSize: '0.75rem', fontWeight: 800, color: isEpPlaying ? 'var(--accent-primary, #95ff50)' : '#52525b', fontFamily: 'monospace', flexShrink: 0 }}>E{String(ep.episodeNumber).padStart(2, '0')}</span>
                               <h3 style={{ fontSize: '0.9rem', fontWeight: 600, margin: 0, color: isEpPlaying ? '#fff' : '#e4e4e7', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ep.title}</h3>
                             </div>
-                            {showEpisodeRatings && ep.voteAverage > 0 && (
-                              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#e4e4e7', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="TMDB Community Score">
-                                  <Popcorn size={11} fill="currentColor" stroke="none" aria-hidden="true" />
-                                  {ep.voteAverage.toFixed(1)}
-                                </span>
-                              </span>
-                            )}
                           </div>
                           <p style={{ fontSize: '0.78rem', color: spoilerFreeMode ? '#52525b' : '#71717a', fontStyle: spoilerFreeMode ? 'italic' : 'normal', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {spoilerFreeMode ? "Episode details hidden (Spoiler-Free Mode)" : ep.description}
@@ -2655,6 +2637,14 @@ export default function TitleDetails() {
               </button>
             </motion.div>
           </motion.div>
+        )}
+        {ratingsOpen && movie && (
+          <RatingsTable
+            movie={movie}
+            seasons={availableSeasons}
+            initialSeason={selectedSeason}
+            onClose={() => setRatingsOpen(false)}
+          />
         )}
       </AnimatePresence>,
       document.body

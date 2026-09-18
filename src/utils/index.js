@@ -40,7 +40,7 @@ export {
 
 // Metadata, Formatting & Ratings
 export { normalizePlatformKey, getPlatformName } from "./platforms";
-export { getRatingColor } from "./ratings";
+export { getRatingColor, getScoreColor } from "./ratings";
 export { buildMetaFacts } from "./metaFacts";
 
 // Continue-Watching progress helpers (resume %, time left, runtime→seconds)

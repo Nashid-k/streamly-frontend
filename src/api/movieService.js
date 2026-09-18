@@ -412,6 +412,7 @@ export const movieService = {
       durationMins: ep.runtime,
       duration: ep.runtime ? `${ep.runtime}m` : '',
       voteAverage: ep.vote_average,
+      voteCount: ep.vote_count || 0,
     }));
     const now = new Date();
     const releasedEpisodes = episodes.filter(ep => ep.airDate && new Date(ep.airDate) <= now).length;

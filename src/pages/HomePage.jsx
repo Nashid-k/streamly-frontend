@@ -14,7 +14,7 @@ import { useQuery } from "@tanstack/react-query";
 import { movieService, EDITORIAL_RAILS } from "../api/movieService";
 import MovieCard from "../components/MovieCard";
 import ContinueWatchingRail from "../components/ContinueWatchingRail";
-import { durationSeconds } from "../utils/resumeProgress";
+import { progressPct } from "../utils/resumeProgress";
 import AmbientBackground from "../components/AmbientBackground";
 import HeroTitleLogo from "../components/HeroTitleLogo";
 import useDetailView from "../hooks/useDetailView";
@@ -1123,11 +1123,7 @@ export default function Home({
           (m) => String(m?.id) === String(activeFeaturedMovie.id),
         )
       : null;
-  const cwDurationSec = cwResumeEntry ? durationSeconds(cwResumeEntry) : 0;
-  const resumePct =
-    cwResumeEntry && cwResumeEntry.timestamp > 0 && cwDurationSec > 0
-      ? Math.min(100, Math.max(2, Math.round((cwResumeEntry.timestamp / cwDurationSec) * 100)))
-      : 0;
+  const resumePct = cwResumeEntry ? Math.round(progressPct(cwResumeEntry)) : 0;
 
   // Auto-rotation: use ref for hover state to avoid stale closures and unnecessary interval restarts
   useEffect(() => {

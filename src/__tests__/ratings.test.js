@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getRatingColor } from '../utils/ratings';
+import { getRatingColor, getScoreColor } from '../utils/ratings';
 
 describe('getRatingColor', () => {
   it('returns green for high ratings (>= 8)', () => {
@@ -67,5 +67,52 @@ describe('getRatingColor', () => {
 
   it('handles NaN (all comparisons false, NaN > 0 is false)', () => {
     expect(getRatingColor(NaN)).toBeNull();
+  });
+});
+
+describe('getScoreColor', () => {
+  it('returns deep green for exceptional scores (>= 8.5)', () => {
+    expect(getScoreColor(8.5)).toBe('#22c55e');
+    expect(getScoreColor(9.2)).toBe('#22c55e');
+    expect(getScoreColor(10)).toBe('#22c55e');
+  });
+
+  it('returns green for great scores (>= 8)', () => {
+    expect(getScoreColor(8)).toBe('#4ade80');
+    expect(getScoreColor(8.49)).toBe('#4ade80');
+  });
+
+  it('returns light green for good scores (>= 7)', () => {
+    expect(getScoreColor(7)).toBe('#86efac');
+    expect(getScoreColor(7.9)).toBe('#86efac');
+  });
+
+  it('returns yellow for fair scores (>= 6.5)', () => {
+    expect(getScoreColor(6.5)).toBe('#fbbf24');
+    expect(getScoreColor(6.9)).toBe('#fbbf24');
+  });
+
+  it('returns orange for weak scores (>= 6)', () => {
+    expect(getScoreColor(6)).toBe('#fb923c');
+    expect(getScoreColor(6.49)).toBe('#fb923c');
+  });
+
+  it('returns red for poor scores (> 0)', () => {
+    expect(getScoreColor(1)).toBe('#f87171');
+    expect(getScoreColor(5.9)).toBe('#f87171');
+  });
+
+  it('returns null for zero, missing, or invalid scores', () => {
+    expect(getScoreColor(0)).toBeNull();
+    expect(getScoreColor(null)).toBeNull();
+    expect(getScoreColor(undefined)).toBeNull();
+    expect(getScoreColor(NaN)).toBeNull();
+    expect(getScoreColor(-1)).toBeNull();
+  });
+
+  it('coerces numeric strings', () => {
+    expect(getScoreColor("8.5")).toBe('#22c55e');
+    expect(getScoreColor("7.2")).toBe('#86efac');
+    expect(getScoreColor("not-a-number")).toBeNull();
   });
 });
