@@ -26,6 +26,7 @@ const DEFAULT_AUTH_FALLBACK = {
   toggleMyList: () => {},
   removeBatchFromMyList: () => {},
   createCollection: () => null,
+  createCollectionWithItems: () => null,
   renameCollection: () => {},
   deleteCollection: () => {},
   addToCollection: () => {},

@@ -34,6 +34,22 @@
   runs pass consistently, and the full suite is green after hardening (unrelated
   to this batch; per-file isolation rules out cross-file interference).
 
+  **Follow-up (user flow feedback)**: per-card add/remove on the main My List
+  grid — a top-left FolderPlus button (`.card-add-collection-button`, hover
+  reveal like `.card-remove-button`) opens a new `CollectionPickerDialog` in
+  WatchlistPage: every collection listed as a live toggle (add/remove dedicated
+  titles straight off the grid) plus an inline “New collection → Create & add”
+  flow that builds the folder AND drops the picked title in atomically via
+  `createCollectionWithItems(name, movieIds)` (added to useMyCollections and to
+  the auth.js DEFAULT_AUTH_FALLBACK stub — avoids the create-then-toggle
+  stale-ref race). WatchlistPage now also carries the exact GenrePage backdrop
+  treatment: ambient banner plus a `linear-gradient(to bottom, transparent,
+  #000)` fade overlay (top 10vh / 30vh, zIndex −1), and the redundant inline
+  flex style on `.filter-controls` was removed (matches the browse pages).
+  New CSS: `.collection-add__hint/.meta/.create`. Test now 6 (added
+  createCollectionWithItems create-and-fill coverage incl. id-dedupe +
+  persistence). Verified: lint 0 errors, vitest 38 files / 370/370, build OK.
+
 - [x] **#2 auth `syncStatus` isolation — provider split AND consumer migration
   (pushed `0264248`)**: `SyncStatusContext` + `useSyncStatus` exported from
   `src/context/auth.js` (13–16, 52–61); `AuthProvider` now builds a separate

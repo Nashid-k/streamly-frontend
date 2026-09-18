@@ -170,6 +170,112 @@ function AddTitlesDialog({ open, candidates, assignedIds, onConfirm, onClose }) 
   );
 }
 
+/* ── Collection picker: add/remove ONE title from ANY collection ────────── */
+function CollectionPickerDialog({ open, movie, collections, onToggle, onCreateWithItems, onClose }) {
+  const [showCreate, setShowCreate] = useState(false);
+  const [createName, setCreateName] = useState("");
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (open) {
+      setShowCreate(false);
+      setCreateName("");
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+  }, [open]);
+
+  if (!open || !movie) return null;
+
+  const submitCreate = (e) => {
+    e.preventDefault();
+    if (!createName.trim()) return;
+    onCreateWithItems(createName.trim(), [movie.id]);
+    setShowCreate(false);
+    setCreateName("");
+  };
+
+  return (
+    <div className="collection-dialog-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="collection-dialog collection-dialog--wide"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Add "${movie.title}" to a collection`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="collection-dialog__header">
+          <h2 className="collection-dialog__title">Add to collection</h2>
+          <button
+            type="button"
+            className="collection-dialog__close"
+            aria-label="Close dialog"
+            onClick={onClose}
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <p className="collection-add__hint">
+          Pick a folder for "{movie.title}" — tick to add, untick to remove.
+        </p>
+        <div className="collection-add__list">
+          {collections.length === 0 ? (
+            <p className="collection-add__empty">No collections yet — create one below.</p>
+          ) : (
+            collections.map((collection) => {
+              const active = (collection.itemIds || []).includes(movie.id);
+              return (
+                <button
+                  type="button"
+                  key={collection.id}
+                  className="collection-add__row"
+                  aria-pressed={active}
+                  onClick={() => onToggle(collection.id, movie.id)}
+                >
+                  <span className="collection-add__check">
+                    {active && <Check size={14} strokeWidth={3} />}
+                  </span>
+                  <span className="collection-add__title">{collection.name}</span>
+                  <span className="collection-add__meta">
+                    {collection.itemIds.length} {collection.itemIds.length === 1 ? "title" : "titles"}
+                  </span>
+                </button>
+              );
+            })
+          )}
+        </div>
+        <form onSubmit={submitCreate} className="collection-dialog__form">
+          {showCreate ? (
+            <>
+              <input
+                ref={inputRef}
+                type="text"
+                value={createName}
+                onChange={(e) => setCreateName(e.target.value)}
+                placeholder="New collection name"
+                aria-label="New collection name"
+                maxLength={60}
+                className="collection-dialog__input"
+              />
+              <div className="collection-dialog__actions">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowCreate(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={!createName.trim()}>
+                  Create &amp; add
+                </button>
+              </div>
+            </>
+          ) : (
+            <button type="button" className="collection-add__create" onClick={() => setShowCreate(true)}>
+              <Plus size={15} /> New collection
+            </button>
+          )}
+        </form>
+      </div>
+    </div>
+  );
+}
+
 /* ── Collection folder card: 2×2 cover collage mining the saved list ────── */
 function CollectionCard({ collection, items, onOpen, onRename, onDelete }) {
   const hasItems = collection.itemIds.length > 0;
@@ -265,10 +371,12 @@ export default function WatchlistPage() {
     removeBatchFromMyList,
     collections,
     createCollection,
+    createCollectionWithItems,
     renameCollection,
     deleteCollection,
     addToCollection,
     removeFromCollection,
+    toggleInCollection,
   } = useAppAuth();
   const { toast } = useToast();
   const { confirmDialog, ConfirmDialogRenderer } = useConfirmDialog();
@@ -283,6 +391,7 @@ export default function WatchlistPage() {
   const [activeCollectionId, setActiveCollectionId] = useState(null);
   const [nameDialog, setNameDialog] = useState(null); // { mode, collection } | null
   const [addTitlesOpen, setAddTitlesOpen] = useState(false);
+  const [pickerMovie, setPickerMovie] = useState(null);
 
   const activeCollection = useMemo(
     () => collections.find((c) => c.id === activeCollectionId) || null,
@@ -377,6 +486,18 @@ export default function WatchlistPage() {
     }
   };
 
+  /* Per-card picker: toggle membership of one title across any collection. */
+  const confirmPickerCreate = (name, movieId) => {
+    const id = createCollectionWithItems(name, [movieId]);
+    toast({
+      title: "Collection Created",
+      message: `"${name}" created with 1 title.`,
+      type: "success",
+      duration: 2500,
+    });
+    return id;
+  };
+
   const handleRename = (name) => {
     if (!nameDialog?.collection) return;
     renameCollection(nameDialog.collection.id, name);
@@ -468,8 +589,22 @@ export default function WatchlistPage() {
 
   return (
     <div style={{ position: "relative", minHeight: "100vh" }}>
+      {/* Ambient background — same banner-at-the-time gradient blur as the
+          movies/series browse pages. */}
       <AmbientBackground
         src={visibleResults[0]?.backdropUrl || visibleResults[0]?.posterUrl || visibleResults[0]?.poster || myList[0]?.backdropUrl || myList[0]?.posterUrl}
+      />
+      {/* Cinematic fade to black behind the header — identical to Genre/Category */}
+      <div
+        style={{
+          position: "absolute",
+          top: "10vh",
+          left: 0,
+          width: "100%",
+          height: "30vh",
+          background: "linear-gradient(to bottom, transparent, #000)",
+          zIndex: -1,
+        }}
       />
       <div className="main-content content-page content-page--library">
         <div className="content-page__inner">
@@ -486,7 +621,7 @@ export default function WatchlistPage() {
             backLabel={inCollectionView ? "All My List" : "Back"}
             actions={
               (inCollectionView ? activeCollection.itemIds.length > 0 : myList.length > 0) && (
-                <div className="filter-controls" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px" }}>
+                <div className="filter-controls">
                   {!inCollectionView && (
                     <button
                       type="button"
@@ -791,6 +926,18 @@ export default function WatchlistPage() {
                           </motion.button>
                         ) : (
                           <>
+                            <motion.button
+                              className="card-add-collection-button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setPickerMovie(movie);
+                              }}
+                              title="Add to / remove from collection"
+                              aria-label={`Add ${movie.title} to a collection`}
+                            >
+                              <FolderPlus size={14} />
+                            </motion.button>
                             {inCollection && (
                               <span
                                 className="card-collection-badge"
@@ -923,6 +1070,15 @@ export default function WatchlistPage() {
         assignedIds={assignedIds}
         onConfirm={confirmAdd}
         onClose={() => setAddTitlesOpen(false)}
+      />
+
+      <CollectionPickerDialog
+        open={Boolean(pickerMovie)}
+        movie={pickerMovie}
+        collections={collections}
+        onToggle={toggleInCollection}
+        onCreateWithItems={(name) => confirmPickerCreate(name, pickerMovie?.id)}
+        onClose={() => setPickerMovie(null)}
       />
 
       <ConfirmDialogRenderer />

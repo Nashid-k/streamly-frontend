@@ -120,4 +120,17 @@ describe("useMyCollections", () => {
     });
     expect(read().collections[0].itemIds).toEqual([]);
   });
+
+  it("creates a collection pre-filled with titles in a single commit", async () => {
+    const read = setup();
+    let id;
+    await act(async () => {
+      id = read().createCollectionWithItems("Watch Next", ["movie-1", "movie-1", "tv-2"]);
+    });
+    expect(id).toBeTruthy();
+    expect(read().collections[0].name).toBe("Watch Next");
+    expect(read().collections[0].itemIds.sort()).toEqual(["movie-1", "tv-2"]);
+    const stored = JSON.parse(localStorage.getItem("aios_my_collections"));
+    expect(stored[0].itemIds.sort()).toEqual(["movie-1", "tv-2"]);
+  });
 });

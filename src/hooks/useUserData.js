@@ -123,6 +123,23 @@ export function useMyCollections() {
     return id;
   }, [commitCollections]);
 
+  /* Atomic create-and-fill: builds the new collection WITH itemIds in one
+     commit, so a follow-up addToCollection call can't race a stale ref. */
+  const createCollectionWithItems = useCallback((name, movieIds) => {
+    const trimmed = String(name || '').trim();
+    if (!trimmed) return null;
+    const ids = Array.isArray(movieIds)
+      ? [...new Set(movieIds.filter(Boolean))]
+      : [];
+    const id = makeCollectionId();
+    const next = [
+      ...collectionsRef.current,
+      { id, name: trimmed, createdAt: Date.now(), updatedAt: Date.now(), itemIds: ids },
+    ];
+    commitCollections(next);
+    return id;
+  }, [commitCollections]);
+
   const renameCollection = useCallback((id, name) => {
     const trimmed = String(name || '').trim();
     if (!trimmed) return;
@@ -175,6 +192,7 @@ export function useMyCollections() {
   return {
     collections,
     createCollection,
+    createCollectionWithItems,
     renameCollection,
     deleteCollection,
     addToCollection,
