@@ -719,9 +719,10 @@ export default function WatchlistPage() {
 
   return (
     <div style={{ position: "relative" }}>
-      {/* Ambient liquid backdrop from the first saved title */}
+      {/* Ambient liquid backdrop — always on, even before anything is saved */}
       <AmbientBackground
         src={visibleResults[0]?.backdropUrl || visibleResults[0]?.posterUrl || myList[0]?.backdropUrl || myList[0]?.posterUrl}
+        fallback
       />
 
       <div className="discovery-page relative z-10">

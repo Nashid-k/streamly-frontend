@@ -4,9 +4,11 @@ import { CdnImageAdapter } from "../api/cdnImageAdapter";
 /* Fixed full-viewport ambient layer — mirrors the watch/details page:
    a heavily blurred, saturated backdrop + screen-blended top glow above the
    accent gradient stack. Hooks behind page content so every page gets the
-   banner-at-the-time gradient wash. */
-function AmbientBackground({ src, alt = "" }) {
-  if (!src) return null;
+   banner-at-the-time gradient wash. With `fallback` it renders the liquid
+   gradient layer even when there is no backdrop image yet (e.g. an empty
+   My List). */
+function AmbientBackground({ src, alt = "", fallback = false }) {
+  if (!src && !fallback) return null;
 
   return (
     <div
@@ -15,26 +17,30 @@ function AmbientBackground({ src, alt = "" }) {
       aria-hidden="true"
     >
       <div className="absolute inset-0 w-full h-full">
-        <img
-          className="w-full h-full object-cover scale-[1.2] blur-[80px] saturate-100 opacity-50"
-          alt={alt}
-          loading="eager"
-          decoding="async"
-          src={src}
-        />
-        <div className="absolute top-0 left-0 w-full h-[40vh] mix-blend-screen opacity-20 hidden lg:block">
+        {src && (
           <img
-            className="w-full h-full object-cover scale-[1.2] blur-[50px] saturate-100"
+            className="w-full h-full object-cover scale-[1.2] blur-[80px] saturate-100 opacity-50"
             alt={alt}
             loading="eager"
             decoding="async"
-            style={{
-              maskImage: "linear-gradient(to bottom, black 0%, transparent 100%)",
-              WebkitMaskImage: "linear-gradient(to bottom, black 0%, transparent 100%)",
-            }}
             src={src}
           />
-        </div>
+        )}
+        {src && (
+          <div className="absolute top-0 left-0 w-full h-[40vh] mix-blend-screen opacity-20 hidden lg:block">
+            <img
+              className="w-full h-full object-cover scale-[1.2] blur-[50px] saturate-100"
+              alt={alt}
+              loading="eager"
+              decoding="async"
+              style={{
+                maskImage: "linear-gradient(to bottom, black 0%, transparent 100%)",
+                WebkitMaskImage: "linear-gradient(to bottom, black 0%, transparent 100%)",
+              }}
+              src={src}
+            />
+          </div>
+        )}
         {/* Cinejoy-style liquid backdrop — a few blurred color blobs drifting
             slowly. Transform-only animation (GPU-cheap); disabled for
             prefers-reduced-motion via CSS. */}

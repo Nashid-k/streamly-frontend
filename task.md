@@ -29,6 +29,12 @@
   lint 0 errors (warnings all pre-existing), vitest 38 files / 370/370,
   build OK.
 
+  **Follow-up (ambient backdrop)**: the blurred gradient wallpaper now shows
+  even before anything is saved — `AmbientBackground` gained a `fallback`
+  prop that renders the liquid blob gradient + gradient stack (+ dark base)
+  with no image source, and `/watchlist` passes `fallback`. Other pages keep
+  the old no-src = nothing behavior. Verified: lint 0, vitest 38/370, build OK.
+
 - [x] **My List collections + movies/series-style UI/UX — Watchlist AND Settings
   (user directive)**: end-to-end named-folder collections on `/watchlist`.
   `useMyCollections` (src/hooks/useUserData.js:85–184) persists under
