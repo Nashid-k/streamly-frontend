@@ -4,7 +4,7 @@ import { VideoSourceAdapter } from "../api/videoSourceAdapter";
 import { movieService } from "../api/movieService";
 import {
   Play, Pause, Volume1, Volume2, VolumeX, Maximize, Minimize,
-  Settings, AlertCircle, Check, RotateCcw, RotateCw,
+  Settings, AlertCircle, Check,
   SkipForward, FastForward, Rewind,
   Keyboard, X, Upload, Captions, Film, Link, Repeat,
   ArrowLeft, Lock, Unlock, Sun,
@@ -173,106 +173,81 @@ const ArcRing = memo(({ progress = 0, size = 48, strokeWidth = 3, color = "#fff"
 
 /* ─── NETFLIX-STYLE HUD COMPONENTS ──────────────────────────────────────── */
 
-/* Volume HUD — appears on volume change (desktop). Red arc ring, live %. */
-const NetflixVolumeHUD = memo(function NetflixVolumeHUD({ effVolume, isMuted, volume, hudTop }) {
+/* Volume HUD — appears on volume change (desktop). Netflix-style flat
+   black pill: speaker icon + slim red fill bar + live %. */
+const NetflixVolumeHUD = memo(function NetflixVolumeHUD({ effVolume, isMuted, volume }) {
   const isZero = isMuted || volume === 0;
   const pct = isZero ? 0 : Math.round(effVolume * 100);
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.85, y: -12 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.9, y: -8 }}
+      initial={{ opacity: 0, scale: 0.92 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.94 }}
       transition={SPRING_SNAPPY}
       style={{
-        position: "absolute", top: hudTop, left: "50%", transform: "translateX(-50%)",
-        display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+        position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+        display: "flex", alignItems: "center", gap: 12,
+        padding: "10px 16px", borderRadius: 8,
+        background: "rgba(0,0,0,0.88)",
+        border: "1px solid rgba(255,255,255,0.12)",
+        boxShadow: "0 16px 48px rgba(0,0,0,0.7)",
         zIndex: 65, pointerEvents: "none",
       }}
     >
-      <motion.div
-        style={{
-          width: 74, height: 74, borderRadius: "50%",
-          background: "rgba(0,0,0,0.72)", backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
-          border: "1px solid rgba(255,255,255,0.12)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          boxShadow: "0 12px 40px rgba(0,0,0,0.7)",
-        }}
-      >
-        <ArcRing
-          progress={pct / 100}
-          size={66} strokeWidth={3}
-          color="#E50914"
-          bgColor="rgba(255,255,255,0.1)"
-          glowColor="rgba(229,9,20,0.55)"
-        >
-          {isZero ? (
-            <VolumeX size={24} color="#E50914" strokeWidth={2.4} />
-          ) : pct < 40 ? (
-            <Volume1 size={24} color="#fff" strokeWidth={2.4} />
-          ) : (
-            <Volume2 size={24} color="#fff" strokeWidth={2.4} />
-          )}
-        </ArcRing>
-      </motion.div>
+      {isZero ? (
+        <VolumeX size={20} color="#E50914" strokeWidth={2.4} />
+      ) : pct < 40 ? (
+        <Volume1 size={20} color="#fff" strokeWidth={2.4} />
+      ) : (
+        <Volume2 size={20} color="#fff" strokeWidth={2.4} />
+      )}
+      <div style={{ position: "relative", width: 96, height: 4, background: "rgba(255,255,255,0.2)", borderRadius: 1, overflow: "hidden" }}>
+        <div style={{ position: "absolute", inset: 0, width: `${pct}%`, background: "#E50914", borderRadius: 1 }} />
+      </div>
       <span style={{
-        color: "#fff", fontSize: 13, fontWeight: 800, letterSpacing: "-0.01em",
-        background: "rgba(0,0,0,0.72)", borderRadius: 999, padding: "3px 10px",
+        color: "#fff", fontSize: 13, fontWeight: 700, minWidth: 34, textAlign: "right",
         fontVariantNumeric: "tabular-nums",
-        textShadow: "0 1px 4px rgba(0,0,0,0.8)",
+        fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
       }}>{pct}%</span>
     </motion.div>
   );
 });
 
-/* Brightness HUD — appears on brightness cycle (desktop). Same shell, sun + %. */
-const NetflixBrightnessHUD = memo(function NetflixBrightnessHUD({ brightness, hudTop }) {
+/* Brightness HUD — same Netflix pill, sun icon + red fill bar + %. */
+const NetflixBrightnessHUD = memo(function NetflixBrightnessHUD({ brightness }) {
   const pct = Math.round(brightness * 100);
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.85, y: -12 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.9, y: -8 }}
+      initial={{ opacity: 0, scale: 0.92 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.94 }}
       transition={SPRING_SNAPPY}
       style={{
-        position: "absolute", top: hudTop, left: "50%", transform: "translateX(-50%)",
-        display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+        position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+        display: "flex", alignItems: "center", gap: 12,
+        padding: "10px 16px", borderRadius: 8,
+        background: "rgba(0,0,0,0.88)",
+        border: "1px solid rgba(255,255,255,0.12)",
+        boxShadow: "0 16px 48px rgba(0,0,0,0.7)",
         zIndex: 65, pointerEvents: "none",
       }}
     >
-      <motion.div
-        style={{
-          width: 74, height: 74, borderRadius: "50%",
-          background: "rgba(0,0,0,0.72)", backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
-          border: "1px solid rgba(255,255,255,0.12)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          boxShadow: "0 12px 40px rgba(0,0,0,0.7)",
-        }}
-      >
-        <ArcRing
-          progress={Math.max(0, Math.min(pct / 160, 1))}
-          size={66} strokeWidth={3}
-          color="#E50914"
-          bgColor="rgba(255,255,255,0.1)"
-          glowColor="rgba(229,9,20,0.55)"
-        >
-          <Sun size={24} color={pct >= 100 ? "#ffd166" : "#fff"} strokeWidth={2.4} />
-        </ArcRing>
-      </motion.div>
+      <Sun size={20} color={pct >= 100 ? "#ffd166" : "#fff"} strokeWidth={2.4} />
+      <div style={{ position: "relative", width: 96, height: 4, background: "rgba(255,255,255,0.2)", borderRadius: 1, overflow: "hidden" }}>
+        <div style={{ position: "absolute", inset: 0, width: `${Math.min(100, pct)}%`, background: "#E50914", borderRadius: 1 }} />
+      </div>
       <span style={{
-        color: "#fff", fontSize: 13, fontWeight: 800, letterSpacing: "-0.01em",
-        background: "rgba(0,0,0,0.72)", borderRadius: 999, padding: "3px 10px",
+        color: "#fff", fontSize: 13, fontWeight: 700, minWidth: 34, textAlign: "right",
         fontVariantNumeric: "tabular-nums",
-        textShadow: "0 1px 4px rgba(0,0,0,0.8)",
+        fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
       }}>{pct}%</span>
     </motion.div>
   );
 });
 
-/* Aspect Ratio HUD — shows the live frame glyph morphing with the selected
-   ratio (AR_GLYPH) plus the ratio name, all in Netflix black/red. */
-const NetflixAspectHUD = memo(function NetflixAspectHUD({ aspectRatioIndex, hudTop }) {
+/* Aspect Ratio HUD — live frame glyph morphing with the selected ratio
+   (AR_GLYPH) plus the ratio name, in Netflix black/red. Centered. */
+const NetflixAspectHUD = memo(function NetflixAspectHUD({ aspectRatioIndex }) {
   const ar = ASPECT_RATIOS[aspectRatioIndex] || ASPECT_RATIOS[0];
   const glyph = AR_GLYPH[aspectRatioIndex] || AR_GLYPH[0];
   const [gw, gh] = glyph;
@@ -283,7 +258,7 @@ const NetflixAspectHUD = memo(function NetflixAspectHUD({ aspectRatioIndex, hudT
       exit={{ opacity: 0, scale: 0.92, y: -6 }}
       transition={SPRING_SNAPPY}
       style={{
-        position: "absolute", top: hudTop, left: "50%", transform: "translateX(-50%)",
+        position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
         display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
         zIndex: 65, pointerEvents: "none",
       }}
@@ -292,15 +267,17 @@ const NetflixAspectHUD = memo(function NetflixAspectHUD({ aspectRatioIndex, hudT
         animate={{ width: gw, height: gh }}
         transition={{ type: "spring", stiffness: 420, damping: 30 }}
         style={{
-          background: "rgba(0,0,0,0.72)", border: "2px solid #E50914",
+          background: "rgba(0,0,0,0.88)", border: "2px solid #E50914",
           borderRadius: 6, boxShadow: "0 0 18px rgba(229,9,20,0.5)",
         }}
       />
       <span style={{
-        color: "#fff", fontSize: 13, fontWeight: 800,
-        background: "rgba(0,0,0,0.72)", borderRadius: 999, padding: "3px 10px",
+        color: "#fff", fontSize: 13, fontWeight: 700,
+        background: "rgba(0,0,0,0.88)", borderRadius: 8, padding: "4px 12px",
         textShadow: "0 1px 4px rgba(0,0,0,0.8)",
+        border: "1px solid rgba(255,255,255,0.1)",
         whiteSpace: "nowrap",
+        fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
       }}>{ar.name}</span>
     </motion.div>
   );
@@ -1706,15 +1683,11 @@ on falls back to the provider's native controls. */
   const effVolume = isMuted ? 0 : volume;
 
   /* ═══════════════════════════════════════════════════════════════
-     DYNAMIC TOP-CENTER HUD SYSTEM — shared by the volume + aspect HUDs
-       · hudScale: fluid geometry (glyph/ring/pill) tuned to the real
-         player box via ResizeObserver, not raw viewport assumptions
-       · hudTop: adaptive vertical placement — clears a floating toast /
-         error pill when present, then sits pinned top-center
+     CENTER HUD SYSTEM — volume / brightness / aspect indicators are
+     absolutely centered over the video (top+left 50%, translate
+     -50%/-50%), matching Netflix's overlay behavior on all screens.
      ═══════════════════════════════════════════════════════════════ */
   const { w: playerW, h: playerH } = useContainerSize(containerRef);
-  const hudScale = playerW ? Math.max(0.78, Math.min(1.35, playerW / 1280)) : 1;
-  const hudTop = Math.round((toastMessage || errorMessage ? 116 : 56) * hudScale) + 'px';
   const selectedAspect = ASPECT_RATIOS[aspectRatioIndex] || ASPECT_RATIOS[0];
 
   /* Aspect ratio calculation — dynamic Edge-to-Edge punch-hole camera coverage.
@@ -2254,21 +2227,21 @@ on falls back to the provider's native controls. */
       {/* ═══ VOLUME HUD ═══ */}
       <AnimatePresence>
         {showVolumeArc && !isTouch && (
-          <NetflixVolumeHUD effVolume={effVolume} isMuted={isMuted} volume={volume} hudTop={hudTop} />
+          <NetflixVolumeHUD effVolume={effVolume} isMuted={isMuted} volume={volume} />
         )}
       </AnimatePresence>
 
       {/* ═══ BRIGHTNESS HUD (Desktop) ═══ */}
       <AnimatePresence>
         {showBrightnessArc && !isTouch && (
-          <NetflixBrightnessHUD brightness={brightness} hudTop={hudTop} />
+          <NetflixBrightnessHUD brightness={brightness} />
         )}
       </AnimatePresence>
 
       {/* ═══ ASPECT RATIO HUD ═══ */}
       <AnimatePresence>
         {showAspectRatioArc && (
-          <NetflixAspectHUD aspectRatioIndex={aspectRatioIndex} hudTop={hudTop} />
+          <NetflixAspectHUD aspectRatioIndex={aspectRatioIndex} />
         )}
       </AnimatePresence>
 
@@ -2582,45 +2555,32 @@ on falls back to the provider's native controls. */
               ) : (
                 <motion.div
                   key="bwd"
-                  initial={{ opacity: 0, scale: 0.3 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 1.4 }}
+                  initial={{ opacity: 0, scale: 0.85, x: -10 }}
+                  animate={{ opacity: 1, scale: 1, x: 0 }}
+                  exit={{ opacity: 0, scale: 0.9, x: -6 }}
                   transition={SPRING_SNAPPY}
-                  style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    padding: "9px 18px", borderRadius: 8,
+                    background: "rgba(20, 20, 20, 0.96)",
+                    border: "1px solid rgba(255, 255, 255, 0.1)",
+                    boxShadow: "0 10px 32px rgba(0,0,0,0.65)",
+                    marginLeft: "var(--sal, 0px)",
+                  }}
                 >
-                  <div style={{ position: "relative" }}>
-                    <motion.div
-                      initial={{ rotate: 0 }}
-                      animate={{ rotate: [0, -360] }}
-                      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                    >
-                      <ArcRing
-                        progress={0.4}
-                        size={64} responsive="clamp(48px, 8vw, 68px)" strokeWidth={2.5}
-                        color="rgba(255,255,255,0.85)"
-                        bgColor="rgba(255,255,255,0.04)"
-                        glowColor="rgba(229,9,20,0.25)"
-                      >
-                        <motion.div
-                          initial={{ scale: 0.4, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          transition={{ delay: 0.1, ...SPRING_SNAPPY }}
-                        >
-                          <Rewind size={22} color="#fff" strokeWidth={2} />
-                        </motion.div>
-                      </ArcRing>
-                    </motion.div>
-                  </div>
-                  <motion.span
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.15, ...SPRING_FAST }}
-                    style={{
-                      fontSize: R.fontMedium, fontWeight: 700, color: "#fff",
-                      fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
-                      textShadow: "0 1px 12px rgba(0,0,0,0.9)",
-                      fontVariantNumeric: "tabular-nums",
-                    }}>{sideIcon.text}</motion.span>
+                  <motion.div
+                    animate={{ x: [0, -3, 0] }}
+                    transition={{ repeat: 2, duration: 0.25 }}
+                  >
+                    <Rewind size={18} color="#E50914" strokeWidth={2.5} />
+                  </motion.div>
+                  <span style={{
+                    fontSize: 14, fontWeight: 700, color: "#fff",
+                    fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif",
+                    letterSpacing: "0.2px", fontVariantNumeric: "tabular-nums",
+                  }}>
+                    {sideIcon.text}
+                  </span>
                 </motion.div>
               )
             )}
@@ -2669,45 +2629,32 @@ on falls back to the provider's native controls. */
               ) : (
                 <motion.div
                   key="fwd"
-                  initial={{ opacity: 0, scale: 0.3 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 1.4 }}
+                  initial={{ opacity: 0, scale: 0.85, x: 10 }}
+                  animate={{ opacity: 1, scale: 1, x: 0 }}
+                  exit={{ opacity: 0, scale: 0.9, x: 6 }}
                   transition={SPRING_SNAPPY}
-                  style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    padding: "9px 18px", borderRadius: 8,
+                    background: "rgba(20, 20, 20, 0.96)",
+                    border: "1px solid rgba(255, 255, 255, 0.1)",
+                    boxShadow: "0 10px 32px rgba(0,0,0,0.65)",
+                    marginRight: "var(--sar, 0px)",
+                  }}
                 >
-                  <div style={{ position: "relative" }}>
-                    <motion.div
-                      initial={{ rotate: 0 }}
-                      animate={{ rotate: [0, 360] }}
-                      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                    >
-                      <ArcRing
-                        progress={0.4}
-                        size={64} responsive="clamp(48px, 8vw, 68px)" strokeWidth={2.5}
-                        color="rgba(255,255,255,0.85)"
-                        bgColor="rgba(255,255,255,0.04)"
-                        glowColor="rgba(229,9,20,0.25)"
-                      >
-                        <motion.div
-                          initial={{ scale: 0.4, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          transition={{ delay: 0.1, ...SPRING_SNAPPY }}
-                        >
-                          <FastForward size={22} color="#fff" strokeWidth={2} />
-                        </motion.div>
-                      </ArcRing>
-                    </motion.div>
-                  </div>
-                  <motion.span
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.15, ...SPRING_FAST }}
-                    style={{
-                      fontSize: R.fontMedium, fontWeight: 700, color: "#fff",
-                      fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
-                      textShadow: "0 1px 12px rgba(0,0,0,0.9)",
-                      fontVariantNumeric: "tabular-nums",
-                    }}>{sideIcon.text}</motion.span>
+                  <span style={{
+                    fontSize: 14, fontWeight: 700, color: "#fff",
+                    fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif",
+                    letterSpacing: "0.2px", fontVariantNumeric: "tabular-nums",
+                  }}>
+                    {sideIcon.text}
+                  </span>
+                  <motion.div
+                    animate={{ x: [0, 3, 0] }}
+                    transition={{ repeat: 2, duration: 0.25 }}
+                  >
+                    <FastForward size={18} color="#E50914" strokeWidth={2.5} />
+                  </motion.div>
                 </motion.div>
               )
             )}
@@ -3113,10 +3060,10 @@ on falls back to the provider's native controls. */
                   whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92 }}
                   style={{
                     background: "transparent", border: "none", color: "rgba(255,255,255,0.9)", cursor: "pointer",
-                    display: "flex", alignItems: "center", justifyContent: "center",
+                    display: "flex", alignItems: "center", justifyContent: "center", padding: "3px",
                   }}
                 >
-                  <RotateCcw size={isTouch ? 19 : 21} />
+                  <Rewind size={isTouch ? 17 : 19} strokeWidth={2.4} />
                 </motion.button>
                 <motion.button
                   aria-label="Forward 10 seconds"
@@ -3124,10 +3071,10 @@ on falls back to the provider's native controls. */
                   whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92 }}
                   style={{
                     background: "transparent", border: "none", color: "rgba(255,255,255,0.9)", cursor: "pointer",
-                    display: "flex", alignItems: "center", justifyContent: "center",
+                    display: "flex", alignItems: "center", justifyContent: "center", padding: "3px",
                   }}
                 >
-                  <RotateCw size={isTouch ? 19 : 21} />
+                  <FastForward size={isTouch ? 17 : 19} strokeWidth={2.4} />
                 </motion.button>
                 {/* Volume — button + hover slider */}
                 <div
