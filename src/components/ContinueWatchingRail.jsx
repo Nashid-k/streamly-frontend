@@ -5,7 +5,7 @@ import slugify from "slugify";
 import { useAppAuth } from "../context/auth";
 import useRailArrows from "../hooks/useRailArrows";
 import RailArrow from "./RailArrow";
-import { durationSeconds, progressPct, remainingSeconds } from "../utils/resumeProgress";
+import { progressPct, remainingSeconds } from "../utils/resumeProgress";
 
 const fmtTimeLeft = (seconds) => {
   if (!seconds || seconds <= 0) return null;

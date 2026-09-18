@@ -58,7 +58,7 @@ import { logEmptyData, logError, reportQueryError } from "../utils/debugLogger";
 // be cached independently after first visit.
 const CustomVideoPlayer = lazy(() => import("../components/CustomVideoPlayer"));
 import ErrorBoundary from "../components/ErrorBoundary";
-import ContinueWatchingRail from "../components/ContinueWatchingRail";
+
 import { durationSeconds } from "../utils/resumeProgress";
 import { usePreferences } from "../context/preferences";
 const EMPTY_ARRAY = [];
@@ -142,19 +142,18 @@ function SeasonDropdown({ seasons, selectedSeason, airingSeasonNumber, onSelect 
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: "5px",
-                padding: "2px 8px",
-                borderRadius: "999px",
-                background: "var(--accent-gradient, linear-gradient(90deg, #95ff50, #5ce21c))",
-                color: "var(--on-accent, #fff)",
-                fontSize: "0.6rem",
-                fontWeight: 800,
-                letterSpacing: "0.05em",
+                padding: "2px 10px",
+                borderRadius: "7px 7px 0 0",
+                background: "#3c8217",
+                color: "#fff",
+                fontSize: "11px",
+                fontWeight: 500,
+                lineHeight: 1.45,
+                whiteSpace: "nowrap",
                 flexShrink: 0,
               }}
             >
-              <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#fff", flexShrink: 0 }} />
-              NEW SEASON
+              Airing
             </span>
           )}
         </span>
@@ -240,26 +239,24 @@ function SeasonDropdown({ seasons, selectedSeason, airingSeasonNumber, onSelect 
                     )}
                     {!isSelected && <span style={{ width: "6px" }} />}
                     <span style={{ flex: 1 }}>Season {seasonNumber}</span>
-                    {isAiringSeason && (
+{isAiringSeason && (
                       <span
                         aria-label="Currently airing"
                         style={{
                           display: "inline-flex",
                           alignItems: "center",
-                          gap: "5px",
-                          padding: "2px 8px",
-                          borderRadius: "999px",
-                          background: "var(--accent-gradient, linear-gradient(90deg, #95ff50, #5ce21c))",
-                          color: "var(--on-accent, #fff)",
-                          fontSize: "0.62rem",
-                          fontWeight: 800,
-                          letterSpacing: "0.04em",
+                          padding: "2px 10px",
+                          borderRadius: "7px 7px 0 0",
+                          background: "#3c8217",
+                          color: "#fff",
+                          fontSize: "11px",
+                          fontWeight: 500,
+                          lineHeight: 1.45,
                           flexShrink: 0,
                           whiteSpace: "nowrap",
                         }}
                       >
-                        <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#fff", flexShrink: 0 }} />
-                        NEW SEASON
+                        Airing
                       </span>
                     )}
                   </motion.button>
@@ -1228,34 +1225,24 @@ export default function TitleDetails() {
             {seriesIsAiring && (
               <div className="mt-4 lg:mt-5 flex flex-wrap items-center justify-center lg:justify-start gap-x-4 gap-y-2">
                 <span
+                  aria-label={
+                    airingSeasonNumber > 1
+                      ? `Season ${airingSeasonNumber} Airing`
+                      : "Airing"
+                  }
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
-                    gap: "8px",
-                    padding: "6px 14px",
-                    borderRadius: "100px",
-                    background:
-                      "linear-gradient(135deg, rgba(149,255,80,0.18), rgba(92,226,28,0.08))",
-                    border: "1px solid rgba(149,255,80,0.45)",
-                    color: "#d9f99d",
-                    fontSize: "0.8rem",
-                    fontWeight: 700,
-                    letterSpacing: "0.03em",
-                    boxShadow: "0 4px 20px rgba(149,255,80,0.2)",
+                    padding: "4px 12px",
+                    borderRadius: "7px 7px 0 0",
+                    background: "#3c8217",
+                    color: "#fff",
+                    fontSize: "11px",
+                    fontWeight: 500,
+                    lineHeight: 1.45,
+                    whiteSpace: "nowrap",
                   }}
                 >
-                  <span
-                    aria-hidden="true"
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      background: "var(--accent-primary, #95ff50)",
-                      boxShadow: "0 0 0 0 rgba(149,255,80,0.7)",
-                      animation: "pulse 2s ease-in-out infinite",
-                      flexShrink: 0,
-                    }}
-                  />
                   {airingSeasonNumber > 1
                     ? `Season ${airingSeasonNumber} Airing`
                     : "Airing"}
@@ -1279,6 +1266,18 @@ export default function TitleDetails() {
               </div>
             )}
 
+            {/* Banner-style resume progress for continue-watching entries */}
+            {hasResume && resumePct > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18 }}>
+                <div style={{ width: "min(200px, 30vw)", height: 4, borderRadius: 999, background: "rgba(255,255,255,0.22)", overflow: "hidden" }}>
+                  <div style={{ width: `${resumePct}%`, height: "100%", background: "#E50914" }} />
+                </div>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.85)", letterSpacing: "0.3px" }}>
+                  {resumePct}% Watched
+                </span>
+              </div>
+            )}
+
             {/* Actions */}
             <div className="mt-5 lg:mt-6 flex items-center gap-3 flex-wrap justify-center lg:justify-start">
               <button
@@ -1295,9 +1294,6 @@ export default function TitleDetails() {
                 style={{ background: "var(--accent-gradient)", color: "var(--on-accent, #fff)", boxShadow: "0 8px 24px var(--accent-glow, rgba(149,255,80,0.5))" }}
               >
                 <Play className="w-5 h-5 mr-1.5 fill-current" /> {hasResume ? "Resume" : "Play"}
-                {hasResume && resumePct > 0 && (
-                  <span className="ml-2 text-xs font-bold opacity-90">{resumePct}%</span>
-                )}
               </button>
 
               {/* Cinejoy-style circular actions: Add to List | Download | Mark watched */}
@@ -1447,15 +1443,6 @@ export default function TitleDetails() {
           </div>
         </div>
       </div>
-
-      {/* ── Continue Watching ─────────────────────────────────────────────── */}
-      {continueWatching && continueWatching.length > 0 && (
-        <div className="relative z-20 mt-2">
-          <ErrorBoundary>
-            <ContinueWatchingRail railIndex={0} items={continueWatching} />
-          </ErrorBoundary>
-        </div>
-      )}
 
       {/* ── Cast & Rest ─────────────────────────────────────────────────────────────── */}
       <div id="title-details-more" className="relative z-20 mt-10 lg:mt-14 px-6 lg:px-16 space-y-10 lg:space-y-14 pb-20">
@@ -1861,9 +1848,9 @@ export default function TitleDetails() {
                             {/* Center status */}
                             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                               {!isAired ? (
-                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'linear-gradient(135deg, rgba(149,255,80,0.95), rgba(149,255,80,0.9))', color: '#fff', padding: '6px 12px', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.02em', backdropFilter: 'blur(6px)', boxShadow: '0 6px 20px rgba(149,255,80,0.4)' }}>
-                                  <Calendar size={13} strokeWidth={2.5} aria-hidden="true" />
-                                  <span style={{ opacity: 0.9, fontWeight: 700 }}>Airs</span>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#3c8217', color: '#fff', padding: '4px 12px', borderRadius: '7px 7px 0 0', fontSize: '11px', fontWeight: 500, lineHeight: 1.45, backdropFilter: 'blur(6px)', boxShadow: '0 6px 20px rgba(0,0,0,0.35)' }}>
+                                  <Calendar size={12} strokeWidth={2} aria-hidden="true" />
+                                  <span>Airs</span>
                                   {formatAirsDate(ep.airDate)}
                                 </div>
                               ) : SERVERS.length === 0 ? (
@@ -1965,8 +1952,8 @@ export default function TitleDetails() {
                                 </div>
                               )
                             ) : (
-                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'linear-gradient(135deg, rgba(149,255,80,0.9), rgba(149,255,80,0.9))', color: '#fff', padding: '3px 9px', borderRadius: '999px', fontSize: '0.64rem', fontWeight: 800, backdropFilter: 'blur(6px)', boxShadow: '0 4px 14px rgba(149,255,80,0.35)' }}>
-                                <Calendar size={11} strokeWidth={2.5} aria-hidden="true" />
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#3c8217', color: '#fff', padding: '4px 12px', borderRadius: '7px 7px 0 0', fontSize: '11px', fontWeight: 500, lineHeight: 1.45, backdropFilter: 'blur(6px)', boxShadow: '0 4px 14px rgba(0,0,0,0.35)' }}>
+                                <Calendar size={11} strokeWidth={2} aria-hidden="true" />
                                 {formatAirsDate(ep.airDate)}
                               </div>
                             )}
