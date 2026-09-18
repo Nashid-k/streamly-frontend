@@ -63,7 +63,6 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   subtitleFont: "cinejoy",
   subtitleSize: 100,
   subtitleColor: "#ffffff",
-  subtitleBgBlur: true,
 });
 
 export const PreferencesContext = createContext(null);

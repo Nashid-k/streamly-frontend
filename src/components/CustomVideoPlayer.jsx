@@ -423,7 +423,6 @@ const CustomVideoPlayer = forwardRef(({
     subtitleSize = 100,
     subtitleColor = "#ffffff",
     subtitleFont = "cinejoy",
-    subtitleBgBlur = true,
     autoSubtitles = true,
     defaultLanguage = "en",  } = usePreferences();
   const seekStep = Number(seekTime) || 10;
@@ -1920,13 +1919,8 @@ on falls back to the provider's native controls. */
                 textAlign: "center",
                 maxWidth: "88%",
                 whiteSpace: "pre-wrap",
-                background: subtitleBgBlur ? (isTouch ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.6)") : (isTouch ? "transparent" : "rgba(0,0,0,0.5)"),
-                borderRadius: subtitleBgBlur ? 8 : (isTouch ? 0 : 6),
-                backdropFilter: subtitleBgBlur ? "blur(8px)" : "none",
-                WebkitBackdropFilter: subtitleBgBlur ? "blur(8px)" : "none",
-                textShadow: isTouch
-                  ? "0 2px 4px rgba(0,0,0,0.95), 0 0 2px #000, 0 0 12px rgba(0,0,0,0.95), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000"
-                  : "0 1px 8px rgba(0,0,0,0.95), 0 0 3px rgba(0,0,0,0.8)",
+                textShadow:
+                  "0 2px 4px rgba(0,0,0,0.95), 0 0 2px #000, 0 0 12px rgba(0,0,0,0.95), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000",
               }}
             >
               {activeSubtitleCue.text}

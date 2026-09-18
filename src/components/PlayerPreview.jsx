@@ -69,7 +69,6 @@ const PlayerPreview = ({
     subtitleFont = "cinejoy",
     subtitleSize = 100,
     subtitleColor = "#ffffff",
-    subtitleBgBlur = true,
   } = usePreferences();
 
   const subtitleStyle = {
@@ -81,13 +80,8 @@ const PlayerPreview = ({
           : "'Inter', sans-serif",
     fontSize: `calc(clamp(11px, 1.8vw, 20px) * ${(Number(subtitleSize) || 100) / 100})`,
     color: subtitleColor,
-    background: subtitleBgBlur ? "rgba(0,0,0,0.55)" : "transparent",
-    borderRadius: subtitleBgBlur ? 6 : 0,
-    backdropFilter: subtitleBgBlur ? "blur(8px)" : "none",
-    WebkitBackdropFilter: subtitleBgBlur ? "blur(8px)" : "none",
-    textShadow: subtitleBgBlur
-      ? "0 1px 8px rgba(0,0,0,0.95), 0 0 3px rgba(0,0,0,0.8)"
-      : "0 2px 4px rgba(0,0,0,0.95), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000",
+    textShadow:
+      "0 2px 4px rgba(0,0,0,0.95), 0 0 2px #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000",
   };
 
   return (

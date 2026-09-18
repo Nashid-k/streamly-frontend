@@ -424,7 +424,6 @@ export default function SettingsPage() {
     subtitleFont = "cinejoy",
     subtitleSize = 100,
     subtitleColor = "#ffffff",
-    subtitleBgBlur = true,
     // Setter
     setPreference,
     resetPreferences,
@@ -1612,18 +1611,6 @@ export default function SettingsPage() {
                         />
                       ))}
                     </div>
-                  </SettingRow>
-
-                  {/* Background Blur */}
-                  <SettingRow
-                    title="Background Blur"
-                    description="Improve legibility with a soft glow."
-                  >
-                    <Toggle
-                      label="Background Blur"
-                      checked={subtitleBgBlur}
-                      onChange={(val) => setPreference("subtitleBgBlur", val)}
-                    />
                   </SettingRow>
 
                   {/* Real-time Subtitle Live Preview Box — the same demo-video
