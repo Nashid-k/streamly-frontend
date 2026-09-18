@@ -3905,6 +3905,7 @@ body::after {
 }
 
 .movie-grid > *:hover .card-remove-button,
+.discovery-grid > *:hover .card-remove-button,
 .card-remove-button:focus-visible {
   opacity: 1;
 }
@@ -3959,6 +3960,7 @@ body::after {
 }
 
 .movie-grid > *:hover .card-add-collection-button,
+.discovery-grid > *:hover .card-add-collection-button,
 .card-add-collection-button:focus-visible {
   opacity: 1;
 }

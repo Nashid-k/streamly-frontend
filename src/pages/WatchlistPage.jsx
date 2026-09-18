@@ -10,17 +10,134 @@ import {
   FolderPlus,
   Pencil,
   Plus,
+  ChevronDown,
+  ChevronLeft,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppAuth } from "../context/auth";
 import { useToast } from "../components/Toast.jsx";
 import { useConfirmDialog } from "../components/ConfirmDialog.jsx";
 import MovieCard from "../components/MovieCard";
-import Chip from "../components/Chip";
 import AmbientBackground from "../components/AmbientBackground";
 import ErrorBoundary from "../components/ErrorBoundary";
-import ContentPageHeader from "../components/ContentPageHeader";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
+
+/* ── Shared pill chrome (matching the movies/series discovery pages) ─────── */
+const GHOST_PILL =
+  "inline-flex items-center gap-2 px-4 md:px-5 py-2 md:py-2.5 rounded-full border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition-all duration-300 text-sm font-medium backdrop-blur-md whitespace-nowrap";
+const ACCENT_PILL =
+  "inline-flex items-center gap-2 px-4 md:px-5 py-2 md:py-2.5 rounded-full border border-[#95ff50]/40 bg-[#95ff50]/10 text-[#95ff50] hover:bg-[#95ff50]/20 transition-all duration-300 text-sm font-semibold backdrop-blur-md whitespace-nowrap";
+
+/* ── Filter pill — frosted capsule that drops a listbox panel ─────────────
+   Mirrors DiscoveryPage's FilterPill so My List controls feel identical to
+   the movies/series browse pages: same trigger, same menu shell, same
+   click-outside / Escape dismissal. */
+function FilterPill({ label, children }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onClick = (e) => {
+      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="relative filter-dropdown min-w-0 md:flex-none">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`Filter by ${label}`}
+        onClick={() => setOpen((o) => !o)}
+        className="group flex items-center justify-between gap-2 w-full md:w-auto px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all duration-300 backdrop-blur-md min-w-0 md:min-w-[140px]"
+      >
+        <span className="truncate text-sm font-medium text-white/80">{label}</span>
+        <ChevronDown
+          size={14}
+          className="w-4 h-4 shrink-0 text-white/50 group-hover:text-white transition-colors"
+        />
+      </button>
+      {open && (
+        <div
+          role="listbox"
+          aria-label={label}
+          className="discovery-menu absolute top-[calc(100%+8px)] left-0 z-[70] w-64 max-h-80 overflow-y-auto rounded-2xl border border-white/10 bg-[#121217]/95 backdrop-blur-2xl shadow-2xl p-2"
+        >
+          {children({ close: () => setOpen(false) })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Menu row inside a filter panel ─────────────────────────────────────── */
+function MenuItem({ label, selected, onSelect, icon }) {
+  return (
+    <button
+      type="button"
+      role="option"
+      aria-selected={selected}
+      onClick={onSelect}
+      className={`flex items-center justify-between w-full text-left px-3 py-2 rounded-xl text-sm transition-colors ${
+        selected ? "bg-[#95ff50]/[0.1] text-white" : "text-white/70 hover:bg-white/5 hover:text-white"
+      }`}
+    >
+      <span className="truncate">{label}</span>
+      <span className="flex items-center gap-2 shrink-0 ml-2">
+        {icon}
+        {selected && <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0" />}
+      </span>
+    </button>
+  );
+}
+
+/* ── Frosted capsule search field ───────────────────────────────────────── */
+function SearchField({ value, onChange, placeholder }) {
+  return (
+    <div className="flex items-center gap-2 w-full md:w-64 px-3 md:px-4 py-2 bg-white/5 border border-white/10 rounded-full backdrop-blur-md transition-all duration-300 focus-within:border-[#95ff50]/40 min-w-0">
+      <Search size={14} className="w-4 h-4 shrink-0 text-white/40" />
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        aria-label={placeholder}
+        className="w-full min-w-0 bg-transparent outline-none text-sm text-white/90 placeholder:text-white/35"
+      />
+      {value && (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          aria-label="Clear search"
+          className="shrink-0 text-white/50 hover:text-white transition-colors"
+        >
+          <X size={14} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ── Action button styled as a discovery pill ───────────────────────────── */
+function PillAction({ accent, onClick, children, ariaLabel, active }) {
+  const cls = accent ? ACCENT_PILL : active ? ACCENT_PILL : GHOST_PILL;
+  return (
+    <button type="button" aria-label={ariaLabel} onClick={onClick} className={cls}>
+      {children}
+    </button>
+  );
+}
 
 /* ── Create / Rename dialog ─────────────────────────────────────────────── */
 function CollectionNameDialog({ open, title, initial = "", submitLabel, onSubmit, onClose }) {
@@ -363,6 +480,7 @@ function CollectionCard({ collection, items, onOpen, onRename, onDelete }) {
   );
 }
 
+/* ── My List — redesigned on the movies/series discovery page language ──── */
 export default function WatchlistPage() {
   const navigate = useNavigate();
   const {
@@ -587,113 +705,174 @@ export default function WatchlistPage() {
     [activeCollection],
   );
 
+  const hasItems = inCollectionView
+    ? activeCollection.itemIds.length > 0
+    : myList.length > 0;
+
+  const hasMore = visibleCount < filteredAndSortedList.length;
+
+  const sortOptions = [
+    { label: "Date Added", value: "Date Added" },
+    { label: "A – Z", value: "Title A–Z" },
+    { label: "Top Rated", value: "Rating" },
+  ];
+
   return (
-    <div style={{ position: "relative", minHeight: "100vh" }}>
-      {/* Ambient background — same banner-at-the-time gradient blur as the
-          movies/series browse pages. */}
+    <div style={{ position: "relative" }}>
+      {/* Ambient liquid backdrop from the first saved title */}
       <AmbientBackground
-        src={visibleResults[0]?.backdropUrl || visibleResults[0]?.posterUrl || visibleResults[0]?.poster || myList[0]?.backdropUrl || myList[0]?.posterUrl}
+        src={visibleResults[0]?.backdropUrl || visibleResults[0]?.posterUrl || myList[0]?.backdropUrl || myList[0]?.posterUrl}
       />
-      {/* Cinematic fade to black behind the header — identical to Genre/Category */}
-      <div
-        style={{
-          position: "absolute",
-          top: "10vh",
-          left: 0,
-          width: "100%",
-          height: "30vh",
-          background: "linear-gradient(to bottom, transparent, #000)",
-          zIndex: -1,
-        }}
-      />
-      <div className="main-content content-page content-page--library">
-        <div className="content-page__inner">
-          <ContentPageHeader
-            eyebrow={inCollectionView ? "Collection" : "Your library"}
-            title={inCollectionView ? activeCollection.name : "My List"}
-            description={
-              inCollectionView
-                ? `${activeCollection.itemIds.length} saved title${activeCollection.itemIds.length === 1 ? "" : "s"} · curated by you.`
-                : "Keep the next great watch close at hand."
-            }
-            count={inCollectionView ? activeCollection.itemIds.length : myList.length}
-            onBack={inCollectionView ? () => setActiveCollectionId(null) : undefined}
-            backLabel={inCollectionView ? "All My List" : "Back"}
-            actions={
-              (inCollectionView ? activeCollection.itemIds.length > 0 : myList.length > 0) && (
-                <div className="filter-controls">
-                  {!inCollectionView && (
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      style={{ borderRadius: "999px", padding: "5px 14px", fontSize: "0.78rem", fontWeight: 600, display: "flex", alignItems: "center", gap: "6px" }}
-                      onClick={() => setNameDialog({ mode: "create", collection: null })}
-                    >
-                      <FolderPlus size={14} />
-                      New Collection
-                    </button>
-                  )}
-                  {inCollectionView && (
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      style={{ borderRadius: "999px", padding: "5px 14px", fontSize: "0.78rem", fontWeight: 600, display: "flex", alignItems: "center", gap: "6px" }}
-                      onClick={() => setAddTitlesOpen(true)}
-                    >
-                      <Plus size={14} />
-                      Add Titles
-                    </button>
-                  )}
+
+      <div className="discovery-page relative z-10">
+        {/* ── Header ─────────────────────────────────────────────────── */}
+        <header className="relative mx-auto max-w-[1600px] pt-24 pb-8 px-4 md:px-10 lg:px-14">
+          <div className="relative pt-12 pb-8 px-6 md:px-8 space-y-8">
+            <div className="flex flex-col xl:flex-row gap-10 xl:gap-8 items-start xl:items-end justify-between">
+              <div className="max-w-xl">
+                {inCollectionView && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setIsSelectMode((v) => !v);
-                      setSelectedIds(new Set());
-                    }}
-                    style={{
-                      background: isSelectMode ? "rgba(var(--accent-primary-rgb), 0.2)" : "rgba(255,255,255,0.06)",
-                      border: isSelectMode ? "1px solid rgba(var(--accent-primary-rgb), 0.4)" : "1px solid rgba(255,255,255,0.1)",
-                      color: isSelectMode ? "var(--accent-primary, #60a5fa)" : "#fff",
-                      borderRadius: "999px",
-                      padding: "5px 14px",
-                      fontSize: "0.78rem",
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      transition: "all 0.2s",
-                    }}
+                    onClick={() => setActiveCollectionId(null)}
+                    className="group flex items-center gap-1.5 text-sm font-medium text-white/60 transition-colors mb-4 hover:text-white/90"
                   >
-                    {isSelectMode ? "Cancel" : "Select"}
+                    <ChevronLeft
+                      size={15}
+                      className="w-4 h-4 transition-transform group-hover:-translate-x-0.5"
+                    />
+                    All My List
                   </button>
-                  <div className="filter-group" aria-label="Filter My List by type">
-                    {["All", "Movies", "TV Shows"].map((f) => (
-                      <Chip key={f} active={filterType === f} onClick={() => setFilterType(f)}>
-                        {f}
-                      </Chip>
-                    ))}
-                  </div>
-                  <div className="filter-group filter-group--quiet" aria-label="Sort My List">
-                    {[
-                      { label: "Date Added", value: "Date Added" },
-                      { label: "A – Z", value: "Title A–Z" },
-                      { label: "Top Rated", value: "Rating" },
-                    ].map((opt) => (
-                      <Chip
-                        key={opt.value}
-                        size="sm"
-                        active={sortBy === opt.value}
-                        onClick={() => setSortBy(opt.value)}
+                )}
+                <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white drop-shadow-lg">
+                  {inCollectionView ? activeCollection.name : "My List"}
+                </h1>
+                <p className="mt-3 text-lg text-white/70 font-medium leading-relaxed">
+                  {inCollectionView
+                    ? `${activeCollection.itemIds.length} saved title${activeCollection.itemIds.length === 1 ? "" : "s"} · curated by you.`
+                    : `Keep the next great watch close at hand · ${myList.length} saved.`}
+                </p>
+              </div>
+
+              {hasItems && (
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full xl:w-auto">
+                  {/* Dropdown pills: Type / Sort / Collection */}
+                  <div className="filter-row flex items-center sm:justify-start gap-2 sm:gap-3 flex-wrap">
+                    <FilterPill label={filterType}>
+                      {({ close }) =>
+                        ["All", "Movies", "TV Shows"].map((f) => (
+                          <MenuItem
+                            key={f}
+                            label={f}
+                            selected={filterType === f}
+                            onSelect={() => {
+                              setFilterType(f);
+                              close();
+                            }}
+                          />
+                        ))
+                      }
+                    </FilterPill>
+                    <FilterPill label={sortBy}>
+                      {({ close }) =>
+                        sortOptions.map((opt) => (
+                          <MenuItem
+                            key={opt.value}
+                            label={opt.label}
+                            selected={sortBy === opt.value}
+                            onSelect={() => {
+                              setSortBy(opt.value);
+                              close();
+                            }}
+                          />
+                        ))
+                      }
+                    </FilterPill>
+                    {!inCollectionView && collections.length > 0 && (
+                      <FilterPill label="Collection">
+                        {({ close }) => (
+                          <>
+                            <MenuItem
+                              label="All"
+                              selected={activeCollectionId === null}
+                              onSelect={() => {
+                                setActiveCollectionId(null);
+                                close();
+                              }}
+                            />
+                            {collections.map((c) => (
+                              <MenuItem
+                                key={c.id}
+                                label={c.name}
+                                selected={activeCollectionId === c.id}
+                                onSelect={() => {
+                                  setActiveCollectionId(c.id);
+                                  close();
+                                }}
+                              />
+                            ))}
+                          </>
+                        )}
+                      </FilterPill>
+                    )}
+                    {isSelectMode && (
+                      <PillAction
+                        accent
+                        active
+                        onClick={handleSelectAll}
+                        ariaLabel={selectedIds.size === filteredAndSortedList.length ? "Deselect all" : "Select all visible"}
                       >
-                        {opt.label}
-                      </Chip>
-                    ))}
+                        <Check size={15} />
+                        {selectedIds.size === filteredAndSortedList.length ? "Deselect All" : "Select All"}
+                      </PillAction>
+                    )}
+                  </div>
+
+                  {/* Buttons: search capsule + primary actions */}
+                  <div className="filter-row flex items-center sm:justify-start gap-2 sm:gap-3 flex-wrap">
+                    <SearchField
+                      value={searchQuery}
+                      onChange={setSearchQuery}
+                      placeholder={inCollectionView ? "Search this collection..." : "Search your list..."}
+                    />
+                    {inCollectionView ? (
+                      <PillAction accent onClick={() => setAddTitlesOpen(true)} ariaLabel="Add titles to this collection">
+                        <Plus size={15} /> Add Titles
+                      </PillAction>
+                    ) : (
+                      <PillAction accent onClick={() => setNameDialog({ mode: "create", collection: null })} ariaLabel="Create a new collection">
+                        <FolderPlus size={15} /> New Collection
+                      </PillAction>
+                    )}
+                    <PillAction
+                      active={isSelectMode}
+                      onClick={() => {
+                        setIsSelectMode((v) => !v);
+                        setSelectedIds(new Set());
+                      }}
+                      ariaLabel={isSelectMode ? "Cancel selection mode" : "Enter select mode"}
+                    >
+                      {isSelectMode ? "Cancel" : "Select"}
+                    </PillAction>
                   </div>
                 </div>
-              )
-            }
-          />
+              )}
+            </div>
+          </div>
+        </header>
 
-          {!inCollectionView && collections.length > 0 && (
-            <section className="collections-rail" aria-label="My collections">
+        {/* ── Collections rail (main view) ────────────────────────────── */}
+        {!inCollectionView && collections.length > 0 && (
+          <section className="relative z-10 mt-2">
+            <div className="flex items-center gap-3 px-4 md:px-8">
+              <h2 className="text-lg sm:text-xl font-semibold text-white/90 drop-shadow-md">
+                Your Collections
+              </h2>
+              <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-0.5 text-[0.7rem] font-medium text-white/60">
+                <FolderOpen size={11} className="text-white/45" />
+                {collections.length}
+              </span>
+            </div>
+            <div className="mt-6 px-4 md:px-8">
               <div className="collections-rail__grid">
                 {collections.map((collection) => (
                   <CollectionCard
@@ -706,354 +885,287 @@ export default function WatchlistPage() {
                   />
                 ))}
               </div>
-            </section>
-          )}
+            </div>
+          </section>
+        )}
 
-          {!inCollectionView && collections.length === 0 && myList.length > 0 && (
+        {!inCollectionView && collections.length === 0 && myList.length > 0 && (
+          <section className="relative z-10 mt-2 px-4 md:px-8">
             <p className="collections-empty-hint">
               <FolderPlus size={16} /> Group your saved titles into named collections.
             </p>
-          )}
+          </section>
+        )}
 
-          {(inCollectionView ? activeCollection.itemIds.length > 0 : myList.length > 0) && (
-            <div style={{ position: "relative", marginBottom: "1.25rem", maxWidth: "340px" }}>
-              <Search
-                size={15}
-                style={{
-                  position: "absolute",
-                  left: "12px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "rgba(255,255,255,0.4)",
-                  pointerEvents: "none",
-                }}
-              />
-              <input
-                type="text"
-                placeholder={inCollectionView ? "Search this collection..." : "Search your list..."}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px 32px 8px 34px",
-                  borderRadius: "100px",
-                  background: "rgba(255, 255, 255, 0.05)",
-                  border: "1px solid rgba(255, 255, 255, 0.1)",
-                  color: "#fff",
-                  fontSize: "0.82rem",
-                  outline: "none",
-                  transition: "border-color 0.2s, background 0.2s",
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = "rgba(var(--accent-primary-rgb), 0.5)";
-                  e.target.style.background = "rgba(255, 255, 255, 0.08)";
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = "rgba(255, 255, 255, 0.1)";
-                  e.target.style.background = "rgba(255, 255, 255, 0.05)";
-                }}
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  style={{
-                    position: "absolute",
-                    right: "10px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    background: "transparent",
-                    border: "none",
-                    color: "rgba(255,255,255,0.5)",
-                    cursor: "pointer",
-                    padding: "2px",
-                    display: "flex",
-                  }}
-                  aria-label="Clear search"
-                >
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-          )}
-
-          {myList.length === 0 || (inCollectionView && activeCollection.itemIds.length === 0) ? (
-            <motion.div
-              className="collection-empty"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <motion.div
-                animate={{ y: [0, -8, 0] }}
-                transition={{
-                  duration: 2.5,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-              >
+        {/* ── Poster grid ─────────────────────────────────────────────── */}
+        <section className="px-4 md:px-8 mt-4 relative z-10">
+          <ErrorBoundary>
+            {myList.length === 0 || (inCollectionView && activeCollection.itemIds.length === 0) ? (
+              <div style={{ padding: "5rem 0", textAlign: "center", color: "#a1a1aa" }}>
+                <div style={{ marginBottom: "1.25rem" }}>
+                  {inCollectionView ? (
+                    <FolderOpen size={48} strokeWidth={1.3} style={{ opacity: 0.2, margin: "0 auto" }} />
+                  ) : (
+                    <Bookmark size={48} strokeWidth={1.3} style={{ opacity: 0.2, margin: "0 auto" }} />
+                  )}
+                </div>
+                <h2 style={{ color: "#fff", marginBottom: "0.5rem", fontSize: "1.35rem" }}>
+                  {inCollectionView ? "This collection is empty" : "Your list is empty"}
+                </h2>
+                <p style={{ margin: "0 auto 1.5rem", maxWidth: "24rem", lineHeight: 1.6 }}>
+                  {inCollectionView
+                    ? `Add some of your saved titles to start filling "${activeCollection.name}".`
+                    : "Add movies and series to your list to save them for later."}
+                </p>
                 {inCollectionView ? (
-                  <FolderOpen size={56} style={{ opacity: 0.2, marginBottom: "1.5rem" }} />
-                ) : (
-                  <Bookmark size={56} style={{ opacity: 0.2, marginBottom: "1.5rem" }} />
-                )}
-              </motion.div>
-              {inCollectionView ? (
-                <>
-                  <h2>This collection is empty</h2>
-                  <p>Add some of your saved titles to start filling "{activeCollection.name}".</p>
-                  <div className="collection-empty__hint">
-                    <p>
-                      Tap <span className="collection-empty__key">Add Titles</span> to pick from your list.
-                    </p>
-                  </div>
-                  <motion.button
+                  <button
+                    type="button"
+                    className={ACCENT_PILL}
                     onClick={() => setAddTitlesOpen(true)}
-                    className="btn btn-primary"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
                   >
                     <Plus size={16} /> Add Titles
-                  </motion.button>
-                </>
-              ) : (
-                <>
-                  <h2>Your list is empty</h2>
-                  <p>Add movies and series to your list to save them for later.</p>
-                  <div className="collection-empty__hint">
-                    <p>
-                      Browse any title and tap{" "}
-                      <span className="collection-empty__key">＋</span>{" "}
-                      to save it here.
-                    </p>
-                  </div>
-                  <motion.button
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className={ACCENT_PILL}
                     onClick={() => navigate("/")}
-                    className="btn btn-primary"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
                   >
-                    Discover Content
-                  </motion.button>
-                </>
-              )}
-            </motion.div>
-          ) : filteredAndSortedList.length === 0 ? (
-            <motion.div
-              className="content-page__notice"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-            >
-              {searchQuery
-                ? `No saved titles match "${searchQuery}".`
-                : "No items match this filter."}
-            </motion.div>
-          ) : (
-            <ErrorBoundary>
-              <div className="movie-grid" style={{ marginTop: "1rem" }}>
-                <AnimatePresence>
-                  {visibleResults.map((movie, idx) => {
-                    const isSelected = selectedIds.has(movie.id);
-                    const inCollection = collectionForTitle.get(movie.id);
-                    return (
-                      <motion.div
-                        key={movie.id}
-                        layout
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{
-                          opacity: 0,
-                          scale: 0.85,
-                          transition: { duration: 0.2 },
-                        }}
-                        transition={{
-                          duration: 0.4,
-                          delay: (idx % 20) * 0.04,
-                          ease: "easeOut",
-                        }}
-                        onClick={
-                          isSelectMode ? () => toggleSelectCard(movie.id) : undefined
-                        }
-                        style={{
-                          position: "relative",
-                          cursor: isSelectMode ? "pointer" : "default",
-                          borderRadius: "16px",
-                          outline:
-                            isSelectMode && isSelected
-                              ? "2px solid var(--accent-primary, #60a5fa)"
-                              : "none",
-                          outlineOffset: "3px",
-                          transition: "outline 0.15s ease",
-                        }}
-                      >
-                        <MovieCard movie={movie} />
+                    <Bookmark size={16} /> Discover Content
+                  </button>
+                )}
+              </div>
+            ) : filteredAndSortedList.length === 0 ? (
+              <div style={{ padding: "5rem 0", textAlign: "center", color: "#a1a1aa" }}>
+                <h2 style={{ color: "#fff", marginBottom: "0.5rem", fontSize: "1.35rem" }}>
+                  No titles found
+                </h2>
+                <p>
+                  {searchQuery
+                    ? `No saved titles match "${searchQuery}".`
+                    : "No items match this filter."}
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="discovery-grid">
+                  <AnimatePresence>
+                    {visibleResults.map((movie, idx) => {
+                      const isSelected = selectedIds.has(movie.id);
+                      const inCollection = collectionForTitle.get(movie.id);
+                      return (
+                        <motion.div
+                          key={movie.id}
+                          layout
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{
+                            opacity: 0,
+                            scale: 0.85,
+                            transition: { duration: 0.2 },
+                          }}
+                          transition={{
+                            duration: 0.4,
+                            delay: (idx % 20) * 0.04,
+                            ease: "easeOut",
+                          }}
+                          onClick={
+                            isSelectMode ? () => toggleSelectCard(movie.id) : undefined
+                          }
+                          style={{
+                            position: "relative",
+                            cursor: isSelectMode ? "pointer" : "default",
+                            borderRadius: "16px",
+                            outline:
+                              isSelectMode && isSelected
+                                ? "2px solid var(--accent-primary, #60a5fa)"
+                                : "none",
+                            outlineOffset: "3px",
+                            transition: "outline 0.15s ease",
+                          }}
+                        >
+                          <MovieCard movie={movie} />
 
-                        {isSelectMode ? (
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: "10px",
-                              left: "10px",
-                              zIndex: 10,
-                              width: "24px",
-                              height: "24px",
-                              borderRadius: "50%",
-                              background: isSelected
-                                ? "var(--accent-primary, #3b82f6)"
-                                : "rgba(0,0,0,0.6)",
-                              border: isSelected
-                                ? "none"
-                                : "2px solid rgba(255,255,255,0.7)",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
-                              transition: "all 0.2s",
-                            }}
-                          >
-                            {isSelected && (
-                              <Check size={14} color="#fff" strokeWidth={3} />
-                            )}
-                          </div>
-                        ) : inCollectionView ? (
-                          <motion.button
-                            className="card-remove-button"
-                            onClick={(e) => handleRemoveFromCollection(e, movie)}
-                            title="Remove from Collection"
-                            aria-label={`Remove ${movie.title} from this collection`}
-                          >
-                            <X size={14} />
-                          </motion.button>
-                        ) : (
-                          <>
-                            <motion.button
-                              className="card-add-collection-button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setPickerMovie(movie);
+                          {isSelectMode ? (
+                            <div
+                              style={{
+                                position: "absolute",
+                                top: "10px",
+                                left: "10px",
+                                zIndex: 10,
+                                width: "24px",
+                                height: "24px",
+                                borderRadius: "50%",
+                                background: isSelected
+                                  ? "var(--accent-primary, #3b82f6)"
+                                  : "rgba(0,0,0,0.6)",
+                                border: isSelected
+                                  ? "none"
+                                  : "2px solid rgba(255,255,255,0.7)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
+                                transition: "all 0.2s",
                               }}
-                              title="Add to / remove from collection"
-                              aria-label={`Add ${movie.title} to a collection`}
                             >
-                              <FolderPlus size={14} />
-                            </motion.button>
-                            {inCollection && (
-                              <span
-                                className="card-collection-badge"
-                                title={`In "${collections.find((c) => c.id === inCollection)?.name || "collection"}"`}
-                              >
-                                <FolderOpen size={11} />
-                              </span>
-                            )}
+                              {isSelected && (
+                                <Check size={14} color="#fff" strokeWidth={3} />
+                              )}
+                            </div>
+                          ) : inCollectionView ? (
                             <motion.button
                               className="card-remove-button"
-                              onClick={(e) => handleRemove(e, movie)}
-                              title="Remove from List"
-                              aria-label={`Remove ${movie.title} from My List`}
+                              onClick={(e) => handleRemoveFromCollection(e, movie)}
+                              title="Remove from Collection"
+                              aria-label={`Remove ${movie.title} from this collection`}
                             >
                               <X size={14} />
                             </motion.button>
-                          </>
-                        )}
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-              </div>
-            </ErrorBoundary>
-          )}
-
-          {isSelectMode && (
-            <AnimatePresence>
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 30 }}
-                style={{
-                  position: "fixed",
-                  bottom: "calc(var(--mobile-nav-height, 64px) + 16px)",
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  zIndex: 100,
-                  background: "rgba(18, 18, 22, 0.92)",
-                  backdropFilter: "blur(20px)",
-                  WebkitBackdropFilter: "blur(20px)",
-                  border: "1px solid rgba(255, 255, 255, 0.15)",
-                  borderRadius: "999px",
-                  padding: "8px 16px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                  boxShadow: "0 10px 30px rgba(0, 0, 0, 0.6)",
-                  maxWidth: "92vw",
-                }}
-              >
-                <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "#fff", whiteSpace: "nowrap" }}>
-                  {selectedIds.size} selected
-                </span>
-                <button
-                  type="button"
-                  onClick={handleSelectAll}
-                  style={{
-                    background: "rgba(255,255,255,0.08)",
-                    border: "none",
-                    color: "#e4e4e7",
-                    padding: "5px 12px",
-                    borderRadius: "999px",
-                    fontSize: "0.78rem",
-                    fontWeight: 500,
-                    cursor: "pointer",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {selectedIds.size === filteredAndSortedList.length ? "Deselect All" : "Select All"}
-                </button>
-                <button
-                  type="button"
-                  disabled={selectedIds.size === 0}
-                  onClick={handleBatchDelete}
-                  style={{
-                    background: selectedIds.size > 0 ? "rgba(239, 68, 68, 0.95)" : "rgba(255,255,255,0.06)",
-                    border: "none",
-                    color: selectedIds.size > 0 ? "#fff" : "rgba(255,255,255,0.3)",
-                    padding: "5px 14px",
-                    borderRadius: "999px",
-                    fontSize: "0.78rem",
-                    fontWeight: 600,
-                    cursor: selectedIds.size > 0 ? "pointer" : "default",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "4px",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  <Trash2 size={13} />
-                  Delete ({selectedIds.size})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsSelectMode(false);
-                    setSelectedIds(new Set());
-                  }}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: "rgba(255,255,255,0.5)",
-                    padding: "4px 8px",
-                    fontSize: "0.78rem",
-                    cursor: "pointer",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  Done
-                </button>
-              </motion.div>
-            </AnimatePresence>
-          )}
-        </div>
+                          ) : (
+                            <>
+                              <motion.button
+                                className="card-add-collection-button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setPickerMovie(movie);
+                                }}
+                                title="Add to / remove from collection"
+                                aria-label={`Add ${movie.title} to a collection`}
+                              >
+                                <FolderPlus size={14} />
+                              </motion.button>
+                              {inCollection && (
+                                <span
+                                  className="card-collection-badge"
+                                  title={`In "${collections.find((c) => c.id === inCollection)?.name || "collection"}"`}
+                                >
+                                  <FolderOpen size={11} />
+                                </span>
+                              )}
+                              <motion.button
+                                className="card-remove-button"
+                                onClick={(e) => handleRemove(e, movie)}
+                                title="Remove from List"
+                                aria-label={`Remove ${movie.title} from My List`}
+                              >
+                                <X size={14} />
+                              </motion.button>
+                            </>
+                          )}
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
+                </div>
+                {filteredAndSortedList.length > 20 && (
+                  <div className="discover-loadmore" aria-live="polite">
+                    {hasMore ? (
+                      <span className="loading-dots" role="status" aria-label="Loading more titles">
+                        <span />
+                        <span />
+                        <span />
+                      </span>
+                    ) : (
+                      <span className="discover-loadmore__end">You have reached the end</span>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </ErrorBoundary>
+        </section>
       </div>
+
+      {isSelectMode && (
+        <AnimatePresence>
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 30 }}
+            style={{
+              position: "fixed",
+              bottom: "calc(var(--mobile-nav-height, 64px) + 16px)",
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 100,
+              background: "rgba(18, 18, 22, 0.92)",
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+              border: "1px solid rgba(255, 255, 255, 0.15)",
+              borderRadius: "999px",
+              padding: "8px 16px",
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              boxShadow: "0 10px 30px rgba(0, 0, 0, 0.6)",
+              maxWidth: "92vw",
+            }}
+          >
+            <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "#fff", whiteSpace: "nowrap" }}>
+              {selectedIds.size} selected
+            </span>
+            <button
+              type="button"
+              onClick={handleSelectAll}
+              style={{
+                background: "rgba(255,255,255,0.08)",
+                border: "none",
+                color: "#e4e4e7",
+                padding: "5px 12px",
+                borderRadius: "999px",
+                fontSize: "0.78rem",
+                fontWeight: 500,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {selectedIds.size === filteredAndSortedList.length ? "Deselect All" : "Select All"}
+            </button>
+            <button
+              type="button"
+              disabled={selectedIds.size === 0}
+              onClick={handleBatchDelete}
+              style={{
+                background: selectedIds.size > 0 ? "rgba(239, 68, 68, 0.95)" : "rgba(255,255,255,0.06)",
+                border: "none",
+                color: selectedIds.size > 0 ? "#fff" : "rgba(255,255,255,0.3)",
+                padding: "5px 14px",
+                borderRadius: "999px",
+                fontSize: "0.78rem",
+                fontWeight: 600,
+                cursor: selectedIds.size > 0 ? "pointer" : "default",
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <Trash2 size={13} />
+              Delete ({selectedIds.size})
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsSelectMode(false);
+                setSelectedIds(new Set());
+              }}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "rgba(255,255,255,0.5)",
+                padding: "4px 8px",
+                fontSize: "0.78rem",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Done
+            </button>
+          </motion.div>
+        </AnimatePresence>
+      )}
 
       <CollectionNameDialog
         open={Boolean(nameDialog)}

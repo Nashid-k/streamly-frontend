@@ -7,6 +7,28 @@
 
 ## Done (in order)
 
+- [x] **My List page redesigned from scratch on the movies/series discovery
+  design language (user directive: “re-design my list page from scratch”)**:
+  `/watchlist` shell in `WatchlistPage.jsx` rebuilt to mirror the
+  `/movies` + `/series` browse pages exactly — same `discovery-page` glass
+  header (big bold title + soft subtitle + ambient liquid backdrop, no fade
+  overlay), the frosted `FilterPill` dropdown capsules (Type: All/Movies/TV
+  Shows, Sort: Date Added / A–Z / Top Rated, plus a Collection pill in the
+  main view that lists All + every collection and drives the drill-in view),
+  `MenuItem` listbox rows, a frosted search capsule, and discovery-style pill
+  action buttons (New Collection / Add Titles / Select / Select All / back
+  “All My List” in collection view). Collections rail got the discovery
+  heading + count-pill treatment; the poster grid switched from `movie-grid`
+  to the Cinejoy `discovery-grid` rhythm (2→4→5→6) with the
+  `discover-loadmore` sentinel / three-dot pulse / “end” footer; empty and
+  no-results states restyled to the browse pages’ centered copy. All features
+  preserved end-to-end: collections CRUD + rail, drill-in, Add-Titles picker,
+  per-card add/remove picker, membership badge, batch select/delete, search,
+  type/sort filters, infinite scroll. CSS: card hover-reveal (`card-remove-*` /
+  `card-add-collection-button`) extended to `.discovery-grid`. Verified:
+  lint 0 errors (warnings all pre-existing), vitest 38 files / 370/370,
+  build OK.
+
 - [x] **My List collections + movies/series-style UI/UX — Watchlist AND Settings
   (user directive)**: end-to-end named-folder collections on `/watchlist`.
   `useMyCollections` (src/hooks/useUserData.js:85–184) persists under
