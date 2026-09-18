@@ -73,9 +73,9 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
   };
 
   return (
-    <div className="space-y-4 relative z-10 group/row mb-8 lg:mb-12">
+    <div className="space-y-2 relative z-10 group/row">
       {/* ── Section Header ── */}
-      <div className="px-6 lg:px-16 flex items-center justify-between group/title">
+      <div className="px-1 flex items-center justify-between group/title">
         <Link
           to="/continue-watching"
           className="group/label flex items-center gap-1 min-w-0 transition-colors duration-300"
@@ -138,7 +138,7 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
 
         <div
           ref={scrollRef}
-          className="flex gap-4 overflow-x-auto overflow-y-clip pb-6 pt-3 px-6 lg:px-16 scrollbar-hide items-start"
+          className="flex gap-4 overflow-x-auto overflow-y-clip py-3 px-2 scrollbar-hide items-start"
           style={maskStyle}
         >
           {items.map((item, i) => {

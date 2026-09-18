@@ -1609,22 +1609,22 @@ a {
 }
 
 .movie-rail-item {
-  width: 190px;
+  width: 280px;
   flex-shrink: 0;
 }
 @media (max-width: 1440px) {
   .movie-rail-item {
-    width: 165px;
+    width: 245px;
   }
 }
 @media (max-width: 1024px) {
   .movie-rail-item {
-    width: 150px;
+    width: 215px;
   }
 }
 @media (max-width: 640px) {
   .movie-rail-item {
-    width: 135px;
+    width: 165px;
   }
 }
 
@@ -2031,7 +2031,7 @@ a {
   display: none;
 }
 .skeleton-rail > div {
-  width: 180px;
+  width: 280px;
   flex-shrink: 0;
 }
 
@@ -2096,7 +2096,7 @@ a {
 
 @media (max-width: 768px) {
   .skeleton-rail > div {
-    width: 140px;
+    width: 165px;
   }
   .skeleton-rail {
     padding: 0.25rem 0.5rem 1rem;
@@ -2938,7 +2938,7 @@ input:focus-visible {
   .movie-rail .movie-card,
   .skeleton-card,
   .movie-rail-item {
-    width: 135px !important;
+    width: 165px !important;
   }
   .skeleton-card {
     height: 300px !important;
