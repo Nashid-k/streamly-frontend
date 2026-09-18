@@ -1735,10 +1735,10 @@ on falls back to the provider's native controls. */
       style={{
         position: isFullscreen ? 'fixed' : 'relative',
         width: '100%',
-        aspectRatio: isFullscreen || isTouch ? undefined : '16/9',
-        height: isFullscreen ? '100dvh' : (isTouch ? '100%' : 'auto'),
+        height: isFullscreen ? '100dvh' : (isTouch ? '100%' : 'min(calc(100vw * 9 / 16), calc(100vh - 120px))'),
+        maxWidth: isFullscreen || isTouch ? undefined : 'min(1400px, calc((100vh - 120px) * 16 / 9))',
         minHeight: isTouch && !isFullscreen ? 0 : undefined,
-        maxHeight: isFullscreen || isTouch ? '100dvh' : 'min(calc(100vh - 120px), 80vw)',
+        maxHeight: isFullscreen || isTouch ? '100dvh' : undefined,
         background: '#000',
         borderRadius: isFullscreen || isTouch ? 0 : 12,
         inset: isFullscreen ? '0' : undefined,
@@ -2092,21 +2092,6 @@ on falls back to the provider's native controls. */
               overflow: "hidden",
             }}
           >
-            {/* Netflix top-edge loading bar — thin red line, full width */}
-            <div style={{
-              position: "absolute", top: 0, left: 0, right: 0, height: 3, zIndex: 2,
-              background: "rgba(229,9,20,0.15)",
-            }}>
-              <motion.div
-                animate={{ width: `${Math.max(8, loadProgress * 100)}%` }}
-                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                style={{
-                  height: "100%",
-                  background: "linear-gradient(90deg, #b00710, #E50914)",
-                  boxShadow: "0 0 8px rgba(229,9,20,0.8)",
-                }}
-              />
-            </div>
             {/* Blurred poster backdrop */}
             {thumbnailUrl ? (
               <div style={{

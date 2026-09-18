@@ -293,24 +293,23 @@ function ServerDropdown({ servers, selectedIndex, onSelect }) {
     <div ref={ref} style={{ position: "relative", zIndex: 25 }}>
       <motion.button
         onClick={() => setOpen((o) => !o)}
-        whileHover={{ borderColor: "rgba(255,255,255,0.35)" }}
+        whileHover={{ background: "rgba(255,255,255,0.12)" }}
         whileTap={{ scale: 0.97 }}
         style={{
           display: "flex",
           alignItems: "center",
           gap: "8px",
           background: "rgba(255,255,255,0.07)",
-          border: "1px solid rgba(255,255,255,0.15)",
+          border: "none",
           color: "#fff",
-          padding: "0.4rem 0.9rem",
-          borderRadius: "8px",
-          fontSize: "0.85rem",
+          padding: "0.45rem 0.85rem",
+          borderRadius: "4px",
+          fontSize: "0.83rem",
           fontWeight: 600,
           cursor: "pointer",
-          minWidth: "130px",
+          minWidth: "120px",
           justifyContent: "space-between",
-          backdropFilter: "blur(8px)",
-          transition: "border-color 0.2s",
+          transition: "background 0.2s",
         }}
       >
         <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -340,10 +339,9 @@ function ServerDropdown({ servers, selectedIndex, onSelect }) {
               minWidth: "180px",
               maxHeight: "260px",
               overflowY: "auto",
-              background: "rgba(18,18,22,0.97)",
-              border: "1px solid rgba(255,255,255,0.12)",
-              borderRadius: "12px",
-              backdropFilter: "blur(24px)",
+              background: "rgba(18,18,20,0.97)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: "4px",
               boxShadow: "0 20px 48px rgba(0,0,0,0.75)",
               scrollbarWidth: "thin",
               scrollbarColor: "rgba(255,255,255,0.15) transparent",
@@ -359,7 +357,7 @@ function ServerDropdown({ servers, selectedIndex, onSelect }) {
                     onSelect(i);
                     setOpen(false);
                   }}
-                  whileHover={{ background: "rgba(255,255,255,0.08)" }}
+                  whileHover={{ background: "rgba(255,255,255,0.06)" }}
                   style={{
                     width: "100%",
                     display: "flex",
@@ -367,10 +365,10 @@ function ServerDropdown({ servers, selectedIndex, onSelect }) {
                     gap: "10px",
                     padding: "0.6rem 1rem",
                     background: isSelected
-                      ? "rgba(var(--accent-primary-rgb), 0.1)"
+                      ? "rgba(229,9,20,0.16)"
                       : "transparent",
                     border: "none",
-                    color: isSelected ? "var(--accent-primary, #95ff50)" : "#e4e4e7",
+                    color: isSelected ? "#fff" : "#e4e4e7",
                     fontSize: "0.85rem",
                     fontWeight: isSelected ? 700 : 500,
                     cursor: "pointer",
@@ -384,7 +382,7 @@ function ServerDropdown({ servers, selectedIndex, onSelect }) {
                         width: "6px",
                         height: "6px",
                         borderRadius: "50%",
-                        background: "var(--accent-gradient)",
+                        background: "#E50914",
                         flexShrink: 0,
                       }}
                     />
@@ -2319,6 +2317,7 @@ export default function TitleDetails() {
               zIndex: 99999,
               display: "flex",
               flexDirection: "column",
+              overflow: "hidden",
               background: playMode === "trailer" ? "rgba(5,5,5,0.92)" : "#050505",
               backdropFilter: playMode === "trailer" ? "blur(24px)" : "none",
             }}
@@ -2352,64 +2351,63 @@ export default function TitleDetails() {
                 display: "flex",
                 justifyContent: "space-between",
                 background:
-                  playMode === "trailer" ? "rgba(0,0,0,0.4)" : "#0a0a0c",
+                  playMode === "trailer" ? "rgba(0,0,0,0.4)" : "#0b0b0d",
                 alignItems: "center",
-                borderBottom: "1px solid rgba(255,255,255,0.06)",
                 zIndex: 1000,
                 backdropFilter: playMode === "trailer" ? "blur(12px)" : "none",
                 gap: "0.5rem",
               }}
             >
-              <div
-                className="video-modal-header__identity"
-                style={{ display: "flex", alignItems: "center", gap: "1rem", flex: 1, minWidth: 0, overflow: "hidden" }}
-              >
-                <motion.button
-                  onClick={() => setIsPlaying(false)}
-                  className="video-modal-back-button"
-                  style={{
-                    background: "rgba(255,255,255,0.08)",
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    color: "white",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                    fontSize: "0.95rem",
-                    fontWeight: 600,
-                    padding: "0.5rem 1rem",
-                    borderRadius: "100px",
-                    minHeight: "44px",
-                  }}
-                  whileHover={{
-                    background: "rgba(255,255,255,0.16)",
-                    scale: 1.03,
-                  }}
-                  whileTap={{ scale: 0.96 }}
+              {playMode === "trailer" ? (
+                <div
+                  className="video-modal-header__identity"
+                  style={{ display: "flex", alignItems: "center", gap: "1rem", flex: 1, minWidth: 0, overflow: "hidden" }}
                 >
-                  <ChevronLeft size={18} strokeWidth={1.5} /> <span className="video-modal-back-label">Back</span>
-                </motion.button>
-                <h3
-                  className="video-modal-title"
-                  style={{
-                    margin: 0,
-                    fontSize: "1.1rem",
-                    fontWeight: 700,
-                    color: "#e4e4e7",
-                  }}
-                >
-                  {movie.title}{" "}
-                  {playMode === "trailer" ? (
-                    <span style={{ color: "#71717a", fontWeight: 400 }}>
-                      — Official Trailer
-                    </span>
-                  ) : isTvContent ? (
-                    `— S${selectedSeason} E${playingEpisode}${episodes.find((e) => e.episodeNumber === playingEpisode)?.title ? `: ${episodes.find((e) => e.episodeNumber === playingEpisode).title}` : ""}`
-                  ) : (
-                    ""
-                  )}
-                </h3>
-              </div>
+                  <motion.button
+                    onClick={() => setIsPlaying(false)}
+                    className="video-modal-back-button"
+                    aria-label="Back to browse"
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "#fff",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "6px",
+                      borderRadius: "4px",
+                      flexShrink: 0,
+                    }}
+                    whileHover={{ background: "rgba(255,255,255,0.1)" }}
+                    whileTap={{ opacity: 0.6 }}
+                  >
+                    <ChevronLeft size={22} strokeWidth={2.2} />
+                  </motion.button>
+                  <h3
+                    className="video-modal-title"
+                    style={{
+                      margin: 0,
+                      fontSize: "1rem",
+                      fontWeight: 700,
+                      color: "#fff",
+                    }}
+                  >
+                    {movie.title}{" "}
+                    {playMode === "trailer" ? (
+                      <span style={{ color: "#71717a", fontWeight: 400 }}>
+                        — Official Trailer
+                      </span>
+                    ) : isTvContent ? (
+                      `— S${selectedSeason} E${playingEpisode}${episodes.find((e) => e.episodeNumber === playingEpisode)?.title ? `: ${episodes.find((e) => e.episodeNumber === playingEpisode).title}` : ""}`
+                    ) : (
+                      ""
+                    )}
+                  </h3>
+                </div>
+              ) : (
+                <div style={{ flex: 1 }} />
+              )}
               <div
                 className="video-modal-header__actions"
                 style={{
@@ -2431,15 +2429,17 @@ export default function TitleDetails() {
                       onClick={goToPrevEpisode}
                       disabled={!canGoPrev}
                       style={{
-                        background: "rgba(255,255,255,0.1)",
-                        border: "none",
+                        background: "transparent",
+                        border: "1px solid rgba(255,255,255,0.15)",
                         color: "white",
-                        padding: "0.5rem 1rem",
-                        borderRadius: "8px",
+                        padding: "0.45rem 1rem",
+                        borderRadius: "4px",
                         cursor: canGoPrev ? "pointer" : "not-allowed",
                         opacity: canGoPrev ? 1 : 0.4,
+                        fontSize: "0.85rem",
+                        fontWeight: 600,
                       }}
-                      whileHover={canGoPrev ? { scale: 1.04 } : {}}
+                      whileHover={canGoPrev ? { scale: 1.04, background: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.3)" } : {}}
                       whileTap={canGoPrev ? { scale: 0.95 } : {}}
                     >
                       Prev Ep
@@ -2448,14 +2448,15 @@ export default function TitleDetails() {
                       onClick={goToNextEpisode}
                       disabled={!canGoNext}
                       style={{
-                        background: "var(--accent-gradient)",
+                        background: "#E50914",
                         border: "none",
                         color: "white",
-                        padding: "0.5rem 1.1rem",
-                        borderRadius: "8px",
+                        padding: "0.45rem 1.1rem",
+                        borderRadius: "4px",
                         cursor: canGoNext ? "pointer" : "not-allowed",
                         fontWeight: 700,
                         opacity: canGoNext ? 1 : 0.4,
+                        fontSize: "0.85rem",
                       }}
                       whileHover={
                         canGoNext
