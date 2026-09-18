@@ -5,6 +5,7 @@ import slugify from "slugify";
 import { useAppAuth } from "../context/auth";
 import useRailArrows from "../hooks/useRailArrows";
 import RailArrow from "./RailArrow";
+import { durationSeconds, progressPct, remainingSeconds } from "../utils/resumeProgress";
 
 const fmtTimeLeft = (seconds) => {
   if (!seconds || seconds <= 0) return null;
@@ -22,21 +23,9 @@ const episodeLabel = (item) =>
     ? `S${item.savedSeason}:E${item.savedEpisode}`
     : null;
 
-const progressPct = (item) => {
-  if (item.timestamp > 0 && item.duration > 0) {
-    return Math.min(100, Math.max(0, (item.timestamp / item.duration) * 100));
-  }
-  if (item.timestamp > 0) {
-    return Math.min(95, Math.max(5, (item.timestamp / 60)));
-  }
-  return 0;
-};
-
 const remainingLabel = (item) => {
-  if (item.duration > 0 && item.timestamp > 0) {
-    return fmtTimeLeft(Math.max(0, item.duration - item.timestamp));
-  }
-  return null;
+  const rem = remainingSeconds(item);
+  return rem != null ? fmtTimeLeft(rem) : null;
 };
 
 const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) {

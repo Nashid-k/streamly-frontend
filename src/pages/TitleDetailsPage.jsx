@@ -59,6 +59,7 @@ import { logEmptyData, logError, reportQueryError } from "../utils/debugLogger";
 const CustomVideoPlayer = lazy(() => import("../components/CustomVideoPlayer"));
 import ErrorBoundary from "../components/ErrorBoundary";
 import ContinueWatchingRail from "../components/ContinueWatchingRail";
+import { durationSeconds } from "../utils/resumeProgress";
 import { usePreferences } from "../context/preferences";
 const EMPTY_ARRAY = [];
 
@@ -1125,8 +1126,15 @@ export default function TitleDetails() {
   };
 
   // Derived: true if user has any watch progress for this movie
-  const progressItem = continueWatching?.find((m) => m.id === movie?.id);
+  const progressItem = continueWatching?.find(
+    (m) => String(m.id) === String(movie?.id),
+  );
   const savedTimestamp = progressItem?.timestamp || 0;
+  const hasResume = Boolean(progressItem && progressItem.timestamp > 0);
+  const resumePct =
+    hasResume && durationSeconds(progressItem) > 0
+      ? Math.min(100, Math.max(2, Math.round((progressItem.timestamp / durationSeconds(progressItem)) * 100)))
+      : 0;
   // Track which episode the saved timestamp belongs to — only apply it once
   const effectiveSavedTimestamp = (
     initialEpisodeRef.current !== null && playingEpisode === initialEpisodeRef.current
@@ -1286,7 +1294,10 @@ export default function TitleDetails() {
                 className="relative rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 font-bold tracking-wide h-[44px] px-6 py-3 text-base min-w-[120px] border-none hover:scale-105 shadow-xl shadow-black/10"
                 style={{ background: "var(--accent-gradient)", color: "var(--on-accent, #fff)", boxShadow: "0 8px 24px var(--accent-glow, rgba(149,255,80,0.5))" }}
               >
-                <Play className="w-5 h-5 mr-1.5 fill-current" /> Play
+                <Play className="w-5 h-5 mr-1.5 fill-current" /> {hasResume ? "Resume" : "Play"}
+                {hasResume && resumePct > 0 && (
+                  <span className="ml-2 text-xs font-bold opacity-90">{resumePct}%</span>
+                )}
               </button>
 
               {/* Cinejoy-style circular actions: Add to List | Download | Mark watched */}
@@ -2601,8 +2612,8 @@ export default function TitleDetails() {
                       isTvContent && canGoNext
                     }
                     onNextEpisode={goToNextEpisode}
-                    onProgressUpdate={(currentTime, duration) => {
-                      if (duration > 0 && currentTime > 10) {
+                    onProgressUpdate={(currentTime) => {
+                      if (currentTime > 10) {
                         updateProgress(
                           { ...movie, source: resolvedPlatform, sourceName },
                           selectedSeason,

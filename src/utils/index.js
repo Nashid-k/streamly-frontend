@@ -43,6 +43,13 @@ export { normalizePlatformKey, getPlatformName } from "./platforms";
 export { getRatingColor } from "./ratings";
 export { buildMetaFacts } from "./metaFacts";
 
+// Continue-Watching progress helpers (resume %, time left, runtime→seconds)
+export {
+  durationSeconds,
+  progressPct,
+  remainingSeconds,
+} from "./resumeProgress";
+
 // HLS download quality parsing / labels
 export {
   parseMasterPlaylist,
