@@ -3,10 +3,12 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Play, Plus, Check, X } from "lucide-react";
+import { Check, ChevronRight, GalleryHorizontal, LayoutGrid, List, Play, Plus, X } from "lucide-react";
 import slugify from "slugify";
 import { movieService } from "../api/movieService";
+import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import { useAppAuth } from "../context/auth";
+import { useOptionalPreferences } from "../context/preferences";
 import { useToast } from "./Toast";
 import { buildMetaFacts } from "../utils/metaFacts";
 
@@ -33,12 +35,32 @@ import { buildMetaFacts } from "../utils/metaFacts";
 
 const SPRING = { type: "spring", stiffness: 380, damping: 30 };
 
-export default function TitleInfoModal({ movie, onClose }) {
+const SIMILAR_MODES = ["carousel", "grid", "list"];
+
+function SimilarPoster({ sim, size }) {
+  const poster = sim.posterUrl || sim.poster;
+  if (!poster) {
+    return (
+      <span className="title-info-similar-fallback" aria-hidden="true">
+        {(sim.title || "?").trim().charAt(0).toUpperCase()}
+      </span>
+    );
+  }
+  return <img src={CdnImageAdapter.getUrl(poster, size)} alt="" loading="lazy" decoding="async" />;
+}
+
+export default function TitleInfoModal({ movie, onClose, onSelectMovie }) {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isInList, toggleMyList } = useAppAuth();
+  const prefs = useOptionalPreferences();
   const [isClosing, setIsClosing] = useState(false);
   const closeButtonRef = useRef(null);
+  const cardRef = useRef(null);
+  const episodeViewStyle = prefs?.episodeViewStyle || "carousel";
+  const [similarLayout, setSimilarLayout] = useState(
+    SIMILAR_MODES.includes(episodeViewStyle) ? episodeViewStyle : "carousel",
+  );
 
   /* Live details (tagline, runtime, seasons, genres, cast) — the summary
      object from the card/banner renders instantly, then this enriches it. */
@@ -49,6 +71,15 @@ export default function TitleInfoModal({ movie, onClose }) {
     staleTime: 1000 * 60 * 10,
     retry: 1,
   });
+
+  const { data: similarData } = useQuery({
+    queryKey: ["infoModalSimilar", movie?.id],
+    queryFn: () => movieService.getSimilarMovies(movie.id),
+    enabled: Boolean(movie?.id),
+    staleTime: 1000 * 60 * 10,
+    retry: 0,
+  });
+  const similar = Array.isArray(similarData) ? similarData.slice(0, 20) : [];
 
   /* Scroll lock + Escape + initial focus. handleClose is stable enough via
      the isClosing guard that it must not rebind the key listener. */
@@ -67,6 +98,37 @@ export default function TitleInfoModal({ movie, onClose }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above
   }, []);
+
+  /* Follow the global "Episode View Style" preference (Settings and the
+     details page). When onSelectMovie swaps the movie in place, reset the
+     card scroll so a new title always starts at the top. */
+  useEffect(() => {
+    if (SIMILAR_MODES.includes(episodeViewStyle)) {
+      setSimilarLayout(episodeViewStyle);
+    }
+  }, [episodeViewStyle]);
+
+  useEffect(() => {
+    cardRef.current?.scrollTo?.({ top: 0, left: 0 });
+  }, [movie?.id]);
+
+  /* Toggle inside the modal persists the layout preference so Settings and
+     the details page stay in sync (same key as the episode view style). */
+  const setSimilarStyle = (val) => {
+    setSimilarLayout(val);
+    prefs?.setPreference?.("episodeViewStyle", val);
+  };
+
+  const pickSimilar = (sim) => {
+    if (!sim) return;
+    // Swap the modal in place (Netflix hops) when the parent supports it.
+    if (onSelectMovie) {
+      onSelectMovie(sim);
+      return;
+    }
+    const slug = slugify(sim.title || "title", { lower: true, strict: true });
+    navigate(`/watch/${sim.id}/${slug}`);
+  };
 
   function handleClose() {
     if (isClosing) return;
@@ -113,6 +175,7 @@ export default function TitleInfoModal({ movie, onClose }) {
       data-testid="title-info-modal"
     >
       <motion.div
+        ref={cardRef}
         className="title-info-card"
         initial={{ opacity: 0, scale: 0.94, y: 24 }}
         animate={isClosing ? { opacity: 0, scale: 0.96, y: 16 } : { opacity: 1, scale: 1, y: 0 }}
@@ -198,6 +261,104 @@ export default function TitleInfoModal({ movie, onClose }) {
               <span aria-hidden="true">→</span>
             </button>
           </div>
+
+          {/* ── You May Also Like ── */}
+          {similar.length > 0 && (
+            <section className="title-info-similar" aria-label="You May Also Like">
+              <div className="title-info-similar-head">
+                <h3 className="title-info-similar-title">You May Also Like</h3>
+                <div className="title-info-similar-toggle" role="radiogroup" aria-label="You May Also Like layout">
+                  {[
+                    { id: "carousel", icon: <GalleryHorizontal size={15} strokeWidth={2} />, label: "Carousel view" },
+                    { id: "grid", icon: <LayoutGrid size={15} strokeWidth={2} />, label: "Grid view" },
+                    { id: "list", icon: <List size={15} strokeWidth={2} />, label: "List view" },
+                  ].map((mode) => (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      className="title-info-similar-mode"
+                      aria-pressed={similarLayout === mode.id}
+                      aria-label={mode.label}
+                      title={mode.label}
+                      data-active={similarLayout === mode.id}
+                      onClick={() => setSimilarStyle(mode.id)}
+                    >
+                      {mode.icon}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {similarLayout === "carousel" && (
+                <div className="title-info-similar-rail hide-scrollbar">
+                  {similar.map((sim) => (
+                    <button
+                      key={sim.id}
+                      type="button"
+                      className="title-info-similar-card"
+                      onClick={() => pickSimilar(sim)}
+                      aria-label={`Open ${sim.title}`}
+                    >
+                      <span className="title-info-similar-poster">
+                        <SimilarPoster sim={sim} size="w342" />
+                      </span>
+                      <span className="title-info-similar-name">{sim.title}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {similarLayout === "grid" && (
+                <div className="movie-grid title-info-similar-grid">
+                  {similar.map((sim) => (
+                    <button
+                      key={sim.id}
+                      type="button"
+                      className="title-info-similar-gridcard"
+                      onClick={() => pickSimilar(sim)}
+                      aria-label={`Open ${sim.title}`}
+                    >
+                      <span className="title-info-similar-poster">
+                        <SimilarPoster sim={sim} size="w342" />
+                      </span>
+                      <span className="title-info-similar-name">{sim.title}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {similarLayout === "list" && (
+                <div className="title-info-similar-list">
+                  {similar.map((sim) => (
+                    <button
+                      key={sim.id}
+                      type="button"
+                      className="title-info-similar-row"
+                      onClick={() => pickSimilar(sim)}
+                      aria-label={`Open ${sim.title}`}
+                    >
+                      <span className="title-info-similar-row-poster">
+                        <SimilarPoster sim={sim} size="w185" />
+                      </span>
+                      <span className="title-info-similar-row-body">
+                        <span className="title-info-similar-row-title">{sim.title}</span>
+                        <span className="title-info-similar-row-meta">
+                          {[
+                            sim.releaseYear || sim.year,
+                            sim.isSeries ? "Series" : "Movie",
+                            sim.imdbRating ? `★ ${sim.imdbRating}` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
+                      </span>
+                      <ChevronRight className="title-info-similar-row-arrow" size={15} strokeWidth={2} />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
         </div>
       </motion.div>
     </motion.div>,

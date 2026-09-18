@@ -39,7 +39,7 @@ export default function useDetailView() {
   const closeDetails = useCallback(() => setModalMovie(null), []);
 
   const modalHost = modalMovie ? (
-    <TitleInfoModal movie={modalMovie} onClose={closeDetails} />
+    <TitleInfoModal movie={modalMovie} onClose={closeDetails} onSelectMovie={setModalMovie} />
   ) : null;
 
   return {

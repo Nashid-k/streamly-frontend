@@ -27,6 +27,32 @@ vi.mock("../api/movieService", () => ({
       backdropUrl: "https://image.tmdb.org/t/p/w1280/backdrop.jpg",
       cast: [{ name: "Brad Pitt" }, { name: "Edward Norton" }],
     }),
+    getSimilarMovies: vi.fn().mockResolvedValue([
+      {
+        id: "movie-13",
+        title: "Memento",
+        releaseYear: "2000",
+        isSeries: false,
+        imdbRating: 8.4,
+        posterUrl: null,
+      },
+      {
+        id: "movie-680",
+        title: "Pulp Fiction",
+        releaseYear: "1994",
+        isSeries: false,
+        imdbRating: 8.9,
+        posterUrl: null,
+      },
+      {
+        id: "movie-807",
+        title: "Se7en",
+        releaseYear: "1995",
+        isSeries: false,
+        imdbRating: 8.6,
+        posterUrl: null,
+      },
+    ]),
   },
 }));
 
@@ -148,6 +174,37 @@ describe("TitleInfoModal", () => {
     const stored = JSON.parse(localStorage.getItem("aios_my_list") || "[]");
     expect(stored).toHaveLength(1);
     expect(stored[0].id).toBe("movie-550");
+  });
+
+  it("renders the You May Also Like carousel by default with similar titles", async () => {
+    renderModal();
+    expect(
+      await screen.findByRole("region", { name: /you may also like/i })
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /open memento/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /open pulp fiction/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /open se7en/i })).toBeInTheDocument();
+  });
+
+  it("similar layout follows the Episode View Style preference", async () => {
+    localStorage.setItem("setting-episodeViewStyle", JSON.stringify("list"));
+    renderModal();
+    expect(
+      await screen.findByRole("region", { name: /you may also like/i })
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /open memento/i })).toBeInTheDocument();
+    expect(screen.getByText(/^2000 · Movie · ★ 8.4$/)).toBeInTheDocument();
+  });
+
+  it("modal toggle persists the layout preference and swaps views", async () => {
+    renderModal();
+    await screen.findByRole("region", { name: /you may also like/i });
+    const gridBtn = screen.getByRole("button", { name: /grid view/i });
+    fireEvent.click(gridBtn);
+    const stored = JSON.parse(localStorage.getItem("setting-episodeViewStyle") || "null");
+    expect(stored).toBe("grid");
+    // Still present in grid mode.
+    expect(screen.getByRole("button", { name: /open memento/i })).toBeInTheDocument();
   });
 });
 
