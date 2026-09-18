@@ -555,6 +555,18 @@ const CustomVideoPlayer = forwardRef(({
   // a genuinely new load clears/re-arms it, and unmount clears it.
   const watchdogRef = useRef(null);
 
+  /* CineSrc internal-source tracking. The CineSrc embed rotates between its
+     own ~14 built-in sources (nebula, lisbon, …) and announces every switch
+     via cinesrc:sourceused (integration docs). Our failover must let that
+     rotation play out — one dead internal source is NOT a dead provider. */
+  const cineSourceTriedRef = useRef(new Set()); // distinct internal sourceIds seen this visit
+  const cineSourceStrikesRef = useRef({});      // failed windows / fatal errors per sourceId
+  const cineLastSourceRef = useRef("");          // current internal sourceId
+  const cineWindowsRef = useRef(0);             // expired source windows (aggregate bound)
+  const cineReloadsRef = useRef(0);             // automatic in-place reload nudges (capped)
+  const cineWatchdogArmRef = useRef(null);      // re-arm fn shared with the message listener
+  const cineStateKeyRef = useRef("");           // content+server the cine counters belong to
+
   const advanceServer = useCallback((msg) => {
     if (failoverPendingRef.current || rotationFailuresRef.current >= serverCount) return;
     failoverPendingRef.current = true;
@@ -581,6 +593,13 @@ const CustomVideoPlayer = forwardRef(({
   const handleRetry = useCallback(() => {
     rotationFailuresRef.current = 0;
     serverErrorCountsRef.current = {};
+    // Fresh CineSrc rotation budget too.
+    cineSourceTriedRef.current = new Set();
+    cineSourceStrikesRef.current = {};
+    cineLastSourceRef.current = "";
+    cineWindowsRef.current = 0;
+    cineReloadsRef.current = 0;
+    cineStateKeyRef.current = "";
     failoverPendingRef.current = false;
     userPausedRef.current = false;
     pollPrevRef.current = -1;
@@ -1014,23 +1033,75 @@ on falls back to the provider's native controls. */
       // failover silently died. Only gen()'s fresh-load path clears it, plus
       // unmount.
       if (watchdogRef.current) { clearTimeout(watchdogRef.current); watchdogRef.current = null; }
-      const watchdogDelay = (isCineServer || url.includes("vidcore.io")) ? 20000 : 12000;
-      const armWatchdog = () => {
-        watchdogRef.current = setTimeout(() => {
-          if (hasPlaybackRef.current || rotationFailuresRef.current >= serverCount || failoverPendingRef.current) return;
-          const si = activeServerIndexRef.current;
-          const nc = (serverErrorCountsRef.current[si] || 0) + 1;
-          serverErrorCountsRef.current = { ...serverErrorCountsRef.current, [si]: nc };
-          if (nc >= 2) {
-            advanceServer(`Server ${si + 1} isn't starting — trying next server`);
-          } else {
-            setErrorMessage("Still loading source…");
-            setTimeout(() => setErrorMessage(""), 4000);
-            armWatchdog();
-          }
-        }, watchdogDelay);
-      };
-      armWatchdog();
+      if (isCineServer) {
+        /* CineSrc: per-INTERNAL-source watchdog. The embed rotates between its
+           own ~14 sources (cinesrc:sourceused fires on every switch, per the
+           integration docs) — each fresh source gets a short window to prove
+           playback, and we only fail over to the NEXT PROVIDER once CineSrc
+           has demonstrably burned through its rotation: 5 expired windows in
+           total, 2 strikes on the same source, or 4 distinct sources seen.
+           One in-place reload (retryNonce) is allowed as a nudge when the
+           embed looks parked on a dead source and stops rotating. Without
+           this, the old 2×20s slot watchdog used to abandon CineSrc after a
+           single dead internal source — exactly when its rotation needed a
+           few more seconds to reach a working one. */
+        const cineStateKey = `${tid}|${isTv ? `${season}e${episode}` : "m"}|s${activeServerIndex}`;
+        if (cineStateKeyRef.current !== cineStateKey) {
+          cineStateKeyRef.current = cineStateKey;
+          cineSourceTriedRef.current = new Set();
+          cineSourceStrikesRef.current = {};
+          cineLastSourceRef.current = "";
+          cineWindowsRef.current = 0;
+          cineReloadsRef.current = 0;
+        }
+        const armCineWatchdog = (delay = 10000) => {
+          if (watchdogRef.current) clearTimeout(watchdogRef.current);
+          watchdogRef.current = setTimeout(() => {
+            if (hasPlaybackRef.current || rotationFailuresRef.current >= serverCount || failoverPendingRef.current) return;
+            cineWindowsRef.current += 1;
+            const src = cineLastSourceRef.current || "initial";
+            const nc = (cineSourceStrikesRef.current[src] || 0) + 1;
+            cineSourceStrikesRef.current[src] = nc;
+            const tried = cineSourceTriedRef.current.size;
+            logWarn("player", `CineSrc source "${src}" didn't prove playback (window ${cineWindowsRef.current}, strike ${nc}, ${tried} internal source(s) seen).`, { tid, serverIndex: activeServerIndexRef.current, sourceId: src });
+            if (cineWindowsRef.current >= 5 || nc >= 2 || tried >= 4) {
+              advanceServer(`Server ${activeServerIndexRef.current + 1} (CineSrc) exhausted its sources — trying next server`);
+              return;
+            }
+            if (cineReloadsRef.current < 1) {
+              // Nudge: remount the SAME CineSrc embed so it picks its next
+              // internal source (no doc command exists to force a switch).
+              cineReloadsRef.current += 1;
+              setErrorMessage("Switching source…");
+              setTimeout(() => setErrorMessage(""), 4000);
+              setRetryNonce((n) => n + 1);
+              return;
+            }
+            armCineWatchdog();
+          }, delay);
+        };
+        cineWatchdogArmRef.current = armCineWatchdog;
+        armCineWatchdog();
+      } else {
+        cineWatchdogArmRef.current = null;
+        const watchdogDelay = url.includes("vidcore.io") ? 20000 : 12000;
+        const armWatchdog = () => {
+          watchdogRef.current = setTimeout(() => {
+            if (hasPlaybackRef.current || rotationFailuresRef.current >= serverCount || failoverPendingRef.current) return;
+            const si = activeServerIndexRef.current;
+            const nc = (serverErrorCountsRef.current[si] || 0) + 1;
+            serverErrorCountsRef.current = { ...serverErrorCountsRef.current, [si]: nc };
+            if (nc >= 2) {
+              advanceServer(`Server ${si + 1} isn't starting — trying next server`);
+            } else {
+              setErrorMessage("Still loading source…");
+              setTimeout(() => setErrorMessage(""), 4000);
+              armWatchdog();
+            }
+          }, watchdogDelay);
+        };
+        armWatchdog();
+      }
     };
     gen();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- currentTime/onServerChange/setupThumbnailVTT are read but must NOT drive reloads: currentTime changes every timeupdate and would re-init the whole stream, and adding the others would churn the session on every parent render.
@@ -1230,6 +1301,8 @@ on falls back to the provider's native controls. */
             if (d.sourceId) {
               localStorage.setItem("streamly_lastserver", d.sourceId);
               setLastServer(d.sourceId);
+              if (!cineSourceTriedRef.current.has(d.sourceId)) cineSourceTriedRef.current.add(d.sourceId);
+              cineLastSourceRef.current = d.sourceId;
             }
             // CineSrc rotated to a new internal source (nebula → lisbon → …).
             // Treat it as a fresh start: the watchdog re-covers this source
@@ -1238,6 +1311,11 @@ on falls back to the provider's native controls. */
             stallStrikesRef.current = 0;
             pollPrevRef.current = -1;
             pollPausedRef.current = false;
+            // Fresh proof window for the new internal source — the previous
+            // window may be nearly spent, and without a re-arm its expiry
+            // would blame the NEW source for the OLD one's dead air.
+            cineWatchdogArmRef.current?.();
+            logInfo("player", `CineSrc rotated to internal source "${d.sourceId || "unknown"}".`, { sourceId: d.sourceId });
             break;
           case "cinesrc:play": setIsLoading(false); setIsPlaying(true); userPausedRef.current = false; stallStrikesRef.current = 0; rotationFailuresRef.current = 0; setFatalError(false); serverErrorCountsRef.current = {}; failoverPendingRef.current = false; hasPlaybackRef.current = true; break;
           case "cinesrc:pause": setIsPlaying(false); if (!isScrubbing) setIsLoading(false); break;
@@ -1256,10 +1334,23 @@ on falls back to the provider's native controls. */
             const cErrType = cErr.type || "unknown";
             const cDetails = cErr.details || "";
             const cFatal = !!cErr.fatal;
-            // A fatal manifest load (HLS unobtainable) means this server is
-            // dead right now — skip it instead of hanging on a black iframe.
+            // A fatal manifest load means THIS internal source is dead — but
+            // per the docs it is not the provider: CineSrc rotates between its
+            // own ~14 sources. Count it against the sourceId and give the
+            // embed room to rotate; only advance to the next provider when the
+            // same source fails twice, 4 distinct sources have been seen, or
+            // the aggregate window budget is spent.
             if (cFatal && (cDetails === "manifestLoadError" || (cErrType === "networkError" && cDetails))) {
-              advanceServer(`Server ${activeServerIndexRef.current + 1} is unavailable — trying next server`);
+              const src = cineLastSourceRef.current || "initial";
+              const errs = (cineSourceStrikesRef.current[src] || 0) + 1;
+              cineSourceStrikesRef.current[src] = errs;
+              if (errs >= 2 || cineSourceTriedRef.current.size >= 4 || cineWindowsRef.current >= 5) {
+                advanceServer(`Server ${activeServerIndexRef.current + 1} is unavailable — trying next server`);
+                break;
+              }
+              setErrorMessage("Switching source…");
+              setTimeout(() => setErrorMessage(""), 4000);
+              cineWatchdogArmRef.current?.(6000);
               break;
             }
             if (cErrType === 'networkError' || cErrType === 'levelLoadTimeOut') break;
