@@ -58,6 +58,7 @@ import { logEmptyData, logError, reportQueryError } from "../utils/debugLogger";
 // be cached independently after first visit.
 const CustomVideoPlayer = lazy(() => import("../components/CustomVideoPlayer"));
 import ErrorBoundary from "../components/ErrorBoundary";
+import ContinueWatchingRail from "../components/ContinueWatchingRail";
 import { usePreferences } from "../context/preferences";
 const EMPTY_ARRAY = [];
 
@@ -1435,6 +1436,15 @@ export default function TitleDetails() {
           </div>
         </div>
       </div>
+
+      {/* ── Continue Watching ─────────────────────────────────────────────── */}
+      {continueWatching && continueWatching.length > 0 && (
+        <div className="relative z-20 mt-2">
+          <ErrorBoundary>
+            <ContinueWatchingRail railIndex={0} items={continueWatching} />
+          </ErrorBoundary>
+        </div>
+      )}
 
       {/* ── Cast & Rest ─────────────────────────────────────────────────────────────── */}
       <div id="title-details-more" className="relative z-20 mt-10 lg:mt-14 px-6 lg:px-16 space-y-10 lg:space-y-14 pb-20">
