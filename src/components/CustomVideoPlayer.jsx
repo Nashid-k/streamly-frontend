@@ -4,7 +4,7 @@ import { VideoSourceAdapter } from "../api/videoSourceAdapter";
 import { movieService } from "../api/movieService";
 import {
   Play, Pause, Volume1, Volume2, VolumeX, Maximize, Minimize,
-  Settings, AlertCircle, Check,
+  Settings, AlertCircle, Check, WifiOff, RefreshCw,
   SkipForward, FastForward,
   Keyboard, X, Upload, Captions, Film, Link, Repeat,
   ArrowLeft, ChevronLeft, ChevronRight, Lock, Unlock, Sun,
@@ -477,6 +477,37 @@ const CustomVideoPlayer = forwardRef(({
     }, 2000);
   }, [onServerChange, serverCount]);
 
+  // Tracks consecutive server failures across switches. When it reaches
+  // serverCount, every source has failed and we show a clear "unreachable"
+  // screen with Retry instead of cycling forever on a black iframe.
+  const rotationFailuresRef = useRef(0);
+
+  const advanceServer = useCallback((msg) => {
+    rotationFailuresRef.current += 1;
+    const next = (activeServerIndexRef.current + 1) % serverCount;
+    if (rotationFailuresRef.current >= serverCount) {
+      setErrorMessage("");
+      setFatalError(true);
+      setIsLoading(false);
+      return;
+    }
+    setErrorMessage(msg);
+    setTimeout(() => {
+      setErrorMessage("");
+      setActiveServerIndex(next);
+      onServerChange?.(next);
+    }, 2200);
+  }, [onServerChange, serverCount]);
+
+  const handleRetry = useCallback(() => {
+    rotationFailuresRef.current = 0;
+    setServerErrorCounts({});
+    setFatalError(false);
+    setErrorMessage("");
+    setIsLoading(true);
+    setRetryNonce((n) => n + 1);
+  }, []);
+
   const [iframeUrl, setIframeUrl] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
@@ -502,6 +533,8 @@ const CustomVideoPlayer = forwardRef(({
   const [showSettings, setShowSettings] = useState(false);
   const [showSubtitlesMenu, setShowSubtitlesMenu] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [fatalError, setFatalError] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
   const [aspectRatioIndex, setAspectRatioIndex] = useState(() => {
     if (typeof window === "undefined") return 0;
     try {
@@ -697,7 +730,11 @@ on falls back to the provider's native controls. */
     upNextShownRef.current = false;
   }, []);
 
-  useEffect(() => { setActiveServerIndex(preferredServerIndex); }, [preferredServerIndex]);
+  useEffect(() => {
+    rotationFailuresRef.current = 0;
+    setFatalError(false);
+    setActiveServerIndex(preferredServerIndex);
+  }, [preferredServerIndex]);
 
   useEffect(() => {
     const sv = localStorage.getItem("streamly_volume");
@@ -823,7 +860,7 @@ on falls back to the provider's native controls. */
       // so every refetch/focus re-render bumps the deps). Only (re)load when
       // the CONTENT or the SERVER actually changed — otherwise the iframe
       // remounts mid-playback, re-fetching the stream from scratch.
-      const key = `${tid}|${isTv ? `${season}e${episode}` : "m"}|s${activeServerIndex}`;
+      const key = `${tid}|${isTv ? `${season}e${episode}` : "m"}|s${activeServerIndex}|r${retryNonce}`;
       if (genKeyRef.current === key) {
         setIsLoading(false);
         return;
@@ -862,13 +899,7 @@ on falls back to the provider's native controls. */
               const si = activeServerIndexRef.current;
               const nc = (errs[si] || 0) + 1;
               if (nc >= 2) {
-                setErrorMessage(`Server ${si + 1} timed out`);
-                setTimeout(() => {
-                  setErrorMessage("");
-                  const ni = (si + 1) % serverCount;
-                  setActiveServerIndex(ni);
-                  onServerChange?.(ni);
-                }, 2000);
+                advanceServer(`Server ${si + 1} timed out`);
               } else {
                 setErrorMessage("Retrying...");
                 setTimeout(() => setErrorMessage(""), 3000);
@@ -884,7 +915,7 @@ on falls back to the provider's native controls. */
     gen();
     return () => { if (watchdogTimer) clearTimeout(watchdogTimer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- currentTime/onServerChange/setupThumbnailVTT are read but must NOT drive reloads: currentTime changes every timeupdate and would re-init the whole stream, and adding the others would churn the session on every parent render.
-  }, [activeServerIndex, movie, season, episode, useNativeControls, failoverToNextServer]);
+  }, [activeServerIndex, movie, season, episode, useNativeControls, failoverToNextServer, advanceServer, retryNonce]);
 
   const sendCommand = useCallback((c, a = []) => {
     try {
@@ -991,7 +1022,7 @@ on falls back to the provider's native controls. */
           case "cinesrc:waiting": setIsLoading(true); break;
           case "cinesrc:seeking": setIsLoading(true); break;
           case "cinesrc:seeked": targetSeekTimeRef.current = null; setIsLoading(false); break;
-          case "cinesrc:playing": setIsLoading(false); setIsPlaying(true); setServerErrorCounts({}); break;
+          case "cinesrc:playing": setIsLoading(false); setIsPlaying(true); rotationFailuresRef.current = 0; setFatalError(false); setServerErrorCounts({}); break;
           case "cinesrc:progress": if (d.buffered !== undefined) setBuffered(d.buffered); break;
           case "cinesrc:timeupdate":
             if (isLoadingRef.current) setIsLoading(false);
@@ -1053,7 +1084,7 @@ on falls back to the provider's native controls. */
               setLastServer(d.sourceId);
             }
             break;
-          case "cinesrc:play": setIsLoading(false); setIsPlaying(true); setServerErrorCounts({}); break;
+          case "cinesrc:play": setIsLoading(false); setIsPlaying(true); rotationFailuresRef.current = 0; setFatalError(false); setServerErrorCounts({}); break;
           case "cinesrc:pause": setIsPlaying(false); if (!isScrubbing) setIsLoading(false); break;
           case "cinesrc:ratechange": setPlaybackRate(d.playbackRate); break;
           case "cinesrc:volumechange":
@@ -1064,21 +1095,24 @@ on falls back to the provider's native controls. */
             if (onClose) onClose();
             else window.history.back();
             break;
-          case "cinesrc:error":
+          case "cinesrc:error": {
             setIsLoading(false);
-            const errType = d.error?.type || d.error?.details || 'unknown';
-            if (errType === 'networkError' || errType === 'levelLoadTimeOut') break;
+            const cErr = d.error || {};
+            const cErrType = cErr.type || "unknown";
+            const cDetails = cErr.details || "";
+            const cFatal = !!cErr.fatal;
+            // A fatal manifest load (HLS unobtainable) means this server is
+            // dead right now — skip it instead of hanging on a black iframe.
+            if (cFatal && (cDetails === "manifestLoadError" || (cErrType === "networkError" && cDetails))) {
+              advanceServer(`Server ${activeServerIndexRef.current + 1} is unavailable — trying next server`);
+              break;
+            }
+            if (cErrType === 'networkError' || cErrType === 'levelLoadTimeOut') break;
             const ei = activeServerIndexRef.current;
             setServerErrorCounts((p) => {
               const nc = (p[ei] || 0) + 1;
               if (nc >= 2) {
-                setErrorMessage("Stream unavailable — trying next server");
-                setTimeout(() => {
-                  setErrorMessage("");
-                  const ni = (ei + 1) % serverCount;
-                  setActiveServerIndex(ni);
-                  onServerChange?.(ni);
-                }, 2500);
+                advanceServer("Stream unavailable — trying next server");
               } else {
                 setErrorMessage("Retrying...");
                 setTimeout(() => setErrorMessage(""), 3000);
@@ -1086,6 +1120,7 @@ on falls back to the provider's native controls. */
               return { ...p, [ei]: nc };
             });
             break;
+          }
           default: break;
         }
       } catch { /* DataCloneError etc */ }
@@ -1112,7 +1147,7 @@ on falls back to the provider's native controls. */
         }
         if (typeof etype !== "string" || !etype) return;
         switch (etype) {
-          case "play": setIsLoading(false); setIsPlaying(true); setServerErrorCounts({}); break;
+          case "play": setIsLoading(false); setIsPlaying(true); rotationFailuresRef.current = 0; setFatalError(false); setServerErrorCounts({}); break;
           case "pause": setIsPlaying(false); setIsLoading(false); break;
           case "seeked": targetSeekTimeRef.current = null; setIsLoading(false); break;
           case "timeupdate": {
@@ -1843,6 +1878,8 @@ on falls back to the provider's native controls. */
               // Native UI mode: pull the current playback state into our player
               // so Continue Watching and up-next logic stay in sync.
               setIsLoading(false);
+              rotationFailuresRef.current = 0;
+              setFatalError(false);
               setServerErrorCounts({});
               setTimeout(() => {
                 const w = iframeRef.current?.contentWindow;
@@ -1851,6 +1888,8 @@ on falls back to the provider's native controls. */
               }, 600);
             } else {
               setIsLoading(false);
+              rotationFailuresRef.current = 0;
+              setFatalError(false);
               setServerErrorCounts({}); // Reset error count on successful load
             }
           }}
@@ -2201,6 +2240,51 @@ on falls back to the provider's native controls. */
                 </motion.div>
               )}
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* All-servers-unavailable overlay — shown after a full rotation of
+          dead sources instead of a silent black screen. */}
+      <AnimatePresence>
+        {fatalError && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{
+              position: "absolute", inset: 0, zIndex: 60,
+              display: "flex", flexDirection: "column", alignItems: "center",
+              justifyContent: "center", gap: "clamp(10px, 2vw, 14px)",
+              background: "radial-gradient(ellipse at 50% 45%, rgba(20,20,28,0.55) 0%, rgba(0,0,0,0.85) 100%)",
+              backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)",
+              padding: "0 20px", textAlign: "center",
+            }}
+          >
+            <WifiOff size={40} color="#fff" style={{ opacity: 0.9 }} />
+            <div style={{
+              color: "#fff", fontSize: "clamp(1.1rem, 3vw, 1.6rem)", fontWeight: 700,
+              fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif",
+              letterSpacing: "-0.02em",
+            }}>
+              All servers are currently unreachable
+            </div>
+            <div style={{
+              color: "rgba(255,255,255,0.55)", fontSize: R.fontMedium, fontWeight: 500,
+              maxWidth: 420, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+            }}>
+              The streaming sources are temporarily down. Retry, or pick a different server from the menu.
+            </div>
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={handleRetry}
+              style={{
+                marginTop: 8, display: "flex", alignItems: "center", gap: 8,
+                background: "#E50914", color: "#fff", border: "none",
+                padding: "12px 28px", borderRadius: 8, cursor: "pointer",
+                fontSize: R.fontMedium, fontWeight: 600, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+              }}
+            >
+              <RefreshCw size={16} /> Retry
+            </motion.button>
           </motion.div>
         )}
       </AnimatePresence>

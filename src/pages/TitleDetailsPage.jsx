@@ -1580,7 +1580,7 @@ export default function TitleDetails() {
                 seasons={availableSeasons}
                 selectedSeason={selectedSeason}
                 airingSeasonNumber={airingSeasonNumber}
-                onSelect={(s) => { setSelectedSeason(s); setShowAllEpisodes(false); }}
+                onSelect={(s) => { setSelectedSeason(s); }}
               />
 
               {/* Layout toggle — three icon pills */}
