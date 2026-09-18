@@ -23,6 +23,45 @@ const getNumericId = (s) => {
   return m ? m[0] : null;
 };
 
+/* CineSrc builds its /api/playlist/*.m3u8 tokens from a TMDB lookup the
+   embed performs inside the user's browser (their loader fails with
+   ERR_CONNECTION_TIMED_OUT on api.themoviedb.org when the viewer's network
+   can't reach it, then every internal source 502s at the manifest). Before we
+   commit a server slot to CineSrc, probe the SAME endpoint the embed would hit.
+   A response — any status, even 401 — proves api.themoviedb.org is reachable
+   from this browser; a fetch rejection (timeout/DNS/blocked) means CineSrc
+   cannot play no matter which of its ~14 sources we ask for. Result is cached
+   120s so a dead-CineSrc session doesn't re-probe on every advance/retry. */
+const tmdbProbeCache = { ok: true, ts: 0 };
+const TMDB_PROBE_TTL = 120000;
+const TMDB_PROBE_TIMEOUT = 8000;
+const probeTmdbReachable = async () => {
+  // Tests (jsdom) have no network to api.themoviedb.org; a raw probe there
+  // would always "fail" and bypass CineSrc for every suite that inspects its
+  // embed URL. In test mode the probe is skipped and TMDB is treated as up —
+  // the real probe only runs in the browser.
+  if (import.meta.env?.MODE === "test") return true;
+  const now = Date.now();
+  if (now - tmdbProbeCache.ts < TMDB_PROBE_TTL) return tmdbProbeCache.ok;
+  try {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), TMDB_PROBE_TIMEOUT);
+    const key = (typeof import.meta !== "undefined" && import.meta.env?.VITE_TMDB_API_KEY) || "";
+    const res = key
+      ? await fetch(`https://api.themoviedb.org/3/configuration?api_key=${encodeURIComponent(key)}`, { signal: ac.signal, cache: "no-store" })
+      : null;
+    clearTimeout(timer);
+    const ok = key ? res.status >= 200 : true;
+    tmdbProbeCache.ok = ok;
+    tmdbProbeCache.ts = now;
+    return ok;
+  } catch {
+    tmdbProbeCache.ok = false;
+    tmdbProbeCache.ts = now;
+    return false;
+  }
+};
+
 const ASPECT_RATIOS = [
   { id: "fit", name: "Fit (Original 16:9)", scale: 1 },
   { id: "fill", name: "Fill Screen (Edge-to-Edge)", scale: 1.25 },
@@ -508,6 +547,13 @@ const CustomVideoPlayer = forwardRef(({
   const pollPausedRef = useRef(false);
   const pollPrevRef = useRef(-1);
   const stallStrikesRef = useRef(0);
+  // Dead-source watchdog timer, kept in a REF (not a closure local). The
+  // URL-generation effect re-runs on every parent re-render (the caller passes
+  // an inline onServerChange + a re-normalized movie object, so refetch/focus
+  // rebuilds the deps constantly), and a cleanup that cleared a closure-local
+  // handle on each run silently killed failover. A ref survives those re-runs:
+  // a genuinely new load clears/re-arms it, and unmount clears it.
+  const watchdogRef = useRef(null);
 
   const advanceServer = useCallback((msg) => {
     if (failoverPendingRef.current || rotationFailuresRef.current >= serverCount) return;
@@ -867,7 +913,7 @@ on falls back to the provider's native controls. */
       [controlsTimeoutRef, clickTimeoutRef, singleTapTimerRef, seekTimeoutRef,
        centerIconTimeoutRef, sideIconTimeoutRef, skipIntroTimeoutRef,
        toastTimeoutRef, volumeArcTimerRef, aspectRatioArcTimerRef, brightnessArcTimerRef,
-       gestureHudTimerRef, previewThumbTimerRef].forEach(r => { if (r.current) clearTimeout(r.current); });
+       gestureHudTimerRef, previewThumbTimerRef, watchdogRef].forEach(r => { if (r.current) clearTimeout(r.current); });
       if (upNextIntervalRef.current) clearInterval(upNextIntervalRef.current);
       if (seekLongPressRef.current) clearInterval(seekLongPressRef.current);
     };
@@ -878,7 +924,6 @@ on falls back to the provider's native controls. */
 
   /* URL Generation */
   useEffect(() => {
-    let watchdogHandle = null;
     const gen = async () => {
       setIsLoading(true);
       setHasInitiallyLoaded(false);
@@ -926,35 +971,53 @@ on falls back to the provider's native controls. */
         // preference and autoskip mirrors the Auto-Skip Intro preference
         // (TV only — movies never carry intros). autonext stays off so the
         // app's own up-next overlay owns episode advancement.
+        // NOTE: the previous &lastserver+&prioritize=true pinning was REMOVED.
+        // It told CineSrc to start on its last-used internal source (lisbon) and
+        // stay there, which froze its own ~14-source rotation (nebula → …) —
+        // the tail recorded the SAME /api/playlist/*.m3u8 502 retried twice
+        // instead of CineSrc advancing past the dead source.
         url += `&seek=${Math.min(99, Math.max(1, seekStep))}`;
         if (isTv) url += `&autoskip=${autoSkipIntro ? "true" : "false"}`;
         if (currentQuality?.id && currentQuality.id !== -1) url += `&quality=${encodeURIComponent(currentQuality.name || currentQuality.id)}`;
         if (isMuted) url += "&muted=true";
         if (!isNew && currentTime > 0 && !targetSeekTimeRef.current) url += `&t=${Math.floor(currentTime)}&continueprompt=false`;
         else if (isNew && startTimeRef.current > 0) url += `&t=${Math.floor(startTimeRef.current)}&continueprompt=false`;
-        // CineSrc defaults to its own internal order (nebula → lisbon → …), so
-        // a dead default source waffles while the viewer stares at the loader.
-        // Forward the last internal server that actually worked here
-        // (captured from cinesrc:sourceused) and ask CineSrc to prioritize it —
-        // per their docs: lastserver = preferred source, prioritize = use it
-        // on load.
-        let lastServerId = null;
-        try { lastServerId = localStorage.getItem("streamly_lastserver"); } catch {}
-        if (lastServerId) url += `&lastserver=${encodeURIComponent(lastServerId)}&prioritize=true`;
       }
       if (isNew && startTimeRef.current > 0 && (url.includes("peachify.top") || url.includes("vidup.to")))
         url += `&startAt=${Math.floor(startTimeRef.current)}`;
       setIframeUrl(url);
+      // CineSrc can't build its playlist when api.themoviedb.org is out of
+      // reach from the viewer's browser (the embed's own fetch 502s and every
+      // internal source dies with a fatal manifestLoadError). Probe the SAME
+      // endpoint the embed uses, but fire-and-forget: the iframe mounts
+      // immediately (above), and only if the probe fails while nothing has
+      // streamed yet do we bypass CineSrc — instead of parking 20s on its
+      // loader before the watchdog advances. advanceServer() re-checks real
+      // playback before actually switching, so a slow-but-alive source is
+      // never swapped away.
+      if (isCineServer) {
+        probeTmdbReachable().then((reachable) => {
+          if (reachable || hasPlaybackRef.current) return;
+          logWarn("player", "TMDB unreachable — CineSrc can't build its playlist; bypassing CineSrc.", { tid, serverIndex: activeServerIndex });
+          advanceServer(`Server ${activeServerIndex + 1} (CineSrc) needs TMDB, which is unreachable — trying next server`);
+        });
+      }
       // Dead-source watchdog. It re-arms itself so a source that never starts
       // (manifest 502, TMDB timeout inside CineSrc, or an error postMessage
       // swallowed by DataCloneError) keeps accruing strikes until we rotate
       // past it — even while CineSrc's own "fetching nebula/lisbon" loader is
       // on screen. Guards: once a source actually streams, or the rotation is
-      // fully exhausted, the watchdog stands down.
+      // fully exhausted, the watchdog stands down. Stored in a REF so the
+      // effect's own re-runs (parent re-renders) can never clear it: the
+      // closure-local version was killed by this effect's cleanup on the FIRST
+      // parent re-render and the early-return path never re-armed it, so
+      // failover silently died. Only gen()'s fresh-load path clears it, plus
+      // unmount.
+      if (watchdogRef.current) { clearTimeout(watchdogRef.current); watchdogRef.current = null; }
       const watchdogDelay = (isCineServer || url.includes("vidcore.io")) ? 20000 : 12000;
       const armWatchdog = () => {
-        watchdogHandle = setTimeout(() => {
-          if (hasPlaybackRef.current || rotationFailuresRef.current >= serverCount) return;
+        watchdogRef.current = setTimeout(() => {
+          if (hasPlaybackRef.current || rotationFailuresRef.current >= serverCount || failoverPendingRef.current) return;
           const si = activeServerIndexRef.current;
           const nc = (serverErrorCountsRef.current[si] || 0) + 1;
           serverErrorCountsRef.current = { ...serverErrorCountsRef.current, [si]: nc };
@@ -970,7 +1033,6 @@ on falls back to the provider's native controls. */
       armWatchdog();
     };
     gen();
-    return () => { if (watchdogHandle) { clearTimeout(watchdogHandle); watchdogHandle = null; } };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- currentTime/onServerChange/setupThumbnailVTT are read but must NOT drive reloads: currentTime changes every timeupdate and would re-init the whole stream, and adding the others would churn the session on every parent render.
   }, [activeServerIndex, movie, season, episode, useNativeControls, failoverToNextServer, advanceServer, retryNonce]);
 
