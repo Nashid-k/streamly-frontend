@@ -7,6 +7,32 @@
 
 ## Done (in order)
 
+- [x] **#2 auth `syncStatus` isolation — provider split AND consumer migration
+  (pushed `0264248`)**: `SyncStatusContext` + `useSyncStatus` exported from
+  `src/context/auth.js` (13–16, 52–61); `AuthProvider` now builds a separate
+  `syncValue` memo (AuthContext.jsx:301–304) wrapped in
+  `<SyncStatusContext.Provider>` (322–325) and **removes** `syncStatus` /
+  `lastSyncedAt` from the main AppContext `value` (306–319) so a cloud sync
+  re-renders **only SettingsPage**, not every MovieCard/rail consumer. Both
+  real consumers migrated: `SettingsPage.jsx` reads `syncStatus`/`lastSyncedAt`
+  via `useSyncStatus()` (line 400) — sync desc, Sync Now button, and spinner
+  states; `auth.test.jsx` excerpts them from the hook (line 8).
+  Verified: lint 0 errors, vitest 364/364, build OK.
+- [x] **Console-runtime error triage (user-pasted, 4 signals, all UPSTREAM)**:
+  1. `GET cinesrc.st/api/playlist/….m3u8` → 502 + `manifestLoadError fatal` —
+     third-party player CDN returning 502; grep confirms neither `cinesrc.st`
+     nor the playlist host exists in `src/`/`index.html`.
+  2. `POST a.cineflix.st/api/event` → CORS-blocked + 502 — their analytics
+     beacon, not called from our source (grep 0 hits).
+  3. `api.themoviedb.org/3/movie/1433367` → ERR_CONNECTION_TIMED_OUT — external
+     API egress failure (no code change possible; TMDB client already has
+     retry + graceful error toast).
+  4. `pow-v3.wasm` / `pow-worker-v3.js` "preload not used" — hint from the
+     side-loaded player bundle; absent from our tree (grep 0 hits).
+  In-scope handling confirmed ours & sufficient: fatal `manifestLoadError`/
+  `networkError` already fail-over to the next server after 2 strikes with a
+  toast (CustomVideoPlayer.jsx:1070–1084) — no silent dead-end. No source
+  change required; recorded as root-cause finding.
 - [x] **Begin the perf audit batch — re-render + compositor fixes (see audit
   items #3, #7, #8, M1–M4)**: `Toast` provider value now `useMemo`'d
   (`{ toast, dismiss }` — was a fresh object every render, re-rendering every
