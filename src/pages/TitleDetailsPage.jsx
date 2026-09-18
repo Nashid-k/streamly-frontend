@@ -1443,23 +1443,6 @@ export default function TitleDetails() {
 
       {/* ── Cast & Rest ─────────────────────────────────────────────────────────────── */}
       <div id="title-details-more" className="relative z-20 mt-10 lg:mt-14 px-6 lg:px-16 space-y-10 lg:space-y-14 pb-20">
-{/* ── Cast ─────────────────────────────────────────────────────────────── */}
-      {movie.cast && movie.cast.length > 0 && (
-        <motion.section
-          style={{ position: "relative", zIndex: 1, maxWidth: "100%", marginLeft: "auto", marginRight: "auto", marginBottom: "2rem" }}
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-40px" }}
-          transition={{ duration: 0.4 }}
-        >
-          <div style={{ minWidth: 0 }}>
-            <ErrorBoundary>
-              <CastRail cast={movie.cast} />
-            </ErrorBoundary>
-          </div>
-        </motion.section>
-      )}
-
       {/* ── Episodes ─────────────────────────────────────────────────────────── */}
       {isTvContent && hasSeriesEpisodes && (
         <motion.section
@@ -2066,6 +2049,23 @@ export default function TitleDetails() {
               )}
             </>
           )}
+          </div>
+        </motion.section>
+      )}
+
+      {/* ── Cast ─────────────────────────────────────────────────────────────── */}
+      {movie.cast && movie.cast.length > 0 && (
+        <motion.section
+          style={{ position: "relative", zIndex: 1, maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-40px" }}
+          transition={{ duration: 0.4 }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <ErrorBoundary>
+              <CastRail cast={movie.cast} />
+            </ErrorBoundary>
           </div>
         </motion.section>
       )}
