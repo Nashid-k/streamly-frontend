@@ -136,9 +136,9 @@ src/
 │   ├── useRailArrows.js             ← Rail scroll-arrow enable/disable
 │   └── useScrollRestoration.js      ← Scroll position restore across navigation
 ├── components/
-│   ├── CustomVideoPlayer.jsx        ← Zone-driven player (Player UI Studio layout),
+│   ├── CustomVideoPlayer.jsx        ← Fixed Netflix-style player (black + #E50914),
 │   │                                  CineSrc command API, subtitles, gestures
-│   ├── playerUIDef.js               ← Player UI Studio zones, presets, controls
+│   ├── playerUIDef.js               ← Shared player defs (PLAYER_SPEEDS)
 │   ├── MovieCard.jsx                ← Cinematic hover card + Quick View modal
 │   ├── ContinueWatchingRail.jsx     ← Cinejoy-style continue watching rail
 │   ├── DiscoveryRails.jsx           ← Trend/Airing/Popular banner rails
@@ -159,8 +159,7 @@ src/
     ├── PersonDetailsPage.jsx        ← Actor / director filmography
     ├── WatchlistPage.jsx            ← My List
     ├── HistoryPage.jsx              ← Continue Watching / history
-    └── SettingsPage.jsx             ← Themes, playback, servers, subtitles,
-                                       Player UI Studio (5 presets + drag-and-drop)
+    └── SettingsPage.jsx             ← Themes, playback, servers, subtitles
 ```
 
 ---
@@ -179,25 +178,23 @@ src/
 | `/person/:id/:slug?` | PersonDetailsPage | Actor/director page |
 | `/watchlist` | WatchlistPage | Saved titles |
 | `/history` | HistoryPage | Continue watching / history |
-| `/settings` | SettingsPage | Preferences + Player UI Studio |
+| `/settings` | SettingsPage | Preferences (themes, playback, servers, subtitles) |
 
 ---
 
 ## 🧩 Components
 
 ### `CustomVideoPlayer`
-- Zone-driven control bar — every button (play/pause, volume, subtitles,
-  audio, aspect ratio, speed, screen lock, fullscreen) is placeable in one of
-  6 zones (top-left/top-right/bottom-left/center/right/hidden)
+- Single fixed Netflix-style chrome (black + `#E50914` red); play/pause,
+  volume (hover-reveal slider), subtitles, audio, aspect ratio, brightness,
+  playback speed, screen lock, fullscreen
 - CineSrc postMessage command API for play/seek/volume/quality
 - Touch gestures: swipe seek, brightness/volume, double-tap seek, screen lock
 - Custom subtitle engine with per-viewer font, size, color, and blur
 
-### `Player UI Studio` (in Settings)
-- 5 one-click presets: **Classic, Minimal, Compact, Theater, Studio**
-- Drag-and-drop (or tap-to-move) any control into any zone — layout is saved
-  and the real player follows
-- Live preview renders your actual subtitle font/size/color/blur while you edit
+### `PlayerPreview`
+- Truthful mini player mirroring the fixed Netflix chrome (demo video +
+  live subtitle styles); shown in the Subtitles settings as `showChrome={false}`
 
 ### `MovieCard`
 - Cinematic curtain hover effect (Framer Motion `whileHover`)
@@ -255,10 +252,7 @@ const {
   theme,            // "default" | "emerald" | "amethyst" | "ocean" | "crimson" | "solar"
   serverOrder,      // ordered iframe server names
   subtitleFont, subtitleSize, subtitleColor, subtitleBgBlur,
-  playerUIPreset,   // Player UI Studio: "classic" | ... | "custom"
-  playerUILayout,   // { playPause: "bottomLeft", ... }
   setPreference,    // (key, value) => void — persists to localStorage
-  setPlayerControl, // (controlKey, enabled) => void
 } = usePreferences();
 ```
 

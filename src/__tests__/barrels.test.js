@@ -22,8 +22,7 @@ describe("Architecture & Folder Structure Barrels", () => {
     expect(Components.SEO).toBeDefined();
     expect(Components.DiscoveryRails).toBeDefined();
     expect(Components.ContinueWatchingRail).toBeDefined();
-    expect(Components.PLAYER_ZONES).toBeDefined();
-    expect(Components.PLAYER_UI_PRESETS).toBeDefined();
+    expect(Components.PLAYER_SPEEDS).toBeDefined();
   });
 
   it("exports hooks from @/hooks barrel", () => {

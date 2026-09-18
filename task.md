@@ -1765,3 +1765,25 @@ pm run build ok.
     3. Click "Extract from Player" button
     4. Stream URL is copied to clipboard and opened in new tab
     5. User can use yt-dlp/ffmpeg or browser native playback
+
+## Task 89 — Fixed Netflix-style player: remove Player UI Studio machinery
+
+- [x] **Rewrite `CustomVideoPlayer` around one fixed Netflix design** (black chrome + `#E50914`):
+  - **Surgery via EOL-aware script** (`build-player.mjs`, CRLF-safe, index-computed-on-original-source, bottom-up apply): 5385 → 3699 lines. All Player UI Studio machinery removed from the component — presets, skins, zones, icon variants, per-control visibility toggles:
+    - Dropped imports/uses: `resolveUILayout`, `resolveSkin`, `PLAYER_CONTROL_ORDER`, `formatSMPTE`, `NARROW_BAR_HIDES`, `zoneKeys`/`topZoneKeys`, `barControl`, `skinVars`, all `Preset*HUD`/`Apple*HUD`/`Material*HUD` etc.; `playerUIDef` narrowed to `import { PLAYER_SPEEDS }`. Lucide import now `import { ArrowLeft }`-era (dropped `StepBack, StepForward, PictureInPicture2, Cast, BookMarked`).
+  - `React` default import removed — `import { useEffect, useState, ... }` only; kept `React.lazy` free (already done earlier).
+  - Root element emits `data-player-skin="netflix"` (line 1759); `.streamly-player` with `--sat/--sab/--sal/--sar` safe-area tokens, `#000` bg, 12px radius (0 when fullscreen/touch).
+  - New Netflix chrome: top bar (back + title + `S#E#` + Next-episode), red progress bar, gesture HUDs (`NetflixVolumeHUD`, `NetflixBrightnessHUD`, `NetflixAspectHUD` — black glass pill + `#E50914` accents, `hudTop`-positioned), bottom control row (play/pause, seek−10/+10, volume hover-reveal slider gated `!isTouch && isVolumeHovered`, subtitles, audio, speed, aspect ratio, brightness, screen lock, fullscreen, settings gear, Native Audio).
+  - **`narrow` guards**: aspect-ratio + playback-speed buttons hidden under 720px (`{!narrow && …}`); brightness stays (its `aria-label` is the test contract; jsdom ⇒ `narrow=false`).
+  - **Fixed `useNativeControls`**: previously declared missing → ReferenceError path; now `const [useNativeControls, setUseNativeControls] = useState(false)`; the settings "Native Audio" toggle (line ~3459) calls `setUseNativeControls(true)`.
+  - **Silent auto-subtitle downloads**: `handleSubtitleLanguageSelect(link, silent = false)` — all toasts gated `if (!silent)`; auto-download calls pass `true`.
+  - **`setActiveSourceId`** (never-declared reference) removed; `streamly_lastserver` localStorage write + `setLastServer` kept.
+  - All playback features preserved: gestures (swipe seek, brightness/volume, double-tap, screen lock), subtitles + OpenSubtitles auto-fetch, skip intro, up-next, server failover, resume, aspect/brightness/speed, iframe stream extraction, toast engine.
+- [x] **Slim `playerUIDef.js` to `PLAYER_SPEEDS`** (`[0.5, 0.75, 1, 1.25, 1.5, 2]`) — presets/skins/zones/icon variants deleted. `@/components` barrel still re-exports it (updated to `PLAYER_SPEEDS`).
+- [x] **Rework `PlayerPreview.jsx`** — fixed Netflix mini-player mirroring the real chrome (red progress, black bottom stack, submarine subtitle sample) instead of the zone/preset canvas. Kept `showChrome={false}` path + `label="Subtitles"` for the Subtitle settings live preview; demo video `DEMO_VIDEO_SRC` (Big Buck Bunny) unchanged.
+- [x] **Preferences cleanout** (`preferences.js` + `PreferencesContext.jsx`): removed `playerControls`, `playerUIPreset`, `playerUISkin`, `playerGlobalIconStyle`, `playerIconVariants`, `playerUILayout` defaults and the `setPlayerControl` helper. Subtitle prefs (`subtitleFont/Size/Color/BgBlur`), `autoSubtitles`, `defaultLanguage`, server order, seek, auto-skip intact.
+- [x] **CSS**: fixed Netflix chrome colors in preview (red `#E50914` fills/play button, replaced `--skin-*` token fallbacks); deleted the entire Player UI Studio stylesheet block (~1177 lines: `.studio-*`, preset archetypes, dropzones, chip variants, icon variants) from `index.css`.
+- [x] **Tests updated** (341/341 pass): `CustomVideoPlayer.test.jsx` "skins" block rewritten as "fixed Netflix chrome" (netflix skin token, no preset loop, no `setting-playerControls`/`setting-playerUILayout`); `playerUIDef.test.js` rewritten around `PLAYER_SPEEDS`; `PlayerPreview.test.jsx` rewritten (fixed chrome, live subtitle styling); `barrels.test.js` asserts `PLAYER_SPEEDS`; `PreferencesContext.test.jsx` dropped corrupt-`playerControls` case.
+- [x] **Docs truthful**: `README.md` (player description, Settings description, `usePreferences()` sample drops Studio keys), `GIT.md` (player tree line), stale "Studio/zone-driven" comments scrubbed from `index.css` + `CustomVideoPlayer.jsx`.
+- Verified: `npm run lint` (0 errors; only pre-existing baseline warnings), `npm run test` 341/341, `npm run build` OK (`CustomVideoPlayer-Zd6DmEMA.js` 91.53 kB).
+- Remaining pre-existing lint warnings (present at HEAD): `DownloadModal.jsx:29` unused `extractStreamUrl`; unreachable `useImperativeHandle` after `return`; unused `logInfo`/`logError` imports; ref `.current` deps in an effect cleanup.

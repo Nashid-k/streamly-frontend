@@ -46,35 +46,6 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   seekTime: 10,
   autoSubtitles: true,
   defaultLanguage: "en",
-  // Player control visibility toggles
-  playerControls: {
-    playPause: true,
-    jumpForwardBackward: true,
-    volume: true,
-    aspectRatio: true,
-    subtitles: true,
-    audio: true,
-    playbackSpeed: true,
-    screenLock: true,
-    fullscreen: true,
-  },
-  // Player UI studio: preset id + per-control zone placement.
-  // Zones: topLeft | topRight | bottomLeft | bottomRight | tray (hidden).
-  playerUIPreset: "classic",
-  playerUISkin: "classic",
-  playerGlobalIconStyle: "auto",
-  playerIconVariants: {},
-  playerUILayout: {
-    playPause: "bottomLeft",
-    jumpForwardBackward: "bottomLeft",
-    volume: "bottomLeft",
-    subtitles: "bottomRight",
-    audio: "bottomRight",
-    aspectRatio: "bottomRight",
-    playbackSpeed: "tray",
-    screenLock: "topLeft",
-    fullscreen: "bottomRight",
-  },
   // Servers — original player-dropdown names (Server 1 … Server 8),
   // restored from git history. Stored orders saved under the interim
   // Lisbon/Nebula/… names are migrated by PreferencesProvider on boot.

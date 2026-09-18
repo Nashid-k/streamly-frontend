@@ -54,7 +54,7 @@
     │
     ├── components/                  ← Reusable UI building blocks
     │   ├── MovieCard.jsx            ← Cinematic glass-panel hover card
-    │   ├── CustomVideoPlayer.jsx    ← Zone-driven player + episode/source switcher
+    │   ├── CustomVideoPlayer.jsx    ← Fixed Netflix-style player + episode/source switcher
     │   ├── ContinueWatchingRail.jsx ← Cinejoy-style continue watching rail
     │   ├── ConfirmDialog.jsx        ← Modal dialog component
     │   ├── Toast.jsx                ← Notification toasts

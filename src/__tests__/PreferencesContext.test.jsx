@@ -105,19 +105,6 @@ describe("PreferencesProvider", () => {
     expect(document.documentElement.dataset.adsEnabled).toBeUndefined();
   });
 
-  it("recovers playerControls from corrupt storage instead of breaking toggles", () => {
-    localStorage.setItem("setting-playerControls", '"corrupt"');
-
-    render(
-      <PreferencesProvider>
-        <PreferenceProbe />
-      </PreferencesProvider>,
-    );
-
-    // Defaults survive corrupt storage; the settings UI stays usable.
-    expect(screen.getByText("true:true:default")).toBeInTheDocument();
-  });
-
   it("migrates a saved Lisbon-era server order to the restored Server 1–8 labels, position preserved", () => {
     localStorage.setItem(
       "setting-serverOrder",

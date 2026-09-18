@@ -1627,7 +1627,8 @@ export default function SettingsPage() {
                   </SettingRow>
 
                   {/* Real-time Subtitle Live Preview Box — the same demo-video
-                      mini-player as the Studio (video + live subtitle styles). */}
+                      mini-player as the fixed Netflix player chrome
+                      (video + live subtitle styles). */}
                   <div className="mt-4">
                     <PlayerPreview showChrome={false} label="Subtitles" />
                   </div>
