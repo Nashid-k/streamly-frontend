@@ -76,18 +76,18 @@ export const SUBTITLE_COLORS = [
   { name: "Emerald", value: "#95ff50" },
 ];
 
-/* Mirrors DEFAULT_PREFERENCES.serverOrder (restored Server 1 … Server 8
+/* Mirrors DEFAULT_PREFERENCES.serverOrder (plain Server 1 … Server 8
    labels). Kept local so the Settings page renders before the provider
    resolves; the adapter owns the authoritative list. */
 export const DEFAULT_SERVER_ORDER = [
   "Server 1",
-  "Server 2 (Fast)",
-  "Server 3 (HD)",
-  "Server 4 (Backup)",
-  "Server 5 (VidCore)",
-  "Server 6 (Peachify)",
-  "Server 7 (VidUp)",
-  "Server 8 (Smashy)",
+  "Server 2",
+  "Server 3",
+  "Server 4",
+  "Server 5",
+  "Server 6",
+  "Server 7",
+  "Server 8",
 ];
 
 export const SETTINGS_TABS = [

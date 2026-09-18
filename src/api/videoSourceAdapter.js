@@ -7,49 +7,49 @@ const BASE_SERVERS = [
         : `https://cinesrc.st/embed/movie/${id}?color=%230A84FF&autoplay=true&controls=false`,
   },
   {
-    name: "Server 2 (Fast)",
+    name: "Server 2",
     url: (id, s, e, imdb) =>
       s
         ? `https://vidlink.pro/tv/${imdb || id}/${s}/${e}`
         : `https://vidlink.pro/movie/${imdb || id}`,
   },
   {
-    name: "Server 3 (HD)",
+    name: "Server 3",
     url: (id, s, e, imdb) =>
       s
         ? `https://www.2embed.cc/embedtv/${imdb || id}&s=${s}&e=${e}`
         : `https://www.2embed.cc/embed/${imdb || id}`,
   },
   {
-    name: "Server 4 (Backup)",
+    name: "Server 4",
     url: (id, s, e, imdb) =>
       s
         ? `https://vidsrcme.ru/embed/tv?${imdb ? "imdb=" + imdb : "tmdb=" + id}&season=${s}&episode=${e}`
         : `https://vidsrcme.ru/embed/movie?${imdb ? "imdb=" + imdb : "tmdb=" + id}`,
   },
   {
-    name: "Server 5 (VidCore)",
+    name: "Server 5",
     url: (id, s, e, imdb) =>
       s
         ? `https://vidcore.io/tv/${id}/${s}/${e}?autoPlay=true&theme=0A84FF`
         : `https://vidcore.io/movie/${imdb || id}?autoPlay=true&theme=0A84FF`,
   },
   {
-    name: "Server 6 (Peachify)",
+    name: "Server 6",
     url: (id, s, e, imdb) =>
       s
         ? `https://peachify.top/embed/tv/${id}/${s}/${e}?autoNext=false&showNextBtn=false&accent=0A84FF`
         : `https://peachify.top/embed/movie/${imdb || id}?accent=0A84FF`,
   },
   {
-    name: "Server 7 (VidUp)",
+    name: "Server 7",
     url: (id, s, e, imdb) =>
       s
         ? `https://vidup.to/tv/${id}/${s}/${e}?autoPlay=true&theme=0A84FF&nextButton=false&autoNext=false`
         : `https://vidup.to/movie/${imdb || id}?autoPlay=true&theme=0A84FF`,
   },
   {
-    name: "Server 8 (Smashy)",
+    name: "Server 8",
     url: (id, s, e, _imdb) =>
       s
         ? `https://embed.smashystream.com/playere.php?tmdb=${id}&season=${s}&episode=${e}`

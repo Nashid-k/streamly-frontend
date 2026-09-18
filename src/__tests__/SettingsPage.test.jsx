@@ -160,7 +160,7 @@ describe("SettingsPage", () => {
     fireEvent.keyDown(server1, { key: "ArrowDown" });
 
     const stored = JSON.parse(localStorage.getItem("setting-serverOrder"));
-    expect(stored[0]).toBe("Server 2 (Fast)");
+    expect(stored[0]).toBe("Server 2");
     expect(stored[1]).toBe("Server 1");
     // The rank badge follows the new order.
     expect(screen.getByRole("listitem", { name: /server 1, priority 2/i })).toBeInTheDocument();

@@ -31,7 +31,7 @@ vi.mock("../api/movieService", () => ({
 const MOVIE = { id: "movie-550", title: "Fight Club", releaseYear: "1999", durationMins: 139 };
 const SERVERS = [
   { name: "Server 1", url: () => "https://cinesrc.st/embed/movie/550" },
-  { name: "Server 2 (Fast)", url: () => "https://vidlink.pro/movie/550" },
+  { name: "Server 2", url: () => "https://vidlink.pro/movie/550" },
 ];
 const VARIANTS = [
   { uri: "https://cdn/4k.m3u8", bandwidth: 16000000, width: 3840, height: 2160, hdr: true },

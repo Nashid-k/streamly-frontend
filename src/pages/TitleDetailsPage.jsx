@@ -199,8 +199,8 @@ function SeasonDropdown({ seasons, selectedSeason, airingSeasonNumber, onSelect 
                   <motion.button
                     key={seasonNumber}
                     onClick={() => {
-                      onSelect(seasonNumber);
                       setOpen(false);
+                      onSelect(seasonNumber);
                     }}
                     whileHover={{ background: "rgba(255,255,255,0.08)" }}
                     style={{
@@ -357,8 +357,8 @@ function ServerDropdown({ servers, selectedIndex, onSelect }) {
                 <motion.button
                   key={i}
                   onClick={() => {
-                    onSelect(i);
                     setOpen(false);
+                    onSelect(i);
                   }}
                   whileHover={{ background: "rgba(255,255,255,0.06)" }}
                   style={{
@@ -1779,7 +1779,9 @@ export default function TitleDetails() {
                     const isGrid = episodeLayout === 'grid';
                     const isCard = isGrid || isCarouselLayout;
                     const isWatched = isEpisodeWatched(ep);
-                    const isLiveWatched = continueEntryForMovie?.savedEpisode === ep.episodeNumber && (continueEntryForMovie?.timestamp || 0) > 0;
+                    const isLiveWatched = Number(continueEntryForMovie?.savedSeason) === Number(selectedSeason)
+                      && continueEntryForMovie?.savedEpisode === ep.episodeNumber
+                      && (continueEntryForMovie?.timestamp || 0) > 0;
                     const watchedTs = isLiveWatched ? (continueEntryForMovie?.timestamp || 0) : 0;
                     const isAired = isEpAired(ep);
                     const playable = SERVERS.length > 0 && isAired;
@@ -2391,56 +2393,52 @@ export default function TitleDetails() {
                 gap: "0.5rem",
               }}
             >
-              {playMode === "trailer" ? (
-                <div
-                  className="video-modal-header__identity"
-                  style={{ display: "flex", alignItems: "center", gap: "1rem", flex: 1, minWidth: 0, overflow: "hidden" }}
+              <div
+                className="video-modal-header__identity"
+                style={{ display: "flex", alignItems: "center", gap: "1rem", flex: 1, minWidth: 0, overflow: "hidden" }}
+              >
+                <motion.button
+                  onClick={() => setIsPlaying(false)}
+                  className="video-modal-back-button"
+                  aria-label="Back to browse"
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "#fff",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "6px",
+                    borderRadius: "4px",
+                    flexShrink: 0,
+                  }}
+                  whileHover={{ background: "rgba(255,255,255,0.1)" }}
+                  whileTap={{ opacity: 0.6 }}
                 >
-                  <motion.button
-                    onClick={() => setIsPlaying(false)}
-                    className="video-modal-back-button"
-                    aria-label="Back to browse"
-                    style={{
-                      background: "transparent",
-                      border: "none",
-                      color: "#fff",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      padding: "6px",
-                      borderRadius: "4px",
-                      flexShrink: 0,
-                    }}
-                    whileHover={{ background: "rgba(255,255,255,0.1)" }}
-                    whileTap={{ opacity: 0.6 }}
-                  >
-                    <ChevronLeft size={22} strokeWidth={2.2} />
-                  </motion.button>
-                  <h3
-                    className="video-modal-title"
-                    style={{
-                      margin: 0,
-                      fontSize: "1rem",
-                      fontWeight: 700,
-                      color: "#fff",
-                    }}
-                  >
-                    {movie.title}{" "}
-                    {playMode === "trailer" ? (
-                      <span style={{ color: "#71717a", fontWeight: 400 }}>
-                        — Official Trailer
-                      </span>
-                    ) : isTvContent ? (
-                      `— S${selectedSeason} E${playingEpisode}${episodes.find((e) => e.episodeNumber === playingEpisode)?.title ? `: ${episodes.find((e) => e.episodeNumber === playingEpisode).title}` : ""}`
-                    ) : (
-                      ""
-                    )}
-                  </h3>
-                </div>
-              ) : (
-                <div style={{ flex: 1 }} />
-              )}
+                  <ChevronLeft size={22} strokeWidth={2.2} />
+                </motion.button>
+                <h3
+                  className="video-modal-title"
+                  style={{
+                    margin: 0,
+                    fontSize: "1rem",
+                    fontWeight: 700,
+                    color: "#fff",
+                  }}
+                >
+                  {movie.title}{" "}
+                  {playMode === "trailer" ? (
+                    <span style={{ color: "#71717a", fontWeight: 400 }}>
+                      — Official Trailer
+                    </span>
+                  ) : isTvContent ? (
+                    `— S${selectedSeason} E${playingEpisode}${episodes.find((e) => e.episodeNumber === playingEpisode)?.title ? `: ${episodes.find((e) => e.episodeNumber === playingEpisode).title}` : ""}`
+                  ) : (
+                    ""
+                  )}
+                </h3>
+              </div>
               <div
                 className="video-modal-header__actions"
                 style={{
@@ -2641,7 +2639,7 @@ export default function TitleDetails() {
             </motion.div>
           </motion.div>
         )}
-        {unreleasedModalOpen && (
+        {unreleasedModalOpen && createPortal(
           <motion.div
             key="unreleased"
             initial={{ opacity: 0 }}
@@ -2679,7 +2677,8 @@ export default function TitleDetails() {
                 <ChevronLeft size={16} strokeWidth={1.5} aria-hidden="true" /> Back
               </button>
             </motion.div>
-          </motion.div>
+          </motion.div>,
+          document.body
         )}
         {ratingsOpen && movie && (
           <RatingsTable

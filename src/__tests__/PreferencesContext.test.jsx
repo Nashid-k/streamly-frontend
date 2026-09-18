@@ -118,15 +118,15 @@ describe("PreferencesProvider", () => {
     );
 
     expect(screen.getByTestId("server-order")).toHaveTextContent(
-      "Server 2 (Fast) | Server 1 | Server 5 (VidCore)",
+      "Server 2 | Server 1 | Server 5",
     );
     // The stored key is rewritten in place so the migration is idempotent.
     expect(localStorage.getItem("setting-serverOrder")).toBe(
-      JSON.stringify(["Server 2 (Fast)", "Server 1", "Server 5 (VidCore)"]),
+      JSON.stringify(["Server 2", "Server 1", "Server 5"]),
     );
   });
 
-  it("leaves already-current server orders untouched", () => {
+  it("migrates a saved suffixed server order to the plain labels, position preserved", () => {
     localStorage.setItem(
       "setting-serverOrder",
       JSON.stringify(["Server 8 (Smashy)", "Server 1"]),
@@ -139,7 +139,27 @@ describe("PreferencesProvider", () => {
     );
 
     expect(screen.getByTestId("server-order")).toHaveTextContent(
-      "Server 8 (Smashy) | Server 1",
+      "Server 8 | Server 1",
+    );
+    expect(localStorage.getItem("setting-serverOrder")).toBe(
+      JSON.stringify(["Server 8", "Server 1"]),
+    );
+  });
+
+  it("leaves already-current server orders untouched", () => {
+    localStorage.setItem(
+      "setting-serverOrder",
+      JSON.stringify(["Server 3", "Server 1"]),
+    );
+
+    render(
+      <PreferencesProvider>
+        <PreferenceProbe />
+      </PreferencesProvider>,
+    );
+
+    expect(screen.getByTestId("server-order")).toHaveTextContent(
+      "Server 3 | Server 1",
     );
   });
 });

@@ -3,19 +3,26 @@ import { createContext, useContext } from "react";
 /* ── Server naming migration ──────────────────────────────────────────
    The player dropdown originally shipped as "Server 1 … Server 7", was
    renamed to Lisbon/Nebula/Solara/Athens/Joy/Castle/Sakura (f584ba3),
-   then Canaias/SmashyStream was added as an 8th. The dropdown labels are
-   now restored to Server 1 … Server 8; this map carries any saved order
-   across so existing visitors keep their exact priority.
-   Same position, new label. */
+   then Canaias/SmashyStream was added as an 8th, then the "Server N
+   (suffix)" style came back. Today the labels are plain Server 1 … 8;
+   this map carries ANY legacy spelling across so existing visitors keep
+   their exact priority. Same position, new label. */
 export const LEGACY_SERVER_NAME_MAP = Object.freeze({
   "Lisbon": "Server 1",
-  "Nebula": "Server 2 (Fast)",
-  "Solara": "Server 3 (HD)",
-  "Athens": "Server 4 (Backup)",
-  "Joy": "Server 5 (VidCore)",
-  "Castle": "Server 6 (Peachify)",
-  "Sakura": "Server 7 (VidUp)",
-  "Canaias": "Server 8 (Smashy)",
+  "Nebula": "Server 2",
+  "Solara": "Server 3",
+  "Athens": "Server 4",
+  "Joy": "Server 5",
+  "Castle": "Server 6",
+  "Sakura": "Server 7",
+  "Canaias": "Server 8",
+  "Server 2 (Fast)": "Server 2",
+  "Server 3 (HD)": "Server 3",
+  "Server 4 (Backup)": "Server 4",
+  "Server 5 (VidCore)": "Server 5",
+  "Server 6 (Peachify)": "Server 6",
+  "Server 7 (VidUp)": "Server 7",
+  "Server 8 (Smashy)": "Server 8",
 });
 
 export function migrateServerOrder(order) {
@@ -46,18 +53,18 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   seekTime: 10,
   autoSubtitles: true,
   defaultLanguage: "en",
-  // Servers — original player-dropdown names (Server 1 … Server 8),
-  // restored from git history. Stored orders saved under the interim
-  // Lisbon/Nebula/… names are migrated by PreferencesProvider on boot.
+  // Servers — plain labels (Server 1 … Server 8). Stored orders saved
+  // under the interim Lisbon/Nebula/… or "Server N (suffix)" names are
+  // migrated by PreferencesProvider on boot.
   serverOrder: [
     "Server 1",
-    "Server 2 (Fast)",
-    "Server 3 (HD)",
-    "Server 4 (Backup)",
-    "Server 5 (VidCore)",
-    "Server 6 (Peachify)",
-    "Server 7 (VidUp)",
-    "Server 8 (Smashy)",
+    "Server 2",
+    "Server 3",
+    "Server 4",
+    "Server 5",
+    "Server 6",
+    "Server 7",
+    "Server 8",
   ],
   // Subtitles
   subtitleFont: "cinejoy",

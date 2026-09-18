@@ -482,7 +482,24 @@ const CustomVideoPlayer = forwardRef(({
   // screen with Retry instead of cycling forever on a black iframe.
   const rotationFailuresRef = useRef(0);
 
+  // Per-server consecutive-error tally (dead sources accumulate strikes before
+  // failover). A ref, because the value never renders and the watchdog needs it
+  // synchronously.
+  const serverErrorCountsRef = useRef({});
+  // Flips true the moment a source proves it is actually streaming (playing
+  // event, loadedmetadata, time advancing, buffered data). Failover trusts this
+  // instead of our overlay spinner: CineSrc's own error postMessage can be
+  // dropped by the browser (DataCloneError on their side) while their embed
+  // keeps spinning, so "no playback" is the only trustworthy dead-source sign.
+  const hasPlaybackRef = useRef(false);
+  // Set while a failover switch is already scheduled, so an error event and the
+  // watchdog firing close together can't both count the same dead source and
+  // exhaust the rotation with a false "all servers unreachable" screen.
+  const failoverPendingRef = useRef(false);
+
   const advanceServer = useCallback((msg) => {
+    if (failoverPendingRef.current || rotationFailuresRef.current >= serverCount) return;
+    failoverPendingRef.current = true;
     rotationFailuresRef.current += 1;
     const next = (activeServerIndexRef.current + 1) % serverCount;
     if (rotationFailuresRef.current >= serverCount) {
@@ -493,6 +510,10 @@ const CustomVideoPlayer = forwardRef(({
     }
     setErrorMessage(msg);
     setTimeout(() => {
+      // The source may have started streaming (slow-but-alive) while we were
+      // counting it dead — don't switch away from a working server.
+      if (hasPlaybackRef.current) { failoverPendingRef.current = false; return; }
+      failoverPendingRef.current = false;
       setErrorMessage("");
       setActiveServerIndex(next);
       onServerChange?.(next);
@@ -501,7 +522,8 @@ const CustomVideoPlayer = forwardRef(({
 
   const handleRetry = useCallback(() => {
     rotationFailuresRef.current = 0;
-    setServerErrorCounts({});
+    serverErrorCountsRef.current = {};
+    failoverPendingRef.current = false;
     setFatalError(false);
     setErrorMessage("");
     setIsLoading(true);
@@ -572,7 +594,6 @@ on falls back to the provider's native controls. */
   const [showSkipIntro, setShowSkipIntro] = useState(false);
   const [showUpNext, setShowUpNext] = useState(false);
   const [upNextCountdown, setUpNextCountdown] = useState(15);
-  const [, setServerErrorCounts] = useState({});
   const [, setLastServer] = useState(() => localStorage.getItem("streamly_lastserver") || "");
   const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0 });
   const [isLooping, setIsLooping] = useState(false);
@@ -841,7 +862,7 @@ on falls back to the provider's native controls. */
 
   /* URL Generation */
   useEffect(() => {
-    let watchdogTimer;
+    let watchdogHandle = null;
     const gen = async () => {
       setIsLoading(true);
       setHasInitiallyLoaded(false);
@@ -866,6 +887,10 @@ on falls back to the provider's native controls. */
         return;
       }
       genKeyRef.current = key;
+      // Fresh server attempt: reset "did it stream yet?" and the per-server
+      // failure tally before this source starts loading.
+      hasPlaybackRef.current = false;
+      serverErrorCountsRef.current = {};
       // Console trace: which ordered server this session plays (Settings → Server Order).
       logDebug("player", `Loading "${movie?.title || movie?.name || tid}" via server #${activeServerIndex + 1} "${SERVERS[activeServerIndex]?.name || "unknown"}" (${serverCount} in rotation).`, { tid, serverIndex: activeServerIndex, serverCount });
       const sig = `${tid}-${isTv ? season : "m"}-${isTv ? episode : "m"}`;
@@ -891,29 +916,32 @@ on falls back to the provider's native controls. */
       if (isNew && startTimeRef.current > 0 && (url.includes("peachify.top") || url.includes("vidup.to")))
         url += `&startAt=${Math.floor(startTimeRef.current)}`;
       setIframeUrl(url);
+      // Dead-source watchdog. It re-arms itself so a source that never starts
+      // (manifest 502, TMDB timeout inside CineSrc, or an error postMessage
+      // swallowed by DataCloneError) keeps accruing strikes until we rotate
+      // past it — even while CineSrc's own "fetching nebula/lisbon" loader is
+      // on screen. Guards: once a source actually streams, or the rotation is
+      // fully exhausted, the watchdog stands down.
       const watchdogDelay = (isCineServer || url.includes("vidcore.io")) ? 20000 : 12000;
-      watchdogTimer = setTimeout(() => {
-        setIsLoading((prev) => {
-          if (prev) {
-            setServerErrorCounts((errs) => {
-              const si = activeServerIndexRef.current;
-              const nc = (errs[si] || 0) + 1;
-              if (nc >= 2) {
-                advanceServer(`Server ${si + 1} timed out`);
-              } else {
-                setErrorMessage("Retrying...");
-                setTimeout(() => setErrorMessage(""), 3000);
-              }
-              return { ...errs, [si]: nc };
-            });
-            return false;
+      const armWatchdog = () => {
+        watchdogHandle = setTimeout(() => {
+          if (hasPlaybackRef.current || rotationFailuresRef.current >= serverCount) return;
+          const si = activeServerIndexRef.current;
+          const nc = (serverErrorCountsRef.current[si] || 0) + 1;
+          serverErrorCountsRef.current = { ...serverErrorCountsRef.current, [si]: nc };
+          if (nc >= 2) {
+            advanceServer(`Server ${si + 1} isn't starting — trying next server`);
+          } else {
+            setErrorMessage("Still loading source…");
+            setTimeout(() => setErrorMessage(""), 4000);
+            armWatchdog();
           }
-          return prev;
-        });
-      }, watchdogDelay);
+        }, watchdogDelay);
+      };
+      armWatchdog();
     };
     gen();
-    return () => { if (watchdogTimer) clearTimeout(watchdogTimer); };
+    return () => { if (watchdogHandle) { clearTimeout(watchdogHandle); watchdogHandle = null; } };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- currentTime/onServerChange/setupThumbnailVTT are read but must NOT drive reloads: currentTime changes every timeupdate and would re-init the whole stream, and adding the others would churn the session on every parent render.
   }, [activeServerIndex, movie, season, episode, useNativeControls, failoverToNextServer, advanceServer, retryNonce]);
 
@@ -1018,13 +1046,14 @@ on falls back to the provider's native controls. */
               default: break;
             }
             break;
-          case "cinesrc:loadedmetadata": if (d.duration) setDuration(d.duration); break;
+          case "cinesrc:loadedmetadata": if (d.duration) { setDuration(d.duration); hasPlaybackRef.current = true; } break;
           case "cinesrc:waiting": setIsLoading(true); break;
           case "cinesrc:seeking": setIsLoading(true); break;
-          case "cinesrc:seeked": targetSeekTimeRef.current = null; setIsLoading(false); break;
-          case "cinesrc:playing": setIsLoading(false); setIsPlaying(true); rotationFailuresRef.current = 0; setFatalError(false); setServerErrorCounts({}); break;
-          case "cinesrc:progress": if (d.buffered !== undefined) setBuffered(d.buffered); break;
+          case "cinesrc:seeked": targetSeekTimeRef.current = null; setIsLoading(false); hasPlaybackRef.current = true; break;
+          case "cinesrc:playing": setIsLoading(false); setIsPlaying(true); rotationFailuresRef.current = 0; setFatalError(false); serverErrorCountsRef.current = {}; failoverPendingRef.current = false; hasPlaybackRef.current = true; break;
+          case "cinesrc:progress": if (d.buffered !== undefined) { setBuffered(d.buffered); if (d.buffered > 0) hasPlaybackRef.current = true; } break;
           case "cinesrc:timeupdate":
+            hasPlaybackRef.current = true;
             if (isLoadingRef.current) setIsLoading(false);
             if (!isScrubbing && !targetSeekTimeRef.current) {
               setCurrentTime(d.currentTime);
@@ -1051,6 +1080,7 @@ on falls back to the provider's native controls. */
             }
             break;
           case "cinesrc:ended":
+            hasPlaybackRef.current = true;
             if (isLoopingRef.current) { sendCommand("seek", [0]); return; }
             if (hasNextEpisode && !hasTriggeredNextRef.current) {
               hasTriggeredNextRef.current = true;
@@ -1084,7 +1114,7 @@ on falls back to the provider's native controls. */
               setLastServer(d.sourceId);
             }
             break;
-          case "cinesrc:play": setIsLoading(false); setIsPlaying(true); rotationFailuresRef.current = 0; setFatalError(false); setServerErrorCounts({}); break;
+          case "cinesrc:play": setIsLoading(false); setIsPlaying(true); rotationFailuresRef.current = 0; setFatalError(false); serverErrorCountsRef.current = {}; failoverPendingRef.current = false; hasPlaybackRef.current = true; break;
           case "cinesrc:pause": setIsPlaying(false); if (!isScrubbing) setIsLoading(false); break;
           case "cinesrc:ratechange": setPlaybackRate(d.playbackRate); break;
           case "cinesrc:volumechange":
@@ -1109,16 +1139,14 @@ on falls back to the provider's native controls. */
             }
             if (cErrType === 'networkError' || cErrType === 'levelLoadTimeOut') break;
             const ei = activeServerIndexRef.current;
-            setServerErrorCounts((p) => {
-              const nc = (p[ei] || 0) + 1;
-              if (nc >= 2) {
-                advanceServer("Stream unavailable — trying next server");
-              } else {
-                setErrorMessage("Retrying...");
-                setTimeout(() => setErrorMessage(""), 3000);
-              }
-              return { ...p, [ei]: nc };
-            });
+            const nc = (serverErrorCountsRef.current[ei] || 0) + 1;
+            serverErrorCountsRef.current = { ...serverErrorCountsRef.current, [ei]: nc };
+            if (nc >= 2) {
+              advanceServer("Stream unavailable — trying next server");
+            } else {
+              setErrorMessage("Retrying...");
+              setTimeout(() => setErrorMessage(""), 3000);
+            }
             break;
           }
           default: break;
@@ -1147,10 +1175,11 @@ on falls back to the provider's native controls. */
         }
         if (typeof etype !== "string" || !etype) return;
         switch (etype) {
-          case "play": setIsLoading(false); setIsPlaying(true); rotationFailuresRef.current = 0; setFatalError(false); setServerErrorCounts({}); break;
+          case "play": setIsLoading(false); setIsPlaying(true); rotationFailuresRef.current = 0; setFatalError(false); serverErrorCountsRef.current = {}; failoverPendingRef.current = false; hasPlaybackRef.current = true; break;
           case "pause": setIsPlaying(false); setIsLoading(false); break;
-          case "seeked": targetSeekTimeRef.current = null; setIsLoading(false); break;
+          case "seeked": targetSeekTimeRef.current = null; setIsLoading(false); hasPlaybackRef.current = true; break;
           case "timeupdate": {
+            hasPlaybackRef.current = true;
             if (isLoadingRef.current) setIsLoading(false);
             if (!isScrubbing && !targetSeekTimeRef.current) {
               const t = payload?.currentTime;
@@ -1175,6 +1204,7 @@ on falls back to the provider's native controls. */
             break;
           }
           case "ended":
+            hasPlaybackRef.current = true;
             if (isLoopingRef.current) { sendCommand("seek", [0]); return; }
             if (hasNextEpisode && !hasTriggeredNextRef.current) {
               hasTriggeredNextRef.current = true;
@@ -1871,26 +1901,28 @@ on falls back to the provider's native controls. */
           }}
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
           onLoad={() => {
-            if (isCineSrc) {
-              /* Do NOT set isLoading=false here — wait for cinesrc:playing
-                 so CineSrc's own spinner stays hidden behind our overlay */
-            } else if (isVidCore) {
+            // Frame document loaded → hide our overlay so the provider's own
+            // player UI (and CineSrc's "fetching nebula/lisbon" loader) shows
+            // through. Dead-source failover no longer depends on our spinner —
+            // the re-arming hasPlaybackRef watchdog in the URL-generation
+            // effect rotates past sources that never actually start streaming.
+            setIsLoading(false);
+            setHasInitiallyLoaded(true);
+            if (isVidCore) {
               // Native UI mode: pull the current playback state into our player
               // so Continue Watching and up-next logic stay in sync.
-              setIsLoading(false);
               rotationFailuresRef.current = 0;
               setFatalError(false);
-              setServerErrorCounts({});
+              serverErrorCountsRef.current = {};
               setTimeout(() => {
                 const w = iframeRef.current?.contentWindow;
                 if (w && iframeUrl.includes("vidcore.io"))
                   w.postMessage({ command: "getStatus" }, "*");
               }, 600);
             } else {
-              setIsLoading(false);
               rotationFailuresRef.current = 0;
               setFatalError(false);
-              setServerErrorCounts({}); // Reset error count on successful load
+              serverErrorCountsRef.current = {};
             }
           }}
         />

@@ -26,7 +26,6 @@ import {
   variantLabel,
 } from "../utils/downloadQuality";
 import { logDebug, logWarn, logInfo, logError } from "../utils/debugLogger";
-import { extractStreamUrl } from "../utils/iframeStreamExtractor.js";
 
 /* ── DownloadModal — browser-only offline downloads ────────────────────
    Vercel has no storage and the app has no backend, so "download" means

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Check, Plus, X } from "lucide-react";
 
 /* ── Collection picker: add/remove ONE title from ANY collection ──────────
@@ -28,7 +29,10 @@ function CollectionPickerDialog({ open, movie, collections, onToggle, onCreateWi
     setCreateName("");
   };
 
-  return (
+  // Portaled to <body>: the app wraps every page in a motion.div that keeps a
+  // transform on it, which would otherwise break `position: fixed` and push the
+  // centered dialog down into the page (forced scrolling to reach it).
+  return createPortal(
     <div className="collection-dialog-backdrop" role="presentation" onClick={onClose}>
       <div
         className="collection-dialog collection-dialog--wide"
@@ -106,7 +110,8 @@ function CollectionPickerDialog({ open, movie, collections, onToggle, onCreateWi
           )}
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
