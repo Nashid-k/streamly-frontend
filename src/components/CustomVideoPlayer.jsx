@@ -5,9 +5,9 @@ import { movieService } from "../api/movieService";
 import {
   Play, Pause, Volume1, Volume2, VolumeX, Maximize, Minimize,
   Settings, AlertCircle, Check,
-  SkipForward, FastForward, Rewind,
+  SkipForward, FastForward,
   Keyboard, X, Upload, Captions, Film, Link, Repeat,
-  ArrowLeft, Lock, Unlock, Sun,
+  ArrowLeft, ArrowRight, Lock, Unlock, Sun,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SubtitleEngine } from "../utils/subtitleEngine";
@@ -2441,9 +2441,9 @@ on falls back to the provider's native controls. */
             {/* Seek direction & delta */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               {seekDelta > 0 ? (
-                <FastForward size={20} color="#E50914" strokeWidth={2.4} style={{ filter: 'drop-shadow(0 0 8px #E50914)' }} />
+                <ArrowRight size={20} color="#E50914" strokeWidth={2.4} style={{ filter: 'drop-shadow(0 0 8px #E50914)' }} />
               ) : (
-                <Rewind size={20} color="#E50914" strokeWidth={2.4} style={{ filter: 'drop-shadow(0 0 8px #E50914)' }} />
+                <ArrowLeft size={20} color="#E50914" strokeWidth={2.4} style={{ filter: 'drop-shadow(0 0 8px #E50914)' }} />
               )}
               <span style={{
                 color: '#fff', fontSize: 20, fontWeight: 800,
@@ -2569,7 +2569,7 @@ on falls back to the provider's native controls. */
                     animate={{ x: [0, -3, 0] }}
                     transition={{ repeat: 2, duration: 0.25 }}
                   >
-                    <Rewind size={18} color="#E50914" strokeWidth={2.5} />
+                    <ArrowLeft size={18} color="#E50914" strokeWidth={2.5} />
                   </motion.div>
                   <span style={{
                     fontSize: 14,
@@ -2602,7 +2602,7 @@ on falls back to the provider's native controls. */
                     animate={{ x: [0, -3, 0] }}
                     transition={{ repeat: 2, duration: 0.25 }}
                   >
-                    <Rewind size={18} color="#E50914" strokeWidth={2.5} />
+                    <ArrowLeft size={18} color="#E50914" strokeWidth={2.5} />
                   </motion.div>
                   <span style={{
                     fontSize: 14, fontWeight: 700, color: "#fff",
@@ -2653,7 +2653,7 @@ on falls back to the provider's native controls. */
                     animate={{ x: [0, 3, 0] }}
                     transition={{ repeat: 2, duration: 0.25 }}
                   >
-                    <FastForward size={18} color="#E50914" strokeWidth={2.5} />
+                    <ArrowRight size={18} color="#E50914" strokeWidth={2.5} />
                   </motion.div>
                 </motion.div>
               ) : (
@@ -2683,7 +2683,7 @@ on falls back to the provider's native controls. */
                     animate={{ x: [0, 3, 0] }}
                     transition={{ repeat: 2, duration: 0.25 }}
                   >
-                    <FastForward size={18} color="#E50914" strokeWidth={2.5} />
+                    <ArrowRight size={18} color="#E50914" strokeWidth={2.5} />
                   </motion.div>
                 </motion.div>
               )
@@ -3093,7 +3093,7 @@ on falls back to the provider's native controls. */
                     display: "flex", alignItems: "center", justifyContent: "center", padding: "3px",
                   }}
                 >
-                  <Rewind size={isTouch ? 17 : 19} strokeWidth={2.4} />
+                  <ArrowLeft size={isTouch ? 17 : 19} strokeWidth={2.4} />
                 </motion.button>
                 <motion.button
                   aria-label="Forward 10 seconds"
@@ -3104,7 +3104,7 @@ on falls back to the provider's native controls. */
                     display: "flex", alignItems: "center", justifyContent: "center", padding: "3px",
                   }}
                 >
-                  <FastForward size={isTouch ? 17 : 19} strokeWidth={2.4} />
+                  <ArrowRight size={isTouch ? 17 : 19} strokeWidth={2.4} />
                 </motion.button>
                 {/* Volume — button + hover slider */}
                 <div
