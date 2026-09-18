@@ -306,47 +306,48 @@ const NetflixAspectHUD = memo(function NetflixAspectHUD({ aspectRatioIndex, hudT
   );
 });
 
-/* Apple TV+ style loading arc — clean spinning gradient trail */
+/* Netflix-style loading arc — bright red comet ring, the signature
+   buffering spinner of the Netflix player. */
 const LoadingArc = memo(({ size = 56, strokeWidth = 2.5, progress = 0 }) => {
   const r = (size - strokeWidth) / 2;
   const circ = 2 * Math.PI * r;
   return (
     <div style={{ position: "relative", width: size, height: size }}>
-      {/* Static track ring */}
+      {/* Static track ring — faint red */}
       <svg width={size} height={size} style={{ position: "absolute", inset: 0 }}>
         <circle
           cx={size/2} cy={size/2} r={r}
-          fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={strokeWidth}
+          fill="none" stroke="rgba(229,9,20,0.18)" strokeWidth={strokeWidth}
         />
       </svg>
-      {/* Spinning gradient arc — Apple TV+ style with fade trail */}
+      {/* Spinning comet arc — solid #E50914 with a red fade trail */}
       <motion.svg
         width={size} height={size}
         style={{ position: "absolute", inset: 0 }}
         animate={{ rotate: 360 }}
-        transition={{ repeat: Infinity, duration: 1.4, ease: "linear" }}
+        transition={{ repeat: Infinity, duration: 1.1, ease: "linear" }}
       >
         <defs>
           <linearGradient id="loadArcGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="rgba(255,255,255,0)" />
-            <stop offset="50%" stopColor="rgba(255,255,255,0.6)" />
-            <stop offset="100%" stopColor="rgba(255,255,255,0.95)" />
+            <stop offset="0%" stopColor="rgba(229,9,20,0)" />
+            <stop offset="55%" stopColor="rgba(229,9,20,0.55)" />
+            <stop offset="100%" stopColor="#E50914" />
           </linearGradient>
         </defs>
         <circle
           cx={size/2} cy={size/2} r={r}
           fill="none" stroke="url(#loadArcGrad)" strokeWidth={strokeWidth}
           strokeLinecap="round"
-          strokeDasharray={`${circ * 0.25} ${circ * 0.75}`}
+          strokeDasharray={`${circ * 0.28} ${circ * 0.72}`}
         />
       </motion.svg>
-      {/* Inner progress ring — fills over time */}
+      {/* Inner progress ring — red, fills over time */}
       {progress > 0 && (
         <svg width={size} height={size} style={{ position: "absolute", inset: 0 }}>
           <defs>
             <linearGradient id="loadInnerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="rgba(255,255,255,0.08)" />
-              <stop offset="100%" stopColor="rgba(255,255,255,0.25)" />
+              <stop offset="0%" stopColor="rgba(229,9,20,0.15)" />
+              <stop offset="100%" stopColor="rgba(229,9,20,0.45)" />
             </linearGradient>
           </defs>
           <circle
@@ -1949,11 +1950,10 @@ on falls back to the provider's native controls. */
                   transition={{ type: "spring", stiffness: 420, damping: 24 }}
                   style={{
                     width: "clamp(56px, 10vw, 76px)", height: "clamp(56px, 10vw, 76px)", borderRadius: "50%",
-                    background: "rgba(0,0,0,0.55)", backdropFilter: "blur(20px)",
-                    WebkitBackdropFilter: "blur(20px)",
+                    background: "#E50914",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    border: "2px solid rgba(229,9,20,0.9)",
-                    boxShadow: "0 8px 36px rgba(0,0,0,0.6), 0 0 24px rgba(229,9,20,0.4)",
+                    border: "none",
+                    boxShadow: "0 8px 36px rgba(0,0,0,0.6), 0 0 24px rgba(229,9,20,0.5)",
                   }}
                 >
                   {/* Expanding arc ring — Netflix red pulse */}
@@ -1981,11 +1981,10 @@ on falls back to the provider's native controls. */
                   transition={SPRING}
                   style={{
                     width: "clamp(52px, 9vw, 68px)", height: "clamp(52px, 9vw, 68px)", borderRadius: "50%",
-                    background: "rgba(0,0,0,0.55)", backdropFilter: "blur(20px)",
-                    WebkitBackdropFilter: "blur(20px)",
+                    background: "#E50914",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    border: "2px solid rgba(229,9,20,0.85)",
-                    boxShadow: "0 8px 30px rgba(0,0,0,0.6), 0 0 20px rgba(229,9,20,0.35)",
+                    border: "none",
+                    boxShadow: "0 8px 30px rgba(0,0,0,0.6), 0 0 20px rgba(229,9,20,0.4)",
                   }}
                 >
                   <Play size={26} fill="#fff" color="#fff" style={{ marginLeft: 2 }} />
@@ -2007,8 +2006,7 @@ on falls back to the provider's native controls. */
             style={{
               position: "absolute", inset: 0, zIndex: 16,
               display: "flex", alignItems: "center", justifyContent: "center",
-              background: "rgba(0,0,0,0.65)", backdropFilter: "blur(12px)",
-              WebkitBackdropFilter: "blur(12px)",
+              background: "radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.88) 100%)",
               pointerEvents: "none",
             }}
           >
@@ -2029,9 +2027,8 @@ on falls back to the provider's native controls. */
                   transition={{ delay: 0.2, duration: 0.5 }}
                   style={{
                     width: isTouch ? "clamp(60px, 16vw, 110px)" : "clamp(80px, 14vw, 150px)", aspectRatio: "2/3",
-                    borderRadius: 12, overflow: "hidden", flexShrink: 0,
+                    borderRadius: 8, overflow: "hidden", flexShrink: 0,
                     boxShadow: "0 24px 64px rgba(0,0,0,0.85)",
-                    border: "1px solid rgba(255,255,255,0.08)",
                   }}
                 >
                   <img
@@ -2122,6 +2119,21 @@ on falls back to the provider's native controls. */
               overflow: "hidden",
             }}
           >
+            {/* Netflix top-edge loading bar — thin red line, full width */}
+            <div style={{
+              position: "absolute", top: 0, left: 0, right: 0, height: 3, zIndex: 2,
+              background: "rgba(229,9,20,0.15)",
+            }}>
+              <motion.div
+                animate={{ width: `${Math.max(8, loadProgress * 100)}%` }}
+                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                style={{
+                  height: "100%",
+                  background: "linear-gradient(90deg, #b00710, #E50914)",
+                  boxShadow: "0 0 8px rgba(229,9,20,0.8)",
+                }}
+              />
+            </div>
             {/* Blurred poster backdrop */}
             {thumbnailUrl ? (
               <div style={{
@@ -2189,21 +2201,6 @@ on falls back to the provider's native controls. */
                   >
                     {dynamicTips[currentTipIndex]?.text}
                   </motion.div>
-                  {/* Thin progress bar — Netflix red */}
-                  <div style={{
-                    marginTop: 12, width: "clamp(100px, 30vw, 180px)", height: 2,
-                    background: "rgba(255,255,255,0.06)", borderRadius: 1,
-                    overflow: "hidden",
-                  }}>
-                    <motion.div
-                      animate={{ width: `${loadProgress * 100}%` }}
-                      transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                      style={{
-                        height: "100%", borderRadius: 1,
-                        background: "linear-gradient(90deg, #b00710, #E50914)",
-                      }}
-                    />
-                  </div>
                 </motion.div>
               )}
             </div>
@@ -2241,11 +2238,9 @@ on falls back to the provider's native controls. */
             transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
             style={{
               position: "absolute", top: 16, left: "50%",
-              background: "rgba(18,18,20,0.92)", color: "#fff",
-              padding: `${R.padSmall} clamp(10px, 2vw, 16px)`, borderRadius: 8,
-              backdropFilter: "blur(24px) saturate(180%)",
-              WebkitBackdropFilter: "blur(24px) saturate(180%)",
-              border: "1px solid rgba(229,9,20,0.6)",
+              background: "rgba(0,0,0,0.9)", color: "#fff",
+              padding: `${R.padSmall} clamp(10px, 2vw, 16px)`, borderRadius: 4,
+              border: "1px solid rgba(255,255,255,0.14)",
               boxShadow: "0 10px 30px rgba(0,0,0,0.6)",
               zIndex: 62, fontWeight: 600, fontSize: R.fontSmall, pointerEvents: "none",
               fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
@@ -2297,11 +2292,9 @@ on falls back to the provider's native controls. */
               alignItems: 'center', justifyContent: 'space-between',
               padding: '12px 0 10px',
               zIndex: 65, pointerEvents: 'none',
-              background: 'rgba(18,18,22,0.84)',
-              backdropFilter: 'blur(30px) saturate(190%)',
-              WebkitBackdropFilter: 'blur(30px) saturate(190%)',
-              borderRadius: 22,
-              border: '1px solid rgba(255,255,255,0.12)',
+              background: 'rgba(20,20,20,0.96)',
+              borderRadius: 8,
+              border: '1px solid rgba(255,255,255,0.1)',
               boxShadow: '0 20px 48px rgba(0,0,0,0.7)',
               overflow: 'hidden',
             }}
@@ -2372,11 +2365,9 @@ on falls back to the provider's native controls. */
               alignItems: 'center', justifyContent: 'space-between',
               padding: '12px 0 10px',
               zIndex: 65, pointerEvents: 'none',
-              background: 'rgba(18,18,22,0.84)',
-              backdropFilter: 'blur(30px) saturate(190%)',
-              WebkitBackdropFilter: 'blur(30px) saturate(190%)',
-              borderRadius: 22,
-              border: '1px solid rgba(255,255,255,0.12)',
+              background: 'rgba(20,20,20,0.96)',
+              borderRadius: 8,
+              border: '1px solid rgba(255,255,255,0.1)',
               boxShadow: '0 20px 48px rgba(0,0,0,0.7)',
               overflow: 'hidden',
             }}
@@ -2397,7 +2388,7 @@ on falls back to the provider's native controls. */
             {/* Track */}
             <div style={{
               position: 'relative', width: 6, flex: 1, margin: '10px 0',
-              background: 'rgba(255,255,255,0.12)', borderRadius: 3,
+              background: 'rgba(255,255,255,0.2)', borderRadius: 1,
               overflow: 'hidden',
             }}>
               <motion.div
@@ -2405,9 +2396,9 @@ on falls back to the provider's native controls. */
                 transition={{ type: 'spring', stiffness: 450, damping: 32 }}
                 style={{
                   position: 'absolute', bottom: 0, left: 0, right: 0,
-                  background: isMuted || volume === 0 ? '#E50914' : 'linear-gradient(to top, rgba(255,255,255,0.8), #fff)',
-                  borderRadius: 3,
-                  boxShadow: isMuted || volume === 0 ? '0 0 10px rgba(229,9,20,0.5)' : '0 0 10px rgba(255,255,255,0.4)',
+                  background: '#E50914',
+                  borderRadius: 1,
+                  boxShadow: '0 0 10px rgba(229,9,20,0.5)',
                 }}
               />
             </div>
@@ -2438,11 +2429,9 @@ on falls back to the provider's native controls. */
               position: 'absolute', top: '50%', left: '50%',
               zIndex: 65, pointerEvents: 'none',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-              background: 'rgba(18,18,22,0.88)',
-              backdropFilter: 'blur(32px) saturate(190%)',
-              WebkitBackdropFilter: 'blur(32px) saturate(190%)',
-              borderRadius: 20, padding: '14px 24px', minWidth: 160,
-              border: '1px solid rgba(255,255,255,0.12)',
+              background: 'rgba(20,20,20,0.96)',
+              borderRadius: 8, padding: '14px 24px', minWidth: 160,
+              border: '1px solid rgba(255,255,255,0.1)',
               boxShadow: '0 24px 60px rgba(0,0,0,0.8)',
             }}
           >
@@ -2509,11 +2498,10 @@ on falls back to the provider's native controls. */
               transition={SPRING}
               onClick={(e) => e.stopPropagation()}
               style={{
-                background: "rgba(16,16,18,0.96)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: R.radiusMedium, padding: `${R.padLarge} clamp(16px, 3vw, 26px)`, width: isTouch ? "min(92vw, 360px)" : R.panelShortcuts,
+                background: "rgba(20,20,20,0.98)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 4, padding: `${R.padLarge} clamp(16px, 3vw, 26px)`, width: isTouch ? "min(92vw, 360px)" : R.panelShortcuts,
                 color: "#fff", boxShadow: "0 40px 80px rgba(0,0,0,0.8)",
-                backdropFilter: "blur(40px)", WebkitBackdropFilter: "blur(40px)",
               }}
             >
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
@@ -2567,11 +2555,9 @@ on falls back to the provider's native controls. */
                     alignItems: "center",
                     gap: 8,
                     padding: "8px 16px",
-                    borderRadius: 9999,
-                    background: "rgba(18, 18, 24, 0.84)",
-                    backdropFilter: "blur(24px)",
-                    WebkitBackdropFilter: "blur(24px)",
-                    border: "1px solid rgba(255, 255, 255, 0.12)",
+                    borderRadius: 8,
+                    background: "rgba(20, 20, 20, 0.96)",
+                    border: "1px solid rgba(255, 255, 255, 0.1)",
                     boxShadow: "0 10px 32px rgba(0,0,0,0.65)",
                     marginLeft: "var(--sal, 0px)",
                   }}
@@ -2656,11 +2642,9 @@ on falls back to the provider's native controls. */
                     alignItems: "center",
                     gap: 8,
                     padding: "8px 16px",
-                    borderRadius: 9999,
-                    background: "rgba(18, 18, 24, 0.84)",
-                    backdropFilter: "blur(24px)",
-                    WebkitBackdropFilter: "blur(24px)",
-                    border: "1px solid rgba(255, 255, 255, 0.12)",
+                    borderRadius: 8,
+                    background: "rgba(20, 20, 20, 0.96)",
+                    border: "1px solid rgba(255, 255, 255, 0.1)",
                     boxShadow: "0 10px 32px rgba(0,0,0,0.65)",
                     marginRight: "var(--sar, 0px)",
                   }}
@@ -2865,13 +2849,12 @@ on falls back to the provider's native controls. */
                 aria-label="Exit player"
                 onClick={(e) => { e.stopPropagation(); onClose?.(); }}
                 style={{
-                  background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.14)",
-                  color: "#fff", width: 40, height: 40, borderRadius: "50%", cursor: "pointer",
+                  background: "transparent", border: "none",
+                  color: "#fff", cursor: "pointer", padding: "clamp(4px, 1vw, 10px)",
                   display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                  backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
                 }}
               >
-                <ArrowLeft size={18} />
+                <ArrowLeft size={26} />
               </button>
               <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
                 <span style={{
@@ -2900,10 +2883,9 @@ on falls back to the provider's native controls. */
                   onClick={(e) => { e.stopPropagation(); onNextEpisode?.(); }}
                   style={{
                     display: "flex", alignItems: "center", gap: "clamp(3px, 0.8vw, 5px)",
-                    background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.14)",
-                    color: "#fff", padding: "9px 14px", borderRadius: 8, cursor: "pointer",
+                    background: "rgba(255,255,255,0.08)", border: "none",
+                    color: "#fff", padding: "8px 14px", borderRadius: 4, cursor: "pointer",
                     fontWeight: 700, fontSize: R.fontSmall, fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
-                    backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
                   }}
                 >
                   Next <SkipForward size={12} fill="currentColor" />
@@ -2973,10 +2955,10 @@ on falls back to the provider's native controls. */
                       exit={{ opacity: 0, x: 10 }}
                       transition={SPRING}
                       style={{
-                        background: "rgba(18,18,20,0.85)", border: "1px solid rgba(255,255,255,0.08)",
-                        borderRadius: 12, padding: `${R.padMedium} ${R.padSmall}`,
+                        background: "rgba(20,20,20,0.92)",
+                        borderRadius: 4, padding: `${R.padMedium} ${R.padSmall}`,
                         display: "flex", alignItems: "center", gap: "clamp(6px, 1.5vw, 10px)",
-                        backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
+                        boxShadow: "0 12px 32px rgba(0,0,0,0.5)",
                       }}
                     >
                       <div>
@@ -3044,14 +3026,12 @@ on falls back to the provider's native controls. */
                     }}
                   >
                     <div style={{
-                      background: "rgba(18,18,20,0.92)", backdropFilter: "blur(24px) saturate(160%)",
-                      WebkitBackdropFilter: "blur(24px) saturate(160%)",
+                      background: "rgba(0,0,0,0.85)",
                       color: "#fff",
-                      padding: `4px ${R.padSmall}`, borderRadius: 6,
-                      fontSize: R.fontSmall, fontWeight: 700, letterSpacing: "0.5px",
-                      fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+                      padding: `4px ${R.padSmall}`, borderRadius: 2,
+                      fontSize: R.fontSmall, fontWeight: 600, letterSpacing: "0.3px",
+                      fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
                       fontVariantNumeric: "tabular-nums",
-                      border: "1px solid rgba(229,9,20,0.4)",
                       boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
                       whiteSpace: "nowrap",
                     }}>
@@ -3065,9 +3045,9 @@ on falls back to the provider's native controls. */
                 ref={progressTrackRef}
                 style={{
                   position: "relative", width: "100%",
-                  height: hoverTime != null || isScrubbing ? (isTouch ? 6 : 5) : (isTouch ? 4 : 3),
-                  background: "rgba(255,255,255,0.18)",
-                  borderRadius: 3,
+                  height: hoverTime != null || isScrubbing ? (isTouch ? 5 : 4) : (isTouch ? 3 : 2),
+                  background: hoverTime != null || isScrubbing ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.3)",
+                  borderRadius: 1,
                   transition: "height 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
                 }}
               >
@@ -3075,22 +3055,22 @@ on falls back to the provider's native controls. */
                   position: "absolute", inset: 0,
                   left: `${Math.min(pp, 100)}%`,
                   width: `${Math.min(bp - pp, 100 - pp)}%`,
-                  background: "rgba(255,255,255,0.28)", borderRadius: 3,
+                  background: "rgba(255,255,255,0.25)", borderRadius: 1,
                   transition: "width 0.3s ease",
                 }} />}
                 {duration > 0 && <div style={{
                   position: "absolute", inset: 0, width: `${Math.min(pp, 100)}%`,
-                  background: "linear-gradient(90deg, #b00710, #E50914)",
-                  borderRadius: 3,
-                  boxShadow: "0 0 8px rgba(229,9,20,0.7)",
+                  background: "#E50914",
+                  borderRadius: 1,
+                  boxShadow: isScrubbing ? "0 0 10px rgba(229,9,20,0.8)" : "none",
                   transition: isScrubbing ? "none" : "width 0.1s linear",
                 }} />}
                 {duration > 0 && !(currentTime === 0 && !isPlaying && !isScrubbing) && (
                   <motion.div
                     animate={{
                       left: `${Math.max(0, Math.min(pp, 100))}%`,
-                      width: hoverTime != null || isScrubbing ? (isTouch ? 18 : 14) : (isTouch ? 10 : 0),
-                      height: hoverTime != null || isScrubbing ? (isTouch ? 18 : 14) : (isTouch ? 10 : 0),
+                      width: hoverTime != null || isScrubbing ? (isTouch ? 16 : 12) : (isTouch ? 10 : 0),
+                      height: hoverTime != null || isScrubbing ? (isTouch ? 16 : 12) : (isTouch ? 10 : 0),
                       opacity: hoverTime != null || isScrubbing || isTouch ? 1 : 0,
                     }}
                     transition={SPRING}
@@ -3098,8 +3078,9 @@ on falls back to the provider's native controls. */
                       position: "absolute", top: "50%",
                       transform: "translate(-50%, -50%)",
                       borderRadius: "50%",
-                      background: "#fff",
-                      boxShadow: isScrubbing ? "0 0 14px rgba(229,9,20,0.9), 0 2px 10px rgba(0,0,0,0.7)" : isTouch ? "0 0 8px rgba(255,255,255,0.4)" : "0 2px 10px rgba(0,0,0,0.5)",
+                      background: "#E50914",
+                      border: "2px solid rgba(255,255,255,0.9)",
+                      boxShadow: isScrubbing ? "0 0 12px rgba(229,9,20,0.9), 0 2px 8px rgba(0,0,0,0.6)" : "0 2px 8px rgba(0,0,0,0.5)",
                       cursor: "grab", pointerEvents: "none",
                     }}
                   />
@@ -3118,7 +3099,7 @@ on falls back to the provider's native controls. */
                 <motion.button
                   aria-label={isPlaying ? "Pause" : "Play"}
                   onClick={(e) => { e.stopPropagation(); togglePlay(); }}
-                  whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                  whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92 }}
                   style={{
                     background: "transparent", border: "none", color: "#fff", cursor: "pointer",
                     display: "flex", alignItems: "center", justifyContent: "center",
@@ -3129,7 +3110,7 @@ on falls back to the provider's native controls. */
                 <motion.button
                   aria-label="Rewind 10 seconds"
                   onClick={(e) => { e.stopPropagation(); seekRelative(-seekStep); }}
-                  whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
+                  whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92 }}
                   style={{
                     background: "transparent", border: "none", color: "rgba(255,255,255,0.9)", cursor: "pointer",
                     display: "flex", alignItems: "center", justifyContent: "center",
@@ -3140,7 +3121,7 @@ on falls back to the provider's native controls. */
                 <motion.button
                   aria-label="Forward 10 seconds"
                   onClick={(e) => { e.stopPropagation(); seekRelative(seekStep); }}
-                  whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
+                  whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92 }}
                   style={{
                     background: "transparent", border: "none", color: "rgba(255,255,255,0.9)", cursor: "pointer",
                     display: "flex", alignItems: "center", justifyContent: "center",
@@ -3157,7 +3138,7 @@ on falls back to the provider's native controls. */
                 <motion.button
                   aria-label="Toggle mute"
                   onClick={(e) => { e.stopPropagation(); toggleMute(); }}
-                  whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
+                  whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92 }}
                   style={{
                     background: "transparent", border: "none", color: "#fff", cursor: "pointer",
                     display: "flex", alignItems: "center", justifyContent: "center",
@@ -3183,10 +3164,10 @@ on falls back to the provider's native controls. */
                         changeVolume(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)));
                       }}
                     >
-                      <div style={{ position: "absolute", left: 0, right: 0, height: 4, background: "rgba(255,255,255,0.2)", borderRadius: 2 }} />
+                      <div style={{ position: "absolute", left: 0, right: 0, height: 3, background: "rgba(255,255,255,0.3)", borderRadius: 1 }} />
                       <div style={{
-                        position: "absolute", left: 0, height: 4, width: `${(isMuted ? 0 : volume) * 100}%`,
-                        background: "#E50914", borderRadius: 2, boxShadow: "0 0 6px rgba(229,9,20,0.6)",
+                        position: "absolute", left: 0, height: 3, width: `${(isMuted ? 0 : volume) * 100}%`,
+                        background: "#E50914", borderRadius: 1,
                       }} />
                     </motion.div>
                   )}
@@ -3194,19 +3175,19 @@ on falls back to the provider's native controls. */
                 </div>
                 <span style={{
                   color: "rgba(255,255,255,0.9)", fontSize: isTouch ? 11 : 12, fontWeight: 600,
-                  fontFamily: "SF Mono, Menlo, monospace", fontVariantNumeric: "tabular-nums",
-                  letterSpacing: "0.3px", marginLeft: "clamp(2px, 0.6vw, 6px)", whiteSpace: "nowrap",
+                  fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif", fontVariantNumeric: "tabular-nums",
+                  letterSpacing: "0.2px", marginLeft: "clamp(2px, 0.6vw, 6px)", whiteSpace: "nowrap",
                 }}>
                   {fmt(currentTime)}
                 </span>
-                <span style={{ color: "rgba(255,255,255,0.4)", fontSize: isTouch ? 11 : 12, fontWeight: 600, fontFamily: "SF Mono, Menlo, monospace" }}>/</span>
-                <span style={{ color: "rgba(255,255,255,0.6)", fontSize: isTouch ? 11 : 12, fontWeight: 600, fontFamily: "SF Mono, Menlo, monospace", fontVariantNumeric: "tabular-nums" }}>
+                <span style={{ color: "rgba(255,255,255,0.4)", fontSize: isTouch ? 11 : 12, fontWeight: 600, fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif" }}>/</span>
+                <span style={{ color: "rgba(255,255,255,0.6)", fontSize: isTouch ? 11 : 12, fontWeight: 600, fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif", fontVariantNumeric: "tabular-nums" }}>
                   {fmt(duration)}
                 </span>
                 {isTvContent && season && (
                   <span style={{
-                    color: "rgba(255,255,255,0.75)", fontSize: isTouch ? 10 : 11, fontWeight: 700, letterSpacing: "0.4px",
-                    background: "rgba(255,255,255,0.08)", padding: "3px 9px", borderRadius: 4, marginLeft: "clamp(4px, 1vw, 8px)",
+                    color: "rgba(255,255,255,0.65)", fontSize: isTouch ? 11 : 12, fontWeight: 600, letterSpacing: "0.2px",
+                    marginLeft: "clamp(4px, 1vw, 8px)",
                     whiteSpace: "nowrap", fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
                   }}>
                     S{season} E{episode}
@@ -3220,7 +3201,7 @@ on falls back to the provider's native controls. */
                 <motion.button
                   aria-label="Subtitles"
                   onClick={(e) => { e.stopPropagation(); setShowSubtitlesMenu(!showSubtitlesMenu); setShowSettings(false); }}
-                  whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
+                  whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92 }}
                   style={{
                     background: showSubtitlesMenu ? "rgba(229,9,20,0.25)" : "transparent",
                     border: "none", color: "#fff", cursor: "pointer", borderRadius: "50%",
@@ -3241,7 +3222,7 @@ on falls back to the provider's native controls. */
                     if (aspectRatioArcTimerRef.current) clearTimeout(aspectRatioArcTimerRef.current);
                     aspectRatioArcTimerRef.current = setTimeout(() => setShowAspectRatioArc(false), 1200);
                   }}
-                  whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
+                  whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92 }}
                   style={{
                     background: "transparent", border: "none", color: "#fff", cursor: "pointer", borderRadius: "50%",
                     width: isTouch ? 38 : 40, height: isTouch ? 38 : 40,
@@ -3257,7 +3238,7 @@ on falls back to the provider's native controls. */
                 <motion.button
                   aria-label="Brightness"
                   onClick={(e) => { e.stopPropagation(); triggerBrightnessCycle(); }}
-                  whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
+                  whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92 }}
                   style={{
                     background: "transparent", border: "none", color: "#fff", cursor: "pointer", borderRadius: "50%",
                     width: isTouch ? 38 : 40, height: isTouch ? 38 : 40,
@@ -3270,7 +3251,7 @@ on falls back to the provider's native controls. */
                 <motion.button
                   aria-label="Playback speed"
                   onClick={(e) => { e.stopPropagation(); cycleSpeed(); }}
-                  whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                  whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92 }}
                   transition={SPRING}
                   style={{
                     background: playbackRate !== 1 ? "rgba(229,9,20,0.2)" : "transparent",
@@ -3289,7 +3270,7 @@ on falls back to the provider's native controls. */
                       e.stopPropagation();
                       setShowSettings(!showSettings); setShowSubtitlesMenu(false);
                     }}
-                    whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
+                    whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92 }}
                     transition={SPRING}
                     aria-label="Settings"
                     style={{
@@ -3307,7 +3288,7 @@ on falls back to the provider's native controls. */
                 <motion.button
                   aria-label="Toggle fullscreen"
                   onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
-                  whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }}
+                  whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92 }}
                   style={{
                     background: "transparent", border: "none", color: "#fff", cursor: "pointer", borderRadius: "50%",
                     width: isTouch ? 38 : 40, height: isTouch ? 38 : 40,
@@ -3359,15 +3340,13 @@ on falls back to the provider's native controls. */
               zIndex: 50,
               width: isTouch ? "min(calc(100% - 24px), 360px)" : R.panelSettings,
               maxHeight: isTouch ? "min(68vh, 420px)" : "50vh",
-              background: "rgba(16,16,18,0.96)",
-              backdropFilter: "blur(40px) saturate(180%)",
-              WebkitBackdropFilter: "blur(40px) saturate(180%)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: isTouch ? 20 : R.radiusMedium,
+              background: "rgba(20,20,20,0.98)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: isTouch ? 8 : 4,
               padding: `${R.padMedium} ${R.padMedium}`,
               color: "#fff",
               overflowY: "auto",
-              boxShadow: "0 16px 56px rgba(0,0,0,0.7), inset 0 0.5px 0 rgba(255,255,255,0.08)",
+              boxShadow: "0 16px 56px rgba(0,0,0,0.7)",
             }}
           >
             {/* Speed */}
@@ -3480,15 +3459,13 @@ on falls back to the provider's native controls. */
               zIndex: 50,
               width: isTouch ? "min(calc(100% - 24px), 360px)" : R.panelSubtitles,
               maxHeight: isTouch ? "min(68vh, 420px)" : "45vh",
-              background: "rgba(16,16,18,0.96)",
-              backdropFilter: "blur(40px) saturate(180%)",
-              WebkitBackdropFilter: "blur(40px) saturate(180%)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: isTouch ? 20 : R.radiusMedium,
+              background: "rgba(20,20,20,0.98)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: isTouch ? 8 : 4,
               padding: `${R.padMedium} ${R.padMedium}`,
               color: "#fff",
               overflowY: "auto",
-              boxShadow: "0 16px 56px rgba(0,0,0,0.7), inset 0 0.5px 0 rgba(255,255,255,0.08)",
+              boxShadow: "0 16px 56px rgba(0,0,0,0.7)",
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -3646,9 +3623,8 @@ on falls back to the provider's native controls. */
             transition={{ duration: 0.1 }}
             style={{
               position: "absolute", left: contextMenu.x, top: contextMenu.y, zIndex: 100,
-              background: "rgba(12,12,14,0.96)", backdropFilter: "blur(24px)",
-              WebkitBackdropFilter: "blur(24px)",
-              border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12,
+              background: "rgba(20,20,20,0.98)",
+              border: "1px solid rgba(255,255,255,0.1)", borderRadius: 4,
               padding: "4px 0", minWidth: "clamp(140px, 30vw, 180px)",
               boxShadow: "0 16px 48px rgba(0,0,0,0.6)", pointerEvents: "auto",
             }}

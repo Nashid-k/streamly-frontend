@@ -1787,3 +1787,18 @@ pm run build ok.
 - [x] **Docs truthful**: `README.md` (player description, Settings description, `usePreferences()` sample drops Studio keys), `GIT.md` (player tree line), stale "Studio/zone-driven" comments scrubbed from `index.css` + `CustomVideoPlayer.jsx`.
 - Verified: `npm run lint` (0 errors; only pre-existing baseline warnings), `npm run test` 341/341, `npm run build` OK (`CustomVideoPlayer-Zd6DmEMA.js` 91.53 kB).
 - Remaining pre-existing lint warnings (present at HEAD): `DownloadModal.jsx:29` unused `extractStreamUrl`; unreachable `useImperativeHandle` after `return`; unused `logInfo`/`logError` imports; ref `.current` deps in an effect cleanup.
+
+## Task 90 — Player: true Netflix look, every corner incl. the loader
+
+- [x] **Loader** → Netflix signature red-ring spinner. `LoadingArc` is now a bright `#E50914` comet arc (red fade trail, faint red `rgba(229,9,20,0.18)` track, red inner fill ring) replacing the old Apple TV+ white gradient trail.
+- [x] **Loading progress** moved from under the spinner to a full-width thin red bar pinned to the top edge of the player (Netflix's top loading line); spinner + title + tips stay centered.
+- [x] **Top bar**: back button is now a plain white arrow (dropped the frosted circular badge); Next-episode button flattened to a subtle `rgba(255,255,255,0.08)` chip, radius 4, no blur.
+- [x] **Progress scrubber**: thinner track (2–4 px), radius 1, brighter idle/hover track; solid `#E50914` fill with glow only while scrubbing; **red knob** (12–16 px, thin white ring, red glow while dragging) replacing the old white knob; hover tooltip flattened to solid black (removed the red border).
+- [x] **Control row**: icon hovers softened (`1.12/1.1 → 1.06` scale, quieter tap), time `S{season} E{episode}` chip un-badged, time display switched off `SF Mono` to the app sans with tabular-nums, in-row volume slider thin flat red.
+- [x] **Center play/pause** both variants are now solid `#E50914` circles with white icons (was black circle + red border); the red pulse ring stays.
+- [x] **Paused overlay**: flat radial black scrim (removed backdrop blur), poster radius 12 → 8, border removed.
+- [x] **Panels/menus**: Settings, Subtitles, Shortcuts, context menu, Undo/Redo toasts, Up Next card — all flattened from frosted glass (`blur(40px)` etc.) to near-solid `rgba(20,20,20,0.96–0.98)` with radius 4 and hairline `rgba(255,255,255,0.1)` border.
+- [x] **Touch gesture HUDs**: brightness/volume vertical bars + seek card + the double-tap `±10s` pills flattened to Netflix black (radius 8, no blur); touch volume bar fill is now solid red.
+- [x] **`PlayerPreview` chrome mirrored** (`index.css`): flat black icon chips + speed pill (no blur); preview scrubber fill/track radius 1 and the knob dot turned red with a white ring.
+- [x] Verified: `npm run lint` (0 errors, same baseline warnings only), `npm run test` 341/341 (the only full-run failure is the pre-existing `TitleDetailsPage` flake — passes in isolation), `npm run build` OK (`CustomVideoPlayer-DgkDjCwv.js` 89.80 kB).
+- Test contracts preserved: `data-player-skin="netflix"` on the root, all `aria-label`s (`Play/Pause`, `Rewind/Forward 10 seconds`, aspect ratio, brightness, etc.) untouched. `CustomVideoPlayer.jsx` kept CRLF throughout (no rebuild script re-run).
