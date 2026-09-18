@@ -26,6 +26,7 @@ export default function LeavingSoonBanner({ items = [], maxDisplay = 3 }) {
         border: "1px solid rgba(239,68,68,0.15)",
         borderRadius: "14px",
         padding: "16px",
+        marginTop: "clamp(1.75rem, 3.5vw, 2.75rem)",
         marginBottom: "1.5rem",
       }}
     >

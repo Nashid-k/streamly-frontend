@@ -46,9 +46,10 @@ const isAnime = (m) =>
   );
 
 // ... (skipping MovieRail and Top10Rail for brevity, they remain unchanged)
-const FadeInSection = React.memo(function FadeInSection({ children, delay = 0 }) {
+const FadeInSection = React.memo(function FadeInSection({ children, delay = 0, style }) {
   return (
     <motion.div
+      style={style}
       initial={{ opacity: 0, y: 30 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-50px" }}
@@ -1517,7 +1518,7 @@ export default function Home({
       {/* Upcoming — standard rail UI on every tab; tab-filtered (all on Home,
           movies/series on their pages) and padded so the rail always fills. */}
       {!loading && activeGenre === "All" && upcomingReleases.length > 0 && (
-        <FadeInSection>
+        <FadeInSection style={{ marginTop: "clamp(1.75rem, 3.5vw, 2.75rem)" }}>
           <ErrorBoundary>
             <MovieRail
               railIndex={0}
@@ -1529,7 +1530,7 @@ export default function Home({
 
       {/* Continue Watching — resume-first; right below the hero, on every tab */}
       {!loading && continueWatching && continueWatching.length > 0 && (
-        <FadeInSection>
+        <FadeInSection style={{ marginTop: "clamp(1.75rem, 3.5vw, 2.75rem)" }}>
           <ErrorBoundary>
             <ContinueWatchingRail railIndex={0} items={continueWatching} />
           </ErrorBoundary>
@@ -1538,7 +1539,7 @@ export default function Home({
 
       {/* Categories Section */}
       <section
-        style={{ display: "flex", flexDirection: "column", gap: "3.5rem" }}
+        style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}
       >
         <div className="section-header" style={{ marginBottom: 0 }}>
           <h2 className="section-title">{title}</h2>
@@ -1546,7 +1547,7 @@ export default function Home({
 
         {loading ? (
           <div
-            style={{ display: "flex", flexDirection: "column", gap: "3.5rem" }}
+            style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}
           >
             {[1, 2, 3, 4].map((rail) => (
               <div key={rail}>

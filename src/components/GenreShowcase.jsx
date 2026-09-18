@@ -104,7 +104,7 @@ export default function GenreShowcase({ filter = "all", activeGenre = "All", lim
   if (!loading && rails.length === 0) return null;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "3.5rem" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}>
       {loading
         ? [1, 2, 3, 4].map((rail) => (
             <div key={rail}>
