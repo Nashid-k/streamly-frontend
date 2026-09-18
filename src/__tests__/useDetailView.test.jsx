@@ -92,6 +92,14 @@ describe("useDetailView", () => {
     await waitFor(() => expect(ref.current.isModalOpen).toBe(false));
   });
 
+  it("forceModal opens the info modal even when Detail View Type = page", async () => {
+    const ref = renderHarness({ movie: baseMovie, detailViewType: "page" });
+    ref.current.openDetails(baseMovie, { forceModal: true });
+    await waitFor(() => expect(ref.current.isModalOpen).toBe(true));
+    expect(screen.getByTestId("title-info-modal")).toBeInTheDocument();
+    expect(ref.pathname).toBe("/");
+  });
+
   it("ignores empty movie calls", () => {
     const ref = renderHarness({ movie: null, detailViewType: "modal" });
     ref.current.openDetails(null);

@@ -504,10 +504,13 @@ export default function DiscoveryPage({ mode = "movies" }) {
   const countryLabel = countryParam && countryByCode.get(countryParam) ? countryByCode.get(countryParam) : "Country";
 
   // ── Random: open a random title from the current grid ───────────────────
+  // Force the instant info modal (never the page route) so the click gives
+  // immediate content — no route-load spinner/skeleton, just the pill's
+  // hover animation and a smooth pop-in.
   const handleRandom = () => {
     if (!gridItems.length) return;
     const pick = gridItems[Math.floor(Math.random() * gridItems.length)];
-    openDetails(pick);
+    openDetails(pick, { forceModal: true });
   };
 
   // ── Rail scrolling (fade-in arrows) ─────────────────────────────────────

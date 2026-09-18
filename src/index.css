@@ -1609,17 +1609,17 @@ a {
 }
 
 .movie-rail-item {
-  width: 280px;
+  width: 220px;
   flex-shrink: 0;
 }
 @media (max-width: 1440px) {
   .movie-rail-item {
-    width: 245px;
+    width: 195px;
   }
 }
 @media (max-width: 1024px) {
   .movie-rail-item {
-    width: 215px;
+    width: 175px;
   }
 }
 @media (max-width: 640px) {
@@ -2031,7 +2031,7 @@ a {
   display: none;
 }
 .skeleton-rail > div {
-  width: 280px;
+  width: 220px;
   flex-shrink: 0;
 }
 
