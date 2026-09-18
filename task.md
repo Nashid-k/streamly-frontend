@@ -7,6 +7,24 @@
 
 ## Done (in order)
 
+- [x] **Begin the perf audit batch â€” re-render + compositor fixes (see audit
+  items #3, #7, #8, M1â€“M4)**: `Toast` provider value now `useMemo`'d
+  (`{ toast, dismiss }` â€” was a fresh object every render, re-rendering every
+  consumer); `App`'s `measurePill` is now rAF-throttled via `measureTick` +
+  `scheduleMeasure` and its `useLayoutEffect` runs only when the nav could
+  actually change (`[measurePill, location.pathname, isScrolled]` â€” was
+  measure-on-every-render); BackToTop's player check only polls (1.5s) while
+  scrolled past the threshold and is a compositor-only conditional instead of
+  a `setVisible` storm; Continue Watching and Home rails now use **stable
+  identity keys** (`item.id` / `movie.id`, not `id-${i}`) so the list stays
+  mounted across data refreshes; CountdownBadge's pulse is now a
+  compositor-only CSS ring (`countdown-badge-ring` span, `frameKeyframe`
+  opacity/scale â€” dropped the inline `boxShadow` keyframes that painted every
+  frame); TitleInfoModal backdrop + ContinueWatching art route through
+  `CdnImageAdapter.getUrl` (single fetch, no double decode). Verified: lint 0
+  errors (baseline warnings), 363/364 tests (lone fail =
+  `TitleDetailsPage.test.jsx:147` timing flake, untouched file, passes 3/3
+  isolation), build OK.
 - [x] 1. Diagnose silent data failures (TMDB client, service fallbacks,
   query-less rails, stub backend, storage, player) â€” analysis in PR #1
   summary.
@@ -1838,9 +1856,9 @@ pm run build ok.
   - **Random: no spinners, instant open**: the Random pill used to `navigate()` to the watch page â€” hitting the route `<Suspense fallback={<Loader />}>` full-page spinner and then the details skeleton. It now forces the instant info modal (`openDetails(pick, { forceModal: true })` â€” new second arg on `useDetailView`, bypassing the Detail View Type preference for this call site), so the click pops the Netflix-style TitleInfoModal immediately with the title's known summary data, no loading spinner anywhere â€” the pill's hover-expand animation is the only feedback. Existing tests kept; new test covers `forceModal` opening the modal under `detailViewType: "page"`. Verified: lint 0 errors (baseline warnings only), 361/361 tests, build OK.
 
 - [x] **TitleInfoModal gets a "You May Also Like" section (carousel by default, follows Episode View Style)**:
-  - **New section**: the Netflix-style quick-info modal now fetches similar titles (movieService.getSimilarMovies(movie.id), query key `["infoModalSimilar", movie?.id]`, 10min stale, `retry: 0`, 20-item cap) and renders a `section` below the Play / My List / Full Details actions — only when titles resolve (no awkward empty box).
-  - **Layout modes mirror the details page**: it reads the global `episodeViewStyle` preference (carousel by default) and re-renders as a poster **carousel** (snap-scroll rail, `hide-scrollbar`), a **grid** (existing `.movie-grid`), or **rows** (poster thumb + title + year/type/IMDb star + chevron). A three-icon toggle (GalleryHorizontal / LayoutGrid / List, lucide) sits in the section header; tapping it **persists** via `setPreference("episodeViewStyle", …)` so Settings, the details page, and the modal stay in sync. Changing the setting anywhere live-updates the modal.
+  - **New section**: the Netflix-style quick-info modal now fetches similar titles (movieService.getSimilarMovies(movie.id), query key `["infoModalSimilar", movie?.id]`, 10min stale, `retry: 0`, 20-item cap) and renders a `section` below the Play / My List / Full Details actions ï¿½ only when titles resolve (no awkward empty box).
+  - **Layout modes mirror the details page**: it reads the global `episodeViewStyle` preference (carousel by default) and re-renders as a poster **carousel** (snap-scroll rail, `hide-scrollbar`), a **grid** (existing `.movie-grid`), or **rows** (poster thumb + title + year/type/IMDb star + chevron). A three-icon toggle (GalleryHorizontal / LayoutGrid / List, lucide) sits in the section header; tapping it **persists** via `setPreference("episodeViewStyle", ï¿½)` so Settings, the details page, and the modal stay in sync. Changing the setting anywhere live-updates the modal.
   - **In-place movie swap (Netflix-style)**: useDetailView now passes `onSelectMovie={setModalMovie}` to the modal, so clicking a similar title swaps the modal content to that title (details, meta facts, list state, Play route, and its own "You May Also Like") without closing; the card scrolls back to the top on `movie.id` change. Without the prop (isolated use) it falls back to `navigate(/watch/:id/:slug)`.
-  - **Compact cards by design**: similar items use bespoke compact poster cards/rows (no MovieCard), so a click can never open a second, nested modal — behavior is fully controlled.
-  - **CSS**: new `.title-info-similar*` block in `index.css` — header row, mode toggle (pressed/active state), snap rail with hover-lift posters, 2:3 gradient monogram fallback for missing art, row hover/active states, mobile card width 118px. Body is already viewport-capped and scrolls internally, so long lists never escape the card.
-  - **Tests**: `TitleInfoModal.test.jsx` mock extended with `getSimilarMovies` (3 titles, no posters). +3: carousel by default with all similar buttons present; `setting-episodeViewStyle = "list"` renders the row meta (`2000 · Movie · ? 8.4`); clicking the grid toggle persists `setting-episodeViewStyle = "grid"` and keeps the titles. Verified: lint 0 errors (baseline warnings only), 363/364 tests (the lone fail is the known `TitleDetailsPage` TDZ-guard timing flake — passes 3/3 in isolation, unaffected by this change), build OK.
+  - **Compact cards by design**: similar items use bespoke compact poster cards/rows (no MovieCard), so a click can never open a second, nested modal ï¿½ behavior is fully controlled.
+  - **CSS**: new `.title-info-similar*` block in `index.css` ï¿½ header row, mode toggle (pressed/active state), snap rail with hover-lift posters, 2:3 gradient monogram fallback for missing art, row hover/active states, mobile card width 118px. Body is already viewport-capped and scrolls internally, so long lists never escape the card.
+  - **Tests**: `TitleInfoModal.test.jsx` mock extended with `getSimilarMovies` (3 titles, no posters). +3: carousel by default with all similar buttons present; `setting-episodeViewStyle = "list"` renders the row meta (`2000 ï¿½ Movie ï¿½ ? 8.4`); clicking the grid toggle persists `setting-episodeViewStyle = "grid"` and keeps the titles. Verified: lint 0 errors (baseline warnings only), 363/364 tests (the lone fail is the known `TitleDetailsPage` TDZ-guard timing flake ï¿½ passes 3/3 in isolation, unaffected by this change), build OK.

@@ -3,6 +3,7 @@ import {
   useContext,
   useState,
   useCallback,
+  useMemo,
   useRef,
   useEffect,
 } from "react";
@@ -224,8 +225,13 @@ export function ToastProvider({ children }) {
     };
   }, []);
 
+  // Stable provider value — toast lifecycle (add/dismiss) re-renders only
+  // `useToast()` consumers that actually need the latest callbacks, not every
+  // MovieCard in the grid on every toast spawn/expiry.
+  const value = useMemo(() => ({ toast, dismiss }), [toast, dismiss]);
+
   return (
-    <ToastContext.Provider value={{ toast, dismiss }}>
+    <ToastContext.Provider value={value}>
       {children}
       <div
         className="toast-container"

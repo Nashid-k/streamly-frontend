@@ -1526,20 +1526,39 @@ a {
   box-shadow: 0 8px 24px rgba(0,0,0,0.25);
 }
 
-/* ── CTA Pulse Animation ── */
-@keyframes cta-glow {
-  0%, 100% {
-    box-shadow: 0 8px 24px var(--accent-glow, rgba(225, 29, 72, 0.3)), 0 0 0 0 rgba(var(--accent-primary-rgb), 0.4);
-  }
-  50% {
-    box-shadow: 0 12px 32px var(--accent-glow, rgba(225, 29, 72, 0.45)), 0 0 0 8px rgba(var(--accent-primary-rgb), 0);
-  }
-}
+/* ── CTA Pulse Animation ──
+   box-shadow keyframes are per-frame paint; moved to a compositor-only
+   opacity/scale ring. (Legacy .btn-cta-pulse class kept for API stability,
+   now a static drop-shadow so nothing loops paint.) */
 .btn-cta-pulse {
-  animation: cta-glow 2.5s ease-in-out infinite;
+  box-shadow: 0 8px 24px var(--accent-glow, rgba(225, 29, 72, 0.3)),
+    0 0 0 0 rgba(var(--accent-primary-rgb), 0);
 }
 .btn-cta-pulse:hover {
-  animation: none;
+  box-shadow: 0 12px 32px var(--accent-glow, rgba(225, 29, 72, 0.45)),
+    0 0 0 8px rgba(var(--accent-primary-rgb), 0);
+}
+
+/* ── Countdown badge "imminent" pulse ring ── */
+.countdown-badge-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.45);
+  animation: countdown-badge-ping 2s ease-in-out infinite;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+@keyframes countdown-badge-ping {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 0; transform: scale(1.3); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .countdown-badge-ring {
+    animation: none;
+    opacity: 0.4;
+    transform: scale(1);
+  }
 }
 
 /* ── Shimmer effect for loading states ── */

@@ -145,7 +145,10 @@ export default function TitleInfoModal({ movie, onClose, onSelectMovie }) {
   const metaFacts = buildMetaFacts(detail, movie);
   const genres = (detail?.genres?.length ? detail.genres : movie.genres) || [];
   const overview = detail?.overview || movie.overview || movie.description || movie.longDescription || "";
-  const backdrop = movie.backdropUrl || detail?.backdropUrl || movie.posterUrl || detail?.posterUrl;
+  const backdrop = CdnImageAdapter.getUrl(
+    movie.backdropUrl || detail?.backdropUrl || movie.posterUrl || detail?.posterUrl,
+    "w780",
+  );
   const castStrip = (detail?.cast || []).slice(0, 8);
 
   const play = () => navigate(playRoute);

@@ -10,6 +10,8 @@ import { ChevronUp } from "lucide-react";
 const PLAYER_IFRAME_SELECTOR =
   'iframe[src*="cinesrc"], iframe[src*="vidlink"], iframe[src*="vidsrc"]';
 
+const SCROLL_THRESHOLD = 600;
+
 function isPlayerActive() {
   return !!document.querySelector(PLAYER_IFRAME_SELECTOR);
 }
@@ -18,19 +20,40 @@ export default function BackToTop() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () =>
-      setVisible(window.scrollY > 600 && !isPlayerActive());
-    // Re-evaluate while idle (e.g. player opens/closes without a scroll event).
+    let interval = null;
+
+    // Re-evaluate while idle — e.g. the player opens/closes without a scroll
+    // event. The check only runs while the button can actually be shown
+    // (scrolled past threshold), so we never poll the DOM at the top.
     const startPlayerCheck = () => {
-      if (window.scrollY > 600 && !isPlayerActive()) setVisible(true);
-      else if (isPlayerActive()) setVisible(false);
+      if (window.scrollY > SCROLL_THRESHOLD) {
+        setVisible(!isPlayerActive());
+        if (!interval) {
+          interval = window.setInterval(() => {
+            if (window.scrollY <= SCROLL_THRESHOLD) {
+              window.clearInterval(interval);
+              interval = null;
+              setVisible(false);
+              return;
+            }
+            setVisible(!isPlayerActive());
+          }, 1500);
+        }
+      } else {
+        setVisible(false);
+        if (interval) {
+          window.clearInterval(interval);
+          interval = null;
+        }
+      }
     };
+
+    const handleScroll = () => startPlayerCheck();
     window.addEventListener("scroll", handleScroll, { passive: true });
-    const interval = window.setInterval(startPlayerCheck, 1500);
     startPlayerCheck();
     return () => {
       window.removeEventListener("scroll", handleScroll);
-      window.clearInterval(interval);
+      if (interval) window.clearInterval(interval);
     };
   }, []);
 

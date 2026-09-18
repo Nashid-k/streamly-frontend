@@ -141,6 +141,7 @@ function Layout({ children }) {
      exact same `--nav-transition` cubic-bezier as the real site. */
   const navRef = useRef(null);
   const [pill, setPill] = useState({ x: 0, w: 0, ready: false });
+  const measureTick = useRef(0);
 
   const measurePill = useCallback(() => {
     const nav = navRef.current;
@@ -151,19 +152,33 @@ function Layout({ children }) {
     setPill((prev) => (prev.x === x && prev.w === w ? prev : { x, w, ready: true }));
   }, []);
 
+  // rAF-throttled wrapper for frequent scroll/resize events — the pill track
+  // only needs one measurement per frame, not one per event.
+  const scheduleMeasure = useCallback(() => {
+    if (measureTick.current) return;
+    measureTick.current = window.requestAnimationFrame(() => {
+      measureTick.current = 0;
+      measurePill();
+    });
+  }, [measurePill]);
+
+  // Measure when the nav could actually change: route change, scrolled state
+  // (header grows/shrinks) or async icon mounts (fonts, auth). No more
+  // measure-on-every-render.
   useLayoutEffect(() => {
     measurePill();
-  });
+  }, [measurePill, location.pathname, isScrolled]);
 
   useEffect(() => {
-    window.addEventListener("resize", measurePill);
-    window.addEventListener("scroll", measurePill, { passive: true });
+    window.addEventListener("resize", scheduleMeasure);
+    window.addEventListener("scroll", scheduleMeasure, { passive: true });
     if (document.fonts?.ready) document.fonts.ready.then(measurePill);
     return () => {
-      window.removeEventListener("resize", measurePill);
-      window.removeEventListener("scroll", measurePill);
+      window.removeEventListener("resize", scheduleMeasure);
+      window.removeEventListener("scroll", scheduleMeasure);
+      if (measureTick.current) window.cancelAnimationFrame(measureTick.current);
     };
-  }, [measurePill]);
+  }, [scheduleMeasure, measurePill]);
 
   return (
     <div className="app-container">

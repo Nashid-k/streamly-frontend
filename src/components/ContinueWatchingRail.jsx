@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Clock, ChevronRight, Play, X } from "lucide-react";
 import slugify from "slugify";
 import { useAppAuth } from "../context/auth";
+import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import useRailArrows from "../hooks/useRailArrows";
 import RailArrow from "./RailArrow";
 import { progressPct, remainingSeconds } from "../utils/resumeProgress";
@@ -145,7 +146,10 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
             const pct = progressPct(item);
             const label = episodeLabel(item);
             const remaining = remainingLabel(item);
-            const art = item.backdropUrl || item.posterUrl || item.poster;
+            const art = CdnImageAdapter.getUrl(
+              item.backdropUrl || item.posterUrl || item.poster,
+              "w780",
+            );
             const watchTo = `/watch/${item.id}/${slugify(item.title || "watch", {
               lower: true,
               strict: true,
@@ -153,7 +157,7 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
 
             return (
               <div
-                key={`${item.id}-${i}`}
+                key={item.id}
                 role="group"
                 className="relative flex-none w-60 md:w-72 group/card hover:z-30"
               >

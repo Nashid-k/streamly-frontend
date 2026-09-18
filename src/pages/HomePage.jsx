@@ -226,7 +226,7 @@ const MovieRail = React.memo(
             >
               {(Array.isArray(category.movies) ? category.movies : []).slice(0, visibleCount).map((movie, i) => (
                 <motion.div
-                  key={`${movie.id}-${i}`}
+                  key={movie.id}
                   initial={{ opacity: 0, y: 10 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, margin: "-10px" }}

@@ -59,23 +59,10 @@ export default function CountdownBadge({ releaseDate, platform, compact = false 
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.8 }}
-      animate={{
-        opacity: 1,
-        scale: 1,
-        ...(pulse ? {
-          boxShadow: [
-            "0 0 0 0 rgba(239,68,68,0.4)",
-            "0 0 0 6px rgba(239,68,68,0)",
-            "0 0 0 0 rgba(239,68,68,0.4)",
-          ],
-        } : {}),
-      }}
-      transition={{
-        duration: pulse ? 2 : 0.3,
-        repeat: pulse ? Infinity : 0,
-        ease: "easeInOut",
-      }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: pulse ? 0.3 : 0.3 }}
       style={{
+        position: "relative",
         display: "inline-flex",
         alignItems: "center",
         gap: compact ? "3px" : "5px",
@@ -92,6 +79,11 @@ export default function CountdownBadge({ releaseDate, platform, compact = false 
       }}
       title={`Releases ${countdown.text}`}
     >
+      {pulse && (
+        // Compositor-only pulse ring (opacity + scale) — same "ping" look as
+        // the old box-shadow keyframes but without per-frame paint.
+        <span aria-hidden="true" className="countdown-badge-ring" />
+      )}
       {urgency === "imminent" ? (
         <Zap size={compact ? 8 : 10} fill="currentColor" stroke="none" />
       ) : (

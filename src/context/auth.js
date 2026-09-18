@@ -3,7 +3,17 @@ import { createContext, useContext } from "react";
 /* Context + hook live apart from <AuthProvider> so fast-refresh only ever
    sees component exports in AuthContext.jsx (react-refresh constraint).
    hooks/useUserData owns the actual storage logic. */
-export const AppContext = createContext(null);
+export const AppContext = createContext(null)
+
+/* Cloud-sync status is the one auth field that churns: it flips
+   idle → syncing → synced/error after every list/history sync. Riding it on
+   the main AppContext re-rendered EVERY auth consumer (every MovieCard) twice
+   per sync. It's now isolated in its own context so only SettingsPage (the
+   only consumer) re-renders when it changes. */
+export const SyncStatusContext = createContext({
+  syncStatus: "idle",
+  lastSyncedAt: null,
+});
 
 const DEFAULT_AUTH_FALLBACK = {
   user: null,
