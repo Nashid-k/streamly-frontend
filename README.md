@@ -92,7 +92,8 @@ VITE_SITE_URL=https://your-project.vercel.app
    Vidlink, 2Embed, …) listed in `src/api/videoSourceAdapter.js`. Viewers
    re-order them in Settings → Server Order.
 5. **Personal state:** `localStorage` only — `aios_my_list`,
-   `aios_continue_watching`, `aios_search_history`, `setting-*` preference
+   `aios_my_collections` (named folders), `aios_continue_watching`,
+   `aios_search_history`, `setting-*` preference
    keys. Cross-tab sync via `storage` events. No accounts, no database.
 
 ---

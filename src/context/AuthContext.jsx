@@ -1,7 +1,7 @@
 // src/context/AuthContext.jsx — Unified Authentication & MongoDB Cloud Synchronization Provider
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { AppContext, SyncStatusContext } from "./auth";
-import { useMyList, useContinueWatching, useSearchHistory } from "../hooks/useUserData";
+import { useMyList, useContinueWatching, useSearchHistory, useMyCollections } from "../hooks/useUserData";
 import { mergeListsById } from "../utils/mergeRemote";
 import { logDebug, logError, logWarn } from "../utils/debugLogger";
 
@@ -34,6 +34,7 @@ export function AuthProvider({ children }) {
   const myListData = useMyList();
   const cwData = useContinueWatching();
   const shData = useSearchHistory();
+  const collectionsData = useMyCollections();
 
   const [user, setUser] = useState(safeUserParse);
   const [syncStatus, setSyncStatus] = useState("idle"); // 'idle' | 'syncing' | 'synced' | 'error'
@@ -76,15 +77,18 @@ export function AuthProvider({ children }) {
 
       let currentList = [];
       let currentCw = [];
+      let currentCollections = [];
       try {
         currentList = JSON.parse(localStorage.getItem("aios_my_list") || "[]");
         currentCw = JSON.parse(localStorage.getItem("aios_continue_watching") || "[]");
+        currentCollections = JSON.parse(localStorage.getItem("aios_my_collections") || "[]");
       } catch {}
 
       const payload = customPayload || {
         googleId: currentUser.googleId,
         watchlist: currentList,
         watchHistory: currentCw,
+        collections: currentCollections,
       };
 
       const res = await fetch("/api/sync", {
@@ -138,7 +142,7 @@ export function AuthProvider({ children }) {
         const data = await res.json();
         if (!isMounted || !data?.userData) return;
 
-        const { watchlist = [], watchHistory = [] } = data.userData;
+        const { watchlist = [], watchHistory = [], collections = [] } = data.userData;
 
         // Timestamp-aware union merge: replace stale-local by newer-remote.
         // (Legacy local items without updatedAt lose to any new remote data.)
@@ -163,6 +167,19 @@ export function AuthProvider({ children }) {
             if (JSON.stringify(mergedCw) !== JSON.stringify(localCw)) {
               localStorage.setItem("aios_continue_watching", JSON.stringify(mergedCw));
               window.dispatchEvent(new Event("aios_sync_cw"));
+            }
+          } catch {}
+        }
+
+        // Merge user collections (named folders) with the same set-union.
+        if (Array.isArray(collections) && collections.length > 0) {
+          try {
+            const localCols = JSON.parse(localStorage.getItem("aios_my_collections") || "[]");
+            const mergedCols = mergeListsById(localCols, collections);
+
+            if (JSON.stringify(mergedCols) !== JSON.stringify(localCols)) {
+              localStorage.setItem("aios_my_collections", JSON.stringify(mergedCols));
+              window.dispatchEvent(new Event("aios_sync_collections"));
             }
           } catch {}
         }
@@ -193,7 +210,7 @@ export function AuthProvider({ children }) {
     return () => {
       if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
     };
-  }, [myListData.myList, cwData.continueWatching, syncToCloud, user]);
+  }, [myListData.myList, cwData.continueWatching, collectionsData.collections, syncToCloud, user]);
 
   // ─── Google OAuth Login ───────────────────────────────────────────────────
   const loginWithGoogle = useCallback(async (credential) => {
@@ -231,6 +248,18 @@ export function AuthProvider({ children }) {
           if (JSON.stringify(merged) !== JSON.stringify(localList)) {
             localStorage.setItem("aios_my_list", JSON.stringify(merged));
             window.dispatchEvent(new Event("aios_sync_mylist"));
+          }
+        } catch {}
+      }
+
+      // Merge returned cloud collections immediately.
+      if (Array.isArray(data.userData?.collections)) {
+        try {
+          const localCols = JSON.parse(localStorage.getItem("aios_my_collections") || "[]");
+          const mergedCols = mergeListsById(localCols, data.userData.collections);
+          if (JSON.stringify(mergedCols) !== JSON.stringify(localCols)) {
+            localStorage.setItem("aios_my_collections", JSON.stringify(mergedCols));
+            window.dispatchEvent(new Event("aios_sync_collections"));
           }
         } catch {}
       }
@@ -314,8 +343,9 @@ export function AuthProvider({ children }) {
       ...myListData,
       ...cwData,
       ...shData,
+      ...collectionsData,
     }),
-    [user, syncToCloud, loginWithGoogle, loginAsGuest, logout, myListData, cwData, shData]
+    [user, syncToCloud, loginWithGoogle, loginAsGuest, logout, myListData, cwData, shData, collectionsData]
   );
 
   return (

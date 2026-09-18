@@ -144,7 +144,9 @@ describe("TitleDetailsPage TDZ regression guard", () => {
 
   it("renders each episode card after the season query resolves", async () => {
     renderPage();
-    expect(await screen.findByText("Episode 1")).toBeInTheDocument();
+    // Generous timeout: the empty-suite passes in ~1s but a slow parallel run
+    // hovers right at findByText's 1s default and flakes the gate.
+    expect(await screen.findByText("Episode 1", {}, { timeout: 5000 })).toBeInTheDocument();
     expect(await screen.findByText("E1")).toBeInTheDocument();
   });
 });

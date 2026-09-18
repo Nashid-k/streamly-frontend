@@ -7,6 +7,33 @@
 
 ## Done (in order)
 
+- [x] **My List collections + movies/series-style UI/UX — Watchlist AND Settings
+  (user directive)**: end-to-end named-folder collections on `/watchlist`.
+  `useMyCollections` (src/hooks/useUserData.js:85–184) persists under
+  `aios_my_collections` (cross-tab event `aios_sync_collections`), shape
+  `{ id: col-…, name, createdAt, updatedAt, itemIds: [] }`, with
+  create/rename/delete/add/remove/toggle and id-dedupe. Exposed on AppContext
+  (AuthContext.jsx provider spread + deps; `auth.js` DEFAULT_AUTH_FALLBACK
+  stubs) and rides cloud sync: `api/sync.js` now accepts/returns `collections`
+  capped at `MAX_COLLECTIONS = 100`; pull + login merges run `mergeListsById`.
+  WatchlistPage rebuilt on the browse-page design language — AmbientBackground,
+  ContentPageHeader, Chip filter/sort pills, `movie-grid` — with a collections
+  rail of 2×2 cover-collage folder cards (open/rename/delete via
+  UseConfirmDialog), Add-Titles picker, drill-in collection view with per-title
+  remove, collection-membership badge, search + infinite scroll, and batch
+  select/delete. New collection CSS landed in index.css. SettingsPage header
+  restyled to ContentPageHeader (eyebrow “Preferences”, description, count of
+  visible sections) while keeping every section tab/search/reset control (all
+  SettingsPage.test.jsx assertions untouched). New unit tests
+  src/__tests__/useUserData.collections.test.jsx (5). Docs: architecture.md §2
+  (route + persistence keys + cloud caps/merge) and README personal-state line
+  now list `aios_my_collections`. Verified: lint 0 errors (warnings all
+  pre-existing), vitest 38 files / 369/369, build OK. Also hardened one flaky
+  wait in TitleDetailsPage.test.jsx (episode-card findByText timeout 1s→5s) —
+  hovered at the 1s boundary and flaked the gate under parallel load; isolated
+  runs pass consistently, and the full suite is green after hardening (unrelated
+  to this batch; per-file isolation rules out cross-file interference).
+
 - [x] **#2 auth `syncStatus` isolation — provider split AND consumer migration
   (pushed `0264248`)**: `SyncStatusContext` + `useSyncStatus` exported from
   `src/context/auth.js` (13–16, 52–61); `AuthProvider` now builds a separate

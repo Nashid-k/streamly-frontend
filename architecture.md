@@ -43,7 +43,7 @@ Firebase SDK in the bundle.
 | Watch title | `/watch/:id/:slug?` (`movie-<n>` / `tv-<n>`) | `movie:<id>` → `getMovieDetails` (credits+videos+images, external_ids best-effort); `similar:<id>`; `episodes:<id>:<season>` → `getSeasonEpisodes` | + `aios_continue_watching` (resume) |
 | Download title | `/watch/:id/:slug?` (in-page `DownloadModal`) | `DownloadModal` → `downloadService` → Vercel `api/downloadify.js` (`resolve` → `manifest` → `segment`); episodes via `getSeasonEpisodes` | file saved to device (File System Access API, Blob fallback); nothing persisted |
 | Person | `/person/:id/:slug?` | `person:<id>` → `getPersonDetails` (`/person`, `/combined_credits`, top-40) | network only |
-| My List | `/watchlist` (`/mylist` redirects) | local only | `aios_my_list` (local) |
+| My List | `/watchlist` (`/mylist` redirects) | local only | `aios_my_list`, `aios_my_collections` (local) |
 | History | `/history` | local only | `aios_continue_watching` (local) |
 | Settings | `/settings` (+ optional `?tab=<section>`) | local only | `setting-*` keys (local) |
 
@@ -54,7 +54,8 @@ effect on any persisted key or data contract.
 
 Persistence keys (all localStorage, no remote DB): `aios_my_list`,
 `aios_continue_watching` (each item stamped `updatedAt` — see merge policy
-below), `aios_search_history`, `streamly:realRatings:<id>`
+below), `aios_my_collections` (named folders referencing saved title ids),
+`aios_search_history`, `streamly:realRatings:<id>`
 (24h), `setting-autoplay|muteTrailers|hdThumbs|reduceMotion|notifications`,
 `streamly_volume|muted|aspectRatio|lastserver|lastQuality`, `streamly_user`
 (current profile), `streamly_sync_token` (per-account HMAC token for
@@ -69,11 +70,12 @@ anonymous visitor into one shared Mongo document). Only verified Google
 accounts (`googleId`) sync, and `/api/sync` additionally requires
 `Authorization: Bearer <syncToken>` (HMAC over SYNC_SECRET/GOOGLE_CLIENT_SECRET);
 without a configured secret the endpoint refuses with 503. Payloads are capped
-(watchlist ≤ 500, history ≤ 500, ≤ 512 KB body) and emails are no longer
-accepted as an identity. Cloud pulls merge with **timestamp-aware set union**
-(`src/utils/mergeRemote.js`, `mergeListsById`): remote-only ids are appended;
-conflicting ids keep whichever side has the higher `updatedAt` (legacy items
-with no stamp lose to newer remote data); continue-watching is capped to 20.
+(watchlist ≤ 500, history ≤ 500, collections ≤ 100, ≤ 512 KB body) and
+emails are no longer accepted as an identity. Cloud pulls merge with
+**timestamp-aware set union** (`src/utils/mergeRemote.js`, `mergeListsById`):
+remote-only ids are appended; conflicting ids keep whichever side has the
+higher `updatedAt` (legacy items with no stamp lose to newer remote data);
+continue-watching is capped to 20; user collections merge the same way.
 
 Auth trust path (`api/auth.js` + `api/lib/googleVerify.js`): the Google ID
 token is verified **locally** with `node:crypto` against Google's public JWKS

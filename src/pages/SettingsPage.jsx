@@ -3,8 +3,6 @@ import { createPortal } from "react-dom";
 import { Link, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence, Reorder, useDragControls } from "framer-motion";
 import {
-  ChevronLeft,
-  Settings,
   User,
   Palette,
   Play,
@@ -26,6 +24,7 @@ import {
 } from "lucide-react";
 import SEO from "../components/SEO";
 import PlayerPreview from "../components/PlayerPreview.jsx";
+import ContentPageHeader from "../components/ContentPageHeader";
 import { usePreferences } from "../context/preferences";
 import { useAppAuth, useSyncStatus } from "../context/auth";
 import GoogleSignInButton, { GoogleLogoIcon } from "../components/GoogleSignInButton.jsx";
@@ -815,23 +814,17 @@ export default function SettingsPage() {
 
       <div className="relative z-10 pt-4 md:pt-8 pb-28 px-4 sm:px-6 md:px-10 lg:px-14">
         <div className="mx-auto max-w-[780px]">
-          {/* Header Row */}
-          <div ref={headerRef} className="mb-6 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => (location.key === "default" ? navigate("/") : navigate(-1))}
-                className="flex items-center justify-center text-white drop-shadow-lg transition-transform duration-200 hover:scale-110 active:scale-90 p-1.5 rounded-full hover:bg-white/10"
-                aria-label="Go back"
-              >
-                <ChevronLeft className="w-6 h-6 text-white/90" strokeWidth={1.5} />
-              </button>
-              <div className="flex items-center gap-3">
-                <Settings aria-hidden="true" className="h-8 w-8 shrink-0 text-white" />
-                <h1 className="text-3xl md:text-4xl font-semibold tracking-tight leading-none text-white">
-                  Settings
-                </h1>
-              </div>
-            </div>
+          {/* Header Row — ContentPageHeader brings the same design language as
+              the movies/series browse pages (eyebrow, big title, count, back). */}
+          <div ref={headerRef}>
+            <ContentPageHeader
+              eyebrow="Preferences"
+              title="Settings"
+              description="Tune playback, servers, subtitles and notifications to your taste."
+              count={visibleCount}
+              onBack={() => (location.key === "default" ? navigate("/") : navigate(-1))}
+              backLabel="Back"
+            />
           </div>
 
           {/* Sticky section tabs — Cinejoy .settings-nav docking: transparent

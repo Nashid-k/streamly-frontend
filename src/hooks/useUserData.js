@@ -77,6 +77,112 @@ export function useMyList() {
   return { myList, toggleMyList, removeBatchFromMyList, isInList };
 }
 
+/* User-created collections — named folders that group saved titles.
+   Persisted under aios_my_collections, cross-tab via aios_sync_collections.
+   itemIds reference aios_my_list ids so a collection never duplicates a
+   title's full payload. Collections ride the same cloud payload as the
+   watchlist when signed in (src/context/AuthContext.jsx). */
+const COLLECTIONS_KEY = 'aios_my_collections';
+const COLLECTIONS_SYNC = 'aios_sync_collections';
+
+function makeCollectionId() {
+  return `col-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+export function useMyCollections() {
+  const [collections, setCollections] = useState(() => readStorage(COLLECTIONS_KEY));
+
+  useEffect(() => {
+    const sync = () => setCollections(readStorage(COLLECTIONS_KEY));
+    window.addEventListener(COLLECTIONS_SYNC, sync);
+    window.addEventListener('storage', sync);
+    return () => {
+      window.removeEventListener(COLLECTIONS_SYNC, sync);
+      window.removeEventListener('storage', sync);
+    };
+  }, []);
+
+  const collectionsRef = useRef(collections);
+  collectionsRef.current = collections;
+
+  const commitCollections = useCallback((next) => {
+    setCollections(next);
+    writeStorage(COLLECTIONS_KEY, next);
+    dispatch(COLLECTIONS_SYNC);
+  }, []);
+
+  const createCollection = useCallback((name) => {
+    const trimmed = String(name || '').trim();
+    if (!trimmed) return null;
+    const id = makeCollectionId();
+    const next = [
+      ...collectionsRef.current,
+      { id, name: trimmed, createdAt: Date.now(), updatedAt: Date.now(), itemIds: [] },
+    ];
+    commitCollections(next);
+    return id;
+  }, [commitCollections]);
+
+  const renameCollection = useCallback((id, name) => {
+    const trimmed = String(name || '').trim();
+    if (!trimmed) return;
+    commitCollections(
+      collectionsRef.current.map((c) =>
+        c.id === id ? { ...c, name: trimmed, updatedAt: Date.now() } : c,
+      ),
+    );
+  }, [commitCollections]);
+
+  const deleteCollection = useCallback((id) => {
+    commitCollections(collectionsRef.current.filter((c) => c.id !== id));
+  }, [commitCollections]);
+
+  const addToCollection = useCallback((id, movieIds) => {
+    const ids = Array.isArray(movieIds) ? movieIds.filter(Boolean) : [];
+    if (ids.length === 0) return;
+    commitCollections(
+      collectionsRef.current.map((c) => {
+        if (c.id !== id) return c;
+        const merged = [...new Set([...c.itemIds, ...ids])];
+        return { ...c, itemIds: merged, updatedAt: Date.now() };
+      }),
+    );
+  }, [commitCollections]);
+
+  const removeFromCollection = useCallback((id, movieId) => {
+    commitCollections(
+      collectionsRef.current.map((c) => {
+        if (c.id !== id) return c;
+        return {
+          ...c,
+          itemIds: c.itemIds.filter((mid) => mid !== movieId),
+          updatedAt: Date.now(),
+        };
+      }),
+    );
+  }, [commitCollections]);
+
+  const toggleInCollection = useCallback((id, movieId) => {
+    const col = collectionsRef.current.find((c) => c.id === id);
+    if (!col) return;
+    if (col.itemIds.includes(movieId)) {
+      removeFromCollection(id, movieId);
+    } else {
+      addToCollection(id, [movieId]);
+    }
+  }, [addToCollection, removeFromCollection]);
+
+  return {
+    collections,
+    createCollection,
+    renameCollection,
+    deleteCollection,
+    addToCollection,
+    removeFromCollection,
+    toggleInCollection,
+  };
+}
+
 export function useContinueWatching() {
   const [continueWatching, setContinueWatching] = useState(() =>
     readStorage('aios_continue_watching').sort((a,b) => b.lastWatched - a.lastWatched)

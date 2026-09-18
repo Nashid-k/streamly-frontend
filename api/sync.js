@@ -11,6 +11,7 @@ import { withLog } from './lib/logger.js';
 
 const MAX_WATCHLIST = 500;
 const MAX_HISTORY = 500;
+const MAX_COLLECTIONS = 100;
 const MAX_BODY_BYTES = 512 * 1024;
 
 function setCorsHeaders(res) {
@@ -72,7 +73,7 @@ export default withLog(async function handler(req, res) {
         return;
       }
 
-      const { watchlist, watchHistory, preferences } = body;
+      const { watchlist, watchHistory, preferences, collections } = body;
       const updateDoc = { $set: { googleId, updatedAt: new Date() } };
 
       if (watchlist !== undefined) {
@@ -88,6 +89,13 @@ export default withLog(async function handler(req, res) {
           return;
         }
         updateDoc.$set.watchHistory = watchHistory;
+      }
+      if (collections !== undefined) {
+        if (!Array.isArray(collections) || collections.length > MAX_COLLECTIONS) {
+          res.status(400).json({ success: false, message: `collections must be an array of <= ${MAX_COLLECTIONS} items.` });
+          return;
+        }
+        updateDoc.$set.collections = collections;
       }
       if (preferences && typeof preferences === 'object') {
         updateDoc.$set.preferences = preferences;
@@ -111,6 +119,7 @@ export default withLog(async function handler(req, res) {
         userData: {
           watchlist: userData?.watchlist || [],
           watchHistory: userData?.watchHistory || [],
+          collections: userData?.collections || [],
           preferences: userData?.preferences || {},
         },
       });
