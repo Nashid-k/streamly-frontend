@@ -1036,11 +1036,11 @@ on falls back to the provider's native controls. */
             break;
           case "cinesrc:response":
             switch (d.command) {
-              case "getCurrentTime": if (d.result != null && !targetSeekTimeRef.current) setCurrentTime(d.result); break;
+              case "getCurrentTime": if (d.result != null && !targetSeekTimeRef.current) { if (d.result > 0.5) hasPlaybackRef.current = true; setCurrentTime(d.result); } break;
               case "getDuration": if (d.result) setDuration(d.result); break;
               case "getVolume": if (d.result != null) setVolume(d.result); break;
               case "getMuted": if (d.result != null) setIsMuted(d.result); break;
-              case "getPaused": if (d.result != null) setIsPlaying(!d.result); break;
+              case "getPaused": if (d.result != null) { setIsPlaying(!d.result); if (!d.result) hasPlaybackRef.current = true; } break;
               case "getPlaybackRate": if (d.result != null) setPlaybackRate(d.result); break;
               case "getCurrentQuality": case "getCurrentLevel": case "getCurrentResolution": case "getQuality": if (d.result != null) { setCurrentQuality(d.result); try { localStorage.setItem("streamly_lastQuality", JSON.stringify(d.result)); } catch {} } break;
               default: break;
@@ -1113,6 +1113,10 @@ on falls back to the provider's native controls. */
               localStorage.setItem("streamly_lastserver", d.sourceId);
               setLastServer(d.sourceId);
             }
+            // CineSrc rotated to a new internal source (nebula → lisbon → …).
+            // Treat it as a fresh start: the watchdog re-covers this source
+            // until the getter poll or a play/loadedmetadata event proves it.
+            hasPlaybackRef.current = false;
             break;
           case "cinesrc:play": setIsLoading(false); setIsPlaying(true); rotationFailuresRef.current = 0; setFatalError(false); serverErrorCountsRef.current = {}; failoverPendingRef.current = false; hasPlaybackRef.current = true; break;
           case "cinesrc:pause": setIsPlaying(false); if (!isScrubbing) setIsLoading(false); break;
@@ -1157,6 +1161,24 @@ on falls back to the provider's native controls. */
     return () => window.removeEventListener("message", h);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- onServerChange/autoSkipIntro/showToast/onClose are read inside the listener but the listener is keyed to playback state; re-adding it when these parent-provided callbacks change would churn message handling on unrelated re-renders.
   }, [isCineSrc, isScrubbing, playbackRate, sendCommand, hasNextEpisode, onNextEpisode, activeServerIndex, startUpNextCountdown, onProgressUpdate, serverCount]);
+
+  /* CineSrc getter poll — their event postMessage can be dropped by the
+     browser. CineSrc's docs say play() returns a Promise, and their bundle
+     throws Uncaught DataCloneError: #<Promise> could not be cloned when it
+     posts such a payload, so cinesrc:play / cinesrc:error may never reach us.
+     Getter responses (getCurrentTime/ getPaused) carry plain primitives and
+     DO arrive. Poll every 5s so we still (a) prove playback started — a slow
+     internal source whose play event was swallowed is never rotated away by
+     the watchdog — and (b) keep our play/pause UI in sync. */
+  useEffect(() => {
+    if (!isCineSrc) return;
+    const tick = () => {
+      sendCommand("getCurrentTime");
+      sendCommand("getPaused");
+    };
+    const iv = setInterval(tick, 5000);
+    return () => clearInterval(iv);
+  }, [isCineSrc, sendCommand]);
 
   /* External-iframes PostMessage Listener (VidCore + Peachify + VidUp) — events as
      { type: "timeupdate", data: { currentTime, duration, percent } } (VidCore),
