@@ -156,6 +156,64 @@ describe("CineSrc embed params follow the integration docs", () => {
   });
 });
 
+describe("VidCore runs the managed custom chrome", () => {
+  it("renders our controls (not the speed pill) when Server 5 (vidcore) is active", async () => {
+    render(
+      <PreferencesProvider>
+        <CustomVideoPlayer
+          movie={MOVIE}
+          servers={VideoSourceAdapter.getServers()}
+          preferredServerIndex={4}
+        />
+      </PreferencesProvider>
+    );
+    const container = document.querySelector(".streamly-player");
+    expect(container).toBeInTheDocument();
+
+    // Server #5 resolves its TMDb→IMDb id async (getExternalIds), so the
+    // iframe mounts on a microtask — wait for it before asserting the src.
+    const iframe = await screen.findByTitle("Video player");
+    expect(iframe.getAttribute("src")).toContain("vidcore.io");
+    fireEvent.load(iframe);
+
+    // Simulate vidcore reporting playback so our chrome shows.
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        origin: "https://vidcore.io",
+        data: { type: "PLAYER_EVENT", data: { event: "play" } },
+      }));
+      fireEvent.mouseMove(container);
+    });
+
+    expect(container.querySelector('[aria-label*="aspect ratio" i]')).toBeInTheDocument();
+    expect(container.querySelector('[aria-label*="brightness" i]')).toBeInTheDocument();
+    // VidCore has no setPlaybackRate in its postMessage API → the speed pill must stay hidden.
+    expect(container.querySelector('[aria-label="Playback speed"]')).not.toBeInTheDocument();
+  });
+
+  it("forwards our postMessage commands to the vidcore iframe", async () => {
+    const { container } = render(
+      <PreferencesProvider>
+        <CustomVideoPlayer
+          movie={MOVIE}
+          servers={VideoSourceAdapter.getServers()}
+          preferredServerIndex={4}
+        />
+      </PreferencesProvider>
+    );
+    const iframe = await screen.findByTitle("Video player");
+    expect(iframe.getAttribute("src")).toContain("vidcore.io");
+    const postSpy = vi.spyOn(iframe.contentWindow, "postMessage");
+
+    // isPlaying starts true (autoplay assumption), so Space first pauses…
+    fireEvent.keyDown(window, { key: " " });
+    expect(postSpy).toHaveBeenCalledWith({ command: "pause" }, "*");
+    // …and toggling again plays (state updated optimistically in togglePlay).
+    fireEvent.keyDown(window, { key: " " });
+    expect(postSpy).toHaveBeenCalledWith({ command: "play" }, "*");
+  });
+});
+
 describe("CineSrc owns its internal rotation (no auto-switch to Server 2+)", () => {
   it("shows the fallback UI instead of advancing away when CineSrc burns through its sources", () => {
     const onServerChange = vi.fn();

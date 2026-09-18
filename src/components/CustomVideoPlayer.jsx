@@ -739,10 +739,16 @@ on falls back to the provider's native controls. */
   const isVidCore = iframeUrl.includes("vidcore.io");
   const isPeachify = iframeUrl.includes("peachify.top");
   const isVidUp = iframeUrl.includes("vidup.to");
-  // Playback-rate menus are wired to CineSrc's command API. VidCore/Peachify/
-  // VidUp use their own native controls UI.
-  const hasManagedSettings = isCineSrc;
-  const showCustomUI = isCineSrc && !useNativeControls;
+  // Providers with a postMessage control API (see sendCommand) can run our full
+  // custom chrome. CineSrc and VidCore both expose play/pause/seek/volume/mute
+  // commands, so they get the managed UI. Playback rate stays CineSrc-only:
+  // VidCore's API has no setPlaybackRate equivalent, so the rate pill/section
+  // are gated on supportsPlaybackRate. Peachify/VidUp post no control commands —
+  // they keep their native controls UI.
+  const isManagedPlayer = isCineSrc || isVidCore;
+  const supportsPlaybackRate = isCineSrc;
+  const hasManagedSettings = isManagedPlayer;
+  const showCustomUI = isManagedPlayer && !useNativeControls;
 
   /* Auto-hide paused info */
   useEffect(() => {
@@ -964,7 +970,7 @@ on falls back to the provider's native controls. */
         if (!isNew && currentTime > 0 && !targetSeekTimeRef.current) url += `&t=${Math.floor(currentTime)}&continueprompt=false`;
         else if (isNew && startTimeRef.current > 0) url += `&t=${Math.floor(startTimeRef.current)}&continueprompt=false`;
       }
-      if (isNew && startTimeRef.current > 0 && (url.includes("peachify.top") || url.includes("vidup.to")))
+      if (isNew && startTimeRef.current > 0 && (url.includes("vidcore.io") || url.includes("peachify.top") || url.includes("vidup.to")))
         url += `&startAt=${Math.floor(startTimeRef.current)}`;
       setIframeUrl(url);
       // Dead-source watchdog. It re-arms itself so a source that never starts
@@ -1709,7 +1715,7 @@ on falls back to the provider's native controls. */
 
   /* Keyboard Shortcuts */
   useEffect(() => {
-    if (!isCineSrc) return;
+    if (!isManagedPlayer) return;
     const h = (e) => {
       if (document.activeElement?.tagName === "input" || e.ctrlKey || e.metaKey || e.altKey) return;
       switch (e.key.toLowerCase()) {
@@ -1729,7 +1735,7 @@ on falls back to the provider's native controls. */
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [isCineSrc, togglePlay, toggleFullscreen, toggleMute, seekRelative, changeVolume, triggerBrightnessCycle]);
+  }, [isManagedPlayer, togglePlay, toggleFullscreen, toggleMute, seekRelative, changeVolume, triggerBrightnessCycle]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -3499,7 +3505,7 @@ on falls back to the provider's native controls. */
                 >
                   <Sun size={isTouch ? 17 : 18} />
                 </motion.button>
-                {!narrow && (
+                {supportsPlaybackRate && !narrow && (
                 <motion.button
                   aria-label="Playback speed"
                   onClick={(e) => { e.stopPropagation(); cycleSpeed(); }}
@@ -3602,7 +3608,7 @@ on falls back to the provider's native controls. */
             }}
           >
             {/* Speed */}
-            {hasManagedSettings && (
+            {supportsPlaybackRate && (
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: R.fontTiny, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "1.5px", fontWeight: 700, marginBottom: 10, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif" }}>Playback Speed</div>
               <div style={{ display: "flex", gap: "clamp(4px, 1vw, 6px)", flexWrap: "wrap" }}>
@@ -3652,7 +3658,7 @@ on falls back to the provider's native controls. */
               <div style={{ fontSize: R.fontTiny, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "1.5px", fontWeight: 700, marginBottom: 10, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif" }}>Automations</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {[
-                  { label: "Auto-Skip Intro", val: autoSkipIntro, set: (value) => setPreference("autoSkipIntro", value) },
+                  ...(isCineSrc ? [{ label: "Auto-Skip Intro", val: autoSkipIntro, set: (value) => setPreference("autoSkipIntro", value) }] : []),
                   ...(movie?.isSeries ? [{ label: "Auto-Play Next", val: autoPlayNext, set: (value) => setPreference("autoplay", value) }] : []),
                 ].map((item, i) => (
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

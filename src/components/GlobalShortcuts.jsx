@@ -11,7 +11,7 @@ export default function GlobalShortcuts() {
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Skip if the video player is active (it handles its own shortcuts)
-      const playerActive = !!document.querySelector('iframe[src*="cinesrc"], iframe[src*="vidlink"], iframe[src*="vidsrc"]');
+      const playerActive = !!document.querySelector('iframe[src*="cinesrc"], iframe[src*="vidlink"], iframe[src*="vidsrc"], iframe[src*="vidcore"], iframe[src*="peachify"], iframe[src*="vidup"], iframe[src*="smashystream"]');
       const target = e.target;
       const isTyping = target instanceof HTMLElement &&
         (target.matches("input, textarea, select") || target.isContentEditable);

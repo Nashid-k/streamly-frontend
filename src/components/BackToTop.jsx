@@ -8,7 +8,7 @@ import { ChevronUp } from "lucide-react";
  * so it never overlaps the player UI.
  */
 const PLAYER_IFRAME_SELECTOR =
-  'iframe[src*="cinesrc"], iframe[src*="vidlink"], iframe[src*="vidsrc"]';
+  'iframe[src*="cinesrc"], iframe[src*="vidlink"], iframe[src*="vidsrc"], iframe[src*="vidcore"], iframe[src*="peachify"], iframe[src*="vidup"], iframe[src*="smashystream"]';
 
 const SCROLL_THRESHOLD = 600;
 
