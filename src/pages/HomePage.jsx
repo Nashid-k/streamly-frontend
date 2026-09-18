@@ -1061,6 +1061,12 @@ export default function Home({
       }
     };
 
+    // 0. Continue Watching — the most recent resumed title leads the banner
+    const cwSeeded = Array.isArray(continueWatching) ? continueWatching : [];
+    for (const m of cwSeeded.slice(0, 3)) {
+      if (bannerReady(m)) pushToPool(m);
+    }
+
     let gIdx = 0,
       rIdx = 0,
       recIdx = 0;
@@ -1103,12 +1109,23 @@ export default function Home({
       logError("HomePage", "hero-pool memo failed — hero falls back to empty.", e, { filter });
       return [];
     }
-  }, [featuredMovies, categories, filter, lastWatched]);
+  }, [featuredMovies, categories, filter, lastWatched, continueWatching]);
 
   const totalFeatured = finalPool.length;
   const activeFeaturedMovie =
     totalFeatured > 0 ? finalPool[featuredIndex % totalFeatured] : null;
   const hasInitialLoadError = !activeFeaturedMovie && (featuredError || categoriesError);
+
+  const cwResumeEntry =
+    Array.isArray(continueWatching) && activeFeaturedMovie
+      ? continueWatching.find(
+          (m) => String(m?.id) === String(activeFeaturedMovie.id),
+        )
+      : null;
+  const resumePct =
+    cwResumeEntry && cwResumeEntry.duration > 0
+      ? Math.min(100, Math.max(2, Math.round((cwResumeEntry.timestamp / cwResumeEntry.duration) * 100)))
+      : 0;
 
   // Auto-rotation: use ref for hover state to avoid stale closures and unnecessary interval restarts
   useEffect(() => {
@@ -1372,6 +1389,18 @@ export default function Home({
                   </p>
                 )}
 
+                {/* Resume progress for continue-watching banner titles */}
+                {cwResumeEntry && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                    <div style={{ width: "min(200px, 30vw)", height: 4, borderRadius: 999, background: "rgba(255,255,255,0.22)", overflow: "hidden" }}>
+                      <div style={{ width: `${resumePct}%`, height: "100%", background: "#E50914" }} />
+                    </div>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.85)", letterSpacing: "0.3px" }}>
+                      {resumePct}% Watched
+                    </span>
+                  </div>
+                )}
+
                 {/* CTA row — white Play pill · single pill with list toggle | info */}
                 <div className="hero-ctas">
                   <motion.button
@@ -1381,7 +1410,7 @@ export default function Home({
                     onClick={(e) => { e.stopPropagation(); navigate(`/watch/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`); }}
                   >
                     <Play size={20} strokeWidth={2.5} fill="currentColor" stroke="none" />
-                    Play
+                    {cwResumeEntry ? "Resume" : "Play"}
                   </motion.button>
 
                   <div className="hero-action-pill inline-flex items-center shrink-0 rounded-full bg-white/10 backdrop-blur-[20px] backdrop-saturate-150 border border-white/10 shadow-lg shadow-black/5">
@@ -1500,6 +1529,15 @@ export default function Home({
         </FadeInSection>
       )}
 
+      {/* Continue Watching — resume-first; right below the hero, on every tab */}
+      {!loading && continueWatching && continueWatching.length > 0 && (
+        <FadeInSection>
+          <ErrorBoundary>
+            <ContinueWatchingRail railIndex={0} items={continueWatching} />
+          </ErrorBoundary>
+        </FadeInSection>
+      )}
+
       {/* Categories Section */}
       <section
         style={{ display: "flex", flexDirection: "column", gap: "3.5rem" }}
@@ -1533,20 +1571,7 @@ export default function Home({
           </h3>
         ) : (
           <>
-            {/* 1. Continue Watching — resume-first (highest intent, Netflix surfaces near top) */}
-            {continueWatching &&
-              continueWatching.length > 0 &&
-              filter === "all" && (
-                <FadeInSection>
-                  <ErrorBoundary>
-                    <ContinueWatchingRail
-                      railIndex={0}
-                      items={continueWatching}
-                    />
-                  </ErrorBoundary>
-                </FadeInSection>
-              )}
-            {/* 2. Because you watched — personalized discovery ranker */}
+            {/* Because you watched — personalized discovery ranker */}
             {filter === "all" && lastWatched && recommendations?.length > 0 && (
               <FadeInSection>
                 <ErrorBoundary>

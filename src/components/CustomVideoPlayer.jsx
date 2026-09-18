@@ -7,7 +7,7 @@ import {
   Settings, AlertCircle, Check,
   SkipForward, FastForward,
   Keyboard, X, Upload, Captions, Film, Link, Repeat,
-  ArrowLeft, ArrowRight, Lock, Unlock, Sun,
+  ArrowLeft, ChevronLeft, ChevronRight, Lock, Unlock, Sun,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SubtitleEngine } from "../utils/subtitleEngine";
@@ -2432,18 +2432,15 @@ on falls back to the provider's native controls. */
               position: 'absolute', top: '50%', left: '50%',
               zIndex: 65, pointerEvents: 'none',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-              background: 'rgba(20,20,20,0.96)',
-              borderRadius: 8, padding: '14px 24px', minWidth: 160,
-              border: '1px solid rgba(255,255,255,0.1)',
-              boxShadow: '0 24px 60px rgba(0,0,0,0.8)',
+              padding: '14px 24px', minWidth: 160,
             }}
           >
             {/* Seek direction & delta */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               {seekDelta > 0 ? (
-                <ArrowRight size={20} color="#E50914" strokeWidth={2.4} style={{ filter: 'drop-shadow(0 0 8px #E50914)' }} />
+                <ChevronRight size={30} color="#E50914" strokeWidth={2.4} style={{ filter: 'drop-shadow(0 0 8px #E50914)' }} />
               ) : (
-                <ArrowLeft size={20} color="#E50914" strokeWidth={2.4} style={{ filter: 'drop-shadow(0 0 8px #E50914)' }} />
+                <ChevronLeft size={30} color="#E50914" strokeWidth={2.4} style={{ filter: 'drop-shadow(0 0 8px #E50914)' }} />
               )}
               <span style={{
                 color: '#fff', fontSize: 20, fontWeight: 800,
@@ -2556,12 +2553,8 @@ on falls back to the provider's native controls. */
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    gap: 8,
+                    gap: 12,
                     padding: "8px 16px",
-                    borderRadius: 8,
-                    background: "rgba(20, 20, 20, 0.96)",
-                    border: "1px solid rgba(255, 255, 255, 0.1)",
-                    boxShadow: "0 10px 32px rgba(0,0,0,0.65)",
                     marginLeft: "var(--sal, 0px)",
                   }}
                 >
@@ -2569,7 +2562,7 @@ on falls back to the provider's native controls. */
                     animate={{ x: [0, -3, 0] }}
                     transition={{ repeat: 2, duration: 0.25 }}
                   >
-                    <ArrowLeft size={18} color="#E50914" strokeWidth={2.5} />
+                    <ChevronLeft size={26} color="#E50914" strokeWidth={2.5} />
                   </motion.div>
                   <span style={{
                     fontSize: 14,
@@ -2590,11 +2583,8 @@ on falls back to the provider's native controls. */
                   exit={{ opacity: 0, scale: 0.9, x: -6 }}
                   transition={SPRING_SNAPPY}
                   style={{
-                    display: "flex", alignItems: "center", gap: 8,
-                    padding: "9px 18px", borderRadius: 8,
-                    background: "rgba(20, 20, 20, 0.96)",
-                    border: "1px solid rgba(255, 255, 255, 0.1)",
-                    boxShadow: "0 10px 32px rgba(0,0,0,0.65)",
+                    display: "flex", alignItems: "center", gap: 12,
+                    padding: "9px 18px",
                     marginLeft: "var(--sal, 0px)",
                   }}
                 >
@@ -2602,7 +2592,7 @@ on falls back to the provider's native controls. */
                     animate={{ x: [0, -3, 0] }}
                     transition={{ repeat: 2, duration: 0.25 }}
                   >
-                    <ArrowLeft size={18} color="#E50914" strokeWidth={2.5} />
+                    <ChevronLeft size={26} color="#E50914" strokeWidth={2.5} />
                   </motion.div>
                   <span style={{
                     fontSize: 14, fontWeight: 700, color: "#fff",
@@ -2630,12 +2620,8 @@ on falls back to the provider's native controls. */
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    gap: 8,
+                    gap: 12,
                     padding: "8px 16px",
-                    borderRadius: 8,
-                    background: "rgba(20, 20, 20, 0.96)",
-                    border: "1px solid rgba(255, 255, 255, 0.1)",
-                    boxShadow: "0 10px 32px rgba(0,0,0,0.65)",
                     marginRight: "var(--sar, 0px)",
                   }}
                 >
@@ -2653,7 +2639,7 @@ on falls back to the provider's native controls. */
                     animate={{ x: [0, 3, 0] }}
                     transition={{ repeat: 2, duration: 0.25 }}
                   >
-                    <ArrowRight size={18} color="#E50914" strokeWidth={2.5} />
+                    <ChevronRight size={26} color="#E50914" strokeWidth={2.5} />
                   </motion.div>
                 </motion.div>
               ) : (
@@ -2664,11 +2650,8 @@ on falls back to the provider's native controls. */
                   exit={{ opacity: 0, scale: 0.9, x: 6 }}
                   transition={SPRING_SNAPPY}
                   style={{
-                    display: "flex", alignItems: "center", gap: 8,
-                    padding: "9px 18px", borderRadius: 8,
-                    background: "rgba(20, 20, 20, 0.96)",
-                    border: "1px solid rgba(255, 255, 255, 0.1)",
-                    boxShadow: "0 10px 32px rgba(0,0,0,0.65)",
+                    display: "flex", alignItems: "center", gap: 12,
+                    padding: "9px 18px",
                     marginRight: "var(--sar, 0px)",
                   }}
                 >
@@ -2683,7 +2666,7 @@ on falls back to the provider's native controls. */
                     animate={{ x: [0, 3, 0] }}
                     transition={{ repeat: 2, duration: 0.25 }}
                   >
-                    <ArrowRight size={18} color="#E50914" strokeWidth={2.5} />
+                    <ChevronRight size={26} color="#E50914" strokeWidth={2.5} />
                   </motion.div>
                 </motion.div>
               )
@@ -3093,7 +3076,7 @@ on falls back to the provider's native controls. */
                     display: "flex", alignItems: "center", justifyContent: "center", padding: "3px",
                   }}
                 >
-                  <ArrowLeft size={isTouch ? 17 : 19} strokeWidth={2.4} />
+                  <ChevronLeft size={isTouch ? 21 : 24} strokeWidth={2.4} />
                 </motion.button>
                 <motion.button
                   aria-label="Forward 10 seconds"
@@ -3104,7 +3087,7 @@ on falls back to the provider's native controls. */
                     display: "flex", alignItems: "center", justifyContent: "center", padding: "3px",
                   }}
                 >
-                  <ArrowRight size={isTouch ? 17 : 19} strokeWidth={2.4} />
+                  <ChevronRight size={isTouch ? 21 : 24} strokeWidth={2.4} />
                 </motion.button>
                 {/* Volume — button + hover slider */}
                 <div
