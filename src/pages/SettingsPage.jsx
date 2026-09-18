@@ -27,7 +27,7 @@ import {
 import SEO from "../components/SEO";
 import PlayerPreview from "../components/PlayerPreview.jsx";
 import { usePreferences } from "../context/preferences";
-import { useAppAuth } from "../context/auth";
+import { useAppAuth, useSyncStatus } from "../context/auth";
 import GoogleSignInButton, { GoogleLogoIcon } from "../components/GoogleSignInButton.jsx";
 import { useToast } from "../components/Toast.jsx";
 import { useConfirmDialog } from "../components/ConfirmDialog.jsx";
@@ -397,6 +397,7 @@ export default function SettingsPage() {
   // state and storage diverged until reload.
   const auth = useAppAuth();
   const user = auth?.user;
+  const { syncStatus, lastSyncedAt } = useSyncStatus();
 
   const {
     // Existing
@@ -987,10 +988,10 @@ export default function SettingsPage() {
                       </div>
                       <span className="setting-desc">
                         {user
-                          ? auth?.syncStatus === "syncing"
+                          ? syncStatus === "syncing"
                             ? "Synchronizing your watchlist and history..."
-                            : auth?.lastSyncedAt
-                            ? `Last synced: ${new Date(auth.lastSyncedAt).toLocaleTimeString()}`
+                            : lastSyncedAt
+                            ? `Last synced: ${new Date(lastSyncedAt).toLocaleTimeString()}`
                             : "Your library and watch history are synchronized with your account."
                           : "Sign in to sync your watchlist and settings across devices."}
                       </span>
@@ -1015,10 +1016,10 @@ export default function SettingsPage() {
                               });
                             }
                           }}
-                          disabled={auth?.syncStatus === "syncing"}
+                          disabled={syncStatus === "syncing"}
                           className="settings-hit px-3.5 py-1.5 text-xs font-semibold rounded-full bg-white/10 hover:bg-white/15 text-white transition-colors flex items-center gap-1.5 border border-white/10 cursor-pointer disabled:opacity-50"
                         >
-                          <RotateCcw className={`w-3.5 h-3.5 ${auth?.syncStatus === "syncing" ? "animate-spin" : ""}`} />
+                          <RotateCcw className={`w-3.5 h-3.5 ${syncStatus === "syncing" ? "animate-spin" : ""}`} />
                           Sync Now
                         </button>
                       </div>

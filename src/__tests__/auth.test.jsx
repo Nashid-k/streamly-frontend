@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import { AuthProvider } from "../context/AuthContext";
-import { useAppAuth } from "../context/auth";
+import { useAppAuth, useSyncStatus } from "../context/auth";
 
 function TestConsumer() {
-  const { user, isAuthenticated, loginAsGuest, logout, syncStatus } = useAppAuth();
+  const { user, isAuthenticated, loginAsGuest, logout } = useAppAuth();
+  const { syncStatus } = useSyncStatus();
   return (
     <div>
       <span data-testid="auth-status">{isAuthenticated ? "authenticated" : "guest"}</span>

@@ -1,6 +1,6 @@
 // src/context/AuthContext.jsx — Unified Authentication & MongoDB Cloud Synchronization Provider
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { AppContext } from "./auth";
+import { AppContext, SyncStatusContext } from "./auth";
 import { useMyList, useContinueWatching, useSearchHistory } from "../hooks/useUserData";
 import { mergeListsById } from "../utils/mergeRemote";
 import { logDebug, logError, logWarn } from "../utils/debugLogger";
@@ -294,12 +294,19 @@ export function AuthProvider({ children }) {
     logDebug("auth", "User signed out.");
   }, []);
 
+  // syncStatus/lastSyncedAt churn on EVERY cloud sync (idle → syncing →
+  // synced/error). Riding them on the shared AppContext value re-rendered every
+  // auth consumer (every MovieCard, every rail) twice per sync. They now live
+  // on their own SyncStatusContext so only SettingsPage re-renders.
+  const syncValue = useMemo(
+    () => ({ syncStatus, lastSyncedAt }),
+    [syncStatus, lastSyncedAt],
+  );
+
   const value = useMemo(
     () => ({
       user,
       isAuthenticated: Boolean(user),
-      syncStatus,
-      lastSyncedAt,
       syncToCloud,
       loginWithGoogle,
       loginAsGuest,
@@ -308,8 +315,12 @@ export function AuthProvider({ children }) {
       ...cwData,
       ...shData,
     }),
-    [user, syncStatus, lastSyncedAt, syncToCloud, loginWithGoogle, loginAsGuest, logout, myListData, cwData, shData]
+    [user, syncToCloud, loginWithGoogle, loginAsGuest, logout, myListData, cwData, shData]
   );
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  return (
+    <AppContext.Provider value={value}>
+      <SyncStatusContext.Provider value={syncValue}>{children}</SyncStatusContext.Provider>
+    </AppContext.Provider>
+  );
 }

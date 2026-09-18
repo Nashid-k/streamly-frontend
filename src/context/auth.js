@@ -46,3 +46,16 @@ export function useAppAuth() {
   }
   return ctx;
 }
+
+/* Granular sync-status reader. Auth consumers read syncStatus via this hook
+   so a cloud sync re-render only hits SettingsPage — not every MovieCard. */
+export function useSyncStatus() {
+  const ctx = useContext(SyncStatusContext);
+  if (!ctx) {
+    return {
+      syncStatus: DEFAULT_AUTH_FALLBACK.syncStatus,
+      lastSyncedAt: DEFAULT_AUTH_FALLBACK.lastSyncedAt,
+    };
+  }
+  return ctx;
+}
