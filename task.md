@@ -35,6 +35,18 @@
   with no image source, and `/watchlist` passes `fallback`. Other pages keep
   the old no-src = nothing behavior. Verified: lint 0, vitest 38/370, build OK.
 
+  **Follow-up (details/watch page collection picker)**: adding a fresh title on
+  `/watch/:id` (the details page that hosts the player) now flows into a
+  collection chooser whenever folders exist — `CollectionPickerDialog` was
+  extracted to `src/components/CollectionPickerDialog.jsx` (shared by
+  WatchlistPage and TitleDetailsPage). `handleToggleMyList` opens it right
+  after a successful add (only when `collections.length > 0`; toggling off
+  still just removes). The picker ticks any existing folder, untick removes,
+  and the inline “New collection → Create & add” runs
+  `createCollectionWithItems`. The List circle button now also wears a tiny
+  green folder badge (`.title-collection-badge`) when the title is already in
+  a collection. Verified: lint 0 errors, vitest 38 files / 370/370, build OK.
+
 - [x] **My List collections + movies/series-style UI/UX — Watchlist AND Settings
   (user directive)**: end-to-end named-folder collections on `/watchlist`.
   `useMyCollections` (src/hooks/useUserData.js:85–184) persists under

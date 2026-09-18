@@ -3937,6 +3937,27 @@ body::after {
   pointer-events: none;
 }
 
+/* Tiny folder badge on the details-page List button when the title already
+   lives in one or more collections. */
+.title-collection-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--accent-primary-rgb, 149, 255, 80), 0.45);
+  background: rgba(8, 8, 10, 0.85);
+  color: var(--accent-primary, #95ff50);
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
 .card-add-collection-button {
   position: absolute;
   top: 0.7rem;

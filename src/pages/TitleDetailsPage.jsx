@@ -38,6 +38,7 @@ import {
   Clock,
   Grid3x3,
   ArrowUpDown,
+  FolderOpen,
 } from "lucide-react";
 import {
   motion,
@@ -46,6 +47,7 @@ import {
 import { useAppAuth } from "../context/auth";
 import { useToast } from "../components/Toast.jsx";
 import MovieCard from "../components/MovieCard";
+import CollectionPickerDialog from "../components/CollectionPickerDialog";
 
 import { buildMovieAddedNotification } from "../utils/notificationEngine";
 import { formatTMDBDate, getTMDBWeekday } from "../utils/timezone";
@@ -480,6 +482,9 @@ export default function TitleDetails() {
   const {
     isInList,
     toggleMyList,
+    collections,
+    toggleInCollection,
+    createCollectionWithItems,
     continueWatching,
     updateProgress,
     removeFromContinueWatching,
@@ -522,6 +527,11 @@ export default function TitleDetails() {
           });
           addNotification(notif);
         }
+        // If collection folders exist, ask which one to file this under — the
+        // picker also allows creating a folder and adding the title in one go.
+        if (collections && collections.length > 0) {
+          setCollectionPickerOpen(true);
+        }
       }
     } catch (listError) {
       logError("TitleDetails", `Failed to update My List for "${movieObj?.title}".`, listError, { id: movieObj?.id });
@@ -544,6 +554,7 @@ export default function TitleDetails() {
   // the chosen quality to disk through the /api/downloadify function.
   const [downloadOpen, setDownloadOpen] = useState(false);
   const handleDownloadOpen = () => setDownloadOpen(true);
+  const [collectionPickerOpen, setCollectionPickerOpen] = useState(false);
 
   // Mark watched / unwatched — records a full run in watch history (or
   // removes it), mirroring Cinejoy's "Mark As Watched" circular action.
@@ -648,6 +659,26 @@ export default function TitleDetails() {
 
   const movie = rawMovie;
   const movieId = movie?.id;
+
+  // Member of at least one collection → tiny folder badge on the List button.
+  const inAnyCollection = useMemo(
+    () => (collections || []).some((c) => (c.itemIds || []).includes(movie?.id)),
+    [collections, movie],
+  );
+
+  // Pickers' inline "create + add" target.
+  const handlePickerCreateFromDetails = (name) => {
+    if (!movie) return;
+    const created = createCollectionWithItems(name, [movie.id]);
+    if (created) {
+      toast({
+        title: "Collection Created",
+        message: `"${name}" created with 1 title.`,
+        type: "success",
+        duration: 2500,
+      });
+    }
+  };
 
   // Resolve the actual platform — now guaranteed to be a canonical key or null
   const effectivePlatform = movie?.source || undefined;
@@ -1295,19 +1326,29 @@ export default function TitleDetails() {
 
               {/* Cinejoy-style circular actions: Add to List | Download | Mark watched */}
               <div className="flex items-center gap-2.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => handleToggleMyList(movie)}
-                  className="hero-circle-btn"
-                  aria-label={isInList(movie.id) ? "Remove from My List" : "Add to My List"}
-                  title={isInList(movie.id) ? "Remove from My List" : "Add to My List"}
-                >
-                  {isInList(movie.id) ? (
-                    <Check size={20} color="#95ff50" />
-                  ) : (
-                    <Plus size={20} />
+                <div style={{ position: "relative" }} className="flex">
+                  {inAnyCollection && (
+                    <span
+                      className="title-collection-badge"
+                      title={`In ${(collections || []).filter((c) => (c.itemIds || []).includes(movie?.id)).map((c) => c.name).join(", ")}`}
+                    >
+                      <FolderOpen size={10} />
+                    </span>
                   )}
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleMyList(movie)}
+                    className="hero-circle-btn"
+                    aria-label={isInList(movie.id) ? "Remove from My List" : "Add to My List"}
+                    title={isInList(movie.id) ? "Remove from My List" : "Add to My List"}
+                  >
+                    {isInList(movie.id) ? (
+                      <Check size={20} color="#95ff50" />
+                    ) : (
+                      <Plus size={20} />
+                    )}
+                  </button>
+                </div>
 
                 <button
                   type="button"
@@ -2661,6 +2702,15 @@ export default function TitleDetails() {
           onClose={() => setDownloadOpen(false)}
         />
       )}
+
+      <CollectionPickerDialog
+        open={collectionPickerOpen}
+        movie={movie}
+        collections={collections || []}
+        onToggle={toggleInCollection}
+        onCreateWithItems={(name) => handlePickerCreateFromDetails(name)}
+        onClose={() => setCollectionPickerOpen(false)}
+      />
     </div>
   );
 }
