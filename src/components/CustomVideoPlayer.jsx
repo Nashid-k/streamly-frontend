@@ -496,6 +496,18 @@ const CustomVideoPlayer = forwardRef(({
   // watchdog firing close together can't both count the same dead source and
   // exhaust the rotation with a false "all servers unreachable" screen.
   const failoverPendingRef = useRef(false);
+  // True only while the user explicitly paused via our UI. getPaused returning
+  // "not paused" is NOT playback proof (a dead source sits mid-autoplay-buffer
+  // with paused=false forever), so the user-pause flag keeps the stall watch
+  // from rotating a stream the viewer deliberately rested on.
+  const userPausedRef = useRef(false);
+  // Stall-watch state for the CineSrc getter poll: the last getCurrentTime
+  // value, the last getPaused value, and how many consecutive polls reported a
+  // frozen timeline. Fires only when the source was proven playing, it isn't
+  // user-paused/buffering, and the timeline stops advancing.
+  const pollPausedRef = useRef(false);
+  const pollPrevRef = useRef(-1);
+  const stallStrikesRef = useRef(0);
 
   const advanceServer = useCallback((msg) => {
     if (failoverPendingRef.current || rotationFailuresRef.current >= serverCount) return;
@@ -524,6 +536,10 @@ const CustomVideoPlayer = forwardRef(({
     rotationFailuresRef.current = 0;
     serverErrorCountsRef.current = {};
     failoverPendingRef.current = false;
+    userPausedRef.current = false;
+    pollPrevRef.current = -1;
+    pollPausedRef.current = false;
+    stallStrikesRef.current = 0;
     setFatalError(false);
     setErrorMessage("");
     setIsLoading(true);
@@ -891,6 +907,10 @@ on falls back to the provider's native controls. */
       // failure tally before this source starts loading.
       hasPlaybackRef.current = false;
       serverErrorCountsRef.current = {};
+      userPausedRef.current = false;
+      pollPrevRef.current = -1;
+      pollPausedRef.current = false;
+      stallStrikesRef.current = 0;
       // Console trace: which ordered server this session plays (Settings → Server Order).
       logDebug("player", `Loading "${movie?.title || movie?.name || tid}" via server #${activeServerIndex + 1} "${SERVERS[activeServerIndex]?.name || "unknown"}" (${serverCount} in rotation).`, { tid, serverIndex: activeServerIndex, serverCount });
       const sig = `${tid}-${isTv ? season : "m"}-${isTv ? episode : "m"}`;
@@ -912,6 +932,15 @@ on falls back to the provider's native controls. */
         if (isMuted) url += "&muted=true";
         if (!isNew && currentTime > 0 && !targetSeekTimeRef.current) url += `&t=${Math.floor(currentTime)}&continueprompt=false`;
         else if (isNew && startTimeRef.current > 0) url += `&t=${Math.floor(startTimeRef.current)}&continueprompt=false`;
+        // CineSrc defaults to its own internal order (nebula → lisbon → …), so
+        // a dead default source waffles while the viewer stares at the loader.
+        // Forward the last internal server that actually worked here
+        // (captured from cinesrc:sourceused) and ask CineSrc to prioritize it —
+        // per their docs: lastserver = preferred source, prioritize = use it
+        // on load.
+        let lastServerId = null;
+        try { lastServerId = localStorage.getItem("streamly_lastserver"); } catch {}
+        if (lastServerId) url += `&lastserver=${encodeURIComponent(lastServerId)}&prioritize=true`;
       }
       if (isNew && startTimeRef.current > 0 && (url.includes("peachify.top") || url.includes("vidup.to")))
         url += `&startAt=${Math.floor(startTimeRef.current)}`;
@@ -1036,11 +1065,36 @@ on falls back to the provider's native controls. */
             break;
           case "cinesrc:response":
             switch (d.command) {
-              case "getCurrentTime": if (d.result != null && !targetSeekTimeRef.current) { if (d.result > 0.5) hasPlaybackRef.current = true; setCurrentTime(d.result); } break;
+              case "getCurrentTime":
+                if (d.result != null && !targetSeekTimeRef.current && !isScrubbing) {
+                  const t = d.result;
+                  // Only a real advancing timeline proves playback (their
+                  // "not paused" is meaningless mid-load).
+                  if (t > 0.5) hasPlaybackRef.current = true;
+                  setCurrentTime(t);
+                  const prev = pollPrevRef.current;
+                  pollPrevRef.current = t;
+                  // Stall watch: CineSrc's own error postMessage can be dropped
+                  // (DataCloneError on their side), so a source that dies
+                  // mid-playback never emits a cinesrc:error for us to fail
+                  // over on. If the timeline freezes while the stream reports
+                  // paused AND the user didn't pause it, the source is dead —
+                  // rotate after ~3 stalled polls (15s).
+                  if (hasPlaybackRef.current && !userPausedRef.current && pollPausedRef.current && prev > -1 && !isLoadingRef.current) {
+                    if (Math.abs(t - prev) < 0.25) {
+                      stallStrikesRef.current += 1;
+                      if (stallStrikesRef.current >= 3 && rotationFailuresRef.current < serverCount) {
+                        stallStrikesRef.current = 0;
+                        advanceServer("Stream stalled — trying next server");
+                      }
+                    } else stallStrikesRef.current = 0;
+                  } else stallStrikesRef.current = 0;
+                }
+                break;
               case "getDuration": if (d.result) setDuration(d.result); break;
               case "getVolume": if (d.result != null) setVolume(d.result); break;
               case "getMuted": if (d.result != null) setIsMuted(d.result); break;
-              case "getPaused": if (d.result != null) { setIsPlaying(!d.result); if (!d.result) hasPlaybackRef.current = true; } break;
+              case "getPaused": if (d.result != null) { pollPausedRef.current = !!d.result; setIsPlaying(!d.result); } break;
               case "getPlaybackRate": if (d.result != null) setPlaybackRate(d.result); break;
               case "getCurrentQuality": case "getCurrentLevel": case "getCurrentResolution": case "getQuality": if (d.result != null) { setCurrentQuality(d.result); try { localStorage.setItem("streamly_lastQuality", JSON.stringify(d.result)); } catch {} } break;
               default: break;
@@ -1050,10 +1104,12 @@ on falls back to the provider's native controls. */
           case "cinesrc:waiting": setIsLoading(true); break;
           case "cinesrc:seeking": setIsLoading(true); break;
           case "cinesrc:seeked": targetSeekTimeRef.current = null; setIsLoading(false); hasPlaybackRef.current = true; break;
-          case "cinesrc:playing": setIsLoading(false); setIsPlaying(true); rotationFailuresRef.current = 0; setFatalError(false); serverErrorCountsRef.current = {}; failoverPendingRef.current = false; hasPlaybackRef.current = true; break;
+          case "cinesrc:playing": setIsLoading(false); setIsPlaying(true); userPausedRef.current = false; stallStrikesRef.current = 0; rotationFailuresRef.current = 0; setFatalError(false); serverErrorCountsRef.current = {}; failoverPendingRef.current = false; hasPlaybackRef.current = true; break;
           case "cinesrc:progress": if (d.buffered !== undefined) { setBuffered(d.buffered); if (d.buffered > 0) hasPlaybackRef.current = true; } break;
           case "cinesrc:timeupdate":
-            hasPlaybackRef.current = true;
+            // A synthetic 0-second timeupdate during load must not count as
+            // playback — only a real timeline or real movement does.
+            if (d.currentTime > 0.5 || d.duration > 0) hasPlaybackRef.current = true;
             if (isLoadingRef.current) setIsLoading(false);
             if (!isScrubbing && !targetSeekTimeRef.current) {
               setCurrentTime(d.currentTime);
@@ -1117,8 +1173,11 @@ on falls back to the provider's native controls. */
             // Treat it as a fresh start: the watchdog re-covers this source
             // until the getter poll or a play/loadedmetadata event proves it.
             hasPlaybackRef.current = false;
+            stallStrikesRef.current = 0;
+            pollPrevRef.current = -1;
+            pollPausedRef.current = false;
             break;
-          case "cinesrc:play": setIsLoading(false); setIsPlaying(true); rotationFailuresRef.current = 0; setFatalError(false); serverErrorCountsRef.current = {}; failoverPendingRef.current = false; hasPlaybackRef.current = true; break;
+          case "cinesrc:play": setIsLoading(false); setIsPlaying(true); userPausedRef.current = false; stallStrikesRef.current = 0; rotationFailuresRef.current = 0; setFatalError(false); serverErrorCountsRef.current = {}; failoverPendingRef.current = false; hasPlaybackRef.current = true; break;
           case "cinesrc:pause": setIsPlaying(false); if (!isScrubbing) setIsLoading(false); break;
           case "cinesrc:ratechange": setPlaybackRate(d.playbackRate); break;
           case "cinesrc:volumechange":
@@ -1197,11 +1256,11 @@ on falls back to the provider's native controls. */
         }
         if (typeof etype !== "string" || !etype) return;
         switch (etype) {
-          case "play": setIsLoading(false); setIsPlaying(true); rotationFailuresRef.current = 0; setFatalError(false); serverErrorCountsRef.current = {}; failoverPendingRef.current = false; hasPlaybackRef.current = true; break;
+          case "play": setIsLoading(false); setIsPlaying(true); userPausedRef.current = false; stallStrikesRef.current = 0; rotationFailuresRef.current = 0; setFatalError(false); serverErrorCountsRef.current = {}; failoverPendingRef.current = false; hasPlaybackRef.current = true; break;
           case "pause": setIsPlaying(false); setIsLoading(false); break;
           case "seeked": targetSeekTimeRef.current = null; setIsLoading(false); hasPlaybackRef.current = true; break;
           case "timeupdate": {
-            hasPlaybackRef.current = true;
+            if ((payload?.currentTime ?? 0) > 0.5 || (payload?.duration ?? 0) > 0) hasPlaybackRef.current = true;
             if (isLoadingRef.current) setIsLoading(false);
             if (!isScrubbing && !targetSeekTimeRef.current) {
               const t = payload?.currentTime;
@@ -1282,11 +1341,13 @@ on falls back to the provider's native controls. */
     if (e) e.stopPropagation();
     if (isPlaying) {
       sendCommand("pause");
+      userPausedRef.current = true;
       setIsPlaying(false);
       setShowControls(true);
       if (showCustomUI) triggerCenterIcon("pause");
     } else {
       sendCommand("play");
+      userPausedRef.current = false;
       setIsPlaying(true);
       if (showCustomUI) triggerCenterIcon("play");
       setShowPausedInfo(false);
