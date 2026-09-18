@@ -683,9 +683,6 @@ on falls back to the provider's native controls. */
   useEffect(() => { brightnessRef.current = brightness; }, [brightness]);
   const [showBrightnessArc, setShowBrightnessArc] = useState(false);
   const brightnessArcTimerRef = useRef(null);
-  const [currentQuality, setCurrentQuality] = useState(() => {
-    try { const s = localStorage.getItem("streamly_lastQuality"); return s ? JSON.parse(s) : null; } catch { return null; }
-  });
   const [showPausedInfo, setShowPausedInfo] = useState(false);
   const pausedInfoTimerRef = useRef(null);
 
@@ -776,9 +773,8 @@ on falls back to the provider's native controls. */
   const isVidCore = iframeUrl.includes("vidcore.io");
   const isPeachify = iframeUrl.includes("peachify.top");
   const isVidUp = iframeUrl.includes("vidup.to");
-  // Playback-rate menus are wired to CineSrc's command API; quality is
-  // handled through the CineSrc URL `quality` param. VidCore/Peachify/VidUp
-  // use their own native controls UI.
+  // Playback-rate menus are wired to CineSrc's command API. VidCore/Peachify/
+  // VidUp use their own native controls UI.
   const hasManagedSettings = isCineSrc;
   const showCustomUI = isCineSrc && !useNativeControls;
 
@@ -997,7 +993,6 @@ on falls back to the provider's native controls. */
         // instead of CineSrc advancing past the dead source.
         url += `&seek=${Math.min(99, Math.max(1, seekStep))}`;
         if (isTv) url += `&autoskip=${autoSkipIntro ? "true" : "false"}`;
-        if (currentQuality?.id && currentQuality.id !== -1) url += `&quality=${encodeURIComponent(currentQuality.name || currentQuality.id)}`;
         if (isMuted) url += "&muted=true";
         if (!isNew && currentTime > 0 && !targetSeekTimeRef.current) url += `&t=${Math.floor(currentTime)}&continueprompt=false`;
         else if (isNew && startTimeRef.current > 0) url += `&t=${Math.floor(startTimeRef.current)}&continueprompt=false`;
@@ -1194,7 +1189,6 @@ on falls back to the provider's native controls. */
             sendCommand("getMuted");
             sendCommand("getPaused");
             sendCommand("getPlaybackRate");
-            sendCommand("getCurrentQuality");
             break;
           case "cinesrc:response":
             switch (d.command) {
@@ -1229,7 +1223,6 @@ on falls back to the provider's native controls. */
               case "getMuted": if (d.result != null) setIsMuted(d.result); break;
               case "getPaused": if (d.result != null) { pollPausedRef.current = !!d.result; setIsPlaying(!d.result); } break;
               case "getPlaybackRate": if (d.result != null) setPlaybackRate(d.result); break;
-              case "getCurrentQuality": case "getCurrentLevel": case "getCurrentResolution": case "getQuality": if (d.result != null) { setCurrentQuality(d.result); try { localStorage.setItem("streamly_lastQuality", JSON.stringify(d.result)); } catch {} } break;
               default: break;
             }
             break;
