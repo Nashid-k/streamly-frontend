@@ -57,7 +57,7 @@ Persistence keys (all localStorage, no remote DB): `aios_my_list`,
 below), `aios_my_collections` (named folders referencing saved title ids),
 `aios_search_history`, `streamly:realRatings:<id>`
 (24h), `setting-autoplay|muteTrailers|hdThumbs|reduceMotion|notifications`,
-`streamly_volume|muted|aspectRatio|lastserver`, `streamly_user`
+`streamly_volume|muted|aspectRatio`, `streamly_user`
 (current profile), `streamly_sync_token` (per-account HMAC token for
 `/api/sync`, issued only to verified Google identities by `/api/auth`), `_sv`,
 `vite_reload`, `chunk_reload_time`. Cross-tab sync via `storage` +

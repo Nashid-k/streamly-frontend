@@ -156,3 +156,43 @@ describe("CineSrc embed params follow the integration docs", () => {
   });
 });
 
+describe("CineSrc owns its internal rotation (no auto-switch to Server 2+)", () => {
+  it("shows the fallback UI instead of advancing away when CineSrc burns through its sources", () => {
+    const onServerChange = vi.fn();
+    const { container } = render(
+      <PreferencesProvider>
+        <CustomVideoPlayer
+          movie={MOVIE}
+          servers={VideoSourceAdapter.getServers()}
+          onServerChange={onServerChange}
+        />
+      </PreferencesProvider>
+    );
+    const iframe = container.querySelector("iframe");
+    const src = iframe.getAttribute("src");
+    expect(src).toContain("cinesrc.st");
+
+    // Two fatal manifestLoadError events for the same internal source (the
+    // per-source strike threshold). The old code advanced to Server 2 from
+    // here — per the docs the embed owns its rotation, so we must stay and
+    // fall back to the Retry / pick-another-server UI instead.
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        origin: "https://cinesrc.st",
+        data: { type: "cinesrc:error", error: { type: "hlsError", details: "manifestLoadError", fatal: true } },
+      }));
+      window.dispatchEvent(new MessageEvent("message", {
+        origin: "https://cinesrc.st",
+        data: { type: "cinesrc:error", error: { type: "hlsError", details: "manifestLoadError", fatal: true } },
+      }));
+    });
+
+    // Never advanced: the iframe still points at CineSrc, no onServerChange.
+    expect(container.querySelector("iframe").getAttribute("src")).toContain("cinesrc.st");
+    expect(onServerChange).not.toHaveBeenCalled();
+
+    // Fallback UI surfaced per the docs' "handle errors gracefully" guidance.
+    expect(screen.getByText(/The stream couldn't start\./)).toBeInTheDocument();
+  });
+});
+

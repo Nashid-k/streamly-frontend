@@ -23,45 +23,6 @@ const getNumericId = (s) => {
   return m ? m[0] : null;
 };
 
-/* CineSrc builds its /api/playlist/*.m3u8 tokens from a TMDB lookup the
-   embed performs inside the user's browser (their loader fails with
-   ERR_CONNECTION_TIMED_OUT on api.themoviedb.org when the viewer's network
-   can't reach it, then every internal source 502s at the manifest). Before we
-   commit a server slot to CineSrc, probe the SAME endpoint the embed would hit.
-   A response — any status, even 401 — proves api.themoviedb.org is reachable
-   from this browser; a fetch rejection (timeout/DNS/blocked) means CineSrc
-   cannot play no matter which of its ~14 sources we ask for. Result is cached
-   120s so a dead-CineSrc session doesn't re-probe on every advance/retry. */
-const tmdbProbeCache = { ok: true, ts: 0 };
-const TMDB_PROBE_TTL = 120000;
-const TMDB_PROBE_TIMEOUT = 8000;
-const probeTmdbReachable = async () => {
-  // Tests (jsdom) have no network to api.themoviedb.org; a raw probe there
-  // would always "fail" and bypass CineSrc for every suite that inspects its
-  // embed URL. In test mode the probe is skipped and TMDB is treated as up —
-  // the real probe only runs in the browser.
-  if (import.meta.env?.MODE === "test") return true;
-  const now = Date.now();
-  if (now - tmdbProbeCache.ts < TMDB_PROBE_TTL) return tmdbProbeCache.ok;
-  try {
-    const ac = new AbortController();
-    const timer = setTimeout(() => ac.abort(), TMDB_PROBE_TIMEOUT);
-    const key = (typeof import.meta !== "undefined" && import.meta.env?.VITE_TMDB_API_KEY) || "";
-    const res = key
-      ? await fetch(`https://api.themoviedb.org/3/configuration?api_key=${encodeURIComponent(key)}`, { signal: ac.signal, cache: "no-store" })
-      : null;
-    clearTimeout(timer);
-    const ok = key ? res.status >= 200 : true;
-    tmdbProbeCache.ok = ok;
-    tmdbProbeCache.ts = now;
-    return ok;
-  } catch {
-    tmdbProbeCache.ok = false;
-    tmdbProbeCache.ts = now;
-    return false;
-  }
-};
-
 const ASPECT_RATIOS = [
   { id: "fit", name: "Fit (Original 16:9)", scale: 1 },
   { id: "fill", name: "Fill Screen (Edge-to-Edge)", scale: 1.25 },
@@ -506,16 +467,6 @@ const CustomVideoPlayer = forwardRef(({
   );
   const serverCount = SERVERS.length;
 
-  const failoverToNextServer = useCallback((msg = "Stream unavailable — trying next server") => {
-    setErrorMessage(msg);
-    setTimeout(() => {
-      setErrorMessage("");
-      const ni = (activeServerIndexRef.current + 1) % serverCount;
-      setActiveServerIndex(ni);
-      onServerChange?.(ni);
-    }, 2000);
-  }, [onServerChange, serverCount]);
-
   // Tracks consecutive server failures across switches. When it reaches
   // serverCount, every source has failed and we show a clear "unreachable"
   // screen with Retry instead of cycling forever on a black iframe.
@@ -566,9 +517,25 @@ const CustomVideoPlayer = forwardRef(({
   const cineReloadsRef = useRef(0);             // automatic in-place reload nudges (capped)
   const cineWatchdogArmRef = useRef(null);      // re-arm fn shared with the message listener
   const cineStateKeyRef = useRef("");           // content+server the cine counters belong to
+  // True while the ACTIVE iframe is the CineSrc embed. Per the integration
+  // docs CineSrc rotates its own ~14 internal sources (cinesrc:sourceused) —
+  // a dead internal source is NOT a dead provider. Our failover must never
+  // auto-switch to Server 2/3/… while CineSrc is live; exhaustion shows the
+  // fallback UI (Retry / pick another server from the menu) instead.
+  const cineActiveRef = useRef(false);
 
   const advanceServer = useCallback((msg) => {
     if (failoverPendingRef.current || rotationFailuresRef.current >= serverCount) return;
+    // CineSrc owns its internal rotation — never advance to the next provider
+    // while it is the active source. Surface the fallback UI per the docs'
+    // guidance (listen for cinesrc:error and provide fallback UI when the
+    // stream fails) rather than silently hopping to Server 2/3/….
+    if (cineActiveRef.current) {
+      setErrorMessage("");
+      setIsLoading(false);
+      setFatalError(true);
+      return;
+    }
     failoverPendingRef.current = true;
     rotationFailuresRef.current += 1;
     const next = (activeServerIndexRef.current + 1) % serverCount;
@@ -675,7 +642,6 @@ on falls back to the provider's native controls. */
   const [showSkipIntro, setShowSkipIntro] = useState(false);
   const [showUpNext, setShowUpNext] = useState(false);
   const [upNextCountdown, setUpNextCountdown] = useState(15);
-  const [, setLastServer] = useState(() => localStorage.getItem("streamly_lastserver") || "");
   const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0 });
   const [isLooping, setIsLooping] = useState(false);
   const [brightness, setBrightness] = useState(1);
@@ -981,6 +947,7 @@ on falls back to the provider's native controls. */
          Settings → Server Order rotation is what actually plays. */
       let url = VideoSourceAdapter.resolveStreamUrl(SERVERS, activeServerIndex, tid, isTv ? season : null, isTv ? episode : null, imdbId, movie.title);
       const isCineServer = url.includes("cinesrc.st");
+      cineActiveRef.current = isCineServer;
       if (isCineServer) {
         // Doc-aligned CineSrc customization params: seek follows the seekTime
         // preference and autoskip mirrors the Auto-Skip Intro preference
@@ -1000,22 +967,6 @@ on falls back to the provider's native controls. */
       if (isNew && startTimeRef.current > 0 && (url.includes("peachify.top") || url.includes("vidup.to")))
         url += `&startAt=${Math.floor(startTimeRef.current)}`;
       setIframeUrl(url);
-      // CineSrc can't build its playlist when api.themoviedb.org is out of
-      // reach from the viewer's browser (the embed's own fetch 502s and every
-      // internal source dies with a fatal manifestLoadError). Probe the SAME
-      // endpoint the embed uses, but fire-and-forget: the iframe mounts
-      // immediately (above), and only if the probe fails while nothing has
-      // streamed yet do we bypass CineSrc — instead of parking 20s on its
-      // loader before the watchdog advances. advanceServer() re-checks real
-      // playback before actually switching, so a slow-but-alive source is
-      // never swapped away.
-      if (isCineServer) {
-        probeTmdbReachable().then((reachable) => {
-          if (reachable || hasPlaybackRef.current) return;
-          logWarn("player", "TMDB unreachable — CineSrc can't build its playlist; bypassing CineSrc.", { tid, serverIndex: activeServerIndex });
-          advanceServer(`Server ${activeServerIndex + 1} (CineSrc) needs TMDB, which is unreachable — trying next server`);
-        });
-      }
       // Dead-source watchdog. It re-arms itself so a source that never starts
       // (manifest 502, TMDB timeout inside CineSrc, or an error postMessage
       // swallowed by DataCloneError) keeps accruing strikes until we rotate
@@ -1032,14 +983,17 @@ on falls back to the provider's native controls. */
         /* CineSrc: per-INTERNAL-source watchdog. The embed rotates between its
            own ~14 sources (cinesrc:sourceused fires on every switch, per the
            integration docs) — each fresh source gets a short window to prove
-           playback, and we only fail over to the NEXT PROVIDER once CineSrc
-           has demonstrably burned through its rotation: 5 expired windows in
-           total, 2 strikes on the same source, or 4 distinct sources seen.
-           One in-place reload (retryNonce) is allowed as a nudge when the
-           embed looks parked on a dead source and stops rotating. Without
-           this, the old 2×20s slot watchdog used to abandon CineSrc after a
-           single dead internal source — exactly when its rotation needed a
-           few more seconds to reach a working one. */
+           playback. We NEVER advance to the next provider while CineSrc is
+           active (advanceServer is guarded by cineActiveRef): the embed owns
+           its rotation, so the "exhausted" branch only means CineSrc itself
+           couldn't produce a working stream, and the fallback UI (Retry / pick
+           another server from the menu) is shown for the user to decide.
+           Limits: 5 expired windows in total, 2 strikes on the same source, or
+           4 distinct sources seen. One in-place reload (retryNonce) is allowed
+           as a nudge when the embed looks parked on a dead source and stops
+           rotating. Without this, the old 2×20s slot watchdog used to abandon
+           CineSrc after a single dead internal source — exactly when its
+           rotation needed a few more seconds to reach a working one. */
         const cineStateKey = `${tid}|${isTv ? `${season}e${episode}` : "m"}|s${activeServerIndex}`;
         if (cineStateKeyRef.current !== cineStateKey) {
           cineStateKeyRef.current = cineStateKey;
@@ -1100,7 +1054,7 @@ on falls back to the provider's native controls. */
     };
     gen();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- currentTime/onServerChange/setupThumbnailVTT are read but must NOT drive reloads: currentTime changes every timeupdate and would re-init the whole stream, and adding the others would churn the session on every parent render.
-  }, [activeServerIndex, movie, season, episode, useNativeControls, failoverToNextServer, advanceServer, retryNonce]);
+  }, [activeServerIndex, movie, season, episode, useNativeControls, advanceServer, retryNonce]);
 
   const sendCommand = useCallback((c, a = []) => {
     try {
@@ -1292,8 +1246,6 @@ on falls back to the provider's native controls. */
             break;
           case "cinesrc:sourceused":
             if (d.sourceId) {
-              localStorage.setItem("streamly_lastserver", d.sourceId);
-              setLastServer(d.sourceId);
               if (!cineSourceTriedRef.current.has(d.sourceId)) cineSourceTriedRef.current.add(d.sourceId);
               cineLastSourceRef.current = d.sourceId;
             }
@@ -1330,15 +1282,16 @@ on falls back to the provider's native controls. */
             // A fatal manifest load means THIS internal source is dead — but
             // per the docs it is not the provider: CineSrc rotates between its
             // own ~14 sources. Count it against the sourceId and give the
-            // embed room to rotate; only advance to the next provider when the
-            // same source fails twice, 4 distinct sources have been seen, or
-            // the aggregate window budget is spent.
+            // embed room to rotate; only when the same source fails twice, 4
+            // distinct sources have been seen, or the aggregate window budget
+            // is spent do we surface the fallback UI (advanceServer is guarded
+            // by cineActiveRef, so CineSrc is never abandoned mid-rotation).
             if (cFatal && (cDetails === "manifestLoadError" || (cErrType === "networkError" && cDetails))) {
               const src = cineLastSourceRef.current || "initial";
               const errs = (cineSourceStrikesRef.current[src] || 0) + 1;
               cineSourceStrikesRef.current[src] = errs;
               if (errs >= 2 || cineSourceTriedRef.current.size >= 4 || cineWindowsRef.current >= 5) {
-                advanceServer(`Server ${activeServerIndexRef.current + 1} is unavailable — trying next server`);
+                advanceServer(`Server ${activeServerIndexRef.current + 1} (CineSrc) couldn't start a working stream`);
                 break;
               }
               setErrorMessage("Switching source…");
@@ -1351,7 +1304,7 @@ on falls back to the provider's native controls. */
             const nc = (serverErrorCountsRef.current[ei] || 0) + 1;
             serverErrorCountsRef.current = { ...serverErrorCountsRef.current, [ei]: nc };
             if (nc >= 2) {
-              advanceServer("Stream unavailable — trying next server");
+              advanceServer(`Server ${ei + 1} (CineSrc) is unavailable`);
             } else {
               setErrorMessage("Retrying...");
               setTimeout(() => setErrorMessage(""), 3000);
@@ -2532,7 +2485,7 @@ on falls back to the provider's native controls. */
               color: "rgba(255,255,255,0.55)", fontSize: R.fontMedium, fontWeight: 500,
               maxWidth: 420, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
             }}>
-              The streaming sources are temporarily down. Retry, or pick a different server from the menu.
+              The stream couldn't start. Retry, or pick a different server from the menu.
             </div>
             <motion.button
               whileTap={{ scale: 0.97 }}
