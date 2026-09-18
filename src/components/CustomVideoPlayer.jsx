@@ -175,9 +175,9 @@ const ArcRing = memo(({ progress = 0, size = 48, strokeWidth = 3, color = "#fff"
 
 /* Volume HUD — appears on volume change (desktop). Netflix-style flat
    black pill: speaker icon + slim red fill bar + live %.
-   Positioning is done by a static flex wrapper (absolute, full-width,
-   centered) so framer-motion's scale/opacity animation can never
-   clobber the centering transform. All sizes are viewport-relative. */
+   Positioning is done by a full-cover flex wrapper (inset: 0, column,
+   top-anchored + horizontally centered) so framer-motion's scale/opacity
+   animation can never displace it. All sizes are viewport-relative. */
 const NetflixVolumeHUD = memo(function NetflixVolumeHUD({ effVolume, isMuted, volume, top }) {
   const isZero = isMuted || volume === 0;
   const pct = isZero ? 0 : Math.round(effVolume * 100);
@@ -188,8 +188,10 @@ const NetflixVolumeHUD = memo(function NetflixVolumeHUD({ effVolume, isMuted, vo
       exit={{ opacity: 0, scale: 0.94 }}
       transition={SPRING_SNAPPY}
       style={{
-        position: "absolute", top, left: 0, right: 0,
-        display: "flex", justifyContent: "center",
+        position: "absolute", inset: 0,
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "flex-start",
+        paddingTop: top,
         pointerEvents: "none", zIndex: 65,
       }}
     >
@@ -237,8 +239,10 @@ const NetflixBrightnessHUD = memo(function NetflixBrightnessHUD({ brightness, to
       exit={{ opacity: 0, scale: 0.94 }}
       transition={SPRING_SNAPPY}
       style={{
-        position: "absolute", top, left: 0, right: 0,
-        display: "flex", justifyContent: "center",
+        position: "absolute", inset: 0,
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "flex-start",
+        paddingTop: top,
         pointerEvents: "none", zIndex: 65,
       }}
     >
@@ -283,8 +287,10 @@ const NetflixAspectHUD = memo(function NetflixAspectHUD({ aspectRatioIndex, top 
       exit={{ opacity: 0, scale: 0.92, y: -6 }}
       transition={SPRING_SNAPPY}
       style={{
-        position: "absolute", top, left: 0, right: 0,
-        display: "flex", justifyContent: "center",
+        position: "absolute", inset: 0,
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "flex-start",
+        paddingTop: top,
         pointerEvents: "none", zIndex: 65,
       }}
     >
@@ -1715,18 +1721,18 @@ on falls back to the provider's native controls. */
 
   /* ═══════════════════════════════════════════════════════════════
      UP-CENTER HUD SYSTEM — volume / brightness / aspect indicators
-     sit horizontally centered in the UPPER area of the player, at a
-     position derived purely from the measured player size (20% of its
-     height, 64px floor) so it tracks every screen instead of drifting
-     from hardcoded pixels. Until the container is measured we fall
-     back to a viewport-relative clamp(). The pill itself is centered
-     by a static flex wrapper so framer-motion's entrance animation
-     can't displace it.
+     pin to the TOP-CENTER of the player: their wrapper covers the
+     whole player (inset: 0) as a flex column with
+     justifyContent: flex-start + alignItems: center, so the pill is
+     always horizontally centered and top-anchored. The top inset is
+     a fraction of the measured player height (8%) with a 72px floor
+     so it clears the top bar on every screen; before the container
+     is measured we fall back to a viewport-relative clamp().
      ═══════════════════════════════════════════════════════════════ */
   const { w: playerW, h: playerH } = useContainerSize(containerRef);
   const netflixHudTop = playerH > 0
-    ? `${Math.max(playerH * 0.2, 64).toFixed(1)}px`
-    : 'clamp(64px, 22vh, 190px)';
+    ? `${Math.max(playerH * 0.08, 72).toFixed(1)}px`
+    : 'clamp(72px, 18vh, 130px)';
   const selectedAspect = ASPECT_RATIOS[aspectRatioIndex] || ASPECT_RATIOS[0];
 
   /* Aspect ratio calculation — dynamic Edge-to-Edge punch-hole camera coverage.
