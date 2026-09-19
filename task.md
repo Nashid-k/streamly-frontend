@@ -11,12 +11,15 @@
   removed the `DiscordIcon` component, the `discord.gg/cinejoy` anchor, and the
   now-orphaned hairline divider from `src/components/Footer.jsx` (`public/icons.svg`
   still carries an unreferenced `discord-icon` sprite symbol — dead, untouched).
-  Disclaimer copy rewritten more precisely: “Streamly is a demo streaming
-  experience — it does not host, stream, or store any content itself. All
-  titles, artwork, and metadata are sourced from TMDB and used for illustration
-  only; every title and work remains the property of its respective owners.”
+  Disclaimer copy rewritten per user: “Streamly is an all-in-one streaming
+  platform that brings together movies and shows from across major platforms
+  in one place. We do not host, stream, or store any content ourselves — all
+  titles, artwork, and metadata are sourced from TMDB and used for
+  illustration only, and every title remains the property of its respective
+  owners.” (follow-up order replaced the “demo streaming experience” framing
+  with the all-in-one aggregation positioning).
   Verified: lint 0 errors (pre-existing warnings only), vitest 38 files /
-  375/375, build OK (1.44s).
+  375/375, build OK.
 
 - [x] **Settings UX bug batch (user-reported)** — (1) **no default blurred bg
   gradient on Settings / “just dark”**: the `@media (prefers-reduced-motion)`

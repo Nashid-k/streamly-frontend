@@ -16,10 +16,11 @@ function Footer() {
         </div>
 
         <p className="text-xs text-white/40 max-w-lg leading-relaxed">
-          Streamly is a demo streaming experience — it does not host, stream,
-          or store any content itself. All titles, artwork, and metadata are
-          sourced from TMDB and used for illustration only; every title and
-          work remains the property of its respective owners.
+          Streamly is an all-in-one streaming platform that brings together
+          movies and shows from across major platforms in one place. We do not
+          host, stream, or store any content ourselves — all titles, artwork,
+          and metadata are sourced from TMDB and used for illustration only,
+          and every title remains the property of its respective owners.
         </p>
 
         <a
