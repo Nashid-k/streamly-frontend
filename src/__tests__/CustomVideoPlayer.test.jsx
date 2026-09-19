@@ -205,12 +205,14 @@ describe("VidCore runs the managed custom chrome", () => {
     expect(iframe.getAttribute("src")).toContain("vidcore.io");
     const postSpy = vi.spyOn(iframe.contentWindow, "postMessage");
 
-    // isPlaying starts true (autoplay assumption), so Space first pauses…
-    fireEvent.keyDown(window, { key: " " });
-    expect(postSpy).toHaveBeenCalledWith({ command: "pause" }, "*");
-    // …and toggling again plays (state updated optimistically in togglePlay).
+    // isPlaying starts false until the embed reports otherwise (browsers block
+    // iframe autoplay), so Space must PLAY first — if it paused first, clicking
+    // our play button would send "pause" to an already-paused player.
     fireEvent.keyDown(window, { key: " " });
     expect(postSpy).toHaveBeenCalledWith({ command: "play" }, "*");
+    // …and toggling again pauses (state updated optimistically in togglePlay).
+    fireEvent.keyDown(window, { key: " " });
+    expect(postSpy).toHaveBeenCalledWith({ command: "pause" }, "*");
   });
 });
 

@@ -583,7 +583,12 @@ const CustomVideoPlayer = forwardRef(({
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
   const [loadProgress, setLoadProgress] = useState(0);
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(true);
+  // "False until proven" — CineSrc's autoplay embed reports cinesrc:playing
+  // and VidCore states play/playerstatus soon after load; browsers commonly
+  // block iframe autoplay, so assuming "playing" up-front inverts our custom
+  // chrome (Space/click sends pause to an already-paused player, center play
+  // affordance never shows). Start paused and let the embed's events flip it.
+  const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [buffered, setBuffered] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -940,6 +945,10 @@ on falls back to the provider's native controls. */
       hasPlaybackRef.current = false;
       serverErrorCountsRef.current = {};
       userPausedRef.current = false;
+      // A freshly loaded stream hasn't started yet — never inherit a playing
+      // state from the previous server (it would invert play/pause, hide the
+      // center play affordance, and stall the watchdog). Events drive truth.
+      setIsPlaying(false);
       pollPrevRef.current = -1;
       pollPausedRef.current = false;
       stallStrikesRef.current = 0;
@@ -1326,23 +1335,25 @@ on falls back to the provider's native controls. */
     // eslint-disable-next-line react-hooks/exhaustive-deps -- onServerChange/autoSkipIntro/showToast/onClose are read inside the listener but the listener is keyed to playback state; re-adding it when these parent-provided callbacks change would churn message handling on unrelated re-renders.
   }, [isCineSrc, isScrubbing, playbackRate, sendCommand, hasNextEpisode, onNextEpisode, activeServerIndex, startUpNextCountdown, onProgressUpdate, serverCount]);
 
-  /* CineSrc getter poll — their event postMessage can be dropped by the
-     browser. CineSrc's docs say play() returns a Promise, and their bundle
-     throws Uncaught DataCloneError: #<Promise> could not be cloned when it
-     posts such a payload, so cinesrc:play / cinesrc:error may never reach us.
-     Getter responses (getCurrentTime/ getPaused) carry plain primitives and
-     DO arrive. Poll every 5s so we still (a) prove playback started — a slow
-     internal source whose play event was swallowed is never rotated away by
-     the watchdog — and (b) keep our play/pause UI in sync. */
+  /* Managed-provider getter poll — the embed's event postMessage can be dropped
+     by the browser (CineSrc's docs note their play() Promise throws DataCloneError
+     when posted; VidCore only delivers a few milestone events, so our play/pause/
+     volume UI could otherwise drift). Getter responses carry plain primitives and
+     DO arrive. Poll every 5s so we keep (a) playback proof for the watchdog and
+     (b) our play/pause/volume chrome in sync with the actual player. */
   useEffect(() => {
-    if (!isCineSrc) return;
+    if (!isManagedPlayer) return;
     const tick = () => {
-      sendCommand("getCurrentTime");
-      sendCommand("getPaused");
+      if (isCineSrc) {
+        sendCommand("getCurrentTime");
+        sendCommand("getPaused");
+      } else if (isVidCore) {
+        sendCommand("getStatus");
+      }
     };
     const iv = setInterval(tick, 5000);
     return () => clearInterval(iv);
-  }, [isCineSrc, sendCommand]);
+  }, [isCineSrc, isVidCore, isManagedPlayer, sendCommand]);
 
   /* External-iframes PostMessage Listener (VidCore + Peachify + VidUp) — events as
      { type: "timeupdate", data: { currentTime, duration, percent } } (VidCore),
@@ -2097,15 +2108,18 @@ on falls back to the provider's native controls. */
             setIsLoading(false);
             setHasInitiallyLoaded(true);
             if (isVidCore) {
-              // Native UI mode: pull the current playback state into our player
-              // so Continue Watching and up-next logic stay in sync.
+              // Custom chrome mode: pull the player's playback state into our
+              // UI, then push our persisted volume/mute back so the managed
+              // chrome (which owns controls) matches the actual player.
               rotationFailuresRef.current = 0;
               setFatalError(false);
               serverErrorCountsRef.current = {};
               setTimeout(() => {
                 const w = iframeRef.current?.contentWindow;
-                if (w && iframeUrl.includes("vidcore.io"))
-                  w.postMessage({ command: "getStatus" }, "*");
+                if (!w || !iframeUrl.includes("vidcore.io")) return;
+                w.postMessage({ command: "getStatus" }, "*");
+                w.postMessage({ command: "volume", level: isMutedRef.current ? 0 : volumeRef.current }, "*");
+                w.postMessage({ command: "mute", muted: !!isMutedRef.current }, "*");
               }, 600);
             } else {
               rotationFailuresRef.current = 0;
