@@ -42,7 +42,7 @@ Continue Watching, history, preferences) lives in **localStorage**.
 ## 4. Explicitly NOT building
 
 - ❌ Any backend, auth server, or database (Firebase/backend references in
-  `README.md`/`GIT.md` are **stale docs** — code uses localStorage only).
+  `README.md` are **stale docs** — code uses localStorage only).
 - ❌ Uploads, user accounts, social, comments, or payments.
 - ❌ New stream extraction / proxy infrastructure (`src/api/env.js` is a stub;
   stream-service calls intentionally resolve to `''`).

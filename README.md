@@ -292,7 +292,3 @@ keeps SPA routing (all paths fall back to `index.html`), and sets cache
 headers for hashed assets.
 
 ---
-
-## 📖 More Documentation
-
-- [Git workflow guide](GIT.md)

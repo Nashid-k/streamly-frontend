@@ -134,7 +134,7 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
   SSRF guard; stateless, nothing persisted).
   Root: `index.html` (fonts/CDN preconnect, SW cache-buster), `vite.config.js`
   (vendor chunk split, `@/` path alias, `/api/tmdb` dev proxy), `vercel.json`
-  (`/api/tmdb/(.*)` proxy rewrite + SPA rewrite + cache headers), `.env` / `.env.example`, `test-movie.js` (manual TMDB probe; runnable via `npm run probe:movie`).
+  (`/api/tmdb/(.*)` proxy rewrite + SPA rewrite + cache headers), `.env` / `.env.example`.
 
 ## 4. Five architecture decisions + why
 

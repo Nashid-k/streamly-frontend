@@ -13,7 +13,7 @@
    `VITE_API_URL`/`VITE_STREAM_SERVICE_URL` are dead stubs), `vercel.json`
    (SPA rewrite, `npm run build` → `dist/`), hardcoded OMDb key in
    `src/api/omdbClient.js`, bundled TMDB fallback in `src/api/tmdbClient.js`.
-4. Note drift: `README.md`/`GIT.md` still mention Firebase/backend — the code
+4. Note drift: `README.md` still mentions Firebase/backend — the code
    is direct-TMDB + localStorage. Trust the code + `architecture.md`.
 
 ## 2. Commands
@@ -53,7 +53,7 @@ Debug: open the browser console — every data failure logs as
    `genre-search:<g>`, `recommendations:<id>`. Prefetch keys must match
    consumer keys exactly (`prefetchAdapter.js`).
 5. **Small, conventional commits** (`feat|fix|style|perf|refactor|chore|docs|test:
-   ...`, see `GIT.md`). One logical change per commit; `git add -p` for
+   ...`). One logical change per commit; `git add -p` for
    `CustomVideoPlayer.jsx` / `TitleDetailsPage.jsx` / `index.css`.
 6. **Verify before finishing**: `npm run lint`, `npm run test`, `npm run build`.
    No JS runtime here? Say so explicitly instead of claiming a pass.

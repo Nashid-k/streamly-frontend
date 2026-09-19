@@ -32,6 +32,25 @@
   Verified: lint 0 errors (warnings all pre-existing), vitest 38 files /
   374/374 tests, build OK (2.19s).
 
+- [x] **Project cleanup — removed dead reScraping/reference tooling and stale
+  docs (user directive: “analyse our project and cleanup — too many md files,
+  remove the cinesrc folder etc, EXTREMELY CAREFUL”)**: audited the full
+  tracked tree via `git ls-files` + reference grep. Removed `docs/cinejoy-reference/`
+  (36 files: 27 CSS + 7 HTML + `index.md` + `ANALYSIS.md` — a snapshot of a
+  competitor site mined during the UI rebuild; zero imports from `src/`,
+  build, tests, or configs) and `scripts/` (`fetch-cinejoy-css.mjs` +
+  `cinejoy-rules.mjs` — only exist to regenerate/analyze that reference, so
+  they were orphaned), plus `GIT.md` (linked only from README) and
+  `test-movie.js` (manual TMDB probe). Reference fixes so docs stay truthful:
+  README dropped the “More Documentation → GIT.md” section, `prd.md`/`vibecoder.md`
+  no longer cite stale `GIT.md`, the `vibecoder.md` commit-conventions line no
+  longer points at `GIT.md`, `architecture.md` no longer lists `test-movie.js`,
+  and `package.json` dropped the `probe:movie` script. Verified zero remaining
+  code/doc references (only historical `task.md` changelog entries + the
+  unrelated `test-movie` route fixture in `useDetailView.test.jsx` remain);
+  lint 0 errors (pre-existing warnings), vitest 38 files / 374/374 tests,
+  build OK (1.41s).
+
 - [x] **My List page redesigned from scratch on the movies/series discovery
   design language (user directive: “re-design my list page from scratch”)**:
   `/watchlist` shell in `WatchlistPage.jsx` rebuilt to mirror the

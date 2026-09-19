@@ -8,8 +8,7 @@
     "build": "vite build",
     "test": "vitest run",
     "lint": "oxlint",
-    "preview": "vite preview",
-    "probe:movie": "node test-movie.js"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.102.1",
