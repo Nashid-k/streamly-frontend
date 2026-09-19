@@ -156,8 +156,8 @@ describe("CineSrc embed params follow the integration docs", () => {
   });
 });
 
-describe("VidCore runs the managed custom chrome", () => {
-  it("renders our controls (not the speed pill) when Server 5 (vidcore) is active", async () => {
+describe("VidCore streams with its own player controls (interactive pass-through)", () => {
+  it("keeps Server 5's iframe interactive and renders no custom chrome on top", async () => {
     render(
       <PreferencesProvider>
         <CustomVideoPlayer
@@ -174,9 +174,15 @@ describe("VidCore runs the managed custom chrome", () => {
     // iframe mounts on a microtask — wait for it before asserting the src.
     const iframe = await screen.findByTitle("Video player");
     expect(iframe.getAttribute("src")).toContain("vidcore.io");
+    // Pass-through: the embed must receive pointer events so its own player UI
+    // (play/pause/seek/volume) actually works.
+    expect(iframe.style.pointerEvents).toBe("auto");
     fireEvent.load(iframe);
 
-    // Simulate vidcore reporting playback so our chrome shows.
+    // Simulate vidcore reporting playback — its PLAYER_EVENTs still sync our
+    // state/Continue Watching, but video control stays inside the embed: the
+    // compiled vidcore bundle answers only getStatus (its play/pause/seek/
+    // volume/mute commands are no-ops), so our chrome must not cover it.
     act(() => {
       window.dispatchEvent(new MessageEvent("message", {
         origin: "https://vidcore.io",
@@ -185,13 +191,11 @@ describe("VidCore runs the managed custom chrome", () => {
       fireEvent.mouseMove(container);
     });
 
-    expect(container.querySelector('[aria-label*="aspect ratio" i]')).toBeInTheDocument();
-    expect(container.querySelector('[aria-label*="brightness" i]')).toBeInTheDocument();
-    // VidCore has no setPlaybackRate in its postMessage API → the speed pill must stay hidden.
-    expect(container.querySelector('[aria-label="Playback speed"]')).not.toBeInTheDocument();
+    expect(container.querySelector('[aria-label*="aspect ratio" i]')).not.toBeInTheDocument();
+    expect(container.querySelector('[aria-label*="brightness" i]')).not.toBeInTheDocument();
   });
 
-  it("forwards our postMessage commands to the vidcore iframe", async () => {
+  it("sends no control commands to the vidcore iframe (it has no play/pause/seek API)", async () => {
     const { container } = render(
       <PreferencesProvider>
         <CustomVideoPlayer
@@ -205,14 +209,11 @@ describe("VidCore runs the managed custom chrome", () => {
     expect(iframe.getAttribute("src")).toContain("vidcore.io");
     const postSpy = vi.spyOn(iframe.contentWindow, "postMessage");
 
-    // isPlaying starts false until the embed reports otherwise (browsers block
-    // iframe autoplay), so Space must PLAY first — if it paused first, clicking
-    // our play button would send "pause" to an already-paused player.
+    // Keyboard shortcuts are CineSrc-only today; a Space press must NOT forward
+    // a {command:"play"} that vidcore would silently drop.
     fireEvent.keyDown(window, { key: " " });
-    expect(postSpy).toHaveBeenCalledWith({ command: "play" }, "*");
-    // …and toggling again pauses (state updated optimistically in togglePlay).
-    fireEvent.keyDown(window, { key: " " });
-    expect(postSpy).toHaveBeenCalledWith({ command: "pause" }, "*");
+    expect(postSpy).not.toHaveBeenCalled();
+    expect(container.querySelector(".streamly-player")).toBeInTheDocument();
   });
 });
 

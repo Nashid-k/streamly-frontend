@@ -584,10 +584,10 @@ const CustomVideoPlayer = forwardRef(({
   const [loadProgress, setLoadProgress] = useState(0);
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
   // "False until proven" — CineSrc's autoplay embed reports cinesrc:playing
-  // and VidCore states play/playerstatus soon after load; browsers commonly
-  // block iframe autoplay, so assuming "playing" up-front inverts our custom
-  // chrome (Space/click sends pause to an already-paused player, center play
-  // affordance never shows). Start paused and let the embed's events flip it.
+  // soon after load; browsers commonly block iframe autoplay, so assuming
+  // "playing" up-front inverts our custom chrome (Space/click sends pause to an
+  // already-paused player, center play affordance never shows). Start paused
+  // and let the embed's events flip it.
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [buffered, setBuffered] = useState(0);
@@ -744,13 +744,14 @@ on falls back to the provider's native controls. */
   const isVidCore = iframeUrl.includes("vidcore.io");
   const isPeachify = iframeUrl.includes("peachify.top");
   const isVidUp = iframeUrl.includes("vidup.to");
-  // Providers with a postMessage control API (see sendCommand) can run our full
-  // custom chrome. CineSrc and VidCore both expose play/pause/seek/volume/mute
-  // commands, so they get the managed UI. Playback rate stays CineSrc-only:
-  // VidCore's API has no setPlaybackRate equivalent, so the rate pill/section
-  // are gated on supportsPlaybackRate. Peachify/VidUp post no control commands —
-  // they keep their native controls UI.
-  const isManagedPlayer = isCineSrc || isVidCore;
+  // Providers with a real postMessage control API (see sendCommand) can run our
+  // full custom chrome. Only CineSrc qualifies: reverse-engineering the compiled
+  // vidcore.io bundle (chunk 281, its single message handler) proved that its
+  // play/pause/seek/volume/mute commands are no-ops — only getStatus is answered.
+  // So VidCore joins Peachify/VidUp as an interactive pass-through provider whose
+  // own player UI must keep pointer events; our chrome would sit on top and block
+  // every real control.
+  const isManagedPlayer = isCineSrc;
   const supportsPlaybackRate = isCineSrc;
   const hasManagedSettings = isManagedPlayer;
   const showCustomUI = isManagedPlayer && !useNativeControls;
@@ -1075,26 +1076,13 @@ on falls back to the provider's native controls. */
     try {
       const w = iframeRef.current?.contentWindow;
       if (!w) return;
-      if (isVidCore) {
-        // VidCore postMessage protocol: { command: "play" | "pause" | "seek" | "volume" | "mute" | "getStatus", ... }
-        switch (c) {
-          case "play": w.postMessage({ command: "play" }, "*"); break;
-          case "pause": w.postMessage({ command: "pause" }, "*"); break;
-          case "seek": w.postMessage({ command: "seek", time: a[0] }, "*"); break;
-          case "setVolume": w.postMessage({ command: "volume", level: a[0] }, "*"); break;
-          case "setMuted": w.postMessage({ command: "mute", muted: !!a[0] }, "*"); break;
-          case "getCurrentTime": case "getDuration": case "getVolume":
-          case "getPaused": w.postMessage({ command: "getStatus" }, "*"); break;
-          default: break; // no VidCore equivalent (rate/quality/audio) — ignore
-        }
-        return;
-      }
       if (isCineSrc) {
         w.postMessage({ type: "cinesrc:command", command: c, args: a }, "https://cinesrc.st");
       }
-      // Peachify publishes no postMessage control API — commands are a no-op.
+      // Peachify/VidUp/VidCore publish no postMessage control API (vidcore's
+      // handler answers only getStatus) — commands are a no-op for them.
     } catch { /* iframe cross-origin */ }
-  }, [isCineSrc, isVidCore]);
+  }, [isCineSrc]);
 
   /* Cycle playback speed for the placeable speed pill. Lives after
      playbackRate/sendCommand so their bindings are initialized. */
@@ -1337,23 +1325,20 @@ on falls back to the provider's native controls. */
 
   /* Managed-provider getter poll — the embed's event postMessage can be dropped
      by the browser (CineSrc's docs note their play() Promise throws DataCloneError
-     when posted; VidCore only delivers a few milestone events, so our play/pause/
-     volume UI could otherwise drift). Getter responses carry plain primitives and
-     DO arrive. Poll every 5s so we keep (a) playback proof for the watchdog and
-     (b) our play/pause/volume chrome in sync with the actual player. */
+     when posted, so our play/pause/volume UI could drift). Getter responses carry
+     plain primitives and DO arrive. Poll every 5s so we keep (a) playback proof
+     for the watchdog and (b) our play/pause/volume chrome in sync with the player.
+     CineSrc-only today: vidcore.io answers getStatus but nothing else, so its own
+     player UI drives playback (interactive pass-through). */
   useEffect(() => {
     if (!isManagedPlayer) return;
     const tick = () => {
-      if (isCineSrc) {
-        sendCommand("getCurrentTime");
-        sendCommand("getPaused");
-      } else if (isVidCore) {
-        sendCommand("getStatus");
-      }
+      sendCommand("getCurrentTime");
+      sendCommand("getPaused");
     };
     const iv = setInterval(tick, 5000);
     return () => clearInterval(iv);
-  }, [isCineSrc, isVidCore, isManagedPlayer, sendCommand]);
+  }, [isManagedPlayer, sendCommand]);
 
   /* External-iframes PostMessage Listener (VidCore + Peachify + VidUp) — events as
      { type: "timeupdate", data: { currentTime, duration, percent } } (VidCore),
@@ -2107,25 +2092,9 @@ on falls back to the provider's native controls. */
             // effect rotates past sources that never actually start streaming.
             setIsLoading(false);
             setHasInitiallyLoaded(true);
-            if (isVidCore) {
-              // Custom chrome mode: pull the player's playback state into our
-              // UI, then push our persisted volume/mute back so the managed
-              // chrome (which owns controls) matches the actual player.
-              rotationFailuresRef.current = 0;
-              setFatalError(false);
-              serverErrorCountsRef.current = {};
-              setTimeout(() => {
-                const w = iframeRef.current?.contentWindow;
-                if (!w || !iframeUrl.includes("vidcore.io")) return;
-                w.postMessage({ command: "getStatus" }, "*");
-                w.postMessage({ command: "volume", level: isMutedRef.current ? 0 : volumeRef.current }, "*");
-                w.postMessage({ command: "mute", muted: !!isMutedRef.current }, "*");
-              }, 600);
-            } else {
-              rotationFailuresRef.current = 0;
-              setFatalError(false);
-              serverErrorCountsRef.current = {};
-            }
+            rotationFailuresRef.current = 0;
+            setFatalError(false);
+            serverErrorCountsRef.current = {};
           }}
         />
       )}
