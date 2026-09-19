@@ -7,6 +7,17 @@
 
 ## Done (in order)
 
+- [x] **Footer trim (user order)**: every Discord reference is gone —
+  removed the `DiscordIcon` component, the `discord.gg/cinejoy` anchor, and the
+  now-orphaned hairline divider from `src/components/Footer.jsx` (`public/icons.svg`
+  still carries an unreferenced `discord-icon` sprite symbol — dead, untouched).
+  Disclaimer copy rewritten more precisely: “Streamly is a demo streaming
+  experience — it does not host, stream, or store any content itself. All
+  titles, artwork, and metadata are sourced from TMDB and used for illustration
+  only; every title and work remains the property of its respective owners.”
+  Verified: lint 0 errors (pre-existing warnings only), vitest 38 files /
+  375/375, build OK (1.44s).
+
 - [x] **Settings UX bug batch (user-reported)** — (1) **no default blurred bg
   gradient on Settings / “just dark”**: the `@media (prefers-reduced-motion)`
   block hard-hid `.ambient-liquid` (driving every fallback-only page to flat
@@ -34,7 +45,13 @@
   `setting-defaultLanguage` = `"es"`, `<html lang>` sync, trigger label
   update) 1/1 passing; added a success toast on selection so the change is
   visibly acknowledged. Verified: lint 0 errors (pre-existing warnings only),
-  vitest 38 files / 375/375 (was 374), build OK (2.29s).
+  vitest 38 files / 375/375 (was 374), build OK (2.29s). Post-fix follow-up:
+  user still reported the green focus outline on the filter input → confirmed
+  the current build cannot render it (compiled CSS emits
+  `input:focus-visible{outline:none;box-shadow:none}` plus the `outline-none`
+  utility), so a stale bundle was being served — rotated the SW cache
+  `v19.2 → v19.3` (`public/sw.js`) to purge old shells/assets on next deploy;
+  rebuild OK (1.70s), dist/sw.js verified.
 
 - [x] **Settings page rebuilt from scratch on the movies/series/my-list design
   language (user directive: “improve our complete settings ui/ux to exactly
