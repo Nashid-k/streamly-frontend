@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback, useMemo, memo, forwardRef, useImperativeHandle } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo, memo, forwardRef } from "react";
 import { VideoSourceAdapter } from "../api/videoSourceAdapter";
 
 import { movieService } from "../api/movieService";
@@ -11,10 +11,9 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SubtitleEngine } from "../utils/subtitleEngine";
-import { logDebug, logWarn, logInfo, logError } from "../utils/debugLogger";
+import { logDebug, logWarn, logInfo } from "../utils/debugLogger";
 import { usePreferences } from "../context/preferences";
 import { PLAYER_SPEEDS } from "./playerUIDef";
-import { extractStreamUrl } from "../utils/iframeStreamExtractor.js";
 
 
 const getNumericId = (s) => {
@@ -414,7 +413,7 @@ const CustomVideoPlayer = forwardRef(({
      Indices everywhere in this player refer to THIS list. Falls back to the
      static base order when the parent renders without it (tests, reuse). */
   servers: serversProp,
-}, ref) => {
+}, _ref) => {
   const {
     autoplay,
     setPreference,
@@ -3973,18 +3972,6 @@ setVidcoreDirectMode(true);
       </AnimatePresence>
     </div>
   );
-
-  // Expose stream extraction method to parent components
-  useImperativeHandle(ref, () => ({
-    getStreamUrl: async () => {
-      if (!iframeRef.current) {
-        logWarn("player", "No iframe available for stream extraction");
-        return null;
-      }
-      const result = await extractStreamUrl(iframeRef.current);
-      return result;
-    },
-  }));
 });
 
 CustomVideoPlayer.displayName = "CustomVideoPlayer";

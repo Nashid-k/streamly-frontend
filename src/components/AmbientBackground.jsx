@@ -1,5 +1,4 @@
 import { memo } from "react";
-import { CdnImageAdapter } from "../api/cdnImageAdapter";
 
 /* Fixed full-viewport ambient layer — mirrors the watch/details page:
    a heavily blurred, saturated backdrop + screen-blended top glow above the

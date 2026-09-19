@@ -7,6 +7,49 @@
 
 ## Done (in order)
 
+- [x] **Code cleanup pass (linter-driven dead-code + unused-import sweep)**:
+  - `AmbientBackground.jsx`: removed unused `CdnImageAdapter` import.
+  - `ContinueWatchingRail.jsx`: `items.map((item, i)` → `(item)` — the index
+    param was never used.
+  - `CustomVideoPlayer.jsx`: removed the **unreachable** `useImperativeHandle`
+    block (it sat *after* the component's `return`, so `getStreamUrl` never
+    existed on the ref — the Download-modal extract path already always hit the
+    "Player not available" guard), dropped the now-dead `useImperativeHandle` /
+    `extractStreamUrl` / `logError` imports, and renamed the forwardRef param to
+    `_ref` (still required for consumers that pass `ref`). This cleared the
+    `no-unreachable` lint error.
+  - Deleted the orphaned `src/utils/iframeStreamExtractor.js` (no imports remain
+    after the player cleanup; the module was unreferenced and dropped from the
+    bundle — build module count 2341 → 2340).
+  - Verified: lint 0 errors (pre-existing baseline warnings only), vitest 38
+    files / 377/377, build OK.
+
+- [x] **Regional content actually surfaces now (banner + rails deep-dive)**: the
+  first regional pass merged feeds into pools but the surrounding logic still
+  let international titles win every slot. Root causes found and fixed:
+  - **`region=IN` was starving the queries**: `/discover` region filters by the
+    title's release-date/air-date country, which TMDB rarely tags as IN for
+    regional shows — so a whole language page could silently come back empty
+    (and `Promise.allSettled` swallowed it). Dropped `region=IN` from both
+    `getRegionalUpcoming` + `getRegionalAiring` (language code is the reliable
+    regional signal) and paginated upcoming pages 1–2 per language for density.
+  - **Home "Airing This Week"**: global `/tv/on_the_air` (20 rows) filled all 20
+    slots before regional was even merged, so regional airing was always sliced
+    out. Now caps global at `20 − min(regional, 8)` and interleaves — up to 8
+    regional on-air series guaranteed a slot.
+  - **Home "Upcoming"**: a pure date-sort + `slice(0,12)` let nearer global
+    dates crowd regional premieres out. Now splits built premieres into
+    regional vs global, reserves up to 4 regional slots, then fills/slices.
+  - **Banner hero**: `regionalPool` was only derived from trending-category rows
+    matching a Tamil/Malayalam/Hindi/Telugu string in audioLanguages/languages/
+    title — sparse. The dedicated regional feeds now seed `regionalPool`
+    directly (movies tab → `getRegionalUpcoming` films, series tab →
+    `getRegionalAiring` series, else both), with the old category/title match as
+    fallback; memo deps updated so the hero re-mixes when the feeds land.
+  - Tests updated (`getRegionalUpcoming` now asserts 8 calls, per-language page
+    pairs, dedupe; `region=IN` assertion removed). Verified: lint 0 errors
+    (pre-existing warnings only), vitest 38 files / 377/377, build OK.
+
 - [x] **Nav showing raw `nav.mylist` label fixed (i18n key-case mismatch)**: the
   desktop dock builds labels via `t(\`nav.${item.id}\`)`, so the My List item id
   `"mylist"` resolved to `nav.mylist` — a key that doesn't exist (dictionaries

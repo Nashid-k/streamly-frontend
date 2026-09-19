@@ -159,7 +159,7 @@ it("normalizes production companies with rich logo metadata", async () => {
     ]);
   });
 
-  it("getRegionalUpcoming sweeps the Indian languages and returns deduped, date-sorted premieres", async () => {
+  it("getRegionalUpcoming sweeps the Indian languages (pages 1-2) and returns deduped, date-sorted premieres", async () => {
     const fetch = vi
       .fn()
       .mockResolvedValueOnce(
@@ -170,6 +170,7 @@ it("normalizes production companies with rich logo metadata", async () => {
           ],
         }),
       )
+      .mockResolvedValueOnce(jsonResponse({ results: [{ id: 105, title: "Chennai Drama", release_date: "2026-12-01", vote_average: 6.5 }] }))
       .mockResolvedValueOnce(
         jsonResponse({
           results: [
@@ -179,24 +180,24 @@ it("normalizes production companies with rich logo metadata", async () => {
           ],
         }),
       )
-      .mockResolvedValueOnce(
-        jsonResponse({ results: [{ id: 301, title: "Malayalam Hit", release_date: "2026-11-05", vote_average: 7.5 }] }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({ results: [{ id: 401, title: "Telugu Drama", release_date: "2026-09-30", vote_average: 6.9 }] }),
-      );
+      .mockResolvedValueOnce(jsonResponse({ results: [] }))
+      .mockResolvedValueOnce(jsonResponse({ results: [{ id: 301, title: "Malayalam Hit", release_date: "2026-11-05", vote_average: 7.5 }] }))
+      .mockResolvedValueOnce(jsonResponse({ results: [] }))
+      .mockResolvedValueOnce(jsonResponse({ results: [{ id: 401, title: "Telugu Drama", release_date: "2026-09-30", vote_average: 6.9 }] }))
+      .mockResolvedValueOnce(jsonResponse({ results: [] }));
     vi.stubGlobal("fetch", fetch);
 
     const items = await movieService.getRegionalUpcoming(60);
 
-    expect(fetch).toHaveBeenCalledTimes(4);
+    expect(fetch).toHaveBeenCalledTimes(8); // 4 languages × 2 pages
     const urls = fetch.mock.calls.map(([url]) => String(url));
     for (const lang of ["ta", "hi", "ml", "te"]) {
-      expect(urls.some((u) => u.includes(`with_original_language=${lang}`))).toBe(true);
+      // Each language is swept twice (page 1 + page 2) —
+      // count both, and no language is restricted by a region=IN param.
+      expect(urls.filter((u) => u.includes(`with_original_language=${lang}`)).length).toBe(2);
     }
-    expect(urls.every((u) => u.includes("region=IN"))).toBe(true);
     // Sorted soonest-first, deduped (no movie-101 twice).
-    expect(items.map((i) => i.id)).toEqual(["movie-401", "movie-201", "movie-101", "movie-301", "movie-104"]);
+    expect(items.map((i) => i.id)).toEqual(["movie-401", "movie-201", "movie-101", "movie-301", "movie-105", "movie-104"]);
     expect(items[0].releaseDate).toBe("2026-09-30");
     expect(items[3].title).toBe("Malayalam Hit");
   });

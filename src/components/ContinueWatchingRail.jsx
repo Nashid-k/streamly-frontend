@@ -144,7 +144,7 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
           className="flex gap-4 overflow-x-auto overflow-y-clip py-3 px-2 scrollbar-hide items-start"
           style={maskStyle}
         >
-          {items.map((item, i) => {
+          {items.map((item) => {
             const pct = progressPct(item);
             const label = episodeLabel(item);
             const remaining = remainingLabel(item);

@@ -548,10 +548,13 @@ export const movieService = {
   },
 
   // Regional (Indian-language) now-airing series — /discover/tv for each of
-  // the primary Indian languages (Tamil/Hindi/Malayalam/Telugu) with an air
-  // date inside this week, sorted by popularity, then enriched with
-  // next_episode_to_air for the top titles so the Airing rails can show the
-  // "Ep X · Mon DD" chips. A failed detail look-up never kills the rail.
+  // the primary Indian languages (Tamil/Hindi/Malayalam/Telugu) airing in the
+  // last week, sorted by popularity, then enriched with next_episode_to_air
+  // for the top titles so the Airing rails can show the "Ep X · Mon DD" chips.
+  // A failed detail look-up never kills the rail. NOTE: no `region` param here
+  // — /discover/tv region filters by first-air-date country, which TMDB rarely
+  // tags as IN for regional shows; `with_original_language` is the reliable
+  // regional signal.
   getRegionalAiring: async (limit = 10) => {
     try {
       const pad = (n) => String(n).padStart(2, '0');
@@ -568,7 +571,6 @@ export const movieService = {
             air_date_gte: fromStr,
             air_date_lte: toStr,
             with_original_language: lang,
-            region: 'IN',
           }),
         ),
       );
@@ -777,10 +779,13 @@ export const movieService = {
     }
   },
 
-  // Regional upcoming premieres — a future release-date sweep for each primary
-  // Indian language, sorted soonest-first. Merged into the global Upcoming /
-  // "Coming This Month" rails (Home + Movies discovery) so regional theatrical
-  // releases share the slate alongside the English future-movies sweep.
+  // Regional upcoming premieres — a future release-date sweep across pages
+  // 1–2 for each primary Indian language, sorted soonest-first. Merged into
+  // the global Upcoming / "Coming This Month" rails (Home + Movies discovery)
+  // so regional theatrical releases share the slate alongside the English
+  // future-movies sweep. No `region` param: with_original_language is the
+  // reliable regional signal, and region=IN would require TMDB to tag each
+  // title with an IN release-date country (many regional films aren't).
   getRegionalUpcoming: async (windowDays = 90) => {
     try {
       const pad = (n) => String(n).padStart(2, '0');
@@ -790,15 +795,16 @@ export const movieService = {
       end.setDate(now.getDate() + windowDays);
       const endStr = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
       const pages = await Promise.allSettled(
-        REGIONAL_PRIMARY_LANGUAGES.map((lang) =>
-          tmdb('/discover/movie', {
-            page: 1,
-            sort_by: 'primary_release_date.asc',
-            primary_release_date_gte: start,
-            primary_release_date_lte: endStr,
-            with_original_language: lang,
-            region: 'IN',
-          }),
+        REGIONAL_PRIMARY_LANGUAGES.flatMap((lang) =>
+          [1, 2].map((page) =>
+            tmdb('/discover/movie', {
+              page,
+              sort_by: 'primary_release_date.asc',
+              primary_release_date_gte: start,
+              primary_release_date_lte: endStr,
+              with_original_language: lang,
+            }),
+          ),
         ),
       );
       const out = [];

@@ -884,11 +884,14 @@ export default function Home({
   );
 
   const airingThisWeek = useMemo(() => {
-    // Global /tv/on_the_air first, then regional (Tamil/Hindi/Malayalam/
-    // Telugu) on-the-air series — deduped by id so no title doubles up.
+    // Global /tv/on_the_air and regional (Tamil/Hindi/Malayalam/Telugu)
+    // on-the-air series interleaved — deduped by id so no title doubles up.
+    // Global gets a 15-slot cap here so a full 20-row on_the_air feed can't
+    // crowd the regional on-air series out of the rail.
+    const regional = applyPageFilter(asArray(regionalAiringData));
     const merged = [
-      ...applyPageFilter(asArray(airingData)).slice(0, 20),
-      ...applyPageFilter(asArray(regionalAiringData)),
+      ...applyPageFilter(asArray(airingData)).slice(0, 20 - Math.min(regional.length, 8)),
+      ...regional,
     ];
     const seen = new Set();
     const deduped = [];
@@ -943,12 +946,23 @@ export default function Home({
       ...asArray(rawCategories).flatMap((c) => (Array.isArray(c.movies) ? c.movies : [])),
     ];
     const hasArtwork = (m) => m && (m.posterUrl || m.backdropUrl);
-    return applyPageFilter(buildUpcoming(pool, 365))
+    const built = applyPageFilter(buildUpcoming(pool, 365))
       .filter((m) => !isSeriesMovie(m) || m.isUpcoming === true)
-      
       .map(enrichWithPlatforms)
-      .filter(hasArtwork)
-      .slice(0, 12);
+      .filter(hasArtwork);
+    // Regional premieres get a guaranteed share: a pure date-sort + slice(0, 12)
+    // lets nearer global dates crowd Tamil/Hindi/Malayalam/Telugu theatrical
+    // releases out of the rail entirely, which read as "no regional upcoming".
+    const regionalIds = new Set(asArray(regionalUpcomingData).map((m) => m.id));
+    const regionalTitles = [];
+    const globalTitles = [];
+    for (const m of built) {
+      (regionalIds.has(m.id) ? regionalTitles : globalTitles).push(m);
+    }
+    return [
+      ...regionalTitles.slice(0, Math.min(4, regionalTitles.length)),
+      ...globalTitles,
+    ].slice(0, 12);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [airingData, trendingData, top10Data, featuredData, regionalUpcomingData, rawCategories, filter, enrichWithPlatforms]);
 
@@ -1060,15 +1074,40 @@ export default function Home({
       if (filter === "movies")
         tabFilteredMovies = tabFilteredMovies.filter((m) => !m.isSeries);
 
-      // Extract Regional Content (Tamil, Malayalam, Hindi, Telugu, etc.)
-      regionalPool = tabFilteredMovies.filter(
-        (m) =>
-          m.audioLanguages?.some((l) =>
-            l.match(/Tamil|Malayalam|Hindi|Telugu/i),
-          ) ||
-          m.languages?.some((l) => l.match(/Tamil|Malayalam|Hindi|Telugu/i)) ||
-          m.title.match(/Tamil|Malayalam|Hindi|Telugu/i),
-      );
+      // 2a. RESERVED regional pool — the dedicated /discover sweeps
+      // (getRegionalUpcoming → regional films, getRegionalAiring → regional
+      // series) are the primary source so the banner actually surfaces
+      // Tamil/Hindi/Malayalam/Telugu titles instead of hoping trending
+      // category rows carry a matching language/title string. Filtered by the
+      // active tab: series tab gets airing series, movies tab gets upcoming
+      // films, everything else gets both.
+      const regionalFeed = [
+        ...asArray(regionalUpcomingData),
+        ...asArray(regionalAiringData),
+      ];
+      for (const m of regionalFeed) {
+        if (m.isSeries && (filter === "movies")) continue;
+        if (!m.isSeries && (filter === "series" || filter === "tv shows")) continue;
+        if (!regionalPool.some((p) => p.id === m.id)) regionalPool.push(m);
+      }
+
+      // Fallback for empty regional — category-derived language/title match,
+      // then a quality bar so the banner never shows a blank regional slot.
+      if (regionalPool.length === 0) {
+        regionalPool = tabFilteredMovies.filter(
+          (m) =>
+            m.audioLanguages?.some((l) =>
+              l.match(/Tamil|Malayalam|Hindi|Telugu/i),
+            ) ||
+            m.languages?.some((l) => l.match(/Tamil|Malayalam|Hindi|Telugu/i)) ||
+            (m.title && m.title.match(/Tamil|Malayalam|Hindi|Telugu/i)),
+        );
+        if (regionalPool.length === 0) {
+          regionalPool = tabFilteredMovies.filter(
+            (m) => m.genres?.includes("Drama") && m.imdbRating >= 8.0,
+          );
+        }
+      }
 
       // Extract Recommended Content based on User History
       const lastWatchedGenres = lastWatched?.genres || [];
@@ -1077,13 +1116,6 @@ export default function Home({
           m.genres?.some((g) => lastWatchedGenres.includes(g)) &&
           m.imdbRating >= 7.5,
       );
-
-      // Fallback for empty regional
-      if (regionalPool.length === 0) {
-        regionalPool = tabFilteredMovies.filter(
-          (m) => m.genres?.includes("Drama") && m.imdbRating >= 8.0,
-        );
-      }
     }
 
     // 3. Filter strictly for items with a title image (logoUrl).
@@ -1155,7 +1187,7 @@ export default function Home({
       logError("HomePage", "hero-pool memo failed — hero falls back to empty.", e, { filter });
       return [];
     }
-  }, [featuredMovies, categories, filter, lastWatched, continueWatching]);
+  }, [featuredMovies, categories, filter, lastWatched, continueWatching, regionalUpcomingData, regionalAiringData]);
 
   const totalFeatured = finalPool.length;
   const activeFeaturedMovie =
