@@ -29,7 +29,9 @@ Continue Watching, history, preferences) lives in **localStorage**.
    matters.
 2. **Title details + playback** — `src/pages/TitleDetailsPage.jsx` +
    `src/components/CustomVideoPlayer.jsx`. Metadata, cast, seasons/episodes,
-   trailer curation, 7 iframe servers with failover, resume.
+   trailer curation, 8 iframe servers (never auto-switched — the viewer's
+   Server menu choice is final; a dead source shows a Retry / pick-another
+   fallback), resume.
 3. **Search + genre/category browsing** — `SearchPage`, `GenrePage`,
    `CategoryPage`, `DiscoveryRails`. Debounced live search, relevance ranking,
    did-you-mean, filters/sorts.

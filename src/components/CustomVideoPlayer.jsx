@@ -31,15 +31,13 @@ const ASPECT_RATIOS = [
   { id: "stretch", name: "Stretch to Screen", scale: 1 },
 ];
 
-/* Frame glyph dimensions [w, h] per aspect index — drawn in the aspect HUD
-   so the shape visibly morphs as the user cycles through ratios. */
 const AR_GLYPH = [
-  [44, 25], // Fit (16:9)
-  [52, 23], // Fill Screen (Edge-to-Edge)
-  [48, 25], // Zoom 1.25x (Punch-Hole Cutout)
-  [50, 21], // Cinema 2.39:1
-  [42, 25], // 16:10
-  [46, 25], // Stretch to Screen
+  [44, 25],
+  [52, 23],
+  [48, 25],
+  [50, 21],
+  [42, 25],
+  [46, 25],
 ];
 
 const KEYBOARD_SHORTCUTS = [
@@ -77,53 +75,37 @@ const LOADING_TIPS_TOUCH = [
   { text: "Tap center to play / pause", icon: Play },
 ];
 
-/* ═══ Apple Design Language ═══════════════════════════════════════
-   Inspired by Apple TV+ player — circular arcs, frosted glass,
-   SF Pro typography, spring-physics animations, minimal chrome.
-   ════════════════════════════════════════════════════════════════ */
-
-/* Spring presets (Apple-style physics) */
 const SPRING = { type: "spring", stiffness: 400, damping: 30, mass: 0.8 };
 const SPRING_FAST = { type: "spring", stiffness: 600, damping: 35 };
 const SPRING_SNAPPY = { type: "spring", stiffness: 500, damping: 28 };
 
-/* Responsive design tokens — scale with viewport, never break */
 const R = {
-  /* Sizes scale via vmin so they work on phones through ultrawide */
   btnSmall: 'clamp(24px, 4vw, 34px)',
   btnMedium: 'clamp(32px, 5vw, 42px)',
   btnPlay: 'clamp(36px, 6vw, 46px)',
-  /* Arc HUD sizes */
   arcSmall: 32,
   arcVolume: 'clamp(36px, 6vw, 48px)',
   arcSeek: 'clamp(48px, 8vw, 68px)',
   arcLoading: 'clamp(44px, 8vw, 60px)',
-  /* Panel widths */
   panelSettings: 'clamp(240px, 40vw, 300px)',
   panelSubtitles: 'clamp(220px, 38vw, 280px)',
   panelShortcuts: 'clamp(240px, 42vw, 300px)',
-  /* Fonts */
   fontTiny: 'clamp(8px, 1.5vw, 10px)',
   fontSmall: 'clamp(10px, 1.8vw, 12px)',
   fontMedium: 'clamp(11px, 2vw, 14px)',
   fontLarge: 'clamp(13px, 2.5vw, 16px)',
   fontHero: 'clamp(1.1rem, 3.5vw, 2.2rem)',
-  /* Padding */
   padTiny: 'clamp(4px, 1vw, 8px)',
   padSmall: 'clamp(6px, 1.2vw, 12px)',
   padMedium: 'clamp(8px, 1.5vw, 16px)',
   padLarge: 'clamp(12px, 2vw, 24px)',
-  /* Border radius */
   radiusSmall: 'clamp(6px, 1.2vw, 10px)',
   radiusMedium: 'clamp(8px, 1.5vw, 14px)',
   radiusPill: 100,
-  /* Container */
   controlRowPad: 'clamp(4px, 1vw, 14px)',
   progressBarPad: 'clamp(8px, 2vw, 20px)',
 };
 
-/* Circular Arc Component — the core Apple TV+ motif
-   Used for: volume HUD, seek indicators, loading, up-next countdown */
 const ArcRing = memo(({ progress = 0, size = 48, strokeWidth = 3, color = "#fff", bgColor = "rgba(255,255,255,0.08)", glowColor, children, className, responsive }) => {
   const r = (size - strokeWidth) / 2;
   const circ = 2 * Math.PI * r;
@@ -158,7 +140,6 @@ const ArcRing = memo(({ progress = 0, size = 48, strokeWidth = 3, color = "#fff"
         <div style={{
           position: "absolute", inset: 0,
           display: "flex", alignItems: "center", justifyContent: "center",
-          /* Counter-rotate so children stay upright despite SVG rotation */
           transform: "none",
         }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -170,13 +151,6 @@ const ArcRing = memo(({ progress = 0, size = 48, strokeWidth = 3, color = "#fff"
   );
 });
 
-/* ─── NETFLIX-STYLE HUD COMPONENTS ──────────────────────────────────────── */
-
-/* Volume HUD — appears on volume change (desktop). Netflix-style flat
-   black pill: speaker icon + slim red fill bar + live %.
-   Positioning is done by a full-cover flex wrapper (inset: 0, column,
-   top-anchored + horizontally centered) so framer-motion's scale/opacity
-   animation can never displace it. All sizes are viewport-relative. */
 const NetflixVolumeHUD = memo(function NetflixVolumeHUD({ effVolume, isMuted, volume, top }) {
   const isZero = isMuted || volume === 0;
   const pct = isZero ? 0 : Math.round(effVolume * 100);
@@ -228,7 +202,6 @@ const NetflixVolumeHUD = memo(function NetflixVolumeHUD({ effVolume, isMuted, vo
   );
 });
 
-/* Brightness HUD — same Netflix pill, sun icon + red fill bar + %. */
 const NetflixBrightnessHUD = memo(function NetflixBrightnessHUD({ brightness, top }) {
   const pct = Math.round(brightness * 100);
   return (
@@ -273,8 +246,6 @@ const NetflixBrightnessHUD = memo(function NetflixBrightnessHUD({ brightness, to
   );
 });
 
-/* Aspect Ratio HUD — live frame glyph morphing with the selected ratio
-   (AR_GLYPH) plus the ratio name, in Netflix black/red. Centered. */
 const NetflixAspectHUD = memo(function NetflixAspectHUD({ aspectRatioIndex, top }) {
   const ar = ASPECT_RATIOS[aspectRatioIndex] || ASPECT_RATIOS[0];
   const glyph = AR_GLYPH[aspectRatioIndex] || AR_GLYPH[0];
@@ -319,21 +290,17 @@ const NetflixAspectHUD = memo(function NetflixAspectHUD({ aspectRatioIndex, top 
   );
 });
 
-/* Netflix-style loading arc — bright red comet ring, the signature
-   buffering spinner of the Netflix player. */
 const LoadingArc = memo(({ size = 56, strokeWidth = 2.5, progress = 0 }) => {
   const r = (size - strokeWidth) / 2;
   const circ = 2 * Math.PI * r;
   return (
     <div style={{ position: "relative", width: size, height: size }}>
-      {/* Static track ring — faint red */}
       <svg width={size} height={size} style={{ position: "absolute", inset: 0 }}>
         <circle
           cx={size/2} cy={size/2} r={r}
           fill="none" stroke="rgba(229,9,20,0.18)" strokeWidth={strokeWidth}
         />
       </svg>
-      {/* Spinning comet arc — solid #E50914 with a red fade trail */}
       <motion.svg
         width={size} height={size}
         style={{ position: "absolute", inset: 0 }}
@@ -354,7 +321,6 @@ const LoadingArc = memo(({ size = 56, strokeWidth = 2.5, progress = 0 }) => {
           strokeDasharray={`${circ * 0.28} ${circ * 0.72}`}
         />
       </motion.svg>
-      {/* Inner progress ring — red, fills over time */}
       {progress > 0 && (
         <svg width={size} height={size} style={{ position: "absolute", inset: 0 }}>
           <defs>
@@ -378,8 +344,6 @@ const LoadingArc = memo(({ size = 56, strokeWidth = 2.5, progress = 0 }) => {
   );
 });
 
-/* ═══ Main Player ═══════════════════════════════════════════════ */
-/* Detect touch device: has touch screen + no hover = mobile/tablet */
 const useIsTouch = () => {
   const [isTouch, setIsTouch] = useState(false);
   useEffect(() => {
@@ -390,8 +354,6 @@ const useIsTouch = () => {
   return isTouch;
 };
 
-/* Observe the player container size → derive a live HUD scale factor so
-   the top-center HUDs stay proportional from phones to 4K monitors. */
 const useContainerSize = (ref) => {
   const [size, setSize] = useState({ w: 0, h: 0 });
   useEffect(() => {
@@ -407,11 +369,9 @@ const useContainerSize = (ref) => {
 };
 
 const CustomVideoPlayer = forwardRef(({
-  movie, season, episode, preferredServerIndex = 0, onServerChange,
+  movie, season, episode, preferredServerIndex = 0,
   hasNextEpisode, onNextEpisode, onClose, thumbnailUrl, startTime = 0, onProgressUpdate,
-  /* Ordered server list from TitleDetails (user's Settings → Server Order).
-     Indices everywhere in this player refer to THIS list. Falls back to the
-     static base order when the parent renders without it (tests, reuse). */
+  /* Ordered server list from TitleDetails (Settings → Server Order). */
   servers: serversProp,
 }, _ref) => {
   const {
@@ -429,8 +389,6 @@ const CustomVideoPlayer = forwardRef(({
   useEffect(() => { seekStepRef.current = seekStep; }, [seekStep]);
 
   const isTouch = useIsTouch();
-  /* Viewport-aware condensation: on phone-width players the control
-     row drops low-priority buttons so the clusters never overflow. */
   const [narrow, setNarrow] = useState(() => {
     try {
       return typeof window !== "undefined" && typeof window.matchMedia === "function"
@@ -451,10 +409,6 @@ const CustomVideoPlayer = forwardRef(({
   }, []);
 
 
-  /* NOTE: cycleSpeed is defined after sendCommand/playbackRate below —
-     defining it here put those bindings in the temporal dead zone and
-     crashed the player on every render. */
-  /* State */
   const [activeServerIndex, setActiveServerIndex] = useState(preferredServerIndex);
   const activeServerIndexRef = useRef(activeServerIndex);
   useEffect(() => { activeServerIndexRef.current = activeServerIndex; }, [activeServerIndex]);
@@ -466,100 +420,38 @@ const CustomVideoPlayer = forwardRef(({
   );
   const serverCount = SERVERS.length;
 
-  // Tracks consecutive server failures across switches. When it reaches
-  // serverCount, every source has failed and we show a clear "unreachable"
-  // screen with Retry instead of cycling forever on a black iframe.
   const rotationFailuresRef = useRef(0);
-
-  // Per-server consecutive-error tally (dead sources accumulate strikes before
-  // failover). A ref, because the value never renders and the watchdog needs it
-  // synchronously.
   const serverErrorCountsRef = useRef({});
-  // Flips true the moment a source proves it is actually streaming (playing
-  // event, loadedmetadata, time advancing, buffered data). Failover trusts this
-  // instead of our overlay spinner: CineSrc's own error postMessage can be
-  // dropped by the browser (DataCloneError on their side) while their embed
-  // keeps spinning, so "no playback" is the only trustworthy dead-source sign.
   const hasPlaybackRef = useRef(false);
-  // Set while a failover switch is already scheduled, so an error event and the
-  // watchdog firing close together can't both count the same dead source and
-  // exhaust the rotation with a false "all servers unreachable" screen.
   const failoverPendingRef = useRef(false);
-  // True only while the user explicitly paused via our UI. getPaused returning
-  // "not paused" is NOT playback proof (a dead source sits mid-autoplay-buffer
-  // with paused=false forever), so the user-pause flag keeps the stall watch
-  // from rotating a stream the viewer deliberately rested on.
   const userPausedRef = useRef(false);
-  // Stall-watch state for the CineSrc getter poll: the last getCurrentTime
-  // value, the last getPaused value, and how many consecutive polls reported a
-  // frozen timeline. Fires only when the source was proven playing, it isn't
-  // user-paused/buffering, and the timeline stops advancing.
   const pollPausedRef = useRef(false);
   const pollPrevRef = useRef(-1);
   const stallStrikesRef = useRef(0);
-  // Dead-source watchdog timer, kept in a REF (not a closure local). The
-  // URL-generation effect re-runs on every parent re-render (the caller passes
-  // an inline onServerChange + a re-normalized movie object, so refetch/focus
-  // rebuilds the deps constantly), and a cleanup that cleared a closure-local
-  // handle on each run silently killed failover. A ref survives those re-runs:
-  // a genuinely new load clears/re-arms it, and unmount clears it.
   const watchdogRef = useRef(null);
 
-  /* CineSrc internal-source tracking. The CineSrc embed rotates between its
-     own ~14 built-in sources (nebula, lisbon, …) and announces every switch
-     via cinesrc:sourceused (integration docs). Our failover must let that
-     rotation play out — one dead internal source is NOT a dead provider. */
-  const cineSourceTriedRef = useRef(new Set()); // distinct internal sourceIds seen this visit
-  const cineSourceStrikesRef = useRef({});      // failed windows / fatal errors per sourceId
-  const cineLastSourceRef = useRef("");          // current internal sourceId
-  const cineWindowsRef = useRef(0);             // expired source windows (aggregate bound)
-  const cineReloadsRef = useRef(0);             // automatic in-place reload nudges (capped)
-  const cineWatchdogArmRef = useRef(null);      // re-arm fn shared with the message listener
-  const cineStateKeyRef = useRef("");           // content+server the cine counters belong to
-  // True while the ACTIVE iframe is the CineSrc embed. Per the integration
-  // docs CineSrc rotates its own ~14 internal sources (cinesrc:sourceused) —
-  // a dead internal source is NOT a dead provider. Our failover must never
-  // auto-switch to Server 2/3/… while CineSrc is live; exhaustion shows the
-  // fallback UI (Retry / pick another server from the menu) instead.
+  const cineSourceTriedRef = useRef(new Set());
+  const cineSourceStrikesRef = useRef({});
+  const cineLastSourceRef = useRef("");
+  const cineWindowsRef = useRef(0);
+  const cineReloadsRef = useRef(0);
+  const cineWatchdogArmRef = useRef(null);
+  const cineStateKeyRef = useRef("");
   const cineActiveRef = useRef(false);
 
-  const advanceServer = useCallback((msg) => {
+  const advanceServer = useCallback((_msg) => {
     if (failoverPendingRef.current || rotationFailuresRef.current >= serverCount) return;
-    // CineSrc owns its internal rotation — never advance to the next provider
-    // while it is the active source. Surface the fallback UI per the docs'
-    // guidance (listen for cinesrc:error and provide fallback UI when the
-    // stream fails) rather than silently hopping to Server 2/3/….
-    if (cineActiveRef.current) {
-      setErrorMessage("");
-      setIsLoading(false);
-      setFatalError(true);
-      return;
-    }
     failoverPendingRef.current = true;
     rotationFailuresRef.current += 1;
-    const next = (activeServerIndexRef.current + 1) % serverCount;
-    if (rotationFailuresRef.current >= serverCount) {
-      setErrorMessage("");
-      setFatalError(true);
-      setIsLoading(false);
-      return;
-    }
-    setErrorMessage(msg);
-    setTimeout(() => {
-      // The source may have started streaming (slow-but-alive) while we were
-      // counting it dead — don't switch away from a working server.
-      if (hasPlaybackRef.current) { failoverPendingRef.current = false; return; }
-      failoverPendingRef.current = false;
-      setErrorMessage("");
-      setActiveServerIndex(next);
-      onServerChange?.(next);
-    }, 2200);
-  }, [onServerChange, serverCount]);
+    // Never auto-switch — only the Server dropdown changes providers.
+    setErrorMessage("");
+    setIsLoading(false);
+    setFatalError(true);
+  }, [serverCount]);
 
   const handleRetry = useCallback(() => {
     rotationFailuresRef.current = 0;
     serverErrorCountsRef.current = {};
-    // Fresh CineSrc rotation budget too.
     cineSourceTriedRef.current = new Set();
     cineSourceStrikesRef.current = {};
     cineLastSourceRef.current = "";
@@ -582,11 +474,7 @@ const CustomVideoPlayer = forwardRef(({
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
   const [loadProgress, setLoadProgress] = useState(0);
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
-  // "False until proven" — CineSrc's autoplay embed reports cinesrc:playing
-  // soon after load; browsers commonly block iframe autoplay, so assuming
-  // "playing" up-front inverts our custom chrome (Space/click sends pause to an
-  // already-paused player, center play affordance never shows). Start paused
-  // and let the embed's events flip it.
+  // Start paused and let the embed's events flip isPlaying.
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [buffered, setBuffered] = useState(0);
@@ -618,31 +506,18 @@ const CustomVideoPlayer = forwardRef(({
         if (!isNaN(n) && n >= 0 && n < ASPECT_RATIOS.length) return n;
       }
     } catch {}
-    // Phones: pick a smart default that matches the orientation. Landscape
-    // (punch-hole / notches) → "Fill Screen (Edge-to-Edge)" so no black bars.
-    // Portrait → "Fit (Original)" so the 16:9 picture isn't over-cropped.
+    // Phones: edge-to-edge on landscape, fit on portrait.
     const isTouchish = "ontouchstart" in window || navigator.maxTouchPoints > 0;
     const noHover = window.matchMedia?.("(hover: none)")?.matches;
     const isPhone = isTouchish && noHover && window.innerWidth < 900;
     if (isPhone) return window.innerWidth > window.innerHeight ? 1 : 0;
     return 0;
   });
-  /* True once the user intentionally changes the aspect ratio — after that we
-     stop auto-switching it on device rotation. */
   const aspectManuallySetRef = useRef(false);
   const [toastMessage, setToastMessage] = useState("");
-  /* Restored (was deleted by 6ba4c76's dead-stream cleanup, leaving 3 live
-     references → ReferenceError → "Oops! Something went wrong" on Play).
-false = CineSrc renders the custom Netflix chrome; flipping this
-on falls back to the provider's native controls. */
+  /* Flipping on falls back to the provider's native controls. */
   const [useNativeControls, setUseNativeControls] = useState(false);
-  /* VidCore direct mode: its compiled player answers only getStatus — every
-     play/pause/seek/volume/mute command is a compiled no-op, so our chrome can
-     never truly drive it. The first tap on any transport control flips on this
-     flag: the bottom strip + center overlays stand down and the NATIVE control
-     bar (already underneath via pointerEvents:auto) takes over — real control,
-     playback position preserved (no iframe remount). Per-content default back
-     to our chrome. */
+  /* VidCore only answers getStatus; the first transport tap hands over to its native controls. */
   const [vidcoreDirectMode, setVidcoreDirectMode] = useState(false);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [isScreenLocked, setIsScreenLocked] = useState(false);
@@ -664,12 +539,11 @@ on falls back to the provider's native controls. */
   const [showPausedInfo, setShowPausedInfo] = useState(false);
   const pausedInfoTimerRef = useRef(null);
 
-  /* Touch gesture state — VLC/MX Player style */
-  const [gestureType, setGestureType] = useState(null); // 'brightness' | 'volume' | 'seek'
+  const [gestureType, setGestureType] = useState(null);
   const [gestureValue, setGestureValue] = useState(0);
   const [seekDelta, setSeekDelta] = useState(0);
   const gestureStartRef = useRef(null);
-  const gestureLockRef = useRef(null); // Lock direction after first significant move
+  const gestureLockRef = useRef(null);
   const gestureHudTimerRef = useRef(null);
   const pinchStartDistRef = useRef(null);
   const pinchStartFullscreenRef = useRef(false);
@@ -677,7 +551,6 @@ on falls back to the provider's native controls. */
     typeof window !== 'undefined' && window.innerWidth > window.innerHeight ? 'landscape' : 'portrait'
   );
 
-  /* Track orientation with state so layout and aspect ratio update on device rotation */
   useEffect(() => {
     const check = () => {
       const next = window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
@@ -698,9 +571,6 @@ on falls back to the provider's native controls. */
     };
   }, []);
 
-  /* Phones: follow the screen shape until the user picks a ratio manually.
-     Rotate to landscape → edge-to-edge Fill (kills punch-hole black bars);
-     rotate back to portrait → Fit so the 16:9 image isn't over-cropped. */
   useEffect(() => {
     if (aspectManuallySetRef.current) return;
     const isPhone = window.innerWidth < 900 &&
@@ -711,14 +581,13 @@ on falls back to the provider's native controls. */
     }
   }, [orientation]);
 
-  /* Refs */
   const iframeRef = useRef(null);
   const containerRef = useRef(null);
   const controlsTimeoutRef = useRef(null);
   const clickTimeoutRef = useRef(null);
   const singleTapTimerRef = useRef(null);
   const progressBarRef = useRef(null);
-  const progressTrackRef = useRef(null); // the actual bar (inside the padded hit area)
+  const progressTrackRef = useRef(null);
   const targetSeekTimeRef = useRef(null);
   const seekAccumulatorRef = useRef(0);
   const seekTimeoutRef = useRef(null);
@@ -741,7 +610,6 @@ on falls back to the provider's native controls. */
   const vidcoreDirectModeRef = useRef(vidcoreDirectMode);
   useEffect(() => { vidcoreDirectModeRef.current = vidcoreDirectMode; }, [vidcoreDirectMode]);
 
-  /* Persist the user's aspect-ratio choice so it survives reloads */
   useEffect(() => {
     try { localStorage.setItem("streamly_aspectRatio", String(aspectRatioIndex)); } catch {}
   }, [aspectRatioIndex]);
@@ -753,24 +621,14 @@ on falls back to the provider's native controls. */
   const isVidCore = iframeUrl.includes("vidcore.io");
   const isPeachify = iframeUrl.includes("peachify.top");
   const isVidUp = iframeUrl.includes("vidup.to");
-  // CineSrc runs our full custom chrome over a real postMessage control API.
-  // VidCore is a plain iframe passthrough: its compiled bundle answers ONLY
-  // getStatus (play/pause/seek/volume/mute commands are no-ops — verified by
-  // deobfuscating chunk 281's inbound handler), so it gets NO custom chrome —
-  // the embed's own native control bar stays fully interactive, exactly like
-  // Peachify/VidUp. Its getStatus/PLAYER_EVENT polling still feeds our
-  // Continue Watching / up-next bookkeeping only.
+  // CineSrc gets our custom chrome over its postMessage API; VidCore/Peachify/VidUp
+  // keep their own native controls (their compiled bundles no-op transport commands).
   const isManagedPlayer = isCineSrc || isVidCore;
   const supportsPlaybackRate = isCineSrc;
   const hasManagedSettings = isManagedPlayer;
   const showCustomUI = isCineSrc && !useNativeControls;
-  /* Bottom strip, center overlays, gestures, wheel and lock chrome — rendered
-     for managed providers, but stunned in VidCore direct mode where the native
-     control bar must receive every pointer event. The top bar (exit/next/custom
-     toggle) stays up so the session never gets trapped. */
   const showBottomChrome = showCustomUI && !vidcoreDirectMode;
 
-  /* Auto-hide paused info */
   useEffect(() => {
     if (pausedInfoTimerRef.current) clearTimeout(pausedInfoTimerRef.current);
     if (!isPlaying && !isLoading && showCustomUI && hasInitiallyLoaded && duration > 0) {
@@ -815,7 +673,7 @@ on falls back to the provider's native controls. */
 setVidcoreDirectMode(false);
     }, [movie?.id, season, episode]);
 
-  // Reset next-episode trigger on mount (player opened) and on unmount (player closed)
+  // Reset next-episode trigger on mount and unmount.
   useEffect(() => {
     hasTriggeredNextRef.current = false;
     upNextShownRef.current = false;
@@ -850,7 +708,6 @@ setVidcoreDirectMode(false);
     if (!isLoading && !hasInitiallyLoaded) setHasInitiallyLoaded(true);
   }, [isLoading, hasInitiallyLoaded]);
 
-  /* Animate loading progress bar while waiting */
   useEffect(() => {
     if (!isLoading) { setLoadProgress(0); return; }
     setLoadProgress(0.05);
@@ -884,11 +741,9 @@ setVidcoreDirectMode(false);
     }
   }, [movie, isTouch]);
 
-  /* Switch tips when device type is known */
   useEffect(() => {
     const baseTips = isTouch ? LOADING_TIPS_TOUCH : LOADING_TIPS_DESKTOP;
     setDynamicTips((prev) => {
-      /* Only update if we're still on the default tips (not enriched with recs) */
       const isDefault = prev.length <= 5 && prev.every(t => LOADING_TIPS_DESKTOP.includes(t) || LOADING_TIPS_TOUCH.includes(t));
       return isDefault ? baseTips : prev;
     });
@@ -901,21 +756,17 @@ setVidcoreDirectMode(false);
     }
   }, [hasInitiallyLoaded, dynamicTips.length]);
 
-  /* Block popup ads from CineSrc iframe — only override while player is active */
+  // Block popup ads from the CineSrc iframe while the player is active.
   useEffect(() => {
     if (!isCineSrc || !showCustomUI) return;
     const origOpen = window.open;
-    // Only block popups that look like ads (no opener, from iframe context)
     window.open = (url, target, features) => {
-      // Allow popups with explicit features (OAuth, share dialogs, etc.)
       if (features) return origOpen(url, target, features);
-      // Block blank popups likely from ad scripts
       return null;
     };
     return () => { window.open = origOpen; };
   }, [isCineSrc, showCustomUI]);
 
-  /* Cleanup ALL timers on unmount to prevent memory leaks */
   useEffect(() => {
     return () => {
       [controlsTimeoutRef, clickTimeoutRef, singleTapTimerRef, seekTimeoutRef,
@@ -930,7 +781,6 @@ setVidcoreDirectMode(false);
   const startTimeRef = useRef(startTime);
   useEffect(() => { startTimeRef.current = startTime; }, [startTime]);
 
-  /* URL Generation */
   useEffect(() => {
     const gen = async () => {
       setIsLoading(true);
@@ -945,52 +795,30 @@ setVidcoreDirectMode(false);
         } catch {}
       }
       const isTv = movie?.isSeries || String(movie?.id || "").startsWith("tmdb-tv-");
-      // Reload guard: this effect also re-runs on identity-only changes (the
-      // caller passes an inline onServerChange + a re-normalized movie object,
-      // so every refetch/focus re-render bumps the deps). Only (re)load when
-      // the CONTENT or the SERVER actually changed — otherwise the iframe
-      // remounts mid-playback, re-fetching the stream from scratch.
+// Reload the iframe only when content or server really changed.
       const key = `${tid}|${isTv ? `${season}e${episode}` : "m"}|s${activeServerIndex}|r${retryNonce}`;
       if (genKeyRef.current === key) {
         setIsLoading(false);
         return;
       }
       genKeyRef.current = key;
-      // Fresh server attempt: reset "did it stream yet?", the per-server
-      // failure tally, and any VidCore direct-mode handover before this source
-      // starts loading.
-setVidcoreDirectMode(false);
+      setVidcoreDirectMode(false);
       hasPlaybackRef.current = false;
       serverErrorCountsRef.current = {};
       userPausedRef.current = false;
-      // A freshly loaded stream hasn't started yet — never inherit a playing
-      // state from the previous server (it would invert play/pause, hide the
-      // center play affordance, and stall the watchdog). Events drive truth.
       setIsPlaying(false);
       pollPrevRef.current = -1;
       pollPausedRef.current = false;
       stallStrikesRef.current = 0;
-      // Console trace: which ordered server this session plays (Settings → Server Order).
       logDebug("player", `Loading "${movie?.title || movie?.name || tid}" via server #${activeServerIndex + 1} "${SERVERS[activeServerIndex]?.name || "unknown"}" (${serverCount} in rotation).`, { tid, serverIndex: activeServerIndex, serverCount });
       const sig = `${tid}-${isTv ? season : "m"}-${isTv ? episode : "m"}`;
       const isNew = contentSignatureRef.current !== sig;
       contentSignatureRef.current = sig;
       if (isNew) { setCurrentTime(0); setDuration(0); setBuffered(0); targetSeekTimeRef.current = null; }
-      /* Iframe-based servers — resolved from the user's ordered list so the
-         Settings → Server Order rotation is what actually plays. */
       let url = VideoSourceAdapter.resolveStreamUrl(SERVERS, activeServerIndex, tid, isTv ? season : null, isTv ? episode : null, imdbId, movie.title);
       const isCineServer = url.includes("cinesrc.st");
       cineActiveRef.current = isCineServer;
       if (isCineServer) {
-        // Doc-aligned CineSrc customization params: seek follows the seekTime
-        // preference and autoskip mirrors the Auto-Skip Intro preference
-        // (TV only — movies never carry intros). autonext stays off so the
-        // app's own up-next overlay owns episode advancement.
-        // NOTE: the previous &lastserver+&prioritize=true pinning was REMOVED.
-        // It told CineSrc to start on its last-used internal source (lisbon) and
-        // stay there, which froze its own ~14-source rotation (nebula → …) —
-        // the tail recorded the SAME /api/playlist/*.m3u8 502 retried twice
-        // instead of CineSrc advancing past the dead source.
         url += `&seek=${Math.min(99, Math.max(1, seekStep))}`;
         if (isTv) url += `&autoskip=${autoSkipIntro ? "true" : "false"}`;
         if (isMuted) url += "&muted=true";
@@ -1000,33 +828,12 @@ setVidcoreDirectMode(false);
       if (isNew && startTimeRef.current > 0 && (url.includes("vidcore.io") || url.includes("peachify.top") || url.includes("vidup.to")))
         url += `&startAt=${Math.floor(startTimeRef.current)}`;
       setIframeUrl(url);
-      // Dead-source watchdog. It re-arms itself so a source that never starts
-      // (manifest 502, TMDB timeout inside CineSrc, or an error postMessage
-      // swallowed by DataCloneError) keeps accruing strikes until we rotate
-      // past it — even while CineSrc's own "fetching nebula/lisbon" loader is
-      // on screen. Guards: once a source actually streams, or the rotation is
-      // fully exhausted, the watchdog stands down. Stored in a REF so the
-      // effect's own re-runs (parent re-renders) can never clear it: the
-      // closure-local version was killed by this effect's cleanup on the FIRST
-      // parent re-render and the early-return path never re-armed it, so
-      // failover silently died. Only gen()'s fresh-load path clears it, plus
-      // unmount.
+      // Dead-source watchdog: a source that never proves playback accrues strikes until
+      // the fallback screen is shown. Lives in a REF so this effect's re-runs can't clear it.
       if (watchdogRef.current) { clearTimeout(watchdogRef.current); watchdogRef.current = null; }
       if (isCineServer) {
-        /* CineSrc: per-INTERNAL-source watchdog. The embed rotates between its
-           own ~14 sources (cinesrc:sourceused fires on every switch, per the
-           integration docs) — each fresh source gets a short window to prove
-           playback. We NEVER advance to the next provider while CineSrc is
-           active (advanceServer is guarded by cineActiveRef): the embed owns
-           its rotation, so the "exhausted" branch only means CineSrc itself
-           couldn't produce a working stream, and the fallback UI (Retry / pick
-           another server from the menu) is shown for the user to decide.
-           Limits: 5 expired windows in total, 2 strikes on the same source, or
-           4 distinct sources seen. One in-place reload (retryNonce) is allowed
-           as a nudge when the embed looks parked on a dead source and stops
-           rotating. Without this, the old 2×20s slot watchdog used to abandon
-           CineSrc after a single dead internal source — exactly when its
-           rotation needed a few more seconds to reach a working one. */
+        // CineSrc rotates between its own ~14 internal sources; each gets a short window
+        // to prove playback. Exhaustion only shows the fallback screen, never a provider hop.
         const cineStateKey = `${tid}|${isTv ? `${season}e${episode}` : "m"}|s${activeServerIndex}`;
         if (cineStateKeyRef.current !== cineStateKey) {
           cineStateKeyRef.current = cineStateKey;
@@ -1047,15 +854,11 @@ setVidcoreDirectMode(false);
             const tried = cineSourceTriedRef.current.size;
             logWarn("player", `CineSrc source "${src}" didn't prove playback (window ${cineWindowsRef.current}, strike ${nc}, ${tried} internal source(s) seen).`, { tid, serverIndex: activeServerIndexRef.current, sourceId: src });
             if (cineWindowsRef.current >= 5 || nc >= 2 || tried >= 4) {
-              advanceServer(`Server ${activeServerIndexRef.current + 1} (CineSrc) exhausted its sources — trying next server`);
+              advanceServer(`Server ${activeServerIndexRef.current + 1} (CineSrc) exhausted its sources`);
               return;
             }
             if (cineReloadsRef.current < 1) {
-              // Nudge: remount the SAME CineSrc embed so it picks its next
-              // internal source (no doc command exists to force a switch).
               cineReloadsRef.current += 1;
-              setErrorMessage("Switching source…");
-              setTimeout(() => setErrorMessage(""), 4000);
               setRetryNonce((n) => n + 1);
               return;
             }
@@ -1074,10 +877,8 @@ setVidcoreDirectMode(false);
             const nc = (serverErrorCountsRef.current[si] || 0) + 1;
             serverErrorCountsRef.current = { ...serverErrorCountsRef.current, [si]: nc };
             if (nc >= 2) {
-              advanceServer(`Server ${si + 1} isn't starting — trying next server`);
+              advanceServer(`Server ${si + 1} isn't starting`);
             } else {
-              setErrorMessage("Still loading source…");
-              setTimeout(() => setErrorMessage(""), 4000);
               armWatchdog();
             }
           }, watchdogDelay);
@@ -1086,7 +887,7 @@ setVidcoreDirectMode(false);
       }
     };
     gen();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- currentTime/onServerChange/setupThumbnailVTT are read but must NOT drive reloads: currentTime changes every timeupdate and would re-init the whole stream, and adding the others would churn the session on every parent render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- currentTime/setupThumbnailVTT are read but must NOT drive reloads: currentTime changes every timeupdate and would re-init the whole stream, and adding the others would churn the session on every parent render.
   }, [activeServerIndex, movie, season, episode, useNativeControls, advanceServer, retryNonce]);
 
   const sendCommand = useCallback((c, a = []) => {
@@ -1096,23 +897,17 @@ setVidcoreDirectMode(false);
       if (isCineSrc) {
         w.postMessage({ type: "cinesrc:command", command: c, args: a }, "https://cinesrc.st");
       } else if (isVidCore) {
-        // VidCore's docs list these verbs, but its compiled handler no-ops every
-        // one except getStatus — we send them for future-proofing and mirror the
-        // REAL state via getStatus (poll + onLoad seed + PLAYER_EVENT listener).
         switch (c) {
           case "play": case "pause": w.postMessage({ command: c }, "*"); break;
           case "seek": if (typeof a[0] === "number") w.postMessage({ command: "seek", time: a[0] }, "*"); break;
           case "setVolume": if (typeof a[0] === "number") w.postMessage({ command: "volume", level: a[0] }, "*"); break;
           case "getStatus": w.postMessage({ command: "getStatus" }, "*"); break;
-          default: break; // getCurrentTime/getPaused/... aren't supported — skip
+          default: break;
         }
       }
-      // Peachify/VidUp publish no postMessage control API — commands are no-ops.
     } catch { /* iframe cross-origin */ }
   }, [isCineSrc, isVidCore]);
 
-  /* Cycle playback speed for the placeable speed pill. Lives after
-     playbackRate/sendCommand so their bindings are initialized. */
   const cycleSpeed = useCallback(() => {
     const i = PLAYER_SPEEDS.indexOf(playbackRate);
     const next = PLAYER_SPEEDS[(i + 1) % PLAYER_SPEEDS.length] ?? 1;
@@ -1120,10 +915,6 @@ setVidcoreDirectMode(false);
     setPlaybackRate(next);
   }, [playbackRate, sendCommand]);
 
-  /* Background preview lookup for a title key — fires once, never blocks init.
-     Preview thumbnails now come only from CineSrc's own player chrome. */
-
-  /* Up Next */
   const startUpNextCountdown = useCallback(() => {
     if (upNextShownRef.current || !hasNextEpisode) return;
     upNextShownRef.current = true;
@@ -1155,7 +946,6 @@ setVidcoreDirectMode(false);
 
   useEffect(() => () => clearInterval(upNextIntervalRef.current), []);
 
-  /* PostMessage Listener */
   useEffect(() => {
     if (!isCineSrc) return;
     const h = (ev) => {
@@ -1179,24 +969,17 @@ setVidcoreDirectMode(false);
               case "getCurrentTime":
                 if (d.result != null && !targetSeekTimeRef.current && !isScrubbing) {
                   const t = d.result;
-                  // Only a real advancing timeline proves playback (their
-                  // "not paused" is meaningless mid-load).
                   if (t > 0.5) hasPlaybackRef.current = true;
                   setCurrentTime(t);
                   const prev = pollPrevRef.current;
                   pollPrevRef.current = t;
-                  // Stall watch: CineSrc's own error postMessage can be dropped
-                  // (DataCloneError on their side), so a source that dies
-                  // mid-playback never emits a cinesrc:error for us to fail
-                  // over on. If the timeline freezes while the stream reports
-                  // paused AND the user didn't pause it, the source is dead —
-                  // rotate after ~3 stalled polls (15s).
+                  // If the timeline freezes while not user-paused, the source is dead — surface the fallback.
                   if (hasPlaybackRef.current && !userPausedRef.current && pollPausedRef.current && prev > -1 && !isLoadingRef.current) {
                     if (Math.abs(t - prev) < 0.25) {
                       stallStrikesRef.current += 1;
                       if (stallStrikesRef.current >= 3 && rotationFailuresRef.current < serverCount) {
                         stallStrikesRef.current = 0;
-                        advanceServer("Stream stalled — trying next server");
+                        advanceServer("Stream stalled");
                       }
                     } else stallStrikesRef.current = 0;
                   } else stallStrikesRef.current = 0;
@@ -1217,13 +1000,10 @@ setVidcoreDirectMode(false);
           case "cinesrc:playing": setIsLoading(false); setIsPlaying(true); userPausedRef.current = false; stallStrikesRef.current = 0; rotationFailuresRef.current = 0; setFatalError(false); serverErrorCountsRef.current = {}; failoverPendingRef.current = false; hasPlaybackRef.current = true; break;
           case "cinesrc:progress": if (d.buffered !== undefined) { setBuffered(d.buffered); if (d.buffered > 0) hasPlaybackRef.current = true; } break;
           case "cinesrc:timeupdate":
-            // A synthetic 0-second timeupdate during load must not count as
-            // playback — only a real timeline or real movement does.
             if (d.currentTime > 0.5 || d.duration > 0) hasPlaybackRef.current = true;
             if (isLoadingRef.current) setIsLoading(false);
             if (!isScrubbing && !targetSeekTimeRef.current) {
               setCurrentTime(d.currentTime);
-              // Debounce progress writes to Firestore — max once per 10 seconds
               const now = Date.now();
               if (now - lastProgressWriteRef.current > 10000) {
                 lastProgressWriteRef.current = now;
@@ -1279,16 +1059,11 @@ setVidcoreDirectMode(false);
               if (!cineSourceTriedRef.current.has(d.sourceId)) cineSourceTriedRef.current.add(d.sourceId);
               cineLastSourceRef.current = d.sourceId;
             }
-            // CineSrc rotated to a new internal source (nebula → lisbon → …).
-            // Treat it as a fresh start: the watchdog re-covers this source
-            // until the getter poll or a play/loadedmetadata event proves it.
+            // New internal source — fresh proof window for the watchdog.
             hasPlaybackRef.current = false;
             stallStrikesRef.current = 0;
             pollPrevRef.current = -1;
             pollPausedRef.current = false;
-            // Fresh proof window for the new internal source — the previous
-            // window may be nearly spent, and without a re-arm its expiry
-            // would blame the NEW source for the OLD one's dead air.
             cineWatchdogArmRef.current?.();
             logInfo("player", `CineSrc rotated to internal source "${d.sourceId || "unknown"}".`, { sourceId: d.sourceId });
             break;
@@ -1309,13 +1084,6 @@ setVidcoreDirectMode(false);
             const cErrType = cErr.type || "unknown";
             const cDetails = cErr.details || "";
             const cFatal = !!cErr.fatal;
-            // A fatal manifest load means THIS internal source is dead — but
-            // per the docs it is not the provider: CineSrc rotates between its
-            // own ~14 sources. Count it against the sourceId and give the
-            // embed room to rotate; only when the same source fails twice, 4
-            // distinct sources have been seen, or the aggregate window budget
-            // is spent do we surface the fallback UI (advanceServer is guarded
-            // by cineActiveRef, so CineSrc is never abandoned mid-rotation).
             if (cFatal && (cDetails === "manifestLoadError" || (cErrType === "networkError" && cDetails))) {
               const src = cineLastSourceRef.current || "initial";
               const errs = (cineSourceStrikesRef.current[src] || 0) + 1;
@@ -1324,8 +1092,6 @@ setVidcoreDirectMode(false);
                 advanceServer(`Server ${activeServerIndexRef.current + 1} (CineSrc) couldn't start a working stream`);
                 break;
               }
-              setErrorMessage("Switching source…");
-              setTimeout(() => setErrorMessage(""), 4000);
               cineWatchdogArmRef.current?.(6000);
               break;
             }
@@ -1335,9 +1101,6 @@ setVidcoreDirectMode(false);
             serverErrorCountsRef.current = { ...serverErrorCountsRef.current, [ei]: nc };
             if (nc >= 2) {
               advanceServer(`Server ${ei + 1} (CineSrc) is unavailable`);
-            } else {
-              setErrorMessage("Retrying...");
-              setTimeout(() => setErrorMessage(""), 3000);
             }
             break;
           }
@@ -1347,17 +1110,10 @@ setVidcoreDirectMode(false);
     };
     window.addEventListener("message", h);
     return () => window.removeEventListener("message", h);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- onServerChange/autoSkipIntro/showToast/onClose are read inside the listener but the listener is keyed to playback state; re-adding it when these parent-provided callbacks change would churn message handling on unrelated re-renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- autoSkipIntro/showToast/onClose are read inside the listener but the listener is keyed to playback state; re-adding it when these parent-provided callbacks change would churn message handling on unrelated re-renders.
   }, [isCineSrc, isScrubbing, playbackRate, sendCommand, hasNextEpisode, onNextEpisode, activeServerIndex, startUpNextCountdown, onProgressUpdate, serverCount]);
 
-  /* Managed-provider getter poll — the embed's event postMessage can be dropped
-     by the browser (CineSrc's docs note their play() Promise throws DataCloneError
-     when posted, so our play/pause/volume UI could drift). Getter responses carry
-     plain primitives and DO arrive. Poll every 5s so we keep (a) playback proof
-     for the watchdog and (b) our play/pause/volume chrome in sync with the player.
-     CineSrc polls getCurrentTime/getPaused; vidcore's only supported command is
-     getStatus, so it polls that (its own player still drives real playback — our
-     chrome mirrors the state and hands transport over via vidcoreDirectMode). */
+  /* Poll the managed embed every 5s — its events can be dropped, getters can't. */
   useEffect(() => {
     if (!isManagedPlayer) return;
     const tick = () => {
@@ -1369,10 +1125,6 @@ setVidcoreDirectMode(false);
     return () => clearInterval(iv);
   }, [isManagedPlayer, isVidCore, sendCommand]);
 
-  /* External-iframes PostMessage Listener (VidCore + Peachify + VidUp) — events as
-     { type: "timeupdate", data: { currentTime, duration, percent } } (VidCore),
-     { type: "PLAYER_EVENT", data: { event: "play"|"pause"|"seeked"|"ended"|"timeupdate"|"playerstatus", ... }} (all),
-     or { type: "MEDIA_DATA", data: { ... } } (Peachify/VidUp full progress payload for Continue Watching). */
   useEffect(() => {
     if (!isVidCore && !isPeachify && !isVidUp) return;
     const h = (ev) => {
@@ -1397,7 +1149,6 @@ setVidcoreDirectMode(false);
               const dur = payload?.duration;
               if (t != null) setCurrentTime(t);
               if (dur) setDuration(dur);
-              // Debounce progress writes to Firestore — max once per 10 seconds
               const now = Date.now();
               if (now - lastProgressWriteRef.current > 10000) {
                 lastProgressWriteRef.current = now;
@@ -1433,7 +1184,6 @@ setVidcoreDirectMode(false);
             setIsLoading(false);
             break;
           case "MEDIA_DATA":
-            // Peachify/VidUp Continue Watching payload — store wholesale for quick restore
             try {
               const mediaId = payload?.id ?? payload?.tmdbId;
               if (mediaId != null) {
@@ -1453,7 +1203,6 @@ setVidcoreDirectMode(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- onProgressUpdate (inline parent prop) must not re-attach the listener on every parent render; playback/mute state flows one-way via refs where needed.
   }, [isVidCore, isPeachify, isVidUp, isScrubbing, hasNextEpisode, onNextEpisode, startUpNextCountdown, sendCommand]);
 
-  /* Actions */
   const triggerCenterIcon = useCallback((type) => {
     centerIconKeyRef.current += 1;
     setCenterIcon({ type });
@@ -1467,12 +1216,7 @@ setVidcoreDirectMode(false);
     sideIconTimeoutRef.current = setTimeout(() => setSideIcon(null), 700);
   }, []);
 
-  /* VidCore handover: the embed answers only getStatus — its play/pause/seek/
-     volume/mute commands compile to no-ops, so our chrome can never drive it.
-     The first tap on any transport control reveals the native control bar
-     (underneath, pointerEvents:auto) so playback ACTUALLY responds; we never
-     remount the iframe, so the stream position survives the handover. */
-  const delegateToVidCoreNatively = useCallback(() => {
+const delegateToVidCoreNatively = useCallback(() => {
     if (!isVidCore || vidcoreDirectModeRef.current) return;
 setVidcoreDirectMode(true);
       setShowControls(false);
@@ -1519,7 +1263,6 @@ setVidcoreDirectMode(true);
       if (gestureHudTimerRef.current) clearTimeout(gestureHudTimerRef.current);
       gestureHudTimerRef.current = setTimeout(() => setGestureType(null), 1000);
     } else {
-      /* Show the circular arc volume HUD on desktop */
       setShowVolumeArc(true);
       if (volumeArcTimerRef.current) clearTimeout(volumeArcTimerRef.current);
       volumeArcTimerRef.current = setTimeout(() => setShowVolumeArc(false), 1200);
@@ -1663,17 +1406,13 @@ setVidcoreDirectMode(true);
     if (e) e.stopPropagation();
     const el = containerRef.current;
     if (!isFullscreen) {
-      /* Try native fullscreen API */
       const r = el?.requestFullscreen?.() || el?.webkitRequestFullscreen?.();
-      /* If promise exists (modern browsers), handle orientation on resolve */
       if (r && typeof r.then === 'function') {
         r.then(() => {
-          /* Rotate to landscape on mobile after entering fullscreen */
           if (isTouch && screen.orientation?.lock) {
             screen.orientation.lock('landscape').catch(() => {});
           }
         }).catch(() => {
-          /* Fullscreen failed — try Orientation API fallback for iOS */
           if (isTouch && screen.orientation?.lock) {
             screen.orientation.lock('landscape').catch(() => {});
           }
@@ -1698,11 +1437,8 @@ setVidcoreDirectMode(true);
       : `${m}:${s < 10 ? "0" : ""}${s}`;
   };
 
-  /* Progress Bar */
   const handleProgressScrub = useCallback((e) => {
     delegateToVidCoreNatively();
-    // Measure against the actual TRACK — the outer element has horizontal
-    // padding, so this makes the seek land exactly where the pointer is.
     const el = progressTrackRef.current || progressBarRef.current;
     if (!el || !duration) return;
     const r = el.getBoundingClientRect();
@@ -1717,8 +1453,6 @@ setVidcoreDirectMode(true);
     const outer = progressBarRef.current;
     const trackEl = progressTrackRef.current;
     if (!outer || !trackEl || !duration) return;
-    // Time is derived from the real track; the tooltip is positioned at the
-    // pointer inside the padded hit area (clamped so it never leaves the screen).
     const r = trackEl.getBoundingClientRect();
     const x = Math.max(0, Math.min(e.clientX - r.left, r.width));
     setHoverTime((x / r.width) * duration);
@@ -1757,7 +1491,6 @@ setVidcoreDirectMode(true);
     brightnessArcTimerRef.current = setTimeout(() => setShowBrightnessArc(false), 1200);
   }, []);
 
-  /* Keyboard Shortcuts */
   useEffect(() => {
     if (!isCineSrc) return;
     const h = (e) => {
@@ -1793,14 +1526,9 @@ setVidcoreDirectMode(true);
     return () => el.removeEventListener("wheel", h);
   }, [showBottomChrome, changeVolume, showSettings, showSubtitlesMenu, showShortcuts]);
 
-  /* ═══ Touch Gestures — VLC/MX Player Style ═══════════════════════════════
-     LEFT 35%:   swipe ↑↓ = brightness
-     CENTER 30%: swipe ←→ = seek, single-tap = toggle controls, double-tap = seek/play
-     RIGHT 35%:  swipe ↑↓ = volume
-     ══════════════════════════════════════════════════════════════════════ */
+  /* Touch zones: left/right = brightness/volume, center = seek. */
   const handleTouchStart = useCallback((e) => {
     if (!isTouch || !showBottomChrome || isScreenLocked) return;
-    /* Pinch detection: two fingers */
     if (e.touches.length === 2) {
       e.preventDefault();
       const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -1812,7 +1540,6 @@ setVidcoreDirectMode(true);
       return;
     }
     if (e.touches.length > 1) return;
-    /* Single finger: record start position */
     const touch = e.touches[0];
     const r = containerRef.current?.getBoundingClientRect();
     if (!r) return;
@@ -1832,7 +1559,6 @@ setVidcoreDirectMode(true);
 
   const handleTouchMove = useCallback((e) => {
     if (!isTouch || !showBottomChrome || isScreenLocked) return;
-    /* Pinch to fullscreen */
     if (e.touches.length === 2 && pinchStartDistRef.current) {
       e.preventDefault();
       const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -1852,34 +1578,31 @@ setVidcoreDirectMode(true);
     if (!gestureStartRef.current || e.touches.length !== 1) return;
     const touch = e.touches[0];
     const dx = touch.clientX - gestureStartRef.current.x;
-    const dy = gestureStartRef.current.y - touch.clientY; /* positive = up */
+    const dy = gestureStartRef.current.y - touch.clientY;
     const absDx = Math.abs(dx);
     const absDy = Math.abs(dy);
     const r = containerRef.current?.getBoundingClientRect();
     if (!r) return;
 
-    /* Lock gesture direction after 12px of movement */
     if (!gestureLockRef.current && (absDx > 12 || absDy > 12)) {
       if (absDx > absDy) {
-        gestureLockRef.current = 'horizontal'; /* seek */
+        gestureLockRef.current = 'horizontal';
       } else {
-        gestureLockRef.current = 'vertical'; /* brightness or volume */
+        gestureLockRef.current = 'vertical';
       }
       gestureStartRef.current.hasMoved = true;
     }
 
     if (!gestureLockRef.current) return;
-    e.preventDefault(); /* Prevent scrolling */
+    e.preventDefault();
     gestureStartRef.current.hasMoved = true;
 
     if (gestureLockRef.current === 'vertical') {
       const zone = gestureStartRef.current.zone;
-      // Proportional vertical sensitivity: full scale takes 70% player height or min 220px
       const sensitivity = Math.max(220, r.height * 0.7);
       const delta = dy / sensitivity;
 
       if (zone === 'right') {
-        /* Volume: calculated cleanly from startVolume without compounding */
         const newVol = Math.max(0, Math.min(1, gestureStartRef.current.startVolume + delta));
         setVolume(newVol);
         volumeRef.current = newVol;
@@ -1893,8 +1616,6 @@ setVidcoreDirectMode(true);
         setGestureType('volume');
         setGestureValue(newVol);
       } else if (zone === 'left') {
-        /* Brightness: calculated cleanly from startBrightness without compounding */
-        // Span is 0.2 to 1.5 = 1.3
         const newBright = Math.max(0.2, Math.min(1.5, gestureStartRef.current.startBrightness + delta * 1.3));
         setBrightness(newBright);
         brightnessRef.current = newBright;
@@ -1902,9 +1623,8 @@ setVidcoreDirectMode(true);
         setGestureValue((newBright - 0.2) / 1.3);
       }
     } else if (gestureLockRef.current === 'horizontal') {
-      /* Seek — swipe right = forward, left = backward */
       const seekSensitivity = Math.max(220, r.width * 0.45);
-      const seekAmount = (dx / seekSensitivity) * 30; /* 30s per 45% screen width */
+      const seekAmount = (dx / seekSensitivity) * 30;
       setGestureType('seek');
       setSeekDelta(seekAmount);
     }
@@ -1919,7 +1639,6 @@ setVidcoreDirectMode(true);
   const handleTouchEnd = useCallback((e) => {
     lastTouchEndRef.current = Date.now();
     if (gestureLockRef.current === 'horizontal' && gestureStartRef.current) {
-      /* Apply seek on release */
       const touch = e.changedTouches[0];
       const dx = touch.clientX - gestureStartRef.current.x;
       const r = containerRef.current?.getBoundingClientRect();
@@ -1939,7 +1658,6 @@ setVidcoreDirectMode(true);
     }, 600);
   }, [seekRelative]);
 
-  /* Auto-hide controls — ignore synthetic mouse events on touch devices */
   const handleMouseMove = useCallback(() => {
     if (isTouch || Date.now() - lastTouchEndRef.current < 600) return;
     setShowControls(true);
@@ -1949,26 +1667,23 @@ setVidcoreDirectMode(true);
     }
   }, [isPlaying, showSettings, showSubtitlesMenu, isLoading, isScrubbing, isTouch]);
 
-  /* Touch single-tap to show/hide controls, double-tap to seek */
   const lastTapRef = useRef(0);
   const handleTouchOverlay = useCallback((e) => {
     if (isLoading) return;
     if (isScreenLocked) return;
-    // Bail out if user was swiping (volume, brightness, seek) or pinching
     if (gestureStartRef.current?.hasMoved || gestureLockRef.current !== null || pinchStartDistRef.current) {
       return;
     }
     const now = Date.now();
-    lastTouchEndRef.current = now; // Suppress synthetic desktop mousemove/clicks
+    lastTouchEndRef.current = now;
     const tapGap = now - lastTapRef.current;
 
     if (tapGap < 280 && tapGap > 0) {
-      // Double tap detected: cancel pending single-tap toggle and perform seek
       if (singleTapTimerRef.current) {
         clearTimeout(singleTapTimerRef.current);
         singleTapTimerRef.current = null;
       }
-      lastTapRef.current = 0; // Prevent triple-tap retrigger
+      lastTapRef.current = 0;
       e.preventDefault();
       const touch = e.changedTouches[0];
       const r = containerRef.current?.getBoundingClientRect();
@@ -1986,12 +1701,10 @@ setVidcoreDirectMode(true);
         togglePlay();
       }
     } else {
-      // Single tap: schedule toggle with 250ms debounce so double-tap can cancel it
       lastTapRef.current = now;
       if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
       singleTapTimerRef.current = setTimeout(() => {
         singleTapTimerRef.current = null;
-        // If a popup menu is open, dismiss it first
         if (showSettings || showSubtitlesMenu || showShortcuts) {
           setShowSettings(false);
           setShowSubtitlesMenu(false);
@@ -2015,24 +1728,12 @@ setVidcoreDirectMode(true);
   const controlsVisible = (showControls || isScrubbing) && !isLoading && !isScreenLocked;
   const effVolume = isMuted ? 0 : volume;
 
-  /* ═══════════════════════════════════════════════════════════════
-     UP-CENTER HUD SYSTEM — volume / brightness / aspect indicators
-     pin to the TOP-CENTER of the player: their wrapper covers the
-     whole player (inset: 0) as a flex column with
-     justifyContent: flex-start + alignItems: center, so the pill is
-     always horizontally centered and top-anchored. The top inset is
-     a fraction of the measured player height (8%) with a 72px floor
-     so it clears the top bar on every screen; before the container
-     is measured we fall back to a viewport-relative clamp().
-     ═══════════════════════════════════════════════════════════════ */
   const { w: playerW, h: playerH } = useContainerSize(containerRef);
   const netflixHudTop = playerH > 0
     ? `${Math.max(playerH * 0.08, 72).toFixed(1)}px`
     : 'clamp(72px, 18vh, 130px)';
   const selectedAspect = ASPECT_RATIOS[aspectRatioIndex] || ASPECT_RATIOS[0];
 
-  /* Aspect ratio calculation — dynamic Edge-to-Edge punch-hole camera coverage.
-     ═══════════════════════════════════════════════════════════ */
   const isLandscape = playerW > playerH;
   const currentRatio = playerW && playerH ? playerW / playerH : 16 / 9;
   const targetVideoRatio = 16 / 9;
@@ -2041,7 +1742,6 @@ setVidcoreDirectMode(true);
   if (selectedAspect.id === 'fit') {
     mediaTransform = 'none';
   } else if (selectedAspect.id === 'fill') {
-    // Edge-to-Edge: every pixel of a punch-hole / notch phone gets picture.
     if (isLandscape) {
       const scale = Math.max(1, currentRatio / targetVideoRatio);
       mediaTransform = `scale(${scale.toFixed(4)})`;
@@ -2067,8 +1767,7 @@ setVidcoreDirectMode(true);
     mediaTransform = `scale(${selectedAspect.scale})`;
   }
 
-/* ── NETFLIX render — single fixed design, black + #E50914 ──────────── */
-  return (
+return (
     <div
       ref={containerRef}
       data-player-skin="netflix"
@@ -2090,7 +1789,6 @@ setVidcoreDirectMode(true);
         WebkitUserSelect: 'none',
         touchAction: 'manipulation',
         WebkitTouchCallout: 'none',
-        /* Safe areas protect controls while media reaches the physical edge */
         '--sat': 'env(safe-area-inset-top, 0px)',
         '--sab': 'env(safe-area-inset-bottom, 0px)',
         '--sal': 'env(safe-area-inset-left, 0px)',
@@ -2115,7 +1813,6 @@ setVidcoreDirectMode(true);
         });
       }}
     >
-      {/* IFRAME */}
       {iframeUrl && (
         <iframe
           ref={iframeRef}
@@ -2124,9 +1821,6 @@ setVidcoreDirectMode(true);
           title="Video player"
           style={{
             position: 'absolute', inset: 0, display: 'block', width: '100%', height: '100%', border: 'none', background: '#000', overflow: 'visible',
-            // CineSrc keeps its iframe interactive (clicks go to our overlay),
-            // VidCore/Peachify/VidUp stay fully interactive: their own native
-            // control bars are the only transport — we never overlay chrome.
             pointerEvents: isCineSrc && showCustomUI ? 'none' : 'auto',
             opacity: hasInitiallyLoaded ? 1 : 0,
             transition: 'opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -2136,18 +1830,14 @@ setVidcoreDirectMode(true);
           }}
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
           onLoad={() => {
-            // Frame document loaded → hide our overlay so the provider's own
-            // player UI (and CineSrc's "fetching nebula/lisbon" loader) shows
-            // through. Dead-source failover no longer depends on our spinner —
-            // the re-arming hasPlaybackRef watchdog in the URL-generation
-            // effect rotates past sources that never actually start streaming.
+            // Frame loaded — hide our overlay. The watchdog surfaces the fallback
+            // screen (never a server switch) if the source never actually starts.
             setIsLoading(false);
             setHasInitiallyLoaded(true);
             rotationFailuresRef.current = 0;
             setFatalError(false);
             serverErrorCountsRef.current = {};
-            // VidCore: pull a full state snapshot on first paint so our chrome
-            // (and Continue Watching / up-next logic) starts honest.
+            // VidCore: snapshot status once so our chrome starts honest.
             if (isVidCore) {
               setTimeout(() => {
                 const w = iframeRef.current?.contentWindow;
@@ -2158,17 +1848,12 @@ setVidcoreDirectMode(true);
         />
       )}
 
-      {/* CineSrc interaction overlay — handles mouse (desktop) and touch (mobile).
-          Managed-Provider-only but CineSrc-exclusive: VidCore's embed must get
-          every video-area pointer so its own player UI keeps working. */}
       {isCineSrc && showCustomUI && (
         <div
           onMouseMove={handleMouseMove}
           onClick={(e) => {
             e.stopPropagation();
-            // Skip if a touch just handled this (prevents double-fire on mobile)
             if (Date.now() - lastTouchEndRef.current < 500) return;
-            // Desktop: click to play/pause, double-click to seek/fullscreen
             if (clickTimeoutRef.current) {
               clearTimeout(clickTimeoutRef.current);
               clickTimeoutRef.current = null;
@@ -2197,7 +1882,6 @@ setVidcoreDirectMode(true);
         />
       )}
 
-      {/* Subtitles */}
       {showCustomUI && subtitleEnabled && hasSubtitles && activeSubtitleCue && (
         <div style={{
           position: "absolute", bottom: controlsVisible ? "calc(clamp(60px, 12vw, 100px) + var(--sab))" : "calc(clamp(20px, 4vw, 36px) + var(--sab))",
@@ -2232,7 +1916,6 @@ setVidcoreDirectMode(true);
         </div>
       )}
 
-      {/* Bottom vignette — Netflix red-fade scrim */}
       {showCustomUI && (
         <div style={{
           position: "absolute", inset: 0, zIndex: 11, pointerEvents: "none",
@@ -2241,7 +1924,6 @@ setVidcoreDirectMode(true);
         }} />
       )}
 
-      {/* ═══ CENTER PLAY/PAUSE ═══════════════════════════════════ */}
       <AnimatePresence>
         {showBottomChrome && !isLoading && (
           <motion.div
@@ -2271,7 +1953,6 @@ setVidcoreDirectMode(true);
                     boxShadow: "0 8px 36px rgba(0,0,0,0.6), 0 0 24px rgba(229,9,20,0.5)",
                   }}
                 >
-                  {/* Expanding arc ring — Netflix red pulse */}
                   <motion.div
                     initial={{ opacity: 0.6, scale: 0.8 }}
                     animate={{ opacity: 0, scale: 2 }}
@@ -2310,7 +1991,6 @@ setVidcoreDirectMode(true);
         )}
       </AnimatePresence>
 
-      {/* ═══ PAUSED INFO OVERLAY ═════════════════════════════════ */}
       <AnimatePresence>
         {showPausedInfo && showBottomChrome && !isPlaying && controlsVisible && (
           <motion.div
@@ -2421,7 +2101,6 @@ setVidcoreDirectMode(true);
         )}
       </AnimatePresence>
 
-      {/* Loading — blurred poster backdrop + Netflix arc spinner */}
       <AnimatePresence>
         {isLoading && (
           <motion.div
@@ -2434,7 +2113,6 @@ setVidcoreDirectMode(true);
               overflow: "hidden",
             }}
           >
-            {/* Blurred poster backdrop */}
             {thumbnailUrl ? (
               <div style={{
                 position: "absolute", inset: -40,
@@ -2449,12 +2127,10 @@ setVidcoreDirectMode(true);
                 background: "radial-gradient(ellipse at 50% 40%, #0a0a0f 0%, #000 70%)",
               }} />
             )}
-            {/* Dark vignette overlay for text readability */}
             <div style={{
               position: "absolute", inset: 0,
               background: "radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.65) 100%)",
             }} />
-            {/* Content layer */}
             <div style={{
               position: "relative", zIndex: 1,
               display: "flex", flexDirection: "column",
@@ -2508,8 +2184,7 @@ setVidcoreDirectMode(true);
         )}
       </AnimatePresence>
 
-      {/* All-servers-unavailable overlay — shown after a full rotation of
-          dead sources instead of a silent black screen. */}
+      {/* Source-unavailable overlay — never auto-switches. */}
       <AnimatePresence>
         {fatalError && (
           <motion.div
@@ -2529,13 +2204,13 @@ setVidcoreDirectMode(true);
               fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif",
               letterSpacing: "-0.02em",
             }}>
-              All servers are currently unreachable
+              The stream couldn't start on this server
             </div>
             <div style={{
               color: "rgba(255,255,255,0.55)", fontSize: R.fontMedium, fontWeight: 500,
               maxWidth: 420, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
             }}>
-              The stream couldn't start. Retry, or pick a different server from the menu.
+              Retry, or pick a different server from the menu.
             </div>
             <motion.button
               whileTap={{ scale: 0.97 }}
@@ -2553,7 +2228,6 @@ setVidcoreDirectMode(true);
         )}
       </AnimatePresence>
 
-      {/* Error pill */}
       <AnimatePresence>
         {errorMessage && (
           <motion.div
@@ -2573,7 +2247,6 @@ setVidcoreDirectMode(true);
         )}
       </AnimatePresence>
 
-      {/* Toast — Netflix pill */}
       <AnimatePresence>
         {toastMessage && (
           <motion.div
@@ -2596,29 +2269,24 @@ setVidcoreDirectMode(true);
         )}
       </AnimatePresence>
 
-      {/* ═══ VOLUME HUD ═══ */}
       <AnimatePresence>
         {showVolumeArc && !isTouch && (
           <NetflixVolumeHUD effVolume={effVolume} isMuted={isMuted} volume={volume} top={netflixHudTop} />
         )}
       </AnimatePresence>
 
-      {/* ═══ BRIGHTNESS HUD (Desktop) ═══ */}
       <AnimatePresence>
         {showBrightnessArc && !isTouch && (
           <NetflixBrightnessHUD brightness={brightness} top={netflixHudTop} />
         )}
       </AnimatePresence>
 
-      {/* ═══ ASPECT RATIO HUD ═══ */}
       <AnimatePresence>
         {showAspectRatioArc && (
           <NetflixAspectHUD aspectRatioIndex={aspectRatioIndex} top={netflixHudTop} />
         )}
       </AnimatePresence>
 
-      {/* ═══ TOUCH GESTURE HUDS — Netflix Red ══════════════════════════════ */}
-      {/* Brightness vertical bar — left edge */}
       <AnimatePresence>
         {gestureType === 'brightness' && isTouch && (
           <motion.div
@@ -2644,7 +2312,6 @@ setVidcoreDirectMode(true);
               overflow: 'hidden',
             }}
           >
-            {/* Sun icon at top with glow */}
             <motion.div
               animate={{ scale: [0.95, 1.05, 1] }}
               transition={{ duration: 0.3 }}
@@ -2660,13 +2327,11 @@ setVidcoreDirectMode(true);
                 <line x1="21" y1="12" x2="23" y2="12"/>
               </svg>
             </motion.div>
-            {/* Track */}
             <div style={{
               position: 'relative', width: 6, flex: 1, margin: '10px 0',
               background: 'rgba(255,255,255,0.12)', borderRadius: 3,
               overflow: 'hidden',
             }}>
-              {/* Fill */}
               <motion.div
                 animate={{ height: `${Math.max(0, Math.min(100, Math.round(gestureValue * 100)))}%` }}
                 transition={{ type: 'spring', stiffness: 450, damping: 32 }}
@@ -2678,7 +2343,6 @@ setVidcoreDirectMode(true);
                 }}
               />
             </div>
-            {/* Percentage */}
             <span style={{
               color: '#E50914', fontSize: 11, fontWeight: 800,
               fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
@@ -2691,7 +2355,6 @@ setVidcoreDirectMode(true);
         )}
       </AnimatePresence>
 
-      {/* Volume vertical bar — right edge */}
       <AnimatePresence>
         {gestureType === 'volume' && isTouch && (
           <motion.div
@@ -2717,7 +2380,6 @@ setVidcoreDirectMode(true);
               overflow: 'hidden',
             }}
           >
-            {/* Speaker icon at top */}
             <motion.div
               key={isMuted || volume === 0 ? 'off' : 'on'}
               initial={{ scale: 0.6 }} animate={{ scale: 1 }}
@@ -2730,7 +2392,6 @@ setVidcoreDirectMode(true);
                 <Volume2 size={18} color="#fff" strokeWidth={2.2} style={{ filter: 'drop-shadow(0 0 6px #E50914)' }} />
               )}
             </motion.div>
-            {/* Track */}
             <div style={{
               position: 'relative', width: 6, flex: 1, margin: '10px 0',
               background: 'rgba(255,255,255,0.2)', borderRadius: 1,
@@ -2747,7 +2408,6 @@ setVidcoreDirectMode(true);
                 }}
               />
             </div>
-            {/* Percentage */}
             <span style={{
               color: isMuted || volume === 0 ? '#E50914' : (volume < 0.5 ? '#E50914' : '#fff'),
               fontSize: 11, fontWeight: 800,
@@ -2761,7 +2421,6 @@ setVidcoreDirectMode(true);
         )}
       </AnimatePresence>
 
-      {/* Seek indicator — center */}
       <AnimatePresence>
         {gestureType === 'seek' && isTouch && (
           <motion.div
@@ -2777,7 +2436,6 @@ setVidcoreDirectMode(true);
               padding: '14px 24px', minWidth: 160,
             }}
           >
-            {/* Seek direction & delta */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               {seekDelta > 0 ? (
                 <ChevronRight size={30} color="#E50914" strokeWidth={2.4} style={{ filter: 'drop-shadow(0 0 8px #E50914)' }} />
@@ -2792,7 +2450,6 @@ setVidcoreDirectMode(true);
                 {seekDelta > 0 ? '+' : ''}{Math.round(seekDelta)}s
               </span>
             </div>
-            {/* Destination time display */}
             <div style={{
               display: 'flex', alignItems: 'center', gap: 4,
               fontSize: 12, fontWeight: 600,
@@ -2802,7 +2459,6 @@ setVidcoreDirectMode(true);
               <span style={{ color: 'rgba(255,255,255,0.35)' }}>/</span>
               <span style={{ color: 'rgba(255,255,255,0.5)' }}>{fmt(duration)}</span>
             </div>
-            {/* Mini destination progress bar */}
             {duration > 0 && (
               <div style={{
                 width: 120, height: 3, background: 'rgba(255,255,255,0.12)',
@@ -2820,7 +2476,6 @@ setVidcoreDirectMode(true);
         )}
       </AnimatePresence>
 
-      {/* ═══ SHORTCUTS OVERLAY ═══════════════════════════════════ */}
       <AnimatePresence>
         {showShortcuts && (
           <motion.div
@@ -2879,9 +2534,7 @@ setVidcoreDirectMode(true);
         )}
       </AnimatePresence>
 
-      {/* ═══ SEEK INDICATORS ═══════════════════════════════ */}
       <div style={{ position: "absolute", inset: 0, zIndex: 12, pointerEvents: "none", display: "flex", alignItems: "center" }}>
-        {/* Left — rewind */}
         <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "30%", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <AnimatePresence>
             {sideIcon?.type === "backward" && (
@@ -2948,7 +2601,6 @@ setVidcoreDirectMode(true);
             )}
           </AnimatePresence>
         </div>
-        {/* Right — forward */}
         <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: "30%", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <AnimatePresence>
             {sideIcon?.type === "forward" && (
@@ -3017,7 +2669,6 @@ setVidcoreDirectMode(true);
         </div>
       </div>
 
-      {/* Double-tap ripple — Netflix red */}
       <div style={{ position: "absolute", inset: 0, zIndex: 11, pointerEvents: "none" }}>
         <AnimatePresence>
           {doubleTapRipple && (
@@ -3039,7 +2690,6 @@ setVidcoreDirectMode(true);
         </AnimatePresence>
       </div>
 
-      {/* Mobile Screen Lock Button & Unlock HUD */}
       {isTouch && showBottomChrome && (
         <AnimatePresence>
           {isScreenLocked ? (
@@ -3122,7 +2772,6 @@ setVidcoreDirectMode(true);
         </AnimatePresence>
       )}
 
-      {/* ═══ TOP BAR — Netflix ═══════════════════════════════════ */}
       <AnimatePresence>
         {showCustomUI && controlsVisible && !isScreenLocked && (
           <motion.div
@@ -3212,7 +2861,6 @@ setVidcoreDirectMode(true);
         )}
       </AnimatePresence>
 
-      {/* ═══ BOTTOM CONTROLS — Netflix ═══════════════════════════ */}
       <AnimatePresence>
         {showBottomChrome && controlsVisible && (
           <motion.div
@@ -3227,7 +2875,6 @@ setVidcoreDirectMode(true);
               pointerEvents: "none",
             }}
           >
-            {/* Skip Intro / Up Next */}
             <div style={{
               display: "flex", justifyContent: "space-between", alignItems: "flex-end",
               padding: `0 ${R.progressBarPad}`, marginBottom: 6, pointerEvents: "none",
@@ -3299,7 +2946,6 @@ setVidcoreDirectMode(true);
               </div>
             </div>
 
-            {/* ═══ PROGRESS BAR ═══════════════════════════════════ */}
             <div
               ref={progressBarRef}
               onMouseDown={onProgressMouseDown}
@@ -3327,7 +2973,6 @@ setVidcoreDirectMode(true);
                 touchAction: "none",
               }}
             >
-              {/* Hover time tooltip */}
               <AnimatePresence>
                 {hoverTime != null && (
                   <motion.div
@@ -3356,7 +3001,6 @@ setVidcoreDirectMode(true);
                   </motion.div>
                 )}
               </AnimatePresence>
-              {/* Track */}
               <div
                 ref={progressTrackRef}
                 style={{
@@ -3404,13 +3048,11 @@ setVidcoreDirectMode(true);
               </div>
             </div>
 
-            {/* ═══ CONTROL ROW ═══════════════════════════════════ */}
             <div className="streamly-player-control-row" onClick={(e) => e.stopPropagation()} style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
               padding: `${R.controlRowPad} ${R.padMedium} 0`, pointerEvents: "auto",
               gap: "clamp(8px, 2vw, 14px)",
             }}>
-              {/* Left cluster */}
               <div style={{ display: "flex", alignItems: "center", gap: "clamp(4px, 1vw, 8px)", flexShrink: 0 }}>
                 <motion.button
                   aria-label={isPlaying ? "Pause" : "Play"}
@@ -3445,7 +3087,6 @@ setVidcoreDirectMode(true);
                 >
                   <ChevronRight size={isTouch ? 21 : 24} strokeWidth={2.4} />
                 </motion.button>
-                {/* Volume — button + hover slider */}
                 <div
                   style={{ display: "flex", alignItems: "center" }}
                   onMouseEnter={() => setIsVolumeHovered(true)}
@@ -3511,7 +3152,6 @@ setVidcoreDirectMode(true);
                 )}
               </div>
 
-              {/* Right cluster */}
               <div style={{ display: "flex", alignItems: "center", gap: "clamp(3px, 0.8vw, 6px)", flexShrink: 0 }}>
                 <input type="file" accept=".srt,.vtt" ref={subtitleInputRef} onChange={handleSubtitleUpload} style={{ display: "none" }} />
                 <motion.button
@@ -3545,7 +3185,6 @@ setVidcoreDirectMode(true);
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}
                 >
-                  {/* Current ratio glyph */}
                   <span style={{
                     width: 15, height: 11, border: "1.5px solid currentColor", borderRadius: 2, display: "block",
                   }} />
@@ -3619,7 +3258,6 @@ setVidcoreDirectMode(true);
         )}
       </AnimatePresence>
 
-      {/* Mobile tap-outside dismiss backdrop for popup menus */}
       {isTouch && (showSettings || showSubtitlesMenu) && (
         <div
           onClick={(e) => {
@@ -3638,7 +3276,6 @@ setVidcoreDirectMode(true);
         />
       )}
 
-      {/* ═══ SETTINGS PANEL ═════════════════════════════════════ */}
       <AnimatePresence>
         {showSettings && (
           <motion.div
@@ -3665,7 +3302,6 @@ setVidcoreDirectMode(true);
               boxShadow: "0 16px 56px rgba(0,0,0,0.7)",
             }}
           >
-            {/* Speed */}
             {supportsPlaybackRate && (
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: R.fontTiny, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "1.5px", fontWeight: 700, marginBottom: 10, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif" }}>Playback Speed</div>
@@ -3690,7 +3326,6 @@ setVidcoreDirectMode(true);
             </div>
             )}
 
-            {/* Aspect Ratio */}
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: R.fontTiny, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "1.5px", fontWeight: 700, marginBottom: 10, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif" }}>Aspect Ratio</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -3711,7 +3346,6 @@ setVidcoreDirectMode(true);
               </div>
             </div>
 
-            {/* Automations */}
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: R.fontTiny, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "1.5px", fontWeight: 700, marginBottom: 10, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif" }}>Automations</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -3757,7 +3391,6 @@ setVidcoreDirectMode(true);
         )}
       </AnimatePresence>
 
-      {/* ═══ SUBTITLES PANEL ═════════════════════════════════════ */}
       <AnimatePresence>
         {showSubtitlesMenu && (
           <motion.div
@@ -3829,7 +3462,6 @@ setVidcoreDirectMode(true);
                 </div>
               )}
             </div>
-            {/* Subtitle Sync Offset */}
             <div style={{
               background: "rgba(255,255,255,0.03)",
               border: "1px solid rgba(255,255,255,0.06)",
@@ -3929,7 +3561,6 @@ setVidcoreDirectMode(true);
         )}
       </AnimatePresence>
 
-      {/* CONTEXT MENU */}
       <AnimatePresence>
         {contextMenu.show && (
           <motion.div

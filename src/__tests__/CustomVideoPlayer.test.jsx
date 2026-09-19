@@ -224,15 +224,13 @@ describe("VidCore is a plain iframe passthrough (its own native controls, no cus
   });
 });
 
-describe("CineSrc owns its internal rotation (no auto-switch to Server 2+)", () => {
-  it("shows the fallback UI instead of advancing away when CineSrc burns through its sources", () => {
-    const onServerChange = vi.fn();
+describe("The player never auto-switches servers (manual Server menu only)", () => {
+  it("CineSrc burning through its sources shows the fallback UI instead of advancing", () => {
     const { container } = render(
       <PreferencesProvider>
         <CustomVideoPlayer
           movie={MOVIE}
           servers={VideoSourceAdapter.getServers()}
-          onServerChange={onServerChange}
         />
       </PreferencesProvider>
     );
@@ -241,9 +239,9 @@ describe("CineSrc owns its internal rotation (no auto-switch to Server 2+)", () 
     expect(src).toContain("cinesrc.st");
 
     // Two fatal manifestLoadError events for the same internal source (the
-    // per-source strike threshold). The old code advanced to Server 2 from
-    // here — per the docs the embed owns its rotation, so we must stay and
-    // fall back to the Retry / pick-another-server UI instead.
+    // per-source strike threshold). The player must stay on CineSrc (the embed
+    // owns its internal rotation) and fall back to the Retry / pick-another-
+    // server UI instead of advancing to Server 2+.
     act(() => {
       window.dispatchEvent(new MessageEvent("message", {
         origin: "https://cinesrc.st",
@@ -255,12 +253,45 @@ describe("CineSrc owns its internal rotation (no auto-switch to Server 2+)", () 
       }));
     });
 
-    // Never advanced: the iframe still points at CineSrc, no onServerChange.
+    // Never advanced: the iframe still points at CineSrc.
     expect(container.querySelector("iframe").getAttribute("src")).toContain("cinesrc.st");
-    expect(onServerChange).not.toHaveBeenCalled();
 
     // Fallback UI surfaced per the docs' "handle errors gracefully" guidance.
-    expect(screen.getByText(/The stream couldn't start\./)).toBeInTheDocument();
+    expect(screen.getByText(/The stream couldn't start on this server/)).toBeInTheDocument();
+  });
+
+  it("non-CineSrc servers don't auto-advance either — the watchdog shows the fallback", async () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = render(
+        <PreferencesProvider>
+          <CustomVideoPlayer
+            movie={MOVIE}
+            servers={VideoSourceAdapter.getServers()}
+            preferredServerIndex={1}
+          />
+        </PreferencesProvider>
+      );
+      // Server #2 (vidlink) — resolve the async IMDb lookup and let the iframe mount.
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      const iframe = container.querySelector("iframe");
+      expect(iframe.getAttribute("src")).toContain("vidlink.pro");
+
+      // Two watchdog periods (~12s each) without playback proof used to rotate
+      // away to Server 3. Now they only surface the fallback screen.
+      act(() => { vi.advanceTimersByTime(12001); });
+      act(() => { vi.advanceTimersByTime(12001); });
+
+      // Still the viewer's server — never auto-switched.
+      expect(container.querySelector("iframe").getAttribute("src")).toContain("vidlink.pro");
+      expect(screen.getByText(/The stream couldn't start on this server/)).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

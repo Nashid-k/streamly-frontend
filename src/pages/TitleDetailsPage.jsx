@@ -2612,9 +2612,8 @@ export default function TitleDetails() {
                     movie={movie}
                     season={isTvContent ? selectedSeason : undefined}
                     episode={isTvContent ? playingEpisode : undefined}
-                    servers={SERVERS}
-                    preferredServerIndex={playingServerIndex}
-                    onServerChange={(i) => { serverManuallySetRef.current = true; setPlayingServerIndex(i); }}
+servers={SERVERS}
+                  preferredServerIndex={playingServerIndex}
                     onClose={() => setIsPlaying(false)}
                     thumbnailUrl={movie.backdropUrl || movie.posterUrl}
                     startTime={effectiveSavedTimestamp}
