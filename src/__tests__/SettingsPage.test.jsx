@@ -99,6 +99,23 @@ describe("SettingsPage", () => {
     expect(localStorage.getItem("setting-theme")).toBe('"emerald"');
   });
 
+  it("changes the default subtitle language through its dropdown", () => {
+    renderPage();
+
+    const trigger = screen.getByRole("button", { name: /default subtitle language, current/i });
+    expect(trigger).toHaveTextContent("English");
+
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole("option", { name: /spanish/i }));
+
+    // The choice persists, syncs <html lang>, and the trigger label follows.
+    expect(localStorage.getItem("setting-defaultLanguage")).toBe('"es"');
+    expect(document.documentElement.lang).toBe("es");
+    expect(
+      screen.getByRole("button", { name: /default subtitle language, current: spanish/i })
+    ).toBeInTheDocument();
+  });
+
   it("offers an All tab plus every section filter, Notifications included", () => {
     render(
       <MemoryRouter initialEntries={["/settings"]}>

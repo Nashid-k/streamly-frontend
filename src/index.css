@@ -1060,13 +1060,28 @@ a {
     radial-gradient(ellipse 38% 100% at 100% 50%, rgba(5,5,5,0.42) 0%, transparent 62%);
 }
 
+/* ── Static ambient sky ───────────────────────────────────────────────────
+   The <AmbientBackground> fixed wrapper sits above `body::before`, so on
+   fallback-only pages (empty My List, Settings) it can't borrow the global
+   glow. This always-on gradient stack replaces the wrapper's flat `#050505`
+   so the "blurred bg gradient" survives even when the drifting blobs below
+   are frozen by prefers-reduced-motion. */
+.ambient-sky {
+  background:
+    radial-gradient(55% 45% at 12% 8%, rgba(149, 255, 80, 0.16), transparent 60%),
+    radial-gradient(45% 40% at 88% 10%, rgba(92, 226, 28, 0.11), transparent 55%),
+    radial-gradient(50% 40% at 72% 92%, rgba(96, 165, 250, 0.1), transparent 60%),
+    radial-gradient(38% 32% at 24% 86%, rgba(167, 139, 250, 0.07), transparent 58%),
+    #050505;
+}
+
 /* ── Cinejoy-style liquid backdrop ────────────────────────────────────────
    Fixed blurred color blobs drifting slowly behind every page. The blur lives
    on each blob (the same element that animates) so the compositor can cache
    the blurred raster and only transform it — a blur on the animating
    container would force a full re-blur every frame. Blend mode is per blob
-   too, so it never re-composites the whole page. Disabled for
-   prefers-reduced-motion. */
+   too, so it never re-composites the whole page. Drift (not the gradient) is
+   frozen for prefers-reduced-motion. */
 .ambient-liquid {
   position: absolute;
   inset: -15%;
@@ -1123,10 +1138,14 @@ a {
     opacity: 0.32;
   }
 }
+/* The global reduced-motion rule below already freezes the blob drift
+   (animation-duration: 0.001ms !important). Hide the drift, never the
+   gradient itself — pages that render on fallback-only ambient (no backdrop
+   image) would otherwise collapse to a flat #050505 wall. */
 @media (prefers-reduced-motion: reduce) {
-  .ambient-liquid,
   .ambient-liquid__blob {
-    display: none;
+    animation-duration: 0.001ms;
+    animation-iteration-count: 1;
   }
 }
 
@@ -2162,13 +2181,24 @@ img {
 
 /* Accessibility Focus States. The outline follows each element's own
    border-radius, so pills/segments keep their shape when focused (a global
-   border-radius override here used to snap them to --radius-sm). */
+   border-radius override here used to snap them to --radius-sm). Text inputs
+   are excluded: every field in the app already ships a focus affordance of
+   its own (`:focus-within` accent border on the frosted capsules, the
+   `.login-field:focus` border, `.search-panel` focus-within), and Chromium
+   fires `:focus-visible` on click for text boxes — the old hard accent
+   rectangle is what showed around every input app-wide. */
 a:focus-visible,
-button:focus-visible,
-input:focus-visible {
+button:focus-visible {
   outline: 2px solid rgba(var(--accent-primary-rgb), 0.75);
   outline-offset: 2px;
   box-shadow: 0 0 0 4px rgba(var(--accent-primary-rgb), 0.12);
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 /* Respect reduced-motion preferences globally */
@@ -5776,6 +5806,16 @@ html[data-theme]:not([data-theme=default]) .settings-section::after {
 
 html[data-theme]:not([data-theme=default]) .segment-slider {
   background: var(--theme-global-accentA, var(--accent-primary));
+}
+
+/* Default theme keeps the white rubber-slider (Cinejoy default). The base
+   `.segment-btn.segment-active` color falls through to `--on-accent: #fff`,
+   which would be white-on-white — flip it to ink so the active label reads
+   against the white pill. Non-default themes carry their own `--on-accent`
+   from the theme token block and must NOT be overridden. */
+html[data-theme="default"] .segment-btn.segment-active,
+html:not([data-theme]) .segment-btn.segment-active {
+  color: #0b0b0d;
 }
 
 .segment-btn {

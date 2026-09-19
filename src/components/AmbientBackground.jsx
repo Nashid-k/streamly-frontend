@@ -12,7 +12,7 @@ function AmbientBackground({ src, alt = "", fallback = false }) {
 
   return (
     <div
-      className="fixed inset-0 w-full h-full z-0 pointer-events-none bg-[#050505]"
+      className="fixed inset-0 w-full h-full z-0 pointer-events-none ambient-sky"
       style={{ contain: "strict", willChange: "transform" }}
       aria-hidden="true"
     >

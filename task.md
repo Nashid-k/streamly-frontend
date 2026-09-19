@@ -7,6 +7,35 @@
 
 ## Done (in order)
 
+- [x] **Settings UX bug batch (user-reported)** — (1) **no default blurred bg
+  gradient on Settings / “just dark”**: the `@media (prefers-reduced-motion)`
+  block hard-hid `.ambient-liquid` (driving every fallback-only page to flat
+  `#050505`, and the fixed ambient wrapper also sat above `body::before`'s
+  glow) — replaced the wrapper's `bg-[#050505]` with a new always-on
+  `.ambient-sky` radial-gradient stack and changed reduced-motion to freeze
+  the blob drift (0.001ms/1 iteration) instead of removing the gradient.
+  (2) **Segment control readability**: default theme rendered a white
+  slider with white `--on-accent` text (white-on-white) — added
+  `html[data-theme="default"]`/`html:not([data-theme])`
+  `.segment-btn.segment-active { color:#0b0b0d }`; non-default themes keep
+  their own `--on-accent`. (3) **Flags invisible**: `LANGUAGES` pointed at
+  external `flagcdn.com/w40/*.png` (blocked on the user's ISP) — bundled all
+  10 country SVGs into `public/flags/*.svg` (copied to `dist/flags/` by Vite,
+  verified 10 files), flagged local `/flags/*.svg`, and added a `LanguageFlag`
+  component that swaps in a letter-chip fallback on load error so the control
+  never renders a broken-image box. (4) **Rectangle borders on every input
+  app-wide**: Chromium fires `:focus-visible` on text inputs for click focus,
+  so the global green outline+box-shadow appeared around every field — split
+  the rule so `a/button:focus-visible` keeps the ring while
+  `input/select/textarea:focus-visible` become outline:none (each field
+  already has its own `:focus-within`/`:focus` affordance). (5) **“Changing
+  the lang not working”**: mechanism verified intact and locked in with a new
+  regression test (`getByRole option spanish` → localStorage
+  `setting-defaultLanguage` = `"es"`, `<html lang>` sync, trigger label
+  update) 1/1 passing; added a success toast on selection so the change is
+  visibly acknowledged. Verified: lint 0 errors (pre-existing warnings only),
+  vitest 38 files / 375/375 (was 374), build OK (2.29s).
+
 - [x] **Settings page rebuilt from scratch on the movies/series/my-list design
   language (user directive: “improve our complete settings ui/ux to exactly
   resemble our movies/series/my list page of glass blur gradients etc —

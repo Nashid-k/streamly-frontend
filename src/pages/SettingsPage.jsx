@@ -73,17 +73,43 @@ const THEMES = [
 ];
 
 const LANGUAGES = [
-  { code: "en", name: "English", flag: "https://flagcdn.com/w40/us.png" },
-  { code: "es", name: "Spanish", flag: "https://flagcdn.com/w40/es.png" },
-  { code: "fr", name: "French", flag: "https://flagcdn.com/w40/fr.png" },
-  { code: "de", name: "German", flag: "https://flagcdn.com/w40/de.png" },
-  { code: "it", name: "Italian", flag: "https://flagcdn.com/w40/it.png" },
-  { code: "pt", name: "Portuguese", flag: "https://flagcdn.com/w40/br.png" },
-  { code: "ja", name: "Japanese", flag: "https://flagcdn.com/w40/jp.png" },
-  { code: "ko", name: "Korean", flag: "https://flagcdn.com/w40/kr.png" },
-  { code: "hi", name: "Hindi", flag: "https://flagcdn.com/w40/in.png" },
-  { code: "ar", name: "Arabic", flag: "https://flagcdn.com/w40/sa.png" },
+  { code: "en", name: "English", flag: "flags/us.svg" },
+  { code: "es", name: "Spanish", flag: "flags/es.svg" },
+  { code: "fr", name: "French", flag: "flags/fr.svg" },
+  { code: "de", name: "German", flag: "flags/de.svg" },
+  { code: "it", name: "Italian", flag: "flags/it.svg" },
+  { code: "pt", name: "Portuguese", flag: "flags/br.svg" },
+  { code: "ja", name: "Japanese", flag: "flags/jp.svg" },
+  { code: "ko", name: "Korean", flag: "flags/kr.svg" },
+  { code: "hi", name: "Hindi", flag: "flags/in.svg" },
+  { code: "ar", name: "Arabic", flag: "flags/sa.svg" },
 ];
+
+/* Country flag with an offline-safe fallback: if the local SVG can't load we
+   swap in a tiny letter chip instead of a broken-image box. External flag
+   CDNs are unreliable behind blocking ISPs, so the flags ship with the app. */
+function LanguageFlag({ src, code, className }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <span
+        className={`inline-flex items-center justify-center rounded-[3px] bg-white/10 text-[8px] font-bold tracking-wide text-white/80 ${className}`}
+        aria-hidden="true"
+      >
+        {code.toUpperCase()}
+      </span>
+    );
+  }
+  return (
+    <img
+      alt=""
+      className={className}
+      src={src}
+      decoding="async"
+      onError={() => setFailed(true)}
+    />
+  );
+}
 
 const SEEK_TIMES = [
   { value: 5, label: "5 seconds" },
@@ -1386,8 +1412,8 @@ export default function SettingsPage() {
                           className="flex items-center gap-2 px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all duration-300 backdrop-blur-md group min-w-[160px] justify-between"
                         >
                           <span className="flex items-center gap-2.5 min-w-0 text-sm font-medium text-white/90">
-                            <img
-                              alt=""
+                            <LanguageFlag
+                              code={activeLang.code}
                               className="w-5 h-3.5 rounded-[3px] object-cover shrink-0"
                               src={activeLang.flag}
                             />
@@ -1421,14 +1447,19 @@ export default function SettingsPage() {
                                     onClick={() => {
                                       setPreference("defaultLanguage", l.code);
                                       selectFromDropdown("lang");
+                                      toast({
+                                        type: "success",
+                                        title: "Default Language",
+                                        message: `Subtitles will auto-select in ${l.name} when available.`,
+                                      });
                                     }}
                                     className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
                                       selected ? "settings-dropdown-item is-selected" : "settings-dropdown-item text-white/70 hover:text-white"
                                     }`}
                                   >
                                     <span className="flex items-center gap-2.5">
-                                      <img
-                                        alt=""
+                                      <LanguageFlag
+                                        code={l.code}
                                         className="w-4 h-3 rounded-[2px] object-cover shrink-0"
                                         src={l.flag}
                                       />
