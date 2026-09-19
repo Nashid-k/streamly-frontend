@@ -7,6 +7,29 @@
 
 ## Done (in order)
 
+- [x] **Settings page rebuilt from scratch on the movies/series/my-list design
+  language (user directive: “improve our complete settings ui/ux to exactly
+  resemble our movies/series/my list page of glass blur gradients etc —
+  COMPLETE CHANGE OF SETTINGS FROM SCRATCH”)**: `SettingsPage.jsx` outer chrome
+  rewritten to mirror the browse pages — `AmbientBackground fallback` liquid
+  backdrop, `discovery-page` glass header (big `text-4xl/5xl` title + soft
+  `text-lg` subtitle + section-count chip + back pill), frosted capsule search
+  field with focus-within accent, and the section tabs restyled from
+  underline-tabs into the movies/series frosted capsule pills (inactive = ghost
+  `bg-white/5`, active = accent-tinted `#95ff50` like `ACCENT_PILL`), now wired
+  into the header toolbar instead of the old sticky dock (docking effects,
+  `--dock-top` geometry, `IntersectionObserver`, active-tab centering and the
+  `navDocked`/`navRef`/`headerRef` machinery removed). Theme / Seek Time /
+  Default Language popups now use the shared `.discovery-menu` liquid-glass
+  panels with the accented `.settings-dropdown-item.is-selected` recipe; all
+  seven `glass-card` sections carry the new `.settings-section` accent hairline.
+  **Functionality untouched**: every preference/localStorage key, tab (URL
+  `?tab=`), search filter (`SECTION_SEARCH_TERMS`), dropdown ARIA (listbox/
+  option/dialog), Reorder server list, toggles, segment control, sign-in modal
+  focus trap, Reset + ConfirmDialog — all identical; `SettingsPage.test.jsx`
+  passes unchanged (10/10). Verified: lint 0 errors (warnings all pre-existing),
+  vitest 38 files / 374/374 tests, build OK (1.45s).
+
 - [x] **VidCore (Server 5) is a plain iframe passthrough — its native control bar
   is the only transport (user directive: “let it use its iframe, no need to
   connect it to our custom player such that all its controller everything will

@@ -11,6 +11,7 @@ import {
   Bell,
   LayoutGrid,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   Check,
   X,
@@ -24,7 +25,7 @@ import {
 } from "lucide-react";
 import SEO from "../components/SEO";
 import PlayerPreview from "../components/PlayerPreview.jsx";
-import ContentPageHeader from "../components/ContentPageHeader";
+import AmbientBackground from "../components/AmbientBackground";
 import { usePreferences } from "../context/preferences";
 import { useAppAuth, useSyncStatus } from "../context/auth";
 import GoogleSignInButton, { GoogleLogoIcon } from "../components/GoogleSignInButton.jsx";
@@ -387,7 +388,6 @@ export default function SettingsPage() {
   const [openDropdown, setOpenDropdown] = useState(null);
   const [showSignInModal, setShowSignInModal] = useState(false);
   const [signInTab, setSignInTab] = useState("signin");
-  const [navDocked, setNavDocked] = useState(false);
 
   // Auth / Accounts state — the context is the SINGLE source of truth for the
   // profile. This page previously kept a shadow `localUser` copy in useState
@@ -454,8 +454,6 @@ export default function SettingsPage() {
   // outside click only closes that menu, and only one menu can be open at a
   // time (the shared state is a single name, not three booleans).
   const sectionsTopRef = useRef(null);
-  const headerRef = useRef(null);
-  const navRef = useRef(null);
   const themeWrapRef = useRef(null);
   const seekWrapRef = useRef(null);
   const langWrapRef = useRef(null);
@@ -540,69 +538,6 @@ export default function SettingsPage() {
     options[next]?.focus();
   };
 
-  // Cinejoy settings-nav docking: the tab pill starts transparent and
-  // gains a frosted glass surface (is-docked) once the header scrolls off.
-  useEffect(() => {
-    if (!headerRef.current || typeof IntersectionObserver !== "function") return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setNavDocked(!entry.isIntersecting),
-      { threshold: 0 },
-    );
-    observer.observe(headerRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  // Cinejoy dock geometry: `--dock-top` centres the sticky pill inside the
-  // live floating header band (so it glides up as the header condenses) and
-  // `--dock-left` aligns it just right of the brand on narrow viewports. Both
-  // are written to CSS vars, so the `.settings-nav` `top`/`margin` transitions
-  // animate exactly like the real site.
-  useEffect(() => {
-    const nav = navRef.current;
-    if (!nav || typeof window === "undefined") return;
-    const header = document.querySelector(".header-row");
-    const brand = document.querySelector(".app-brand-link");
-
-    let rafId = 0;
-    const measure = () => {
-      rafId = 0;
-      const headerH = header?.offsetHeight ?? 56;
-      const navH = nav.offsetHeight || 40;
-      const top = Math.max(6, Math.round((headerH - navH) / 2));
-      nav.style.setProperty("--dock-top", `${top}px`);
-
-      if (window.innerWidth <= 1023 && brand) {
-        // navLeft = parentLeft + used margin-left, so the true parent origin
-        // is recoverable even while the pill is still auto-centred.
-        const currentMargin = parseFloat(getComputedStyle(nav).marginLeft) || 0;
-        const parentLeft = nav.getBoundingClientRect().left - currentMargin;
-        const desiredLeft = brand.getBoundingClientRect().right + 10;
-        nav.style.setProperty("--dock-left", `${Math.max(0, Math.round(desiredLeft - parentLeft))}px`);
-      } else {
-        nav.style.setProperty("--dock-left", "0px");
-      }
-    };
-    const schedule = () => {
-      if (rafId) return;
-      rafId = window.requestAnimationFrame(measure);
-    };
-
-    measure();
-    window.addEventListener("resize", schedule);
-    let resizeObserver;
-    if (typeof ResizeObserver === "function") {
-      resizeObserver = new ResizeObserver(schedule);
-      if (header) resizeObserver.observe(header);
-      resizeObserver.observe(nav);
-    }
-    if (document.fonts?.ready) document.fonts.ready.then(schedule).catch(() => {});
-    return () => {
-      window.removeEventListener("resize", schedule);
-      resizeObserver?.disconnect();
-      if (rafId) window.cancelAnimationFrame(rafId);
-    };
-  }, []);
-
   // Lock body scroll while the sign-in modal is open, move focus into the
   // panel, trap Tab inside it, allow Escape to dismiss, and return focus to
   // the element that opened it on close.
@@ -666,9 +601,9 @@ export default function SettingsPage() {
 
   // Tabs are filters: "All" shows every section, any other tab isolates one.
   // The active tab lives in the URL (?tab=servers) so it survives refresh and
-  // is shareable. After switching, bring the sections list into view under
-  // the sticky bar — honouring the Reduce Motion preference, which the plain
-  // CSS media query can't see.
+  // is shareable. After switching, bring the sections list into view —
+  // honouring the Reduce Motion preference, which the plain CSS media query
+  // can't see.
   const handleTabClick = (tabId) => {
     setActiveTab(tabId);
     setSearchParams({ tab: tabId }, { replace: true });
@@ -690,20 +625,6 @@ export default function SettingsPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
-
-  // Keep the active tab in view inside the horizontally scrollable pill. On
-  // narrow screens several tabs sit off-screen; centre the active one the
-  // moment it changes (honouring Reduce Motion).
-  useEffect(() => {
-    const nav = navRef.current;
-    const active = nav?.querySelector(".settings-tab.is-active");
-    if (!nav || !active) return;
-    scrollIntoViewIfSupported(active, {
-      inline: "center",
-      block: "nearest",
-      behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ? "auto" : "smooth",
-    });
-  }, [activeTab, navDocked]);
 
   // Server reordering — drag-and-drop (mouse + touch via Reorder) and
   // keyboard (ArrowUp/ArrowDown on a focused row) land here. The order is
@@ -805,76 +726,97 @@ export default function SettingsPage() {
       : `${visibleCount} setting section${visibleCount === 1 ? "" : "s"} shown.`;
 
   return (
-    <div className="main-content content-page settings-page min-h-screen">
+    <div className="settings-page min-h-screen" style={{ position: "relative" }}>
       <SEO title="Settings - Streamly" description="Configure player, servers, appearance, subtitles and accounts." />
       {/* Visually-hidden results live region: announces search/tab filtering
           to screen readers without stealing focus or scroll position. */}
       <p className="sr-only" role="status" aria-live="polite">{liveSummary}</p>
+      {/* Ambient liquid backdrop — the exact movies/series/my-list background */}
+      <AmbientBackground fallback />
       <div className="settings-page__glow" aria-hidden="true" />
 
-      <div className="relative z-10 pt-4 md:pt-8 pb-28 px-4 sm:px-6 md:px-10 lg:px-14">
-        <div className="mx-auto max-w-[780px]">
-          {/* Header Row — ContentPageHeader brings the same design language as
-              the movies/series browse pages (eyebrow, big title, count, back). */}
-          <div ref={headerRef}>
-            <ContentPageHeader
-              eyebrow="Preferences"
-              title="Settings"
-              description="Tune playback, servers, subtitles and notifications to your taste."
-              count={visibleCount}
-              onBack={() => (location.key === "default" ? navigate("/") : navigate(-1))}
-              backLabel="Back"
-            />
-          </div>
-
-          {/* Sticky section tabs — Cinejoy .settings-nav docking: transparent
-              until scrolled, then a frosted glass pill (is-docked). */}
-          <>
-            {/* Quick Search Bar */}
-            <div className="mb-3 relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Filter settings..."
-                aria-label="Filter settings"
-                className="w-full bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.16] focus:border-white/[0.28] rounded-2xl py-3 pl-11 pr-10 text-sm text-white placeholder-white/40 backdrop-blur-md outline-none transition-all"
-              />
-              {query && (
+      <div className="discovery-page relative z-10">
+        {/* Header — discovery-page block: same scale, glow and layout as the
+            movies/series/my-list pages (big title, subtitle, frosted pills). */}
+        <header className="relative mx-auto max-w-[1600px] pt-24 pb-8 px-4 md:px-10 lg:px-14">
+          <div className="relative pt-12 pb-6 px-2 md:px-4">
+            <div className="flex flex-col xl:flex-row gap-8 xl:gap-10 items-start xl:items-end justify-between">
+              <div className="max-w-xl">
                 <button
-                  onClick={() => setQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-white/40 hover:text-white"
-                  aria-label="Clear search"
+                  type="button"
+                  onClick={() => (location.key === "default" ? navigate("/") : navigate(-1))}
+                  className="group flex items-center gap-1.5 text-sm font-medium text-white/60 transition-colors mb-4 hover:text-white/90"
                 >
-                  <X className="w-4 h-4" />
+                  <ChevronLeft
+                    size={15}
+                    className="w-4 h-4 transition-transform group-hover:-translate-x-0.5"
+                  />
+                  Back
                 </button>
-              )}
-            </div>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white drop-shadow-lg">
+                    Settings
+                  </h1>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-0.5 text-[0.7rem] font-medium text-white/60">
+                    {visibleCount} section{visibleCount === 1 ? "" : "s"}
+                  </span>
+                </div>
+                <p className="mt-3 text-lg text-white/70 font-medium leading-relaxed">
+                  Tune playback, servers, subtitles and notifications to your taste.
+                </p>
+              </div>
 
-            {/* Section Tabs (All + filters) */}
-            <nav ref={navRef} aria-label="Settings sections" className={`settings-nav${navDocked ? " is-docked" : ""}`}>
-              {TABS.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    aria-pressed={isActive}
-                    aria-controls={tab.id === "all" ? "settings-sections" : `section-${tab.id}`}
-                    className={`settings-tab${isActive ? " is-active" : ""}`}
-                    onClick={() => handleTabClick(tab.id)}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </nav>
-          </>
+              {/* Toolbar — frosted search capsule + section pills, the same
+                  controls as the movies/series/my-list pages */}
+              <div className="flex flex-col items-stretch gap-3 w-full xl:w-auto">
+                <div className="flex items-center gap-2 w-full md:w-72 px-3 md:px-4 py-2 bg-white/5 border border-white/10 rounded-full backdrop-blur-md transition-all duration-300 focus-within:border-[#95ff50]/40 min-w-0">
+                  <Search size={14} className="w-4 h-4 shrink-0 text-white/40" />
+                  <input
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Filter settings..."
+                    aria-label="Filter settings"
+                    className="w-full min-w-0 bg-transparent outline-none text-sm text-white/90 placeholder:text-white/35"
+                  />
+                  {query && (
+                    <button
+                      type="button"
+                      onClick={() => setQuery("")}
+                      aria-label="Clear search"
+                      className="shrink-0 text-white/50 hover:text-white transition-colors"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+
+                <nav aria-label="Settings sections" className="settings-nav">
+                  {TABS.map((tab) => {
+                    const Icon = tab.icon;
+                    const isActive = activeTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        aria-pressed={isActive}
+                        aria-controls={tab.id === "all" ? "settings-sections" : `section-${tab.id}`}
+                        className={`settings-tab${isActive ? " is-active" : ""}`}
+                        onClick={() => handleTabClick(tab.id)}
+                      >
+                        <Icon className="h-4 w-4 shrink-0" />
+                        {tab.label}
+                      </button>
+                    );
+                  })}
+                </nav>
+              </div>
+            </div>
+          </div>
+        </header>
 
           {/* Sections Stack — filtered by the active tab ("All" shows everything) */}
+          <div className="mx-auto max-w-[1600px] px-4 md:px-10 lg:px-14 pb-20">
           <div id="settings-sections" className="space-y-6 settings-sections" ref={sectionsTopRef}>
             {nothingVisible && (
               <div className="glass-card text-center py-10 px-6" role="status">
@@ -904,7 +846,7 @@ export default function SettingsPage() {
             )}
             {/* ── 1. ACCOUNT SECTION ── */}
             {sectionVisible.account && (
-              <section id="account" className="glass-card">
+              <section id="account" className="glass-card settings-section">
                 <div className="section-header">
                   <h2 className="section-title">Account</h2>
                   <p className="section-subtitle">
@@ -1059,7 +1001,7 @@ export default function SettingsPage() {
 
             {/* ── 2. APPEARANCE SECTION ── */}
             {sectionVisible.appearance && (
-              <section id="appearance" className="glass-card">
+              <section id="appearance" className="glass-card settings-section">
                 <div className="section-header">
                   <h2 className="section-title">Appearance</h2>
                   <p className="section-subtitle">
@@ -1119,7 +1061,7 @@ export default function SettingsPage() {
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: 8, scale: 0.96 }}
                               transition={{ duration: 0.15 }}
-                              className="absolute right-0 top-full mt-2 w-64 rounded-2xl p-2 shadow-2xl z-50 settings-dropdown"
+                              className="absolute right-0 top-full mt-2 w-64 rounded-2xl p-2 shadow-2xl z-50 discovery-menu settings-dropdown"
                             >
                               <div role="listbox" aria-label="Theme presets" className="flex flex-col gap-1">
                                 {THEMES.map((t) => {
@@ -1310,7 +1252,7 @@ export default function SettingsPage() {
 
             {/* ── 3. PLAYBACK SECTION ── */}
             {sectionVisible.playback && (
-              <section id="playback" className="glass-card">
+              <section id="playback" className="glass-card settings-section">
                 <div className="section-header">
                   <h2 className="section-title">Playback</h2>
                   <p className="section-subtitle">
@@ -1380,7 +1322,7 @@ export default function SettingsPage() {
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: 8, scale: 0.96 }}
                               transition={{ duration: 0.15 }}
-                              className="absolute right-0 top-full mt-2 w-44 rounded-2xl p-2 shadow-2xl z-50 flex flex-col gap-1 settings-dropdown"
+                              className="absolute right-0 top-full mt-2 w-44 rounded-2xl p-2 shadow-2xl z-50 flex flex-col gap-1 discovery-menu settings-dropdown"
                             >
                               {SEEK_TIMES.map((st) => {
                                 const selected = Number(seekTime) === st.value;
@@ -1465,7 +1407,7 @@ export default function SettingsPage() {
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: 8, scale: 0.96 }}
                               transition={{ duration: 0.15 }}
-                              className="absolute right-0 top-full mt-2 w-52 max-h-60 overflow-y-auto rounded-2xl p-2 shadow-2xl z-50 flex flex-col gap-1 settings-dropdown"
+                              className="absolute right-0 top-full mt-2 w-52 max-h-60 overflow-y-auto rounded-2xl p-2 shadow-2xl z-50 flex flex-col gap-1 discovery-menu settings-dropdown"
                             >
                               {LANGUAGES.map((l) => {
                                 const selected = defaultLanguage === l.code;
@@ -1520,7 +1462,7 @@ export default function SettingsPage() {
 
             {/* ── 4. SERVER ORDER SECTION ── */}
             {sectionVisible.servers && (
-              <section id="servers" className="glass-card">
+              <section id="servers" className="glass-card settings-section">
                 <div className="section-header flex items-center justify-between">
                   <div>
                     <h2 className="section-title">Server Order</h2>
@@ -1544,7 +1486,7 @@ export default function SettingsPage() {
 
             {/* ── 5. SUBTITLES SECTION ── */}
             {sectionVisible.subtitles && (
-              <section id="subtitles" className="glass-card">
+              <section id="subtitles" className="glass-card settings-section">
                 <div className="section-header">
                   <h2 className="section-title">Subtitles</h2>
                   <p className="section-subtitle">
@@ -1619,7 +1561,7 @@ export default function SettingsPage() {
 
             {/* ── 6. IN-APP NOTIFICATIONS ── */}
             {sectionVisible.notifications && (
-              <section id="notifications" className="glass-card">
+              <section id="notifications" className="glass-card settings-section">
                 <div className="section-header">
                   <h2 className="section-title">Notifications</h2>
                   <p className="section-subtitle">
@@ -1644,7 +1586,7 @@ export default function SettingsPage() {
 
             {/* ── 7. FACTORY RESET PREFERENCES ── */}
             {sectionVisible.reset && (
-              <section id="reset-preferences" className="glass-card">
+              <section id="reset-preferences" className="glass-card settings-section">
                 <div className="section-header">
                   <h2 className="section-title">Reset All Preferences</h2>
                   <p className="section-subtitle">

@@ -5550,111 +5550,92 @@ html[data-theme="custom"] {
   --accent-glow: rgba(0,0,0,0.4) !important;
 }
 
-/* ── Settings Nav Tabs (Cinejoy .settings-nav / .settings-tab recipe) ── */
+/* ── Settings Nav Tabs (Cinejoy capsule pills) ───────────────────────────────
+   Mirrors the movies/series/my-list toolbar: frosted capsule triggers that
+   wrap on narrow screens, active pill tinted with the interface accent. */
 .settings-nav {
-  position: sticky;
-  top: var(--dock-top, 84px);
-  z-index: 30;
-  width: fit-content;
-  max-width: 100%;
-  margin-inline: auto;
   display: flex;
   align-items: center;
-  justify-content: center;
-  justify-content: safe center;
-  gap: 1.75rem;
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding: 0 0.25rem;
-  border: 1px solid transparent;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  max-width: 100%;
+  padding: 0.3rem;
   border-radius: 9999px;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
-  transition: top 0.26s cubic-bezier(0.4, 0, 0.2, 1),
-    padding 0.26s cubic-bezier(0.4, 0, 0.2, 1),
-    background-color 0.26s ease,
-    border-color 0.26s ease,
-    box-shadow 0.26s ease;
 }
 
 .settings-nav::-webkit-scrollbar {
   display: none;
 }
 
-/* Docked state: frosted glass pill when scrolled past the header. Applied
-   by SettingsPage scroll observer adding/removing the class. */
-.settings-nav.is-docked {
-  padding: 0.25rem 1.25rem;
-  background: rgba(12, 12, 14, 0.55);
-  border-color: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.07),
-    0 8px 30px rgba(0, 0, 0, 0.35);
-}
-
-/* Themed docked state */
-html[data-theme]:not([data-theme=default]) .settings-nav.is-docked {
-  background: color-mix(in srgb, var(--theme-global-accentA, var(--accent-primary)) 10%, rgba(12, 12, 14, 0.6));
-  border-color: color-mix(in srgb, var(--theme-global-accentA, var(--accent-primary)) 18%, rgba(255, 255, 255, 0.1));
-}
-
-@media (max-width: 1023px) {
-  .settings-nav.is-docked {
-    margin-left: var(--dock-left, 0px);
-    margin-right: 0;
-    max-width: calc(100% - var(--dock-left, 0px));
-    justify-content: flex-start;
-  }
-
-  /* Narrow screens overflow the pill: tighten the gaps, snap tabs, and fade
-     the edges so it reads as horizontally scrollable. The fade is skipped
-     while docked because a mask over backdrop-filter can smear the glass. */
-  .settings-nav {
-    gap: 1.1rem;
-    scroll-snap-type: x proximity;
-    scroll-padding-inline: 1rem;
-  }
-
-  .settings-nav:not(.is-docked) {
-    mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent);
-    -webkit-mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent);
-  }
-
-  .settings-tab {
-    scroll-snap-align: center;
-  }
-}
-
+/* Capsule pill tabs — ghost until active, then the accent disc like the
+   movies/series filter pills. */
 .settings-tab {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
   flex: none;
-  padding: 0.5rem 0.4rem;
-  min-height: 44px;
-  border: none;
-  border-bottom: 2px solid transparent;
-  background: none;
-  color: rgba(255, 255, 255, 0.65);
-  font-size: 14px;
-  font-weight: 500;
+  padding: 0.5rem 1rem;
+  min-height: 40px;
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 13px;
+  font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
-  transition: color 0.2s ease, border-color 0.2s ease;
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
 }
 
 .settings-tab:hover {
-  color: rgba(255, 255, 255, 0.9);
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .settings-tab.is-active {
-  color: #fff;
-  border-bottom-color: #fff;
+  color: #95ff50;
+  border-color: rgba(149, 255, 80, 0.4);
+  background: rgba(149, 255, 80, 0.1);
 }
 
 html[data-theme]:not([data-theme=default]) .settings-tab.is-active {
-  border-bottom-color: var(--theme-global-accentA, var(--accent-primary));
+  color: var(--theme-global-accentA, var(--accent-primary));
+  border-color: color-mix(in srgb, var(--theme-global-accentA, var(--accent-primary)) 40%, transparent);
+  background: color-mix(in srgb, var(--theme-global-accentA, var(--accent-primary)) 10%, transparent);
+}
+
+/* Dropdown option rows — match the discovery MenuItem recipe (accent-tinted
+   selection with a check). */
+.settings-dropdown-item {
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.settings-dropdown-item.is-selected {
+  background: rgba(149, 255, 80, 0.1);
+}
+
+html[data-theme]:not([data-theme=default]) .settings-dropdown-item.is-selected {
+  background: color-mix(in srgb, var(--theme-global-accentA, var(--accent-primary)) 12%, transparent);
+}
+
+/* Settings cards — a fine accent hairline along the bottom edge so each card
+   wears the same accent thread as the discovery rail headers. */
+.settings-section::after {
+  content: "";
+  position: absolute;
+  left: 1.5rem;
+  right: 1.5rem;
+  bottom: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(149, 255, 80, 0.35), transparent);
+}
+
+html[data-theme]:not([data-theme=default]) .settings-section::after {
+  background: linear-gradient(90deg, transparent, var(--theme-global-accentA, var(--accent-primary)), transparent);
 }
 
 /* Inline controls in setting rows (View List, Sync Now, ...) that would
@@ -7096,9 +7077,8 @@ html[data-theme]:not([data-theme=default]) .toggle.toggle-on {
   pointer-events: none;
 }
 
-/* Refraction hosts. `.settings-nav` stays `sticky`, `.glass-popover` /
-   `.settings-dropdown` stay `absolute` via their own utilities — so only the
-   plain cards/panels get `position: relative` here. `isolation` keeps the
+/* Refraction hosts. The dropdowns stay `absolute` via their own utilities,
+   cards/panels get `position: relative` here. `isolation` keeps the
    negative-z refraction layer from escaping behind the page. */
 .settings-page .glass-card,
 .login-panel {
@@ -7106,7 +7086,6 @@ html[data-theme]:not([data-theme=default]) .toggle.toggle-on {
 }
 
 .settings-page .glass-card,
-.settings-nav.is-docked,
 .settings-dropdown,
 .glass-popover,
 .login-panel {
@@ -7118,7 +7097,6 @@ html[data-theme]:not([data-theme=default]) .toggle.toggle-on {
    only: a 4x-CPU scroll probe showed the ripple costing ~20-25% of frame
    time on /settings, so cards/dropdowns keep only the cheap sheen. */
 .settings-page .glass-card::before,
-.settings-nav.is-docked::before,
 .settings-dropdown::before,
 .glass-popover::before,
 .login-panel::before {
@@ -7137,7 +7115,6 @@ html[data-theme]:not([data-theme=default]) .toggle.toggle-on {
 }
 
 /* Blur + displacement ripple only where it pays for itself. */
-.settings-nav.is-docked::before,
 .login-panel::before {
   backdrop-filter: blur(4px) saturate(150%);
   -webkit-backdrop-filter: blur(4px) saturate(150%);
@@ -7145,7 +7122,6 @@ html[data-theme]:not([data-theme=default]) .toggle.toggle-on {
 
 /* Displacement ripple only when motion is welcome. */
 @media (prefers-reduced-motion: no-preference) {
-  .settings-nav.is-docked::before,
   .login-panel::before {
     filter: url(#streamly-lg-dist);
     -webkit-filter: url(#streamly-lg-dist);
@@ -7154,7 +7130,6 @@ html[data-theme]:not([data-theme=default]) .toggle.toggle-on {
 
 /* Liquid inner rim + deep drop — the Cinejoy composition. */
 .settings-page .glass-card,
-.settings-nav.is-docked,
 .settings-dropdown,
 .glass-popover,
 .login-panel {
@@ -7364,7 +7339,6 @@ html[data-theme]:not([data-theme=default]) .theme-glass-tint {
 /* ── Graceful fallback when the browser cannot blur ─────────────────── */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .settings-page .glass-card,
-  .settings-nav.is-docked,
   .settings-dropdown,
   .glass-popover,
   .login-panel,
@@ -7381,7 +7355,7 @@ html[data-theme]:not([data-theme=default]) .theme-glass-tint {
   }
 
   .settings-page .glass-card::before,
-  .settings-nav.is-docked::before,
+  .settings-dropdown::before,
   .settings-dropdown::before,
   .glass-popover::before,
   .login-panel::before {
