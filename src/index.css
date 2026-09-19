@@ -201,6 +201,23 @@ button {
   cursor: pointer;
 }
 
+/* No Tailwind preflight here (the bundle imports only theme+utilities), so
+   raw inputs kept the browser's native `2px inset` border + opaque box — a
+   hard rectangle peeking through every pill/capsule search field (Settings,
+   Home, movies/series/my-list, history, search). Strip the UA chrome so bare
+   inputs are invisible chrome inside their glass frosted capsules. Styled
+   controls win by specificity: `.login-field`, `.collection-dialog__input`,
+   `.settings-search__input`, `.search-panel__input` and Tailwind border/bg
+   utilities all outrank this (0,0,1). Color/range/checkbox/radio keep native
+   appearance for their picker/thumb UI. */
+input:not([type="color"]):not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+select,
+textarea {
+  border: none;
+  background: transparent;
+  color: inherit;
+}
+
 ::selection {
   background: rgba(var(--accent-primary-rgb), 0.35);
   color: #fff;

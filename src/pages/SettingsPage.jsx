@@ -32,6 +32,7 @@ import GoogleSignInButton, { GoogleLogoIcon } from "../components/GoogleSignInBu
 import { useToast } from "../components/Toast.jsx";
 import { useConfirmDialog } from "../components/ConfirmDialog.jsx";
 import { logDebug } from "../utils/debugLogger";
+import { useI18n } from "../i18n";
 
 const THEMES = [
   {
@@ -401,6 +402,7 @@ function ServerOrderList({ list, onReorder, onMoveKeyboard }) {
 }
 
 export default function SettingsPage() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -678,25 +680,24 @@ export default function SettingsPage() {
     setPreference("serverOrder", [...DEFAULT_SERVER_ORDER]);
     toast({
       type: "info",
-      title: "Servers Reset",
-      message: "Server priority reset to factory default.",
+      title: t("settings.toasts.serversReset"),
+      message: t("settings.servers.resetOrderToast"),
     });
   };
 
   const handleResetAllPreferences = async () => {
     const confirmed = await confirmDialog({
-      title: "Reset All Preferences?",
-      message:
-        "This will restore your theme and playback preferences to default settings. Your saved watchlist and watch history will remain untouched.",
-      confirmLabel: "Reset to Defaults",
-      cancelLabel: "Cancel",
+      title: t("settings.reset.confirmTitle"),
+      message: t("settings.reset.confirmMessage"),
+      confirmLabel: t("settings.reset.confirmLabel"),
+      cancelLabel: t("settings.reset.cancelLabel"),
     });
     if (!confirmed) return;
     resetPreferences?.();
     toast({
       type: "success",
-      title: "Preferences Reset",
-      message: "All settings have been restored to defaults.",
+      title: t("settings.toasts.preferencesReset"),
+      message: t("settings.reset.successToast"),
     });
   };
 
@@ -706,8 +707,10 @@ export default function SettingsPage() {
     setShowSignInModal(false);
     toast({
       type: "success",
-      title: "Signed In",
-      message: `Welcome back, ${name || "Streamly Viewer"}!`,
+      title: t("settings.toasts.signedIn"),
+      message: t("settings.account.signedInToast", {
+        name: name || t("settings.account.defaultName"),
+      }),
     });
   };
 
@@ -715,8 +718,8 @@ export default function SettingsPage() {
     auth?.logout();
     toast({
       type: "info",
-      title: "Signed Out",
-      message: "You have signed out of your account.",
+      title: t("settings.toasts.signedOut"),
+      message: t("settings.toasts.signedOutMsg"),
     });
   };
 
@@ -748,8 +751,10 @@ export default function SettingsPage() {
   const nothingVisible = visibleCount === 0;
   const liveSummary =
     visibleCount === 0
-      ? "No settings sections match."
-      : `${visibleCount} setting section${visibleCount === 1 ? "" : "s"} shown.`;
+      ? t("settings.noSections")
+      : visibleCount === 1
+      ? t("settings.sectionsShownOne")
+      : t("settings.sectionsShownMany", { n: visibleCount });
 
   return (
     <div className="settings-page min-h-screen" style={{ position: "relative" }}>
@@ -777,18 +782,20 @@ export default function SettingsPage() {
                     size={15}
                     className="w-4 h-4 transition-transform group-hover:-translate-x-0.5"
                   />
-                  Back
+                  {t("common.back")}
                 </button>
                 <div className="flex items-center gap-3">
                   <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white drop-shadow-lg">
-                    Settings
+                    {t("settings.title")}
                   </h1>
                   <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-0.5 text-[0.7rem] font-medium text-white/60">
-                    {visibleCount} section{visibleCount === 1 ? "" : "s"}
+                    {visibleCount === 1
+                      ? t("settings.sectionCountOne")
+                      : t("settings.sectionCountMany", { n: visibleCount })}
                   </span>
                 </div>
                 <p className="mt-3 text-lg text-white/70 font-medium leading-relaxed">
-                  Tune playback, servers, subtitles and notifications to your taste.
+                  {t("settings.subtitle")}
                 </p>
               </div>
 
@@ -801,15 +808,15 @@ export default function SettingsPage() {
                     type="text"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Filter settings..."
-                    aria-label="Filter settings"
+                    placeholder={t("settings.filter")}
+                    aria-label={t("settings.filter")}
                     className="w-full min-w-0 bg-transparent outline-none text-sm text-white/90 placeholder:text-white/35"
                   />
                   {query && (
                     <button
                       type="button"
                       onClick={() => setQuery("")}
-                      aria-label="Clear search"
+                      aria-label={t("common.clearSearch")}
                       className="shrink-0 text-white/50 hover:text-white transition-colors"
                     >
                       <X size={14} />
@@ -817,7 +824,7 @@ export default function SettingsPage() {
                   )}
                 </div>
 
-                <nav aria-label="Settings sections" className="settings-nav">
+                <nav aria-label={t("settings.navSections")} className="settings-nav">
                   {TABS.map((tab) => {
                     const Icon = tab.icon;
                     const isActive = activeTab === tab.id;
@@ -831,7 +838,7 @@ export default function SettingsPage() {
                         onClick={() => handleTabClick(tab.id)}
                       >
                         <Icon className="h-4 w-4 shrink-0" />
-                        {tab.label}
+                        {t(`settings.tabs.${tab.id}`)}
                       </button>
                     );
                   })}
@@ -846,8 +853,16 @@ export default function SettingsPage() {
           <div id="settings-sections" className="space-y-6 settings-sections" ref={sectionsTopRef}>
             {nothingVisible && (
               <div className="glass-card text-center py-10 px-6" role="status">
-                <p className="text-white/80 font-semibold">No settings match{q ? ` “${query.trim()}”` : ""}{activeTab !== "all" ? " in this section" : ""}.</p>
-                <p className="section-subtitle mt-1">Try a different search, or switch back to All.</p>
+                <p className="text-white/80 font-semibold">
+                  {q && activeTab !== "all"
+                    ? t("settings.emptyQuerySection", { q: query.trim() })
+                    : q
+                    ? t("settings.emptyQuery", { q: query.trim() })
+                    : activeTab !== "all"
+                    ? t("settings.emptySection")
+                    : t("settings.emptyNoMatch")}
+                </p>
+                <p className="section-subtitle mt-1">{t("settings.emptyHint")}</p>
                 <div className="mt-4 flex items-center justify-center gap-2 flex-wrap">
                   {q && (
                     <button
@@ -855,7 +870,7 @@ export default function SettingsPage() {
                       onClick={() => setQuery("")}
                       className="px-4 py-2 text-xs font-semibold rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors border-none"
                     >
-                      Clear search
+                      {t("common.clearSearch")}
                     </button>
                   )}
                   {activeTab !== "all" && (
@@ -864,7 +879,7 @@ export default function SettingsPage() {
                       onClick={() => handleTabClick("all")}
                       className="px-4 py-2 text-xs font-semibold rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors border-none"
                     >
-                      Show all
+                      {t("common.showAll")}
                     </button>
                   )}
                 </div>
@@ -874,9 +889,9 @@ export default function SettingsPage() {
             {sectionVisible.account && (
               <section id="account" className="glass-card settings-section">
                 <div className="section-header">
-                  <h2 className="section-title">Account</h2>
+                  <h2 className="section-title">{t("settings.tabs.account")}</h2>
                   <p className="section-subtitle">
-                    Sign in to sync your settings and watch progress across devices.
+                    {t("settings.account.signInDesc")}
                   </p>
                 </div>
 
@@ -899,7 +914,7 @@ export default function SettingsPage() {
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="setting-title">
-                            {user ? user.name || user.email : "Not signed in"}
+                            {user ? user.name || user.email : t("settings.account.signedOut")}
                           </span>
                           {user?.provider === "google" && (
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center gap-1">
@@ -909,8 +924,8 @@ export default function SettingsPage() {
                         </div>
                         <span className="setting-desc">
                           {user
-                            ? user.email || "Your profile and library are actively synchronized."
-                            : "Sign in with Google to sync your watchlist and settings across devices."}
+                            ? user.email || t("settings.account.syncActive")
+                            : t("settings.account.signInGoogleHint")}
                         </span>
                       </div>
                     </div>
@@ -921,7 +936,7 @@ export default function SettingsPage() {
                           className="glassy-button"
                         >
                           <LogOut className="w-4 h-4" />
-                          Sign Out
+                          {t("settings.account.signOut")}
                         </button>
                       ) : (
                         <div className="flex items-center gap-2">
@@ -930,7 +945,7 @@ export default function SettingsPage() {
                             className="glassy-button glassy-button--primary px-5 py-2.5 text-[14px]"
                           >
                             <User className="w-4 h-4" />
-                            Sign In
+                            {t("settings.account.signIn")}
                           </button>
                         </div>
                       )}
@@ -941,20 +956,22 @@ export default function SettingsPage() {
                   <div className="setting-row mt-2 pt-2 border-t border-white/[0.06]">
                     <div className="setting-meta">
                       <div className="flex items-center gap-2">
-                        <span className="setting-title">Cloud Sync</span>
+                        <span className="setting-title">{t("settings.account.cloudSync")}</span>
                         <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                          Connected
+                          {t("settings.account.connected")}
                         </span>
                       </div>
                       <span className="setting-desc">
                         {user
                           ? syncStatus === "syncing"
-                            ? "Synchronizing your watchlist and history..."
+                            ? t("settings.account.syncingMsg")
                             : lastSyncedAt
-                            ? `Last synced: ${new Date(lastSyncedAt).toLocaleTimeString()}`
-                            : "Your library and watch history are synchronized with your account."
-                          : "Sign in to sync your watchlist and settings across devices."}
+                            ? t("settings.account.lastSynced", {
+                                time: new Date(lastSyncedAt).toLocaleTimeString(),
+                              })
+                            : t("settings.account.synced")
+                          : t("settings.account.signInGoogleHint")}
                       </span>
                     </div>
                     {user && (
@@ -965,15 +982,15 @@ export default function SettingsPage() {
                               await auth?.syncToCloud?.();
                               toast({
                                 type: "success",
-                                title: "Cloud Sync",
-                                message: "Your watchlist and progress are up to date.",
+                                title: t("settings.account.cloudSync"),
+                                message: t("settings.toasts.cloudSyncOk"),
                               });
                             } catch (error) {
                               logDebug("settings", "Cloud sync failed.", { message: error?.message });
                               toast({
                                 type: "error",
-                                title: "Sync Failed",
-                                message: "Could not reach the sync service. Try again later.",
+                                title: t("settings.toasts.syncFailed"),
+                                message: t("settings.toasts.syncFailedMsg"),
                               });
                             }
                           }}
@@ -981,7 +998,7 @@ export default function SettingsPage() {
                           className="settings-hit px-3.5 py-1.5 text-xs font-semibold rounded-full bg-white/10 hover:bg-white/15 text-white transition-colors flex items-center gap-1.5 border border-white/10 cursor-pointer disabled:opacity-50"
                         >
                           <RotateCcw className={`w-3.5 h-3.5 ${syncStatus === "syncing" ? "animate-spin" : ""}`} />
-                          Sync Now
+                          {t("settings.account.syncNow")}
                         </button>
                       </div>
                     )}
@@ -989,34 +1006,34 @@ export default function SettingsPage() {
 
                   {/* Library & Shortcuts navigation */}
                   <div className="mt-2 pt-2 border-t border-white/[0.06] flex flex-col gap-1">
-                    <SettingRow title="My Watchlist" description="Your saved movies and television series">
+                    <SettingRow title={t("settings.account.myWatchlist")} description={t("settings.account.myWatchlistDesc")}>
                       <Link
                         to="/watchlist"
                         className="settings-hit px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white text-xs font-medium flex items-center gap-1 transition-colors"
                       >
                         <Bookmark className="w-3.5 h-3.5" />
-                        View List
+                        {t("settings.account.viewList")}
                         <ChevronRight className="w-3.5 h-3.5 text-white/40" />
                       </Link>
                     </SettingRow>
-                    <SettingRow title="Watch History" description="Recently watched movies, shows, and progress">
+                    <SettingRow title={t("settings.account.watchHistory")} description={t("settings.account.watchHistoryDesc")}>
                       <Link
                         to="/history"
                         className="settings-hit px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white text-xs font-medium flex items-center gap-1 transition-colors"
                       >
                         <Clock className="w-3.5 h-3.5" />
-                        View History
+                        {t("settings.account.viewHistory")}
                         <ChevronRight className="w-3.5 h-3.5 text-white/40" />
                       </Link>
                     </SettingRow>
-                    <SettingRow title="Keyboard & Touch Shortcuts" description="Player gestures, swipes, hotkeys, and quick actions">
+                    <SettingRow title={t("settings.account.shortcuts")} description={t("settings.account.shortcutsDesc")}>
                       <button
                         type="button"
                         onClick={openShortcuts}
                         className="settings-hit px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white text-xs font-medium flex items-center gap-1 transition-colors border-none"
                       >
                         <SlidersHorizontal className="w-3.5 h-3.5" />
-                        Open Guide
+                        {t("settings.account.openGuide")}
                         <ChevronRight className="w-3.5 h-3.5 text-white/40" />
                       </button>
                     </SettingRow>
@@ -1029,9 +1046,9 @@ export default function SettingsPage() {
             {sectionVisible.appearance && (
               <section id="appearance" className="glass-card settings-section">
                 <div className="section-header">
-                  <h2 className="section-title">Appearance</h2>
+                  <h2 className="section-title">{t("settings.tabs.appearance")}</h2>
                   <p className="section-subtitle">
-                    Change the look of the site to suit your needs.
+                    {t("settings.appearance.appearanceDesc")}
                   </p>
                 </div>
 
@@ -1039,9 +1056,9 @@ export default function SettingsPage() {
                   {/* Theme */}
                   <div className="setting-row">
                     <div className="setting-meta">
-                      <span className="setting-title">Theme</span>
+                      <span className="setting-title">{t("settings.appearance.theme")}</span>
                       <span className="setting-desc">
-                        Pick a color palette for the entire interface.
+                        {t("settings.appearance.themeDesc")}
                       </span>
                     </div>
                     <div className="setting-control">
@@ -1052,7 +1069,7 @@ export default function SettingsPage() {
                           aria-expanded={openDropdown === "theme"}
                           aria-haspopup="dialog"
                           aria-controls="theme-menu"
-                          aria-label={`Theme, current: ${activeTheme.name}`}
+                          aria-label={t("settings.appearance.themeCurrent", { name: activeTheme.name })}
                           onClick={() => toggleDropdown("theme")}
                           className="flex items-center gap-2 px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all duration-300 backdrop-blur-md group min-w-[150px] justify-between"
                         >
@@ -1081,7 +1098,7 @@ export default function SettingsPage() {
                             <motion.div
                               id="theme-menu"
                               role="dialog"
-                              aria-label="Choose a theme"
+                              aria-label={t("settings.appearance.chooseTheme")}
                               onKeyDown={handleMenuKeyDown}
                               initial={{ opacity: 0, y: 8, scale: 0.96 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -1089,7 +1106,7 @@ export default function SettingsPage() {
                               transition={{ duration: 0.15 }}
                               className="absolute right-0 top-full mt-2 w-64 rounded-2xl p-2 shadow-2xl z-50 discovery-menu settings-dropdown"
                             >
-                              <div role="listbox" aria-label="Theme presets" className="flex flex-col gap-1">
+                              <div role="listbox" aria-label={t("settings.appearance.themePresets")} className="flex flex-col gap-1">
                                 {THEMES.map((t) => {
                                   const selected = theme === t.id;
                                   return (
@@ -1132,18 +1149,20 @@ export default function SettingsPage() {
                                   hidden color input tucked inside a pill. */}
                               <div className="seed-row px-1 py-1 w-full" role="group" aria-label="Custom accent">
                                 <div className="setting-meta">
-                                  <span className="setting-title">Custom Accent</span>
-                                  <span className="setting-desc">Pick any color as the interface accent.</span>
+                                  <span className="setting-title">{t("settings.appearance.customAccent")}</span>
+                                  <span className="setting-desc">{t("settings.appearance.customAccentDesc")}</span>
                                 </div>
                                 <div className="seed-row-pills">
-                                  <label className="seed-pill" title="Pick a custom accent color">
+                                  <label className="seed-pill" title={t("settings.appearance.pickAccent")}>
                                     <span
                                       className="seed-dot"
                                       style={{ background: accentSeed || "#ffffff" }}
                                     />
                                     <span className="seed-text">
                                       <span className="seed-label">
-                                        {theme === "custom" ? "Custom" : "Customize"}
+                                        {theme === "custom"
+                                          ? t("settings.appearance.custom")
+                                          : t("settings.appearance.customize")}
                                       </span>
                                       <span className="seed-hex">
                                         {(accentSeed || "#ffffff").toUpperCase()}
@@ -1152,7 +1171,7 @@ export default function SettingsPage() {
                                     <input
                                       type="color"
                                       value={accentSeed || "#95ff50"}
-                                      aria-label="Custom accent color"
+                                      aria-label={t("settings.appearance.pickAccent")}
                                       onChange={(e) => {
                                         setPreference("accentSeed", e.target.value);
                                         setPreference("theme", "custom");
@@ -1168,7 +1187,7 @@ export default function SettingsPage() {
                                         setPreference("theme", "default");
                                       }}
                                     >
-                                      Reset
+                                      {t("common.reset")}
                                     </button>
                                   )}
                                 </div>
@@ -1182,15 +1201,15 @@ export default function SettingsPage() {
 
                   {/* Episode View Style */}
                   <SettingRow
-                    title="Episode View Style"
-                    description="Carousel rails, grids, or lists on series pages."
+                    title={t("settings.appearance.episodeViewStyle")}
+                    description={t("settings.appearance.episodeViewDesc")}
                   >
                     <SegmentControl
-                      label="Episode View Style"
+                      label={t("settings.appearance.episodeViewStyle")}
                       options={[
-                        { id: "carousel", name: "Carousel" },
-                        { id: "grid", name: "Grid" },
-                        { id: "list", name: "List" },
+                        { id: "carousel", name: t("settings.appearance.episodeCarousel") },
+                        { id: "grid", name: t("settings.appearance.episodeGrid") },
+                        { id: "list", name: t("settings.appearance.episodeList") },
                       ]}
                       value={["carousel", "grid", "list"].includes(episodeViewStyle) ? episodeViewStyle : "carousel"}
                       onChange={(val) => setPreference("episodeViewStyle", val)}
@@ -1199,14 +1218,14 @@ export default function SettingsPage() {
 
                   {/* Detail View Type */}
                   <SettingRow
-                    title="Detail View Type"
-                    description="Full info page, or a Netflix-style quick modal."
+                    title={t("settings.appearance.detailViewType")}
+                    description={t("settings.appearance.detailViewDesc")}
                   >
                     <SegmentControl
-                      label="Detail View Type"
+                      label={t("settings.appearance.detailViewType")}
                       options={[
-                        { id: "page", name: "Page" },
-                        { id: "modal", name: "Modal" },
+                        { id: "page", name: t("settings.appearance.detailPage") },
+                        { id: "modal", name: t("settings.appearance.detailModal") },
                       ]}
                       value={detailViewType}
                       onChange={(val) => setPreference("detailViewType", val)}
@@ -1215,11 +1234,11 @@ export default function SettingsPage() {
 
                   {/* Use Image Logos */}
                   <SettingRow
-                    title="Use Image Logos"
-                    description="Display movie and series titles as image logos."
+                    title={t("settings.appearance.useImageLogos")}
+                    description={t("settings.appearance.useImageLogosDesc")}
                   >
                     <Toggle
-                      label="Use Image Logos"
+                      label={t("settings.appearance.useImageLogos")}
                       checked={useImageLogos}
                       onChange={(val) => setPreference("useImageLogos", val)}
                     />
@@ -1227,11 +1246,11 @@ export default function SettingsPage() {
 
                   {/* Trailers */}
                   <SettingRow
-                    title="Trailers"
-                    description="Play trailers automatically on detail pages and hover previews."
+                    title={t("settings.appearance.trailers")}
+                    description={t("settings.appearance.trailersDesc")}
                   >
                     <Toggle
-                      label="Trailers"
+                      label={t("settings.appearance.trailers")}
                       checked={trailers}
                       onChange={(val) => setPreference("trailers", val)}
                     />
@@ -1239,11 +1258,11 @@ export default function SettingsPage() {
 
                   {/* Spoiler-Free Mode */}
                   <SettingRow
-                    title="Spoiler-Free Mode"
-                    description="Hide information about episodes."
+                    title={t("settings.appearance.spoilerFreeMode")}
+                    description={t("settings.appearance.spoilerFreeModeDesc")}
                   >
                     <Toggle
-                      label="Spoiler-Free Mode"
+                      label={t("settings.appearance.spoilerFreeMode")}
                       checked={spoilerFreeMode}
                       onChange={(val) => setPreference("spoilerFreeMode", val)}
                     />
@@ -1251,11 +1270,11 @@ export default function SettingsPage() {
 
                   {/* Reduce Motion */}
                   <SettingRow
-                    title="Reduce Motion"
-                    description="Reduce effects."
+                    title={t("settings.appearance.reduceMotion")}
+                    description={t("settings.appearance.reduceMotionDesc")}
                   >
                     <Toggle
-                      label="Reduce Motion"
+                      label={t("settings.appearance.reduceMotion")}
                       checked={reduceMotion}
                       onChange={(val) => setPreference("reduceMotion", val)}
                     />
@@ -1263,11 +1282,11 @@ export default function SettingsPage() {
 
                   {/* High-Quality Thumbnails */}
                   <SettingRow
-                    title="High-Quality Thumbnails"
-                    description="Stream higher resolution artwork."
+                    title={t("settings.appearance.hdThumbs")}
+                    description={t("settings.appearance.hdThumbsDesc")}
                   >
                     <Toggle
-                      label="High-Quality Thumbnails"
+                      label={t("settings.appearance.hdThumbs")}
                       checked={hdThumbs}
                       onChange={(val) => setPreference("hdThumbs", val)}
                     />
@@ -1280,20 +1299,20 @@ export default function SettingsPage() {
             {sectionVisible.playback && (
               <section id="playback" className="glass-card settings-section">
                 <div className="section-header">
-                  <h2 className="section-title">Playback</h2>
+                  <h2 className="section-title">{t("settings.tabs.playback")}</h2>
                   <p className="section-subtitle">
-                    Configure how your player behaves.
+                    {t("settings.playback.playbackDesc")}
                   </p>
                 </div>
 
                 <div className="settings-list">
                   {/* Autoplay */}
                   <SettingRow
-                    title="Autoplay"
-                    description="Automatically play the next episode when one ends. Videos still start on their own when this is off."
+                    title={t("settings.playback.autoPlay")}
+                    description={t("settings.playback.autoPlayDesc")}
                   >
                     <Toggle
-                      label="Autoplay"
+                      label={t("settings.playback.autoPlay")}
                       checked={autoplay}
                       onChange={(val) => setPreference("autoplay", val)}
                     />
@@ -1301,11 +1320,11 @@ export default function SettingsPage() {
 
                   {/* Auto Skip Intro */}
                   <SettingRow
-                    title="Auto Skip Intro"
-                    description="Jump past the intro on its own, instead of showing the Skip Intro button."
+                    title={t("settings.playback.autoSkipIntro")}
+                    description={t("settings.playback.autoSkipIntroDesc")}
                   >
                     <Toggle
-                      label="Auto Skip Intro"
+                      label={t("settings.playback.autoSkipIntro")}
                       checked={autoSkipIntro}
                       onChange={(val) => setPreference("autoSkipIntro", val)}
                     />
@@ -1314,9 +1333,9 @@ export default function SettingsPage() {
                   {/* Seek Time */}
                   <div className="setting-row">
                     <div className="setting-meta">
-                      <span className="setting-title">Seek Time</span>
+                      <span className="setting-title">{t("settings.playback.seekTime")}</span>
                       <span className="setting-desc">
-                        Change how far you skip forwards or backwards.
+                        {t("settings.playback.seekTimeDesc")}
                       </span>
                     </div>
                     <div className="setting-control">
@@ -1327,12 +1346,12 @@ export default function SettingsPage() {
                           aria-expanded={openDropdown === "seek"}
                           aria-haspopup="listbox"
                           aria-controls="seek-menu"
-                          aria-label={`Seek time, current: ${seekTime} seconds`}
+                          aria-label={t("settings.playback.seekCurrent", { n: seekTime })}
                           onClick={() => toggleDropdown("seek")}
                           className="flex items-center gap-2 px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all duration-300 backdrop-blur-md group min-w-[160px] justify-between"
                         >
                           <span className="min-w-0 text-sm font-medium text-white/90 truncate">
-                            {seekTime} seconds
+                            {t("settings.playback.seconds", { n: seekTime })}
                           </span>
                           <ChevronDown className={`w-4 h-4 text-white/50 transition-transform ${openDropdown === "seek" ? "rotate-180" : ""}`} />
                         </button>
@@ -1342,7 +1361,7 @@ export default function SettingsPage() {
                             <motion.div
                               id="seek-menu"
                               role="listbox"
-                              aria-label="Seek time"
+                              aria-label={t("settings.playback.seekAria")}
                               onKeyDown={handleMenuKeyDown}
                               initial={{ opacity: 0, y: 8, scale: 0.96 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -1367,7 +1386,7 @@ export default function SettingsPage() {
                                       selected ? "settings-dropdown-item is-selected" : "settings-dropdown-item text-white/70 hover:text-white"
                                     }`}
                                   >
-                                    <span>{st.label}</span>
+                                    <span>{t("settings.playback.seconds", { n: st.value })}</span>
                                     {selected && <Check className="w-3.5 h-3.5 text-white" />}
                                   </button>
                                 );
@@ -1381,11 +1400,11 @@ export default function SettingsPage() {
 
                   {/* Auto Subtitles */}
                   <SettingRow
-                    title="Auto Subtitles"
-                    description="Automatically select subtitles in your preferred language when available."
+                    title={t("settings.playback.autoSubtitles")}
+                    description={t("settings.playback.autoSubtitlesDesc")}
                   >
                     <Toggle
-                      label="Auto Subtitles"
+                      label={t("settings.playback.autoSubtitles")}
                       checked={autoSubtitles}
                       onChange={(val) => setPreference("autoSubtitles", val)}
                     />
@@ -1394,9 +1413,9 @@ export default function SettingsPage() {
                   {/* Default Language */}
                   <div className="setting-row">
                     <div className="setting-meta">
-                      <span className="setting-title">Default Language</span>
+                      <span className="setting-title">{t("settings.playback.defaultLanguage")}</span>
                       <span className="setting-desc">
-                        Choose the subtitle language to auto-select.
+                        {t("settings.playback.defaultLanguageDesc")}
                       </span>
                     </div>
                     <div className="setting-control">
@@ -1407,7 +1426,7 @@ export default function SettingsPage() {
                           aria-expanded={openDropdown === "lang"}
                           aria-haspopup="listbox"
                           aria-controls="lang-menu"
-                          aria-label={`Default subtitle language, current: ${activeLang.name}`}
+                          aria-label={t("settings.playback.defaultLangCurrent", { name: activeLang.name })}
                           onClick={() => toggleDropdown("lang")}
                           className="flex items-center gap-2 px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all duration-300 backdrop-blur-md group min-w-[160px] justify-between"
                         >
@@ -1427,7 +1446,7 @@ export default function SettingsPage() {
                             <motion.div
                               id="lang-menu"
                               role="listbox"
-                              aria-label="Default subtitle language"
+                              aria-label={t("settings.playback.defaultLangAria")}
                               onKeyDown={handleMenuKeyDown}
                               initial={{ opacity: 0, y: 8, scale: 0.96 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -1449,8 +1468,8 @@ export default function SettingsPage() {
                                       selectFromDropdown("lang");
                                       toast({
                                         type: "success",
-                                        title: "Default Language",
-                                        message: `Subtitles will auto-select in ${l.name} when available.`,
+                                        title: t("settings.toasts.defaultLanguage"),
+                                        message: t("settings.toasts.defaultLanguageSet", { lang: l.name }),
                                       });
                                     }}
                                     className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
@@ -1478,11 +1497,11 @@ export default function SettingsPage() {
 
                   {/* Mute Trailer Audio */}
                   <SettingRow
-                    title="Mute Trailer Audio"
-                    description="Open trailers with sound off by default."
+                    title={t("settings.playback.muteTrailerAudio")}
+                    description={t("settings.playback.muteTrailerAudioDesc")}
                   >
                     <Toggle
-                      label="Mute Trailer Audio"
+                      label={t("settings.playback.muteTrailerAudio")}
                       checked={muteTrailers}
                       onChange={(val) => setPreference("muteTrailers", val)}
                     />
@@ -1496,9 +1515,9 @@ export default function SettingsPage() {
               <section id="servers" className="glass-card settings-section">
                 <div className="section-header flex items-center justify-between">
                   <div>
-                    <h2 className="section-title">Server Order</h2>
+                    <h2 className="section-title">{t("settings.servers.serverOrder")}</h2>
                     <p className="section-subtitle">
-                      Drag the handle to set which sources are tried first when a title loads. The same order plays in the video player.
+                      {t("settings.servers.serverOrderDesc")}
                     </p>
                   </div>
                   <button
@@ -1507,7 +1526,7 @@ export default function SettingsPage() {
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-medium text-white/70 hover:text-white transition-colors"
                   >
                     <RotateCcw className="w-3 h-3" />
-                    Reset
+                    {t("common.reset")}
                   </button>
                 </div>
 
@@ -1519,20 +1538,20 @@ export default function SettingsPage() {
             {sectionVisible.subtitles && (
               <section id="subtitles" className="glass-card settings-section">
                 <div className="section-header">
-                  <h2 className="section-title">Subtitles</h2>
+                  <h2 className="section-title">{t("settings.tabs.subtitles")}</h2>
                   <p className="section-subtitle">
-                    Improve readability and customization for subtitles.
+                    {t("settings.subtitles.subtitlesDesc")}
                   </p>
                 </div>
 
                 <div className="settings-list">
                   {/* Font */}
                   <SettingRow
-                    title="Font"
-                    description="Choose your preferred subtitle font."
+                    title={t("settings.playback.subtitleFont")}
+                    description={t("settings.playback.subtitleFontDesc")}
                   >
                     <SegmentControl
-                      label="Font"
+                      label={t("settings.playback.subtitleFont")}
                       options={SUBTITLE_FONTS}
                       value={subtitleFont}
                       onChange={(val) => setPreference("subtitleFont", val)}
@@ -1541,18 +1560,18 @@ export default function SettingsPage() {
 
                   {/* Text Size */}
                   <SettingRow
-                    title="Text Size"
-                    description="Adjust subtitle size for your display."
+                    title={t("settings.playback.subtitleSize")}
+                    description={t("settings.playback.subtitleSizeDesc")}
                   >
                     <div className="range-wrap">
-                      <span className="range-value">{subtitleSize}%</span>
+                      <span className="range-value">{t("settings.playback.sizePct", { n: subtitleSize })}</span>
                       <input
                         type="range"
                         min="50"
                         max="150"
                         step="10"
                         value={subtitleSize}
-                        aria-label={`Subtitle text size, ${subtitleSize} percent`}
+                        aria-label={t("settings.playback.subtitleSizeAria", { n: subtitleSize })}
                         onChange={(e) => setPreference("subtitleSize", Number(e.target.value))}
                         className="range-slider"
                       />
@@ -1561,8 +1580,8 @@ export default function SettingsPage() {
 
                   {/* Text Color */}
                   <SettingRow
-                    title="Text Color"
-                    description="Pick a high-contrast subtitle color."
+                    title={t("settings.playback.subtitleColor")}
+                    description={t("settings.playback.subtitleColorDesc")}
                   >
                     <div className="color-picker">
                       {SUBTITLE_COLORS.map((c) => (
@@ -1584,7 +1603,7 @@ export default function SettingsPage() {
                       mini-player as the fixed Netflix player chrome
                       (video + live subtitle styles). */}
                   <div className="mt-4">
-                    <PlayerPreview showChrome={false} label="Subtitles" />
+                    <PlayerPreview showChrome={false} label={t("settings.tabs.subtitles")} />
                   </div>
                 </div>
               </section>
@@ -1594,19 +1613,19 @@ export default function SettingsPage() {
             {sectionVisible.notifications && (
               <section id="notifications" className="glass-card settings-section">
                 <div className="section-header">
-                  <h2 className="section-title">Notifications</h2>
+                  <h2 className="section-title">{t("settings.tabs.notifications")}</h2>
                   <p className="section-subtitle">
-                    Control in-app status updates, scrobble confirmations, and activity notifications.
+                    {t("settings.notifications.notificationsDesc")}
                   </p>
                 </div>
 
                 <div className="settings-list">
                   <SettingRow
-                    title="Show in-app notifications"
-                    description="Display brief status toasts when items are added to watchlist, servers change, or progress is saved."
+                    title={t("settings.notifications.show")}
+                    description={t("settings.notifications.showDesc")}
                   >
                     <Toggle
-                      label="Show in-app notifications"
+                      label={t("settings.notifications.show")}
                       checked={notifications}
                       onChange={(val) => setPreference("notifications", val)}
                     />
@@ -1619,23 +1638,23 @@ export default function SettingsPage() {
             {sectionVisible.reset && (
               <section id="reset-preferences" className="glass-card settings-section">
                 <div className="section-header">
-                  <h2 className="section-title">Reset All Preferences</h2>
+                  <h2 className="section-title">{t("settings.reset.title")}</h2>
                   <p className="section-subtitle">
-                    Restore theme and playback preferences back to factory defaults. Your My List and Watch History will not be affected.
+                    {t("settings.reset.desc")}
                   </p>
                 </div>
 
                 <div className="settings-list">
                   <SettingRow
-                    title="Factory Reset Preferences"
-                    description="Clears custom themes, subtitle styling, and server order."
+                    title={t("settings.reset.rowTitle")}
+                    description={t("settings.reset.rowDesc")}
                   >
                     <button
                       type="button"
                       onClick={handleResetAllPreferences}
                       className="reset-preferences-button"
                     >
-                      <RotateCcw size={14} /> Reset Preferences
+                      <RotateCcw size={14} /> {t("settings.reset.resetBtn")}
                     </button>
                   </SettingRow>
                 </div>
@@ -1680,7 +1699,7 @@ export default function SettingsPage() {
             >
               <button
                 onClick={() => setShowSignInModal(false)}
-                aria-label="Close sign in"
+                aria-label={t("settings.account.closeSignIn")}
                 className="absolute right-5 top-5 p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -1692,14 +1711,14 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <h3 id="login-panel-title" className="text-lg font-bold text-white">
-                    Welcome to Streamly
+                    {t("settings.account.welcome")}
                   </h3>
-                  <p className="text-xs text-white/50">Sync preferences and watchlist across devices.</p>
+                  <p className="text-xs text-white/50">{t("settings.account.welcomeDesc")}</p>
                 </div>
               </div>
 
               {/* Sign In / Guest tabs with a sliding white pill */}
-              <div className="login-tabs mb-5" role="tablist" aria-label="Sign in method">
+              <div className="login-tabs mb-5" role="tablist" aria-label={t("settings.account.signInMethod")}>
                 <span
                   className={`login-tab-pill${signInTab === "guest" ? " is-right" : ""}`}
                   aria-hidden="true"
@@ -1711,7 +1730,7 @@ export default function SettingsPage() {
                   className={`login-tab${signInTab === "signin" ? " is-active" : ""}`}
                   onClick={() => setSignInTab("signin")}
                 >
-                  Sign In
+                  {t("settings.account.signIn")}
                 </button>
                 <button
                   type="button"
@@ -1720,7 +1739,7 @@ export default function SettingsPage() {
                   className={`login-tab${signInTab === "guest" ? " is-active" : ""}`}
                   onClick={() => setSignInTab("guest")}
                 >
-                  Guest
+                  {t("settings.account.guest")}
                 </button>
               </div>
 
@@ -1729,11 +1748,10 @@ export default function SettingsPage() {
                   <GoogleSignInButton
                     onSuccess={() => setShowSignInModal(false)}
                     shape="pill"
-                    text="Continue with Google"
+                    text={t("settings.account.continueGoogle")}
                   />
                   <p className="text-center text-xs text-white/40 leading-relaxed">
-                    Use your Google account to sync your library across devices. Prefer to stay
-                    local? Switch to the Guest tab.
+                    {t("settings.account.googleHint")}
                   </p>
                 </div>
               ) : (
@@ -1749,20 +1767,20 @@ export default function SettingsPage() {
                 >
                   <div>
                     <label htmlFor="login-name" className="block text-xs font-semibold text-white/70 mb-1.5">
-                      Your Name
+                      {t("settings.account.name")}
                     </label>
                     <input
                       id="login-name"
                       name="name"
                       type="text"
                       required
-                      defaultValue="Streamly Viewer"
+                      defaultValue={t("settings.account.defaultName")}
                       className="login-field"
                     />
                   </div>
                   <div>
                     <label htmlFor="login-email" className="block text-xs font-semibold text-white/70 mb-1.5">
-                      Email Address
+                      {t("settings.account.email")}
                     </label>
                     <input
                       id="login-email"
@@ -1775,14 +1793,14 @@ export default function SettingsPage() {
                   </div>
 
                   <button type="submit" className="login-cta mt-1">
-                    Continue as Guest
+                    {t("settings.account.continueAsGuest")}
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowSignInModal(false)}
                     className="w-full py-2.5 rounded-full bg-white/5 hover:bg-white/10 text-white/70 text-sm font-semibold transition-colors border-none"
                   >
-                    Cancel
+                    {t("common.cancel")}
                   </button>
                 </form>
               )}

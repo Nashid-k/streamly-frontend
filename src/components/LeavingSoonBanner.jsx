@@ -2,6 +2,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import { AlertTriangle, Clock } from "lucide-react";
 import useDetailView from "../hooks/useDetailView";
+import { useI18n } from "../i18n/index.jsx";
 
 
 /**
@@ -12,6 +13,7 @@ import useDetailView from "../hooks/useDetailView";
  * the shared gateway (page or modal per the Detail View Type setting).
  */
 export default function LeavingSoonBanner({ items = [], maxDisplay = 3 }) {
+  const { t } = useI18n();
   const { openDetails, modalHost } = useDetailView();
   if (!items || items.length === 0) return null;
 
@@ -41,10 +43,10 @@ export default function LeavingSoonBanner({ items = [], maxDisplay = 3 }) {
         </div>
         <div>
           <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#fff" }}>
-            Leaving Soon
+            {t("home.rails.leavingSoon")}
           </div>
           <div style={{ fontSize: "0.7rem", color: "#a1a1aa" }}>
-            {items.length} title{items.length > 1 ? "s" : ""} will be removed soon
+            {items.length === 1 ? t("home.leaving.titlesOne") : t("home.leaving.titlesMany", { n: items.length })}
           </div>
         </div>
       </div>
@@ -90,7 +92,7 @@ export default function LeavingSoonBanner({ items = [], maxDisplay = 3 }) {
                   fontSize: "0.62rem", fontWeight: 700,
                   color: item.urgency === "critical" ? "#ef4444" : item.urgency === "warning" ? "#f97316" : "#a1a1aa",
                 }}>
-                  {item.daysLeft <= 1 ? "Tomorrow!" : `${item.daysLeft} days left`}
+                  {item.daysLeft <= 1 ? t("home.leaving.tomorrow") : t("home.leaving.daysLeft", { n: item.daysLeft })}
                 </span>
               </div>
             </div>
@@ -104,7 +106,7 @@ export default function LeavingSoonBanner({ items = [], maxDisplay = 3 }) {
           fontSize: "0.7rem", color: "#71717a", textAlign: "center",
           marginTop: "8px", padding: "4px",
         }}>
-          +{items.length - maxDisplay} more leaving soon
+          {t("home.leaving.more", { n: items.length - maxDisplay })}
         </div>
       )}
       {modalHost}

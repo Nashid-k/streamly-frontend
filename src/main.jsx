@@ -5,6 +5,7 @@ import "./index.css";
 import { ToastProvider } from "./components/Toast.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import { PreferencesProvider } from "./context/PreferencesContext.jsx";
+import { I18nProvider } from "./i18n/index.jsx";
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { HelmetProvider } from "react-helmet-async";
@@ -45,9 +46,11 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <PreferencesProvider>
-            <ToastProvider>
-              <App />
-            </ToastProvider>
+            <I18nProvider>
+              <ToastProvider>
+                <App />
+              </ToastProvider>
+            </I18nProvider>
           </PreferencesProvider>
         </AuthProvider>
       </QueryClientProvider>

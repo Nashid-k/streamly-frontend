@@ -27,6 +27,7 @@ import LeavingSoonBanner from "../components/LeavingSoonBanner";
 import GenreShowcase from "../components/GenreShowcase";
 import { detectLeavingSoon, buildUpcoming } from "../utils/releaseCalendar";
 import { asArray, EMPTY_ARRAY } from "../utils";
+import { useI18n } from "../i18n/index.jsx";
 import { logEmptyData, logError, reportQueryError } from "../utils/debugLogger";
 
 // Shared content-type predicates. Anime is merged into Movies/TV Shows by
@@ -480,8 +481,10 @@ function EditorialRailRow({ cfg }) {
 
 export default function Home({
   filter = "all",
-  title = "Trending Across Platforms",
+  title,
 }) {
+  const { t } = useI18n();
+  const sectionTitle = title || t("home.rails.trending");
   const [featuredIndex, setFeaturedIndex] = useState(0);
   const navigate = useNavigate();
   const reduceMotion = useReducedMotion();
@@ -917,18 +920,24 @@ export default function Home({
   // Proximity-aware heading: surface when the next premiere drops instead of
   // always saying a flat "Upcoming".
   const upcomingTitle = (() => {
-    const scope =
+    const translatedScope =
       filter === "series" || filter === "tv shows"
-        ? "TV Shows"
+        ? t("home.scope.shows")
         : filter === "movies"
-          ? "Movies"
+          ? t("home.scope.movies")
           : "";
     const nearest = upcomingReleases[0];
     if (nearest && nearest.daysUntil <= 7)
-      return scope ? `Coming This Week — ${scope}` : "Coming This Week";
+      return translatedScope
+        ? t("home.upcomingWeekScope", { scope: translatedScope })
+        : t("home.upcomingWeek");
     if (nearest && nearest.daysUntil <= 30)
-      return scope ? `Coming This Month — ${scope}` : "Coming This Month";
-    return scope ? `Upcoming ${scope}` : "Upcoming";
+      return translatedScope
+        ? t("home.upcomingMonthScope", { scope: translatedScope })
+        : t("home.upcomingMonth");
+    return translatedScope
+      ? t("home.rails.upcomingScope", { scope: translatedScope })
+      : t("home.rails.upcoming");
   })();
 
   // Top 10 — backend rank first, padded to a full 10 per tab. The backend
@@ -1394,7 +1403,7 @@ export default function Home({
                       <div style={{ width: `${resumePct}%`, height: "100%", background: "#E50914" }} />
                     </div>
                     <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.85)", letterSpacing: "0.3px" }}>
-                      {resumePct}% Watched
+                      {t("home.hero.watched", { pct: resumePct })}
                     </span>
                   </div>
                 )}
@@ -1408,7 +1417,7 @@ export default function Home({
                     onClick={(e) => { e.stopPropagation(); navigate(`/watch/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`); }}
                   >
                     <Play size={20} strokeWidth={2.5} fill="currentColor" stroke="none" />
-                    {cwResumeEntry ? "Resume" : "Play"}
+                    {cwResumeEntry ? t("home.hero.resume") : t("home.hero.play")}
                   </motion.button>
 
                   <div className="hero-action-pill inline-flex items-center shrink-0 rounded-full bg-white/10 backdrop-blur-[20px] backdrop-saturate-150 border border-white/10 shadow-lg shadow-black/5">
@@ -1417,8 +1426,8 @@ export default function Home({
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.92 }}
                       onClick={(e) => { e.stopPropagation(); toggleMyList(activeFeaturedMovie); }}
-                      aria-label={isInList(activeFeaturedMovie?.id) ? "Remove from My List" : "Add to My List"}
-                      title={isInList(activeFeaturedMovie?.id) ? "Remove from My List" : "Add to My List"}
+                      aria-label={isInList(activeFeaturedMovie?.id) ? t("home.hero.removeMyList") : t("home.hero.addMyList")}
+                      title={isInList(activeFeaturedMovie?.id) ? t("home.hero.removeMyList") : t("home.hero.addMyList")}
                     >
                       {isInList(activeFeaturedMovie?.id) ? <Check size={18} strokeWidth={2.5} /> : <Plus size={18} strokeWidth={2.5} />}
                     </motion.button>
@@ -1427,8 +1436,8 @@ export default function Home({
                       className="hero-cta-secondary-icon"
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.92 }}
-                      aria-label="More info"
-                      title="More info"
+                      aria-label={t("home.hero.moreInfo")}
+                      title={t("home.hero.moreInfo")}
                       onClick={(e) => { e.stopPropagation(); openDetails(activeFeaturedMovie); }}
                     >
                       <Info size={18} strokeWidth={2.5} />
@@ -1482,12 +1491,12 @@ export default function Home({
                 <Play size={28} fill="currentColor" stroke="none" />
               </div>
               <h2 style={{ color: "#fff", marginBottom: "0.5rem" }}>
-                {hasInitialLoadError ? "Couldn't load Streamly" : "Welcome to Streamly"}
+                {hasInitialLoadError ? t("home.loadError") : t("home.welcome")}
               </h2>
               <p style={{ color: "#a1a1aa", maxWidth: "420px", margin: "0 auto" }}>
                 {hasInitialLoadError
-                  ? "Check your connection and try again. Your saved list and history are still available."
-                  : "Discover movies and TV shows across all your favorite streaming platforms."}
+                  ? t("home.heroError")
+                  : t("home.heroEmpty")}
               </p>
               {hasInitialLoadError && (
                 <button
@@ -1499,8 +1508,8 @@ export default function Home({
                     refetchCategories();
                   }}
                 >
-                  Try again
-                </button>
+                  {t("home.tryAgain")}
+                  </button>
               )}
             </div>
           </motion.div>
@@ -1541,7 +1550,7 @@ export default function Home({
         style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}
       >
         <div className="section-header" style={{ marginBottom: 0 }}>
-          <h2 className="section-title">{title}</h2>
+          <h2 className="section-title">{sectionTitle}</h2>
         </div>
 
         {loading ? (
@@ -1565,7 +1574,7 @@ export default function Home({
           </div>
         ) : categories.length === 0 ? (
           <h3 style={{ textAlign: "center", color: "#a1a1aa" }}>
-            No titles found
+            {t("home.noTitles")}
           </h3>
         ) : (
           <>
@@ -1576,7 +1585,7 @@ export default function Home({
                   <MovieRail
                     railIndex={1}
                     category={{
-                      name: `Because you watched ${lastWatched.title}`,
+                      name: t("home.rails.becauseWatched", { title: lastWatched.title }),
                       movies: recommendations,
                     }}
                   />
@@ -1604,7 +1613,7 @@ export default function Home({
                 <ErrorBoundary>
                   <MovieRail
                     railIndex={3}
-                    category={{ name: "Trending This Week", movies: trendingThisWeek }}
+                    category={{ name: t("home.rails.trendingThisWeek"), movies: trendingThisWeek }}
                   />
                 </ErrorBoundary>
               </FadeInSection>
@@ -1615,7 +1624,7 @@ export default function Home({
                 <ErrorBoundary>
                   <MovieRail
                     railIndex={4}
-                    category={{ name: "Airing This Week", movies: airingThisWeek }}
+                    category={{ name: t("home.rails.airingThisWeek"), movies: airingThisWeek }}
                   />
                 </ErrorBoundary>
               </FadeInSection>
@@ -1626,7 +1635,7 @@ export default function Home({
                 <ErrorBoundary>
                   <MovieRail
                     railIndex={5}
-                    category={{ name: "Popular Now", movies: popularNow }}
+                    category={{ name: t("home.rails.popularNow"), movies: popularNow }}
                   />
                 </ErrorBoundary>
               </FadeInSection>
@@ -1637,7 +1646,7 @@ export default function Home({
                 <ErrorBoundary>
                   <MovieRail
                     railIndex={6}
-                    category={{ name: "Top Rated", movies: topRated }}
+                    category={{ name: t("home.rails.topRated"), movies: topRated }}
                   />
                 </ErrorBoundary>
               </FadeInSection>
@@ -1648,7 +1657,7 @@ export default function Home({
                 <ErrorBoundary>
                   <MovieRail
                     railIndex={7}
-                    category={{ name: "Now Playing / In Theaters", movies: nowPlaying }}
+                    category={{ name: t("home.rails.nowPlaying"), movies: nowPlaying }}
                   />
                 </ErrorBoundary>
               </FadeInSection>
@@ -1663,7 +1672,7 @@ export default function Home({
                 <ErrorBoundary>
                   <MovieRail
                     railIndex={8}
-                    category={{ name: "My List", movies: myList }}
+                    category={{ name: t("home.rails.myList"), movies: myList }}
                   />
                 </ErrorBoundary>
               </FadeInSection>

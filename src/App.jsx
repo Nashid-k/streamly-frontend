@@ -31,6 +31,7 @@ import Footer from "./components/Footer";
 import { useScrollRestoration } from "./hooks/useScrollRestoration";
 import { usePreferences } from "./context/preferences";
 import { useAppAuth } from "./context/auth";
+import { useI18n } from "./i18n/index.jsx";
 
 /* Single source of truth for navigation — feeds the desktop glass dock and
    the concise five-item mobile bar. */
@@ -69,6 +70,7 @@ function Layout({ children }) {
   const navigate = useNavigate();
   const reduceMotion = useReducedMotion();
   const { user } = useAppAuth();
+  const { t } = useI18n();
 
   /* ── Settings dropdown (Cinejoy .head-menu) ──────────────────────────────
      Clicking the settings icon drops a menu with Login / Settings / Watch
@@ -235,6 +237,7 @@ function Layout({ children }) {
             <div className="nav-links">
               {NAV_ITEMS.map((item) => {
                 const active = item.match(location.pathname);
+                const label = t(`nav.${item.id}`);
                 return (
                   <Link
                     key={item.id}
@@ -245,7 +248,7 @@ function Layout({ children }) {
                   >
                     {/* Icon shows on compact/tablet viewports, and on Home or active page in desktop */}
                     <item.icon size={16} strokeWidth={2} className="nav-link-icon" />
-                    <span className="nav-link-label">{item.label}</span>
+                    <span className="nav-link-label">{label}</span>
                   </Link>
                 );
               })}
@@ -263,8 +266,8 @@ function Layout({ children }) {
                 to="/search"
                 data-nav-active={location.pathname === "/search" ? "true" : undefined}
                 className={`nav-icon-btn${location.pathname === "/search" ? " nav-icon-btn--active" : ""}`}
-                aria-label="Search"
-                title="Search (Ctrl+K)"
+                aria-label={t("nav.search")}
+                title={`${t("nav.search")} (Ctrl+K)`}
               >
                 <Search size={18} strokeWidth={2} />
               </Link>
@@ -275,10 +278,10 @@ function Layout({ children }) {
                 type="button"
                 data-nav-active={location.pathname === "/settings" ? "true" : undefined}
                 className={`nav-icon-btn${location.pathname === "/settings" ? " nav-icon-btn--active" : ""}`}
-                aria-label={user ? `Account (${user.name || user.email})` : "Settings"}
+                aria-label={user ? `${t("settings.tabs.account")} (${user.name || user.email})` : t("nav.settings")}
                 aria-haspopup="menu"
                 aria-expanded={accountMenuOpen}
-                title={user ? `Account (${user.name || user.email})` : "Settings"}
+                title={user ? `${t("settings.tabs.account")} (${user.name || user.email})` : t("nav.settings")}
                 style={user?.picture ? { padding: 3 } : undefined}
                 onClick={toggleAccountMenu}
               >
@@ -346,7 +349,7 @@ function Layout({ children }) {
                   onClick={() => navigate("/settings")}
                 >
                   <LogIn size={16} className="head-menu-item-icon" />
-                  <span>Login</span>
+                  <span>{t("nav.login")}</span>
                 </button>
                 <div className="head-menu-sep" />
               </>
@@ -358,7 +361,7 @@ function Layout({ children }) {
               onClick={() => navigate("/settings")}
             >
               <Settings size={16} className="head-menu-item-icon" />
-              <span>Settings</span>
+              <span>{t("nav.settings")}</span>
             </button>
             <button
               type="button"
@@ -367,7 +370,7 @@ function Layout({ children }) {
               onClick={() => navigate("/history")}
             >
               <History size={16} className="head-menu-item-icon" />
-              <span>Watch History</span>
+              <span>{t("nav.watchHistory")}</span>
             </button>
           </Popover>
         </div>
@@ -397,12 +400,12 @@ function Layout({ children }) {
       {/* Mobile Bottom Navigation — Cinejoy-style floating icon pill */}
       <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
         {[
-          { id: "home", label: "Home", to: "/", icon: Home, match: (p) => p === "/" },
-          { id: "movies", label: "Movies", to: "/movies", icon: Clapperboard, match: (p) => p.startsWith("/movies") || navWatchKind(p) === "movie" },
-          { id: "shows", label: "Shows", to: "/series", icon: Tv, match: (p) => p.startsWith("/series") || navWatchKind(p) === "series" },
-          { id: "mylist", label: "My List", to: "/watchlist", icon: Bookmark, match: (p) => p === "/watchlist" || p === "/history" },
-          { id: "search", label: "Search", to: "/search", icon: Search, match: (p) => p === "/search" },
-          { id: "settings", label: user ? "Account" : "Settings", to: "/settings", icon: Settings, match: (p) => p === "/settings" },
+          { id: "home", label: t("nav.home"), to: "/", icon: Home, match: (p) => p === "/" },
+          { id: "movies", label: t("nav.movies"), to: "/movies", icon: Clapperboard, match: (p) => p.startsWith("/movies") || navWatchKind(p) === "movie" },
+          { id: "shows", label: t("nav.shows"), to: "/series", icon: Tv, match: (p) => p.startsWith("/series") || navWatchKind(p) === "series" },
+          { id: "mylist", label: t("nav.mylist"), to: "/watchlist", icon: Bookmark, match: (p) => p === "/watchlist" || p === "/history" },
+          { id: "search", label: t("nav.search"), to: "/search", icon: Search, match: (p) => p === "/search" },
+          { id: "settings", label: user ? t("settings.tabs.account") : t("nav.settings"), to: "/settings", icon: Settings, match: (p) => p === "/settings" },
         ].map((item) => {
           const active = item.match(location.pathname);
           return (
@@ -444,7 +447,7 @@ function AppRoutes() {
               <Route
                 path="/"
                 element={
-                  <HomePage filter="all" title="Trending Now" />
+                  <HomePage filter="all" />
                 }
               />
               <Route

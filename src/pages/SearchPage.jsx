@@ -12,18 +12,33 @@ import Chip from "../components/Chip";
 import AmbientBackground from "../components/AmbientBackground";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { useAppAuth } from "../context/auth";
+import { useI18n } from "../i18n/index.jsx";
 import { logEmptyData, reportQueryError } from "../utils/debugLogger";
 
 const QUICK_STARTS = [
-  { label: "Trending Now", query: "trending", icon: Flame },
-  { label: "New Releases", query: "new", icon: Sparkles },
-  { label: "Top Rated", query: "top rated", icon: Star },
-  { label: "K-Drama", query: "korean drama", icon: Tv },
-  { label: "Marvel", query: "marvel", icon: Film },
+  { key: "trending", query: "trending", icon: Flame },
+  { key: "newReleases", query: "new", icon: Sparkles },
+  { key: "topRated", query: "top rated", icon: Star },
+  { key: "kDrama", query: "korean drama", icon: Tv },
+  { key: "marvel", query: "marvel", icon: Film },
 ];
+
+const SEARCH_CHIPS = ["All", "Movies", "TV Shows", "Anime"];
+const SEARCH_SORTS = [
+  { label: "Relevant", value: "Relevance" },
+  { label: "Rating", value: "Rating" },
+  { label: "Newest", value: "Year (Newest)" },
+  { label: "Oldest", value: "Year (Oldest)" },
+];
+
+const chipKey = (f) =>
+  f === "All" ? "all" : f === "Movies" ? "movies" : f === "TV Shows" ? "tvShows" : "anime";
+const sortKey = (label) =>
+  label === "Relevant" ? "relevant" : label === "Rating" ? "rating" : label === "Newest" ? "newest" : "oldest";
 
 export default function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { t } = useI18n();
   const query = searchParams.get("q") || "";
   const navigate = useNavigate();
 
@@ -241,8 +256,8 @@ export default function SearchPage() {
               type="text"
               value={localQuery}
               onChange={(e) => setLocalQuery(e.target.value)}
-              placeholder="Search movies, shows, actors..."
-              aria-label="Search"
+              placeholder={t("search.placeholder")}
+              aria-label={t("nav.search")}
               autoFocus={!isTouchDevice}
             />
             {localQuery && (
@@ -280,7 +295,7 @@ export default function SearchPage() {
                   className="search-chippill search-chippill--clear"
                   onClick={clearSearchHistory}
                 >
-                  Clear
+                  {t("search.clear")}
                 </button>
               </div>
             )}
@@ -291,7 +306,7 @@ export default function SearchPage() {
                 className="search-chippill"
                 onClick={() => navigate(`/search?q=${encodeURIComponent(item.query)}`)}
               >
-                <item.icon size={13} aria-hidden="true" /> {item.label}
+                <item.icon size={13} aria-hidden="true" /> {t(`search.quick.${item.key}`)}
               </button>
             ))}
           </div>
@@ -306,32 +321,27 @@ export default function SearchPage() {
           <div className="search-toolbar">
             <div className="search-toolbar__filters">
               <div className="filter-group" aria-label="Filter results by type">
-                {["All", "Movies", "TV Shows", "Anime"].map((f) => (
+                {SEARCH_CHIPS.map((f) => (
                   <Chip key={f} active={filterType === f} onClick={() => setFilterType(f)}>
-                    {f}
+                    {t(`search.chips.${chipKey(f)}`)}
                   </Chip>
                 ))}
               </div>
               <div className="filter-group filter-group--quiet" aria-label="Sort results">
-                {[
-                  { label: "Relevant", value: "Relevance" },
-                  { label: "Rating", value: "Rating" },
-                  { label: "Newest", value: "Year (Newest)" },
-                  { label: "Oldest", value: "Year (Oldest)" },
-                ].map((opt) => (
+                {SEARCH_SORTS.map((opt) => (
                   <Chip
                     key={opt.value}
                     size="sm"
                     active={sortBy === opt.value}
                     onClick={() => setSortBy(opt.value)}
                   >
-                    {opt.label}
+                    {t(`search.sort.${sortKey(opt.label)}`)}
                   </Chip>
                 ))}
               </div>
             </div>
             <p className="search-toolbar__count" aria-live="polite">
-              {results.length} {results.length === 1 ? "result" : "results"}
+              {results.length === 1 ? t("search.resultsOne") : t("search.resultsMany", { n: results.length })}
             </p>
           </div>
         )}
@@ -355,7 +365,7 @@ export default function SearchPage() {
             description={error}
             actions={
               <Button variant="secondary" pill icon={RotateCw} onClick={() => refetch()}>
-                Try Again
+                {t("home.tryAgain")}
               </Button>
             }
           />
@@ -363,7 +373,7 @@ export default function SearchPage() {
           /* Landing — Cinejoy-style "Trending Today" grid */
           <section className="search-trending" aria-label="Trending Today">
             <div className="search-trending__head">
-              <h2>Trending Today</h2>
+              <h2>{t("search.trendingToday")}</h2>
             </div>
 
             {trendingQuery.isLoading ? (
@@ -383,7 +393,7 @@ export default function SearchPage() {
                 description="Trending titles are unavailable right now."
                 actions={
                   <Button variant="secondary" pill icon={RotateCw} onClick={() => trendingQuery.refetch()}>
-                    Try Again
+                    {t("home.tryAgain")}
                   </Button>
                 }
               />

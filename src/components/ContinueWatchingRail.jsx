@@ -7,6 +7,7 @@ import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import useRailArrows from "../hooks/useRailArrows";
 import RailArrow from "./RailArrow";
 import { progressPct, remainingSeconds } from "../utils/resumeProgress";
+import { useI18n } from "../i18n/index.jsx";
 
 const fmtTimeLeft = (seconds) => {
   if (!seconds || seconds <= 0) return null;
@@ -30,6 +31,7 @@ const remainingLabel = (item) => {
 };
 
 const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) {
+  const { t } = useI18n();
   const { removeFromContinueWatching } = useAppAuth();
   const scrollRef = useRef(null);
   const navigate = useNavigate();
@@ -82,7 +84,7 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
           className="group/label flex items-center gap-1 min-w-0 transition-colors duration-300"
         >
           <h2 className="text-xl font-semibold text-white/90 group-hover/label:text-white shadow-black drop-shadow-md transition-all duration-300">
-            Continue Watching
+            {t("home.rails.continueWatching")}
           </h2>
           <ChevronRight className="lucide-icon lucide lucide-chevron-right w-5 h-5 text-white/70 shrink-0 opacity-0 -translate-x-1 transition-all duration-300 group-hover/title:opacity-100 group-hover/title:translate-x-0 group-hover/label:text-white" />
         </Link>
@@ -91,11 +93,11 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
             editMode ? "text-emerald-400 font-medium" : ""
           }`}
           onClick={() => setEditMode((v) => !v)}
-          aria-label={editMode ? "Done editing" : "Edit list"}
+          aria-label={editMode ? t("common.doneEditing") : t("common.editList")}
         >
           {editMode ? (
             <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-semibold">
-              Done
+              {t("common.done")}
             </span>
           ) : (
             <svg

@@ -7,6 +7,54 @@
 
 ## Done (in order)
 
+- [x] **Native input border rects removed for real (follow-up to the Settings UX
+  batch item 4)**: the earlier `:focus-visible { outline: none }` tweak survived
+  a stale-bundle rotation, but raw `<input>`/`<select>`/`<textarea>` elements
+  still carried Chromium's 2px inset native border (Tailwind's preflight is
+  **not** imported anywhere, so no reset ever ran). Added a global UA reset in
+  `src/index.css` — `input:not([type="color"]|range|checkbox|radio|file),
+  select, textarea { border: none; background: transparent; color: inherit; }`
+  — leaving `type=color`/range/radio/checkbox/file intact (they render custom
+  widgets). Verified: lint 0 errors (pre-existing warnings only), vitest 38
+  files / 375/375, build OK.
+
+- [x] **Full app UI translation (user order: language scope = translate the whole
+  interface in all 10 available languages, driven by Settings → Subtitles →
+  Default Language)** — lightweight dependency-free i18n layer:
+  - **Layer**: `src/i18n/index.jsx` exports `SUPPORTED_LANGUAGES`, `DICTIONARIES`,
+    `LANG_DIR` (`{ar:"rtl"}`), `makeT` (dot-path lookup + `{var}` interpolation +
+    English fallback for missing keys) and `I18nProvider`/`useI18n`.
+    `defaultLanguage` (PreferencesContext) is the single source of truth; the
+    provider mirrors it into `<html dir>` (Arabic → rtl) while
+    `PreferencesContext` keeps owning `<html lang>`. Outside a provider,
+    `useI18n` resolves to English, so all 375 existing tests (which assert
+    English copy) stay green. `I18nProvider` is wired in `src/main.jsx`
+    between PreferencesProvider and ToastProvider.
+  - **Catalogs**: `src/i18n/en.js` (source of truth), `latin.js`
+    (es/fr/de/it/pt), `script.js` (ja/ko/hi/ar) — deep-merged over English so a
+    missing key falls back instead of blanking. Coverage today: nav + dropdown
+    menu, footer disclaimer, Home hero/rails/upcoming/leaving, Continue
+    Watching rail + edit mode, Leaving Soon banner, Search (placeholder, quick
+    picks, chips, sorts, results count), and the full Settings page (title,
+    subtitle, filter, tabs, count badge, empty states, Account incl. sign-in
+    modal + cloud sync + library shortcuts, Appearance incl. theme dropdown +
+    custom accent + segment/toggle rows, Playback incl. seek/lang dropdowns,
+    Server Order + reset, Subtitles incl. player preview label, Notifications,
+    Reset + ConfirmDialog, and every toast).
+  - **Progressive coverage (documented)**: keys that were NOT yet added to the
+    other 9 catalogs fall back to English for non-English locales (e.g.
+    Settings row descriptions/toasts added during the Settings pass, and the
+    still-English surfaces listed below); the settings search index
+    (`SECTION_SEARCH_TERMS`) intentionally stays English and is not translated.
+  - **Verified**: lint 0 errors (pre-existing warnings + new `i18n/index.jsx`
+    fast-refresh warnings only), vitest 38 files / 375/375, build OK.
+  - **Remaining surfaces for a future pass** (still render English): Movies /
+    Shows / My List / Search / History / Genre / Category page headers +
+    common buttons, `CastRail`, `CustomVideoPlayer` chrome (buffering, speed /
+    quality / volume labels), `ServerOrderList` reorder aria
+    (`dragToReorder`), `PlayerPreview`, SEO meta strings, and the `SEO`
+    component titles.
+
 - [x] **Stale-shell 404 self-healing (live error: `GET /assets/index-*.js
   net::ERR_ABORTED 404` on production)**: the root cause was a cached old
   `index.html` referencing a hashed bundle the new Vercel deploy had purged —
