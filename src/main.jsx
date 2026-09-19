@@ -26,6 +26,17 @@ if (import.meta.env.PROD) {
     if (!shouldAttemptRecovery('vite_reload')) return;
     clearRuntimeCaches().finally(() => window.location.reload());
   });
+
+  // The service worker can't `respondWith` a replacement for a hard
+  // `<script src>` (the entry bundle in index.html) — when that 404s it is
+  // exactly a stale shell after a deploy. It posts a message instead; wipe
+  // the caches and reload here (same throttle so the fallback UI still wins
+  // if the CDN is genuinely down).
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (!event.data || event.data.type !== 'STALE_SHELL_RECOVERY') return;
+    if (!shouldAttemptRecovery('sw_stale_shell')) return;
+    clearRuntimeCaches().finally(() => window.location.reload());
+  });
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(

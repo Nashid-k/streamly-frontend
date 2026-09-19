@@ -1344,16 +1344,15 @@ export default function Home({
                 transition={{ duration: 0.55, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
                 style={{ willChange: "transform, opacity" }}
               >
-                {/* Eyebrow — platform + genre tags */}
-                <div className="hero-eyebrow">
+                {/* Title / Logo — real show wordmark, lazy-fetched on demand */}
+                <HeroTitleLogo movie={activeFeaturedMovie} />
 
+                {/* Eyebrow — genre tags, sits below the logo */}
+                <div className="hero-eyebrow">
                   {activeFeaturedMovie.genres?.slice(0, 2).map((g) => (
                     <span key={g} className="hero-eyebrow-tag">{g}</span>
                   ))}
                 </div>
-
-                {/* Title / Logo — real show wordmark, lazy-fetched on demand */}
-                <HeroTitleLogo movie={activeFeaturedMovie} />
 
                 {/* Meta row — gold star rating · calendar year · genre · runtime */}
                 <div className="hero-meta hero-meta--apple">

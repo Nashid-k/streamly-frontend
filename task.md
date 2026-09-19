@@ -7,6 +7,34 @@
 
 ## Done (in order)
 
+- [x] **Stale-shell 404 self-healing (live error: `GET /assets/index-*.js
+  net::ERR_ABORTED 404` on production)**: the root cause was a cached old
+  `index.html` referencing a hashed bundle the new Vercel deploy had purged —
+  a hard `<script src>` 404 that `vite:preloadError` (dynamic imports only)
+  never catches, so the existing chunk-recovery never fired and the app stayed
+  blank. Fix layered in both sides: `public/sw.js` now watches, in its
+  network-first `.js|.css` handler, for a 404 on an immutable hashed asset
+  → falls back to any cached copy and calls new `cleanStaleShell()` which
+  wipes `CACHE_NAME` + `IMAGE_CACHE` and `postMessage`s
+  `STALE_SHELL_RECOVERY` to every window client (incl. uncontrolled);
+  `src/main.jsx` listens for that message in PROD and reuses the existing
+  `shouldAttemptRecovery('sw_stale_shell')` throttle + `clearRuntimeCaches()`
+  + `window.location.reload()`, so an offline/CDN outage still lands on the
+  ErrorBoundary fallback instead of a reload loop. SW cache rotated
+  `v19.3 → v19.4` so old buckets purge on activate. Verified: lint 0 errors
+  (pre-existing warnings), vitest 38 files / 375/375, build OK; dist/sw.js
+  confirmed (`v19.4`, `cleanStaleShell`, `STALE_SHELL_RECOVERY`) and the main
+  bundle contains the listener.
+
+- [x] **Home hero eyebrow moved below the title logo (user order)**: the
+  genre-tag row (`<div className="hero-eyebrow">`) sat above `HeroTitleLogo` in
+  `HomePage.jsx`; it is now rendered after the logo (order: logo →
+  eyebrow → hero-meta rating/year/genre/runtime). No layout change needed —
+  `.hero-logo-img` already has `margin-bottom: 1.1rem` and the text-title
+  fallback `.hero-title` has `margin-bottom: 0.75rem`, so the optical spacing
+  stays intact either variant. Verified: lint 0 errors (pre-existing warnings
+  only), vitest 38 files / 375/375, build OK (1.44s).
+
 - [x] **Footer trim (user order)**: every Discord reference is gone —
   removed the `DiscordIcon` component, the `discord.gg/cinejoy` anchor, and the
   now-orphaned hairline divider from `src/components/Footer.jsx` (`public/icons.svg`

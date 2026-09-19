@@ -1,7 +1,7 @@
-const CACHE_NAME = 'streamly-v19.3';
+const CACHE_NAME = 'streamly-v19.4';
 // Separate long-lived image cache — stale-while-revalidate so images load
 // from disk in <10ms on repeat visits, then silently refresh in background.
-const IMAGE_CACHE = 'streamly-images-v19.3';
+const IMAGE_CACHE = 'streamly-images-v19.4';
 
 self.addEventListener('install', (event) => {
   // Pre-cache core shell so navigations always have index.html
@@ -52,6 +52,22 @@ function cacheKeyFor(request) {
     });
   } catch {
     return request;
+  }
+}
+
+// A 404 on an immutable hashed asset can only mean the served index.html
+// shell is from an old deploy (Vercel purges old hashes). Wipe the SW buckets
+// and ask every open tab to reload so the next boot starts from the fresh
+// shell instead of retrying dead bundles forever.
+async function cleanStaleShell() {
+  try {
+    await Promise.all([caches.delete(CACHE_NAME), caches.delete(IMAGE_CACHE)]);
+    const windowClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const client of windowClients) {
+      client.postMessage({ type: 'STALE_SHELL_RECOVERY' });
+    }
+  } catch {
+    // Best effort — the next version bump also purges everything on activate.
   }
 }
 
@@ -131,17 +147,23 @@ self.addEventListener('fetch', (event) => {
   }
 
   // 4. Hashed JS/CSS assets — network-first. Files are immutable (hashed), so a
-  // 404 means the index.html shell is stale: fall back to the cached copy.
+  // 404 means the index.html shell is stale: fall back to a cached copy when one
+  // exists, and self-heal (wipe caches + reload tabs) so the stale shell can't
+  // keep 404ing old bundles on later navigations.
   if (event.request.url.match(/\.(js|css)$/)) {
     event.respondWith(
       fetch(event.request)
-        .then((response) => {
+        .then(async (response) => {
           if (response && response.status === 200) {
             const responseClone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
             return response;
           }
-          return caches.match(event.request).then((cached) => cached || response);
+          const cached = await caches.match(event.request);
+          if (response && response.status === 404) {
+            await cleanStaleShell();
+          }
+          return cached || response;
         })
         .catch(() => caches.match(event.request))
     );
