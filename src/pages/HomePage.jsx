@@ -568,6 +568,26 @@ export default function Home({
     refetchOnWindowFocus: false,
   });
 
+  // Regional (Tamil/Hindi/Malayalam/Telugu) feeds — merged into the Upcoming
+  // and Airing rails so the rounds still surface without the "Coming This
+  // Month"/"Airing" rails losing their global breadth. Each is a /discover
+  // sweep, cached 10 min like the other rails.
+  const { data: regionalUpcomingData, error: regionalUpcomingError } = useQuery({
+    queryKey: ["upcoming-regional"],
+    queryFn: () => movieService.getRegionalUpcoming(90),
+    staleTime: 1000 * 60 * 10,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: regionalAiringData, error: regionalAiringError } = useQuery({
+    queryKey: ["airing-regional"],
+    queryFn: () => movieService.getRegionalAiring(10),
+    staleTime: 1000 * 60 * 10,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
   // ── Data-failure diagnostics ──────────────────────────────────────────
   // Every silent empty rail on Home used to be invisible in the console.
   // Log each failed query (with key + HTTP status) and each query that
@@ -585,7 +605,9 @@ export default function Home({
     if (popularError) reportQueryError("HomePage", ["popular"], popularError, { filter });
     if (topRatedError) reportQueryError("HomePage", ["topRated"], topRatedError, { filter });
     if (nowPlayingError) reportQueryError("HomePage", ["nowPlaying"], nowPlayingError, { filter });
-  }, [featuredQueryError, categoriesQueryError, airingError, trendingError, top10Error, popularError, topRatedError, nowPlayingError, filter]);
+    if (regionalUpcomingError) reportQueryError("HomePage", ["upcoming-regional"], regionalUpcomingError, { filter });
+    if (regionalAiringError) reportQueryError("HomePage", ["airing-regional"], regionalAiringError, { filter });
+  }, [featuredQueryError, categoriesQueryError, airingError, trendingError, top10Error, popularError, topRatedError, nowPlayingError, regionalUpcomingError, regionalAiringError, filter]);
 
   useEffect(() => {
     if (loading) return;
@@ -861,11 +883,23 @@ export default function Home({
     [trendingData, filter, enrichWithPlatforms],
   );
 
-  const airingThisWeek = useMemo(
-    () => enrichWithPlatforms(applyPageFilter(asArray(airingData)).slice(0, 20)),
+  const airingThisWeek = useMemo(() => {
+    // Global /tv/on_the_air first, then regional (Tamil/Hindi/Malayalam/
+    // Telugu) on-the-air series — deduped by id so no title doubles up.
+    const merged = [
+      ...applyPageFilter(asArray(airingData)).slice(0, 20),
+      ...applyPageFilter(asArray(regionalAiringData)),
+    ];
+    const seen = new Set();
+    const deduped = [];
+    for (const m of merged) {
+      if (!m || !m.id || seen.has(m.id)) continue;
+      seen.add(m.id);
+      deduped.push(m);
+    }
+    return enrichWithPlatforms(deduped).slice(0, 20);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [airingData, filter, enrichWithPlatforms],
-  );
+  }, [airingData, regionalAiringData, filter, enrichWithPlatforms]);
 
   const popularNow = useMemo(
     () => enrichWithPlatforms(applyPageFilter(asArray(popularData)).slice(0, 20)),
@@ -905,6 +939,7 @@ export default function Home({
       ...asArray(trendingData),
       ...asArray(top10Data),
       ...asArray(featuredData),
+      ...asArray(regionalUpcomingData),
       ...asArray(rawCategories).flatMap((c) => (Array.isArray(c.movies) ? c.movies : [])),
     ];
     const hasArtwork = (m) => m && (m.posterUrl || m.backdropUrl);
@@ -915,7 +950,7 @@ export default function Home({
       .filter(hasArtwork)
       .slice(0, 12);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [airingData, trendingData, top10Data, featuredData, rawCategories, filter, enrichWithPlatforms]);
+  }, [airingData, trendingData, top10Data, featuredData, regionalUpcomingData, rawCategories, filter, enrichWithPlatforms]);
 
   // Proximity-aware heading: surface when the next premiere drops instead of
   // always saying a flat "Upcoming".

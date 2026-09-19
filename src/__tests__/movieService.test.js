@@ -120,7 +120,7 @@ describe("movieService", () => {
     expect(fallbackCall).toContain("language=en");
   });
 
-  it("normalizes production companies with rich logo metadata", async () => {
+it("normalizes production companies with rich logo metadata", async () => {
     const fetch = vi
       .fn()
       .mockResolvedValueOnce(
@@ -157,6 +157,80 @@ describe("movieService", () => {
         originCountry: "US",
       },
     ]);
+  });
+
+  it("getRegionalUpcoming sweeps the Indian languages and returns deduped, date-sorted premieres", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          results: [
+            { id: 101, title: "Tamil Film", release_date: "2026-10-25", vote_average: 7.2 },
+            { id: 104, title: "Madras Story", release_date: "2027-02-10", vote_average: 6.8 },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          results: [
+            { id: 201, title: "Hindi Blockbuster", release_date: "2026-10-01", vote_average: 8 },
+            // Duplicate of a Tamil sweep title across languages — must dedupe.
+            { id: 101, title: "Tamil Film", release_date: "2026-10-25", vote_average: 7.2 },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ results: [{ id: 301, title: "Malayalam Hit", release_date: "2026-11-05", vote_average: 7.5 }] }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ results: [{ id: 401, title: "Telugu Drama", release_date: "2026-09-30", vote_average: 6.9 }] }),
+      );
+    vi.stubGlobal("fetch", fetch);
+
+    const items = await movieService.getRegionalUpcoming(60);
+
+    expect(fetch).toHaveBeenCalledTimes(4);
+    const urls = fetch.mock.calls.map(([url]) => String(url));
+    for (const lang of ["ta", "hi", "ml", "te"]) {
+      expect(urls.some((u) => u.includes(`with_original_language=${lang}`))).toBe(true);
+    }
+    expect(urls.every((u) => u.includes("region=IN"))).toBe(true);
+    // Sorted soonest-first, deduped (no movie-101 twice).
+    expect(items.map((i) => i.id)).toEqual(["movie-401", "movie-201", "movie-101", "movie-301", "movie-104"]);
+    expect(items[0].releaseDate).toBe("2026-09-30");
+    expect(items[3].title).toBe("Malayalam Hit");
+  });
+
+  it("getRegionalAiring dedupes regional on-the-air series and enriches top titles with the next episode", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({ results: [{ id: 510, name: "Chennai Nights", first_air_date: "2023-06-01" }] }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ results: [{ id: 520, name: "Delhi Drama", first_air_date: "2024-03-01" }] }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ results: [{ id: 530, name: "Kochi Tales", first_air_date: "2022-09-01" }] }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ results: [{ id: 510, name: "Chennai Nights", first_air_date: "2023-06-01" }] }),
+      )
+      // Per-title next_episode_to_air lookups for the deduped slice.
+      .mockResolvedValueOnce(
+        jsonResponse({ id: 510, name: "Chennai Nights", next_episode_to_air: { air_date: "2026-09-26", season_number: 2, episode_number: 7, name: "Storm" } }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ id: 520, name: "Delhi Drama", next_episode_to_air: null }))
+      .mockResolvedValueOnce(jsonResponse({ id: 530, name: "Kochi Tales", next_episode_to_air: null }));
+    vi.stubGlobal("fetch", fetch);
+
+    const items = await movieService.getRegionalAiring(10);
+
+    expect(fetch).toHaveBeenCalledTimes(7); // 4 discovers + 3 enriched lookups
+    expect(items.map((i) => i.id)).toEqual(["tv-510", "tv-520", "tv-530"]);
+    expect(items[0].nextEpisode).toMatchObject({ season: 2, episode: 7, releaseDate: "2026-09-26" });
+    expect(items[1].nextEpisode).toBeUndefined();
+expect(items[0].title).toBe("Chennai Nights");
   });
 });
 

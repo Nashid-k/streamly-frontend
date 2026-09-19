@@ -19,5 +19,5 @@ export const NAV_ITEMS = [
   { id: "home", label: "Home", to: "/", icon: Home, home: true, match: (p) => p === "/" },
   { id: "movies", label: "Movies", to: "/movies", icon: Clapperboard, match: (p) => p.startsWith("/movies") || navWatchKind(p) === "movie" },
   { id: "shows", label: "Shows", to: "/series", icon: Tv, match: (p) => p.startsWith("/series") || navWatchKind(p) === "series" },
-  { id: "mylist", label: "My List", to: "/watchlist", icon: Bookmark, match: (p) => p === "/watchlist" },
+  { id: "myList", label: "My List", to: "/watchlist", icon: Bookmark, match: (p) => p === "/watchlist" },
 ];

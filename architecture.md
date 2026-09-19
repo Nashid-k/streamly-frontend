@@ -35,8 +35,8 @@ Firebase SDK in the bundle.
 
 | User action | Route | Loader (React Query key → service) | DB / store |
 |---|---|---|---|
-| Open app | `/` | `featuredMovies` → `getFeaturedMovies` (`/trending/all/week` + per-item `append_to_response=images`); `categories` → `getCategories` (`/trending/movie|tv/week`); `top10`, `trending-this-week`, `airing-this-week`, `popular`, `topRated`, `nowPlaying` | network only |
-| Movies / Shows tabs | `/movies`, `/series` | same as `/`, client-filtered by `isSeries` | network only |
+| Open app | `/` | `featuredMovies` → `getFeaturedMovies` (`/trending/all/week` + per-item `append_to_response=images`); `categories` → `getCategories` (`/trending/movie|tv/week`); `top10`, `trending-this-week`, `airing-this-week`, `popular`, `topRated`, `nowPlaying`; regional Indian feeds merged into the Upcoming (`upcoming-regional` → `getRegionalUpcoming`, `/discover/movie` for `with_original_language=ta|hi|ml|te` + `region=IN`, future window) and Airing (`airing-regional` → `getRegionalAiring`, `/discover/tv` air-date window + per-title `next_episode_to_air`) rails | network only |
+| Movies / Shows tabs | `/movies`, `/series` | same as `/`, client-filtered by `isSeries`; the top `discover-rail` merges `getRegionalUpcoming(365)` into the movies slate and `getRegionalAiring(10)` into the series rail | network only |
 | Search | `/search?q=` | `search:<q>` → `searchMovies` (`/search/multi`, movie+tv only) | + `aios_search_history` (local) |
 | Genre | `/genre/:genre` | `genre-search:<genre>` → `searchMovies` + `selectGenreResults` | network only |
 | Collection | `/category/:name` | `categories` (exact→fuzzy→token match) or `location.state.movies` | network / nav state |

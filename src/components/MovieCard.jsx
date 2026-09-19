@@ -82,11 +82,13 @@ import { logWarn } from "../utils/debugLogger";
 
 // Device capability is static per session - computed once at module scope so
 // it never re-runs on every card render (object churn / memo invalidation).
+// "Touch device" means the PRIMARY pointer has no hover (phones/tablets).
+// Touchscreen laptops (touch + mouse) keep the hover curtain; the banner
+// LandscapeCard is pure CSS hover and was already animating on them.
 const isTouchDevice =
   typeof window !== "undefined" &&
-  ("ontouchstart" in window ||
-    navigator.maxTouchPoints > 0 ||
-    (window.matchMedia && window.matchMedia("(hover: none), (pointer: coarse)").matches));
+  !!window.matchMedia &&
+  window.matchMedia("(hover: none), (pointer: coarse)").matches;
 
 const MovieCard = memo(function MovieCard({
   movie,

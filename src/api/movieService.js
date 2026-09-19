@@ -102,6 +102,12 @@ const GENRE_MAP = {
   10765:'Sci-Fi & Fantasy',10766:'Soap',10767:'Talk',10768:'War & Politics',
 };
 
+// Original-language codes for the regional (Indian) rails — Tamil, Hindi,
+// Malayalam and Telugu. The app already treats these as its regional cluster
+// (Home's Tamil/Malayalam/Hindi/Telugu rows), so the Upcoming + Airing rails
+// pull the same languages through /discover instead of the English-only sweep.
+const REGIONAL_PRIMARY_LANGUAGES = ['ta', 'hi', 'ml', 'te'];
+
 // ── Trailer curation ────────────────────────────────────────────────────────
 // "Authentic platform" rules: never dump every Clip/Featurette on the page.
 // Rank trailer-family videos by prominence — Final → Official → Trailer →
@@ -541,6 +547,77 @@ export const movieService = {
     }
   },
 
+  // Regional (Indian-language) now-airing series — /discover/tv for each of
+  // the primary Indian languages (Tamil/Hindi/Malayalam/Telugu) with an air
+  // date inside this week, sorted by popularity, then enriched with
+  // next_episode_to_air for the top titles so the Airing rails can show the
+  // "Ep X · Mon DD" chips. A failed detail look-up never kills the rail.
+  getRegionalAiring: async (limit = 10) => {
+    try {
+      const pad = (n) => String(n).padStart(2, '0');
+      const now = new Date();
+      const from = new Date(now);
+      from.setDate(now.getDate() - 7);
+      const fromStr = `${from.getFullYear()}-${pad(from.getMonth() + 1)}-${pad(from.getDate())}`;
+      const toStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+      const pages = await Promise.allSettled(
+        REGIONAL_PRIMARY_LANGUAGES.map((lang) =>
+          tmdb('/discover/tv', {
+            page: 1,
+            sort_by: 'popularity.desc',
+            air_date_gte: fromStr,
+            air_date_lte: toStr,
+            with_original_language: lang,
+            region: 'IN',
+          }),
+        ),
+      );
+      const base = [];
+      const seen = new Set();
+      for (const res of pages) {
+        if (res.status !== 'fulfilled') continue;
+        for (const r of (res.value.results || [])) {
+          const item = normalizeResult({ ...r, media_type: 'tv' });
+          if (seen.has(item.id)) continue;
+          seen.add(item.id);
+          if (r.first_air_date) item.releaseDate = r.first_air_date;
+          base.push(item);
+        }
+      }
+      if (base.length === 0) {
+        logEmptyData('movieService', 'getRegionalAiring: no regional TV titles with an air date this week.', {
+          languages: REGIONAL_PRIMARY_LANGUAGES.join(','),
+        });
+        return [];
+      }
+      const slice = base.slice(0, Math.min(limit, base.length));
+      const enriched = await Promise.allSettled(
+        slice.map(async (item) => {
+          const rid = rawId(item.id);
+          const brief = await tmdb(`/tv/${rid}`, { append_to_response: 'next_episode_to_air' });
+          const nx = brief.next_episode_to_air;
+          if (!nx || !nx.air_date) return item;
+          return {
+            ...item,
+            nextEpisode: {
+              releaseDate: nx.air_date,
+              season: nx.season_number,
+              episode: nx.episode_number,
+              title: nx.name || null,
+            },
+            airingSeasonNumber: nx.season_number || null,
+          };
+        }),
+      );
+      const out = enriched.map((r, i) => (r.status === 'fulfilled' ? r.value : slice[i]));
+      warnIfEmpty('getRegionalAiring', out, { limit, languages: REGIONAL_PRIMARY_LANGUAGES.join(',') });
+      return out;
+    } catch (error) {
+      logServiceError('getRegionalAiring', error, { limit, languages: REGIONAL_PRIMARY_LANGUAGES.join(',') });
+      throw error;
+    }
+  },
+
   // ── Discovery browse (Cinejoy-style Movies / Series pages) ─────────────
   // Both /movies and /series render a shared DiscoveryPage: a header + filter
   // pills (Random, Genre, Year, Sort, Provider, Country), an editorial rail,
@@ -696,6 +773,51 @@ export const movieService = {
       return out;
     } catch (error) {
       logServiceError('getFutureMovies', error, {});
+      throw error;
+    }
+  },
+
+  // Regional upcoming premieres — a future release-date sweep for each primary
+  // Indian language, sorted soonest-first. Merged into the global Upcoming /
+  // "Coming This Month" rails (Home + Movies discovery) so regional theatrical
+  // releases share the slate alongside the English future-movies sweep.
+  getRegionalUpcoming: async (windowDays = 90) => {
+    try {
+      const pad = (n) => String(n).padStart(2, '0');
+      const now = new Date();
+      const start = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+      const end = new Date(now);
+      end.setDate(now.getDate() + windowDays);
+      const endStr = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
+      const pages = await Promise.allSettled(
+        REGIONAL_PRIMARY_LANGUAGES.map((lang) =>
+          tmdb('/discover/movie', {
+            page: 1,
+            sort_by: 'primary_release_date.asc',
+            primary_release_date_gte: start,
+            primary_release_date_lte: endStr,
+            with_original_language: lang,
+            region: 'IN',
+          }),
+        ),
+      );
+      const out = [];
+      const seen = new Set();
+      for (const res of pages) {
+        if (res.status !== 'fulfilled') continue;
+        for (const r of (res.value.results || [])) {
+          if (!r.release_date) continue;
+          const item = normalizeResult({ ...r, media_type: 'movie' });
+          if (seen.has(item.id)) continue;
+          seen.add(item.id);
+          out.push({ ...item, releaseDate: r.release_date });
+        }
+      }
+      out.sort((a, b) => String(a.releaseDate).localeCompare(String(b.releaseDate)));
+      warnIfEmpty('getRegionalUpcoming', out, { windowDays, languages: REGIONAL_PRIMARY_LANGUAGES.join(',') });
+      return out;
+    } catch (error) {
+      logServiceError('getRegionalUpcoming', error, { windowDays, languages: REGIONAL_PRIMARY_LANGUAGES.join(',') });
       throw error;
     }
   },

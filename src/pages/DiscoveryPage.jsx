@@ -368,22 +368,34 @@ export default function DiscoveryPage({ mode = "movies" }) {
 
   // ── Top editorial rail — movies: upcoming; series: new seasons airing ───
   // Movies merge TMDB /movie/upcoming (paginated) with a /discover sweep of
-  // the next year so the rail is dense instead of a single sparse page.
+  // the next year AND the regional (Tamil/Hindi/Malayalam/Telugu) future
+  // slate so the rail is dense instead of a single sparse page and regional
+  // premieres are not skipped.
   const loadUpcomingFilmSlate = async () => {
-    const [upcoming, future] = await Promise.allSettled([
+    const [upcoming, future, regional] = await Promise.allSettled([
       movieService.getUpcomingMovies(),
       movieService.getFutureMovies(),
+      movieService.getRegionalUpcoming(365),
     ]);
     return [
       ...(upcoming.status === "fulfilled" ? upcoming.value : []),
       ...(future.status === "fulfilled" ? future.value : []),
+      ...(regional.status === "fulfilled" ? regional.value : []),
     ];
   };
 
   const railQuery = useQuery({
     queryKey: ["discover-rail", cfg.mediaType],
     queryFn: () =>
-      isSeries ? movieService.getAiringRail(10) : loadUpcomingFilmSlate(),
+      isSeries
+        ? Promise.allSettled([
+            movieService.getAiringRail(10),
+            movieService.getRegionalAiring(10),
+          ]).then(([airing, regional]) => [
+            ...(airing.status === "fulfilled" ? airing.value : []),
+            ...(regional.status === "fulfilled" ? regional.value : []),
+          ])
+        : loadUpcomingFilmSlate(),
     staleTime: 1000 * 60 * 10,
     retry: false,
     refetchOnWindowFocus: false,

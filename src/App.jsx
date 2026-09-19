@@ -51,7 +51,7 @@ const NAV_ITEMS = [
   { id: "home", label: "Home", to: "/", icon: Home, home: true, match: (p) => p === "/" },
   { id: "movies", label: "Movies", to: "/movies", icon: Clapperboard, match: (p) => p.startsWith("/movies") || navWatchKind(p) === "movie" },
   { id: "shows", label: "Shows", to: "/series", icon: Tv, match: (p) => p.startsWith("/series") || navWatchKind(p) === "series" },
-  { id: "mylist", label: "My List", to: "/watchlist", icon: Bookmark, match: (p) => p === "/watchlist" },
+  { id: "myList", label: "My List", to: "/watchlist", icon: Bookmark, match: (p) => p === "/watchlist" },
 ];
 
 const HomePage = lazy(() => import("./pages/HomePage"));
@@ -403,7 +403,7 @@ function Layout({ children }) {
           { id: "home", label: t("nav.home"), to: "/", icon: Home, match: (p) => p === "/" },
           { id: "movies", label: t("nav.movies"), to: "/movies", icon: Clapperboard, match: (p) => p.startsWith("/movies") || navWatchKind(p) === "movie" },
           { id: "shows", label: t("nav.shows"), to: "/series", icon: Tv, match: (p) => p.startsWith("/series") || navWatchKind(p) === "series" },
-          { id: "mylist", label: t("nav.mylist"), to: "/watchlist", icon: Bookmark, match: (p) => p === "/watchlist" || p === "/history" },
+          { id: "myList", label: t("nav.myList"), to: "/watchlist", icon: Bookmark, match: (p) => p === "/watchlist" || p === "/history" },
           { id: "search", label: t("nav.search"), to: "/search", icon: Search, match: (p) => p === "/search" },
           { id: "settings", label: user ? t("settings.tabs.account") : t("nav.settings"), to: "/settings", icon: Settings, match: (p) => p === "/settings" },
         ].map((item) => {

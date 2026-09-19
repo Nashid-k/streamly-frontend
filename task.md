@@ -7,6 +7,65 @@
 
 ## Done (in order)
 
+- [x] **Nav showing raw `nav.mylist` label fixed (i18n key-case mismatch)**: the
+  desktop dock builds labels via `t(\`nav.${item.id}\`)`, so the My List item id
+  `"mylist"` resolved to `nav.mylist` — a key that doesn't exist (dictionaries
+  define `nav.myList`), and `makeT` returned the key string itself. The mobile
+  bottom bar had the same bug as a hand-written `t("nav.mylist")`. Fix: renamed
+  the nav item id `"mylist"` → `"myList"` in `src/App.jsx` (both the local
+  `NAV_ITEMS` dock and the mobile bottom-nav array — no logic keys off that
+  string except `"settings"`) and mirrored it in the unused source-of-truth
+  `src/constants/navigation.js`. "My List" now renders translated in all 10
+  languages, desktop and mobile. Verified: lint 0 errors (pre-existing warnings
+  only), vitest 38 files / 377/377, build OK.
+
+- [x] **Regional (Indian-language) content merged into the Upcoming + Airing
+  rails (task: "regional rails")**: `/discover` sweeps for the app's regional
+  cluster — Tamil/Hindi/Malayalam/Telugu (`with_original_language=ta|hi|ml|te`,
+  `region=IN`) — now feed the rails that used to be English-only.
+  - **Service** (`src/api/movieService.js`): new `REGIONAL_PRIMARY_LANGUAGES`
+    const + `getRegionalUpcoming(windowDays = 90)` (per-language
+    `/discover/movie` future window, `sort_by=primary_release_date.asc`,
+    deduped by id, `releaseDate` attached so `buildUpcoming` can group it) and
+    `getRegionalAiring(limit = 10)` (`/discover/tv` air-date window ±7 days,
+    `sort_by=popularity.desc`, deduped, top titles enriched with
+    `next_episode_to_air` → `nextEpisode{releaseDate, season, episode, title}`
+    exactly like `getAiringRail`, failures via `Promise.allSettled` so one
+    language or one detail look-up can never kill the rail). Both report through
+    `logServiceError`/`warnIfEmpty`/`logEmptyData`.
+  - **Home** (`src/pages/HomePage.jsx`): new queries `["upcoming-regional"]`
+    (`getRegionalUpcoming(90)`) and `["airing-regional"]`
+    (`getRegionalAiring(10)`) with the standard 10-min stale time / no-retry /
+    no-refocus; regional premiere titles merge into the `upcomingReleases`
+    pool (deduped by id, then `buildUpcoming`); regional on-the-air series
+    merge into `airingThisWeek` (deduped by id, sliced to 20); both errors
+    reported via `reportQueryError` in the diagnostics effect.
+  - **Discovery** (`src/pages/DiscoveryPage.jsx`): movies slate
+    (`loadUpcomingFilmSlate`) now `Promise.allSettled`s `getUpcomingMovies` +
+    `getFutureMovies` + `getRegionalUpcoming(365)`; the series rail
+    `queryFn` merges `getAiringRail(10)` + `getRegionalAiring(10)`.
+  - **Tests** (`src/__tests__/movieService.test.js`): 2 new fetch-stub tests —
+    regional upcoming (per-language URLs incl. `region=IN`, soonest-first sort,
+    cross-language dedupe) and regional airing (dedupe + `nextEpisode`
+    enrichment). Verified: lint 0 errors (pre-existing warnings only), vitest
+    38 files / 377/377, build OK. `architecture.md` §2 rows for `/` and
+    `/movies|/series` updated with the new keys.
+
+- [x] **Card hover curtain restored on TV-show cards (hover parity follow-up)**:
+  the horizontal rail cards animated on hover but the vertical discovery-grid
+  TV cards didn't. Root cause: `MovieCard.jsx`'s module-scope `isTouchDevice`
+  used OR logic (`"ontouchstart" in window || navigator.maxTouchPoints > 0 ||
+  (hover:none)/(pointer:coarse)`), so touchscreen **laptops** (e.g. a Surface)
+  were flagged as touch devices and the framer-motion hover curtain was
+  disabled — while the horizontal `LandscapeCard` on the Movies page uses pure
+  CSS `hover:scale-105` and always animated. Fix: `isTouchDevice` now matches
+  only the single media query `"(hover: none), (pointer: coarse)"` — the same
+  "touch = hasTouch && noHover" test the codebase already uses in
+  `src/hooks/useIsTouch.js`. Phones/tablets keep the curtain off (compact
+  below-meta shown instead); desktops and hybrid laptops get the hover curtain
+  back. Verified: lint 0 errors (pre-existing warnings only), vitest 38 files /
+  375/375, build OK.
+
 - [x] **Native input border rects removed for real (follow-up to the Settings UX
   batch item 4)**: the earlier `:focus-visible { outline: none }` tweak survived
   a stale-bundle rotation, but raw `<input>`/`<select>`/`<textarea>` elements
