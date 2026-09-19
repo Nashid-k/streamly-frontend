@@ -156,8 +156,8 @@ describe("CineSrc embed params follow the integration docs", () => {
   });
 });
 
-describe("VidCore streams with its own player controls (interactive pass-through)", () => {
-  it("keeps Server 5's iframe interactive and renders no custom chrome on top", async () => {
+describe("VidCore is a plain iframe passthrough (its own native controls, no custom chrome)", () => {
+  it("embeds vidcore directly with the native control bar fully interactive (no custom chrome, no speed pill)", async () => {
     render(
       <PreferencesProvider>
         <CustomVideoPlayer
@@ -174,15 +174,13 @@ describe("VidCore streams with its own player controls (interactive pass-through
     // iframe mounts on a microtask — wait for it before asserting the src.
     const iframe = await screen.findByTitle("Video player");
     expect(iframe.getAttribute("src")).toContain("vidcore.io");
-    // Pass-through: the embed must receive pointer events so its own player UI
-    // (play/pause/seek/volume) actually works.
+    // VidCore is a naked embed: the iframe must receive every pointer event so
+    // its OWN control bar drives play/pause/seek/volume/quality natively.
     expect(iframe.style.pointerEvents).toBe("auto");
     fireEvent.load(iframe);
 
     // Simulate vidcore reporting playback — its PLAYER_EVENTs still sync our
-    // state/Continue Watching, but video control stays inside the embed: the
-    // compiled vidcore bundle answers only getStatus (its play/pause/seek/
-    // volume/mute commands are no-ops), so our chrome must not cover it.
+    // Continue Watching bookkeeping behind the scenes.
     act(() => {
       window.dispatchEvent(new MessageEvent("message", {
         origin: "https://vidcore.io",
@@ -191,11 +189,14 @@ describe("VidCore streams with its own player controls (interactive pass-through
       fireEvent.mouseMove(container);
     });
 
+    // NO custom chrome is layered on top: the native player owns the screen.
     expect(container.querySelector('[aria-label*="aspect ratio" i]')).not.toBeInTheDocument();
     expect(container.querySelector('[aria-label*="brightness" i]')).not.toBeInTheDocument();
+    expect(container.querySelector('[aria-label="Playback speed"]')).not.toBeInTheDocument();
+    expect(container.querySelector('[aria-label="Back to custom controls"]')).not.toBeInTheDocument();
   });
 
-  it("sends no control commands to the vidcore iframe (it has no play/pause/seek API)", async () => {
+  it("lets the native iframe own all transport — our shortcuts don't hijack Space", async () => {
     const { container } = render(
       <PreferencesProvider>
         <CustomVideoPlayer
@@ -207,13 +208,19 @@ describe("VidCore streams with its own player controls (interactive pass-through
     );
     const iframe = await screen.findByTitle("Video player");
     expect(iframe.getAttribute("src")).toContain("vidcore.io");
+    fireEvent.load(iframe);
     const postSpy = vi.spyOn(iframe.contentWindow, "postMessage");
 
-    // Keyboard shortcuts are CineSrc-only today; a Space press must NOT forward
-    // a {command:"play"} that vidcore would silently drop.
+    // isPlaying is false until the embed reports play, so a parent-document
+    // Space must NOT forward commands at the embed — focus inside the iframe is
+    // where vidcore's own player receives transport, unaffected by our app.
     fireEvent.keyDown(window, { key: " " });
     expect(postSpy).not.toHaveBeenCalled();
-    expect(container.querySelector(".streamly-player")).toBeInTheDocument();
+    expect(screen.queryByText("VidCore runs its own player — original controls shown")).not.toBeInTheDocument();
+
+    // The iframe was never remounted (playback position survives).
+    expect(container.querySelectorAll("iframe")).toHaveLength(1);
+    expect(container.querySelector("iframe").getAttribute("src")).toContain("vidcore.io");
   });
 });
 

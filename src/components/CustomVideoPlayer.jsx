@@ -637,6 +637,14 @@ const CustomVideoPlayer = forwardRef(({
 false = CineSrc renders the custom Netflix chrome; flipping this
 on falls back to the provider's native controls. */
   const [useNativeControls, setUseNativeControls] = useState(false);
+  /* VidCore direct mode: its compiled player answers only getStatus — every
+     play/pause/seek/volume/mute command is a compiled no-op, so our chrome can
+     never truly drive it. The first tap on any transport control flips on this
+     flag: the bottom strip + center overlays stand down and the NATIVE control
+     bar (already underneath via pointerEvents:auto) takes over — real control,
+     playback position preserved (no iframe remount). Per-content default back
+     to our chrome. */
+  const [vidcoreDirectMode, setVidcoreDirectMode] = useState(false);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [isScreenLocked, setIsScreenLocked] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -731,6 +739,8 @@ on falls back to the provider's native controls. */
   const volumeBarRef = useRef(null);
   const isLoopingRef = useRef(isLooping);
   useEffect(() => { isLoopingRef.current = isLooping; }, [isLooping]);
+  const vidcoreDirectModeRef = useRef(vidcoreDirectMode);
+  useEffect(() => { vidcoreDirectModeRef.current = vidcoreDirectMode; }, [vidcoreDirectMode]);
 
   /* Persist the user's aspect-ratio choice so it survives reloads */
   useEffect(() => {
@@ -744,17 +754,22 @@ on falls back to the provider's native controls. */
   const isVidCore = iframeUrl.includes("vidcore.io");
   const isPeachify = iframeUrl.includes("peachify.top");
   const isVidUp = iframeUrl.includes("vidup.to");
-  // Providers with a real postMessage control API (see sendCommand) can run our
-  // full custom chrome. Only CineSrc qualifies: reverse-engineering the compiled
-  // vidcore.io bundle (chunk 281, its single message handler) proved that its
-  // play/pause/seek/volume/mute commands are no-ops — only getStatus is answered.
-  // So VidCore joins Peachify/VidUp as an interactive pass-through provider whose
-  // own player UI must keep pointer events; our chrome would sit on top and block
-  // every real control.
-  const isManagedPlayer = isCineSrc;
+  // CineSrc runs our full custom chrome over a real postMessage control API.
+  // VidCore is a plain iframe passthrough: its compiled bundle answers ONLY
+  // getStatus (play/pause/seek/volume/mute commands are no-ops — verified by
+  // deobfuscating chunk 281's inbound handler), so it gets NO custom chrome —
+  // the embed's own native control bar stays fully interactive, exactly like
+  // Peachify/VidUp. Its getStatus/PLAYER_EVENT polling still feeds our
+  // Continue Watching / up-next bookkeeping only.
+  const isManagedPlayer = isCineSrc || isVidCore;
   const supportsPlaybackRate = isCineSrc;
   const hasManagedSettings = isManagedPlayer;
-  const showCustomUI = isManagedPlayer && !useNativeControls;
+  const showCustomUI = isCineSrc && !useNativeControls;
+  /* Bottom strip, center overlays, gestures, wheel and lock chrome — rendered
+     for managed providers, but stunned in VidCore direct mode where the native
+     control bar must receive every pointer event. The top bar (exit/next/custom
+     toggle) stays up so the session never gets trapped. */
+  const showBottomChrome = showCustomUI && !vidcoreDirectMode;
 
   /* Auto-hide paused info */
   useEffect(() => {
@@ -798,7 +813,8 @@ on falls back to the provider's native controls. */
     setUpNextCountdown(15);
     setHasInitiallyLoaded(false);
     setSubtitleOffset(0);
-  }, [movie?.id, season, episode]);
+setVidcoreDirectMode(false);
+    }, [movie?.id, season, episode]);
 
   // Reset next-episode trigger on mount (player opened) and on unmount (player closed)
   useEffect(() => {
@@ -941,8 +957,10 @@ on falls back to the provider's native controls. */
         return;
       }
       genKeyRef.current = key;
-      // Fresh server attempt: reset "did it stream yet?" and the per-server
-      // failure tally before this source starts loading.
+      // Fresh server attempt: reset "did it stream yet?", the per-server
+      // failure tally, and any VidCore direct-mode handover before this source
+      // starts loading.
+setVidcoreDirectMode(false);
       hasPlaybackRef.current = false;
       serverErrorCountsRef.current = {};
       userPausedRef.current = false;
@@ -1078,11 +1096,21 @@ on falls back to the provider's native controls. */
       if (!w) return;
       if (isCineSrc) {
         w.postMessage({ type: "cinesrc:command", command: c, args: a }, "https://cinesrc.st");
+      } else if (isVidCore) {
+        // VidCore's docs list these verbs, but its compiled handler no-ops every
+        // one except getStatus — we send them for future-proofing and mirror the
+        // REAL state via getStatus (poll + onLoad seed + PLAYER_EVENT listener).
+        switch (c) {
+          case "play": case "pause": w.postMessage({ command: c }, "*"); break;
+          case "seek": if (typeof a[0] === "number") w.postMessage({ command: "seek", time: a[0] }, "*"); break;
+          case "setVolume": if (typeof a[0] === "number") w.postMessage({ command: "volume", level: a[0] }, "*"); break;
+          case "getStatus": w.postMessage({ command: "getStatus" }, "*"); break;
+          default: break; // getCurrentTime/getPaused/... aren't supported — skip
+        }
       }
-      // Peachify/VidUp/VidCore publish no postMessage control API (vidcore's
-      // handler answers only getStatus) — commands are a no-op for them.
+      // Peachify/VidUp publish no postMessage control API — commands are no-ops.
     } catch { /* iframe cross-origin */ }
-  }, [isCineSrc]);
+  }, [isCineSrc, isVidCore]);
 
   /* Cycle playback speed for the placeable speed pill. Lives after
      playbackRate/sendCommand so their bindings are initialized. */
@@ -1328,17 +1356,19 @@ on falls back to the provider's native controls. */
      when posted, so our play/pause/volume UI could drift). Getter responses carry
      plain primitives and DO arrive. Poll every 5s so we keep (a) playback proof
      for the watchdog and (b) our play/pause/volume chrome in sync with the player.
-     CineSrc-only today: vidcore.io answers getStatus but nothing else, so its own
-     player UI drives playback (interactive pass-through). */
+     CineSrc polls getCurrentTime/getPaused; vidcore's only supported command is
+     getStatus, so it polls that (its own player still drives real playback — our
+     chrome mirrors the state and hands transport over via vidcoreDirectMode). */
   useEffect(() => {
     if (!isManagedPlayer) return;
     const tick = () => {
+      if (isVidCore) { sendCommand("getStatus"); return; }
       sendCommand("getCurrentTime");
       sendCommand("getPaused");
     };
     const iv = setInterval(tick, 5000);
     return () => clearInterval(iv);
-  }, [isManagedPlayer, sendCommand]);
+  }, [isManagedPlayer, isVidCore, sendCommand]);
 
   /* External-iframes PostMessage Listener (VidCore + Peachify + VidUp) — events as
      { type: "timeupdate", data: { currentTime, duration, percent } } (VidCore),
@@ -1438,8 +1468,23 @@ on falls back to the provider's native controls. */
     sideIconTimeoutRef.current = setTimeout(() => setSideIcon(null), 700);
   }, []);
 
+  /* VidCore handover: the embed answers only getStatus — its play/pause/seek/
+     volume/mute commands compile to no-ops, so our chrome can never drive it.
+     The first tap on any transport control reveals the native control bar
+     (underneath, pointerEvents:auto) so playback ACTUALLY responds; we never
+     remount the iframe, so the stream position survives the handover. */
+  const delegateToVidCoreNatively = useCallback(() => {
+    if (!isVidCore || vidcoreDirectModeRef.current) return;
+setVidcoreDirectMode(true);
+      setShowControls(false);
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setToastMessage("VidCore runs its own player — original controls shown");
+    toastTimeoutRef.current = setTimeout(() => setToastMessage(""), 2500);
+  }, [isVidCore]);
+
   const togglePlay = useCallback((e) => {
     if (e) e.stopPropagation();
+    delegateToVidCoreNatively();
     if (isPlaying) {
       sendCommand("pause");
       userPausedRef.current = true;
@@ -1455,9 +1500,10 @@ on falls back to the provider's native controls. */
       if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
       controlsTimeoutRef.current = setTimeout(() => setShowControls(false), 3500);
     }
-  }, [isPlaying, sendCommand, triggerCenterIcon, showCustomUI]);
+  }, [isPlaying, sendCommand, triggerCenterIcon, showCustomUI, delegateToVidCoreNatively]);
 
   const changeVolume = useCallback((nv) => {
+    delegateToVidCoreNatively();
     const v = Math.max(0, Math.min(nv, 1));
     setVolume(v);
     volumeRef.current = v;
@@ -1479,10 +1525,11 @@ on falls back to the provider's native controls. */
       if (volumeArcTimerRef.current) clearTimeout(volumeArcTimerRef.current);
       volumeArcTimerRef.current = setTimeout(() => setShowVolumeArc(false), 1200);
     }
-  }, [isMuted, sendCommand, isTouch]);
+  }, [isMuted, sendCommand, isTouch, delegateToVidCoreNatively]);
 
   const toggleMute = useCallback((e) => {
     if (e) e.stopPropagation();
+    delegateToVidCoreNatively();
     const n = !isMuted;
     setIsMuted(n);
     isMutedRef.current = n;
@@ -1508,9 +1555,10 @@ on falls back to the provider's native controls. */
       if (volumeArcTimerRef.current) clearTimeout(volumeArcTimerRef.current);
       volumeArcTimerRef.current = setTimeout(() => setShowVolumeArc(false), 1200);
     }
-  }, [isMuted, volume, sendCommand, isTouch]);
+  }, [isMuted, volume, sendCommand, isTouch, delegateToVidCoreNatively]);
 
   const seekRelative = useCallback((s, showSideFeedback = true) => {
+    delegateToVidCoreNatively();
     const base = targetSeekTimeRef.current ?? currentTime;
     const nt = Math.max(0, Math.min(base + s, duration || Infinity));
     targetSeekTimeRef.current = nt;
@@ -1524,7 +1572,7 @@ on falls back to the provider's native controls. */
     }
     if (seekTimeoutRef.current) clearTimeout(seekTimeoutRef.current);
     seekTimeoutRef.current = setTimeout(() => { seekAccumulatorRef.current = 0; }, 1000);
-  }, [currentTime, duration, sendCommand, triggerSideIcon]);
+  }, [currentTime, duration, sendCommand, triggerSideIcon, delegateToVidCoreNatively]);
 
   const showToast = useCallback((msg) => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
@@ -1653,6 +1701,7 @@ on falls back to the provider's native controls. */
 
   /* Progress Bar */
   const handleProgressScrub = useCallback((e) => {
+    delegateToVidCoreNatively();
     // Measure against the actual TRACK — the outer element has horizontal
     // padding, so this makes the seek land exactly where the pointer is.
     const el = progressTrackRef.current || progressBarRef.current;
@@ -1663,7 +1712,7 @@ on falls back to the provider's native controls. */
     setCurrentTime(nt);
     targetSeekTimeRef.current = nt;
     sendCommand("seek", [nt]);
-  }, [duration, sendCommand]);
+  }, [duration, sendCommand, delegateToVidCoreNatively]);
 
   const handleProgressHover = useCallback((e) => {
     const outer = progressBarRef.current;
@@ -1711,7 +1760,7 @@ on falls back to the provider's native controls. */
 
   /* Keyboard Shortcuts */
   useEffect(() => {
-    if (!isManagedPlayer) return;
+    if (!isCineSrc) return;
     const h = (e) => {
       if (document.activeElement?.tagName === "input" || e.ctrlKey || e.metaKey || e.altKey) return;
       switch (e.key.toLowerCase()) {
@@ -1731,11 +1780,11 @@ on falls back to the provider's native controls. */
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [isManagedPlayer, togglePlay, toggleFullscreen, toggleMute, seekRelative, changeVolume, triggerBrightnessCycle]);
+  }, [isCineSrc, togglePlay, toggleFullscreen, toggleMute, seekRelative, changeVolume, triggerBrightnessCycle]);
 
   useEffect(() => {
     const el = containerRef.current;
-    if (!el || !showCustomUI) return;
+    if (!el || !showBottomChrome) return;
     const h = (e) => {
       if (showSettings || showSubtitlesMenu || showShortcuts) return;
       e.preventDefault();
@@ -1743,7 +1792,7 @@ on falls back to the provider's native controls. */
     };
     el.addEventListener("wheel", h, { passive: false });
     return () => el.removeEventListener("wheel", h);
-  }, [showCustomUI, changeVolume, showSettings, showSubtitlesMenu, showShortcuts]);
+  }, [showBottomChrome, changeVolume, showSettings, showSubtitlesMenu, showShortcuts]);
 
   /* ═══ Touch Gestures — VLC/MX Player Style ═══════════════════════════════
      LEFT 35%:   swipe ↑↓ = brightness
@@ -1751,7 +1800,7 @@ on falls back to the provider's native controls. */
      RIGHT 35%:  swipe ↑↓ = volume
      ══════════════════════════════════════════════════════════════════════ */
   const handleTouchStart = useCallback((e) => {
-    if (!isTouch || !showCustomUI || isScreenLocked) return;
+    if (!isTouch || !showBottomChrome || isScreenLocked) return;
     /* Pinch detection: two fingers */
     if (e.touches.length === 2) {
       e.preventDefault();
@@ -1780,10 +1829,10 @@ on falls back to the provider's native controls. */
       hasMoved: false,
     };
     gestureLockRef.current = null;
-  }, [isTouch, showCustomUI, isFullscreen, isScreenLocked]);
+  }, [isTouch, showBottomChrome, isFullscreen, isScreenLocked]);
 
   const handleTouchMove = useCallback((e) => {
-    if (!isTouch || !showCustomUI || isScreenLocked) return;
+    if (!isTouch || !showBottomChrome || isScreenLocked) return;
     /* Pinch to fullscreen */
     if (e.touches.length === 2 && pinchStartDistRef.current) {
       e.preventDefault();
@@ -1866,7 +1915,7 @@ on falls back to the provider's native controls. */
       setGestureType(null);
       setSeekDelta(0);
     }, 800);
-  }, [isTouch, showCustomUI, sendCommand, toggleFullscreen, isScreenLocked]);
+  }, [isTouch, showBottomChrome, sendCommand, toggleFullscreen, isScreenLocked]);
 
   const handleTouchEnd = useCallback((e) => {
     lastTouchEndRef.current = Date.now();
@@ -2057,7 +2106,7 @@ on falls back to the provider's native controls. */
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onContextMenu={(e) => {
-        if (!showCustomUI) return;
+        if (!showCustomUI || vidcoreDirectMode) return;
         e.preventDefault();
         const r = containerRef.current.getBoundingClientRect();
         setContextMenu({
@@ -2071,12 +2120,15 @@ on falls back to the provider's native controls. */
       {iframeUrl && (
         <iframe
           ref={iframeRef}
-          key={`iframe-${activeServerIndex}-${useNativeControls}`}
+          key={`iframe-${activeServerIndex}`}
           src={iframeUrl}
           title="Video player"
           style={{
             position: 'absolute', inset: 0, display: 'block', width: '100%', height: '100%', border: 'none', background: '#000', overflow: 'visible',
-            pointerEvents: isCineSrc ? 'auto' : (showCustomUI ? 'none' : 'auto'),
+            // CineSrc keeps its iframe interactive (clicks go to our overlay),
+            // VidCore/Peachify/VidUp stay fully interactive: their own native
+            // control bars are the only transport — we never overlay chrome.
+            pointerEvents: isCineSrc && showCustomUI ? 'none' : 'auto',
             opacity: hasInitiallyLoaded ? 1 : 0,
             transition: 'opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
             filter: brightness !== 1 ? `brightness(${brightness})` : undefined,
@@ -2095,12 +2147,22 @@ on falls back to the provider's native controls. */
             rotationFailuresRef.current = 0;
             setFatalError(false);
             serverErrorCountsRef.current = {};
+            // VidCore: pull a full state snapshot on first paint so our chrome
+            // (and Continue Watching / up-next logic) starts honest.
+            if (isVidCore) {
+              setTimeout(() => {
+                const w = iframeRef.current?.contentWindow;
+                if (w && iframeUrl.includes("vidcore.io")) w.postMessage({ command: "getStatus" }, "*");
+              }, 600);
+            }
           }}
         />
       )}
 
-      {/* CineSrc interaction overlay — handles mouse (desktop) and touch (mobile) */}
-      {showCustomUI && (
+      {/* CineSrc interaction overlay — handles mouse (desktop) and touch (mobile).
+          Managed-Provider-only but CineSrc-exclusive: VidCore's embed must get
+          every video-area pointer so its own player UI keeps working. */}
+      {isCineSrc && showCustomUI && (
         <div
           onMouseMove={handleMouseMove}
           onClick={(e) => {
@@ -2182,7 +2244,7 @@ on falls back to the provider's native controls. */
 
       {/* ═══ CENTER PLAY/PAUSE ═══════════════════════════════════ */}
       <AnimatePresence>
-        {showCustomUI && !isLoading && (
+        {showBottomChrome && !isLoading && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: controlsVisible ? 0 : (isPlaying ? 0 : 0.85) }}
@@ -2251,7 +2313,7 @@ on falls back to the provider's native controls. */
 
       {/* ═══ PAUSED INFO OVERLAY ═════════════════════════════════ */}
       <AnimatePresence>
-        {showPausedInfo && showCustomUI && !isPlaying && controlsVisible && (
+        {showPausedInfo && showBottomChrome && !isPlaying && controlsVisible && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -2979,7 +3041,7 @@ on falls back to the provider's native controls. */
       </div>
 
       {/* Mobile Screen Lock Button & Unlock HUD */}
-      {isTouch && showCustomUI && (
+      {isTouch && showBottomChrome && (
         <AnimatePresence>
           {isScreenLocked ? (
             <motion.button
@@ -3118,6 +3180,20 @@ on falls back to the provider's native controls. */
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "clamp(4px, 1vw, 8px)", flexShrink: 0, pointerEvents: "auto" }}>
+              {vidcoreDirectMode && (
+                <button
+                  aria-label="Back to custom controls"
+                  onClick={(e) => { e.stopPropagation(); setVidcoreDirectMode(false); setShowControls(true); }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: "clamp(3px, 0.8vw, 5px)",
+                    background: "rgba(229,9,20,0.22)", border: "1px solid rgba(229,9,20,0.45)",
+                    color: "#fff", padding: "8px 14px", borderRadius: 4, cursor: "pointer",
+                    fontWeight: 700, fontSize: R.fontSmall, fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
+                  }}
+                >
+                  <Settings size={12} /> Custom
+                </button>
+              )}
               {hasNextEpisode && (
                 <button
                   aria-label="Next episode"
@@ -3139,7 +3215,7 @@ on falls back to the provider's native controls. */
 
       {/* ═══ BOTTOM CONTROLS — Netflix ═══════════════════════════ */}
       <AnimatePresence>
-        {showCustomUI && controlsVisible && (
+        {showBottomChrome && controlsVisible && (
           <motion.div
             initial={{ opacity: 0, y: 26 }}
             animate={{ opacity: 1, y: 0 }}

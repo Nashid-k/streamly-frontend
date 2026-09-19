@@ -7,6 +7,31 @@
 
 ## Done (in order)
 
+- [x] **VidCore (Server 5) is a plain iframe passthrough — its native control bar
+  is the only transport (user directive: “let it use its iframe, no need to
+  connect it to our custom player such that all its controller everything will
+  work”)**: groundwork — deobfuscating vidcore's compiled bundle
+  (`vidcore-probe/281.js`, temp) proved its `message` handler only answers
+  `getStatus` (play/pause/seek/volume/mute commands compile to **no-ops**), so
+  no parent-side player can ever drive it, and deep probes (clean non-automated
+  Edge over CDP, `navigator.webdriver=false`) showed every `/movie|tv/{id}` page
+  now crashes for EVERYONE with `TypeError: Cannot read properties of undefined
+  (reading '32')` while vidcore.io pivots to an “embedding service” landing SPA
+  — its own demo embeds the same broken route, so there is no m3u8/mpd to
+  capture and the earlier chrome+handover iteration is obsolete. Per the user's
+  order, `CustomVideoPlayer.jsx` now treats vidcore like Peachify/VidUp: custom
+  chrome is **only** for CineSrc (`showCustomUI = isCineSrc && !useNativeControls`),
+  the iframe stays `pointerEvents:auto`, our keyboard shortcuts are CineSrc-gated
+  (`if (!isCineSrc) return`), and vidcore's own play/pause/seek/volume/quality UI
+  is directly reachable. The inert `vidcoreDirectMode` state, documented
+  `sendCommand` verbs, 5s `getStatus` poll, and PLAYER_EVENT listener remain for
+  background Continue Watching / up-next bookkeeping only (no UI, no transport).
+  Tests: `src/__tests__/CustomVideoPlayer.test.jsx` VidCore describe rewritten to
+  prove the naked iframe (no aspect-ratio/brightness/speed/“Back to custom
+  controls”, Space never posts commands to `"*"`, single un-remounted iframe).
+  Verified: lint 0 errors (warnings all pre-existing), vitest 38 files /
+  374/374 tests, build OK (2.19s).
+
 - [x] **My List page redesigned from scratch on the movies/series discovery
   design language (user directive: “re-design my list page from scratch”)**:
   `/watchlist` shell in `WatchlistPage.jsx` rebuilt to mirror the
