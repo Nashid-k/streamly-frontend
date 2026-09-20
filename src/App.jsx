@@ -148,9 +148,17 @@ function Layout({ children }) {
   const measurePill = useCallback(() => {
     const nav = navRef.current;
     if (!nav) return;
+    /* Measure against the navbar track with getBoundingClientRect — NOT
+       offsetLeft. offsetLeft is relative to each item's nearest positioned
+       ancestor, and the icon-items (Search/Settings) live in a different
+       positioned cluster than the text links, so their pills would measure
+       from a different origin and land slid off-track. A rect diff off the
+       shared navbar box stays correct no matter which nested container the
+       active item happens to sit in. */
     const active = nav.querySelector('[data-nav-active="true"]');
-    const x = active ? active.offsetLeft : 0;
-    const w = active ? active.offsetWidth : 0;
+    const trackRect = nav.getBoundingClientRect();
+    const x = active ? active.getBoundingClientRect().left - trackRect.left : 0;
+    const w = active ? active.getBoundingClientRect().width : 0;
     setPill((prev) => (prev.x === x && prev.w === w ? prev : { x, w, ready: true }));
   }, []);
 
