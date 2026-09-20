@@ -2,7 +2,7 @@
 // same-origin serverless proxy (/api/groq), never Groq directly, so the key
 // stays server-side (see api/groq.js). Mirrors tmdbClient.js: fails soft with
 // a typed error object so no bare throw escapes into the UI.
-import { logDebug, logWarn } from "./debugLogger";
+import { logDebug } from "./debugLogger";
 
 const BASE = "/api/groq";
 
