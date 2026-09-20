@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 import SEO from "../components/SEO";
 import PlayerPreview from "../components/PlayerPreview.jsx";
-import WhisperRow from "../components/WhisperRow.jsx";
 import AmbientBackground from "../components/AmbientBackground";
 import { usePreferences } from "../context/preferences";
 import { useAppAuth, useSyncStatus } from "../context/auth";
@@ -417,12 +416,6 @@ export default function SettingsPage() {
   const [openDropdown, setOpenDropdown] = useState(null);
   const [showSignInModal, setShowSignInModal] = useState(false);
   const [signInTab, setSignInTab] = useState("signin");
-  // Live whisper/Whisper transcript line that feeds PlayerPreview's
-  // subtitleOverride (the exact same live-subtitle surface our real player
-  // renders). Empty string => PlayerPreview shows its default demo line; a
-  // non-empty transcript replaces it live. Wired by WhisperRow once the mic
-  // row is added to this Subtitles tab.
-  const [whisperLine, setWhisperLine] = useState("");
 
   // Auth / Accounts state — the context is the SINGLE source of truth for the
   // profile. This page previously kept a shadow `localUser` copy in useState
@@ -1609,23 +1602,11 @@ export default function SettingsPage() {
                   {/* Real-time Subtitle Live Preview Box — the full demo mini-player
                       (Big Buck Bunny poster/video + the real player chrome + the
                       live subtitle line driven by the preferences above). */}
-                {/* Real-time Subtitle Live Preview Box — the full demo-mini
-                    (Big Buck Bunny poster + real player chrome + live subtitle
-                    line driven by the preferences above) with a whisper→live
-                    row so you can record your voice and see it subtitled in
-                    the real player UI below. */}
-                {/* Whisper live row: record your voice -> Groq whisper-large-v3
-                    transcript -> feeds whisperLine below -> live subtitle line
-                    in the real player preview UI. Never a dead no-op: state is
-                    idle|recording|transcribing with typed soft-fail. */}
-                <div className="mt-2">
-                  <WhisperRow label={t("settings.subtitles.whisperLabel")} onTranscript={setWhisperLine} />
-                </div>
+                  {/* Real-time Subtitle Live Preview Box — the full demo-mini
+                      (Big Buck Bunny poster + real player chrome + live subtitle
+                      line driven by the preferences above). */}
                 <div className="mt-4">
-                  <PlayerPreview
-                    label={t("settings.tabs.subtitles")}
-                    subtitleOverride={whisperLine || undefined}
-                  />
+                  <PlayerPreview label={t("settings.tabs.subtitles")} />
                 </div>
                 </div>
               </section>
