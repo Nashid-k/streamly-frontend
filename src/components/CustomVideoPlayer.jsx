@@ -3228,12 +3228,28 @@ return (
                     whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92 }}
                     transition={SPRING}
                     aria-label="Settings"
-                    style={{
-                      background: showSettings ? "rgba(229,9,20,0.25)" : "transparent",
-                      border: "none", color: showSettings ? "#fff" : "rgba(255,255,255,0.85)",
-                      cursor: "pointer", width: isTouch ? 38 : 40, height: isTouch ? 38 : 40, borderRadius: "50%",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                    }}
+                    aria-haspopup="menu"
+                    aria-expanded={showSettings}
+                    aria-pressed={showSettings ? "true" : undefined}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: showSettings ? "#fff" : "rgba(255,255,255,0.85)",
+                    cursor: "pointer",
+                    width: isTouch ? 38 : 40, height: isTouch ? 38 : 40,
+                    borderRadius: "50%",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    /* Active state is a box-shadow ring on the small static
+                       circle — NOT a background swap. The button lives inside
+                       the player's backdrop-filter glass root, so toggling the
+                       background re-blurs the whole panel behind it on every
+                       click. A ring is a pure additive shadow: compositor-only,
+                       no re-blur, no repaint. */
+                    boxShadow: showSettings
+                      ? "0 0 0 2px rgba(229,9,20,0.7), 0 0 18px rgba(229,9,20,0.4)"
+                      : "none",
+                    transition: "box-shadow 0.24s ease, color 0.24s ease",
+                  }}
                   >
                     <motion.div animate={{ rotate: showSettings ? 90 : 0 }} transition={SPRING}>
                       <Settings size={isTouch ? 17 : 18} />

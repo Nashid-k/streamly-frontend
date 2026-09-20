@@ -1599,11 +1599,11 @@ export default function SettingsPage() {
                     </div>
                   </SettingRow>
 
-                  {/* Real-time Subtitle Live Preview Box — the same demo-video
-                      mini-player as the fixed Netflix player chrome
-                      (video + live subtitle styles). */}
+                  {/* Real-time Subtitle Live Preview Box — the full demo mini-player
+                      (Big Buck Bunny poster/video + the real player chrome + the
+                      live subtitle line driven by the preferences above). */}
                   <div className="mt-4">
-                    <PlayerPreview showChrome={false} label={t("settings.tabs.subtitles")} />
+                    <PlayerPreview label={t("settings.tabs.subtitles")} />
                   </div>
                 </div>
               </section>
@@ -1705,7 +1705,7 @@ export default function SettingsPage() {
                 <X className="w-5 h-5" />
               </button>
 
-              <div className="flex items-center gap-3 mb-5">
+              <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-white">
                   <User className="w-5 h-5" />
                 </div>
@@ -1718,7 +1718,7 @@ export default function SettingsPage() {
               </div>
 
               {/* Sign In / Guest tabs with a sliding white pill */}
-              <div className="login-tabs mb-5" role="tablist" aria-label={t("settings.account.signInMethod")}>
+              <div className="login-tabs mb-4" role="tablist" aria-label={t("settings.account.signInMethod")}>
                 <span
                   className={`login-tab-pill${signInTab === "guest" ? " is-right" : ""}`}
                   aria-hidden="true"
@@ -1744,7 +1744,7 @@ export default function SettingsPage() {
               </div>
 
               {signInTab === "signin" ? (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   <GoogleSignInButton
                     onSuccess={() => setShowSignInModal(false)}
                     shape="pill"
@@ -1763,7 +1763,7 @@ export default function SettingsPage() {
                     const data = new FormData(e.target);
                     handleSignIn(data.get("name"), data.get("email"));
                   }}
-                  className="space-y-4"
+                  className="space-y-3"
                 >
                   <div>
                     <label htmlFor="login-name" className="block text-xs font-semibold text-white/70 mb-1.5">

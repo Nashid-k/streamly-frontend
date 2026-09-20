@@ -132,19 +132,26 @@ function MenuItem({ label, selected, onSelect, icon }) {
 }
 
 // ── Random pill — expands on hover like Cinejoy's ────────────────────────
-function RandomPill({ ariaLabel, onClick }) {
+function RandomPill({ ariaLabel, onClick, busy }) {
   return (
     <button
       type="button"
       aria-label={ariaLabel}
+      aria-busy={busy || undefined}
       onClick={onClick}
-      className="shrink-0 flex items-center h-[38px] max-w-[38px] hover:max-w-[130px] overflow-hidden bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all duration-300 ease-out backdrop-blur-md group"
+      className={`shrink-0 flex items-center h-[38px] overflow-hidden bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all duration-300 ease-out backdrop-blur-md group ${
+        busy ? "max-w-[130px] cursor-wait" : "max-w-[38px] hover:max-w-[130px]"
+      }`}
     >
       <span className="flex items-center justify-center w-9 h-9 shrink-0">
-        <Dices
-          size={16}
-          className="text-white/50 group-hover:text-white transition-colors duration-300"
-        />
+        {busy ? (
+          <span className="btn-spinner" aria-hidden="true" />
+        ) : (
+          <Dices
+            size={16}
+            className="text-white/50 group-hover:text-white transition-colors duration-300"
+          />
+        )}
       </span>
       <span className="pr-3.5 text-sm font-medium whitespace-nowrap text-white/80 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">
         Random
@@ -519,10 +526,21 @@ export default function DiscoveryPage({ mode = "movies" }) {
   // Force the instant info modal (never the page route) so the click gives
   // immediate content — no route-load spinner/skeleton, just the pill's
   // hover animation and a smooth pop-in.
+  // Busy state drives the in-button spinner; the reveal is deferred ~0.6s so
+  // the pill visibly "rolls" before snapping to the random pick (compositor
+  // sleep: only the pill's icon/state change, nothing re-blurs).
+  const [randomPicking, setRandomPicking] = useState(false);
+  const randomTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(randomTimerRef.current), []);
+
   const handleRandom = () => {
-    if (!gridItems.length) return;
-    const pick = gridItems[Math.floor(Math.random() * gridItems.length)];
-    openDetails(pick, { forceModal: true });
+    if (randomPicking || !gridItems.length) return;
+    setRandomPicking(true);
+    randomTimerRef.current = setTimeout(() => {
+      const pick = gridItems[Math.floor(Math.random() * gridItems.length)];
+      setRandomPicking(false);
+      openDetails(pick, { forceModal: true });
+    }, 620);
   };
 
   // ── Rail scrolling (fade-in arrows) ─────────────────────────────────────
@@ -581,7 +599,7 @@ export default function DiscoveryPage({ mode = "movies" }) {
               {/* Filter pills */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full xl:w-auto">
                 <div className="filter-row flex items-center sm:justify-start gap-2 sm:gap-3 flex-wrap">
-                  <RandomPill ariaLabel={cfg.randomAria} onClick={handleRandom} />
+                  <RandomPill ariaLabel={cfg.randomAria} onClick={handleRandom} busy={randomPicking} />
                   <FilterPill label={genreLabel}>
                     {({ close }) =>
                       (genresQuery.data || []).map((g) => (

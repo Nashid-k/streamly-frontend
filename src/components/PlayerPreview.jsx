@@ -20,6 +20,10 @@ import { usePreferences } from "../context/preferences";
 const DEMO_VIDEO_SRC =
   "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4";
 
+/* Big Buck Bunny poster — the preview always shows an image (before play and
+   whenever the clip can't load / is blocked) behind the player chrome. */
+const BBB_POSTER = "https://peach.blender.org/wp-content/uploads/title_anouncement.jpg";
+
 const DemoVideo = () => {
   const videoRef = React.useRef(null);
 
@@ -40,14 +44,16 @@ const DemoVideo = () => {
       ref={videoRef}
       className="player-preview-video"
       src={DEMO_VIDEO_SRC}
+      poster={BBB_POSTER}
       muted
       loop
       autoPlay
       playsInline
       preload="metadata"
       onError={() => {
-        logDebug("preview", "Demo preview video failed to load — scrim fallback shown.", {
+        logDebug("preview", "Demo preview video failed to load — poster/scrim fallback shown.", {
           src: DEMO_VIDEO_SRC,
+          poster: BBB_POSTER,
         });
       }}
       aria-label="Demo video preview"

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAppAuth } from "../context/auth";
 import { useToast } from "./Toast.jsx";
 import { renderGoogleButton, promptGoogleSignIn } from "../utils/googleAuth";
-import { logDebug, logError } from "../utils/debugLogger";
+import { logWarn, logError } from "../utils/debugLogger";
 
 export function GoogleLogoIcon({ size = 18, className = "" }) {
   return (
@@ -47,7 +47,10 @@ export default function GoogleSignInButton({
   const { toast } = useToast();
   const googleBtnContainerRef = useRef(null);
   const [loading, setLoading] = useState(false);
-  const [gisLoaded, setGisLoaded] = useState(false);
+  // "loading" (script still fetching) | "ready" (official GIS button shown) |
+  // "unavailable" (script blocked / render failed → custom fallback must stay
+  // visible so the click is never a dead no-op).
+  const [gisStatus, setGisStatus] = useState("loading");
 
   useEffect(() => {
     let active = true;
@@ -87,9 +90,14 @@ export default function GoogleSignInButton({
           width: 320,
         });
 
-        if (active) setGisLoaded(true);
+        if (active) setGisStatus("ready");
       } catch (err) {
-        logDebug("auth", "Could not render official GIS button; using custom button.", { message: err?.message });
+        // GIS failed (blocked/offline or renderButton threw). Keep the custom
+        // fallback mounted — otherwise every clickable surface disappears.
+        logWarn("auth", "Could not render official GIS button; using custom fallback.", {
+          message: err?.message,
+        });
+        if (active) setGisStatus("unavailable");
       }
     }
 
@@ -101,6 +109,18 @@ export default function GoogleSignInButton({
   }, [loginWithGoogle, shape, toast, onSuccess, onError]);
 
   const handleCustomClick = async () => {
+    if (gisStatus === "unavailable") {
+      // GIS never loaded — a confirming toast beats a silent dead click.
+      logWarn("auth", "Google Sign-In unavailable — GIS script did not load; skipping a no-op prompt.");
+      toast({
+        type: "error",
+        title: "Google Sign-In",
+        message: "Google Sign-In unavailable — check your internet connection or disable the ad blocker.",
+      });
+      onError?.(new Error("Google Sign-In unavailable."));
+      return;
+    }
+
     setLoading(true);
     try {
       await promptGoogleSignIn({
@@ -142,19 +162,21 @@ export default function GoogleSignInButton({
 
   return (
     <div className={`google-signin-wrapper ${className}`} style={{ width: "100%", ...style }}>
-      {/* Official GIS container rendered by Google SDK */}
+      {/* Official GIS container rendered by Google SDK (hidden until ready) */}
       <div
         ref={googleBtnContainerRef}
         style={{
-          display: gisLoaded ? "flex" : "none",
+          display: gisStatus === "ready" ? "flex" : "none",
           justifyContent: "center",
           width: "100%",
           minHeight: 44,
         }}
       />
 
-      {/* Fallback button if GIS script is loading or blocked by extensions */}
-      {!gisLoaded && (
+      {/* Custom fallback — shown while GIS loads AND when it failed, so a
+          click always resolves into either the One Tap popup or an error
+          toast, never a dead no-op. */}
+      {gisStatus !== "ready" && (
         <button
           type="button"
           onClick={handleCustomClick}

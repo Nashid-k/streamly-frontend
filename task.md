@@ -2340,3 +2340,38 @@ etworkError are still ignored; (2) after a full rotation of dead sources, otati
 
 - [x] **Player NEVER auto-switches servers anymore — every provider, not just CineSrc (user order: "still it automatically switches server (dont change server1,2,3 ... unless user manually do it)")**: the earlier `db9aca0`/`fcebc96` no-advance guard only blocked Server 2+ switching while the ACTIVE iframe was CineSrc (`cineActiveRef`); the non-CineSrc iframes (vidlink, 2embed, vidsrcme, vidcore, peachify, vidup, smashy) still auto-advanced through `advanceServer` from their 2-strike watchdog, the stall watch, and the CineSrc error handlers. Root cause found and resolved in `CustomVideoPlayer.jsx`: `advanceServer()` no longer computes/calls `setActiveServerIndex(next)` + `onServerChange(next)` — it ONLY surfaces the fallback overlay (`setFatalError(true)`, `failoverPendingRef` latched so a burst of error+watchdog can't double-strike). Every call path (CineSrc per-internal-source watchdog exhaustion, non-CineSrc 2-strike watchdog, 15s stall watch, `cinesrc:error` fatal/non-fatal) now ends on the Retry / pick-another-server screen on the SAME server; Retry re-attempts that server via `retryNonce`. The now-dead `onServerChange` prop was removed from the player's destructure and from `TitleDetailsPage.jsx`'s render (the Server dropdown's `onSelect` is the only server switch left; `playingServerIndex` syncs purely through `preferredServerIndex`). Final fallback overlay copy updated from "All servers are currently unreachable" → "The stream couldn't start on this server / Retry, or pick a different server from the menu." Failover/rotation comments rewritten to the no-auto-advance contract; `prd.md` playback row changed from "7 iframe servers with failover" → "8 iframe servers (never auto-switched…)". Tests: `CustomVideoPlayer.test.jsx` describe renamed to "The player never auto-switches servers (manual Server menu only)" — the CineSrc case is unchanged, and a NEW fake-timer regression test proves Server 2 (vidlink) stays mounted (src still `vidlink.pro`) with the fallback shown after two 12s watchdog periods (the old behavior silently rotated to Server 3). Verified: lint 0 errors (pre-existing warnings only), vitest 38 files / 378/378, build OK (2.32s).
 - [x] **Comments drastically reduced + transient server-warning pills removed (user order: "extremely reduce and simplify comments as well as remove player server warning messages")**: CustomVideoPlayer.jsx went from ~290 comment lines to 12 (header banners, Apple/Netflix design tokens, section separators, JSX labels like TOP BAR / CONTROL ROW / SETTINGS PANEL / VOLUME HUD, and per-line prose stripped) while keeping only the contract-critical notes (ordered-server-list from Settings; useNativeControls/VidCore pass-through toggles; iframe reloads only on content/server change; CineSrc internal rotation never hops providers; catch-marker comments; touch-zone comment; the fallback-overlay note). The transient server-warning pills were removed: setErrorMessage("Switching source...") x2, "Still loading source...", and "Retrying..." (their 4s/3s auto-clear timers died with them); errorMessage now only ever shows the real content error "No valid content ID." at URL build, and the fatal fallback overlay (Retry / pick-another-server) is untouched - silent failures are still forbidden. One accidental rename (delegateToVidCoreNatives vs the callers' delegateToVidCoreNatively) introduced then fixed and verified via grep; a similarly botched getCurrentTime edit introduced then reverted via git-diff audit of the whole file. Verified: lint 0 errors (pre-existing baseline warnings only), vitest 38 files / 378/378, build OK (2.26s).
+
+## Latest lean follow-ups — settings sign-in gear, discovery random, home regional (pushed)
+
+- [x] **Player Settings gear — hover + active-on-click as a box-shadow ring**
+  (CustomVideoPlayer.jsx, buttons around 3223-3252): the active state now
+  renders a red   0 0 2px rgba(229,9,20,0.7) ring when showSettings is on —
+  it never swaps the geometry/background, so the glass root's backdrop-filter
+  never re-blurs on click (same flicker family as the nav pill fix). WhileHover
+  stays a scale lift; transition is box-shadow + color only.
+- [x] **Discovery Random — spinner in the pill + 620ms animated reveal**
+  (DiscoveryPage.jsx): RandomPill gained a usy prop that swaps the Dices
+  icon for the .btn-spinner (expands to a wait pill); handleRandom now sets
+  andomPicking, waits 620ms through the timer (cleanup on unmount), then
+  reveals the pick via openDetails(..., { forceModal: true }). Clicking the
+  pill during the busy window is ignored. Verified live: appears spinner →
+  hold → reveal.
+- [x] **Home hero banner — regional-only pool + every item needs a title image**
+  (HomePage.jsx): the reserved /discover regional sweeps (egionalUpcomingData
+  + egionalAiringData) are the primary banner source and never fall back to
+  the international Drama + rating >= 8.0 mix (that's what used to surface
+  old regional titles alongside new international ones). Every banner item must
+  carry a title image; the fallback only matches regional audioLanguages /
+  languages / titles. Hero <h1>-fallback rows no longer get fed old regionals.
+- [x] **Settings sign-in account — big/misaligned → tightened glass modal**
+  (SettingsPage.jsx, GoogleSignInButton.jsx, googleAuth.js): sign-in
+  modal now a compact centered glass panel (max-w 384px, tight rows, aligned
+  logo/avatar + provider badge + sync status), GIS button with
+  loading/ready/unavailable states, and a fallback surface so a sign-in click
+  is never a dead no-op (it toasts + opens the popup flow).
+- [x] **Subtitle preview — image + our real player UI (Big Buck Bunny)**
+  (PlayerPreview.jsx + settings subtitle row): preview embeds the BBB demo
+  video with our CustomVideoPlayer chrome (red progress, black stack, subtitle
+  line, title logo) instead of a bare text box.
+
+Verification: lint 0 errors (baseline warnings only), 378/378 tests pass, build OK.

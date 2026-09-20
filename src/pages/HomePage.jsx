@@ -1091,8 +1091,14 @@ export default function Home({
         if (!regionalPool.some((p) => p.id === m.id)) regionalPool.push(m);
       }
 
-      // Fallback for empty regional — category-derived language/title match,
-      // then a quality bar so the banner never shows a blank regional slot.
+      // Fallback for empty regional — category-derived language/title match
+      // ONLY (never international Drama/rating rows, which is what used to mix
+      // "old regional" a.k.a. generic international titles into the banner).
+      // Each fallback must ALSO carry a title image so the hero <h1>-fallback
+      // bridge never renders a blank regional slot over a pretty international
+      // banner item. The filter above already requires a title image; keep the
+      // recent-release bias by preferring entries that have their own logo
+      // (logoUrl) so we never surface an old regional alongside international.
       if (regionalPool.length === 0) {
         regionalPool = tabFilteredMovies.filter(
           (m) =>
@@ -1102,9 +1108,17 @@ export default function Home({
             m.languages?.some((l) => l.match(/Tamil|Malayalam|Hindi|Telugu/i)) ||
             (m.title && m.title.match(/Tamil|Malayalam|Hindi|Telugu/i)),
         );
+        // Last resort — still regional-only language/title match, never the
+        // generic international Drama+rating fallback that polluted the pool.
         if (regionalPool.length === 0) {
           regionalPool = tabFilteredMovies.filter(
-            (m) => m.genres?.includes("Drama") && m.imdbRating >= 8.0,
+            (m) =>
+              m.audioLanguages?.some((l) =>
+                l.match(/Tamil|Malayalam|Hindi|Telugu/i),
+              ) ||
+              m.languages?.some((l) =>
+                l.match(/Tamil|Malayalam|Hindi|Telugu/i),
+              ),
           );
         }
       }
@@ -1118,12 +1132,15 @@ export default function Home({
       );
     }
 
-    // 3. Filter strictly for items with a title image (logoUrl).
-    //    New OTT releases often lack a TMDB logo, so also accept a
-    //    backdrop (hero renders an <h1> fallback in that case) — this is
-    //    what lets fresh titles like "DC"/"Blast" surface in the banner.
+    // 3. Filter strictly for items with a TITLE IMAGE (logo/wordmark).
+    //    The hero renders the actual show logo (HeroTitleLogo), so a bare
+    //    backdrop/poster with no logo would render the <h1> text fallback —
+    //    which the user explicitly does NOT want on the banner. A title logo
+    //    is the only thing that makes a slot look like a proper banner item.
+    //    (logoUrl = the TMDB English logo path; titleImage/titleLogo are the
+    //    normalized aliases some feeds carry.)
     const bannerReady = (m) =>
-      m.logoUrl || m.backdropUrl || m.posterUrl || m.poster;
+      m.logoUrl || m.titleImage || m.logoUrl?.trim() || m.titleLogo || m.logo;
     globalPool = globalPool.filter(bannerReady);
     regionalPool = regionalPool.filter(bannerReady);
     recommendedPool = recommendedPool.filter(bannerReady);
