@@ -2375,3 +2375,20 @@ etworkError are still ignored; (2) after a full rotation of dead sources, otati
   line, title logo) instead of a bare text box.
 
 Verification: lint 0 errors (baseline warnings only), 378/378 tests pass, build OK.
+
+## Groq (Groq LLM) platform layer �?" serverless proxy + same-origin client (no key in the bundle)
+
+- [x] **Serverless Groq proxy** `api/groq.js` (Vercel, mirrors `api/tmdb.js`):
+  endpoints `/api/groq/chat` (chat completions), `/api/groq/transcribe`
+  (whisper-large-v3 audio->text), `/api/groq/models`. The Groq key resolves
+  SERVER-side only: 1) `process.env.GROQ_API_KEY` (Vercel env / CI), 2)
+  git-ignored `api/groq.key.js` local fallback so `npm run dev` is zero-config.
+  Missing key -> 503 with a truthful hint (same pattern as tmdb.js). CORS +
+  OPTIONS preflight handled inline; dev-server middleware + Vercel rewrites route
+  /api/groq same-origin so the key never ships in the Vite bundle.
+- [x] **Client util** `src/utils/groqClient.js` (mirrors `tmdbClient.js` style):
+  `groqChat()` (openai/gpt-oss-120b chat completions) + `groqTranscribe()`
+  (whisper audio -> text) through the same-origin proxy; fails soft with typed
+  { ok, status, data } + `logDebug` diagnostics, never a bare throw.
+- [x] `.gitignore` += `api/groq.key.js`; `.env.example` note added. The key the
+  user shared lives only in the ignored local file (dev) / Vercel env (prod).

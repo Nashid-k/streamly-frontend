@@ -33,3 +33,6 @@ streamly-backend/
 *.sw?
 # Local tool artifacts
 .freebuff/
+
+# local Groq dev key (never commit - see api/groq.js loadKey)
+api/groq.key.js
