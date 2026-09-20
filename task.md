@@ -2414,3 +2414,19 @@ without a username and without any owner identity (no AI branding anywhere):
       explore.*) - all strings carry zero AI branding.
 - [ ] Gate: lint -> 378+ tests -> build, then record, commit, push, verify
       local == origin == remote.
+
+## TODO - NEXT SLICE (EXPLORE MYLIST) - recorded, NOT built
+- [ ] **ExploreCollectionsPage (anonymous)** - new src/pages/ExploreCollectionsPage.jsx:
+      lists only PUBLIC collections by their opaque publicId. ZERO usernames,
+      ZERO owner identity shown anywhere - anyone with the link views it
+      without a username slash/username. No AI branding anywhere.
+- [ ] **App.jsx routes** - /explore/collections -> ExploreCollectionsPage + a
+      public lookup route keyed by publicId (opaque, never a username).
+- [ ] **WatchlistPage** - silent rail "Best Collections" (invisible-AI ranking
+      via storage-v2 visibility, no branding) + Public/Private toggle chip on
+      each collection card + Copy public link button.
+- [ ] **CollectionPickerDialog** - Public/Private segmented control in the
+      create form (default private). Storage v2 fields visibility/publicId
+      already morph on read (useUserData.js normalize*).
+- [ ] **Gate** (frozen contract): lint 0 -> 378+ tests -> build, then commit,
+      push, remote-verify local==origin by hash.
