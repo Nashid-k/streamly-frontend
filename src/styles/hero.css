@@ -1,0 +1,533 @@
+/* Hero Section — Full-width edge-to-edge, starts right below navbar */
+.hero-container {
+  position: relative;
+  left: 50%;
+  width: 100vw;
+  margin-left: -50vw;
+  height: min(78vh, 850px);
+  min-height: 480px;
+  max-height: 850px;
+  border-radius: 0;
+  overflow: hidden;
+  margin-top: 0;
+  margin-bottom: 0;
+  box-shadow: none;
+  border: none;
+  touch-action: pan-y;
+}
+
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 20%;
+  /* Exact same mask as the watch/details page hero: image fully fades to
+     transparent well before the bottom, so the banner's bottom edge is
+     completely gone and only the ambient gradient shows through. */
+  -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 98%);
+  mask-image: linear-gradient(to bottom, black 40%, transparent 98%);
+}
+
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    /* Bottom fade — keeps content legible */
+    linear-gradient(0deg, #050505 0%, rgba(5,5,5,0.92) 8%, rgba(5,5,5,0.65) 22%, rgba(5,5,5,0.25) 45%, transparent 65%),
+    /* Soft left-side vignette — no harsh vertical line */
+    radial-gradient(ellipse 60% 100% at 0% 50%, rgba(5,5,5,0.85) 0%, rgba(5,5,5,0.4) 40%, transparent 70%),
+    /* Soft right-side vignette */
+    radial-gradient(ellipse 40% 100% at 100% 50%, rgba(5,5,5,0.55) 0%, transparent 60%),
+    /* Corner dark anchors */
+    radial-gradient(ellipse at 30% 90%, rgba(5,5,5,0.4) 0%, transparent 50%);
+}
+
+.hero-content {
+  padding-bottom: clamp(1.8rem, 3.5vh, 3rem) !important;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  padding: clamp(1.25rem, 2.5vw, 3rem);
+  padding-left: clamp(2rem, 4vw, 5rem);
+  color: white;
+  max-width: min(780px, 66vw);
+  z-index: 2;
+}
+
+.hero-title {
+  font-size: clamp(2rem, 4.5vw, 3.8rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  margin-bottom: 0.75rem;
+  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+}
+
+.hero-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: rgba(255,255,255,0.78);
+  flex-wrap: wrap;
+}
+
+.maturity-badge {
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  padding: 0px 4px;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.hero-desc {
+  font-size: 0.96rem;
+  line-height: 1.55;
+  color: rgba(255,255,255,0.82);
+  margin-bottom: 1.15rem;
+  max-width: 60ch;
+}
+
+@media (max-height: 800px) {
+  .hero-container,
+  .skeleton-hero {
+    height: min(72vh, 520px) !important;
+    min-height: 420px !important;
+  }
+  .hero-content {
+    padding-bottom: 1.5rem !important;
+    padding-left: clamp(1.5rem, 3.5vw, 3.5rem) !important;
+    max-width: min(680px, 64vw) !important;
+  }
+  .hero-title {
+    font-size: clamp(1.75rem, 3.8vw, 2.75rem) !important;
+    margin-bottom: 0.5rem !important;
+  }
+  .hero-desc {
+    font-size: 0.88rem !important;
+    line-height: 1.5 !important;
+    margin-bottom: 0.75rem !important;
+    -webkit-line-clamp: 2 !important;
+  }
+  .hero-meta {
+    margin-bottom: 0.55rem !important;
+    font-size: 0.82rem !important;
+    gap: 0.5rem !important;
+  }
+}
+@media (max-height: 650px) {
+  .hero-container,
+  .skeleton-hero {
+    height: 70vh !important;
+    min-height: 380px !important;
+  }
+  .hero-content {
+    padding-bottom: 1.25rem !important;
+  }
+  .hero-desc,
+  .hero-desc--apple {
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+    font-size: 0.84rem !important;
+    line-height: 1.4 !important;
+    margin-bottom: 0.75rem !important;
+  }
+}
+
+/* ── Apple-variant overlay — exactly the watch/details page gradient ──
+   Reuses the identical watch-hero-gradient stack (opaque #050505 bottom,
+   same left/right vignettes). Paired with the hero image mask, this makes
+   the banner melt seamlessly into the AmbientBackground below — the exact
+   approach the movie details/watch page uses. */
+.hero-overlay--apple {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(0deg, rgba(5,5,5,0.98) 0%, rgba(5,5,5,0.9) 6%, rgba(5,5,5,0.55) 20%, rgba(5,5,5,0.22) 44%, transparent 62%),
+    radial-gradient(ellipse 70% 100% at 0% 50%, rgba(5,5,5,0.8) 0%, rgba(5,5,5,0.32) 42%, transparent 72%),
+    radial-gradient(ellipse 38% 100% at 100% 50%, rgba(5,5,5,0.42) 0%, transparent 62%);
+  /* Fade the overlay out with the image (same mask as .hero-bg, exactly like
+     the watch/details page where the mask wraps image + gradient together).
+     This removes the opaque bottom band that was creating the visible
+     "banner image bottom" line — image and gradient now melt into the
+     ambient together. */
+  -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 98%);
+  mask-image: linear-gradient(to bottom, black 40%, transparent 98%);
+}
+
+/* ── Watch/details page — reuse the exact hero banner gradient stack ── */
+.watch-hero-gradient {
+  background:
+    linear-gradient(0deg, rgba(5,5,5,0.98) 0%, rgba(5,5,5,0.9) 6%, rgba(5,5,5,0.55) 20%, rgba(5,5,5,0.22) 44%, transparent 62%),
+    radial-gradient(ellipse 70% 100% at 0% 50%, rgba(5,5,5,0.8) 0%, rgba(5,5,5,0.32) 42%, transparent 72%),
+    radial-gradient(ellipse 38% 100% at 100% 50%, rgba(5,5,5,0.42) 0%, transparent 62%);
+}
+
+/* ── Static ambient sky ───────────────────────────────────────────────────
+   The <AmbientBackground> fixed wrapper sits above `body::before`, so on
+   fallback-only pages (empty My List, Settings) it can't borrow the global
+   glow. This always-on gradient stack replaces the wrapper's flat `#050505`
+   so the "blurred bg gradient" survives even when the drifting blobs below
+   are frozen by prefers-reduced-motion. */
+.ambient-sky {
+  background:
+    radial-gradient(55% 45% at 12% 8%, rgba(149, 255, 80, 0.16), transparent 60%),
+    radial-gradient(45% 40% at 88% 10%, rgba(92, 226, 28, 0.11), transparent 55%),
+    radial-gradient(50% 40% at 72% 92%, rgba(96, 165, 250, 0.1), transparent 60%),
+    radial-gradient(38% 32% at 24% 86%, rgba(167, 139, 250, 0.07), transparent 58%),
+    #050505;
+}
+
+/* ── Cinejoy-style liquid backdrop ────────────────────────────────────────
+   Fixed blurred color blobs drifting slowly behind every page. The blur lives
+   on each blob (the same element that animates) so the compositor can cache
+   the blurred raster and only transform it — a blur on the animating
+   container would force a full re-blur every frame. Blend mode is per blob
+   too, so it never re-composites the whole page. Drift (not the gradient) is
+   frozen for prefers-reduced-motion. */
+.ambient-liquid {
+  position: absolute;
+  inset: -15%;
+  overflow: hidden;
+  opacity: 0.5;
+  pointer-events: none;
+}
+.ambient-liquid__blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px) saturate(130%);
+  -webkit-filter: blur(60px) saturate(130%);
+  mix-blend-mode: screen;
+  will-change: transform;
+}
+.ambient-liquid__blob--a {
+  width: 44vw;
+  height: 44vw;
+  left: -10%;
+  top: -14%;
+  background: radial-gradient(circle at 35% 35%, rgba(149, 255, 80, 0.55), rgba(149, 255, 80, 0) 70%);
+  animation: ambient-blob-a 46s ease-in-out infinite alternate;
+}
+.ambient-liquid__blob--b {
+  width: 36vw;
+  height: 36vw;
+  right: -8%;
+  top: 18%;
+  background: radial-gradient(circle at 60% 40%, rgba(92, 226, 28, 0.5), rgba(92, 226, 28, 0) 70%);
+  animation: ambient-blob-b 58s ease-in-out infinite alternate;
+}
+.ambient-liquid__blob--c {
+  width: 40vw;
+  height: 40vw;
+  left: 22%;
+  bottom: -20%;
+  background: radial-gradient(circle at 50% 50%, rgba(129, 140, 248, 0.42), rgba(129, 140, 248, 0) 70%);
+  animation: ambient-blob-c 66s ease-in-out infinite alternate;
+}
+@keyframes ambient-blob-a {
+  from { transform: translate3d(-6%, -4%, 0) scale(1); }
+  to   { transform: translate3d(12%, 9%, 0) scale(1.18); }
+}
+@keyframes ambient-blob-b {
+  from { transform: translate3d(7%, 11%, 0) scale(1.12); }
+  to   { transform: translate3d(-9%, -7%, 0) scale(0.94); }
+}
+@keyframes ambient-blob-c {
+  from { transform: translate3d(0%, 2%, 0) scale(1); }
+  to   { transform: translate3d(-7%, 11%, 0) scale(1.22); }
+}
+@media (max-width: 768px) {
+  .ambient-liquid {
+    opacity: 0.32;
+  }
+}
+/* The global reduced-motion rule below already freezes the blob drift
+   (animation-duration: 0.001ms !important). Hide the drift, never the
+   gradient itself — pages that render on fallback-only ambient (no backdrop
+   image) would otherwise collapse to a flat #050505 wall. */
+@media (prefers-reduced-motion: reduce) {
+  .ambient-liquid__blob {
+    animation-duration: 0.001ms;
+    animation-iteration-count: 1;
+  }
+}
+
+/* ── Apple-variant content panel ── */
+.hero-content--apple {
+  padding-bottom: 3.5rem !important;
+  padding: clamp(1.5rem, 3vw, 3.5rem) !important;
+  padding-left: clamp(1rem, 5vw, 3.75rem) !important;
+  max-width: 680px;
+}
+
+/* Eyebrow row — platform icon + genre tags */
+.hero-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 1rem;
+}
+.hero-eyebrow-tag {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 2px 10px;
+  letter-spacing: 0.01em;
+  backdrop-filter: blur(8px);
+}
+
+/* Logo image */
+.hero-logo-img {
+  max-height: clamp(110px, 20vw, 200px);
+  max-width: min(640px, 95%);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  object-position: left bottom;
+  margin-bottom: 1.1rem;
+  filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.85));
+  display: block;
+}
+
+/* Apple-variant meta — spec: gold star · calendar · heart */
+.hero-meta--apple {
+  gap: 1.1rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.78);
+  margin-bottom: 0.85rem;
+}
+.hero-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  line-height: 1;
+}
+.hero-meta-item--rating { color: #f5c518; }
+.hero-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Apple-variant description — tighter, 5-line clamp */
+.hero-desc--apple {
+  font-size: 0.97rem;
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.78);
+  margin-bottom: 1.4rem;
+  margin-top: 0;
+  max-width: 65ch;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* CTA row — spec: white Play pill + round 44px icon buttons */
+.hero-ctas {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+.hero-cta-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: auto;
+  min-width: clamp(100px, 8.5vw, 126px);
+  height: clamp(38px, 3.2vw, 46px);
+  padding: 0 clamp(14px, 1.2vw, 20px);
+  border-radius: 999px;
+  border: none;
+  /* Cinejoy `.theme-btn-primary`: white pill, black text */
+  background: rgba(242, 242, 242, 0.96);
+  color: #000000;
+  font-size: clamp(13px, 0.95vw, 15px);
+  font-weight: 700;
+  font-family: inherit;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.35);
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+.hero-cta-play:hover {
+  background: rgba(255, 255, 255, 1);
+}
+.hero-cta-circle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(38px, 3.2vw, 46px);
+  height: clamp(38px, 3.2vw, 46px);
+  border-radius: 50%;
+  background: transparent;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  color: #ffffff;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.hero-cta-circle:hover {
+  border-color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+}
+.hero-action-pill {
+  color: #ffffff;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+  width: auto;
+  min-width: clamp(94px, 8vw, 116px);
+  height: clamp(38px, 3.2vw, 46px);
+  padding: 0 3px;
+  overflow: hidden;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  /* Cinejoy `.theme-btn-secondary`: white/10 glass, white hairline border */
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+.hero-action-pill:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+.hero-action-pill > a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  flex: 1 1 0;
+  min-width: 0;
+}
+.hero-circle-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+.hero-circle-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.22);
+  transform: scale(1.05);
+}
+.hero-circle-btn:active {
+  transform: scale(0.92);
+}
+.hero-circle-btn--disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.hero-circle-btn--disabled:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.1);
+  transform: none;
+}
+.hero-cta-secondary-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 0;
+  width: auto;
+  max-width: 52px;
+  height: 100%;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.hero-cta-secondary-icon:hover {
+  background-color: rgba(255, 255, 255, 0.14);
+}
+.hero-cta-separator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 1.3rem;
+  font-weight: 300;
+  line-height: 1;
+  margin: 0 2px;
+  user-select: none;
+}
+
+/* ── Apple-style dot indicators — progress pill track with accent fill ── */
+.hero-dots--apple {
+  bottom: 1.5rem !important;
+  right: clamp(1.5rem, 5vw, 2.5rem);
+  left: auto !important;
+  transform: none !important;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 18px;
+  border: none;
+  border-radius: 999px;
+}
+@media (max-width: 1200px) {
+  .hero-dots--apple {
+    right: auto !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    bottom: 1rem !important;
+  }
+}
+.hero-dot {
+  width: 18px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.35);
+  border: none;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  box-shadow: none;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+  margin: 0;
+  transition: width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.35s ease, transform 0.35s ease;
+}
+.hero-dot:hover {
+  background: rgba(255, 255, 255, 0.6);
+}
+.hero-dot--active {
+  width: 52px;
+  background: rgba(255, 255, 255, 0.18);
+  box-shadow: none;
+}
+.hero-dot--active .dot-filler {
+  background: var(--accent-gradient, linear-gradient(90deg, #95ff50, #5ce21c));
+}
+

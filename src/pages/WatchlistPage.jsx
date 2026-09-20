@@ -1,19 +1,18 @@
-import { useState, useMemo, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import {
   Bookmark,
   X,
-  Search,
   Check,
   Trash2,
   FolderOpen,
   FolderPlus,
   Pencil,
   Plus,
-  ChevronDown,
   ChevronLeft,
   Globe,
   Lock,
+  Compass,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppAuth } from "../context/auth";
@@ -25,271 +24,13 @@ import AmbientBackground from "../components/AmbientBackground";
 import ErrorBoundary from "../components/ErrorBoundary";
 import CollectionPickerDialog from "../components/CollectionPickerDialog";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
+import FilterPill from "../components/browse/FilterPill";
+import MenuItem from "../components/browse/MenuItem";
+import SearchField from "../components/browse/SearchField";
+import PillAction, { ACCENT_PILL, GHOST_PILL } from "../components/browse/PillAction";
+import CollectionNameDialog from "../components/overlays/CollectionNameDialog";
+import AddTitlesDialog from "../components/overlays/AddTitlesDialog";
 
-/* ── Shared pill chrome (matching the movies/series discovery pages) ─────── */
-const GHOST_PILL =
-  "inline-flex items-center gap-2 px-4 md:px-5 py-2 md:py-2.5 rounded-full border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition-all duration-300 text-sm font-medium backdrop-blur-md whitespace-nowrap";
-const ACCENT_PILL =
-  "inline-flex items-center gap-2 px-4 md:px-5 py-2 md:py-2.5 rounded-full border border-[#95ff50]/40 bg-[#95ff50]/10 text-[#95ff50] hover:bg-[#95ff50]/20 transition-all duration-300 text-sm font-semibold backdrop-blur-md whitespace-nowrap";
-
-/* ── Filter pill — frosted capsule that drops a listbox panel ─────────────
-   Mirrors DiscoveryPage's FilterPill so My List controls feel identical to
-   the movies/series browse pages: same trigger, same menu shell, same
-   click-outside / Escape dismissal. */
-function FilterPill({ label, children }) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef(null);
-
-  useEffect(() => {
-    if (!open) return undefined;
-    const onClick = (e) => {
-      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false);
-    };
-    const onKey = (e) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onClick);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onClick);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  return (
-    <div ref={rootRef} className="relative filter-dropdown min-w-0 md:flex-none">
-      <button
-        type="button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-label={`Filter by ${label}`}
-        onClick={() => setOpen((o) => !o)}
-        className="group flex items-center justify-between gap-2 w-full md:w-auto px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all duration-300 backdrop-blur-md min-w-0 md:min-w-[140px]"
-      >
-        <span className="truncate text-sm font-medium text-white/80">{label}</span>
-        <ChevronDown
-          size={14}
-          className="w-4 h-4 shrink-0 text-white/50 group-hover:text-white transition-colors"
-        />
-      </button>
-      {open && (
-        <div
-          role="listbox"
-          aria-label={label}
-          className="discovery-menu absolute top-[calc(100%+8px)] left-0 z-[70] w-64 max-h-80 overflow-y-auto rounded-2xl border border-white/15 shadow-2xl p-2"
-        >
-          {children({ close: () => setOpen(false) })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ── Menu row inside a filter panel ─────────────────────────────────────── */
-function MenuItem({ label, selected, onSelect, icon }) {
-  return (
-    <button
-      type="button"
-      role="option"
-      aria-selected={selected}
-      onClick={onSelect}
-      className={`flex items-center justify-between w-full text-left px-3 py-2 rounded-xl text-sm transition-colors ${
-        selected ? "bg-[#95ff50]/[0.1] text-white" : "text-white/70 hover:bg-white/5 hover:text-white"
-      }`}
-    >
-      <span className="truncate">{label}</span>
-      <span className="flex items-center gap-2 shrink-0 ml-2">
-        {icon}
-        {selected && <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0" />}
-      </span>
-    </button>
-  );
-}
-
-/* ── Frosted capsule search field ───────────────────────────────────────── */
-function SearchField({ value, onChange, placeholder }) {
-  return (
-    <div className="flex items-center gap-2 w-full md:w-64 px-3 md:px-4 py-2 bg-white/5 border border-white/10 rounded-full backdrop-blur-md transition-all duration-300 focus-within:border-[#95ff50]/40 min-w-0">
-      <Search size={14} className="w-4 h-4 shrink-0 text-white/40" />
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        aria-label={placeholder}
-        className="w-full min-w-0 bg-transparent outline-none text-sm text-white/90 placeholder:text-white/35"
-      />
-      {value && (
-        <button
-          type="button"
-          onClick={() => onChange("")}
-          aria-label="Clear search"
-          className="shrink-0 text-white/50 hover:text-white transition-colors"
-        >
-          <X size={14} />
-        </button>
-      )}
-    </div>
-  );
-}
-
-/* ── Action button styled as a discovery pill ───────────────────────────── */
-function PillAction({ accent, onClick, children, ariaLabel, active }) {
-  const cls = accent ? ACCENT_PILL : active ? ACCENT_PILL : GHOST_PILL;
-  return (
-    <button type="button" aria-label={ariaLabel} onClick={onClick} className={cls}>
-      {children}
-    </button>
-  );
-}
-
-/* ── Create / Rename dialog ─────────────────────────────────────────────── */
-function CollectionNameDialog({ open, title, initial = "", submitLabel, onSubmit, onClose }) {
-  const [value, setValue] = useState(initial);
-  const inputRef = useRef(null);
-
-  useEffect(() => {
-    if (open) {
-      setValue(initial);
-      requestAnimationFrame(() => inputRef.current?.focus());
-    }
-  }, [open, initial]);
-
-  if (!open) return null;
-
-  const submit = (e) => {
-    e.preventDefault();
-    if (!value.trim()) return;
-    onSubmit(value.trim());
-  };
-
-  return (
-    <div className="collection-dialog-backdrop" role="presentation" onClick={onClose}>
-      <div
-        className="collection-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="collection-dialog__header">
-          <h2 className="collection-dialog__title">{title}</h2>
-          <button
-            type="button"
-            className="collection-dialog__close"
-            aria-label="Close dialog"
-            onClick={onClose}
-          >
-            <X size={18} />
-          </button>
-        </div>
-        <form onSubmit={submit} className="collection-dialog__form">
-          <input
-            ref={inputRef}
-            type="text"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder="Collection name"
-            aria-label="Collection name"
-            maxLength={60}
-            className="collection-dialog__input"
-          />
-          <div className="collection-dialog__actions">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={!value.trim()}>
-              {submitLabel}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-/* ── Add-titles picker (from My List) ───────────────────────────────────── */
-function AddTitlesDialog({ open, candidates, assignedIds, onConfirm, onClose }) {
-  const [checked, setChecked] = useState(() => new Set());
-  useEffect(() => setChecked(new Set()), [open]);
-
-  if (!open) return null;
-  const available = candidates.filter((m) => !assignedIds.has(m.id));
-
-  const toggleChecked = (id) => {
-    setChecked((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  return (
-    <div className="collection-dialog-backdrop" role="presentation" onClick={onClose}>
-      <div
-        className="collection-dialog collection-dialog--wide"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Add titles to collection"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="collection-dialog__header">
-          <h2 className="collection-dialog__title">Add titles</h2>
-          <button
-            type="button"
-            className="collection-dialog__close"
-            aria-label="Close dialog"
-            onClick={onClose}
-          >
-            <X size={18} />
-          </button>
-        </div>
-        <div className="collection-add__list">
-          {available.length === 0 ? (
-            <p className="collection-add__empty">
-              Everything from your list is already in this collection.
-            </p>
-          ) : (
-            available.map((m) => {
-              const label = m.title || "Untitled";
-              return (
-                <button
-                  type="button"
-                  key={m.id}
-                  className="collection-add__row"
-                  aria-pressed={checked.has(m.id)}
-                  onClick={() => toggleChecked(m.id)}
-                >
-                  <span className="collection-add__check">
-                    {checked.has(m.id) && <Check size={14} strokeWidth={3} />}
-                  </span>
-                  <span className="collection-add__title">{label}</span>
-                </button>
-              );
-            })
-          )}
-        </div>
-        <div className="collection-dialog__actions">
-          <button type="button" className="btn btn-secondary" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={checked.size === 0}
-            onClick={() => {
-              onConfirm(Array.from(checked));
-              setChecked(new Set());
-            }}
-          >
-            Add {checked.size > 0 ? `(${checked.size})` : ""}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 /* ── Collection folder card: 2×2 cover collage mining the saved list ────── */
 function CollectionCard({ collection, items, onOpen, onRename, onDelete, onToggleVisibility }) {
@@ -423,6 +164,7 @@ function CollectionCard({ collection, items, onOpen, onRename, onDelete, onToggl
 /* ── My List — redesigned on the movies/series discovery page language ──── */
 export default function WatchlistPage() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const {
     myList,
     toggleMyList,
@@ -813,6 +555,13 @@ export default function WatchlistPage() {
                 <FolderOpen size={11} className="text-white/45" />
                 {collections.length}
               </span>
+              <Link
+                to="/explore/collections"
+                className={GHOST_PILL}
+              >
+                <Compass size={15} />
+                {t("collections.exploreCollections")}
+              </Link>
             </div>
             <div className="mt-6 px-4 md:px-8">
               <div className="collections-rail__grid">

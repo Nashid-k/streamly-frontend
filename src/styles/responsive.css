@@ -1,0 +1,501 @@
+/* ── Mobile & Tablet Refinements ─────────────────────────────────────── */
+@media (max-width: 1024px) {
+  /* Reduce banner height on large tablets */
+  .hero-container,
+  .skeleton-hero {
+    height: min(70vh, 600px);
+  }
+  .hero-content {
+    padding-left: clamp(2rem, 4vw, 4rem);
+    max-width: 600px;
+  }
+  .hero-title {
+    font-size: clamp(2rem, 3.5vw, 3rem);
+  }
+  /* Reduce poster size on tablet to avoid crowding */
+  .details-poster-large {
+    height: 320px;
+  }
+
+  /* Desktop nav pill sits inside the header row — just keep comfortable gutters */
+  .header-row {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  .main-content {
+    padding: 0 2rem 4rem;
+  }
+}
+
+/* Tablet viewport between 769px and 1024px — keep nav comfortable and prevent collision with brand */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .nav-cluster {
+    gap: 12px;
+  }
+  .nav-link {
+    padding: 5px 10px;
+    font-size: 0.82rem;
+    gap: 5px;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Tablet / iPad Adjustments */
+  .main-content,
+  .main-content[style] {
+    padding: 56px clamp(1rem, 4vw, 2rem) 5rem !important;
+  }
+
+  /* Don't add top padding to main-content when it starts with a hero banner,
+     so the banner sits flush at the very top of the screen behind the floating navbar. */
+  .main-content:has(.hero-container),
+  .main-content:has([class*="skeleton-hero"]),
+  .main-content.main-content--has-hero,
+  .main-content.main-content--has-hero[style] {
+    padding-top: 0 !important;
+  }
+
+  .details-content-wrapper {
+    margin-top: 15vh;
+  }
+
+  /* Responsive grid across mobile and tablet */
+  .movie-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.75rem !important;
+  }
+}
+
+@media (min-width: 520px) and (max-width: 768px) {
+  .movie-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 0.85rem !important;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .movie-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important;
+    gap: 1rem !important;
+  }
+}
+
+/* Toast semantic accent bars */
+.toast-success {
+  border-left: 3px solid #4ade80 !important;
+}
+.toast-error {
+  border-left: 3px solid #f87171 !important;
+}
+.toast-info {
+  border-left: 3px solid #60a5fa !important;
+}
+.toast-warning {
+  border-left: 3px solid #fbbf24 !important;
+}
+
+@media (max-width: 768px) {
+  /* True Mobile Phone Adjustments */
+  .desktop-only {
+    display: none !important;
+  }
+  .mobile-only {
+    display: block !important;
+  }
+
+  .main-content,
+  .main-content[style] {
+    padding: calc(52px + env(safe-area-inset-top, 0px)) clamp(1rem, 4vw, 2rem) calc(5rem + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  /* Don't add top padding to main-content when it starts with a hero banner,
+     so the banner sits flush at the very top of the screen behind the floating navbar. */
+  .main-content:has(.hero-container),
+  .main-content:has([class*="skeleton-hero"]),
+  .main-content.main-content--has-hero,
+  .main-content.main-content--has-hero[style] {
+    padding-top: 0 !important;
+  }
+
+  /* Mobile: bottom bar is primary — the desktop nav pill hides, brand floats
+     alone top-left exactly like the real mobile header */
+  .header-row {
+    padding: calc(env(safe-area-inset-top, 0px) + 8px) 0.75rem 0;
+  }
+  .header-row .navbar {
+    display: none;
+  }
+  .header-row .brand-mark {
+    --brand-h: 36px;
+    height: var(--brand-h);
+  }
+  .nav-icon-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+  }
+  .nav-icon-btn:active {
+    transform: scale(0.92);
+  }
+  .user-menu-container {
+    right: -10px !important;
+  }
+
+  /* Mobile Bottom Nav — floating frosted glass pill */
+  .mobile-bottom-nav {
+    display: flex !important;
+    position: fixed;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%);
+    width: min(94vw, 440px);
+    height: 62px;
+    background: rgba(14, 14, 18, 0.82) !important;
+    backdrop-filter: blur(36px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(36px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    border-radius: 999px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    z-index: 9999;
+    justify-content: space-around;
+    align-items: center;
+    padding: 4px 6px;
+  }
+  .bottom-nav-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(48px, 14vw, 60px);
+    max-width: 60px;
+    height: 2.5rem;
+    border-radius: 999px;
+    padding: 0;
+    color: #9ca3af;
+    text-decoration: none;
+    transition: background 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .bottom-nav-item:active {
+    transform: scale(0.92);
+  }
+  .bottom-nav-item:hover {
+    color: #fff;
+  }
+  .bottom-nav-item.active {
+    color: #000;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 16px 1px rgba(255, 255, 255, 0.18);
+  }
+  .bottom-nav-item.active svg {
+    color: #000;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+  }
+  body {
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+    letter-spacing: -0.01em;
+  }
+
+  /* Hero Banner — Full-width edge-to-edge */
+  .hero-container,
+  .skeleton-hero {
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    border-radius: 0;
+    margin-top: 0;
+    height: min(75vh, 560px);
+    min-height: 450px;
+    max-height: none;
+  }
+  .hero-content {
+    padding-bottom: 3rem !important;
+    padding: 1.25rem;
+    padding-left: 1.5rem;
+    max-width: 100%;
+  }
+  .hero-title {
+    font-size: 2.2rem !important;
+  }
+
+  /* 16px font (no iOS zoom) without stomping inputs that have their own
+       layout padding — icon inputs (search/settings filter) position an
+       absolute magnifier over the left edge and would get text-over-icon. */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  input:not(.search-panel__input):not(.settings-search__input):not(.range-slider):not(.pl-11):not(.px-4),
+  select,
+  textarea {
+    padding: 12px 16px !important;
+  }
+
+  /* Modals */
+  .modal-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  .modal-content,
+  .modal-container {
+    border-radius: 24px 24px 0 0 !important;
+    margin: 0 !important;
+    padding: 1.25rem !important;
+    padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px)) !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    top: auto !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    transform: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-bottom: none !important;
+    animation: slideUp 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  /* Buttons */
+  .btn {
+    padding: 0.8rem 1.4rem !important;
+    font-size: 0.95rem !important;
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+  .btn-primary {
+    background: var(--accent-gradient, linear-gradient(135deg, #95ff50, #4bc915, #2f9908)) !important;
+    box-shadow: 0 6px 20px var(--accent-glow, rgba(225, 29, 72, 0.45)) !important;
+    border: none !important;
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px) scale(1.02) !important;
+  }
+
+  /* Toast mobile position — above bottom nav, centered */
+  .toast-container {
+    bottom: calc(82px + env(safe-area-inset-bottom, 0px)) !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    max-width: calc(100vw - 2rem) !important;
+    align-items: center !important;
+  }
+  .back-to-top-btn {
+    bottom: calc(82px + env(safe-area-inset-bottom, 0px)) !important;
+    right: calc(14px + env(safe-area-inset-right, 0px)) !important;
+    width: 42px !important;
+    height: 42px !important;
+  }
+
+  /* Movie Rails */
+  .movie-rail-wrapper > button,
+  .discovery-rail > button,
+  .cw-rail > button {
+    display: none !important;
+  }
+  .movie-rail,
+  .cast-rail {
+    scroll-snap-type: x mandatory;
+    scroll-padding-left: 1rem;
+    padding-top: 0.5rem !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  .movie-rail > *,
+  .cast-rail > * {
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+  .movie-rail .movie-card,
+  .skeleton-card,
+  .movie-rail-item {
+    width: 165px !important;
+  }
+  .skeleton-card {
+    height: 300px !important;
+  }
+
+  /* Movie Details */
+  .details-poster-large {
+    display: none !important;
+  }
+  .details-content-wrapper {
+    flex-direction: column !important;
+    margin-top: 15vh !important;
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+    padding-top: 1rem !important;
+    padding-bottom: 5rem !important;
+    background: linear-gradient(to bottom, transparent, rgba(5,5,5,0.7) 12%, rgba(5,5,5,0.85));
+  }
+  .details-backdrop {
+    height: 50vh !important;
+    position: absolute !important;
+    mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+  }
+  .details-text h1 {
+    font-size: 2.2rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+  .details-meta {
+    justify-content: flex-start !important;
+    margin-bottom: 1.5rem !important;
+  }
+  .details-text {
+    text-align: left !important;
+  }
+  .hero-actions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.75rem !important;
+  }
+  .video-modal-header {
+    background: transparent !important;
+    padding: calc(env(safe-area-inset-top) + 0.75rem) 0.75rem 0.75rem 0.75rem !important;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start !important;
+  }
+  .episode-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .video-scaler {
+    border-radius: 0;
+    max-width: 100%;
+  }
+  .video-controls {
+    padding: 8px !important;
+  }
+  .video-timeline {
+    height: 4px !important;
+  }
+
+  /* Misc */
+  div[style*="padding: '6rem 0'"] {
+    padding: 3rem 0 !important;
+  }
+  div[style*="gap: '1.5rem'"] {
+    gap: 0.75rem !important;
+  }
+  .skeleton-title {
+    height: 1.2rem !important;
+    width: 150px !important;
+  }
+  ::-webkit-scrollbar {
+    display: none !important;
+  }
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  div[style*="gap: '3rem'"],
+  div[style*="gap: 3rem"] {
+    gap: 1.5rem !important;
+  }
+  div[style*="marginBottom: '4rem'"],
+  div[style*="marginBottom: 4rem"] {
+    margin-bottom: 2rem !important;
+  }
+
+  div[style*="width: 300px"],
+  img[style*="width: 300px"] {
+    width: 200px !important;
+    height: 300px !important;
+    margin: 0 auto;
+  }
+  div[style*="minWidth: 300px"],
+  div[style*="min-width: 300px"] {
+    min-width: 0 !important;
+  }
+}
+
+@media (hover: none) {
+  .movie-card:hover {
+    transform: none !important;
+  }
+  .btn:hover {
+    transform: none !important;
+  }
+  .bottom-nav-item:hover {
+    transform: none !important;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .hero-container,
+  .skeleton-hero {
+    height: 100vh !important;
+  }
+  .details-content-wrapper {
+    margin-top: 15vh !important;
+  }
+}
+
+@media (max-width: 768px) {
+  /* 1. Responsive Hero Backdrop — clean framing on mobile & tablet without duplicate poster title */
+  .hero-bg {
+    object-fit: cover !important;
+    object-position: center top !important;
+    filter: brightness(0.88) contrast(1.08) !important;
+  }
+
+  /* 2. Massive, native-app edge-to-edge Hero */
+  .hero-container,
+  .skeleton-hero {
+    height: 85vh !important;
+    mask-image: linear-gradient(
+      to bottom,
+      black 55%,
+      transparent 100%
+    ) !important;
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      black 55%,
+      transparent 100%
+    ) !important;
+    box-shadow: none !important;
+    margin-top: 0 !important;
+  }
+
+  /* 3. Pull content up out of the faded bottom */
+  .hero-content {
+    padding-bottom: 8rem !important;
+    background: transparent !important;
+  }
+
+  .hero-dots {
+    bottom: 5rem !important;
+    right: 50% !important;
+    transform: translateX(50%) !important;
+    gap: 10px !important;
+    padding: 10px 18px !important;
+  }
+  .hero-dots button {
+    min-width: 24px !important;
+    min-height: 24px !important;
+    padding: 8px !important;
+    margin: 8px 4px !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  /* 4. Elegant typography */
+  .hero-title {
+    font-size: 2.8rem !important;
+    line-height: 1.1 !important;
+    text-align: left !important;
+  }
+  .hero-desc {
+    text-align: left !important;
+    margin: 1rem auto !important;
+  }
+
+  /* 5. Center align actions */
+  div[style*="gap: '1rem'"] {
+    justify-content: center !important;
+  }
+}
+

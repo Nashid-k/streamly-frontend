@@ -84,6 +84,14 @@ token is verified **locally** with `node:crypto` against Google's public JWKS
 is POST-only (credential in `credential`); the old unauthenticated GET profile
 lookup and the backend guest upsert were removed.
 
+Anonymous public collections: `/api/publicCollections` is a **read-only,
+no-auth** endpoint (GET list → `{ name, publicId, itemCount }[]`, capped 100;
+GET `?publicId=X` → `{ name, publicId, itemIds }` or `collection: null`) that
+flattens the PUBLIC subsets of every synced `userData` document. Frozen
+contract: it never emits a googleId, email, or username — the Explore surface
+is anonymous by design (`api/lib/publicCollections.js` pure helpers:
+PUBLIC + stable `publicId` only, deduped, newest-updated first).
+
 External services: `api.themoviedb.org/3` (catalog, 10s timeout in
 `tmdbClient.js`), `image.tmdb.org` (artwork, `cdnImageAdapter` sizes
 w92→w1280), `omdbapi.com` (IMDb/RT, env-key `VITE_OMDB_API_KEY`, 24h cache),
@@ -92,8 +100,8 @@ w92→w1280), `omdbapi.com` (IMDb/RT, env-key `VITE_OMDB_API_KEY`, 24h cache),
 Downloads resolve those hosts' HLS master playlists and proxy segments through
 the same-origin Vercel function `api/downloadify.js`
 (`resolve`/`manifest`/`segment`; embed-host allowlist + private-IP SSRF guard).
-Stream-service/NetMirror HTTP calls resolve through the `env.js` stub to `''`
-and fail soft (logged, non-blocking). Every function is wrapped in a request
+Stream-service/NetMirror calling code was deleted (`src/api/env.js` removed);
+the client no longer makes those HTTP calls. Every function is wrapped in a request
 logger (`api/lib/logger.js`); `vercel.json` sets `maxDuration` per function
 (15s tmdb / 30s auth+sync) to stay inside the Hobby ceiling.
 
@@ -101,23 +109,48 @@ logger (`api/lib/logger.js`); `vercel.json` sets `maxDuration` per function
 
 Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in `vite.config.js`, `vitest.config.js`, and `jsconfig.json`). Each layer exposes a clean `index.js` barrel export while maintaining full backwards compatibility with direct imports:
 
+- `src/app/` — app shell + routing (`@/app`). `routes.jsx` (default `AppRoutes`,
+  lazy pages, route-keyed `ErrorBoundary` + `Suspense`), `Layout.jsx`, `Header.jsx`,
+  `MobileBottomNav.jsx`, `AccountMenu.jsx`. `App.jsx` is a thin composition root.
 - `src/api/` — network boundary (`@/api`). `index.js` barrel. `tmdbClient.js` (proxy-first fetch+timeout+
-  `[Streamly][tmdb]` logs, direct fallback), `movieService.js` (all domain
-  calls + normalize, each method logs failure/empty), `omdbClient.js`, `ratingService.js`, `videoSourceAdapter.js`,
-  `subtitleFetcher.js`, `downloadService.js` (resolve/manifest/segment driver +
-  disk save), `prefetchAdapter.js`, `cdnImageAdapter.js`, `virtualRenderAdapter.js` (re-export of hook).
+  `[Streamly][tmdb]` logs, direct fallback), `movieService/` (directory facade —
+  `{core,normalize,search,featured,detail,discover,editorial,person,index}.js`;
+  exposes `movieService`, `EDITORIAL_RAILS`, `classifyTrailer`,
+  `certificationFromDetail`, `normalizeResult`, `isBrowsableTitle`), `omdbClient.js`,
+  `ratingService.js`, `videoSourceAdapter.js`, `subtitleFetcher.js`,
+  `downloadService.js` (resolve/manifest/segment driver + disk save),
+  `prefetchAdapter.js`, `cdnImageAdapter.js`, `virtualRenderAdapter.js` (re-export of hook),
+  `publicCollections.js` (same-origin anonymous public-collection fetch, fail-soft).
 - `src/pages/` — one file per route (see table). Pages own query keys and
   log every `error` + empty-data state via `reportQueryError`/`logEmptyData`.
 - `src/components/` — reusable UI (`@/components`). `index.js` categorized barrel. Rail primitives
   (`CastRail`, `DiscoveryRails`, `ContinueWatchingRail`, `GenreShowcase`, `LeavingSoonBanner`),
-  cards (`MovieCard`, `SearchResultRow`), player subsystem (`CustomVideoPlayer`, `PlayerPreview`,
-  `playerUIDef.js`, `YoutubeRawTrailer`), modals (`TitleInfoModal`, `DownloadModal`, `GlobalShortcuts`), and primitives
-  (`Button`, `Chip`, `Toast`, `ConfirmDialog`, `Loader`, `EmptyState`, `SEO`, `ErrorBoundary`).
+  cards (`MovieCard`), player subsystem (`CustomVideoPlayer`, `PlayerPreview`,
+  `YoutubeRawTrailer`, and `player/` leaf subfolder — `ArcRing`, `LoadingArc`,
+  `NetflixVolumeHUD`, `NetflixBrightnessHUD`, `NetflixAspectHUD`, `index.js`),
+  feature-grouped subfolders (`browse/` — `FilterPill`, `MenuItem`, `SearchField`,
+  `PillAction`; `detail/` — `SeasonDropdown`, `ServerDropdown`,
+  `ProductionCompaniesBlock`; `rails/` — `FadeInSection`, `MovieRail`, `Top10Rail`,
+  `EditorialRails`; `overlays/` — `CollectionNameDialog`, `AddTitlesDialog`;
+  `settings/` — `LanguageFlag`, `Toggle`, `SegmentControl`, `SettingRow`,
+  `ServerOrderList`), modals (`TitleInfoModal`, `DownloadModal`, `GlobalShortcuts`), and
+  primitives (`Button`, `Chip`, `Toast`, `ConfirmDialog`, `Loader`, `EmptyState`,
+  `SEO`, `ErrorBoundary`).
 - `src/hooks/` — custom React hooks (`@/hooks`). `index.js` barrel. `useUserData.js` (localStorage lists,
   logs corrupt/quota failures), `useDebounce`, `useDetailView`, `useMediaQuery`, `useRailArrows`,
-  `useScrollRestoration`, `useVirtualRenderAdapter` (IntersectionObserver adapter for heavy elements).
+  `useScrollRestoration`, `useVirtualRenderAdapter` (IntersectionObserver adapter for heavy elements),
+  `useIsTouch`, `useContainerSize`.
 - `src/context/` — React contexts (`@/context`). `index.js` barrel. `AuthContext.jsx` + `auth.js`
   (merges user data hooks), `PreferencesContext.jsx` + `preferences.js` (settings + `setting-*`).
+- `src/constants/` — app-level constant single sources (`@/constants`). `index.js` barrel.
+  `navigation.js` (`NAV_ITEMS`, `navWatchKind`), `settings.js` (live single source for `THEMES`,
+  `LANGUAGES`, `SEEK_TIMES`, `SUBTITLE_FONTS`, `SUBTITLE_COLORS`, `DEFAULT_SERVER_ORDER`, `TABS`,
+  `SECTION_SEARCH_TERMS`), `playerUi.js` (`PLAYER_SPEEDS`, `ASPECT_RATIOS`, `AR_GLYPH`,
+  `SPRING_SNAPPY`).
+- `src/styles/` — global CSS sliced by concern and imported from `main.jsx` in cascade order
+  (`{tokens,header,primitives,hero,buttons,grids,skeleton,rails,responsive,search,collections,
+  settings,ui-kit,player,settings-ui,modals,discovery}.css`). Tailwind v4 `@source "../"`
+  roots content detection back at `src/`.
 - `src/utils/` — shared utilities (`@/utils`). `index.js` barrel. `debugLogger.js` (**all console output
   goes through here**), `index.js` (`asArray`/`EMPTY_ARRAY` null-safety + re-exports), `timezone`,
   `searchRanking`, `genreResults`, `releaseCalendar`, `ratings`, `notificationEngine`, `subtitleEngine`,

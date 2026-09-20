@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { PLAYER_SPEEDS } from "../components/playerUIDef";
+import { PLAYER_SPEEDS } from "../constants/playerUi";
 
-describe("playerUIDef", () => {
+describe("playerUi", () => {
   it("exposes the canonical playback speed ladder", () => {
     expect(PLAYER_SPEEDS).toEqual([0.5, 0.75, 1, 1.25, 1.5, 2]);
   });

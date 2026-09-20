@@ -1,0 +1,232 @@
+/* Skeleton Loaders (Pure GPU Accelerated) */
+/* ── Skeleton Base ─────────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(135deg, #16161a 0%, #1a1a1f 50%, #16161a 100%);
+  background-size: 200% 200%;
+  border-radius: var(--radius-lg);
+  position: relative;
+  overflow: hidden;
+  animation: skeleton-breathe 3s ease-in-out infinite;
+}
+
+/* Shimmer wave overlay */
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    transparent 38%,
+    rgba(255, 255, 255, 0.08) 42%,
+    rgba(255, 255, 255, 0.16) 50%,
+    rgba(255, 255, 255, 0.08) 58%,
+    transparent 62%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: shimmer-wave 2s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes shimmer-wave {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes skeleton-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.92; }
+}
+
+/* Skeleton shimmer boosted for visibility */
+.skeleton::after {
+  opacity: 1;
+}
+
+/* Skeleton with rounded variant */
+.skeleton-circle {
+  border-radius: 50% !important;
+}
+
+/* Skeleton with accent glow */
+.skeleton-glow {
+  background: linear-gradient(135deg, #1a1020 0%, #1a1a1f 50%, #1a1020 100%);
+}
+.skeleton-glow::after {
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    transparent 40%,
+    rgba(149, 255, 80, 0.08) 45%,
+    rgba(149, 255, 80, 0.15) 50%,
+    rgba(149, 255, 80, 0.08) 55%,
+    transparent 60%,
+    transparent 100%
+  );
+}
+
+/* Skeleton stagger — wave effect across cards */
+.skeleton-card {
+  animation: skeleton-wave-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.skeleton-card:nth-child(1) { animation-delay: 0s; }
+.skeleton-card:nth-child(2) { animation-delay: 0.05s; }
+.skeleton-card:nth-child(3) { animation-delay: 0.1s; }
+.skeleton-card:nth-child(4) { animation-delay: 0.15s; }
+.skeleton-card:nth-child(5) { animation-delay: 0.2s; }
+.skeleton-card:nth-child(6) { animation-delay: 0.25s; }
+.skeleton-card:nth-child(7) { animation-delay: 0.3s; }
+.skeleton-card:nth-child(8) { animation-delay: 0.35s; }
+
+@keyframes skeleton-wave-in {
+  0% { opacity: 0; transform: translateY(12px) scale(0.97); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.skeleton-hero {
+  width: 100%;
+  height: min(82vh, 900px);
+  min-height: 560px;
+  max-height: 900px;
+  border-radius: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  position: relative;
+}
+
+.skeleton-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    var(--bg-color) 0%,
+    rgba(9, 9, 11, 0.6) 30%,
+    transparent 80%
+  );
+  z-index: 1;
+}
+
+.skeleton-rail {
+  display: flex;
+  gap: 1.5rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  padding: 0.25rem 0.5rem 1rem;
+}
+.skeleton-rail::-webkit-scrollbar {
+  display: none;
+}
+.skeleton-rail > div {
+  width: 220px;
+  flex-shrink: 0;
+}
+
+/* Movie-card-shaped skeleton — mirrors MovieCard:
+   poster (2/3) + title line + subtitle line, sized like .movie-grid cells */
+.skeleton-moviecard {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  overflow: hidden;
+}
+.skeleton-moviecard .sk-poster {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+.skeleton-moviecard .sk-line {
+  height: 0.8rem;
+  border-radius: 4px;
+  margin-top: 0.5rem;
+}
+.skeleton-moviecard .sk-line--w70 {
+  width: 70%;
+}
+.skeleton-moviecard .sk-line--w45 {
+  width: 45%;
+}
+.skeleton-moviecard .sk-line--w40 {
+  width: 40%;
+}
+.skeleton-moviecard .sk-line--sub {
+  height: 0.65rem;
+  margin-top: 0.35rem;
+}
+
+/* Cast-style circular avatar skeleton (mirrors CastRail 90px circles) */
+.skeleton-cast {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 110px;
+  flex-shrink: 0;
+}
+.skeleton-cast .sk-avatar {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  margin-bottom: 0.5rem;
+}
+.skeleton-cast .sk-name {
+  width: 60px;
+  height: 12px;
+  border-radius: 4px;
+  margin-bottom: 5px;
+}
+.skeleton-cast .sk-character {
+  width: 70px;
+  height: 10px;
+  border-radius: 4px;
+}
+
+@media (max-width: 768px) {
+  .skeleton-rail > div {
+    width: 165px;
+  }
+  .skeleton-rail {
+    padding: 0.25rem 0.5rem 1rem;
+  }
+}
+
+.skeleton-card {
+  width: 220px;
+  height: 330px;
+  flex-shrink: 0;
+}
+
+.skeleton-title {
+  height: 1.5rem;
+  width: 200px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 1rem;
+}
+
+/* Smooth image fade-in on load to prevent harsh pop-in */
+/* Scoped to specific elements only — avoids flicker on cached images during navigation */
+img {
+  color: transparent; /* hide broken-image alt text */
+}
+.movie-poster,
+.details-poster-large {
+  animation: fadeInImage 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes fadeInImage {
+  from {
+    opacity: 0;
+    filter: blur(10px);
+    transform: scale(1.05);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: scale(1);
+  }
+}
+
+/* Removed old cta-pulse — replaced with cta-glow in button section */
+

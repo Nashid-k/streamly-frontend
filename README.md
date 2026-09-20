@@ -110,15 +110,21 @@ public/
 
 src/
 ├── main.jsx                         ← React root: QueryClient, PreferencesProvider, ToastProvider
-├── App.jsx                          ← Top-level router, navbar, mobile bottom bar
-├── index.css                        ← Global CSS, variables, themes, animations
+├── App.jsx                          ← Thin composition root (routes, layout, providers)
 ├── queryClient.js                   ← TanStack Query client config
+├── app/                             ← App shell: routes (lazy pages), Layout, Header,
+│                                       MobileBottomNav, AccountMenu
+├── styles/                          ← Global CSS sliced by concern (tokens, header,
+│                                       hero, buttons, rails, settings, player, …)
+│                                       imported from main.jsx in cascade order
 ├── utils/                           ← debugLogger ([Streamly][scope] logging),
 │                                       subtitleEngine, ratings, searchRanking,
 │                                       releaseCalendar, timezone, index (asArray)
 ├── api/
 │   ├── tmdbClient.js                ← proxy-first fetch + 10s timeout + direct fallback
-│   ├── movieService.js              ← all TMDB domain calls + normalizeResult
+│   ├── movieService/                ← TMDB domain facade split by concern
+│   │                                   (core, normalize, search, featured, detail,
+│   │                                   discover, editorial, person, index)
 │   ├── omdbClient.js                ← OMDb IMDb/RT ratings lookup
 │   ├── ratingService.js             ← ratings aggregation with 24h cache
 │   ├── subtitleFetcher.js           ← OpenSubtitles-style SRT/VTT lookup
@@ -126,6 +132,9 @@ src/
 │   ├── videoSourceAdapter.js        ← iframe server registry + server ordering
 │   ├── prefetchAdapter.js           ← QueryClient cache prefetching
 │   └── virtualRenderAdapter.js      ← Virtual-list rendering helper
+├── constants/                       ← App-level single sources: navigation,
+│                                       settings (themes/languages/seek times),
+│                                       playerUi (PLAYER_SPEEDS, aspect ratios)
 ├── context/
 │   ├── AuthContext.jsx              ← AppProvider + useAppAuth() — myList +
 │   │                                  continueWatching merged into one context
@@ -135,15 +144,27 @@ src/
 │   ├── useDebounce.js               ← Search input debounce
 │   ├── useMediaQuery.js             ← Responsive breakpoint matching
 │   ├── useRailArrows.js             ← Rail scroll-arrow enable/disable
-│   └── useScrollRestoration.js      ← Scroll position restore across navigation
+│   ├── useScrollRestoration.js      ← Scroll position restore across navigation
+│   ├── useIsTouch.js                ← Touch-device detection (player gestures)
+│   └── useContainerSize.js          ← Player container size observation
 ├── components/
 │   ├── CustomVideoPlayer.jsx        ← Fixed Netflix-style player (black + #E50914),
 │   │                                  CineSrc command API, subtitles, gestures
-│   ├── playerUIDef.js               ← Shared player defs (PLAYER_SPEEDS)
+│   ├── player/                      ← Player chrome leaves: ArcRing, LoadingArc,
+│   │                                  Netflix Volume/Brightness/Aspect HUDs
+│   ├── browse/                      ← FilterPill, MenuItem, SearchField, PillAction
+│   ├── detail/                      ← SeasonDropdown, ServerDropdown,
+│   │                                  ProductionCompaniesBlock
+│   ├── rails/                       ← FadeInSection, MovieRail, Top10Rail,
+│   │                                  EditorialRails
+│   ├── overlays/                    ← CollectionNameDialog, AddTitlesDialog
+│   ├── settings/                    ← LanguageFlag, Toggle, SegmentControl,
+│   │                                  SettingRow, ServerOrderList
 │   ├── MovieCard.jsx                ← Cinematic hover card + Quick View modal
 │   ├── ContinueWatchingRail.jsx     ← Cinejoy-style continue watching rail
 │   ├── DiscoveryRails.jsx           ← Trend/Airing/Popular banner rails
-│   ├── SearchResultRow.jsx          ← Search dropdown suggestion row
+│   ├── PlayerPreview.jsx            ← Live subtitle preview (lazy, Subtitles tab)
+│   ├── DownloadModal.jsx            ← Offline download manager (lazy in TitleDetails)
 │   ├── ConfirmDialog.jsx            ← Animated confirmation modal
 │   ├── Toast.jsx                    ← Notification toast system
 │   ├── GlobalShortcuts.jsx          ← Keyboard shortcut handler + help modal

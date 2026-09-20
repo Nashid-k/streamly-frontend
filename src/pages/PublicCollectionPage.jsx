@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, FolderOpen } from "lucide-react";
@@ -7,6 +7,9 @@ import MovieCard from "../components/MovieCard";
 import { useI18n } from "../i18n";
 import { useMyCollections } from "../hooks/useUserData";
 import { useAppAuth } from "../context/auth";
+import { fetchPublicCollection } from "../api/publicCollections";
+import { movieService } from "../api/movieService";
+import { logDebug } from "../utils/debugLogger";
 
 export default function PublicCollectionPage() {
   const { publicId } = useParams();
@@ -14,19 +17,69 @@ export default function PublicCollectionPage() {
   const { getPublicCollection } = useMyCollections();
   const { myList } = useAppAuth();
 
+  // Local public collection (the viewer's own device).
+  const local = useMemo(() => getPublicCollection(publicId), [getPublicCollection, publicId]);
+  // Remote public collection (any user's public list, fetched by publicId).
+  const [remoteCollection, setRemoteCollection] = useState(null);
+  const [remoteLoading, setRemoteLoading] = useState(Boolean(publicId));
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [publicId]);
 
-  const collection = useMemo(() => getPublicCollection(publicId), [getPublicCollection, publicId]);
+  useEffect(() => {
+    if (!publicId) return;
+    if (local) {
+      setRemoteCollection(null);
+      setRemoteLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setRemoteLoading(true);
+    fetchPublicCollection(publicId, { signal: controller.signal })
+      .then((collection) => {
+        setRemoteCollection(collection);
+        if (collection) logDebug('publicCollections', `Resolved remote public collection ${collection.name}.`, { publicId });
+      })
+      .finally(() => setRemoteLoading(false));
+    return () => controller.abort();
+  }, [publicId, local]);
 
+  const collection = local || remoteCollection;
+
+  const [remoteItems, setRemoteItems] = useState([]);
+  useEffect(() => {
+    if (local || !remoteCollection) {
+      setRemoteItems([]);
+      return;
+    }
+    let cancelled = false;
+    const idsList = [...new Set(remoteCollection.itemIds || [])];
+    Promise.all(
+      idsList.map((id) =>
+        movieService.getMovieDetails(id).catch(() => null)
+      ),
+    ).then((resolved) => {
+      if (!cancelled) setRemoteItems(resolved.filter(Boolean));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [local, remoteCollection]);
+
+  // Resolve the collection's items:
+  //   • own local collection → match against the viewer's saved myList
+  //   • remote collection    → items fetched by id from TMDB above
   const items = useMemo(() => {
     if (!collection) return [];
     const ids = new Set(collection.itemIds || []);
-    return myList.filter((m) => ids.has(m.id));
-  }, [collection, myList]);
+    if (local) {
+      return myList.filter((m) => ids.has(m.id));
+    }
+    return remoteItems;
+  }, [collection, local, myList, remoteItems]);
 
-  if (!collection) {
+  if (!collection && !remoteLoading) {
     return (
       <AmbientBackground>
         <div className="mx-auto max-w-6xl px-4 md:px-6 py-8 md:py-12">
@@ -44,6 +97,14 @@ export default function PublicCollectionPage() {
       </AmbientBackground>
     );
   }
+
+  if (!collection) {
+    return null; // remote lookup still in flight
+  }
+
+  const itemCount = Array.isArray(collection.itemIds)
+    ? collection.itemIds.length
+    : 0;
 
   return (
     <AmbientBackground>
@@ -65,7 +126,7 @@ export default function PublicCollectionPage() {
               {collection.name}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {t("explore.itemCount", { count: collection.itemIds.length })}
+              {t("explore.itemCount", { count: itemCount })}
             </p>
           </div>
         </header>

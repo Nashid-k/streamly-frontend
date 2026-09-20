@@ -2457,3 +2457,121 @@ without a username and without any owner identity (no AI branding anywhere):
 - [x] WatchlistPage - Globe/Lock visibility chip + toggle button on each collection card
       wired via onToggleVisibility -> setCollectionVisibility (was a dangling ReferenceError).
 - [x] Gate GREEN: lint 0 / 378 tests / build 2.49s.
+
+## RESTRUCTURE PLAN (phases A-G, in order) - agent-session record
+Ordered top-down; each box checked only after `npm run lint` + `npm run test` + `npm run build`.
+
+- [x] **Phase A - constants single source of truth**: deleted `src/utils/groqClient.js` +
+      `src/components/SearchResultRow.jsx` (0 importers, barrel cleaned). Rewrote
+      `src/constants/settings.js` as the LIVE single source (`THEMES`, `LANGUAGES`
+      (local `public/flags/*.svg`), `SEEK_TIMES`, `SUBTITLE_FONTS`, `SUBTITLE_COLORS`,
+      `DEFAULT_SERVER_ORDER`, `TABS`, `SECTION_SEARCH_TERMS`) with lucide icons for `TABS`;
+      SettingsPage imports `../constants/settings` (inline constants block removed,
+      2005 -> 1671 lines); App.jsx imports `NAV_ITEMS` from `./constants/navigation`
+      (local defs dropped, mobile bar maps `NAV_ITEMS` + search/settings extras with
+      myList/history override). CustomVideoPlayer local duplicate-hook blocks removed
+      (3796 -> 3605 lines). Verified: lint 0 errors / 378 tests / build OK.
+- [x] **Phase B1 - shared browse components**: new `src/components/browse/`
+      (`FilterPill.jsx`, `MenuItem.jsx`, `SearchField.jsx`, `PillAction.jsx` + `GHOST_PILL`/
+      `ACCENT_PILL`). DiscoveryPage + WatchlistPage import them; icons/useRef trimmed.
+      Verified: lint + 378 tests.
+- [x] **Phase B2 - details components**: new `src/components/detail/`
+      (`SeasonDropdown.jsx`, `ServerDropdown.jsx`, `ProductionCompaniesBlock.jsx`, verbatim).
+      TitleDetailsPage imports them, defs removed (2716 -> 2349 lines),
+      `ChevronDown`/`MonitorPlay` dropped. Verified: lint + 3/3 TitleDetails tests + 378 total.
+- [x] **Phase B3 - home rails**: new `src/components/rails/`
+      (`FadeInSection.jsx`, `MovieRail.jsx`, `Top10Rail.jsx`, `EditorialRails.jsx`).
+      HomePage defs removed (1803 -> 1371 lines), unused imports cleared. Verified: lint + 378 tests.
+- [x] **Phase B4 - overlays**: new `src/components/overlays/`
+      (`CollectionNameDialog.jsx`, `AddTitlesDialog.jsx`). WatchlistPage imports them,
+      defs removed. Verified: lint.
+- [x] **Phase B5 - settings leaves**: new `src/components/settings/`
+      (`LanguageFlag.jsx`, `Toggle.jsx`, `SegmentControl.jsx`, `SettingRow.jsx`,
+      `ServerOrderList.jsx`). SettingsPage imports all five; `scrollIntoViewIfSupported`
+      restored, leftover Toggle removed, unused imports dropped. Verified: lint + 378 tests.
+- [x] **Phase B6 - app shell**: new `src/app/` (`routes.jsx`, `Layout.jsx`, `Header.jsx`,
+      `MobileBottomNav.jsx`, `AccountMenu.jsx`). App.jsx = thin composition root.
+      Verified: lint, build, 378 tests.
+- [x] **Phase C - movieService facade split**: `src/api/movieService.js` (1043 lines) ->
+      `src/api/movieService/{core,normalize,search,featured,detail,discover,editorial,person,index}.js`
+      (directory index resolves the stable `../api/movieService` import surface). Same
+      exported symbols (`movieService`, `EDITORIAL_RAILS`, `classifyTrailer`,
+      `certificationFromDetail`, `normalizeResult`, `isBrowsableTitle`) - zero consumer
+      churn. Verified: lint 0 errors (pre-existing baseline warnings only),
+      378/378 tests, build OK.
+- [x] **Phase D - player leaf extraction**: `src/components/playerUIDef.js` ->
+      `src/constants/playerUi.js` (`PLAYER_SPEEDS` kept on `@/components` barrel via
+      `export { PLAYER_SPEEDS } from "../constants/playerUi"`; also exported from
+      `src/constants/index.js`). `playerUIDef.js` + `playerUIDef.test.js` deleted,
+      new `src/__tests__/playerUi.test.js` (same 3 asserts, same values). Extracted
+      Self-contained leaves from CustomVideoPlayer.jsx into `src/components/player/`
+      (`ArcRing`, `LoadingArc`, `NetflixVolumeHUD`, `NetflixBrightnessHUD`,
+      `NetflixAspectHUD` + `index.js` barrel) and shared player constants
+      (`ASPECT_RATIOS`, `AR_GLYPH`, `SPRING_SNAPPY`) into `constants/playerUi.js`;
+      CustomVideoPlayer 3605 -> 3348 lines, unused `memo` import dropped. Verified:
+      lint 0 errors (pre-existing baseline warnings only), 378/378 tests, build OK.
+- [x] **Phase E - lazy + css split**: `PlayerPreview` + `DownloadModal` now
+      `React.lazy` in their only consumers (SettingsPage, TitleDetailsPage) wrapped
+      in `Suspense`; new build chunks (`PlayerPreview-*.js` 3 KB, `DownloadModal-*.js`
+      22 KB). `src/index.css` (7313 lines) sliced verbatim (byte-contiguous, pure
+      CRLF preserved) into `src/styles/` `{tokens,header,primitives,hero,buttons,
+      grids,skeleton,rails,responsive,search,collections,settings,ui-kit,player,
+      settings-ui,modals,discovery}.css` imported in cascade order from `main.jsx`;
+      `@source "../"` fixes Tailwind content root (now `src/styles/`). See
+      `index.css` sliced; old file deleted. Verified: lint 0 errors (baseline
+      warnings only), 378/378 tests, build OK (CSS 182 KB ≈ prior 183 KB).
+- [x] **Phase F - barrels completeness**: `src/hooks/index.js` now also exports
+      `useIsTouch` + `useContainerSize` (both default exports from existing hook
+      files). `components/index.js` re-exports `PLAYER_SPEEDS` from
+      `constants/playerUi.js`; `constants/index.js` barrel expanded (`PLAYER_SPEEDS`,
+      `ASPECT_RATIOS`, `AR_GLYPH`, `SPRING_SNAPPY`). All `barrels.test.js` assertions
+      green. Verified: lint 0 errors (baseline warnings only), 378/378 tests,
+      build OK.
+- [x] **Phase G - docs truth**: `architecture.md` §3 rewritten (added `src/app/`,
+      `src/constants/`, `src/styles/`, `movieService/` directory facade,
+      `components/` feature subfolders renames, `playerUIDef.js* → playerUi`,
+      hooks additions; removed stale `env.js` stub sentence). `README.md`
+      "Project Structure" rewritten (removed deleted `index.css`/`playerUIDef.js`/
+      `SearchResultRow.jsx` entries, added app/styles/constants/player subfolders +
+      lazy PlayerPreview/DownloadModal). `task.md` RESTRUCTURE PLAN all boxes
+      checked. Final full verify below.
+
+## SHIPPED - Cross-user anonymous Explore Collections (this session)
+The NEXT SLICE (EXPLORE MYLIST) recorded above is now BUILT, but via a NEW
+read-only backend surface so OTHER users' PUBLIC collections actually resolve
+(not just the local device's own public list). Decisions recorded from the
+user: data source = new public API endpoint; owner identity = keep anonymous;
+entry point = link added to My List (WatchlistPage).
+
+- [x] `api/publicCollections.js` (NEW) - anonymous read-only endpoint: GET list
+      → `{ name, publicId, itemCount }[]` (max 100), GET `?publicId=X` →
+      `{ name, publicId, itemIds }` or `collection: null`. CORS GET/OPTIONS,
+      `withLog`, no auth header required, NEVER emits owner identity (frozen
+      contract: no googleId/email/username). `api/lib/publicCollections.js`
+      pure helpers `extractPublicCollections`/`findPublicCollection`
+      (PUBLIC + stable `publicId` only, deduped, newest-updated first).
+- [x] `src/api/publicCollections.js` (NEW) client helper - same-origin
+      `/api/publicCollections`, `fetchPublicCollections`/`fetchPublicCollection`,
+      fail-soft (endpoint down ⇒ `[]` / `null`, `[Streamly][publicCollections]`
+      via debugLogger), exported from `src/api/index.js` barrel.
+- [x] `src/pages/ExploreCollectionsPage.jsx` - now fetches remote PUBLIC
+      collections and MERGES with own local public collections (dedupe by
+      publicId, own copy wins); grid shows publicId-keyed cards, no owner.
+- [x] `src/pages/PublicCollectionPage.jsx` - local collection first; else remote
+      via `fetchPublicCollection` by publicId; remote itemIds resolved through
+      `movieService.getMovieDetails(id)` (MovieCard grid). TDZ bug fixed:
+      `remoteItems` state declared BEFORE the `items` useMemo, abort-safe
+      `.catch(() => {})`.
+- [x] `src/pages/WatchlistPage.jsx` - "Explore collections" pill link
+      (GHOST_PILL + Compass) in the "Your Collections" rail header →
+      `/explore/collections`; `useI18n` added to main component;
+      key `collections.exploreCollections` in `src/i18n/en.js`.
+- [x] Infra - `vite.config.js` dev proxy now serves `/api/publicCollections`;
+      `vercel.json` functions += `api/publicCollections.js` maxDuration 15.
+- [x] Tests - NEW `src/__tests__/publicCollections.test.js` (13 tests): lib
+      helpers (public-only flatten, dedupe, newest-first, anonymous fields,
+      private/invalid lookup), endpoint handler (list, single lookup, null,
+      405 non-GET, 204 OPTIONS; db mocked via `vi.mock` of `api/lib/db.js`),
+      client helpers (list, fail-soft [], null on missing, no-fetch on empty
+      publicId). Gate: lint 0 errors (baseline warnings only) / 39 files /
+      391 tests / build OK.

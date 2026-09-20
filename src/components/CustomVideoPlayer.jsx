@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback, useMemo, memo, forwardRef } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo, forwardRef } from "react";
 import { VideoSourceAdapter } from "../api/videoSourceAdapter";
 
 import { movieService } from "../api/movieService";
@@ -13,7 +13,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import { SubtitleEngine } from "../utils/subtitleEngine";
 import { logDebug, logWarn, logInfo } from "../utils/debugLogger";
 import { usePreferences } from "../context/preferences";
-import { PLAYER_SPEEDS } from "./playerUIDef";
+import useIsTouch from "../hooks/useIsTouch";
+import useContainerSize from "../hooks/useContainerSize";
+import { PLAYER_SPEEDS, ASPECT_RATIOS, SPRING_SNAPPY } from "../constants/playerUi";
+import {
+  ArcRing,
+  LoadingArc,
+  NetflixVolumeHUD,
+  NetflixBrightnessHUD,
+  NetflixAspectHUD,
+} from "./player";
 
 
 const getNumericId = (s) => {
@@ -21,24 +30,6 @@ const getNumericId = (s) => {
   const m = s.toString().match(/\d+/);
   return m ? m[0] : null;
 };
-
-const ASPECT_RATIOS = [
-  { id: "fit", name: "Fit (Original 16:9)", scale: 1 },
-  { id: "fill", name: "Fill Screen (Edge-to-Edge)", scale: 1.25 },
-  { id: "zoom", name: "Zoom 1.25x (Punch-Hole Cutout)", scale: 1.25 },
-  { id: "cinema", name: "Cinema 2.39:1", scale: 1.344 },
-  { id: "crop1610", name: "16:10", scale: 1.111 },
-  { id: "stretch", name: "Stretch to Screen", scale: 1 },
-];
-
-const AR_GLYPH = [
-  [44, 25],
-  [52, 23],
-  [48, 25],
-  [50, 21],
-  [42, 25],
-  [46, 25],
-];
 
 const KEYBOARD_SHORTCUTS = [
   { key: "Space / K", action: "Play / Pause" },
@@ -77,7 +68,6 @@ const LOADING_TIPS_TOUCH = [
 
 const SPRING = { type: "spring", stiffness: 400, damping: 30, mass: 0.8 };
 const SPRING_FAST = { type: "spring", stiffness: 600, damping: 35 };
-const SPRING_SNAPPY = { type: "spring", stiffness: 500, damping: 28 };
 
 const R = {
   btnSmall: 'clamp(24px, 4vw, 34px)',
@@ -104,268 +94,6 @@ const R = {
   radiusPill: 100,
   controlRowPad: 'clamp(4px, 1vw, 14px)',
   progressBarPad: 'clamp(8px, 2vw, 20px)',
-};
-
-const ArcRing = memo(({ progress = 0, size = 48, strokeWidth = 3, color = "#fff", bgColor = "rgba(255,255,255,0.08)", glowColor, children, className, responsive }) => {
-  const r = (size - strokeWidth) / 2;
-  const circ = 2 * Math.PI * r;
-  const offset = circ * (1 - Math.max(0, Math.min(progress, 1)));
-  return (
-    <div style={{ position: "relative", width: responsive || size, height: responsive || size, flexShrink: 0 }} className={className}>
-      <svg width={size} height={size} style={{ position: "absolute", inset: 0, transform: "rotate(-90deg)" }}>
-        <circle cx={size/2} cy={size/2} r={r} fill="none" strokeWidth={strokeWidth} style={{ stroke: bgColor }} />
-        <circle
-          cx={size/2} cy={size/2} r={r} fill="none"
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          strokeDasharray={circ}
-          strokeDashoffset={offset}
-          style={{ stroke: color, transition: "stroke-dashoffset 0.25s cubic-bezier(0.4, 0, 0.2, 1)" }}
-        />
-      </svg>
-      {glowColor && (
-        <svg width={size} height={size} style={{ position: "absolute", inset: 0, transform: "rotate(-90deg)", filter: `blur(4px)`, opacity: 0.5 }}>
-          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="transparent" strokeWidth={strokeWidth} />
-          <circle
-            cx={size/2} cy={size/2} r={r} fill="none"
-            strokeWidth={strokeWidth}
-            strokeLinecap="round"
-            strokeDasharray={circ}
-            strokeDashoffset={offset}
-            style={{ stroke: glowColor, transition: "stroke-dashoffset 0.25s cubic-bezier(0.4, 0, 0.2, 1)" }}
-          />
-        </svg>
-      )}
-      {children && (
-        <div style={{
-          position: "absolute", inset: 0,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          transform: "none",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            {children}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-});
-
-const NetflixVolumeHUD = memo(function NetflixVolumeHUD({ effVolume, isMuted, volume, top }) {
-  const isZero = isMuted || volume === 0;
-  const pct = isZero ? 0 : Math.round(effVolume * 100);
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.92 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.94 }}
-      transition={SPRING_SNAPPY}
-      style={{
-        position: "absolute", inset: 0,
-        display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "flex-start",
-        paddingTop: top,
-        pointerEvents: "none", zIndex: 65,
-      }}
-    >
-      <div style={{
-        display: "flex", alignItems: "center",
-        gap: "clamp(8px, 1.4vw, 14px)",
-        padding: "clamp(8px, 1.6vw, 14px) clamp(12px, 2.4vw, 22px)",
-        borderRadius: 8,
-        background: "rgba(0,0,0,0.88)",
-        border: "1px solid rgba(255,255,255,0.12)",
-        boxShadow: "0 16px 48px rgba(0,0,0,0.7)",
-      }}>
-        {isZero ? (
-          <VolumeX size={20} color="#E50914" strokeWidth={2.4} />
-        ) : pct < 40 ? (
-          <Volume1 size={20} color="#fff" strokeWidth={2.4} />
-        ) : (
-          <Volume2 size={20} color="#fff" strokeWidth={2.4} />
-        )}
-        <div style={{
-          position: "relative",
-          width: "clamp(72px, 11vw, 120px)", height: "clamp(3px, 0.6vw, 5px)",
-          background: "rgba(255,255,255,0.2)", borderRadius: 1, overflow: "hidden",
-        }}>
-          <div style={{ position: "absolute", inset: 0, width: `${pct}%`, background: "#E50914", borderRadius: 1 }} />
-        </div>
-        <span style={{
-          color: "#fff", fontSize: "clamp(11px, 1.7vw, 15px)", fontWeight: 700,
-          minWidth: "clamp(30px, 6vw, 44px)", textAlign: "right",
-          fontVariantNumeric: "tabular-nums",
-          fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
-        }}>{pct}%</span>
-      </div>
-    </motion.div>
-  );
-});
-
-const NetflixBrightnessHUD = memo(function NetflixBrightnessHUD({ brightness, top }) {
-  const pct = Math.round(brightness * 100);
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.92 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.94 }}
-      transition={SPRING_SNAPPY}
-      style={{
-        position: "absolute", inset: 0,
-        display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "flex-start",
-        paddingTop: top,
-        pointerEvents: "none", zIndex: 65,
-      }}
-    >
-      <div style={{
-        display: "flex", alignItems: "center",
-        gap: "clamp(8px, 1.4vw, 14px)",
-        padding: "clamp(8px, 1.6vw, 14px) clamp(12px, 2.4vw, 22px)",
-        borderRadius: 8,
-        background: "rgba(0,0,0,0.88)",
-        border: "1px solid rgba(255,255,255,0.12)",
-        boxShadow: "0 16px 48px rgba(0,0,0,0.7)",
-      }}>
-        <Sun size={20} color={pct >= 100 ? "#ffd166" : "#fff"} strokeWidth={2.4} />
-        <div style={{
-          position: "relative",
-          width: "clamp(72px, 11vw, 120px)", height: "clamp(3px, 0.6vw, 5px)",
-          background: "rgba(255,255,255,0.2)", borderRadius: 1, overflow: "hidden",
-        }}>
-          <div style={{ position: "absolute", inset: 0, width: `${Math.min(100, pct)}%`, background: "#E50914", borderRadius: 1 }} />
-        </div>
-        <span style={{
-          color: "#fff", fontSize: "clamp(11px, 1.7vw, 15px)", fontWeight: 700,
-          minWidth: "clamp(30px, 6vw, 44px)", textAlign: "right",
-          fontVariantNumeric: "tabular-nums",
-          fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
-        }}>{pct}%</span>
-      </div>
-    </motion.div>
-  );
-});
-
-const NetflixAspectHUD = memo(function NetflixAspectHUD({ aspectRatioIndex, top }) {
-  const ar = ASPECT_RATIOS[aspectRatioIndex] || ASPECT_RATIOS[0];
-  const glyph = AR_GLYPH[aspectRatioIndex] || AR_GLYPH[0];
-  const [gw, gh] = glyph;
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.9, y: -10 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.92, y: -6 }}
-      transition={SPRING_SNAPPY}
-      style={{
-        position: "absolute", inset: 0,
-        display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "flex-start",
-        paddingTop: top,
-        pointerEvents: "none", zIndex: 65,
-      }}
-    >
-      <div style={{
-        display: "flex", flexDirection: "column", alignItems: "center",
-        gap: "clamp(6px, 1.2vw, 10px)",
-      }}>
-        <motion.div
-          animate={{ width: gw, height: gh }}
-          transition={{ type: "spring", stiffness: 420, damping: 30 }}
-          style={{
-            background: "rgba(0,0,0,0.88)", border: "2px solid #E50914",
-            borderRadius: 6, boxShadow: "0 0 18px rgba(229,9,20,0.5)",
-          }}
-        />
-        <span style={{
-          color: "#fff", fontSize: "clamp(11px, 1.6vw, 14px)", fontWeight: 700,
-          background: "rgba(0,0,0,0.88)", borderRadius: 8,
-          padding: "clamp(3px, 0.6vw, 5px) clamp(8px, 1.6vw, 14px)",
-          textShadow: "0 1px 4px rgba(0,0,0,0.8)",
-          border: "1px solid rgba(255,255,255,0.1)",
-          whiteSpace: "nowrap",
-          fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
-        }}>{ar.name}</span>
-      </div>
-    </motion.div>
-  );
-});
-
-const LoadingArc = memo(({ size = 56, strokeWidth = 2.5, progress = 0 }) => {
-  const r = (size - strokeWidth) / 2;
-  const circ = 2 * Math.PI * r;
-  return (
-    <div style={{ position: "relative", width: size, height: size }}>
-      <svg width={size} height={size} style={{ position: "absolute", inset: 0 }}>
-        <circle
-          cx={size/2} cy={size/2} r={r}
-          fill="none" stroke="rgba(229,9,20,0.18)" strokeWidth={strokeWidth}
-        />
-      </svg>
-      <motion.svg
-        width={size} height={size}
-        style={{ position: "absolute", inset: 0 }}
-        animate={{ rotate: 360 }}
-        transition={{ repeat: Infinity, duration: 1.1, ease: "linear" }}
-      >
-        <defs>
-          <linearGradient id="loadArcGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="rgba(229,9,20,0)" />
-            <stop offset="55%" stopColor="rgba(229,9,20,0.55)" />
-            <stop offset="100%" stopColor="#E50914" />
-          </linearGradient>
-        </defs>
-        <circle
-          cx={size/2} cy={size/2} r={r}
-          fill="none" stroke="url(#loadArcGrad)" strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          strokeDasharray={`${circ * 0.28} ${circ * 0.72}`}
-        />
-      </motion.svg>
-      {progress > 0 && (
-        <svg width={size} height={size} style={{ position: "absolute", inset: 0 }}>
-          <defs>
-            <linearGradient id="loadInnerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="rgba(229,9,20,0.15)" />
-              <stop offset="100%" stopColor="rgba(229,9,20,0.45)" />
-            </linearGradient>
-          </defs>
-          <circle
-            cx={size/2} cy={size/2} r={r - strokeWidth * 2}
-            fill="none" stroke="url(#loadInnerGrad)" strokeWidth={strokeWidth * 0.5}
-            strokeDasharray={2 * Math.PI * (r - strokeWidth * 2)}
-            strokeDashoffset={2 * Math.PI * (r - strokeWidth * 2) * (1 - progress)}
-            strokeLinecap="round"
-            style={{ transition: "stroke-dashoffset 1s cubic-bezier(0.16, 1, 0.3, 1)" }}
-            transform={`rotate(-90 ${size/2} ${size/2})`}
-          />
-        </svg>
-      )}
-    </div>
-  );
-});
-
-const useIsTouch = () => {
-  const [isTouch, setIsTouch] = useState(false);
-  useEffect(() => {
-    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    const noHover = window.matchMedia('(hover: none)').matches;
-    setIsTouch(hasTouch && noHover);
-  }, []);
-  return isTouch;
-};
-
-const useContainerSize = (ref) => {
-  const [size, setSize] = useState({ w: 0, h: 0 });
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const update = () => setSize({ w: el.clientWidth, h: el.clientHeight });
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [ref]);
-  return size;
 };
 
 const CustomVideoPlayer = forwardRef(({
@@ -3624,3 +3352,4 @@ return (
 CustomVideoPlayer.displayName = "CustomVideoPlayer";
 
 export default CustomVideoPlayer;
+

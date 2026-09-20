@@ -12,9 +12,11 @@ function apiDevServerPlugin() {
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url, 'http://localhost');
-        if (url.pathname === '/api/auth' || url.pathname === '/api/sync') {
+        if (url.pathname === '/api/auth' || url.pathname === '/api/sync' || url.pathname === '/api/publicCollections') {
           try {
-            const endpoint = url.pathname === '/api/auth' ? './api/auth.js' : './api/sync.js';
+            const endpoint = url.pathname === '/api/auth' ? './api/auth.js'
+              : url.pathname === '/api/sync' ? './api/sync.js'
+              : './api/publicCollections.js';
             const { default: handler } = await import(endpoint);
             let body = {};
             if (req.method === 'POST') {

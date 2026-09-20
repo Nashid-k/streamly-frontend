@@ -1,22 +1,15 @@
-import { useState, useMemo, useEffect, useLayoutEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, lazy, Suspense } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate, useLocation, useSearchParams } from "react-router-dom";
-import { motion, AnimatePresence, Reorder, useDragControls } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   User,
-  Palette,
-  Play,
-  Server,
-  Captions,
-  Bell,
-  LayoutGrid,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Check,
   X,
   Search,
-  GripVertical,
   RotateCcw,
   LogOut,
   Bookmark,
@@ -24,381 +17,37 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import SEO from "../components/SEO";
-import PlayerPreview from "../components/PlayerPreview.jsx";
 import AmbientBackground from "../components/AmbientBackground";
 import { usePreferences } from "../context/preferences";
 import { useAppAuth, useSyncStatus } from "../context/auth";
 import GoogleSignInButton, { GoogleLogoIcon } from "../components/GoogleSignInButton.jsx";
 import { useToast } from "../components/Toast.jsx";
+
+const PlayerPreview = lazy(() => import("../components/PlayerPreview.jsx"));
 import { useConfirmDialog } from "../components/ConfirmDialog.jsx";
 import { logDebug } from "../utils/debugLogger";
 import { useI18n } from "../i18n";
-
-const THEMES = [
-  {
-    id: "default",
-    name: "Default (Streamly)",
-    primary: "#95ff50",
-    secondary: "#5ce21c",
-  },
-  {
-    id: "emerald",
-    name: "Cinejoy Emerald",
-    primary: "#95ff50",
-    secondary: "#43861e",
-  },
-  {
-    id: "amethyst",
-    name: "Amethyst Violet",
-    primary: "#c084fc",
-    secondary: "#7c3aed",
-  },
-  {
-    id: "ocean",
-    name: "Ocean Cyan",
-    primary: "#22d3ee",
-    secondary: "#2563eb",
-  },
-  {
-    id: "crimson",
-    name: "Crimson Ruby",
-    primary: "#f87171",
-    secondary: "#dc2626",
-  },
-  {
-    id: "solar",
-    name: "Solar Amber",
-    primary: "#fbbf24",
-    secondary: "#d97706",
-  },
-];
-
-const LANGUAGES = [
-  { code: "en", name: "English", flag: "flags/us.svg" },
-  { code: "es", name: "Spanish", flag: "flags/es.svg" },
-  { code: "fr", name: "French", flag: "flags/fr.svg" },
-  { code: "de", name: "German", flag: "flags/de.svg" },
-  { code: "it", name: "Italian", flag: "flags/it.svg" },
-  { code: "pt", name: "Portuguese", flag: "flags/br.svg" },
-  { code: "ja", name: "Japanese", flag: "flags/jp.svg" },
-  { code: "ko", name: "Korean", flag: "flags/kr.svg" },
-  { code: "hi", name: "Hindi", flag: "flags/in.svg" },
-  { code: "ar", name: "Arabic", flag: "flags/sa.svg" },
-];
-
-/* Country flag with an offline-safe fallback: if the local SVG can't load we
-   swap in a tiny letter chip instead of a broken-image box. External flag
-   CDNs are unreliable behind blocking ISPs, so the flags ship with the app. */
-function LanguageFlag({ src, code, className }) {
-  const [failed, setFailed] = useState(false);
-  if (failed) {
-    return (
-      <span
-        className={`inline-flex items-center justify-center rounded-[3px] bg-white/10 text-[8px] font-bold tracking-wide text-white/80 ${className}`}
-        aria-hidden="true"
-      >
-        {code.toUpperCase()}
-      </span>
-    );
-  }
-  return (
-    <img
-      alt=""
-      className={className}
-      src={src}
-      decoding="async"
-      onError={() => setFailed(true)}
-    />
-  );
-}
-
-const SEEK_TIMES = [
-  { value: 5, label: "5 seconds" },
-  { value: 10, label: "10 seconds" },
-  { value: 15, label: "15 seconds" },
-  { value: 30, label: "30 seconds" },
-];
-
-const SUBTITLE_FONTS = [
-  { id: "cinejoy", name: "Cinejoy", family: "'Inter', sans-serif" },
-  { id: "netflix", name: "Netflix", family: "'Arial', sans-serif" },
-  { id: "montserrat", name: "Montserrat", family: "'Montserrat', sans-serif" },
-];
-
-const SUBTITLE_COLORS = [
-  { name: "White", value: "#ffffff" },
-  { name: "Yellow", value: "#ffff00" },
-  { name: "Cyan", value: "#00ffff" },
-  { name: "Magenta", value: "#ff00ff" },
-  { name: "Emerald", value: "#95ff50" },
-];
-
-/* Mirrors DEFAULT_PREFERENCES.serverOrder (plain Server 1 … Server 8
-   labels). Kept local so the Settings page renders before the provider
-   resolves; the adapter owns the authoritative list. */
-const DEFAULT_SERVER_ORDER = [
-  "Server 1",
-  "Server 2",
-  "Server 3",
-  "Server 4",
-  "Server 5",
-  "Server 6",
-  "Server 7",
-  "Server 8",
-];
-
-const TABS = [
-  { id: "all", label: "All", icon: LayoutGrid },
-  { id: "account", label: "Account", icon: User },
-  { id: "appearance", label: "Appearance", icon: Palette },
-  { id: "playback", label: "Playback", icon: Play },
-  { id: "servers", label: "Servers", icon: Server },
-  { id: "subtitles", label: "Subtitles", icon: Captions },
-  { id: "notifications", label: "Notifications", icon: Bell },
-];
-
-/* Search index for the settings filter. Every term a user can see on the
-   screen must appear here, otherwise filtering looks broken. The value is a
-   plain lowercase "haystack" per section; `visibleSection` tokenises the query
-   and requires every word to be present, so multi-word searches work.
-   When copy changes in a section, update its haystack here in the same edit
-   (the unit test `search resolves real on-screen wording` guards the common
-   terms). */
-const SECTION_SEARCH_TERMS = {
-  account: [
-    "account sign in signed out sync settings watch progress across devices",
-    "profile library synchronized google continue with google",
-    "cloud sync cloud database connected syncing sync now last synced",
-    "my watchlist saved movies television series view list",
-    "watch history recently watched movies shows progress view history",
-    "keyboard touch shortcuts player gestures swipes hotkeys quick actions open guide",
-  ].join(" "),
-  appearance: [
-    "appearance look theme color palette interface default streamly",
-    "cinejoy emerald amethyst violet ocean cyan crimson ruby solar amber",
-    "custom accent pick any color customize",
-    "episode view style carousel rails grids lists series pages",
-    "detail view type full info page netflix-style quick modal page modal",
-    "use image logos movie series titles image logos",
-    "trailers play trailers automatically detail pages hover previews",
-    "spoiler-free mode hide information episodes",
-    "reduce motion reduce effects",
-    "high-quality thumbnails stream higher resolution artwork",
-  ].join(" "),
-  playback: [
-    "playback player behaves autoplay automatically play next episode ends",
-    "auto skip intro jump past intro skip intro button",
-    "seek time skip forwards backwards seconds",
-    "auto subtitles preferred language available",
-    "default language subtitle language auto-select",
-    "mute trailer audio trailers sound off",
-  ].join(" "),
-  servers: [
-    "server order drag handle sources tried first title loads priority stream",
-    "reset server 1 server 2 fast server 3 hd server 4 backup",
-    "server 5 vidcore server 6 peachify server 7 vidup server 8 smashy",
-  ].join(" "),
-  subtitles: [
-    "subtitles readability customization font cinejoy netflix montserrat",
-    "text size adjust subtitle size display",
-    "text color high-contrast subtitle color white yellow cyan magenta emerald",
-    "background blur legibility soft glow preview",
-  ].join(" "),
-  notifications: [
-    "notifications in-app status updates scrobble confirmations activity",
-    "show in-app notifications brief status toasts items added watchlist servers change progress saved alerts toast popup banner",
-  ].join(" "),
-  reset: [
-    "reset all preferences factory reset restore theme playback preferences",
-    "factory defaults clears custom themes subtitle styling server order danger",
-  ].join(" "),
-};
+import {
+  THEMES,
+  LANGUAGES,
+  SEEK_TIMES,
+  SUBTITLE_FONTS,
+  SUBTITLE_COLORS,
+  DEFAULT_SERVER_ORDER,
+  TABS,
+  SECTION_SEARCH_TERMS,
+} from "../constants/settings";
+import LanguageFlag from "../components/settings/LanguageFlag";
+import Toggle from "../components/settings/Toggle";
+import SegmentControl from "../components/settings/SegmentControl";
+import SettingRow from "../components/settings/SettingRow";
+import ServerOrderList from "../components/settings/ServerOrderList";
 
 // jsdom and some older browsers expose no scrollIntoView; never crash on it.
 function scrollIntoViewIfSupported(element, options) {
   if (element && typeof element.scrollIntoView === "function") {
     element.scrollIntoView(options);
   }
-}
-
-function Toggle({ checked, onChange, label }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      onClick={() => onChange(!checked)}
-      className={`toggle${checked ? " toggle-on" : ""}`}
-    >
-      <span className="toggle-dot" />
-    </button>
-  );
-}
-
-function SegmentControl({ options, value, onChange, label }) {
-  const groupRef = useRef(null);
-  const sliderRef = useRef(null);
-  const btnRefs = useRef([]);
-
-  const valueOf = (opt) => (typeof opt === "string" ? opt : opt.id);
-
-  const positionSlider = () => {
-    const group = groupRef.current;
-    const slider = sliderRef.current;
-    if (!group || !slider) return;
-    const activeBtn = group.querySelector(".segment-btn.segment-active");
-    if (!activeBtn) return;
-    // Round to whole pixels so the pill never sits on a half-pixel seam.
-    slider.style.left = `${Math.round(activeBtn.offsetLeft)}px`;
-    slider.style.width = `${Math.round(activeBtn.offsetWidth)}px`;
-  };
-
-  // Cinejoy animated segment slider: the white/accent pill slides to the
-  // active option instead of re-drawing each button background. Laid out
-  // pre-paint so it never animates in from the left on mount, and kept in
-  // sync with the group's real size via ResizeObserver (font load, resize,
-  // label wrap).
-  useLayoutEffect(() => {
-    positionSlider();
-    const group = groupRef.current;
-    if (!group || typeof ResizeObserver !== "function") return undefined;
-    const observer = new ResizeObserver(positionSlider);
-    observer.observe(group);
-    return () => observer.disconnect();
-  }, [value, options]);
-
-  const activeIndex = options.findIndex((opt) => valueOf(opt) === value);
-
-  // ARIA radiogroup contract: Arrow keys move selection (and focus), roving
-  // tabindex keeps the group a single tab stop.
-  const selectAndFocus = (index) => {
-    const next = (index + options.length) % options.length;
-    onChange(valueOf(options[next]));
-    btnRefs.current[next]?.focus();
-  };
-
-  const handleKeyDown = (e) => {
-    const current = activeIndex < 0 ? 0 : activeIndex;
-    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
-      e.preventDefault();
-      selectAndFocus(current + 1);
-    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
-      e.preventDefault();
-      selectAndFocus(current - 1);
-    } else if (e.key === "Home") {
-      e.preventDefault();
-      selectAndFocus(0);
-    } else if (e.key === "End") {
-      e.preventDefault();
-      selectAndFocus(options.length - 1);
-    }
-  };
-
-  return (
-    <div
-      ref={groupRef}
-      className="segment"
-      role="radiogroup"
-      aria-label={label}
-      onKeyDown={handleKeyDown}
-    >
-      <div ref={sliderRef} className="segment-slider" aria-hidden="true" />
-      {options.map((opt, i) => {
-        const id = valueOf(opt);
-        const name = typeof opt === "string" ? opt : opt.name;
-        const active = value === id;
-        return (
-          <button
-            key={id}
-            ref={(el) => { btnRefs.current[i] = el; }}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            tabIndex={active ? 0 : -1}
-            onClick={() => onChange(id)}
-            className={`segment-btn${active ? " segment-active" : ""}`}
-          >
-            {name}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function SettingRow({ title, description, children, highlight = false }) {
-  return (
-    <div className={`setting-row${highlight ? " bg-white/[0.04] rounded-xl px-3" : ""}`}>
-      <div className="setting-meta">
-        <span className="setting-title">{title}</span>
-        {description && <span className="setting-desc">{description}</span>}
-      </div>
-      <div className="setting-control">{children}</div>
-    </div>
-  );
-}
-
-// Drag-and-drop server priority list. Pointer dragging starts from the grip
-// handle (mouse + touch via framer-motion Reorder); keyboard users reorder
-// with ArrowUp/ArrowDown on a focused row. No up/down arrow buttons.
-function ServerOrderList({ list, onReorder, onMoveKeyboard }) {
-  const dragControls = useDragControls();
-  return (
-    <Reorder.Group
-      axis="y"
-      values={list}
-      onReorder={onReorder}
-      className="order-list"
-      role="list"
-      aria-label="Server priority order"
-    >
-      {list.map((srv, idx) => (
-        <Reorder.Item
-          key={srv}
-          value={srv}
-          dragListener={false}
-          dragControls={dragControls}
-          whileDrag={{ scale: 1.02 }}
-          transition={{ type: "spring", stiffness: 400, damping: 32 }}
-          className="order-item"
-          role="listitem"
-          aria-posinset={idx + 1}
-          aria-setsize={list.length}
-          aria-label={`${srv}, priority ${idx + 1} of ${list.length}. Press arrow up or down to reorder.`}
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === "ArrowUp") {
-              e.preventDefault();
-              onMoveKeyboard(idx, -1);
-            } else if (e.key === "ArrowDown") {
-              e.preventDefault();
-              onMoveKeyboard(idx, 1);
-            }
-          }}
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <span
-              className="order-grip order-grip--drag"
-              tabIndex={-1}
-              aria-hidden="true"
-              title="Drag to reorder"
-              onPointerDown={(e) => dragControls.start(e)}
-            >
-              <GripVertical className="w-4 h-4" />
-            </span>
-            <span className="w-6 h-6 rounded-full bg-white/10 text-[11px] font-bold flex items-center justify-center text-white/80 shrink-0">
-              {idx + 1}
-            </span>
-            <span className="order-name">{srv}</span>
-          </div>
-          <span className="order-hint" aria-hidden="true">
-            {idx === 0 ? "Default" : `Priority ${idx + 1}`}
-          </span>
-        </Reorder.Item>
-      ))}
-    </Reorder.Group>
-  );
 }
 
 export default function SettingsPage() {
@@ -1606,7 +1255,9 @@ export default function SettingsPage() {
                       (Big Buck Bunny poster + real player chrome + live subtitle
                       line driven by the preferences above). */}
                 <div className="mt-4">
-                  <PlayerPreview label={t("settings.tabs.subtitles")} />
+                  <Suspense fallback={null}>
+                    <PlayerPreview label={t("settings.tabs.subtitles")} />
+                  </Suspense>
                 </div>
                 </div>
               </section>

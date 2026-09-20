@@ -4,7 +4,6 @@ import { motion, useReducedMotion } from "framer-motion";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
   CalendarDays,
-  ChevronDown,
   Dices,
 } from "lucide-react";
 import { movieService } from "../api/movieService";
@@ -13,6 +12,8 @@ import MovieCard from "../components/MovieCard";
 import AmbientBackground from "../components/AmbientBackground";
 import ErrorBoundary from "../components/ErrorBoundary";
 import RailArrow from "../components/RailArrow";
+import FilterPill from "../components/browse/FilterPill";
+import MenuItem from "../components/browse/MenuItem";
 import useDetailView from "../hooks/useDetailView";
 import { buildUpcoming } from "../utils/releaseCalendar";
 import { logEmptyData, reportQueryError } from "../utils/debugLogger";
@@ -56,80 +57,6 @@ const YEAR_START = 1975;
 // when the sentinel below the last row scrolls into view (Cinejoy behavior),
 // so we stop when a short page proves there is nothing left to fetch.
 const DISCOVER_PAGE_SIZE = 20;
-
-// ── Filter pill ──────────────────────────────────────────────────────────
-// Frosted capsule that drops a listbox panel. One click-outside / Escape
-// listener closes it; the panel renders whatever the caller's children
-// function produces so every pill (Genre, Year, Sort, Provider, Country)
-// shares the same shell and styling.
-function FilterPill({ label, children }) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef(null);
-
-  useEffect(() => {
-    if (!open) return undefined;
-    const onClick = (e) => {
-      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false);
-    };
-    const onKey = (e) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onClick);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onClick);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  return (
-    <div ref={rootRef} className="relative filter-dropdown min-w-0 md:flex-none">
-      <button
-        type="button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-label={`Filter by ${label}`}
-        onClick={() => setOpen((o) => !o)}
-        className="group flex items-center justify-between gap-2 w-full md:w-auto px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all duration-300 backdrop-blur-md min-w-0 md:min-w-[140px]"
-      >
-        <span className="truncate text-sm font-medium text-white/80">{label}</span>
-        <ChevronDown
-          size={14}
-          className="w-4 h-4 shrink-0 text-white/50 group-hover:text-white transition-colors"
-        />
-      </button>
-      {open && (
-        <div
-          role="listbox"
-          aria-label={label}
-          className="discovery-menu absolute top-[calc(100%+8px)] left-0 z-[70] w-64 max-h-80 overflow-y-auto rounded-2xl border border-white/15 shadow-2xl p-2"
-        >
-          {children({ close: () => setOpen(false) })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MenuItem({ label, selected, onSelect, icon }) {
-  return (
-    <button
-      type="button"
-      role="option"
-      aria-selected={selected}
-      onClick={onSelect}
-      className={`flex items-center justify-between w-full text-left px-3 py-2 rounded-xl text-sm transition-colors ${
-        selected ? "bg-[#95ff50]/[0.1] text-white" : "text-white/70 hover:bg-white/5 hover:text-white"
-      }`}
-    >
-      <span className="truncate">{label}</span>
-      <span className="flex items-center gap-2 shrink-0 ml-2">
-        {icon}
-        {selected && <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0" />}
-      </span>
-    </button>
-  );
-}
 
 // ── Random pill — expands on hover like Cinejoy's ────────────────────────
 function RandomPill({ ariaLabel, onClick, busy }) {

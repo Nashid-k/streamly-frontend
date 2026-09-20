@@ -370,6 +370,7 @@ export const en = {
     publicLinkCopied: "Public link copied",
     bestCollectionsTitle: "Best Collections",
     bestCollectionsHint: "Your most-loved lists, surfaced without any username",
+    exploreCollections: "Explore collections",
   },
   explore: {
     title: "Explore collections",

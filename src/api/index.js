@@ -17,3 +17,4 @@ export { downloadService, DownloadUnavailableError } from "./downloadService";
 export { PrefetchAdapter } from "./prefetchAdapter";
 export { CdnImageAdapter } from "./cdnImageAdapter";
 export { useVirtualRenderAdapter } from "./virtualRenderAdapter";
+export { fetchPublicCollections, fetchPublicCollection } from "./publicCollections";

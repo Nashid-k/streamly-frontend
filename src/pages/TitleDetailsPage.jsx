@@ -2,7 +2,6 @@ import SEO from "../components/SEO";
 import MovieDetailsSkeleton from "../components/MovieDetailsSkeleton";
 import CastRail from "../components/CastRail";
 import RailArrow from "../components/RailArrow";
-import DownloadModal from "../components/DownloadModal";
 import RatingsTable from "../components/RatingsTable";
 import useRailArrows from "../hooks/useRailArrows";
 import { useQuery } from "@tanstack/react-query";
@@ -18,8 +17,6 @@ import {
   Plus,
   Check,
   X,
-  MonitorPlay,
-  ChevronDown,
   RotateCcw,
   ThumbsUp,
   Tv,
@@ -48,6 +45,9 @@ import { useAppAuth } from "../context/auth";
 import { useToast } from "../components/Toast.jsx";
 import MovieCard from "../components/MovieCard";
 import CollectionPickerDialog from "../components/CollectionPickerDialog";
+import SeasonDropdown from "../components/detail/SeasonDropdown";
+import ServerDropdown from "../components/detail/ServerDropdown";
+import ProductionCompaniesBlock from "../components/detail/ProductionCompaniesBlock";
 
 import { buildMovieAddedNotification } from "../utils/notificationEngine";
 import { formatTMDBDate, getTMDBWeekday } from "../utils/timezone";
@@ -59,6 +59,7 @@ import { logEmptyData, logError, reportQueryError } from "../utils/debugLogger";
 // chunk at ~223 KB). Split it so only the /watch route loads it, and so it can
 // be cached independently after first visit.
 const CustomVideoPlayer = lazy(() => import("../components/CustomVideoPlayer"));
+const DownloadModal = lazy(() => import("../components/DownloadModal"));
 import ErrorBoundary from "../components/ErrorBoundary";
 
 import { progressPct } from "../utils/resumeProgress";
@@ -81,373 +82,6 @@ const formatAirsDate = (dateStr) => {
 
 // ─── SeasonDropdown — custom styled dropdown (no native <select>) ─────────────
 
-function SeasonDropdown({ seasons, selectedSeason, airingSeasonNumber, onSelect }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-  const seasonOptions = seasons.length > 0
-    ? seasons
-    : [{ seasonNumber: selectedSeason, name: `Season ${selectedSeason}` }];
-
-  // Close on outside click / tap
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    document.addEventListener("touchstart", handler, { passive: true });
-    return () => {
-      document.removeEventListener("mousedown", handler);
-      document.removeEventListener("touchstart", handler);
-    };
-  }, [open]);
-
-  return (
-    <div ref={ref} style={{ position: "relative", zIndex: 20 }}>
-      <motion.button
-        onClick={() => setOpen((o) => !o)}
-        whileHover={{ borderColor: "rgba(255,255,255,0.35)" }}
-        whileTap={{ scale: 0.97 }}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "10px",
-          background: "rgba(255,255,255,0.1)",
-          border: "1px solid rgba(255,255,255,0.1)",
-          color: "#fff",
-          padding: "0 16px",
-          height: "40px",
-          borderRadius: "9999px",
-          fontSize: "0.875rem",
-          fontWeight: 600,
-          cursor: "pointer",
-          backdropFilter: "blur(12px)",
-          transition: "background 0.2s, border-color 0.2s",
-          whiteSpace: "nowrap",
-        }}
-      >
-        <span style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <span
-            style={{
-              width: "7px",
-              height: "7px",
-              borderRadius: "50%",
-              background: "var(--accent-gradient)",
-              flexShrink: 0,
-            }}
-          />
-          Season {selectedSeason}
-          {airingSeasonNumber === selectedSeason && (
-            <span
-              aria-label="Currently airing"
-              title="Currently airing"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                padding: "2px 10px",
-                borderRadius: "7px 7px 0 0",
-                background: "#3c8217",
-                color: "#fff",
-                fontSize: "11px",
-                fontWeight: 500,
-                lineHeight: 1.45,
-                whiteSpace: "nowrap",
-                flexShrink: 0,
-              }}
-            >
-              Airing
-            </span>
-          )}
-        </span>
-        <motion.span
-          animate={{ rotate: open ? 180 : 0 }}
-          transition={{ duration: 0.22, ease: "easeInOut" }}
-          style={{ display: "flex", color: "#a1a1aa" }}
-        >
-          <ChevronDown size={16} />
-        </motion.span>
-      </motion.button>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -8, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.96 }}
-            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-            style={{
-              position: "absolute",
-              top: "calc(100% + 6px)",
-              right: 0,
-              minWidth: "160px",
-              maxHeight: "260px",
-              overflowY: "auto",
-              background: "linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05)), rgba(15,15,20,0.5)",
-              border: "1px solid rgba(255,255,255,0.14)",
-              borderRadius: "14px",
-              backdropFilter: "blur(28px) saturate(160%)",
-              boxShadow: "0 20px 48px rgba(0,0,0,0.75)",
-              scrollbarWidth: "thin",
-              scrollbarColor: "rgba(255,255,255,0.15) transparent",
-            }}
-          >
-            {seasonOptions.map((season, index) => {
-                const seasonNumber = season.seasonNumber;
-                const isSelected = seasonNumber === selectedSeason;
-                const isAiringSeason = seasonNumber === airingSeasonNumber;
-                return (
-                  <motion.button
-                    key={seasonNumber}
-                    onClick={() => {
-                      setOpen(false);
-                      onSelect(seasonNumber);
-                    }}
-                    whileHover={{ background: "rgba(255,255,255,0.08)" }}
-                    style={{
-                      width: "100%",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "10px",
-                      padding: "0.65rem 1rem",
-                      background: isSelected
-                        ? "rgba(var(--accent-primary-rgb), 0.1)"
-                        : "transparent",
-                      border: "none",
-                      color: isSelected ? "var(--accent-primary, #95ff50)" : "#e4e4e7",
-                      fontSize: "0.9rem",
-                      fontWeight: isSelected ? 700 : 500,
-                      cursor: "pointer",
-                      textAlign: "left",
-                      borderRadius:
-                        index === 0
-                          ? "14px 14px 0 0"
-                          : index === seasonOptions.length - 1
-                            ? "0 0 14px 14px"
-                            : "0",
-                      transition: "background 0.1s",
-                    }}
-                  >
-                    {isSelected && (
-                      <span
-                        style={{
-                          width: "6px",
-                          height: "6px",
-                          borderRadius: "50%",
-                          background:
-                            "var(--accent-gradient)",
-                          flexShrink: 0,
-                        }}
-                      />
-                    )}
-                    {!isSelected && <span style={{ width: "6px" }} />}
-                    <span style={{ flex: 1 }}>Season {seasonNumber}</span>
-{isAiringSeason && (
-                      <span
-                        aria-label="Currently airing"
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          padding: "2px 10px",
-                          borderRadius: "7px 7px 0 0",
-                          background: "#3c8217",
-                          color: "#fff",
-                          fontSize: "11px",
-                          fontWeight: 500,
-                          lineHeight: 1.45,
-                          flexShrink: 0,
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        Airing
-                      </span>
-                    )}
-                  </motion.button>
-                );
-              })}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-// ─── ServerDropdown — custom styled dropdown for selecting servers ─────────────
-
-function ServerDropdown({ servers, selectedIndex, onSelect }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    document.addEventListener("touchstart", handler, { passive: true });
-    return () => {
-      document.removeEventListener("mousedown", handler);
-      document.removeEventListener("touchstart", handler);
-    };
-  }, [open]);
-
-  return (
-    <div ref={ref} style={{ position: "relative", zIndex: 25 }}>
-      <motion.button
-        onClick={() => setOpen((o) => !o)}
-        whileHover={{ background: "rgba(255,255,255,0.12)" }}
-        whileTap={{ scale: 0.97 }}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          background: "rgba(255,255,255,0.07)",
-          border: "none",
-          color: "#fff",
-          padding: "0.45rem 0.85rem",
-          borderRadius: "4px",
-          fontSize: "0.83rem",
-          fontWeight: 600,
-          cursor: "pointer",
-          minWidth: "120px",
-          justifyContent: "space-between",
-          transition: "background 0.2s",
-        }}
-      >
-        <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <MonitorPlay size={14} color="#a1a1aa" />
-          {servers[selectedIndex]?.name || "Select Server"}
-        </span>
-        <motion.span
-          animate={{ rotate: open ? 180 : 0 }}
-          transition={{ duration: 0.22, ease: "easeInOut" }}
-          style={{ display: "flex", color: "#a1a1aa" }}
-        >
-          <ChevronDown size={14} />
-        </motion.span>
-      </motion.button>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: 8, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.96 }}
-            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-            style={{
-              position: "absolute",
-              top: "calc(100% + 6px)",
-              right: 0,
-              minWidth: "180px",
-              maxHeight: "260px",
-              overflowY: "auto",
-              background: "linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05)), rgba(15,15,20,0.5)",
-              border: "1px solid rgba(255,255,255,0.14)",
-              borderRadius: "4px",
-              backdropFilter: "blur(28px) saturate(160%)",
-              WebkitBackdropFilter: "blur(28px) saturate(160%)",
-              boxShadow: "0 20px 48px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)",
-              scrollbarWidth: "thin",
-              scrollbarColor: "rgba(255,255,255,0.15) transparent",
-              zIndex: 9999,
-            }}
-          >
-            {servers.map((server, i) => {
-              const isSelected = i === selectedIndex;
-              return (
-                <motion.button
-                  key={i}
-                  onClick={() => {
-                    setOpen(false);
-                    onSelect(i);
-                  }}
-                  whileHover={{ background: "rgba(255,255,255,0.06)" }}
-                  style={{
-                    width: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    padding: "0.6rem 1rem",
-                    background: isSelected
-                      ? "rgba(229,9,20,0.16)"
-                      : "transparent",
-                    border: "none",
-                    color: isSelected ? "#fff" : "#e4e4e7",
-                    fontSize: "0.85rem",
-                    fontWeight: isSelected ? 700 : 500,
-                    cursor: "pointer",
-                    textAlign: "left",
-                    transition: "background 0.1s",
-                  }}
-                >
-                  {isSelected && (
-                    <span
-                      style={{
-                        width: "6px",
-                        height: "6px",
-                        borderRadius: "50%",
-                        background: "#E50914",
-                        flexShrink: 0,
-                      }}
-                    />
-                  )}
-                  {!isSelected && <span style={{ width: "6px" }} />}
-                  {server.name}
-                </motion.button>
-              );
-            })}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-function ProductionCompaniesBlock({ companies }) {
-  if (!companies || companies.length === 0) return null;
-
-  const normalized = companies
-    .map((c, i) => {
-      if (!c) return null;
-      if (typeof c === "string") return null;
-      const logoPath = c.logoUrl || c.logo_path;
-      const fullLogoUrl = logoPath
-        ? (logoPath.startsWith("http")
-            ? logoPath
-            : `https://image.tmdb.org/t/p/w300${logoPath.startsWith("/") ? logoPath : `/${logoPath}`}`)
-        : null;
-      if (!fullLogoUrl) return null;
-      return {
-        id: c.id || `pc-${i}`,
-        name: c.name || "Production",
-        logoUrl: fullLogoUrl,
-      };
-    })
-    .filter(Boolean);
-
-  if (normalized.length === 0) return null;
-
-  // Display up to 6 authentic company logos
-  const displayCompanies = normalized.slice(0, 6);
-
-  return (
-    <div className="mt-4 grid gap-2 grid-cols-2">
-      {displayCompanies.map((company) => (
-        <div
-          key={company.id}
-          title={company.name}
-          className="flex items-center justify-center h-10 px-2"
-        >
-          <img
-            loading="lazy"
-            src={company.logoUrl}
-            alt={company.name}
-            className="w-auto max-h-7 max-w-full object-contain brightness-0 invert opacity-50"
-          />
-        </div>
-      ))}
-    </div>
-  );
-}
 
 /* "Ends 5:53 AM" — runtime end time if the viewer pressed play right now
    (mirrors Cinejoy's Runtime row). Null when no runtime is known. */
@@ -2692,15 +2326,17 @@ servers={SERVERS}
       )}
 
       {downloadOpen && movie && (
-        <DownloadModal
-          movie={movie}
-          servers={SERVERS}
-          isTvContent={isTvContent}
-          initialSeason={selectedSeason}
-          initialEpisode={isTvContent ? (episodeToPlay ?? playingEpisode ?? 1) : 1}
-          playerRef={playerRef}
-          onClose={() => setDownloadOpen(false)}
-        />
+        <Suspense fallback={null}>
+          <DownloadModal
+            movie={movie}
+            servers={SERVERS}
+            isTvContent={isTvContent}
+            initialSeason={selectedSeason}
+            initialEpisode={isTvContent ? (episodeToPlay ?? playingEpisode ?? 1) : 1}
+            playerRef={playerRef}
+            onClose={() => setDownloadOpen(false)}
+          />
+        </Suspense>
       )}
 
       <CollectionPickerDialog

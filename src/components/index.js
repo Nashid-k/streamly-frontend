@@ -28,7 +28,6 @@ export { default as HeroTitleLogo } from "./HeroTitleLogo";
 
 // Rails, Lists & Media Cards
 export { default as MovieCard } from "./MovieCard";
-export { default as SearchResultRow } from "./SearchResultRow";
 export { default as CastRail } from "./CastRail";
 export { default as DiscoveryRails } from "./DiscoveryRails";
 export { default as GenreShowcase } from "./GenreShowcase";
@@ -45,4 +44,4 @@ export { default as GlobalShortcuts } from "./GlobalShortcuts";
 export { default as CustomVideoPlayer } from "./CustomVideoPlayer";
 export { default as PlayerPreview } from "./PlayerPreview";
 export { default as YoutubeRawTrailer } from "./YoutubeRawTrailer";
-export * from "./playerUIDef";
+export { PLAYER_SPEEDS } from "../constants/playerUi";

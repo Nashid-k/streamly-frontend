@@ -1,0 +1,295 @@
+@import "tailwindcss/theme";
+@import "tailwindcss/utilities";
+@source "../";
+@source "../";
+:root {
+  /* Native controls (selects, scrollbars, date pickers) must render dark —
+     without this, Chromium paints white popups that clash with every theme. */
+  color-scheme: dark;
+  /* ── Colors ────────────────────────────────────────────── */
+  --bg-color: #000000;
+  --bg-primary: #050505;
+  --bg-elevated: #09090b;
+  --bg-surface: #121217;
+  --bg-surface-hover: #1a1a20;
+  --text-primary: #ffffff;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --text-faint: #52525b;
+  --accent-color: #95ff50;
+  --accent-primary: #95ff50;
+  --accent-secondary: #5ce21c;
+  --accent-gradient: linear-gradient(135deg, #95ff50 0%, #5ce21c 100%);
+  --accent-glow: rgba(149, 255, 80, 0.35);
+  /* RGB triplets let translucent surfaces (chips, glows, selected rows)
+     follow the active theme via rgba(var(--accent-primary-rgb), <alpha>). */
+  --accent-primary-rgb: 149, 255, 80;
+  --accent-secondary-rgb: 92, 226, 28;
+  /* Text color that stays legible on top of --accent-gradient. Light
+     accents (emerald, ocean, solar) need dark text; saturated ones use white. */
+  --on-accent: #ffffff;
+  --success-color: #4ade80;
+  --warning-color: #fbbf24;
+  --error-color: #f87171;
+  --border-color: #27272a;
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-medium: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.15);
+
+  /* ── Nav (official Cinejoy tokens) ──────────────────────── */
+  --nav-pad: 6px;
+  --dock-top: calc(74px + var(--sat, 0px));
+  --dock-left: 0px;
+  --nav-item-h: 40px;
+  --nav-fade: 0.3s ease;
+  --nav-transition: 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --condense-ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ── Spacing Scale ─────────────────────────────────────── */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  --spacing-2xl: 3rem;
+  --spacing-3xl: 5rem;
+
+  /* ── Border Radius ─────────────────────────────────────── */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+  --radius-full: 100px;
+
+  /* ── Shadows ───────────────────────────────────────────── */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 12px 24px -4px rgba(0, 0, 0, 0.8);
+  --shadow-xl: 0 20px 40px -8px rgba(0, 0, 0, 0.9);
+  --shadow-glow: 0 0 20px rgba(149, 255, 80, 0.15);
+
+  /* ── Glass / Blur ──────────────────────────────────────── */
+  --glass-bg: rgba(18, 18, 24, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.15);
+  --glass-blur: blur(24px) saturate(180%);
+
+  /* ── Typography ────────────────────────────────────────── */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", monospace;
+  --text-xs: 0.75rem;
+  --text-sm: 0.85rem;
+  --text-base: 1rem;
+  --text-lg: 1.15rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2rem;
+  --text-3xl: 2.5rem;
+  --text-4xl: 3.5rem;
+  --leading-tight: 1.25;
+  --leading-normal: 1.6;
+  --leading-relaxed: 1.85;
+
+  /* ── Transitions ───────────────────────────────────────── */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+
+  /* ── Safe Area Insets ───────────────────────────────────── */
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+
+  /* ── Z-index Scale ─────────────────────────────────────── */
+  --z-dropdown: 200;
+  --z-sticky: 1000;
+  --z-modal: 9999;
+  --z-toast: 99999;
+}
+
+html {
+  scroll-behavior: smooth;
+  /* `clip` (not `hidden`) — `hidden` computes `overflow-y: auto` on the box
+     and turns <body> into a non-scrolling scroll container, which silently
+     disables `position: sticky` everywhere (the settings nav never docked). */
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+
+/* Respect Streamly's in-app motion preference as well as Framer Motion's
+   runtime configuration. This covers CSS-only effects such as glows, shimmers,
+   and smooth scrolling. */
+html[data-reduce-motion="true"] {
+  scroll-behavior: auto;
+}
+
+html[data-reduce-motion="true"] *,
+html[data-reduce-motion="true"] *::before,
+html[data-reduce-motion="true"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+  transition-duration: 0.01ms !important;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-user-drag: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, a, input, select, textarea, [role="button"], .movie-card, .chip {
+  touch-action: manipulation;
+}
+
+body {
+  font-family:
+    "Inter",
+    -apple-system,
+    sans-serif;
+  background: #050505;
+  color: var(--text-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* See `html` above: `clip` keeps <body> from becoming a scroll container
+     that would break `position: sticky`. */
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+
+/* ── Ambient Apple glow ────────────────────────────────────────────────────
+   Soft radial colour washes pinned behind the content. The frosted-glass
+   surfaces (navbar, pills, popovers) pick this up as a diffused halo that
+   subtle-shifts on scroll — the glassmorphic depth cue. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(55% 45% at 10% 5%, rgba(149, 255, 80, 0.13), transparent 62%),
+    radial-gradient(45% 40% at 90% 8%, rgba(92, 226, 28, 0.11), transparent 60%),
+    radial-gradient(60% 50% at 78% 95%, rgba(96, 165, 250, 0.09), transparent 62%),
+    radial-gradient(40% 35% at 25% 88%, rgba(167, 139, 250, 0.07), transparent 60%),
+    #050505;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  background-color: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* No Tailwind preflight here (the bundle imports only theme+utilities), so
+   raw inputs kept the browser's native `2px inset` border + opaque box — a
+   hard rectangle peeking through every pill/capsule search field (Settings,
+   Home, movies/series/my-list, history, search). Strip the UA chrome so bare
+   inputs are invisible chrome inside their glass frosted capsules. Styled
+   controls win by specificity: `.login-field`, `.collection-dialog__input`,
+   `.settings-search__input`, `.search-panel__input` and Tailwind border/bg
+   utilities all outrank this (0,0,1). Color/range/checkbox/radio keep native
+   appearance for their picker/thumb UI. */
+input:not([type="color"]):not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+select,
+textarea {
+  border: none;
+  background: transparent;
+  color: inherit;
+}
+
+::selection {
+  background: rgba(var(--accent-primary-rgb), 0.35);
+  color: #fff;
+}
+
+#root {
+  min-height: 100vh;
+  background: #050505;
+}
+
+input,
+textarea {
+  user-select: auto;
+  -webkit-user-select: auto;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Custom Global Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background-clip: padding-box;
+  transition: background 0.2s ease;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--accent-primary-rgb), 0.45);
+  border-width: 0;
+}
+
+/* Layout */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  width: 100%;
+  max-width: 100%;
+  /* `overflow-x: hidden` computes `overflow-y: auto`, turning this element
+     into a scroll container that never scrolls — which silently kills
+     `position: sticky` on every descendant (the settings nav never docked).
+     `clip` still clips horizontally but does NOT create a scroll container,
+     so sticky pins to the viewport again. `hidden` stays as the fallback. */
+  overflow-x: hidden;
+  overflow-x: clip;
+  position: relative;
+  background: #050505;
+}
+/* Top ambient scrim — guarantees legibility for brand mark and nav on bright backdrops */
+.app-container::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 110px;
+  background: linear-gradient(180deg, rgba(5, 5, 5, 0.75) 0%, rgba(5, 5, 5, 0.3) 65%, transparent 100%);
+  z-index: 99;
+  pointer-events: none;
+}
+
+/* Mobile & Touch: ensure horizontal rails allow vertical page scrolling on first touch */
+.movie-rail {
+  touch-action: pan-x pan-y;
+}
+

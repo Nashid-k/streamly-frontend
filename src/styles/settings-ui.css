@@ -1,0 +1,685 @@
+/* ── Theme Overrides ── */
+/* Cinejoy-style: every theme injects --theme-global-accentA/B on <html> via
+   PreferencesProvider. CSS rules reference them for accent-aware elements.
+   The --accent-* triplets keep existing translucent surfaces working. */
+html[data-theme="emerald"] {
+  --accent-gradient: linear-gradient(135deg, #95ff50, #43861e) !important;
+  --accent-color: #95ff50 !important;
+  --accent-primary: #95ff50 !important;
+  --accent-secondary: #43861e !important;
+  --accent-primary-rgb: 149, 255, 80 !important;
+  --accent-secondary-rgb: 67, 134, 30 !important;
+  --accent-glow: rgba(149, 255, 80, 0.4) !important;
+  --on-accent: #0e1a06 !important;
+  --theme-global-accentA: #95ff50;
+  --theme-global-accentB: #43861e;
+}
+
+html[data-theme="amethyst"] {
+  --accent-gradient: linear-gradient(135deg, #c084fc, #7c3aed) !important;
+  --accent-color: #c084fc !important;
+  --accent-primary: #c084fc !important;
+  --accent-secondary: #7c3aed !important;
+  --accent-primary-rgb: 192, 132, 252 !important;
+  --accent-secondary-rgb: 124, 58, 237 !important;
+  --accent-glow: rgba(192, 132, 252, 0.4) !important;
+  --on-accent: #ffffff !important;
+  --theme-global-accentA: #c084fc;
+  --theme-global-accentB: #7c3aed;
+}
+
+html[data-theme="ocean"] {
+  --accent-gradient: linear-gradient(135deg, #22d3ee, #2563eb) !important;
+  --accent-color: #22d3ee !important;
+  --accent-primary: #22d3ee !important;
+  --accent-secondary: #2563eb !important;
+  --accent-primary-rgb: 34, 211, 238 !important;
+  --accent-secondary-rgb: 37, 99, 235 !important;
+  --accent-glow: rgba(34, 211, 238, 0.4) !important;
+  --on-accent: #04252b !important;
+  --theme-global-accentA: #22d3ee;
+  --theme-global-accentB: #2563eb;
+}
+
+html[data-theme="crimson"] {
+  --accent-gradient: linear-gradient(135deg, #f87171, #dc2626) !important;
+  --accent-color: #f87171 !important;
+  --accent-primary: #f87171 !important;
+  --accent-secondary: #dc2626 !important;
+  --accent-primary-rgb: 248, 113, 113 !important;
+  --accent-secondary-rgb: 220, 38, 38 !important;
+  --accent-glow: rgba(248, 113, 113, 0.4) !important;
+  --on-accent: #ffffff !important;
+  --theme-global-accentA: #f87171;
+  --theme-global-accentB: #dc2626;
+}
+
+html[data-theme="solar"] {
+  --accent-gradient: linear-gradient(135deg, #fbbf24, #d97706) !important;
+  --accent-color: #fbbf24 !important;
+  --accent-primary: #fbbf24 !important;
+  --accent-secondary: #d97706 !important;
+  --accent-primary-rgb: 251, 191, 36 !important;
+  --accent-secondary-rgb: 217, 119, 6 !important;
+  --accent-glow: rgba(251, 191, 36, 0.4) !important;
+  --on-accent: #241100 !important;
+  --theme-global-accentA: #fbbf24;
+  --theme-global-accentB: #d97706;
+}
+
+html[data-theme="custom"] {
+  --accent-gradient: linear-gradient(135deg, var(--theme-global-accentA), var(--theme-global-accentB)) !important;
+  --accent-color: var(--theme-global-accentA) !important;
+  --accent-primary: var(--theme-global-accentA) !important;
+  --accent-secondary: var(--theme-global-accentB) !important;
+  --accent-glow: rgba(0,0,0,0.4) !important;
+}
+
+/* ── Settings Nav Tabs (Cinejoy capsule pills) ───────────────────────────────
+   Mirrors the movies/series/my-list toolbar: frosted capsule triggers that
+   wrap on narrow screens, active pill tinted with the interface accent. */
+.settings-nav {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  max-width: 100%;
+  padding: 0.3rem;
+  border-radius: 9999px;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.settings-nav::-webkit-scrollbar {
+  display: none;
+}
+
+/* Capsule pill tabs — ghost until active, then the accent disc like the
+   movies/series filter pills. */
+.settings-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex: none;
+  padding: 0.5rem 1rem;
+  min-height: 40px;
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.settings-tab:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.settings-tab.is-active {
+  color: #95ff50;
+  border-color: rgba(149, 255, 80, 0.4);
+  background: rgba(149, 255, 80, 0.1);
+}
+
+html[data-theme]:not([data-theme=default]) .settings-tab.is-active {
+  color: var(--theme-global-accentA, var(--accent-primary));
+  border-color: color-mix(in srgb, var(--theme-global-accentA, var(--accent-primary)) 40%, transparent);
+  background: color-mix(in srgb, var(--theme-global-accentA, var(--accent-primary)) 10%, transparent);
+}
+
+/* Dropdown option rows — match the discovery MenuItem recipe (accent-tinted
+   selection with a check). */
+.settings-dropdown-item {
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.settings-dropdown-item.is-selected {
+  background: rgba(149, 255, 80, 0.1);
+}
+
+html[data-theme]:not([data-theme=default]) .settings-dropdown-item.is-selected {
+  background: color-mix(in srgb, var(--theme-global-accentA, var(--accent-primary)) 12%, transparent);
+}
+
+/* Settings cards — a fine accent hairline along the bottom edge so each card
+   wears the same accent thread as the discovery rail headers. */
+.settings-section::after {
+  content: "";
+  position: absolute;
+  left: 1.5rem;
+  right: 1.5rem;
+  bottom: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(149, 255, 80, 0.35), transparent);
+}
+
+html[data-theme]:not([data-theme=default]) .settings-section::after {
+  background: linear-gradient(90deg, transparent, var(--theme-global-accentA, var(--accent-primary)), transparent);
+}
+
+/* Inline controls in setting rows (View List, Sync Now, ...) that would
+   otherwise fall below the 44px touch target on mobile. */
+.settings-hit {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+/* Factory-reset affordance, previously inline styles + JS hover. */
+.reset-preferences-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 8px 18px;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 100px;
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.reset-preferences-button:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: rgba(239, 68, 68, 0.45);
+}
+
+/* ── Glass Card (Cinejoy .glass-card recipe) ── */
+.glass-card {
+  background: rgba(20, 20, 20, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: clamp(1.25rem, 2.5vw, 1.75rem);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  scroll-margin-top: 100px;
+  transition: box-shadow 0.35s ease;
+}
+
+.glass-card.is-flash {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
+/* ── Section Header ── */
+.section-header {
+  margin-bottom: 1.25rem;
+}
+
+.section-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 0.25rem;
+  letter-spacing: -0.02em;
+}
+
+.section-subtitle {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0;
+  line-height: 1.45;
+}
+
+/* ── Settings Rows ── */
+.settings-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 0;
+}
+
+.setting-row + .setting-row {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.setting-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.setting-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.setting-desc {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.4;
+}
+
+.setting-control {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* ── Segment Control (Cinejoy animated sliding pill) ── */
+.segment {
+  display: flex;
+  position: relative;
+  gap: 0;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.segment-slider {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 0;
+  width: 0;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 9999px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+  transition: left 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    width 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 0;
+  pointer-events: none;
+}
+
+html[data-theme]:not([data-theme=default]) .segment-slider {
+  background: var(--theme-global-accentA, var(--accent-primary));
+}
+
+/* Default theme keeps the white rubber-slider (Cinejoy default). The base
+   `.segment-btn.segment-active` color falls through to `--on-accent: #fff`,
+   which would be white-on-white — flip it to ink so the active label reads
+   against the white pill. Non-default themes carry their own `--on-accent`
+   from the theme token block and must NOT be overridden. */
+html[data-theme="default"] .segment-btn.segment-active,
+html:not([data-theme]) .segment-btn.segment-active {
+  color: #0b0b0d;
+}
+
+.segment-btn {
+  position: relative;
+  z-index: 1;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.85);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color 0.25s ease;
+}
+
+.segment-btn:hover {
+  color: #fff;
+}
+
+.segment-btn.segment-active {
+  color: var(--on-accent, #fff);
+}
+
+/* ── Toggle Switch (Cinejoy .toggle recipe: 44x24 flat, accent on) ── */
+.toggle {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  transition: background 220ms ease, border-color 220ms ease;
+}
+
+.toggle::before {
+  content: "";
+  position: absolute;
+  inset: -10px;
+}
+
+.toggle.toggle-on {
+  background: #3f8a1d;
+  border-color: #3f8a1d;
+}
+
+html[data-theme]:not([data-theme=default]) .toggle.toggle-on {
+  background: var(--theme-global-accentA, var(--accent-primary));
+  border-color: var(--theme-global-accentA, var(--accent-primary));
+}
+
+.toggle-dot {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  height: 18px;
+  width: 18px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.7);
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+    background 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.toggle.toggle-on .toggle-dot {
+  transform: translate(20px);
+  background: #fff;
+}
+
+/* ── Theme Swatches ── */
+.theme-swatch-inline {
+  display: inline-flex;
+  width: 24px;
+  height: 15px;
+  border-radius: 9999px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+}
+
+.theme-swatch-inline-left {
+  width: 50%;
+  height: 100%;
+}
+
+.theme-swatch-inline-right {
+  width: 50%;
+  height: 100%;
+}
+
+/* ── Theme seed accent picker (Cinejoy .seed-* recipe) ── */
+.seed-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+}
+
+.seed-row .setting-meta {
+  max-width: none;
+}
+
+.seed-row-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.seed-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.seed-pill:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.seed-pill:focus-within {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.seed-dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22) inset;
+}
+
+.seed-text {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 9px;
+}
+
+.seed-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  white-space: nowrap;
+}
+
+.seed-hex {
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+  color: rgba(255, 255, 255, 0.4);
+  white-space: nowrap;
+}
+
+.seed-pill input[type="color"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  border: none;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.seed-reset {
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.seed-reset:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.theme-picker-divider {
+  height: 1px;
+  margin: 4px 12px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Color Picker ── */
+.color-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.color-dot {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+/* Expand the touch target to 44px without changing the visual size. */
+.color-dot::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+}
+
+.color-dot:hover {
+  transform: scale(1.15);
+}
+
+.color-dot.active {
+  border-color: var(--accent-primary, #fff);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.6), 0 0 0 4px var(--accent-primary, #fff), 0 0 10px var(--accent-glow, rgba(255, 255, 255, 0.4));
+  transform: scale(1.1);
+}
+
+/* ── Range Slider ── */
+.range-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.range-value {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 3px 8px;
+  border-radius: 6px;
+  min-width: 48px;
+  text-align: center;
+}
+
+.range-slider {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 120px;
+  height: 6px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.15);
+  outline: none;
+}
+
+.range-slider::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  border: 2px solid var(--accent-secondary, #5ce21c);
+}
+
+.range-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  border: 2px solid var(--accent-secondary, #5ce21c);
+}
+
+/* ── Server Order List ── */
+.order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.order-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  transition: background 0.2s ease, border-color 0.2s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.order-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.order-item:focus-visible {
+  outline: none;
+  border-color: rgba(var(--accent-primary-rgb), 0.5);
+  box-shadow: var(--focus-ring);
+}
+
+.order-grip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.4);
+  margin-right: 12px;
+}
+
+/* Drag handle: the only pointer-drag origin (mouse + touch).
+   touch-action:none lets the grip claim the gesture while the rest of
+   the row still scrolls the page on touch. */
+.order-grip--drag {
+  cursor: grab;
+  touch-action: none;
+  border-radius: 8px;
+  padding: 6px;
+  margin: -6px 6px -6px -6px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.order-grip--drag:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--accent-primary, rgba(255, 255, 255, 0.8));
+}
+
+.order-grip--drag:active {
+  cursor: grabbing;
+}
+
+.order-hint {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.35);
+  flex-shrink: 0;
+}
+
+.order-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+/* ── Continue Watching & Scrollbar Utilities ── */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
