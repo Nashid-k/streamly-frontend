@@ -2394,3 +2394,23 @@ Verification: lint 0 errors (baseline warnings only), 378/378 tests pass, build 
   user shared lives only in the ignored local file (dev) / Vercel env (prod).
 
 - [x] whisper slice (resolve #14): WhisperRow.jsx (mic)->MediaRecorder->same-origin /api/groq (whipser-large-v3, key server-side)->onTranscript->setWhisperLine->PlayerPreview subtitleOverride. Repair pass: streamlet clean copy restored over corrupt streamly()WhisperRow chunksRef, lint 0 / 38 files 378/378 / build ok; pre-existing i18n fast-refresh warnings untouched.
+
+- [x] **AI de-scope (final, per user): remove AI from everywhere EXCEPT Search, User must never see it.** On the canonical repo (streamly-frontend-main -> Nashid-k/streamly-frontend.git). REMOVED: WhisperRow.jsx (whole mic/whisper slice), whisperLine state + WhisperRow import/mount + subtitleOverride prop in SettingsPage/PlayerPreview (Settings reverted to the plain non-AI subtitle demo box). KEPT (silent, in Search only): rankSearchResults(:119) + getDidYouMean(:133) -> plain 'Did you mean' chips(:445); api/groq.js + src/utils/groqClient.js stay as the invisible backend; Groq key stays server-side (api/groq.key.js gitignored). Gate: lint 0 / 378 tests / build 2.16s. No AI branding anywhere in UI.
+
+## TODO - NEXT SLICE (EXPLORE MYLIST) - recorded, NOT built yet
+Land the anonymous public surface so a PUBLIC collection is viewable by ANYONE
+without a username and without any owner identity (no AI branding anywhere):
+
+- [ ] src/pages/ExploreCollectionsPage.jsx (new) - lists every PUBLIC collection
+      as an anonymous grid. NO username, NO profile, NO owner shown anywhere.
+- [ ] App.jsx route - /explore/collections -> ExploreCollectionsPage, plus a
+      public lookup route keyed by the collection's opaque publicId.
+- [ ] WatchlistPage - mount a silent "Best Collections" rail (local heuristic
+      ranking, invisible-AI pattern like search) + Public/Private toggle chip
+      on each collection card + "Copy public link" for public lists.
+- [ ] CollectionPickerDialog - Public/Private segmented control in the create
+      form (default = private; only PUBLIC lists ever resolve via publicId).
+- [ ] i18n en.js keys (collections.visibility.*, collections.bestRail.*,
+      explore.*) - all strings carry zero AI branding.
+- [ ] Gate: lint -> 378+ tests -> build, then record, commit, push, verify
+      local == origin == remote.
