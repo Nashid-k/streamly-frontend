@@ -2392,3 +2392,5 @@ Verification: lint 0 errors (baseline warnings only), 378/378 tests pass, build 
   { ok, status, data } + `logDebug` diagnostics, never a bare throw.
 - [x] `.gitignore` += `api/groq.key.js`; `.env.example` note added. The key the
   user shared lives only in the ignored local file (dev) / Vercel env (prod).
+
+- [x] whisper slice (resolve #14): WhisperRow.jsx (mic)->MediaRecorder->same-origin /api/groq (whipser-large-v3, key server-side)->onTranscript->setWhisperLine->PlayerPreview subtitleOverride. Repair pass: streamlet clean copy restored over corrupt streamly()WhisperRow chunksRef, lint 0 / 38 files 378/378 / build ok; pre-existing i18n fast-refresh warnings untouched.

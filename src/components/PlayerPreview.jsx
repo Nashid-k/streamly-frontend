@@ -70,6 +70,7 @@ const PlayerPreview = ({
   label = "Classic",
   title = "Streamly Originals",
   episodeTag = "S1:E1",
+  subtitleOverride,
 }) => {
   const {
     subtitleFont = "cinejoy",
@@ -134,7 +135,7 @@ const PlayerPreview = ({
 
         <div className="player-preview-subwrap">
           <span className="player-preview-sub" style={subtitleStyle}>
-            Here is what your subtitles will look like.
+            {subtitleOverride || "Here is what your subtitles will look like."}
           </span>
         </div>
       </div>
