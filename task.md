@@ -32,6 +32,12 @@
     the badge no longer re-composites/blurs on each counter tick.
   - **Task 5 — Route page transitions shortened & overlap-free** (`App.jsx`):
     `mode="wait"`, opacity-only, 0.18s — no y-offset, no motion/bounce.
+  - **Follow-up — `AmbientBackground` static shell de-promoted**: the fixed
+    `ambient-sky` container is pure positioning, never transforms — removed its
+    `will-change: transform` so it no longer reserves a GPU layer that repaints
+    nothing. The drifting blobs keep their own `will-change: transform`, which
+    is the correct transform-on-promoted-layer pattern. Frame budget stays
+    compositor-cheap on every page.
 
   - [x] **Code cleanup pass (linter-driven dead-code + unused-import sweep)**:
   - `AmbientBackground.jsx`: removed unused `CdnImageAdapter` import.
