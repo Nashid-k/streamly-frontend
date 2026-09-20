@@ -2430,3 +2430,30 @@ without a username and without any owner identity (no AI branding anywhere):
       already morph on read (useUserData.js normalize*).
 - [ ] **Gate** (frozen contract): lint 0 -> 378+ tests -> build, then commit,
       push, remote-verify local==origin by hash.
+
+## TODO - NEXT SLICE (EXPLORE-COLLECTIONS, anonymous) - recorded fresh, NOT built
+- [ ] (gate: lint 0 -> 378+ tests -> build ? -> commit -> push -> local==origin verify)
+- [ ] src/pages/ExploreCollectionsPage.jsx (NEW) - anonymous surface. Lists every
+      collection whose storage-attr visibility==="public". Renders via publicId
+      ONLY, NO username, NO owner identity, NO AI branding - any public list is
+      viewable by ANYONE holding /explore/collections without knowing anyone.
+- [ ] App.jsx route: /explore/collections -> ExploreCollectionsPage + read-only
+      lookup route keyed by opaque publicId (never a username).
+- [ ] WatchlistPage rail: silent "Best Collections" rail (invisible-AI local
+      heuristic ordering, no branding, same house pattern as Search), plus a
+      Public/Private toggle chip on each CollectionCard + "Copy public link".
+- [ ] CollectionPickerDialog: Public/Private segmented toggle in create/rename
+      form (default private). Storage morph (visibility + publicId, additive
+      state v2) already recorded in task.md as the frozen-contract delta.
+
+## SHIPPED - MyList x anonymous Explore slice (this session)
+- [x] useUserData.js useMyCollections: storage-v2 morph (additive visibility + stable publicId),
+      setCollectionVisibility, publicCollections, getPublicCollection.
+- [x] pages/ExploreCollectionsPage.jsx (NEW) - anonymous grid of PUBLIC collections,
+      zero username / zero owner identity / zero AI branding. Route /explore/collections.
+- [x] pages/PublicCollectionPage.jsx (NEW) - read-only public list by opaque publicId.
+      Route /collections/:publicId.
+- [x] App.jsx - lazy imports + both routes (kills the earlier jsx-no-undef warnings).
+- [x] WatchlistPage - Globe/Lock visibility chip + toggle button on each collection card
+      wired via onToggleVisibility -> setCollectionVisibility (was a dangling ReferenceError).
+- [x] Gate GREEN: lint 0 / 378 tests / build 2.49s.

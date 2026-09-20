@@ -89,11 +89,27 @@ function makeCollectionId() {
   return `col-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function makePublicId() {
+  return `pub-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/* Storage v2 morph (frozen contract - recorded in task.md): additive-only.
+   Everything old still reads; only collections that are public gain a
+   stable publicId so any PUBLIC list can be opened by ANYONE via /collections/:publicId. */
+function morphCollections(list) {
+  return (list || []).map((c) => {
+    const col = { ...c };
+    col.visibility = col.visibility === 'public' ? 'public' : 'private';
+    if (col.visibility === 'public' && !col.publicId) col.publicId = makePublicId();
+    return col;
+  });
+}
+
 export function useMyCollections() {
-  const [collections, setCollections] = useState(() => readStorage(COLLECTIONS_KEY));
+  const [collections, setCollections] = useState(() => morphCollections(readStorage(COLLECTIONS_KEY)));
 
   useEffect(() => {
-    const sync = () => setCollections(readStorage(COLLECTIONS_KEY));
+    const sync = () => setCollections(morphCollections(readStorage(COLLECTIONS_KEY)));
     window.addEventListener(COLLECTIONS_SYNC, sync);
     window.addEventListener('storage', sync);
     return () => {
@@ -189,6 +205,25 @@ export function useMyCollections() {
     }
   }, [addToCollection, removeFromCollection]);
 
+  const setCollectionVisibility = useCallback((id, visibility) => {
+    const next = visibility === 'public' ? 'public' : 'private';
+    commitCollections(
+      collectionsRef.current.map((c) => {
+        if (c.id !== id) return c;
+        const updated = { ...c, visibility: next, updatedAt: Date.now() };
+        if (next === 'public' && !updated.publicId) updated.publicId = makePublicId();
+        return updated;
+      }),
+    );
+  }, [commitCollections]);
+
+  const publicCollections = collections.filter((c) => c.visibility === 'public');
+
+  const getPublicCollection = useCallback((publicId) => {
+    if (!publicId) return null;
+    return collectionsRef.current.find((c) => c.visibility === 'public' && c.publicId === publicId) || null;
+  }, []);
+
   return {
     collections,
     createCollection,
@@ -198,6 +233,9 @@ export function useMyCollections() {
     addToCollection,
     removeFromCollection,
     toggleInCollection,
+    setCollectionVisibility,
+    publicCollections,
+    getPublicCollection,
   };
 }
 

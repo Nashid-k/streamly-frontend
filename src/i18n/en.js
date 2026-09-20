@@ -356,8 +356,25 @@ export const en = {
     collapse: "Collapse",
   },
   collections: {
+    /* v2 (frozen contract — recorded in task.md): visibility + publicId are
+       additive storage fields. "public" = readable by ANYONE via publicId,
+       with NO username attached anywhere in the surface. Default: private. */
     dialogTitleCreate: "New Collection",
     dialogTitleRename: "Rename Collection",
     namePlaceholder: "Collection name",
+    visibilityPublic: "Public",
+    visibilityPrivate: "Private",
+    visibilityHintPublic: "Visible to anyone via its public link",
+    visibilityHintPrivate: "Only you can see this collection",
+    copyPublicLink: "Copy public link",
+    publicLinkCopied: "Public link copied",
+    bestCollectionsTitle: "Best Collections",
+    bestCollectionsHint: "Your most-loved lists, surfaced without any username",
+  },
+  explore: {
+    title: "Explore collections",
+    subtitle: "Public lists from across the app — no username needed to view",
+    empty: "No public collections yet. Open any list, make it Public, and it appears here.",
+    itemCount: "{count, plural, one {# title} other {# titles}}",
   },
 };

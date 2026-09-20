@@ -62,6 +62,8 @@ const SearchPage = lazy(() => import("./pages/SearchPage"));
 const CategoryPage = lazy(() => import("./pages/CategoryPage"));
 const GenrePage = lazy(() => import("./pages/GenrePage"));
 const WatchlistPage = lazy(() => import("./pages/WatchlistPage"));
+const ExploreCollectionsPage = lazy(() => import("./pages/ExploreCollectionsPage"));
+const PublicCollectionPage = lazy(() => import("./pages/PublicCollectionPage"));
 const HistoryPage = lazy(() => import("./pages/HistoryPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 function Layout({ children }) {
@@ -473,6 +475,14 @@ function AppRoutes() {
               <Route path="/person/:id/:slug?" element={<PersonDetails />} />
               {/* Legacy redirects */}
               <Route path="/watchlist" element={<WatchlistPage />} />
+              <Route
+                path="/explore/collections"
+                element={<ExploreCollectionsPage />}
+              />
+              <Route
+                path="/collections/:publicId"
+                element={<PublicCollectionPage />}
+              />
               <Route path="/mylist" element={<Navigate to="/watchlist" replace />} />
               <Route path="/history" element={<HistoryPage />} />
               <Route path="/continue-watching" element={<Navigate to="/history" replace />} />

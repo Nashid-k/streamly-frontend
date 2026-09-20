@@ -12,9 +12,12 @@ import {
   Plus,
   ChevronDown,
   ChevronLeft,
+  Globe,
+  Lock,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppAuth } from "../context/auth";
+import { useI18n } from "../i18n";
 import { useToast } from "../components/Toast.jsx";
 import { useConfirmDialog } from "../components/ConfirmDialog.jsx";
 import MovieCard from "../components/MovieCard";
@@ -289,7 +292,8 @@ function AddTitlesDialog({ open, candidates, assignedIds, onConfirm, onClose }) 
 }
 
 /* ── Collection folder card: 2×2 cover collage mining the saved list ────── */
-function CollectionCard({ collection, items, onOpen, onRename, onDelete }) {
+function CollectionCard({ collection, items, onOpen, onRename, onDelete, onToggleVisibility }) {
+  const { t } = useI18n();
   const hasItems = collection.itemIds.length > 0;
   const posters = (collection.itemIds || [])
     .map((id) => items.find((m) => m.id === id))
@@ -342,6 +346,27 @@ function CollectionCard({ collection, items, onOpen, onRename, onDelete }) {
       <div className="collection-card__meta">
         <div className="collection-card__name-row">
           <span className="collection-card__name">{collection.name}</span>
+          <span
+            className={
+              collection.visibility === "public"
+                ? "collection-card__vis collection-card__vis--public"
+                : "collection-card__vis"
+            }
+            title={
+              collection.visibility === "public"
+                ? t("collections.visibilityHintPublic")
+                : t("collections.visibilityHintPrivate")
+            }
+          >
+            {collection.visibility === "public" ? (
+              <Globe size={12} />
+            ) : (
+              <Lock size={12} />
+            )}
+            {collection.visibility === "public"
+              ? t("collections.visibilityPublic")
+              : t("collections.visibilityPrivate")}
+          </span>
           <span className="collection-card__count">
             {collection.itemIds.length} {collection.itemIds.length === 1 ? "title" : "titles"}
           </span>
@@ -357,6 +382,26 @@ function CollectionCard({ collection, items, onOpen, onRename, onDelete }) {
             }}
           >
             <Pencil size={14} />
+          </button>
+          <button
+            type="button"
+            className="collection-card__action"
+            aria-label={`Toggle ${collection.name} visibility`}
+            title={
+              collection.visibility === "public"
+                ? t("collections.visibilityHintPublic")
+                : t("collections.visibilityHintPrivate")
+            }
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleVisibility(collection);
+            }}
+          >
+            {collection.visibility === "public" ? (
+              <Globe size={15} />
+            ) : (
+              <Lock size={15} />
+            )}
           </button>
           <button
             type="button"
@@ -390,6 +435,7 @@ export default function WatchlistPage() {
     addToCollection,
     removeFromCollection,
     toggleInCollection,
+    setCollectionVisibility,
   } = useAppAuth();
   const { toast } = useToast();
   const { confirmDialog, ConfirmDialogRenderer } = useConfirmDialog();
@@ -775,10 +821,13 @@ export default function WatchlistPage() {
                     key={collection.id}
                     collection={collection}
                     items={myList}
-                    onOpen={(c) => setActiveCollectionId(c.id)}
-                    onRename={(c) => setNameDialog({ mode: "rename", collection: c })}
-                    onDelete={(c) => confirmDelete(c)}
-                  />
+onOpen={(c) => setActiveCollectionId(c.id)}
+            onRename={(c) => setNameDialog({ mode: "rename", collection: c })}
+            onDelete={(c) => confirmDelete(c)}
+            onToggleVisibility={(c) =>
+              setCollectionVisibility(c.id, c.visibility === "public" ? "private" : "public")
+            }
+          />
                 ))}
               </div>
             </div>
