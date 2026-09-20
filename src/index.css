@@ -308,7 +308,6 @@ a {
   gap: 2rem;
   padding: calc(env(safe-area-inset-top, 0px) + 12px) clamp(0.75rem, 2vw, 1.25rem) 0;
   pointer-events: none;
-  transition: padding 0.32s var(--condense-ease);
 }
 .header-row:hover,
 .header-row:has(:focus-visible) {
@@ -327,11 +326,15 @@ a {
   display: block;
   height: var(--brand-h, 44px);
   width: auto;
+  transform-origin: top left;
+  transform: scale(1);
   filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.45));
-  transition: height 0.32s var(--condense-ease), filter 0.3s ease;
+  /* Condense on scroll is a transform-only scale (44 → 38px optically):
+     never animates height/layout, so the fixed header never reflows. */
+  transition: transform 0.32s var(--condense-ease), filter 0.3s ease;
 }
-.header-row.scrolled {
-  --brand-h: 38px;
+.header-row.scrolled .brand-mark {
+  transform: scale(0.864);
 }
 
 /* Cinejoy .logo-legible — soft glow so the mark stays crisp over art */
@@ -393,11 +396,13 @@ a {
   -webkit-backdrop-filter: blur(20px) saturate(160%);
   border: 1px solid rgba(255, 255, 255, 0.07);
   box-shadow: inset 0 1px rgba(255, 255, 255, 0.12), 0 8px 30px rgba(0, 0, 0, 0.3);
-  transition: padding 0.32s var(--condense-ease), background-color 0.3s ease, border-color 0.3s ease,
+  /* Condense is transform-only (translateY), so the padded pill and its
+     backdrop-filter never re-blur on scroll. */
+  transition: transform 0.32s var(--condense-ease), background-color 0.3s ease, border-color 0.3s ease,
     box-shadow 0.3s ease;
 }
 .navbar.scrolled {
-  --nav-pad: 3px;
+  transform: translateY(-3px);
   background: rgba(12, 12, 14, 0.5);
   backdrop-filter: blur(20px) saturate(160%);
   -webkit-backdrop-filter: blur(20px) saturate(160%);
@@ -500,7 +505,10 @@ a {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 16px 1px rgba(255, 255, 255, 0.18);
   z-index: 0;
   pointer-events: none;
-  will-change: transform, width;
+  /* The pill glides via transform and resizes via width. width transitions on
+     this single small absolute element (no in-flow children) only re-layouts
+     itself — it never reflows the nav cluster — so it stays cheap. */
+  will-change: transform;
   transition: transform var(--nav-transition), width var(--nav-transition), opacity var(--nav-fade);
 }
 .nav-cluster .nav-link,
@@ -1597,32 +1605,6 @@ a {
   }
 }
 
-/* ── Shimmer effect for loading states ── */
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-.btn-loading {
-  background: linear-gradient(90deg, rgba(255,255,255,0.06) 25%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.06) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  pointer-events: none;
-}
-
-/* ── Ripple on click ── */
-@keyframes ripple {
-  0% { transform: scale(0); opacity: 0.5; }
-  100% { transform: scale(4); opacity: 0; }
-}
-.btn .ripple-effect {
-  position: absolute;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.3);
-  width: 20px; height: 20px;
-  animation: ripple 0.6s ease-out;
-  pointer-events: none;
-}
-
 /* Grids */
 .section-header {
   display: flex;
@@ -1970,8 +1952,6 @@ a {
   border-radius: var(--radius-lg);
   position: relative;
   overflow: hidden;
-  will-change: transform;
-  transform: translateZ(0);
   animation: skeleton-breathe 3s ease-in-out infinite;
 }
 
@@ -4923,95 +4903,6 @@ body::after {
 }
 .animate-pulse {
   animation: pulse 2s ease-in-out infinite;
-}
-
-/* ── Enhanced Button Animations ────────────────────────────── */
-
-/* Floating entrance for CTA buttons */
-@keyframes btn-float-in {
-  0% { opacity: 0; transform: translateY(20px) scale(0.95); }
-  60% { transform: translateY(-4px) scale(1.02); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
-}
-.btn-animate-in {
-  animation: btn-float-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-/* Glow ring for active/live content */
-@keyframes glow-ring {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(var(--accent-primary-rgb), 0.4), 0 8px 24px var(--accent-glow, rgba(225, 29, 72, 0.3));
-  }
-  50% {
-    box-shadow: 0 0 0 6px rgba(var(--accent-primary-rgb), 0), 0 8px 24px var(--accent-glow, rgba(225, 29, 72, 0.45));
-  }
-}
-.btn-glow {
-  animation: glow-ring 2s ease-in-out infinite;
-}
-
-/* Scale bounce on hover for cards */
-@keyframes card-hover-bounce {
-  0% { transform: scale(1); }
-  40% { transform: scale(1.05); }
-  70% { transform: scale(0.98); }
-  100% { transform: scale(1.03); }
-}
-
-/* Slide in from left for rails */
-@keyframes slide-in-left {
-  0% { opacity: 0; transform: translateX(-40px); }
-  100% { opacity: 1; transform: translateX(0); }
-}
-.rail-animate-in {
-  animation: slide-in-left 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-/* Fade up for content sections */
-@keyframes fade-up {
-  0% { opacity: 0; transform: translateY(24px); }
-  100% { opacity: 1; transform: translateY(0); }
-}
-.fade-up {
-  animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-/* Staggered children animation helper */
-.stagger-children > *:nth-child(1) { animation-delay: 0s; }
-.stagger-children > *:nth-child(2) { animation-delay: 0.05s; }
-.stagger-children > *:nth-child(3) { animation-delay: 0.1s; }
-.stagger-children > *:nth-child(4) { animation-delay: 0.15s; }
-.stagger-children > *:nth-child(5) { animation-delay: 0.2s; }
-.stagger-children > *:nth-child(6) { animation-delay: 0.25s; }
-
-/* Episode card hover lift */
-@keyframes episode-lift {
-  0% { transform: translateY(0) scale(1); }
-  100% { transform: translateY(-6px) scale(1.01); }
-}
-
-/* Badge pulse for LIVE/NEW */
-@keyframes badge-pulse {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.05); opacity: 0.9; }
-}
-.badge-pulse {
-  animation: badge-pulse 2s ease-in-out infinite;
-}
-
-/* Gradient text shimmer */
-@keyframes gradient-shift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-.gradient-text-animated {
-  background: var(--accent-gradient, linear-gradient(135deg, #95ff50, #5ce21c, #95ff50));
-  background-size: 200% 200%;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  animation: gradient-shift 3s ease infinite;
 }
 
 /* Smooth scroll behavior */

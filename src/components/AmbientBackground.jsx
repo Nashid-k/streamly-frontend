@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { CdnImageAdapter } from "../api/cdnImageAdapter";
 
 /* Fixed full-viewport ambient layer — mirrors the watch/details page:
    a heavily blurred, saturated backdrop + screen-blended top glow above the
@@ -8,6 +9,12 @@ import { memo } from "react";
    My List). */
 function AmbientBackground({ src, alt = "", fallback = false }) {
   if (!src && !fallback) return null;
+
+  /* The two layers are pure color washes — resolution is invisible under a
+     blur(50–80px). Render them from a w342 rendition so the GPU blurs a few
+     hundred pixels instead of a full 4K frame (this runs on every page,
+     behind the hero, forever). */
+  const blurSrc = CdnImageAdapter.getUrl(src, "w342");
 
   return (
     <div
@@ -22,7 +29,7 @@ function AmbientBackground({ src, alt = "", fallback = false }) {
             alt={alt}
             loading="eager"
             decoding="async"
-            src={src}
+            src={blurSrc}
           />
         )}
         {src && (
@@ -36,7 +43,7 @@ function AmbientBackground({ src, alt = "", fallback = false }) {
                 maskImage: "linear-gradient(to bottom, black 0%, transparent 100%)",
                 WebkitMaskImage: "linear-gradient(to bottom, black 0%, transparent 100%)",
               }}
-              src={src}
+              src={blurSrc}
             />
           </div>
         )}

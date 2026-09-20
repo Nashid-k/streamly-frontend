@@ -9,12 +9,13 @@ import { useAppAuth } from "../context/auth";
 import { useToast } from "./Toast";
 
 /* ─────────────────────────────────────────────────────────────
-   MovieCard — "Cinematic Curtain" hover design
+MovieCard — "Cinematic Curtain" hover design
    
    How it works:
    • Everything lives INSIDE .poster-wrapper (overflow: hidden)
-   • Hover state is driven by framer-motion whileHover on the
-     single root div — zero JS state, zero timeouts, zero bugs
+   • The curtain is driven by ONE source: a debounced isHovered state (150ms
+     debounce prevents thrash on quick swipes; mouse/focus both feed it), so
+     there is no second whileHover change fighting the same variants.
    • The curtain panel slides up from translateY(100%) → 0
    • The image dims via a flat opacity veil (no filter repaint)
    • Mouse enter/leave is on one element — can never get stuck
@@ -231,7 +232,6 @@ const MovieCard = memo(function MovieCard({
           className="movie-card"
           variants={cardVariants}
           initial="rest"
-          whileHover={reduceMotion || isTouchDevice ? undefined : "hover"}
           whileTap={reduceMotion ? undefined : { scale: 0.97 }}
           animate={isHovered && !isTouchDevice ? "hover" : "rest"}
           role="button"

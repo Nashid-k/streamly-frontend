@@ -1337,13 +1337,17 @@ export default function Home({
           </motion.div>
         ) : activeFeaturedMovie ? (
           <ErrorBoundary>
+          {/* Persistent hero shell — key is static so slide changes crossfade
+              the backdrop and content layers instead of remounting the whole
+              hero (which blanked it for ~1.3s with mode="wait"). The shell
+              mounts once on load and stays mounted while titles rotate. */}
           <motion.div
-            key={activeFeaturedMovie.id}
+            key="hero"
             className="hero-container"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.65, ease: "easeOut" }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
             style={{ willChange: "opacity" }}
             onTouchStart={handleHeroTouchStart}
             onTouchEnd={handleHeroTouchEnd}
@@ -1368,15 +1372,25 @@ export default function Home({
               }
             }}
           >
-            {/* Backdrop — static framing keeps the hero calm while titles rotate. Clean textless backdrop across all viewports. */}
-            <motion.img
-              src={activeFeaturedMovie.backdropUrl || activeFeaturedMovie.posterUrl || activeFeaturedMovie.poster}
-              alt={activeFeaturedMovie.title}
-              className="hero-bg"
-              fetchpriority="high"
-              loading="eager"
-              decoding="async"
-            />
+            {/* Backdrop — keyed crossfade. The next slide's frame is preloaded
+                a slide ahead, and old/new frames stack (both absolutely
+                positioned) so the outgoing one fades out beneath the incoming
+                one. No hero remount, no blank gap. */}
+            <AnimatePresence>
+              <motion.img
+                key={activeFeaturedMovie.id}
+                src={activeFeaturedMovie.backdropUrl || activeFeaturedMovie.posterUrl || activeFeaturedMovie.poster}
+                alt={activeFeaturedMovie.title}
+                className="hero-bg"
+                fetchpriority="high"
+                loading="eager"
+                decoding="async"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.45, ease: "easeOut" }}
+              />
+            </AnimatePresence>
 
             {/* Apple-style gradient overlay — gradient from bottom and left, no hard black */}
             <div className="hero-overlay hero-overlay--apple" />
@@ -1412,14 +1426,16 @@ export default function Home({
             </AnimatePresence>
 
             {/* ── Apple Hero Content ─────────────────────────────────────── */}
-            <div className="hero-content hero-content--apple">
-              <motion.div
-                key={activeFeaturedMovie.id + "-content"}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.55, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-                style={{ willChange: "transform, opacity" }}
-              >
+            <AnimatePresence>
+            <motion.div
+              key={activeFeaturedMovie.id + "-content"}
+              className="hero-content hero-content--apple"
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
+              style={{ willChange: "transform, opacity" }}
+            >
                 {/* Title / Logo — real show wordmark, lazy-fetched on demand */}
                 <HeroTitleLogo movie={activeFeaturedMovie} />
 
@@ -1511,8 +1527,8 @@ export default function Home({
                     </motion.button>
                   </div>
                 </div>
-              </motion.div>
-            </div>
+            </motion.div>
+            </AnimatePresence>
 
             {/* Slim progress dots */}
             {totalFeatured > 1 && (

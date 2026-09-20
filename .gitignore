@@ -31,3 +31,5 @@ streamly-backend/
 *.njsproj
 *.sln
 *.sw?
+# Local tool artifacts
+.freebuff/

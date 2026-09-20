@@ -75,7 +75,6 @@ export default function CountdownBadge({ releaseDate, platform, compact = false 
         letterSpacing: "0.04em",
         boxShadow: s.shadow,
         whiteSpace: "nowrap",
-        backdropFilter: "blur(4px)",
       }}
       title={`Releases ${countdown.text}`}
     >

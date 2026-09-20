@@ -5,9 +5,35 @@
 > `npm run build`, or an explicit note why a runner was unavailable). Never
 > work out of order, never tick ahead.
 
-## Done (in order)
+ ## Done (in order)
 
-- [x] **Code cleanup pass (linter-driven dead-code + unused-import sweep)**:
+- [x] **E2E animation re-architecture — GPU-cheap, single-source, remount-free**
+  (all verifiers:
+  build + 378/378 tests pass, lint 0 errors):
+  - **Task 1 — Hero carousel is now remount-free + two-layer crossfade**:
+    the `hero-container` is a persistent shell (`key="hero"`, static) — no more
+    framer remount/re-layout on each featured switch. Banner imagery crossfades
+    as a keyed `motion.img` inside its own `AnimatePresence` (opacity+scale only),
+    and the Apple content block (title/CTAs) re-crossfades as a second keyed
+    `motion.div` — the old inner wrapper `motion.div` was deleted (single
+    `hero-content` id-keyed layer), dots stay mounted and never animate layout.
+  - **Task 2 — Header condense is transform-only** (was layout-thrash): the
+    nav `pill`, brand mark, and nav cluster now condense via `scale` /
+    `translateY` instead of `--brand-h`/`--nav-pad` padding reflows; the only
+    remaining width transition is on the single tiny nav-active pill (absolute,
+    no in-flow children — cannot re-layout siblings). No `will-change: width`.
+  - **Task 3 — Ambient liquid backdrop down-scaled to `w342`** so the GPU
+    blurs a few hundred pixels, not a full 4K frame, on the fixed foreground
+    layers (HomePage hero + AmbientBackground) — resolution is invisible under
+    blur(50–80px).
+  - **Task 4 — Removed `will-change` + `translateZ(0)` from `.skeleton` base**
+    and `backdrop-filter` from the CountdownBadge — the whole skeleton rail was
+    promoting layers it never animates (the shimmer overlay keeps its own hint);
+    the badge no longer re-composites/blurs on each counter tick.
+  - **Task 5 — Route page transitions shortened & overlap-free** (`App.jsx`):
+    `mode="wait"`, opacity-only, 0.18s — no y-offset, no motion/bounce.
+
+  - [x] **Code cleanup pass (linter-driven dead-code + unused-import sweep)**:
   - `AmbientBackground.jsx`: removed unused `CdnImageAdapter` import.
   - `ContinueWatchingRail.jsx`: `items.map((item, i)` → `(item)` — the index
     param was never used.

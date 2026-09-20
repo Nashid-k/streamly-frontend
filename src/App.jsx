@@ -380,10 +380,10 @@ function Layout({ children }) {
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}
-            initial={reduceMotion ? false : { opacity: 0, y: 4 }}
+            initial={reduceMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={reduceMotion ? undefined : { opacity: 0, y: -3 }}
-            transition={{ duration: reduceMotion ? 0 : 0.24, ease: [0.16, 1, 0.3, 1] }}
+            exit={reduceMotion ? undefined : { opacity: 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.18, ease: "easeOut" }}
             style={{ flex: 1 }}
           >
             {children}
