@@ -525,7 +525,10 @@ html[data-theme]:not([data-theme=default]) .toggle.toggle-on {
   border-radius: 50%;
   border: 2px solid transparent;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
   outline: none;
 }
 

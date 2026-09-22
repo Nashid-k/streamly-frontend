@@ -2659,3 +2659,35 @@ entry point = link added to My List (WatchlistPage).
       client helpers (list, fail-soft [], null on missing, no-fetch on empty
       publicId). Gate: lint 0 errors (baseline warnings only) / 39 files /
       391 tests / build OK.
+
+- [x] **Task 91 - Fluid-animations pass: kill `transition: all` + reduced-motion parity
+  - User priority: "fluid animations everywhere without compromising
+    performance." Surveyed every framer-motion + CSS animation surface:
+    App.jsx MotionConfig is already reducedMotion-aware ("user"/"always"),
+    countdown-badge ping + ambient hero blobs + skeleton shimmer are already
+    transform/opacity-only with will-change discipline, no framer
+    width/height/left/top animations exist in animate/initial/whileHover.
+  - Real remaining jank = broad CSS `transition: all` on shared classes
+    (fires transitions for EVERY property incl. layout when anything on the
+    element changes; paint-heavy on grids). Replaced with explicit
+    compositor/paint-safe property lists (zero visual change):
+    - src/styles/buttons.css `.btn` (app-wide): all -> transform,
+      background-color, color, border-color, box-shadow, opacity.
+    - src/styles/ui-kit.css `.card` (grids): all -> transform,
+      border-color, box-shadow, background-color.
+    - src/styles/settings-ui.css `.color-dot` (accent swatches): all ->
+      transform, border-color, box-shadow.
+    Result: 0 occurrences of `transition: all` left in src/styles.
+  - src/components/rails/FadeInSection.jsx now honors prefers-reduced-motion
+    like Button/Chip/CountdownBadge/MovieCard/DiscoveryPage (useReducedMotion
+    -> opacity-only, no y30 offset, 0.1s instead of 0.6s), so rail headers
+    never transform under reduced motion and low-end devices skip the
+    y-translate amortized across many mounted sections.
+  - Left as-is (single-element, transient, not jank sources): segment-slider
+    + login-tab-pill left/width slide (discovery.css:395, settings-ui.css:296),
+    void-volume-bar width (player.css:57). Dead class .void-hover
+    (padding-left anim) is unused after Task 77 player deletion; left for a
+    CSS-dead-code pass.
+  - Verified: npx oxlint 0 errors (exit 0; baseline setState-in-effect
+    warnings only), npx vitest run 418/418 across 42 files, npx vite build
+    ok (1.61s). No commits (user did not ask).
