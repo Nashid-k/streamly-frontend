@@ -9,7 +9,9 @@
 [![TMDB](https://img.shields.io/badge/Data-TMDB-01B4E4?logo=themoviedatabase&logoColor=white)](https://www.themoviedb.org)
 [![Vercel](https://img.shields.io/badge/Deployed_on-Vercel-000?logo=vercel)](https://vercel.com)
 
-**React 19 SPA — direct-TMDB streaming UI, no backend**
+**React 19 SPA — TMDB streaming UI with a thin same-origin backend**
+(same-origin `/api/*` Vercel functions, local-first state, optional Google
+cloud sync + offline downloads)
 
 </div>
 
@@ -49,6 +51,9 @@ npm run preview
 
 # Lint
 npm run lint
+
+# Tests
+npm run test
 ```
 
 ---
@@ -56,11 +61,23 @@ npm run lint
 ## 🔑 Environment Variables
 
 ```bash
-# .env — TMDB API (required)
+# ─── TMDB API (required) ────────────────────────────────────────────────
 # Get from: https://www.themoviedb.org/settings/api
 VITE_TMDB_API_KEY=your_tmdb_api_key_here
 
-# ─── App / URLs ────────────────────────────────────────────────
+# ─── OMDb API (optional) ────────────────────────────────────────────────
+# Extra IMDb/RT ratings over TMDB. If unset, app degrades to TMDB ratings.
+VITE_OMDB_API_KEY=your_omdb_api_key_here
+
+# ─── MongoDB (optional — only needed for Google cloud sync) ─────────────
+MONGODB_URI=mongodb+srv://<user>:<pass>@cluster0.xxxxx.mongodb.net/streamly?retryWrites=true&w=majority
+
+# ─── Google OAuth (optional — powers cloud sync + public collections) ───
+GOOGLE_CLIENT_ID=your_google_client_id_here
+GOOGLE_CLIENT_SECRET=your_google_client_secret_here
+VITE_GOOGLE_CLIENT_ID=your_google_client_id_here
+
+# ─── App / URLs ──────────────────────────────────────────────────────────
 # Canonical site origin used for SEO/OpenGraph links
 VITE_SITE_URL=https://your-project.vercel.app
 ```
@@ -107,6 +124,11 @@ VITE_SITE_URL=https://your-project.vercel.app
    syncs through `/api/sync` (MongoDB) behind per-account expiring HMAC
    tokens; deletes propagate via 30-day tombstones. Deleted collections are
    hidden locally immediately and purged from storage on later merges.
+7. **Offline downloads:** TitleDetailsPage → `DownloadModal` →
+   `downloadService` → Vercel `api/downloadify.js` (`resolve` → `manifest` →
+   `segment`). The resolver only follows an allowlisted set of embed hosts
+   (SSRF-guarded), and files are saved to the device via the File System
+   Access API (Blob `<a download>` fallback).
 
 ---
 
@@ -114,11 +136,16 @@ VITE_SITE_URL=https://your-project.vercel.app
 
 ```
 api/
-├── tmdb.js                          ← Vercel serverless: same-origin /api/tmdb
-│                                       TMDB passthrough proxy (CORS, OPTIONS,
-│                                       server-side key injection)
+├── tmdb.js              ← Vercel serverless: same-origin /api/tmdb TMDB proxy
+│                           (CORS, OPTIONS, server-side key injection)
+├── auth.js              ← Google sign-in (ID-token verify via local JWKS)
+├── sync.js              ← cloud sync (HMAC-signed, MongoDB, merge policy)
+├── downloadify.js       ← offline-download resolver + segment proxy (allowlist)
+├── publicCollections.js ← publish / read public collections
+├── groq.js              ← optional AI helper endpoint
+└── lib/                 ← db.js, googleVerify.js, syncToken.js (HMAC)
 public/
-└── sw.js                            ← Service worker (offline shell, cache v10)
+└── sw.js               ← Service worker (offline shell, caches streamly-v19.5)
 
 src/
 ├── main.jsx                         ← React root: QueryClient, PreferencesProvider, ToastProvider
@@ -175,25 +202,30 @@ src/
 │   ├── MovieCard.jsx                ← Cinematic hover card + Quick View modal
 │   ├── ContinueWatchingRail.jsx     ← Cinejoy-style continue watching rail
 │   ├── DiscoveryRails.jsx           ← Trend/Airing/Popular banner rails
+│   ├── CastRail.jsx                 ← Cast / directors rail
 │   ├── PlayerPreview.jsx            ← Live subtitle preview (lazy, Subtitles tab)
 │   ├── DownloadModal.jsx            ← Offline download manager (lazy in TitleDetails)
-│   ├── ConfirmDialog.jsx            ← Animated confirmation modal
-│   ├── Toast.jsx                    ← Notification toast system
-│   ├── GlobalShortcuts.jsx          ← Keyboard shortcut handler + help modal
-│   ├── Loader.jsx                   ← Full-page loading spinner
-│   ├── BackToTop.jsx                ← Scroll-to-top floating button
-│   ├── ErrorBoundary.jsx            ← React error boundary
-│   └── EmptyState.jsx / SectionHeader.jsx / HeroTitleLogo.jsx / RatingsCluster.jsx / SEO.jsx
+│   ├── RailArrow.jsx                ← Canonical scroll arrow (coarse-pointer aware)
+│   ├── TitleInfoModal.jsx           ← Quick View modal
+│   ├── Popover.jsx / ConfirmDialog.jsx / Toast.jsx / Chip.jsx / Button.jsx
+│   ├── GoogleSignInButton.jsx       ← Google one-tap / button (cloud sync sign-in)
+│   ├── ContentPageHeader.jsx / GenreShowcase.jsx / Footer.jsx
+│   ├── GlobalShortcuts.jsx / Loader.jsx / BackToTop.jsx / ErrorBoundary.jsx
+│   └── EmptyState.jsx / SectionHeader.jsx / HeroTitleLogo.jsx / RatingsCluster.jsx /
+│       RatingsTable.jsx / CountdownBadge.jsx / LeavingSoonBanner.jsx / SEO.jsx
 └── pages/
     ├── HomePage.jsx                 ← Landing: hero, category rails, Top 10
-    ├── TitleDetailsPage.jsx         ← Player + metadata, season/episode picker
+    ├── TitleDetailsPage.jsx         ← Player + metadata, downloads, season/episode picker
+    ├── DiscoveryPage.jsx            ← /movies & /series browsing (hero + rails)
     ├── SearchPage.jsx               ← Search results with filters
     ├── GenrePage.jsx                ← Genre-filtered catalog
     ├── CategoryPage.jsx             ← Single category drill-down
+    ├── ExploreCollectionsPage.jsx   ← Public collections browser
+    ├── PublicCollectionPage.jsx     ← A published collection
     ├── PersonDetailsPage.jsx        ← Actor / director filmography
     ├── WatchlistPage.jsx            ← My List
     ├── HistoryPage.jsx              ← Continue Watching / history
-    └── SettingsPage.jsx             ← Themes, playback, servers, subtitles
+    └── SettingsPage.jsx             ← Themes, playback, servers, subtitles, account
 ```
 
 ---
@@ -203,16 +235,19 @@ src/
 | Route | Page | Description |
 |---|---|---|
 | `/` | HomePage | Featured hero, category rails |
-| `/movies` | HomePage (filter) | Movies only |
-| `/series` | HomePage (filter) | TV shows only |
+| `/movies` | DiscoveryPage | Movies browsing |
+| `/series` | DiscoveryPage | TV shows browsing |
 | `/search?q=` | SearchPage | Search with `?q=` query param |
 | `/genre/:genre` | GenrePage | Genre-filtered catalog |
 | `/category/:name` | CategoryPage | Single category drill-down |
-| `/watch/:id/:slug?` | TitleDetailsPage | Player + full metadata (`movie-<n>` / `tv-<n>`) |
+| `/watch/:id/:slug?` | TitleDetailsPage | Player + metadata + downloads (`movie-<n>` / `tv-<n>`) |
 | `/person/:id/:slug?` | PersonDetailsPage | Actor/director page |
 | `/watchlist` | WatchlistPage | Saved titles |
 | `/history` | HistoryPage | Continue watching / history |
-| `/settings` | SettingsPage | Preferences (themes, playback, servers, subtitles) |
+| `/continue-watching` | → redirects to `/history` | Alias |
+| `/explore/collections` | ExploreCollectionsPage | Browse public collections |
+| `/collections/:publicId` | PublicCollectionPage | A published collection |
+| `/settings` | SettingsPage | Preferences (themes, playback, servers, subtitles, account) |
 
 ---
 
@@ -233,6 +268,16 @@ src/
 ### `MovieCard`
 - Cinematic curtain hover effect (Framer Motion `whileHover`)
 - Quick View modal (`detailViewType: "modal"`) with Play Now / Full Details
+
+### `DownloadModal`
+- Offline downloader (TitleDetailsPage): server pick, quality ladder with
+  HDR badges + estimated sizes, TV season/episode batch, progress + cancel
+- Streams via `api/downloadify.js` resolve → manifest → segment and saves
+  through the File System Access API (Blob `<a download>` fallback)
+
+### `RailArrow`
+- Canonical ghost scroll arrow for every rail/hero/back button; always visible
+  on coarse pointers (`@media (pointer: coarse)`) instead of hover-gated
 
 ### `Toast`
 - Notification system with queue management, auto-dismiss, success/error/info
@@ -316,7 +361,11 @@ Deployed on **Vercel** with automatic preview deployments for every pull request
 |---|---|
 | `VITE_TMDB_API_KEY` | from [themoviedb.org](https://www.themoviedb.org/settings/api) |
 | `TMDB_API_KEY` | same key, read by `api/tmdb.js` (server-side, never bundled) |
+| `VITE_OMDB_API_KEY` | optional — extra ratings lookup |
 | `VITE_SITE_URL` | `https://your-project.vercel.app` |
+| `MONGODB_URI` | optional — cloud sync backend (MongoDB Atlas) |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | optional — Google sign-in + token signing |
+| `SYNC_SECRET` | optional — if set, overrides `GOOGLE_CLIENT_SECRET` for sync HMAC |
 
 ### `vercel.json`
 

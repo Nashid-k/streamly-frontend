@@ -190,11 +190,17 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
   (vendor chunk split, `@/` path alias, `/api/tmdb` dev proxy), `vercel.json`
   (`/api/tmdb/(.*)` proxy rewrite + SPA rewrite + cache headers), `.env` / `.env.example`.
 
-## 4. Five architecture decisions + why
+## 4. Six architecture decisions + why
 
-1. **Direct TMDB from the browser, no backend** — removes the NestJS/Render
-   hop (latency, cold starts, proxy stalls). Trade-off: API key is public;
-   accepted, mitigated by TMDB's key model + OMDb 24h cache.
+1. **Same-origin TMDB through a thin Vercel proxy, direct fallback** — removes
+   the old NestJS/Render hop (latency, cold starts, proxy stalls). `/api/tmdb`
+   injects the server-side key and stays off the quota path via edge caching;
+   `tmdbClient` falls back to `api.themoviedb.org` directly if the proxy 404s
+   or gateway-errors. The same tiny serverless surface hosts Google auth
+   (`api/auth.js`, local JWKS verify), cloud sync (`api/sync.js`, HMAC +
+   MongoDB), public collections (`api/publicCollections.js`) and offline
+   downloads (`api/downloadify.js`, allowlisted hosts + SSRF guard). Everything
+   else stays client-side.
 2. **React Query as the data cache with per-key logging** — `staleTime` 5–10
    min, 1 retry (0 for quota-sensitive OMDb/ratings), `QueryCache.onError`
    global log. Every failed/empty query is console-traceable to its key.
@@ -207,3 +213,12 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
    bare `catch {}` on data paths; fallbacks (text title, monogram tile, TMDB
    score alone, stills instead of frames) are logged at warn/debug so "empty
    screen" always has a console trail.
+6. **Fluid motion is compositor-only + reduced-motion first** — UI animation
+   rule: `transform`/`opacity` only in motion (no `width`/`height`/`left`/
+   `top`/`filter`/`box-shadow` in loops), explicit CSS transition property
+   lists (never `transition: all`), and `will-change` only on elements an
+   animation actually runs. `MotionConfig` is reducedMotion-aware app-wide
+   (`App.jsx`); hot components (`Button`, `Chip`, `CountdownBadge`,
+   `MovieCard`, `FadeInSection`, `DiscoveryPage`) additionally branch on
+   `useReducedMotion`. Skeleton shimmer, countdown ring, ambient hero blobs
+   and the card curtain stay GPU-friendly by design. (Task 91.)

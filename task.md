@@ -2691,3 +2691,27 @@ entry point = link added to My List (WatchlistPage).
   - Verified: npx oxlint 0 errors (exit 0; baseline setState-in-effect
     warnings only), npx vitest run 418/418 across 42 files, npx vite build
     ok (1.61s). No commits (user did not ask).
+
+- [x] **Task 92 - README/architecture docs sync to reality (docs/readme pass)
+  - README was stale after the backend additions: rewrote the tagline (now
+    "thin same-origin backend" instead of "no backend"), Setup (adds npm test),
+    Environment Variables (full .env.example set: OMDb optional, MongoDB,
+    Google OAuth incl VITE_GOOGLE_CLIENT_ID), Data Flow (added offline-download
+    step: DownloadModal -> downloadService -> api/downloadify resolve/manifest/
+    segment, allowlisted hosts + SSRF guard, FS Access API save), project tree
+    (api/ now lists tmdb/auth/sync/downloadify/publicCollections/groq/lib;
+    sw.js cache streamly-v19.5), components + pages tree (DiscoveryPage,
+    ExploreCollectionsPage, PublicCollectionPage, CastRail, RailArrow,
+    TitleInfoModal, GoogleSignInButton, TitleDetails downloads, etc.), routes
+    table (/movies /series -> DiscoveryPage; added /explore/collections,
+    /collections/:publicId, /continue-watching alias), Components section
+    (DownloadModal + RailArrow bullets) and the Vercel env table (added
+    VITE_OMDB_API_KEY, MONGODB_URI, GOOGLE_*, SYNC_SECRET).
+  - architecture.md: decision 1 rewritten (decision is now same-origin proxy
+    + direct fallback + the same serverless surface hosts auth/sync/
+    collections/downloads, not "no backend"); heading "Five" -> "Six" and
+    added decision 6: compositor-only + reduced-motion-first motion policy
+    (transform/opacity only, never transition:all, will-change hygiene,
+    MotionConfig + useReducedMotion parity) --- the Task 91 contract.
+  - Verified: markdown only (README + architecture + task.md), no code diff;
+    git diff --stat confirms 3 doc files.
