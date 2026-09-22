@@ -7,6 +7,49 @@
 
  ## Done (in order)
 
+- [x] **Fresh download pipeline + audit quick-wins (user order: "implement fresh new better
+  downloading — use 3rd-party sites, make offline downloads actually work")**:
+  - **Why downloads never worked**: Vercel caps a function response at 4.5MB; the old
+    `segment` batched 6 segment URLs per POST and hit FUNCTION_PAYLOAD_TOO_LARGE on the first
+    1080p movie; and the modal's "Extract from player" called a `getStreamUrl` that
+    CustomVideoPlayer never exposed. Both fixed.
+  - **New transport (single-URL Range chunks)**: `segment` takes ONE URL + `{ range:
+    { start, max } }` (≤ 3.5MB), replies octet-stream with `x-streamly-more: "1"|"0"`; the
+    client loops until the file ends. 416 at a boundary = end-of-file (not an error);
+    upstreams that ignore Range fail with a clear message instead of looping/corrupting.
+  - **VidSrc third-party provider**: new `resolvevidsrc` action (`type`, `id`, `season?`,
+    `episode?`) — pulls `var Q` from the embed, signs the /pl/api tokens, walks
+    servers → play URLs → master playlists SERVER-side (CORS no longer blocks it) and
+    returns the real HLS ladder. The modal appends a "VidSrc (Alt)" pseudo-source
+    (`vidsrc://movie/{id}` / `vidsrc://tv/{id}?s=&e=` — a download-only marker, never an
+    iframe). VidSrc segments ride a session-bound relay (403 outside the player), so
+    byte-saves there may 403 — Copy/Open still hand the playlist to the user's own tools.
+  - **Direct-CORS fast path** (`saveStream`): probes the first segment (Range 0-0 + ACAO
+    === `*` or our origin); if the CDN answers, the browser pulls every remaining segment
+    directly (zero serverless bandwidth), falling back to the relay on the first hiccup.
+    FS Access API / Blob save + AbortController cancel unchanged.
+  - **CustomVideoPlayer** now exposes `getStreamUrl` via `useImperativeHandle`; "Extract
+    from player" copies the embed URL with honest messaging (embed hosts don't expose inner
+    bytes to extract).
+  - **SSRF hardening upgraded** (`api/downloadify.js`): every upstream hop — redirects
+    included — is DNS-resolved and ALL addresses must be public (closes
+    `http://2130706433/`-style decimal/hex IP literals the name-based list never saw); text
+    bodies capped 1.5MB, segment chunks 3.5MB; downloadify rate limit 30 → 600/min (a
+    movie is hundreds of chunks; the old window made real downloads impossible).
+  - **Audit quick-wins landed**: `mergeListsById` grew `sortBy`, toMillis coercion and
+    tombstone-safe cap (tombstones never sliced by `limit`); `useMyList`/`useContinueWatching`
+    keep tombstones in raw state, expose live-only lists (continue-watching newest-first,
+    live cap 20; "Clear" writes tombstones instead of removeStorage); AuthContext pulls merge
+    with `limit`/`sortBy`/`pruneTombstonesMs`; `searchMovies` + `rankSearchResults` attach a
+    0-100 `matchScore`; `getDiscoverByGenre` uses `allSettled` (one dead cluster can't blank
+    a rail); `editorial` rails per-type instead of throwing; `/api/publicCollections` returns
+    newest-first; groq proxy requires Origin + same-host, global 240/min + per-IP 20/min,
+    1MB payload cap → 413; rateLimit prunes expired buckets + evicts soonest-expiring keys.
+  - Tests updated/added: downloadService (per-segment transport), DownloadModal (VidSrc
+    source count), publicCollections (sort chain), mergeRemote (sortBy + tombstone-safe
+    cap + insertion-order), searchRanking (0-100 matchScore). Verified: oxlint 0 errors,
+    vitest 42 files / 422/422, vite build OK.
+
 - [x] **Production follow-up: CSP cold-start crash + api/auth 500 (user-pasted console log)**:
   - **api/auth / api/publicCollections / api/sync returned Vercel's plain-text
     FUNCTION_INVOCATION_FAILED (X-Vercel-Error header) instead of JSON** — root cause:

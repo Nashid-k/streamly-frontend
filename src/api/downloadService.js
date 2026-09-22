@@ -2,12 +2,21 @@
 //
 // Flow (all through the stateless /api/downloadify Vercel function):
 //   1. resolveDownload(embedUrl)          -> real HLS ladder for that server
+//      (a "vidsrc://" embed URL is routed to the VidSrc provider action)
 //   2. buildManifest(source, variant)     -> concrete segment URL list
-//   3. saveStream(...)                    -> fetch segments in batches and
-//                                            write them to disk incrementally
+//   3. saveStream(...)                    -> fetch segments in bounded Range
+//                                            chunks and write them to disk
+//
+// Byte transport changed for a reason: Vercel caps a function's response at
+// 4.5MB, so the old "batch N segments in one POST" design crashed with 413 on
+// the first 1080p movie. Segments are now pulled ONE at a time, each as a
+// sequence of ≤ ~3.5MB Range chunks; the server's `x-streamly-more` header
+// tells us when the piece ended. Where a CDN honestly supports CORS + Range
+// the browser downloads those segments DIRECTLY (zero serverless bandwidth);
+// everything else rides the relay. Both paths go to the same writable.
 //
 // Saving mirrors a normal browser download: where the File System Access API
-// exists we write each batch straight to the chosen file (so a 2 GB movie
+// exists we write each chunk straight to the chosen file (so a 2 GB movie
 // never lives in RAM); otherwise we assemble a Blob and click an <a download>.
 // Cancellation is an AbortController; progress is segment-count based.
 
@@ -21,7 +30,7 @@ import {
 import { logDebug, logError, logInfo, logWarn } from "../utils/debugLogger.js";
 
 const ENDPOINT = "/api/downloadify";
-const SEGMENTS_PER_BATCH = 6;
+const CHUNK_MAX = 3.5 * 1024 * 1024;
 
 export class DownloadUnavailableError extends Error {
   constructor(message, code) {
@@ -29,6 +38,26 @@ export class DownloadUnavailableError extends Error {
     this.name = "DownloadUnavailableError";
     this.code = code || "unavailable";
   }
+}
+
+/* VidSrc: the download modal passes a download-only marker URL
+   (vidsrc://movie/{tmdb} | vidsrc://tv/{tmdb}?s=&e=). Translate it into the
+   resolver's "resolvevidsrc" action so we never hand the marker to an iframe. */
+function vidsrcBodyFromUrl(embedUrl) {
+  const u = new URL(embedUrl);
+  const isTv = u.hostname === "tv";
+  const body = {
+    action: "resolvevidsrc",
+    type: isTv ? "tv" : "movie",
+    id: u.pathname.replace(/^\//, ""),
+  };
+  if (u.searchParams.get("s")) body.season = u.searchParams.get("s");
+  if (u.searchParams.get("e")) body.episode = u.searchParams.get("e");
+  return body;
+}
+
+function isVidsrcUrl(embedUrl) {
+  return typeof embedUrl === "string" && embedUrl.toLowerCase().startsWith("vidsrc://");
 }
 
 async function post(body, { signal, as = "json" } = {}) {
@@ -51,16 +80,17 @@ async function post(body, { signal, as = "json" } = {}) {
     );
   }
 
-  // On plain static hosting the SPA catch-all answers with index.html.
-  const contentType = response.headers.get("content-type") || "";
   if (as === "buffer") {
     if (!response.ok) {
       throw new DownloadUnavailableError(`Segment request failed (${response.status}).`, "http");
     }
     const ab = await response.arrayBuffer();
-    return new Uint8Array(ab);
+    const more = response.headers.get("x-streamly-more") === "1";
+    return { bytes: new Uint8Array(ab), more };
   }
 
+  // On plain static hosting the SPA catch-all answers with index.html.
+  const contentType = response.headers.get("content-type") || "";
   if (!contentType.includes("application/json")) {
     throw new DownloadUnavailableError(
       "Download service returned a non-JSON response — the serverless function isn't running.",
@@ -75,10 +105,46 @@ async function post(body, { signal, as = "json" } = {}) {
   return json;
 }
 
+/* Direct-CORS probe: can the browser honestly read this CDN's bytes?
+   Returns { ok, total } where total comes from a Range 0-0 content-range.
+   We only go direct when the CDN both allows cross-origin reads AND answers
+   Range headers — anything else falls through to the relay. */
+async function probeDirect(url, { signal }) {
+  try {
+    const res = await fetch(url, { headers: { range: "bytes=0-0" }, signal });
+    if (!res.ok) {
+      res.body?.cancel?.().catch?.(() => {});
+      return { ok: false, total: 0 };
+    }
+    const acao = res.headers.get("access-control-allow-origin");
+    const allowed =
+      acao === "*" || (typeof window !== "undefined" && acao === window.location.origin);
+    const match = /bytes\s+0-0\/(\d+)/i.exec(res.headers.get("content-range") || "");
+    res.body?.cancel?.().catch?.(() => {});
+    if (!allowed || !match) return { ok: false, total: 0 };
+    const total = Number(match[1]);
+    return { ok: total > 0, total };
+  } catch (error) {
+    if (error?.name === "AbortError") throw error;
+    return { ok: false, total: 0 };
+  }
+}
+
 export const downloadService = {
   /** Resolve a server's embed URL into the qualities it actually offers. */
   async resolveDownload(embedUrl, { signal } = {}) {
-    const data = await post({ action: "resolve", embedUrl }, { signal });
+    let data;
+    if (isVidsrcUrl(embedUrl)) {
+      let body;
+      try {
+        body = vidsrcBodyFromUrl(embedUrl);
+      } catch {
+        throw new DownloadUnavailableError("Malformed VidSrc URL (expected vidsrc://movie/{id} or vidsrc://tv/{id}?s=&e=).", "bad-url");
+      }
+      data = await post(body, { signal });
+    } else {
+      data = await post({ action: "resolve", embedUrl }, { signal });
+    }
     const variants = (data.variants || []).map((v, index) => ({
       ...v,
       index,
@@ -87,6 +153,7 @@ export const downloadService = {
     }));
     logInfo("download", `Resolved ${variants.length} downloadable variant(s).`, {
       embedUrl,
+      provider: data.serverName || null,
       variants: variants.map((v) => v.label),
     });
     return { source: data.source, variants };
@@ -131,7 +198,7 @@ export const downloadService = {
   /**
    * Fetch every segment and persist the file.
    * @param {FileSystemWritableFileStream|null} writable - from pickSaveTarget
-   * @returns {{bytes:number, filename:string, method:'fs'|'blob'|'direct'}}
+   * @returns {{bytes:number, filename:string, method:'fs'|'blob'}}
    */
   async saveStream({
     manifest,
@@ -181,24 +248,68 @@ export const downloadService = {
       });
     };
 
-    try {
-      if (manifest.initUrl) {
-        const initChunk = await post(
-          { action: "segment", urls: [manifest.initUrl], refUrl },
+    /* Relay: Range-chunked stream of one segment through /api/downloadify,
+       stopping when the server's x-streamly-more header says the file ended. */
+    const relayRange = async (url) => {
+      let start = 0;
+      for (;;) {
+        const { bytes: chunk, more } = await post(
+          { action: "segment", url, range: { start, max: CHUNK_MAX }, refUrl },
           { signal, as: "buffer" },
         );
-        await write(initChunk);
+        if (!chunk || chunk.length === 0) break;
+        await write(chunk);
+        if (!more) break;
+        start += chunk.length;
+      }
+    };
+
+    /* Direct: the CDN allowed CORS + Range, so pull the segment straight from
+       the browser. Any hiccup drops us back to the relay for the REST of the
+       file (bytes already written stay exactly where they belong). */
+    let directEnabled = true;
+    const fetchSegmentDirect = async (url, total) => {
+      let offset = 0;
+      while (offset < total) {
+        const end = Math.min(offset + CHUNK_MAX, total) - 1;
+        const res = await fetch(url, { headers: { range: `bytes=${offset}-${end}` }, signal });
+        if (!res.ok) throw new Error(`Direct segment fetch failed (${res.status})`);
+        const ab = await res.arrayBuffer();
+        const chunk = new Uint8Array(ab);
+        if (chunk.length === 0) break;
+        await write(chunk);
+        offset += chunk.length;
+      }
+    };
+
+    const fetchOne = async (url) => {
+      if (directEnabled) {
+        const probe = await probeDirect(url, { signal });
+        if (probe.ok) {
+          try {
+            await fetchSegmentDirect(url, probe.total);
+            return;
+          } catch (error) {
+            if (error?.name === "AbortError") throw error;
+            logWarn("download", "Direct segment fetch failed — falling back to relay.", {
+              message: error?.message,
+            });
+            directEnabled = false;
+          }
+        }
+      }
+      await relayRange(url);
+    };
+
+    try {
+      if (manifest.initUrl) {
+        await relayRange(manifest.initUrl);
       }
 
       report(0);
-      for (let i = 0; i < segments.length; i += SEGMENTS_PER_BATCH) {
-        const batch = segments.slice(i, i + SEGMENTS_PER_BATCH);
-        const chunk = await post(
-          { action: "segment", urls: batch, refUrl },
-          { signal, as: "buffer" },
-        );
-        await write(chunk);
-        report(Math.min(i + batch.length, segments.length));
+      for (let i = 0; i < segments.length; i += 1) {
+        await fetchOne(segments[i]);
+        report(i + 1);
       }
 
       if (writer) {

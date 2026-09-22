@@ -108,6 +108,16 @@ describe("searchRanking advanced edge cases", () => {
       expect(results[0].id).toBe("5");
       expect(results[0].imdbRating).toBe(8.5);
     });
+
+    it("attaches a 0-100 integer matchScore to every result", () => {
+      const results = rankSearchResults(mockMovies, "Inception");
+      expect(results.length).toBeGreaterThan(0);
+      for (const movie of results) {
+        expect(Number.isInteger(movie.matchScore)).toBe(true);
+        expect(movie.matchScore).toBeGreaterThanOrEqual(0);
+        expect(movie.matchScore).toBeLessThanOrEqual(100);
+      }
+    });
   });
 
   describe("getDidYouMean", () => {

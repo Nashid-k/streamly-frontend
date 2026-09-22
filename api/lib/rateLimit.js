@@ -18,16 +18,31 @@
 
 const buckets = new Map();
 const MAX_TRACKED_KEYS = 5000;
+const PRUNE_INTERVAL_MS = 1000;
+let lastPruneAt = 0;
 
 function prune(now) {
-  if (buckets.size < MAX_TRACKED_KEYS) return;
+  // Expired buckets used to be dropped only when the map hit MAX_TRACKED_KEYS,
+  // so a busy warm instance kept serving stale entries and the fallback eviction
+  // dropped insertion-oldest (not expiry-oldest) keys — a legit client could be
+  // evicted while long-dead windows sat in memory. Prune expired keys on a
+  // coarse timer so every call stays O(1) in the common case.
+  if (now - lastPruneAt < PRUNE_INTERVAL_MS && buckets.size < MAX_TRACKED_KEYS) return;
+  lastPruneAt = now;
   for (const [key, entry] of buckets) {
     if (entry.reset <= now) buckets.delete(key);
   }
-  // Still oversized after expiry prune? Drop the oldest half.
+  // Still oversized after expiry prune? Drop the soonest-expiring (oldest)
+  // buckets so the freshest rate-limit state survives.
   if (buckets.size >= MAX_TRACKED_KEYS) {
-    const keys = [...buckets.keys()].slice(0, Math.floor(MAX_TRACKED_KEYS / 2));
-    for (const key of keys) buckets.delete(key);
+    const keys = [...buckets.keys()].sort((a, b) => buckets.get(a).reset - buckets.get(b).reset);
+    const keep = Math.floor(MAX_TRACKED_KEYS * 0.6);
+    let toDrop = buckets.size - keep;
+    for (const key of keys) {
+      if (toDrop <= 0) break;
+      buckets.delete(key);
+      toDrop -= 1;
+    }
   }
 }
 

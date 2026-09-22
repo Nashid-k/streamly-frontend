@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { logError, logWarn } from '../utils/debugLogger';
 import { mergeListsById } from '../utils/mergeRemote';
 import { makePublicId, morphCollections } from './collectionMorph';
@@ -42,28 +42,59 @@ function dispatch(name) {
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(name));
 }
 
+/* Legacy payloads can carry string timestamps; coerce before any comparison
+   (raw strings otherwise outrank every number in a JS compare). */
+function toMillis(value) {
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function splitTombstones(list) {
+  const tombstones = [];
+  const live = [];
+  for (const item of list || []) {
+    if (item && item.deletedAt !== undefined) tombstones.push(item);
+    else live.push(item);
+  }
+  return { tombstones, live };
+}
+
 export function useMyList() {
-  const [myList, setMyList] = useState(() => readStorage('aios_my_list'));
+  // State retains tombstones (so cloud/cross-tab merges can't resurrect a
+  // removed title); the EXPOSED list filters them out. Mirror of the
+  // useMyCollections pattern — removals write { id, deletedAt } markers, and
+  // mergeListsById prunes them after the 30-day window.
+  const [myListState, setMyListState] = useState(() => readStorage('aios_my_list'));
 
   useEffect(() => {
-    const sync = () => setMyList((current) => mergeStoredList(current, readStorage('aios_my_list')));
+    const sync = () =>
+      setMyListState((current) =>
+        mergeStoredList(current, readStorage('aios_my_list'), { pruneTombstonesMs: TOMBSTONE_TTL_MS }),
+      );
     window.addEventListener('aios_sync_mylist', sync);
     window.addEventListener('storage', sync);
     return () => { window.removeEventListener('aios_sync_mylist', sync); window.removeEventListener('storage', sync); };
   }, []);
 
-  const myListRef = useRef(myList);
-  myListRef.current = myList;
+  const myListRef = useRef(myListState);
+  myListRef.current = myListState;
+
+  const myList = useMemo(
+    () => splitTombstones(myListState).live,
+    [myListState],
+  );
 
   const toggleMyList = useCallback((movie) => {
     if (!movie?.id) return;
     const prev = myListRef.current;
-    const exists = prev.some(m => m.id === movie.id);
+    const exists = prev.some(m => m.id === movie.id && m.deletedAt === undefined);
     // updatedAt drives timestamp-aware cloud merges (src/utils/mergeRemote.js).
+    // A removal becomes a tombstone (delete-on-every-device); a re-add drops
+    // the stale tombstone and writes a fresh live copy.
     const next = exists
-      ? prev.filter(m => m.id !== movie.id)
-      : [...prev, { ...movie, updatedAt: Date.now() }];
-    setMyList(next);
+      ? prev.map(m => (m.id === movie.id ? { ...m, deletedAt: Date.now(), updatedAt: Date.now() } : m))
+      : [...prev.filter(m => m.id !== movie.id), { ...movie, updatedAt: Date.now() }];
+    setMyListState(next);
     writeStorage('aios_my_list', next);
     dispatch('aios_sync_mylist');
   }, []);
@@ -72,13 +103,20 @@ export function useMyList() {
     if (!Array.isArray(movieIds) || movieIds.length === 0) return;
     const idSet = new Set(movieIds);
     const prev = myListRef.current;
-    const next = prev.filter(m => !idSet.has(m.id));
-    setMyList(next);
+    const next = prev.map(m =>
+      idSet.has(m.id) && m.deletedAt === undefined
+        ? { ...m, deletedAt: Date.now(), updatedAt: Date.now() }
+        : m,
+    );
+    setMyListState(next);
     writeStorage('aios_my_list', next);
     dispatch('aios_sync_mylist');
   }, []);
 
-  const isInList = useCallback((id) => myList.some(m => m.id === id), [myList]);
+  const isInList = useCallback(
+    (id) => myList.some(m => m.id === id),
+    [myList],
+  );
 
   return { myList, toggleMyList, removeBatchFromMyList, isInList };
 }
@@ -109,8 +147,8 @@ function mergeStoredCollections(current, incoming) {
   return JSON.stringify(merged) === JSON.stringify(current) ? current : merged;
 }
 
-function mergeStoredList(current, incoming, { limit } = {}) {
-  const merged = mergeListsById(current, incoming, { limit });
+function mergeStoredList(current, incoming, { limit, pruneTombstonesMs, sortBy } = {}) {
+  const merged = mergeListsById(current, incoming, { limit, pruneTombstonesMs, sortBy });
   return JSON.stringify(merged) === JSON.stringify(current) ? current : merged;
 }
 
@@ -262,74 +300,97 @@ export function useMyCollections() {
 }
 
 export function useContinueWatching() {
-  const [continueWatching, setContinueWatching] = useState(() =>
-    readStorage('aios_continue_watching').sort((a,b) => b.lastWatched - a.lastWatched)
-  );
+  // Raw state includes tombstones; the exposed list filters them out (same
+  // contract as useMyCollections / the new useMyList). The 20-title cap only
+  // applies to LIVE entries, so a delete marker is never sliced away (a
+  // sliced tombstone would resurrect the title on the next cloud pull).
+  const [cwState, setCwState] = useState(() => readStorage('aios_continue_watching'));
+
+  const sortByLastWatched = useCallback((a, b) => toMillis(b.lastWatched) - toMillis(a.lastWatched), []);
 
   useEffect(() => {
     const sync = () =>
-      setContinueWatching((current) =>
-        mergeStoredList(current, readStorage('aios_continue_watching'), { limit: 20 }).sort(
-          (a, b) => b.lastWatched - a.lastWatched,
-        ),
+      setCwState((current) =>
+        mergeStoredList(current, readStorage('aios_continue_watching'), {
+          limit: 20,
+          pruneTombstonesMs: TOMBSTONE_TTL_MS,
+          sortBy: sortByLastWatched,
+        }),
       );
     window.addEventListener('aios_sync_cw', sync);
     window.addEventListener('storage', sync);
     return () => { window.removeEventListener('aios_sync_cw', sync); window.removeEventListener('storage', sync); };
-  }, []);
+  }, [sortByLastWatched]);
 
-  const cwRef = useRef(continueWatching);
-  cwRef.current = continueWatching;
+  const cwRef = useRef(cwState);
+  cwRef.current = cwState;
+
+  // Live (non-tombstoned), most-recently-watched first.
+  const continueWatching = useMemo(
+    () => splitTombstones(cwState).live.sort(sortByLastWatched),
+    [cwState, sortByLastWatched],
+  );
+
+  const commitCw = useCallback((nextRaw) => {
+    setCwState(nextRaw);
+    writeStorage('aios_continue_watching', nextRaw);
+    dispatch('aios_sync_cw');
+  }, []);
 
   const updateProgress = useCallback((movie, season = null, episode = null, timestamp = null) => {
     if (!movie?.id) return;
-    setContinueWatching(prev => {
-      const existing = prev.find(m => m.id === movie.id);
-      const finalTimestamp = timestamp !== null ? timestamp : existing?.timestamp ?? null;
-      // Keep every field the caller didn't set (e.g. watchedEpisodes) so
-      // playing an episode never wipes the per-episode watch set.
-      const newItem = {
-        ...(existing || {}),
-        ...movie,
-        lastWatched: Date.now(),
-        // updatedAt drives timestamp-aware cloud merges (src/utils/mergeRemote.js).
-        updatedAt: Date.now(),
-        savedSeason: season !== null && season !== undefined ? season : existing?.savedSeason ?? null,
-        savedEpisode: episode !== null && episode !== undefined ? episode : existing?.savedEpisode ?? null,
-        timestamp: finalTimestamp,
-      };
-      const updated = [newItem, ...prev.filter(m => m.id !== movie.id)].slice(0, 20);
-      writeStorage('aios_continue_watching', updated);
-      dispatch('aios_sync_cw');
-      return updated;
-    });
-  }, []);
+    const prev = cwRef.current;
+    const existing = prev.find(m => m.id === movie.id && m.deletedAt === undefined);
+    const finalTimestamp = timestamp !== null ? timestamp : existing?.timestamp ?? null;
+    // Keep every field the caller didn't set (e.g. watchedEpisodes) so
+    // playing an episode never wipes the per-episode watch set.
+    const newItem = {
+      ...(existing || {}),
+      ...movie,
+      lastWatched: Date.now(),
+      // updatedAt drives timestamp-aware cloud merges (src/utils/mergeRemote.js).
+      updatedAt: Date.now(),
+      savedSeason: season !== null && season !== undefined ? season : existing?.savedSeason ?? null,
+      savedEpisode: episode !== null && episode !== undefined ? episode : existing?.savedEpisode ?? null,
+      timestamp: finalTimestamp,
+    };
+    // Drop this id's live copy AND tombstone (re-watching revives a title),
+    // keep the rest of the live list, cap, then re-attach surviving tombstones.
+    const { tombstones, live } = splitTombstones(prev);
+    const withoutOld = live.filter(m => m.id !== movie.id);
+    const liveUpdated = [...withoutOld, newItem]
+      .sort((a, b) => toMillis(b.lastWatched) - toMillis(a.lastWatched))
+      .slice(0, 20);
+    commitCw([...liveUpdated, ...tombstones.filter(t => t.id !== movie.id)]);
+  }, [commitCw]);
 
   const removeFromContinueWatching = useCallback((movieId) => {
-    setContinueWatching(prev => {
-      const updated = prev.filter(m => m.id !== movieId);
-      writeStorage('aios_continue_watching', updated);
-      dispatch('aios_sync_cw');
-      return updated;
-    });
-  }, []);
+    const prev = cwRef.current;
+    commitCw(prev.map(m =>
+      m.id === movieId && m.deletedAt === undefined
+        ? { ...m, deletedAt: Date.now(), updatedAt: Date.now() }
+        : m,
+    ));
+  }, [commitCw]);
 
   const removeBatchFromContinueWatching = useCallback((movieIds) => {
     if (!Array.isArray(movieIds) || movieIds.length === 0) return;
     const idSet = new Set(movieIds);
-    setContinueWatching(prev => {
-      const updated = prev.filter(m => !idSet.has(m.id));
-      writeStorage('aios_continue_watching', updated);
-      dispatch('aios_sync_cw');
-      return updated;
-    });
-  }, []);
+    const prev = cwRef.current;
+    commitCw(prev.map(m =>
+      idSet.has(m.id) && m.deletedAt === undefined
+        ? { ...m, deletedAt: Date.now(), updatedAt: Date.now() }
+        : m,
+    ));
+  }, [commitCw]);
 
   const clearContinueWatching = useCallback(() => {
-    setContinueWatching([]);
-    removeStorage('aios_continue_watching');
-    dispatch('aios_sync_cw');
-  }, []);
+    const prev = cwRef.current;
+    const now = Date.now();
+    commitCw(prev.map(m =>
+      m.deletedAt === undefined ? { ...m, deletedAt: now, updatedAt: now } : m,
+    ));
+  }, [commitCw]);
 
   return {
     continueWatching,

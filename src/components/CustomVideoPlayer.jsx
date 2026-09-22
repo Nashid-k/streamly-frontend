@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback, useMemo, forwardRef } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo, forwardRef, useImperativeHandle } from "react";
 import { VideoSourceAdapter } from "../api/videoSourceAdapter";
 
 import { movieService } from "../api/movieService";
@@ -200,6 +200,21 @@ const CustomVideoPlayer = forwardRef(({
   const [iframeUrl, setIframeUrl] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
+  const iframeUrlRef = useRef(iframeUrl);
+  iframeUrlRef.current = iframeUrl;
+
+  // Expose the live embed source to consumers holding a ref (DownloadModal's
+  // "Extract from Player" reads it). The player renders cross-origin iframes,
+  // so the inner media URL is unknowable from here — the honest surface is
+  // the embed URL the rotation loaded, which the host's own player can then
+  // share/download from.
+  useImperativeHandle(
+    _ref,
+    () => ({
+      getStreamUrl: async () => ({ url: iframeUrlRef.current, type: "embed" }),
+    }),
+    [],
+  );
   const [loadProgress, setLoadProgress] = useState(0);
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
   // Start paused and let the embed's events flip isPlaying.

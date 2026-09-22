@@ -17,10 +17,18 @@
 //
 // Returns a NEW array; inputs are never mutated.
 
-const timestampOf = (item) =>
-  (item?.deletedAt ?? item?.updatedAt ?? 0);
+// Timestamps ride the wire as JSON numbers, but legacy local payloads can
+// carry string dates ("2024-01-01T12:00:00Z" or numeric strings). Comparing
+// raw strings vs numbers silently wrong-orders merges (every string > every
+// number in JS), so coerce before comparing.
+function toMillis(value) {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
 
-export function mergeListsById(local = [], remote = [], { limit, pruneTombstonesMs } = {}) {
+const timestampOf = (item) => toMillis(item?.deletedAt ?? item?.updatedAt ?? 0);
+
+export function mergeListsById(local = [], remote = [], { limit, pruneTombstonesMs, sortBy } = {}) {
   const out = Array.isArray(local) ? local.slice() : [];
   const index = new Map();
   out.forEach((item, i) => {
@@ -60,6 +68,21 @@ export function mergeListsById(local = [], remote = [], { limit, pruneTombstones
         )
       : out;
 
-  if (typeof limit === "number" && pruned.length > limit) return pruned.slice(0, limit);
-  return pruned;
+  // Tombstone-safe cap: a delete marker must never be evicted by the `limit`
+  // (a sliced-away tombstone resurrects the title on the next merge). Split
+  // the two groups, sort only the live items when a comparator is provided,
+  // cap the live group, then re-append surviving tombstones.
+  const tombstones = [];
+  const live = [];
+  for (const item of pruned) {
+    if (item?.deletedAt !== undefined) tombstones.push(item);
+    else live.push(item);
+  }
+
+  if (typeof sortBy === "function") {
+    live.sort((a, b) => sortBy(a, b) || timestampOf(b) - timestampOf(a));
+  }
+
+  const capped = typeof limit === "number" && live.length > limit ? live.slice(0, limit) : live;
+  return [...capped, ...tombstones];
 }

@@ -205,10 +205,16 @@ export function rankSearchResults(results, query) {
   const q = query.toLowerCase().trim();
 
   return results
-    .map((m) => ({
-      ...m,
-      _relevance: getSearchRelevance(m, query),
-    }))
+    .map((m) => {
+      const relevance = getSearchRelevance(m, query);
+      return {
+        ...m,
+        _relevance: relevance,
+        // Details pages read movie.matchScore for the "N% match" callout —
+        // surface the (0-100) relevance as that field on every ranked result.
+        matchScore: Math.max(0, Math.min(100, Math.round(relevance))),
+      };
+    })
     .sort((a, b) => {
       // Primary: relevance score
       if (b._relevance !== a._relevance) return b._relevance - a._relevance;

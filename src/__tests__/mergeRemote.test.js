@@ -48,6 +48,39 @@ describe("mergeListsById (timestamp-aware union)", () => {
     expect(merged).toHaveLength(2);
   });
 
+  it("sorts live entries with sortBy but never lets the cap slice a tombstone", () => {
+    const merged = mergeListsById(
+      [
+        { id: "gone", name: "Removed", deletedAt: 200, updatedAt: 200 },
+        { id: "old", name: "Oldest", updatedAt: 100 },
+        { id: "mid", name: "Middle", updatedAt: 300 },
+        { id: "top", name: "Newest", updatedAt: 500 },
+      ],
+      [],
+      { limit: 2, sortBy: (a, b) => b.updatedAt - a.updatedAt },
+    );
+    // Live entries sort newest-first and cap at 2; the tombstone rides along
+    // so a later merge can't resurrect the removed id from a stale copy.
+    expect(merged.map((m) => m.id)).toEqual(["top", "mid", "gone"]);
+  });
+
+  it("keeps a tombstone even when the live cap fills first", () => {
+    const merged = mergeListsById([], [
+      { id: "c1", name: "Newest", updatedAt: 500 },
+      { id: "c2", name: "Old", updatedAt: 100 },
+      { id: "gone", name: "Removed", deletedAt: 300, updatedAt: 300 },
+    ], { limit: 1 });
+    expect(merged.map((m) => m.id)).toEqual(["c1", "gone"]);
+  });
+
+  it("does not sort when sortBy is omitted (insertion order preserved)", () => {
+    const merged = mergeListsById(local, [
+      { id: "movie-3", title: "Remote Only", updatedAt: 100 },
+      { id: "movie-4", title: "Remote Two", updatedAt: 200 },
+    ]);
+    expect(merged.map((m) => m.id)).toEqual(["movie-1", "movie-2", "movie-3", "movie-4"]);
+  });
+
   it("ignores null/missing ids", () => {
     const merged = mergeListsById(local, [null, {}, { id: "movie-3", title: "OK", updatedAt: 1 }]);
     expect(merged).toHaveLength(3);

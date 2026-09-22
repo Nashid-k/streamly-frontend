@@ -38,6 +38,74 @@ function deriveSecondary(hex) {
   return `#${[d(r), d(g), d(b)].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
 }
 
+/* Allowed theme ids come from src/constants/settings.js THEMES plus the
+   "custom" seed-driven mode. Anything else is a corrupt/garbage input —
+   fall back to the default theme instead of poisoning the dataset. */
+const ALLOWED_THEMES = new Set([
+  "default",
+  "emerald",
+  "amethyst",
+  "ocean",
+  "crimson",
+  "solar",
+  "custom",
+]);
+
+const ACCENT_HEX_RE = /^#?[0-9a-f]{6}$/i;
+const SERVER_LABEL_RE = /^Server [1-8]$/;
+
+/* Per-key numeric ranges (clamped out-of-throw values instead of storing
+   nonsense like seekTime: -40 or subtitleSize: 9e15). */
+const NUMERIC_RANGES = {
+  seekTime: [1, 120],
+  subtitleSize: [20, 300],
+};
+
+function sanitizePreference(key, value) {
+  const fallback = DEFAULT_PREFERENCES[key];
+  if (key === "accentSeed") {
+    // Nullable string — a valid hex seed enables the custom accent, anything
+    // else (including null) disables it. Never store a garbage string.
+    if (value === null || value === undefined || value === "") return null;
+    if (typeof value !== "string" || !ACCENT_HEX_RE.test(value.trim())) return null;
+    const clean = value.trim();
+    return clean.startsWith("#") ? clean : `#${clean}`;
+  }
+  if (typeof fallback === "boolean") return Boolean(value);
+  if (typeof fallback === "number") {
+    const n = typeof value === "number" && Number.isFinite(value) ? value : fallback;
+    const [min, max] = NUMERIC_RANGES[key] || [fallback, fallback];
+    return Math.min(max, Math.max(min, n));
+  }
+  if (typeof fallback === "string") {
+    if (key === "theme") {
+      return typeof value === "string" && ALLOWED_THEMES.has(value) ? value : fallback;
+    }
+    if (key === "subtitleColor") {
+      if (typeof value !== "string" || !ACCENT_HEX_RE.test(value.trim())) return fallback;
+      const clean = value.trim();
+      return clean.startsWith("#") ? clean : `#${clean}`;
+    }
+    return typeof value === "string" ? value : fallback;
+  }
+  if (Array.isArray(fallback)) {
+    if (key === "serverOrder") {
+      if (!Array.isArray(value)) return fallback;
+      const seen = new Set();
+      const cleaned = [];
+      for (const name of value) {
+        if (typeof name !== "string" || !SERVER_LABEL_RE.test(name)) continue;
+        if (seen.has(name)) continue;
+        seen.add(name);
+        cleaned.push(name);
+      }
+      return cleaned.length > 0 ? cleaned : fallback;
+    }
+    return Array.isArray(value) ? value : fallback;
+  }
+  return value === undefined || value === null ? fallback : value;
+}
+
 function parseValue(raw, fallback) {
   if (raw === null || raw === undefined) return fallback;
   try {
@@ -112,9 +180,11 @@ export function PreferencesProvider({ children }) {
 
   const setPreference = useCallback((key, value) => {
     if (!Object.hasOwn(DEFAULT_PREFERENCES, key)) return;
-    const fallback = DEFAULT_PREFERENCES[key];
-    const nextValue =
-      typeof fallback === "boolean" ? Boolean(value) : value;
+    // Sanitize against the key's contract: type checks, allowed theme ids,
+    // numeric clamps, valid hex accents, and deduped Server 1–8 order names.
+    // A garbage value no longer reaches state/localStorage (a corrupt value
+    // used to ride alongside and could surface as NaN% / broken selects).
+    const nextValue = sanitizePreference(key, value);
     setPreferences((current) =>
       current[key] === nextValue ? current : { ...current, [key]: nextValue },
     );

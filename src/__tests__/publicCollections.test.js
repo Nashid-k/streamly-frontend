@@ -11,6 +11,7 @@ const userDataCol = {
     lastQuery.current = query;
     return userDataCol;
   },
+  sort: () => userDataCol,
   limit: () => userDataCol,
   toArray: () => {
     const docs = db.instance || [];

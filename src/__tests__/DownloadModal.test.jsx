@@ -92,11 +92,11 @@ describe("DownloadModal", () => {
   it("tries the next server when one has no downloadable source", async () => {
     downloadService.resolveDownload
       .mockRejectedValueOnce(new Error("no source"))
-      .mockResolvedValueOnce({ source: { url: "m" }, variants: VARIANTS });
+      .mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
     renderModal();
 
     await screen.findAllByText("1080p");
-    expect(downloadService.resolveDownload).toHaveBeenCalledTimes(2);
+    expect(downloadService.resolveDownload).toHaveBeenCalledTimes(3);
   });
 
   it("shows an honest error when no server can be downloaded", async () => {

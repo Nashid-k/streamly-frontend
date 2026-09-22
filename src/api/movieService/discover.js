@@ -223,29 +223,42 @@ export const getDiscoverByGenre = async ({ movies = [], tv = [] } = {}) => {
   }
 
   try {
-    const grouped = await Promise.all(
+    // allSettled, not all: a single failed type (TMDB hiccup on one media
+    // type) must not blank out the entire curated rail.
+    const settled = await Promise.allSettled(
       jobs.map(async ([mt, genreIds]) => {
-        try {
-          const data = await tmdb(`/discover/${mt}`, {
-            with_genres: genreIds.join(','),
-            sort_by: 'popularity.desc',
-            vote_count_gte: 30,
-            include_adult: 'false',
-            include_video: 'false',
-          });
-          const out = (data.results || []).map(r =>
-            normalizeResult({ ...r, media_type: mt }),
-          );
-          if (out.length === 0) {
-            logEmptyData('movieService', `getDiscoverByGenre: no ${mt} titles for genres ${genreIds.join(',')}.`, { mt, genreIds });
-          }
-          return out;
-        } catch (error) {
-          logServiceError(`getDiscoverByGenre[${mt}]`, error, { genreIds });
-          throw error;
+        const data = await tmdb(`/discover/${mt}`, {
+          with_genres: genreIds.join(','),
+          sort_by: 'popularity.desc',
+          vote_count_gte: 30,
+          include_adult: 'false',
+          include_video: 'false',
+        });
+        const out = (data.results || []).map(r =>
+          normalizeResult({ ...r, media_type: mt }),
+        );
+        if (out.length === 0) {
+          logEmptyData('movieService', `getDiscoverByGenre: no ${mt} titles for genres ${genreIds.join(',')}.`, { mt, genreIds });
         }
+        return out;
       }),
     );
+
+    const grouped = [];
+    let failures = 0;
+    let firstError = null;
+    for (const res of settled) {
+      if (res.status === 'fulfilled') {
+        grouped.push(res.value);
+      } else {
+        failures += 1;
+        if (!firstError) firstError = res.reason;
+        logServiceError('getDiscoverByGenre', res.reason, { movies, tv });
+      }
+    }
+    // Every type failed → surface the error (callers show their error state)
+    // instead of silently returning an empty rail.
+    if (grouped.length === 0 && failures > 0) throw firstError;
 
     const out = [];
     const max = grouped.reduce((m, g) => Math.max(m, g.length), 0);

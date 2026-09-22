@@ -125,10 +125,13 @@ VITE_SITE_URL=https://your-project.vercel.app
    tokens; deletes propagate via 30-day tombstones. Deleted collections are
    hidden locally immediately and purged from storage on later merges.
 7. **Offline downloads:** TitleDetailsPage → `DownloadModal` →
-   `downloadService` → Vercel `api/downloadify.js` (`resolve` → `manifest` →
-   `segment`). The resolver only follows an allowlisted set of embed hosts
-   (SSRF-guarded), and files are saved to the device via the File System
-   Access API (Blob `<a download>` fallback).
+   `downloadService` → Vercel `api/downloadify.js` (`resolve` / VidSrc
+   `resolvevidsrc` → `manifest` → single-URL Range-chunked `segment`, ≤3.5MB
+   chunks with an `x-streamly-more` header — the old 6-URL batch POSTs 413'd
+   on Vercel's 4.5MB cap). Where a CDN allows CORS the browser downloads
+   segments directly, falling back to the proxy. Resolver is embed-host
+   allowlisted + SSRF-guarded (DNS-resolved, redirect hops re-validated), and
+   files save via the File System Access API (Blob `<a download>` fallback).
 
 ---
 
@@ -140,7 +143,8 @@ api/
 │                           (CORS, OPTIONS, server-side key injection)
 ├── auth.js              ← Google sign-in (ID-token verify via local JWKS)
 ├── sync.js              ← cloud sync (HMAC-signed, MongoDB, merge policy)
-├── downloadify.js       ← offline-download resolver + segment proxy (allowlist)
+├── downloadify.js       ← offline-download resolver (embed hosts + VidSrc,
+│                           single-URL Range-chunked segment proxy, SSRF guard)
 ├── publicCollections.js ← publish / read public collections
 ├── groq.js              ← optional AI helper endpoint
 └── lib/                 ← db.js, googleVerify.js, syncToken.js (HMAC)
@@ -270,10 +274,12 @@ src/
 - Quick View modal (`detailViewType: "modal"`) with Play Now / Full Details
 
 ### `DownloadModal`
-- Offline downloader (TitleDetailsPage): server pick, quality ladder with
-  HDR badges + estimated sizes, TV season/episode batch, progress + cancel
-- Streams via `api/downloadify.js` resolve → manifest → segment and saves
-  through the File System Access API (Blob `<a download>` fallback)
+- Offline downloader (TitleDetailsPage): source pick (player rotation + a
+  "VidSrc (Alt)" third-party provider), quality ladder with HDR badges +
+  estimated sizes, TV season/episode batch, progress + cancel
+- Streams via `api/downloadify.js` resolve/resolvevidsrc → manifest → segment
+  (single-URL Range chunks, direct-CORS when the CDN allows) and saves through
+  the File System Access API (Blob `<a download>` fallback)
 
 ### `RailArrow`
 - Canonical ghost scroll arrow for every rail/hero/back button; always visible

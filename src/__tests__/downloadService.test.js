@@ -90,9 +90,9 @@ describe("downloadService.saveStream", () => {
     });
 
     expect(result.method).toBe("fs");
-    expect(result.bytes).toBe(6);
+    expect(result.bytes).toBe(12);
     expect(result.filename).toBe("Fight Club (1999) [1080p].mp4");
-    expect(writable.write).toHaveBeenCalledTimes(1);
+    expect(writable.write).toHaveBeenCalledTimes(2);
     expect(writable.close).toHaveBeenCalledTimes(1);
   });
 

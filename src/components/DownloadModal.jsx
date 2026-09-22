@@ -100,6 +100,17 @@ async function copyText(text) {
 
 const RESOLVE_CONCURRENCY = 3;
 
+/* VidSrc Alt — an extra, third-party source the modal scans in addition to
+   the player rotation. Resolved through /api/downloadify (action
+   "resolvevidsrc"); gives titles a secondary provider whose HLS ladder is
+   readable server-side. The `vidsrc://` scheme is a download-modal-only
+   marker — it is never handed to an iframe. */
+const VIDSRC_SOURCE = {
+  name: "VidSrc (Alt)",
+  url: (id, s, e, _imdb) =>
+    s ? `vidsrc://tv/${id}?s=${s}&e=${e}` : `vidsrc://movie/${id}`,
+};
+
 export default function DownloadModal({
   movie,
   servers = [],
@@ -117,6 +128,9 @@ export default function DownloadModal({
 
   const isTv = Boolean(isTvContent);
   const numericId = useMemo(() => getNumericId(movie?.id), [movie?.id]);
+  // The modal scans the player rotation PLUS the VidSrc alternative. Using a
+  // single list means server indices (row.serverIndex) resolve in one place.
+  const allSources = useMemo(() => [...servers, VIDSRC_SOURCE], [servers]);
   const [imdbId, setImdbId] = useState(
     movie?.imdbId || movie?.imdb_id || movie?.external_ids?.imdb_id || null,
   );
@@ -205,9 +219,9 @@ export default function DownloadModal({
         setResolveState({ status: "error", error: "This title has no streamable ID.", done: 0, total: 0, failed: 0 });
         return;
       }
-      setResolveState({ status: "resolving", error: null, done: 0, total: servers.length, failed: 0 });
+      setResolveState({ status: "resolving", error: null, done: 0, total: allSources.length, failed: 0 });
       const targetEpisode = isTv ? initialEpisode : null;
-      const queue = servers.map((_, index) => index);
+      const queue = allSources.map((_, index) => index);
       let done = 0;
       let failed = 0;
       let resolved = 0;
@@ -216,7 +230,7 @@ export default function DownloadModal({
         while (queue.length > 0) {
           if (signal?.aborted) return;
           const index = queue.shift();
-          const embedUrl = buildEmbedUrl(servers[index], selectedSeason, targetEpisode);
+          const embedUrl = buildEmbedUrl(allSources[index], selectedSeason, targetEpisode);
           try {
             const { source, variants } = await downloadService.resolveDownload(embedUrl, { signal });
             if (signal?.aborted) return;
@@ -224,25 +238,25 @@ export default function DownloadModal({
             const nextRows = variants.map((variant) => ({
               key: `${index}:${variant.uri}`,
               serverIndex: index,
-              serverName: servers[index]?.name || `Server ${index + 1}`,
+              serverName: allSources[index]?.name || `Server ${index + 1}`,
               variant,
               label: variantLabel(variant),
               group: resolutionLabel(variant.width, variant.height),
               source,
             }));
             setRows((prev) => [...prev, ...nextRows]);
-            logDebug("download", `Server "${servers[index]?.name}" offers ${variants.length} quality variant(s).`, {
+            logDebug("download", `Source "${allSources[index]?.name}" offers ${variants.length} quality variant(s).`, {
               qualities: variants.map((v) => v.label),
             });
           } catch (error) {
             if (error?.name === "AbortError") return;
             failed += 1;
-            logWarn("download", `Server "${servers[index]?.name}" has no downloadable stream.`, {
+            logWarn("download", `Source "${allSources[index]?.name}" has no downloadable stream.`, {
               message: error?.message,
               code: error?.code,
             });
             if (error instanceof DownloadUnavailableError && error.code === "offline") {
-              setResolveState({ status: "error", error: error.message, done, total: servers.length, failed });
+              setResolveState({ status: "error", error: error.message, done, total: allSources.length, failed });
               return;
             }
           } finally {
@@ -255,7 +269,7 @@ export default function DownloadModal({
       };
 
       await Promise.all(
-        Array.from({ length: Math.min(RESOLVE_CONCURRENCY, servers.length) }, worker),
+        Array.from({ length: Math.min(RESOLVE_CONCURRENCY, allSources.length) }, worker),
       );
       if (signal?.aborted) return;
       setResolveState((prev) => {
@@ -265,14 +279,14 @@ export default function DownloadModal({
             status: "error",
             error: "None of the servers offered a downloadable file for this title.",
             done,
-            total: servers.length,
+            total: allSources.length,
             failed,
           };
         }
-        return { status: "ready", error: null, done, total: servers.length, failed };
+        return { status: "ready", error: null, done, total: allSources.length, failed };
       });
     },
-    [servers, buildEmbedUrl, numericId, isTv, selectedSeason, initialEpisode],
+    [allSources, buildEmbedUrl, numericId, isTv, selectedSeason, initialEpisode],
   );
 
   /* Resolve on open (and when the season changes). */
@@ -361,18 +375,15 @@ export default function DownloadModal({
     try {
       const streamData = await playerRef.current.getStreamUrl();
       if (streamData && streamData.url) {
-        // Copy to clipboard
         await navigator.clipboard.writeText(streamData.url);
         toast({
-          title: "Stream URL extracted",
-          message: `Extracted ${streamData.type} stream URL from playing video and copied to clipboard.`,
+          title: "Player source copied",
+          message:
+            "Embed hosts don't expose their inner stream URLs — the copied link opens the host's player, which you can use with its own share/save tools.",
           type: "success",
-          duration: 4000,
+          duration: 4500,
         });
-        logInfo("download", `Extracted stream from player: ${streamData.type}`, { url: streamData.url });
-        
-        // Also open in new tab
-        window.open(streamData.url, "_blank", "noopener,noreferrer");
+        logInfo("download", "Extracted embed source from player.", { url: streamData.url });
       } else {
         toast({
           title: "Extraction failed",
@@ -441,7 +452,7 @@ export default function DownloadModal({
 
   const handleDownload = async (row) => {
     if (!row || downloadState.status === "downloading") return;
-    const server = servers[row.serverIndex];
+    const server = allSources[row.serverIndex];
     const targets = isTv ? [...selectedEpisodes].sort((a, b) => a - b) : [null];
     if (targets.length === 0) return;
 

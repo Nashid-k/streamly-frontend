@@ -30,6 +30,23 @@ function cors(res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 }
 
+// Every browser POST/GET carries an Origin header; its absence marks a scripted
+// client (curl, bots), not the SPA. Reject those outright instead of letting
+// the "no origin" case skate through the same-origin gate.
+function isAllowedOrigin(req) {
+  const origin = req.headers?.origin || "";
+  if (!origin) return false;
+  const host = req.headers?.host || "";
+  if (!host) return false;
+  try {
+    return new URL(origin).host === host;
+  } catch {
+    return false;
+  }
+}
+
+const MAX_BODY_BYTES = 1024 * 1024; // 1 MB — LLM prompts that big are abuse, not chat.
+
 export default withLog(async function handler(req, res) {
   cors(res);
   if (req.method === "OPTIONS") {
@@ -39,18 +56,15 @@ export default withLog(async function handler(req, res) {
 
   // Rate limit + same-origin gate. An unauthenticated LLM proxy at a public
   // URL is a free quota drain for anyone who discovers it.
-  const origin = req.headers?.origin || "";
-  const host = req.headers?.host || "";
-  if (origin && host) {
-    try {
-      if (new URL(origin).host !== host) {
-        res.status(403).json({ status_message: "Cross-origin use is not allowed.", status_code: 403 });
-        return;
-      }
-    } catch {
-      res.status(403).json({ status_message: "Bad origin.", status_code: 403 });
-      return;
-    }
+  if (!isAllowedOrigin(req)) {
+    res.status(403).json({ status_message: "Cross-origin use is not allowed.", status_code: 403 });
+    return;
+  }
+  // Global budget first (guards every warm instance), then per-IP.
+  const global = rateLimit({ key: "groq:global", limit: 240, windowMs: 60_000 });
+  if (!global.ok) {
+    tooManyRequests(res, global.retryAfterSec);
+    return;
   }
   const limit = rateLimit({ key: () => `groq:${clientIp(req)}`, limit: 20, windowMs: 60_000 });
   if (!limit.ok) {
@@ -78,8 +92,18 @@ export default withLog(async function handler(req, res) {
       }
     }
     let body = {};
-    try { body = req.body ?? (req.rawBody ? JSON.parse(req.rawBody) : {}); } catch { body = {}; }
+    let bodySize = 0;
+    try {
+      body = req.body ?? (req.rawBody ? JSON.parse(req.rawBody) : {});
+      bodySize = typeof body === "object" && body !== null ? Buffer.byteLength(JSON.stringify(body)) : 0;
+    } catch {
+      body = {};
+    }
     if (pathname === "chat") {
+      if (bodySize > MAX_BODY_BYTES) {
+        res.status(413).json({ status_message: "Request body too large.", status_code: 413 });
+        return;
+      }
       const r = await fetch(`${GROQ_BASE}/chat/completions`, {
         method: "POST",
         headers: { ...auth, "Content-Type": "application/json" },

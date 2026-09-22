@@ -3,23 +3,41 @@
 // The web app has no backend and no direct media URLs: every server is a
 // third-party iframe. To let viewers download a title "like a browser
 // download" we resolve the embed host's HLS playlist here (server-side, so
-// CORS/bot-walls don't apply) and proxy the media segments back. The browser
+// CORS/bot-walls don't apply) and proxy the media bytes back. The browser
 // then saves the assembled bytes to disk with the File System Access API
 // (incremental write) or a Blob download fallback.
 //
 // Actions (POST JSON):
-//   resolve  { embedUrl }                     -> { variants: [...] }  (HLS master ladder)
-//   manifest { playlistUrl }                  -> { kind, initUrl, segments, duration }
-//   segment  { urls: [...] }                  -> concatenated bytes (application/octet-stream)
+//   resolve       { embedUrl }                          -> { source, variants }
+//   resolvevidsrc { type, id, season?, episode? }       -> { source, variants }
+//   manifest      { playlistUrl, refUrl }               -> { kind, initUrl, segments, duration }
+//   segment       { url, refUrl?, range: {start,max} }  -> bytes (octet-stream)
 //
-// Notes:
+// Byte transport notes (the reason this is different from the old version):
+//   · Vercel caps a function's request/response body at 4.5MB. The previous
+//     `segment` took a batch of 6 URLs and concatenated them — one 1080p
+//     movie blew that cap instantly (413 FUNCTION_PAYLOAD_TOO_LARGE) and
+//     nothing ever downloaded. Segments are now fetched ONE URL AT A TIME in
+//     bounded Range chunks (≤ ~3.5MB each); the client loops until the
+//     server's `x-streamly-more` header says the file ended.
+//   · CDN segments that are served with open CORS can be pulled straight from
+//     the browser (zero serverless bandwidth); those that aren't go through
+//     this range relay.
+//
+// Security:
 //   · resolve accepts only allow-listed embed hosts (SSRF guard).
-//   · manifest/segment block private/metadata IPs but otherwise follow the
-//     playlist's own CDN hosts.
+//   · EVERY upstream request — redirects included — is DNS-resolved and every
+//     resolved address must be public (this closes the decimal/hex-IP literal
+//     bypass like "http://2130706433/" that a string-based hostname blocklist
+//     never sees).
+//   · Response size caps bound bandwidth (a runaway "playlist" can't pull the
+//     whole internet through us).
 //   · Nothing is persisted; the function is a stateless pipe.
 //   · Quality/HDR labels reflect what the host actually serves — we never
 //     upscale or transcode, and DRM-protected renditions cannot be saved.
 
+import { lookup } from "node:dns/promises";
+import net from "node:net";
 import {
   parseMasterPlaylist,
   parseMediaPlaylist,
@@ -47,6 +65,11 @@ const ALLOWED_EMBED_HOSTS = new Set([
   "embed.smashystream.com",
   "smashystream.com",
 ]);
+
+// Vercel hard-caps function response bodies at 4.5MB; keep well under with
+// headroom for headers/JSON overhead.
+const RANGE_CHUNK_BYTES = 3.5 * 1024 * 1024;
+const MAX_TEXT_BYTES = 1.5 * 1024 * 1024;
 
 const USER_AGENTS = [
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
@@ -79,75 +102,225 @@ function isBlockedHost(hostname) {
   return false;
 }
 
+function ipv4ToInt(ip) {
+  const parts = ip.split(".").map(Number);
+  return ((parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3]) >>> 0;
+}
+
+function isPrivateIpV4(ip) {
+  const n = ipv4ToInt(ip);
+  // 0/8, 10/8, 127/8, 169.254/16, 172.16/12, 192.168/16, 100.64/10, 198.18/15,
+  // 224/4 multicast + higher reserved, 255.255.255.255.
+  if (n === 0xffffffff) return true;
+  if ((n >>> 24) === 0) return true;
+  if ((n >>> 24) === 127) return true;
+  if ((n >>> 24) === 10) return true;
+  if ((n >>> 16) === 0xa9fe) return true;
+  if ((n >>> 20) === 0xac1) return true;
+  if ((n >>> 16) === 0xc0a8) return true;
+  if ((n >>> 22) === 0x644) return true;
+  if ((n >>> 16) >= 0xc612 && (n >>> 16) <= 0xc633) return true;
+  if ((n >>> 28) >= 0xe) return true;
+  return false;
+}
+
+function isPrivateIpV6(ip) {
+  const lower = String(ip).toLowerCase();
+  if (lower === "::" || lower === "::1") return true;
+  if (/^f[cd][0-9a-f]{2}/.test(lower)) return true; // fc00::/7 ULA
+  if (/^fe8/.test(lower)) return true; // fe80::/10 link-local
+  const v4 = lower.split(":").pop();
+  if (v4 && v4.includes(".")) return isPrivateIpV4(v4);
+  return false;
+}
+
+function isPrivateIp(ip) {
+  const v = net.isIP(ip);
+  if (v === 4) return isPrivateIpV4(ip);
+  if (v === 6) return isPrivateIpV6(ip);
+  return true; // unparseable hostname masquerading as IP -> block
+}
+
+/* SSRF hardening — DNS-resolving destination check. The string blocklist above
+   catches "169.254.169.254" and friends, but NOT literal encodings:
+   "http://2130706433/" (127.0.0.1) or "http://0177.0.0.1/" — getaddrinfo may
+   interpret them as loopback and a name-based check never sees the IP. We
+   therefore resolve the hostname (all addresses) and require every address to
+   be a public IP. Called for the FIRST hop AND every redirect target. */
+async function assertPublicDestination(urlStr) {
+  const u = new URL(urlStr);
+  if (u.protocol !== "https:" && u.protocol !== "http:") throw new Error("blocked protocol");
+  const hostname = u.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  if (!hostname) throw new Error("blocked host");
+  if (isBlockedHost(hostname)) throw new Error(`blocked host: ${hostname}`);
+
+  if (net.isIP(hostname)) {
+    if (isPrivateIp(hostname)) throw new Error(`blocked host: ${hostname}`);
+    return u.toString();
+  }
+
+  let records;
+  try {
+    records = await lookup(hostname, { all: true });
+  } catch {
+    throw new Error(`blocked host: ${hostname}`);
+  }
+  if (!records || records.length === 0) throw new Error(`blocked host: ${hostname}`);
+  for (const record of records) {
+    if (isPrivateIp(record.address)) throw new Error(`blocked host: ${hostname}`);
+  }
+  return u.toString();
+}
+
 /* SSRF hardening: the old fetch used redirect:"follow", so any allow-listed
    host could 302 the function into fetching 169.254.169.254 / internal IPs —
    the hostname blocklist never saw the redirect target. We now follow hops
    MANUALLY and re-validate every destination against the private-IP rules. */
 const MAX_REDIRECTS = 5;
 
-async function fetchNoRedirect(url, opts) {
+function fetchNoRedirect(url, opts) {
   return fetch(url, { ...opts, redirect: "manual" });
 }
 
-function assertSafeDestination(urlStr) {
-  const u = new URL(urlStr);
-  if (u.protocol !== "https:" && u.protocol !== "http:") throw new Error("blocked protocol");
-  if (isBlockedHost(u.hostname)) throw new Error(`blocked host: ${u.hostname}`);
-  return u.toString();
+function baseHeaders() {
+  return {
+    "user-agent": getRandomUA(),
+    accept: "*/*",
+    "accept-language": "en-US,en;q=0.9",
+    "sec-ch-ua": '"Chromium";v="124", "Google Chrome";v="124", "Not:A=Brand";v="99"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Windows"',
+    "sec-fetch-dest": "document",
+    "sec-fetch-mode": "navigate",
+    "sec-fetch-site": "same-origin",
+    "sec-fetch-user": "?1",
+  };
 }
 
-async function fetchUpstream(url, { as = "text", timeoutMs = 12000, referer, retryCount = 0, redirectCount = 0 } = {}) {
+async function followRedirects(url, headers, signal, as) {
+  let current = url;
+  let upstream = await fetchNoRedirect(current, { headers, signal });
+  for (let hop = 0; hop < MAX_REDIRECTS && upstream.status >= 300 && upstream.status < 400; hop += 1) {
+    const location = upstream.headers.get("location");
+    if (!location) throw new Error("Redirect without location");
+    current = await assertPublicDestination(new URL(location, current).toString());
+    upstream = await fetchNoRedirect(current, { headers, signal });
+  }
+  if (!upstream.ok) {
+    const err = new Error(`Upstream ${upstream.status}`);
+    err.status = upstream.status;
+    throw err;
+  }
+  if (as === "buffer") {
+    const buf = Buffer.from(await upstream.arrayBuffer());
+    if (buf.length > RANGE_CHUNK_BYTES) throw new Error("upstream response too large");
+    return buf;
+  }
+  const text = await upstream.text();
+  if (text.length > MAX_TEXT_BYTES) throw new Error("upstream response too large");
+  return text;
+}
+
+async function fetchUpstream(url, { as = "text", timeoutMs = 12000, referer, retryCount = 0 } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const headers = {
-      "user-agent": getRandomUA(),
-      accept: as === "text" ? "*/*" : "*/*",
-      "accept-language": "en-US,en;q=0.9",
-      "sec-ch-ua": '"Chromium";v="124", "Google Chrome";v="124", "Not:A=Brand";v="99"',
-      "sec-ch-ua-mobile": "?0",
-      "sec-ch-ua-platform": '"Windows"',
-      "sec-fetch-dest": "document",
-      "sec-fetch-mode": "navigate",
-      "sec-fetch-site": "same-origin",
-      "sec-fetch-user": "?1",
-    };
+    const safeUrl = await assertPublicDestination(url);
+    const headers = baseHeaders();
     if (referer) {
       headers.referer = referer;
       headers["referrer-policy"] = "strict-origin-when-cross-origin";
     }
 
-    const upstream = await fetchNoRedirect(url, { headers, signal: controller.signal });
-
-    // Re-validate every redirect target — this closes the SSRF redirect gap.
-    if (upstream.status >= 300 && upstream.status < 400) {
-      clearTimeout(timer);
-      const location = upstream.headers.get("location");
-      if (!location) throw new Error("Redirect without location");
-      if (redirectCount >= MAX_REDIRECTS) throw new Error("Too many redirects");
-      const nextUrl = assertSafeDestination(new URL(location, url).toString());
-      return fetchUpstream(nextUrl, { as, timeoutMs, referer, retryCount, redirectCount: redirectCount + 1 });
-    }
-
-    if (!upstream.ok) {
-      // Retry with different user agent on 403/429
-      if ((upstream.status === 403 || upstream.status === 429) && retryCount < 3) {
-        clearTimeout(timer);
-        console.log(`[downloadify] Retry ${retryCount + 1}/3 for ${url} with status ${upstream.status}`);
-        return fetchUpstream(url, { as, timeoutMs, referer, retryCount: retryCount + 1, redirectCount });
+    try {
+      return await followRedirects(safeUrl, headers, controller.signal, as);
+    } catch (error) {
+      // Retry with a different user agent on transient 403/429 responses.
+      if (as !== "buffer" && error?.status && (error.status === 403 || error.status === 429) && retryCount < 3) {
+        return fetchUpstream(url, { as, timeoutMs, referer, retryCount: retryCount + 1 });
       }
-      const err = new Error(`Upstream ${upstream.status}`);
-      err.status = upstream.status;
-      throw err;
+      throw error;
     }
-    if (as === "buffer") {
-      const ab = await upstream.arrayBuffer();
-      return Buffer.from(ab);
-    }
-    return await upstream.text();
   } finally {
     clearTimeout(timer);
   }
+}
+
+/* Range-chunked segment fetch. The upstream is asked for `bytes=start-(start+max-1)`
+   and the response is capped at `max`; `more` tells the caller whether more
+   bytes follow (derived from content-range when the server sends one, else the
+   "exactly full chunk" heuristic — the client breaks on a subsequent empty
+   chunk, so any one-off guess resolves safely). */
+async function fetchRangeChunk(url, { start = 0, max = RANGE_CHUNK_BYTES, referer } = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 25000);
+  try {
+    const safeUrl = await assertPublicDestination(url);
+    const headers = baseHeaders();
+    headers.range = `bytes=${start}-${start + max - 1}`;
+    if (referer) {
+      headers.referer = referer;
+      headers.origin = new URL(referer).origin;
+    }
+
+    let current = safeUrl;
+    let upstream = await fetchNoRedirect(current, { headers, signal: controller.signal });
+    for (let hop = 0; hop < MAX_REDIRECTS && upstream.status >= 300 && upstream.status < 400; hop += 1) {
+      const location = upstream.headers.get("location");
+      if (!location) throw new Error("Redirect without location");
+      current = await assertPublicDestination(new URL(location, current).toString());
+      upstream = await fetchNoRedirect(current, { headers, signal: controller.signal });
+    }
+
+    // At a file boundary a range past the end comes back 416 — that's the
+    // "more=false" signal, not an error (the chunk at an exact multiple of
+    // the chunk size legitimately over-requests once).
+    if (upstream.status === 416) {
+      const totalMatch = /bytes\s+\*\/(\d+)/i.exec(upstream.headers.get("content-range") || "");
+      const total = totalMatch ? Number(totalMatch[1]) : NaN;
+      if (Number.isFinite(total) && start >= total) {
+        return { bytes: Buffer.alloc(0), more: false };
+      }
+      throw new Error("Upstream 416");
+    }
+    if (!upstream.ok) throw new Error(`Upstream ${upstream.status}`);
+
+    // Some CDNs answer 200 and ignore Range entirely. If the whole file fits
+    // in the slice we can still serve it; otherwise we cannot seek, so a clear
+    // error beats a silently-corrupted or looped download.
+    if (upstream.status !== 206 && start > 0) throw new Error("Upstream ignores range requests");
+    let contentLength = Number(upstream.headers.get("content-length") || 0) || 0;
+
+    let buffer = Buffer.from(await upstream.arrayBuffer());
+    let truncated = false;
+    if (buffer.length > max) {
+      buffer = buffer.subarray(0, max);
+      truncated = true;
+    }
+    if (upstream.status !== 206 && contentLength > max && buffer.length === max) {
+      throw new Error("Upstream ignores range requests");
+    }
+    contentLength = Math.max(contentLength, buffer.length);
+
+    const contentRange = upstream.headers.get("content-range") || "";
+    const more = truncated || moreFromContentRange(contentRange, start, max, buffer.length, contentLength);
+    return { bytes: buffer, more };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function moreFromContentRange(contentRange, start, max, got, contentLength) {
+  const m = /bytes\s+\d+-\d+\/(\d+)/i.exec(contentRange);
+  if (m) {
+    const total = Number(m[1]);
+    if (Number.isFinite(total) && total > 0) return start + got < total;
+  }
+  // No content-range (or a non-seekable 200 body): a full-cap chunk plus a
+  // known content-length means the file outlived this slice; otherwise we got
+  // everything the file (or this range response) had to give.
+  if (contentLength > got) return true;
+  return got === max;
 }
 
 // Pull playlist URLs out of embed HTML/JS, including JSON- and URL-escaped
@@ -194,8 +367,7 @@ async function resolveFromEmbed(embedUrl, depth = 0) {
   if (depth < 2) {
     for (const src of extractIframeSrcs(html, embedUrl)) {
       try {
-        const parsed = new URL(src);
-        const nested = await resolveFromEmbed(parsed.toString(), depth + 1);
+        const nested = await resolveFromEmbed(src, depth + 1);
         if (nested.playlists.length > 0 || nested.files.length > 0) return nested;
       } catch {
         // dead iframe — try the next one
@@ -287,12 +459,140 @@ async function handleResolve(body, res) {
   });
 }
 
+/* ── VidSrc third-party provider ────────────────────────────────────────
+   VidSrc exposes a REAL, parseable HLS ladder (its embed page carries a JSON
+   `var Q = {...}` with a signed token; /pl/api.php turns that into concrete
+   servers → play URLs → master playlists). Unlike the token-gated SPA embeds
+   this resolves reliably, so it's offered as an alternative download source.
+   Media segments ride VidSrc's session-bound relay (403 outside the player),
+   so byte-saves may 403 — the Copy/Open actions still hand the playlist URL
+   to the user's own tools. That's honest: the source is real and useful, and
+   the UI says which actions each row supports. */
+
+function extractVarObject(html, varName) {
+  const re = new RegExp(`(?:var|const)\\s+${varName}\\s*=\\s*\\{`, "i");
+  const idx = String(html || "").search(re);
+  if (idx < 0) return null;
+  const open = String(html).indexOf("{", idx);
+  if (open < 0) return null;
+  let depth = 0;
+  for (let i = open; i < html.length; i += 1) {
+    const ch = html[i];
+    if (ch === "{") depth += 1;
+    else if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) return html.slice(open, i + 1);
+    }
+  }
+  return null;
+}
+
+function sanitizeJsonish(raw) {
+  return String(raw || "").replace(/,\s*([}\]])/g, "$1").replace(/:\s*undefined(?=[,}\]])/g, ":null");
+}
+
+async function handleResolveVidsrc(body, res) {
+  const type = body.type === "tv" ? "tv" : "movie";
+  const tmdbId = String(body.id || "").trim();
+  if (!/^\d{1,12}$/.test(tmdbId)) {
+    json(res, 400, { ok: false, error: "Invalid TMDB id", code: "bad-id" });
+    return;
+  }
+  const season = String(body.season ?? "").trim();
+  const episode = String(body.episode ?? "").trim();
+
+  const embedUrl =
+    `https://vidsrc.buzz/embed/${type}/${tmdbId}` +
+    (type === "tv" && season
+      ? `?autoPlay=true&s=${encodeURIComponent(season)}&e=${encodeURIComponent(episode)}`
+      : "?autoPlay=true");
+
+  let html;
+  try {
+    html = await fetchUpstream(embedUrl, { referer: embedUrl });
+  } catch (error) {
+    json(res, 502, {
+      ok: false,
+      error: `Could not read VidSrc embed: ${error?.message || "unknown"}`,
+      code: "embed-fetch-failed",
+    });
+    return;
+  }
+
+  const rawQ = extractVarObject(html, "Q");
+  let Q = null;
+  if (rawQ) {
+    try {
+      Q = JSON.parse(sanitizeJsonish(rawQ));
+    } catch {
+      Q = null;
+    }
+  }
+  const token = Q?.t;
+  if (!token) {
+    json(res, 200, {
+      ok: false,
+      error: "VidSrc did not expose a playable token for this title",
+      code: "no-source",
+    });
+    return;
+  }
+
+  const apiBase = "https://vidsrc.buzz/pl/api.php";
+  const qType = String(Q.type || type);
+  const qId = String(Q.id || tmdbId);
+  const qS = Q.s ? String(Q.s) : season;
+  const qE = Q.e ? String(Q.e) : episode;
+
+  let servers = [];
+  try {
+    const sourcesUrl =
+      `${apiBase}?a=sources&type=${encodeURIComponent(qType)}&id=${encodeURIComponent(qId)}` +
+      `&s=${encodeURIComponent(qS)}&e=${encodeURIComponent(qE)}&t=${encodeURIComponent(token)}`;
+    const raw = await fetchUpstream(sourcesUrl, { referer: embedUrl });
+    const data = JSON.parse(raw);
+    if (Array.isArray(data?.servers)) servers = data.servers;
+  } catch {
+    json(res, 200, { ok: false, error: "VidSrc source list unavailable", code: "no-source" });
+    return;
+  }
+
+  // Try the first few servers; a server that 502s on `play` skips to the next.
+  for (const server of servers.slice(0, 6)) {
+    if (!server?.ref) continue;
+    try {
+      const playUrl =
+        `${apiBase}?a=play&ref=${encodeURIComponent(server.ref)}&t=${encodeURIComponent(token)}`;
+      const playRaw = await fetchUpstream(playUrl, { referer: embedUrl });
+      const play = JSON.parse(playRaw);
+      if (!play?.url) continue;
+      // play.url is relative ("/_stream?id=...") unless absolute — resolve.
+      const masterUrl = resolveUrl("https://vidsrc.buzz/", play.url);
+      const masterText = await fetchUpstream(masterUrl, { referer: embedUrl });
+      const variants = parseMasterPlaylist(masterText, masterUrl);
+      if (variants.length > 0) {
+        json(res, 200, {
+          ok: true,
+          source: { kind: "hls", url: masterUrl, refUrl: embedUrl },
+          variants,
+          serverName: server.name || null,
+        });
+        return;
+      }
+    } catch {
+      // next server
+    }
+  }
+
+  json(res, 200, { ok: false, error: "No downloadable stream found via VidSrc", code: "no-source" });
+}
+
 async function handleManifest(body, res) {
   const playlistUrl = String(body.playlistUrl || "").trim();
   try {
     const u = new URL(playlistUrl);
     if (u.protocol !== "https:" && u.protocol !== "http:") throw new Error("bad protocol");
-    if (isBlockedHost(u.hostname)) throw new Error("blocked host");
+    await assertPublicDestination(u.toString());
   } catch {
     json(res, 400, { ok: false, error: "Invalid playlist URL", code: "bad-url" });
     return;
@@ -319,30 +619,30 @@ async function handleManifest(body, res) {
 }
 
 async function handleSegment(body, res) {
-  const urls = Array.isArray(body.urls) ? body.urls.slice(0, 12) : [];
-  if (urls.length === 0) {
-    json(res, 400, { ok: false, error: "No segment URLs", code: "bad-request" });
+  const url = String(body.url || "").trim();
+  if (!url) {
+    json(res, 400, { ok: false, error: "No segment URL", code: "bad-request" });
     return;
   }
-  for (const url of urls) {
-    try {
-      const u = new URL(url);
-      if (isBlockedHost(u.hostname)) throw new Error("blocked host");
-    } catch {
-      json(res, 400, { ok: false, error: "Invalid segment URL", code: "bad-url" });
-      return;
-    }
+  try {
+    await assertPublicDestination(url);
+  } catch {
+    json(res, 400, { ok: false, error: "Invalid segment URL", code: "bad-url" });
+    return;
   }
 
+  const start = Math.max(0, Math.floor(Number(body.range?.start) || 0));
+  const max = Math.min(Math.max(1, Math.floor(Number(body.range?.max) || RANGE_CHUNK_BYTES)), RANGE_CHUNK_BYTES);
+  const referer = body.refUrl ? String(body.refUrl) : undefined;
+
   try {
-    const referer = body.refUrl ? String(body.refUrl) : undefined;
-    const buffers = await Promise.all(
-      urls.map((url) => fetchUpstream(url, { as: "buffer", referer, timeoutMs: 15000 })),
-    );
-    const out = Buffer.concat(buffers);
-    res.status(200).setHeader("content-type", "application/octet-stream");
+    const { bytes, more } = await fetchRangeChunk(url, { start, max, referer });
+    res.status(200);
+    res.setHeader("content-type", "application/octet-stream");
     res.setHeader("cache-control", "no-store");
-    res.send(out);
+    res.setHeader("content-length", String(bytes.length));
+    res.setHeader("x-streamly-more", more ? "1" : "0");
+    res.send(bytes);
   } catch (error) {
     json(res, 502, {
       ok: false,
@@ -366,8 +666,10 @@ export default async function handler(req, res) {
     return;
   }
 
-  // Segment downloads are bandwidth-heavy — a tighter window than the others.
-  const limit = rateLimit({ key: () => `dl:${clientIp(req)}`, limit: 30, windowMs: 60_000 });
+  // Segment downloads are bandwidth-heavy. The old 30/min window was too tight
+  // for a real movie (hundreds of chunks) — 600/min still caps a runaway loop
+  // while letting a sequential client finish one title.
+  const limit = rateLimit({ key: () => `dl:${clientIp(req)}`, limit: 600, windowMs: 60_000 });
   if (!limit.ok) {
     tooManyRequests(res, limit.retryAfterSec);
     return;
@@ -387,6 +689,9 @@ export default async function handler(req, res) {
     switch (body.action) {
       case "resolve":
         await handleResolve(body, res);
+        return;
+      case "resolvevidsrc":
+        await handleResolveVidsrc(body, res);
         return;
       case "manifest":
         await handleManifest(body, res);

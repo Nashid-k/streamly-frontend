@@ -69,11 +69,16 @@ export default withLog(async function handler(req, res) {
 
     // Only documents that actually contain a public collection are read.
     // This bounds the scan to publishing users instead of the whole database.
+    // _id desc = newest userData documents first, so the 500-doc window fetches
+    // the freshest publishers; the pure helper then newest-firsts by
+    // collection.updatedAt. (Without a Mongo sort the window was arbitrary and
+    // could silently exclude the very newest collections.)
     const rows = await userDataCol
       .find(
         { collections: { $elemMatch: { visibility: 'public' } } },
         { projection: { collections: 1, _id: 0 } },
       )
+      .sort({ _id: -1 })
       .limit(500)
       .toArray();
 

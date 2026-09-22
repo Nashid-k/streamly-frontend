@@ -155,10 +155,14 @@ export function AuthProvider({ children }) {
 
         // Timestamp-aware union merge: replace stale-local by newer-remote.
         // (Legacy local items without updatedAt lose to any new remote data.)
+        // Watchlist removals ride as tombstones too — a delete on another
+        // device must not be resurrected by this device's staler copy.
         if (Array.isArray(watchlist) && watchlist.length > 0) {
           try {
             const localList = JSON.parse(localStorage.getItem("aios_my_list") || "[]");
-            const merged = mergeListsById(localList, watchlist);
+            const merged = mergeListsById(localList, watchlist, {
+              pruneTombstonesMs: TOMBSTONE_TTL_MS,
+            });
 
             if (JSON.stringify(merged) !== JSON.stringify(localList)) {
               localStorage.setItem("aios_my_list", JSON.stringify(merged));
@@ -167,11 +171,17 @@ export function AuthProvider({ children }) {
           } catch {}
         }
 
-        // Merge watch history (capped to 20 like local writes).
+        // Merge watch history (capped to 20 like local writes). Capping is
+        // tombstone-safe and newest-lastWatched-first, so the freshest
+        // episodes survive and delete markers are never sliced away.
         if (Array.isArray(watchHistory) && watchHistory.length > 0) {
           try {
             const localCw = JSON.parse(localStorage.getItem("aios_continue_watching") || "[]");
-            const mergedCw = mergeListsById(localCw, watchHistory, { limit: 20 });
+            const mergedCw = mergeListsById(localCw, watchHistory, {
+              limit: 20,
+              pruneTombstonesMs: TOMBSTONE_TTL_MS,
+              sortBy: (a, b) => Number(b.lastWatched || 0) - Number(a.lastWatched || 0),
+            });
 
             if (JSON.stringify(mergedCw) !== JSON.stringify(localCw)) {
               localStorage.setItem("aios_continue_watching", JSON.stringify(mergedCw));
@@ -286,7 +296,9 @@ export function AuthProvider({ children }) {
       if (Array.isArray(data.userData?.watchlist)) {
         try {
           const localList = JSON.parse(localStorage.getItem("aios_my_list") || "[]");
-          const merged = mergeListsById(localList, data.userData.watchlist);
+          const merged = mergeListsById(localList, data.userData.watchlist, {
+            pruneTombstonesMs: TOMBSTONE_TTL_MS,
+          });
           if (JSON.stringify(merged) !== JSON.stringify(localList)) {
             localStorage.setItem("aios_my_list", JSON.stringify(merged));
             window.dispatchEvent(new Event("aios_sync_mylist"));

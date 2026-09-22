@@ -93,8 +93,10 @@ export const getEditorialRail = async (key) => {
         try {
           return await byType(mt);
         } catch (error) {
+          // A failed type must not blank the whole rail — log and return []
+          // so the other types still render (rows hide themselves when empty).
           logServiceError(`getEditorialRail[${key}][${mt}]`, error, { key });
-          throw error;
+          return [];
         }
       }),
     );
