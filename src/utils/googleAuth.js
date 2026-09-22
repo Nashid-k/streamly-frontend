@@ -1,9 +1,18 @@
 // src/utils/googleAuth.js — Google Identity Services (GIS) Web SDK client helper
 import { logDebug, logWarn } from "./debugLogger";
 
-export const GOOGLE_CLIENT_ID =
-  import.meta.env.VITE_GOOGLE_CLIENT_ID ||
-  "526877931132-kfsptmlhkieshdsej0rii0kpn5lc5q13.apps.googleusercontent.com";
+// No hardcoded fallback (matches the api/auth.js hardening): a client id baked
+// into the repo can never be rotated via env. Set VITE_GOOGLE_CLIENT_ID in the
+// build env — without it the sign-in button reports "unavailable".
+export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+
+if (!GOOGLE_CLIENT_ID && typeof window !== "undefined") {
+  logWarn(
+    "auth",
+    "VITE_GOOGLE_CLIENT_ID is not set — Google Sign-In is unavailable. " +
+      "Set it in .env/Vercel (see .env.example) and redeploy.",
+  );
+}
 
 let gsiScriptPromise = null;
 
