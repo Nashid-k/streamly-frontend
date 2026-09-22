@@ -1,7 +1,7 @@
-const CACHE_NAME = 'streamly-v19.4';
+const CACHE_NAME = 'streamly-v19.5';
 // Separate long-lived image cache — stale-while-revalidate so images load
 // from disk in <10ms on repeat visits, then silently refresh in background.
-const IMAGE_CACHE = 'streamly-images-v19.4';
+const IMAGE_CACHE = 'streamly-images-v19.5';
 
 self.addEventListener('install', (event) => {
   // Pre-cache core shell so navigations always have index.html
@@ -132,8 +132,9 @@ self.addEventListener('fetch', (event) => {
         if (cached) return cached; // offline — serve last-known-good shell
 
         // Never synthesize a 502 response. Return a clean offline fallback page.
+        // (CSP-safe: no inline scripts/handlers at all — Retry is a plain link.)
         return new Response(
-          '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Streamly — Offline</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{background:#0a0a0c;color:#fff;font-family:system-ui,-apple-system,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:24px;text-align:center}h1{font-size:1.75rem;margin:0 0 12px;font-weight:700}p{color:#a1a1aa;margin:0 0 24px;max-width:400px;line-height:1.5}button{background:#95ff50;color:#050505;border:none;padding:12px 28px;border-radius:999px;font-weight:600;font-size:0.95rem;cursor:pointer;transition:transform 0.2s}button:active{transform:scale(0.96)}</style></head><body><h1>Streamly is offline</h1><p>We couldn\'t load this page because your device appears to be offline. Reconnect and try again.</p><button onclick="window.location.reload()">Retry</button></body></html>',
+          '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Streamly — Offline</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{background:#0a0a0c;color:#fff;font-family:system-ui,-apple-system,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:24px;text-align:center}h1{font-size:1.75rem;margin:0 0 12px;font-weight:700}p{color:#a1a1aa;margin:0 0 24px;max-width:400px;line-height:1.5}a{display:inline-block;background:#95ff50;color:#050505;padding:12px 28px;border-radius:999px;font-weight:600;font-size:0.95rem;text-decoration:none;transition:transform 0.2s}a:active{transform:scale(0.96)}</style></head><body><h1>Streamly is offline</h1><p>We couldn\'t load this page because your device appears to be offline. Reconnect and try again.</p><a href="/" >Retry</a></body></html>',
           {
             status: 200,
             headers: { 'Content-Type': 'text/html; charset=utf-8' },

@@ -25,7 +25,8 @@ describe("PlayerPreview", () => {
     expect(video).toHaveAttribute("loop");
     expect(video).toHaveAttribute("playsinline");
     expect(video).toHaveAttribute("autoplay");
-    expect(video.getAttribute("src")).toContain("bigbuckbunny");
+    // Self-hosted CC-licensed demo clip (CSP: no third-party media origins).
+    expect(video.getAttribute("src")).toBe("/demo/player-preview.mp4");
   });
 
   it("renders the fixed Netflix chrome: red progress bar, time row, subtitle", () => {

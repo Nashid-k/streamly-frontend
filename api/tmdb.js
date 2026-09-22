@@ -1,5 +1,6 @@
 // api/tmdb.js — same-origin TMDB proxy (Vercel serverless function).
 import { withLog } from './lib/logger.js';
+import { rateLimit, tooManyRequests, clientIp } from './lib/rateLimit.js';
 //
 // Why this exists: some ISPs (e.g. in India) block api.themoviedb.org outright
 // (DNS/IP level). Browsers calling TMDB directly fail on those networks while
@@ -17,8 +18,10 @@ const TMDB_BASE = 'https://api.themoviedb.org/3';
 
 export default withLog(async function handler(req, res) {
   try {
-    // Enable CORS so any client origin can reach the proxy
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // Same-origin only. CORS '*' turned this proxy into a free TMDB relay for
+    // every third-party site on the internet, draining OUR api key quota.
+    // No Access-Control-Allow-Origin is emitted: same-origin callers (the app
+    // itself) never need CORS, and browsers block every cross-origin read.
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
@@ -29,6 +32,14 @@ export default withLog(async function handler(req, res) {
 
     if (req.method !== 'GET') {
       res.status(405).json({ status_message: 'Method not allowed', status_code: 405 });
+      return;
+    }
+
+    // Per-IP burst guard: 120 catalog lookups/min is far above any real
+    // viewer's browsing rate (rails prefetch + search + details ≈ 20/min).
+    const limit = rateLimit({ key: () => `tmdb:${clientIp(req)}`, limit: 120, windowMs: 60_000 });
+    if (!limit.ok) {
+      tooManyRequests(res, limit.retryAfterSec);
       return;
     }
 
@@ -95,8 +106,14 @@ export default withLog(async function handler(req, res) {
     const body = await upstream.text();
     res.status(upstream.status);
     res.setHeader('content-type', upstream.headers.get('content-type') || 'application/json');
-    // Edge-cache catalog responses briefly to cut repeat upstream hits.
-    res.setHeader('cache-control', 'public, s-maxage=300, stale-while-revalidate=600');
+    // Edge-cache only genuine catalog hits. Caching 401/404/429 bodies at the
+    // edge (the old behavior) served stale errors for 5 minutes after a
+    // transient upstream failure.
+    if (upstream.status === 200) {
+      res.setHeader('cache-control', 'public, s-maxage=300, stale-while-revalidate=600');
+    } else {
+      res.setHeader('cache-control', 'no-store');
+    }
     res.send(body);
   } catch (error) {
     res

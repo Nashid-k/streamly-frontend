@@ -15,14 +15,14 @@ import { usePreferences } from "../context/preferences";
    - title       meta title next to the time row
    ═════════════════════════════════════════════════════════════════════ */
 
-/* Public, CC-licensed Big Buck Bunny clip (test-videos.co.uk, ~1 MB).
-   Chosen over the Google sample bucket, which now answers 403. */
-const DEMO_VIDEO_SRC =
-  "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4";
+/* Public, CC-licensed Big Buck Bunny clip, SELF-HOSTED from /demo/ so the CSP
+   doesn't need third-party media/img origins (the old external URLs were
+   blocked at runtime and the preview silently lost its video/poster). */
+const DEMO_VIDEO_SRC = "/demo/player-preview.mp4";
 
 /* Big Buck Bunny poster — the preview always shows an image (before play and
    whenever the clip can't load / is blocked) behind the player chrome. */
-const BBB_POSTER = "https://peach.blender.org/wp-content/uploads/title_anouncement.jpg";
+const BBB_POSTER = "/demo/player-preview-poster.jpg";
 
 const DemoVideo = () => {
   const videoRef = React.useRef(null);

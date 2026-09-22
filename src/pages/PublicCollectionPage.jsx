@@ -9,9 +9,8 @@ import SEO from "../components/SEO";
 import { useI18n } from "../i18n";
 import { useMyCollections } from "../hooks/useUserData";
 import { useAppAuth } from "../context/auth";
-import { fetchPublicCollection, ExploreError } from "../api/publicCollections";
+import { fetchPublicCollection } from "../api/publicCollections";
 import { movieService } from "../api/movieService";
-import { logDebug, logWarn } from "../utils/debugLogger";
 
 // Hard cap matching the server-side itemIds limit (api/sync.js). A hostile or
 // bloated payload can no longer explode into an unbounded TMDB request storm.

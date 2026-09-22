@@ -7,6 +7,34 @@
 
  ## Done (in order)
 
+- [x] **Production follow-up: CSP cold-start crash + api/auth 500 (user-pasted console log)**:
+  - **api/auth / api/publicCollections / api/sync returned Vercel's plain-text
+    FUNCTION_INVOCATION_FAILED (X-Vercel-Error header) instead of JSON** — root cause:
+    `api/lib/db.js` created `Promise.reject(...)` at MODULE level when MONGODB_URI is
+    unset, an unhandled rejection that kills the whole function instance on Node ≥15
+    the moment any db-importing endpoint cold-starts (tmdb never imported db.js, so it
+    worked — which masked the crash as "auth broke"). db.js now resolves the URI
+    lazily: missing config throws inside `connectToDatabase()` → handlers return a
+    clean JSON 503 the client can surface. Verified: all 6 api modules import cleanly
+    with NO env vars set.
+  - **The tightened CSP blocked the font `<link onload=...>` inline event handler**
+    ("Executing inline event handler violates ... script-src") — replaced with a
+    preload + external `public/fonts.js` loader; also moved the context-menu blocker
+    from an inline index.html script into boot.js, and removed the offline page's
+    inline `onclick=` from public/sw.js (plain Retry link).
+  - **CSP blocked the Settings player-preview demo assets** (external
+    test-videos.co.uk mp4 + peach.blender.org poster) — both downloaded (CC-licensed,
+    ~1.1 MB) into `public/demo/` and PlayerPreview now serves them same-origin;
+    added explicit `media-src 'self' blob:`.
+  - **CSP blocked Google's sign-in stylesheet** — `style-src` now also allows
+    `https://accounts.google.com` (required by the GSI button iframe).
+  - GSI "initialize() called multiple times" + COOP postMessage warnings are
+    pre-existing Google-iframe behavior, not from this batch. The 3 /discover/movie
+    zero-result warnings are the pre-existing regional-discover noise.
+  - SW cache rotated v19.4 → v19.5, boot version v19.5 → v19.6. Verified: lint 0
+    errors (10 warnings), vitest 42 files / 418/418, build OK (dist carries boot.js,
+    fonts.js, demo/*).
+
 - [x] **Full flaw-fix batch: public-collections pipeline + server hardening (user order:
   "find flaws → fix everything, verify and push")** — the reported "public collection is
   invisible to others" flaw had a 7-link broken chain, all fixed, plus every other flaw
