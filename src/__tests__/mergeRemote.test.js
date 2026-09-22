@@ -53,3 +53,49 @@ describe("mergeListsById (timestamp-aware union)", () => {
     expect(merged).toHaveLength(3);
   });
 });
+
+describe("mergeListsById (deletion tombstones)", () => {
+  it("lets a remote tombstone beat an older live local copy", () => {
+    const localList = [{ id: "col-1", name: "Old", updatedAt: 100 }];
+    const merged = mergeListsById(localList, [
+      { id: "col-1", name: "Old", deletedAt: 200, updatedAt: 200 },
+    ]);
+    expect(merged.find((c) => c.id === "col-1").deletedAt).toBe(200);
+  });
+
+  it("keeps a newer local live copy over a stale remote tombstone (un-delete case)", () => {
+    const localList = [{ id: "col-1", name: "Revived", updatedAt: 500 }];
+    const merged = mergeListsById(localList, [
+      { id: "col-1", name: "Old", deletedAt: 200, updatedAt: 200 },
+    ]);
+    expect(merged.find((c) => c.id === "col-1").deletedAt).toBeUndefined();
+  });
+
+  it("appends a remote-only tombstone so the id can't be resurrected by staler copies", () => {
+    const merged = mergeListsById([], [
+      { id: "col-2", name: "Gone", deletedAt: 100, updatedAt: 100 },
+    ]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].deletedAt).toBe(100);
+  });
+
+  it("GCs tombstones older than pruneTombstonesMs", () => {
+    const old = Date.now() - 40 * 24 * 60 * 60 * 1000; // 40 days ago
+    const merged = mergeListsById(
+      [{ id: "col-3", name: "Ancient", deletedAt: old, updatedAt: old }],
+      [],
+      { pruneTombstonesMs: 30 * 24 * 60 * 60 * 1000 },
+    );
+    expect(merged).toHaveLength(0);
+  });
+
+  it("keeps tombstones inside the prune window", () => {
+    const recent = Date.now() - 5 * 24 * 60 * 60 * 1000; // 5 days ago
+    const merged = mergeListsById(
+      [{ id: "col-4", name: "Recent", deletedAt: recent, updatedAt: recent }],
+      [],
+      { pruneTombstonesMs: 30 * 24 * 60 * 60 * 1000 },
+    );
+    expect(merged).toHaveLength(1);
+  });
+});

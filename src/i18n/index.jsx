@@ -18,6 +18,14 @@ export const SUPPORTED_LANGUAGES = ["en", "es", "fr", "de", "it", "pt", "ja", "k
 
 export const DICTIONARIES = { en, es, fr, de, it, pt, ja, ko, hi, ar };
 
+/* Merge the additive accountExtra leaf (cloud-data deletion strings) into
+   settings.account for every catalog — other languages fall back to English
+   for these new keys via the deep-merge, so only `en` defines them. */
+if (en?.accountExtra && en?.settings) {
+  en.settings.account = { ...en.settings.account, ...en.accountExtra };
+  delete en.accountExtra;
+}
+
 export const LANG_DIR = Object.freeze({ ar: "rtl" });
 
 function getPath(obj, key) {

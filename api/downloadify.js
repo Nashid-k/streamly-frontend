@@ -25,6 +25,7 @@ import {
   parseMediaPlaylist,
   resolveUrl,
 } from "../src/utils/downloadQuality.js";
+import { rateLimit, tooManyRequests, clientIp } from "./lib/rateLimit.js";
 
 export const config = { maxDuration: 60 };
 
@@ -78,7 +79,24 @@ function isBlockedHost(hostname) {
   return false;
 }
 
-async function fetchUpstream(url, { as = "text", timeoutMs = 12000, referer, retryCount = 0 } = {}) {
+/* SSRF hardening: the old fetch used redirect:"follow", so any allow-listed
+   host could 302 the function into fetching 169.254.169.254 / internal IPs —
+   the hostname blocklist never saw the redirect target. We now follow hops
+   MANUALLY and re-validate every destination against the private-IP rules. */
+const MAX_REDIRECTS = 5;
+
+async function fetchNoRedirect(url, opts) {
+  return fetch(url, { ...opts, redirect: "manual" });
+}
+
+function assertSafeDestination(urlStr) {
+  const u = new URL(urlStr);
+  if (u.protocol !== "https:" && u.protocol !== "http:") throw new Error("blocked protocol");
+  if (isBlockedHost(u.hostname)) throw new Error(`blocked host: ${u.hostname}`);
+  return u.toString();
+}
+
+async function fetchUpstream(url, { as = "text", timeoutMs = 12000, referer, retryCount = 0, redirectCount = 0 } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -98,13 +116,25 @@ async function fetchUpstream(url, { as = "text", timeoutMs = 12000, referer, ret
       headers.referer = referer;
       headers["referrer-policy"] = "strict-origin-when-cross-origin";
     }
-    const upstream = await fetch(url, { headers, redirect: "follow", signal: controller.signal });
+
+    const upstream = await fetchNoRedirect(url, { headers, signal: controller.signal });
+
+    // Re-validate every redirect target — this closes the SSRF redirect gap.
+    if (upstream.status >= 300 && upstream.status < 400) {
+      clearTimeout(timer);
+      const location = upstream.headers.get("location");
+      if (!location) throw new Error("Redirect without location");
+      if (redirectCount >= MAX_REDIRECTS) throw new Error("Too many redirects");
+      const nextUrl = assertSafeDestination(new URL(location, url).toString());
+      return fetchUpstream(nextUrl, { as, timeoutMs, referer, retryCount, redirectCount: redirectCount + 1 });
+    }
+
     if (!upstream.ok) {
       // Retry with different user agent on 403/429
       if ((upstream.status === 403 || upstream.status === 429) && retryCount < 3) {
         clearTimeout(timer);
         console.log(`[downloadify] Retry ${retryCount + 1}/3 for ${url} with status ${upstream.status}`);
-        return fetchUpstream(url, { as, timeoutMs, referer, retryCount: retryCount + 1 });
+        return fetchUpstream(url, { as, timeoutMs, referer, retryCount: retryCount + 1, redirectCount });
       }
       const err = new Error(`Upstream ${upstream.status}`);
       err.status = upstream.status;
@@ -333,6 +363,13 @@ export default async function handler(req, res) {
   }
   if (req.method !== "POST") {
     json(res, 405, { ok: false, error: "Method not allowed", code: "method" });
+    return;
+  }
+
+  // Segment downloads are bandwidth-heavy — a tighter window than the others.
+  const limit = rateLimit({ key: () => `dl:${clientIp(req)}`, limit: 30, windowMs: 60_000 });
+  if (!limit.ok) {
+    tooManyRequests(res, limit.retryAfterSec);
     return;
   }
 

@@ -8,7 +8,7 @@ import {
   useEffect,
 } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, X, AlertCircle, Info, Volume2, Settings, Play } from "lucide-react";
+import { Check, X, AlertCircle, AlertTriangle, Info, Volume2, Settings, Play } from "lucide-react";
 import { useOptionalPreferences } from "../context/preferences";
 
 const ToastContext = createContext(null);
@@ -16,6 +16,7 @@ const ToastContext = createContext(null);
 const ICONS = {
   success: <Check size={14} strokeWidth={3} />,
   error: <AlertCircle size={14} />,
+  warning: <AlertTriangle size={14} />,
   info: <Info size={14} />,
   volume: <Volume2 size={14} />,
   settings: <Settings size={14} />,
@@ -36,6 +37,13 @@ const COLORS = {
     icon: "#ef4444",
     iconBg: "rgba(239, 68, 68, 0.12)",
     glow: "rgba(239, 68, 68, 0.15)",
+  },
+  warning: {
+    bg: "rgba(245, 158, 11, 0.08)",
+    border: "rgba(245, 158, 11, 0.25)",
+    icon: "#f59e0b",
+    iconBg: "rgba(245, 158, 11, 0.12)",
+    glow: "rgba(245, 158, 11, 0.15)",
   },
   info: {
     bg: "rgba(255, 255, 255, 0.05)",

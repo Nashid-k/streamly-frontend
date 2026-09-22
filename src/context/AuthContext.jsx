@@ -4,8 +4,12 @@ import { AppContext, SyncStatusContext } from "./auth";
 import { useMyList, useContinueWatching, useSearchHistory, useMyCollections } from "../hooks/useUserData";
 import { mergeListsById } from "../utils/mergeRemote";
 import { logDebug, logError, logWarn } from "../utils/debugLogger";
+import { morphCollections } from "../hooks/collectionMorph";
+import { readPreferencesSnapshot, applyRemotePreferences } from "../utils/preferencesSnapshot";
 
 const SYNC_TOKEN_KEY = "streamly_sync_token";
+// Tombstone GC: same 30-day window as useUserData.
+const TOMBSTONE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 // Per-account HMAC sync token issued by /api/auth for verified Google users.
 // Stored separately from the user profile so logout doesn't wipe it before
@@ -81,7 +85,10 @@ export function AuthProvider({ children }) {
       try {
         currentList = JSON.parse(localStorage.getItem("aios_my_list") || "[]");
         currentCw = JSON.parse(localStorage.getItem("aios_continue_watching") || "[]");
-        currentCollections = JSON.parse(localStorage.getItem("aios_my_collections") || "[]");
+        // Upload the MORPHED shape (visibility/publicId normalized), not the
+        // raw legacy localStorage — unmorphed rows synced as private and the
+        // collection never became public for anyone else.
+        currentCollections = morphCollections(JSON.parse(localStorage.getItem("aios_my_collections") || "[]"));
       } catch {}
 
       const payload = customPayload || {
@@ -89,6 +96,8 @@ export function AuthProvider({ children }) {
         watchlist: currentList,
         watchHistory: currentCw,
         collections: currentCollections,
+        // Settings sync both ways now — the pull path applies them below.
+        preferences: readPreferencesSnapshot(),
       };
 
       const res = await fetch("/api/sync", {
@@ -142,7 +151,7 @@ export function AuthProvider({ children }) {
         const data = await res.json();
         if (!isMounted || !data?.userData) return;
 
-        const { watchlist = [], watchHistory = [], collections = [] } = data.userData;
+        const { watchlist = [], watchHistory = [], collections = [], preferences = {} } = data.userData;
 
         // Timestamp-aware union merge: replace stale-local by newer-remote.
         // (Legacy local items without updatedAt lose to any new remote data.)
@@ -171,17 +180,26 @@ export function AuthProvider({ children }) {
           } catch {}
         }
 
-        // Merge user collections (named folders) with the same set-union.
-        if (Array.isArray(collections) && collections.length > 0) {
+        // Merge user collections (named folders) — tombstone-aware so a
+        // delete on any device propagates; tombstones GC after 30 days.
+        if (Array.isArray(collections)) {
           try {
-            const localCols = JSON.parse(localStorage.getItem("aios_my_collections") || "[]");
-            const mergedCols = mergeListsById(localCols, collections);
+            const localCols = morphCollections(JSON.parse(localStorage.getItem("aios_my_collections") || "[]"));
+            const mergedCols = mergeListsById(localCols, morphCollections(collections), {
+              pruneTombstonesMs: TOMBSTONE_TTL_MS,
+            });
 
             if (JSON.stringify(mergedCols) !== JSON.stringify(localCols)) {
               localStorage.setItem("aios_my_collections", JSON.stringify(mergedCols));
               window.dispatchEvent(new Event("aios_sync_collections"));
             }
           } catch {}
+        }
+
+        // Apply cloud preferences for keys the device has not set locally —
+        // local choices always win, this only fills in never-touched keys.
+        if (preferences && typeof preferences === "object") {
+          applyRemotePreferences(preferences);
         }
 
         setSyncStatus("synced");
@@ -211,6 +229,30 @@ export function AuthProvider({ children }) {
       if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
     };
   }, [myListData.myList, cwData.continueWatching, collectionsData.collections, syncToCloud, user]);
+
+  // ─── Cloud data deletion (Settings → Account) ────────────────────────────
+  const deleteCloudData = useCallback(async () => {
+    const currentUser = user || safeUserParse();
+    const token = readSyncToken();
+    if (!currentUser?.googleId || !token) {
+      logWarn("auth", "Cloud delete skipped — no verified account/token.");
+      return { success: false, message: "No verified account to delete." };
+    }
+    try {
+      const res = await fetch("/api/sync", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(`Cloud delete failed: ${res.status}`);
+      setSyncStatus("idle");
+      setLastSyncedAt(null);
+      logDebug("auth", "Cloud data deleted.");
+      return { success: true };
+    } catch (err) {
+      logError("auth", "Cloud data deletion failed.", err);
+      return { success: false, message: err?.message || "Deletion failed." };
+    }
+  }, [user]);
 
   // ─── Google OAuth Login ───────────────────────────────────────────────────
   const loginWithGoogle = useCallback(async (credential) => {
@@ -252,11 +294,13 @@ export function AuthProvider({ children }) {
         } catch {}
       }
 
-      // Merge returned cloud collections immediately.
+      // Merge returned cloud collections immediately (tombstone-aware).
       if (Array.isArray(data.userData?.collections)) {
         try {
-          const localCols = JSON.parse(localStorage.getItem("aios_my_collections") || "[]");
-          const mergedCols = mergeListsById(localCols, data.userData.collections);
+          const localCols = morphCollections(JSON.parse(localStorage.getItem("aios_my_collections") || "[]"));
+          const mergedCols = mergeListsById(localCols, morphCollections(data.userData.collections), {
+            pruneTombstonesMs: TOMBSTONE_TTL_MS,
+          });
           if (JSON.stringify(mergedCols) !== JSON.stringify(localCols)) {
             localStorage.setItem("aios_my_collections", JSON.stringify(mergedCols));
             window.dispatchEvent(new Event("aios_sync_collections"));
@@ -340,12 +384,13 @@ export function AuthProvider({ children }) {
       loginWithGoogle,
       loginAsGuest,
       logout,
+      deleteCloudData,
       ...myListData,
       ...cwData,
       ...shData,
       ...collectionsData,
     }),
-    [user, syncToCloud, loginWithGoogle, loginAsGuest, logout, myListData, cwData, shData, collectionsData]
+    [user, syncToCloud, loginWithGoogle, loginAsGuest, logout, deleteCloudData, myListData, cwData, shData, collectionsData]
   );
 
   return (

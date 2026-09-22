@@ -68,14 +68,28 @@ Cloud sync: **guests are local-only** — `loginAsGuest` never calls `/api/auth`
 or `/api/sync` (the old default email `viewer@streamly.io` collapsed every
 anonymous visitor into one shared Mongo document). Only verified Google
 accounts (`googleId`) sync, and `/api/sync` additionally requires
-`Authorization: Bearer <syncToken>` (HMAC over SYNC_SECRET/GOOGLE_CLIENT_SECRET);
-without a configured secret the endpoint refuses with 503. Payloads are capped
-(watchlist ≤ 500, history ≤ 500, collections ≤ 100, ≤ 512 KB body) and
-emails are no longer accepted as an identity. Cloud pulls merge with
+`Authorization: Bearer <syncToken>` (HMAC over SYNC_SECRET/GOOGLE_CLIENT_SECRET,
+30-day expiry enforced at verification — `/api/auth` re-issues on every
+sign-in); without a configured secret the endpoint refuses with 503. Payloads
+are capped AND sanitized server-side (watchlist ≤ 500, history ≤ 500,
+collections ≤ 100 with ≤ 300 itemIds each and whitelisted string/number
+fields only, preferences JSON-primitive map, ≤ 512 KB body); emails are no
+longer accepted as an identity. `DELETE /api/sync` wipes the caller's cloud
+document (Settings → Account → Delete cloud data). Cloud pulls merge with
 **timestamp-aware set union** (`src/utils/mergeRemote.js`, `mergeListsById`):
 remote-only ids are appended; conflicting ids keep whichever side has the
 higher `updatedAt` (legacy items with no stamp lose to newer remote data);
 continue-watching is capped to 20; user collections merge the same way.
+**Deletions propagate via tombstones**: a deleted collection is kept as
+`{ deletedAt }` for 30 days (hidden from the UI immediately) so stale copies
+on other devices can't resurrect it, then GC'd on merge. Uploaded collections
+are always the morphed v2 shape (`visibility`/`publicId` normalized,
+`src/hooks/collectionMorph.js`). Cloud preferences sync both ways: the upload
+carries every locally-set `setting-*` value; pulls apply remote values ONLY
+for keys the device has never touched (`src/utils/preferencesSnapshot.js`).
+All endpoints are rate-limited per IP (`api/lib/rateLimit.js`, fixed window:
+auth 20/min, sync 60/min, public collections 60/min, tmdb 120/min, groq
+20/min, downloadify 30/min).
 
 Auth trust path (`api/auth.js` + `api/lib/googleVerify.js`): the Google ID
 token is verified **locally** with `node:crypto` against Google's public JWKS
@@ -85,12 +99,19 @@ is POST-only (credential in `credential`); the old unauthenticated GET profile
 lookup and the backend guest upsert were removed.
 
 Anonymous public collections: `/api/publicCollections` is a **read-only,
-no-auth** endpoint (GET list → `{ name, publicId, itemCount }[]`, capped 100;
-GET `?publicId=X` → `{ name, publicId, itemIds }` or `collection: null`) that
-flattens the PUBLIC subsets of every synced `userData` document. Frozen
-contract: it never emits a googleId, email, or username — the Explore surface
-is anonymous by design (`api/lib/publicCollections.js` pure helpers:
-PUBLIC + stable `publicId` only, deduped, newest-updated first).
+no-auth** endpoint (GET list → `{ name, publicId, itemCount }[]`, capped 250;
+GET `?publicId=X` → `{ name, publicId, itemIds }` (≤ 300 items) or
+`collection: null`) that flattens the PUBLIC subsets of every synced
+`userData` document — queried with a `collections.visibility: 'public'`
+`$elemMatch` filter (plus a best-effort index) instead of scanning the whole
+collection, and tombstoned (deleted) collections are skipped so un-publishing
+propagates. Frozen contract: it never emits a googleId, email, or username —
+the Explore surface is anonymous by design (`api/lib/publicCollections.js`
+pure helpers: PUBLIC + stable `publicId` only, deduped, newest-updated
+first). Client-side the Explore page shows a real error + retry state when
+the backend fails (`ExploreError`) instead of a lying empty list, and the
+shared-collection page resolves items through the React Query cache with
+capped concurrency (≤ 300 items, 6 parallel).
 
 External services: `api.themoviedb.org/3` (catalog, 10s timeout in
 `tmdbClient.js`), `image.tmdb.org` (artwork, `cdnImageAdapter` sizes

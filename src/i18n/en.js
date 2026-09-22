@@ -368,6 +368,11 @@ export const en = {
     visibilityHintPrivate: "Only you can see this collection",
     copyPublicLink: "Copy public link",
     publicLinkCopied: "Public link copied",
+    /* Honest publishing feedback: guests never reach the cloud, so "public"
+       cannot mean "anyone" for them. The old silent lie made this bug look
+       like the sync pipeline was broken. */
+    guestPublishWarning: "Signed-out visitors can't publish to Explore — your collection stays on this device. Sign in with Google to share it with everyone.",
+    publishSuccess: "Published! It now appears on the Explore Collections page.",
     bestCollectionsTitle: "Best Collections",
     bestCollectionsHint: "Your most-loved lists, surfaced without any username",
     exploreCollections: "Explore collections",
@@ -377,5 +382,21 @@ export const en = {
     subtitle: "Public lists from across the app — no username needed to view",
     empty: "No public collections yet. Open any list, make it Public, and it appears here.",
     itemCount: "{count, plural, one {# title} other {# titles}}",
+    errorTitle: "Couldn't load public collections",
+    errorMessage: "The collections service may be unavailable or not configured on this deployment. Your own lists below still work.",
+    retry: "Try again",
+    someItemsUnavailable: "Some titles in this collection are no longer available and were skipped.",
+  },
+  accountExtra: {
+    /* Settings → Account cloud-data deletion, kept in a leaf section so this
+       diff stays additive; merged into settings.account by index.jsx. */
+    deleteCloudData: "Delete cloud data",
+    deleteCloudDataDesc: "Permanently removes your synced watchlist, history, collections and preferences from the server. Local data on this device is kept.",
+    deleteCloudDataLabel: "Delete",
+    deleteCloudDataConfirmTitle: "Delete cloud data?",
+    deleteCloudDataConfirmMessage: "Your watchlist, history, collections and settings will be removed from our servers. This cannot be undone. Data on this device is not affected.",
+    deleteCloudDataConfirmLabel: "Delete cloud data",
+    deleteCloudDataOk: "Cloud data deleted",
+    deleteCloudDataFailed: "Cloud data deletion failed — try again later.",
   },
 };

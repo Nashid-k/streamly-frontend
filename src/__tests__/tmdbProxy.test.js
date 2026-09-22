@@ -50,7 +50,9 @@ describe("api/tmdb proxy", () => {
     );
     expect(res.statusCode).toBe(200);
     expect(res.body).toBe('{"results":[]}');
-    expect(res.headers["access-control-allow-origin"]).toBe("*");
+    // Same-origin contract: no CORS header at all, so third-party sites can't
+    // relay their TMDB traffic (and quota) through this proxy.
+    expect(res.headers["access-control-allow-origin"]).toBeUndefined();
   });
 
   it("handles string path from vercel.json rewrite (?path=trending/movie/week)", async () => {
@@ -99,7 +101,7 @@ describe("api/tmdb proxy", () => {
     const res = mockRes();
     await handler({ method: "OPTIONS" }, res);
     expect(res.statusCode).toBe(204);
-    expect(res.headers["access-control-allow-origin"]).toBe("*");
+    expect(res.headers["access-control-allow-origin"]).toBeUndefined();
   });
 
   it("rejects non-GET and path traversal", async () => {

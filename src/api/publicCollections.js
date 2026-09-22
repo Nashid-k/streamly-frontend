@@ -3,10 +3,23 @@
 // Reads the same-origin /api/publicCollections endpoint that flattens PUBLIC
 // collections from every user's cloud library. The surface is anonymous by
 // contract: responses contain only name/publicId/itemCount (+ itemIds for a
-// single lookup) and never an owner identity. Fails soft — an unavailable
-// backend degrades to an empty listing, never a crash.
+// single lookup).
+//
+// Errors are THROWN as ExploreError, not swallowed into `[]`: the old
+// fails-soft behavior made a broken/misconfigured backend indistinguishable
+// from "nobody has published anything", which is exactly how the
+// "my public collection is invisible to others" bug hid for weeks.
 
 import { logDebug, logWarn } from '../utils/debugLogger';
+
+/** Distinguishes backend failures from "empty result" for the Explore UI. */
+export class ExploreError extends Error {
+  constructor(message, { status } = {}) {
+    super(message);
+    this.name = 'ExploreError';
+    this.status = status;
+  }
+}
 
 function apiBase() {
   if (typeof window !== 'undefined' && window.location?.origin) {
@@ -16,16 +29,16 @@ function apiBase() {
 }
 
 // List every public collection across users: [{ name, publicId, itemCount }].
-// Returns [] with a warn log when the endpoint is unreachable/unconfigured so
-// the Explore page can degrade to the viewer's own local public collections.
+// Throws ExploreError on backend failure (network, 4xx/5xx) so the Explore
+// page can show a real error + retry instead of a lying empty state.
 export async function fetchPublicCollections({ signal } = {}) {
   try {
     const res = await fetch(`${apiBase()}/api/publicCollections`, { signal });
     if (!res.ok) {
-      logWarn('publicCollections', `Listing public collections answered ${res.status} — treat as empty.`, {
+      logWarn('publicCollections', `Listing public collections answered ${res.status}.`, {
         status: res.status,
       });
-      return [];
+      throw new ExploreError(`Public collections endpoint answered ${res.status}.`, { status: res.status });
     }
     const data = await res.json();
     const list = Array.isArray(data?.collections) ? data.collections : [];
@@ -33,34 +46,38 @@ export async function fetchPublicCollections({ signal } = {}) {
     return list;
   } catch (error) {
     if (error?.name === 'AbortError') throw error;
-    logWarn('publicCollections', 'Public collections endpoint unreachable — falling back to empty listing.', {
+    if (error instanceof ExploreError) throw error;
+    logWarn('publicCollections', 'Public collections endpoint unreachable.', {
       message: error?.message,
     });
-    return [];
+    throw new ExploreError(error?.message || 'Network error', {});
   }
 }
 
 // Fetch one public collection by its opaque publicId: { name, publicId, itemIds }.
-// Returns null (warn-logged) when missing/unreachable.
+// Returns null for a genuinely missing collection; throws ExploreError when
+// the backend itself fails (so a shared link can distinguish "gone" from
+// "broken" and offer a retry).
 export async function fetchPublicCollection(publicId, { signal } = {}) {
   if (!publicId) return null;
   try {
     const res = await fetch(`${apiBase()}/api/publicCollections?publicId=${encodeURIComponent(publicId)}`, { signal });
     if (!res.ok) {
-      logWarn('publicCollections', `Looking up public collection answered ${res.status} — treat as missing.`, {
+      logWarn('publicCollections', `Looking up public collection answered ${res.status}.`, {
         publicId,
         status: res.status,
       });
-      return null;
+      throw new ExploreError(`Public collection lookup answered ${res.status}.`, { status: res.status });
     }
     const data = await res.json();
     return data?.collection || null;
   } catch (error) {
     if (error?.name === 'AbortError') throw error;
+    if (error instanceof ExploreError) throw error;
     logWarn('publicCollections', `Public collection lookup unreachable for ${publicId}.`, {
       publicId,
       message: error?.message,
     });
-    return null;
+    throw new ExploreError(error?.message || 'Network error', { publicId });
   }
 }

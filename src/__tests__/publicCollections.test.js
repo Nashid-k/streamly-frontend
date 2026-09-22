@@ -1,11 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import handler from "../../api/publicCollections.js";
 import { extractPublicCollections, findPublicCollection } from "../../api/lib/publicCollections.js";
-import { fetchPublicCollections, fetchPublicCollection } from "../api/publicCollections";
+import { fetchPublicCollections, fetchPublicCollection, ExploreError } from "../api/publicCollections";
 
 const db = { instance: null };
+const createdIndexes = [];
+const lastQuery = { current: null };
 const userDataCol = {
-  find: () => userDataCol,
+  find: (query) => {
+    lastQuery.current = query;
+    return userDataCol;
+  },
+  limit: () => userDataCol,
   toArray: () => {
     const docs = db.instance || [];
     const projected = [];
@@ -15,6 +21,10 @@ const userDataCol = {
       projected.push(out);
     }
     return Promise.resolve(projected);
+  },
+  createIndex: (spec) => {
+    createdIndexes.push(spec);
+    return Promise.resolve("idx");
   },
 };
 
@@ -112,6 +122,17 @@ describe("api/lib/publicCollections helpers", () => {
     expect(result).toHaveLength(0);
   });
 
+  it("skips tombstoned (deleted) collections so un-publishing propagates", () => {
+    const result = extractPublicCollections([
+      { googleId: "g", collections: [
+        { id: "a", name: "Gone", visibility: "public", publicId: "pub-gone", itemIds: ["movie-1"], updatedAt: 10, deletedAt: 20 },
+        { id: "b", name: "Alive", visibility: "public", publicId: "pub-alive", itemIds: ["movie-2"], updatedAt: 5 },
+      ]},
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0].publicId).toBe("pub-alive");
+  });
+
   it("looks up a public collection by publicId with itemIds", () => {
     const result = findPublicCollection([OTHER, SECOND], "pub-aaa");
     expect(result).toEqual({
@@ -122,11 +143,17 @@ describe("api/lib/publicCollections helpers", () => {
     });
   });
 
-  it("returns null for missing / private / invalid publicId", () => {
+  it("returns null for missing / private / invalid / tombstoned publicId", () => {
     expect(findPublicCollection([OTHER, SECOND], "nope")).toBeNull();
     // col-2 is private; its publicId field is absent but try the private id anyway.
     expect(findPublicCollection([OTHER, SECOND], "col-2")).toBeNull();
     expect(findPublicCollection([OTHER, SECOND], "")).toBeNull();
+    expect(
+      findPublicCollection(
+        [{ googleId: "g", collections: [{ id: "a", name: "Gone", visibility: "public", publicId: "pub-g", itemIds: [], updatedAt: 1, deletedAt: 2 }] }],
+        "pub-g",
+      ),
+    ).toBeNull();
   });
 });
 
@@ -194,6 +221,21 @@ describe("api/publicCollections endpoint", () => {
     await handler({ method: "OPTIONS" }, res);
     expect(res.statusCode).toBe(204);
   });
+
+  it("queries only docs containing a public collection (elemMatch filter)", async () => {
+    const res = mockRes();
+    await handler({ method: "GET", query: {} }, res);
+    expect(lastQuery.current).toEqual({ collections: { $elemMatch: { visibility: "public" } } });
+    expect(createdIndexes.length).toBeGreaterThan(0);
+  });
+
+  it("rejects malformed publicId query values", async () => {
+    const res = mockRes();
+    await handler({ method: "GET", query: { publicId: "../evil" } }, res);
+    const body = JSON.parse(res.body);
+    expect(res.statusCode).toBe(200);
+    expect(body.collection).toBeNull();
+  });
 });
 
 describe("client api/publicCollections fetch helpers", () => {
@@ -220,12 +262,18 @@ describe("client api/publicCollections fetch helpers", () => {
     expect(fetch.mock.calls[0][1]).toEqual({});
   });
 
-  it("fails soft to an empty list on a non-200 endpoint", async () => {
+  it("throws ExploreError (not silent empty) on a non-200 endpoint", async () => {
     const fetch = vi.fn().mockResolvedValue(jsonResponse({ success: false }, { status: 503 }));
     vi.stubGlobal("fetch", fetch);
 
-    const list = await fetchPublicCollections();
-    expect(list).toEqual([]);
+    await expect(fetchPublicCollections()).rejects.toBeInstanceOf(ExploreError);
+  });
+
+  it("throws ExploreError on network failure", async () => {
+    const fetch = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(fetchPublicCollections()).rejects.toBeInstanceOf(ExploreError);
   });
 
   it("returns null for a missing public collection", async () => {

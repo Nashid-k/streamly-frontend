@@ -1,5 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { logError, logWarn } from '../utils/debugLogger';
+import { mergeListsById } from '../utils/mergeRemote';
+import { makePublicId, morphCollections } from './collectionMorph';
+
+// Tombstone GC window: a deleted collection is kept (as a tombstone) for 30
+// days so every synced device sees the delete, then dropped on merge.
+const TOMBSTONE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 function safeJsonParse(str, fallback = []) {
   try { return JSON.parse(str) ?? fallback; } catch (error) {
@@ -40,7 +46,7 @@ export function useMyList() {
   const [myList, setMyList] = useState(() => readStorage('aios_my_list'));
 
   useEffect(() => {
-    const sync = () => setMyList(readStorage('aios_my_list'));
+    const sync = () => setMyList((current) => mergeStoredList(current, readStorage('aios_my_list')));
     window.addEventListener('aios_sync_mylist', sync);
     window.addEventListener('storage', sync);
     return () => { window.removeEventListener('aios_sync_mylist', sync); window.removeEventListener('storage', sync); };
@@ -89,27 +95,31 @@ function makeCollectionId() {
   return `col-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function makePublicId() {
-  return `pub-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+// morphCollections + makePublicId live in ./collectionMorph (shared with the
+// cloud-sync layer so uploads always carry the normalized v2 shape).
+
+/* Merge freshly-read storage into the current state using the same
+   timestamp-aware rules as the cloud merge, so a second tab's writes are no
+   longer clobbered (the old `setX(readStorage(key))` was blind last-write-
+   wins on the WHOLE array and silently dropped the other tab's updates). */
+function mergeStoredCollections(current, incoming) {
+  const merged = mergeListsById(current, morphCollections(incoming), {
+    pruneTombstonesMs: TOMBSTONE_TTL_MS,
+  });
+  return JSON.stringify(merged) === JSON.stringify(current) ? current : merged;
 }
 
-/* Storage v2 morph (frozen contract - recorded in task.md): additive-only.
-   Everything old still reads; only collections that are public gain a
-   stable publicId so any PUBLIC list can be opened by ANYONE via /collections/:publicId. */
-function morphCollections(list) {
-  return (list || []).map((c) => {
-    const col = { ...c };
-    col.visibility = col.visibility === 'public' ? 'public' : 'private';
-    if (col.visibility === 'public' && !col.publicId) col.publicId = makePublicId();
-    return col;
-  });
+function mergeStoredList(current, incoming, { limit } = {}) {
+  const merged = mergeListsById(current, incoming, { limit });
+  return JSON.stringify(merged) === JSON.stringify(current) ? current : merged;
 }
 
 export function useMyCollections() {
   const [collections, setCollections] = useState(() => morphCollections(readStorage(COLLECTIONS_KEY)));
 
   useEffect(() => {
-    const sync = () => setCollections(morphCollections(readStorage(COLLECTIONS_KEY)));
+    const sync = () =>
+      setCollections((current) => mergeStoredCollections(current, readStorage(COLLECTIONS_KEY)));
     window.addEventListener(COLLECTIONS_SYNC, sync);
     window.addEventListener('storage', sync);
     return () => {
@@ -166,8 +176,16 @@ export function useMyCollections() {
     );
   }, [commitCollections]);
 
+  /* Delete keeps a 30-day tombstone so the deletion survives cloud +
+     cross-tab merges (old devices re-uploading a stale copy can no longer
+     resurrect it). The card UI filters tombstones out of view. */
   const deleteCollection = useCallback((id) => {
-    commitCollections(collectionsRef.current.filter((c) => c.id !== id));
+    const target = collectionsRef.current.find((c) => c.id === id);
+    if (!target) return;
+    const next = collectionsRef.current
+      .map((c) => (c.id === id ? { ...c, deletedAt: Date.now(), updatedAt: Date.now() } : c))
+      .filter((c) => c.id !== id || c.visibility === 'public');
+    commitCollections(next);
   }, [commitCollections]);
 
   const addToCollection = useCallback((id, movieIds) => {
@@ -217,15 +235,19 @@ export function useMyCollections() {
     );
   }, [commitCollections]);
 
-  const publicCollections = collections.filter((c) => c.visibility === 'public');
+  // Tombstoned collections stay in storage for merge purposes but never show.
+  const liveCollections = collections.filter((c) => c.deletedAt === undefined);
+  const publicCollections = liveCollections.filter((c) => c.visibility === 'public');
 
   const getPublicCollection = useCallback((publicId) => {
     if (!publicId) return null;
-    return collectionsRef.current.find((c) => c.visibility === 'public' && c.publicId === publicId) || null;
+    return collectionsRef.current.find(
+      (c) => c.deletedAt === undefined && c.visibility === 'public' && c.publicId === publicId,
+    ) || null;
   }, []);
 
   return {
-    collections,
+    collections: liveCollections,
     createCollection,
     createCollectionWithItems,
     renameCollection,
@@ -245,7 +267,12 @@ export function useContinueWatching() {
   );
 
   useEffect(() => {
-    const sync = () => setContinueWatching(readStorage('aios_continue_watching').sort((a,b) => b.lastWatched - a.lastWatched));
+    const sync = () =>
+      setContinueWatching((current) =>
+        mergeStoredList(current, readStorage('aios_continue_watching'), { limit: 20 }).sort(
+          (a, b) => b.lastWatched - a.lastWatched,
+        ),
+      );
     window.addEventListener('aios_sync_cw', sync);
     window.addEventListener('storage', sync);
     return () => { window.removeEventListener('aios_sync_cw', sync); window.removeEventListener('storage', sync); };
@@ -317,6 +344,8 @@ export function useSearchHistory() {
   const [searchHistory, setSearchHistory] = useState(() => readStorage('aios_search_history'));
 
   useEffect(() => {
+    // Search history merge is order-preserving by design (most-recent-first);
+    // a union by id doesn't apply here, so keep last-write-wins for it.
     const sync = () => setSearchHistory(readStorage('aios_search_history'));
     window.addEventListener('aios_sync_sh', sync);
     window.addEventListener('storage', sync);

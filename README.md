@@ -65,13 +65,21 @@ VITE_TMDB_API_KEY=your_tmdb_api_key_here
 VITE_SITE_URL=https://your-project.vercel.app
 ```
 
-> ℹ️ **No backend, no Firebase.** All catalog data comes straight from the
-> TMDB REST API; all personal state (My List, Continue Watching, search
-> history, Settings) lives in `localStorage` on the viewer's device.
+> ℹ️ **Catalog = TMDB; personal state = this device, unless you sign in.**
+> All catalog data comes straight from the TMDB REST API; all personal state
+> (My List, Continue Watching, search history, Settings) lives in
+> `localStorage` on the viewer's device. Signing in with Google additionally
+> syncs that state to the app's MongoDB backend (`api/sync.js`), powers the
+> public-collections Explore page, and enables cloud-data deletion in
+> Settings → Account. **Guests are local-only by design** — they never call
+> the sync backend, so publishing a collection as a guest only affects the
+> current device (the UI says so when you flip the toggle).
 >
 > ⚠️ The API key is never hard-coded in the bundle. Deploys set
 > `VITE_TMDB_API_KEY`; the same-origin `/api/tmdb` proxy injects its own
 > server-side key (`api/tmdb.js`, Vercel env `TMDB_API_KEY`/`VITE_TMDB_API_KEY`).
+> Cloud features require `MONGODB_URI`, `SYNC_SECRET` (or
+> `GOOGLE_CLIENT_SECRET`) and `GOOGLE_CLIENT_ID` in the deployment env.
 
 ---
 
@@ -91,10 +99,14 @@ VITE_SITE_URL=https://your-project.vercel.app
 4. **Playback:** titles play through third-party iframe hosts (CineSrc,
    Vidlink, 2Embed, …) listed in `src/api/videoSourceAdapter.js`. Viewers
    re-order them in Settings → Server Order.
-5. **Personal state:** `localStorage` only — `aios_my_list`,
+5. **Personal state:** `localStorage` first — `aios_my_list`,
    `aios_my_collections` (named folders), `aios_continue_watching`,
    `aios_search_history`, `setting-*` preference
-   keys. Cross-tab sync via `storage` events. No accounts, no database.
+   keys. Cross-tab sync via `storage` events.
+6. **Cloud sync (Google sign-in only):** the same state (plus preferences)
+   syncs through `/api/sync` (MongoDB) behind per-account expiring HMAC
+   tokens; deletes propagate via 30-day tombstones. Deleted collections are
+   hidden locally immediately and purged from storage on later merges.
 
 ---
 

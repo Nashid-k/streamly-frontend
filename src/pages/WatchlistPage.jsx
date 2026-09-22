@@ -170,6 +170,7 @@ export default function WatchlistPage() {
     toggleMyList,
     removeBatchFromMyList,
     collections,
+    user,
     createCollection,
     createCollectionWithItems,
     renameCollection,
@@ -573,9 +574,30 @@ export default function WatchlistPage() {
 onOpen={(c) => setActiveCollectionId(c.id)}
             onRename={(c) => setNameDialog({ mode: "rename", collection: c })}
             onDelete={(c) => confirmDelete(c)}
-            onToggleVisibility={(c) =>
-              setCollectionVisibility(c.id, c.visibility === "public" ? "private" : "public")
-            }
+            onToggleVisibility={(c) => {
+              const nextVisibility = c.visibility === "public" ? "private" : "public";
+              setCollectionVisibility(c.id, nextVisibility);
+              if (nextVisibility === "public") {
+                if (!user?.googleId) {
+                  // Honest UX: guests never reach the cloud, so "public" can
+                  // only ever be shared device-locally. The old hint promised
+                  // "anyone via its public link" — a silent lie for guests.
+                  toast({
+                    title: t("collections.visibilityPublic"),
+                    message: t("collections.guestPublishWarning"),
+                    type: "warning",
+                    duration: 6000,
+                  });
+                } else {
+                  toast({
+                    title: t("collections.visibilityPublic"),
+                    message: t("collections.publishSuccess"),
+                    type: "success",
+                    duration: 4000,
+                  });
+                }
+              }
+            }}
           />
                 ))}
               </div>

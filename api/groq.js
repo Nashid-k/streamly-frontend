@@ -5,6 +5,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { withLog } from "./lib/logger.js";
+import { rateLimit, tooManyRequests, clientIp } from "./lib/rateLimit.js";
 
 const GROQ_BASE = "https://api.groq.com/openai/v1";
 
@@ -35,6 +36,28 @@ export default withLog(async function handler(req, res) {
     res.status(204).end();
     return;
   }
+
+  // Rate limit + same-origin gate. An unauthenticated LLM proxy at a public
+  // URL is a free quota drain for anyone who discovers it.
+  const origin = req.headers?.origin || "";
+  const host = req.headers?.host || "";
+  if (origin && host) {
+    try {
+      if (new URL(origin).host !== host) {
+        res.status(403).json({ status_message: "Cross-origin use is not allowed.", status_code: 403 });
+        return;
+      }
+    } catch {
+      res.status(403).json({ status_message: "Bad origin.", status_code: 403 });
+      return;
+    }
+  }
+  const limit = rateLimit({ key: () => `groq:${clientIp(req)}`, limit: 20, windowMs: 60_000 });
+  if (!limit.ok) {
+    tooManyRequests(res, limit.retryAfterSec);
+    return;
+  }
+
   const key = loadKey();
   if (!key) {
     res.status(503).json({ status_message: "Groq key missing - set GROQ_API_KEY or create api/groq.key.js", status_code: 503 });

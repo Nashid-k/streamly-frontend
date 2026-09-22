@@ -145,8 +145,18 @@ export function PreferencesProvider({ children }) {
         [key]: parseValue(event.newValue, DEFAULT_PREFERENCES[key]),
       }));
     };
+    // Same-tab cloud fill-in: applyRemotePreferences writes setting-* keys for
+    // never-touched settings and fires this, so the UI picks them up without
+    // waiting for a cross-tab storage event.
+    const resyncFromStorage = () => {
+      setPreferences(readPreferences());
+    };
     window.addEventListener("storage", syncFromAnotherTab);
-    return () => window.removeEventListener("storage", syncFromAnotherTab);
+    window.addEventListener("aios_sync_preferences", resyncFromStorage);
+    return () => {
+      window.removeEventListener("storage", syncFromAnotherTab);
+      window.removeEventListener("aios_sync_preferences", resyncFromStorage);
+    };
   }, []);
 
   useEffect(() => {

@@ -3,11 +3,13 @@ import { connectToDatabase } from './lib/db.js';
 import { signSyncToken } from './lib/syncToken.js';
 import { verifyGoogleIdToken } from './lib/googleVerify.js';
 import { withLog } from './lib/logger.js';
+import { rateLimit, tooManyRequests, clientIp } from './lib/rateLimit.js';
 
+// No hardcoded fallback: a client id baked into the repo can never be rotated
+// via env and leaks the OAuth origin pairing. Set GOOGLE_CLIENT_ID (or
+// VITE_GOOGLE_CLIENT_ID) in the deployment env — auth is refused otherwise.
 const GOOGLE_CLIENT_ID =
-  process.env.GOOGLE_CLIENT_ID ||
-  process.env.VITE_GOOGLE_CLIENT_ID ||
-  '526877931132-kfsptmlhkieshdsej0rii0kpn5lc5q13.apps.googleusercontent.com';
+  process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || '';
 
 function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -24,6 +26,20 @@ export default withLog(async function handler(req, res) {
   }
 
   try {
+    if (!GOOGLE_CLIENT_ID) {
+      res
+        .status(503)
+        .json({ success: false, message: 'Auth is not configured: set GOOGLE_CLIENT_ID in the deployment environment.' });
+      return;
+    }
+
+    // Sign-in is cheap but hits Google's JWKS + Mongo — cap hammering.
+    const limit = rateLimit({ key: () => `auth:${clientIp(req)}`, limit: 20, windowMs: 60_000 });
+    if (!limit.ok) {
+      tooManyRequests(res, limit.retryAfterSec);
+      return;
+    }
+
     if (req.method === 'POST') {
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
       const { credential } = body;

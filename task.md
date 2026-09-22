@@ -7,6 +7,62 @@
 
  ## Done (in order)
 
+- [x] **Full flaw-fix batch: public-collections pipeline + server hardening (user order:
+  "find flaws → fix everything, verify and push")** — the reported "public collection is
+  invisible to others" flaw had a 7-link broken chain, all fixed, plus every other flaw
+  found in the audit:
+  - **Public collections actually publish now**: uploads send the MORPHED v2 shape
+    (visibility/publicId normalized — `src/hooks/collectionMorph.js`), not raw legacy
+    localStorage; `/api/publicCollections` filters server-side
+    (`collections.visibility: 'public'` `$elemMatch` + best-effort index) instead of
+    scanning every user doc in memory; list cap raised 100 → 250; tombstoned
+    (deleted) collections are excluded so un-publishing propagates.
+  - **Honest guest UX**: the publish toggle on `/watchlist` now warns guests that their
+    collection stays device-local (new `warning` toast type in Toast.jsx, new i18n keys)
+    instead of silently promising "visible to anyone"; Google users get a success toast.
+  - **Explore shows real errors**: client throws `ExploreError` instead of failing soft
+    to `[]`; the page renders an error card with Retry (plus a loading skeleton) instead
+    of a lying empty state.
+  - **Deletion tombstones**: `deleteCollection` keeps a `{ deletedAt }` record for 30 days
+    (hidden from UI immediately); `mergeListsById` prefers the newest delete over stale
+    live copies (both directions) and GCs old tombstones — deletes no longer resurrect
+    across devices/tabs; cross-tab listeners now merge by id/updatedAt instead of blind
+    last-write-wins on the whole array.
+  - **/api/sync hardened**: server-side sanitization of collections (string names,
+    publicId only when public, itemIds ≤ 300, unknown/hostile fields dropped — a
+    hostile `name: {...}` payload can no longer crash the shared Explore page for
+    everyone) + preferences whitelisted to JSON primitives + 400s for bad list shapes;
+    `DELETE /api/sync` wipes the caller's cloud data (new Settings → Account button
+    with confirm dialog).
+  - **Preferences sync both ways**: upload carries locally-set `setting-*` values;
+    pulls apply remote values only for never-touched keys
+    (`src/utils/preferencesSnapshot.js` + `aios_sync_preferences` event).
+  - **Rate limiting everywhere** (`api/lib/rateLimit.js`, per-IP fixed window): auth
+    20/min, sync 60/min, public collections 60/min, tmdb 120/min, groq 20/min,
+    downloadify 30/min; TMDB proxy no longer sends CORS `*` (same-origin contract —
+    third-party sites can't relay their quota through it) and stops edge-caching error
+    responses (`no-store` on non-200).
+  - **SSRF redirect gap closed** in `api/downloadify.js`: manual redirect following
+    re-validates every hop against the private-IP blocklist (old `redirect: "follow"`
+    let an allow-listed host 302 into 169.254.169.254).
+  - **Groq proxy gated**: same-origin check + rate limit (was an unauthenticated LLM
+    quota drain at a public URL).
+  - **Sync tokens expire**: 30-day TTL with expiry verification (was a permanent
+    credential until the operator rotated the global secret); lazy secret read.
+  - **CSP**: `script-src 'unsafe-inline'` removed — inline scripts moved to
+    `public/boot.js` (SW cache-buster bumped v19.4 → v19.5).
+  - **Hardcoded Google client ID removed** from `api/auth.js` (env-only; 503 with
+    guidance when unset).
+  - **Public collection page**: React Query–cached item resolution with capped
+    concurrency (≤ 300 items, 6 parallel — was an unbounded per-visit TMDB storm),
+    skeleton loading instead of a blank null page, SEO title/description for shared
+    links, and a "some items unavailable" note when titles 404.
+  - Docs truth pass (README + architecture.md now describe the MongoDB backend,
+    guests-local-only, tombstone merge, rate limits); tests: +5 files/sections
+    (syncSanitize, syncToken expiry, tombstone merges, rateLimit, publicCollections
+    filter/error). Verified: lint 0 errors (12 pre-existing warnings), vitest
+    42 files / 418/418, build OK.
+
 - [x] **E2E animation re-architecture — GPU-cheap, single-source, remount-free**
   (all verifiers:
   build + 378/378 tests pass, lint 0 errors):

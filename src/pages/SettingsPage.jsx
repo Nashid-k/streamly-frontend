@@ -15,6 +15,7 @@ import {
   Bookmark,
   Clock,
   SlidersHorizontal,
+  Trash2,
 } from "lucide-react";
 import SEO from "../components/SEO";
 import AmbientBackground from "../components/AmbientBackground";
@@ -652,6 +653,47 @@ export default function SettingsPage() {
                       </div>
                     )}
                   </div>
+
+                  {/* Cloud Data Deletion (Google users only) */}
+                  {user?.provider === "google" && (
+                    <div className="setting-row mt-2 pt-2 border-t border-white/[0.06]">
+                      <div className="setting-meta">
+                        <span className="setting-title">{t("settings.account.deleteCloudData")}</span>
+                        <span className="setting-desc">{t("settings.account.deleteCloudDataDesc")}</span>
+                      </div>
+                      <div className="setting-control">
+                        <button
+                          onClick={async () => {
+                            const confirmed = await confirmDialog({
+                              title: t("settings.account.deleteCloudDataConfirmTitle"),
+                              message: t("settings.account.deleteCloudDataConfirmMessage"),
+                              confirmLabel: t("settings.account.deleteCloudDataConfirmLabel"),
+                              cancelLabel: t("common.cancel"),
+                            });
+                            if (!confirmed) return;
+                            const result = await auth?.deleteCloudData?.();
+                            toast(
+                              result?.success
+                                ? {
+                                    type: "success",
+                                    title: t("settings.account.deleteCloudData"),
+                                    message: t("settings.account.deleteCloudDataOk"),
+                                  }
+                                : {
+                                    type: "error",
+                                    title: t("settings.account.deleteCloudData"),
+                                    message: result?.message || t("settings.account.deleteCloudDataFailed"),
+                                  },
+                            );
+                          }}
+                          className="settings-hit px-3.5 py-1.5 text-xs font-semibold rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors flex items-center gap-1.5 border border-red-500/30 cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          {t("settings.account.deleteCloudDataLabel")}
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Library & Shortcuts navigation */}
                   <div className="mt-2 pt-2 border-t border-white/[0.06] flex flex-col gap-1">
