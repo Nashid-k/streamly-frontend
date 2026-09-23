@@ -295,3 +295,86 @@ describe("The player never auto-switches servers (manual Server menu only)", () 
   });
 });
 
+describe("Player audit fixes: no false-fatal on opaque embeds, sticky strikes, working native fallback", () => {
+  it("a loaded opaque embed (Server 2) counts as playback proof — no fatal overlay over playing video", async () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = render(
+        <PreferencesProvider>
+          <CustomVideoPlayer
+            movie={MOVIE}
+            servers={VideoSourceAdapter.getServers()}
+            preferredServerIndex={1}
+          />
+        </PreferencesProvider>
+      );
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      const iframe = container.querySelector("iframe");
+      expect(iframe.getAttribute("src")).toContain("vidlink.pro");
+      // The frame loaded: vidlink has no postMessage protocol, so load itself
+      // is the proof of life. Two full watchdog windows must NOT fatal.
+      fireEvent.load(iframe);
+      act(() => { vi.advanceTimersByTime(12001); });
+      act(() => { vi.advanceTimersByTime(12001); });
+      act(() => { vi.advanceTimersByTime(12001); });
+      expect(screen.queryByText(/The stream couldn't start on this server/)).not.toBeInTheDocument();
+      expect(container.querySelector("iframe").getAttribute("src")).toContain("vidlink.pro");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a same-URL iframe re-load does not wipe strike evidence (fatal fallback stays)", () => {
+    const { container } = render(
+      <PreferencesProvider>
+        <CustomVideoPlayer
+          movie={MOVIE}
+          servers={VideoSourceAdapter.getServers()}
+        />
+      </PreferencesProvider>
+    );
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        origin: "https://cinesrc.st",
+        data: { type: "cinesrc:error", error: { type: "hlsError", details: "manifestLoadError", fatal: true } },
+      }));
+      window.dispatchEvent(new MessageEvent("message", {
+        origin: "https://cinesrc.st",
+        data: { type: "cinesrc:error", error: { type: "hlsError", details: "manifestLoadError", fatal: true } },
+      }));
+    });
+    expect(screen.getByText(/The stream couldn't start on this server/)).toBeInTheDocument();
+    // Broken embeds redirect internally and re-fire onLoad — that must not
+    // clear the fatal state back into a spinner loop.
+    fireEvent.load(container.querySelector("iframe"));
+    expect(screen.getByText(/The stream couldn't start on this server/)).toBeInTheDocument();
+  });
+
+  it("Native Audio fallback reloads CineSrc with controls=true (no control-less video)", () => {
+    const { container } = render(
+      <PreferencesProvider>
+        <CustomVideoPlayer
+          movie={MOVIE}
+          servers={VideoSourceAdapter.getServers()}
+        />
+      </PreferencesProvider>
+    );
+    expect(container.querySelector("iframe").getAttribute("src")).toContain("controls=false");
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        origin: "https://cinesrc.st",
+        data: { type: "cinesrc:playing" },
+      }));
+      fireEvent.mouseMove(container.querySelector(".streamly-player"));
+    });
+    fireEvent.click(screen.getByLabelText("Settings"));
+    fireEvent.click(screen.getByText("Native Audio"));
+    // The iframe actually reloaded with provider controls enabled.
+    expect(container.querySelector("iframe").getAttribute("src")).toContain("controls=true");
+  });
+});
+
