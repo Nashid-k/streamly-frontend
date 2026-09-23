@@ -81,9 +81,9 @@ describe("DownloadModal", () => {
     downloadService.resolveDownload.mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
     renderModal();
 
-    // Find and click the first "Get" button
-    const getButtons = await screen.findAllByText("Get");
-    fireEvent.click(getButtons[0]);
+    // Find and click the first "Download" action button
+    const downloadButtons = await screen.findAllByRole("button", { name: /^Download \d/i });
+    fireEvent.click(downloadButtons[0]);
 
     await waitFor(() => expect(downloadService.saveStream).toHaveBeenCalledTimes(1));
     expect(downloadService.buildManifest).toHaveBeenCalledTimes(1);

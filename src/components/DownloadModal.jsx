@@ -6,9 +6,7 @@ import {
   AlertTriangle,
   Check,
   ChevronDown,
-  Copy,
   Download,
-  ExternalLink,
   Loader2,
   Server,
   Star,
@@ -25,7 +23,7 @@ import {
   safeFileName,
   variantLabel,
 } from "../utils/downloadQuality";
-import { logDebug, logWarn, logInfo, logError } from "../utils/debugLogger";
+import { logDebug, logWarn } from "../utils/debugLogger";
 
 /* ── DownloadModal — browser-only offline downloads ────────────────────
    Vercel has no storage and the app has no backend, so "download" means
@@ -39,7 +37,7 @@ import { logDebug, logWarn, logInfo, logError } from "../utils/debugLogger";
 
    Layout mirrors Cinejoy's download sheet: a quality filter rail plus one
    row per (source server × quality) with the top-quality badge, a size
-   estimate, a copy-link action, an open-stream action, and a download action.
+   estimate, and a download action.
 
    Accessibility mirrors the Settings sign-in modal: portal + scroll lock +
    Tab trap + Escape + focus return. */
@@ -70,34 +68,6 @@ function matchVariant(variants, chosen) {
   );
 }
 
-async function copyText(text) {
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text);
-      return true;
-    }
-  } catch (error) {
-    logWarn("download", "Clipboard API rejected the copy — trying the legacy path.", {
-      message: error?.message,
-    });
-  }
-  try {
-    const area = document.createElement("textarea");
-    area.value = text;
-    area.setAttribute("readonly", "");
-    area.style.position = "fixed";
-    area.style.opacity = "0";
-    document.body.appendChild(area);
-    area.select();
-    const ok = document.execCommand("copy");
-    area.remove();
-    return ok;
-  } catch (error) {
-    logWarn("download", "Legacy clipboard copy failed", { message: error?.message });
-    return false;
-  }
-}
-
 const RESOLVE_CONCURRENCY = 3;
 
 /* VidSrc Alt — an extra, third-party source the modal scans in addition to
@@ -117,7 +87,6 @@ export default function DownloadModal({
   isTvContent = false,
   initialSeason = 1,
   initialEpisode = 1,
-  playerRef,
   onClose,
 }) {
   const { toast } = useToast();
@@ -125,6 +94,7 @@ export default function DownloadModal({
   const abortRef = useRef(null);
   const resolveAbortRef = useRef(null);
   const imdbIdRef = useRef(null);
+  const speedRef = useRef({ time: 0, bytes: 0, ema: 0 });
 
   const isTv = Boolean(isTvContent);
   const numericId = useMemo(() => getNumericId(movie?.id), [movie?.id]);
@@ -149,7 +119,6 @@ export default function DownloadModal({
     total: 0,
     failed: 0,
   });
-  const [copiedKey, setCopiedKey] = useState(null);
   const [downloadState, setDownloadState] = useState({
     status: "idle",
     rowKey: null,
@@ -340,6 +309,7 @@ export default function DownloadModal({
     ? (episodes.find((ep) => ep.episodeNumber === [...selectedEpisodes][0])?.durationMins || 45) * 60
     : (movie?.durationMins || 120) * 60;
   const episodeCount = isTv ? Math.max(1, selectedEpisodes.size) : 1;
+  const fileTitle = movie?.title || movie?.name || "File";
 
   const sortedRows = useMemo(
     () =>
@@ -351,58 +321,6 @@ export default function DownloadModal({
       ),
     [rows],
   );
-
-  const handleOpenStreamUrl = (row) => {
-    const { variant, source } = row;
-    if (variant.uri) {
-      const streamUrl = variant.uri.startsWith("http") ? variant.uri : new URL(variant.uri, source).href;
-      window.open(streamUrl, "_blank", "noopener,noreferrer");
-      logInfo("download", `Opened stream URL in new tab: ${streamUrl}`);
-    }
-  };
-
-  const handleExtractFromPlayer = async () => {
-    if (!playerRef?.current) {
-      toast({
-        title: "Player not available",
-        message: "Please play the video first, then try extracting the stream URL.",
-        type: "error",
-        duration: 4000,
-      });
-      return;
-    }
-
-    try {
-      const streamData = await playerRef.current.getStreamUrl();
-      if (streamData && streamData.url) {
-        await navigator.clipboard.writeText(streamData.url);
-        toast({
-          title: "Player source copied",
-          message:
-            "Embed hosts don't expose their inner stream URLs — the copied link opens the host's player, which you can use with its own share/save tools.",
-          type: "success",
-          duration: 4500,
-        });
-        logInfo("download", "Extracted embed source from player.", { url: streamData.url });
-      } else {
-        toast({
-          title: "Extraction failed",
-          message: "Could not extract stream URL from the playing video. The player may not support this feature.",
-          type: "error",
-          duration: 4000,
-        });
-        logWarn("download", "Stream extraction returned null");
-      }
-    } catch (error) {
-      logError("download", "Failed to extract stream from player", error);
-      toast({
-        title: "Extraction error",
-        message: error.message || "Failed to extract stream URL",
-        type: "error",
-        duration: 4000,
-      });
-    }
-  };
 
   const qualityGroups = useMemo(() => {
     const seen = new Map();
@@ -434,22 +352,6 @@ export default function DownloadModal({
     });
   };
 
-  const handleCopy = async (row) => {
-    const ok = await copyText(row.variant.uri);
-    if (!ok) {
-      toast({ title: "Couldn’t copy link", message: "Your browser blocked clipboard access.", type: "error", duration: 2500 });
-      return;
-    }
-    setCopiedKey(row.key);
-    setTimeout(() => setCopiedKey((prev) => (prev === row.key ? null : prev)), 1500);
-    toast({
-      title: "Link copied",
-      message: `${row.label} · ${row.serverName}`,
-      type: "success",
-      duration: 2000,
-    });
-  };
-
   const handleDownload = async (row) => {
     if (!row || downloadState.status === "downloading") return;
     const server = allSources[row.serverIndex];
@@ -478,6 +380,7 @@ export default function DownloadModal({
 
     const controller = new AbortController();
     abortRef.current = controller;
+    speedRef.current = { time: 0, bytes: 0, ema: 0 };
     setDownloadState({
       status: "downloading",
       rowKey: row.key,
@@ -497,13 +400,32 @@ export default function DownloadModal({
         const variant = matchVariant(fresh, row.variant);
         if (!variant) throw new DownloadUnavailableError("That quality is no longer offered by the server.", "no-source");
         const manifest = await downloadService.buildManifest(source, variant, { signal: controller.signal });
+        const totalBytes = manifest?.duration
+          ? estimateBytes(variant.bandwidth, manifest.duration)
+          : estimateBytes(variant.bandwidth, durationSeconds);
         await downloadService.saveStream({
           manifest,
           source,
           baseName: fileNameBase(movie, { isTv, season: selectedSeason, episode, quality: variant.label }),
           writable: i === 0 ? writable : null,
           signal: controller.signal,
-          onProgress: (progress) => setDownloadState((prev) => ({ ...prev, progress })),
+          onProgress: (progress) => {
+            const now = performance.now();
+            const prev = speedRef.current;
+            let speed = 0;
+            if (prev.time > 0 && progress.bytes >= prev.bytes) {
+              const dt = (now - prev.time) / 1000;
+              if (dt > 0) {
+                const instant = (progress.bytes - prev.bytes) / dt;
+                speed = prev.ema > 0 ? (prev.ema * 0.7) + (instant * 0.3) : instant;
+              }
+            }
+            speedRef.current = { time: now, bytes: progress.bytes, ema: speed };
+            setDownloadState((prevState) => ({
+              ...prevState,
+              progress: { ...progress, speed, totalBytes },
+            }));
+          },
         });
       }
       setDownloadState((prev) => ({ ...prev, status: "done", progress: null }));
@@ -555,9 +477,9 @@ export default function DownloadModal({
           aria-modal="true"
           aria-labelledby="download-modal-title"
           tabIndex={-1}
-          className="w-full sm:max-w-xl max-h-[90vh] flex flex-col overflow-hidden rounded-t-3xl sm:rounded-3xl border border-white/10 bg-[#141414] shadow-2xl shadow-black/60 outline-none"
+          className="w-full sm:max-w-xl max-h-[85vh] sm:max-h-[90vh] flex flex-col overflow-hidden rounded-t-3xl sm:rounded-3xl border border-white/10 bg-[#141414] shadow-2xl shadow-black/60 outline-none"
         >
-          <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-white/[0.07]">
+          <div className="flex items-center gap-3 px-4 sm:px-5 pt-4 sm:pt-5 pb-4 border-b border-white/[0.07]">
             <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-white shrink-0">
               <Download className="w-5 h-5" />
             </div>
@@ -565,7 +487,7 @@ export default function DownloadModal({
               <h3 id="download-modal-title" className="text-lg font-bold text-white truncate">
                 Download
               </h3>
-              <p className="text-xs text-white/50 truncate">{movie?.title || movie?.name}</p>
+              <p className="text-xs text-white/50 truncate">{movie?.title || movie?.name || "Movie"}</p>
             </div>
             <button
               type="button"
@@ -580,7 +502,7 @@ export default function DownloadModal({
             </button>
           </div>
 
-          <div className="px-5 py-5 space-y-5 overflow-y-auto">
+          <div className="px-3 sm:px-5 py-4 sm:py-5 space-y-5 overflow-y-auto">
             {/* Series: season + episodes */}
             {isTv && resolveState.status !== "error" && (
               <div>
@@ -647,17 +569,6 @@ export default function DownloadModal({
                 Sources
               </div>
               <div className="flex items-center gap-2">
-                {playerRef && (
-                  <button
-                    type="button"
-                    onClick={handleExtractFromPlayer}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-white/10 text-white/80 hover:bg-white/20 transition-colors"
-                    title="Extract stream URL from playing video"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    Extract from Player
-                  </button>
-                )}
                 {resolveState.status === "resolving" && (
                   <span className="flex items-center gap-1.5 text-[11px] text-white/40">
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -729,15 +640,15 @@ export default function DownloadModal({
                     <div
                       key={row.key}
                       role="listitem"
-                      className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors ${
+                      className={`flex flex-wrap items-center gap-x-3 gap-y-2 sm:flex-nowrap rounded-xl border px-3 py-2.5 transition-colors ${
                         isActive
                           ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/10"
                           : "border-white/[0.07] bg-white/[0.03]"
                       }`}
                     >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="truncate text-sm font-semibold text-white">{row.serverName}</span>
+                      <div className="min-w-0 flex-1 basis-full sm:basis-auto">
+                        <div className="flex items-center gap-2 min-w-0 flex-wrap sm:flex-nowrap">
+                          <span className="truncate text-sm font-semibold text-white">{fileTitle}</span>
                           <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold bg-white/10 text-white/80">
                             {row.label}
                           </span>
@@ -747,40 +658,22 @@ export default function DownloadModal({
                             </span>
                           )}
                         </div>
-                        <p className="mt-0.5 text-[11px] text-white/40">{sizeLabelFor(row.variant)}</p>
+                        <p className="mt-0.5 truncate text-[11px] text-white/40">
+                          {row.serverName} · {sizeLabelFor(row.variant)}
+                        </p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleCopy(row)}
-                        aria-label={`Copy link for ${row.label} from ${row.serverName}`}
-                        title="Copy link"
-                        className="shrink-0 p-2 rounded-lg text-white/50 hover:text-white hover:bg-white/[0.08] transition-colors"
-                      >
-                        {copiedKey === row.key ? (
-                          <Check className="w-4 h-4 text-emerald-400" />
-                        ) : (
-                          <Copy className="w-4 h-4" />
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenStreamUrl(row)}
-                        aria-label={`Open stream URL for ${row.label} from ${row.serverName}`}
-                        title="Open stream URL"
-                        className="shrink-0 p-2 rounded-lg text-white/50 hover:text-white hover:bg-white/[0.08] transition-colors"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </button>
                       <button
                         type="button"
                         onClick={() => handleDownload(row)}
                         disabled={!canPickSource || (isTv && selectedEpisodes.size === 0)}
-                        aria-label={`Download ${row.label} from ${row.serverName}`}
-                        className="shrink-0 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-transform active:scale-[0.98]"
+                        aria-label={`Download ${row.label} of ${fileTitle} from ${row.serverName}`}
+                        className="shrink-0 inline-flex items-center gap-1.5 ml-auto sm:ml-0 rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-transform active:scale-[0.98]"
                         style={{ background: "var(--accent-gradient)", color: "var(--on-accent, #fff)" }}
                       >
-                        <Download className="w-3.5 h-3.5" />
-                        {isTv && selectedEpisodes.size > 1 ? `Get ${selectedEpisodes.size}` : "Get"}
+                        <Download className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">
+                          {isTv && selectedEpisodes.size > 1 ? `Download ${selectedEpisodes.size} episodes` : "Download"}
+                        </span>
                       </button>
                     </div>
                   );
@@ -796,13 +689,18 @@ export default function DownloadModal({
             {/* Progress */}
             {isDownloading && (
               <div>
-                <div className="flex items-center justify-between text-xs text-white/60 mb-1.5">
-                  <span>
+                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs text-white/60 mb-1.5">
+                  <span className="truncate">
                     {downloadState.total > 1
                       ? `Episode ${downloadState.episodeIndex + 1} of ${downloadState.total}`
                       : "Downloading…"}
                   </span>
-                  <span>{downloadState.progress ? `${Math.round(downloadState.progress.ratio * 100)}%` : ""}</span>
+                  <span className="flex items-center gap-2.5">
+                    {downloadState.progress?.speed > 0 && (
+                      <span className="text-white/40">{formatBytes(downloadState.progress.speed)}/s</span>
+                    )}
+                    <span>{downloadState.progress ? `${Math.round(downloadState.progress.ratio * 100)}%` : ""}</span>
+                  </span>
                 </div>
                 <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
                   <div
@@ -811,7 +709,13 @@ export default function DownloadModal({
                   />
                 </div>
                 {downloadState.progress?.bytesLabel && (
-                  <p className="mt-1.5 text-[11px] text-white/40">{downloadState.progress.bytesLabel} saved</p>
+                  <p className="mt-1.5 text-[11px] text-white/40">
+                    {downloadState.progress.bytesLabel}
+                    {downloadState.progress.totalBytes > 0
+                      ? ` / ${formatBytes(downloadState.progress.totalBytes)}`
+                      : ""}
+                    {" downloaded"}
+                  </p>
                 )}
               </div>
             )}
@@ -824,7 +728,7 @@ export default function DownloadModal({
             )}
           </div>
 
-          <div className="sticky bottom-0 flex items-center gap-3 px-5 py-4 border-t border-white/[0.07] bg-[#141414]">
+          <div className="sticky bottom-0 flex flex-col-reverse sm:flex-row sm:items-center gap-3 px-4 sm:px-5 py-4 border-t border-white/[0.07] bg-[#141414]">
             <p className="flex-1 text-[11px] leading-relaxed text-white/35">
               Available qualities, resolution and HDR are whatever the source server actually
               provides — protected (DRM) streams can’t be downloaded. Please only download content
@@ -834,7 +738,7 @@ export default function DownloadModal({
               <button
                 type="button"
                 onClick={() => abortRef.current?.abort()}
-                className="shrink-0 rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold text-white/80 hover:bg-white/[0.06] transition-colors"
+                className="w-full sm:w-auto shrink-0 rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold text-white/80 hover:bg-white/[0.06] transition-colors"
               >
                 Cancel
               </button>
@@ -842,7 +746,7 @@ export default function DownloadModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="shrink-0 rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold text-white/80 hover:bg-white/[0.06] transition-colors"
+                className="w-full sm:w-auto shrink-0 rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold text-white/80 hover:bg-white/[0.06] transition-colors"
               >
                 Close
               </button>

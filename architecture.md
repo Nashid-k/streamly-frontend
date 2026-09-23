@@ -150,7 +150,9 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
   `ratingService.js`, `videoSourceAdapter.js`, `subtitleFetcher.js`,
   `downloadService.js` (resolve/manifest/segment driver + disk save),
   `prefetchAdapter.js`, `cdnImageAdapter.js`, `virtualRenderAdapter.js` (re-export of hook),
-  `publicCollections.js` (same-origin anonymous public-collection fetch, fail-soft).
+  `publicCollections.js` (same-origin anonymous public-collection fetch; throws
+  typed errors on failure so the Explore page can render a retry state — never
+  silently `[]`).
 - `src/pages/` — one file per route (see table). Pages own query keys and
   log every `error` + empty-data state via `reportQueryError`/`logEmptyData`.
 - `src/components/` — reusable UI (`@/components`). `index.js` categorized barrel. Rail primitives

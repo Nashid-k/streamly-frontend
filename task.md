@@ -2763,3 +2763,32 @@ entry point = link added to My List (WatchlistPage).
     MotionConfig + useReducedMotion parity) --- the Task 91 contract.
   - Verified: markdown only (README + architecture + task.md), no code diff;
     git diff --stat confirms 3 doc files.
+
+- [x] **Task 93 - DownloadModal cleanup (user order: drop player-extract/copy/open, keep
+  Download only, add speed + downloaded/total)**
+  - Removed "Extract from Player" button + `handleExtractFromPlayer` (and the `playerRef`
+    prop + TitleDetailsPage pass-through); removed the copy button (`handleCopy`/
+    `copyText`/`copiedKey`) and the open-stream button (`handleOpenStreamUrl`). Each row
+    now offers a single Download action; multi-episode label reads "Download N episodes".
+    Docs comment + lucide imports tidied (no more Copy/ExternalLink).
+  - Progress panel now shows a live download speed (EMA-smoothed bytes/s via `speedRef`,
+    reset per episode/run) alongside the percentage, and "X downloaded" becomes
+    "X / Y downloaded" using `estimateBytes(bandwidth, manifest.duration || movie duration)`
+    as the total.
+  - Verified: `npm run lint` clean, vitest 373/373 passed (DownloadModal 5/5), `npm run
+    build` ok. No commits (user did not ask).
+
+- [x] **Task 94 - DownloadModal responsive pass + show file name (user order: "modal and its
+  components not responsive based on screen size"; "in download file show its name instead of
+  showing VidSrc (Alt) as file name")**
+  - Responsive: panel `max-h-[85vh] sm:max-h-[90vh]` with tighter mobile padding
+    (`px-3/4 pt-4/5`, footer `px-4`); source rows now wrap (`flex-wrap`, `basis-full sm:
+    basis-auto`, button `ml-auto` on mobile, `truncate` text) so Download buttons never clip
+    on narrow screens; footer stacks (`flex-col-reverse sm:flex-row`, full-width buttons on
+    mobile); progress header wraps.
+  - File name: each source row now leads with the actual file name (`fileTitle`, the movie/
+    series title) in bold and demotes the server name to the sub-line
+    (`{serverName} · {size}`) — no more "VidSrc (Alt)" masquerading as the file to download.
+    Download button aria-label updated to match.
+  - Verified: `npm run lint` clean, vitest (DownloadModal + downloadService 10/10) passed,
+    `npm run build` ok. No commits (user did not ask).
