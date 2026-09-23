@@ -89,6 +89,21 @@ describe("DownloadModal", () => {
     expect(downloadService.buildManifest).toHaveBeenCalledTimes(1);
   });
 
+  it("lets you click a row while other sources are still being scanned", async () => {
+    downloadService.resolveDownload
+      .mockImplementationOnce(() => new Promise((resolve) => setTimeout(() => resolve({ source: { url: "slow" }, variants: VARIANTS }), 5000)))
+      .mockResolvedValueOnce({ source: { url: "m" }, variants: VARIANTS });
+    renderModal();
+
+    // First source resolves fast; the second is still pending, so
+    // resolveState stays "resolving" — the fast row must still be enabled.
+    const downloadButtons = await screen.findAllByRole("button", { name: /^Download \d/i });
+    expect(downloadButtons[0]).not.toBeDisabled();
+
+    fireEvent.click(downloadButtons[0]);
+    await waitFor(() => expect(downloadService.saveStream).toHaveBeenCalledTimes(1));
+  });
+
   it("tries the next server when one has no downloadable source", async () => {
     downloadService.resolveDownload
       .mockRejectedValueOnce(new Error("no source"))

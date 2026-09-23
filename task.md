@@ -7,6 +7,8 @@
 
  ## Done (in order)
 
+- [x] **First-click Download did nothing; second click worked (user report)**: the sheet streams source rows in as each server answers, but the Download buttons were gated on `resolveState.status === "ready"` — i.e. EVERY source finished scanning. VidSrc's WAF retry loop (up to ~1.5s/3s/4.5s backoff) kept status `"resolving"` for 10+ seconds after the other servers' rows were already on screen, so the first click landed on a `disabled` button (silently no-op) and only the later click worked. Fix (DownloadModal.jsx): `canPickSource` is now `!isDownloading && sortedRows.length > 0` — a row is downloadable as soon as ITS server resolved, independent of slower sources still scanning. Regression test added in DownloadModal.test.jsx (fast row stays enabled while a slow source is pending, and saveStream fires). Verified: lint 0 errors (baseline warnings only), 38 files / 374 tests, build OK.
+
 - [x] **Fresh download pipeline + audit quick-wins (user order: "implement fresh new better
   downloading — use 3rd-party sites, make offline downloads actually work")**:
   - **Why downloads never worked**: Vercel caps a function response at 4.5MB; the old

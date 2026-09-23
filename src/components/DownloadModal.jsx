@@ -449,7 +449,10 @@ export default function DownloadModal({
   };
 
   const isDownloading = downloadState.status === "downloading";
-  const canPickSource = resolveState.status === "ready" && !isDownloading;
+  // A row is downloadable as soon as ITS server resolved — rows stream in while
+  // slower sources (e.g. VidSrc WAF retries) are still being scanned. Gating the
+  // whole sheet on "ready" made the first click land on a disabled button.
+  const canPickSource = !isDownloading && sortedRows.length > 0;
 
   return createPortal(
     <AnimatePresence>
