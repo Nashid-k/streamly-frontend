@@ -12,6 +12,7 @@ import { movieService } from "../api/movieService";
 vi.mock("../api/downloadService", () => ({
   downloadService: {
     resolveVidsrc: vi.fn(),
+    resolveCinesrc: vi.fn(),
     buildManifest: vi.fn(),
     pickSaveTarget: vi.fn(),
     saveStream: vi.fn(),
@@ -122,6 +123,12 @@ beforeEach(() => {
   movieService.getExternalIds.mockResolvedValue({ imdb_id: "tt0137523" });
   movieService.getSeasonEpisodes.mockResolvedValue({ episodes: [] });
   downloadService.pickSaveTarget.mockResolvedValue(null);
+  // CineSrc is a secondary source: when its Chrome service isn't configured it
+  // must fail SOFTLY (resolver-unavailable) and VidSrc rows still fill the
+  // sheet. Default tests to that shape; dedicated tests override it.
+  downloadService.resolveCinesrc.mockRejectedValue(
+    Object.assign(new Error("CineSrc resolver not configured"), { code: "resolver-unavailable" }),
+  );
   downloadService.buildManifest.mockResolvedValue({ kind: "fmp4", initUrl: null, segments: ["https://cdn/a.m4s"], count: 1 });
   downloadService.saveStream.mockResolvedValue({ bytes: 2048, filename: "f.mp4", method: "blob" });
 });
@@ -153,13 +160,13 @@ describe("DownloadModal", () => {
     expect(downloadService.buildManifest).toHaveBeenCalledTimes(1);
   });
 
-  it("lets you click a row while the single source is still resolving", async () => {
+  it("lets you click a row while a slow source is still resolving", async () => {
     downloadService.resolveVidsrc
       .mockReturnValue(new Promise((resolve) => setTimeout(() => resolve({ source: { url: "slow" }, variants: VARIANTS }), 100)));
     renderModal();
 
-    // The modal resolves exactly one source (VidSrc (Alt)); while it is
-    // pending there is nothing to show yet, so no rows exist until it lands.
+    // CineSrc fails fast (resolver-unavailable), VidSrc (Alt) is still minting
+    // — nothing is shown yet, so no rows exist until the slow source lands.
     expect(screen.queryByRole("button", { name: /^Download \d/i })).not.toBeInTheDocument();
 
     const downloadButtons = await screen.findAllByRole("button", { name: /^Download \d/i });
@@ -168,13 +175,42 @@ describe("DownloadModal", () => {
     await waitFor(() => expect(downloadService.saveStream).toHaveBeenCalledTimes(1));
   });
 
-  it("shows an honest error when the only source has no downloadable file", async () => {
+  it("shows an honest error when no source offers a downloadable file", async () => {
     downloadService.resolveVidsrc.mockRejectedValue(new Error("no source"));
     renderModal();
 
+    const dialog = await screen.findByRole("dialog", { name: /download/i });
     expect(
       await screen.findByText(/VidSrc \(Alt\) did not offer a downloadable version of this title/i),
     ).toBeInTheDocument();
+    // CineSrc also named — the sheet never hides that a source was tried.
+    expect(dialog).toHaveTextContent(/CineSrc did not offer a downloadable version of this title/i);
+  });
+
+  it("adds CineSrc quality rows alongside VidSrc (Alt) when the resolver answers", async () => {
+    downloadService.resolveVidsrc.mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
+    downloadService.resolveCinesrc.mockResolvedValue({
+      source: { url: "c" },
+      variants: [{ uri: "https://cinesrc.st/api/playlist/hi", bandwidth: 5692000, width: 1920, height: 1080, hdr: false }],
+    });
+    renderModal();
+
+    // VidSrc rows land first; once CineSrc resolves, a 1080p CineSrc row joins
+    // the sheet with its own source badge.
+    await waitFor(() => expect(downloadService.resolveCinesrc).toHaveBeenCalled());
+    expect(await screen.findByText(/CineSrc/)).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^Download \d/i }).length).toBe(4);
+  });
+
+  it("skips CineSrc softly (resolver-unavailable) and keeps VidSrc rows", async () => {
+    downloadService.resolveVidsrc.mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
+    // beforeEach rejects resolveCinesrc with code resolver-unavailable.
+    renderModal();
+
+    const downloadButtons = await screen.findAllByRole("button", { name: /^Download \d/i });
+    expect(downloadButtons.length).toBe(3);
+    // No global error — the sheet is usable with only the VidSrc rows.
+    expect(screen.queryByText(/did not offer a downloadable version/i)).not.toBeInTheDocument();
   });
 
   it("locks body scroll and closes on Escape", async () => {

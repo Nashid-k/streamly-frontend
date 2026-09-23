@@ -126,12 +126,16 @@ VITE_SITE_URL=https://your-project.vercel.app
    hidden locally immediately and purged from storage on later merges.
 7. **Offline downloads:** TitleDetailsPage → `DownloadModal` →
    `downloadService` → Vercel `api/downloadify.js` (`resolve` / VidSrc
-   `resolvevidsrc` → `manifest` → single-URL Range-chunked `segment`, ≤3.5MB
-   chunks with an `x-streamly-more` header — the old 6-URL batch POSTs 413'd
-   on Vercel's 4.5MB cap). Where a CDN allows CORS the browser downloads
-   segments directly, falling back to the proxy. Resolver is embed-host
-   allowlisted + SSRF-guarded (DNS-resolved, redirect hops re-validated), and
-   files save via the File System Access API (Blob `<a download>` fallback).
+   `resolvevidsrc` / CineSrc `resolvecinesrc` → `manifest` → single-URL
+   Range-chunked `segment`, ≤3.5MB chunks with an `x-streamly-more` header —
+   the old 6-URL batch POSTs 413'd on Vercel's 4.5MB cap). CineSrc's tokens
+   are browser-fingerprint-bound, so minting runs on an optional self-hosted
+   Chrome service (`cinesrc-resolver/`, env `CINESRC_RESOLVER_URL`); when
+   unset the source reports as unavailable and VidSrc (Alt) fills the sheet.
+   Where a CDN allows CORS the browser downloads segments directly, falling
+   back to the proxy. Resolver is embed-host allowlisted + SSRF-guarded
+   (DNS-resolved, redirect hops re-validated), and files save via the File
+   System Access API (Blob `<a download>` fallback).
 
 ---
 
@@ -274,12 +278,13 @@ src/
 - Quick View modal (`detailViewType: "modal"`) with Play Now / Full Details
 
 ### `DownloadModal`
-- Offline downloader (TitleDetailsPage): source pick (player rotation + a
-  "VidSrc (Alt)" third-party provider), quality ladder with HDR badges +
-  estimated sizes, TV season/episode batch, progress + cancel
-- Streams via `api/downloadify.js` resolve/resolvevidsrc → manifest → segment
-  (single-URL Range chunks, direct-CORS when the CDN allows) and saves through
-  the File System Access API (Blob `<a download>` fallback)
+- Offline downloader (TitleDetailsPage): source pick (player rotation +
+  "VidSrc (Alt)" and "CineSrc" third-party providers), quality ladder with HDR
+  badges + estimated sizes, TV season/episode batch, progress + cancel
+- Streams via `api/downloadify.js` resolve/resolvevidsrc/resolvecinesrc →
+  manifest → segment (single-URL Range chunks, direct-CORS when the CDN
+  allows) and saves through the File System Access API (Blob `<a download>`
+  fallback)
 
 ### `RailArrow`
 - Canonical ghost scroll arrow for every rail/hero/back button; always visible

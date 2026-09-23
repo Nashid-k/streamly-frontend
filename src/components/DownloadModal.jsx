@@ -37,8 +37,9 @@ import { logDebug, logWarn } from "../utils/debugLogger";
    can open in browser or download with yt-dlp/ffmpeg.
 
    Layout mirrors Cinejoy's download sheet: a quality filter rail plus one
-   row per quality the single download source (VidSrc (Alt)) offers, with a
-   top-quality badge, a size estimate, and a download action.
+   row per quality each download source (VidSrc (Alt), and CineSrc when its
+   Chrome resolver is configured) offers, with a top-quality badge, a size
+   estimate, and a download action.
 
    Accessibility mirrors the Settings sign-in modal: portal + scroll lock +
    Tab trap + Escape + focus return. */
@@ -49,10 +50,39 @@ const getNumericId = (s) => {
   return m ? m[0] : null;
 };
 
-// The only embed provider the downloader scrapes server-side (/api/downloadify
-// action "resolvevidsrc"). Every row in the sheet is a quality this source
-// serves — there is no player-rotation scan.
+// The download sources the sheet fans out over. Every row is a quality one of
+// these serves — there is no player-rotation scan. VidSrc (Alt) scrapes
+// server-side (/api/downloadify action "resolvevidsrc"). CineSrc mints via the
+// separately-hosted cinesrc-resolver Chrome service (action "resolvecinesrc");
+// when that service isn't configured the source fails softly and VidSrc fills
+// the sheet. `sourceKey` is how the download engine later re-mints the fresh
+// per-title tokens through the same resolver.
 const VIDSRC_SOURCE_NAME = "VidSrc (Alt)";
+const CINESRC_SOURCE_NAME = "CineSrc";
+
+const RESOLVE_SOURCES = [
+  {
+    key: "vidsrc",
+    name: VIDSRC_SOURCE_NAME,
+    serverIndex: 0,
+    resolve: (args, opts) => downloadService.resolveVidsrc(args, opts),
+  },
+  {
+    key: "cinesrc",
+    name: CINESRC_SOURCE_NAME,
+    serverIndex: 1,
+    resolve: (args, opts) => downloadService.resolveCinesrc(args, opts),
+  },
+];
+
+function resolveArgs(sourceType, numericId, isTv, season, episode) {
+  return {
+    type: sourceType,
+    id: numericId,
+    season: isTv ? season : undefined,
+    episode: isTv ? episode : undefined,
+  };
+}
 
 const pad2 = (n) => String(n).padStart(2, "0");
 
@@ -123,8 +153,12 @@ export default function DownloadModal({
   });
   const episodes = episodesData?.episodes || [];
 
-  /* Resolve the single download source — VidSrc (Alt) — so the sheet can list
-     the qualities it actually serves. One call, one source. */
+  /* Resolve every download source in parallel so the sheet can list what each
+     actually serves. Each source resolves independently: one slow source never
+     blocks another's rows, and each failure is honest about ITS source while
+     the others keep answering. The error row only appears when EVERY source
+     came up empty; a `resolver-unavailable` (CineSrc Chrome service not
+     configured) is a soft skip, not a sheet-fatal error. */
   const resolveAll = useCallback(
     async (signal) => {
       setRows([]);
@@ -133,56 +167,78 @@ export default function DownloadModal({
         setResolveState({ status: "error", error: "This title has no streamable ID.", done: 0, total: 0, failed: 0 });
         return;
       }
-      setResolveState({ status: "resolving", error: null, done: 0, total: 1, failed: 0 });
-      try {
-        const { source, variants } = await downloadService.resolveVidsrc(
-          {
-            type: sourceType,
-            id: numericId,
-            season: isTv ? selectedSeason : undefined,
-            episode: isTv ? initialEpisode : undefined,
-          },
-          { signal },
-        );
+      const total = RESOLVE_SOURCES.length;
+      setResolveState({ status: "resolving", error: null, done: 0, total, failed: 0 });
+
+      let done = 0;
+      let failed = 0;
+      let offlineError = null;
+      let accRows = [];
+
+      const settle = () => {
         if (signal?.aborted) return;
-        const nextRows = variants.map((variant) => ({
-          key: `vidsrc:${variant.uri}`,
-          serverIndex: 0,
-          serverName: VIDSRC_SOURCE_NAME,
-          variant,
-          label: variantLabel(variant),
-          group: resolutionLabel(variant.width, variant.height),
-          source,
-        }));
-        setRows(nextRows);
-        logDebug("download", `${VIDSRC_SOURCE_NAME} offers ${variants.length} quality variant(s).`, {
-          qualities: variants.map((v) => v.label),
-        });
-        setResolveState({
-          status: nextRows.length > 0 ? "ready" : "error",
-          error: nextRows.length > 0 ? null : `${VIDSRC_SOURCE_NAME} did not offer a downloadable version of this title.`,
-          done: 1,
-          total: 1,
-          failed: nextRows.length > 0 ? 0 : 1,
-        });
-      } catch (error) {
-        if (error?.name === "AbortError") return;
-        logWarn("download", `${VIDSRC_SOURCE_NAME} has no downloadable stream.`, {
-          message: error?.message,
-          code: error?.code,
-        });
-        if (error instanceof DownloadUnavailableError && error.code === "offline") {
-          setResolveState({ status: "error", error: error.message, done: 1, total: 1, failed: 1 });
-          return;
+        const finished = done === total;
+        let error = null;
+        if (finished && accRows.length === 0) {
+          // Every source failed: offline (whole service down) wins the copy so
+          // the user sees the actionable message; otherwise name each source
+          // that came up empty — the honest phrasing, never a lying fallback.
+          error =
+            offlineError?.message ||
+            RESOLVE_SOURCES.map((s) => `${s.name} did not offer a downloadable version of this title.`).join(" ");
         }
         setResolveState({
-          status: "error",
-          error: `${VIDSRC_SOURCE_NAME} did not offer a downloadable version of this title.`,
-          done: 1,
-          total: 1,
-          failed: 1,
+          status: finished ? (accRows.length > 0 ? "ready" : "error") : "resolving",
+          error,
+          done,
+          total,
+          failed,
         });
-      }
+      };
+
+      await Promise.all(
+        RESOLVE_SOURCES.map(async (def) => {
+          try {
+            const { source, variants } = await def.resolve(
+              resolveArgs(sourceType, numericId, isTv, selectedSeason, initialEpisode),
+              { signal },
+            );
+            if (signal?.aborted) return;
+            const nextRows = variants.map((variant) => ({
+              key: `${def.key}:${variant.uri}`,
+              sourceKey: def.key,
+              serverIndex: def.serverIndex,
+              serverName: def.name,
+              variant,
+              label: variantLabel(variant),
+              group: resolutionLabel(variant.width, variant.height),
+              source,
+            }));
+            if (nextRows.length > 0) {
+              accRows = [...accRows, ...nextRows];
+              setRows(accRows);
+              logDebug("download", `${def.name} offers ${nextRows.length} quality variant(s).`, {
+                qualities: nextRows.map((v) => v.label),
+              });
+            } else {
+              failed += 1;
+            }
+          } catch (error) {
+            if (error?.name === "AbortError" || signal?.aborted) return;
+            failed += 1;
+            if (error instanceof DownloadUnavailableError && error.code === "offline") {
+              offlineError = error;
+            }
+            logWarn("download", `${def.name} has no downloadable stream.`, {
+              message: error?.message,
+              code: error?.code,
+            });
+          } finally {
+            done += 1;
+            settle();
+          }
+        }),
+      );
     },
     [numericId, sourceType, isTv, selectedSeason, initialEpisode],
   );
@@ -366,13 +422,10 @@ export default function DownloadModal({
           const episode = targets[i];
           setDownloadState((prev) => ({ ...prev, episodeIndex: i, episode, progress: null }));
           updateDownload(downloadId, { episodeIndex: i });
-          const { source, variants: fresh } = await downloadService.resolveVidsrc(
-            {
-              type: sourceType,
-              id: numericId,
-              season: isTv ? selectedSeason : undefined,
-              episode: episode ?? undefined,
-            },
+          const { source, variants: fresh } = await downloadService[
+            row.sourceKey === "cinesrc" ? "resolveCinesrc" : "resolveVidsrc"
+          ](
+            resolveArgs(sourceType, numericId, isTv, selectedSeason, episode),
             { signal: controller.signal },
           );
           const variant = matchVariant(fresh, row.variant);
@@ -435,8 +488,9 @@ export default function DownloadModal({
   };
 
   const isDownloading = downloadState.status === "downloading";
-  // A row is downloadable as soon as VidSrc answered — the sheet never blocks
-  // on anything slower, so the first click always lands on a live button.
+  // A row is downloadable as soon as ITS source answered — the sheet never
+  // blocks on a slower source, so the first click always lands on a live
+  // button even while another source is still minting.
   const canPickSource = !isDownloading && sortedRows.length > 0;
 
   return createPortal(
@@ -590,7 +644,7 @@ export default function DownloadModal({
               </div>
             )}
 
-            {/* Skeleton while VidSrc (Alt) answers */}
+            {/* Skeleton while the first source answers */}
             {resolveState.status === "resolving" && sortedRows.length === 0 && (
               <div className="space-y-2.5 sm:space-y-3" aria-hidden="true">
                 {[0, 1, 2].map((i) => (

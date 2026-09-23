@@ -41,7 +41,7 @@ Firebase SDK in the bundle.
 | Genre | `/genre/:genre` | `genre-search:<genre>` → `searchMovies` + `selectGenreResults` | network only |
 | Collection | `/category/:name` | `categories` (exact→fuzzy→token match) or `location.state.movies` | network / nav state |
 | Watch title | `/watch/:id/:slug?` (`movie-<n>` / `tv-<n>`) | `movie:<id>` → `getMovieDetails` (credits+videos+images, external_ids best-effort); `similar:<id>`; `episodes:<id>:<season>` → `getSeasonEpisodes` | + `aios_continue_watching` (resume) |
-| Download title | `/watch/:id/:slug?` (in-page `DownloadModal`) | `DownloadModal` → `downloadService` → Vercel `api/downloadify.js` (`resolve`\|`resolvevidsrc` → `manifest` → single-URL Range-chunked `segment`); episodes via `getSeasonEpisodes` | file saved to device (File System Access API, Blob fallback); nothing persisted |
+| Download title | `/watch/:id/:slug?` (in-page `DownloadModal`) | `DownloadModal` → `downloadService` → Vercel `api/downloadify.js` (`resolve`\|`resolvevidsrc`\|`resolvecinesrc` → `manifest` → single-URL Range-chunked `segment`); episodes via `getSeasonEpisodes` | file saved to device (File System Access API, Blob fallback); nothing persisted |
 | Person | `/person/:id/:slug?` | `person:<id>` → `getPersonDetails` (`/person`, `/combined_credits`, top-40) | network only |
 | My List | `/watchlist` (`/mylist` redirects) | local only | `aios_my_list`, `aios_my_collections` (local) |
 | History | `/history` | local only | `aios_continue_watching` (local) |
@@ -122,14 +122,19 @@ w92→w1280), `omdbapi.com` (IMDb/RT, env-key `VITE_OMDB_API_KEY`, 24h cache),
 Downloads resolve those hosts' HLS master playlists (or VidSrc's — a third-party
 provider via the `resolvevidsrc` action, whose embed `var Q` token is walked
 server-side so CORS no longer blocks resolution) and proxy media segments
-through the same-origin Vercel function `api/downloadify.js`. The `segment`
-action is single-URL + `{ range: { start, max } }` in ≤3.5MB chunks with an
-`x-streamly-more` "more bytes?" header — the old 6-URL-per-POST batch blew
-Vercel's 4.5MB response cap with `FUNCTION_PAYLOAD_TOO_LARGE`, which is why
-downloads never saved. Where a CDN honestly allows CORS (`*` or our origin)
-`saveStream` probes it and pulls segments straight from the browser before
-falling back to the relay. Embed-host allowlist + DNS-resolved private-IP SSRF
-guard (every redirect hop re-validated; decimal/hex IP literals included).
+through the same-origin Vercel function `api/downloadify.js`. CineSrc is a
+second third-party provider via `resolvecinesrc`: its stream tokens are minted
+inside a real browser (canvas/TLS fingerprint-bound), so a separately-hosted
+Chrome service (`cinesrc-resolver/`, env `CINESRC_RESOLVER_URL`) does the mint
+and the Vercel function walks the returned master → variant ladder — when the
+resolver isn't configured the source fails softly and VidSrc fills the sheet.
+The `segment` action is single-URL + `{ range: { start, max } }` in ≤3.5MB
+chunks with an `x-streamly-more` "more bytes?" header — the old 6-URL-per-POST
+batch blew Vercel's 4.5MB response cap with `FUNCTION_PAYLOAD_TOO_LARGE`, which
+is why downloads never saved. Where a CDN honestly allows CORS (`*` or our
+origin) `saveStream` probes it and pulls segments straight from the browser
+before falling back to the relay. Embed-host allowlist + DNS-resolved private-IP
+SSRF guard (every redirect hop re-validated; decimal/hex IP literals included).
 Stream-service/NetMirror calling code was deleted (`src/api/env.js` removed);
 the client no longer makes those HTTP calls. Every function is wrapped in a request
 logger (`api/lib/logger.js`); `vercel.json` sets `maxDuration` per function

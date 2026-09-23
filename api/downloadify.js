@@ -10,6 +10,7 @@
 // Actions (POST JSON):
 //   resolve       { embedUrl }                          -> { source, variants }
 //   resolvevidsrc { type, id, season?, episode? }       -> { source, variants }
+//   resolvecinesrc { type, id, season?, episode? }      -> { source, variants }
 //   manifest      { playlistUrl, refUrl }               -> { kind, initUrl, segments, duration }
 //   segment       { url, refUrl?, range: {start,max} }  -> bytes (octet-stream)
 //
@@ -616,6 +617,82 @@ async function handleResolveVidsrc(body, res) {
   json(res, 200, { ok: false, error: "No downloadable stream found via VidSrc", code: "no-source" });
 }
 
+async function handleResolveCinesrc(body, res) {
+  const type = body.type === "tv" ? "tv" : "movie";
+  const tmdbId = String(body.id || "").trim();
+  if (!/^\d{1,12}$/.test(tmdbId)) {
+    json(res, 400, { ok: false, error: "Invalid TMDB id", code: "bad-id" });
+    return;
+  }
+  const season = String(body.season ?? "").trim();
+  const episode = String(body.episode ?? "").trim();
+
+  // CineSrc mints fresh, per-session playlist tokens inside a real browser (the
+  // token bytes are derived from the browser's canvas/fonts/TLS surface at page
+  // load). Serverless Vercel cannot reproduce them, so we delegate the mint to
+  // the cinesrc-resolver service (Chrome + CDP network watch) via this env var.
+  // Without it configured the action honestly reports "not configured" and the
+  // modal simply skips the CineSrc source — VidSrc (Alt) still works.
+  const resolverBase = String(process.env.CINESRC_RESOLVER_URL || "").trim().replace(/\/+$/, "");
+  if (!resolverBase) {
+    json(res, 200, { ok: false, error: "CineSrc resolver not configured", code: "resolver-unavailable" });
+    return;
+  }
+
+  // HTTPS-style URL only (not SSRF-guarded the way user-supplied URLs are — the
+  // resolver base is an operator env var, and we just forward the title id).
+  if (!/^https?:\/\//i.test(resolverBase) || new URL(resolverBase).hostname === "") {
+    json(res, 200, { ok: false, error: "CineSrc resolver misconfigured", code: "resolver-unavailable" });
+    return;
+  }
+
+  const resolverUrl = `${resolverBase}/resolve`;
+  let payload = null;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 55000);
+    const res0 = await fetch(resolverUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ type, id: tmdbId, season: season || undefined, episode: episode || undefined }),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    const text = await res0.text();
+    payload = JSON.parse(text || "{}");
+  } catch {
+    json(res, 200, { ok: false, error: "CineSrc resolver unreachable", code: "resolver-unavailable" });
+    return;
+  }
+
+  const playlistUrl = payload?.playlistUrl ? String(payload.playlistUrl) : "";
+  if (!payload?.ok || !/^https?:\/\//i.test(playlistUrl)) {
+    json(res, 200, {
+      ok: false,
+      error: payload?.error || "CineSrc mint produced no playlist",
+      code: payload?.code || "no-source",
+    });
+    return;
+  }
+
+  try {
+    const masterText = await fetchUpstream(playlistUrl, { referer: "https://cinesrc.st/" });
+    const variants = parseMasterPlaylist(masterText, playlistUrl).filter((v) => v?.uri);
+    if (variants.length > 0) {
+      json(res, 200, {
+        ok: true,
+        source: { kind: "hls", url: playlistUrl, refUrl: "https://cinesrc.st/" },
+        variants,
+      });
+      return;
+    }
+  } catch {
+    // fall through to no-source
+  }
+
+  json(res, 200, { ok: false, error: "No downloadable stream found via CineSrc", code: "no-source" });
+}
+
 async function handleManifest(body, res) {
   const playlistUrl = String(body.playlistUrl || "").trim();
   try {
@@ -722,6 +799,23 @@ export default async function handler(req, res) {
         return;
       case "resolvevidsrc":
         await handleResolveVidsrc(body, res);
+        return;
+      case "resolvecinesrc":
+        // Each call boots a real Chrome renderer upstream — far pricier than
+        // the other actions, so cap it hard (2 mint attempts per minute per
+        // client; the modal only asks once per open anyway).
+        {
+          const cinesrcLimit = rateLimit({
+            key: () => `dl:cine:${clientIp(req)}`,
+            limit: 2,
+            windowMs: 60_000,
+          });
+          if (!cinesrcLimit.ok) {
+            json(res, 429, { ok: false, error: "CineSrc is busy — wait a minute and retry.", code: "rate" });
+            return;
+          }
+        }
+        await handleResolveCinesrc(body, res);
         return;
       case "manifest":
         await handleManifest(body, res);

@@ -1,0 +1,14 @@
+{
+  "name": "cinesrc-resolver",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Mint-on-demand CineSrc playlist URLs in real Chrome (CDP network watch). Called by api/downloadify.js action resolvecinesrc. NOT serverless — needs a host with Chrome.",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "puppeteer-core": "^23.11.1"
+  }
+}

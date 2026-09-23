@@ -2,7 +2,10 @@
 //
 // Flow (all through the stateless /api/downloadify Vercel function):
 //   1. resolveVidsrc({type,id,season?,episode?}) -> VidSrc (Alt) HLS ladder
-//      (resolveDownload(embedUrl) also resolves an allow-listed embed host)
+//      resolveCinesrc({type,id,season?,episode?}) -> CineSrc HLS ladder (needs
+//      the separately-hosted cinesrc-resolver Chrome service — see the
+//      architecture note in api/downloadify.js). Both return the same shape
+//      so the modal can fan out over either source.
 //   2. buildManifest(source, variant)     -> concrete segment URL list
 //   3. saveStream(...)                    -> fetch segments in bounded Range
 //                                            chunks and write them to disk
@@ -191,6 +194,30 @@ export const downloadService = {
     const data = await post(body, { signal });
     const resolved = this.normalizeResolved(data);
     logInfo("download", `Resolved ${resolved.variants.length} downloadable variant(s) via VidSrc (Alt).`, {
+      type: kind,
+      id,
+      season: season ?? null,
+      episode: episode ?? null,
+      variants: resolved.variants.map((v) => v.label),
+    });
+    return resolved;
+  },
+
+  /** Resolve the CineSrc provider (action "resolvecinesrc"). Same contract as
+      resolveVidsrc, but the mint happens on a separately-hosted Chrome service
+      the operator points `CINESRC_RESOLVER_URL` at. When that env var is unset
+      the function replies `resolver-unavailable` and the modal quietly drops
+      the CineSrc row — VidSrc (Alt) still fills the sheet. */
+  async resolveCinesrc({ type, id, season, episode }, { signal } = {}) {
+    const kind = type === "tv" ? "tv" : "movie";
+    const body = { action: "resolvecinesrc", type: kind, id: String(id || "") };
+    if (kind === "tv") {
+      if (season != null) body.season = String(season);
+      if (episode != null) body.episode = String(episode);
+    }
+    const data = await post(body, { signal });
+    const resolved = this.normalizeResolved(data);
+    logInfo("download", `Resolved ${resolved.variants.length} downloadable variant(s) via CineSrc.`, {
       type: kind,
       id,
       season: season ?? null,

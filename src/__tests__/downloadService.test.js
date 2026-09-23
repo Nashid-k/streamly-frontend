@@ -93,6 +93,70 @@ describe("downloadService.resolveVidsrc", () => {
   });
 });
 
+describe("downloadService.resolveCinesrc", () => {
+  it("labels the qualities the CineSrc ladder reports", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          ok: true,
+          source: { kind: "hls", url: "https://cinesrc.st/api/playlist/xyz" },
+          variants: [
+            { uri: "https://cinesrc.st/api/playlist/a0815", bandwidth: 5692000, width: 1920, height: 1080, hdr: false },
+            { uri: "https://cinesrc.st/api/playlist/b0815", bandwidth: 2628000, width: 1280, height: 720, hdr: false },
+          ],
+        }),
+      ),
+    );
+
+    const { variants } = await downloadService.resolveCinesrc(
+      { type: "movie", id: "1423191" },
+    );
+    expect(variants.map((v) => v.label)).toEqual(["1080p", "720p"]);
+  });
+
+  it("passes season+episode through for TV titles", async () => {
+    let capturedBody = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        capturedBody = JSON.parse(init.body);
+        return jsonResponse({
+          ok: true,
+          source: { kind: "hls", url: "https://cinesrc.st/api/playlist/t" },
+          variants: [
+            { uri: "https://cinesrc.st/api/playlist/e", bandwidth: 2800000, width: 1280, height: 720, hdr: false },
+          ],
+        });
+      }),
+    );
+
+    await downloadService.resolveCinesrc({ type: "tv", id: "1399", season: 2, episode: 3 });
+
+    expect(capturedBody).toMatchObject({ action: "resolvecinesrc", type: "tv", id: "1399", season: "2", episode: "3" });
+  });
+
+  it("throws a clear error when the resolver Chrome service is not deployed", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse({ ok: false, error: "CineSrc resolver not configured", code: "resolver-unavailable" })),
+    );
+    await expect(downloadService.resolveCinesrc({ type: "movie", id: "550" })).rejects.toMatchObject({
+      code: "resolver-unavailable",
+    });
+  });
+
+  it("surfaces the resolver's no-source result", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse({ ok: false, error: "No downloadable stream found via CineSrc", code: "no-source" })),
+    );
+    await expect(downloadService.resolveCinesrc({ type: "movie", id: "550" })).rejects.toMatchObject({
+      code: "no-source",
+    });
+  });
+});
+
 describe("downloadService.saveStream", () => {
   it("writes every chunk to the provided writable and closes it", async () => {
     const fetchMock = vi.fn().mockResolvedValue(bufferResponse([1, 2, 3, 4, 5, 6]));
