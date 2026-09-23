@@ -31,6 +31,9 @@ import { logDebug, logError, logInfo, logWarn } from "../utils/debugLogger.js";
 
 const ENDPOINT = "/api/downloadify";
 const CHUNK_MAX = 3.5 * 1024 * 1024;
+// How many segments download in parallel. Videos stitch fine when bytes are
+// written to the file in ORDER; only the network fetch needs to overlap.
+const SEGMENT_CONCURRENCY = 4;
 
 export class DownloadUnavailableError extends Error {
   constructor(message, code) {
@@ -249,8 +252,9 @@ export const downloadService = {
     };
 
     /* Relay: Range-chunked stream of one segment through /api/downloadify,
-       stopping when the server's x-streamly-more header says the file ended. */
-    const relayRange = async (url) => {
+       stopping when the server's x-streamly-more header says the file ended.
+       Each fetched chunk is handed to `onChunk`. */
+    const relayRange = async (url, onChunk) => {
       let start = 0;
       for (;;) {
         const { bytes: chunk, more } = await post(
@@ -258,37 +262,66 @@ export const downloadService = {
           { signal, as: "buffer" },
         );
         if (!chunk || chunk.length === 0) break;
-        await write(chunk);
+        await onChunk(chunk);
         if (!more) break;
         start += chunk.length;
       }
     };
 
     /* Direct: the CDN allowed CORS + Range, so pull the segment straight from
-       the browser. Any hiccup drops us back to the relay for the REST of the
-       file (bytes already written stay exactly where they belong). */
+       the browser (one request, no relay hop). Any hiccup drops us back to the
+       relay for the REST of the file (bytes already written stay exactly where
+       they belong). The probe is done per-origin and cached — resolved CDN
+       capabilities don't flip between segments of the same stream. */
+    const probeCache = new Map();
     let directEnabled = true;
-    const fetchSegmentDirect = async (url, total) => {
-      let offset = 0;
-      while (offset < total) {
-        const end = Math.min(offset + CHUNK_MAX, total) - 1;
-        const res = await fetch(url, { headers: { range: `bytes=${offset}-${end}` }, signal });
-        if (!res.ok) throw new Error(`Direct segment fetch failed (${res.status})`);
-        const ab = await res.arrayBuffer();
-        const chunk = new Uint8Array(ab);
-        if (chunk.length === 0) break;
-        await write(chunk);
-        offset += chunk.length;
+    const fetchSegmentDirect = async (url, onChunk) => {
+      const res = await fetch(url, { signal });
+      if (!res.ok) throw new Error(`Direct segment fetch failed (${res.status})`);
+      // Stream the body so huge direct segments are written incrementally
+      // (never buffered whole in RAM).
+      if (res.body && typeof res.body.getReader === "function") {
+        const reader = res.body.getReader();
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          await onChunk(new Uint8Array(value));
+        }
+        return;
       }
+      const ab = await res.arrayBuffer();
+      const chunk = new Uint8Array(ab);
+      if (chunk.length === 0) throw new Error("Direct segment fetch returned no bytes");
+      await onChunk(chunk);
     };
 
-    const fetchOne = async (url) => {
+    /* Fetch one whole segment and emit its chunks (direct in a single
+       request, else relayed in 3.5MB Range chunk). `emit` is optional: when
+       omitted the chunks are collected and returned; when provided (single
+       whole-file segments — see manifest.direct) they stream straight to the
+       writer so a long movie never sits in RAM. Pure — never touches the
+       shared writer — so many of these can run concurrently. */
+    const fetchSegmentBytes = async (url, emit = null) => {
+      const collect = emit || (async () => {});
       if (directEnabled) {
-        const probe = await probeDirect(url, { signal });
+        let origin = null;
+        try {
+          origin = new URL(url).origin;
+        } catch {
+          origin = null;
+        }
+        // Cache the probe PROMISE per origin, not just the result, so two
+        // concurrent workers probing the same CDN share one request.
+        let probePromise = origin ? probeCache.get(origin) : undefined;
+        if (!probePromise) {
+          probePromise = probeDirect(url, { signal });
+          if (origin) probeCache.set(origin, probePromise);
+        }
+        const probe = await probePromise;
         if (probe.ok) {
           try {
-            await fetchSegmentDirect(url, probe.total);
-            return;
+            await fetchSegmentDirect(url, collect);
+            return null;
           } catch (error) {
             if (error?.name === "AbortError") throw error;
             logWarn("download", "Direct segment fetch failed — falling back to relay.", {
@@ -298,18 +331,72 @@ export const downloadService = {
           }
         }
       }
-      await relayRange(url);
+      await relayRange(url, collect);
+      return null;
     };
 
     try {
       if (manifest.initUrl) {
-        await relayRange(manifest.initUrl);
+        await relayRange(manifest.initUrl, write);
       }
 
       report(0);
-      for (let i = 0; i < segments.length; i += 1) {
-        await fetchOne(segments[i]);
-        report(i + 1);
+      /* Single whole-file segment (manifest.direct): stream it straight to the
+         writer — a long movie must not sit in RAM. No concurrency needed. */
+      if (segments.length === 1) {
+        await fetchSegmentBytes(segments[0], write);
+        report(1);
+      } else {
+        /* Segment writes to a single file MUST be in order, but the network
+           fetches can overlap. Keep a small window of concurrent fetches; each
+           result is buffered and flushed to the writer only when its turn comes
+           (an out-of-order segment is held until the one before it lands). This
+           turns a round-trip-bound pipeline into one that uses all the bandwidth
+           the connection offers. */
+        const SEGMENTS = segments.length;
+        let nextToFetch = 0;
+        let nextToWrite = 0;
+        const buffered = new Map();
+        // Serializes ordered writes: only one flush runs at a time.
+        let flushes = Promise.resolve();
+
+        const flushReady = async () => {
+          while (buffered.has(nextToWrite)) {
+            const chunks = buffered.get(nextToWrite);
+            for (const chunk of chunks) await write(chunk);
+            buffered.delete(nextToWrite);
+            nextToWrite += 1;
+            report(nextToWrite);
+          }
+        };
+        const enqueueFlush = () => {
+          flushes = flushes.then(flushReady);
+          return flushes;
+        };
+
+        /* HLS segments are small (seconds of video), so buffering a window of
+           them is a sane trade-off; whole-file direct segments never reach here. */
+        const worker = async () => {
+          for (;;) {
+            if (signal?.aborted) {
+              const err = new Error("Aborted");
+              err.name = "AbortError";
+              throw err;
+            }
+            const index = nextToFetch;
+            nextToFetch += 1;
+            if (index >= SEGMENTS) return;
+            const chunks = [];
+            await fetchSegmentBytes(segments[index], async (chunk) => {
+              if (chunk?.length) chunks.push(chunk);
+            });
+            buffered.set(index, chunks);
+            await enqueueFlush();
+          }
+        };
+
+        await Promise.all(Array.from({ length: Math.min(SEGMENT_CONCURRENCY, SEGMENTS) }, worker));
+        await flushes;
       }
 
       if (writer) {

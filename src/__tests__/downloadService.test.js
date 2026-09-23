@@ -116,4 +116,74 @@ describe("downloadService.saveStream", () => {
     expect(result.filename).toBe("Episode.ts");
     expect(clickSpy).toHaveBeenCalled();
   });
+
+  it("fetches segments concurrently but writes them in order", async () => {
+    // Slow first segment, fast second: segment B is fetched (and buffered)
+    // while A is still in flight, but bytes hit the writer strictly in order.
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const fetchMock = vi.fn().mockImplementation(async (url, init) => {
+      if (init?.method === "POST") {
+        const parsed = JSON.parse(init.body);
+        if (String(parsed.url).endsWith("/a.m4s")) {
+          await sleep(30);
+          return bufferResponse([1]);
+        }
+        return bufferResponse([2, 2]);
+      }
+      // Direct probe: not CORS-enabled, so fall back to the relay.
+      return { ok: false, status: 404, headers: { get: () => "" } };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const writable = { write: vi.fn().mockResolvedValue(undefined), close: vi.fn().mockResolvedValue(undefined) };
+
+    await downloadService.saveStream({
+      manifest: { kind: "fmp4", initUrl: null, segments: ["https://cdn/a.m4s", "https://cdn/b.m4s"], count: 2 },
+      source: { refUrl: "https://vidlink.pro/movie/550" },
+      baseName: "Order",
+      writable,
+    });
+
+    const written = writable.write.mock.calls.map(([chunk]) => Array.from(chunk));
+    expect(written).toEqual([[1], [2, 2]]);
+    expect(fetchMock).toHaveBeenCalledTimes(3); // probe + relay(a) + relay(b)
+  });
+
+  it("caches the direct probe per origin instead of re-probing every segment", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url, init) => {
+      const probeRequest = !init?.method && init?.headers?.range === "bytes=0-0";
+      if (probeRequest) {
+        return {
+          ok: true,
+          status: 200,
+          headers: {
+            get: (h) =>
+              h === "access-control-allow-origin" ? "*" :
+              h === "content-range" ? "bytes 0-0/100" : "",
+          },
+          body: null,
+          arrayBuffer: async () => new Uint8Array([0]).buffer,
+        };
+      }
+      // Direct segment body (no streaming reader head available in jsdom).
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => "" },
+        body: null,
+        arrayBuffer: async () => new Uint8Array([7, 8]).buffer,
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const writable = { write: vi.fn().mockResolvedValue(undefined), close: vi.fn().mockResolvedValue(undefined) };
+
+    await downloadService.saveStream({
+      manifest: { kind: "fmp4", initUrl: null, segments: ["https://cdn/a.m4s", "https://cdn/b.m4s"], count: 2 },
+      source: { refUrl: "https://vidlink.pro/movie/550" },
+      baseName: "Probe",
+      writable,
+    });
+
+    // One probe for the origin + one direct fetch per segment, no re-probes.
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
 });

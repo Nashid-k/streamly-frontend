@@ -695,10 +695,11 @@ export default async function handler(req, res) {
     return;
   }
 
-  // Segment downloads are bandwidth-heavy. The old 30/min window was too tight
-  // for a real movie (hundreds of chunks) — 600/min still caps a runaway loop
-  // while letting a sequential client finish one title.
-  const limit = rateLimit({ key: () => `dl:${clientIp(req)}`, limit: 600, windowMs: 60_000 });
+  // Segment downloads are bandwidth-heavy. The client now fetches up to 4
+  // segments concurrently and each segment costs 1-3 Range requests, so a
+  // legit title needs hundreds of requests fast — but 1800/min (30/s) still
+  // caps a runaway loop while letting the parallel client finish one title.
+  const limit = rateLimit({ key: () => `dl:${clientIp(req)}`, limit: 1800, windowMs: 60_000 });
   if (!limit.ok) {
     tooManyRequests(res, limit.retryAfterSec);
     return;
