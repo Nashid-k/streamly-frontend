@@ -12,7 +12,7 @@ import {
   Star,
   X,
 } from "lucide-react";
-import { downloadService, DownloadUnavailableError } from "../api/downloadService";
+import { downloadService, DownloadUnavailableError, createPauseController } from "../api/downloadService";
 import { movieService } from "../api/movieService";
 import { useToast } from "./Toast";
 import { useDownloads } from "../context/downloads";
@@ -71,17 +71,6 @@ function matchVariant(variants, chosen) {
 
 const RESOLVE_CONCURRENCY = 3;
 
-/* VidSrc Alt — an extra, third-party source the modal scans in addition to
-   the player rotation. Resolved through /api/downloadify (action
-   "resolvevidsrc"); gives titles a secondary provider whose HLS ladder is
-   readable server-side. The `vidsrc://` scheme is a download-modal-only
-   marker — it is never handed to an iframe. */
-const VIDSRC_SOURCE = {
-  name: "VidSrc (Alt)",
-  url: (id, s, e, _imdb) =>
-    s ? `vidsrc://tv/${id}?s=${s}&e=${e}` : `vidsrc://movie/${id}`,
-};
-
 export default function DownloadModal({
   movie,
   servers = [],
@@ -91,7 +80,7 @@ export default function DownloadModal({
   onClose,
 }) {
   const { toast } = useToast();
-  const { registerDownload, updateDownload, cancelDownload } = useDownloads();
+  const { registerDownload, updateDownload, cancelDownload, removeDownload } = useDownloads();
   const panelRef = useRef(null);
   const abortRef = useRef(null);
   const resolveAbortRef = useRef(null);
@@ -99,9 +88,9 @@ export default function DownloadModal({
 
   const isTv = Boolean(isTvContent);
   const numericId = useMemo(() => getNumericId(movie?.id), [movie?.id]);
-  // The modal scans the player rotation PLUS the VidSrc alternative. Using a
-  // single list means server indices (row.serverIndex) resolve in one place.
-  const allSources = useMemo(() => [...servers, VIDSRC_SOURCE], [servers]);
+  // Every row is one of the player rotation's servers. The server's index in
+  // this list is a row's serverIndex, so URLs resolve in one place.
+  const allSources = useMemo(() => servers, [servers]);
   const [imdbId, setImdbId] = useState(
     movie?.imdbId || movie?.imdb_id || movie?.external_ids?.imdb_id || null,
   );
@@ -278,7 +267,8 @@ export default function DownloadModal({
     (focusables()[0] || panelRef.current)?.focus?.({ preventScroll: true });
     const onKey = (e) => {
       if (e.key === "Escape") {
-        abortRef.current?.abort();
+        // Never abort a running download when the sheet closes — the session
+        // store keeps pulling bytes and the /downloads page owns it from here.
         onClose?.();
         return;
       }
@@ -353,134 +343,169 @@ export default function DownloadModal({
     });
   };
 
-  const handleDownload = async (row) => {
-    if (!row || downloadState.status === "downloading") return;
-    const server = allSources[row.serverIndex];
-    const targets = isTv ? [...selectedEpisodes].sort((a, b) => a - b) : [null];
-    if (targets.length === 0) return;
+  /* The actual download engine. Runs a server/quality across every selected
+     episode, streaming progress into the session store. Deliberately
+     independent of the modal's own lifecycle so a download keeps running in
+     the background after the sheet closes, and retries from the /downloads
+     page work without the modal (the in-memory `retry` closure re-runs
+     this). */
+  const runDownload = useCallback(
+    async (row) => {
+      if (!row) return;
+      const server = allSources[row.serverIndex];
+      const targets = isTv ? [...selectedEpisodes].sort((a, b) => a - b) : [null];
+      if (isTv && targets.length === 0) return;
 
-    // Single-file downloads get the native Save-As picker, opened
-    // synchronously so the browser keeps the user activation.
-    let writable = null;
-    if (targets.length === 1) {
-      try {
-        writable = await downloadService.pickSaveTarget(
-          `${fileNameBase(movie, {
-            isTv,
-            season: selectedSeason,
-            episode: targets[0],
-            quality: row.variant.label,
-          })}.mp4`,
-        );
-      } catch (error) {
-        if (error?.name === "AbortError") return;
-        logWarn("[download] File save picker failed - using Blob fallback", { error: error?.message });
-        writable = null;
+      // Single-file downloads get the native Save-As picker, opened
+      // synchronously so the browser keeps the user activation.
+      let writable = null;
+      if (targets.length === 1) {
+        try {
+          writable = await downloadService.pickSaveTarget(
+            `${fileNameBase(movie, {
+              isTv,
+              season: selectedSeason,
+              episode: targets[0],
+              quality: row.variant.label,
+            })}.mp4`,
+          );
+        } catch (error) {
+          if (error?.name === "AbortError") return;
+          logWarn("[download] File save picker failed - using Blob fallback", { error: error?.message });
+          writable = null;
+        }
       }
-    }
 
-    const controller = new AbortController();
-    abortRef.current = controller;
-    const storeTitle = movie?.title || movie?.name || "File";
-    const downloadId = registerDownload({
-      title: storeTitle,
-      year: movie?.releaseYear || movie?.year || "",
-      posterUrl: movie?.posterUrl || movie?.backdropUrl || null,
-      backdropUrl: movie?.backdropUrl || null,
-      isTv,
-      quality: row.label || variantLabel(row.variant),
-      serverName: row.serverName,
-      episodeCount: targets.length,
-      status: "downloading",
-      progress: null,
-      error: null,
-      abort: () => controller.abort(),
-    });
-    setDownloadState({
-      status: "downloading",
-      rowKey: row.key,
-      episodeIndex: 0,
-      total: targets.length,
-      episode: targets[0],
-      progress: null,
-      error: null,
-    });
-
-    try {
-      for (let i = 0; i < targets.length; i += 1) {
-        const episode = targets[i];
-        setDownloadState((prev) => ({ ...prev, episodeIndex: i, episode, progress: null }));
-        updateDownload(downloadId, { episodeIndex: i });
-        const embedUrl = buildEmbedUrl(server, selectedSeason, episode);
-        const { source, variants: fresh } = await downloadService.resolveDownload(embedUrl, { signal: controller.signal });
-        const variant = matchVariant(fresh, row.variant);
-        if (!variant) throw new DownloadUnavailableError("That quality is no longer offered by the server.", "no-source");
-        const manifest = await downloadService.buildManifest(source, variant, { signal: controller.signal });
-        const totalBytes = manifest?.duration
-          ? estimateBytes(variant.bandwidth, manifest.duration)
-          : estimateBytes(variant.bandwidth, durationSeconds);
-        await downloadService.saveStream({
-          manifest,
-          source,
-          baseName: fileNameBase(movie, { isTv, season: selectedSeason, episode, quality: variant.label }),
-          writable: i === 0 ? writable : null,
-          signal: controller.signal,
-          onProgress: (progress) => {
-            // saveStream reports a true network-arrival rate (windowed); the
-            // old EMA here measured delta between _write_ bursts and showed
-            // unrealistic disk speed. Fall back to 0 when no rate is given.
-            updateDownload(downloadId, {
-              progress: { ...progress, speed: progress.speed || 0, totalBytes },
-              episodeIndex: i,
-            });
-            setDownloadState((prevState) => ({
-              ...prevState,
-              progress: { ...progress, speed: progress.speed || 0, totalBytes },
-            }));
-          },
-        });
-      }
-      setDownloadState((prev) => ({ ...prev, status: "done", progress: null }));
-      updateDownload(downloadId, { status: "done", progress: null });
-      toast({
-        title: "Download complete",
-        message: targets.length > 1
-          ? `${targets.length} episodes saved.`
-          : `"${movie?.title || "File"}" saved to your device.`,
-        type: "success",
-        duration: 3500,
+      const controller = new AbortController();
+      const gate = createPauseController();
+      abortRef.current = controller;
+      const storeTitle = movie?.title || movie?.name || "File";
+      const downloadId = registerDownload({
+        title: storeTitle,
+        year: movie?.releaseYear || movie?.year || "",
+        posterUrl: movie?.posterUrl || movie?.backdropUrl || null,
+        backdropUrl: movie?.backdropUrl || null,
+        isTv,
+        quality: row.label || variantLabel(row.variant),
+        serverName: row.serverName,
+        episodeCount: targets.length,
+        status: "downloading",
+        progress: null,
+        error: null,
+        abort: () => controller.abort(),
       });
-    } catch (error) {
-      if (error?.name === "AbortError") {
-        cancelDownload(downloadId);
-        setDownloadState({ status: "idle", rowKey: null, episodeIndex: 0, total: 0, episode: null, progress: null, error: null });
-      } else {
-        updateDownload(downloadId, { status: "error", error: error?.message || "Download failed." });
-        setDownloadState((prev) => ({ ...prev, status: "error", error: error?.message || "Download failed." }));
+
+      // The /downloads page drives these through the store record. Each is a
+      // stable closure over this run's own ids/controllers, so Pause/Resume/
+      // Retry keep working long after the modal closed.
+      updateDownload(downloadId, {
+        pause: () => {
+          gate.pause();
+          updateDownload(downloadId, { status: "paused" });
+        },
+        resume: () => {
+          gate.resume();
+          updateDownload(downloadId, { status: "downloading" });
+        },
+        retry: () => {
+          removeDownload(downloadId);
+          runDownload(row);
+        },
+      });
+
+      setDownloadState({
+        status: "downloading",
+        rowKey: row.key,
+        episodeIndex: 0,
+        total: targets.length,
+        episode: targets[0] || null,
+        progress: null,
+        error: null,
+      });
+
+      try {
+        for (let i = 0; i < targets.length; i += 1) {
+          const episode = targets[i];
+          setDownloadState((prev) => ({ ...prev, episodeIndex: i, episode, progress: null }));
+          updateDownload(downloadId, { episodeIndex: i });
+          const embedUrl = buildEmbedUrl(server, selectedSeason, episode);
+          const { source, variants: fresh } = await downloadService.resolveDownload(embedUrl, { signal: controller.signal });
+          const variant = matchVariant(fresh, row.variant);
+          if (!variant) throw new DownloadUnavailableError("That quality is no longer offered by the server.", "no-source");
+          const manifest = await downloadService.buildManifest(source, variant, { signal: controller.signal });
+          const totalBytes = manifest?.duration
+            ? estimateBytes(variant.bandwidth, manifest.duration)
+            : estimateBytes(variant.bandwidth, durationSeconds);
+          await downloadService.saveStream({
+            manifest,
+            source,
+            baseName: fileNameBase(movie, { isTv, season: selectedSeason, episode, quality: variant.label }),
+            writable: i === 0 ? writable : null,
+            signal: controller.signal,
+            pause: gate,
+            onProgress: (progress) => {
+              // saveStream reports a true network-arrival rate (windowed); the
+              // old EMA here measured delta between _write_ bursts and showed
+              // unrealistic disk speed. Fall back to 0 when no rate is given.
+              updateDownload(downloadId, {
+                progress: { ...progress, speed: progress.speed || 0, totalBytes },
+                episodeIndex: i,
+              });
+              setDownloadState((prevState) => ({
+                ...prevState,
+                progress: { ...progress, speed: progress.speed || 0, totalBytes },
+              }));
+            },
+          });
+        }
+        setDownloadState((prev) => ({ ...prev, status: "done", progress: null }));
+        updateDownload(downloadId, { status: "done", progress: null });
+        toast({
+          title: "Download complete",
+          message: targets.length > 1
+            ? `${targets.length} episodes saved.`
+            : `"${movie?.title || "File"}" saved to your device.`,
+          type: "success",
+          duration: 3500,
+        });
+      } catch (error) {
+        if (error?.name === "AbortError") {
+          cancelDownload(downloadId);
+          setDownloadState({ status: "idle", rowKey: null, episodeIndex: 0, total: 0, episode: null, progress: null, error: null });
+        } else {
+          updateDownload(downloadId, { status: "error", error: error?.message || "Download failed." });
+          setDownloadState((prev) => ({ ...prev, status: "error", error: error?.message || "Download failed." }));
+        }
+      } finally {
+        abortRef.current = null;
       }
-    } finally {
-      abortRef.current = null;
-    }
+    },
+    [allSources, isTv, selectedEpisodes, selectedSeason, movie, buildEmbedUrl, durationSeconds,
+      registerDownload, updateDownload, cancelDownload, removeDownload, toast],
+  );
+
+  const handleDownload = async (row) => {
+    if (!row || downloadState.status === "downloading" || allSources.length === 0) return;
+    await runDownload(row);
   };
 
   const isDownloading = downloadState.status === "downloading";
   // A row is downloadable as soon as ITS server resolved — rows stream in while
-  // slower sources (e.g. VidSrc WAF retries) are still being scanned. Gating the
-  // whole sheet on "ready" made the first click land on a disabled button.
+  // slower sources are still being scanned. Gating the whole sheet on "ready"
+  // made the first click land on a disabled button.
   const canPickSource = !isDownloading && sortedRows.length > 0;
 
   return createPortal(
     <AnimatePresence>
       <motion.div
         key="download-backdrop"
-        className="fixed inset-0 z-[120] flex items-center justify-center bg-black/75 backdrop-blur-sm p-3 sm:p-5"
+        className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-sm p-3 sm:p-5"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
         onMouseDown={(e) => {
           if (e.target === e.currentTarget) {
-            abortRef.current?.abort();
             onClose?.();
           }
         }}
@@ -495,32 +520,38 @@ export default function DownloadModal({
           aria-modal="true"
           aria-labelledby="download-modal-title"
           tabIndex={-1}
-          className="w-[min(100%,36rem)] max-h-[min(88dvh,52rem)] flex flex-col overflow-hidden rounded-2xl sm:rounded-3xl border border-white/10 bg-[#141414] shadow-2xl shadow-black/60 outline-none"
+          className="download-panel w-[min(100%,36rem)] max-h-[min(88dvh,52rem)] flex flex-col overflow-hidden rounded-2xl sm:rounded-3xl outline-none"
         >
-          <div className="flex items-center gap-3 px-4 sm:px-6 pt-4 sm:pt-5 pb-4 border-b border-white/[0.07]">
-            <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-white shrink-0">
-              <Download className="w-5 h-5" />
+          <header className="shrink-0 px-5 sm:px-7 pt-5 sm:pt-7 pb-5 border-b border-white/[0.08]">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <span className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-white/50 mb-2">
+                  Offline download
+                </span>
+                <h3 id="download-modal-title" className="truncate text-2xl sm:text-3xl font-bold tracking-tight text-white">
+                  Download
+                </h3>
+                <p className="mt-1.5 truncate text-sm text-white/60">{movie?.title || movie?.name || "Movie"}</p>
+                {isTv && (
+                  <p className="mt-1 text-xs text-white/40">
+                    Season {selectedSeason} · {selectedEpisodes.size} episode{selectedEpisodes.size === 1 ? "" : "s"} selected
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose?.();
+                }}
+                aria-label="Close download"
+                className="shrink-0 rounded-full p-2 text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <div className="min-w-0 flex-1">
-              <h3 id="download-modal-title" className="text-lg font-bold text-white truncate">
-                Download
-              </h3>
-              <p className="text-xs text-white/50 truncate">{movie?.title || movie?.name || "Movie"}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                abortRef.current?.abort();
-                onClose?.();
-              }}
-              aria-label="Close download"
-              className="p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+          </header>
 
-          <div className="px-4 sm:px-6 py-5 sm:py-6 space-y-5 sm:space-y-6 overflow-y-auto">
+          <div className="download-panel-scroll px-4 sm:px-7 py-5 sm:py-6 space-y-5 sm:space-y-6 overflow-y-auto">
             {/* Series: season + episodes */}
             {isTv && resolveState.status !== "error" && (
               <div>
@@ -722,8 +753,11 @@ export default function DownloadModal({
                 </div>
                 <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
                   <div
-                    className="h-full bg-[var(--accent-primary)] transition-all duration-300"
-                    style={{ width: `${Math.round((downloadState.progress?.ratio || 0) * 100)}%` }}
+                    className="h-full transition-all duration-300 rounded-full"
+                    style={{
+                      width: `${Math.round((downloadState.progress?.ratio || 0) * 100)}%`,
+                      background: "var(--accent-gradient)",
+                    }}
                   />
                 </div>
                 {downloadState.progress?.bytesLabel && (
@@ -746,7 +780,7 @@ export default function DownloadModal({
             )}
           </div>
 
-          <div className="sticky bottom-0 flex flex-col-reverse sm:flex-row sm:items-center gap-3 sm:gap-4 px-4 sm:px-6 py-4 border-t border-white/[0.07] bg-[#141414]">
+          <div className="sticky bottom-0 flex flex-col-reverse sm:flex-row sm:items-center gap-3 sm:gap-4 px-5 sm:px-7 py-4 border-t border-white/[0.08]">
             <p className="flex-1 text-[11px] leading-relaxed text-white/35">
               Available qualities, resolution and HDR are whatever the source server actually
               provides — protected (DRM) streams can’t be downloaded. Please only download content

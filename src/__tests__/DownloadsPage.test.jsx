@@ -110,6 +110,52 @@ describe("DownloadsPage", () => {
     expect(screen.getByText("Server refused the stream.")).toBeInTheDocument();
   });
 
+  it("shows a paused download with Resume and Cancel actions", async () => {
+    const resume = vi.fn();
+    renderPage({
+      meta: BASE_META,
+      flows: [
+        {
+          status: "paused",
+          progress: { ratio: 0.5, bytesLabel: "5.0 MB", totalBytes: 10 * 1024 * 1024 },
+          pause: vi.fn(),
+          resume,
+          retry: vi.fn(),
+        },
+      ],
+    });
+
+    expect(await screen.findByText("Paused")).toBeInTheDocument();
+    expect(screen.getByText("50%")).toBeInTheDocument();
+    expect(screen.getByLabelText(/resume download of fight club/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/cancel download of fight club/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText(/resume download of fight club/i));
+    expect(resume).toHaveBeenCalled();
+  });
+
+  it("retries a failed download through the stored retry closure", async () => {
+    const retry = vi.fn();
+    renderPage({
+      meta: BASE_META,
+      flows: [
+        {
+          status: "error",
+          error: "Client side error",
+          pause: vi.fn(),
+          resume: vi.fn(),
+          retry,
+        },
+      ],
+    });
+
+    const retryButton = await screen.findByLabelText(/retry download of fight club/i);
+    expect(screen.getByLabelText(/cancel download of fight club/i)).toBeInTheDocument();
+
+    fireEvent.click(retryButton);
+    expect(retry).toHaveBeenCalled();
+  });
+
   it("cancels a running download through the context", async () => {
     const abort = vi.fn();
     function Harness() {

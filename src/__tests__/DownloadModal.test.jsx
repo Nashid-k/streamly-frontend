@@ -22,6 +22,43 @@ vi.mock("../api/downloadService", () => ({
       this.code = code;
     }
   },
+  createPauseController: () => {
+    let paused = false;
+    let release = null;
+    let gate = Promise.resolve();
+    return {
+      isPaused: () => paused,
+      pause: () => {
+        if (paused) return;
+        paused = true;
+        gate = new Promise((resolve) => {
+          release = resolve;
+        });
+      },
+      resume: () => {
+        if (!paused) return;
+        paused = false;
+        release?.();
+        release = null;
+        gate = Promise.resolve();
+      },
+      async waitIfPaused({ signal } = {}) {
+        if (signal?.aborted) return;
+        while (paused) {
+          if (signal) {
+            const abortPromise = new Promise((resolve) => {
+              if (signal.aborted) return resolve();
+              signal.addEventListener("abort", () => resolve(), { once: true });
+            });
+            await Promise.race([gate, abortPromise]);
+          } else {
+            await gate;
+          }
+          if (signal?.aborted) return;
+        }
+      },
+    };
+  },
 }));
 
 vi.mock("../api/movieService", () => ({
@@ -139,7 +176,8 @@ describe("DownloadModal", () => {
     renderModal();
 
     await screen.findAllByText("1080p");
-    expect(downloadService.resolveDownload).toHaveBeenCalledTimes(3);
+    // Only the two player-rotation servers remain (VidSrc (Alt) removed).
+    expect(downloadService.resolveDownload).toHaveBeenCalledTimes(2);
   });
 
   it("shows an honest error when no server can be downloaded", async () => {
@@ -207,5 +245,34 @@ describe("DownloadModal", () => {
     record.abort();
 
     await waitFor(() => expect(storeSnapshot.downloads.find((d) => d.id === record.id).status).toBe("cancelled"));
+  });
+
+  it("keeps the download running after the modal closes — Escape does not abort", async () => {
+    downloadService.resolveDownload.mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
+
+    let captured = null;
+    downloadService.saveStream.mockImplementation((opts) => {
+      captured = opts;
+      return Promise.resolve({ bytes: 2048, filename: "f.mp4", method: "blob" });
+    });
+
+    let storeSnapshot = null;
+    renderModalWithStore({}, (store) => {
+      storeSnapshot = store;
+    });
+
+    const downloadButtons = await screen.findAllByRole("button", { name: /^Download \d/i });
+    fireEvent.click(downloadButtons[0]);
+    await waitFor(() => expect(captured).not.toBeNull());
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    // No abort fires: the loop keeps pulling and the record reaches "done".
+    await waitFor(() => {
+      const record = storeSnapshot.downloads.find((d) => d.title === "Fight Club");
+      expect(record).toBeDefined();
+      expect(record.status).toBe("done");
+    });
+    expect(captured.signal.aborted).toBe(false);
   });
 });

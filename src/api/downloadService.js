@@ -2,7 +2,6 @@
 //
 // Flow (all through the stateless /api/downloadify Vercel function):
 //   1. resolveDownload(embedUrl)          -> real HLS ladder for that server
-//      (a "vidsrc://" embed URL is routed to the VidSrc provider action)
 //   2. buildManifest(source, variant)     -> concrete segment URL list
 //   3. saveStream(...)                    -> fetch segments in bounded Range
 //                                            chunks and write them to disk
@@ -18,7 +17,8 @@
 // Saving mirrors a normal browser download: where the File System Access API
 // exists we write each chunk straight to the chosen file (so a 2 GB movie
 // never lives in RAM); otherwise we assemble a Blob and click an <a download>.
-// Cancellation is an AbortController; progress is segment-count based.
+// Cancellation is an AbortController; a PauseController (below) pauses the
+// fetch loops without killing the save; progress is segment-count based.
 
 import {
   KIND_FMP4,
@@ -43,24 +43,48 @@ export class DownloadUnavailableError extends Error {
   }
 }
 
-/* VidSrc: the download modal passes a download-only marker URL
-   (vidsrc://movie/{tmdb} | vidsrc://tv/{tmdb}?s=&e=). Translate it into the
-   resolver's "resolvevidsrc" action so we never hand the marker to an iframe. */
-function vidsrcBodyFromUrl(embedUrl) {
-  const u = new URL(embedUrl);
-  const isTv = u.hostname === "tv";
-  const body = {
-    action: "resolvevidsrc",
-    type: isTv ? "tv" : "movie",
-    id: u.pathname.replace(/^\//, ""),
+/* Pause gate shared by the download modal and the /downloads page. One
+   instance rides each download: the page's Pause/Resume buttons flip the
+   gate, and saveStream's fetch loops await waitIfPaused() between network
+   requests — so a pause stops pulling bytes without burying the file or
+   losing what's on disk. Aborts still interrupt a paused gate (the wait
+   races against the signal), so Cancel always lands, even mid-pause. */
+export function createPauseController() {
+  let paused = false;
+  let release = null;
+  let gate = Promise.resolve();
+  return {
+    isPaused: () => paused,
+    pause() {
+      if (paused) return;
+      paused = true;
+      gate = new Promise((resolve) => {
+        release = resolve;
+      });
+    },
+    resume() {
+      if (!paused) return;
+      paused = false;
+      release?.();
+      release = null;
+      gate = Promise.resolve();
+    },
+    async waitIfPaused({ signal } = {}) {
+      if (signal?.aborted) return;
+      while (paused) {
+        if (signal) {
+          const abortPromise = new Promise((resolve) => {
+            if (signal.aborted) return resolve();
+            signal.addEventListener("abort", () => resolve(), { once: true });
+          });
+          await Promise.race([gate, abortPromise]);
+        } else {
+          await gate;
+        }
+        if (signal?.aborted) return;
+      }
+    },
   };
-  if (u.searchParams.get("s")) body.season = u.searchParams.get("s");
-  if (u.searchParams.get("e")) body.episode = u.searchParams.get("e");
-  return body;
-}
-
-function isVidsrcUrl(embedUrl) {
-  return typeof embedUrl === "string" && embedUrl.toLowerCase().startsWith("vidsrc://");
 }
 
 async function post(body, { signal, as = "json" } = {}) {
@@ -136,18 +160,7 @@ async function probeDirect(url, { signal }) {
 export const downloadService = {
   /** Resolve a server's embed URL into the qualities it actually offers. */
   async resolveDownload(embedUrl, { signal } = {}) {
-    let data;
-    if (isVidsrcUrl(embedUrl)) {
-      let body;
-      try {
-        body = vidsrcBodyFromUrl(embedUrl);
-      } catch {
-        throw new DownloadUnavailableError("Malformed VidSrc URL (expected vidsrc://movie/{id} or vidsrc://tv/{id}?s=&e=).", "bad-url");
-      }
-      data = await post(body, { signal });
-    } else {
-      data = await post({ action: "resolve", embedUrl }, { signal });
-    }
+    const data = await post({ action: "resolve", embedUrl }, { signal });
     const variants = (data.variants || []).map((v, index) => ({
       ...v,
       index,
@@ -210,6 +223,7 @@ export const downloadService = {
     writable = null,
     onProgress,
     signal,
+    pause,
   }) {
     const kind = manifest.kind || KIND_FMP4;
     const extension = kind === "ts" ? "ts" : "mp4";
@@ -287,6 +301,12 @@ export const downloadService = {
     const relayRange = async (url, onChunk) => {
       let start = 0;
       for (;;) {
+        await pause?.waitIfPaused({ signal });
+        if (signal?.aborted) {
+          const err = new Error("Aborted");
+          err.name = "AbortError";
+          throw err;
+        }
         const { bytes: chunk, more } = await post(
           { action: "segment", url, range: { start, max: CHUNK_MAX }, refUrl },
           { signal, as: "buffer" },
@@ -314,6 +334,12 @@ export const downloadService = {
       if (res.body && typeof res.body.getReader === "function") {
         const reader = res.body.getReader();
         for (;;) {
+          await pause?.waitIfPaused({ signal });
+          if (signal?.aborted) {
+            const err = new Error("Aborted");
+            err.name = "AbortError";
+            throw err;
+          }
           const { done, value } = await reader.read();
           if (done) break;
           noteReceived(value);
@@ -416,6 +442,7 @@ export const downloadService = {
               err.name = "AbortError";
               throw err;
             }
+            await pause?.waitIfPaused({ signal });
             const index = nextToFetch;
             nextToFetch += 1;
             if (index >= SEGMENTS) return;

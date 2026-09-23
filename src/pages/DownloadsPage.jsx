@@ -6,6 +6,9 @@ import {
   Check,
   Download,
   Loader2,
+  Pause,
+  Play,
+  RotateCw,
   Send,
   Trash2,
   X,
@@ -25,6 +28,7 @@ import { formatBytes } from "../utils/downloadQuality";
 
 const STATUS_META = {
   downloading: { label: "downloads.downloading", color: "#4bc915" },
+  paused: { label: "downloads.paused", color: "#f59e0b" },
   done: { label: "downloads.done", color: "var(--accent-primary)" },
   error: { label: "downloads.failed", color: "#f87171" },
   cancelled: { label: "downloads.cancelled", color: "#9ca3af" },
@@ -34,11 +38,13 @@ function statusLabel(status, t) {
   return t(STATUS_META[status]?.label || "downloads.pending");
 }
 
-function DownloadCard({ download, t, onCancel, onRemove }) {
+function DownloadCard({ download, t, onPause, onResume, onRetry, onCancel, onRemove }) {
   const { title, posterUrl, backdropUrl, quality, serverName, status, progress, episodeCount } = download;
   const imgUrl = CdnImageAdapter.getUrl(posterUrl || backdropUrl, "w185");
   const pct = progress?.ratio ? Math.round(progress.ratio * 100) : 0;
   const isDownloading = status === "downloading";
+  const isPaused = status === "paused";
+  const showsProgress = isDownloading || isPaused;
 
   return (
     <motion.div
@@ -86,20 +92,20 @@ function DownloadCard({ download, t, onCancel, onRemove }) {
         </div>
         <p className="mt-0.5 truncate text-[11px] text-white/40">
           {serverName || "Streamly"}
-          {isDownloading && progress?.bytesLabel
+          {showsProgress && progress?.bytesLabel
             ? ` · ${progress.bytesLabel}${progress.totalBytes > 0 ? ` / ${formatBytes(progress.totalBytes)}` : ""}`
             : ""}
         </p>
 
-        {isDownloading && (
+        {showsProgress && (
           <div className="mt-2">
             <div className="flex items-center justify-between gap-2 text-[11px] text-white/50 mb-1">
               <span className="flex items-center gap-1.5">
-                <Loader2 className="w-3 h-3 animate-spin" />
+                {isDownloading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Pause className="w-3 h-3" />}
                 {statusLabel(status, t)}
               </span>
               <span className="flex items-center gap-2.5">
-                {progress?.speed > 0 && <span className="text-white/40">{formatBytes(progress.speed)}/s</span>}
+                {isDownloading && progress?.speed > 0 && <span className="text-white/40">{formatBytes(progress.speed)}/s</span>}
                 <span>{pct}%</span>
               </span>
             </div>
@@ -121,7 +127,7 @@ function DownloadCard({ download, t, onCancel, onRemove }) {
           </p>
         )}
 
-        {!isDownloading && (
+        {!showsProgress && (
           <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-white/40">
             <Download className="w-3 h-3 shrink-0" />
             <span>{statusLabel(status, t)}</span>
@@ -131,13 +137,47 @@ function DownloadCard({ download, t, onCancel, onRemove }) {
       </div>
 
       <div className="shrink-0 flex flex-col gap-1.5">
-        {isDownloading ? (
+        {isDownloading && (
+          <button
+            type="button"
+            onClick={onPause}
+            aria-label={`Pause download of ${title || "title"}`}
+            title="Pause"
+            className="flex items-center justify-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-[11px] font-semibold text-white/80 hover:bg-white/[0.06] transition-colors"
+          >
+            <Pause className="w-3 h-3" /> Pause
+          </button>
+        )}
+        {isPaused && (
+          <button
+            type="button"
+            onClick={onResume}
+            aria-label={`Resume download of ${title || "title"}`}
+            title="Resume"
+            className="flex items-center justify-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-[11px] font-semibold text-white/80 hover:bg-white/[0.06] transition-colors"
+          >
+            <Play className="w-3 h-3" /> Resume
+          </button>
+        )}
+        {status === "error" && (
+          <button
+            type="button"
+            onClick={onRetry}
+            aria-label={`Retry download of ${title || "title"}`}
+            title="Retry"
+            className="flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-bold text-black transition-transform active:scale-[0.98]"
+            style={{ background: "var(--accent-gradient)" }}
+          >
+            <RotateCw className="w-3 h-3" /> Retry
+          </button>
+        )}
+        {isDownloading || isPaused || status === "error" ? (
           <button
             type="button"
             onClick={onCancel}
             aria-label={`Cancel download of ${title || "title"}`}
             title="Cancel"
-            className="flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-[11px] font-semibold text-white/80 hover:bg-white/[0.06] transition-colors"
+            className="flex items-center justify-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-[11px] font-semibold text-white/60 hover:bg-white/[0.06] hover:text-white transition-colors"
           >
             <X className="w-3 h-3" /> Cancel
           </button>
@@ -147,7 +187,7 @@ function DownloadCard({ download, t, onCancel, onRemove }) {
             onClick={onRemove}
             aria-label={`Remove ${title || "title"} from downloads`}
             title="Remove"
-            className="flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-[11px] font-semibold text-white/60 hover:bg-white/[0.06] hover:text-white transition-colors"
+            className="flex items-center justify-center rounded-lg border border-white/15 px-3 py-1.5 text-[11px] font-semibold text-white/60 hover:bg-white/[0.06] hover:text-white transition-colors"
           >
             <Trash2 className="w-3 h-3" />
           </button>
@@ -230,6 +270,9 @@ export default function DownloadsPage() {
                       key={d.id}
                       download={d}
                       t={t}
+                      onPause={() => d.pause?.()}
+                      onResume={() => d.resume?.()}
+                      onRetry={() => d.retry?.()}
                       onCancel={() => cancelDownload(d.id)}
                       onRemove={() => removeDownload(d.id)}
                     />

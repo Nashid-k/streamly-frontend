@@ -166,6 +166,7 @@ export const en = {
     discover: "Discover Content",
     explore: "Explore",
     downloading: "Downloading",
+    paused: "Paused",
     done: "Saved",
     failed: "Failed",
     cancelled: "Cancelled",

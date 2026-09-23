@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { downloadService } from "../api/downloadService";
+import { downloadService, createPauseController } from "../api/downloadService";
 
 function jsonResponse(body) {
   return {
@@ -229,5 +229,37 @@ describe("downloadService.saveStream", () => {
 
     // One probe for the origin + one direct fetch per segment, no re-probes.
     expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("pauses between segments until resumed, then keeps saving", async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const fetchMock = vi.fn().mockImplementation(async (url, init) => {
+      if (!init?.method) return { ok: false, status: 404, headers: { get: () => "" } };
+      return bufferResponse([3, 3]);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const writable = { write: vi.fn().mockResolvedValue(undefined), close: vi.fn().mockResolvedValue(undefined) };
+
+    const gate = createPauseController();
+    gate.pause();
+
+    const promise = downloadService.saveStream({
+      manifest: { kind: "fmp4", initUrl: null, segments: ["https://cdn/a.m4s", "https://cdn/b.m4s"], count: 2 },
+      source: { refUrl: "https://vidlink.pro/movie/550" },
+      baseName: "Paused",
+      writable,
+      pause: gate,
+    });
+
+    // While paused the worker loops must not pull a single segment.
+    await sleep(20);
+    const segmentCalls = fetchMock.mock.calls.filter(([, init]) => init?.method === "POST");
+    expect(segmentCalls.length).toBe(0);
+
+    gate.resume();
+    const result = await promise;
+    expect(result.bytes).toBe(4);
+    expect(writable.write).toHaveBeenCalledTimes(2);
+    expect(writable.close).toHaveBeenCalledTimes(1);
   });
 });
