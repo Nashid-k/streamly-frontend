@@ -1,7 +1,8 @@
 // src/api/downloadService.js — client half of the browser-only download flow.
 //
 // Flow (all through the stateless /api/downloadify Vercel function):
-//   1. resolveDownload(embedUrl)          -> real HLS ladder for that server
+//   1. resolveVidsrc({type,id,season?,episode?}) -> VidSrc (Alt) HLS ladder
+//      (resolveDownload(embedUrl) also resolves an allow-listed embed host)
 //   2. buildManifest(source, variant)     -> concrete segment URL list
 //   3. saveStream(...)                    -> fetch segments in bounded Range
 //                                            chunks and write them to disk
@@ -158,21 +159,45 @@ async function probeDirect(url, { signal }) {
 }
 
 export const downloadService = {
-  /** Resolve a server's embed URL into the qualities it actually offers. */
-  async resolveDownload(embedUrl, { signal } = {}) {
-    const data = await post({ action: "resolve", embedUrl }, { signal });
+  /** Normalize a resolver `{ ok, source, variants }` payload into the shape
+      the sheet consumes (labeled variants, per-variant index). */
+  normalizeResolved(data) {
     const variants = (data.variants || []).map((v, index) => ({
       ...v,
       index,
       label: variantLabel(v),
       estimatedBytes: estimateBytes(v.bandwidth, 0),
     }));
-    logInfo("download", `Resolved ${variants.length} downloadable variant(s).`, {
-      embedUrl,
-      provider: data.serverName || null,
-      variants: variants.map((v) => v.label),
-    });
     return { source: data.source, variants };
+  },
+
+  /** Resolve an allow-listed embed host's URL into the qualities it offers. */
+  async resolveDownload(embedUrl, { signal } = {}) {
+    const data = await post({ action: "resolve", embedUrl }, { signal });
+    return this.normalizeResolved(data);
+  },
+
+  /** Resolve the VidSrc (Alt) provider — the only third-party provider the
+      downloader scrapes server-side (action "resolvevidsrc"). `type` is
+      "movie" | "tv"; `season`/`episode` only matter for TV and both default
+      to whatever VidSrc serves when omitted. */
+  async resolveVidsrc({ type, id, season, episode }, { signal } = {}) {
+    const kind = type === "tv" ? "tv" : "movie";
+    const body = { action: "resolvevidsrc", type: kind, id: String(id || "") };
+    if (kind === "tv") {
+      if (season != null) body.season = String(season);
+      if (episode != null) body.episode = String(episode);
+    }
+    const data = await post(body, { signal });
+    const resolved = this.normalizeResolved(data);
+    logInfo("download", `Resolved ${resolved.variants.length} downloadable variant(s) via VidSrc (Alt).`, {
+      type: kind,
+      id,
+      season: season ?? null,
+      episode: episode ?? null,
+      variants: resolved.variants.map((v) => v.label),
+    });
+    return resolved;
   },
 
   /** Expand a chosen variant into a concrete segment list. */

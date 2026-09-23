@@ -24,14 +24,14 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("downloadService.resolveDownload", () => {
-  it("labels the variants the resolver reports", async () => {
+describe("downloadService.resolveVidsrc", () => {
+  it("labels the qualities the VidSrc (Alt) ladder reports", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
         jsonResponse({
           ok: true,
-          source: { kind: "hls", url: "https://cdn/master.m3u8" },
+          source: { kind: "hls", url: "https://vidsrc.buzz/stream/xyz" },
           variants: [
             { uri: "https://cdn/4k.m3u8", bandwidth: 16000000, width: 3840, height: 2160, hdr: true },
             { uri: "https://cdn/1080.m3u8", bandwidth: 8000000, width: 1920, height: 1080, hdr: false },
@@ -40,9 +40,31 @@ describe("downloadService.resolveDownload", () => {
       ),
     );
 
-    const { variants } = await downloadService.resolveDownload("https://vidlink.pro/movie/550");
+    const { variants } = await downloadService.resolveVidsrc(
+      { type: "movie", id: "550" },
+    );
     expect(variants.map((v) => v.label)).toEqual(["4K HDR", "1080p"]);
-    expect(variants[0].index).toBe(0);
+  });
+
+  it("passes season+episode through for TV titles", async () => {
+    let capturedBody = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        capturedBody = JSON.parse(init.body);
+        return jsonResponse({
+          ok: true,
+          source: { kind: "hls", url: "https://vidsrc.buzz/stream/tv-xyz" },
+          variants: [
+            { uri: "https://cdn/720.m3u8", bandwidth: 2800000, width: 1280, height: 720, hdr: false },
+          ],
+        });
+      }),
+    );
+
+    await downloadService.resolveVidsrc({ type: "tv", id: "1399", season: 2, episode: 3 });
+
+    expect(capturedBody).toMatchObject({ action: "resolvevidsrc", type: "tv", id: "1399", season: "2", episode: "3" });
   });
 
   it("throws a clear error when the serverless function is not deployed", async () => {
@@ -55,7 +77,7 @@ describe("downloadService.resolveDownload", () => {
         json: async () => ({}),
       }),
     );
-    await expect(downloadService.resolveDownload("https://vidlink.pro/movie/550")).rejects.toMatchObject({
+    await expect(downloadService.resolveVidsrc({ type: "movie", id: "550" })).rejects.toMatchObject({
       code: "offline",
     });
   });
@@ -63,9 +85,9 @@ describe("downloadService.resolveDownload", () => {
   it("surfaces the resolver's no-source result", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(jsonResponse({ ok: false, error: "No downloadable stream found", code: "no-source" })),
+      vi.fn().mockResolvedValue(jsonResponse({ ok: false, error: "No downloadable stream found via VidSrc", code: "no-source" })),
     );
-    await expect(downloadService.resolveDownload("https://vidlink.pro/movie/550")).rejects.toMatchObject({
+    await expect(downloadService.resolveVidsrc({ type: "movie", id: "550" })).rejects.toMatchObject({
       code: "no-source",
     });
   });

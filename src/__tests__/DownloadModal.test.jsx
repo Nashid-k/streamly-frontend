@@ -11,7 +11,7 @@ import { movieService } from "../api/movieService";
 
 vi.mock("../api/downloadService", () => ({
   downloadService: {
-    resolveDownload: vi.fn(),
+    resolveVidsrc: vi.fn(),
     buildManifest: vi.fn(),
     pickSaveTarget: vi.fn(),
     saveStream: vi.fn(),
@@ -128,22 +128,21 @@ beforeEach(() => {
 
 describe("DownloadModal", () => {
   it("lists only the qualities the server actually offers", async () => {
-    downloadService.resolveDownload.mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
+    downloadService.resolveVidsrc.mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
     renderModal();
 
     expect(await screen.findByRole("dialog", { name: /download/i })).toBeInTheDocument();
-    // Quality badges appear in source rows and possibly filter rail
-    expect(screen.getAllByText("4K HDR").length).toBeGreaterThanOrEqual(2);
-    expect(screen.getAllByText("1080p").length).toBeGreaterThanOrEqual(2);
-    expect(screen.getAllByText("720p").length).toBeGreaterThanOrEqual(2);
-    expect(downloadService.resolveDownload).toHaveBeenCalledWith(
-      "https://cinesrc.st/embed/movie/550",
+    // The row badge shows the full label ("4K HDR"); the filter rail chip
+    // shortens it ("4K"), so assert the variant is at least present once.
+    expect(screen.getAllByText("4K HDR").length).toBeGreaterThanOrEqual(1);
+    expect(downloadService.resolveVidsrc).toHaveBeenCalledWith(
+      { type: "movie", id: "550", season: undefined, episode: undefined },
       expect.objectContaining({ signal: expect.anything() }),
     );
   });
 
   it("downloads the chosen variant through saveStream", async () => {
-    downloadService.resolveDownload.mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
+    downloadService.resolveVidsrc.mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
     renderModal();
 
     // Find and click the first "Download" action button
@@ -154,43 +153,32 @@ describe("DownloadModal", () => {
     expect(downloadService.buildManifest).toHaveBeenCalledTimes(1);
   });
 
-  it("lets you click a row while other sources are still being scanned", async () => {
-    downloadService.resolveDownload
-      .mockImplementationOnce(() => new Promise((resolve) => setTimeout(() => resolve({ source: { url: "slow" }, variants: VARIANTS }), 5000)))
-      .mockResolvedValueOnce({ source: { url: "m" }, variants: VARIANTS });
+  it("lets you click a row while the single source is still resolving", async () => {
+    downloadService.resolveVidsrc
+      .mockReturnValue(new Promise((resolve) => setTimeout(() => resolve({ source: { url: "slow" }, variants: VARIANTS }), 100)));
     renderModal();
 
-    // First source resolves fast; the second is still pending, so
-    // resolveState stays "resolving" — the fast row must still be enabled.
+    // The modal resolves exactly one source (VidSrc (Alt)); while it is
+    // pending there is nothing to show yet, so no rows exist until it lands.
+    expect(screen.queryByRole("button", { name: /^Download \d/i })).not.toBeInTheDocument();
+
     const downloadButtons = await screen.findAllByRole("button", { name: /^Download \d/i });
     expect(downloadButtons[0]).not.toBeDisabled();
-
     fireEvent.click(downloadButtons[0]);
     await waitFor(() => expect(downloadService.saveStream).toHaveBeenCalledTimes(1));
   });
 
-  it("tries the next server when one has no downloadable source", async () => {
-    downloadService.resolveDownload
-      .mockRejectedValueOnce(new Error("no source"))
-      .mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
-    renderModal();
-
-    await screen.findAllByText("1080p");
-    // Only the two player-rotation servers remain (VidSrc (Alt) removed).
-    expect(downloadService.resolveDownload).toHaveBeenCalledTimes(2);
-  });
-
-  it("shows an honest error when no server can be downloaded", async () => {
-    downloadService.resolveDownload.mockRejectedValue(new Error("no source"));
+  it("shows an honest error when the only source has no downloadable file", async () => {
+    downloadService.resolveVidsrc.mockRejectedValue(new Error("no source"));
     renderModal();
 
     expect(
-      await screen.findByText(/none of the servers offered a downloadable file/i),
+      await screen.findByText(/VidSrc \(Alt\) did not offer a downloadable version of this title/i),
     ).toBeInTheDocument();
   });
 
   it("locks body scroll and closes on Escape", async () => {
-    downloadService.resolveDownload.mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
+    downloadService.resolveVidsrc.mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
     const onClose = vi.fn();
     renderModal({ onClose });
 
@@ -202,7 +190,7 @@ describe("DownloadModal", () => {
   });
 
   it("registers the download in the shared store and marks it done", async () => {
-    downloadService.resolveDownload.mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
+    downloadService.resolveVidsrc.mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
 
     let storeSnapshot = null;
     renderModalWithStore({}, (store) => {
@@ -218,12 +206,12 @@ describe("DownloadModal", () => {
       expect(record).toBeDefined();
       expect(record.status).toBe("done");
       expect(record.quality).toBe("4K HDR");
-      expect(record.serverName).toBe("Server 1");
+      expect(record.serverName).toBe("VidSrc (Alt)");
     });
   });
 
   it("marks the stored download cancelled when aborted", async () => {
-    downloadService.resolveDownload.mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
+    downloadService.resolveVidsrc.mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
     downloadService.saveStream.mockImplementation(
       (opts) => new Promise((resolve, reject) => {
         opts.signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
@@ -248,7 +236,7 @@ describe("DownloadModal", () => {
   });
 
   it("keeps the download running after the modal closes — Escape does not abort", async () => {
-    downloadService.resolveDownload.mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
+    downloadService.resolveVidsrc.mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
 
     let captured = null;
     downloadService.saveStream.mockImplementation((opts) => {

@@ -2819,3 +2819,36 @@ entry point = link added to My List (WatchlistPage).
     Download button aria-label updated to match.
   - Verified: `npm run lint` clean, vitest (DownloadModal + downloadService 10/10) passed,
     `npm run build` ok. No commits (user did not ask).
+
+
+---
+
+## 2026-09-23 — single-source (VidSrc (Alt)) download resolution [fixed + reverted]
+
+**Symptom (user):** downloads stopped returning anything after the server-rotation
+commits; "before these... we were getting at least [VidSrc (Alt)]". Deployed bundle
+`index-BxpObz8P.js` scanned Server 1–8 via `resolveDownload`, every host → 502 /
+`502 no-source`, so the modal showed nothing.
+
+**Cause:** `ae87645`/`ae87645(?)`` dropped VidSrc (Alt) from the *client* download
+rotation. VidSrc (Alt) is the ONLY source we actually scrape (serverless
+`resolvevidsrc`); the other 8 embed hosts were never scraped. Stripping the single
+real source from the modal left it scanning 8 no-op hosts → all 502s → no rows.
+
+**Fix (this tree, `DownloadModal.jsx` + `downloadService.js`):** modal now resolves ONE
+source — VidSrc (Alt) — via `downloadService.resolveVidsrc({ type, id, season?, episode? })`
+(single call, `VIDSRC_SOURCE_NAME="VidSrc (Alt)"`). Removed the dead multi-server
+grep (`allSources`/`buildEmbedUrl`/`resolveDownload`/`RESOLVE_CONCURRENCY`/imdb-id/`getExternalIds`).
+Honest no-source copy + single "Try again" via `resolveAll`. i18n untouched (strings inline;
+en.js `download:` key only). Player rotation/server list untouched.
+
+**Gates:** lint 0 warnings-new · 439/439 vitest · `npm run build` ok (new bundles
+`DownloadModal-DWBCvgZt.js`, `index-CacIeT-U.js`). Tests updated to mock `resolveVidsrc`
++ single honest bad-source case.
+
+**Deploy note:** the internet-visible bundle is still the OLD 8-server `index-BxpObz8P.js`
+(＋ `/api/downloadify` on Vercel is cold/502 under probe — likely WAF/rate-limit while
+`resolvevidsrc` is single-source cold). The fix ships with the next `push`/`vercel` deploy;
+push only on explicit user OK per repo policy.
+
+*Pull-only session: no `git push` performed (awaiting user approval).*
