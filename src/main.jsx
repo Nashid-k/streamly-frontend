@@ -21,6 +21,7 @@ import "./styles/discovery.css";
 import { ToastProvider } from "./components/Toast.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import { PreferencesProvider } from "./context/PreferencesContext.jsx";
+import { DownloadsProvider } from "./context/DownloadsContext.jsx";
 import { I18nProvider } from "./i18n/index.jsx";
 
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -64,7 +65,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <PreferencesProvider>
             <I18nProvider>
               <ToastProvider>
-                <App />
+                <DownloadsProvider>
+                  <App />
+                </DownloadsProvider>
               </ToastProvider>
             </I18nProvider>
           </PreferencesProvider>

@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import DownloadModal from "../components/DownloadModal";
 import { ToastProvider } from "../components/Toast.jsx";
+import { DownloadsProvider } from "../context/DownloadsContext";
+import { useDownloads } from "../context/downloads";
 import { downloadService } from "../api/downloadService";
 import { movieService } from "../api/movieService";
 
@@ -45,6 +48,31 @@ function renderModal(props = {}) {
     <QueryClientProvider client={client}>
       <ToastProvider>
         <DownloadModal movie={MOVIE} servers={SERVERS} isTvContent={false} onClose={() => {}} {...props} />
+      </ToastProvider>
+    </QueryClientProvider>,
+  );
+}
+
+/* Probes the DownloadsContext so the test can assert what the modal wrote
+   into the session store (mirrors how the /downloads page reads it). */
+function StoreProbe({ children, onStore }) {
+  const store = useDownloads();
+  useEffect(() => {
+    onStore(store);
+  });
+  return children;
+}
+
+function renderModalWithStore(props = {}, onStore) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <ToastProvider>
+        <DownloadsProvider>
+          <StoreProbe onStore={onStore}>
+            <DownloadModal movie={MOVIE} servers={SERVERS} isTvContent={false} onClose={() => {}} {...props} />
+          </StoreProbe>
+        </DownloadsProvider>
       </ToastProvider>
     </QueryClientProvider>,
   );
@@ -133,5 +161,51 @@ describe("DownloadModal", () => {
 
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("registers the download in the shared store and marks it done", async () => {
+    downloadService.resolveDownload.mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
+
+    let storeSnapshot = null;
+    renderModalWithStore({}, (store) => {
+      storeSnapshot = store;
+    });
+
+    const downloadButtons = await screen.findAllByRole("button", { name: /^Download \d/i });
+    fireEvent.click(downloadButtons[0]);
+    await waitFor(() => expect(downloadService.saveStream).toHaveBeenCalledTimes(1));
+
+    await waitFor(() => {
+      const record = storeSnapshot.downloads.find((d) => d.title === "Fight Club");
+      expect(record).toBeDefined();
+      expect(record.status).toBe("done");
+      expect(record.quality).toBe("4K HDR");
+      expect(record.serverName).toBe("Server 1");
+    });
+  });
+
+  it("marks the stored download cancelled when aborted", async () => {
+    downloadService.resolveDownload.mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
+    downloadService.saveStream.mockImplementation(
+      (opts) => new Promise((resolve, reject) => {
+        opts.signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+      }),
+    );
+
+    let storeSnapshot = null;
+    renderModalWithStore({}, (store) => {
+      storeSnapshot = store;
+    });
+
+    const downloadButtons = await screen.findAllByRole("button", { name: /^Download \d/i });
+    fireEvent.click(downloadButtons[0]);
+    await waitFor(() => expect(downloadService.saveStream).toHaveBeenCalledTimes(1));
+
+    // The store's abort closure must abort the real controller backing the modal.
+    await waitFor(() => expect(storeSnapshot.downloads.length).toBeGreaterThan(0));
+    const record = storeSnapshot.downloads.find((d) => d.title === "Fight Club");
+    record.abort();
+
+    await waitFor(() => expect(storeSnapshot.downloads.find((d) => d.id === record.id).status).toBe("cancelled"));
   });
 });

@@ -6,6 +6,8 @@
 
 export { AppContext, useAppAuth } from "./auth";
 export { AuthProvider } from "./AuthContext";
+export { useDownloads, DEFAULT_DOWNLOADS_FALLBACK } from "./downloads";
+export { DownloadsProvider } from "./DownloadsContext";
 export { PreferencesProvider, LEGACY_SERVER_NAME_MAP } from "./PreferencesContext";
 export {
   PreferencesContext,

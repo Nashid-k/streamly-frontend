@@ -1,14 +1,16 @@
 import { Link, useLocation } from "react-router-dom";
-import { Search, Settings } from "lucide-react";
+import { Search, Settings, Download } from "lucide-react";
 import { NAV_ITEMS } from "../constants/navigation";
 import { useI18n } from "../i18n/index.jsx";
 import { useAppAuth } from "../context/auth";
+import { useDownloads } from "../context/downloads";
 
 /* Mobile Bottom Navigation — Cinejoy-style floating icon pill */
 function MobileBottomNav() {
   const location = useLocation();
   const { t } = useI18n();
   const { user } = useAppAuth();
+  const { downloads, activeCount } = useDownloads();
 
   const items = [
     ...NAV_ITEMS.map((item) => ({
@@ -18,6 +20,9 @@ function MobileBottomNav() {
         ? { match: (p) => p === "/watchlist" || p === "/history" }
         : null),
     })),
+    ...(downloads.length > 0
+      ? [{ id: "downloads", label: t("nav.downloads"), to: "/downloads", icon: Download, match: (p) => p === "/downloads" }]
+      : []),
     { id: "search", label: t("nav.search"), to: "/search", icon: Search, match: (p) => p === "/search" },
     { id: "settings", label: user ? t("settings.tabs.account") : t("nav.settings"), to: "/settings", icon: Settings, match: (p) => p === "/settings" },
   ];
@@ -35,6 +40,9 @@ function MobileBottomNav() {
             aria-label={item.label}
             title={item.label}
           >
+            {item.id === "downloads" && activeCount > 0 && (
+              <span className="bottom-nav-badge">{activeCount}</span>
+            )}
             {item.id === "settings" && user?.picture ? (
               <img
                 src={user.picture}

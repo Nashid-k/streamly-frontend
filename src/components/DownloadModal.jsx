@@ -15,6 +15,7 @@ import {
 import { downloadService, DownloadUnavailableError } from "../api/downloadService";
 import { movieService } from "../api/movieService";
 import { useToast } from "./Toast";
+import { useDownloads } from "../context/downloads";
 import Chip from "./Chip";
 import {
   estimateBytes,
@@ -90,6 +91,7 @@ export default function DownloadModal({
   onClose,
 }) {
   const { toast } = useToast();
+  const { registerDownload, updateDownload, cancelDownload } = useDownloads();
   const panelRef = useRef(null);
   const abortRef = useRef(null);
   const resolveAbortRef = useRef(null);
@@ -381,6 +383,21 @@ export default function DownloadModal({
     const controller = new AbortController();
     abortRef.current = controller;
     speedRef.current = { time: 0, bytes: 0, ema: 0 };
+    const storeTitle = movie?.title || movie?.name || "File";
+    const downloadId = registerDownload({
+      title: storeTitle,
+      year: movie?.releaseYear || movie?.year || "",
+      posterUrl: movie?.posterUrl || movie?.backdropUrl || null,
+      backdropUrl: movie?.backdropUrl || null,
+      isTv,
+      quality: row.label || variantLabel(row.variant),
+      serverName: row.serverName,
+      episodeCount: targets.length,
+      status: "downloading",
+      progress: null,
+      error: null,
+      abort: () => controller.abort(),
+    });
     setDownloadState({
       status: "downloading",
       rowKey: row.key,
@@ -395,6 +412,7 @@ export default function DownloadModal({
       for (let i = 0; i < targets.length; i += 1) {
         const episode = targets[i];
         setDownloadState((prev) => ({ ...prev, episodeIndex: i, episode, progress: null }));
+        updateDownload(downloadId, { episodeIndex: i });
         const embedUrl = buildEmbedUrl(server, selectedSeason, episode);
         const { source, variants: fresh } = await downloadService.resolveDownload(embedUrl, { signal: controller.signal });
         const variant = matchVariant(fresh, row.variant);
@@ -421,6 +439,10 @@ export default function DownloadModal({
               }
             }
             speedRef.current = { time: now, bytes: progress.bytes, ema: speed };
+            updateDownload(downloadId, {
+              progress: { ...progress, speed, totalBytes },
+              episodeIndex: i,
+            });
             setDownloadState((prevState) => ({
               ...prevState,
               progress: { ...progress, speed, totalBytes },
@@ -429,6 +451,7 @@ export default function DownloadModal({
         });
       }
       setDownloadState((prev) => ({ ...prev, status: "done", progress: null }));
+      updateDownload(downloadId, { status: "done", progress: null });
       toast({
         title: "Download complete",
         message: targets.length > 1
@@ -439,8 +462,10 @@ export default function DownloadModal({
       });
     } catch (error) {
       if (error?.name === "AbortError") {
+        cancelDownload(downloadId);
         setDownloadState({ status: "idle", rowKey: null, episodeIndex: 0, total: 0, episode: null, progress: null, error: null });
       } else {
+        updateDownload(downloadId, { status: "error", error: error?.message || "Download failed." });
         setDownloadState((prev) => ({ ...prev, status: "error", error: error?.message || "Download failed." }));
       }
     } finally {
