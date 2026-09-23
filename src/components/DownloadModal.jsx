@@ -458,7 +458,7 @@ export default function DownloadModal({
     <AnimatePresence>
       <motion.div
         key="download-backdrop"
-        className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-6"
+        className="fixed inset-0 z-[120] flex items-center justify-center bg-black/75 backdrop-blur-sm p-3 sm:p-5"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -480,7 +480,7 @@ export default function DownloadModal({
           aria-modal="true"
           aria-labelledby="download-modal-title"
           tabIndex={-1}
-          className="w-full sm:max-w-xl max-h-[85vh] sm:max-h-[90vh] flex flex-col overflow-hidden rounded-t-3xl sm:rounded-3xl border border-white/10 bg-[#141414] shadow-2xl shadow-black/60 outline-none"
+          className="w-[min(100%,36rem)] max-h-[min(88dvh,52rem)] flex flex-col overflow-hidden rounded-2xl sm:rounded-3xl border border-white/10 bg-[#141414] shadow-2xl shadow-black/60 outline-none"
         >
           <div className="flex items-center gap-3 px-4 sm:px-5 pt-4 sm:pt-5 pb-4 border-b border-white/[0.07]">
             <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-white shrink-0">
