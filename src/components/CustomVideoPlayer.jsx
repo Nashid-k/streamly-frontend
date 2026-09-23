@@ -559,6 +559,7 @@ setVidcoreDirectMode(false);
       contentSignatureRef.current = sig;
       if (isNew) { setCurrentTime(0); setDuration(0); setBuffered(0); targetSeekTimeRef.current = null; }
       let url = VideoSourceAdapter.resolveStreamUrl(SERVERS, activeServerIndex, tid, isTv ? season : null, isTv ? episode : null, imdbId, movie.title);
+      logInfo("player", `Resolved embed URL for server #${activeServerIndex + 1} "${SERVERS[activeServerIndex]?.name || "unknown"}" -> ${url}`, { tid, serverIndex: activeServerIndex, isTv, season: isTv ? season : undefined, episode: isTv ? episode : undefined, isCine: url.includes("cinesrc.st") });
       const isCineServer = url.includes("cinesrc.st");
       cineActiveRef.current = isCineServer;
       if (isCineServer) {
@@ -691,9 +692,18 @@ setVidcoreDirectMode(false);
 
   useEffect(() => {
     if (!isCineSrc) return;
-    const h = (ev) => {
-      try {
-        if (ev.origin !== "https://cinesrc.st" || !ev.data || typeof ev.data !== "object") return;
+      const h = (ev) => {
+        try {
+          // Pre-gate capture: log EVERY inbound postMessage so we can tell whether CineSrc
+          // truly stays silent vs. talks from a WAF-redirect origin that the gate could drop.
+          // Fault-isolated: an instrumentation hiccup must NEVER be able to swallow the
+          // strike/proof events below — our own logs can't be allowed to break watching.
+          try {
+            let rawType = "?";
+            try { rawType = ev.data?.type || (ev.data && typeof ev.data === "object" ? Object.keys(ev.data)[0] || "?" : "?"); } catch { /* ignore */ }
+            logDebug("player", `CineSrc inbound postMessage {origin:"${ev.origin}", type:"${rawType}"}`, { tid, serverIndex: activeServerIndexRef.current, dataKeys: ev.data && typeof ev.data === "object" ? Object.keys(ev.data).slice(0, 8) : null });
+          } catch { /* instrumentation must never kill the proof path below */ }
+          if (ev.origin !== "https://cinesrc.st" || !ev.data || typeof ev.data !== "object") return;
         let t, d;
         try { ({ type: t, ...d } = ev.data); } catch { return; }
         switch (t) {
