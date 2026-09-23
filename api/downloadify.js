@@ -250,26 +250,41 @@ async function fetchUpstream(url, { as = "text", timeoutMs = 12000, referer, ret
    and the response is capped at `max`; `more` tells the caller whether more
    bytes follow (derived from content-range when the server sends one, else the
    "exactly full chunk" heuristic — the client breaks on a subsequent empty
-   chunk, so any one-off guess resolves safely). */
+   chunk, so any one-off guess resolves safely).
+   Some CDNs gate on the referer of their owning player (e.g. VidSrc's opaque
+   relay expects https://xplayer.videm.xyz/). Their 403 declares the expected
+   origin in access-control-allow-origin, so we retry once from that origin —
+   it's only used as a request header, which adds no SSRF surface. */
 async function fetchRangeChunk(url, { start = 0, max = RANGE_CHUNK_BYTES, referer } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 25000);
   try {
     const safeUrl = await assertPublicDestination(url);
-    const headers = baseHeaders();
-    headers.range = `bytes=${start}-${start + max - 1}`;
-    if (referer) {
-      headers.referer = referer;
-      headers.origin = new URL(referer).origin;
-    }
 
-    let current = safeUrl;
-    let upstream = await fetchNoRedirect(current, { headers, signal: controller.signal });
-    for (let hop = 0; hop < MAX_REDIRECTS && upstream.status >= 300 && upstream.status < 400; hop += 1) {
-      const location = upstream.headers.get("location");
-      if (!location) throw new Error("Redirect without location");
-      current = await assertPublicDestination(new URL(location, current).toString());
-      upstream = await fetchNoRedirect(current, { headers, signal: controller.signal });
+    const attempt = async (ref) => {
+      const headers = baseHeaders();
+      headers.range = `bytes=${start}-${start + max - 1}`;
+      if (ref) {
+        headers.referer = ref;
+        headers.origin = new URL(ref).origin;
+      }
+      let current = safeUrl;
+      let upstream = await fetchNoRedirect(current, { headers, signal: controller.signal });
+      for (let hop = 0; hop < MAX_REDIRECTS && upstream.status >= 300 && upstream.status < 400; hop += 1) {
+        const location = upstream.headers.get("location");
+        if (!location) throw new Error("Redirect without location");
+        current = await assertPublicDestination(new URL(location, current).toString());
+        upstream = await fetchNoRedirect(current, { headers, signal: controller.signal });
+      }
+      return upstream;
+    };
+
+    let upstream = await attempt(referer);
+    if (upstream.status === 403 && referer) {
+      const declared = upstream.headers.get("access-control-allow-origin");
+      if (declared && declared !== "*" && !/^null$/i.test(declared) && declared !== new URL(referer).origin) {
+        upstream = await attempt(declared);
+      }
     }
 
     // At a file boundary a range past the end comes back 416 — that's the
@@ -460,14 +475,17 @@ async function handleResolve(body, res) {
 }
 
 /* ── VidSrc third-party provider ────────────────────────────────────────
-   VidSrc exposes a REAL, parseable HLS ladder (its embed page carries a JSON
-   `var Q = {...}` with a signed token; /pl/api.php turns that into concrete
-   servers → play URLs → master playlists). Unlike the token-gated SPA embeds
-   this resolves reliably, so it's offered as an alternative download source.
-   Media segments ride VidSrc's session-bound relay (403 outside the player),
-   so byte-saves may 403 — the Copy/Open actions still hand the playlist URL
-   to the user's own tools. That's honest: the source is real and useful, and
-   the UI says which actions each row supports. */
+   VidSrc exposes a REAL, parseable HLS ladder: its embed page carries a JSON
+   `var Q = {...}` with a signed token; /pl/api.php?a=sources turns that into
+   concrete servers, and `a=race&refs=...` returns the winning server's direct
+   stream URL (/_stream?id=...) without the fingerprint-gated `a=play`. The
+   master's highest ladder rows are crypto-wrapped (cap.php → 403 "unavailable"
+   for scripts) so only the plain _stream renditions are served. Media segments
+   ride VidSrc's opaque relay (pchrelay.videm.xyz), which gates on the owning
+   player's origin — the segment fetcher picks that origin up from the 403's
+   access-control-allow-origin header and retries from there, so real bytes
+   come back. Still offer Copy/Open as the hand-off to the user's own tools:
+   the source is real and useful regardless of byte-save availability. */
 
 function extractVarObject(html, varName) {
   const re = new RegExp(`(?:var|const)\\s+${varName}\\s*=\\s*\\{`, "i");
@@ -507,81 +525,92 @@ async function handleResolveVidsrc(body, res) {
       ? `?autoPlay=true&s=${encodeURIComponent(season)}&e=${encodeURIComponent(episode)}`
       : "?autoPlay=true");
 
-  let html;
-  try {
-    html = await fetchUpstream(embedUrl, { referer: embedUrl });
-  } catch (error) {
-    json(res, 502, {
-      ok: false,
-      error: `Could not read VidSrc embed: ${error?.message || "unknown"}`,
-      code: "embed-fetch-failed",
-    });
-    return;
-  }
+  // VidSrc's WAF throttles in bursts (403 "unavailable" for a stretch, then
+  // open again). Retry with a FRESH embed token and a short backoff per round
+  // instead of hammering the same signed request — the burst clears faster
+  // when we give it breathing room.
+  const apiBase = "https://vidsrc.buzz/pl/api.php";
+  let servers = [];
+  for (let attempt = 0; attempt < 4 && servers.length === 0; attempt += 1) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 1500 * attempt));
 
-  const rawQ = extractVarObject(html, "Q");
-  let Q = null;
-  if (rawQ) {
+    let Q = null;
     try {
-      Q = JSON.parse(sanitizeJsonish(rawQ));
+      const html = await fetchUpstream(embedUrl, { referer: embedUrl });
+      const rawQ = extractVarObject(html, "Q");
+      if (rawQ) {
+        try {
+          Q = JSON.parse(sanitizeJsonish(rawQ));
+        } catch {
+          Q = null;
+        }
+      }
     } catch {
-      Q = null;
+      // next round
+    }
+    const token = Q?.t;
+    if (!token) continue;
+    const qType = String(Q.type || type);
+    const qId = String(Q.id || tmdbId);
+    const qS = Q.s ? String(Q.s) : season;
+    const qE = Q.e ? String(Q.e) : episode;
+
+    try {
+      const sourcesUrl =
+        `${apiBase}?a=sources&type=${encodeURIComponent(qType)}` +
+        `&id=${encodeURIComponent(qId)}&s=${encodeURIComponent(qS)}` +
+        `&e=${encodeURIComponent(qE)}&t=${encodeURIComponent(token)}`;
+      const raw = await fetchUpstream(sourcesUrl, { referer: embedUrl });
+      const data = JSON.parse(raw);
+      if (Array.isArray(data?.servers)) servers = data.servers;
+    } catch {
+      // next round — WAF burst
     }
   }
-  const token = Q?.t;
-  if (!token) {
-    json(res, 200, {
-      ok: false,
-      error: "VidSrc did not expose a playable token for this title",
-      code: "no-source",
-    });
-    return;
-  }
 
-  const apiBase = "https://vidsrc.buzz/pl/api.php";
-  const qType = String(Q.type || type);
-  const qId = String(Q.id || tmdbId);
-  const qS = Q.s ? String(Q.s) : season;
-  const qE = Q.e ? String(Q.e) : episode;
-
-  let servers = [];
-  try {
-    const sourcesUrl =
-      `${apiBase}?a=sources&type=${encodeURIComponent(qType)}&id=${encodeURIComponent(qId)}` +
-      `&s=${encodeURIComponent(qS)}&e=${encodeURIComponent(qE)}&t=${encodeURIComponent(token)}`;
-    const raw = await fetchUpstream(sourcesUrl, { referer: embedUrl });
-    const data = JSON.parse(raw);
-    if (Array.isArray(data?.servers)) servers = data.servers;
-  } catch {
+  if (servers.length === 0) {
     json(res, 200, { ok: false, error: "VidSrc source list unavailable", code: "no-source" });
     return;
   }
 
-  // Try the first few servers; a server that 502s on `play` skips to the next.
-  for (const server of servers.slice(0, 6)) {
-    if (!server?.ref) continue;
-    try {
-      const playUrl =
-        `${apiBase}?a=play&ref=${encodeURIComponent(server.ref)}&t=${encodeURIComponent(token)}`;
-      const playRaw = await fetchUpstream(playUrl, { referer: embedUrl });
-      const play = JSON.parse(playRaw);
-      if (!play?.url) continue;
-      // play.url is relative ("/_stream?id=...") unless absolute — resolve.
-      const masterUrl = resolveUrl("https://vidsrc.buzz/", play.url);
-      const masterText = await fetchUpstream(masterUrl, { referer: embedUrl });
-      const variants = parseMasterPlaylist(masterText, masterUrl);
-      if (variants.length > 0) {
-        json(res, 200, {
-          ok: true,
-          source: { kind: "hls", url: masterUrl, refUrl: embedUrl },
-          variants,
-          serverName: server.name || null,
-        });
-        return;
-      }
-    } catch {
-      // next server
+  // Race the first few refs through `a=race` — the server answers with the
+  // winning server's DIRECT stream URL, avoiding the fingerprint-gated
+  // `a=play` endpoint ("unavailable" for scripted calls).
+  const RACE_W = 6;
+  const refs = servers.filter((s) => s?.ref).slice(0, RACE_W).map((s) => s.ref);
+  if (refs.length === 0) {
+    json(res, 200, { ok: false, error: "VidSrc returned no sources", code: "no-source" });
+    return;
+  }
+
+  try {
+    const raceUrl = `${apiBase}?a=race&refs=${encodeURIComponent(refs.join(","))}`;
+    const raceRaw = await fetchUpstream(raceUrl, { referer: embedUrl });
+    const race = JSON.parse(raceRaw);
+    const candidate = (race?.cands || []).find((c) => c?.url);
+    if (!candidate) {
+      json(res, 200, { ok: false, error: "VidSrc race produced no stream", code: "no-source" });
+      return;
     }
+    // candidate.url is relative ("/_stream?id=...") unless absolute — resolve.
+    const masterUrl = resolveUrl("https://vidsrc.buzz/", candidate.url);
+    const masterText = await fetchUpstream(masterUrl, { referer: embedUrl });
+    // Highest ladder rows are crypto-wrapped (cap.php) and 403 for scripts —
+    // serve only the plain _stream renditions so the client never points at a
+    // URL that cannot produce bytes.
+    const variants = parseMasterPlaylist(masterText, masterUrl).filter(
+      (v) => v?.uri && !/cap\.php/i.test(v.uri),
+    );
+    if (variants.length > 0) {
+      json(res, 200, {
+        ok: true,
+        source: { kind: "hls", url: masterUrl, refUrl: embedUrl },
+        variants,
+      });
+      return;
+    }
+  } catch {
+    // fall through to no-source
   }
 
   json(res, 200, { ok: false, error: "No downloadable stream found via VidSrc", code: "no-source" });

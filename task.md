@@ -19,11 +19,16 @@
     upstreams that ignore Range fail with a clear message instead of looping/corrupting.
   - **VidSrc third-party provider**: new `resolvevidsrc` action (`type`, `id`, `season?`,
     `episode?`) — pulls `var Q` from the embed, signs the /pl/api tokens, walks
-    servers → play URLs → master playlists SERVER-side (CORS no longer blocks it) and
-    returns the real HLS ladder. The modal appends a "VidSrc (Alt)" pseudo-source
-    (`vidsrc://movie/{id}` / `vidsrc://tv/{id}?s=&e=` — a download-only marker, never an
-    iframe). VidSrc segments ride a session-bound relay (403 outside the player), so
-    byte-saves there may 403 — Copy/Open still hand the playlist to the user's own tools.
+    servers → `a=race` winning refs → DIRECT master URL, SERVER-side (CORS no longer blocks
+    it) and returns the real HLS ladder (`a=play` is fingerprint-gated "unavailable" for
+    scripts; cap.php-crypto'd ladder rows are filtered so only byte-usable renditions show).
+    The modal appends a "VidSrc (Alt)" pseudo-source (`vidsrc://movie/{id}` /
+    `vidsrc://tv/{id}?s=&e=` — a download-only marker, never an iframe). Segment relay is
+    referer-gated, so `fetchRangeChunk` retries once using the 403's
+    access-control-allow-origin as Referer/Origin — live-verified: 1668 TS segments for
+    Fight Club, first segment returned 388,408 bytes end-to-end through the real handler.
+    Copy/Open still hand the playlist to the user's own tools (only the low rendition is
+    byte-available; high rows are crypto-gated).
   - **Direct-CORS fast path** (`saveStream`): probes the first segment (Range 0-0 + ACAO
     === `*` or our origin); if the CDN answers, the browser pulls every remaining segment
     directly (zero serverless bandwidth), falling back to the relay on the first hiccup.
