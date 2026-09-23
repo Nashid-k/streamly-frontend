@@ -96,7 +96,6 @@ export default function DownloadModal({
   const abortRef = useRef(null);
   const resolveAbortRef = useRef(null);
   const imdbIdRef = useRef(null);
-  const speedRef = useRef({ time: 0, bytes: 0, ema: 0 });
 
   const isTv = Boolean(isTvContent);
   const numericId = useMemo(() => getNumericId(movie?.id), [movie?.id]);
@@ -382,7 +381,6 @@ export default function DownloadModal({
 
     const controller = new AbortController();
     abortRef.current = controller;
-    speedRef.current = { time: 0, bytes: 0, ema: 0 };
     const storeTitle = movie?.title || movie?.name || "File";
     const downloadId = registerDownload({
       title: storeTitle,
@@ -428,24 +426,16 @@ export default function DownloadModal({
           writable: i === 0 ? writable : null,
           signal: controller.signal,
           onProgress: (progress) => {
-            const now = performance.now();
-            const prev = speedRef.current;
-            let speed = 0;
-            if (prev.time > 0 && progress.bytes >= prev.bytes) {
-              const dt = (now - prev.time) / 1000;
-              if (dt > 0) {
-                const instant = (progress.bytes - prev.bytes) / dt;
-                speed = prev.ema > 0 ? (prev.ema * 0.7) + (instant * 0.3) : instant;
-              }
-            }
-            speedRef.current = { time: now, bytes: progress.bytes, ema: speed };
+            // saveStream reports a true network-arrival rate (windowed); the
+            // old EMA here measured delta between _write_ bursts and showed
+            // unrealistic disk speed. Fall back to 0 when no rate is given.
             updateDownload(downloadId, {
-              progress: { ...progress, speed, totalBytes },
+              progress: { ...progress, speed: progress.speed || 0, totalBytes },
               episodeIndex: i,
             });
             setDownloadState((prevState) => ({
               ...prevState,
-              progress: { ...progress, speed, totalBytes },
+              progress: { ...progress, speed: progress.speed || 0, totalBytes },
             }));
           },
         });
@@ -507,7 +497,7 @@ export default function DownloadModal({
           tabIndex={-1}
           className="w-[min(100%,36rem)] max-h-[min(88dvh,52rem)] flex flex-col overflow-hidden rounded-2xl sm:rounded-3xl border border-white/10 bg-[#141414] shadow-2xl shadow-black/60 outline-none"
         >
-          <div className="flex items-center gap-3 px-4 sm:px-5 pt-4 sm:pt-5 pb-4 border-b border-white/[0.07]">
+          <div className="flex items-center gap-3 px-4 sm:px-6 pt-4 sm:pt-5 pb-4 border-b border-white/[0.07]">
             <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-white shrink-0">
               <Download className="w-5 h-5" />
             </div>
@@ -530,7 +520,7 @@ export default function DownloadModal({
             </button>
           </div>
 
-          <div className="px-3 sm:px-5 py-4 sm:py-5 space-y-5 overflow-y-auto">
+          <div className="px-4 sm:px-6 py-5 sm:py-6 space-y-5 sm:space-y-6 overflow-y-auto">
             {/* Series: season + episodes */}
             {isTv && resolveState.status !== "error" && (
               <div>
@@ -557,12 +547,12 @@ export default function DownloadModal({
                 </div>
                 <div className="max-h-40 overflow-y-auto rounded-xl border border-white/[0.07] divide-y divide-white/[0.05]">
                   {episodesLoading && (
-                    <div className="flex items-center gap-2 px-3 py-3 text-sm text-white/50">
+                    <div className="flex items-center gap-2 px-4 py-3 text-sm text-white/50">
                       <Loader2 className="w-4 h-4 animate-spin" /> Loading episodes…
                     </div>
                   )}
                   {!episodesLoading && episodes.length === 0 && (
-                    <div className="px-3 py-3 text-sm text-white/40">No episodes found for this season.</div>
+                    <div className="px-4 py-3 text-sm text-white/40">No episodes found for this season.</div>
                   )}
                   {episodes.map((ep) => {
                     const checked = selectedEpisodes.has(ep.episodeNumber);
@@ -571,7 +561,7 @@ export default function DownloadModal({
                         type="button"
                         key={ep.id || ep.episodeNumber}
                         onClick={() => toggleEpisode(ep.episodeNumber)}
-                        className="w-full flex items-center gap-3 px-3 py-2 text-left text-sm hover:bg-white/[0.04] transition-colors"
+                        className="w-full flex items-center gap-3 px-3.5 sm:px-4 py-2.5 text-left text-sm hover:bg-white/[0.04] transition-colors"
                       >
                         <span
                           className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
@@ -608,7 +598,7 @@ export default function DownloadModal({
 
             {/* Quality filter rail */}
             {qualityGroups.length > 1 && (
-              <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by quality">
+              <div className="flex flex-wrap gap-2 sm:gap-2.5" role="group" aria-label="Filter by quality">
                 <Chip size="sm" active={qualityFilter === "all"} onClick={() => setQualityFilter("all")}>
                   All
                 </Chip>
@@ -627,7 +617,7 @@ export default function DownloadModal({
 
             {/* Skeleton while the first servers answer */}
             {resolveState.status === "resolving" && sortedRows.length === 0 && (
-              <div className="space-y-2" aria-hidden="true">
+              <div className="space-y-2.5 sm:space-y-3" aria-hidden="true">
                 {[0, 1, 2].map((i) => (
                   <div
                     key={i}
@@ -639,7 +629,7 @@ export default function DownloadModal({
 
             {/* Error */}
             {resolveState.status === "error" && (
-              <div className="flex items-start gap-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] px-3 py-3 text-sm text-amber-200/90">
+              <div className="flex items-start gap-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] px-4 py-3.5 text-sm text-amber-200/90">
                 <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                 <div className="flex-1">
                   <p>{resolveState.error}</p>
@@ -660,7 +650,7 @@ export default function DownloadModal({
 
             {/* Source rows */}
             {sortedRows.length > 0 && (
-              <div className="space-y-2" role="list" aria-label="Available downloads">
+              <div className="space-y-2.5 sm:space-y-3" role="list" aria-label="Available downloads">
                 {visibleRows.map((row) => {
                   const isTop = row.key === topKey;
                   const isActive = downloadState.rowKey === row.key && isDownloading;
@@ -668,14 +658,14 @@ export default function DownloadModal({
                     <div
                       key={row.key}
                       role="listitem"
-                      className={`flex flex-wrap items-center gap-x-3 gap-y-2 sm:flex-nowrap rounded-xl border px-3 py-2.5 transition-colors ${
+                      className={`flex flex-wrap items-center gap-x-3 gap-y-2.5 sm:gap-x-4 sm:flex-nowrap rounded-xl border px-3.5 sm:px-4 py-3 sm:py-3.5 transition-colors ${
                         isActive
                           ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/10"
                           : "border-white/[0.07] bg-white/[0.03]"
                       }`}
                     >
                       <div className="min-w-0 flex-1 basis-full sm:basis-auto">
-                        <div className="flex items-center gap-2 min-w-0 flex-wrap sm:flex-nowrap">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-wrap sm:flex-nowrap">
                           <span className="truncate text-sm font-semibold text-white">{fileTitle}</span>
                           <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold bg-white/10 text-white/80">
                             {row.label}
@@ -686,7 +676,7 @@ export default function DownloadModal({
                             </span>
                           )}
                         </div>
-                        <p className="mt-0.5 truncate text-[11px] text-white/40">
+                        <p className="mt-1 truncate text-[11px] text-white/40">
                           {row.serverName} · {sizeLabelFor(row.variant)}
                         </p>
                       </div>
@@ -695,7 +685,7 @@ export default function DownloadModal({
                         onClick={() => handleDownload(row)}
                         disabled={!canPickSource || (isTv && selectedEpisodes.size === 0)}
                         aria-label={`Download ${row.label} of ${fileTitle} from ${row.serverName}`}
-                        className="shrink-0 inline-flex items-center gap-1.5 ml-auto sm:ml-0 rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-transform active:scale-[0.98]"
+                        className="shrink-0 inline-flex items-center gap-1.5 ml-auto sm:ml-0 rounded-lg px-3.5 sm:px-4 py-2 text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-transform active:scale-[0.98]"
                         style={{ background: "var(--accent-gradient)", color: "var(--on-accent, #fff)" }}
                       >
                         <Download className="w-3.5 h-3.5 shrink-0" />
@@ -707,7 +697,7 @@ export default function DownloadModal({
                   );
                 })}
                 {visibleRows.length === 0 && (
-                  <div className="px-3 py-6 text-center text-sm text-white/40">
+                  <div className="px-4 py-8 text-center text-sm text-white/40">
                     No sources match that quality.
                   </div>
                 )}
@@ -716,14 +706,14 @@ export default function DownloadModal({
 
             {/* Progress */}
             {isDownloading && (
-              <div>
-                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs text-white/60 mb-1.5">
+              <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] px-3.5 sm:px-4 py-3.5 sm:py-4">
+                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs text-white/60 mb-2 sm:mb-2.5">
                   <span className="truncate">
                     {downloadState.total > 1
                       ? `Episode ${downloadState.episodeIndex + 1} of ${downloadState.total}`
                       : "Downloading…"}
                   </span>
-                  <span className="flex items-center gap-2.5">
+                  <span className="flex items-center gap-3">
                     {downloadState.progress?.speed > 0 && (
                       <span className="text-white/40">{formatBytes(downloadState.progress.speed)}/s</span>
                     )}
@@ -737,7 +727,7 @@ export default function DownloadModal({
                   />
                 </div>
                 {downloadState.progress?.bytesLabel && (
-                  <p className="mt-1.5 text-[11px] text-white/40">
+                  <p className="mt-2 text-[11px] text-white/40">
                     {downloadState.progress.bytesLabel}
                     {downloadState.progress.totalBytes > 0
                       ? ` / ${formatBytes(downloadState.progress.totalBytes)}`
@@ -749,14 +739,14 @@ export default function DownloadModal({
             )}
 
             {downloadState.status === "error" && (
-              <div className="flex items-start gap-2 rounded-xl border border-red-400/20 bg-red-400/[0.06] px-3 py-3 text-sm text-red-200/90">
+              <div className="flex items-start gap-2 rounded-xl border border-red-400/20 bg-red-400/[0.06] px-4 py-3.5 text-sm text-red-200/90">
                 <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                 <p>{downloadState.error}</p>
               </div>
             )}
           </div>
 
-          <div className="sticky bottom-0 flex flex-col-reverse sm:flex-row sm:items-center gap-3 px-4 sm:px-5 py-4 border-t border-white/[0.07] bg-[#141414]">
+          <div className="sticky bottom-0 flex flex-col-reverse sm:flex-row sm:items-center gap-3 sm:gap-4 px-4 sm:px-6 py-4 border-t border-white/[0.07] bg-[#141414]">
             <p className="flex-1 text-[11px] leading-relaxed text-white/35">
               Available qualities, resolution and HDR are whatever the source server actually
               provides — protected (DRM) streams can’t be downloaded. Please only download content

@@ -222,6 +222,35 @@ export const downloadService = {
     let method = writer ? "fs" : "blob";
     let bytes = 0;
 
+    // Real throughput is measured where bytes ARRIVE from the network (each
+    // chunk a segment fetch yields), NOT where they're flushed to disk. With
+    // SEGMENT_CONCURRENCY segments in flight, a whole buffer window can be
+    // written in a few milliseconds — a delta between _write_ events reads
+    // like RAM/disk speed (tens of MB/s), while the connection was actually
+    // feeding that buffer over seconds at a normal rate. Sample arrival time
+    // and bytes, then report the windowed rate (a download-manager average).
+    const RATE_WINDOW_MS = 3000;
+    let received = 0;
+    const rateSamples = [];
+    const stamp = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
+    const noteReceived = (chunk) => {
+      if (!chunk || chunk.length === 0) return;
+      received += chunk.length;
+      const t = stamp();
+      rateSamples.push({ t, b: received });
+      // Keep at least the two most recent samples so an active-but-sluggish
+      // connection (slow chunks > window apart) still reports a real rate.
+      while (rateSamples.length > 2 && t - rateSamples[0].t > RATE_WINDOW_MS) rateSamples.shift();
+    };
+    const networkSpeed = () => {
+      if (rateSamples.length < 2) return 0;
+      const first = rateSamples[0];
+      const last = rateSamples[rateSamples.length - 1];
+      const dt = (last.t - first.t) / 1000;
+      if (dt <= 0) return 0;
+      return Math.round((last.b - first.b) / dt);
+    };
+
     // Incremental disk writes — a long movie must not sit in RAM.
     if (!writer && !manifest.direct) {
       try {
@@ -248,6 +277,7 @@ export const downloadService = {
         ratio: segments.length ? done / segments.length : 0,
         bytes,
         bytesLabel: formatBytes(bytes),
+        speed: networkSpeed(),
       });
     };
 
@@ -262,6 +292,7 @@ export const downloadService = {
           { signal, as: "buffer" },
         );
         if (!chunk || chunk.length === 0) break;
+        noteReceived(chunk);
         await onChunk(chunk);
         if (!more) break;
         start += chunk.length;
@@ -285,6 +316,7 @@ export const downloadService = {
         for (;;) {
           const { done, value } = await reader.read();
           if (done) break;
+          noteReceived(value);
           await onChunk(new Uint8Array(value));
         }
         return;
@@ -292,6 +324,7 @@ export const downloadService = {
       const ab = await res.arrayBuffer();
       const chunk = new Uint8Array(ab);
       if (chunk.length === 0) throw new Error("Direct segment fetch returned no bytes");
+      noteReceived(chunk);
       await onChunk(chunk);
     };
 

@@ -148,6 +148,50 @@ describe("downloadService.saveStream", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3); // probe + relay(a) + relay(b)
   });
 
+  it("reports network-arrival speed, not the disk-write burst", async () => {
+    // Segment A is slow to arrive (50ms), segment B arrives instantly. Both
+    // are flushed to the writer in one go — so a delta measured between
+    // _write_ events would read like disk speed (hundreds of MB/s). The
+    // reported speed must instead reflect the bytes arriving at network pace.
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const segmentResponse = (bytes, more) => ({
+      ok: true,
+      status: 200,
+      headers: { get: (h) => (h === "x-streamly-more" ? (more ? "1" : "") : "") },
+      arrayBuffer: async () => new Uint8Array(new Array(bytes).fill(7)).buffer,
+    });
+    const fetchMock = vi.fn().mockImplementation(async (url, init) => {
+      if (!init?.method) return { ok: false, status: 404, headers: { get: () => "" } };
+      const parsed = JSON.parse(init.body);
+      if (String(parsed.url).endsWith("/a.m4s")) {
+        if (parsed.range.start === 0) {
+          await sleep(50);
+          return segmentResponse(2000, true);
+        }
+        return segmentResponse(0, false);
+      }
+      return segmentResponse(2000, false);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const writable = { write: vi.fn().mockResolvedValue(undefined), close: vi.fn().mockResolvedValue(undefined) };
+    const progressCalls = [];
+    await downloadService.saveStream({
+      manifest: { kind: "fmp4", initUrl: null, segments: ["https://cdn/a.m4s", "https://cdn/b.m4s"], count: 2 },
+      source: { refUrl: "https://vidlink.pro/movie/550" },
+      baseName: "Speed",
+      writable,
+      onProgress: (p) => progressCalls.push(p),
+    });
+
+    const last = progressCalls[progressCalls.length - 1];
+    expect(last.bytes).toBe(4000);
+    // 4000 bytes observed across the ~50ms the first segment took to arrive
+    // → ~80 KB/s. Anything reading the write-burst delta would be absurdly
+    // larger, so bound the assertion well above and below that pace.
+    expect(last.speed).toBeGreaterThan(10000);
+    expect(last.speed).toBeLessThan(150000);
+  });
+
   it("caches the direct probe per origin instead of re-probing every segment", async () => {
     const fetchMock = vi.fn().mockImplementation(async (url, init) => {
       const probeRequest = !init?.method && init?.headers?.range === "bytes=0-0";
