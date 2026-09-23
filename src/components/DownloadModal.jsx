@@ -497,13 +497,15 @@ export default function DownloadModal({
         const variant = matchVariant(fresh, row.variant);
         if (!variant) throw new DownloadUnavailableError("That quality is no longer offered by the server.", "no-source");
         const manifest = await downloadService.buildManifest(source, variant, { signal: controller.signal });
+        const estimatedTotal = estimateBytes(variant?.bandwidth, manifest?.duration || 0);
         await downloadService.saveStream({
           manifest,
           source,
           baseName: fileNameBase(movie, { isTv, season: selectedSeason, episode, quality: variant.label }),
           writable: i === 0 ? writable : null,
           signal: controller.signal,
-          onProgress: (progress) => setDownloadState((prev) => ({ ...prev, progress })),
+          onProgress: (progress) =>
+            setDownloadState((prev) => ({ ...prev, progress: { ...progress, estimatedTotal } })),
         });
       }
       setDownloadState((prev) => ({ ...prev, status: "done", progress: null }));
@@ -801,6 +803,9 @@ export default function DownloadModal({
                     {downloadState.total > 1
                       ? `Episode ${downloadState.episodeIndex + 1} of ${downloadState.total}`
                       : "Downloading…"}
+                    {downloadState.progress
+                      ? ` · segment ${downloadState.progress.done}/${downloadState.progress.total}`
+                      : ""}
                   </span>
                   <span>{downloadState.progress ? `${Math.round(downloadState.progress.ratio * 100)}%` : ""}</span>
                 </div>
@@ -811,7 +816,13 @@ export default function DownloadModal({
                   />
                 </div>
                 {downloadState.progress?.bytesLabel && (
-                  <p className="mt-1.5 text-[11px] text-white/40">{downloadState.progress.bytesLabel} saved</p>
+                  <p className="mt-1.5 text-[11px] text-white/40">
+                    {downloadState.progress.bytesLabel}
+                    {downloadState.progress.estimatedTotal
+                      ? ` of ~${formatBytes(downloadState.progress.estimatedTotal)}`
+                      : ""}
+                    {downloadState.progress.speedLabel ? ` · ${downloadState.progress.speedLabel}` : ""} saved
+                  </p>
                 )}
               </div>
             )}

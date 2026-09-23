@@ -238,13 +238,29 @@ export const downloadService = {
       else memoryChunks.push(chunk);
     };
 
+    const startedAt = Date.now();
+    let lastAt = startedAt;
+    let lastBytes = 0;
+    let speed = 0;
     const report = (done) => {
+      // Rolling speed (bytes/s) sampled once a second — averages out the
+      // bursty chunk fetches instead of reporting a new 0 every segment.
+      const now = Date.now();
+      const elapsed = (now - lastAt) / 1000;
+      if (elapsed >= 1 && bytes >= lastBytes) {
+        const sample = (bytes - lastBytes) / elapsed;
+        speed = speed ? speed * 0.7 + sample * 0.3 : sample;
+        lastAt = now;
+        lastBytes = bytes;
+      }
       onProgress?.({
         done,
         total: segments.length,
         ratio: segments.length ? done / segments.length : 0,
         bytes,
         bytesLabel: formatBytes(bytes),
+        speedBps: Math.round(speed),
+        speedLabel: speed > 0 ? `${formatBytes(speed)}/s` : "",
       });
     };
 
@@ -265,8 +281,7 @@ export const downloadService = {
     };
 
     /* Direct: the CDN allowed CORS + Range, so pull the segment straight from
-       the browser. Any hiccup drops us back to the relay for the REST of the
-       file (bytes already written stay exactly where they belong). */
+       the browser. Any hiccup drops us back to the relay. */
     let directEnabled = true;
     const fetchSegmentDirect = async (url, total) => {
       let offset = 0;
@@ -282,21 +297,29 @@ export const downloadService = {
       }
     };
 
+    // Probe direct-CORS exactly ONCE. Gated CDNs (VidSrc's relay serves
+    // ACAO: https://xplayer.videm.xyz and is refused by our CSP anyway) would
+    // otherwise trigger a blocked fetch — and a console error — for every
+    // single segment. One cheap probe decides the whole file's transport.
+    let directProbed = false;
     const fetchOne = async (url) => {
-      if (directEnabled) {
-        const probe = await probeDirect(url, { signal });
-        if (probe.ok) {
-          try {
-            await fetchSegmentDirect(url, probe.total);
-            return;
-          } catch (error) {
-            if (error?.name === "AbortError") throw error;
-            logWarn("download", "Direct segment fetch failed — falling back to relay.", {
-              message: error?.message,
-            });
-            directEnabled = false;
+      if (!directProbed) {
+        directProbed = true;
+        if (directEnabled) {
+          const probe = await probeDirect(url, { signal });
+          if (probe.ok) {
+            try {
+              await fetchSegmentDirect(url, probe.total);
+              return;
+            } catch (error) {
+              if (error?.name === "AbortError") throw error;
+              logWarn("download", "Direct segment fetch failed — falling back to relay.", {
+                message: error?.message,
+              });
+            }
           }
         }
+        directEnabled = false;
       }
       await relayRange(url);
     };
