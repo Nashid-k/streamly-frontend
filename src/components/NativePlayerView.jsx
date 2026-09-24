@@ -165,125 +165,179 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
       setQualities([]);
       setAudioTracks([]);
       const args = { type, id, season: type === "tv" ? season : undefined, episode: type === "tv" ? episode : undefined };
-      for (const def of SOURCES) {
-        if (runRef.current !== run || controller.signal.aborted) return;
+      const stale = () => runRef.current !== run || controller.signal.aborted;
+      const abortPromise = () =>
+        new Promise((resolve) => {
+          if (controller.signal.aborted) resolve("done");
+          else controller.signal.addEventListener("abort", () => resolve("done"), { once: true });
+        });
+      // A loader/relay failure that smells like an expired token (VidCore
+      // path tokens and CineSrc sessions both rotate) rather than a dead
+      // CDN. Downloads survive this via re-mint; playback must too.
+      const isAuthFatal = (detail) =>
+        /\[relay:(segment-fetch-failed|manifest-fetch-failed)\]/.test(detail || "") ||
+        /failed \((401|403|429)\)/.test(detail || "");
+      const pickSmooth = (list) =>
+        list.filter((v) => (v.height || 0) > 0 && (v.height || 0) <= 1080).sort((a, b) => (b.height || 0) - (a.height || 0))[0] ||
+        list[0];
+
+      // Returns true when playback settled on this source (caller stops), false
+      // to move to the next source.
+      const runSource = async (def) => {
         say(`Trying ${def.label}…`);
         let resolved = null;
         try {
           resolved = await def.resolve(args, { signal: controller.signal });
         } catch (error) {
           say(`${def.label}: resolve failed (${error?.code || error?.message}) — next source.`);
-          continue;
+          return false;
         }
-        const variants = resolved?.variants || [];
+        let variants = resolved?.variants || [];
         if (variants.length === 0) {
           say(`${def.label}: no variants — next source.`);
-          continue;
+          return false;
         }
-        // Smooth start: open on the tallest rendition at or below 1080p so
-        // the first seconds play instantly; 4K stays one tap away in the
-        // menu. (A 4K segment needs ~20 Mbps sustained — opening straight on
-        // it is what stalled playback after 5–10s.)
-        const smoothStart =
-          variants
-            .filter((v) => (v.height || 0) > 0 && (v.height || 0) <= 1080)
-            .sort((a, b) => (b.height || 0) - (a.height || 0))[0] || variants[0];
-        const entryUrl = entryUrlFor(def, resolved, smoothStart);
-        if (!entryUrl) {
-          say(`${def.label}: no playable URL — next source.`);
-          continue;
-        }
-        say(
-          `${def.label}: ${variants.length} variant(s), loading ` +
-            (def.key === "cinesrc" ? "master (ABR auto)…" : `${smoothStart?.height || "?"}p (smooth start)…`),
-        );
-        try {
-          hlsRef.current?.destroy();
-        } catch {
-          // previous instance already gone
-        }
-        const refUrl = resolved.source?.refUrl || resolved.source?.url;
-        const hls = new Hls({
-          loader: createStreamlyLoader({ getRefUrl: () => refUrl }),
-          // Adaptive bitrate + progressive MSE appends: chunks hit the screen
-          // while the rest of the segment is still arriving. The forward
-          // buffer is sized for 4K segments (10+ MB each) so one slow fetch
-          // doesn't stall playback.
-          abrEnabled: true,
-          progressive: true,
-          maxBufferLength: 60,
-          maxBufferSize: 120 * 1000 * 1000,
-        });
-        hlsRef.current = hls;
-        let resolveFatal = null;
-        const fatalLater = new Promise((resolve) => {
-          resolveFatal = resolve;
-        });
-        const reportFatal = (data) => {
-          const frag = data?.frag;
-          const detail =
-            `${data?.details || "error"}` +
-            (data?.error?.message ? ` (${data.error.message})` : "") +
-            (frag ? ` [sn ${frag.sn ?? "?"} ${String(frag.url || "").slice(0, 90)}]` : "");
-          say(`${def.label}: fatal ${detail} — next source.`);
-          logWarn("native", `${def.label} fatal during playback`, {
-            details: data?.details,
-            message: data?.error?.message,
-            fragSn: frag?.sn ?? null,
+        let liveSource = resolved.source;
+        let liveRefUrl = resolved.source?.refUrl || resolved.source?.url;
+        // attempt 0 = initial URLs; attempt 1 = one token-refresh re-resolve.
+        let preferHeight = null;
+        let resumeTime = null;
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          if (stale()) return true;
+          const pool = preferHeight != null ? variants.filter((v) => (v.height || 0) === preferHeight) : [];
+          // Smooth start: open on the tallest rendition at or below 1080p so
+          // the first seconds play instantly; 4K stays one tap away in the
+          // menu. (A 4K segment needs ~20 Mbps sustained — opening straight
+          // on it is what stalled playback after 5–10s.)
+          const smoothStart = pool[0] || pickSmooth(variants);
+          const entryUrl = entryUrlFor(def, { source: liveSource }, smoothStart);
+          if (!entryUrl) {
+            say(`${def.label}: no playable URL — next source.`);
+            return false;
+          }
+          say(
+            `${def.label}: ${variants.length} variant(s), loading ` +
+              (def.key === "cinesrc" ? "master (ABR auto)" : `${smoothStart?.height || "?"}p (smooth start)`) +
+              (attempt > 0 ? " with fresh tokens…" : "…"),
+          );
+          try {
+            hlsRef.current?.destroy();
+          } catch {
+            // previous instance already gone
+          }
+          const hls = new Hls({
+            loader: createStreamlyLoader({ getRefUrl: () => liveRefUrl }),
+            // Adaptive bitrate + progressive MSE appends: chunks hit the
+            // screen while the rest of the segment is still arriving. The
+            // forward buffer is sized for 4K segments (10+ MB each) so one
+            // slow fetch doesn't stall playback.
+            abrEnabled: true,
+            progressive: true,
+            maxBufferLength: 60,
+            maxBufferSize: 120 * 1000 * 1000,
           });
-        };
-        hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => attachAudio(hls));
-        hls.on(Hls.Events.ERROR, (_e, data) => {
-          if (!data?.fatal) return;
-          reportFatal(data);
+          hlsRef.current = hls;
+          let lastFatalDetail = "";
+          let resolveFatal = null;
+          const fatalLater = new Promise((resolve) => {
+            resolveFatal = resolve;
+          });
+          const reportFatal = (data) => {
+            const frag = data?.frag;
+            lastFatalDetail =
+              `${data?.details || "error"}` +
+              (data?.error?.message ? ` (${data.error.message})` : "") +
+              (frag ? ` [sn ${frag.sn ?? "?"} ${String(frag.url || "").slice(0, 90)}]` : "");
+            say(`${def.label}: fatal ${lastFatalDetail} — next source.`);
+            logWarn("native", `${def.label} fatal during playback`, {
+              details: data?.details,
+              message: data?.error?.message,
+              fragSn: frag?.sn ?? null,
+            });
+          };
+          hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => attachAudio(hls));
+          hls.on(Hls.Events.ERROR, (_e, data) => {
+            if (!data?.fatal) return;
+            reportFatal(data);
+            try {
+              hls.destroy();
+            } catch {
+              // already torn down
+            }
+            resolveFatal?.();
+          });
           try {
-            hls.destroy();
-          } catch {
-            // already torn down
+            hls.loadSource(entryUrl);
+            hls.attachMedia(videoRef.current);
+            await waitParsed(hls);
+          } catch (error) {
+            say(`${def.label}: ${error?.message || "load failed"} — next source.`);
+            try {
+              hls.destroy();
+            } catch {
+              // already torn down
+            }
+            return false;
           }
-          resolveFatal?.();
-        });
-        try {
-          hls.loadSource(entryUrl);
-          hls.attachMedia(videoRef.current);
-          await waitParsed(hls);
-        } catch (error) {
-          say(`${def.label}: ${error?.message || "load failed"} — next source.`);
+          if (stale()) return true;
+          metaRef.current = { variants, sourceKey: def.key, refUrl: liveRefUrl, cinesrcLevels: def.key === "cinesrc" };
+          startLevelFor(hls, def);
+          setQualities(variants.map((v) => ({ uri: v.uri, height: v.height || 0, bandwidth: v.bandwidth || 0, label: v.label })));
+          setIsMasterMode(def.key === "cinesrc");
+          setActiveUri(def.key === "cinesrc" ? null : smoothStart?.uri || null);
+          attachAudio(hls);
+          setStatus(`playing via ${def.label}`);
+          say(`${def.label}: PLAYING (${def.key === "cinesrc" ? "ABR auto" : `${smoothStart?.height || "?"}p`}).`);
+          if (resumeTime != null) {
+            try {
+              videoRef.current.currentTime = resumeTime;
+            } catch {
+              // live-edge clamp — start wherever the fresh playlist begins
+            }
+            resumeTime = null;
+          }
           try {
-            hls.destroy();
+            await videoRef.current?.play();
           } catch {
-            // already torn down
+            say("Autoplay blocked — tap the custom play button.");
           }
-          continue;
+          // Park this attempt: a fatal error AFTER playback started either
+          // refreshes tokens in place (same source, same quality, resume at
+          // the saved position) or moves to the next source — never a dead
+          // "playing" screen. Unmount/abort ends the park quietly.
+          const parked = await Promise.race([fatalLater.then(() => "fatal"), abortPromise()]);
+          if (parked === "done") return true;
+          if (attempt === 0 && isAuthFatal(lastFatalDetail) && !stale()) {
+            const savedT = videoRef.current?.currentTime || 0;
+            say(`${def.label}: token may have expired — re-resolving…`);
+            let fresh = null;
+            try {
+              fresh = await def.resolve(args, { signal: controller.signal });
+            } catch {
+              fresh = null;
+            }
+            const freshVariants = fresh?.variants || [];
+            if (fresh && freshVariants.length > 0) {
+              preferHeight = smoothStart?.height ?? null;
+              resumeTime = savedT;
+              variants = freshVariants;
+              liveSource = fresh.source;
+              liveRefUrl = fresh.source?.refUrl || fresh.source?.url;
+              say(`${def.label}: fresh tokens minted — resuming…`);
+              continue;
+            }
+            say(`${def.label}: re-resolve failed — next source.`);
+          }
+          return false;
         }
-        if (runRef.current !== run || controller.signal.aborted) return;
-        metaRef.current = { variants, sourceKey: def.key, refUrl, cinesrcLevels: def.key === "cinesrc" };
-        startLevelFor(hls, def);
-        setQualities(variants.map((v) => ({ uri: v.uri, height: v.height || 0, bandwidth: v.bandwidth || 0, label: v.label })));
-        setIsMasterMode(def.key === "cinesrc");
-        setActiveUri(def.key === "cinesrc" ? null : smoothStart?.uri || null);
-        attachAudio(hls);
-        setStatus(`playing via ${def.label}`);
-        say(`${def.label}: PLAYING (${def.key === "cinesrc" ? "ABR auto" : `${smoothStart?.height || "?"}p`}).`);
-        try {
-          await videoRef.current?.play();
-        } catch {
-          say("Autoplay blocked — tap the custom play button.");
-        }
-        // Park this attempt: a fatal error AFTER playback started destroys the
-        // instance and moves the loop to the next source, instead of leaving a
-        // dead "playing" screen behind. Unmount/abort ends the park quietly.
-        const parked = await Promise.race([
-          fatalLater.then(() => "fatal"),
-          new Promise((resolve) => {
-            if (controller.signal.aborted) resolve("done");
-            else controller.signal.addEventListener("abort", () => resolve("done"), { once: true });
-          }),
-        ]);
-        if (parked === "fatal") continue;
-        return;
+        return false;
+      };
+
+      for (const def of SOURCES) {
+        if (stale()) return;
+        if (await runSource(def)) return;
       }
-      if (runRef.current !== run || controller.signal.aborted) return;
+      if (stale()) return;
       setStatus("error");
       setFatal("No native source resolved this title (all three resolvers came up empty).");
       say("All sources exhausted.");

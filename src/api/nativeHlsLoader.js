@@ -168,8 +168,15 @@ export function createStreamlyLoader({ getRefUrl }) {
         (error) => {
           if (this.aborted) return;
           if (error?.name === "AbortError") return;
+          // Pass the relay's real code through in the text (hls.js only
+          // forwards {code, text} to its error handlers, and builds its own
+          // "HTTP Error 0 <text>" message from them). The player parses the
+          // [relay:<code>] tag to tell an expired token (re-resolve + resume)
+          // apart from a dead CDN (fail over).
+          const relayTag =
+            error && error.code && error.code !== "http" ? `[relay:${error.code}] ` : "";
           callbacks.onError(
-            { code: 0, text: error?.message || "load failed" },
+            { code: 0, text: `${relayTag}${error?.message || "load failed"}` },
             context,
             null,
             finishStats(this.trequest, 0),

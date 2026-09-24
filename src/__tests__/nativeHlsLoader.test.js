@@ -198,4 +198,34 @@ describe("createStreamlyLoader", () => {
     expect(response.stats.loaded).toBe(5);
     expect(response.stats.total).toBe(5);
   });
+
+  it("tags relay failures with the real code so the player can re-resolve", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        if (init?.headers?.range) {
+          return { ok: true, status: 206, headers: { get: () => null }, body: { cancel: async () => {} } };
+        }
+        return {
+          ok: false,
+          status: 502,
+          headers: { get: () => "application/json" },
+          text: async () => JSON.stringify({ ok: false, code: "segment-fetch-failed", error: "Segment fetch failed: Upstream 403" }),
+        };
+      }),
+    );
+    const Loader = createStreamlyLoader({ getRefUrl: () => "https://vidcore.io/" });
+    const loader = new Loader();
+    const err = await new Promise((resolve) => {
+      loader.load(
+        { url: "https://cdn.example.com/seg-1.m4s", frag: { sn: 1 } },
+        {},
+        {
+          onSuccess: () => resolve(null),
+          onError: (e) => resolve(e),
+        },
+      );
+    });
+    expect(err.text).toContain("[relay:segment-fetch-failed]");
+  });
 });
