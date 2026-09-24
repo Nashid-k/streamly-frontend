@@ -129,9 +129,11 @@ function stamp() {
 
 function fmtTime(s) {
   const v = Math.max(0, Math.floor(Number(s) || 0));
-  const m = Math.floor(v / 60);
+  const h = Math.floor(v / 3600);
+  const m = Math.floor((v % 3600) / 60);
   const r = v % 60;
-  return `${m}:${String(r).padStart(2, "0")}`;
+  // Netflix style: m:ss under an hour, h:mm:ss above (156:22 -> 2:36:22).
+  return (h > 0 ? `${h}:` : "") + (h > 0 ? String(m).padStart(2, "0") : `${m}`) + `:${String(r).padStart(2, "0")}`;
 }
 
 export default function NativePlayerView({
@@ -165,6 +167,7 @@ export default function NativePlayerView({
   const [audioIndex, setAudioIndex] = useState(0);
   const [fatal, setFatal] = useState(null);
   const [playing, setPlaying] = useState(false);
+  const [ended, setEnded] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   // Real loader state: true while the screen has nothing new to show (initial
@@ -208,6 +211,7 @@ export default function NativePlayerView({
     const video = videoRef.current;
     if (!video) return;
     poke();
+    setEnded(false);
     try {
       if (video.paused) await video.play();
       else video.pause();
@@ -219,10 +223,28 @@ export default function NativePlayerView({
   const seekTo = (value) => {
     const video = videoRef.current;
     if (!video) return;
+    setEnded(false);
     try {
       video.currentTime = Number(value) || 0;
     } catch {
       // live-edge clamp — ignore out-of-range seeks
+    }
+  };
+
+  const replay = async () => {
+    const video = videoRef.current;
+    if (!video) return;
+    poke();
+    try {
+      video.currentTime = 0;
+    } catch {
+      // ignore
+    }
+    setEnded(false);
+    try {
+      await video.play();
+    } catch {
+      // user gesture needed — controls are visible
     }
   };
 
@@ -343,6 +365,7 @@ export default function NativePlayerView({
     const onPause = () => setPlaying(false);
     const onEnded = () => {
       setPlaying(false);
+      setEnded(true);
       poke();
     };
     const bufferedAhead = () => {
@@ -452,6 +475,9 @@ export default function NativePlayerView({
       if (e.defaultPrevented) return;
       const tag = String(e.target?.tagName || "").toLowerCase();
       if (tag === "input" || tag === "textarea" || tag === "select") return;
+      // Space/Enter on a focused button already clicks it — running our own
+      // toggle too would double-fire into a no-op.
+      if (tag === "button" && (e.code === "Space" || e.code === "Enter")) return;
       const video = videoRef.current;
       if (!video) return;
       switch (e.code) {
@@ -483,6 +509,9 @@ export default function NativePlayerView({
           goFullscreen();
           break;
         case "Escape":
+          // In fullscreen the browser consumes Esc to exit it — don't also
+          // close the player underneath.
+          if (document.fullscreenElement) return;
           if (panel) setPanel(null);
           else onCloseRef.current?.();
           break;
@@ -953,8 +982,8 @@ export default function NativePlayerView({
             <Bug size={14} /> Log
           </button>
         </div>
-        {/* Center: red buffering spinner only (Netflix shows no center play
-            glyph — the bar below owns play/pause). */}
+        {/* Center: red buffering spinner, or the replay button at the end
+            (Netflix end state). No center play glyph otherwise. */}
         {buffering && (
           <div
             role="status"
@@ -971,6 +1000,32 @@ export default function NativePlayerView({
           >
             <Loader2 size={56} className="animate-spin" color={NETFLIX_RED} />
           </div>
+        )}
+        {!buffering && ended && (
+          <button
+            type="button"
+            onClick={replay}
+            aria-label="Watch again"
+            title="Watch again"
+            style={{
+              position: "absolute",
+              inset: 0,
+              margin: "auto",
+              width: 84,
+              height: 84,
+              borderRadius: "50%",
+              border: "2px solid rgba(255,255,255,0.85)",
+              background: "rgba(0,0,0,0.45)",
+              color: "#fff",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 3,
+            }}
+          >
+            <RotateCcw size={38} />
+          </button>
         )}
         {/* Bottom chrome: title, scrubber, transport row. */}
         <div
@@ -1072,14 +1127,13 @@ export default function NativePlayerView({
                 style={{
                   position: "absolute",
                   top: "50%",
-                  left: `calc(${progressRatio * 100}% - 8px)`,
-                  width: 16,
-                  height: 16,
+                  left: `calc(${progressRatio * 100}% - ${(hoverRatio != null ? 16 : 12) / 2}px)`,
+                  width: hoverRatio != null ? 16 : 12,
+                  height: hoverRatio != null ? 16 : 12,
                   borderRadius: "50%",
                   background: NETFLIX_RED,
                   transform: "translateY(-50%)",
-                  opacity: hoverRatio != null ? 1 : 0,
-                  transition: "opacity 0.15s",
+                  transition: "width 0.15s, height 0.15s",
                   boxShadow: "0 1px 6px rgba(0,0,0,0.6)",
                 }}
               />
@@ -1240,7 +1294,7 @@ export default function NativePlayerView({
               position: "absolute",
               right: 12,
               bottom: 168,
-              width: "min(330px, 82%)",
+              width: panel === "subs" ? "min(560px, 92%)" : "min(330px, 82%)",
               maxHeight: "62%",
               overflowY: "auto",
               background: "rgba(18,18,18,0.97)",
@@ -1259,48 +1313,52 @@ export default function NativePlayerView({
               </IconBtn>
             </div>
             {panel === "subs" ? (
-              <>
-                {audioTracks.length > 0 && (
-                  <>
-                    <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", margin: "8px 0 2px" }}>
-                      Audio
-                    </p>
-                    {audioTracks.map((a) => (
+              <div style={{ display: "flex", gap: 16 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {audioTracks.length > 0 && (
+                    <>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", margin: "8px 0 2px" }}>
+                        Audio
+                      </p>
+                      {audioTracks.map((a) => (
+                        <DialogRow
+                          key={a.index}
+                          selected={a.index === audioIndex}
+                          onClick={() => pickAudio(a.index)}
+                          title={a.name}
+                          sub={a.lang && a.lang !== a.name ? a.lang : undefined}
+                        />
+                      ))}
+                    </>
+                  )}
+                  <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", margin: "8px 0 2px" }}>
+                    Subtitles
+                  </p>
+                  <DialogRow selected onClick={() => {}} title="Off" />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", margin: "8px 0 2px" }}>
+                    Video Quality
+                  </p>
+                  {isMasterMode && (
+                    <DialogRow selected={autoLevel} onClick={pickAuto} title="Auto" sub="Adjusts with your connection" />
+                  )}
+                  {qualities.map((q, i) => {
+                    const selected = isMasterMode
+                      ? !autoLevel && manualHeight != null && manualHeight === q.height
+                      : activeUri === q.uri;
+                    return (
                       <DialogRow
-                        key={a.index}
-                        selected={a.index === audioIndex}
-                        onClick={() => pickAudio(a.index)}
-                        title={a.name}
-                        sub={a.lang && a.lang !== a.name ? a.lang : undefined}
+                        key={`${q.uri}::${i}`}
+                        selected={selected}
+                        onClick={() => pickQuality(q.uri, q.height)}
+                        title={q.label || `${q.height}p`}
+                        sub={q.bandwidth ? `${(q.bandwidth / 1e6).toFixed(1)} Mbps` : undefined}
                       />
-                    ))}
-                  </>
-                )}
-                <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", margin: "8px 0 2px" }}>
-                  Subtitles
-                </p>
-                <DialogRow selected onClick={() => {}} title="Off" />
-                <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", margin: "8px 0 2px" }}>
-                  Video Quality
-                </p>
-                {isMasterMode && (
-                  <DialogRow selected={autoLevel} onClick={pickAuto} title="Auto" sub="Adjusts with your connection" />
-                )}
-                {qualities.map((q, i) => {
-                  const selected = isMasterMode
-                    ? !autoLevel && manualHeight != null && manualHeight === q.height
-                    : activeUri === q.uri;
-                  return (
-                    <DialogRow
-                      key={`${q.uri}::${i}`}
-                      selected={selected}
-                      onClick={() => pickQuality(q.uri, q.height)}
-                      title={q.label || `${q.height}p`}
-                      sub={q.bandwidth ? `${(q.bandwidth / 1e6).toFixed(1)} Mbps` : undefined}
-                    />
-                  );
-                })}
-              </>
+                    );
+                  })}
+                </div>
+              </div>
             ) : (
               episodes.map((ep) => (
                 <DialogRow
