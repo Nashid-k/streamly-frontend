@@ -160,6 +160,25 @@ describe("DownloadModal", () => {
     expect(downloadService.buildManifest).toHaveBeenCalledTimes(1);
   });
 
+  it("can switch to browser downloads — skips the save picker and forces mode:'browser'", async () => {
+    downloadService.resolveVidsrc.mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
+    renderModal();
+
+    const toggle = await screen.findByRole("switch", { name: /save to browser downloads/i });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-checked", "true");
+
+    const downloadButtons = await screen.findAllByRole("button", { name: /^Download \d/i });
+    fireEvent.click(downloadButtons[0]);
+
+    await waitFor(() => expect(downloadService.saveStream).toHaveBeenCalledTimes(1));
+    expect(downloadService.pickSaveTarget).not.toHaveBeenCalled();
+    expect(downloadService.saveStream).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: "browser" }),
+    );
+  });
+
   it("lets you click a row while a slow source is still resolving", async () => {
     downloadService.resolveVidsrc
       .mockReturnValue(new Promise((resolve) => setTimeout(() => resolve({ source: { url: "slow" }, variants: VARIANTS }), 100)));

@@ -342,6 +342,10 @@ export const downloadService = {
     source,
     baseName,
     writable = null,
+    // "browser" forces the in-memory <a download> path (lands in the browser's
+    // own download list) even when a writable is available — used by the modal's
+    // "Save to browser Downloads" toggle.
+    mode,
     onProgress,
     signal,
     pause,
@@ -416,6 +420,12 @@ export const downloadService = {
     let writer = writable;
     let memoryChunks = null;
     let method = writer ? "fs" : "blob";
+    // Browser-download mode never opens a save picker: buffer in memory and
+    // hand the file to the browser's own download manager (Ctrl+J).
+    if (mode === "browser") {
+      writer = null;
+      method = "blob";
+    }
     let bytes = 0;
 
     // Real throughput is measured where bytes ARRIVE from the network (each
@@ -448,7 +458,7 @@ export const downloadService = {
     };
 
     // Incremental disk writes — a long movie must not sit in RAM.
-    if (!writer && !manifest.direct) {
+    if (mode !== "browser" && !writer && !manifest.direct) {
       try {
         writer = await this.pickSaveTarget(filename);
         if (writer) method = "fs";

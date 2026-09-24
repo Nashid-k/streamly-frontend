@@ -16,7 +16,9 @@ import { downloadService, DownloadUnavailableError, createPauseController } from
 import { movieService } from "../api/movieService";
 import { useToast } from "./Toast";
 import { useDownloads } from "../context/downloads";
+import { useOptionalPreferences } from "../context/preferences";
 import Chip from "./Chip";
+import Toggle from "./settings/Toggle";
 import {
   estimateBytes,
   formatBytes,
@@ -367,6 +369,17 @@ export default function DownloadModal({
     });
   };
 
+  /* "Save to browser Downloads" (Ctrl+J): skip the File System Access picker
+     and let saveStream buffer the file in memory → the browser's own download
+     manager. Persisted; tests render without the PreferencesProvider, so the
+     context is optional here. */
+  const preferences = useOptionalPreferences();
+  const [browserSave, setBrowserSave] = useState(() => preferences?.browserDownloads ?? false);
+  const toggleBrowserSave = (value) => {
+    setBrowserSave(value);
+    preferences?.setPreference?.("browserDownloads", value);
+  };
+
   /* The actual download engine. Runs a server/quality across every selected
      episode, streaming progress into the session store. Deliberately
      independent of the modal's own lifecycle so a download keeps running in
@@ -384,9 +397,11 @@ export default function DownloadModal({
       const audioChoice = audioChoices[row.key] || "";
 
       // Single-file downloads get the native Save-As picker, opened
-      // synchronously so the browser keeps the user activation.
+      // synchronously so the browser keeps the user activation. Browser mode
+      // skips the picker entirely so the file lands in the browser's own
+      // Downloads list (Ctrl+J) instead of a disk path.
       let writable = null;
-      if (targets.length === 1) {
+      if (targets.length === 1 && !browserSave) {
         try {
           writable = await downloadService.pickSaveTarget(
             `${fileNameBase(movie, {
@@ -487,6 +502,7 @@ export default function DownloadModal({
             source,
             baseName: fileNameBase(movie, { isTv, season: selectedSeason, episode, quality: variant.label }),
             writable: i === 0 ? writable : null,
+            mode: browserSave ? "browser" : undefined,
             signal: controller.signal,
             pause: gate,
             refresh: row.sourceKey === "cinesrc" ? () => mintTokens() : undefined,
@@ -528,7 +544,7 @@ export default function DownloadModal({
       }
     },
     [isTv, selectedEpisodes, selectedSeason, movie, sourceType, numericId, durationSeconds, audioChoices,
-      registerDownload, updateDownload, cancelDownload, removeDownload, toast],
+      registerDownload, updateDownload, cancelDownload, removeDownload, toast, browserSave],
   );
 
   const handleDownload = async (row) => {
@@ -672,6 +688,17 @@ export default function DownloadModal({
                   </span>
                 )}
               </div>
+            </div>
+
+            {/* Save destination toggle: FSA picker vs browser Downloads (Ctrl+J) */}
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-2.5">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-white/85">Save to browser Downloads</p>
+                <p className="mt-0.5 text-xs text-white/45">
+                  Shows in Ctrl+J; the file is built in memory first, so best for small/medium files.
+                </p>
+              </div>
+              <Toggle checked={browserSave} onChange={toggleBrowserSave} label="Save to browser Downloads" />
             </div>
 
             {/* Quality filter rail */}

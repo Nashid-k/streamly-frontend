@@ -395,6 +395,34 @@ describe("downloadService.saveStream", () => {
     expect(clickSpy).toHaveBeenCalled();
   });
 
+  it("mode:'browser' never opens the save picker and uses the <a download> path", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(bufferResponse([1, 2, 3]));
+    vi.stubGlobal("fetch", fetchMock);
+    const pickSpy = vi.fn();
+    window.showSaveFilePicker = pickSpy;
+    vi.stubGlobal("URL", {
+      ...URL,
+      createObjectURL: vi.fn(() => "blob:test"),
+      revokeObjectURL: vi.fn(),
+    });
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    const writable = { write: vi.fn(), close: vi.fn() };
+
+    const result = await downloadService.saveStream({
+      manifest: { kind: "fmp4", initUrl: null, segments: ["https://cdn/a.m4s"], count: 1 },
+      source: { refUrl: "https://vidlink.pro/movie/550" },
+      baseName: "Alien",
+      writable,
+      mode: "browser",
+    });
+
+    expect(result.method).toBe("blob");
+    expect(result.filename).toBe("Alien.mp4");
+    expect(clickSpy).toHaveBeenCalled();
+    expect(pickSpy).not.toHaveBeenCalled();
+    expect(writable.write).not.toHaveBeenCalled();
+  });
+
   it("fetches segments concurrently but writes them in order", async () => {
     // Slow first segment, fast second: segment B is fetched (and buffered)
     // while A is still in flight, but bytes hit the writer strictly in order.
