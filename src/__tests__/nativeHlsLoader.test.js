@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  clearDirectBlocks,
   clearProbeCache,
   createStreamlyLoader,
   probeDirectOrigin,
@@ -8,7 +9,10 @@ import {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  vi.clearAllMocks();
+  vi.useRealTimers();
   clearProbeCache();
+  clearDirectBlocks();
 });
 
 function rangeOkResponse() {
@@ -227,5 +231,96 @@ describe("createStreamlyLoader", () => {
       );
     });
     expect(err.text).toContain("[relay:segment-fetch-failed]");
+  });
+
+  it("parks a throttled origin on relay-only cooldown (no repeated direct pokes)", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url, init) => {
+      if (init?.headers?.range) return rangeOkResponse();
+      if (typeof url === "string" && url.includes("downloadify")) {
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: (name) => (name === "x-streamly-more" ? "0" : "application/octet-stream") },
+          arrayBuffer: async () => new Uint8Array([1, 2, 3, 4]).buffer,
+        };
+      }
+      // Direct segment pull: throttled.
+      return { ok: false, status: 403, headers: { get: () => null } };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const Loader = createStreamlyLoader({ getRefUrl: () => "https://vidcore.io/" });
+
+    const loadFrag = (loader, url) =>
+      new Promise((resolve, reject) => {
+        loader.load(
+          { url, frag: { sn: 1 } },
+          {},
+          {
+            onSuccess: (resp) => resolve(resp),
+            onError: (err) => reject(new Error(err.text)),
+          },
+        );
+      });
+
+    // First fragment: probe + doomed direct attempt, then relay saves it.
+    await loadFrag(new Loader(), "https://throttle.example.com/vd/a.m4s");
+    const directFirst = fetchMock.mock.calls.filter(([url, init]) => (
+      typeof url === "string" && url.startsWith("https://throttle.example.com") && !init?.headers?.range
+    ));
+    expect(directFirst.length).toBe(1);
+
+    // Second fragment, same origin: NO direct attempt at all — straight relay.
+    fetchMock.mockClear();
+    await loadFrag(new Loader(), "https://throttle.example.com/vd/b.m4s");
+    const directSecond = fetchMock.mock.calls.filter(([url]) => (
+      typeof url === "string" && url.startsWith("https://throttle.example.com")
+    ));
+    expect(directSecond.length).toBe(0);
+    expect(fetchMock).toHaveBeenCalled();
+  });
+
+  it("re-tries direct after the throttle cooldown expires", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    let directThrottled = true;
+    const fetchMock = vi.fn().mockImplementation(async (url, init) => {
+      if (init?.headers?.range) return rangeOkResponse();
+      if (typeof url === "string" && url.includes("downloadify")) {
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: (name) => (name === "x-streamly-more" ? "0" : "application/octet-stream") },
+          arrayBuffer: async () => new Uint8Array([9]).buffer,
+        };
+      }
+      if (directThrottled) return { ok: false, status: 429, headers: { get: () => null } };
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => null },
+        arrayBuffer: async () => new Uint8Array([7, 8]).buffer,
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const Loader = createStreamlyLoader({ getRefUrl: () => "https://vidcore.io/" });
+    const loadFrag = (loader, url) =>
+      new Promise((resolve, reject) => {
+        loader.load(
+          { url, frag: { sn: 1 } },
+          {},
+          { onSuccess: (resp) => resolve(resp), onError: (err) => reject(new Error(err.text)) },
+        );
+      });
+
+    await loadFrag(new Loader(), "https://burst.example.com/vd/a.m4s");
+    directThrottled = false;
+    fetchMock.mockClear();
+    vi.setSystemTime(5 * 60 * 1000 + 1);
+    const response = await loadFrag(new Loader(), "https://burst.example.com/vd/b.m4s");
+    const directAgain = fetchMock.mock.calls.filter(([url, init]) => (
+      typeof url === "string" && url.startsWith("https://burst.example.com") && !init?.headers?.range
+    ));
+    expect(directAgain.length).toBe(1);
+    expect(response.data.byteLength).toBe(2);
   });
 });

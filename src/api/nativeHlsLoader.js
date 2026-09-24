@@ -4,10 +4,16 @@
 //   · Manifest/level/audio playlists go through the downloadify `playlist`
 //     action: the server fetches with the owning player's referer (VidCore's
 //     moon.quietridge.top m3u8s 403 a bare browser fetch) and hands back text.
+//     Playlists are kilobytes — negligible serverless cost.
 //   · Media fragments go DIRECT from the browser when the segment host allows
 //     CORS + Range (VidCore's paperorbit.top/quietnexus.top: `*`, +206), and
 //     fall back to the downloadify `segment` range-relay otherwise (VidSrc's
 //     pchrelay hosts). The per-origin probe result is cached per page load.
+//   · VERCEL-FREE RULE: direct costs us nothing; every relayed byte costs
+//     bandwidth + invocations. So direct is always tried first, a throttling
+//     origin (401/403/429) is put on relay-only cooldown instead of being
+//     re-poked on every fragment, and relay streaks are logged so serverless
+//     burn stays visible instead of silent.
 //   · hls.js resolves relative playlist URLs against the manifest URL we
 //     report, so the loader always answers playlist loads with the ORIGINAL
 //     upstream URL (never the relay endpoint).
@@ -22,8 +28,37 @@ const ENDPOINT = "/api/downloadify";
 // 1MB relay slices keep time-to-first-byte low for streaming (downloads use
 // 3.5MB because they optimize for throughput, not startup latency).
 const FRAG_CHUNK_MAX = 1024 * 1024;
+// A throttled origin stays relay-only this long — long enough to ride out a
+// WAF burst, short enough to re-probe direct while the title still plays.
+const DIRECT_BLOCK_MS = 5 * 60 * 1000;
+// Log relay usage at these streak lengths (1 = first fallback, then every 25)
+// so Vercel burn is observable in the console, never silent.
+const RELAY_LOG_EVERY = 25;
 
 const probeCache = new Map();
+// origin -> timestamp (ms) until which direct fetches are skipped.
+const directBlockedUntil = new Map();
+
+function originOf(url) {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
+/* Direct path open for this URL? False when the origin is on throttle
+   cooldown (or the URL is unparseable) — the caller goes straight to the
+   relay without spending a doomed direct attempt. */
+export function isDirectBlocked(url) {
+  const origin = originOf(url);
+  if (!origin) return true;
+  const until = directBlockedUntil.get(origin);
+  if (!until) return false;
+  if (until > Date.now()) return true;
+  directBlockedUntil.delete(origin);
+  return false;
+}
 
 /* Direct-CORS probe per segment origin: Range 0-0 must come back with an
    allow-origin we can read AND a content-range (seekable). Cached as a
@@ -58,6 +93,10 @@ export async function probeDirectOrigin(url, { signal } = {}) {
 
 export function clearProbeCache() {
   probeCache.clear();
+}
+
+export function clearDirectBlocks() {
+  directBlockedUntil.clear();
 }
 
 async function postDownloadify(body, { signal } = {}) {
@@ -126,6 +165,9 @@ export function createStreamlyLoader({ getRefUrl }) {
       // `loader.stats.retry = frag.stats.retry; frag.stats = loader.stats`),
       // so it must ALWAYS be a full LoadStats-shaped object — never undefined.
       this.stats = finishStats(0, 0);
+      // Consecutive fragments served through the Vercel relay (serverless
+      // burn). Reset by any direct success.
+      this.relayStreak = 0;
     }
 
     destroy() {
@@ -235,23 +277,49 @@ export function createStreamlyLoader({ getRefUrl }) {
 
     async loadFragment(url) {
       const signal = this.signal();
-      let probe = { ok: false };
-      try {
-        probe = await probeDirectOrigin(url, { signal });
-      } catch {
-        probe = { ok: false };
-      }
-      if (this.aborted) throw new Error("Aborted");
-      if (probe.ok) {
+      // Throttle-cooldown origins skip direct entirely: no probe, no doomed
+      // attempt — straight to the relay. Keeps playback moving AND keeps us
+      // from re-poking a WAF burst on every fragment.
+      if (!isDirectBlocked(url)) {
+        let probe = { ok: false };
         try {
-          return await this.directFragment(url, signal);
-        } catch (error) {
-          if (error?.name === "AbortError" || this.aborted) throw error;
-          // A CDN that passed the probe but fails the pull (burst throttle,
-          // rotated token) falls back to the relay below.
-          logWarn("native", "Direct fragment fetch failed — falling back to relay.", {
-            message: error?.message,
-          });
+          probe = await probeDirectOrigin(url, { signal });
+        } catch {
+          probe = { ok: false };
+        }
+        if (this.aborted) throw new Error("Aborted");
+        if (probe.ok) {
+          try {
+            const data = await this.directFragment(url, signal);
+            const origin = originOf(url);
+            if (origin) directBlockedUntil.delete(origin);
+            this.relayStreak = 0;
+            return data;
+          } catch (error) {
+            if (error?.name === "AbortError" || this.aborted) throw error;
+            // The server said no (401/403/429): park this origin on
+            // relay-only cooldown instead of failing one fragment at a time.
+            // Anything else (network blip, CSP, offline) stays direct-first —
+            // those fail fast and may clear on their own.
+            const status = error?.status;
+            if (status === 401 || status === 403 || status === 429) {
+              const origin = originOf(url);
+              if (origin) {
+                directBlockedUntil.set(origin, Date.now() + DIRECT_BLOCK_MS);
+                logWarn("native", "Direct path throttled — relay-only for 5 min.", {
+                  origin,
+                  status,
+                });
+              }
+            } else {
+              // A CDN that passed the probe but fails the pull for another
+              // reason (rotated token, reset connection) still falls back to
+              // the relay below.
+              logWarn("native", "Direct fragment fetch failed — falling back to relay.", {
+                message: error?.message,
+              });
+            }
+          }
         }
       }
       return this.relayFragment(url, signal);
@@ -261,7 +329,11 @@ export function createStreamlyLoader({ getRefUrl }) {
        still arriving (TTFB-to-first-append, not whole-segment latency). */
     async directFragment(url, signal) {
       const res = await fetch(url, { signal });
-      if (!res.ok) throw new Error(`Direct fragment fetch failed (${res.status})`);
+      if (!res.ok) {
+        const error = new Error(`Direct fragment fetch failed (${res.status})`);
+        error.status = res.status;
+        throw error;
+      }
       const total = Number(res.headers.get("content-length") || 0) || 0;
       if (res.body && typeof res.body.getReader === "function") {
         const reader = res.body.getReader();
@@ -326,7 +398,17 @@ export function createStreamlyLoader({ getRefUrl }) {
         out.set(c, off);
         off += c.length;
       }
-      logDebug("native", `Relayed fragment (${total} bytes).`, { url: String(url).slice(0, 80) });
+      // Relay-streak visibility: every relayed byte is Vercel bandwidth +
+      // invocations on the free tier. Log the first fallback and every 25th
+      // after it so serverless burn is observable, never silent.
+      this.relayStreak = (this.relayStreak || 0) + 1;
+      if (this.relayStreak === 1 || this.relayStreak % RELAY_LOG_EVERY === 0) {
+        logWarn("native", `${this.relayStreak} consecutive fragment(s) via Vercel relay — direct path unavailable.`, {
+          url: String(url).slice(0, 80),
+        });
+      } else {
+        logDebug("native", `Relayed fragment (${total} bytes).`, { url: String(url).slice(0, 80) });
+      }
       return out.buffer;
     }
   };
