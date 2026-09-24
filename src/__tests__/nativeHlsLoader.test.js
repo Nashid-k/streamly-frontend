@@ -155,4 +155,47 @@ describe("createStreamlyLoader", () => {
     });
     expect(response.data.byteLength).toBe(4);
   });
+
+  it("streams progress callbacks while a direct fragment arrives", async () => {
+    const chunks = [new Uint8Array([1, 2]), new Uint8Array([3, 4, 5])];
+    let reads = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        if (init?.headers?.range) return rangeOkResponse();
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: (name) => (name === "content-length" ? "5" : null) },
+          body: {
+            getReader: () => ({
+              read: async () => {
+                if (reads < chunks.length) return { done: false, value: chunks[reads++] };
+                return { done: true, value: undefined };
+              },
+            }),
+          },
+        };
+      }),
+    );
+    const Loader = createStreamlyLoader({ getRefUrl: () => "https://vidcore.io/" });
+    const loader = new Loader();
+    const seen = [];
+    const response = await new Promise((resolve, reject) => {
+      loader.load(
+        { url: "https://paperorbit.top/vd/x/seg-1.m4s", frag: { sn: 1 } },
+        {},
+        {
+          onSuccess: (resp, stats) => resolve({ resp, stats }),
+          onError: (err) => reject(new Error(err.text)),
+          onProgress: (stats, _ctx, data) => seen.push({ loaded: stats.loaded, chunk: data.length }),
+        },
+      );
+    });
+    expect(response.resp.data.byteLength).toBe(5);
+    // Progress fired per read with an accumulating loaded count.
+    expect(seen.map((s) => s.loaded)).toEqual([2, 5]);
+    expect(response.stats.loaded).toBe(5);
+    expect(response.stats.total).toBe(5);
+  });
 });

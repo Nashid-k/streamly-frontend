@@ -145,12 +145,24 @@ export function createStreamlyLoader({ getRefUrl }) {
       this.context = context;
       this.callbacks = callbacks;
       this.trequest = now();
+      // One live object for the whole load: hls.js keeps references to it
+      // (frag.stats = loader.stats) and reads loaded/total off the progress
+      // calls, so mutate in place — never replace it mid-load.
       this.stats = finishStats(this.trequest, 0);
+      this.firstByteSeen = false;
       this.run().then(
         (data) => {
           if (this.aborted) return;
+          const end = now();
           const loaded = data?.byteLength ?? data?.length ?? 0;
-          this.stats = finishStats(this.trequest, loaded);
+          this.stats.loaded = loaded;
+          this.stats.total = loaded;
+          this.stats.tload = end;
+          this.stats.loading.end = end;
+          if (!this.firstByteSeen) {
+            this.stats.tfirst = end;
+            this.stats.loading.first = end;
+          }
           callbacks.onSuccess({ url: context.url, data }, this.stats, context);
         },
         (error) => {
@@ -180,6 +192,26 @@ export function createStreamlyLoader({ getRefUrl }) {
       return this.loadPlaylist(url);
     }
 
+    /* Feed hls.js progress callbacks as bytes arrive (drives the bandwidth
+       estimator + progressive MSE appends). Mutates the live stats object in
+       place. callbacks.onProgress is optional (unit tests omit it). */
+    progress(chunk, total) {
+      if (!chunk || chunk.length === 0) return;
+      if (!this.firstByteSeen) {
+        this.firstByteSeen = true;
+        const t = now();
+        this.stats.tfirst = t;
+        this.stats.loading.first = t;
+      }
+      this.stats.loaded += chunk.length;
+      if (Number.isFinite(total) && total > 0) this.stats.total = total;
+      try {
+        this.callbacks?.onProgress?.(this.stats, this.context, chunk, null);
+      } catch {
+        // a throwing progress listener must never kill the load
+      }
+    }
+
     async loadPlaylist(url) {
       const refUrl = getRefUrl?.();
       const response = await postDownloadify(
@@ -205,9 +237,7 @@ export function createStreamlyLoader({ getRefUrl }) {
       if (this.aborted) throw new Error("Aborted");
       if (probe.ok) {
         try {
-          const res = await fetch(url, { signal });
-          if (!res.ok) throw new Error(`Direct fragment fetch failed (${res.status})`);
-          return await res.arrayBuffer();
+          return await this.directFragment(url, signal);
         } catch (error) {
           if (error?.name === "AbortError" || this.aborted) throw error;
           // A CDN that passed the probe but fails the pull (burst throttle,
@@ -218,6 +248,49 @@ export function createStreamlyLoader({ getRefUrl }) {
         }
       }
       return this.relayFragment(url, signal);
+    }
+
+    /* Direct pull, streamed so progress callbacks fire while the bytes are
+       still arriving (TTFB-to-first-append, not whole-segment latency). */
+    async directFragment(url, signal) {
+      const res = await fetch(url, { signal });
+      if (!res.ok) throw new Error(`Direct fragment fetch failed (${res.status})`);
+      const total = Number(res.headers.get("content-length") || 0) || 0;
+      if (res.body && typeof res.body.getReader === "function") {
+        const reader = res.body.getReader();
+        const chunks = [];
+        let size = 0;
+        for (;;) {
+          if (this.aborted) {
+            try {
+              await reader.cancel();
+            } catch {
+              // reader already closed
+            }
+            throw new Error("Aborted");
+          }
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = value ? new Uint8Array(value) : null;
+          if (chunk?.length) {
+            chunks.push(chunk);
+            size += chunk.length;
+            this.progress(chunk, total);
+          }
+        }
+        if (size === 0) throw new Error("Direct fragment fetch returned no bytes");
+        const out = new Uint8Array(size);
+        let off = 0;
+        for (const c of chunks) {
+          out.set(c, off);
+          off += c.length;
+        }
+        return out.buffer;
+      }
+      const buf = new Uint8Array(await res.arrayBuffer());
+      if (buf.length === 0) throw new Error("Direct fragment fetch returned no bytes");
+      this.progress(buf, total || buf.length);
+      return buf.buffer;
     }
 
     async relayFragment(url, signal) {
@@ -237,6 +310,7 @@ export function createStreamlyLoader({ getRefUrl }) {
         chunks.push(buf);
         total += buf.length;
         start += buf.length;
+        this.progress(buf, 0);
         if (response.headers.get("x-streamly-more") !== "1") break;
       }
       const out = new Uint8Array(total);

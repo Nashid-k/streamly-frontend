@@ -49,6 +49,8 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  // Master-mode (CineSrc) starts on ABR auto; picking a level pins it.
+  const [autoLevel, setAutoLevel] = useState(true);
 
   const say = (msg) => setLines((prev) => [...prev.slice(-60), `${stamp()} ${msg}`]);
 
@@ -141,14 +143,12 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
         hls.on(Hls.Events.ERROR, onError);
       });
 
-    const startLevelFor = (hls, def, variants) => {
+    const startLevelFor = (hls, def) => {
+      // CineSrc loads its master: leave level selection on AUTO (-1) so ABR
+      // starts conservatively and steps up only when the pipe sustains it.
+      // (Forcing the top level first is exactly what stalled 4K playback.)
       if (def.key !== "cinesrc" || !Array.isArray(hls.levels) || hls.levels.length === 0) return;
-      const want = variants[0]?.height || 0;
-      let best = 0;
-      hls.levels.forEach((lvl, i) => {
-        if (Math.abs((lvl.height || 0) - want) < Math.abs((hls.levels[best].height || 0) - want)) best = i;
-      });
-      hls.currentLevel = best;
+      hls.currentLevel = -1;
     };
 
     const attachAudio = (hls) => {
@@ -180,12 +180,23 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
           say(`${def.label}: no variants — next source.`);
           continue;
         }
-        const entryUrl = entryUrlFor(def, resolved, variants[0]);
+        // Smooth start: open on the tallest rendition at or below 1080p so
+        // the first seconds play instantly; 4K stays one tap away in the
+        // menu. (A 4K segment needs ~20 Mbps sustained — opening straight on
+        // it is what stalled playback after 5–10s.)
+        const smoothStart =
+          variants
+            .filter((v) => (v.height || 0) > 0 && (v.height || 0) <= 1080)
+            .sort((a, b) => (b.height || 0) - (a.height || 0))[0] || variants[0];
+        const entryUrl = entryUrlFor(def, resolved, smoothStart);
         if (!entryUrl) {
           say(`${def.label}: no playable URL — next source.`);
           continue;
         }
-        say(`${def.label}: ${variants.length} variant(s), loading ${variants[0]?.height || "?"}p…`);
+        say(
+          `${def.label}: ${variants.length} variant(s), loading ` +
+            (def.key === "cinesrc" ? "master (ABR auto)…" : `${smoothStart?.height || "?"}p (smooth start)…`),
+        );
         try {
           hlsRef.current?.destroy();
         } catch {
@@ -194,8 +205,14 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
         const refUrl = resolved.source?.refUrl || resolved.source?.url;
         const hls = new Hls({
           loader: createStreamlyLoader({ getRefUrl: () => refUrl }),
-          // Prototype drives quality manually from our ladder — no ABR fights.
-          abrEnabled: false,
+          // Adaptive bitrate + progressive MSE appends: chunks hit the screen
+          // while the rest of the segment is still arriving. The forward
+          // buffer is sized for 4K segments (10+ MB each) so one slow fetch
+          // doesn't stall playback.
+          abrEnabled: true,
+          progressive: true,
+          maxBufferLength: 60,
+          maxBufferSize: 120 * 1000 * 1000,
         });
         hlsRef.current = hls;
         let resolveFatal = null;
@@ -241,13 +258,13 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
         }
         if (runRef.current !== run || controller.signal.aborted) return;
         metaRef.current = { variants, sourceKey: def.key, refUrl, cinesrcLevels: def.key === "cinesrc" };
-        startLevelFor(hls, def, variants);
+        startLevelFor(hls, def);
         setQualities(variants.map((v) => ({ uri: v.uri, height: v.height || 0, bandwidth: v.bandwidth || 0, label: v.label })));
         setIsMasterMode(def.key === "cinesrc");
-        setActiveUri(def.key === "cinesrc" ? null : variants[0]?.uri || null);
+        setActiveUri(def.key === "cinesrc" ? null : smoothStart?.uri || null);
         attachAudio(hls);
         setStatus(`playing via ${def.label}`);
-        say(`${def.label}: PLAYING (${variants[0]?.height || "?"}p).`);
+        say(`${def.label}: PLAYING (${def.key === "cinesrc" ? "ABR auto" : `${smoothStart?.height || "?"}p`}).`);
         try {
           await videoRef.current?.play();
         } catch {
@@ -297,8 +314,9 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
           if (Math.abs((lvl.height || 0) - (height || 0)) < Math.abs((hls.levels[best].height || 0) - (height || 0))) best = i;
         });
         hls.currentLevel = best;
+        setAutoLevel(false);
         setActiveUri(null);
-        say(`Level -> ${hls.levels[best]?.height || "?"}p.`);
+        say(`Level -> ${hls.levels[best]?.height || "?"}p (pinned).`);
         return;
       }
       hls.loadSource(uri);
@@ -335,6 +353,14 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
     if (!hls) return;
     hls.audioTrack = index;
     say(`Audio -> ${audioTracks[index]?.name || index}.`);
+  };
+
+  const pickAuto = () => {
+    const hls = hlsRef.current;
+    if (!hls) return;
+    hls.currentLevel = -1;
+    setAutoLevel(true);
+    say("Level -> Auto (ABR).");
   };
 
   return (
@@ -453,10 +479,29 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
       )}
       {qualities.length > 0 && (
         <div style={{ marginTop: 12 }}>
-          <p style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginBottom: 6 }}>Quality (our ladder)</p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {qualities.map((q) => {
-              const active = !isMasterMode && activeUri === q.uri;
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginBottom: 6 }}>Quality (our ladder)</p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {isMasterMode && (
+                <button
+                  key="auto"
+                  type="button"
+                  onClick={pickAuto}
+                  style={{
+                    padding: "8px 14px",
+                    borderRadius: 999,
+                    border: autoLevel ? "2px solid #22c55e" : "1px solid rgba(255,255,255,0.2)",
+                    background: autoLevel ? "rgba(34,197,94,0.15)" : "rgba(255,255,255,0.06)",
+                    color: "#fff",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    cursor: "pointer",
+                  }}
+                >
+                  Auto
+                </button>
+              )}
+              {qualities.map((q) => {
+                const active = !isMasterMode && activeUri === q.uri;
               return (
                 <button
                   key={q.uri}
