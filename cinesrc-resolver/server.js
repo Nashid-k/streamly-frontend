@@ -97,21 +97,22 @@ function readBody(req) {
 async function resolvePlaylist({ type, id, season, episode }) {
   const b = await getBrowser();
   const page = await b.newPage();
+  const requests = [];
+  let playlistUrl = null;
   try {
     await page.setViewport({ width: 1366, height: 768 });
     const cdp = await page.createCDPSession();
     await cdp.send("Network.enable");
-    let playlistUrl = null;
     const seen = (e) => {
-      if (!playlistUrl && e.request.url.includes("/api/playlist/")) playlistUrl = e.request.url;
+      const u = e.request.url;
+      if (requests.length < 50) requests.push(u);
+      if (!playlistUrl && u.includes("/api/playlist/")) playlistUrl = u;
     };
     cdp.on("Network.requestWillBeSent", seen);
     await page.goto(buildEmbedUrl({ type, id, season, episode }), {
       waitUntil: "domcontentloaded",
       timeout: TIMEOUT_MS,
     });
-    // A real click: some titles park on click-to-play, which is also when the
-    // player starts fetching upstreams.
     await page.evaluate(() => {
       const v = document.querySelector("video");
       if (v) { try { v.click(); } catch { /* player decides */ } }
@@ -120,7 +121,17 @@ async function resolvePlaylist({ type, id, season, episode }) {
     while (!playlistUrl && Date.now() - start < TIMEOUT_MS) {
       await new Promise((r) => setTimeout(r, 1000));
     }
-    if (!playlistUrl) throw new Error("player never requested a playlist (timeout)");
+    if (!playlistUrl) {
+      const diag = await page.evaluate(() => ({
+        url: location.href,
+        title: document.title,
+        hasVideo: !!document.querySelector("video"),
+        bodyText: (document.body?.innerText || "").slice(0, 300).replace(/\s+/g, " ").trim(),
+      })).catch(() => ({}));
+      const issue = new Error("player never requested a playlist (timeout)");
+      issue.diag = { ...diag, requests: requests.filter((u) => !u.endsWith(".js") && !u.endsWith(".css")).slice(-15) };
+      throw issue;
+    }
     return playlistUrl;
   } finally {
     try { await page.close(); } catch { /* already gone */ }
@@ -158,7 +169,12 @@ const server = http.createServer(async (req, res) => {
     });
     send(200, { ok: true, playlistUrl });
   } catch (error) {
-    send(200, { ok: false, error: error?.message || "resolve failed", code: "no-source" });
+    send(200, {
+      ok: false,
+      error: error?.message || "resolve failed",
+      code: "no-source",
+      diag: error?.diag,
+    });
   } finally {
     release();
   }
