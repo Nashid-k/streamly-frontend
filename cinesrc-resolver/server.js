@@ -23,16 +23,6 @@ import puppeteer from "puppeteer-core";
 const PORT = Number(process.env.PORT || 3100);
 const TIMEOUT_MS = Number(process.env.RESOLVE_TIMEOUT_MS || 60000);
 const MAX_PAGES = Math.max(1, Number(process.env.MAX_PAGES || 2));
-const CHROME_PATH =
-  process.env.CHROME_PATH ||
-  (process.platform === "win32"
-    ? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
-    : process.platform === "darwin"
-      ? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-      : "/usr/bin/google-chrome");
-
-let browser = null;
-let mints = 0;
 // Serialize resolutions past MAX_PAGES concurrent pages (each page is a full
 // renderer; bounding concurrency bounds RAM/CPU on small hosts).
 let inflight = 0;
@@ -51,9 +41,49 @@ function release() {
   if (next) next();
 }
 
+const CHROME_PATH =
+  process.env.CHROME_PATH ||
+  (process.platform === "win32"
+    ? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+    : process.platform === "darwin"
+      ? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+      : "/usr/bin/google-chrome");
+
+let browser = null;
+let mints = 0;
+// Free-tier containers have no swap and hard-kill (OOMKilled) when a mint's
+// PoW spike crosses the cgroup memory ceiling — the worst time to die is
+// MID-mint (the caller gets a dead connection and the download shows a lie).
+// So we read the container's own memory figures from inside and recycle the
+// whole browser (which holds ~80% of our RSS) the moment headroom gets thin,
+// instead of letting the kernel pick the kill point for us.
+const MEM_HIGH = Number(process.env.MEM_HIGH || 0.66);
+const cgroupPath = async (name) => {
+  try {
+    const { readFile } = await import("node:fs/promises");
+    const s = (await readFile(name, "utf8")).trim();
+    return Number(s.replace(/\s+/g, "")) || 0;
+  } catch { return 0; }
+};
+const memUsage = async () => {
+  const current = await cgroupPath("/sys/fs/cgroup/memory.current");
+  const max = await cgroupPath("/sys/fs/cgroup/memory.max");
+  if (current > 0 && max > 0 && isFinite(max)) return current / max;
+  const used = await cgroupPath("/sys/fs/cgroup/memory/memory.usage_in_bytes");
+  const lim = await cgroupPath("/sys/fs/cgroup/memory/memory.limit_in_bytes");
+  if (used > 0 && lim > 0 && isFinite(lim)) return used / lim;
+  return 0;
+};
+async function trimBrowser() {
+  try { await browser?.close(); } catch { /* already dead */ }
+  browser = null;
+}
+async function ensureHeadroom() {
+  if (await memUsage() > MEM_HIGH) await trimBrowser();
+}
 async function getBrowser() {
   if (browser?.connected) return browser;
-  try { await browser?.close(); } catch { /* already dead */ }
+  await trimBrowser();
   browser = await puppeteer.launch({
     executablePath: CHROME_PATH,
     headless: "new",
@@ -171,6 +201,7 @@ const server = http.createServer(async (req, res) => {
   }
   await acquire();
   try {
+    await ensureHeadroom().catch(() => {});
     const playlistUrl = await resolvePlaylist({
       type,
       id,
@@ -179,9 +210,12 @@ const server = http.createServer(async (req, res) => {
     });
     send(200, { ok: true, playlistUrl });
     mints += 1;
-    if (mints >= 6) {
-      try { await browser?.close(); } catch { /* already dead */ }
-      browser = null;
+    // Close the renderer once the container starts nearing its memory ceiling
+    // (or every few mints as a floor guard) so the kernel never has a reason
+    // to OOMKill us mid-request.
+    const pressured = await memUsage().catch(() => 0);
+    if (mints >= 3 || pressured > MEM_HIGH) {
+      await trimBrowser();
       mints = 0;
     }
   } catch (error) {
