@@ -122,6 +122,10 @@ export function createStreamlyLoader({ getRefUrl }) {
       this.aborted = false;
       this.controller = null;
       this.trequest = 0;
+      // hls.js grabs this reference directly (fragment-loader does
+      // `loader.stats.retry = frag.stats.retry; frag.stats = loader.stats`),
+      // so it must ALWAYS be a full LoadStats-shaped object — never undefined.
+      this.stats = finishStats(0, 0);
     }
 
     destroy() {
@@ -141,11 +145,13 @@ export function createStreamlyLoader({ getRefUrl }) {
       this.context = context;
       this.callbacks = callbacks;
       this.trequest = now();
+      this.stats = finishStats(this.trequest, 0);
       this.run().then(
         (data) => {
           if (this.aborted) return;
           const loaded = data?.byteLength ?? data?.length ?? 0;
-          callbacks.onSuccess({ url: context.url, data }, finishStats(this.trequest, loaded), context);
+          this.stats = finishStats(this.trequest, loaded);
+          callbacks.onSuccess({ url: context.url, data }, this.stats, context);
         },
         (error) => {
           if (this.aborted) return;

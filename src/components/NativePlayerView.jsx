@@ -11,6 +11,7 @@ import { Maximize, Pause, Play } from "lucide-react";
 import Hls from "hls.js";
 import { downloadService } from "../api/downloadService";
 import { createStreamlyLoader } from "../api/nativeHlsLoader";
+import { logWarn } from "../utils/debugLogger";
 
 const SOURCES = [
   { key: "vidcore", label: "VidCore (native)", resolve: (a, o) => downloadService.resolveVidcore(a, o) },
@@ -197,9 +198,33 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
           abrEnabled: false,
         });
         hlsRef.current = hls;
+        let resolveFatal = null;
+        const fatalLater = new Promise((resolve) => {
+          resolveFatal = resolve;
+        });
+        const reportFatal = (data) => {
+          const frag = data?.frag;
+          const detail =
+            `${data?.details || "error"}` +
+            (data?.error?.message ? ` (${data.error.message})` : "") +
+            (frag ? ` [sn ${frag.sn ?? "?"} ${String(frag.url || "").slice(0, 90)}]` : "");
+          say(`${def.label}: fatal ${detail} — next source.`);
+          logWarn("native", `${def.label} fatal during playback`, {
+            details: data?.details,
+            message: data?.error?.message,
+            fragSn: frag?.sn ?? null,
+          });
+        };
         hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => attachAudio(hls));
         hls.on(Hls.Events.ERROR, (_e, data) => {
-          if (data?.fatal) say(`${def.label}: fatal ${data.details || "error"} — next source.`);
+          if (!data?.fatal) return;
+          reportFatal(data);
+          try {
+            hls.destroy();
+          } catch {
+            // already torn down
+          }
+          resolveFatal?.();
         });
         try {
           hls.loadSource(entryUrl);
@@ -228,6 +253,17 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
         } catch {
           say("Autoplay blocked — tap the custom play button.");
         }
+        // Park this attempt: a fatal error AFTER playback started destroys the
+        // instance and moves the loop to the next source, instead of leaving a
+        // dead "playing" screen behind. Unmount/abort ends the park quietly.
+        const parked = await Promise.race([
+          fatalLater.then(() => "fatal"),
+          new Promise((resolve) => {
+            if (controller.signal.aborted) resolve("done");
+            else controller.signal.addEventListener("abort", () => resolve("done"), { once: true });
+          }),
+        ]);
+        if (parked === "fatal") continue;
         return;
       }
       if (runRef.current !== run || controller.signal.aborted) return;

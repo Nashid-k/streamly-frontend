@@ -91,6 +91,12 @@ describe("createStreamlyLoader", () => {
       expect(response.stats[group]).toBeTypeOf("object");
       expect(response.stats[group].start).toBeTypeOf("number");
     }
+    // Regression 2: hls.js fragment-loader grabs `loader.stats` directly
+    // (`loader.stats.retry = …; frag.stats = loader.stats`) — it must always
+    // be a full shape, never undefined, or every fragment load throws.
+    for (const group of ["loading", "parsing", "buffering"]) {
+      expect(loader.stats[group]).toBeTypeOf("object");
+    }
   });
 
   it("loads fragments direct when the probe passes", async () => {
