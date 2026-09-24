@@ -32,6 +32,7 @@ const CHROME_PATH =
       : "/usr/bin/google-chrome");
 
 let browser = null;
+let mints = 0;
 // Serialize resolutions past MAX_PAGES concurrent pages (each page is a full
 // renderer; bounding concurrency bounds RAM/CPU on small hosts).
 let inflight = 0;
@@ -62,6 +63,15 @@ async function getBrowser() {
       "--disable-dev-shm-usage",
       "--autoplay-policy=no-user-gesture-required",
       "--mute-audio",
+      "--disable-gpu",
+      "--disable-software-rasterizer",
+      "--disable-extensions",
+      "--no-first-run",
+      "--no-default-browser-check",
+      "--disable-background-networking",
+      "--disable-component-update",
+      "--renderer-process-limit=1",
+      "--js-flags=--max-old-space-size=256",
     ],
   });
   return browser;
@@ -100,7 +110,7 @@ async function resolvePlaylist({ type, id, season, episode }) {
   const requests = [];
   let playlistUrl = null;
   try {
-    await page.setViewport({ width: 1366, height: 768 });
+    await page.setViewport({ width: 800, height: 450 });
     const cdp = await page.createCDPSession();
     await cdp.send("Network.enable");
     const seen = (e) => {
@@ -168,6 +178,12 @@ const server = http.createServer(async (req, res) => {
       episode: body.episode,
     });
     send(200, { ok: true, playlistUrl });
+    mints += 1;
+    if (mints >= 6) {
+      try { await browser?.close(); } catch { /* already dead */ }
+      browser = null;
+      mints = 0;
+    }
   } catch (error) {
     send(200, {
       ok: false,
