@@ -829,3 +829,43 @@ describe("downloadService.saveStream", () => {
     expect(writable.close).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("downloadService.fetchPlaylistText", () => {
+  it("posts the playlist action and returns the raw m3u8 text", async () => {
+    let capturedBody = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        capturedBody = JSON.parse(init.body);
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: () => "application/vnd.apple.mpegurl" },
+          text: async () => "#EXTM3U\n#EXT-X-VERSION:3\n",
+        };
+      }),
+    );
+
+    const text = await downloadService.fetchPlaylistText(
+      "https://moon.quietridge.top/vd/x/index-s2160p-v1-a1.m3u8",
+      "https://vidcore.io/",
+    );
+
+    expect(capturedBody).toMatchObject({
+      action: "playlist",
+      playlistUrl: "https://moon.quietridge.top/vd/x/index-s2160p-v1-a1.m3u8",
+      refUrl: "https://vidcore.io/",
+    });
+    expect(text).toContain("#EXTM3U");
+  });
+
+  it("surfaces the relay's real code when the playlist fetch fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(relayError("manifest-fetch-failed", "Playlist fetch failed: Upstream 403")),
+    );
+    await expect(
+      downloadService.fetchPlaylistText("https://cdn/x.m3u8", "https://vidcore.io/"),
+    ).rejects.toMatchObject({ code: "manifest-fetch-failed" });
+  });
+});

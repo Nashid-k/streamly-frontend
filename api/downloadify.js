@@ -13,6 +13,7 @@
 //   resolvecinesrc { type, id, season?, episode? }      -> { source, variants, audio }
 //   resolvevidcore { type, id, season?, episode? }      -> { source, variants }
 //   manifest       { playlistUrl, refUrl }              -> { kind, initUrl, segments, duration }
+//   playlist       { playlistUrl, refUrl }              -> raw m3u8 text (referer-supplied)
 //   segment        { url, refUrl?, range: {start,max} } -> bytes (octet-stream)
 //
 // Byte transport notes (the reason this is different from the old version):
@@ -886,6 +887,41 @@ async function handleManifest(body, res) {
   }
 }
 
+/* Raw playlist relay for native HLS playback (prototype). Unlike `manifest`
+   (which parses into JSON), this returns the playlist TEXT so an MSE player
+   (hls.js) can parse levels/audio itself. Same SSRF validation + referer
+   supply as the manifest path: manifest hosts that gate on the owning
+   player's origin (e.g. VidCore's moon.quietridge.top) 403 a browser fetch,
+   so the server fetches with the source's refUrl and hands the text back.
+   Playlists are small; the MAX_TEXT_BYTES cap in fetchUpstream still binds. */
+async function handlePlaylist(body, res) {
+  const playlistUrl = String(body.playlistUrl || "").trim();
+  try {
+    const u = new URL(playlistUrl);
+    if (u.protocol !== "https:" && u.protocol !== "http:") throw new Error("bad protocol");
+    await assertPublicDestination(u.toString());
+  } catch {
+    json(res, 400, { ok: false, error: "Invalid playlist URL", code: "bad-url" });
+    return;
+  }
+
+  try {
+    const text = await fetchUpstream(playlistUrl, {
+      referer: body.refUrl ? String(body.refUrl) : playlistUrl,
+    });
+    res.status(200);
+    res.setHeader("content-type", "application/vnd.apple.mpegurl");
+    res.setHeader("cache-control", "no-store");
+    res.send(text);
+  } catch (error) {
+    json(res, 502, {
+      ok: false,
+      error: `Playlist fetch failed: ${error?.message || "unknown"}`,
+      code: "manifest-fetch-failed",
+    });
+  }
+}
+
 async function handleSegment(body, res) {
   const url = String(body.url || "").trim();
   if (!url) {
@@ -984,6 +1020,9 @@ export default async function handler(req, res) {
         return;
       case "manifest":
         await handleManifest(body, res);
+        return;
+      case "playlist":
+        await handlePlaylist(body, res);
         return;
       case "segment":
         await handleSegment(body, res);

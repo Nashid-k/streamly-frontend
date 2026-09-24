@@ -147,6 +147,28 @@ async function post(body, { signal, as = "json" } = {}) {
     return { bytes: new Uint8Array(ab), more };
   }
 
+  if (as === "text") {
+    // Raw-text actions (e.g. `playlist` for native HLS playback): the body is
+    // the upstream text, not JSON. Non-OK answers are still the relay's JSON
+    // error envelope, so parse those for the real code/message like above.
+    if (!response.ok) {
+      let code = "http";
+      let message = `Request failed (${response.status}).`;
+      try {
+        const text = await response.text().catch(() => "");
+        const parsed = JSON.parse(text);
+        if (parsed && typeof parsed === "object" && parsed.ok === false) {
+          if (parsed.code) code = parsed.code;
+          if (parsed.error) message = parsed.error;
+        }
+      } catch {
+        // Non-JSON body (a proxy error page) — keep the generic message/code.
+      }
+      throw new DownloadUnavailableError(message, code);
+    }
+    return response.text();
+  }
+
   // On plain static hosting the SPA catch-all answers with index.html.
   const contentType = response.headers.get("content-type") || "";
   if (!contentType.includes("application/json")) {
@@ -281,6 +303,16 @@ export const downloadService = {
       variants: resolved.variants.map((v) => v.label),
     });
     return resolved;
+  },
+
+  /** Fetch a raw m3u8 playlist through the relay (server supplies the owning
+      player's referer, which a browser fetch cannot send). Used by native HLS
+      playback: the MSE player parses levels/audio groups itself from the text.
+      Throws DownloadUnavailableError with the relay's real code on failure. */
+  async fetchPlaylistText(playlistUrl, refUrl, { signal } = {}) {
+    const text = await post({ action: "playlist", playlistUrl, refUrl }, { signal, as: "text" });
+    logDebug("download", `Relayed playlist text (${text.length} chars).`, { playlistUrl });
+    return text;
   },
 
   /** Expand a chosen variant into a concrete segment list. When `audio` is a
