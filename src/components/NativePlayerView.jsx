@@ -1,13 +1,37 @@
-// src/components/NativePlayerView.jsx — native HLS playback view (prototype).
+// src/components/NativePlayerView.jsx — native HLS playback view (prototype)
+// with a Netflix-style player chrome.
 //
 // Shared by the /proto-native test route and the watch page's "native test"
 // play button. Resolves VidCore-first → VidSrc → CineSrc via downloadService,
 // plays through hls.js (manifest-relay + direct-segment loader), and offers
 // our own quality ladder + audio menu + attempt log. Custom transport only —
 // no native <video controls> anywhere in here.
+//
+// Chrome mirrors the Netflix web player: top bar (back), bottom gradient with
+// title, full-width scrubber (red played / gray buffered / hover knob + time
+// bubble), play · ∓10s · volume · time on the left, Episodes · Audio &
+// Subtitles · fullscreen on the right, auto-hiding controls, click/double-
+// click/keyboard shortcuts. Quality selection lives in the Audio & Subtitles
+// dialog (Netflix has no quality menu; our ladders need one).
 
-import { useEffect, useRef, useState } from "react";
-import { Loader2, Maximize, Pause, Play } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ArrowLeft,
+  Bug,
+  Captions,
+  Check,
+  ListVideo,
+  Loader2,
+  Maximize,
+  Minimize,
+  Pause,
+  Play,
+  RotateCcw,
+  RotateCw,
+  Volume1,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import Hls from "hls.js";
 import { downloadService } from "../api/downloadService";
 import { createStreamlyLoader, probeSourcePlayable } from "../api/nativeHlsLoader";
@@ -18,6 +42,78 @@ import { logWarn } from "../utils/debugLogger";
 // forever on a black screen. After this many CONSECUTIVE fragment failures we
 // force the failover ourselves.
 const MAX_CONSECUTIVE_FRAG_FAILURES = 4;
+
+const NETFLIX_RED = "#E50914";
+const HIDE_DELAY_MS = 3000;
+const SKIP_SECONDS = 10;
+const VOLUME_STORAGE_KEY = "streamly-native-volume";
+const MUTED_STORAGE_KEY = "streamly-native-muted";
+
+/* Plain white circular icon button (Netflix transport glyphs). */
+function IconBtn({ label, onClick, children, active }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick?.(e);
+      }}
+      style={{
+        width: 40,
+        height: 40,
+        borderRadius: "50%",
+        border: "none",
+        background: "transparent",
+        color: active ? NETFLIX_RED : "#fff",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* One selectable row in the Audio & Subtitles / Episodes panels. */
+function DialogRow({ selected, onClick, title, sub }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        width: "100%",
+        textAlign: "left",
+        padding: "9px 12px",
+        borderRadius: 8,
+        border: "none",
+        background: selected ? "rgba(255,255,255,0.12)" : "transparent",
+        color: "#fff",
+        cursor: "pointer",
+        fontSize: 14,
+      }}
+    >
+      <span style={{ width: 18, display: "flex", flexShrink: 0 }}>
+        {selected ? <Check size={16} /> : null}
+      </span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {title}
+        </span>
+        {sub ? (
+          <span style={{ display: "block", fontSize: 12, color: "rgba(255,255,255,0.55)" }}>{sub}</span>
+        ) : null}
+      </span>
+    </button>
+  );
+}
 
 const SOURCES = [
   { key: "vidcore", label: "VidCore (native)", resolve: (a, o) => downloadService.resolveVidcore(a, o) },
@@ -38,12 +134,27 @@ function fmtTime(s) {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
-export default function NativePlayerView({ type = "movie", id, season = 1, episode = 1 }) {
+export default function NativePlayerView({
+  type = "movie",
+  id,
+  season = 1,
+  episode = 1,
+  title,
+  subtitle,
+  episodes = [],
+  onSelectEpisode,
+  onClose,
+}) {
   const videoRef = useRef(null);
   const screenRef = useRef(null);
+  const scrubRef = useRef(null);
   const hlsRef = useRef(null);
   const runRef = useRef(0);
   const metaRef = useRef({ variants: [], sourceKey: null, refUrl: null, cinesrcLevels: false });
+  const idleTimer = useRef(null);
+  const clickTimer = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   const [lines, setLines] = useState([]);
   const [status, setStatus] = useState("idle");
@@ -51,6 +162,7 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
   const [activeUri, setActiveUri] = useState(null);
   const [isMasterMode, setIsMasterMode] = useState(false);
   const [audioTracks, setAudioTracks] = useState([]);
+  const [audioIndex, setAudioIndex] = useState(0);
   const [fatal, setFatal] = useState(null);
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -59,14 +171,43 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
   // load, stall, seek). Driven by the video element's own signals.
   const [buffering, setBuffering] = useState(true);
   const [bufferedSecs, setBufferedSecs] = useState(0);
+  const [bufferedRanges, setBufferedRanges] = useState([]);
   // Master-mode (CineSrc) starts on ABR auto; picking a level pins it.
   const [autoLevel, setAutoLevel] = useState(true);
+  const [manualHeight, setManualHeight] = useState(null);
+  // Netflix chrome state.
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const [panel, setPanel] = useState(null); // null | "subs" | "episodes"
+  const [showLog, setShowLog] = useState(false);
+  const [volume, setVolume] = useState(() => {
+    try {
+      const v = Number(window.localStorage.getItem(VOLUME_STORAGE_KEY));
+      return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 1;
+    } catch {
+      return 1;
+    }
+  });
+  const [muted, setMuted] = useState(() => {
+    try {
+      return window.localStorage.getItem(MUTED_STORAGE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [volHover, setVolHover] = useState(false);
+  const [scrubHover, setScrubHover] = useState(null); // 0..1 ratio or null
+  const [scrubDragging, setScrubDragging] = useState(false);
+
+  const displayTitle = title || (type === "tv" ? `TV ${id}` : `Movie ${id}`);
+  const displaySubtitle = subtitle ?? (type === "tv" ? `S${season}:E${episode}` : "");
 
   const say = (msg) => setLines((prev) => [...prev.slice(-60), `${stamp()} ${msg}`]);
 
   const togglePlay = async () => {
     const video = videoRef.current;
     if (!video) return;
+    poke();
     try {
       if (video.paused) await video.play();
       else video.pause();
@@ -85,11 +226,108 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
     }
   };
 
+  const scrubRatioOf = (clientX) => {
+    const el = scrubRef.current;
+    if (!el) return 0;
+    const r = el.getBoundingClientRect();
+    if (!r.width) return 0;
+    return Math.min(1, Math.max(0, (clientX - r.left) / r.width));
+  };
+
+  const onScrubDown = (e) => {
+    e.stopPropagation();
+    poke();
+    try {
+      scrubRef.current?.setPointerCapture?.(e.pointerId);
+    } catch {
+      // pointer capture unsupported — drag still works while over the bar
+    }
+    setScrubDragging(true);
+    const ratio = scrubRatioOf(e.clientX);
+    setScrubHover(ratio);
+    const dur = Number(videoRef.current?.duration);
+    if (Number.isFinite(dur) && dur > 0) seekTo(ratio * dur);
+  };
+
+  const onScrubMove = (e) => {
+    const ratio = scrubRatioOf(e.clientX);
+    setScrubHover(ratio);
+    if (scrubDragging) {
+      const dur = Number(videoRef.current?.duration);
+      if (Number.isFinite(dur) && dur > 0) seekTo(ratio * dur);
+    }
+  };
+
+  const onScrubUp = (e) => {
+    e.stopPropagation();
+    setScrubDragging(false);
+  };
+
+  const onScrubLeave = () => {
+    if (!scrubDragging) setScrubHover(null);
+  };
+
+  const seekRelative = (delta) => {
+    const video = videoRef.current;
+    if (!video) return;
+    poke();
+    const dur = Number(video.duration);
+    const next = (video.currentTime || 0) + delta;
+    try {
+      video.currentTime = Number.isFinite(dur) && dur > 0 ? Math.min(Math.max(0, next), dur) : Math.max(0, next);
+    } catch {
+      // ignore out-of-range seeks
+    }
+  };
+
+  const changeVolume = (delta) => {
+    setMuted(false);
+    setVolume((v) => Math.min(1, Math.max(0, Math.round((v + delta) * 100) / 100)));
+    poke();
+  };
+
+  const toggleMute = () => {
+    setMuted((m) => !m);
+    poke();
+  };
+
   const goFullscreen = () => {
     try {
-      screenRef.current?.requestFullscreen?.()?.catch?.(() => {});
+      if (document.fullscreenElement) {
+        document.exitFullscreen()?.catch?.(() => {});
+      } else {
+        screenRef.current?.requestFullscreen?.()?.catch?.(() => {});
+      }
     } catch {
       // fullscreen unsupported — native video keeps playing inline
+    }
+    poke();
+  };
+
+  // Controls autohide (Netflix behavior): any activity shows them; 3s of idle
+  // while playing hides them again (plus the cursor). Paused always shows.
+  const poke = useCallback(() => {
+    setControlsVisible(true);
+    if (idleTimer.current) {
+      clearTimeout(idleTimer.current);
+      idleTimer.current = null;
+    }
+    if (videoRef.current && !videoRef.current.paused) {
+      idleTimer.current = setTimeout(() => setControlsVisible(false), HIDE_DELAY_MS);
+    }
+  }, []);
+
+  // Single click toggles play, double click toggles fullscreen.
+  const handleVideoClick = () => {
+    if (clickTimer.current) {
+      clearTimeout(clickTimer.current);
+      clickTimer.current = null;
+      goFullscreen();
+    } else {
+      clickTimer.current = setTimeout(() => {
+        clickTimer.current = null;
+        togglePlay();
+      }, 260);
     }
   };
 
@@ -103,6 +341,10 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
       setBuffering(false);
     };
     const onPause = () => setPlaying(false);
+    const onEnded = () => {
+      setPlaying(false);
+      poke();
+    };
     const bufferedAhead = () => {
       try {
         const b = video.buffered;
@@ -118,6 +360,14 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
     const onTime = () => {
       setCurrentTime(video.currentTime || 0);
       setBufferedSecs(Math.round(bufferedAhead()));
+      try {
+        const ranges = [];
+        const b = video.buffered;
+        for (let i = 0; i < b.length; i += 1) ranges.push([b.start(i), b.end(i)]);
+        setBufferedRanges(ranges);
+      } catch {
+        // buffered unreadable yet
+      }
     };
     const onMeta = () => setDuration(video.duration || 0);
     // The video element itself is the honest stall detector: waiting/stalled/
@@ -128,6 +378,7 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
     const onCanPlay = () => setBuffering(false);
     video.addEventListener("play", onPlay);
     video.addEventListener("pause", onPause);
+    video.addEventListener("ended", onEnded);
     video.addEventListener("timeupdate", onTime);
     video.addEventListener("loadedmetadata", onMeta);
     video.addEventListener("durationchange", onMeta);
@@ -138,6 +389,7 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
     return () => {
       video.removeEventListener("play", onPlay);
       video.removeEventListener("pause", onPause);
+      video.removeEventListener("ended", onEnded);
       video.removeEventListener("timeupdate", onTime);
       video.removeEventListener("loadedmetadata", onMeta);
       video.removeEventListener("durationchange", onMeta);
@@ -147,6 +399,103 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
       video.removeEventListener("canplay", onCanPlay);
     };
   }, []);
+
+  /* Volume applies to the element and persists across visits. */
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video) {
+      try {
+        video.volume = volume;
+        video.muted = muted;
+      } catch {
+        // element not ready — applied on the next change
+      }
+    }
+    try {
+      window.localStorage.setItem(VOLUME_STORAGE_KEY, String(volume));
+      window.localStorage.setItem(MUTED_STORAGE_KEY, muted ? "1" : "0");
+    } catch {
+      // private mode — volume just won't persist
+    }
+  }, [volume, muted]);
+
+  /* Fullscreen icon follows the real fullscreen state. */
+  useEffect(() => {
+    const onFull = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", onFull);
+    return () => document.removeEventListener("fullscreenchange", onFull);
+  }, []);
+
+  /* Re-arm the autohide timer whenever play state flips. */
+  useEffect(() => {
+    poke();
+    return () => {
+      if (idleTimer.current) {
+        clearTimeout(idleTimer.current);
+        idleTimer.current = null;
+      }
+    };
+  }, [playing, poke]);
+
+  /* Click-timer cleanup for the single/double-click splitter. */
+  useEffect(
+    () => () => {
+      if (clickTimer.current) clearTimeout(clickTimer.current);
+    },
+    [],
+  );
+
+  /* Netflix keyboard map. Space/K play-pause, arrows seek/volume, M mute,
+     F fullscreen, Esc closes the dialog first, then the player. */
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.defaultPrevented) return;
+      const tag = String(e.target?.tagName || "").toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select") return;
+      const video = videoRef.current;
+      if (!video) return;
+      switch (e.code) {
+        case "Space":
+        case "KeyK":
+          e.preventDefault();
+          togglePlay();
+          break;
+        case "ArrowLeft":
+          e.preventDefault();
+          seekRelative(-SKIP_SECONDS);
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          seekRelative(SKIP_SECONDS);
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          changeVolume(0.1);
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          changeVolume(-0.1);
+          break;
+        case "KeyM":
+          toggleMute();
+          break;
+        case "KeyF":
+          goFullscreen();
+          break;
+        case "Escape":
+          if (panel) setPanel(null);
+          else onCloseRef.current?.();
+          break;
+        default:
+          break;
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // togglePlay/seekRelative/changeVolume/toggleMute/goFullscreen only touch
+    // refs + functional setState, so binding once per panel flip is safe.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [panel]);
 
   useEffect(() => {
     if (!Hls.isSupported()) {
@@ -199,6 +548,11 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
       setAudioTracks(
         tracks.map((t, i) => ({ index: i, name: t.name || t.lang || `Audio ${i + 1}`, lang: t.lang || "" })),
       );
+      try {
+        setAudioIndex(hls.audioTrack ?? 0);
+      } catch {
+        setAudioIndex(0);
+      }
     };
 
     (async () => {
@@ -206,8 +560,13 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
       setFatal(null);
       setQualities([]);
       setAudioTracks([]);
+      setAudioIndex(0);
       setBuffering(true);
       setBufferedSecs(0);
+      setBufferedRanges([]);
+      setAutoLevel(true);
+      setManualHeight(null);
+      setPanel(null);
       const args = { type, id, season: type === "tv" ? season : undefined, episode: type === "tv" ? episode : undefined };
       const stale = () => runRef.current !== run || controller.signal.aborted;
       const abortPromise = () =>
@@ -315,6 +674,8 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
               message: data?.error?.message,
               fragSn: frag?.sn ?? null,
             });
+            // A dead source should show its evidence, not a bare spinner.
+            setShowLog(true);
           };
           const failOver = () => {
             try {
@@ -457,6 +818,7 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
         });
         hls.currentLevel = best;
         setAutoLevel(false);
+        setManualHeight(height || null);
         setActiveUri(null);
         say(`Level -> ${hls.levels[best]?.height || "?"}p (pinned).`);
         return;
@@ -494,6 +856,8 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
     const hls = hlsRef.current;
     if (!hls) return;
     hls.audioTrack = index;
+    setAudioIndex(index);
+    poke();
     say(`Audio -> ${audioTracks[index]?.name || index}.`);
   };
 
@@ -502,235 +866,485 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
     if (!hls) return;
     hls.currentLevel = -1;
     setAutoLevel(true);
+    setManualHeight(null);
+    poke();
     say("Level -> Auto (ABR).");
   };
 
+  // Render-time derivations for the scrubber.
+  const safeDuration = Number.isFinite(duration) && duration > 0 ? duration : 0;
+  const progressRatio = safeDuration > 0 ? Math.min(1, Math.max(0, currentTime / safeDuration)) : 0;
+  const hoverRatio = scrubHover ?? (scrubDragging ? progressRatio : null);
+  const VolumeIcon = muted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
+  const showEpisodesButton = Array.isArray(episodes) && episodes.length > 0;
+
   return (
     <div>
-      <p style={{ fontSize: 13, color: "rgba(255,255,255,0.6)" }}>
-        {type} {id}
-        {type === "tv" ? ` S${season}E${episode}` : ""} · {status}
-      </p>
       <div
         ref={screenRef}
-        style={{ position: "relative", marginTop: 12, background: "#000", borderRadius: 12, overflow: "hidden" }}
+        onMouseMove={poke}
+        onTouchStart={poke}
+        style={{
+          position: "relative",
+          background: "#000",
+          borderRadius: 12,
+          overflow: "hidden",
+          cursor: !controlsVisible && playing ? "none" : "default",
+          userSelect: "none",
+          WebkitUserSelect: "none",
+        }}
       >
         <video
           ref={videoRef}
           playsInline
-          onClick={togglePlay}
+          onClick={handleVideoClick}
           style={{ width: "100%", display: "block", aspectRatio: "16 / 9", background: "#000" }}
         />
-          {!playing && !buffering && (
-            <button
-              type="button"
-              onClick={togglePlay}
-              aria-label="Play"
-              style={{
-                position: "absolute",
-                inset: 0,
-                margin: "auto",
-                width: 84,
-                height: 84,
-                borderRadius: "50%",
-                border: "none",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "rgba(34,197,94,0.92)",
-                color: "#04120a",
-                boxShadow: "0 8px 32px rgba(0,0,0,0.55)",
-              }}
-            >
-              <Play size={38} fill="currentColor" style={{ marginLeft: 4 }} />
-            </button>
-          )}
-          {buffering && (
-            <div
-              role="status"
-              aria-label="Loading video"
-              style={{
-                position: "absolute",
-                inset: 0,
-                margin: "auto",
-                width: 84,
-                height: 84,
-                borderRadius: "50%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "rgba(0,0,0,0.55)",
-                color: "#22c55e",
-                pointerEvents: "none",
-              }}
-            >
-              <Loader2 size={40} className="animate-spin" />
-            </div>
-          )}
+        {/* Top bar: back + debug toggle. */}
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "12px 12px 28px",
+            background: "linear-gradient(rgba(0,0,0,0.65), transparent)",
+            opacity: controlsVisible ? 1 : 0,
+            transition: "opacity 0.3s",
+            pointerEvents: controlsVisible ? "auto" : "none",
+            zIndex: 4,
+          }}
+        >
+          <IconBtn
+            label="Back"
+            onClick={() => {
+              if (onCloseRef.current) onCloseRef.current();
+              else window.history.back();
+            }}
+          >
+            <ArrowLeft size={26} />
+          </IconBtn>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowLog((v) => !v);
+              poke();
+            }}
+            aria-label="Toggle debug log"
+            title="Prototype attempt log"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "6px 12px",
+              borderRadius: 999,
+              border: "1px solid rgba(255,255,255,0.25)",
+              background: showLog ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.35)",
+              color: "#fff",
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            <Bug size={14} /> Log
+          </button>
+        </div>
+        {/* Center: red buffering spinner only (Netflix shows no center play
+            glyph — the bar below owns play/pause). */}
+        {buffering && (
+          <div
+            role="status"
+            aria-label="Loading video"
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              pointerEvents: "none",
+              zIndex: 3,
+            }}
+          >
+            <Loader2 size={56} className="animate-spin" color={NETFLIX_RED} />
+          </div>
+        )}
+        {/* Bottom chrome: title, scrubber, transport row. */}
         <div
           style={{
             position: "absolute",
             left: 0,
             right: 0,
             bottom: 0,
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            padding: "10px 12px",
-            background: "linear-gradient(transparent, rgba(0,0,0,0.75))",
+            padding: "8px 16px 10px",
+            background: "linear-gradient(transparent, rgba(0,0,0,0.82))",
+            opacity: controlsVisible ? 1 : 0,
+            transition: "opacity 0.3s",
+            pointerEvents: controlsVisible ? "auto" : "none",
+            zIndex: 4,
           }}
         >
-          <button
-            type="button"
-            onClick={togglePlay}
-            aria-label={playing ? "Pause" : "Play"}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: "50%",
-              border: "1px solid rgba(255,255,255,0.3)",
-              background: "rgba(255,255,255,0.12)",
-              color: "#fff",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            {playing ? <Pause size={17} fill="currentColor" /> : <Play size={17} fill="currentColor" style={{ marginLeft: 2 }} />}
-          </button>
-            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>
-              {fmtTime(currentTime)} / {fmtTime(duration)} · buf {bufferedSecs}s
-            </span>
-          <input
-            type="range"
-            min={0}
-            max={Math.max(0, Math.floor(duration) || 0)}
-            step={1}
-            value={Math.min(Math.floor(currentTime) || 0, Math.max(0, Math.floor(duration) || 0))}
-            onChange={(e) => seekTo(e.target.value)}
+          <div style={{ marginBottom: 6, minWidth: 0 }}>
+            <div
+              style={{
+                color: "#fff",
+                fontWeight: 800,
+                fontSize: "clamp(15px, 2.2vw, 20px)",
+                letterSpacing: "-0.01em",
+                lineHeight: 1.15,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {displayTitle}
+            </div>
+            {displaySubtitle ? (
+              <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 600, marginTop: 2 }}>
+                {displaySubtitle}
+              </div>
+            ) : null}
+          </div>
+          {/* Scrubber: red played · gray buffered · hover knob + time bubble. */}
+          <div
+            ref={scrubRef}
+            role="slider"
+            tabIndex={0}
             aria-label="Seek"
-            style={{ flex: 1, accentColor: "#22c55e", cursor: "pointer" }}
-          />
-          <button
-            type="button"
-            onClick={goFullscreen}
-            aria-label="Fullscreen"
+            aria-valuemin={0}
+            aria-valuemax={Math.floor(safeDuration)}
+            aria-valuenow={Math.floor(currentTime)}
+            onPointerDown={onScrubDown}
+            onPointerMove={onScrubMove}
+            onPointerUp={onScrubUp}
+            onPointerLeave={onScrubLeave}
             style={{
-              width: 36,
-              height: 36,
-              borderRadius: "50%",
-              border: "1px solid rgba(255,255,255,0.3)",
-              background: "rgba(255,255,255,0.12)",
-              color: "#fff",
-              cursor: "pointer",
+              position: "relative",
+              height: 24,
               display: "flex",
               alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
+              cursor: "pointer",
+              touchAction: "none",
             }}
           >
-            <Maximize size={16} />
-          </button>
+            <div
+              style={{
+                position: "relative",
+                height: hoverRatio != null ? 6 : 4,
+                width: "100%",
+                background: "rgba(255,255,255,0.3)",
+                borderRadius: 999,
+                transition: "height 0.15s",
+              }}
+            >
+              {safeDuration > 0 &&
+                bufferedRanges.map(([s, e], i) =>
+                  e > s ? (
+                    <div
+                      key={i}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        bottom: 0,
+                        left: `${(s / safeDuration) * 100}%`,
+                        width: `${((e - s) / safeDuration) * 100}%`,
+                        background: "rgba(255,255,255,0.45)",
+                        borderRadius: 999,
+                      }}
+                    />
+                  ) : null,
+                )}
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  bottom: 0,
+                  left: 0,
+                  width: `${progressRatio * 100}%`,
+                  background: NETFLIX_RED,
+                  borderRadius: 999,
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  top: "50%",
+                  left: `calc(${progressRatio * 100}% - 8px)`,
+                  width: 16,
+                  height: 16,
+                  borderRadius: "50%",
+                  background: NETFLIX_RED,
+                  transform: "translateY(-50%)",
+                  opacity: hoverRatio != null ? 1 : 0,
+                  transition: "opacity 0.15s",
+                  boxShadow: "0 1px 6px rgba(0,0,0,0.6)",
+                }}
+              />
+            </div>
+            {hoverRatio != null && safeDuration > 0 && (
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: 26,
+                  left: `${Math.min(94, Math.max(6, hoverRatio * 100))}%`,
+                  transform: "translateX(-50%)",
+                  background: "rgba(0,0,0,0.85)",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  color: "#fff",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  fontVariantNumeric: "tabular-nums",
+                  padding: "4px 10px",
+                  borderRadius: 6,
+                  pointerEvents: "none",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {fmtTime(hoverRatio * safeDuration)}
+              </div>
+            )}
+          </div>
+          {/* Transport row. */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 2 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 2, minWidth: 0 }}>
+              <IconBtn label={playing ? "Pause" : "Play"} onClick={togglePlay}>
+                {playing ? <Pause size={30} fill="currentColor" /> : <Play size={30} fill="currentColor" />}
+              </IconBtn>
+              <button
+                type="button"
+                aria-label="Back 10 seconds"
+                title="Back 10 seconds"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  seekRelative(-SKIP_SECONDS);
+                }}
+                style={{
+                  position: "relative",
+                  width: 40,
+                  height: 40,
+                  borderRadius: "50%",
+                  border: "none",
+                  background: "transparent",
+                  color: "#fff",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <RotateCcw size={26} />
+                <span style={{ position: "absolute", fontSize: 8.5, fontWeight: 800, marginTop: 3 }}>10</span>
+              </button>
+              <button
+                type="button"
+                aria-label="Forward 10 seconds"
+                title="Forward 10 seconds"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  seekRelative(SKIP_SECONDS);
+                }}
+                style={{
+                  position: "relative",
+                  width: 40,
+                  height: 40,
+                  borderRadius: "50%",
+                  border: "none",
+                  background: "transparent",
+                  color: "#fff",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <RotateCw size={26} />
+                <span style={{ position: "absolute", fontSize: 8.5, fontWeight: 800, marginTop: 3 }}>10</span>
+              </button>
+              <span
+                onMouseEnter={() => setVolHover(true)}
+                onMouseLeave={() => setVolHover(false)}
+                style={{ display: "flex", alignItems: "center" }}
+              >
+                <IconBtn label={muted ? "Unmute" : "Mute"} onClick={toggleMute}>
+                  <VolumeIcon size={26} />
+                </IconBtn>
+                {volHover && (
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={muted ? 0 : volume}
+                    onChange={(e) => {
+                      setVolume(Number(e.target.value));
+                      setMuted(false);
+                      poke();
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label="Volume"
+                    style={{ width: 84, accentColor: "#fff", cursor: "pointer" }}
+                  />
+                )}
+              </span>
+              <span
+                style={{
+                  fontSize: 14,
+                  color: "rgba(255,255,255,0.9)",
+                  fontVariantNumeric: "tabular-nums",
+                  marginLeft: 6,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {fmtTime(currentTime)} / {fmtTime(duration)}
+              </span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+              {showEpisodesButton && (
+                <IconBtn
+                  label="Episodes"
+                  active={panel === "episodes"}
+                  onClick={() => {
+                    setPanel((p) => (p === "episodes" ? null : "episodes"));
+                    poke();
+                  }}
+                >
+                  <ListVideo size={26} />
+                </IconBtn>
+              )}
+              <IconBtn
+                label="Audio and subtitles"
+                active={panel === "subs"}
+                onClick={() => {
+                  setPanel((p) => (p === "subs" ? null : "subs"));
+                  poke();
+                }}
+              >
+                <Captions size={26} />
+              </IconBtn>
+              <IconBtn label={isFullscreen ? "Exit fullscreen" : "Fullscreen"} onClick={goFullscreen}>
+                {isFullscreen ? <Minimize size={24} /> : <Maximize size={24} />}
+              </IconBtn>
+            </div>
+          </div>
         </div>
+        {/* Audio & Subtitles / Episodes panel. */}
+        {panel && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "absolute",
+              right: 12,
+              bottom: 168,
+              width: "min(330px, 82%)",
+              maxHeight: "62%",
+              overflowY: "auto",
+              background: "rgba(18,18,18,0.97)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 12,
+              padding: 12,
+              zIndex: 5,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+              <span style={{ color: "#fff", fontWeight: 800, fontSize: 15 }}>
+                {panel === "subs" ? "Audio & Subtitles" : "Episodes"}
+              </span>
+              <IconBtn label="Close panel" onClick={() => setPanel(null)}>
+                <X size={18} />
+              </IconBtn>
+            </div>
+            {panel === "subs" ? (
+              <>
+                {audioTracks.length > 0 && (
+                  <>
+                    <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", margin: "8px 0 2px" }}>
+                      Audio
+                    </p>
+                    {audioTracks.map((a) => (
+                      <DialogRow
+                        key={a.index}
+                        selected={a.index === audioIndex}
+                        onClick={() => pickAudio(a.index)}
+                        title={a.name}
+                        sub={a.lang && a.lang !== a.name ? a.lang : undefined}
+                      />
+                    ))}
+                  </>
+                )}
+                <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", margin: "8px 0 2px" }}>
+                  Subtitles
+                </p>
+                <DialogRow selected onClick={() => {}} title="Off" />
+                <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", margin: "8px 0 2px" }}>
+                  Video Quality
+                </p>
+                {isMasterMode && (
+                  <DialogRow selected={autoLevel} onClick={pickAuto} title="Auto" sub="Adjusts with your connection" />
+                )}
+                {qualities.map((q, i) => {
+                  const selected = isMasterMode
+                    ? !autoLevel && manualHeight != null && manualHeight === q.height
+                    : activeUri === q.uri;
+                  return (
+                    <DialogRow
+                      key={`${q.uri}::${i}`}
+                      selected={selected}
+                      onClick={() => pickQuality(q.uri, q.height)}
+                      title={q.label || `${q.height}p`}
+                      sub={q.bandwidth ? `${(q.bandwidth / 1e6).toFixed(1)} Mbps` : undefined}
+                    />
+                  );
+                })}
+              </>
+            ) : (
+              episodes.map((ep) => (
+                <DialogRow
+                  key={ep.number}
+                  selected={ep.number === episode}
+                  onClick={() => {
+                    setPanel(null);
+                    setBuffering(true);
+                    onSelectEpisode?.(ep.number);
+                  }}
+                  title={`E${ep.number}${ep.title ? ` · ${ep.title}` : ""}`}
+                />
+              ))
+            )}
+          </div>
+        )}
       </div>
       {fatal && (
         <p style={{ marginTop: 12, padding: 12, borderRadius: 10, background: "rgba(248,113,113,0.12)", border: "1px solid rgba(248,113,113,0.35)", fontSize: 14 }}>
           {fatal}
         </p>
       )}
-      {qualities.length > 0 && (
+      {showLog && (
         <div style={{ marginTop: 12 }}>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginBottom: 6 }}>Quality (our ladder)</p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {isMasterMode && (
-                <button
-                  key="auto"
-                  type="button"
-                  onClick={pickAuto}
-                  style={{
-                    padding: "8px 14px",
-                    borderRadius: 999,
-                    border: autoLevel ? "2px solid #22c55e" : "1px solid rgba(255,255,255,0.2)",
-                    background: autoLevel ? "rgba(34,197,94,0.15)" : "rgba(255,255,255,0.06)",
-                    color: "#fff",
-                    fontWeight: 700,
-                    fontSize: 13,
-                    cursor: "pointer",
-                  }}
-                >
-                  Auto
-                </button>
-              )}
-              {qualities.map((q) => {
-                const active = !isMasterMode && activeUri === q.uri;
-              return (
-                <button
-                  key={q.uri}
-                  type="button"
-                  onClick={() => pickQuality(q.uri, q.height)}
-                  style={{
-                    padding: "8px 14px",
-                    borderRadius: 999,
-                    border: active ? "2px solid #22c55e" : "1px solid rgba(255,255,255,0.2)",
-                    background: active ? "rgba(34,197,94,0.15)" : "rgba(255,255,255,0.06)",
-                    color: "#fff",
-                    fontWeight: 700,
-                    fontSize: 13,
-                    cursor: "pointer",
-                  }}
-                >
-                  {q.label || `${q.height}p`}
-                </button>
-              );
-            })}
-          </div>
+          <p style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginBottom: 6 }}>
+            Attempt log · {type} {id}
+            {type === "tv" ? ` S${season}E${episode}` : ""} · {status} · buf {bufferedSecs}s
+          </p>
+          <pre
+            style={{
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: 10,
+              padding: 12,
+              fontSize: 12,
+              whiteSpace: "pre-wrap",
+              maxHeight: 260,
+              overflowY: "auto",
+            }}
+          >
+            {lines.length > 0 ? lines.join("\n") : "starting…"}
+          </pre>
         </div>
       )}
-      {audioTracks.length > 1 && (
-        <div style={{ marginTop: 12 }}>
-          <p style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginBottom: 6 }}>Audio</p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {audioTracks.map((a) => (
-              <button
-                key={a.index}
-                type="button"
-                onClick={() => pickAudio(a.index)}
-                style={{
-                  padding: "8px 14px",
-                  borderRadius: 999,
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  background: "rgba(255,255,255,0.06)",
-                  color: "#fff",
-                  fontSize: 13,
-                  cursor: "pointer",
-                }}
-              >
-                {a.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      <div style={{ marginTop: 16 }}>
-        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginBottom: 6 }}>Attempt log</p>
-        <pre
-          style={{
-            background: "rgba(255,255,255,0.04)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            borderRadius: 10,
-            padding: 12,
-            fontSize: 12,
-            whiteSpace: "pre-wrap",
-            maxHeight: 260,
-            overflowY: "auto",
-          }}
-        >
-          {lines.length > 0 ? lines.join("\n") : "starting…"}
-        </pre>
-      </div>
     </div>
   );
 }

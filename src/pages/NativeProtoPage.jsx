@@ -7,11 +7,12 @@
 // Usage (after deploy): /proto-native?type=movie&id=693134
 //   TV: /proto-native?type=tv&id=1396&season=1&episode=1
 
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import NativePlayerView from "../components/NativePlayerView";
 
 export default function NativeProtoPage() {
   const [params] = useSearchParams();
+  const navigate = useNavigate();
   const type = params.get("type") === "tv" ? "tv" : "movie";
   const id = params.get("id") || "693134";
   const season = Number(params.get("season") || 1);
@@ -26,7 +27,7 @@ export default function NativeProtoPage() {
         <h1 style={{ fontSize: 22, fontWeight: 800, margin: "4px 0 2px" }}>
           Native HLS prototype
         </h1>
-        <NativePlayerView type={type} id={id} season={season} episode={episode} />
+        <NativePlayerView type={type} id={id} season={season} episode={episode} onClose={() => navigate(-1)} />
       </div>
     </div>
   );

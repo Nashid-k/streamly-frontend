@@ -198,6 +198,7 @@ export default function TitleDetails() {
   // so the native HLS path can be tested per-title without touching the
   // iframe player. Temporary — remove with the prototype.
   const [nativeOpen, setNativeOpen] = useState(false);
+  const [nativeEpisode, setNativeEpisode] = useState(1);
   const [collectionPickerOpen, setCollectionPickerOpen] = useState(false);
 
   // Mark watched / unwatched — records a full run in watch history (or
@@ -983,6 +984,7 @@ export default function TitleDetails() {
                 type="button"
                 onClick={() => {
                   if (unreleased) { setUnreleasedModalOpen(true); return; }
+                  setNativeEpisode(isTvContent ? (episodeToPlay ?? playingEpisode ?? 1) : 1);
                   setNativeOpen(true);
                 }}
                 title="Test native HLS playback (prototype — VidCore-first, no iframe)"
@@ -2417,7 +2419,24 @@ servers={SERVERS}
                 type={isTvContent ? "tv" : "movie"}
                 id={nativeNumericId}
                 season={selectedSeason}
-                episode={isTvContent ? (episodeToPlay ?? playingEpisode ?? 1) : 1}
+                episode={isTvContent ? nativeEpisode : 1}
+                title={movie?.title || movie?.name || "Title"}
+                subtitle={
+                  isTvContent
+                    ? `S${selectedSeason}:E${nativeEpisode}` +
+                      (() => {
+                        const ep = (episodes || []).find((e) => e.episodeNumber === nativeEpisode);
+                        return ep?.title ? ` "${ep.title}"` : "";
+                      })()
+                    : String(movie?.releaseDate ? new Date(movie.releaseDate).getFullYear() : "")
+                }
+                episodes={
+                  isTvContent
+                    ? (episodes || []).map((e) => ({ number: e.episodeNumber, title: e.title }))
+                    : []
+                }
+                onSelectEpisode={(n) => setNativeEpisode(n)}
+                onClose={() => setNativeOpen(false)}
               />
             </Suspense>
           </motion.div>
