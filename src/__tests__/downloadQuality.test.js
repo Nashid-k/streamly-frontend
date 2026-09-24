@@ -3,6 +3,7 @@ import {
   estimateBytes,
   formatBytes,
   isHdrCodecs,
+  parseAudioGroups,
   parseMasterPlaylist,
   parseMediaPlaylist,
   resolutionLabel,
@@ -94,6 +95,38 @@ describe("quality labels", () => {
     expect(isHdrCodecs("dvhe.08.06")).toBe(true);
     expect(isHdrCodecs("hev1.1.6.L93.B0")).toBe(true);
     expect(isHdrCodecs("avc1.640028")).toBe(false);
+  });
+});
+
+describe("parseAudioGroups", () => {
+  it("extracts EXT-X-MEDIA audio renditions with resolved URIs", () => {
+    const text = `#EXTM3U
+#EXT-X-VERSION:6
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="(DKS) LINE",DEFAULT=YES,AUTOSELECT=YES,LANGUAGE="en",URI="en/index.m3u8"
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="(DKS) LINE (2)",DEFAULT=NO,AUTOSELECT=YES,LANGUAGE="spa",URI="spa/index.m3u8"
+#EXT-X-STREAM-INF:BANDWIDTH=5692000,RESOLUTION=1920x1080,CODECS="avc1.640028,mp4a.40.2",AUDIO="audio"
+https://cdn.example.com/1080/index.m3u8`;
+    const groups = parseAudioGroups(text, "https://cdn.example.com/master.m3u8");
+    expect(groups).toHaveLength(2);
+    expect(groups[0]).toMatchObject({
+      groupId: "audio",
+      name: "(DKS) LINE",
+      language: "en",
+      default: true,
+      autoselect: true,
+      uri: "en/index.m3u8",
+      url: "https://cdn.example.com/en/index.m3u8",
+    });
+    expect(groups[1].language).toBe("spa");
+    expect(groups[1].default).toBe(false);
+  });
+
+  it("ignores non-audio media groups and playlists without MEDIA rows", () => {
+    const withSubtitles = `#EXTM3U
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="English",URI="subs/en.m3u8"
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="a",NAME="Main",LANGUAGE="en",URI="audio.m3u8"`;
+    expect(parseAudioGroups(withSubtitles, "https://cdn.example.com/m.m3u8")).toHaveLength(1);
+    expect(parseAudioGroups("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1000\n1.m3u8", "https://cdn.example.com/x.m3u8")).toEqual([]);
   });
 });
 

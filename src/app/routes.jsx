@@ -15,6 +15,7 @@ const ExploreCollectionsPage = lazy(() => import("../pages/ExploreCollectionsPag
 const PublicCollectionPage = lazy(() => import("../pages/PublicCollectionPage"));
 const HistoryPage = lazy(() => import("../pages/HistoryPage"));
 const SettingsPage = lazy(() => import("../pages/SettingsPage"));
+const DownloadsPage = lazy(() => import("../pages/DownloadsPage"));
 
 /* Routes wrapped in a route-keyed ErrorBoundary + Suspense so a page that
    crashes shows the fallback once but recovers automatically the moment the
@@ -56,6 +57,7 @@ function AppRoutes() {
               />
               <Route path="/mylist" element={<Navigate to="/watchlist" replace />} />
               <Route path="/history" element={<HistoryPage />} />
+              <Route path="/downloads" element={<DownloadsPage />} />
               <Route path="/continue-watching" element={<Navigate to="/history" replace />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>

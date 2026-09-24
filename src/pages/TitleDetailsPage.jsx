@@ -2333,7 +2333,6 @@ servers={SERVERS}
             isTvContent={isTvContent}
             initialSeason={selectedSeason}
             initialEpisode={isTvContent ? (episodeToPlay ?? playingEpisode ?? 1) : 1}
-            playerRef={playerRef}
             onClose={() => setDownloadOpen(false)}
           />
         </Suspense>

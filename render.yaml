@@ -1,0 +1,26 @@
+# cinesrc-resolver — Render blueprint. One-command deploy:
+#   render blueprint launch --confirm
+# (first run: render login; `render` = the official Render CLI. Blueprint must
+# live at the repo ROOT — the service itself is rooted in cinesrc-resolver/.)
+#
+# Free plan: 512MB web service, sleeps after ~15min idle (first download after
+# idle pays a cold start). After deploy, find the URL (https://...onrender.com),
+# set it in src/api/cinesrcResolver.js -> CINESRC_RESOLVER_ORIGIN, push.
+services:
+  - type: web
+    name: cinesrc-resolver
+    runtime: docker
+    rootDir: cinesrc-resolver
+    dockerfilePath: ./Dockerfile
+    dockerContext: ./
+    plan: free
+    region: oregon
+    healthCheckPath: /healthz
+    autoDeploy: false
+    envVars:
+      - key: PORT
+        value: "3100"
+      - key: MAX_PAGES
+        value: "1"
+      - key: CHROME_PATH
+        value: /usr/bin/google-chrome

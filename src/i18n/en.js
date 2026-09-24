@@ -13,6 +13,7 @@ export const en = {
     account: "Account",
     login: "Login",
     watchHistory: "Watch History",
+    downloads: "Downloads",
   },
   common: {
     back: "Back",
@@ -156,6 +157,20 @@ export const en = {
     emptyTitle: "No watch history yet",
     emptyDesc: "Titles you watch will appear here.",
     placeholder: "Search watch history...",
+  },
+  downloads: {
+    eyebrow: "Your downloads",
+    subtitle: "{active} active · {done} saved this session",
+    emptyTitle: "No downloads yet",
+    emptyDesc: "Downloads you start will appear here, with live progress and controls.",
+    discover: "Discover Content",
+    explore: "Explore",
+    downloading: "Downloading",
+    paused: "Paused",
+    done: "Saved",
+    failed: "Failed",
+    cancelled: "Cancelled",
+    pending: "Pending",
   },
   genre: {
     eyebrow: "Browse by genre",

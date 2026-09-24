@@ -1,10 +1,28 @@
 // src/utils/googleAuth.js — Google Identity Services (GIS) Web SDK client helper
+//
+// Why the login popup sometimes never appears (the "works in incognito only"
+// bug): the fallback path calls google.accounts.id.prompt() — the One Tap
+// prompt — which Google SUPPRESSES per browser profile after a few
+// dismissals (exponential cooldown), when third-party cookies are blocked,
+// or when the user opted out. A fresh incognito profile has none of that
+// state, so it works there. Mitigations implemented here:
+//   1. initialize() runs exactly ONCE per page load with a swappable
+//      credential handler — repeated initialize() calls are documented by
+//      Google to cause "unexpected behavior" and were logged on every modal
+//      open before.
+//   2. Valid initialize options only (ux_mode was never valid for
+//      id.initialize) + explicit FedCM/ITP support flags.
+//   3. When prompt() is suppressed, we surface the machine-readable reason
+//      as an actionable toast instead of a generic error.
+// The official GIS button (renderButton) is NOT subject to the One Tap
+// cooldown — it always opens the account-chooser popup — so it stays the
+// primary path whenever it rendered.
 import { logDebug, logWarn } from "./debugLogger";
 
-// No hardcoded fallback (matches the api/auth.js hardening): a client id baked
-// into the repo can never be rotated via env. Set VITE_GOOGLE_CLIENT_ID in the
-// build env — without it the sign-in button reports "unavailable".
-export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+// No hardcoded fallback (matches the api/auth.js hardening): a client id
+// baked into the repo can never be rotated via env. Set VITE_GOOGLE_CLIENT_ID
+// in the build env — without it the sign-in button reports "unavailable".
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 
 if (!GOOGLE_CLIENT_ID && typeof window !== "undefined") {
   logWarn(
@@ -15,9 +33,27 @@ if (!GOOGLE_CLIENT_ID && typeof window !== "undefined") {
 }
 
 let gsiScriptPromise = null;
+let initializedGoogleId = null;
+let initPromise = null;
+
+// The credential handler is swapped by whoever is driving sign-in right now
+// (the rendered button or a prompt click) BEFORE they act, so the single
+// initialize() callback always routes to the current owner.
+let activeCredentialHandler = null;
+let activeErrorHandler = null;
+
+function routeCredential(credential) {
+  if (credential) {
+    activeCredentialHandler?.(credential);
+  } else {
+    activeErrorHandler?.(new Error("No credential returned by Google."));
+  }
+}
 
 /**
  * Dynamically loads the official Google Identity Services client script.
+ * A failed load resets the cached promise so the next click can retry
+ * (previously a blocked/offline load poisoned the promise until reload).
  */
 export function loadGoogleGsiScript() {
   if (typeof window === "undefined") return Promise.reject(new Error("SSR environment"));
@@ -25,11 +61,15 @@ export function loadGoogleGsiScript() {
 
   if (!gsiScriptPromise) {
     gsiScriptPromise = new Promise((resolve, reject) => {
-      // Check if already injected
-      const existingScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+      const existingScript = document.querySelector(
+        'script[src="https://accounts.google.com/gsi/client"]',
+      );
       if (existingScript) {
         existingScript.addEventListener("load", () => resolve(window.google?.accounts?.id));
-        existingScript.addEventListener("error", (err) => reject(err));
+        existingScript.addEventListener("error", () => {
+          gsiScriptPromise = null; // allow a retry on the next click
+          reject(new Error("Failed to load Google Identity Services."));
+        });
         return;
       }
 
@@ -41,8 +81,9 @@ export function loadGoogleGsiScript() {
         logDebug("auth", "Google Identity Services SDK loaded successfully.");
         resolve(window.google?.accounts?.id);
       };
-      script.onerror = (err) => {
-        logWarn("auth", "Failed to load Google Identity Services SDK (blocked or network offline).", { error: err });
+      script.onerror = () => {
+        logWarn("auth", "Failed to load Google Identity Services SDK (blocked or network offline).");
+        gsiScriptPromise = null; // allow a retry on the next click
         reject(new Error("Failed to load Google Identity Services."));
       };
       document.head.appendChild(script);
@@ -53,38 +94,54 @@ export function loadGoogleGsiScript() {
 }
 
 /**
- * Initializes Google Identity Services with client ID and callback.
+ * Initializes GIS exactly once per page load; later calls reuse the session.
+ * Only valid id.initialize options are passed (the old `ux_mode` key belonged
+ * to the oauth2 clients and was silently ignored — and misleading — here).
  */
-export async function initGoogleAuth({ onCredential, onError }) {
-  // No swallow-and-return-null here: a failed SDK load used to resolve
-  // `null`, which let callers treat "GIS never loaded" as success and hide
-  // the clickable fallback. Failures now propagate to the callers, each of
-  // which surfaces exactly one onError.
+export async function initGoogleAuth({ onCredential, onError } = {}) {
+  if (onCredential) activeCredentialHandler = onCredential;
+  if (onError) activeErrorHandler = onError;
+
   const googleId = await loadGoogleGsiScript();
   if (!googleId) throw new Error("Google Identity SDK unavailable");
+  if (!GOOGLE_CLIENT_ID) throw new Error("Google client ID is not configured.");
 
-  googleId.initialize({
-    client_id: GOOGLE_CLIENT_ID,
-    callback: (response) => {
-      if (response?.credential) {
-        onCredential?.(response.credential);
-      } else {
-        onError?.(new Error("No credential returned by Google."));
-      }
-    },
-    auto_select: false,
-    cancel_on_tap_outside: true,
-    // Driven from a button click, so force the interactive One Tap popup
-    // (never the redirect flow), satisfying the "click opens the popup" path.
-    ux_mode: "popup",
-  });
-  return googleId;
+  if (initializedGoogleId) return initializedGoogleId;
+  if (!initPromise) {
+    initPromise = Promise.resolve()
+      .then(() => {
+        googleId.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: routeCredential,
+          auto_select: false,
+          cancel_on_tap_outside: true,
+          // Route prompts through FedCM where available: browser-mediated UI
+          // is not subject to the same third-party-cookie suppressions and
+          // keeps working as Chrome tightens cookie policy.
+          use_fedcm_for_prompt: true,
+          // Keeps One Tap working on Safari / ITP browsers.
+          itp_support: true,
+        });
+        initializedGoogleId = googleId;
+        return googleId;
+      })
+      .catch((err) => {
+        initPromise = null; // allow re-init after a failure
+        throw err;
+      });
+  }
+  return initPromise;
 }
 
 /**
  * Renders the official Google Sign-In button into a DOM container element.
+ * The rendered button always opens the account-chooser popup on click
+ * (it is not subject to the One Tap suppression cooldown).
  */
-export async function renderGoogleButton(containerElement, { onCredential, onError, theme = "filled_black", text = "signin_with", shape = "pill", width = 280 } = {}) {
+export async function renderGoogleButton(
+  containerElement,
+  { onCredential, onError, theme = "filled_black", text = "signin_with", shape = "pill", width = 280 } = {},
+) {
   if (!containerElement) return;
   try {
     const googleId = await initGoogleAuth({ onCredential, onError });
@@ -106,8 +163,39 @@ export async function renderGoogleButton(containerElement, { onCredential, onErr
   }
 }
 
+// Human-readable guidance for every documented One Tap suppression reason.
+// https://developers.google.com/identity/gsi/web/reference/js-reference#google.accounts.id.prompt
+const SUPPRESSION_HINTS = {
+  opt_out_or_no_session:
+    "You are signed out of Google, or sign-in prompts are disabled in your browser settings.",
+  suppressed_by_user:
+    "Google paused sign-in prompts for this site because one was dismissed earlier. Try again later or click the official Google button.",
+  cooldown:
+    "Google is cooling down sign-in prompts after repeated dismissals. Wait a while, then try the official Google button.",
+  brand_not_recognized:
+    "Google does not recognize this site's audience yet. Try the official Google button instead.",
+  third_party_cookies_blocked:
+    "Cookies for accounts.google.com are blocked, so the popup cannot open. Allow Google cookies or use the official Google button.",
+  another_prompt_open:
+    "Another Google sign-in popup is already open. Finish or close it first.",
+  secure_context_required: "Google sign-in requires a secure (HTTPS) connection.",
+  browser_not_supported: "This browser does not support Google sign-in prompts.",
+  uninitialized_helper: "Google sign-in was not ready yet. Try again.",
+  malformed_fedcm_config: "This site's Google sign-in configuration is invalid. Contact the site owner.",
+  wrong_origin: "This site's origin is not registered with Google sign-in.",
+};
+
+export function describeSuppression(reason) {
+  return (
+    SUPPRESSION_HINTS[reason] ||
+    "Google did not display the sign-in popup. Try the official Google button instead."
+  );
+}
+
 /**
- * Prompts the Google One Tap / Sign-In dialog programmatically.
+ * Prompts the Google One Tap / Sign-In dialog programmatically (the fallback
+ * path used when the official button could not render). Suppressed prompts
+ * are reported with an actionable reason, never as a silent no-op.
  */
 export async function promptGoogleSignIn({ onCredential, onError } = {}) {
   try {
@@ -119,14 +207,14 @@ export async function promptGoogleSignIn({ onCredential, onError } = {}) {
       return;
     }
 
-    logDebug("auth", "Opening Google One Tap sign-in prompt (ux_mode=popup).");
+    logDebug("auth", "Opening Google One Tap sign-in prompt.");
     googleId.prompt((notification) => {
       if (!notification) return;
       if (notification.isNotDisplayed?.() || notification.isSkippedMoment?.()) {
         const reason = notification.getNotDisplayedReason?.() || "unknown";
         logWarn("auth", "Google One Tap was skipped or not displayed.", { reason });
-        // Never a silent no-op: surface *why* no popup appeared.
-        onError?.(new Error(`Google One Tap did not open (${reason}). Check popup / ad-blocker settings.`));
+        // Surface *why* no popup appeared, with guidance the user can act on.
+        onError?.(new Error(describeSuppression(reason)));
       } else {
         logDebug("auth", "Google One Tap popup is showing.");
       }

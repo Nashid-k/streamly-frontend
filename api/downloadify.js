@@ -10,6 +10,7 @@
 // Actions (POST JSON):
 //   resolve       { embedUrl }                          -> { source, variants }
 //   resolvevidsrc { type, id, season?, episode? }       -> { source, variants }
+//   resolvecinesrc { type, id, season?, episode? }      -> { source, variants, audio }
 //   manifest      { playlistUrl, refUrl }               -> { kind, initUrl, segments, duration }
 //   segment       { url, refUrl?, range: {start,max} }  -> bytes (octet-stream)
 //
@@ -41,6 +42,7 @@ import net from "node:net";
 import {
   parseMasterPlaylist,
   parseMediaPlaylist,
+  parseAudioGroups,
   resolveUrl,
 } from "../src/utils/downloadQuality.js";
 import { rateLimit, tooManyRequests, clientIp } from "./lib/rateLimit.js";
@@ -219,6 +221,42 @@ async function followRedirects(url, headers, signal, as) {
   const text = await upstream.text();
   if (text.length > MAX_TEXT_BYTES) throw new Error("upstream response too large");
   return text;
+}
+
+/* POST a JSON body to an external service (the CineSrc resolver). When `ssrf`
+   is true the origin is CLIENT-supplied (src/api/cinesrcResolver.js →
+   body.resolverUrl), so it's attacker-influenced: DNS-resolve the destination,
+   reject private/loopback/link-local IPs and literal-encoding tricks, and
+   follow redirect hops MANUALLY with the same re-validation as fetchUpstream.
+   When `ssrf` is false the origin came from the operator env var
+   (CINESRC_RESOLVER_URL) — trusted by definition (it intentionally points at
+   the operator's own resolver, which may sit on localhost/LAN), so only the
+   scheme & size bounds above apply. */
+async function postJsonPublic(url, jsonBody, { timeoutMs = 55000, maxBytes = 100_000, ssrf = true } = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    let current = ssrf ? await assertPublicDestination(url) : url;
+    const opts = () => ({
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(jsonBody),
+      signal: controller.signal,
+      redirect: "manual",
+    });
+    let upstream = await fetch(current, opts());
+    for (let hop = 0; hop < MAX_REDIRECTS && upstream.status >= 300 && upstream.status < 400; hop += 1) {
+      const location = upstream.headers.get("location");
+      if (!location) throw new Error("Redirect without location");
+      current = ssrf ? await assertPublicDestination(new URL(location, current).toString()) : new URL(location, current).toString();
+      upstream = await fetch(current, opts());
+    }
+    const text = await upstream.text();
+    if (text.length > maxBytes) throw new Error("resolver response too large");
+    return { status: upstream.status, text };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function fetchUpstream(url, { as = "text", timeoutMs = 12000, referer, retryCount = 0 } = {}) {
@@ -616,6 +654,90 @@ async function handleResolveVidsrc(body, res) {
   json(res, 200, { ok: false, error: "No downloadable stream found via VidSrc", code: "no-source" });
 }
 
+async function handleResolveCinesrc(body, res) {
+  const type = body.type === "tv" ? "tv" : "movie";
+  const tmdbId = String(body.id || "").trim();
+  if (!/^\d{1,12}$/.test(tmdbId)) {
+    json(res, 400, { ok: false, error: "Invalid TMDB id", code: "bad-id" });
+    return;
+  }
+  const season = String(body.season ?? "").trim();
+  const episode = String(body.episode ?? "").trim();
+
+  // CineSrc mints fresh, per-session playlist tokens inside a real browser (the
+  // token bytes are derived from the browser's canvas/fonts/TLS surface at page
+  // load). Serverless Vercel cannot reproduce them, so we delegate the mint to
+  // the cinesrc-resolver service (Chrome + CDP network watch). The origin ships
+  // in the client bundle (`body.resolverUrl`, src/api/cinesrcResolver.js) so a
+  // deployment needs no Vercel env var; `CINESRC_RESOLVER_URL` is the operator
+  // override. Without either, the action honestly reports "not configured" and
+  // the modal simply skips the CineSrc source — VidSrc (Alt) still works.
+  const envResolver = String(process.env.CINESRC_RESOLVER_URL || "").trim().replace(/\/+$/, "");
+  const clientResolver = String(body.resolverUrl || "").trim().replace(/\/+$/, "");
+  const resolverBase = envResolver || clientResolver;
+  if (!resolverBase || resolverBase.length > 2048) {
+    json(res, 200, { ok: false, error: "CineSrc resolver not configured", code: "resolver-unavailable" });
+    return;
+  }
+  // Scheme check up front. A client-supplied origin (body.resolverUrl) is
+  // then SSRF-guarded in postJsonPublic; an operator env origin (the old
+  // CINESRC_RESOLVER_URL) stays trusted and may point at localhost/LAN.
+  if (!/^https?:\/\//i.test(resolverBase) || new URL(resolverBase).hostname === "") {
+    json(res, 200, { ok: false, error: "CineSrc resolver misconfigured", code: "resolver-unavailable" });
+    return;
+  }
+
+  const resolverUrl = `${resolverBase}/resolve`;
+  let payload = null;
+  try {
+    const { text } = await postJsonPublic(
+      resolverUrl,
+      {
+        type,
+        id: tmdbId,
+        season: season || undefined,
+        episode: episode || undefined,
+      },
+      { ssrf: !envResolver },
+    );
+    payload = JSON.parse(text || "{}");
+  } catch {
+    json(res, 200, { ok: false, error: "CineSrc resolver unreachable", code: "resolver-unavailable" });
+    return;
+  }
+
+  const playlistUrl = payload?.playlistUrl ? String(payload.playlistUrl) : "";
+  if (!payload?.ok || !/^https?:\/\//i.test(playlistUrl)) {
+    json(res, 200, {
+      ok: false,
+      error: payload?.error || "CineSrc mint produced no playlist",
+      code: payload?.code || "no-source",
+    });
+    return;
+  }
+
+  try {
+    const masterText = await fetchUpstream(playlistUrl, { referer: "https://cinesrc.st/" });
+    const variants = parseMasterPlaylist(masterText, playlistUrl).filter((v) => v?.uri);
+    if (variants.length > 0) {
+      json(res, 200, {
+        ok: true,
+        source: { kind: "hls", url: playlistUrl, refUrl: "https://cinesrc.st/" },
+        variants,
+        // CineSrc keeps audio as separate HLS renditions (EXT-X-MEDIA AUDIO).
+        // Surface them so the client can mux the chosen language into the
+        // file — without this the download is a silent video-only mp4.
+        audio: parseAudioGroups(masterText, playlistUrl),
+      });
+      return;
+    }
+  } catch {
+    // fall through to no-source
+  }
+
+  json(res, 200, { ok: false, error: "No downloadable stream found via CineSrc", code: "no-source" });
+}
+
 async function handleManifest(body, res) {
   const playlistUrl = String(body.playlistUrl || "").trim();
   try {
@@ -695,10 +817,11 @@ export default async function handler(req, res) {
     return;
   }
 
-  // Segment downloads are bandwidth-heavy. The old 30/min window was too tight
-  // for a real movie (hundreds of chunks) — 600/min still caps a runaway loop
-  // while letting a sequential client finish one title.
-  const limit = rateLimit({ key: () => `dl:${clientIp(req)}`, limit: 600, windowMs: 60_000 });
+  // Segment downloads are bandwidth-heavy. The client now fetches up to 4
+  // segments concurrently and each segment costs 1-3 Range requests, so a
+  // legit title needs hundreds of requests fast — but 1800/min (30/s) still
+  // caps a runaway loop while letting the parallel client finish one title.
+  const limit = rateLimit({ key: () => `dl:${clientIp(req)}`, limit: 1800, windowMs: 60_000 });
   if (!limit.ok) {
     tooManyRequests(res, limit.retryAfterSec);
     return;
@@ -721,6 +844,23 @@ export default async function handler(req, res) {
         return;
       case "resolvevidsrc":
         await handleResolveVidsrc(body, res);
+        return;
+      case "resolvecinesrc":
+        // Each call boots a real Chrome renderer upstream — far pricier than
+        // the other actions, so cap it hard (2 mint attempts per minute per
+        // client; the modal only asks once per open anyway).
+        {
+          const cinesrcLimit = rateLimit({
+            key: () => `dl:cine:${clientIp(req)}`,
+            limit: 2,
+            windowMs: 60_000,
+          });
+          if (!cinesrcLimit.ok) {
+            json(res, 429, { ok: false, error: "CineSrc is busy — wait a minute and retry.", code: "rate" });
+            return;
+          }
+        }
+        await handleResolveCinesrc(body, res);
         return;
       case "manifest":
         await handleManifest(body, res);

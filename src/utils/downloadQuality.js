@@ -150,6 +150,34 @@ export function parseMediaPlaylist(text, baseUrl) {
   return { kind, initUrl, segments, duration, count: segments.length };
 }
 
+/* EXT-X-MEDIA audio renditions (RFC 8216 §4.3.4.1) from a master playlist.
+   CineSrc keeps audio as a SEPARATE stream from the video renditions — the
+   master's STREAM-INF rows point only at video, and each audio group has its
+   own media playlist + init + fragments. Returning these lets the downloader
+   mux the chosen language back into the file. `default`/`autoselect` follow
+   the HLS spec (DEFAULT/YES, AUTOSELECT/YES, ALLOWED-CAPTIONS ignored). */
+export function parseAudioGroups(text, baseUrl) {
+  const lines = String(text || "").split(/\r?\n/);
+  const out = [];
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line.startsWith("#EXT-X-MEDIA:")) continue;
+    const attrs = parseAttr(line.slice("#EXT-X-MEDIA:".length));
+    if (String(attrs.TYPE || "").toUpperCase() !== "AUDIO") continue;
+    const uri = attrs.URI || "";
+    out.push({
+      groupId: attrs["GROUP-ID"] || "",
+      name: attrs.NAME || attrs.LANGUAGE || "",
+      language: attrs.LANGUAGE || "",
+      default: attrs.DEFAULT === "YES",
+      autoselect: attrs.AUTOSELECT === "YES",
+      uri,
+      url: uri ? resolveUrl(baseUrl, uri) : "",
+    });
+  }
+  return out;
+}
+
 export function estimateBytes(bandwidth, seconds) {
   if (!bandwidth || !seconds) return 0;
   return Math.round((bandwidth / 8) * seconds);

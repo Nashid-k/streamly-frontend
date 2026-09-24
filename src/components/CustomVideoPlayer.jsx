@@ -166,6 +166,9 @@ const CustomVideoPlayer = forwardRef(({
   const cineWatchdogArmRef = useRef(null);
   const cineStateKeyRef = useRef("");
   const cineActiveRef = useRef(false);
+  // Last iframe src that fired onLoad. A same-URL re-load is an internal
+  // navigation inside the embed — it must NOT wipe strike evidence (P1-3).
+  const lastLoadedUrlRef = useRef("");
 
   const advanceServer = useCallback((_msg) => {
     if (failoverPendingRef.current || rotationFailuresRef.current >= serverCount) return;
@@ -535,11 +538,19 @@ setVidcoreDirectMode(false);
         try {
           const e = await movieService.getExternalIds(movie.id);
           if (e?.imdbId) imdbId = e.imdbId;
-        } catch {}
+        } catch (err) {
+          // Servers 2/3 need IMDb IDs — a silent failure here builds them a
+          // TMDB-id URL that can never resolve. Log it so the console trail
+          // shows why a non-CineSrc embed misbehaves.
+          logWarn("player", "IMDb lookup failed — IMDb-dependent servers fall back to the TMDB ID (embed may not resolve).", { id: movie.id, serverIndex: activeServerIndex, message: err?.message });
+        }
       }
       const isTv = movie?.isSeries || String(movie?.id || "").startsWith("tmdb-tv-");
-// Reload the iframe only when content or server really changed.
-      const key = `${tid}|${isTv ? `${season}e${episode}` : "m"}|s${activeServerIndex}|r${retryNonce}`;
+// Reload the iframe only when content, server, or control mode really
+      // changed. useNativeControls MUST be in the key: the CineSrc URL bakes
+      // the controls param, so without it the "Native Audio" fallback
+      // early-returns and the iframe never reloads (control-less video).
+      const key = `${tid}|${isTv ? `${season}e${episode}` : "m"}|s${activeServerIndex}|r${retryNonce}|n${useNativeControls ? 1 : 0}`;
       if (genKeyRef.current === key) {
         setIsLoading(false);
         return;
@@ -559,9 +570,18 @@ setVidcoreDirectMode(false);
       contentSignatureRef.current = sig;
       if (isNew) { setCurrentTime(0); setDuration(0); setBuffered(0); targetSeekTimeRef.current = null; }
       let url = VideoSourceAdapter.resolveStreamUrl(SERVERS, activeServerIndex, tid, isTv ? season : null, isTv ? episode : null, imdbId, movie.title);
+      logInfo("player", `Resolved embed URL for server #${activeServerIndex + 1} "${SERVERS[activeServerIndex]?.name || "unknown"}" -> ${url}`, { tid, serverIndex: activeServerIndex, isTv, season: isTv ? season : undefined, episode: isTv ? episode : undefined, isCine: url.includes("cinesrc.st") });
       const isCineServer = url.includes("cinesrc.st");
       cineActiveRef.current = isCineServer;
       if (isCineServer) {
+        // The adapter bakes controls=false for our custom chrome. When the
+        // viewer falls back to native controls, the embed must actually show
+        // them — otherwise the video is control-less (no chrome of either kind).
+        if (url.includes("controls=false")) {
+          url = url.replace("controls=false", `controls=${useNativeControls ? "true" : "false"}`);
+        } else if (useNativeControls && !url.includes("controls=")) {
+          url += "&controls=true";
+        }
         url += `&seek=${Math.min(99, Math.max(1, seekStep))}`;
         if (isTv) url += `&autoskip=${autoSkipIntro ? "true" : "false"}`;
         if (isMuted) url += "&muted=true";
@@ -691,9 +711,18 @@ setVidcoreDirectMode(false);
 
   useEffect(() => {
     if (!isCineSrc) return;
-    const h = (ev) => {
-      try {
-        if (ev.origin !== "https://cinesrc.st" || !ev.data || typeof ev.data !== "object") return;
+      const h = (ev) => {
+        try {
+          // Pre-gate capture: log EVERY inbound postMessage so we can tell whether CineSrc
+          // truly stays silent vs. talks from a WAF-redirect origin that the gate could drop.
+          // Fault-isolated: an instrumentation hiccup must NEVER be able to swallow the
+          // strike/proof events below — our own logs can't be allowed to break watching.
+          try {
+            let rawType = "?";
+            try { rawType = ev.data?.type || (ev.data && typeof ev.data === "object" ? Object.keys(ev.data)[0] || "?" : "?"); } catch { /* ignore */ }
+            logDebug("player", `CineSrc inbound postMessage {origin:"${ev.origin}", type:"${rawType}"}`, { tid, serverIndex: activeServerIndexRef.current, dataKeys: ev.data && typeof ev.data === "object" ? Object.keys(ev.data).slice(0, 8) : null });
+          } catch { /* instrumentation must never kill the proof path below */ }
+          if (ev.origin !== "https://cinesrc.st" || !ev.data || typeof ev.data !== "object") return;
         let t, d;
         try { ({ type: t, ...d } = ev.data); } catch { return; }
         switch (t) {
@@ -1577,9 +1606,26 @@ return (
             // screen (never a server switch) if the source never actually starts.
             setIsLoading(false);
             setHasInitiallyLoaded(true);
+            const loadedSrc = iframeRef.current?.src || iframeUrlRef.current || "";
+            if (lastLoadedUrlRef.current && lastLoadedUrlRef.current === loadedSrc) {
+              // Same-URL re-load = internal navigation inside the embed (broken
+              // embeds redirect internally and re-fire onLoad). It must NOT wipe
+              // strike evidence, or a dead source can never reach the fallback.
+              logDebug("player", "Iframe re-loaded the same URL — strike evidence kept.", { serverIndex: activeServerIndexRef.current });
+              return;
+            }
+            lastLoadedUrlRef.current = loadedSrc;
             rotationFailuresRef.current = 0;
             setFatalError(false);
             serverErrorCountsRef.current = {};
+            // Opaque embeds (vidlink/2embed/vidsrcme/smashy) have no postMessage
+            // proof protocol, so the watchdog can never be satisfied by events —
+            // the frame loading IS the proof of life. Without this, 12s x 2
+            // strikes bury a perfectly playing video under the fatal overlay.
+            if (!isCineSrc && !isVidCore && !isPeachify && !isVidUp) {
+              hasPlaybackRef.current = true;
+              logInfo("player", "Opaque embed loaded — frame load counts as playback proof (no postMessage protocol on this host).", { serverIndex: activeServerIndexRef.current });
+            }
             // VidCore: snapshot status once so our chrome starts honest.
             if (isVidCore) {
               setTimeout(() => {

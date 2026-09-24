@@ -737,3 +737,33 @@
   .title-info-actions .title-info-play { flex: 1 1 100%; }
 }
 
+/* ── DownloadModal — liquid-glass panel, Cinejoy parity ────────────────
+   Same dark-glass recipe as the discovery dropdown menus: translucent
+   gradient wash, heavy blur + saturation, an inset top highlight for depth,
+   and the green-tinted hairline scrollbar. */
+.download-panel {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05)),
+    rgba(15, 15, 20, 0.78);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  backdrop-filter: blur(28px) saturate(160%);
+  box-shadow: 0 32px 90px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.download-panel-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(149, 255, 80, 0.4) transparent;
+}
+.download-panel-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.download-panel-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.download-panel-scroll::-webkit-scrollbar-thumb {
+  background: rgba(149, 255, 80, 0.4);
+  border-radius: 4px;
+}
+.download-panel-scroll::-webkit-scrollbar-button {
+  display: none;
+}
+
