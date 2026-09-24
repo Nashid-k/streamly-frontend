@@ -74,15 +74,23 @@ describe("createStreamlyLoader", () => {
         { url: "https://moon.quietridge.top/vd/x/index-s2160p-v1-a1.m3u8" },
         {},
         {
-          onSuccess: (resp) => resolve(resp),
+          onSuccess: (resp, stats) => resolve({ resp, stats }),
           onError: (err) => reject(new Error(err.text)),
         },
       );
     });
     // Relative playlist URLs must keep resolving against the upstream host,
     // never the relay endpoint.
-    expect(response.url).toBe("https://moon.quietridge.top/vd/x/index-s2160p-v1-a1.m3u8");
-    expect(response.data).toContain("#EXTM3U");
+    expect(response.resp.url).toBe("https://moon.quietridge.top/vd/x/index-s2160p-v1-a1.m3u8");
+    expect(response.resp.data).toContain("#EXTM3U");
+    // Regression: hls.js writes stats.parsing.start (and reads
+    // stats.loading/buffering) inside its own onSuccess — a partial stats
+    // object crashes with "Cannot set properties of undefined (setting
+    // 'start')", which is exactly what killed Interstellar playback.
+    for (const group of ["loading", "parsing", "buffering"]) {
+      expect(response.stats[group]).toBeTypeOf("object");
+      expect(response.stats[group].start).toBeTypeOf("number");
+    }
   });
 
   it("loads fragments direct when the probe passes", async () => {

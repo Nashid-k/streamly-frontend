@@ -92,10 +92,36 @@ async function throwIfRelayError(response, fallback) {
 }
 
 export function createStreamlyLoader({ getRefUrl }) {
+  const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
+
+  /* hls.js internal handlers WRITE into the stats object we hand them
+     (e.g. playlist-loader sets stats.parsing.start on success), so it must
+     carry the full LoadStats shape — flat fields PLUS the loading / parsing /
+     buffering sub-objects. A partial object crashes inside hls with
+     "Cannot set properties of undefined (setting 'start')". */
+  const finishStats = (trequest, loaded) => {
+    const end = now();
+    return {
+      trequest,
+      tfirst: end,
+      tload: end,
+      loaded,
+      total: loaded,
+      retry: 0,
+      chunkCount: 0,
+      bwEstimate: 0,
+      aborted: false,
+      loading: { start: trequest, first: end, end },
+      parsing: { start: 0, end: 0 },
+      buffering: { start: 0, first: 0, end: 0 },
+    };
+  };
+
   return class StreamlyLoader {
     constructor() {
       this.aborted = false;
       this.controller = null;
+      this.trequest = 0;
     }
 
     destroy() {
@@ -114,23 +140,22 @@ export function createStreamlyLoader({ getRefUrl }) {
     load(context, _config, callbacks) {
       this.context = context;
       this.callbacks = callbacks;
-      const now = typeof performance !== "undefined" ? performance.now() : Date.now();
-      this.stats = { trequest: now, retry: 0 };
+      this.trequest = now();
       this.run().then(
         (data) => {
           if (this.aborted) return;
-          const end = typeof performance !== "undefined" ? performance.now() : Date.now();
           const loaded = data?.byteLength ?? data?.length ?? 0;
-          callbacks.onSuccess(
-            { url: context.url, data },
-            { ...this.stats, tfirst: this.stats.tfirst ?? end, tload: end, loaded, total: loaded },
-            context,
-          );
+          callbacks.onSuccess({ url: context.url, data }, finishStats(this.trequest, loaded), context);
         },
         (error) => {
           if (this.aborted) return;
           if (error?.name === "AbortError") return;
-          callbacks.onError({ code: 0, text: error?.message || "load failed" }, context, null, this.stats);
+          callbacks.onError(
+            { code: 0, text: error?.message || "load failed" },
+            context,
+            null,
+            finishStats(this.trequest, 0),
+          );
         },
       );
     }
