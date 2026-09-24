@@ -59,6 +59,7 @@ async function getBrowser() {
     args: [
       "--no-sandbox",
       "--disable-blink-features=AutomationControlled",
+      "--disable-dev-shm-usage",
       "--autoplay-policy=no-user-gesture-required",
       "--mute-audio",
     ],

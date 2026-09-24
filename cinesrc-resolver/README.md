@@ -19,12 +19,23 @@ curl -X POST localhost:3100/resolve \
 # -> {"ok":true,"playlistUrl":"https://cinesrc.st/api/playlist/..."}
 ```
 
-## Deploy (pick one)
+## Deploy (pick one — all one-command, config files are in this folder)
 
-- **Docker**: `docker build -t cinesrc-resolver .`, run anywhere
-  (`-p 3100:3100`), e.g. a $5 VPS, Railway, or Fly.io.
-- **VPS**: Node 20 + Chrome + `npm install --omit=dev` + `node server.js`
-  (use pm2/systemd to keep it up).
+| Host | Command to run | What's already here |
+|---|---|---|
+| **Render** (free 512MB) | `render blueprint launch --confirm` (run from repo root) | `render.yaml` at repo root |
+| **Fly.io** (free-ish 512MB) | `cd cinesrc-resolver; fly launch --auto-confirm --no-deploy; fly deploy` | `fly.toml` |
+| **Railway** ($5/mo) | `railway login; railway up` | `railway.json` |
+| **Any VPS w/ Docker** | `cd cinesrc-resolver; docker compose up -d --build` | `docker-compose.yml` |
+
+Plain-VPS (no Docker) alternative: Node 20 + Chrome + `npm install --omit=dev`
++ `node server.js` under pm2/systemd.
+
+Small instances: all configs pin `MAX_PAGES=1` (one Chrome per mint — two
+Chrome processes on a 512MB box risk OOM); the container image passes
+`--disable-dev-shm-usage` so headless Chrome survives small `/dev/shm`.
+`/healthz` is wired for Render/Fly health checks. After deploying grab the
+public URL and add it to the app config (below).
 
 ## Configure the app (no Vercel env needed)
 
