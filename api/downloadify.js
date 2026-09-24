@@ -223,6 +223,38 @@ async function followRedirects(url, headers, signal, as) {
   return text;
 }
 
+/* POST a JSON body to an external service (the CineSrc resolver). The origin
+   now ships in the client bundle (src/api/cinesrcResolver.js → body.resolverUrl),
+   so it's attacker-influenced: DNS-resolve the destination, reject private/
+   loopback/link-local IPs and literal-encoding tricks, and follow redirect
+   hops MANUALLY with the same re-validation as fetchUpstream. */
+async function postJsonPublic(url, jsonBody, { timeoutMs = 55000, maxBytes = 100_000 } = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    let current = await assertPublicDestination(url);
+    const opts = () => ({
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(jsonBody),
+      signal: controller.signal,
+      redirect: "manual",
+    });
+    let upstream = await fetch(current, opts());
+    for (let hop = 0; hop < MAX_REDIRECTS && upstream.status >= 300 && upstream.status < 400; hop += 1) {
+      const location = upstream.headers.get("location");
+      if (!location) throw new Error("Redirect without location");
+      current = await assertPublicDestination(new URL(location, current).toString());
+      upstream = await fetch(current, opts());
+    }
+    const text = await upstream.text();
+    if (text.length > maxBytes) throw new Error("resolver response too large");
+    return { status: upstream.status, text };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function fetchUpstream(url, { as = "text", timeoutMs = 12000, referer, retryCount = 0 } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -631,17 +663,21 @@ async function handleResolveCinesrc(body, res) {
   // CineSrc mints fresh, per-session playlist tokens inside a real browser (the
   // token bytes are derived from the browser's canvas/fonts/TLS surface at page
   // load). Serverless Vercel cannot reproduce them, so we delegate the mint to
-  // the cinesrc-resolver service (Chrome + CDP network watch) via this env var.
-  // Without it configured the action honestly reports "not configured" and the
-  // modal simply skips the CineSrc source — VidSrc (Alt) still works.
-  const resolverBase = String(process.env.CINESRC_RESOLVER_URL || "").trim().replace(/\/+$/, "");
-  if (!resolverBase) {
+  // the cinesrc-resolver service (Chrome + CDP network watch). The origin ships
+  // in the client bundle (`body.resolverUrl`, src/api/cinesrcResolver.js) so a
+  // deployment needs no Vercel env var; `CINESRC_RESOLVER_URL` is the operator
+  // override. Without either, the action honestly reports "not configured" and
+  // the modal simply skips the CineSrc source — VidSrc (Alt) still works.
+  const envResolver = String(process.env.CINESRC_RESOLVER_URL || "").trim().replace(/\/+$/, "");
+  const clientResolver = String(body.resolverUrl || "").trim().replace(/\/+$/, "");
+  const resolverBase = envResolver || clientResolver;
+  if (!resolverBase || resolverBase.length > 2048) {
     json(res, 200, { ok: false, error: "CineSrc resolver not configured", code: "resolver-unavailable" });
     return;
   }
-
-  // HTTPS-style URL only (not SSRF-guarded the way user-supplied URLs are — the
-  // resolver base is an operator env var, and we just forward the title id).
+  // Scheme check up front; the full private-IP/redirect validation happens in
+  // postJsonPublic (the origin can come from the client bundle, unlike the old
+  // operator-only env var).
   if (!/^https?:\/\//i.test(resolverBase) || new URL(resolverBase).hostname === "") {
     json(res, 200, { ok: false, error: "CineSrc resolver misconfigured", code: "resolver-unavailable" });
     return;
@@ -650,16 +686,12 @@ async function handleResolveCinesrc(body, res) {
   const resolverUrl = `${resolverBase}/resolve`;
   let payload = null;
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 55000);
-    const res0 = await fetch(resolverUrl, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ type, id: tmdbId, season: season || undefined, episode: episode || undefined }),
-      signal: controller.signal,
+    const { text } = await postJsonPublic(resolverUrl, {
+      type,
+      id: tmdbId,
+      season: season || undefined,
+      episode: episode || undefined,
     });
-    clearTimeout(timer);
-    const text = await res0.text();
     payload = JSON.parse(text || "{}");
   } catch {
     json(res, 200, { ok: false, error: "CineSrc resolver unreachable", code: "resolver-unavailable" });

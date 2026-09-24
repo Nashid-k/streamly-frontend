@@ -125,9 +125,14 @@ server-side so CORS no longer blocks resolution) and proxy media segments
 through the same-origin Vercel function `api/downloadify.js`. CineSrc is a
 second third-party provider via `resolvecinesrc`: its stream tokens are minted
 inside a real browser (canvas/TLS fingerprint-bound), so a separately-hosted
-Chrome service (`cinesrc-resolver/`, env `CINESRC_RESOLVER_URL`) does the mint
-and the Vercel function walks the returned master → variant ladder — when the
-resolver isn't configured the source fails softly and VidSrc fills the sheet.
+Chrome service (`cinesrc-resolver/`) does the mint and the Vercel function
+walks the returned master → variant ladder. The resolver origin is shipped in
+the client bundle (`src/api/cinesrcResolver.js` → `CINESRC_RESOLVER_ORIGIN`,
+sent as `body.resolverUrl`) so a deployment needs no Vercel env var;
+`CINESRC_RESOLVER_URL` is the server-side override. Client-supplied origins are
+SSRF-guarded exactly like playlist URLs (DNS-resolved private-IP check + manual
+redirect re-validation). When neither is configured the source fails softly and
+VidSrc fills the sheet.
 The `segment` action is single-URL + `{ range: { start, max } }` in ≤3.5MB
 chunks with an `x-streamly-more` "more bytes?" header — the old 6-URL-per-POST
 batch blew Vercel's 4.5MB response cap with `FUNCTION_PAYLOAD_TOO_LARGE`, which

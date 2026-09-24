@@ -168,6 +168,55 @@ describe("downloadService.resolveCinesrc", () => {
     expect(capturedBody).toMatchObject({ action: "resolvecinesrc", type: "tv", id: "1399", season: "2", episode: "3" });
   });
 
+  it("sends the resolver origin with the request body (trailing slash trimmed)", async () => {
+    let capturedBody = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        capturedBody = JSON.parse(init.body);
+        return jsonResponse({
+          ok: true,
+          source: { kind: "hls", url: "https://cinesrc.st/api/playlist/t" },
+          variants: [
+            { uri: "https://cinesrc.st/api/playlist/e", bandwidth: 2628000, width: 1280, height: 720, hdr: false },
+          ],
+        });
+      }),
+    );
+
+    await downloadService.resolveCinesrc({ type: "movie", id: "1423191" }, {
+      resolverUrl: "https://resolver.example.com/",
+    });
+
+    expect(capturedBody).toMatchObject({
+      action: "resolvecinesrc",
+      id: "1423191",
+      resolverUrl: "https://resolver.example.com",
+    });
+  });
+
+  it("omits resolverUrl when no origin is configured", async () => {
+    let capturedBody = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        capturedBody = JSON.parse(init.body);
+        return jsonResponse({
+          ok: true,
+          source: { kind: "hls", url: "https://cinesrc.st/api/playlist/t" },
+          variants: [
+            { uri: "https://cinesrc.st/api/playlist/e", bandwidth: 2628000, width: 1280, height: 720, hdr: false },
+          ],
+        });
+      }),
+    );
+
+    await downloadService.resolveCinesrc({ type: "movie", id: "1423191" });
+
+    expect(capturedBody).toMatchObject({ action: "resolvecinesrc", id: "1423191" });
+    expect(capturedBody.resolverUrl).toBeUndefined();
+  });
+
   it("throws a clear error when the resolver Chrome service is not deployed", async () => {
     vi.stubGlobal(
       "fetch",

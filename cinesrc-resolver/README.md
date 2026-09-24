@@ -26,9 +26,21 @@ curl -X POST localhost:3100/resolve \
 - **VPS**: Node 20 + Chrome + `npm install --omit=dev` + `node server.js`
   (use pm2/systemd to keep it up).
 
-Then set **`CINESRC_RESOLVER_URL`** on the Vercel project to the service
-origin (e.g. `https://resolver.example.com`). Without it, the app
-honestly reports CineSrc downloads as unavailable — nothing breaks.
+## Configure the app (no Vercel env needed)
+
+Set the service origin in **`src/api/cinesrcResolver.js`**
+(`CINESRC_RESOLVER_ORIGIN`) and redeploy the app — the client sends it with
+every `resolvecinesrc` request, so the Vercel project needs no environment
+variable:
+
+```js
+export const CINESRC_RESOLVER_ORIGIN = "https://resolver.example.com";
+```
+
+Operators who prefer a dashboard knob can instead (or additionally) set
+**`CINESRC_RESOLVER_URL`** server-side on the Vercel project; it overrides the
+client value without a redeploy. With neither configured, the app honestly
+reports CineSrc downloads as unavailable — nothing breaks.
 
 ## Notes
 

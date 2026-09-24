@@ -38,6 +38,7 @@ import {
 } from "../utils/downloadQuality.js";
 import { buildMuxedInit, muxSegment } from "../utils/fmp4Muxer.js";
 import { logDebug, logError, logInfo, logWarn } from "../utils/debugLogger.js";
+import { CINESRC_RESOLVER_ORIGIN } from "./cinesrcResolver.js";
 
 const ENDPOINT = "/api/downloadify";
 const CHUNK_MAX = 3.5 * 1024 * 1024;
@@ -230,16 +231,20 @@ export const downloadService = {
 
   /** Resolve the CineSrc provider (action "resolvecinesrc"). Same contract as
       resolveVidsrc, but the mint happens on a separately-hosted Chrome service
-      the operator points `CINESRC_RESOLVER_URL` at. When that env var is unset
-      the function replies `resolver-unavailable` and the modal quietly drops
-      the CineSrc row — VidSrc (Alt) still fills the sheet. */
-  async resolveCinesrc({ type, id, season, episode }, { signal } = {}) {
+      (`cinesrc-resolver/`). The service origin ships in the client bundle
+      (`CINESRC_RESOLVER_ORIGIN`) so no Vercel env var is needed; pass
+      `resolverUrl` to override per-call. If neither origin nor a server-side
+      `CINESRC_RESOLVER_URL` exists, the function replies `resolver-unavailable`
+      and the modal quietly drops the CineSrc row — VidSrc (Alt) still fills. */
+  async resolveCinesrc({ type, id, season, episode }, { signal, resolverUrl = CINESRC_RESOLVER_ORIGIN } = {}) {
     const kind = type === "tv" ? "tv" : "movie";
     const body = { action: "resolvecinesrc", type: kind, id: String(id || "") };
     if (kind === "tv") {
       if (season != null) body.season = String(season);
       if (episode != null) body.episode = String(episode);
     }
+    const origin = String(resolverUrl || "").trim().replace(/\/+$/, "");
+    if (origin) body.resolverUrl = origin;
     const data = await post(body, { signal });
     const resolved = this.normalizeResolved(data);
     logInfo("download", `Resolved ${resolved.variants.length} downloadable variant(s) via CineSrc.`, {
