@@ -4,6 +4,7 @@ import {
   clearProbeCache,
   createStreamlyLoader,
   probeDirectOrigin,
+  probeSourcePlayable,
 } from "../api/nativeHlsLoader";
 
 afterEach(() => {
@@ -322,5 +323,87 @@ describe("createStreamlyLoader", () => {
     ));
     expect(directAgain.length).toBe(1);
     expect(response.data.byteLength).toBe(2);
+  });
+});
+
+const MEDIA_PLAYLIST = "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:6\n#EXTINF:6.0,\nseg-0.m4s\n#EXT-X-ENDLIST\n";
+const MASTER_PLAYLIST = "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1000000,RESOLUTION=640x360\nlow.m3u8\n";
+
+describe("probeSourcePlayable", () => {
+  it("passes when the first segment flows direct", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        if (typeof url === "string" && url.includes("downloadify")) {
+          return { ok: true, status: 200, headers: { get: () => "text" }, text: async () => MEDIA_PLAYLIST };
+        }
+        return { ok: true, status: 206, headers: { get: () => null } };
+      }),
+    );
+    const probe = await probeSourcePlayable("https://cdn.example.com/x/index.m3u8", "https://vidcore.io/");
+    expect(probe).toMatchObject({ ok: true, via: "direct" });
+  });
+
+  it("follows a master to its first level playlist", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        if (typeof url === "string" && url.includes("downloadify")) {
+          const body = JSON.parse(init.body);
+          const text = String(body.playlistUrl || "").endsWith("master.m3u8") ? MASTER_PLAYLIST : MEDIA_PLAYLIST;
+          return { ok: true, status: 200, headers: { get: () => "text" }, text: async () => text };
+        }
+        return { ok: true, status: 206, headers: { get: () => null } };
+      }),
+    );
+    const probe = await probeSourcePlayable("https://cdn.example.com/x/master.m3u8", "https://vidcore.io/");
+    expect(probe).toMatchObject({ ok: true, via: "direct" });
+  });
+
+  it("passes via relay when direct is throttled but the relay serves", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        if (typeof url === "string" && url.includes("downloadify")) {
+          const body = JSON.parse(init.body);
+          if (body.action === "playlist") {
+            return { ok: true, status: 200, headers: { get: () => "text" }, text: async () => MEDIA_PLAYLIST };
+          }
+          return {
+            ok: true,
+            status: 200,
+            headers: { get: (name) => (name === "x-streamly-more" ? "0" : "application/octet-stream") },
+            arrayBuffer: async () => new Uint8Array([1]).buffer,
+          };
+        }
+        return { ok: false, status: 429, headers: { get: () => null } };
+      }),
+    );
+    const probe = await probeSourcePlayable("https://cdn.example.com/x/index.m3u8", "https://vidcore.io/");
+    expect(probe).toMatchObject({ ok: true, via: "relay" });
+  });
+
+  it("fails when neither direct nor relay serve bytes (the vidzen black-screen case)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        if (typeof url === "string" && url.includes("downloadify")) {
+          const body = JSON.parse(init.body);
+          if (body.action === "playlist") {
+            return { ok: true, status: 200, headers: { get: () => "text" }, text: async () => MEDIA_PLAYLIST };
+          }
+          return {
+            ok: false,
+            status: 502,
+            headers: { get: () => "application/json" },
+            text: async () => JSON.stringify({ ok: false, code: "segment-fetch-failed", error: "Upstream 429" }),
+          };
+        }
+        return { ok: false, status: 429, headers: { get: () => null } };
+      }),
+    );
+    const probe = await probeSourcePlayable("https://vidzen.fun/api/stream/x", "https://vidcore.io/");
+    expect(probe.ok).toBe(false);
+    expect(probe.reason).toBeTruthy();
   });
 });

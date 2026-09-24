@@ -23,6 +23,7 @@
 // fixed per source attempt.
 
 import { logDebug, logWarn } from "../utils/debugLogger.js";
+import { parseMasterPlaylist, parseMediaPlaylist } from "../utils/downloadQuality.js";
 
 const ENDPOINT = "/api/downloadify";
 // 1MB relay slices keep time-to-first-byte low for streaming (downloads use
@@ -97,6 +98,63 @@ export function clearProbeCache() {
 
 export function clearDirectBlocks() {
   directBlockedUntil.clear();
+}
+
+/* Playability probe: verify ONE real media byte flows before the player
+   commits a screen to this source. A resolver can hand us a perfect-looking
+   ladder whose segments never arrive (VidCore's vidzen fallback: playlist 200
+   + duration, segments 429 forever) — without this check that plays as a
+   black screen with a known duration and no error. Returns { ok, via, reason }.
+   Follows the entry URL through a master (CineSrc) when needed. */
+async function relayPlaylistText(url, refUrl, signal) {
+  const response = await postDownloadify({ action: "playlist", playlistUrl: url, refUrl }, { signal });
+  await throwIfRelayError(response, "Playlist request failed");
+  return response.text();
+}
+
+export async function probeSourcePlayable(entryUrl, refUrl, { signal } = {}) {
+  try {
+    let base = entryUrl;
+    let text = await relayPlaylistText(base, refUrl, signal);
+    if (!text || !text.includes("#EXTM3U")) return { ok: false, reason: "not a playlist" };
+    if (text.includes("#EXT-X-STREAM-INF")) {
+      const levels = parseMasterPlaylist(text, base);
+      const first = (levels || []).find((v) => v?.uri);
+      if (!first) return { ok: false, reason: "master has no levels" };
+      base = first.uri;
+      text = await relayPlaylistText(base, refUrl, signal);
+    }
+    const media = parseMediaPlaylist(text, base);
+    const target = media?.segments?.[0]?.url || media?.initUrl;
+    if (!target) return { ok: false, reason: "playlist has no segments" };
+    // 1) direct byte sip (1 byte Range — cheap, and exactly the path playback
+    //    will use first).
+    try {
+      const res = await fetch(target, { headers: { range: "bytes=0-0" }, signal });
+      if (res.ok) {
+        res.body?.cancel?.().catch?.(() => {});
+        return { ok: true, via: "direct" };
+      }
+    } catch {
+      // fall through to the relay sip below
+    }
+    if (signal?.aborted) throw new Error("Aborted");
+    // 2) relay byte sip (4KB through downloadify — server IP + referer).
+    try {
+      const res = await postDownloadify(
+        { action: "segment", url: target, refUrl, range: { start: 0, max: 4095 } },
+        { signal },
+      );
+      if (res.ok) return { ok: true, via: "relay" };
+      return { ok: false, reason: `relay refused (${res.status})` };
+    } catch (error) {
+      if (error?.name === "AbortError") throw error;
+      return { ok: false, reason: error?.code || error?.message || "relay failed" };
+    }
+  } catch (error) {
+    if (error?.name === "AbortError") throw error;
+    return { ok: false, reason: error?.message || "probe failed" };
+  }
 }
 
 async function postDownloadify(body, { signal } = {}) {

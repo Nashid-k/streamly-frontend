@@ -7,11 +7,17 @@
 // no native <video controls> anywhere in here.
 
 import { useEffect, useRef, useState } from "react";
-import { Maximize, Pause, Play } from "lucide-react";
+import { Loader2, Maximize, Pause, Play } from "lucide-react";
 import Hls from "hls.js";
 import { downloadService } from "../api/downloadService";
-import { createStreamlyLoader } from "../api/nativeHlsLoader";
+import { createStreamlyLoader, probeSourcePlayable } from "../api/nativeHlsLoader";
 import { logWarn } from "../utils/debugLogger";
+
+// A source whose fragments keep failing without ever going fatal (VidCore's
+// vidzen fallback: playlist 200, segments 429 on repeat) would otherwise spin
+// forever on a black screen. After this many CONSECUTIVE fragment failures we
+// force the failover ourselves.
+const MAX_CONSECUTIVE_FRAG_FAILURES = 4;
 
 const SOURCES = [
   { key: "vidcore", label: "VidCore (native)", resolve: (a, o) => downloadService.resolveVidcore(a, o) },
@@ -49,6 +55,10 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  // Real loader state: true while the screen has nothing new to show (initial
+  // load, stall, seek). Driven by the video element's own signals.
+  const [buffering, setBuffering] = useState(true);
+  const [bufferedSecs, setBufferedSecs] = useState(0);
   // Master-mode (CineSrc) starts on ABR auto; picking a level pins it.
   const [autoLevel, setAutoLevel] = useState(true);
 
@@ -88,21 +98,53 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return undefined;
-    const onPlay = () => setPlaying(true);
+    const onPlay = () => {
+      setPlaying(true);
+      setBuffering(false);
+    };
     const onPause = () => setPlaying(false);
-    const onTime = () => setCurrentTime(video.currentTime || 0);
+    const bufferedAhead = () => {
+      try {
+        const b = video.buffered;
+        const t = video.currentTime || 0;
+        for (let i = 0; i < b.length; i += 1) {
+          if (b.start(i) <= t && t <= b.end(i)) return Math.max(0, b.end(i) - t);
+        }
+      } catch {
+        // buffered unreadable (no media yet) — report zero
+      }
+      return 0;
+    };
+    const onTime = () => {
+      setCurrentTime(video.currentTime || 0);
+      setBufferedSecs(Math.round(bufferedAhead()));
+    };
     const onMeta = () => setDuration(video.duration || 0);
+    // The video element itself is the honest stall detector: waiting/stalled/
+    // seeking mean "screen has nothing new", playing/canplay mean pixels flow.
+    const onWaiting = () => setBuffering(true);
+    const onStalled = () => setBuffering(true);
+    const onSeeking = () => setBuffering(true);
+    const onCanPlay = () => setBuffering(false);
     video.addEventListener("play", onPlay);
     video.addEventListener("pause", onPause);
     video.addEventListener("timeupdate", onTime);
     video.addEventListener("loadedmetadata", onMeta);
     video.addEventListener("durationchange", onMeta);
+    video.addEventListener("waiting", onWaiting);
+    video.addEventListener("stalled", onStalled);
+    video.addEventListener("seeking", onSeeking);
+    video.addEventListener("canplay", onCanPlay);
     return () => {
       video.removeEventListener("play", onPlay);
       video.removeEventListener("pause", onPause);
       video.removeEventListener("timeupdate", onTime);
       video.removeEventListener("loadedmetadata", onMeta);
       video.removeEventListener("durationchange", onMeta);
+      video.removeEventListener("waiting", onWaiting);
+      video.removeEventListener("stalled", onStalled);
+      video.removeEventListener("seeking", onSeeking);
+      video.removeEventListener("canplay", onCanPlay);
     };
   }, []);
 
@@ -164,6 +206,8 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
       setFatal(null);
       setQualities([]);
       setAudioTracks([]);
+      setBuffering(true);
+      setBufferedSecs(0);
       const args = { type, id, season: type === "tv" ? season : undefined, episode: type === "tv" ? episode : undefined };
       const stale = () => runRef.current !== run || controller.signal.aborted;
       const abortPromise = () =>
@@ -217,9 +261,26 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
           }
           say(
             `${def.label}: ${variants.length} variant(s), loading ` +
-              (def.key === "cinesrc" ? "master (ABR auto)" : `${smoothStart?.height || "?"}p (smooth start)`) +
-              (attempt > 0 ? " with fresh tokens…" : "…"),
+              (def.key === "cinesrc" ? "master (ABR auto)…" : `${smoothStart?.height || "?"}p (smooth start)…`),
           );
+          // Playability gate: prove one real media byte flows before hls.js
+          // ever sees this source. A perfect-looking ladder with dead segments
+          // (vidzen: playlist 200, fragments 429) otherwise plays as a black
+          // screen with a known duration and no error.
+          say(`${def.label}: probing one media byte…`);
+          let probe = { ok: false, reason: "probe error" };
+          try {
+            probe = await probeSourcePlayable(entryUrl, liveRefUrl, { signal: controller.signal });
+          } catch (error) {
+            if (error?.name === "AbortError" || stale()) return true;
+            probe = { ok: false, reason: error?.message || "probe error" };
+          }
+          if (stale()) return true;
+          if (!probe.ok) {
+            say(`${def.label}: segments unreachable (${probe.reason}) — next source.`);
+            return false;
+          }
+          say(`${def.label}: segments flow via ${probe.via}.`);
           try {
             hlsRef.current?.destroy();
           } catch {
@@ -255,16 +316,42 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
               fragSn: frag?.sn ?? null,
             });
           };
-          hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => attachAudio(hls));
-          hls.on(Hls.Events.ERROR, (_e, data) => {
-            if (!data?.fatal) return;
-            reportFatal(data);
+          const failOver = () => {
             try {
               hls.destroy();
             } catch {
               // already torn down
             }
             resolveFatal?.();
+          };
+          // Non-fatal fragment failures never reach the attempt log otherwise —
+          // yet a loop of them IS the black screen (vidzen 429s). Count
+          // consecutive ones and force the failover ourselves instead of
+          // waiting out hls.js's long retry budget.
+          let consecFragFails = 0;
+          hls.on(Hls.Events.FRAG_BUFFERED, () => {
+            consecFragFails = 0;
+          });
+          hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => attachAudio(hls));
+          hls.on(Hls.Events.ERROR, (_e, data) => {
+            if (!data?.fatal) {
+              if (
+                data?.details === "fragLoadError" ||
+                data?.details === "fragLoadTimeout" ||
+                data?.details === "levelLoadError"
+              ) {
+                consecFragFails += 1;
+                if (consecFragFails >= MAX_CONSECUTIVE_FRAG_FAILURES) {
+                  reportFatal({ ...data, fatal: true, details: `${data.details} (×${consecFragFails} consecutive — giving up)` });
+                  failOver();
+                } else {
+                  say(`${def.label}: segment retry ${consecFragFails} (${data.details})…`);
+                }
+              }
+              return;
+            }
+            reportFatal(data);
+            failOver();
           });
           try {
             hls.loadSource(entryUrl);
@@ -361,6 +448,7 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
     const t = videoRef.current.currentTime || 0;
     const wasPaused = videoRef.current.paused;
     say(`Switching to ${height || "?"}p…`);
+    setBuffering(true);
     try {
       if (meta.cinesrcLevels && Array.isArray(hls.levels) && hls.levels.length > 0) {
         let best = 0;
@@ -433,31 +521,53 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
           onClick={togglePlay}
           style={{ width: "100%", display: "block", aspectRatio: "16 / 9", background: "#000" }}
         />
-        {!playing && (
-          <button
-            type="button"
-            onClick={togglePlay}
-            aria-label="Play"
-            style={{
-              position: "absolute",
-              inset: 0,
-              margin: "auto",
-              width: 84,
-              height: 84,
-              borderRadius: "50%",
-              border: "none",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "rgba(34,197,94,0.92)",
-              color: "#04120a",
-              boxShadow: "0 8px 32px rgba(0,0,0,0.55)",
-            }}
-          >
-            <Play size={38} fill="currentColor" style={{ marginLeft: 4 }} />
-          </button>
-        )}
+          {!playing && !buffering && (
+            <button
+              type="button"
+              onClick={togglePlay}
+              aria-label="Play"
+              style={{
+                position: "absolute",
+                inset: 0,
+                margin: "auto",
+                width: 84,
+                height: 84,
+                borderRadius: "50%",
+                border: "none",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "rgba(34,197,94,0.92)",
+                color: "#04120a",
+                boxShadow: "0 8px 32px rgba(0,0,0,0.55)",
+              }}
+            >
+              <Play size={38} fill="currentColor" style={{ marginLeft: 4 }} />
+            </button>
+          )}
+          {buffering && (
+            <div
+              role="status"
+              aria-label="Loading video"
+              style={{
+                position: "absolute",
+                inset: 0,
+                margin: "auto",
+                width: 84,
+                height: 84,
+                borderRadius: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "rgba(0,0,0,0.55)",
+                color: "#22c55e",
+                pointerEvents: "none",
+              }}
+            >
+              <Loader2 size={40} className="animate-spin" />
+            </div>
+          )}
         <div
           style={{
             position: "absolute",
@@ -491,9 +601,9 @@ export default function NativePlayerView({ type = "movie", id, season = 1, episo
           >
             {playing ? <Pause size={17} fill="currentColor" /> : <Play size={17} fill="currentColor" style={{ marginLeft: 2 }} />}
           </button>
-          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>
-            {fmtTime(currentTime)} / {fmtTime(duration)}
-          </span>
+            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>
+              {fmtTime(currentTime)} / {fmtTime(duration)} · buf {bufferedSecs}s
+            </span>
           <input
             type="range"
             min={0}
