@@ -129,10 +129,11 @@ Chrome service (`cinesrc-resolver/`) does the mint and the Vercel function
 walks the returned master → variant ladder. The resolver origin is shipped in
 the client bundle (`src/api/cinesrcResolver.js` → `CINESRC_RESOLVER_ORIGIN`,
 sent as `body.resolverUrl`) so a deployment needs no Vercel env var;
-`CINESRC_RESOLVER_URL` is the server-side override. Client-supplied origins are
-SSRF-guarded exactly like playlist URLs (DNS-resolved private-IP check + manual
-redirect re-validation). When neither is configured the source fails softly and
-VidSrc fills the sheet.
+`CINESRC_RESOLVER_URL` is the server-side override, which stays TRUSTED (it may
+point at the operator's own localhost/LAN resolver). Client-supplied origins
+are SSRF-guarded exactly like playlist URLs (DNS-resolved private-IP check +
+manual redirect re-validation). When neither is configured the source fails
+softly and VidSrc fills the sheet.
 The `segment` action is single-URL + `{ range: { start, max } }` in ≤3.5MB
 chunks with an `x-streamly-more` "more bytes?" header — the old 6-URL-per-POST
 batch blew Vercel's 4.5MB response cap with `FUNCTION_PAYLOAD_TOO_LARGE`, which

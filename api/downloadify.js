@@ -223,16 +223,20 @@ async function followRedirects(url, headers, signal, as) {
   return text;
 }
 
-/* POST a JSON body to an external service (the CineSrc resolver). The origin
-   now ships in the client bundle (src/api/cinesrcResolver.js → body.resolverUrl),
-   so it's attacker-influenced: DNS-resolve the destination, reject private/
-   loopback/link-local IPs and literal-encoding tricks, and follow redirect
-   hops MANUALLY with the same re-validation as fetchUpstream. */
-async function postJsonPublic(url, jsonBody, { timeoutMs = 55000, maxBytes = 100_000 } = {}) {
+/* POST a JSON body to an external service (the CineSrc resolver). When `ssrf`
+   is true the origin is CLIENT-supplied (src/api/cinesrcResolver.js →
+   body.resolverUrl), so it's attacker-influenced: DNS-resolve the destination,
+   reject private/loopback/link-local IPs and literal-encoding tricks, and
+   follow redirect hops MANUALLY with the same re-validation as fetchUpstream.
+   When `ssrf` is false the origin came from the operator env var
+   (CINESRC_RESOLVER_URL) — trusted by definition (it intentionally points at
+   the operator's own resolver, which may sit on localhost/LAN), so only the
+   scheme & size bounds above apply. */
+async function postJsonPublic(url, jsonBody, { timeoutMs = 55000, maxBytes = 100_000, ssrf = true } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    let current = await assertPublicDestination(url);
+    let current = ssrf ? await assertPublicDestination(url) : url;
     const opts = () => ({
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -244,7 +248,7 @@ async function postJsonPublic(url, jsonBody, { timeoutMs = 55000, maxBytes = 100
     for (let hop = 0; hop < MAX_REDIRECTS && upstream.status >= 300 && upstream.status < 400; hop += 1) {
       const location = upstream.headers.get("location");
       if (!location) throw new Error("Redirect without location");
-      current = await assertPublicDestination(new URL(location, current).toString());
+      current = ssrf ? await assertPublicDestination(new URL(location, current).toString()) : new URL(location, current).toString();
       upstream = await fetch(current, opts());
     }
     const text = await upstream.text();
@@ -675,9 +679,9 @@ async function handleResolveCinesrc(body, res) {
     json(res, 200, { ok: false, error: "CineSrc resolver not configured", code: "resolver-unavailable" });
     return;
   }
-  // Scheme check up front; the full private-IP/redirect validation happens in
-  // postJsonPublic (the origin can come from the client bundle, unlike the old
-  // operator-only env var).
+  // Scheme check up front. A client-supplied origin (body.resolverUrl) is
+  // then SSRF-guarded in postJsonPublic; an operator env origin (the old
+  // CINESRC_RESOLVER_URL) stays trusted and may point at localhost/LAN.
   if (!/^https?:\/\//i.test(resolverBase) || new URL(resolverBase).hostname === "") {
     json(res, 200, { ok: false, error: "CineSrc resolver misconfigured", code: "resolver-unavailable" });
     return;
@@ -686,12 +690,16 @@ async function handleResolveCinesrc(body, res) {
   const resolverUrl = `${resolverBase}/resolve`;
   let payload = null;
   try {
-    const { text } = await postJsonPublic(resolverUrl, {
-      type,
-      id: tmdbId,
-      season: season || undefined,
-      episode: episode || undefined,
-    });
+    const { text } = await postJsonPublic(
+      resolverUrl,
+      {
+        type,
+        id: tmdbId,
+        season: season || undefined,
+        episode: episode || undefined,
+      },
+      { ssrf: !envResolver },
+    );
     payload = JSON.parse(text || "{}");
   } catch {
     json(res, 200, { ok: false, error: "CineSrc resolver unreachable", code: "resolver-unavailable" });
