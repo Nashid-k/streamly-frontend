@@ -15,4 +15,4 @@
 // Keep the value pointing at a PRIVATE origin (hard-to-guess subdomain, and
 // firewall or reverse-proxy-token protect it — the resolver has no auth, and
 // this URL is public once shipped).
-export const CINESRC_RESOLVER_ORIGIN = "";
+export const CINESRC_RESOLVER_ORIGIN = "https://cinesrc-resolver.onrender.com";

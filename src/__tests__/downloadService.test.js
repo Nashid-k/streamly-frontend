@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { downloadService, createPauseController } from "../api/downloadService";
 import * as fmp4Muxer from "../utils/fmp4Muxer";
+import { CINESRC_RESOLVER_ORIGIN } from "../api/cinesrcResolver";
 
 // saveStream muxing is orchestration — the track remapping is covered properly
 // in fmp4Muxer.test.js with real box bytes. Here the muxer is stubbed to
@@ -195,7 +196,7 @@ describe("downloadService.resolveCinesrc", () => {
     });
   });
 
-  it("omits resolverUrl when no origin is configured", async () => {
+  it("sends the shipped CINESRC_RESOLVER_ORIGIN by default", async () => {
     let capturedBody = null;
     vi.stubGlobal(
       "fetch",
@@ -212,6 +213,31 @@ describe("downloadService.resolveCinesrc", () => {
     );
 
     await downloadService.resolveCinesrc({ type: "movie", id: "1423191" });
+
+    expect(capturedBody).toMatchObject({
+      action: "resolvecinesrc",
+      id: "1423191",
+      resolverUrl: CINESRC_RESOLVER_ORIGIN,
+    });
+  });
+
+  it("omits resolverUrl when the resolver origin is blank", async () => {
+    let capturedBody = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        capturedBody = JSON.parse(init.body);
+        return jsonResponse({
+          ok: true,
+          source: { kind: "hls", url: "https://cinesrc.st/api/playlist/t" },
+          variants: [
+            { uri: "https://cinesrc.st/api/playlist/e", bandwidth: 2628000, width: 1280, height: 720, hdr: false },
+          ],
+        });
+      }),
+    );
+
+    await downloadService.resolveCinesrc({ type: "movie", id: "1423191" }, { resolverUrl: "" });
 
     expect(capturedBody).toMatchObject({ action: "resolvecinesrc", id: "1423191" });
     expect(capturedBody.resolverUrl).toBeUndefined();
