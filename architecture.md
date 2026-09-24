@@ -41,7 +41,7 @@ Firebase SDK in the bundle.
 | Genre | `/genre/:genre` | `genre-search:<genre>` → `searchMovies` + `selectGenreResults` | network only |
 | Collection | `/category/:name` | `categories` (exact→fuzzy→token match) or `location.state.movies` | network / nav state |
 | Watch title | `/watch/:id/:slug?` (`movie-<n>` / `tv-<n>`) | `movie:<id>` → `getMovieDetails` (credits+videos+images, external_ids best-effort); `similar:<id>`; `episodes:<id>:<season>` → `getSeasonEpisodes` | + `aios_continue_watching` (resume) |
-| Download title | `/watch/:id/:slug?` (in-page `DownloadModal`) | `DownloadModal` → `downloadService` → Vercel `api/downloadify.js` (`resolve`\|`resolvevidsrc`\|`resolvecinesrc` → `manifest` → single-URL Range-chunked `segment`); episodes via `getSeasonEpisodes` | file saved to device (File System Access API, Blob fallback); nothing persisted |
+| Download title | `/watch/:id/:slug?` (in-page `DownloadModal`) | `DownloadModal` → `downloadService` → Vercel `api/downloadify.js` (`resolve`\|`resolvevidsrc`\|`resolvecinesrc` → `manifest` → single-URL Range-chunked `segment`); CineSrc audio renditions muxed in via `src/utils/fmp4Muxer.js`; episodes via `getSeasonEpisodes` | file saved to device (File System Access API, Blob fallback); nothing persisted |
 | Person | `/person/:id/:slug?` | `person:<id>` → `getPersonDetails` (`/person`, `/combined_credits`, top-40) | network only |
 | My List | `/watchlist` (`/mylist` redirects) | local only | `aios_my_list`, `aios_my_collections` (local) |
 | History | `/history` | local only | `aios_continue_watching` (local) |
@@ -135,6 +135,24 @@ is why downloads never saved. Where a CDN honestly allows CORS (`*` or our
 origin) `saveStream` probes it and pulls segments straight from the browser
 before falling back to the relay. Embed-host allowlist + DNS-resolved private-IP
 SSRF guard (every redirect hop re-validated; decimal/hex IP literals included).
+CineSrc playlist sessions are time-scoped (they survive sibling mints but die
+after minutes), so `saveStream` accepts a `refresh()` callback: when the relay
+returns the honest `code:"segment-fetch-failed"` the client re-mints through the
+row's own resolver (single-flight, max 2 refreshes) and retries the SAME segment
+against the fresh token — the file resumes in place, bytes already written stay
+put, nothing restarts.
+**CineSrc audio muxing**: CineSrc masters carry audio as `EXT-X-MEDIA AUDIO`
+groups separate from the video renditions. `resolvecinesrc` returns the group
+list (`parseAudioGroups`); `buildManifest` fetches the chosen rendition's media
+playlist (degrading to video-only, never failing the download, when it's not
+fMP4 or can't be read); `saveStream` muxes both fMP4 streams through the
+dependency-free `src/utils/fmp4Muxer.js` — `buildMuxedInit` merges the video
+`ftyp`+`moov` with the audio track (remapping its `tkhd`/`trex`/`tfhd` id to a
+non-video track) and `muxSegment` interleaves `video moof+mdat, audio moof+mdat`
+per index (A/V sync preserved via absolute `tfdt`). Audio lists ride the same
+re-mint as video. The modal's per-row language picker (`matchAudio`: explicit
+pick → `default` → first) re-selects by language so the choice survives token
+rotation.
 Stream-service/NetMirror calling code was deleted (`src/api/env.js` removed);
 the client no longer makes those HTTP calls. Every function is wrapped in a request
 logger (`api/lib/logger.js`); `vercel.json` sets `maxDuration` per function
@@ -191,7 +209,8 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
 - `src/utils/` — shared utilities (`@/utils`). `index.js` barrel. `debugLogger.js` (**all console output
   goes through here**), `index.js` (`asArray`/`EMPTY_ARRAY` null-safety + re-exports), `timezone`,
   `searchRanking`, `genreResults`, `releaseCalendar`, `ratings`, `notificationEngine`, `subtitleEngine`,
-  `downloadQuality` (pure HLS master/media playlist parser + quality/HDR labels),
+  `downloadQuality` (pure HLS master/media playlist parser + quality/HDR labels + audio-group parse),
+  `fmp4Muxer` (dependency-free fMP4 A/V muxer for CineSrc audio),
   `platforms`, `metaFacts`, `chunkRecovery`.
 - `src/__tests__/` — vitest suites (service shape, ranking, engines, components, barrels).
   `src/queryClient.js` — QueryClient + global `QueryCache.onError` logger. `src/main.jsx` — boot

@@ -132,10 +132,21 @@ VITE_SITE_URL=https://your-project.vercel.app
    are browser-fingerprint-bound, so minting runs on an optional self-hosted
    Chrome service (`cinesrc-resolver/`, env `CINESRC_RESOLVER_URL`); when
    unset the source reports as unavailable and VidSrc (Alt) fills the sheet.
-   Where a CDN allows CORS the browser downloads segments directly, falling
-   back to the proxy. Resolver is embed-host allowlisted + SSRF-guarded
-   (DNS-resolved, redirect hops re-validated), and files save via the File
-   System Access API (Blob `<a download>` fallback).
+   CineSrc keeps audio as separate HLS renditions (`EXT-X-MEDIA AUDIO`): the
+   modal offers a per-quality language picker and, when both streams are
+   fMP4, `saveStream` muxes the chosen audio in via the dependency-free
+   `src/utils/fmp4Muxer.js` (`buildMuxedInit`/`muxSegment` remap the audio
+   track to a non-video id and interleave A/V fragments) so the saved MP4
+   isn't a silent video-only file. Where a CDN allows CORS the browser
+   downloads segments directly, falling back to the proxy. Resolver is
+   embed-host allowlisted + SSRF-guarded (DNS-resolved, redirect hops
+   re-validated), and files save via the File System Access API (Blob
+   `<a download>` fallback). CineSrc sessions are time-scoped and die
+   mid-file (~86 min of segments per movie, minute-scale token TTL), so
+   `saveStream` re-mints through the row's resolver on the relay's honest
+   `segment-fetch-failed` (single-flight, ≤2 refreshes) and retries the same
+   segment — the audio rendition rides the same fresh mint — and the file
+   resumes in place, never restarts.
 
 ---
 

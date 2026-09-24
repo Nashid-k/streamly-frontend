@@ -10,7 +10,7 @@
 // Actions (POST JSON):
 //   resolve       { embedUrl }                          -> { source, variants }
 //   resolvevidsrc { type, id, season?, episode? }       -> { source, variants }
-//   resolvecinesrc { type, id, season?, episode? }      -> { source, variants }
+//   resolvecinesrc { type, id, season?, episode? }      -> { source, variants, audio }
 //   manifest      { playlistUrl, refUrl }               -> { kind, initUrl, segments, duration }
 //   segment       { url, refUrl?, range: {start,max} }  -> bytes (octet-stream)
 //
@@ -42,6 +42,7 @@ import net from "node:net";
 import {
   parseMasterPlaylist,
   parseMediaPlaylist,
+  parseAudioGroups,
   resolveUrl,
 } from "../src/utils/downloadQuality.js";
 import { rateLimit, tooManyRequests, clientIp } from "./lib/rateLimit.js";
@@ -683,6 +684,10 @@ async function handleResolveCinesrc(body, res) {
         ok: true,
         source: { kind: "hls", url: playlistUrl, refUrl: "https://cinesrc.st/" },
         variants,
+        // CineSrc keeps audio as separate HLS renditions (EXT-X-MEDIA AUDIO).
+        // Surface them so the client can mux the chosen language into the
+        // file — without this the download is a silent video-only mp4.
+        audio: parseAudioGroups(masterText, playlistUrl),
       });
       return;
     }
