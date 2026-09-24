@@ -57,7 +57,8 @@ let mints = 0;
 // So we read the container's own memory figures from inside and recycle the
 // whole browser (which holds ~80% of our RSS) the moment headroom gets thin,
 // instead of letting the kernel pick the kill point for us.
-const MEM_HIGH = Number(process.env.MEM_HIGH || 0.66);
+const MEM_HIGH = Number(process.env.MEM_HIGH || 0.75);
+const RECLAIM_IDLE_MS = Number(process.env.RECLAIM_IDLE_MS || 90000);
 const cgroupPath = async (name) => {
   try {
     const { readFile } = await import("node:fs/promises");
@@ -81,6 +82,14 @@ async function trimBrowser() {
 async function ensureHeadroom() {
   if (await memUsage() > MEM_HIGH) await trimBrowser();
 }
+let lastMintAt = 0;
+setInterval(async () => {
+  const usage = await memUsage().catch(() => 0);
+  if (usage > MEM_HIGH && Date.now() - lastMintAt > RECLAIM_IDLE_MS) {
+    console.log(`[trim] idle reclaim mem=${Math.round(usage * 100)}%`);
+    await trimBrowser();
+  }
+}, 30000).unref();
 async function getBrowser() {
   if (browser?.connected) return browser;
   await trimBrowser();
@@ -200,6 +209,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   await acquire();
+  const started = Date.now();
   try {
     await ensureHeadroom().catch(() => {});
     const playlistUrl = await resolvePlaylist({
@@ -208,17 +218,19 @@ const server = http.createServer(async (req, res) => {
       season: body.season,
       episode: body.episode,
     });
-    send(200, { ok: true, playlistUrl });
+    const usage = await memUsage().catch(() => 0);
+    lastMintAt = Date.now();
     mints += 1;
-    // Close the renderer once the container starts nearing its memory ceiling
-    // (or every few mints as a floor guard) so the kernel never has a reason
-    // to OOMKill us mid-request.
-    const pressured = await memUsage().catch(() => 0);
-    if (mints >= 3 || pressured > MEM_HIGH) {
+    console.log(`[mint] ok in ${Date.now() - started}ms mem=${Math.round(usage * 100)}% mints=${mints}`);
+    send(200, { ok: true, playlistUrl });
+    if (mints >= 3 || usage > MEM_HIGH) {
+      console.log(`[trim] post-mint mem=${Math.round(usage * 100)}% mints=${mints}`);
       await trimBrowser();
       mints = 0;
     }
   } catch (error) {
+    lastMintAt = Date.now();
+    console.log(`[mint] fail in ${Date.now() - started}ms code=${error?.code || "err"} msg=${error?.message || "unknown"}`);
     send(200, {
       ok: false,
       error: error?.message || "resolve failed",
