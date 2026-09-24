@@ -111,6 +111,8 @@ async function getBrowser() {
       "--disable-component-update",
       "--renderer-process-limit=1",
       "--js-flags=--max-old-space-size=256",
+      "--disk-cache-size=0",
+      "--media-cache-size=0",
     ],
   });
   return browser;
@@ -149,7 +151,7 @@ async function resolvePlaylist({ type, id, season, episode }) {
   const requests = [];
   let playlistUrl = null;
   try {
-    await page.setViewport({ width: 800, height: 450 });
+    await page.setViewport({ width: 640, height: 360 });
     const cdp = await page.createCDPSession();
     await cdp.send("Network.enable");
     const seen = (e) => {
