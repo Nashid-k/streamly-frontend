@@ -36,6 +36,7 @@ import {
   Grid3x3,
   ArrowUpDown,
   FolderOpen,
+  FlaskConical,
 } from "lucide-react";
 import {
   motion,
@@ -60,6 +61,8 @@ import { logEmptyData, logError, reportQueryError } from "../utils/debugLogger";
 // be cached independently after first visit.
 const CustomVideoPlayer = lazy(() => import("../components/CustomVideoPlayer"));
 const DownloadModal = lazy(() => import("../components/DownloadModal"));
+// Temporary native-playback prototype view (also on /proto-native).
+const NativePlayerView = lazy(() => import("../components/NativePlayerView"));
 import ErrorBoundary from "../components/ErrorBoundary";
 
 import { progressPct } from "../utils/resumeProgress";
@@ -190,6 +193,11 @@ export default function TitleDetails() {
   // the chosen quality to disk through the /api/downloadify function.
   const [downloadOpen, setDownloadOpen] = useState(false);
   const handleDownloadOpen = () => setDownloadOpen(true);
+  // Native-playback TEST overlay (prototype): a second play button next to the
+  // hero Play opens the same NativePlayerView the /proto-native route renders,
+  // so the native HLS path can be tested per-title without touching the
+  // iframe player. Temporary — remove with the prototype.
+  const [nativeOpen, setNativeOpen] = useState(false);
   const [collectionPickerOpen, setCollectionPickerOpen] = useState(false);
 
   // Mark watched / unwatched — records a full run in watch history (or
@@ -728,6 +736,13 @@ export default function TitleDetails() {
   const episodeToPlay = savedEpisodeForSelectedSeason?.savedEpisode
     || (airedEpisodeNumbers.length > 0 ? airedEpisodeNumbers[0] : 1);
 
+  // Numeric TMDB id for the native-test player (same digits the download
+  // sheet resolves — movie.id can carry a "movie-"/"tv-" prefix).
+  const nativeNumericId = (() => {
+    const m = String(movie?.id || "").match(/\d+/);
+    return m ? m[0] : null;
+  })();
+
   // ── Season-aware episode navigation ─────────────────────────────────────
   // Same philosophy as the hero Play button: step within the *aired* episodes
   // of the selected season, and roll across season boundaries to the previous
@@ -958,6 +973,23 @@ export default function TitleDetails() {
                 style={{ background: "var(--accent-gradient)", color: "var(--on-accent, #fff)", boxShadow: "0 8px 24px var(--accent-glow, rgba(149,255,80,0.5))" }}
               >
                 <Play className="w-5 h-5 mr-1.5 fill-current" /> {hasResume ? "Resume" : "Play"}
+              </button>
+
+              {/* Native-playback TEST button (prototype): opens the native HLS
+                  player for this exact title in an overlay. The hero Play
+                  button above is untouched — this second button exists only
+                  so the native path can be tested per-title. */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (unreleased) { setUnreleasedModalOpen(true); return; }
+                  setNativeOpen(true);
+                }}
+                title="Test native HLS playback (prototype — VidCore-first, no iframe)"
+                aria-label="Test native playback"
+                className="rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 font-bold tracking-wide h-[44px] px-5 py-3 text-sm min-w-[100px] border border-emerald-400/40 bg-emerald-400/10 text-emerald-200 hover:bg-emerald-400/20 hover:scale-105"
+              >
+                <FlaskConical className="w-4 h-4 mr-1.5" /> Native
               </button>
 
               {/* Cinejoy-style circular actions: Add to List | Download | Mark watched */}
@@ -2336,6 +2368,61 @@ servers={SERVERS}
             onClose={() => setDownloadOpen(false)}
           />
         </Suspense>
+      )}
+
+      {/* Native-playback TEST overlay (prototype): the same NativePlayerView
+          as /proto-native, opened from the "Native" hero button. Closes (and
+          tears down hls) on X, backdrop click, or Escape-via-button. */}
+      {nativeOpen && movie && nativeNumericId && createPortal(
+        <motion.div
+          key="native-test"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.25 }}
+          className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/85 backdrop-blur-md px-4 py-6 overflow-y-auto"
+          onClick={() => setNativeOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Native playback test"
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.98, y: 8 }}
+            transition={{ type: "spring", stiffness: 320, damping: 28 }}
+            className="w-full max-w-3xl rounded-2xl border border-emerald-400/20 bg-[#0a0a0a]/95 p-4 sm:p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-300">
+                  Native test · no iframe
+                </p>
+                <h3 className="truncate text-lg sm:text-xl font-bold text-white">
+                  {movie?.title || movie?.name || "Title"}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNativeOpen(false)}
+                aria-label="Close native playback test"
+                className="shrink-0 rounded-full p-2 text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <Suspense fallback={null}>
+              <NativePlayerView
+                type={isTvContent ? "tv" : "movie"}
+                id={nativeNumericId}
+                season={selectedSeason}
+                episode={isTvContent ? (episodeToPlay ?? playingEpisode ?? 1) : 1}
+              />
+            </Suspense>
+          </motion.div>
+        </motion.div>,
+        document.body
       )}
 
       <CollectionPickerDialog
