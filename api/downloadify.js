@@ -8,11 +8,12 @@
 // (incremental write) or a Blob download fallback.
 //
 // Actions (POST JSON):
-//   resolve       { embedUrl }                          -> { source, variants }
-//   resolvevidsrc { type, id, season?, episode? }       -> { source, variants }
+//   resolve        { embedUrl }                         -> { source, variants }
+//   resolvevidsrc  { type, id, season?, episode? }      -> { source, variants }
 //   resolvecinesrc { type, id, season?, episode? }      -> { source, variants, audio }
-//   manifest      { playlistUrl, refUrl }               -> { kind, initUrl, segments, duration }
-//   segment       { url, refUrl?, range: {start,max} }  -> bytes (octet-stream)
+//   resolvevidcore { type, id, season?, episode? }      -> { source, variants }
+//   manifest       { playlistUrl, refUrl }              -> { kind, initUrl, segments, duration }
+//   segment        { url, refUrl?, range: {start,max} } -> bytes (octet-stream)
 //
 // Byte transport notes (the reason this is different from the old version):
 //   · Vercel caps a function's request/response body at 4.5MB. The previous
@@ -72,6 +73,25 @@ const ALLOWED_EMBED_HOSTS = new Set([
 // headroom for headers/JSON overhead.
 const RANGE_CHUNK_BYTES = 3.5 * 1024 * 1024;
 const MAX_TEXT_BYTES = 1.5 * 1024 * 1024;
+
+// Server 5 (VidCore) sources catalogue. vidcore.org/embed resolves entirely
+// server-side — no Chrome minting, unlike CineSrc. The "videasy" API lists a
+// title's whole quality ladder (incl. 4K) as DIRECT HLS URLs; the m3u8s sit
+// on moon.quietridge.top and their fMP4 segments on paperorbit.top (open
+// CORS + Range, so the existing manifest/segment relay handles them). Every
+// upstream wants the VidCore player as referer — fetchUpstream supplies it.
+const VIDCORE_SOURCES_API = "https://vidrack.created.app/api/sources/videasy";
+const VIDZEN_SOURCES_API = "https://vidzen.fun/api/sources";
+const VIDCORE_PLAYER_REFERER = "https://vidcore.io/";
+
+/* Approximate per-render bitrate for Videasy's qualities. The Videasy API
+   does not publish BANDWIDTH, so the sheet's `~size` / `x Mbps` hints are
+   derived from a conservative H.264 table — a documented estimate, never a
+   claim about the actual encoding. */
+function videasyBandwidth(height) {
+  const table = { 2160: 16000000, 1440: 9000000, 1080: 6000000, 720: 2500000, 480: 1200000, 360: 800000, 240: 500000 };
+  return table[height] || 0;
+}
 
 const USER_AGENTS = [
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
@@ -738,6 +758,103 @@ async function handleResolveCinesrc(body, res) {
   json(res, 200, { ok: false, error: "No downloadable stream found via CineSrc", code: "no-source" });
 }
 
+/* VidCore (Server 5). Unlike CineSrc there's no browser mint: vidcore.org/embed
+   resolves from a static sources catalogue whose "videasy" API lists the
+   title's whole quality ladder as direct HLS URLs (Videasy mirrors, incl. 4K).
+   Fallback — a title the videasy API doesn't carry is asked of the vidzen.fun
+   catalogue (same page queries it), whose stream tokens are host-relative
+   /api/stream/{token} masters. Both want the VidCore player's referer; the
+   m3u8/segment relay then works unchanged (segments are open-CORS fMP4). */
+async function handleResolveVidcore(body, res) {
+  const type = body.type === "tv" ? "tv" : "movie";
+  const tmdbId = String(body.id || "").trim();
+  if (!/^\d{1,12}$/.test(tmdbId)) {
+    json(res, 400, { ok: false, error: "Invalid TMDB id", code: "bad-id" });
+    return;
+  }
+  const season = String(body.season ?? "").trim();
+  const episode = String(body.episode ?? "").trim();
+  const referer = VIDCORE_PLAYER_REFERER;
+
+  /* Videasy ladder — each entry is a per-quality MEDIA playlist (a direct
+     m3u8 on moon.quietridge.top), so each source maps 1:1 to a sheet row.
+     Sources come pre-sorted high→low from the API; we sort defensively. */
+  const tryVideasy = async () => {
+    const api = new URL(VIDCORE_SOURCES_API);
+    api.searchParams.set("id", tmdbId);
+    api.searchParams.set("type", type);
+    if (type === "tv") {
+      if (!season || !episode) throw new Error("tv needs season/episode");
+      api.searchParams.set("season", season);
+      api.searchParams.set("episode", episode);
+    }
+    const text = await fetchUpstream(api.toString(), { referer });
+    const data = JSON.parse(text);
+    if (!data || !Array.isArray(data.sources)) return null;
+    const variants = data.sources
+      .filter((s) => s?.url && /\.m3u8/i.test(s.url) && !/cap\.php/i.test(s.url))
+      .map((s) => {
+        const quality = String(s.quality || "").toLowerCase();
+        const height = Number.parseInt(quality.replace(/\D/g, ""), 10) || 0;
+        return {
+          uri: s.url,
+          bandwidth: videasyBandwidth(height),
+          width: 0,
+          height,
+          framerate: 0,
+          codecs: "",
+          hdr: false,
+        };
+      })
+      .sort((a, b) => b.height - a.height);
+    if (variants.length === 0) return null;
+    return {
+      variants,
+      source: { kind: "hls", url: variants[0].uri, refUrl: referer },
+    };
+  };
+
+  /* vidzen.fun fallback — the same catalogue the page polls alongside
+     videasy. Its stream token may be a single-rendition media playlist or a
+     real master ladder; parseMasterPlaylist handles both. */
+  const tryVidzen = async () => {
+    const api = new URL(VIDZEN_SOURCES_API);
+    api.searchParams.set("type", type);
+    api.searchParams.set("id", tmdbId);
+    if (type === "tv") {
+      if (!season || !episode) throw new Error("tv needs season/episode");
+      api.searchParams.set("season", season);
+      api.searchParams.set("episode", episode);
+    }
+    const text = await fetchUpstream(api.toString(), { referer });
+    const data = JSON.parse(text);
+    const first = (data?.sources || []).find((s) => s?.url);
+    if (!first?.url) return null;
+    const masterUrl = new URL(first.url, VIDZEN_SOURCES_API).toString();
+    const masterText = await fetchUpstream(masterUrl, { referer });
+    const variants = parseMasterPlaylist(masterText, masterUrl).filter((v) => v?.uri);
+    if (variants.length === 0 || !variants[0].uri) return null;
+    return {
+      variants,
+      source: { kind: "hls", url: masterUrl, refUrl: referer },
+    };
+  };
+
+  // Videasy is the primary (4K-ready, segments stream freely); vidzen covers
+  // titles videasy doesn't carry. Either failure is honest — no fake ladder.
+  const primary = await tryVideasy().catch(() => null);
+  if (primary) {
+    json(res, 200, { ok: true, source: primary.source, variants: primary.variants });
+    return;
+  }
+  const fallback = await tryVidzen().catch(() => null);
+  if (fallback) {
+    json(res, 200, { ok: true, source: fallback.source, variants: fallback.variants });
+    return;
+  }
+  json(res, 200, { ok: false, error: "No downloadable stream found via VidCore", code: "no-source" });
+}
+
 async function handleManifest(body, res) {
   const playlistUrl = String(body.playlistUrl || "").trim();
   try {
@@ -861,6 +978,9 @@ export default async function handler(req, res) {
           }
         }
         await handleResolveCinesrc(body, res);
+        return;
+      case "resolvevidcore":
+        await handleResolveVidcore(body, res);
         return;
       case "manifest":
         await handleManifest(body, res);

@@ -39,9 +39,9 @@ import { logDebug, logWarn } from "../utils/debugLogger";
    can open in browser or download with yt-dlp/ffmpeg.
 
    Layout mirrors Cinejoy's download sheet: a quality filter rail plus one
-   row per quality each download source (VidSrc (Alt), and CineSrc when its
-   Chrome resolver is configured) offers, with a top-quality badge, a size
-   estimate, and a download action.
+   row per quality each download source (VidSrc (Alt), VidCore (Server 5),
+   and CineSrc when its Chrome resolver is configured) offers, with a
+   top-quality badge, a size estimate, and a download action.
 
    Accessibility mirrors the Settings sign-in modal: portal + scroll lock +
    Tab trap + Escape + focus return. */
@@ -54,13 +54,16 @@ const getNumericId = (s) => {
 
 // The download sources the sheet fans out over. Every row is a quality one of
 // these serves — there is no player-rotation scan. VidSrc (Alt) scrapes
-// server-side (/api/downloadify action "resolvevidsrc"). CineSrc mints via the
-// separately-hosted cinesrc-resolver Chrome service (action "resolvecinesrc");
-// when that service isn't configured the source fails softly and VidSrc fills
-// the sheet. `sourceKey` is how the download engine later re-mints the fresh
-// per-title tokens through the same resolver.
+// server-side (/api/downloadify action "resolvevidsrc"). VidCore (Server 5)
+// is likewise serverless — its sources catalogue lists direct HLS ladders,
+// incl. 4K (action "resolvevidcore"). CineSrc mints via the separately-hosted
+// cinesrc-resolver Chrome service (action "resolvecinesrc"); when that service
+// isn't configured the source fails softly and the others fill the sheet.
+// `sourceKey` is how the download engine later re-mints the fresh per-title
+// tokens through the same resolver.
 const VIDSRC_SOURCE_NAME = "VidSrc (Alt)";
 const CINESRC_SOURCE_NAME = "CineSrc";
+const VIDCORE_SOURCE_NAME = "VidCore (Server 5)";
 
 const RESOLVE_SOURCES = [
   {
@@ -68,6 +71,12 @@ const RESOLVE_SOURCES = [
     name: VIDSRC_SOURCE_NAME,
     serverIndex: 0,
     resolve: (args, opts) => downloadService.resolveVidsrc(args, opts),
+  },
+  {
+    key: "vidcore",
+    name: VIDCORE_SOURCE_NAME,
+    serverIndex: 4, // Server 5 in the player rotation (videoSourceAdapter).
+    resolve: (args, opts) => downloadService.resolveVidcore(args, opts),
   },
   {
     key: "cinesrc",
@@ -475,9 +484,9 @@ export default function DownloadModal({
           // set of tokens that saveStream swaps in mid-file (it retries the
           // segment that 403'd — the download resumes in place, never restarts).
           const mintTokens = async () => {
-            const resolved = await downloadService[
-              row.sourceKey === "cinesrc" ? "resolveCinesrc" : "resolveVidsrc"
-            ](
+            const resolverName =
+              row.sourceKey === "cinesrc" ? "resolveCinesrc" : row.sourceKey === "vidcore" ? "resolveVidcore" : "resolveVidsrc";
+            const resolved = await downloadService[resolverName](
               resolveArgs(sourceType, numericId, isTv, selectedSeason, episode),
               { signal: controller.signal },
             );

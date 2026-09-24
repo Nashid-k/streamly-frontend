@@ -126,16 +126,20 @@ VITE_SITE_URL=https://your-project.vercel.app
    hidden locally immediately and purged from storage on later merges.
 7. **Offline downloads:** TitleDetailsPage → `DownloadModal` →
    `downloadService` → Vercel `api/downloadify.js` (`resolve` / VidSrc
-   `resolvevidsrc` / CineSrc `resolvecinesrc` → `manifest` → single-URL
+   `resolvevidsrc` / VidCore `resolvevidcore` / CineSrc `resolvecinesrc` →
+   `manifest` → single-URL
    Range-chunked `segment`, ≤3.5MB chunks with an `x-streamly-more` header —
-   the old 6-URL batch POSTs 413'd on Vercel's 4.5MB cap). CineSrc's tokens
+   the old 6-URL batch POSTs 413'd on Vercel's 4.5MB cap). VidCore (Server 5)
+   is fully serverless: the vidcore.org/embed "videasy" sources catalogue lists
+   direct HLS ladders incl. 4K, and the m3u8s/segments are relayed behind
+   `Referer: https://vidcore.io/` (supplied as `source.refUrl`). CineSrc's tokens
    are browser-fingerprint-bound, so minting runs on an always-on self-hosted
    Chrome service (`cinesrc-resolver/`). The service origin is baked into the
    client bundle (`src/api/cinesrcResolver.js` → `CINESRC_RESOLVER_ORIGIN`) and
    sent with every request, so the Vercel deployment needs **no env var**;
    `CINESRC_RESOLVER_URL` can still be set server-side to override it without a
-   redeploy. With neither configured, CineSrc reports unavailable and VidSrc
-   (Alt) fills the sheet.
+   redeploy. With neither configured, CineSrc reports unavailable and the
+   serverless sources (VidSrc, VidCore) still fill the sheet.
    CineSrc keeps audio as separate HLS renditions (`EXT-X-MEDIA AUDIO`): the
    modal offers a per-quality language picker and, when both streams are
    fMP4, `saveStream` muxes the chosen audio in via the dependency-free

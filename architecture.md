@@ -41,7 +41,7 @@ Firebase SDK in the bundle.
 | Genre | `/genre/:genre` | `genre-search:<genre>` → `searchMovies` + `selectGenreResults` | network only |
 | Collection | `/category/:name` | `categories` (exact→fuzzy→token match) or `location.state.movies` | network / nav state |
 | Watch title | `/watch/:id/:slug?` (`movie-<n>` / `tv-<n>`) | `movie:<id>` → `getMovieDetails` (credits+videos+images, external_ids best-effort); `similar:<id>`; `episodes:<id>:<season>` → `getSeasonEpisodes` | + `aios_continue_watching` (resume) |
-| Download title | `/watch/:id/:slug?` (in-page `DownloadModal`) | `DownloadModal` → `downloadService` → Vercel `api/downloadify.js` (`resolve`\|`resolvevidsrc`\|`resolvecinesrc` → `manifest` → single-URL Range-chunked `segment`); CineSrc audio renditions muxed in via `src/utils/fmp4Muxer.js`; episodes via `getSeasonEpisodes` | file saved to device (File System Access API, Blob fallback); nothing persisted |
+| Download title | `/watch/:id/:slug?` (in-page `DownloadModal`) | `DownloadModal` → `downloadService` → Vercel `api/downloadify.js` (`resolve`\|`resolvevidsrc`\|`resolvevidcore`\|`resolvecinesrc` → `manifest` → single-URL Range-chunked `segment`); CineSrc audio renditions muxed in via `src/utils/fmp4Muxer.js`; episodes via `getSeasonEpisodes` | file saved to device (File System Access API, Blob fallback); nothing persisted |
 | Person | `/person/:id/:slug?` | `person:<id>` → `getPersonDetails` (`/person`, `/combined_credits`, top-40) | network only |
 | My List | `/watchlist` (`/mylist` redirects) | local only | `aios_my_list`, `aios_my_collections` (local) |
 | History | `/history` | local only | `aios_continue_watching` (local) |
@@ -119,11 +119,17 @@ External services: `api.themoviedb.org/3` (catalog, 10s timeout in
 w92→w1280), `omdbapi.com` (IMDb/RT, env-key `VITE_OMDB_API_KEY`, 24h cache),
 `www.googleapis.com/oauth2/v3/certs` (ID-token JWKS), `youtube iframe API`
 (hover trailers), 8 third-party iframe stream hosts (`videoSourceAdapter.js`).
-Downloads resolve those hosts' HLS master playlists (or VidSrc's — a third-party
-provider via the `resolvevidsrc` action, whose embed `var Q` token is walked
+VidSrc is a
+third-party provider via the `resolvevidsrc` action, whose embed `var Q` token is walked
 server-side so CORS no longer blocks resolution) and proxy media segments
-through the same-origin Vercel function `api/downloadify.js`. CineSrc is a
-second third-party provider via `resolvecinesrc`: its stream tokens are minted
+through the same-origin Vercel function `api/downloadify.js`. VidCore (Server 5)
+is a second third-party provider via `resolvevidcore`: unlike its iframe host,
+the vidcore.org/embed sources catalogue is fully serverless — the "videasy" API
+(`vidrack.created.app/api/sources/videasy`) lists direct HLS ladders incl. 4K,
+and the m3u8s/segments are relayed with `Referer: https://vidcore.io/`
+(`source.refUrl` drives the manifest/segment actions; the fMP4 segments on
+`paperorbit.top` also allow browser-direct CORS). CineSrc is a
+third third-party provider via `resolvecinesrc`: its stream tokens are minted
 inside a real browser (canvas/TLS fingerprint-bound), so a separately-hosted
 Chrome service (`cinesrc-resolver/`) does the mint and the Vercel function
 walks the returned master → variant ladder. The resolver origin is shipped in
@@ -133,7 +139,7 @@ sent as `body.resolverUrl`) so a deployment needs no Vercel env var;
 point at the operator's own localhost/LAN resolver). Client-supplied origins
 are SSRF-guarded exactly like playlist URLs (DNS-resolved private-IP check +
 manual redirect re-validation). When neither is configured the source fails
-softly and VidSrc fills the sheet.
+softly and the remaining sources fill the sheet.
 The `segment` action is single-URL + `{ range: { start, max } }` in ≤3.5MB
 chunks with an `x-streamly-more` "more bytes?" header — the old 6-URL-per-POST
 batch blew Vercel's 4.5MB response cap with `FUNCTION_PAYLOAD_TOO_LARGE`, which

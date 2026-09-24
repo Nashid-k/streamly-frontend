@@ -12,6 +12,7 @@ import { movieService } from "../api/movieService";
 vi.mock("../api/downloadService", () => ({
   downloadService: {
     resolveVidsrc: vi.fn(),
+    resolveVidcore: vi.fn(),
     resolveCinesrc: vi.fn(),
     buildManifest: vi.fn(),
     pickSaveTarget: vi.fn(),
@@ -129,6 +130,9 @@ beforeEach(() => {
   downloadService.resolveCinesrc.mockRejectedValue(
     Object.assign(new Error("CineSrc resolver not configured"), { code: "resolver-unavailable" }),
   );
+  // VidCore (Server 5) is serverless; default it to a soft no-source so the
+  // rows-tested base (VidSrc alone) stays stable. Dedicated tests override it.
+  downloadService.resolveVidcore.mockRejectedValue(new Error("no source"));
   downloadService.buildManifest.mockResolvedValue({ kind: "fmp4", initUrl: null, segments: ["https://cdn/a.m4s"], count: 1 });
   downloadService.saveStream.mockResolvedValue({ bytes: 2048, filename: "f.mp4", method: "blob" });
 });
@@ -219,6 +223,21 @@ describe("DownloadModal", () => {
     await waitFor(() => expect(downloadService.resolveCinesrc).toHaveBeenCalled());
     expect(await screen.findByText(/CineSrc/)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /^Download \d/i }).length).toBe(4);
+  });
+
+  it("adds VidCore (Server 5) quality rows alongside VidSrc (Alt)", async () => {
+    downloadService.resolveVidsrc.mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
+    downloadService.resolveVidcore.mockResolvedValue({
+      source: { url: "https://moon.quietridge.top/vd/x/index-s2160p-v1-a1.m3u8", refUrl: "https://vidcore.io/" },
+      variants: [{ uri: "https://moon.quietridge.top/vd/x/index-s2160p-v1-a1.m3u8", bandwidth: 16000000, height: 2160, hdr: false }],
+    });
+    renderModal();
+
+    await waitFor(() => expect(downloadService.resolveVidcore).toHaveBeenCalledWith(
+      { type: "movie", id: "550", season: undefined, episode: undefined },
+      expect.objectContaining({ signal: expect.anything() }),
+    ));
+    expect(await screen.findByText(/VidCore \(Server 5\)/)).toBeInTheDocument();
   });
 
   it("skips CineSrc softly (resolver-unavailable) and keeps VidSrc rows", async () => {

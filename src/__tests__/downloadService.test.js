@@ -264,6 +264,61 @@ describe("downloadService.resolveCinesrc", () => {
   });
 });
 
+describe("downloadService.resolveVidcore", () => {
+  it("labels the quality ladder VidCore's sources serve (incl. 4K)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          ok: true,
+          source: { kind: "hls", url: "https://moon.quietridge.top/vd/x/index-s2160p-v1-a1.m3u8", refUrl: "https://vidcore.io/" },
+          variants: [
+            { uri: "https://moon.quietridge.top/vd/x/index-s2160p-v1-a1.m3u8", bandwidth: 16000000, height: 2160 },
+            { uri: "https://moon.quietridge.top/vd/x/index-s1080p-v1-a1.m3u8", bandwidth: 6000000, height: 1080 },
+            { uri: "https://moon.quietridge.top/vd/x/index-s720p-v1-a1.m3u8", bandwidth: 2500000, height: 720 },
+          ],
+        }),
+      ),
+    );
+
+    const resolved = await downloadService.resolveVidcore({ type: "movie", id: "693134" });
+    expect(resolved.variants.map((v) => v.label)).toEqual(["4K", "1080p", "720p"]);
+    expect(resolved.source.refUrl).toBe("https://vidcore.io/");
+  });
+
+  it("passes season+episode through for TV titles and sends no resolverUrl", async () => {
+    let capturedBody = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        capturedBody = JSON.parse(init.body);
+        return jsonResponse({
+          ok: true,
+          source: { kind: "hls", url: "https://moon.quietridge.top/vd/x/index-s1080p-v1-a1.m3u8", refUrl: "https://vidcore.io/" },
+          variants: [
+            { uri: "https://moon.quietridge.top/vd/x/index-s1080p-v1-a1.m3u8", bandwidth: 6000000, height: 1080 },
+          ],
+        });
+      }),
+    );
+
+    await downloadService.resolveVidcore({ type: "tv", id: "1396", season: 1, episode: 1 });
+
+    expect(capturedBody).toMatchObject({ action: "resolvevidcore", type: "tv", id: "1396", season: "1", episode: "1" });
+    expect(capturedBody.resolverUrl).toBeUndefined();
+  });
+
+  it("surfaces an honest no-source result", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse({ ok: false, error: "No downloadable stream found via VidCore", code: "no-source" })),
+    );
+    await expect(downloadService.resolveVidcore({ type: "movie", id: "550" })).rejects.toMatchObject({
+      code: "no-source",
+    });
+  });
+});
+
 describe("downloadService.buildManifest with CineSrc audio", () => {
   it("attaches the audio's fMP4 manifest so saveStream can mux it in", async () => {
     const audio = { groupId: "audio", name: "LINE", language: "en", url: "https://cdn/en.m3u8" };

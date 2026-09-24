@@ -4,10 +4,13 @@
 //   1. resolveVidsrc({type,id,season?,episode?}) -> VidSrc (Alt) HLS ladder
 //      resolveCinesrc({type,id,season?,episode?}) -> CineSrc HLS ladder (needs
 //      the separately-hosted cinesrc-resolver Chrome service — see the
-//      architecture note in api/downloadify.js). Both return the same shape
-//      so the modal can fan out over either source; CineSrc also carries
-//      `audio` — its EXT-X-MEDIA AUDIO renditions (separate streams from the
-//      video renditions, muxed back in at save time so the MP4 isn't silent).
+//      architecture note in api/downloadify.js). resolveVidcore({...}) is the
+//      VidCore (Server 5) equivalent and, like VidSrc, is fully serverless —
+//      its sources catalogue serves direct HLS ladders (incl. 4K). All three
+//      return the same shape so the modal can fan out over any source;
+//      CineSrc also carries `audio` — its EXT-X-MEDIA AUDIO renditions
+//      (separate streams from the video renditions, muxed back in at save time
+//      so the MP4 isn't silent).
 //   2. buildManifest(source, variant, { audio? }) -> concrete segment URL
 //      list (+ `audioManifest` when the audio rendition is muxable fMP4)
 //   3. saveStream(...)                    -> fetch segments in bounded Range
@@ -248,6 +251,29 @@ export const downloadService = {
     const data = await post(body, { signal });
     const resolved = this.normalizeResolved(data);
     logInfo("download", `Resolved ${resolved.variants.length} downloadable variant(s) via CineSrc.`, {
+      type: kind,
+      id,
+      season: season ?? null,
+      episode: episode ?? null,
+      variants: resolved.variants.map((v) => v.label),
+    });
+    return resolved;
+  },
+
+  /** Resolve the VidCore provider (Server 5 — action "resolvevidcore"). Same
+      contract as resolveCinesrc, but the mint is pure serverless: vidcore.org's
+      sources catalogue serves direct HLS ladders (incl. 4K) with no browser
+      required, so no separate resolver service or `resolverUrl` is involved. */
+  async resolveVidcore({ type, id, season, episode }, { signal } = {}) {
+    const kind = type === "tv" ? "tv" : "movie";
+    const body = { action: "resolvevidcore", type: kind, id: String(id || "") };
+    if (kind === "tv") {
+      if (season != null) body.season = String(season);
+      if (episode != null) body.episode = String(episode);
+    }
+    const data = await post(body, { signal });
+    const resolved = this.normalizeResolved(data);
+    logInfo("download", `Resolved ${resolved.variants.length} downloadable variant(s) via VidCore.`, {
       type: kind,
       id,
       season: season ?? null,
