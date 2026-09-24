@@ -14,6 +14,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { Maximize, Pause, Play } from "lucide-react";
 import Hls from "hls.js";
 import { downloadService } from "../api/downloadService";
 import { createStreamlyLoader } from "../api/nativeHlsLoader";
@@ -30,6 +31,13 @@ function stamp() {
   return new Date().toLocaleTimeString();
 }
 
+function fmtTime(s) {
+  const v = Math.max(0, Math.floor(Number(s) || 0));
+  const m = Math.floor(v / 60);
+  const r = v % 60;
+  return `${m}:${String(r).padStart(2, "0")}`;
+}
+
 export default function NativeProtoPage() {
   const [params] = useSearchParams();
   const type = params.get("type") === "tv" ? "tv" : "movie";
@@ -38,6 +46,7 @@ export default function NativeProtoPage() {
   const episode = Number(params.get("episode") || 1);
 
   const videoRef = useRef(null);
+  const screenRef = useRef(null);
   const hlsRef = useRef(null);
   const runRef = useRef(0);
   const metaRef = useRef({ variants: [], sourceKey: null, refUrl: null, cinesrcLevels: false });
@@ -49,8 +58,63 @@ export default function NativeProtoPage() {
   const [isMasterMode, setIsMasterMode] = useState(false);
   const [audioTracks, setAudioTracks] = useState([]);
   const [fatal, setFatal] = useState(null);
+  const [playing, setPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
 
   const say = (msg) => setLines((prev) => [...prev.slice(-60), `${stamp()} ${msg}`]);
+
+  const togglePlay = async () => {
+    const video = videoRef.current;
+    if (!video) return;
+    try {
+      if (video.paused) await video.play();
+      else video.pause();
+    } catch {
+      // Autoplay policy — the big custom button stays visible for a tap.
+    }
+  };
+
+  const seekTo = (value) => {
+    const video = videoRef.current;
+    if (!video) return;
+    try {
+      video.currentTime = Number(value) || 0;
+    } catch {
+      // live-edge clamp — ignore out-of-range seeks
+    }
+  };
+
+  const goFullscreen = () => {
+    try {
+      screenRef.current?.requestFullscreen?.()?.catch?.(() => {});
+    } catch {
+      // fullscreen unsupported — native video keeps playing inline
+    }
+  };
+
+  /* Custom transport state (the prototype ships NO native video controls —
+     play/pause/seek/time/fullscreen below are all wired by hand). */
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return undefined;
+    const onPlay = () => setPlaying(true);
+    const onPause = () => setPlaying(false);
+    const onTime = () => setCurrentTime(video.currentTime || 0);
+    const onMeta = () => setDuration(video.duration || 0);
+    video.addEventListener("play", onPlay);
+    video.addEventListener("pause", onPause);
+    video.addEventListener("timeupdate", onTime);
+    video.addEventListener("loadedmetadata", onMeta);
+    video.addEventListener("durationchange", onMeta);
+    return () => {
+      video.removeEventListener("play", onPlay);
+      video.removeEventListener("pause", onPause);
+      video.removeEventListener("timeupdate", onTime);
+      video.removeEventListener("loadedmetadata", onMeta);
+      video.removeEventListener("durationchange", onMeta);
+    };
+  }, []);
 
   useEffect(() => {
     if (!Hls.isSupported()) {
@@ -175,7 +239,7 @@ export default function NativeProtoPage() {
         try {
           await videoRef.current?.play();
         } catch {
-          say("Autoplay blocked — press play on the video.");
+          say("Autoplay blocked — tap the custom play button.");
         }
         return;
       }
@@ -263,12 +327,109 @@ export default function NativeProtoPage() {
           {type} {id}
           {type === "tv" ? ` S${season}E${episode}` : ""} · {status}
         </p>
-        <video
-          ref={videoRef}
-          controls
-          playsInline
-          style={{ width: "100%", marginTop: 12, background: "#000", borderRadius: 12 }}
-        />
+        <div
+          ref={screenRef}
+          style={{ position: "relative", marginTop: 12, background: "#000", borderRadius: 12, overflow: "hidden" }}
+        >
+          <video
+            ref={videoRef}
+            playsInline
+            onClick={togglePlay}
+            style={{ width: "100%", display: "block", aspectRatio: "16 / 9", background: "#000" }}
+          />
+          {!playing && (
+            <button
+              type="button"
+              onClick={togglePlay}
+              aria-label="Play"
+              style={{
+                position: "absolute",
+                inset: 0,
+                margin: "auto",
+                width: 84,
+                height: 84,
+                borderRadius: "50%",
+                border: "none",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "rgba(34,197,94,0.92)",
+                color: "#04120a",
+                boxShadow: "0 8px 32px rgba(0,0,0,0.55)",
+              }}
+            >
+              <Play size={38} fill="currentColor" style={{ marginLeft: 4 }} />
+            </button>
+          )}
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              bottom: 0,
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "10px 12px",
+              background: "linear-gradient(transparent, rgba(0,0,0,0.75))",
+            }}
+          >
+            <button
+              type="button"
+              onClick={togglePlay}
+              aria-label={playing ? "Pause" : "Play"}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: "50%",
+                border: "1px solid rgba(255,255,255,0.3)",
+                background: "rgba(255,255,255,0.12)",
+                color: "#fff",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              {playing ? <Pause size={17} fill="currentColor" /> : <Play size={17} fill="currentColor" style={{ marginLeft: 2 }} />}
+            </button>
+            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>
+              {fmtTime(currentTime)} / {fmtTime(duration)}
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={Math.max(0, Math.floor(duration) || 0)}
+              step={1}
+              value={Math.min(Math.floor(currentTime) || 0, Math.max(0, Math.floor(duration) || 0))}
+              onChange={(e) => seekTo(e.target.value)}
+              aria-label="Seek"
+              style={{ flex: 1, accentColor: "#22c55e", cursor: "pointer" }}
+            />
+            <button
+              type="button"
+              onClick={goFullscreen}
+              aria-label="Fullscreen"
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: "50%",
+                border: "1px solid rgba(255,255,255,0.3)",
+                background: "rgba(255,255,255,0.12)",
+                color: "#fff",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <Maximize size={16} />
+            </button>
+          </div>
+        </div>
         {fatal && (
           <p style={{ marginTop: 12, padding: 12, borderRadius: 10, background: "rgba(248,113,113,0.12)", border: "1px solid rgba(248,113,113,0.35)", fontSize: 14 }}>
             {fatal}
