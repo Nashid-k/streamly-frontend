@@ -47,6 +47,8 @@ const MAX_CONSECUTIVE_FRAG_FAILURES = 4;
 const NETFLIX_RED = "#E50914";
 const HIDE_DELAY_MS = 3000;
 const SKIP_SECONDS = 10;
+// Netflix "Up Next" auto-play countdown for a TV episode's next installment.
+const UP_NEXT_MS = 15000;
 const VOLUME_STORAGE_KEY = "streamly-native-volume";
 const MUTED_STORAGE_KEY = "streamly-native-muted";
 
@@ -158,6 +160,8 @@ export default function NativePlayerView({
   const clickTimer = useRef(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const onSelectEpisodeRef = useRef(onSelectEpisode);
+  onSelectEpisodeRef.current = onSelectEpisode;
 
   const [lines, setLines] = useState([]);
   const [status, setStatus] = useState("idle");
@@ -169,6 +173,8 @@ export default function NativePlayerView({
   const [fatal, setFatal] = useState(null);
   const [playing, setPlaying] = useState(false);
   const [ended, setEnded] = useState(false);
+  // Netflix "Up Next" card: { number, title } for the next TV episode, or null.
+  const [upNext, setUpNext] = useState(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   // Real loader state: true while the screen has nothing new to show (initial
@@ -214,8 +220,14 @@ export default function NativePlayerView({
     poke();
     setEnded(false);
     try {
-      if (video.paused) await video.play();
-      else video.pause();
+      if (video.paused) {
+        // Netflix behavior: play at the end restarts from the top instead of
+        // immediately re-ending (play() at currentTime==duration is a no-op).
+        if (video.ended) video.currentTime = 0;
+        await video.play();
+      } else {
+        video.pause();
+      }
     } catch {
       // Autoplay policy — the big custom button stays visible for a tap.
     }
@@ -268,22 +280,37 @@ export default function NativePlayerView({
     setScrubDragging(true);
     const ratio = scrubRatioOf(e.clientX);
     setScrubHover(ratio);
-    const dur = Number(videoRef.current?.duration);
-    if (Number.isFinite(dur) && dur > 0) seekTo(ratio * dur);
+    // No seek here: the bar tracks the drag position and the seek is
+    // committed exactly once on release. Seeking on every pointermove would
+    // make hls.js cancel in-flight fragment loads and stall the seek.
   };
 
   const onScrubMove = (e) => {
     const ratio = scrubRatioOf(e.clientX);
     setScrubHover(ratio);
     if (scrubDragging) {
-      const dur = Number(videoRef.current?.duration);
-      if (Number.isFinite(dur) && dur > 0) seekTo(ratio * dur);
+      poke(); // a long drag must not let the controls autohide mid-drag
     }
   };
 
-  const onScrubUp = (e) => {
-    e.stopPropagation();
+  const onScrubUp = () => {
+    poke();
+    if (scrubDragging) {
+      const dur = Number(videoRef.current?.duration);
+      const target = (scrubHover ?? 0) * (Number.isFinite(dur) && dur > 0 ? dur : 0);
+      seekTo(target);
+    }
     setScrubDragging(false);
+    // Let the red bar settle on the seek target (currentTime syncs on the
+    // `seeking` event) before dropping the hover overlay.
+    window.setTimeout(() => setScrubHover(null), 250);
+  };
+
+  // A cancelled gesture (Esc on touch, scroll steal, pointer leaving the
+  // window) must not strand the scrubber in the dragging state.
+  const onScrubCancel = () => {
+    setScrubDragging(false);
+    setScrubHover(null);
   };
 
   const onScrubLeave = () => {
@@ -398,7 +425,15 @@ export default function NativePlayerView({
     // seeking mean "screen has nothing new", playing/canplay mean pixels flow.
     const onWaiting = () => setBuffering(true);
     const onStalled = () => setBuffering(true);
-    const onSeeking = () => setBuffering(true);
+    const onSeeking = () => {
+      setBuffering(true);
+      // timeupdate does NOT fire while the element is seeking, so without this
+      // the red bar would sit at the pre-seek position until the new segment
+      // buffers (the "progress bar won't jump" bug). currentTime already
+      // carries the seek target here — mirror it.
+      setCurrentTime(video.currentTime || 0);
+    };
+    const onSeeked = () => setBuffering(false);
     const onCanPlay = () => setBuffering(false);
     video.addEventListener("play", onPlay);
     video.addEventListener("pause", onPause);
@@ -409,6 +444,7 @@ export default function NativePlayerView({
     video.addEventListener("waiting", onWaiting);
     video.addEventListener("stalled", onStalled);
     video.addEventListener("seeking", onSeeking);
+    video.addEventListener("seeked", onSeeked);
     video.addEventListener("canplay", onCanPlay);
     return () => {
       video.removeEventListener("play", onPlay);
@@ -420,6 +456,7 @@ export default function NativePlayerView({
       video.removeEventListener("waiting", onWaiting);
       video.removeEventListener("stalled", onStalled);
       video.removeEventListener("seeking", onSeeking);
+      video.removeEventListener("seeked", onSeeked);
       video.removeEventListener("canplay", onCanPlay);
     };
   }, []);
@@ -469,6 +506,42 @@ export default function NativePlayerView({
     [],
   );
 
+  /* One-off keyframes for the "Up Next" countdown bar (the player is fully
+     inline-styled, so the 0%→100% sweep is injected into the head). */
+  useEffect(() => {
+    const styleId = "streamly-upnext-keyframes";
+    if (document.getElementById(styleId)) return undefined;
+    const style = document.createElement("style");
+    style.id = styleId;
+    style.textContent = `@keyframes upNextCountdown { from { transform: scaleX(0); } to { transform: scaleX(1); } }`;
+    document.head.appendChild(style);
+    return undefined;
+  }, []);
+
+  /* Netflix "Up Next": when a TV episode ends and a next one exists, offer a
+     countdown card that auto-plays it. Replaying/cancelling tears it down (a
+     cancelled card's fired timer is a no-op thanks to the `prev` guard). */
+  useEffect(() => {
+    if (type !== "tv" || !ended) {
+      setUpNext(null);
+      return undefined;
+    }
+    const idx = episodes.findIndex((e) => e.number === episode);
+    const next = idx >= 0 ? episodes[idx + 1] : null;
+    if (!next) {
+      setUpNext(null);
+      return undefined;
+    }
+    setUpNext(next);
+    const timer = setTimeout(() => {
+      setUpNext((prev) => {
+        if (prev) onSelectEpisodeRef.current?.(prev.number);
+        return null;
+      });
+    }, UP_NEXT_MS);
+    return () => clearTimeout(timer);
+  }, [type, ended, episodes, episode]);
+
   /* Netflix keyboard map. Space/K play-pause, arrows seek/volume, M mute,
      F fullscreen, Esc closes the dialog first, then the player. */
   useEffect(() => {
@@ -486,6 +559,14 @@ export default function NativePlayerView({
         case "KeyK":
           e.preventDefault();
           togglePlay();
+          break;
+        case "KeyJ":
+          e.preventDefault();
+          seekRelative(-SKIP_SECONDS);
+          break;
+        case "KeyL":
+          e.preventDefault();
+          seekRelative(SKIP_SECONDS);
           break;
         case "ArrowLeft":
           e.preventDefault();
@@ -870,6 +951,7 @@ export default function NativePlayerView({
     const wasPaused = videoRef.current.paused;
     say(`Switching to ${height || "?"}p…`);
     setBuffering(true);
+    poke();
     try {
       if (meta.cinesrcLevels && Array.isArray(hls.levels) && hls.levels.length > 0) {
         let best = 0;
@@ -934,6 +1016,9 @@ export default function NativePlayerView({
   // Render-time derivations for the scrubber.
   const safeDuration = Number.isFinite(duration) && duration > 0 ? duration : 0;
   const progressRatio = safeDuration > 0 ? Math.min(1, Math.max(0, currentTime / safeDuration)) : 0;
+  // While dragging, the bar follows the pointer — not the playback head, which
+  // is frozen until the single commit-on-release seek lands.
+  const effectiveRatio = scrubDragging ? (scrubHover ?? progressRatio) : progressRatio;
   const hoverRatio = scrubHover ?? (scrubDragging ? progressRatio : null);
   const VolumeIcon = muted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
   const showEpisodesButton = Array.isArray(episodes) && episodes.length > 0;
@@ -1106,6 +1191,7 @@ export default function NativePlayerView({
             onPointerDown={onScrubDown}
             onPointerMove={onScrubMove}
             onPointerUp={onScrubUp}
+            onPointerCancel={onScrubCancel}
             onPointerLeave={onScrubLeave}
             style={{
               position: "relative",
@@ -1149,7 +1235,7 @@ export default function NativePlayerView({
                   top: 0,
                   bottom: 0,
                   left: 0,
-                  width: `${progressRatio * 100}%`,
+                  width: `${effectiveRatio * 100}%`,
                   background: NETFLIX_RED,
                   borderRadius: 999,
                 }}
@@ -1158,7 +1244,7 @@ export default function NativePlayerView({
                 style={{
                   position: "absolute",
                   top: "50%",
-                  left: `calc(${progressRatio * 100}% - ${(hoverRatio != null ? 16 : 12) / 2}px)`,
+                  left: `calc(${effectiveRatio * 100}% - ${(hoverRatio != null ? 16 : 12) / 2}px)`,
                   width: hoverRatio != null ? 16 : 12,
                   height: hoverRatio != null ? 16 : 12,
                   borderRadius: "50%",
@@ -1317,6 +1403,85 @@ export default function NativePlayerView({
             </div>
           </div>
         </div>
+        {/* Netflix "Up Next" post-roll card (TV only). */}
+        {upNext && ended && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            role="complementary"
+            aria-label={`Up Next: playing in ${Math.round(UP_NEXT_MS / 1000)} seconds`}
+            style={{
+              position: "absolute",
+              right: 16,
+              bottom: 176,
+              width: "min(300px, 62%)",
+              background: "rgba(14,14,14,0.96)",
+              border: "1px solid rgba(255,255,255,0.14)",
+              borderRadius: 12,
+              padding: 12,
+              zIndex: 6,
+              boxShadow: "0 12px 40px rgba(0,0,0,0.6)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.18em", color: "rgba(255,255,255,0.55)" }}>
+                Up Next
+              </span>
+              <IconBtn label="Cancel up next" onClick={() => setUpNext(null)}>
+                <X size={16} />
+              </IconBtn>
+            </div>
+            <div style={{ marginTop: 4, color: "#fff", fontWeight: 700, fontSize: 15, lineHeight: 1.25 }}>
+              {upNext.title ? `E${upNext.number} · ${upNext.title}` : `Episode ${upNext.number}`}
+            </div>
+            <div
+              style={{
+                marginTop: 8,
+                height: 3,
+                borderRadius: 999,
+                background: "rgba(255,255,255,0.18)",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  height: "100%",
+                  width: `${UP_NEXT_MS}ms`,
+                  background: NETFLIX_RED,
+                  transformOrigin: "left",
+                  animation: "upNextCountdown linear both",
+                  animationDuration: `${UP_NEXT_MS}ms`,
+                }}
+              />
+            </div>
+            <div style={{ marginTop: 6, fontSize: 12.5, color: "rgba(255,255,255,0.6)" }}>
+              Playing in {Math.round(UP_NEXT_MS / 1000)} seconds
+            </div>
+            <button
+              type="button"
+              onClick={() => onSelectEpisodeRef.current?.(upNext.number)}
+              style={{
+                marginTop: 10,
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                padding: "7px 12px",
+                background: "#fff",
+                color: "#000",
+                border: "none",
+                borderRadius: 8,
+                fontWeight: 800,
+                fontSize: 13.5,
+                cursor: "pointer",
+              }}
+            >
+              <Play size={18} />
+              Play now
+            </button>
+          </div>
+        )}
+
         {/* Audio & Subtitles / Episodes panel. */}
         {panel && (
           <div
