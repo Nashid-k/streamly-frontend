@@ -26,6 +26,7 @@ import { I18nProvider } from "./i18n/index.jsx";
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { HelmetProvider } from "react-helmet-async";
+import { Analytics } from "@vercel/analytics/react";
 import { queryClient } from "./queryClient";
 import { initGlobalErrorLogging, logBootDiagnostics } from "./utils/debugLogger";
 import { shouldAttemptRecovery, clearRuntimeCaches } from "./utils/chunkRecovery";
@@ -69,6 +70,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   <App />
                 </DownloadsProvider>
               </ToastProvider>
+              <Analytics />
             </I18nProvider>
           </PreferencesProvider>
         </AuthProvider>

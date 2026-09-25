@@ -96,9 +96,22 @@ const BUFFER_UNDERFLOOR_MS = 8000;
 // without bound (default is Infinity — a 2h movie would pin ~7GB in the
 // browser's RAM). Keep 60s behind; hls.js trims the rest like Netflix does.
 const BACK_BUFFER_SECONDS = 60;
+// ABR starting point. hls.js's default initial bandwidth estimate is 1Mbps,
+// so Auto quality starts low and "climbs a ladder" — and with a cloud relay
+// leg, every rung's probe is a fresh round-trip, so the up-steps arrive as
+// visible "loading". On modern connections the viewer is served a far fatter
+// pipe; seeding the estimate at a realistic value (10Mbps) lets Auto start
+// mid-ladder, then measure and converge. The deep-buffer floor step-down
+// still protects against an optimistic start overestimating a bad pipe.
+const INITIAL_BW_BITS = 10 * 1000 * 1000;
 const VOLUME_STORAGE_KEY = "streamly-native-volume";
 const MUTED_STORAGE_KEY = "streamly-native-muted";
 const BRIGHTNESS_STORAGE_KEY = "streamly-native-brightness";
+/* One-time reset flag: an old gesture build could park brightness very low
+   (inverted drag sign), and the user order was "back to normal (100%)".
+   Everyone's brightness is cleared exactly once; a later deliberate low
+   choice persists like any other. */
+const BRIGHTNESS_RESET_FLAG = "streamly-native-brightness-reset-v1";
 const ASPECT_STORAGE_KEY = "streamly-native-aspect";
 const BRIGHTNESS_MIN = 0.25;
 const BRIGHTNESS_MAX = 1.75;
@@ -343,6 +356,7 @@ export default function NativePlayerView({
   const subtitleEnabledRef = useRef(false); // mirrors state, read inside onTime
   const subtitleCueRef = useRef(null); // last rendered cue text
   const subtitleTokenRef = useRef(0); // download race guard (last pick wins)
+  const hasStartedRef = useRef(false); // true once any frame played this session
   const [status, setStatus] = useState("idle");
   const [qualities, setQualities] = useState([]);
   const [activeUri, setActiveUri] = useState(null);
@@ -367,6 +381,34 @@ export default function NativePlayerView({
   // Real loader state: true while the screen has nothing new to show (initial
   // load, stall, seek). Driven by the video element's own signals.
   const [buffering, setBuffering] = useState(true);
+  // UI mirror of `buffering` that only turns ON after a real pause in media
+  // flow (~700ms). `buffering` stays honest & immediate for the logic (source
+  // failover, seek, low-buffer stepper); the SPINNER is what a viewer reads as
+  // "loading", and Netflix never flashes a spinner on a 200ms micro-stall
+  // between ABR level switches — that flicker at EVERY quality is exactly the
+  // complaint this kills. Falls off instantly when media resumes.
+  const [spinner, setSpinner] = useState(true);
+  // During a cold open (no frame has EVER rendered this session) a genuine
+  // loading glyph must show immediately — the first fetch is real work. Once
+  // we're mid-playback, a 200ms hole between ABR level switches is NOT
+  // "loading" to a viewer; only a sustained (~700ms) stall earns the spinner.
+  // A paused-but-loaded stream must not spin either.
+  useEffect(() => {
+    if (!buffering) {
+      setSpinner(false);
+      return undefined;
+    }
+    if (!hasStartedRef.current) {
+      setSpinner(true);
+      return undefined;
+    }
+    if (!playing) {
+      setSpinner(false);
+      return undefined;
+    }
+    const t = setTimeout(() => setSpinner(true), 700);
+    return () => clearTimeout(t);
+  }, [buffering, playing]);
   const [bufferedSecs, setBufferedSecs] = useState(0);
   const [bufferedRanges, setBufferedRanges] = useState([]);
   // Master-mode (CineSrc) starts on ABR auto; picking a level pins it.
@@ -410,6 +452,10 @@ export default function NativePlayerView({
   const [autoMuted, setAutoMuted] = useState(false); // autoplay-block → muted play + hint
   const [brightness, setBrightness] = useState(() => {
     try {
+      if (!window.localStorage.getItem(BRIGHTNESS_RESET_FLAG)) {
+        window.localStorage.removeItem(BRIGHTNESS_STORAGE_KEY);
+        window.localStorage.setItem(BRIGHTNESS_RESET_FLAG, "1");
+      }
       const v = Number(window.localStorage.getItem(BRIGHTNESS_STORAGE_KEY));
       return Number.isFinite(v) ? Math.min(BRIGHTNESS_MAX, Math.max(BRIGHTNESS_MIN, v)) : 1;
     } catch {
@@ -836,13 +882,16 @@ export default function NativePlayerView({
       suppressClickRef.current = true;
     }
     if (g.side === "volume") {
-      const nv = Math.min(1, Math.max(0, volumeRef.current + dy * 0.008));
+      // Netflix sign: drag UP → louder (clientY falls, dy is negative → -dy
+      // is positive). The old +dy build moved DOWN when dragging up, which is
+      // how a volume/brightness drag could end up stuck at the bottom.
+      const nv = Math.min(1, Math.max(0, volumeRef.current - dy * 0.008));
       setMuted(false);
       setAutoMuted(false);
       setVolume(nv);
       showHud("volume", nv);
     } else {
-      const nb = Math.min(BRIGHTNESS_MAX, Math.max(BRIGHTNESS_MIN, brightnessRef.current + dy * 0.008));
+      const nb = Math.min(BRIGHTNESS_MAX, Math.max(BRIGHTNESS_MIN, brightnessRef.current - dy * 0.008));
       setBrightness(nb);
       showHud("brightness", nb);
     }
@@ -856,6 +905,7 @@ export default function NativePlayerView({
     const video = videoRef.current;
     if (!video) return undefined;
     const onPlay = () => {
+      hasStartedRef.current = true;
       setPlaying(true);
       setBuffering(false);
       if (navigator.mediaSession) navigator.mediaSession.playbackState = "playing";
@@ -1425,6 +1475,9 @@ export default function NativePlayerView({
             maxBufferLength: BUFFER_DEPTH_SECONDS,
             maxBufferSize,
             backBufferLength: BACK_BUFFER_SECONDS,
+            // Start Auto mid-ladder (see INITIAL_BW_BITS above) so the buyer
+            // doesn't watch quality climb rung-by-rung through the relay.
+            initialBandwidthEstimate: INITIAL_BW_BITS,
             // Netflix-authentic ABR: judge by MEASURED bytes/sec (not the
             // manifest's advertised bitrate, which relay-proxied sources lie
             // about), and never pull a rendition taller than the player's own
@@ -2175,7 +2228,7 @@ export default function NativePlayerView({
             stream is simply paused (incl. the autoplay-policy case where a
             cold start can't play without a tap); the replay button at the end
             (Netflix end state). */}
-        {buffering && (
+        {spinner && (
           <div
             role="status"
             aria-label="Loading video"

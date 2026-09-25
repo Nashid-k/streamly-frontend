@@ -47,12 +47,89 @@ import { buildMuxedInit, muxSegment } from "../utils/fmp4Muxer.js";
 import { logDebug, logError, logInfo, logWarn } from "../utils/debugLogger.js";
 import { CINESRC_RESOLVER_ORIGIN } from "./cinesrcResolver.js";
 import { deriveSliceMore, relayProxyConfig } from "./relayProxy.js";
+import { isRefererGated } from "./nativeHlsLoader.js";
 
 const ENDPOINT = "/api/downloadify";
 const CHUNK_MAX = 3.5 * 1024 * 1024;
 // How many segments download in parallel. Videos stitch fine when bytes are
 // written to the file in ORDER; only the network fetch needs to overlap.
 const SEGMENT_CONCURRENCY = 4;
+
+/* CineSrc resolver circuit breaker (client side).
+   cinesrc-resolver hosts Chrome; when its host runs out of memory the service
+   just disappears. Hitting it then through /api/downloadify leaves the Vercel
+   function waiting near its own maxDuration (~55s) for a corpse — during which
+   the PLAYER shows nothing but the loading spinner. That wait is what a viewer
+   reads as "fantastically slow internet", so we never let a resolve land on a
+   dead resolver: a cheap direct /healthz probe decides, and repeated failures
+   open a short circuit that makes every CineSrc attempt fail in milliseconds.
+   The breaker ONLY gates the pre-flight probe + confirmed server errors — a
+   genuine response (even a 404) resets it, so a resurrected service is
+   re-adopted on the next probe window without user action. */
+const CINESRC_HEALTHZ_TIMEOUT_MS = 3500;
+const CINESRC_HEALTHZ_TTL_MS = 30 * 1000; // fresh probe skips the pre-flight
+const CINESRC_OPEN_BLOCK_MS = 15 * 1000; // after 1 miss
+const CINESRC_OPEN_BLOCK_LONG_MS = 2 * 60 * 1000; // after consecutive misses
+const cinesrcBreaker = { okUntil: 0, blockUntil: 0, misses: 0 };
+
+async function cinesrcHealthz(origin, { signal } = {}) {
+  if (signal?.aborted) throw Object.assign(new Error("Aborted"), { name: "AbortError" });
+  const probe = new AbortController();
+  const timer = setTimeout(() => probe.abort(), CINESRC_HEALTHZ_TIMEOUT_MS);
+  const onOuterAbort = () => probe.abort();
+  signal?.addEventListener?.("abort", onOuterAbort, { once: true });
+  try {
+    const res = await fetch(`${origin}/healthz`, {
+      signal: probe.signal,
+      credentials: "omit",
+      cache: "no-store",
+      redirect: "follow",
+    });
+    return res.ok;
+  } catch (error) {
+    if (signal?.aborted) throw error; // caller cancelled — let that propagate
+    return false;
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener?.("abort", onOuterAbort);
+  }
+}
+
+/* Ask the breaker whether a CineSrc resolve may proceed. Returns true when
+   the resolver is probe-healthy (or freshly probed). Sets `open` so the
+   caller can fail fast with a clear code instead of feeding Vercel's ~55s
+   wait. When healthy it records the timestamp so repeated resolves in a
+   session don't ping healthz every time. */
+async function cinesrcProceed(origin, { signal } = {}) {
+  const now = Date.now();
+  if (now < cinesrcBreaker.blockUntil) {
+    cinesrcBreaker.misses += 1;
+    logInfo("download", "CineSrc resolver circuit open — failing fast.", {
+      blockMs: cinesrcBreaker.blockUntil - now,
+    });
+    return false;
+  }
+  if (now < cinesrcBreaker.okUntil) return true;
+  const healthy = await cinesrcHealthz(origin, { signal });
+  if (healthy) {
+    cinesrcBreaker.okUntil = Date.now() + CINESRC_HEALTHZ_TTL_MS;
+    cinesrcBreaker.misses = 0;
+    cinesrcBreaker.blockUntil = 0;
+    return true;
+  }
+  cinesrcBreaker.misses += 1;
+  // First miss politely skips one resolve window; repeats slam the door
+  // longer (a cold Render instance wakes within seconds — a dead one stays
+  // dead for minutes).
+  cinesrcBreaker.blockUntil =
+    Date.now() + (cinesrcBreaker.misses >= 2 ? CINESRC_OPEN_BLOCK_LONG_MS : CINESRC_OPEN_BLOCK_MS);
+  cinesrcBreaker.okUntil = 0;
+  logWarn("download", "CineSrc resolver unreachable — pausing CineSrc usage.", {
+    misses: cinesrcBreaker.misses,
+    healthz: origin,
+  });
+  return false;
+}
 
 export class DownloadUnavailableError extends Error {
   constructor(message, code) {
@@ -248,6 +325,11 @@ async function post(body, { signal, as = "json" } = {}) {
    We only go direct when the CDN both allows cross-origin reads AND answers
    Range headers — anything else falls through to the relay. */
 async function probeDirect(url, { signal }) {
+  // Referer-gated CDNs (VidCore's moon.quietridge.top / palehive.top /
+  // grandpearl.top / wisehive.top family) 403 a bare browser probe on sight,
+  // and a burst of such probes trips their WAF — skip the probe entirely so
+  // every byte of these origins goes through the referer-carrying relay.
+  if (isRefererGated(url)) return { ok: false, total: 0 };
   try {
     const res = await fetch(url, { headers: { range: "bytes=0-0" }, signal });
     if (!res.ok) {
@@ -328,7 +410,24 @@ export const downloadService = {
     }
     const origin = String(resolverUrl || "").trim().replace(/\/+$/, "");
     if (origin) body.resolverUrl = origin;
+    // Fail fast on a dead resolver BEFORE the Vercel round-trip can hang the
+    // player for ~55s (see cinesrcBreaker above). A down CineSrc becomes a
+    // fast, honest "resolver-unavailable" — the modal drops the row, the
+    // player moves to the next source in hundreds of ms, not a minute of
+    // spinner.
+    const proceed = await cinesrcProceed(origin, { signal });
+    if (!proceed) {
+      throw new DownloadUnavailableError(
+        "CineSrc resolver is unavailable (its Chrome service is down or waking up).",
+        "resolver-unavailable",
+      );
+    }
     const data = await post(body, { signal });
+    // A real answer from the resolver proofs it was actually reachable and
+    // healthy — reset the breaker so a recovered service is re-used at once.
+    cinesrcBreaker.okUntil = Date.now() + CINESRC_HEALTHZ_TTL_MS;
+    cinesrcBreaker.misses = 0;
+    cinesrcBreaker.blockUntil = 0;
     const resolved = this.normalizeResolved(data);
     logInfo("download", `Resolved ${resolved.variants.length} downloadable variant(s) via CineSrc.`, {
       type: kind,

@@ -97,6 +97,10 @@ describe("isRefererGated", () => {
     expect(isRefererGated("https://moon.quietridge.top/vd/x/index-s1080p-v1-a1.m3u8")).toBe(true);
     expect(isRefererGated("https://palehive.top/vd/x/seg-1-s1080p-v1-a1.m4s")).toBe(true);
     expect(isRefererGated("https://sub.quietridge.top/vd/x/init-s720p-v1-a1.mp4")).toBe(true);
+    // VidCore rotates its segment CDN — the 2026-09 rotation-2 hosts 403 a
+    // bare fetch exactly like the originals (user console log).
+    expect(isRefererGated("https://grandpearl.top/vd/x/seg-1-s1080p-v1-a1.m4s")).toBe(true);
+    expect(isRefererGated("https://wisehive.top/vd/x/init-s720p-v1-a1.mp4")).toBe(true);
   });
 
   it("leaves open-CORS hosts untouched", () => {

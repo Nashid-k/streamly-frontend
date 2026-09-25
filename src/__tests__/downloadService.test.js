@@ -679,6 +679,55 @@ describe("downloadService.saveStream", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
+  it("never probes referer-gated CDN hosts bare — every byte rides the relay", async () => {
+    // VidCore's rotation-2 segment CDNs (grandpearl/wisehive) 403 a bare
+    // browser fetch and a burst of probes trips their WAF. probeDirect must
+    // skip them entirely so the download goes straight to the proxy (which
+    // carries the source's referer) / Vercel.
+    const SEGMENT = "https://grandpearl.top/vd/tok/seg-1-s1080p-v1-a1.m4s";
+    const bareCalls = [];
+    const proxyCalls = [];
+    vi.stubEnv("VITE_STREAMLY_RELAY_URL", "https://streamly-proxy.nashidk1999.workers.dev");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        const to = String(url);
+        // The proxy URL carries the gated host as its ?url= param, so test the
+        // worker match FIRST — only a BARE origin hit lands in bareCalls.
+        if (to.startsWith("https://grandpearl.top")) {
+          // A BARE hit on the gated origin — the exact thing that must never
+          // happen again. Record it; the assertions below fail if nonempty.
+          bareCalls.push({ to, range: init?.headers?.range });
+          return { ok: false, status: 403, headers: { get: () => "" } };
+        }
+        if (to.includes("workers.dev")) {
+          proxyCalls.push({ to, range: init?.headers?.range });
+          return {
+            ok: true,
+            status: 206,
+            headers: { get: (name) => (name === "content-range" ? "bytes 0-2/3" : null) },
+            arrayBuffer: async () => new Uint8Array([5, 6, 7]).buffer,
+          };
+        }
+        return { ok: true, status: 200, headers: { get: () => "application/octet-stream" }, arrayBuffer: async () => new Uint8Array([1]).buffer };
+      }),
+    );
+    const writable = { write: vi.fn().mockResolvedValue(undefined), close: vi.fn().mockResolvedValue(undefined) };
+
+    const result = await downloadService.saveStream({
+      manifest: { kind: "fmp4", initUrl: null, segments: [SEGMENT], count: 1 },
+      source: { refUrl: "https://vidcore.io/" },
+      baseName: "Gated Movie",
+      writable,
+    });
+
+    expect(result.bytes).toBe(3);
+    // Not a single bare request to the gated origin (no Range probe, no GET).
+    expect(bareCalls.length).toBe(0);
+    expect(proxyCalls.length).toBe(1);
+    expect(proxyCalls[0].to).toContain(`referer=${encodeURIComponent("https://vidcore.io/")}`);
+  });
+
   it("reports downloaded bytes live (throttled), not only at segment boundaries", async () => {
     // A whole-file direct stream used to report ONCE at 100% — the "x / y MB"
     // readout froze for the entire download while speed stayed current. With a

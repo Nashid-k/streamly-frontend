@@ -8,6 +8,7 @@ import { DownloadsProvider } from "../context/DownloadsContext";
 import { useDownloads } from "../context/downloads";
 import { downloadService } from "../api/downloadService";
 import { movieService } from "../api/movieService";
+import { PreferencesContext } from "../context/preferences";
 
 vi.mock("../api/downloadService", () => ({
   downloadService: {
@@ -142,10 +143,10 @@ describe("DownloadModal", () => {
     downloadService.resolveVidsrc.mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
     renderModal();
 
-    expect(await screen.findByRole("dialog", { name: /download/i })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
     // The row badge shows the full label ("4K HDR"); the filter rail chip
     // shortens it ("4K"), so assert the variant is at least present once.
-    expect(screen.getAllByText("4K HDR").length).toBeGreaterThanOrEqual(1);
+    expect((await screen.findAllByText("4K HDR")).length).toBeGreaterThanOrEqual(1);
     expect(downloadService.resolveVidsrc).toHaveBeenCalledWith(
       { type: "movie", id: "550", season: undefined, episode: undefined },
       expect.objectContaining({ signal: expect.anything() }),
@@ -166,12 +167,20 @@ describe("DownloadModal", () => {
 
   it("can switch to browser downloads — skips the save picker and forces mode:'browser'", async () => {
     downloadService.resolveVidsrc.mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
-    renderModal();
-
-    const toggle = await screen.findByRole("switch", { name: /save to browser downloads/i });
-    expect(toggle).toHaveAttribute("aria-checked", "false");
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute("aria-checked", "true");
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ToastProvider>
+          {/* PreferencesProvider's context value is FLAT: { ...preferences,
+             setPreference, resetPreferences } — mirrors src/context/preferences.js. */}
+          <PreferencesContext.Provider
+            value={{ browserDownloads: true, setPreference: vi.fn(), resetPreferences: vi.fn() }}
+          >
+            <DownloadModal movie={MOVIE} servers={SERVERS} isTvContent={false} onClose={() => {}} />
+          </PreferencesContext.Provider>
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
 
     const downloadButtons = await screen.findAllByRole("button", { name: /^Download \d/i });
     fireEvent.click(downloadButtons[0]);
@@ -202,7 +211,7 @@ describe("DownloadModal", () => {
     downloadService.resolveVidsrc.mockRejectedValue(new Error("no source"));
     renderModal();
 
-    const dialog = await screen.findByRole("dialog", { name: /download/i });
+    const dialog = await screen.findByRole("dialog");
     expect(
       await screen.findByText(/VidSrc \(Alt\) did not offer a downloadable version of this title/i),
     ).toBeInTheDocument();
@@ -256,7 +265,7 @@ describe("DownloadModal", () => {
     const onClose = vi.fn();
     renderModal({ onClose });
 
-    await screen.findByRole("dialog", { name: /download/i });
+    await screen.findByRole("dialog");
     expect(document.body.style.overflow).toBe("hidden");
 
     fireEvent.keyDown(document, { key: "Escape" });

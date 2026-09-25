@@ -59,4 +59,9 @@ reports CineSrc downloads as unavailable — nothing breaks.
   Tailscale, or a reverse-proxy token). The URL itself is the secret.
 - One resolve ≈ one page load + ~10–30s of rotation. `MAX_PAGES` (default
   2) bounds concurrency; playlist IDs expire in minutes, so resolve at
-  download time, never cache across titles.
+  download time. The mint cache (`CACHE_TTL_MS`, default 60000) returns
+  repeats of the SAME title within the window with no Chrome launch — it
+  exists to eat the token-retry bursts (re-mints) that otherwise relaunch a
+  renderer each time; on a 512MB free container that relaunch storm is what
+  trips OOMKill. Broadcast caching across DIFFERENT titles is not safe —
+  session tokens are not mutually interoperable.

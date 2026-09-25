@@ -79,7 +79,16 @@ const directBlockedUntil = new Map();
    a bare browser fetch (app referer) gets 403, and a burst of those probes
    trips the CDN WAF, stalling tall renditions. These are relay-only by
    construction — the relay (redeployed proxy or Vercel) supplies the referer. */
-const REFERER_GATED_HOST_SUFFIXES = ["quietridge.top", "palehive.top"];
+/* VidCore rotates its segment CDN periodically — every host seen so far gates
+   on the owning player's referer (bare fetch → 403 + WAF-burst risk). Keep
+   this list current when a new CDN family shows up 403ing in the console:
+   quietridge/palehive (2026-09), grandpearl/wisehive (2026-09 rotation 2). */
+const REFERER_GATED_HOST_SUFFIXES = [
+  "quietridge.top",
+  "palehive.top",
+  "grandpearl.top",
+  "wisehive.top",
+];
 
 export function isRefererGated(url) {
   let hostname = null;
@@ -191,8 +200,10 @@ export async function probeSourcePlayable(entryUrl, refUrl, { signal } = {}) {
     // 1) direct byte sip (1 byte Range — cheap, and exactly the path playback
     //    will use first). Referer-gated hosts skip this entirely: their CDN
     //    403s a bare app-referer probe, and a burst of such probes is exactly
-    //    what trips the WAF that stalls tall renditions.
-    if (!isRefererGated(target)) {
+    //    what trips the WAF that stalls tall renditions. The manifest host may
+    //    be gated while the segment host is new (or vice versa) — check BOTH
+    //    the entry URL and the sip target.
+    if (!isRefererGated(target) && !isRefererGated(base)) {
       try {
         const res = await fetch(target, { headers: { range: "bytes=0-0" }, signal });
         if (res.ok) {
@@ -234,6 +245,8 @@ async function postDownloadify(body, { signal } = {}) {
           { base, slice, mode: "proxy" },
           { base: ENDPOINT, slice: FRAG_CHUNK_MAX, mode: "json" },
         ];
+  const isTransport = body.action === "segment" || body.action === "playlist";
+  // Only fragment pulls send a Range slice; playlists are small full-text GETs.
   const isSegment = body.action === "segment";
   const start = Math.max(0, Math.floor(Number(body.range?.start) || 0));
   // The proxy can carry the owning player's referer (an upgraded worker
@@ -244,10 +257,17 @@ async function postDownloadify(body, { signal } = {}) {
   let lastError;
   for (let index = 0; index < candidates.length; index += 1) {
     const candidate = candidates[index];
-    const target = isSegment ? body.url : body.playlistUrl;
+    const target = isTransport ? body.url : body.playlistUrl;
     const request =
       candidate.mode === "proxy"
         ? {
+            // The worker is a GET ?url= passthrough: it proxies BOTH fragments
+            // (Range-forwarding) AND playlists (plain text GET), carrying our
+            // upstream referer in ?referer=. Playlists riding the worker keep
+            // every manifest reload off Vercel Hobby — on the free tier each
+            // serverless playlist call is a cold-start latency lottery that
+            // reads exactly like endless "loading" (hls.js refreshes the level
+            // playlist on a rolling basis while the buffer refills).
             url: `${candidate.base}?url=${encodeURIComponent(target)}${
               referer ? `&referer=${encodeURIComponent(referer)}` : ""
             }`,
@@ -265,7 +285,7 @@ async function postDownloadify(body, { signal } = {}) {
               method: "POST",
               headers: { "content-type": "application/json" },
               body: JSON.stringify(
-                isSegment ? { ...body, range: { start, max: candidate.slice } } : body,
+                isTransport ? { ...body, range: { start, max: candidate.slice } } : body,
               ),
               signal,
             },

@@ -13,7 +13,9 @@
 //   GET /healthz -> { ok: true }
 //
 // Env: PORT (default 3100), CHROME_PATH (default OS guess below),
-// RESOLVE_TIMEOUT_MS (default 60000), MAX_PAGES (default 2).
+// RESOLVE_TIMEOUT_MS (default 60000), MAX_PAGES (default 2),
+// CACHE_TTL_MS (default 60000), CACHE_MAX (default 16),
+// MEM_HIGH (default 0.75), RECLAIM_IDLE_MS (default 90000).
 // Operate behind a firewall/VPN — there is no auth; the URL itself is the
 // secret (set CINESRC_RESOLVER_URL on the Vercel project, never in git).
 
@@ -23,6 +25,36 @@ import puppeteer from "puppeteer-core";
 const PORT = Number(process.env.PORT || 3100);
 const TIMEOUT_MS = Number(process.env.RESOLVE_TIMEOUT_MS || 60000);
 const MAX_PAGES = Math.max(1, Number(process.env.MAX_PAGES || 2));
+// Mint cache: CineSrc playlist URLs carry a short-lived session token, so the
+// SAME (type,id,season,episode) asked again within a short window must not
+// relaunch Chrome. This is the single biggest OOM lever on free-tier RAM:
+// downloads and playback re-mint in bursts (segment tokens rotate), and every
+// mint = one more full renderer. Turning repeats into plain Map hits keeps the
+// browser idle long enough for trimBrowser() to actually win the race with the
+// kernel's OOM killer instead of losing it at PoW peak.
+const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS || 60000);
+const CACHE_MAX = Math.max(1, Number(process.env.CACHE_MAX || 16));
+const mintCache = new Map(); // key -> { url, at }
+function cacheKey({ type, id, season, episode }) {
+  return type === "tv" ? `tv:${id}:${season ?? 1}:${episode ?? 1}` : `movie:${id}`;
+}
+function cacheGet(key) {
+  const hit = mintCache.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.at > CACHE_TTL_MS) {
+    mintCache.delete(key);
+    return null;
+  }
+  return hit.url;
+}
+function cacheSet(key, url) {
+  if (mintCache.size >= CACHE_MAX) {
+    let oldest = null;
+    for (const [k, v] of mintCache) if (!oldest || v.at < oldest.at) oldest = { k, at: v.at };
+    if (oldest) mintCache.delete(oldest.k);
+  }
+  mintCache.set(key, { url, at: Date.now() });
+}
 // Serialize resolutions past MAX_PAGES concurrent pages (each page is a full
 // renderer; bounding concurrency bounds RAM/CPU on small hosts).
 let inflight = 0;
@@ -154,6 +186,17 @@ async function resolvePlaylist({ type, id, season, episode }) {
     await page.setViewport({ width: 640, height: 360 });
     const cdp = await page.createCDPSession();
     await cdp.send("Network.enable");
+    // The embed's JS + XHR decide the stream. Images/fonts/videos only inflate
+    // the renderer's RSS towards the OOM ceiling on tiny hosts — block them so
+    // each mint needs as little memory as possible.
+    await cdp
+      .send("Network.setBlockedURLs", {
+        urls: [
+          "*.png", "*.jpg", "*.jpeg", "*.gif", "*.webp", "*.svg", "*.avif",
+          "*.woff", "*.woff2", "*.ttf", "*.eot", "*.mp4", "*.webm", "*.mp3",
+        ],
+      })
+      .catch(() => {});
     const seen = (e) => {
       const u = e.request.url;
       if (requests.length < 50) requests.push(u);
@@ -210,6 +253,15 @@ const server = http.createServer(async (req, res) => {
     send(400, { ok: false, error: "Invalid TMDB id", code: "bad-id" });
     return;
   }
+  const season = body.season;
+  const episode = body.episode;
+  const key = cacheKey({ type, id, season, episode });
+  const cached = cacheGet(key);
+  if (cached) {
+    console.log(`[cache] hit ${key} (no Chrome)`);
+    send(200, { ok: true, playlistUrl: cached });
+    return;
+  }
   await acquire();
   const started = Date.now();
   try {
@@ -217,13 +269,14 @@ const server = http.createServer(async (req, res) => {
     const playlistUrl = await resolvePlaylist({
       type,
       id,
-      season: body.season,
-      episode: body.episode,
+      season,
+      episode,
     });
     const usage = await memUsage().catch(() => 0);
     lastMintAt = Date.now();
     mints += 1;
     console.log(`[mint] ok in ${Date.now() - started}ms mem=${Math.round(usage * 100)}% mints=${mints}`);
+    cacheSet(key, playlistUrl);
     send(200, { ok: true, playlistUrl });
     if (mints >= 3 || usage > MEM_HIGH) {
       console.log(`[trim] post-mint mem=${Math.round(usage * 100)}% mints=${mints}`);

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.102.1",
+    "@vercel/analytics": "^2.0.1",
     "@vitejs/plugin-react": "^6.0.4",
     "framer-motion": "^13.1.0",
     "hls.js": "^1.7.3",
