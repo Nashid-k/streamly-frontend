@@ -2209,7 +2209,7 @@ export default function TitleDetails() {
                       <div
                         style={{
                           width: "100%",
-                          aspectRatio: "16 / 9",
+                          height: "100%",
                           background: "#000",
                         }}
                       />
@@ -2218,7 +2218,10 @@ export default function TitleDetails() {
                     <div
                       style={{
                         width: "100%",
-                        maxWidth: "min(1400px, calc((100vh - 120px) * 16/9))",
+                        height: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
                       }}
                     >
                       <NativePlayerView

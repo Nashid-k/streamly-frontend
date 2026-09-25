@@ -1608,13 +1608,23 @@ export default function NativePlayerView({
   const showEpisodesButton = Array.isArray(episodes) && episodes.length > 0;
 
   return (
-    <div>
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
       <div
         ref={screenRef}
         onMouseMove={poke}
         onTouchStart={poke}
         style={{
           position: "relative",
+          width: "100%",
+          height: "100%",
           background: "#000",
           borderRadius: 12,
           overflow: "hidden",
@@ -1627,7 +1637,13 @@ export default function NativePlayerView({
           ref={videoRef}
           playsInline
           onClick={handleVideoClick}
-          style={{ width: "100%", display: "block", aspectRatio: "16 / 9", background: "#000" }}
+          style={{
+            width: "100%",
+            height: "100%",
+            display: "block",
+            objectFit: "contain",
+            background: "#000",
+          }}
         />
         {/* Subtitle overlay — active OpenSubtitles line, bottom-anchored above
             the control chrome like CustomVideoPlayer. */}
