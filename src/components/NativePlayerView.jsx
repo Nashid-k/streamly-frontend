@@ -49,6 +49,9 @@ const HIDE_DELAY_MS = 3000;
 const SKIP_SECONDS = 10;
 // Netflix "Up Next" auto-play countdown for a TV episode's next installment.
 const UP_NEXT_MS = 15000;
+// Netflix resume gate: wait this long on the "Left off at…" card before
+// auto-resuming playback from the saved position.
+const RESUME_WAIT_SECONDS = 8;
 const VOLUME_STORAGE_KEY = "streamly-native-volume";
 const MUTED_STORAGE_KEY = "streamly-native-muted";
 
@@ -149,6 +152,11 @@ export default function NativePlayerView({
   episodes = [],
   onSelectEpisode,
   onClose,
+  // Continue-watching entry for THIS title/episode ({ timestamp } in s, >0),
+  // plus a sink to persist playback positions. Both optional — leave them off
+  // and the player simply never offers resume / never saves progress.
+  watchedEntry,
+  onProgressChange,
 }) {
   const videoRef = useRef(null);
   const screenRef = useRef(null);
@@ -158,10 +166,18 @@ export default function NativePlayerView({
   const metaRef = useRef({ variants: [], sourceKey: null, refUrl: null, cinesrcLevels: false });
   const idleTimer = useRef(null);
   const clickTimer = useRef(null);
+  const watchedEntryRef = useRef(watchedEntry);
+  watchedEntryRef.current = watchedEntry;
+  const lastProgressSaved = useRef(0);
+  const resumeHandledKeyRef = useRef(null); // title/episode key that already offered resume
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const onSelectEpisodeRef = useRef(onSelectEpisode);
   onSelectEpisodeRef.current = onSelectEpisode;
+  const resumeOfferRef = useRef(null);
+  resumeOfferRef.current = resumeOffer;
+  const commitResumeRef = useRef(null); // assigned below, driven by the resume card
+  const maybeOfferResumeRef = useRef(() => {}); // reassigned below; called from the run effect
 
   const [lines, setLines] = useState([]);
   const [status, setStatus] = useState("idle");
@@ -185,6 +201,11 @@ export default function NativePlayerView({
   // Master-mode (CineSrc) starts on ABR auto; picking a level pins it.
   const [autoLevel, setAutoLevel] = useState(true);
   const [manualHeight, setManualHeight] = useState(null);
+  // The rendition ABR currently settled on (LEVEL_SWITCHED) — shows the real
+  // "now playing" resolution in the quality dialog even while on Auto.
+  const [currentHeight, setCurrentHeight] = useState(null);
+  // Netflix resume card: { at, left } where `at` is the saved position in s.
+  const [resumeOffer, setResumeOffer] = useState(null);
   // Netflix chrome state.
   const [controlsVisible, setControlsVisible] = useState(true);
   const [panel, setPanel] = useState(null); // null | "subs" | "episodes"
@@ -221,6 +242,11 @@ export default function NativePlayerView({
     setEnded(false);
     try {
       if (video.paused) {
+        // Netflix behavior: play with a pending resume card resumes that point.
+        if (resumeOffer) {
+          commitResumeRef.current?.(resumeOffer.at);
+          return;
+        }
         // Netflix behavior: play at the end restarts from the top instead of
         // immediately re-ending (play() at currentTime==duration is a no-op).
         if (video.ended) video.currentTime = 0;
@@ -272,6 +298,7 @@ export default function NativePlayerView({
   const onScrubDown = (e) => {
     e.stopPropagation();
     poke();
+    if (resumeOffer) setResumeOffer(null); // user grabbed the bar — they pick the spot
     try {
       scrubRef.current?.setPointerCapture?.(e.pointerId);
     } catch {
@@ -329,6 +356,97 @@ export default function NativePlayerView({
       // ignore out-of-range seeks
     }
   };
+
+  /* Netflix resume: when a continue-watching entry exists for this title/
+     episode, offer "Left off at …" once per session and auto-resume into the
+     saved position after a short countdown. Restart scrubs to 0. */
+  const maybeOfferResume = () => {
+    const entry = watchedEntryRef.current;
+    const video = videoRef.current;
+    if (!entry || !video) return;
+    const at = Number(entry.timestamp) || 0;
+    const dur = Number(video.duration) || 0;
+    const key = `${type}:${id}:${season}:${episode}`;
+    if (resumeHandledKeyRef.current === key) return;
+    if (at <= 0 || (dur > 0 && at >= dur * 0.92)) return; // finished / barely started
+    resumeHandledKeyRef.current = key;
+    setResumeOffer({ at, left: RESUME_WAIT_SECONDS });
+    say(`Resume point ${fmtTime(at)} available.`);
+  };
+  maybeOfferResumeRef.current = maybeOfferResume;
+
+  const commitResume = (at) => {
+    setResumeOffer(null);
+    poke();
+    const video = videoRef.current;
+    if (!video) return;
+    try {
+      video.currentTime = at;
+    } catch {
+      // live-edge clamp — start where the stream begins
+    }
+    if (video.paused) {
+      video.play().catch(() => {
+        // autoplay policy — the big custom play button stays available
+      });
+    }
+    say(`Resumed from ${fmtTime(at)}.`);
+  };
+  commitResumeRef.current = commitResume;
+
+  const restartFromStart = () => {
+    setResumeOffer(null);
+    poke();
+    const video = videoRef.current;
+    if (!video) return;
+    try {
+      video.currentTime = 0;
+    } catch {
+      // unchanged
+    }
+    if (video.paused) {
+      video.play().catch(() => {
+        // autoplay policy — the big custom play button stays available
+      });
+    }
+    say("Playing from the beginning.");
+  };
+
+  // Progress persistence sink: report every ~5s while playing (>10s in, so a
+  // stray 3s peek never writes a resume point). The parent owns storage.
+  useEffect(() => {
+    if (!playing || !onProgressChange) return undefined;
+    const save = () => {
+      const video = videoRef.current;
+      if (!video) return;
+      const t = video.currentTime || 0;
+      if (t <= 10) return;
+      const now = Date.now();
+      if (now - lastProgressSaved.current < 4000) return;
+      lastProgressSaved.current = now;
+      onProgressChange(Math.floor(t));
+    };
+    save();
+    const iv = setInterval(save, 1000);
+    return () => clearInterval(iv);
+  }, [playing, onProgressChange]);
+
+  // Resume card countdown: tick the seconds-remaining and auto-commit when it
+  // runs out. Uses refs so the effect only re-arms on card state changes.
+  useEffect(() => {
+    if (!resumeOffer) return undefined;
+    const tick = setInterval(() => {
+      setResumeOffer((o) => (o && o.left > 1 ? { ...o, left: o.left - 1 } : null));
+    }, 1000);
+    const auto = setTimeout(() => {
+      const current = resumeOfferRef.current;
+      if (current) commitResumeRef.current?.(current.at);
+    }, resumeOffer.left * 1000);
+    return () => {
+      clearInterval(tick);
+      clearTimeout(auto);
+    };
+  }, [resumeOffer]);
 
   const changeVolume = (delta) => {
     setMuted(false);
@@ -677,6 +795,8 @@ export default function NativePlayerView({
       setBufferedRanges([]);
       setAutoLevel(true);
       setManualHeight(null);
+      setCurrentHeight(null);
+      setResumeOffer(null);
       setPanel(null);
       const args = { type, id, season: type === "tv" ? season : undefined, episode: type === "tv" ? episode : undefined };
       const stale = () => runRef.current !== run || controller.signal.aborted;
@@ -782,6 +902,13 @@ export default function NativePlayerView({
             progressive: true,
             maxBufferLength: 30,
             maxBufferSize: 60 * 1000 * 1000,
+            // Netflix-authentic ABR: judge by MEASURED bytes/sec (not the
+            // manifest's advertised bitrate, which relay-proxied sources lie
+            // about), and never pull a rendition taller than the player's own
+            // rendered size — a small window doesn't need 1080p and every rung
+            // saved off the relay leg is one fewer stall.
+            abrMaxWithRealBitrate: true,
+            capLevelToPlayerSize: true,
           });
           hlsRef.current = hls;
           let lastFatalDetail = "";
@@ -819,6 +946,9 @@ export default function NativePlayerView({
           let consecFragFails = 0;
           hls.on(Hls.Events.FRAG_BUFFERED, () => {
             consecFragFails = 0;
+          });
+          hls.on(Hls.Events.LEVEL_SWITCHED, (_e, data) => {
+            setCurrentHeight(data?.height ?? null);
           });
           hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => attachAudio(hls));
           hls.on(Hls.Events.ERROR, (_e, data) => {
@@ -890,6 +1020,11 @@ export default function NativePlayerView({
           } catch {
             say("Autoplay blocked — tap the custom play button.");
           }
+          // Non-master sources are single-rendition: their "current" level is
+          // fixed, so feed the dialog the height directly.
+          if (def.key !== "cinesrc") setCurrentHeight(smoothStart?.height ?? null);
+          // Netflix resume gate: first real playback for this title/episode.
+          maybeOfferResumeRef.current();
           // Park this attempt: a fatal error AFTER playback started either
           // refreshes tokens in place (same source, same quality, resume at
           // the saved position) or moves to the next source — never a dead
@@ -1403,6 +1538,79 @@ export default function NativePlayerView({
             </div>
           </div>
         </div>
+        {/* Netflix "Left off at …" resume card — auto-resumes after a short wait. */}
+        {resumeOffer && !ended && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            role="complementary"
+            aria-label={`Resume from ${fmtTime(resumeOffer.at)}`}
+            style={{
+              position: "absolute",
+              left: "50%",
+              transform: "translateX(-50%)",
+              bottom: 176,
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              background: "rgba(14,14,14,0.96)",
+              border: "1px solid rgba(255,255,255,0.14)",
+              borderRadius: 12,
+              padding: "10px 14px",
+              zIndex: 6,
+              boxShadow: "0 12px 40px rgba(0,0,0,0.6)",
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <div style={{ color: "#fff", fontWeight: 800, fontSize: 14.5 }}>
+                You left off at {fmtTime(resumeOffer.at)}
+              </div>
+              <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>
+                {resumeOffer.left > 1
+                  ? `Auto-resuming in ${resumeOffer.left}s`
+                  : "Resuming…"}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => commitResumeRef.current?.(resumeOffer.at)}
+              aria-label={`Resume from ${fmtTime(resumeOffer.at)}`}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "8px 16px",
+                background: "#fff",
+                color: "#000",
+                border: "none",
+                borderRadius: 8,
+                fontWeight: 800,
+                fontSize: 13.5,
+                cursor: "pointer",
+              }}
+            >
+              <Play size={16} />
+              Resume
+            </button>
+            <button
+              type="button"
+              onClick={restartFromStart}
+              aria-label="Restart from the beginning"
+              style={{
+                padding: "8px 14px",
+                background: "rgba(255,255,255,0.12)",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                fontWeight: 700,
+                fontSize: 13.5,
+                cursor: "pointer",
+              }}
+            >
+              Restart
+            </button>
+          </div>
+        )}
+
         {/* Netflix "Up Next" post-roll card (TV only). */}
         {upNext && ended && (
           <div
@@ -1511,37 +1719,54 @@ export default function NativePlayerView({
             {panel === "subs" ? (
               <div style={{ display: "flex", gap: 16 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  {audioTracks.length > 0 && (
-                    <>
-                      <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", margin: "8px 0 2px" }}>
-                        Audio
-                      </p>
-                      {audioTracks.map((a) => (
-                        <DialogRow
-                          key={a.index}
-                          selected={a.index === audioIndex}
-                          onClick={() => pickAudio(a.index)}
-                          title={a.name}
-                          sub={a.lang && a.lang !== a.name ? a.lang : undefined}
-                        />
-                      ))}
-                    </>
-                  )}
                   <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", margin: "8px 0 2px" }}>
+                    Audio
+                  </p>
+                  {audioTracks.length > 0 ? (
+                    audioTracks.map((a) => (
+                      <DialogRow
+                        key={a.index}
+                        selected={a.index === audioIndex}
+                        onClick={() => pickAudio(a.index)}
+                        title={a.name}
+                        sub={a.lang && a.lang !== a.name ? a.lang : undefined}
+                      />
+                    ))
+                  ) : (
+                    <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.5)", margin: "6px 0 2px", lineHeight: 1.45 }}>
+                      This source serves one soundtrack — no alternate audio to
+                      switch to.
+                    </p>
+                  )}
+                  <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", margin: "12px 0 2px" }}>
                     Subtitles
                   </p>
-                  <DialogRow selected onClick={() => {}} title="Off" />
+                  <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.5)", margin: "6px 0 2px", lineHeight: 1.45 }}>
+                    Not available — the native sources don&apos;t carry subtitle
+                    tracks.
+                  </p>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", margin: "8px 0 2px" }}>
                     Video Quality
                   </p>
                   {isMasterMode && (
-                    <DialogRow selected={autoLevel} onClick={pickAuto} title="Auto" sub="Adjusts with your connection" />
+                    <DialogRow
+                      selected={autoLevel}
+                      onClick={pickAuto}
+                      title="Auto"
+                      sub={
+                        autoLevel && currentHeight != null
+                          ? `Now ${currentHeight}p · adjusts with your connection`
+                          : "Adjusts with your connection"
+                      }
+                    />
                   )}
                   {qualities.map((q, i) => {
                     const selected = isMasterMode
-                      ? !autoLevel && manualHeight != null && manualHeight === q.height
+                      ? autoLevel
+                        ? currentHeight != null && q.height === currentHeight
+                        : manualHeight != null && manualHeight === q.height
                       : activeUri === q.uri;
                     return (
                       <DialogRow
@@ -1561,6 +1786,7 @@ export default function NativePlayerView({
                   key={ep.number}
                   selected={ep.number === episode}
                   onClick={() => {
+                    setResumeOffer(null);
                     setPanel(null);
                     setBuffering(true);
                     onSelectEpisode?.(ep.number);

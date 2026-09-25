@@ -744,6 +744,20 @@ export default function TitleDetails() {
     return m ? m[0] : null;
   })();
 
+  // Continue-watching entry that matches the native player's CURRENT view
+  // (movie, or the exact season+episode in flight). Only usable resume points
+  // (>0s watched) are offered; the player gate handles the rest.
+  const nativeWatchEntry = (() => {
+    if (!movie || !nativeNumericId) return null;
+    const found = continueWatching?.find(
+      (m) =>
+        String(m.id) === String(movie.id) &&
+        (!isTvContent || (m.savedSeason === selectedSeason && m.savedEpisode === nativeEpisode)),
+    );
+    if (!found || !(Number(found.timestamp) > 0)) return null;
+    return found;
+  })();
+
   // ── Season-aware episode navigation ─────────────────────────────────────
   // Same philosophy as the hero Play button: step within the *aired* episodes
   // of the selected season, and roll across season boundaries to the previous
@@ -2437,6 +2451,15 @@ servers={SERVERS}
                 }
                 onSelectEpisode={(n) => setNativeEpisode(n)}
                 onClose={() => setNativeOpen(false)}
+                watchedEntry={nativeWatchEntry}
+                onProgressChange={(t) => {
+                  updateProgress(
+                    { ...movie, source: resolvedPlatform, sourceName },
+                    isTvContent ? selectedSeason : null,
+                    isTvContent ? nativeEpisode : 1,
+                    Math.floor(t),
+                  );
+                }}
               />
             </Suspense>
           </motion.div>
