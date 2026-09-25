@@ -679,6 +679,75 @@ describe("downloadService.saveStream", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
+  it("reports downloaded bytes live (throttled), not only at segment boundaries", async () => {
+    // A whole-file direct stream used to report ONCE at 100% — the "x / y MB"
+    // readout froze for the entire download while speed stayed current. With a
+    // byte-level throttle the readout must move as chunks arrive.
+    vi.useFakeTimers();
+    try {
+      const chunkBytes = [2, 2, 2, 3]; // totals 9 → totalBytes 9
+      let chunkIndex = 0;
+      // Each chunk arrives 400ms apart — PAST the 250ms throttle window — so
+      // the file is still mid-flight when live ticks are expected.
+      const delivery = () =>
+        new Promise((resolve) => setTimeout(resolve, 400)); // fake-timer paced
+      const body = new ReadableStream({
+        async pull(controller) {
+          if (chunkIndex >= chunkBytes.length) {
+            controller.close();
+            return;
+          }
+          if (chunkIndex > 0) await delivery(); // first chunk arrives on probe resume
+          controller.enqueue(new Uint8Array(new Array(chunkBytes[chunkIndex]).fill(1)));
+          chunkIndex += 1;
+        },
+      });
+      const fetchMock = vi.fn().mockImplementation(async (url, init) => {
+        if (!init?.method && init?.headers?.range === "bytes=0-0") {
+          return {
+            ok: true,
+            status: 200,
+            headers: {
+              get: (h) =>
+                h === "access-control-allow-origin" ? "*" :
+                h === "content-range" ? "bytes 0-0/9" : "",
+            },
+            body: null,
+            arrayBuffer: async () => new Uint8Array([0]).buffer,
+          };
+        }
+        return { ok: true, status: 200, headers: { get: () => "" }, body, arrayBuffer: async () => new Uint8Array().buffer };
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      const writable = { write: vi.fn().mockResolvedValue(undefined), close: vi.fn().mockResolvedValue(undefined) };
+      const progressCalls = [];
+      const promise = downloadService.saveStream({
+        manifest: { kind: "fmp4", initUrl: null, segments: ["https://cdn/movie.mp4"], count: 1 },
+        source: { refUrl: "https://vidcore.io/" },
+        baseName: "Live Progress",
+        writable,
+        totalBytes: 9,
+        onProgress: (p) => progressCalls.push(p),
+      });
+
+      // Pace the stream through fake timers while the throttled reporter ticks.
+      for (let i = 0; i < 14; i += 1) {
+        await vi.advanceTimersByTimeAsync(250);
+      }
+      const result = await promise;
+      expect(result.bytes).toBe(9);
+
+      // Live reports appeared BETWEEN segment boundaries with growing bytes…
+      const liveBytes = progressCalls.slice(0, -1).map((p) => p.bytes);
+      expect(liveBytes.length).toBeGreaterThan(1);
+      expect(Math.max(...liveBytes)).toBeLessThan(9);
+      // …and the final boundary report still caps at 100%.
+      expect(progressCalls[progressCalls.length - 1].ratio).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("pauses between segments until resumed, then keeps saving", async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const fetchMock = vi.fn().mockImplementation(async (url, init) => {

@@ -515,6 +515,7 @@ export default function DownloadModal({
             signal: controller.signal,
             pause: gate,
             refresh: row.sourceKey === "cinesrc" ? () => mintTokens() : undefined,
+            totalBytes,
             onProgress: (progress) => {
               // saveStream reports a true network-arrival rate (windowed); the
               // old EMA here measured delta between _write_ bursts and showed

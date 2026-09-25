@@ -454,6 +454,11 @@ export const downloadService = {
     // "Save to browser Downloads" toggle.
     mode,
     onProgress,
+    // Estimated total byte size (bandwidth × duration). When provided, progress
+    // `ratio` is derived from bytes / totalBytes so the bar and the "x / y MB"
+    // readout move together in REAL time instead of snapping one segment at a
+    // time (a whole-file stream would otherwise sit at 0% until it finished).
+    totalBytes: targetBytes = 0,
     signal,
     pause,
     refresh,
@@ -581,16 +586,58 @@ export const downloadService = {
       bytes += chunk.length;
       if (writer) await writer.write(chunk);
       else memoryChunks.push(chunk);
+      // Every chunk that reaches the file also advances the progress readout.
+      kickProgress();
+    };
+
+    // Live byte-level progress. Segment-boundary report() below is precise but
+    // sparse (a whole-file faststart stream calls it ONCE at the end; a slow
+    // connection sits inside one segment for many seconds), and the %/bytes UI
+    // read those updates — so without this the "x / y MB" counter froze for
+    // 5-10s at a time while the speed number (a windowed network average)
+    // looked perfectly alive. This throttled reporter fills those gaps.
+    const PROGRESS_TICK_MS = 250;
+    let progressTimer = null;
+    let lastDone = 0;
+    let lastTotal = 0;
+    const progressRatio = (done, total) => {
+      if (targetBytes) return Math.min(1, bytes / targetBytes);
+      return total ? done / total : 0;
+    };
+    const reportLive = () => {
+      onProgress?.({
+        done: lastDone,
+        total: lastTotal,
+        ratio: progressRatio(lastDone, lastTotal),
+        bytes,
+        bytesLabel: formatBytes(bytes),
+        speed: networkSpeed(),
+      });
+    };
+    const kickProgress = () => {
+      if (progressTimer) return;
+      progressTimer = setTimeout(() => {
+        progressTimer = null;
+        reportLive();
+      }, PROGRESS_TICK_MS);
+    };
+    const stopProgress = () => {
+      if (progressTimer) {
+        clearTimeout(progressTimer);
+        progressTimer = null;
+      }
     };
 
     const report = (done) => {
       const total = muxing
         ? Math.min(liveSegments.length, liveAudioSegments.length)
         : liveSegments.length;
+      lastDone = done;
+      lastTotal = total;
       onProgress?.({
         done,
         total,
-        ratio: total ? done / total : 0,
+        ratio: progressRatio(done, total),
         bytes,
         bytesLabel: formatBytes(bytes),
         speed: networkSpeed(),
@@ -907,6 +954,7 @@ export const downloadService = {
       }
 
       if (writer) {
+        stopProgress();
         await writer.close();
         writer = null;
         logInfo("download", "Saved via File System Access API.", { filename, bytes: formatBytes(bytes) });
@@ -914,6 +962,7 @@ export const downloadService = {
       }
 
       // Blob fallback — assemble and trigger a browser download.
+      stopProgress();
       const blob = new Blob(memoryChunks, {
         type: kind === "ts" ? "video/mp2t" : "video/mp4",
       });
@@ -923,6 +972,7 @@ export const downloadService = {
       method = "blob";
       return { bytes, filename, method };
     } catch (error) {
+      stopProgress();
       try {
         if (writer) await writer.abort();
       } catch {
