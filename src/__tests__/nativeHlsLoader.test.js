@@ -761,38 +761,20 @@ describe("probeSourcePlayable", () => {
     expect(probe).toMatchObject({ ok: true, via: "direct" });
   });
 
-  it("byte-sips a net27 proxied mp4 like any direct mp4 (serve → ok)", async () => {
-    /* net27's proxy 429s without a valid session, so "trusting" it skipped the
-       sip and the <video> failed 14s later; probing first fails fast. */
-    const fetchSpy = vi
-      .fn()
-      .mockResolvedValue({ ok: true, status: 206, headers: { get: () => null }, body: { cancel: async () => {} } });
-    vi.stubGlobal("fetch", fetchSpy);
-    const probe = await probeSourcePlayable(
-      "https://net27.cc/api/proxy/video?url=https%3A%2F%2Fbcdnxw.hakunaymatata.com%2Ftran-audio%2F20250609%2F13e051e0028d6dff24783acf8e2c48da.mp4%3Fsign%3Dabc%26t%3D1790331948",
-      "https://net27.cc/",
-    );
-    expect(probe).toMatchObject({ ok: true, via: "direct" });
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-  });
-
-  it("reports net27's 429 refusal fast, without burning a relay round-trip", async () => {
-    /* Range sip from the browser hits net27's per-IP gate — the relay sits on
-       the same kind of egress, so a 429 here is definitive: fail now. */
-    const fetchSpy = vi.fn().mockImplementation(async (url) => {
-      if (typeof url === "string" && url.includes("downloadify")) {
-        return { ok: true, status: 200, headers: { get: () => null }, body: {} };
-      }
-      return { ok: false, status: 429, headers: { get: () => null } };
-    });
-    vi.stubGlobal("fetch", fetchSpy);
-    const probe = await probeSourcePlayable(
-      "https://net27.cc/api/proxy/video?url=https%3A%2F%2Fbcdnxw.hakunaymatata.com%2Fbt%2Fad04f2.mp4%3Fsign%3Dabc",
-      "https://net27.cc/",
-    );
-    expect(probe).toMatchObject({ ok: false, reason: "refused (429)" });
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-  });
+  it("trusts a net27 proxied mp4 — the media element is the probe (their player opens ONE request per stream)", async () => {
+  /* A probe sip would be a second same-second request to a per-IP gated
+     endpoint and trip the throttle before <video> starts. The playability
+     verdict instead comes from the media element itself (fast 429) and
+     NativePlayerView demotes the source after the first confirmed refusal. */
+  const fetchSpy = vi.fn();
+  vi.stubGlobal("fetch", fetchSpy);
+  const probe = await probeSourcePlayable(
+    "https://net27.cc/api/proxy/video?url=https%3A%2F%2Fbcdnxw.hakunaymatata.com%2Ftran-audio%2F20250609%2F13e051e0028d6dff24783acf8e2c48da.mp4%3Fsign%3Dabc%26t%3D1790331948",
+    "https://net27.cc/",
+  );
+  expect(probe).toMatchObject({ ok: true, via: "trusted" });
+  expect(fetchSpy).not.toHaveBeenCalled();
+});
 
   it("still byte-sips a NON-net27 direct mp4", async () => {
     vi.stubGlobal(

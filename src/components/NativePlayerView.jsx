@@ -212,6 +212,9 @@ export default function NativePlayerView({
   // Media URLs we already ran an on-failure diagnostic for (avoid console spam
   // across quality/audio swaps of the same file).
   const diagnosedMediaRef = useRef(new Set());
+  // Wall-clock cap for the on-failure net27 diagnostic (once/hour per browser
+  // — see diagnoseMediaLoad; keeps us from tripping their per-IP throttle).
+  const lastNetmirrorDiagRef = useRef(0);
   // net27's mp4 proxy 429s this connection once, it will 429 forever (their
   // per-IP gate). Remember that so later plays skip NetMirror instead of
   // paying the stall again.
@@ -915,6 +918,12 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
   const diagnoseMediaLoad = (url) => {
     if (diagnosedMediaRef.current.has(url)) return;
     diagnosedMediaRef.current.add(url);
+    // net27's proxy is per-IP throttled and their own player sends ONE request
+    // per stream. A failed play firing the diagnostic every time would burn the
+    // bucket ourselves — cap it at once per hour per browser.
+    const now = Date.now();
+    if (now - lastNetmirrorDiagRef.current < 60 * 60 * 1000) return;
+    lastNetmirrorDiagRef.current = now;
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 8000);
     (async () => {
