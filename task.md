@@ -802,6 +802,8 @@
 
 ## What's next (do these in order)
 
+- [ ] **Surface the videasy base audio in the native player** (follow-up to multi-audio research above): the videasy catalogue stores a hidden base stream `index-s{res}-v1.m3u8` (distinct full-movie audio) next to every `-a1` row the app serves, so dual-audio titles like RRR (`579974`) can offer a real second audio choice. `api/downloadify.js` only maps the API's `-a1` rows → resolution needs a second variant for the base track (derive `index-{q}.m3u8` from the row URL; verify it exists + `seg-1` differs before listing it), then the native player's Audio menu shows 2 entries. Premalu (`1149791`) stays 1-track (not in videasy; vidzen has no audio groups) — do NOT add a fake second row for it.
+
 - [x] 7. Ran `npm run lint` (0 errors), `npm run test` (201 passed), `npm run
   build` (✓ 3.71s) with Node 24 + npm 11. Also fixed two TDZ crashes the
   logging edits introduced (`loading` in HomePage, `category` in
