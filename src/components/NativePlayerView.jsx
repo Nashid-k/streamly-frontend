@@ -62,9 +62,14 @@ const RESUME_WAIT_SECONDS = 8;
 // the total relayed bytes per title are unchanged (buffering downloads the
 // same data sooner, not more). Dead-source failfast is preserved: our own
 // frag-failure counter/step-down fire on LOAD events, independent of depth.
-const BUFFER_DEPTH_SECONDS = 60;
+// Depth note: YouTube's media engine targets roughly 30-60s of forward buffer
+// (min ~2-3 chunks) and DOWNGRADES quality when the arrival rate can't
+// sustain it — it never lets a stream play in a stall loop. The user asked
+// for "2 minutes of buffering", so the goal is set to two minutes at the
+// served bitrate; the hard byte cap bounds the RAM hit at the top.
+const BUFFER_DEPTH_SECONDS = 120;
 const MIN_BUFFER_SIZE = 60 * 1000 * 1000; // hls.js default floor
-const MAX_BUFFER_SIZE = 240 * 1000 * 1000; // hard ceiling: ~5min of 4K, way above our 1080p ladder
+const MAX_BUFFER_SIZE = 240 * 1000 * 1000; // hard ceiling: ~2min of 4K@16Mbps, ~10min of 1080p
 // While the forward buffer goes deep, don't let the WATCHED back buffer grow
 // without bound (default is Infinity — a 2h movie would pin ~7GB in the
 // browser's RAM). Keep 60s behind; hls.js trims the rest like Netflix does.
@@ -200,6 +205,9 @@ export default function NativePlayerView({
   // Reassigned below; the run effect's relay-demote calls it at runtime (keeps
   // the effect's exhaustive-deps clean).
   const pickQualityRef = useRef(null);
+  // Guards against rapid quality switches clobbering each other: each call
+  // stamps a token; after every await it re-checks it's still the newest.
+  const switchTokenRef = useRef(0);
 
   const [lines, setLines] = useState([]);
   const [status, setStatus] = useState("idle");
@@ -1227,7 +1235,41 @@ export default function NativePlayerView({
         say(`Level -> ${hls.levels[best]?.height || "?"}p (pinned).`);
         return;
       }
-      hls.loadSource(uri);
+      const myId = (switchTokenRef.current += 1);
+      // Pre-warm + transport gate. A single-level rendition is a separate
+      // media playlist, so the swap itself pays a manifest fetch + first
+      // fragment. Probe the TARGET first (while the current level still
+      // plays): it warms the CDN edge AND proves the route. The relay cannot
+      // feed a tall rendition (one fragment = several serial round trips), so
+      // a menu pick that would only flow via relay silently becomes the
+      // tallest ≤720p rung instead of a 5s/5s stall loop.
+      let chosenUri = uri;
+      let chosenHeight = height;
+      const refUrl = metaRef.current?.refUrl;
+      try {
+        const warm = await probeSourcePlayable(uri, refUrl);
+        if (switchTokenRef.current !== myId) return;
+        if (!warm.ok) {
+          say(`Quality ${height || "?"}p: target unreachable (${warm.reason || "probe failed"}) — keeping current.`);
+          setBuffering(false);
+          setControlsVisible(true);
+          return;
+        }
+        if (warm.via === "relay" && (height || 0) > 720) {
+          const rungs = qualities
+            .filter((q) => (q.height || 0) > 0 && (q.height || 0) <= 720)
+            .sort((a, b) => (b.height || 0) - (a.height || 0));
+          const relayFriendly = rungs[0];
+          if (relayFriendly && relayFriendly.uri !== uri) {
+            say(`${height || "?"}p needs the relay — using ${relayFriendly.height || "?"}p instead (keeps playing).`);
+            chosenUri = relayFriendly.uri;
+            chosenHeight = relayFriendly.height;
+          }
+        }
+      } catch {
+        // probe hiccup (abort, timeout) — fall through to the requested uri
+      }
+      hls.loadSource(chosenUri);
       await new Promise((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error("switch timed out")), 30000);
         const onFatal = (_e, data) => {
@@ -1242,11 +1284,36 @@ export default function NativePlayerView({
         hls.on(Hls.Events.MANIFEST_PARSED, done);
         hls.on(Hls.Events.ERROR, onFatal);
       });
+      if (switchTokenRef.current !== myId) return;
+      const video = videoRef.current;
       try {
-        videoRef.current.currentTime = t;
+        video.currentTime = t;
       } catch {
         // live-edge clamp — start wherever the new playlist begins
       }
+      // Reproduce the "paused switch feels instant" behavior: a fresh play()
+      // with zero buffered data at the new position drops straight back into
+      // `waiting` (the playing-switch stall). So wait for the first media
+      // bytes to land BEFORE resuming — bounded by a short timeout so a dead
+      // source still surfaces the switch error, not a forever-spinner.
+      if (!wasPaused && video && (video.readyState ?? 0) < 3) {
+        await Promise.race([
+          new Promise((resolve) => {
+            const ok = () => {
+              cleanup();
+              resolve();
+            };
+            const cleanup = () => {
+              video.removeEventListener("canplay", ok);
+              video.removeEventListener("loadeddata", ok);
+            };
+            video.addEventListener("canplay", ok);
+            video.addEventListener("loadeddata", ok);
+          }),
+          new Promise((r2) => setTimeout(r2, 4000)),
+        ]);
+      }
+      if (switchTokenRef.current !== myId) return;
       if (!wasPaused) {
         try {
           await videoRef.current.play();
@@ -1254,8 +1321,8 @@ export default function NativePlayerView({
           // user gesture needed — custom transport is present
         }
       }
-      setActiveUri(uri);
-      say(`Switched to ${height || "?"}p.`);
+      setActiveUri(chosenUri);
+      say(`Switched to ${chosenHeight || "?"}p.`);
     } catch (error) {
       say(`Switch failed: ${error?.message || "unknown"}.`);
       // A failed switch must never leave the honest buffering spinner stuck.
