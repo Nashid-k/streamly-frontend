@@ -37,7 +37,7 @@ import Hls from "hls.js";
 import { downloadService } from "../api/downloadService";
 import { createStreamlyLoader, probeSourcePlayable } from "../api/nativeHlsLoader";
 import { SubtitleFetcher } from "../api/subtitleFetcher";
-import { logWarn, logError } from "../utils/debugLogger";
+import { logWarn } from "../utils/debugLogger";
 import { SubtitleEngine } from "../utils/subtitleEngine";
 
 // A source whose fragments keep failing without ever going fatal (VidCore's
@@ -157,13 +157,10 @@ function DialogRow({ selected, onClick, title, sub, disabled }) {
 }
 
 const SOURCES = [
-  // NetMirror (net27.cc) is a DIRECT mp4 source whose "audio" = per-language
-  // dubs, each with its own file — a true multiple-audio feed where the HLS
-  // sources only ever deliver track-within-the-same-stream alternates. Listed
-  // first so the native player catches every title (incl. K-drama / Malayalam
-  // hits like Premalu that the HLS catalogues lack); its probe is direct-first
-  // so a blocked CDN falls through to VidCore quickly.
-  { key: "netmirror", label: "NetMirror (native)", resolve: (a, o) => downloadService.resolveNetmirror(a, o) },
+  // Streaming backends are relayed HLS providers only (VidCore first — its
+  // probe is direct-first so a blocked CDN falls through quickly). The former
+  // NetMirror (net27.cc) direct-mp4 provider was removed: its video layer is
+  // per-IP 429-gated behind a Cloudflare challenge.
   { key: "vidcore", label: "VidCore (native)", resolve: (a, o) => downloadService.resolveVidcore(a, o) },
   { key: "vidsrc", label: "VidSrc (native)", resolve: (a, o) => downloadService.resolveVidsrc(a, o) },
   { key: "cinesrc", label: "CineSrc (native)", resolve: (a, o) => downloadService.resolveCinesrc(a, o) },
@@ -212,27 +209,7 @@ export default function NativePlayerView({
   const scrubRef = useRef(null);
   const hlsRef = useRef(null);
   const runRef = useRef(0);
-  const metaRef = useRef({ variants: [], sourceKey: null, refUrl: null, cinesrcLevels: false, mp4Mode: false });
-  // Media URLs we already ran an on-failure diagnostic for (avoid console spam
-  // across quality/audio swaps of the same file).
-  const diagnosedMediaRef = useRef(new Set());
-  // Wall-clock cap for the on-failure net27 diagnostic (once/hour per browser
-  // — see diagnoseMediaLoad; keeps us from tripping their per-IP throttle).
-  const lastNetmirrorDiagRef = useRef(0);
-  // net27's mp4 proxy 429s this connection once, it will 429 forever (their
-  // per-IP gate). Remember that so later plays skip NetMirror instead of
-  // paying the stall again.
-  const netmirrorDownRef = useRef(
-    (() => {
-      try {
-        // Remember the verdict across page loads within the tab session so we
-        // never pay the ~14s resolve+stall again after net27 refused once.
-        return sessionStorage.getItem("streamly.netmirrorDown") === "1";
-      } catch {
-        return false;
-      }
-    })(),
-  );
+  const metaRef = useRef({ variants: [], sourceKey: null, refUrl: null, cinesrcLevels: false });
   const idleTimer = useRef(null);
   const clickTimer = useRef(null);
   // Pending "drop the hover overlay" deadline after a released scrub. Cleared
@@ -868,126 +845,8 @@ export default function NativePlayerView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [panel]);
 
-  /* Direct-mp4 (NetMirror) helpers: the <video> element plays a raw file, so
-     "waiting for the media" is a loadedmetadata/error race (mirrors the hls
-     waitParsed promise), and a quality/audio switch is a src swap that keeps
-     the playhead. */
-  const waitVideoElement = (video, { timeoutMs = PARSE_TIMEOUT_MS, signal } = {}) =>
-    new Promise((resolve, reject) => {
-      let settled = false;
-      let timer;
-      const cleanup = () => {
-        clearTimeout(timer);
-        video?.removeEventListener("loadedmetadata", onMeta);
-        video?.removeEventListener("error", onErr);
-        signal?.removeEventListener("abort", onAbort);
-      };
-      const finish = (fn, arg) => {
-        if (settled) return;
-        settled = true;
-        cleanup();
-        fn(arg);
-      };
-      const onMeta = () => finish(resolve);
-      const onErr = () => finish(reject, new Error("mp4 load failed"));
-      const onAbort = () => {
-        const error = new Error("Aborted");
-        error.name = "AbortError";
-        finish(reject, error);
-      };
-      timer = setTimeout(() => finish(reject, new Error("Timed out waiting for the mp4")), timeoutMs);
-      video.addEventListener("loadedmetadata", onMeta);
-      video.addEventListener("error", onErr);
-      signal?.addEventListener("abort", onAbort, { once: true });
-    });
-
-  const loadMp4 = async (video, url, signal) => {
-    video.removeAttribute("src");
-    video.src = url;
-    video.load();
-    await waitVideoElement(video, { signal });
-  };
-
-const swapMp4 = async (video, url, resumeAt, wasPaused) => {
-    await loadMp4(video, url);
-    if (resumeAt > 0) {
-      try {
-        video.currentTime = resumeAt;
-      } catch {
-        // live-edge clamp — start wherever the file begins
-      }
-    }
-    if (!wasPaused) {
-      try {
-        await video.play();
-      } catch {
-        // autoplay policy fallback path handled by the outer play()
-      }
-    }
-  };
-
-  /* When a direct mp4 fails to load, re-request its first byte from the
-     browser and log the REAL answer (HTTP status, content-type, CORS) under
-     [Streamly][netmirror]. net27's proxy replies Access-Control-Allow-Origin:
-     *, so the status even for a refusal is readable here — that distinguishes
-     "net27 throttled this IP (429)" from "server up, stream fine (200/206)".
-     Fire-and-forget; deduped per URL; never throws. */
-  const diagnoseMediaLoad = (url) => {
-    if (diagnosedMediaRef.current.has(url)) return;
-    diagnosedMediaRef.current.add(url);
-    // net27's proxy is per-IP throttled and their own player sends ONE request
-    // per stream. A failed play firing the diagnostic every time would burn the
-    // bucket ourselves — cap it at once per hour per browser.
-    const now = Date.now();
-    if (now - lastNetmirrorDiagRef.current < 60 * 60 * 1000) return;
-    lastNetmirrorDiagRef.current = now;
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 8000);
-    (async () => {
-      try {
-        const res = await fetch(url, { headers: { range: "bytes=0-0" }, signal: ctrl.signal });
-        const type = res.headers.get("content-type") || "";
-        const cr = res.headers.get("content-range") || "";
-        const acao = res.headers.get("access-control-allow-origin") || "";
-        let firstBytes;
-        try {
-          const buf = await res.arrayBuffer();
-          firstBytes = buf.byteLength
-            ? new TextDecoder().decode(buf.slice(0, 48)).replace(/\s+/g, " ").slice(0, 40)
-            : "";
-        } catch {
-          // head-only reply — still useful
-        }
-        logError(
-          "netmirror",
-          `Media diagnostic: HTTP ${res.status}${res.ok ? " (media served)" : " (refused)"}`,
-          null,
-          {
-            status: res.status,
-            contentType: type,
-            contentRange: cr,
-            acao,
-            firstBytes: firstBytes || undefined,
-            url: String(url).slice(0, 180),
-          },
-        );
-        if (res.status >= 400) {
-          netmirrorDownRef.current = true;
-          try {
-            sessionStorage.setItem("streamly.netmirrorDown", "1");
-          } catch {
-            // storage unavailable (private mode) — session-only verdict stays
-          }
-        }
-      } catch (error) {
-        logError("netmirror", "Media diagnostic: request failed from the browser (CORS/network)", error, {
-          url: String(url).slice(0, 180),
-        });
-      } finally {
-        clearTimeout(timer);
-      }
-    })();
-  };
+/* The direct-mp4 (NetMirror) helpers waitVideoElement/loadMp4/swapMp4 and the
+     diagnoseMediaLoad probe were removed with the provider in 2024-09. */
 
   useEffect(() => {
     if (!Hls.isSupported()) {
@@ -999,10 +858,9 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
     const controller = new AbortController();
 
     const entryUrlFor = (def, resolved, variant) => {
-      // Master sources (CineSrc, canonical NetMirror mirrors) keep audio
-      // groups + levels on the master — load the master so hls.js sees them.
-      // VidCore/VidSrc variants are per-quality media playlists, loadable
-      // directly.
+      // Master sources (CineSrc) keep audio groups + levels on the master, so
+      // load the master and let hls.js see them. VidCore/VidSrc variants are
+      // per-quality media playlists, loadable directly.
       if (resolved?.source?.multiLevelMaster) return resolved.source?.url;
       return variant?.uri;
     };
@@ -1119,14 +977,10 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
         }
         let liveSource = resolved.source;
         let liveRefUrl = resolved.source?.refUrl || resolved.source?.url;
-        // Master sources (CineSrc / canonical NetMirror mirrors) ship the whole
-        // multivariant + audio-group tree in ONE url; every other source is a
-        // per-rendition media playlist or a direct file.
+        // Master sources (CineSrc) ship the whole multivariant + audio-group
+        // tree in ONE url; every other source is a per-rendition media
+        // playlist.
         const isMaster = Boolean(liveSource?.multiLevelMaster);
-        // Direct-file sources (NetMirror's per-language mp4 dubs) skip hls.js
-        // entirely: the <video> element plays the file, and "audio" switching
-        // is a src swap to that language's own mp4.
-        const isDirect = liveSource && (liveSource.kind === "mp4" || liveSource.kind === "direct");
         // attempt 0 = initial URLs; attempt 1 = one token-refresh re-resolve.
         let preferHeight = null;
         let resumeTime = null;
@@ -1180,74 +1034,8 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
               entryUrl = entryUrlFor(def, { source: liveSource }, smoothStart);
             }
           }
-          // NetMirror / any direct-mp4 source: no hls.js, no MSE manifest — the
-          // video element plays the raw file, quality and audio (per-language
-          // dubs) are src swaps. Parked until abort or a video-level error.
-          if (isDirect) {
-            if (attempt !== 0) return false;
-            try {
-              hlsRef.current?.destroy();
-            } catch {
-              // previous instance already gone
-            }
-            hlsRef.current = null;
-            const video = videoRef.current;
-            if (!video) return false;
-            let directOutcome = "fatal";
-            try {
-              setActiveUri(entryUrl);
-              setQualities(
-                variants.map((v) => ({ uri: v.uri, height: v.height || 0, bandwidth: v.bandwidth || 0, label: v.label })),
-              );
-              setIsMasterMode(false);
-              setAutoLevel(false);
-              setCurrentHeight(smoothStart?.height ?? null);
-              metaRef.current = { variants, sourceKey: def.key, refUrl: liveRefUrl, cinesrcLevels: false, mp4Mode: true };
-              const dubs = Array.isArray(resolved.audio) ? resolved.audio : [];
-              if (dubs.length > 0) {
-                setAudioTracks(
-                  dubs.map((d, i) => ({ index: i, name: d.language || `Audio ${i + 1}`, lang: d.language || "", url: d.url || "" })),
-                );
-                setAudioIndex(0);
-              } else {
-                setAudioTracks([]);
-                setAudioIndex(0);
-              }
-              await loadMp4(video, entryUrl, controller.signal);
-              if (stale()) return true;
-              setStatus(`playing via ${def.label}`);
-              say(`${def.label}: PLAYING direct (${smoothStart?.height || "?"}p).`);
-              try {
-                await video.play();
-              } catch {
-                say("Autoplay blocked — tap the custom play button.");
-              }
-              maybeOfferResumeRef.current?.();
-              directOutcome = await Promise.race([
-                abortPromise().then(() => "abort"),
-                new Promise((resolvePark) => {
-                  video.addEventListener(
-                    "error",
-                    () => {
-                      say(`${def.label}: direct stream error — next source.`);
-                      resolvePark("fatal");
-                    },
-                    { once: true },
-                  );
-                }),
-              ]);
-            } catch (error) {
-              if (error?.name === "AbortError" || stale()) directOutcome = "abort";
-              else {
-                say(`${def.label}: ${error?.message || "load failed"} — next source.`);
-                say(`${def.label}: media diagnostic logged to console ([Streamly][netmirror]).`);
-                diagnoseMediaLoad(entryUrl);
-                directOutcome = "fatal";
-              }
-            }
-            if (directOutcome === "abort") return true;
-            return false;
-          }
+          // The former NetMirror direct-mp4 branch lived here; no provider
+          // returns direct-mp4 sources anymore.
           try {
             hlsRef.current?.destroy();
           } catch {
@@ -1473,10 +1261,6 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
 
       for (const def of SOURCES) {
         if (stale()) return;
-        if (def.key === "netmirror" && netmirrorDownRef.current) {
-          say("NetMirror: net27 refused earlier (HTTP 429) — skipping this session.");
-          continue;
-        }
         if (await runSource(def)) return;
       }
       if (stale()) return;
@@ -1493,8 +1277,6 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
         // already torn down
       }
       hlsRef.current = null;
-      // Direct-mp4 mode: drop the src so an abandoned file fetch stops on the
-      // next title/run instead of streaming in the background.
       try {
         videoRef.current?.removeAttribute?.("src");
       } catch {
@@ -1505,31 +1287,7 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
 
   const pickQuality = async (uri, height, opts) => {
     const hls = hlsRef.current;
-    const meta = metaRef.current;
     if (!videoRef.current) return;
-    // Direct-mp4 source: swap the file (keep the playhead + paused state).
-    if (meta?.mp4Mode) {
-      const video = videoRef.current;
-      const t = video.currentTime || 0;
-      const wasPaused = video.paused;
-      if (uri === activeUri) {
-        say(`Already playing ${height || "?"}p — no reload.`);
-        return;
-      }
-      say(`Switching to ${height || "?"}p…`);
-      setBuffering(true);
-      poke();
-      try {
-        await swapMp4(video, uri, t, wasPaused);
-        setActiveUri(uri);
-        setCurrentHeight(height || null);
-        say(`Switched to ${height || "?"}p.`);
-      } catch (error) {
-        say(`Switch failed: ${error?.message || "unknown"}.`);
-        setBuffering(false);
-      }
-      return;
-    }
     if (!hls) return;
     const t = videoRef.current.currentTime || 0;
     const wasPaused = videoRef.current.paused;
@@ -1703,31 +1461,6 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
   }, [bufferedSecs, status, buffering, currentHeight, qualities, activeUri]);
 
   const pickAudio = (index) => {
-    const meta = metaRef.current;
-    const video = videoRef.current;
-    // Direct-mp4 source: the "audio tracks" are per-language mp4 dubs — switch
-    // is a src swap to that language's own file (playhead + paused preserved).
-    if (meta?.mp4Mode && video) {
-      const track = audioTracks[index];
-      setAudioIndex(index);
-      poke();
-      const resume = async () => {
-        const t = video.currentTime || 0;
-        const wasPaused = video.paused;
-        if (!track?.url || track.url === activeUri) return;
-        say(`Audio -> ${track.name}…`);
-        setBuffering(true);
-        try {
-          await swapMp4(video, track.url, t, wasPaused);
-          setActiveUri(track.url);
-          say(`Audio switched to ${track.name}.`);
-        } catch (error) {
-          say(`Audio switch failed: ${error?.message || "unknown"}.`);
-        }
-      };
-      resume();
-      return;
-    }
     const hls = hlsRef.current;
     if (!hls) return;
     hls.audioTrack = index;
@@ -1745,7 +1478,7 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
     const meta = metaRef.current;
     const video = videoRef.current;
     const map = meta?.altByUri;
-    if (!video || !map || meta?.mp4Mode) return;
+    if (!video || !map) return;
     const source = activeUri;
     const target = source && map[source];
     if (!target || target === source || useAlt === altAudioOn) return;
@@ -2479,7 +2212,7 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
                         sub={a.lang && a.lang !== a.name ? a.lang : undefined}
                       />
                     ))
-                  ) : !metaRef.current?.mp4Mode && activeUri && metaRef.current?.altByUri?.[activeUri] ? (
+                  ) : activeUri && metaRef.current?.altByUri?.[activeUri] ? (
                     // Videasy (VidCore): a hidden base soundtrack (-v1) rides
                     // alongside the listed -a1 streams — offer both. The CDN
                     // ships NO language tags, so track labels are positional;

@@ -58,12 +58,12 @@ const BASE_SERVERS = [
 ];
 
 export class VideoSourceAdapter {
-  /* Server 1 (CineSrc iframe) is the default. Direct extraction and NetMirror
-     were retired entirely (see task 11): Direct relayed every segment through
-     the decommissioned stream-service proxy (buffer-stall source), and
-     NetMirror's media CDN was unreliable. Server 1 + the iframe fallbacks are
-     the stable path — every server in the rotation renders in an iframe, so
-     no direct-stream resolution code remains anywhere.
+  /* Server 1 (CineSrc iframe) is the default, and every server in the rotation
+     renders in an iframe — no direct-stream resolution code remains anywhere.
+     Direct extraction was retired earlier (its relay proxied every segment
+     through the decommissioned stream-service proxy, buffering/stalling), and
+     the NetMirror (net27) provider was removed outright (its video layer is
+     per-IP 429-gated behind a Cloudflare challenge).
 
      Server names were restored to the original player-dropdown labels
      (Server 1 … Server 8) from the pre-rename history; the URLs are

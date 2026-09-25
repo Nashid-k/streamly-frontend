@@ -72,11 +72,12 @@ describe("VideoSourceAdapter ordered-list helpers (custom player)", () => {
 
   it("ships only iframe servers after the Direct/NetMirror retirement", () => {
     // Every server in the rotation must render through an iframe — no direct
-    // extraction entries remain.
+    // extraction entries remain. (NetMirror/net27 provider removed outright.)
     for (const entry of ordered) {
       expect(typeof entry.url).toBe("function");
       expect(entry.direct).toBeUndefined();
       expect(entry.netmirror).toBeUndefined();
+      expect(entry.resolve).toBeUndefined();
     }
   });
 });

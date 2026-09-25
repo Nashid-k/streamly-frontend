@@ -354,34 +354,6 @@ export const downloadService = {
     return resolved;
   },
 
-  /** Resolve the NetMirror provider (net27.cc — action "resolvenetmirror").
-      The primary copy is a DIRECT mp4 source carrying real MULTI-AUDIO:
-      `audio` lists the per-language "dubs", each with its own mp4 (that
-      language's soundtrack). When net27 is gated the server falls back to a
-      live canonical mirror (net52 → net51) and returns a multi-level HLS
-      master whose EXT-X-MEDIA audio groups surface real language names.
-      `title` feeds the mirror's title-based search, so pass it when available. */
-  async resolveNetmirror({ type, id, season, episode, title }, { signal } = {}) {
-    const kind = type === "tv" ? "tv" : "movie";
-    const body = { action: "resolvenetmirror", type: kind, id: String(id || "") };
-    if (kind === "tv") {
-      if (season != null) body.season = String(season);
-      if (episode != null) body.episode = String(episode);
-    }
-    if (title != null && String(title).trim()) body.title = String(title).trim();
-    const data = await post(body, { signal });
-    const resolved = this.normalizeResolved(data);
-    logInfo("download", `Resolved ${resolved.variants.length} download/stream variant(s) via NetMirror (${resolved.audio.length} audio dubs).`, {
-      type: kind,
-      id,
-      season: season ?? null,
-      episode: episode ?? null,
-      variants: resolved.variants.map((v) => v.label),
-      languages: resolved.audio.map((a) => a.language),
-    });
-    return resolved;
-  },
-
   /** Fetch a raw m3u8 playlist through the relay (server supplies the owning
       player's referer, which a browser fetch cannot send). Used by native HLS
       playback: the MSE player parses levels/audio groups itself from the text.
