@@ -183,6 +183,10 @@ export default function NativePlayerView({
   const metaRef = useRef({ variants: [], sourceKey: null, refUrl: null, cinesrcLevels: false });
   const idleTimer = useRef(null);
   const clickTimer = useRef(null);
+  // Pending "drop the hover overlay" deadline after a released scrub. Cleared
+  // when a NEW scrub starts, or the bar snaps back to the playback head
+  // mid-drag when the leftover 250ms timer fires between the two gestures.
+  const scrubHoverTimer = useRef(null);
   const watchedEntryRef = useRef(watchedEntry);
   watchedEntryRef.current = watchedEntry;
   const lastProgressSaved = useRef(0);
@@ -314,6 +318,10 @@ export default function NativePlayerView({
   const onScrubDown = (e) => {
     e.stopPropagation();
     poke();
+    if (scrubHoverTimer.current) {
+      clearTimeout(scrubHoverTimer.current);
+      scrubHoverTimer.current = null;
+    }
     if (resumeOffer) setResumeOffer(null); // user grabbed the bar — they pick the spot
     try {
       scrubRef.current?.setPointerCapture?.(e.pointerId);
@@ -346,7 +354,7 @@ export default function NativePlayerView({
     setScrubDragging(false);
     // Let the red bar settle on the seek target (currentTime syncs on the
     // `seeking` event) before dropping the hover overlay.
-    window.setTimeout(() => setScrubHover(null), 250);
+    scrubHoverTimer.current = window.setTimeout(() => setScrubHover(null), 250);
   };
 
   // A cancelled gesture (Esc on touch, scroll steal, pointer leaving the
@@ -354,6 +362,10 @@ export default function NativePlayerView({
   const onScrubCancel = () => {
     setScrubDragging(false);
     setScrubHover(null);
+    if (scrubHoverTimer.current) {
+      clearTimeout(scrubHoverTimer.current);
+      scrubHoverTimer.current = null;
+    }
   };
 
   const onScrubLeave = () => {
@@ -451,13 +463,19 @@ export default function NativePlayerView({
   // runs out. Uses refs so the effect only re-arms on card state changes.
   useEffect(() => {
     if (!resumeOffer) return undefined;
+    // Netflix behavior: the countdown only runs while playback is actually
+    // underway. When autoplay is blocked (or the user pauses mid-card) the
+    // ticks freeze and the auto-commit does nothing — committing a seek into
+    // a paused player would flash "Resuming…" and vanish with the card. The
+    // user tapping play commits the offer immediately instead (togglePlay).
     const tick = setInterval(() => {
+      if (videoRef.current?.paused) return;
       setResumeOffer((o) => (o && o.left > 1 ? { ...o, left: o.left - 1 } : null));
     }, 1000);
     const auto = setTimeout(() => {
-      // Closure over THIS render's resumeOffer (the effect re-arms on every
-      // card state change, so the captured position is always the latest).
-      if (resumeOffer) commitResumeRef.current?.(resumeOffer.at);
+      if (!resumeOffer) return;
+      if (videoRef.current?.paused) return;
+      commitResumeRef.current?.(resumeOffer.at);
     }, resumeOffer.left * 1000);
     return () => {
       clearInterval(tick);
@@ -637,6 +655,7 @@ export default function NativePlayerView({
   useEffect(
     () => () => {
       if (clickTimer.current) clearTimeout(clickTimer.current);
+      if (scrubHoverTimer.current) clearTimeout(scrubHoverTimer.current);
     },
     [],
   );
@@ -762,22 +781,40 @@ export default function NativePlayerView({
 
     const waitParsed = (hls) =>
       new Promise((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error("Timed out waiting for the playlist")), PARSE_TIMEOUT_MS);
-        const onParsed = () => {
+        let settled = false;
+        const finish = () => {
           clearTimeout(timer);
           hls.off(Hls.Events.MANIFEST_PARSED, onParsed);
           hls.off(Hls.Events.ERROR, onError);
+          controller.signal.removeEventListener("abort", onAbort);
+        };
+        const timer = setTimeout(() => reject(new Error("Timed out waiting for the playlist")), PARSE_TIMEOUT_MS);
+        const onParsed = () => {
+          if (settled) return;
+          settled = true;
+          finish();
           resolve();
         };
         const onError = (_e, data) => {
-          if (!data?.fatal) return;
-          clearTimeout(timer);
-          hls.off(Hls.Events.MANIFEST_PARSED, onParsed);
-          hls.off(Hls.Events.ERROR, onError);
+          if (settled || !data?.fatal) return;
+          settled = true;
+          finish();
           reject(new Error(data?.details || "hls fatal error"));
+        };
+        // Abort hygiene: a source failover / title switch mid-load previously
+        // left this promise hanging past its 75s timer (cleanup destroyed hls
+        // but the timer kept the shadow). Reject immediately on abort.
+        const onAbort = () => {
+          if (settled) return;
+          settled = true;
+          finish();
+          const error = new Error("Aborted");
+          error.name = "AbortError";
+          reject(error);
         };
         hls.on(Hls.Events.MANIFEST_PARSED, onParsed);
         hls.on(Hls.Events.ERROR, onError);
+        controller.signal.addEventListener("abort", onAbort, { once: true });
       });
 
     const startLevelFor = (hls, def) => {
@@ -992,15 +1029,22 @@ export default function NativePlayerView({
                 // lower so hls.js's own retry has a fighting chance instead of
                 // re-burning the same doomed top-level fragment. Single-level
                 // sources (VidCore/VidSrc) can't step down — only failover.
+                // Only step down while in PURE AUTO (manualLevel -1): a quality
+                // the user pinned in the menu is never overridden — a pinned
+                // level that keeps failing goes straight to failover.
+                const isPureAuto =
+                  Number.isInteger(hls.manualLevel) && hls.manualLevel < 0;
+                const autoRung = hls.autoLevel ?? -1;
                 const canStepDown =
                   Array.isArray(hls.levels) &&
                   hls.levels.length > 1 &&
-                  Number.isInteger(hls.currentLevel) &&
-                  hls.currentLevel > 0;
+                  isPureAuto &&
+                  Number.isInteger(autoRung) &&
+                  autoRung > 0;
                 if (consecFragFails >= 2 && canStepDown) {
-                  hls.currentLevel = hls.currentLevel - 1;
+                  hls.currentLevel = autoRung - 1;
                   consecFragFails = 0;
-                  say(`${def.label}: downshifting to level ${hls.currentLevel} (${data.details})…`);
+                  say(`${def.label}: downshifting to level ${autoRung - 1} (${data.details})…`);
                   setShowLog(true);
                 } else if (consecFragFails >= MAX_CONSECUTIVE_FRAG_FAILURES) {
                   reportFatal({ ...data, fatal: true, details: `${data.details} (×${consecFragFails} consecutive — giving up)` });
@@ -1124,7 +1168,9 @@ export default function NativePlayerView({
         });
         hls.currentLevel = best;
         setAutoLevel(false);
-        setManualHeight(height || null);
+        // Pin the dialog highlight to the level ACTUALLY selected (the
+        // advertised row height can differ a few px from the real stream).
+        setManualHeight(hls.levels[best]?.height || height || null);
         setActiveUri(null);
         say(`Level -> ${hls.levels[best]?.height || "?"}p (pinned).`);
         return;
@@ -1132,12 +1178,17 @@ export default function NativePlayerView({
       hls.loadSource(uri);
       await new Promise((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error("switch timed out")), 30000);
+        const onFatal = (_e, data) => {
+          if (data?.fatal) reject(new Error(data?.details || "playlist switch failed"));
+        };
         const done = () => {
           clearTimeout(timer);
           hls.off(Hls.Events.MANIFEST_PARSED, done);
+          hls.off(Hls.Events.ERROR, onFatal);
           resolve();
         };
         hls.on(Hls.Events.MANIFEST_PARSED, done);
+        hls.on(Hls.Events.ERROR, onFatal);
       });
       try {
         videoRef.current.currentTime = t;
@@ -1155,6 +1206,10 @@ export default function NativePlayerView({
       say(`Switched to ${height || "?"}p.`);
     } catch (error) {
       say(`Switch failed: ${error?.message || "unknown"}.`);
+      // A failed switch must never leave the honest buffering spinner stuck.
+      // (The runSource ERROR handler's failover, when invoked, re-drives its
+      // own spinner for the next source.)
+      setBuffering(false);
     }
   };
 

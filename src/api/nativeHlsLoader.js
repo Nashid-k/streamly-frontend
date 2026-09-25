@@ -89,7 +89,14 @@ export async function probeDirectOrigin(url, { signal } = {}) {
           const match = /bytes\s+0-0\/(\d+)/i.exec(res.headers.get("content-range") || "");
           res.body?.cancel?.().catch?.(() => {});
           return { ok: Boolean(allowed && match) };
-        } catch {
+        } catch (error) {
+          // An AbortError here means the OWNING load was cancelled (source
+          // failover, watchdog timeout, user seek/title switch). Cache the
+          // result as "not direct" and every later fragment of this origin
+          // would ride the Vercel relay for the rest of the session — even
+          // though the CDN serves CORS happily. Drop the entry so the next
+          // load re-probes with its own live signal.
+          if (error?.name === "AbortError") probeCache.delete(origin);
           return { ok: false };
         }
       })(),

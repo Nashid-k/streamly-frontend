@@ -59,6 +59,35 @@ describe("probeDirectOrigin", () => {
     await probeDirectOrigin("https://paperorbit.top/vd/x/b.m4s");
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it("does not cache an aborted probe as a permanent 'not direct' verdict", async () => {
+    // First probe runs against a load that then gets aborted — and the probe
+    // shares that load's signal. It must not poison the per-origin cache,
+    // or every later fragment rides the Vercel relay for the whole session
+    // even though the CDN serves CORS happily.
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce((_url, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener?.("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+        }),
+      )
+      .mockImplementationOnce(async () => rangeOkResponse());
+    vi.stubGlobal("fetch", fetchMock);
+
+    const controller = new AbortController();
+    const first = probeDirectOrigin("https://paperorbit.top/vd/x/a.m4s", { signal: controller.signal });
+    await Promise.resolve();
+    controller.abort();
+    const firstResult = await first;
+    expect(firstResult.ok).toBe(false);
+    fetchMock.mockClear();
+
+    // A later load of the same origin re-probes instead of inheriting the
+    // aborted { ok:false } verdict.
+    const second = await probeDirectOrigin("https://paperorbit.top/vd/x/b.m4s");
+    expect(second.ok).toBe(true);
+  });
 });
 
 describe("createStreamlyLoader", () => {
