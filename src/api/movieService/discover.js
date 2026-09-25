@@ -158,6 +158,78 @@ export const getFutureMovies = async () => {
   }
 };
 
+// Banner "New Releases" feed — Hindi / English / Malayalam / Tamil releases
+// from the last `pastDays`, NEWEST first. The home hero wants the freshest
+// Indian + English lineup, so it needs its own sweep (the future slates above
+// sort asceding and the "now playing" rail has no language bias): one
+// /discover/movie + one /discover/tv pass per language, merged, deduped, and
+// sorted by release date descending. `REGIONAL_PRIMARY_LANGUAGES` covers
+// ta/hi/ml/te — here we swap Telugu for English, the four the banner should
+// actually surface.
+export const getNewReleases = async (pastDays = 90) => {
+  try {
+    const pad = (n) => String(n).padStart(2, '0');
+    const now = new Date();
+    const start = new Date(now);
+    start.setDate(now.getDate() - pastDays);
+    const startStr = `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`;
+    const endStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const langs = ['hi', 'en', 'ml', 'ta'];
+
+    const sweep = async (mediaType) => {
+      const dateParams =
+        mediaType === 'tv'
+          ? { 'first_air_date.gte': startStr, 'first_air_date.lte': endStr }
+          : { 'primary_release_date.gte': startStr, 'primary_release_date.lte': endStr };
+      const dateKey = mediaType === 'tv' ? 'first_air_date' : 'release_date';
+      const pages = await Promise.allSettled(
+        langs.flatMap((lang) =>
+          [1, 2].map((page) =>
+            tmdb(`/discover/${mediaType}`, {
+              page,
+              sort_by: mediaType === 'tv' ? 'first_air_date.desc' : 'primary_release_date.desc',
+              with_original_language: lang,
+              ...dateParams,
+            }),
+          ),
+        ),
+      );
+      const out = [];
+      const seen = new Set();
+      for (const res of pages) {
+        if (res.status !== 'fulfilled') continue;
+        for (const r of (res.value.results || [])) {
+          const releaseDate = r[dateKey];
+          if (!releaseDate || !/^\d{4}-\d{2}-\d{2}$/.test(releaseDate)) continue;
+          const item = normalizeResult({ ...r, media_type: mediaType });
+          if (seen.has(item.id)) continue;
+          seen.add(item.id);
+          out.push({ ...item, releaseDate });
+        }
+      }
+      return out;
+    };
+
+    const [movies, series] = await Promise.allSettled([sweep('movie'), sweep('tv')]);
+    const merged = [];
+    const seen = new Set();
+    for (const feed of [movies, series]) {
+      if (feed.status !== 'fulfilled') continue;
+      for (const item of feed.value) {
+        if (seen.has(item.id)) continue;
+        seen.add(item.id);
+        merged.push(item);
+      }
+    }
+    merged.sort((a, b) => String(b.releaseDate).localeCompare(String(a.releaseDate)));
+    warnIfEmpty('getNewReleases', merged, { pastDays, languages: langs.join(',') });
+    return merged;
+  } catch (error) {
+    logServiceError('getNewReleases', error, { pastDays });
+    throw error;
+  }
+};
+
 // Regional upcoming premieres — a future release-date sweep across pages
 // 1–2 for each primary Indian language, sorted soonest-first. Merged into
 // the global Upcoming / "Coming This Month" rails (Home + Movies discovery)

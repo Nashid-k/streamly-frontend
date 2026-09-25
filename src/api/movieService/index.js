@@ -38,6 +38,7 @@ import {
   getFutureMovies,
   getRegionalUpcoming,
   getDiscoverByGenre,
+  getNewReleases,
 } from './discover';
 import { getEditorialRail } from './editorial';
 import { getPersonDetails } from './person';
@@ -71,6 +72,7 @@ export const movieService = {
   getTrendingThisWeek,
   getDiscoverByGenre,
   getEditorialRail,
+  getNewReleases,
 };
 
 export { EDITORIAL_RAILS } from './editorial';

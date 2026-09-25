@@ -228,6 +228,20 @@ function fmtTime(s) {
   return (h > 0 ? `${h}:` : "") + (h > 0 ? String(m).padStart(2, "0") : `${m}`) + `:${String(r).padStart(2, "0")}`;
 }
 
+// Standardized quality label + order. Sources return their ladder in whatever
+// order their catalog lists it (some ship 1080→720→480, others 720→1080→480),
+// so the menu always displays one canonical sequence — SD → 720p → 1080p →
+// 2K → 4K — with a name for each bucket, regardless of feed order.
+function qualityLabelFor(h) {
+  const p = Number(h) || 0;
+  if (p >= 2160) return "4K UHD";
+  if (p >= 1440) return "2K";
+  if (p >= 1000) return "1080p Full HD";
+  if (p >= 600) return "720p HD";
+  if (p >= 300) return `${p}p SD`;
+  return p ? `${p}p` : "Auto";
+}
+
 export default function NativePlayerView({
   type = "movie",
   id,
@@ -293,6 +307,11 @@ export default function NativePlayerView({
   onGoPrevRef.current = onGoPrev;
   const onGoNextRef = useRef(onGoNext);
   onGoNextRef.current = onGoNext;
+  // Non-master "Auto" rung: the variant the player itself negotiated at settle
+  // (smooth start / relay-friendly top). Picking "Auto" after a manual rung
+  // returns to this one — the player's own choice, not a user pin.
+  const autoUriRef = useRef(null);
+  const autoUriHeightRef = useRef(null);
   const commitResumeRef = useRef(null); // assigned below, driven by the resume card
   const maybeOfferResumeRef = useRef(() => {}); // reassigned below; called from the run effect
   // Reassigned below; the run effect's relay-demote calls it at runtime (keeps
@@ -1108,6 +1127,8 @@ export default function NativePlayerView({
       setPanel(null);
       setRelayStreak(0);
       setTransportRelay(false);
+      autoUriRef.current = null;
+      autoUriHeightRef.current = null;
       const args = { type, id, season: type === "tv" ? season : undefined, episode: type === "tv" ? episode : undefined, title };
       const stale = () => runRef.current !== run || controller.signal.aborted;
       const abortPromise = () =>
@@ -1379,9 +1400,24 @@ export default function NativePlayerView({
             cinesrcLevels: isMaster,
           };
           startLevelFor(hls);
-          setQualities(variants.map((v) => ({ uri: v.uri, height: v.height || 0, bandwidth: v.bandwidth || 0, label: v.label })));
+          // Canonical ladder order + labels: SD → 720p → 1080p → 2K → 4K,
+          // sorted regardless of the feed's listing order.
+          setQualities(
+            variants
+              .slice()
+              .sort((a, b) => (a.height || 0) - (b.height || 0))
+              .map((v) => ({
+                uri: v.uri,
+                height: v.height || 0,
+                bandwidth: v.bandwidth || 0,
+                label: qualityLabelFor(v.height),
+              })),
+          );
           setIsMasterMode(isMaster);
           setActiveUri(isMaster ? null : smoothStart?.uri || null);
+          // Remember the rung the player negotiated (non-master "Auto").
+          autoUriRef.current = isMaster ? null : smoothStart?.uri || null;
+          autoUriHeightRef.current = isMaster ? null : smoothStart?.height ?? null;
           attachAudio(hls);
           setStatus(`playing via ${def.label}`);
           say(`${def.label}: PLAYING (${isMaster ? "ABR auto" : `${smoothStart?.height || "?"}p`}).`);
@@ -1481,12 +1517,15 @@ export default function NativePlayerView({
     };
   }, [type, id, season, episode, title]);
 
-  const pickQuality = async (uri, height) => {
+  const pickQuality = async (uri, height, opts = {}) => {
     const hls = hlsRef.current;
     if (!videoRef.current) return;
     if (!hls) return;
     const t = videoRef.current.currentTime || 0;
     const wasPaused = videoRef.current.paused;
+    // A manual rung pick leaves Auto; the Auto entry keeps it selected (this
+    // is how the menu highlights "Auto" as the active mode, not a specific row).
+    if (!opts.auto) setAutoLevel(false);
     say(`Switching to ${height || "?"}p…`);
     setBuffering(true);
     poke();
@@ -1751,12 +1790,27 @@ export default function NativePlayerView({
 
   const pickAuto = () => {
     const hls = hlsRef.current;
-    if (!hls) return;
-    hls.currentLevel = -1;
+    const autoUri = autoUriRef.current;
+    const autoHeight = autoUriHeightRef.current;
+    if (
+      isMasterMode &&
+      hls &&
+      Array.isArray(hls.levels) &&
+      hls.levels.length > 0
+    ) {
+      // Master: hand level selection back to hls.js ABR.
+      hls.currentLevel = -1;
+      setActiveUri(null);
+    } else if (!isMasterMode && autoUri && autoUri !== activeUri) {
+      // Non-master: "Auto" = the rung the player itself negotiated at settle
+      // (smooth start / relay-friendly top). Applied live like a quality pick
+      // but NOT a pin (opts.auto keeps Auto selected).
+      pickQuality(autoUri, autoHeight ?? null, { auto: true });
+    }
     setAutoLevel(true);
     setManualHeight(null);
     poke();
-    say("Level -> Auto (ABR).");
+    say("Quality -> Auto (adjusts with your connection).");
   };
 
   // Render-time derivations for the scrubber.
@@ -1850,7 +1904,7 @@ export default function NativePlayerView({
           width: "100%",
           height: "100%",
           background: "#000",
-          borderRadius: 12,
+          borderRadius: 0,
           overflow: "hidden",
           cursor: !controlsVisible && playing ? "none" : "default",
           userSelect: "none",
@@ -2082,7 +2136,7 @@ export default function NativePlayerView({
             left: 0,
             right: 0,
             bottom: 0,
-            padding: `8px 16px ${SAFE_BOTTOM}`,
+            padding: `${IS_TOUCH ? 4 : 8}px ${IS_TOUCH ? 12 : 16}px ${SAFE_BOTTOM}`,
             background: "linear-gradient(transparent, rgba(0,0,0,0.82))",
             opacity: controlsVisible ? 1 : 0,
             transition: "opacity 0.3s",
@@ -2090,26 +2144,45 @@ export default function NativePlayerView({
             zIndex: 4,
           }}
         >
-          <div style={{ marginBottom: 6, minWidth: 0 }}>
-            <div
-              style={{
-                color: "#fff",
-                fontWeight: 800,
-                fontSize: "clamp(15px, 2.2vw, 20px)",
-                letterSpacing: "-0.01em",
-                lineHeight: 1.15,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              {displayTitle}
-            </div>
-            {displaySubtitle ? (
-              <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 600, marginTop: 2 }}>
-                {displaySubtitle}
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: IS_TOUCH ? 4 : 6, minWidth: 0 }}>
+            <div style={{ minWidth: 0 }}>
+              <div
+                style={{
+                  color: "#fff",
+                  fontWeight: 800,
+                  fontSize: "clamp(15px, 2.2vw, 20px)",
+                  letterSpacing: "-0.01em",
+                  lineHeight: 1.1,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {displayTitle}
               </div>
-            ) : null}
+              {displaySubtitle ? (
+                <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 600, marginTop: 2 }}>
+                  {displaySubtitle}
+                </div>
+              ) : null}
+            </div>
+            {/* On touch the transport row stays one line — the clock lives in
+                the title row instead. */}
+            {IS_TOUCH && (
+              <span
+                style={{
+                  fontSize: 13,
+                  color: "rgba(255,255,255,0.9)",
+                  fontVariantNumeric: "tabular-nums",
+                  whiteSpace: "nowrap",
+                  alignSelf: "center",
+                  marginTop: 1,
+                  flexShrink: 0,
+                }}
+              >
+                {fmtTime(currentTime)} / {fmtTime(duration)}
+              </span>
+            )}
           </div>
           {/* Scrubber: red played · gray buffered · hover knob + time bubble. */}
           <div
@@ -2216,58 +2289,62 @@ export default function NativePlayerView({
               <IconBtn label={playing ? "Pause" : "Play"} onClick={togglePlay}>
                 {playing ? <Pause size={30} fill="currentColor" /> : <Play size={30} fill="currentColor" />}
               </IconBtn>
-              <button
-                type="button"
-                aria-label="Back 10 seconds"
-                title="Back 10 seconds"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  seekRelative(-SKIP_SECONDS);
-                }}
-                style={{
-                  position: "relative",
-                  width: BTN_SIZE,
-                  height: BTN_SIZE,
-                  borderRadius: "50%",
-                  border: "none",
-                  background: "transparent",
-                  color: "#fff",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                <RotateCcw size={26} />
-                <span style={{ position: "absolute", fontSize: 8.5, fontWeight: 800, marginTop: 3 }}>10</span>
-              </button>
-              <button
-                type="button"
-                aria-label="Forward 10 seconds"
-                title="Forward 10 seconds"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  seekRelative(SKIP_SECONDS);
-                }}
-                style={{
-                  position: "relative",
-                  width: BTN_SIZE,
-                  height: BTN_SIZE,
-                  borderRadius: "50%",
-                  border: "none",
-                  background: "transparent",
-                  color: "#fff",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                <RotateCw size={26} />
-                <span style={{ position: "absolute", fontSize: 8.5, fontWeight: 800, marginTop: 3 }}>10</span>
-              </button>
+              {!IS_TOUCH && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Back 10 seconds"
+                    title="Back 10 seconds"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      seekRelative(-SKIP_SECONDS);
+                    }}
+                    style={{
+                      position: "relative",
+                      width: BTN_SIZE,
+                      height: BTN_SIZE,
+                      borderRadius: "50%",
+                      border: "none",
+                      background: "transparent",
+                      color: "#fff",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <RotateCcw size={26} />
+                    <span style={{ position: "absolute", fontSize: 8.5, fontWeight: 800, marginTop: 3 }}>10</span>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Forward 10 seconds"
+                    title="Forward 10 seconds"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      seekRelative(SKIP_SECONDS);
+                    }}
+                    style={{
+                      position: "relative",
+                      width: BTN_SIZE,
+                      height: BTN_SIZE,
+                      borderRadius: "50%",
+                      border: "none",
+                      background: "transparent",
+                      color: "#fff",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <RotateCw size={26} />
+                    <span style={{ position: "absolute", fontSize: 8.5, fontWeight: 800, marginTop: 3 }}>10</span>
+                  </button>
+                </>
+              )}
               <span
                 onMouseEnter={() => setVolHover(true)}
                 onMouseLeave={() => setVolHover(false)}
@@ -2294,17 +2371,19 @@ export default function NativePlayerView({
                   />
                 )}
               </span>
-              <span
-                style={{
-                  fontSize: 14,
-                  color: "rgba(255,255,255,0.9)",
-                  fontVariantNumeric: "tabular-nums",
-                  marginLeft: 6,
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {fmtTime(currentTime)} / {fmtTime(duration)}
-              </span>
+              {!IS_TOUCH && (
+                <span
+                  style={{
+                    fontSize: 14,
+                    color: "rgba(255,255,255,0.9)",
+                    fontVariantNumeric: "tabular-nums",
+                    marginLeft: 6,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {fmtTime(currentTime)} / {fmtTime(duration)}
+                </span>
+              )}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
               {showEpisodeNav && (
@@ -2514,7 +2593,9 @@ export default function NativePlayerView({
                     ? "min(330px, calc(100% - 24px))"
                     : "min(330px, 82%)",
               maxHeight: IS_TOUCH ? "82%" : "62%",
-              overflowY: "auto",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
               background: "rgba(18,18,18,0.97)",
               border: "1px solid rgba(255,255,255,0.12)",
               borderRadius: 12,
@@ -2530,9 +2611,14 @@ export default function NativePlayerView({
                 <X size={18} />
               </IconBtn>
             </div>
+            {/* Each pane scrolls on its own: Audio + Video Quality stay in one
+                column (the shared controls), Subtitles in its own — so
+                scrolling the quality ladder never scrolls the subtitle list
+                past you, and vice versa. */}
             {panel === "subs" ? (
-              <div style={{ display: "flex", gap: 16, flexDirection: IS_TOUCH ? "column" : "row" }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", gap: 16, flexDirection: IS_TOUCH ? "column" : "row", flex: 1, minHeight: 0 }}>
+                {/* Left pane: Audio + Video Quality (the feed/play controls). */}
+                <div style={{ flex: 1, minWidth: 0, minHeight: 0, overflowY: "auto", paddingRight: 2 }}>
                   <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", margin: "8px 0 2px" }}>
                     Audio
                   </p>
@@ -2575,6 +2661,57 @@ export default function NativePlayerView({
                     </>
                   )}
                   <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", margin: "12px 0 2px" }}>
+                    Video Quality
+                  </p>
+                  {transportRelay && !isMasterMode && (
+                    <p style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", margin: "0 0 4px" }}>
+                      Source streams via relay — tall rungs auto-step down if your connection can&apos;t keep
+                      them filled.
+                    </p>
+                  )}
+                  {/* Auto is ALWAYS present — the active mode on every source
+                      (master = hls.js ABR; per-rendition sources = the rung the
+                      player negotiated at open, smooth-start / relay-friendly). */}
+                  <DialogRow
+                    selected={autoLevel}
+                    onClick={pickAuto}
+                    title="Auto"
+                    sub={
+                      autoLevel && currentHeight != null
+                        ? `Now ${currentHeight}p · adjusts with your connection`
+                        : "Adjusts with your connection"
+                    }
+                  />
+                  {qualities.map((q, i) => {
+                    const selected = isMasterMode
+                      ? autoLevel
+                        ? currentHeight != null && q.height === currentHeight
+                        : manualHeight != null && manualHeight === q.height
+                      : !autoLevel && activeUri === q.uri;
+                    const viaRelay = transportRelay && !isMasterMode && (q.height || 0) > 720;
+                    return (
+                      <DialogRow
+                        key={`${q.uri}::${i}`}
+                        selected={selected}
+                        onClick={() => pickQuality(q.uri, q.height)}
+                        title={q.label || `${q.height}p`}
+                        sub={
+                          viaRelay
+                            ? q.bandwidth
+                              ? `${(q.bandwidth / 1e6).toFixed(1)} Mbps · via relay`
+                              : "via relay"
+                            : q.bandwidth
+                              ? `${(q.bandwidth / 1e6).toFixed(1)} Mbps`
+                              : undefined
+                        }
+                      />
+                    );
+                  })}
+                </div>
+                {/* Right pane: Subtitles only — scrolls on its own, independent
+                    of the Audio/Quality pane. */}
+                <div style={{ flex: 1, minWidth: 0, minHeight: 0, overflowY: "auto", paddingRight: 2 }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", margin: "8px 0 2px" }}>
                     Subtitles
                   </p>
                   <DialogRow
@@ -2606,69 +2743,23 @@ export default function NativePlayerView({
                     </p>
                   )}
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", margin: "8px 0 2px" }}>
-                    Video Quality
-                  </p>
-                  {transportRelay && !isMasterMode && (
-                    <p style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", margin: "0 0 4px" }}>
-                      Source streams via relay — tall rungs auto-step down if your connection can&apos;t keep
-                      them filled.
-                    </p>
-                  )}
-                  {isMasterMode && (
-                    <DialogRow
-                      selected={autoLevel}
-                      onClick={pickAuto}
-                      title="Auto"
-                      sub={
-                        autoLevel && currentHeight != null
-                          ? `Now ${currentHeight}p · adjusts with your connection`
-                          : "Adjusts with your connection"
-                      }
-                    />
-                  )}
-                  {qualities.map((q, i) => {
-                    const selected = isMasterMode
-                      ? autoLevel
-                        ? currentHeight != null && q.height === currentHeight
-                        : manualHeight != null && manualHeight === q.height
-                      : activeUri === q.uri;
-                    const viaRelay = transportRelay && !isMasterMode && (q.height || 0) > 720;
-                    return (
-                      <DialogRow
-                        key={`${q.uri}::${i}`}
-                        selected={selected}
-                        onClick={() => pickQuality(q.uri, q.height)}
-                        title={q.label || `${q.height}p`}
-                        sub={
-                          viaRelay
-                            ? q.bandwidth
-                              ? `${(q.bandwidth / 1e6).toFixed(1)} Mbps · via relay`
-                              : "via relay"
-                            : q.bandwidth
-                              ? `${(q.bandwidth / 1e6).toFixed(1)} Mbps`
-                              : undefined
-                        }
-                      />
-                    );
-                  })}
-                </div>
               </div>
             ) : (
-              episodes.map((ep) => (
-                <DialogRow
-                  key={ep.number}
-                  selected={ep.number === episode}
-                  onClick={() => {
-                    setResumeOffer(null);
-                    setPanel(null);
-                    setBuffering(true);
-                    onSelectEpisode?.(ep.number);
-                  }}
-                  title={`E${ep.number}${ep.title ? ` · ${ep.title}` : ""}`}
-                />
-              ))
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingRight: 2 }}>
+                {episodes.map((ep) => (
+                  <DialogRow
+                    key={ep.number}
+                    selected={ep.number === episode}
+                    onClick={() => {
+                      setResumeOffer(null);
+                      setPanel(null);
+                      setBuffering(true);
+                      onSelectEpisode?.(ep.number);
+                    }}
+                    title={`E${ep.number}${ep.title ? ` · ${ep.title}` : ""}`}
+                  />
+                ))}
+              </div>
             )}
           </div>
         )}

@@ -158,6 +158,16 @@ export default function Home({
     refetchOnWindowFocus: false,
   });
 
+  // Fresh Hindi/English/Malayalam/Tamil releases — the home banner's "newly
+  // released" lineup (newest first). Same cadence as the other hero feeds.
+  const { data: newReleasesData, error: newReleasesError } = useQuery({
+    queryKey: ["new-releases"],
+    queryFn: () => movieService.getNewReleases(90),
+    staleTime: 1000 * 60 * 10,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
   // ── Data-failure diagnostics ──────────────────────────────────────────
   // Every silent empty rail on Home used to be invisible in the console.
   // Log each failed query (with key + HTTP status) and each query that
@@ -177,7 +187,8 @@ export default function Home({
     if (nowPlayingError) reportQueryError("HomePage", ["nowPlaying"], nowPlayingError, { filter });
     if (regionalUpcomingError) reportQueryError("HomePage", ["upcoming-regional"], regionalUpcomingError, { filter });
     if (regionalAiringError) reportQueryError("HomePage", ["airing-regional"], regionalAiringError, { filter });
-  }, [featuredQueryError, categoriesQueryError, airingError, trendingError, top10Error, popularError, topRatedError, nowPlayingError, regionalUpcomingError, regionalAiringError, filter]);
+    if (newReleasesError) reportQueryError("HomePage", ["new-releases"], newReleasesError, { filter });
+  }, [featuredQueryError, categoriesQueryError, airingError, trendingError, top10Error, popularError, topRatedError, nowPlayingError, regionalUpcomingError, regionalAiringError, newReleasesError, filter]);
 
   useEffect(() => {
     if (loading) return;
@@ -715,6 +726,20 @@ export default function Home({
     regionalPool = regionalPool.filter(bannerReady);
     recommendedPool = recommendedPool.filter(bannerReady);
 
+    // 2.5. NEW RELEASES pool — the dedicated Hindi/English/Malayalam/Tamil
+    // "new releases" sweep (newest first). It leads the hero mix (right after
+    // Continue Watching) so freshly-released titles in those four languages
+    // are what the banner actually surfaces, instead of only trending/regional
+    // rows.
+    const newReleasesPool = [];
+    for (const m of asArray(newReleasesData)) {
+      if (!m || m.id === null || m.id === undefined) continue;
+      if (m.isSeries && filter === "movies") continue;
+      if (!m.isSeries && (filter === "series" || filter === "tv shows")) continue;
+      if (!newReleasesPool.some((p) => String(p.id) === String(m.id))) newReleasesPool.push(m);
+    }
+    const newReleasesReady = newReleasesPool.filter(bannerReady);
+
     // 4. The "Surpass Authentic" Mixing Algorithm
     const pool = [];
     const usedIds = new Set();
@@ -732,15 +757,18 @@ export default function Home({
       if (bannerReady(m)) pushToPool(m);
     }
 
-    let gIdx = 0,
+    let nrIdx = 0,
+      gIdx = 0,
       rIdx = 0,
       recIdx = 0;
     while (
       pool.length < 7 &&
-      (gIdx < globalPool.length ||
+      (nrIdx < newReleasesReady.length ||
+        gIdx < globalPool.length ||
         rIdx < regionalPool.length ||
         recIdx < recommendedPool.length)
     ) {
+      pushToPool(newReleasesReady[nrIdx++]);
       pushToPool(globalPool[gIdx++]);
       pushToPool(regionalPool[rIdx++]);
       pushToPool(recommendedPool[recIdx++]);
@@ -774,7 +802,7 @@ export default function Home({
       logError("HomePage", "hero-pool memo failed — hero falls back to empty.", e, { filter });
       return [];
     }
-  }, [featuredMovies, categories, filter, lastWatched, continueWatching, regionalUpcomingData, regionalAiringData]);
+  }, [featuredMovies, categories, filter, lastWatched, continueWatching, regionalUpcomingData, regionalAiringData, newReleasesData]);
 
   const totalFeatured = finalPool.length;
   const activeFeaturedMovie =
