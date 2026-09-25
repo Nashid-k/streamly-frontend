@@ -41,7 +41,6 @@ export { default as DownloadModal } from "./DownloadModal";
 export { default as GlobalShortcuts } from "./GlobalShortcuts";
 
 // Video Player & Studio
-export { default as CustomVideoPlayer } from "./CustomVideoPlayer";
 export { default as PlayerPreview } from "./PlayerPreview";
 export { default as YoutubeRawTrailer } from "./YoutubeRawTrailer";
 export { PLAYER_SPEEDS } from "../constants/playerUi";

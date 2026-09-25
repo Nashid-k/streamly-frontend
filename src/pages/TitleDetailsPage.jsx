@@ -36,7 +36,6 @@ import {
   Grid3x3,
   ArrowUpDown,
   FolderOpen,
-  FlaskConical,
 } from "lucide-react";
 import {
   motion,
@@ -47,7 +46,6 @@ import { useToast } from "../components/Toast.jsx";
 import MovieCard from "../components/MovieCard";
 import CollectionPickerDialog from "../components/CollectionPickerDialog";
 import SeasonDropdown from "../components/detail/SeasonDropdown";
-import ServerDropdown from "../components/detail/ServerDropdown";
 import ProductionCompaniesBlock from "../components/detail/ProductionCompaniesBlock";
 
 import { buildMovieAddedNotification } from "../utils/notificationEngine";
@@ -56,20 +54,16 @@ import { formatRuntimeLabel, isUnreleased, voteSplitPct } from "../utils/titleDe
 import { buildEpisodeOrder, episodeNumberLabel, isEpAired } from "../utils/titleDetails";
 import { getPlatformName } from "../utils/platforms";
 import { logEmptyData, logError, reportQueryError } from "../utils/debugLogger";
-// The 5.5k-line player used to ship inside TitleDetailsPage (the app's largest
-// chunk at ~223 KB). Split it so only the /watch route loads it, and so it can
-// be cached independently after first visit.
-const CustomVideoPlayer = lazy(() => import("../components/CustomVideoPlayer"));
 const DownloadModal = lazy(() => import("../components/DownloadModal"));
-// Temporary native-playback prototype view (also on /proto-native).
+// NativePlayerView is the app's player: direct HLS playback through the
+// serverless + Cloudflare relay, with the Netflix-style chrome (quality,
+// episodes, subtitles, audio, resume, Up Next).
 const NativePlayerView = lazy(() => import("../components/NativePlayerView"));
 import ErrorBoundary from "../components/ErrorBoundary";
 
 import { progressPct } from "../utils/resumeProgress";
 import { usePreferences } from "../context/preferences";
 const EMPTY_ARRAY = [];
-
-import { VideoSourceAdapter } from "../api/videoSourceAdapter";
 
 // Compact "Airs Thu, Sep 9"-style date for upcoming episode chips.
 const formatAirsDate = (dateStr) => {
@@ -106,15 +100,7 @@ export default function TitleDetails() {
     episodeViewStyle = "carousel",
     spoilerFreeMode = false,
     trailers = true,
-    serverOrder,
   } = usePreferences();
-
-  // Compute ordered server list from user preferences — re-computed reactively
-  // when serverOrder changes (e.g. after settings page edit).
-  const SERVERS = useMemo(
-    () => VideoSourceAdapter.getOrderedServers(serverOrder),
-    [serverOrder],
-  );
 
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [playingEpisode, setPlayingEpisode] = useState(1);
@@ -193,12 +179,6 @@ export default function TitleDetails() {
   // the chosen quality to disk through the /api/downloadify function.
   const [downloadOpen, setDownloadOpen] = useState(false);
   const handleDownloadOpen = () => setDownloadOpen(true);
-  // Native-playback TEST overlay (prototype): a second play button next to the
-  // hero Play opens the same NativePlayerView the /proto-native route renders,
-  // so the native HLS path can be tested per-title without touching the
-  // iframe player. Temporary — remove with the prototype.
-  const [nativeOpen, setNativeOpen] = useState(false);
-  const [nativeEpisode, setNativeEpisode] = useState(1);
   const [collectionPickerOpen, setCollectionPickerOpen] = useState(false);
 
   // Mark watched / unwatched — records a full run in watch history (or
@@ -263,11 +243,10 @@ export default function TitleDetails() {
 
   const [playMode, setPlayMode] = useState("movie");
   const [playingTrailerKey, setPlayingTrailerKey] = useState(null);
-  const [playingServerIndex, setPlayingServerIndex] = useState(0);
-  // Trigger loading state when iframe src/key is about to change
+  // Trigger the trailer's loading state when its src/key is about to change
   useEffect(() => {
     if (isPlaying) setIframeLoading(true);
-  }, [isPlaying, playMode, playingServerIndex, playingEpisode, selectedSeason]);
+  }, [isPlaying, playMode, playingTrailerKey]);
 
   const directorRailRef = useRef(null);
   const pageRef = useRef(null);
@@ -327,8 +306,6 @@ export default function TitleDetails() {
 
   // Resolve the actual platform — now guaranteed to be a canonical key or null
   const effectivePlatform = movie?.source || undefined;
-  const serverManuallySetRef = useRef(false);
-  const playerRef = useRef(null);
 
   const { data: similarData, error: similarError } = useQuery({
     queryKey: ["similar", id],
@@ -611,15 +588,18 @@ export default function TitleDetails() {
     };
   }, [isPlaying]);
 
-  // Close player on Escape key
+  // Close the TRAILER on Escape. The stream player (NativePlayerView) owns
+  // Escape itself (dialog-first, then onClose) — the parent must not also
+  // close it, or a single Esc would kill a session that only aimed to close
+  // a menu.
   useEffect(() => {
-    if (!isPlaying) return;
+    if (!isPlaying || playMode !== "trailer") return;
     const handleKey = (e) => {
       if (e.key === "Escape") setIsPlaying(false);
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [isPlaying]);
+  }, [isPlaying, playMode]);
 
   // Close the unreleased-notice modal on Escape key
   useEffect(() => {
@@ -630,17 +610,6 @@ export default function TitleDetails() {
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [unreleasedModalOpen]);
-
-  // Track which episode the saved timestamp belongs to — only apply it once
-  const initialEpisodeRef = useRef(null);
-  useEffect(() => {
-    if (isPlaying && initialEpisodeRef.current === null) {
-      initialEpisodeRef.current = playingEpisode;
-    }
-    if (!isPlaying) {
-      initialEpisodeRef.current = null;
-    }
-  }, [isPlaying, playingEpisode]);
 
   if (loading) {
     return <MovieDetailsSkeleton />;
@@ -737,22 +706,24 @@ export default function TitleDetails() {
   const episodeToPlay = savedEpisodeForSelectedSeason?.savedEpisode
     || (airedEpisodeNumbers.length > 0 ? airedEpisodeNumbers[0] : 1);
 
-  // Numeric TMDB id for the native-test player (same digits the download
-  // sheet resolves — movie.id can carry a "movie-"/"tv-" prefix).
-  const nativeNumericId = (() => {
+  // Numeric TMDB id for the native player and the download sheet (movie.id
+  // can carry a "movie-"/"tv-" prefix).
+  const numericId = (() => {
     const m = String(movie?.id || "").match(/\d+/);
     return m ? m[0] : null;
   })();
 
-  // Continue-watching entry that matches the native player's CURRENT view
-  // (movie, or the exact season+episode in flight). Only usable resume points
-  // (>0s watched) are offered; the player gate handles the rest.
-  const nativeWatchEntry = (() => {
-    if (!movie || !nativeNumericId) return null;
+  // Continue-watching entry that matches the player's CURRENT view (movie, or
+  // the exact season+episode in flight). Only usable resume points (>0s
+  // watched) are offered; the player gate handles the rest.
+  const viewEpisode = () =>
+    isTvContent ? (playingEpisode || episodeToPlay || 1) : 1;
+  const watchEntry = (() => {
+    if (!movie || !numericId) return null;
     const found = continueWatching?.find(
       (m) =>
         String(m.id) === String(movie.id) &&
-        (!isTvContent || (m.savedSeason === selectedSeason && m.savedEpisode === nativeEpisode)),
+        (!isTvContent || (m.savedSeason === selectedSeason && m.savedEpisode === viewEpisode())),
     );
     if (!found || !(Number(found.timestamp) > 0)) return null;
     return found;
@@ -823,14 +794,8 @@ export default function TitleDetails() {
   const progressItem = continueWatching?.find(
     (m) => String(m.id) === String(movie?.id),
   );
-  const savedTimestamp = progressItem?.timestamp || 0;
   const hasResume = Boolean(progressItem && progressItem.timestamp > 0);
   const resumePct = hasResume ? Math.round(progressPct(progressItem)) : 0;
-  // Track which episode the saved timestamp belongs to — only apply it once
-  const effectiveSavedTimestamp = (
-    initialEpisodeRef.current !== null && playingEpisode === initialEpisodeRef.current
-      ? savedTimestamp : 0
-  );
   const backdropSrc = movie?.backdropUrl || movie?.posterUrl;
   const backdropOptimized = backdropSrc ? CdnImageAdapter.getBackdropUrl(backdropSrc) : null;
   const voteSplit = voteSplitPct(movie.imdbRating);
@@ -988,24 +953,6 @@ export default function TitleDetails() {
                 style={{ background: "var(--accent-gradient)", color: "var(--on-accent, #fff)", boxShadow: "0 8px 24px var(--accent-glow, rgba(149,255,80,0.5))" }}
               >
                 <Play className="w-5 h-5 mr-1.5 fill-current" /> {hasResume ? "Resume" : "Play"}
-              </button>
-
-              {/* Native-playback TEST button (prototype): opens the native HLS
-                  player for this exact title in an overlay. The hero Play
-                  button above is untouched — this second button exists only
-                  so the native path can be tested per-title. */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (unreleased) { setUnreleasedModalOpen(true); return; }
-                  setNativeEpisode(isTvContent ? (episodeToPlay ?? playingEpisode ?? 1) : 1);
-                  setNativeOpen(true);
-                }}
-                title="Test native HLS playback (prototype — VidCore-first, no iframe)"
-                aria-label="Test native playback"
-                className="rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 font-bold tracking-wide h-[44px] px-5 py-3 text-sm min-w-[100px] border border-emerald-400/40 bg-emerald-400/10 text-emerald-200 hover:bg-emerald-400/20 hover:scale-105"
-              >
-                <FlaskConical className="w-4 h-4 mr-1.5" /> Native
               </button>
 
               {/* Cinejoy-style circular actions: Add to List | Download | Mark watched */}
@@ -1466,7 +1413,7 @@ export default function TitleDetails() {
                       && (continueEntryForMovie?.timestamp || 0) > 0;
                     const watchedTs = isLiveWatched ? (continueEntryForMovie?.timestamp || 0) : 0;
                     const isAired = isEpAired(ep);
-                    const playable = SERVERS.length > 0 && isAired;
+                    const playable = isAired;
                     // Upcoming episodes have no TMDB still — fall back to the
                     // series artwork so every card shows an image (grayed out).
                     // Catalog objects sometimes store art in the non-Url fields.
@@ -1507,7 +1454,7 @@ export default function TitleDetails() {
                           onKeyDown={playEpKeyboard}
                           className="group flex flex-col gap-3 shrink-0 cursor-pointer transition-transform duration-200"
                           style={{
-                            opacity: (!isAired) ? 0.45 : (SERVERS.length > 0 ? 1 : 0.6),
+                            opacity: (!isAired) ? 0.45 : 1,
                             scrollSnapAlign: isCarouselLayout ? 'start' : undefined,
                             ...(isCarouselLayout ? { flex: '0 0 clamp(220px, 62vw, 300px)' } : {}),
                           }}
@@ -1559,9 +1506,9 @@ export default function TitleDetails() {
                                   <span>Airs</span>
                                   {formatAirsDate(ep.airDate)}
                                 </div>
-                              ) : SERVERS.length === 0 ? (
+                              ) : isAired ? (
                                 <div style={{ background: 'rgba(0,0,0,0.85)', color: '#a1a1aa', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 600, backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.12)' }}>
-                                  No stream available
+                                  Playable
                                 </div>
                               ) : null}
                             </div>
@@ -1626,7 +1573,7 @@ export default function TitleDetails() {
                           padding: '0.75rem 1rem', borderRadius: '12px',
                           background: isEpPlaying ? 'rgba(var(--accent-primary-rgb), 0.08)' : 'transparent',
                           border: isEpPlaying ? '1px solid rgba(var(--accent-primary-rgb), 0.2)' : '1px solid transparent',
-                          cursor: playable ? 'pointer' : 'default', opacity: (!isAired) ? 0.35 : (SERVERS.length > 0 ? 1 : 0.6),
+                          cursor: playable ? 'pointer' : 'default', opacity: (!isAired) ? 0.35 : 1,
                           transition: 'background 0.2s, border 0.2s',
                         }}
                       >
@@ -1642,16 +1589,10 @@ export default function TitleDetails() {
                           )}
                           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             {isAired ? (
-                              SERVERS.length > 0 ? (
                                 <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                   <Play size={14} fill="#fff" stroke="none" style={{ marginLeft: '2px' }} />
                                 </div>
                               ) : (
-                                <div style={{ background: 'rgba(0,0,0,0.85)', color: '#a1a1aa', padding: '2px 5px', borderRadius: '4px', fontSize: '0.6rem', fontWeight: 600, backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.12)' }}>
-                                  No stream available
-                                </div>
-                              )
-                            ) : (
                               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#3c8217', color: '#fff', padding: '4px 12px', borderRadius: '7px 7px 0 0', fontSize: '11px', fontWeight: 500, lineHeight: 1.45, backdropFilter: 'blur(6px)', boxShadow: '0 4px 14px rgba(0,0,0,0.35)' }}>
                                 <Calendar size={11} strokeWidth={2} aria-hidden="true" />
                                 {formatAirsDate(ep.airDate)}
@@ -2184,21 +2125,6 @@ export default function TitleDetails() {
                     </motion.button>
                   </div>
                 )}
-                {playMode !== "trailer" && (
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "6px",
-                    }}
-                  >
-                    <ServerDropdown
-                      servers={SERVERS}
-                      selectedIndex={playingServerIndex}
-                      onSelect={(i) => { serverManuallySetRef.current = true; setPlayingServerIndex(i); }}
-                    />
-                  </div>
-                )}
                 {playMode === "trailer" && (
                   <motion.button
                     onClick={() => setIsPlaying(false)}
@@ -2228,7 +2154,7 @@ export default function TitleDetails() {
               </div>
             </motion.div>
 
-            {/* Player: iframe for trailer, CustomVideoPlayer for streams */}
+            {/* Player: trailer iframe, or the native HLS player for streams */}
             <motion.div
               className="video-modal-player"
               style={{
@@ -2289,31 +2215,58 @@ export default function TitleDetails() {
                       />
                     }
                   >
-                    <CustomVideoPlayer
-                    ref={playerRef}
-                    movie={movie}
-                    season={isTvContent ? selectedSeason : undefined}
-                    episode={isTvContent ? playingEpisode : undefined}
-servers={SERVERS}
-                  preferredServerIndex={playingServerIndex}
-                    onClose={() => setIsPlaying(false)}
-                    thumbnailUrl={movie.backdropUrl || movie.posterUrl}
-                    startTime={effectiveSavedTimestamp}
-                    hasNextEpisode={
-                      isTvContent && canGoNext
-                    }
-                    onNextEpisode={goToNextEpisode}
-                    onProgressUpdate={(currentTime) => {
-                      if (currentTime > 10) {
-                        updateProgress(
-                          { ...movie, source: resolvedPlatform, sourceName },
-                          selectedSeason,
-                          playingEpisode,
-                          currentTime,
-                        );
-                      }
-                    }}
-                  />
+                    <div
+                      style={{
+                        width: "100%",
+                        maxWidth: "min(1400px, calc((100vh - 120px) * 16/9))",
+                      }}
+                    >
+                      <NativePlayerView
+                        type={isTvContent ? "tv" : "movie"}
+                        id={numericId}
+                        season={selectedSeason}
+                        episode={isTvContent ? playingEpisode : 1}
+                        originalLanguage={movie?.originalLanguage}
+                        title={movie?.title || movie?.name || "Title"}
+                        subtitle={
+                          isTvContent
+                            ? `S${selectedSeason}:E${playingEpisode}` +
+                              (() => {
+                                const ep = (episodes || []).find(
+                                  (e) => e.episodeNumber === playingEpisode,
+                                );
+                                return ep?.title ? ` "${ep.title}"` : "";
+                              })()
+                            : String(
+                                movie?.releaseDate
+                                  ? new Date(movie.releaseDate).getFullYear()
+                                  : "",
+                              )
+                        }
+                        episodes={
+                          isTvContent
+                            ? (episodes || []).map((e) => ({
+                                number: e.episodeNumber,
+                                title: e.title,
+                              }))
+                            : []
+                        }
+                        onSelectEpisode={(n) => setPlayingEpisode(n)}
+                        onClose={() => setIsPlaying(false)}
+                        imdbId={movie?.imdbId || ""}
+                        watchedEntry={watchEntry}
+                        onProgressChange={(t) => {
+                          if (t > 10) {
+                            updateProgress(
+                              { ...movie, source: resolvedPlatform, sourceName },
+                              selectedSeason,
+                              playingEpisode,
+                              Math.floor(t),
+                            );
+                          }
+                        }}
+                      />
+                    </div>
                   </Suspense>
                 </ErrorBoundary>
               )}
@@ -2377,96 +2330,12 @@ servers={SERVERS}
         <Suspense fallback={null}>
           <DownloadModal
             movie={movie}
-            servers={SERVERS}
             isTvContent={isTvContent}
             initialSeason={selectedSeason}
             initialEpisode={isTvContent ? (episodeToPlay ?? playingEpisode ?? 1) : 1}
             onClose={() => setDownloadOpen(false)}
           />
         </Suspense>
-      )}
-
-      {/* Native-playback TEST overlay (prototype): the same NativePlayerView
-          as /proto-native, opened from the "Native" hero button. Closes (and
-          tears down hls) on X, backdrop click, or Escape-via-button. */}
-      {nativeOpen && movie && nativeNumericId && createPortal(
-        <motion.div
-          key="native-test"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.25 }}
-          className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/85 backdrop-blur-md px-4 py-6 overflow-y-auto"
-          onClick={() => setNativeOpen(false)}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Native playback test"
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.98, y: 8 }}
-            transition={{ type: "spring", stiffness: 320, damping: 28 }}
-            className="w-full max-w-3xl rounded-2xl border border-emerald-400/20 bg-[#0a0a0a]/95 p-4 sm:p-6 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-3 mb-3">
-              <div className="min-w-0">
-                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-300">
-                  Native test · no iframe
-                </p>
-                <h3 className="truncate text-lg sm:text-xl font-bold text-white">
-                  {movie?.title || movie?.name || "Title"}
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setNativeOpen(false)}
-                aria-label="Close native playback test"
-                className="shrink-0 rounded-full p-2 text-white/50 hover:text-white hover:bg-white/10 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <Suspense fallback={null}>
-              <NativePlayerView
-                type={isTvContent ? "tv" : "movie"}
-                id={nativeNumericId}
-                season={selectedSeason}
-                episode={isTvContent ? nativeEpisode : 1}
-                originalLanguage={movie?.originalLanguage}
-                title={movie?.title || movie?.name || "Title"}
-                subtitle={
-                  isTvContent
-                    ? `S${selectedSeason}:E${nativeEpisode}` +
-                      (() => {
-                        const ep = (episodes || []).find((e) => e.episodeNumber === nativeEpisode);
-                        return ep?.title ? ` "${ep.title}"` : "";
-                      })()
-                    : String(movie?.releaseDate ? new Date(movie.releaseDate).getFullYear() : "")
-                }
-                episodes={
-                  isTvContent
-                    ? (episodes || []).map((e) => ({ number: e.episodeNumber, title: e.title }))
-                    : []
-                }
-                onSelectEpisode={(n) => setNativeEpisode(n)}
-                onClose={() => setNativeOpen(false)}
-                imdbId={movie?.imdbId || ""}
-                watchedEntry={nativeWatchEntry}
-                onProgressChange={(t) => {
-                  updateProgress(
-                    { ...movie, source: resolvedPlatform, sourceName },
-                    isTvContent ? selectedSeason : null,
-                    isTvContent ? nativeEpisode : 1,
-                    Math.floor(t),
-                  );
-                }}
-              />
-            </Suspense>
-          </motion.div>
-        </motion.div>,
-        document.body
       )}
 
       <CollectionPickerDialog

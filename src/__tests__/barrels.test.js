@@ -13,7 +13,6 @@ describe("Architecture & Folder Structure Barrels", () => {
     expect(Components.Chip).toBeDefined();
     expect(Components.MovieCard).toBeDefined();
     expect(Components.TitleInfoModal).toBeDefined();
-    expect(Components.CustomVideoPlayer).toBeDefined();
     expect(Components.PlayerPreview).toBeDefined();
     expect(Components.ToastProvider).toBeDefined();
     expect(Components.useToast).toBeDefined();

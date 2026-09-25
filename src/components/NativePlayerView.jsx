@@ -1,11 +1,12 @@
-// src/components/NativePlayerView.jsx — native HLS playback view (prototype)
+// src/components/NativePlayerView.jsx — the app's player: direct HLS playback
 // with a Netflix-style player chrome.
 //
-// Shared by the /proto-native test route and the watch page's "native test"
-// play button. Resolves VidCore-first → VidSrc → CineSrc via downloadService,
-// plays through hls.js (manifest-relay + direct-segment loader), and offers
-// our own quality ladder + audio menu + attempt log. Custom transport only —
-// no native <video controls> anywhere in here.
+// The former iframe embed player (CustomVideoPlayer) was retired; this is what
+// the hero Play / episode Play buttons open. Resolves VidCore-first →
+// VidSrc → CineSrc via downloadService, plays through hls.js
+// (manifest-relay + direct-segment loader), and offers our own quality ladder
+// + audio menu + attempt log. Custom transport only — no native <video
+// controls> anywhere in here.
 //
 // Chrome mirrors the Netflix web player: top bar (back), bottom gradient with
 // title, full-width scrubber (red played / gray buffered / hover knob + time
