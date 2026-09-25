@@ -1329,7 +1329,7 @@ export default function NativePlayerView({
     setBuffering(true);
     poke();
     try {
-      if (meta.cinesrcLevels && Array.isArray(hls.levels) && hls.levels.length > 0) {
+      if (metaRef.current?.cinesrcLevels && Array.isArray(hls.levels) && hls.levels.length > 0) {
         let best = 0;
         hls.levels.forEach((lvl, i) => {
           if (Math.abs((lvl.height || 0) - (height || 0)) < Math.abs((hls.levels[best].height || 0) - (height || 0))) best = i;
