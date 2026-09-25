@@ -52,6 +52,23 @@ const UP_NEXT_MS = 15000;
 // Netflix resume gate: wait this long on the "Left off at…" card before
 // auto-resuming playback from the saved position.
 const RESUME_WAIT_SECONDS = 8;
+// Forward-buffer policy (YouTube-style deep buffering). hls.js stops fetching
+// ahead when EITHER maxBufferLength(seconds) OR maxBufferSize(bytes) is hit.
+// A FIXED 60MB byte cap is the reason "4K" never builds a buffer: a ~20Mbps
+// stream burns 60MB in ~24s, so the pipe is idled before it can get ahead.
+// Scale the byte cap to the top rendition's bitrate instead: always keep room
+// for ~BUFFER_DEPTH_SECONDS of the tallest variant we serve. This buffer lives
+// in the USER's browser MSE — it never touches our Vercel function memory, and
+// the total relayed bytes per title are unchanged (buffering downloads the
+// same data sooner, not more). Dead-source failfast is preserved: our own
+// frag-failure counter/step-down fire on LOAD events, independent of depth.
+const BUFFER_DEPTH_SECONDS = 60;
+const MIN_BUFFER_SIZE = 60 * 1000 * 1000; // hls.js default floor
+const MAX_BUFFER_SIZE = 240 * 1000 * 1000; // hard ceiling: ~5min of 4K, way above our 1080p ladder
+// While the forward buffer goes deep, don't let the WATCHED back buffer grow
+// without bound (default is Infinity — a 2h movie would pin ~7GB in the
+// browser's RAM). Keep 60s behind; hls.js trims the rest like Netflix does.
+const BACK_BUFFER_SECONDS = 60;
 const VOLUME_STORAGE_KEY = "streamly-native-volume";
 const MUTED_STORAGE_KEY = "streamly-native-muted";
 
@@ -197,6 +214,7 @@ export default function NativePlayerView({
   // load, stall, seek). Driven by the video element's own signals.
   const [buffering, setBuffering] = useState(true);
   const [bufferedSecs, setBufferedSecs] = useState(0);
+  const [bufferedTargetSecs, setBufferedTargetSecs] = useState(30);
   const [bufferedRanges, setBufferedRanges] = useState([]);
   // Master-mode (CineSrc) starts on ABR auto; picking a level pins it.
   const [autoLevel, setAutoLevel] = useState(true);
@@ -792,6 +810,7 @@ export default function NativePlayerView({
       setAudioIndex(0);
       setBuffering(true);
       setBufferedSecs(0);
+      setBufferedTargetSecs(30);
       setBufferedRanges([]);
       setAutoLevel(true);
       setManualHeight(null);
@@ -890,18 +909,29 @@ export default function NativePlayerView({
           } catch {
             // previous instance already gone
           }
+          // Deep, bitrate-aware forward buffer: size the byte cap so the top
+          // rendition we serve can always get BUFFER_DEPTH_SECONDS ahead.
+          const topBps = variants.reduce((m, v) => Math.max(m, Number(v.bandwidth) || 0), 0) || 8 * 1000 * 1000;
+          const maxBufferSize = Math.min(
+            MAX_BUFFER_SIZE,
+            Math.max(MIN_BUFFER_SIZE, Math.ceil((topBps / 8) * BUFFER_DEPTH_SECONDS)),
+          );
+          const bufferDepthSecs = Math.round(Math.floor(maxBufferSize / Math.max(1, topBps / 8)));
+          setBufferedTargetSecs(bufferDepthSecs);
+          say(`Buffer: up to ~${bufferDepthSecs}s (~${Math.round(maxBufferSize / 1024 / 1024)}MB) ahead.`);
           const hls = new Hls({
             loader: createStreamlyLoader({ getRefUrl: () => liveRefUrl }),
             // Adaptive bitrate + progressive MSE appends: chunks hit the
-            // screen while the rest of the segment is still arriving. Forward
-            // buffer is capped so a mid-buffer plateau never delays error
-            // detection: 120s/120MB let a struggling source burn silently for
-            // far too long — 30s/60MB is plenty for several segments and keeps
-            // ABR tuning responsive.
+            // screen while the rest of the segment is still arriving. The
+            // depth is now scaled to the served bitrate (see the constants
+            // above) — a fixed 60MB cap is what strangled buffering at high
+            // quality. The back buffer stays small (watched content is
+            // trimmed) so device RAM stays bounded even on long titles.
             abrEnabled: true,
             progressive: true,
-            maxBufferLength: 30,
-            maxBufferSize: 60 * 1000 * 1000,
+            maxBufferLength: BUFFER_DEPTH_SECONDS,
+            maxBufferSize,
+            backBufferLength: BACK_BUFFER_SECONDS,
             // Netflix-authentic ABR: judge by MEASURED bytes/sec (not the
             // manifest's advertised bitrate, which relay-proxied sources lie
             // about), and never pull a rendition taller than the player's own
@@ -1807,7 +1837,7 @@ export default function NativePlayerView({
         <div style={{ marginTop: 12 }}>
           <p style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginBottom: 6 }}>
             Attempt log · {type} {id}
-            {type === "tv" ? ` S${season}E${episode}` : ""} · {status} · buf {bufferedSecs}s
+            {type === "tv" ? ` S${season}E${episode}` : ""} · {status} · buf {bufferedSecs}/{bufferedTargetSecs}s
           </p>
           <pre
             style={{
