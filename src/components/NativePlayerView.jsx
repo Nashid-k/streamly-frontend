@@ -31,6 +31,7 @@ import {
   Volume1,
   Volume2,
   VolumeX,
+  X,
 } from "lucide-react";
 import Hls from "hls.js";
 import { downloadService } from "../api/downloadService";
@@ -641,8 +642,8 @@ export default function NativePlayerView({
           // the first seconds play instantly; 4K stays one tap away in the
           // menu. (A 4K segment needs ~20 Mbps sustained — opening straight
           // on it is what stalled playback after 5–10s.)
-          const smoothStart = pool[0] || pickSmooth(variants);
-          const entryUrl = entryUrlFor(def, { source: liveSource }, smoothStart);
+          let smoothStart = pool[0] || pickSmooth(variants);
+          let entryUrl = entryUrlFor(def, { source: liveSource }, smoothStart);
           if (!entryUrl) {
             say(`${def.label}: no playable URL — next source.`);
             return false;
@@ -669,6 +670,20 @@ export default function NativePlayerView({
             return false;
           }
           say(`${def.label}: segments flow via ${probe.via}.`);
+          // Relay delivery is latency-bound (every chunk is a fresh serverless
+          // round trip), so starting a tall rendition over it asks for timeouts.
+          // On the relay path reopen at the tallest ≤720p rendition; the direct
+          // path keeps the ≤1080p choice.
+          if (def.key !== "cinesrc" && probe.via === "relay" && (smoothStart?.height || 0) > 720) {
+            const relayFriendly = variants
+              .filter((v) => (v.height || 0) > 0 && (v.height || 0) <= 720)
+              .sort((a, b) => (b.height || 0) - (a.height || 0))[0];
+            if (relayFriendly && relayFriendly.uri !== smoothStart?.uri) {
+              say(`${def.label}: relay path — smooth-starting at ${relayFriendly.height || "?"}p (≤720p)…`);
+              smoothStart = relayFriendly;
+              entryUrl = entryUrlFor(def, { source: liveSource }, smoothStart);
+            }
+          }
           try {
             hlsRef.current?.destroy();
           } catch {
@@ -677,13 +692,15 @@ export default function NativePlayerView({
           const hls = new Hls({
             loader: createStreamlyLoader({ getRefUrl: () => liveRefUrl }),
             // Adaptive bitrate + progressive MSE appends: chunks hit the
-            // screen while the rest of the segment is still arriving. The
-            // forward buffer is sized for 4K segments (10+ MB each) so one
-            // slow fetch doesn't stall playback.
+            // screen while the rest of the segment is still arriving. Forward
+            // buffer is capped so a mid-buffer plateau never delays error
+            // detection: 120s/120MB let a struggling source burn silently for
+            // far too long — 30s/60MB is plenty for several segments and keeps
+            // ABR tuning responsive.
             abrEnabled: true,
             progressive: true,
-            maxBufferLength: 60,
-            maxBufferSize: 120 * 1000 * 1000,
+            maxBufferLength: 30,
+            maxBufferSize: 60 * 1000 * 1000,
           });
           hlsRef.current = hls;
           let lastFatalDetail = "";
@@ -731,7 +748,21 @@ export default function NativePlayerView({
                 data?.details === "levelLoadError"
               ) {
                 consecFragFails += 1;
-                if (consecFragFails >= MAX_CONSECUTIVE_FRAG_FAILURES) {
+                // Multi-level sources get an early ABR step-down: pin one rung
+                // lower so hls.js's own retry has a fighting chance instead of
+                // re-burning the same doomed top-level fragment. Single-level
+                // sources (VidCore/VidSrc) can't step down — only failover.
+                const canStepDown =
+                  Array.isArray(hls.levels) &&
+                  hls.levels.length > 1 &&
+                  Number.isInteger(hls.currentLevel) &&
+                  hls.currentLevel > 0;
+                if (consecFragFails >= 2 && canStepDown) {
+                  hls.currentLevel = hls.currentLevel - 1;
+                  consecFragFails = 0;
+                  say(`${def.label}: downshifting to level ${hls.currentLevel} (${data.details})…`);
+                  setShowLog(true);
+                } else if (consecFragFails >= MAX_CONSECUTIVE_FRAG_FAILURES) {
                   reportFatal({ ...data, fatal: true, details: `${data.details} (×${consecFragFails} consecutive — giving up)` });
                   failOver();
                 } else {

@@ -26,9 +26,15 @@ import { logDebug, logWarn } from "../utils/debugLogger.js";
 import { parseMasterPlaylist, parseMediaPlaylist } from "../utils/downloadQuality.js";
 
 const ENDPOINT = "/api/downloadify";
-// 1MB relay slices keep time-to-first-byte low for streaming (downloads use
-// 3.5MB because they optimize for throughput, not startup latency).
-const FRAG_CHUNK_MAX = 1024 * 1024;
+// Every relay chunk is a fresh serverless round trip, so latency is weighed
+// once per chunk. 1MB slices made slow CDNs stall on multi-MB ts segments
+// (plays 5-10s, then endless loading). 3.5MB balances latency vs the 4.5MB
+// Vercel response cap and keeps most fragments to 1-2 round trips.
+const FRAG_CHUNK_MAX = Math.floor(3.5 * 1024 * 1024);
+// Default per-load watchdog when hls.js passes no config.timeout. 20s is a
+// tolerant ceiling for a 3.5MB relayed slice through Vercel while still
+// firing before a user perceives a permanent hang.
+const DEFAULT_LOAD_TIMEOUT_MS = 20 * 1000;
 // A throttled origin stays relay-only this long — long enough to ride out a
 // WAF burst, short enough to re-probe direct while the title still plays.
 const DIRECT_BLOCK_MS = 5 * 60 * 1000;
@@ -191,6 +197,15 @@ async function throwIfRelayError(response, fallback) {
 export function createStreamlyLoader({ getRefUrl }) {
   const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
 
+  /* Distinct from AbortError so the watchdog win is tellable from a player
+     abort: hls.js routes this into fragLoadTimeout (with its own retry /
+     backoff policy) instead of a hard error. */
+  function timeoutError(message) {
+    const error = new Error(message);
+    error.name = "TimeoutError";
+    return error;
+  }
+
   /* hls.js internal handlers WRITE into the stats object we hand them
      (e.g. playlist-loader sets stats.parsing.start on success), so it must
      carry the full LoadStats shape — flat fields PLUS the loading / parsing /
@@ -218,6 +233,7 @@ export function createStreamlyLoader({ getRefUrl }) {
     constructor() {
       this.aborted = false;
       this.controller = null;
+      this._timeoutTimer = null;
       this.trequest = 0;
       // hls.js grabs this reference directly (fragment-loader does
       // `loader.stats.retry = frag.stats.retry; frag.stats = loader.stats`),
@@ -234,6 +250,7 @@ export function createStreamlyLoader({ getRefUrl }) {
 
     abort() {
       this.aborted = true;
+      this.resetTimer();
       try {
         this.controller?.abort();
       } catch {
@@ -241,17 +258,51 @@ export function createStreamlyLoader({ getRefUrl }) {
       }
     }
 
-    load(context, _config, callbacks) {
+    load(context, config, callbacks) {
       this.context = context;
       this.callbacks = callbacks;
+      // A loader instance is REUSED across retries / the next fragment, so
+      // start each load un-aborted with a fresh cancel handle or one abort()
+      // would poison every later request.
+      this.aborted = false;
+      // One controller per LOAD, shared by every sub-request (playlist,
+      // probe, direct stream, relay chunks) so the watchdog and abort() cancel
+      // the whole fragment pull at once.
+      this.controller = new AbortController();
       this.trequest = now();
       // One live object for the whole load: hls.js keeps references to it
       // (frag.stats = loader.stats) and reads loaded/total off the progress
       // calls, so mutate in place — never replace it mid-load.
       this.stats = finishStats(this.trequest, 0);
       this.firstByteSeen = false;
-      this.run().then(
+      this.resetTimer();
+
+      // hls.js passes config.timeout and expects onTimeout (→ its own retry /
+      // failover) when a load hangs. A fetch that never resolves would
+      // otherwise spin the spinner forever — the core of the "plays 5-10s,
+      // then endless loading" bug. Race the real load against a watchdog that
+      // aborts the controller and settles.
+      const timeoutMs = config?.timeout || DEFAULT_LOAD_TIMEOUT_MS;
+      const runPromise = this.run();
+      runPromise.catch(() => {
+        // The watchdog usually wins a hung request, so this one rejects first
+        // (AbortError). The loser must not surface as an unhandled rejection.
+      });
+      const watchdog = new Promise((resolve, reject) => {
+        this._timeoutTimer = setTimeout(() => {
+          this._timeoutTimer = null;
+          try {
+            this.controller?.abort();
+          } catch {
+            // controller already settled — nothing to cancel
+          }
+          reject(timeoutError(`load timed out after ${Math.round(timeoutMs)}ms`));
+        }, timeoutMs);
+      });
+
+      Promise.race([runPromise, watchdog]).then(
         (data) => {
+          this.resetTimer();
           if (this.aborted) return;
           const end = now();
           const loaded = data?.byteLength ?? data?.length ?? 0;
@@ -266,7 +317,14 @@ export function createStreamlyLoader({ getRefUrl }) {
           callbacks.onSuccess({ url: context.url, data }, this.stats, context);
         },
         (error) => {
+          this.resetTimer();
           if (this.aborted) return;
+          // Watchdog win: let hls.js handle it (its retry config drives
+          // fragLoadTimeout → backoff / ABR step-down in the player).
+          if (error?.name === "TimeoutError") {
+            callbacks.onTimeout(this.stats, context, null);
+            return;
+          }
           if (error?.name === "AbortError") return;
           // Pass the relay's real code through in the text (hls.js only
           // forwards {code, text} to its error handlers, and builds its own
@@ -285,10 +343,17 @@ export function createStreamlyLoader({ getRefUrl }) {
       );
     }
 
+    resetTimer() {
+      if (this._timeoutTimer) {
+        clearTimeout(this._timeoutTimer);
+        this._timeoutTimer = null;
+      }
+    }
+
     signal() {
-      // One controller per load so abort() cancels exactly this request.
-      this.controller = new AbortController();
-      return this.controller.signal;
+      // Sub-requests share the load's controller (created in load()) so the
+      // watchdog and abort() cancel the entire fragment pull at once.
+      return this.controller?.signal;
     }
 
     async run() {

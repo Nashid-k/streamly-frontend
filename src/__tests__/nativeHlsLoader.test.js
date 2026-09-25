@@ -324,6 +324,88 @@ describe("createStreamlyLoader", () => {
     expect(directAgain.length).toBe(1);
     expect(response.data.byteLength).toBe(2);
   });
+
+  it("times out a hung load and reports onTimeout instead of spinning forever", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+    const Loader = createStreamlyLoader({ getRefUrl: () => "https://vidcore.io/" });
+    const loader = new Loader();
+    const calls = { success: 0, error: 0, timeout: 0 };
+    const loadPromise = new Promise((resolve) => {
+      loader.load(
+        { url: "https://moon.quietridge.top/vd/x/index.m3u8" },
+        { timeout: 100 },
+        {
+          onSuccess: () => {
+            calls.success += 1;
+          },
+          onError: () => {
+            calls.error += 1;
+          },
+          onTimeout: () => {
+            calls.timeout += 1;
+            resolve();
+          },
+        },
+      );
+    });
+    // A fetch that never resolves previously left the spinner up forever: no
+    // error, no backoff, no failover. The watchdog must fire and hand control
+    // back to hls.js's timeout policy.
+    await vi.advanceTimersByTimeAsync(200);
+    await loadPromise;
+    expect(calls.timeout).toBe(1);
+    expect(calls.success).toBe(0);
+    expect(calls.error).toBe(0);
+  });
+
+  it("reuses a loader instance after abort — the abort flag resets per load", async () => {
+    let hanging = true;
+    const abortable = (_url, init) => {
+      const signal = init?.signal;
+      return new Promise((resolve, reject) => {
+        if (signal?.aborted) {
+          reject(new DOMException("Aborted", "AbortError"));
+          return;
+        }
+        signal?.addEventListener?.(
+          "abort",
+          () => reject(new DOMException("Aborted", "AbortError")),
+          { once: true },
+        );
+        if (!hanging) {
+          resolve({ ok: true, status: 200, headers: { get: () => "text" }, text: async () => "#EXTM3U\n#EXT-X-VERSION:3\n" });
+        }
+      });
+    };
+    vi.stubGlobal("fetch", abortable);
+    const Loader = createStreamlyLoader({ getRefUrl: () => "https://vidcore.io/" });
+    const loader = new Loader();
+
+    loader.load(
+      { url: "https://moon.quietridge.top/vd/x/index.m3u8" },
+      {},
+      { onSuccess: () => {}, onError: () => {} },
+    );
+    await Promise.resolve(); // let the first fetch register its abort listener
+    loader.abort();
+
+    // The same instance must be usable again: load() resets the abort flag,
+    // or every later request's onSuccess would be swallowed (fragments never
+    // reach MSE → endless loading after the first pause/seek).
+    hanging = false;
+    const response = await new Promise((resolve, reject) => {
+      loader.load(
+        { url: "https://moon.quietridge.top/vd/x/index.m3u8" },
+        {},
+        {
+          onSuccess: (resp) => resolve(resp),
+          onError: (err) => reject(new Error(err.text)),
+        },
+      );
+    });
+    expect(response.data).toContain("#EXTM3U");
+  });
 });
 
 const MEDIA_PLAYLIST = "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:6\n#EXTINF:6.0,\nseg-0.m4s\n#EXT-X-ENDLIST\n";
