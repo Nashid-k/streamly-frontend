@@ -35,6 +35,8 @@ import {
   Play,
   RotateCcw,
   RotateCw,
+  SkipBack,
+  SkipForward,
   Volume1,
   Volume2,
   VolumeX,
@@ -107,15 +109,32 @@ const BTN_SIZE = IS_TOUCH ? 44 : 40;
 const SAFE_TOP = IS_TOUCH ? "calc(12px + env(safe-area-inset-top, 0px))" : "12px";
 const SAFE_BOTTOM = IS_TOUCH ? "calc(10px + env(safe-area-inset-bottom, 0px))" : "10px";
 
+// Netflix-style Skip Intro (TV only). Netflix knows each episode's intro
+// boundaries from studio metadata; we don't, so the pill uses an opt-in
+// per-title override table (add entries as boundaries are confirmed) with a
+// conservative default otherwise. Mirroring Netflix: the button is visible
+// ONLY while the playback head sits inside [0, end + grace] and seeking jumps
+// just past the intro, staying fully in-play. Episodes shorter than the floor
+// never get the guess — a spur-of-the-moment "skip" on a 5-minute short is a
+// worse cut than letting the cold open play.
+const SKIP_INTRO_OVERRIDES = {
+  // tmdbId: { endSeconds: 90 } — drop confirmed boundaries in here
+};
+const SKIP_INTRO_DEFAULT_END = 90; // seconds — typical cold-open + title card
+const SKIP_INTRO_MIN_EPISODE_SECONDS = 15 * 60; // only guess for >= 15 min eps
+const SKIP_INTRO_GRACE = 10; // keep the pill a few seconds past the end
+
 /* Plain white circular icon button (Netflix transport glyphs). */
-function IconBtn({ label, onClick, children, active }) {
+function IconBtn({ label, onClick, children, active, disabled }) {
   return (
     <button
       type="button"
       aria-label={label}
       title={label}
+      disabled={disabled}
       onClick={(e) => {
         e.stopPropagation();
+        if (disabled) return;
         onClick?.(e);
       }}
       style={{
@@ -124,8 +143,8 @@ function IconBtn({ label, onClick, children, active }) {
         borderRadius: "50%",
         border: "none",
         background: "transparent",
-        color: active ? NETFLIX_RED : "#fff",
-        cursor: "pointer",
+        color: disabled ? "rgba(255,255,255,0.35)" : active ? NETFLIX_RED : "#fff",
+        cursor: disabled ? "not-allowed" : "pointer",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -221,6 +240,14 @@ export default function NativePlayerView({
   imdbId = "",
   episodes = [],
   onSelectEpisode,
+  // Netflix-style prev/next episode paging. The parent owns the authoritative
+  // navigation (it can cross season boundaries), so it hands us the booleans
+  // and callbacks; when they're missing (standalone player story) we fall back
+  // to walking the local `episodes` list one step at a time.
+  canGoPrev,
+  canGoNext,
+  onGoPrev,
+  onGoNext,
   onClose,
   // Continue-watching entry for THIS title/episode ({ timestamp } in s, >0),
   // plus a sink to persist playback positions. Both optional — leave them off
@@ -262,6 +289,10 @@ export default function NativePlayerView({
   onCloseRef.current = onClose;
   const onSelectEpisodeRef = useRef(onSelectEpisode);
   onSelectEpisodeRef.current = onSelectEpisode;
+  const onGoPrevRef = useRef(onGoPrev);
+  onGoPrevRef.current = onGoPrev;
+  const onGoNextRef = useRef(onGoNext);
+  onGoNextRef.current = onGoNext;
   const commitResumeRef = useRef(null); // assigned below, driven by the resume card
   const maybeOfferResumeRef = useRef(() => {}); // reassigned below; called from the run effect
   // Reassigned below; the run effect's relay-demote calls it at runtime (keeps
@@ -1738,6 +1769,68 @@ export default function NativePlayerView({
   const VolumeIcon = muted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
   const showEpisodesButton = Array.isArray(episodes) && episodes.length > 0;
 
+  // Netflix-style episode paging (TV only). The parent's canGo*/onGo* are
+  // authoritative — they know how to cross a season boundary. Without them we
+  // walk the local episodes list step by step.
+  const showEpisodeNav = type === "tv";
+  const navIndex = episodes.findIndex((e) => e.number === episode);
+  const navPrevNumber = navIndex > 0 ? episodes[navIndex - 1]?.number : null;
+  const navNextNumber =
+    navIndex >= 0 && navIndex < episodes.length - 1 ? episodes[navIndex + 1]?.number : null;
+  const prevDisabled = typeof canGoPrev === "boolean" ? !canGoPrev : navPrevNumber == null;
+  const nextDisabled = typeof canGoNext === "boolean" ? !canGoNext : navNextNumber == null;
+
+  const goEpPrev = () => {
+    if (prevDisabled) return;
+    poke();
+    setPanel(null);
+    setResumeOffer(null);
+    setUpNext(null);
+    setBuffering(true);
+    if (onGoPrevRef.current) return onGoPrevRef.current();
+    if (navPrevNumber != null) onSelectEpisodeRef.current?.(navPrevNumber);
+  };
+  const goEpNext = () => {
+    if (nextDisabled) return;
+    poke();
+    setPanel(null);
+    setResumeOffer(null);
+    setUpNext(null);
+    setBuffering(true);
+    if (onGoNextRef.current) return onGoNextRef.current();
+    if (navNextNumber != null) onSelectEpisodeRef.current?.(navNextNumber);
+  };
+
+  // Intro window for the Skip Intro pill. Real Netflix intros run ~60-150s;
+  // with no metadata we'd rather under-claim than over-claim, so the pill only
+  // shows inside [0, end + grace] and disappears permanently once the head
+  // passes it — exactly how Netflix behaves.
+  let skipIntroEnd = 0;
+  if (type === "tv") {
+    const o = SKIP_INTRO_OVERRIDES[id];
+    if (o && Number(o.endSeconds) > 0) skipIntroEnd = Number(o.endSeconds);
+    else if (safeDuration === 0 || safeDuration >= SKIP_INTRO_MIN_EPISODE_SECONDS)
+      skipIntroEnd = SKIP_INTRO_DEFAULT_END;
+  }
+  const showSkipIntro =
+    skipIntroEnd > 0 && !ended && currentTime >= 0 && currentTime <= skipIntroEnd + SKIP_INTRO_GRACE;
+  const skipIntroTarget = Math.min(skipIntroEnd, safeDuration > 5 ? safeDuration - 5 : skipIntroEnd);
+  const doSkipIntro = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    try {
+      v.currentTime = skipIntroTarget;
+    } catch {
+      // live-edge clamp — start wherever the fresh playlist begins
+    }
+    poke();
+    try {
+      v.play();
+    } catch {
+      // user gesture needed — custom transport is present
+    }
+  };
+
   return (
     <div
       style={{
@@ -1872,6 +1965,39 @@ export default function NativePlayerView({
           </button>
           )}
         </div>
+        {/* Netflix-style Skip Intro pill: top-left, just under the back row,
+            present only inside the intro window, seeks just past the credits.
+            Stays tappable even with the chrome hidden (Netflix keeps it while
+            the intro plays). */}
+        {showSkipIntro && (
+          <button
+            type="button"
+            onClick={doSkipIntro}
+            aria-label="Skip the opening credits"
+            title="Stop the intro, come right back in"
+            style={{
+              position: "absolute",
+              top: `calc(${SAFE_TOP} + 58px)`,
+              left: 16,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "8px 16px",
+              background: "#fff",
+              color: "#000",
+              border: "none",
+              borderRadius: 999,
+              fontWeight: 800,
+              fontSize: 14,
+              cursor: "pointer",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+              zIndex: 5,
+            }}
+          >
+            <SkipForward size={18} />
+            Skip Intro
+          </button>
+        )}
         {/* Center: red buffering spinner; on touch, a big play glyph whenever the
             stream is simply paused (incl. the autoplay-policy case where a
             cold start can't play without a tap); the replay button at the end
@@ -2181,6 +2307,16 @@ export default function NativePlayerView({
               </span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+              {showEpisodeNav && (
+                <>
+                  <IconBtn label="Previous episode" disabled={prevDisabled} onClick={goEpPrev}>
+                    <SkipBack size={26} />
+                  </IconBtn>
+                  <IconBtn label="Next episode" disabled={nextDisabled} onClick={goEpNext}>
+                    <SkipForward size={26} />
+                  </IconBtn>
+                </>
+              )}
               {showEpisodesButton && (
                 <IconBtn
                   label="Episodes"

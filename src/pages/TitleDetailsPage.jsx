@@ -1997,135 +1997,75 @@ export default function TitleDetails() {
               />
             )}
 
-            {/* Player header */}
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1, duration: 0.4, ease: "easeOut" }}
-              className={`video-modal-header${playMode === "trailer" ? "" : " hidden md:flex"}`}
-              style={{
-                position: "relative",
-                padding: "calc(clamp(0.65rem, 1.2vh, 1.25rem) + env(safe-area-inset-top, 0px)) clamp(1rem, 2vw, 2rem) clamp(0.65rem, 1.2vh, 1.25rem)",
-                display: "flex",
-                justifyContent: "space-between",
-                background:
-                  playMode === "trailer" ? "rgba(0,0,0,0.4)" : "#0b0b0d",
-                alignItems: "center",
-                zIndex: 1000,
-                backdropFilter: playMode === "trailer" ? "blur(12px)" : "none",
-                gap: "0.5rem",
-              }}
-            >
-              <div
-                className="video-modal-header__identity"
-                style={{ display: "flex", alignItems: "center", gap: "1rem", flex: 1, minWidth: 0, overflow: "hidden" }}
+            {/* Player header — TRAILER ONLY. Native playback is full-bleed with
+                its own in-player chrome (back, title, prev/next episode in the
+                bottom rail), matching the Netflix web player. */}
+            {playMode === "trailer" && (
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1, duration: 0.4, ease: "easeOut" }}
+                className="video-modal-header"
+                style={{
+                  position: "relative",
+                  padding: "calc(clamp(0.65rem, 1.2vh, 1.25rem) + env(safe-area-inset-top, 0px)) clamp(1rem, 2vw, 2rem) clamp(0.65rem, 1.2vh, 1.25rem)",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  background: "rgba(0,0,0,0.4)",
+                  alignItems: "center",
+                  zIndex: 1000,
+                  backdropFilter: "blur(12px)",
+                  gap: "0.5rem",
+                }}
               >
-                <motion.button
-                  onClick={() => setIsPlaying(false)}
-                  className="video-modal-back-button"
-                  aria-label="Back to browse"
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: "#fff",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: "6px",
-                    borderRadius: "4px",
-                    flexShrink: 0,
-                  }}
-                  whileHover={{ background: "rgba(255,255,255,0.1)" }}
-                  whileTap={{ opacity: 0.6 }}
+                <div
+                  className="video-modal-header__identity"
+                  style={{ display: "flex", alignItems: "center", gap: "1rem", flex: 1, minWidth: 0, overflow: "hidden" }}
                 >
-                  <ChevronLeft size={22} strokeWidth={2.2} />
-                </motion.button>
-                <h3
-                  className="video-modal-title"
-                  style={{
-                    margin: 0,
-                    fontSize: "1rem",
-                    fontWeight: 700,
-                    color: "#fff",
-                  }}
-                >
-                  {movie.title}{" "}
-                  {playMode === "trailer" ? (
+                  <motion.button
+                    onClick={() => setIsPlaying(false)}
+                    className="video-modal-back-button"
+                    aria-label="Back to browse"
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "#fff",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "6px",
+                      borderRadius: "4px",
+                      flexShrink: 0,
+                    }}
+                    whileHover={{ background: "rgba(255,255,255,0.1)" }}
+                    whileTap={{ opacity: 0.6 }}
+                  >
+                    <ChevronLeft size={22} strokeWidth={2.2} />
+                  </motion.button>
+                  <h3
+                    className="video-modal-title"
+                    style={{
+                      margin: 0,
+                      fontSize: "1rem",
+                      fontWeight: 700,
+                      color: "#fff",
+                    }}
+                  >
+                    {movie.title}{" "}
                     <span style={{ color: "#71717a", fontWeight: 400 }}>
                       — Official Trailer
                     </span>
-                  ) : isTvContent ? (
-                    `— S${selectedSeason} E${playingEpisode}${episodes.find((e) => e.episodeNumber === playingEpisode)?.title ? `: ${episodes.find((e) => e.episodeNumber === playingEpisode).title}` : ""}`
-                  ) : (
-                    ""
-                  )}
-                </h3>
-              </div>
-              <div
-                className="video-modal-header__actions"
-                style={{
-                  display: "flex",
-                  gap: "0.75rem",
-                  alignItems: "center",
-                }}
-              >
-                {isTvContent && playMode !== "trailer" && (
-                  <div
-                    className="video-modal-episode-nav"
-                    style={{
-                      display: "flex",
-                      gap: "0.5rem",
-                      marginRight: "0.75rem",
-                    }}
-                  >
-                    <motion.button
-                      onClick={goToPrevEpisode}
-                      disabled={!canGoPrev}
-                      style={{
-                        background: "transparent",
-                        border: "1px solid rgba(255,255,255,0.15)",
-                        color: "white",
-                        padding: "0.45rem 1rem",
-                        borderRadius: "4px",
-                        cursor: canGoPrev ? "pointer" : "not-allowed",
-                        opacity: canGoPrev ? 1 : 0.4,
-                        fontSize: "0.85rem",
-                        fontWeight: 600,
-                      }}
-                      whileHover={canGoPrev ? { scale: 1.04, background: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.3)" } : {}}
-                      whileTap={canGoPrev ? { scale: 0.95 } : {}}
-                    >
-                      Prev Ep
-                    </motion.button>
-                    <motion.button
-                      onClick={goToNextEpisode}
-                      disabled={!canGoNext}
-                      style={{
-                        background: "#E50914",
-                        border: "none",
-                        color: "white",
-                        padding: "0.45rem 1.1rem",
-                        borderRadius: "4px",
-                        cursor: canGoNext ? "pointer" : "not-allowed",
-                        fontWeight: 700,
-                        opacity: canGoNext ? 1 : 0.4,
-                        fontSize: "0.85rem",
-                      }}
-                      whileHover={
-                        canGoNext
-                          ? { scale: 1.05, background: "#ff0a16" }
-                          : {}
-                      }
-                      whileTap={
-                        canGoNext ? { scale: 0.95 } : {}
-                      }
-                    >
-                      Next Ep
-                    </motion.button>
-                  </div>
-                )}
-                {playMode === "trailer" && (
+                  </h3>
+                </div>
+                <div
+                  className="video-modal-header__actions"
+                  style={{
+                    display: "flex",
+                    gap: "0.75rem",
+                    alignItems: "center",
+                  }}
+                >
                   <motion.button
                     onClick={() => setIsPlaying(false)}
                     style={{
@@ -2150,9 +2090,9 @@ export default function TitleDetails() {
                   >
                     <X size={18} />
                   </motion.button>
-                )}
-              </div>
-            </motion.div>
+                </div>
+              </motion.div>
+            )}
 
             {/* Player: trailer iframe, or the native HLS player for streams */}
             <motion.div
@@ -2255,6 +2195,10 @@ export default function TitleDetails() {
                             : []
                         }
                         onSelectEpisode={(n) => setPlayingEpisode(n)}
+                        canGoPrev={canGoPrev}
+                        canGoNext={canGoNext}
+                        onGoPrev={goToPrevEpisode}
+                        onGoNext={goToNextEpisode}
                         onClose={() => setIsPlaying(false)}
                         imdbId={movie?.imdbId || ""}
                         watchedEntry={watchEntry}
