@@ -147,6 +147,14 @@ async function relayPlaylistText(url, refUrl, signal) {
 }
 
 export async function probeSourcePlayable(entryUrl, refUrl, { signal } = {}) {
+  // net27's own /api/proxy/video is nginx-throttled per client, and the site's
+  // player opens exactly ONE request per stream. Our byte sip is an extra same-
+  // second request that can trip that throttle before <video> even starts, so
+  // for net27 media we skip the sip and let the media element itself be the
+  // probe — if it errors, the player falls through to the next source.
+  if (/^https:\/\/net27\.cc\/api\/proxy\/video/i.test(String(entryUrl))) {
+    return { ok: true, via: "trusted" };
+  }
   // Direct mp4 sources (NetMirror/net27 dubs): no playlist to parse — prove
   // one media byte flows the same way playback will (direct fetch first, then
   // the range relay). Same verdict shape, reused by the mp4 quality/audio swap.
