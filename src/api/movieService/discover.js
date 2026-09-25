@@ -6,7 +6,7 @@ import { normalizeResult, REGIONAL_PRIMARY_LANGUAGES } from './normalize';
 
 // Resolve a browse filter set to TMDB request params. Kept tiny and pure so
 // new filters (provider, country) land in exactly one place.
-export const getDiscover = async ({ mediaType = 'movie', genreId, year, sortBy = 'popular', region, providerId, country, page = 1 } = {}) => {
+export const getDiscover = async ({ mediaType = 'movie', genreId, year, sortBy = 'popular', region, providerId, country, languageId, page = 1 } = {}) => {
   const mt = mediaType === 'tv' ? 'tv' : 'movie';
   try {
     const params = {
@@ -23,6 +23,7 @@ export const getDiscover = async ({ mediaType = 'movie', genreId, year, sortBy =
     if (genreId) params.with_genres = String(genreId);
     if (year) params[mt === 'movie' ? 'primary_release_year' : 'first_air_date_year'] = String(year);
     if (country) params.with_origin_country = String(country);
+      if (languageId) params.with_original_language = String(languageId);
     if (providerId) {
       // Provider filtering always needs the region TMDB watches in; default
       // to the chosen region, the passed country, else US.

@@ -201,6 +201,11 @@ export default function Home({
   }, [loading, featuredData, categoriesData, filter]);
 
   const rawCategories = asArray(categoriesData);
+
+  const newHindi = useMemo(() => asArray(newReleasesData).filter(m => m.originalLanguage === 'hi'), [newReleasesData]);
+  const newTamil = useMemo(() => asArray(newReleasesData).filter(m => m.originalLanguage === 'ta'), [newReleasesData]);
+  const newMalayalam = useMemo(() => asArray(newReleasesData).filter(m => m.originalLanguage === 'ml'), [newReleasesData]);
+
   const featuredMovies = useMemo(
     () => {
       try {

@@ -238,6 +238,7 @@ export default function DiscoveryPage({ mode = "movies" }) {
   const sortParam = searchParams.get("sort") || "popular";
   const providerParam = searchParams.get("provider") || null;
   const countryParam = searchParams.get("country") || null;
+  const languageParam = searchParams.get("language") || null;
 
   const setParam = (key, value) => {
     const next = new URLSearchParams(searchParams);
@@ -280,6 +281,7 @@ export default function DiscoveryPage({ mode = "movies" }) {
       yearParam,
       sortParam,
       providerParam,
+        languageParam,
       countryParam,
     ],
     queryFn: ({ pageParam = 1 }) =>
@@ -289,6 +291,8 @@ export default function DiscoveryPage({ mode = "movies" }) {
         year: yearParam,
         sortBy: sortParam,
         providerId: providerParam,
+        languageParam,
+        languageId: languageParam,
         country: countryParam,
         page: pageParam,
       }),
@@ -397,6 +401,7 @@ export default function DiscoveryPage({ mode = "movies" }) {
     yearParam,
     sortParam,
     providerParam,
+        languageParam,
     countryParam,
   ];
   useEffect(() => {
@@ -410,18 +415,32 @@ export default function DiscoveryPage({ mode = "movies" }) {
   useEffect(() => {
     if (gridQuery.isLoading || gridQuery.error) return;
     if (gridItems.length === 0) {
-      logEmptyData("DiscoveryPage", `Discovery grid returned 0 titles: mode=${mode}, genre=${genreParam}, year=${yearParam}, sort=${sortParam}, provider=${providerParam}, country=${countryParam}.`, {
+      logEmptyData("DiscoveryPage", `Discovery grid returned 0 titles: mode=${mode}, genre=${genreParam}, year=${yearParam}, sort=${sortParam}, provider=${providerParam}, country=${countryParam}, language=${languageParam}.`, {
         mode,
         genreParam,
         yearParam,
         sortParam,
         providerParam,
+        languageParam,
         countryParam,
       });
     }
-  }, [gridQuery.isLoading, gridQuery.error, gridItems.length, mode, genreParam, yearParam, sortParam, providerParam, countryParam]);
+  }, [gridQuery.isLoading, gridQuery.error, gridItems.length, mode, genreParam, yearParam, sortParam, providerParam,
+        languageParam, countryParam]);
 
   // ── Option lookups for pill labels & menu rendering ─────────────────────
+  
+  const LANGUAGE_OPTIONS = useMemo(() => [
+    { id: "en", name: "English" },
+    { id: "hi", name: "Hindi" },
+    { id: "ta", name: "Tamil" },
+    { id: "ml", name: "Malayalam" },
+    { id: "te", name: "Telugu" },
+    { id: "kn", name: "Kannada" },
+    { id: "ko", name: "Korean" },
+    { id: "ja", name: "Japanese" }
+  ], []);
+
   const yearOptions = useMemo(() => {
     const thisYear = new Date().getFullYear();
     const list = [];
@@ -448,6 +467,7 @@ export default function DiscoveryPage({ mode = "movies" }) {
   const yearLabel = yearParam || "Year";
   const providerLabel = providerParam && providerById.get(providerParam) ? providerById.get(providerParam) : "Provider";
   const countryLabel = countryParam && countryByCode.get(countryParam) ? countryByCode.get(countryParam) : "Country";
+  const languageLabel = languageParam ? (LANGUAGE_OPTIONS.find(l => l.id === languageParam)?.name || "Language") : "Language";
 
   // ── Random: open a random title from the current grid ───────────────────
   // Force the instant info modal (never the page route) so the click gives
@@ -593,6 +613,22 @@ export default function DiscoveryPage({ mode = "movies" }) {
                           }
                           onSelect={() => {
                             setParam("provider", String(p.id));
+                            close();
+                          }}
+                        />
+                      ))
+                    }
+                  </FilterPill>
+
+                  <FilterPill label={languageLabel}>
+                    {({ close }) =>
+                      LANGUAGE_OPTIONS.map((l) => (
+                        <MenuItem
+                          key={l.id}
+                          label={l.name}
+                          selected={l.id === languageParam}
+                          onSelect={() => {
+                            setParam("language", l.id);
                             close();
                           }}
                         />

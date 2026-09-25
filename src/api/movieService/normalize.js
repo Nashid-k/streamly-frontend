@@ -63,6 +63,7 @@ export function normalizeResult(item) {
     genres: (item.genre_ids || []).map(gid => GENRE_MAP[gid]).filter(Boolean),
     mediaType: item.media_type || (isTV ? 'tv' : 'movie'),
     popularity: item.popularity || 0,
+    originalLanguage: item.original_language || null,
   };
 }
 
