@@ -263,6 +263,50 @@ describe("createStreamlyLoader", () => {
     expect(err.text).toContain("[relay:segment-fetch-failed]");
   });
 
+  it("reports each fragment's transport path to the player (direct vs relay)", async () => {
+    const bytes = new Uint8Array([1, 2, 3, 4]).buffer;
+    const seen = { direct: 0, relay: 0 };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        if (init?.headers?.range) return rangeOkResponse();
+        if (typeof url === "string" && url.startsWith("https://direct.example.com")) {
+          return { ok: true, status: 200, headers: { get: () => null }, arrayBuffer: async () => bytes };
+        }
+        if (typeof url === "string" && url.includes("downloadify")) {
+          return {
+            ok: true,
+            status: 200,
+            headers: { get: (name) => (name === "x-streamly-more" ? "0" : "application/octet-stream") },
+            arrayBuffer: async () => bytes,
+          };
+        }
+        return { ok: false, status: 403, headers: { get: () => null } };
+      }),
+    );
+    const Loader = createStreamlyLoader({
+      getRefUrl: () => "https://vidcore.io/",
+      onDirectPath: () => {
+        seen.direct += 1;
+      },
+      onRelayPath: () => {
+        seen.relay += 1;
+      },
+    });
+    const loadFrag = (loader, url) =>
+      new Promise((resolve, reject) => {
+        loader.load(
+          { url, frag: { sn: 1 } },
+          {},
+          { onSuccess: (resp) => resolve(resp), onError: (err) => reject(new Error(err.text)) },
+        );
+      });
+    await loadFrag(new Loader(), "https://direct.example.com/vd/a.m4s");
+    await loadFrag(new Loader(), "https://relay.example.com/vd/b.m4s");
+    expect(seen.direct).toBe(1);
+    expect(seen.relay).toBe(1);
+  });
+
   it("parks a throttled origin on relay-only cooldown (no repeated direct pokes)", async () => {
     const fetchMock = vi.fn().mockImplementation(async (url, init) => {
       if (init?.headers?.range) return rangeOkResponse();

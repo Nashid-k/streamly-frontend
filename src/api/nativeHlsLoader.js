@@ -201,7 +201,7 @@ async function throwIfRelayError(response, fallback) {
   throw error;
 }
 
-export function createStreamlyLoader({ getRefUrl }) {
+export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath } = {}) {
   const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
 
   /* Distinct from AbortError so the watchdog win is tellable from a player
@@ -424,6 +424,7 @@ export function createStreamlyLoader({ getRefUrl }) {
             const origin = originOf(url);
             if (origin) directBlockedUntil.delete(origin);
             this.relayStreak = 0;
+            onDirectPath?.();
             return data;
           } catch (error) {
             if (error?.name === "AbortError" || this.aborted) throw error;
@@ -539,6 +540,10 @@ export function createStreamlyLoader({ getRefUrl }) {
       } else {
         logDebug("native", `Relayed fragment (${total} bytes).`, { url: String(url).slice(0, 80) });
       }
+      // One relayed FRAGMENT landed (not one chunk): tell the player so it can
+      // count a real streak across fragments and demote a tall rendition that
+      // the relay leg can't keep feeding.
+      onRelayPath?.();
       return out.buffer;
     }
   };

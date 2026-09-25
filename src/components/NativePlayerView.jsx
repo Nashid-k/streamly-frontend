@@ -197,6 +197,9 @@ export default function NativePlayerView({
   onSelectEpisodeRef.current = onSelectEpisode;
   const commitResumeRef = useRef(null); // assigned below, driven by the resume card
   const maybeOfferResumeRef = useRef(() => {}); // reassigned below; called from the run effect
+  // Reassigned below; the run effect's relay-demote calls it at runtime (keeps
+  // the effect's exhaustive-deps clean).
+  const pickQualityRef = useRef(null);
 
   const [lines, setLines] = useState([]);
   const [status, setStatus] = useState("idle");
@@ -249,6 +252,10 @@ export default function NativePlayerView({
   const [volHover, setVolHover] = useState(false);
   const [scrubHover, setScrubHover] = useState(null); // 0..1 ratio or null
   const [scrubDragging, setScrubDragging] = useState(false);
+  // Fragments currently flowing via the Vercel relay (0 = all direct). A real
+  // streak past a couple means the CDN throttled the direct pull mid-session
+  // — surfaced in the attempt log so "loads on good internet" is diagnosable.
+  const [relayStreak, setRelayStreak] = useState(0);
 
   const displayTitle = title || (type === "tv" ? `TV ${id}` : `Movie ${id}`);
   const displaySubtitle = subtitle ?? (type === "tv" ? `S${season}:E${episode}` : "");
@@ -853,6 +860,7 @@ export default function NativePlayerView({
       setCurrentHeight(null);
       setResumeOffer(null);
       setPanel(null);
+      setRelayStreak(0);
       const args = { type, id, season: type === "tv" ? season : undefined, episode: type === "tv" ? episode : undefined };
       const stale = () => runRef.current !== run || controller.signal.aborted;
       const abortPromise = () =>
@@ -955,8 +963,52 @@ export default function NativePlayerView({
           const bufferDepthSecs = Math.round(Math.floor(maxBufferSize / Math.max(1, topBps / 8)));
           setBufferedTargetSecs(bufferDepthSecs);
           say(`Buffer: up to ~${bufferDepthSecs}s (~${Math.round(maxBufferSize / 1024 / 1024)}MB) ahead.`);
+          // Mid-play relay detector: the probe says "direct", so we open at
+          // ≤1080p (or 4K the user pinned), but the CDN then throttles the
+          // browser's direct pull mid-session (429/403 after the first couple
+          // of segments) and every taller segment rides the serverless relay —
+          // 3-10 SERIAL 3.5MB round trips per 4K fragment. Playback then plays
+          // one segment (~5-8s) and buffers at the next boundary no matter how
+          // good the pipe is: the binding constraint is per-segment relay
+          // latency, not buffer depth. A couple of consecutive relayed
+          // fragments means the direct path is gone for the session's duration
+          // (throttle cooldown is 5min) — reopen at the tallest ≤720p rung,
+          // which the relay CAN keep feeding (one round trip per segment),
+          // preserving the position. CineSrc is multi-level ABR and self-adjusts.
+          let relayedFrags = 0;
+          let demoting = false;
+          let activeEntryHeight = def.key === "cinesrc" ? 0 : smoothStart?.height || 0;
+          const maybeDemoteOffRelay = () => {
+            if (relayedFrags >= 2 && !demoting && def.key !== "cinesrc") {
+              if (activeEntryHeight > 0 && activeEntryHeight <= 720) return;
+              const rungs = variants
+                .filter((v) => (v.height || 0) > 0 && (v.height || 0) <= 720)
+                .sort((a, b) => (b.height || 0) - (a.height || 0));
+              const target = rungs[0] || variants[variants.length - 1];
+              if (!target || target.uri === smoothStart?.uri) return;
+              demoting = true;
+              say(`${def.label}: ${relayedFrags} frags via relay — reopening at ${target.height || "?"}p to keep playing…`);
+              setShowLog(true);
+              activeEntryHeight = target.height || 0;
+              relayedFrags = 0;
+              pickQualityRef.current?.(target.uri, target.height)?.finally?.(() => {
+                demoting = false;
+              });
+            }
+          };
           const hls = new Hls({
-            loader: createStreamlyLoader({ getRefUrl: () => liveRefUrl }),
+            loader: createStreamlyLoader({
+              getRefUrl: () => liveRefUrl,
+              onRelayPath: () => {
+                relayedFrags += 1;
+                setRelayStreak((n) => n + 1);
+                maybeDemoteOffRelay();
+              },
+              onDirectPath: () => {
+                relayedFrags = 0;
+                setRelayStreak(0);
+              },
+            }),
             // Adaptive bitrate + progressive MSE appends: chunks hit the
             // screen while the rest of the segment is still arriving. The
             // depth is now scaled to the served bitrate (see the constants
@@ -1212,6 +1264,7 @@ export default function NativePlayerView({
       setBuffering(false);
     }
   };
+  pickQualityRef.current = pickQuality;
 
   const pickAudio = (index) => {
     const hls = hlsRef.current;
@@ -1891,7 +1944,8 @@ export default function NativePlayerView({
         <div style={{ marginTop: 12 }}>
           <p style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginBottom: 6 }}>
             Attempt log · {type} {id}
-            {type === "tv" ? ` S${season}E${episode}` : ""} · {status} · buf {bufferedSecs}/{bufferedTargetSecs}s
+            {type === "tv" ? ` S${season}E${episode}` : ""} · {status} · buf {bufferedSecs}/{bufferedTargetSecs}s ·{" "}
+            {relayStreak > 0 ? `relay ×${relayStreak} frags` : "frags direct"}
           </p>
           <pre
             style={{
