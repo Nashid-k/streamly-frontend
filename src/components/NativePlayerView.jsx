@@ -248,6 +248,9 @@ export default function NativePlayerView({
   // Reassigned below; the run effect's relay-demote calls it at runtime (keeps
   // the effect's exhaustive-deps clean).
   const pickQualityRef = useRef(null);
+  // Mirrors activeUri for use right after an async swap (state would be stale
+  // inside the awaiting closure).
+  const activeUriRef = useRef(null);
   // Guards against rapid quality switches clobbering each other: each call
   // stamps a token; after every await it re-checks it's still the newest.
   const switchTokenRef = useRef(0);
@@ -269,6 +272,9 @@ export default function NativePlayerView({
   const [isMasterMode, setIsMasterMode] = useState(false);
   const [audioTracks, setAudioTracks] = useState([]);
   const [audioIndex, setAudioIndex] = useState(0);
+  // Videasy (VidCore) titles expose a real second soundtrack under a hidden
+  // base playlist (index-s{res}-v1) — "Audio 2" swaps the whole stream to it.
+  const [altAudioOn, setAltAudioOn] = useState(false);
   const [fatal, setFatal] = useState(null);
   const [playing, setPlaying] = useState(false);
   const [ended, setEnded] = useState(false);
@@ -1054,6 +1060,7 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
       setQualities([]);
       setAudioTracks([]);
       setAudioIndex(0);
+      setAltAudioOn(false);
       setBuffering(true);
       setBufferedSecs(0);
       setBufferedTargetSecs(30);
@@ -1377,7 +1384,20 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
             return false;
           }
           if (stale()) return true;
-          metaRef.current = { variants, sourceKey: def.key, refUrl: liveRefUrl, cinesrcLevels: def.key === "cinesrc" };
+          const altByUri = {};
+          variants.forEach((v) => {
+            if (v.altUri) {
+              altByUri[v.uri] = v.altUri;
+              altByUri[v.altUri] = v.uri;
+            }
+          });
+          metaRef.current = {
+            variants,
+            sourceKey: def.key,
+            refUrl: liveRefUrl,
+            cinesrcLevels: def.key === "cinesrc",
+            altByUri,
+          };
           startLevelFor(hls, def);
           setQualities(variants.map((v) => ({ uri: v.uri, height: v.height || 0, bandwidth: v.bandwidth || 0, label: v.label })));
           setIsMasterMode(def.key === "cinesrc");
@@ -1527,6 +1547,19 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
       // relay-only app on the free tier; banning tall rungs bans everything).
       let chosenUri = uri;
       let chosenHeight = height;
+      // While "Audio 2" (the hidden -v1 base) is active, a quality pick must
+      // stay on the SAME soundtrack: variants list the -a1 uris, so map the
+      // pick to that rendition's alternating twin.
+      const twin = altAudioOn ? metaRef.current?.altByUri?.[uri] : null;
+      if (twin && twin !== uri) {
+        chosenUri = twin;
+        if (uri === activeUri) {
+          say(`Already on ${height || "?"}p (Audio 2) — no reload.`);
+          setBuffering(false);
+          setControlsVisible(true);
+          return;
+        }
+      }
       let warm = transportRelay ? { ok: true, via: "relay" } : null;
       const refUrl = metaRef.current?.refUrl;
       try {
@@ -1611,6 +1644,10 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
   };
   pickQualityRef.current = pickQuality;
 
+  useEffect(() => {
+    activeUriRef.current = activeUri;
+  }, [activeUri]);
+
   // YouTube's anti-stall rule. The depth goal only helps when the pipe can
   // refill faster than a segment plays; when it can't, the buffer drains and
   // playback enters the 5s/5s loop. Drop one rung once the forward buffer
@@ -1682,6 +1719,37 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
     setAudioIndex(index);
     poke();
     say(`Audio -> ${audioTracks[index]?.name || index}.`);
+  };
+
+  /* Videasy's dual soundtrack: "Audio 2" = the hidden base variant of the
+     currently playing rendition (-a1 ↔ -v1 siblings). Reuses the HLS
+     quality-swap machinery so the switch gets probe-warm + playhead + pause
+     preservation for free (the fragments are Open-CORS fMP4 in both). */
+  const pickAltAudio = async (useAlt) => {
+    const meta = metaRef.current;
+    const video = videoRef.current;
+    const map = meta?.altByUri;
+    if (!video || !map || meta?.mp4Mode) return;
+    const source = activeUri;
+    const target = source && map[source];
+    if (!target || target === source || useAlt === altAudioOn) return;
+    const height = meta.variants?.find((v) => v.uri === source)?.height ?? null;
+    say(`Audio -> ${useAlt ? "Audio 2" : "Original"}…`);
+    setAltAudioOn(useAlt);
+    setBuffering(true);
+    poke();
+    try {
+      await pickQualityRef.current?.(target, height);
+    } catch (error) {
+      say(`Audio switch failed: ${error?.message || "unknown"}.`);
+    }
+    // pickQuality swallows playback-level failures internally — verify the
+    // swap actually landed (activeUri reached the twin) before trusting it.
+    if (activeUriRef.current !== target) {
+      setAltAudioOn(!useAlt);
+      setBuffering(false);
+      say(`Audio switch failed — staying on the current track.`);
+    }
   };
 
   /* Subtitles: OpenSubtitles track list for THIS title (mirrors
@@ -2402,6 +2470,25 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
                         sub={a.lang && a.lang !== a.name ? a.lang : undefined}
                       />
                     ))
+                  ) : !metaRef.current?.mp4Mode && activeUri && metaRef.current?.altByUri?.[activeUri] ? (
+                    // Videasy (VidCore): a hidden base soundtrack (-v1) rides
+                    // alongside the listed -a1 streams — offer both.
+                    <>
+                      <DialogRow
+                        key="alt-original"
+                        selected={!altAudioOn}
+                        onClick={() => pickAltAudio(false)}
+                        title="Original"
+                        sub="Primary soundtrack"
+                      />
+                      <DialogRow
+                        key="alt-2"
+                        selected={altAudioOn}
+                        onClick={() => pickAltAudio(true)}
+                        title="Audio 2"
+                        sub="Alternate soundtrack"
+                      />
+                    </>
                   ) : (
                     // No alternate-audio groups (#EXT-X-MEDIA AUDIO) in this
                     // source's ladder: hls.js reports no audioTracks, but the

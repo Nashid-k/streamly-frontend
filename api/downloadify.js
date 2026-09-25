@@ -809,6 +809,27 @@ async function handleResolveVidcore(body, res) {
       })
       .sort((a, b) => b.height - a.height);
     if (variants.length === 0) return null;
+    /* Videasy stores EVERY title as two complete streams: the listed
+       `index-s{res}-v1-a1.m3u8` (alt track, init -v1-a1.mp4) and a hidden
+       `index-s{res}-v1.m3u8` base (init -v1.mp4) — REAL distinct audio feeds.
+       The API never lists the base, so derive its URL per variant and verify
+       it's a genuine base playlist (its own -v1 init) before exposing it as an
+       alternate-audio toggle. No extra languages exist: -a0/-a2..-a5/-a1a.. are
+       byte-identical aliases of the base, so only -v1 qualifies. */
+    await Promise.all(
+      variants.map(async (variant) => {
+        const baseUri = String(variant.uri || "").replace(/(-v1)-a1(?=\.m3u8(?:[?#]|$))/i, "$1");
+        if (!baseUri || baseUri === variant.uri) return;
+        try {
+          const text = await fetchUpstream(baseUri, { referer, timeoutMs: 8000 });
+          if (!/^#EXTM3U/i.test(String(text || "").trim())) return;
+          if (!/#EXT-X-MAP:[^\n]*?v1\.(?:m4s|mp4)/i.test(String(text || ""))) return;
+          variant.altUri = baseUri;
+        } catch {
+          // transient upstream hiccup — leave altUri unset, the variant still plays
+        }
+      }),
+    );
     return {
       variants,
       source: { kind: "hls", url: variants[0].uri, refUrl: referer },
