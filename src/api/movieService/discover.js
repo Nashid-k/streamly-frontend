@@ -180,14 +180,14 @@ export const getNewReleases = async (pastDays = 90) => {
       const dateParams =
         mediaType === 'tv'
           ? { 'first_air_date.gte': startStr, 'first_air_date.lte': endStr }
-          : { 'primary_release_date.gte': startStr, 'primary_release_date.lte': endStr };
+          : { 'release_date.gte': startStr, 'release_date.lte': endStr, with_release_type: '4' };
       const dateKey = mediaType === 'tv' ? 'first_air_date' : 'release_date';
       const pages = await Promise.allSettled(
         langs.flatMap((lang) =>
           [1, 2].map((page) =>
             tmdb(`/discover/${mediaType}`, {
               page,
-              sort_by: mediaType === 'tv' ? 'first_air_date.desc' : 'primary_release_date.desc',
+              sort_by: mediaType === 'tv' ? 'first_air_date.desc' : 'release_date.desc',
               with_original_language: lang,
               ...dateParams,
             }),
