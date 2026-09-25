@@ -212,6 +212,10 @@ export default function NativePlayerView({
   // Media URLs we already ran an on-failure diagnostic for (avoid console spam
   // across quality/audio swaps of the same file).
   const diagnosedMediaRef = useRef(new Set());
+  // net27's mp4 proxy 429s this connection once, it will 429 forever (their
+  // per-IP gate). Remember that so later plays skip NetMirror instead of
+  // paying the stall again.
+  const netmirrorDownRef = useRef(false);
   const idleTimer = useRef(null);
   const clickTimer = useRef(null);
   // Pending "drop the hover overlay" deadline after a released scrub. Cleared
@@ -931,6 +935,7 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
             url: String(url).slice(0, 180),
           },
         );
+        if (res.status >= 400) netmirrorDownRef.current = true;
       } catch (error) {
         logError("netmirror", "Media diagnostic: request failed from the browser (CORS/network)", error, {
           url: String(url).slice(0, 180),
@@ -1406,6 +1411,10 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
 
       for (const def of SOURCES) {
         if (stale()) return;
+        if (def.key === "netmirror" && netmirrorDownRef.current) {
+          say("NetMirror: net27 refused earlier (HTTP 429) — skipping this session.");
+          continue;
+        }
         if (await runSource(def)) return;
       }
       if (stale()) return;
