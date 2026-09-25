@@ -307,6 +307,96 @@ describe("createStreamlyLoader", () => {
     expect(seen.relay).toBe(1);
   });
 
+  it("fan-outs a fragment's relay ranges in parallel and reassembles in order", async () => {
+    const FRAG = Math.floor(3.5 * 1024 * 1024);
+    const relayCalls = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        if (init?.headers?.range) return rangeOkResponse();
+        if (typeof url === "string" && !url.includes("downloadify")) {
+          return { ok: false, status: 403, headers: { get: () => null } };
+        }
+        const body = JSON.parse(init?.body || "{}");
+        const start = Math.floor(Number(body.range?.start) || 0);
+        const idx = start / FRAG;
+        relayCalls.push(start);
+        const overflow = start >= 4 * FRAG;
+        const last = idx >= 3;
+        const bytes = new Uint8Array(overflow ? 0 : FRAG);
+        for (let i = 0; i < bytes.length; i += 4096) bytes[i] = Math.round(idx);
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: (name) => (name === "x-streamly-more" ? (last ? "0" : "1") : "application/octet-stream") },
+          arrayBuffer: async () => bytes.buffer,
+        };
+      }),
+    );
+    const Loader = createStreamlyLoader({ getRefUrl: () => "https://vidcore.io/" });
+    const loader = new Loader();
+    const response = await new Promise((resolve, reject) => {
+      loader.load(
+        { url: "https://cdn.example.com/vd/big.m4s", frag: { sn: 1 } },
+        {},
+        {
+          onSuccess: (resp) => resolve(resp),
+          onError: (err) => reject(new Error(err.text)),
+        },
+      );
+    });
+    expect(response.data.byteLength).toBe(4 * FRAG);
+    // The parallel fan-out strides the remaining 3 ranges AND over-requests one
+    // boundary range (empty = EOF marker) — the whole fragment resolves in
+    // roughly one relay latency instead of four serial ones.
+    expect(relayCalls).toEqual([0, FRAG, 2 * FRAG, 3 * FRAG, 4 * FRAG]);
+  });
+
+  it("falls back to serial chunking when the first relay slice is short", async () => {
+    const FRAG = Math.floor(3.5 * 1024 * 1024);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        if (init?.headers?.range) return rangeOkResponse();
+        if (typeof url === "string" && !url.includes("downloadify")) {
+          return { ok: false, status: 403, headers: { get: () => null } };
+        }
+        const body = JSON.parse(init?.body || "{}");
+        const start = Math.floor(Number(body.range?.start) || 0);
+        if (start === 0) {
+          const bytes = new Uint8Array(1024);
+          bytes[0] = 7;
+          return {
+            ok: true,
+            status: 200,
+            headers: { get: (name) => (name === "x-streamly-more" ? "1" : "application/octet-stream") },
+            arrayBuffer: async () => bytes.buffer,
+          };
+        }
+        const bytes = new Uint8Array([1, 2, 3, 4]);
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: (name) => (name === "x-streamly-more" ? "0" : "application/octet-stream") },
+          arrayBuffer: async () => bytes.buffer,
+        };
+      }),
+    );
+    const Loader = createStreamlyLoader({ getRefUrl: () => "https://vidcore.io/" });
+    const loader = new Loader();
+    const response = await new Promise((resolve, reject) => {
+      loader.load(
+        { url: "https://cdn.example.com/vd/tail.m4s", frag: { sn: 1 } },
+        {},
+        {
+          onSuccess: (resp) => resolve(resp),
+          onError: (err) => reject(new Error(err.text)),
+        },
+      );
+    });
+    expect(response.data.byteLength).toBe(1028);
+  });
+
   it("parks a throttled origin on relay-only cooldown (no repeated direct pokes)", async () => {
     const fetchMock = vi.fn().mockImplementation(async (url, init) => {
       if (init?.headers?.range) return rangeOkResponse();

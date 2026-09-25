@@ -992,50 +992,24 @@ export default function NativePlayerView({
           const bufferDepthSecs = Math.round(Math.floor(maxBufferSize / Math.max(1, topBps / 8)));
           setBufferedTargetSecs(bufferDepthSecs);
           say(`Buffer: up to ~${bufferDepthSecs}s (~${Math.round(maxBufferSize / 1024 / 1024)}MB) ahead.`);
-          // Mid-play relay detector: the probe says "direct", so we open at
-          // ≤1080p (or 4K the user pinned), but the CDN then throttles the
-          // browser's direct pull mid-session (429/403 after the first couple
-          // of segments) and every taller segment rides the serverless relay —
-          // 3-10 SERIAL 3.5MB round trips per 4K fragment. Playback then plays
-          // one segment (~5-8s) and buffers at the next boundary no matter how
-          // good the pipe is: the binding constraint is per-segment relay
-          // latency, not buffer depth. A couple of consecutive relayed
-          // fragments means the direct path is gone for the session's duration
-          // (throttle cooldown is 5min) — reopen at the tallest ≤720p rung,
-          // which the relay CAN keep feeding (one round trip per segment),
-          // preserving the position. CineSrc is multi-level ABR and self-adjusts.
-          let relayedFrags = 0;
-          let demoting = false;
-          let activeEntryHeight = def.key === "cinesrc" ? 0 : smoothStart?.height || 0;
-          const maybeDemoteOffRelay = () => {
-            if (relayedFrags >= 2 && !demoting && def.key !== "cinesrc") {
-              if (activeEntryHeight > 0 && activeEntryHeight <= 720) return;
-              const rungs = variants
-                .filter((v) => (v.height || 0) > 0 && (v.height || 0) <= 720)
-                .sort((a, b) => (b.height || 0) - (a.height || 0));
-              const target = rungs[0] || variants[variants.length - 1];
-              if (!target || target.uri === smoothStart?.uri) return;
-              demoting = true;
-              say(`${def.label}: ${relayedFrags} frags via relay — reopening at ${target.height || "?"}p to keep playing…`);
-              setShowLog(true);
-              activeEntryHeight = target.height || 0;
-              relayedFrags = 0;
-              pickQualityRef.current?.(target.uri, target.height)?.finally?.(() => {
-                demoting = false;
-              });
-            }
-          };
+          // Start-conservative, pick-liberal transport policy: fragments load
+          // through the Vercel relay with PARALLEL range chunking (see
+          // nativeHlsLoader), so a manual pick of a tall rendition is allowed
+          // to try — the buffer-floor step-down negotiates back down seamlessly
+          // if the pipe can't sustain it. What we no longer do is yank a user's
+          // 4K/1080p pick after 2 relayed fragments (every source here is
+          // relay-only on the free tier; banning tall rungs bans everything).
+          // Startup STAYS conservative (≤720p over relay) so a fresh open is
+          // always instant; the menu lets the user raise from there. CineSrc is
+          // multi-level ABR and self-adjusts entirely.
           const hls = new Hls({
             loader: createStreamlyLoader({
               getRefUrl: () => liveRefUrl,
               onRelayPath: () => {
-                relayedFrags += 1;
                 setRelayStreak((n) => n + 1);
                 setTransportRelay(true);
-                maybeDemoteOffRelay();
               },
               onDirectPath: () => {
-                relayedFrags = 0;
                 setRelayStreak(0);
                 setTransportRelay(false);
               },
@@ -1259,13 +1233,15 @@ export default function NativePlayerView({
         return;
       }
       const myId = (switchTokenRef.current += 1);
-      // Pre-warm + transport gate. A single-level rendition is a separate
-      // media playlist, so the swap itself pays a manifest fetch + first
-      // fragment. Probe the TARGET first (while the current level still
-      // plays): it warms the CDN edge AND proves the route. The relay cannot
-      // feed a tall rendition (one fragment = several serial round trips), so
-      // a menu pick that would only flow via relay silently becomes the
-      // tallest ≤720p rung instead of a 5s/5s stall loop.
+      // Pre-warm the swap. A single-level rendition is a separate media
+      // playlist, so the swap itself pays a manifest fetch + first fragment.
+      // Probe the TARGET first (while the current level still plays): it warms
+      // the CDN edge AND proves the route is alive. With the relay now
+      // fetching fragments' range slices in PARALLEL (nativeHlsLoader), a tall
+      // pick is allowed to try; if the pipe can't sustain it the buffer-floor
+      // step-down negotiates back down seamlessly — the old auto-substitute to
+      // ≤720p is gone, so a user can genuinely choose 1080p/4K (this is a
+      // relay-only app on the free tier; banning tall rungs bans everything).
       let chosenUri = uri;
       let chosenHeight = height;
       let warm = transportRelay ? { ok: true, via: "relay" } : null;
@@ -1278,17 +1254,6 @@ export default function NativePlayerView({
           setBuffering(false);
           setControlsVisible(true);
           return;
-        }
-        if (warm.via === "relay" && (height || 0) > 720) {
-          const rungs = qualities
-            .filter((q) => (q.height || 0) > 0 && (q.height || 0) <= 720)
-            .sort((a, b) => (b.height || 0) - (a.height || 0));
-          const relayFriendly = rungs[0];
-          if (relayFriendly && relayFriendly.uri !== uri) {
-            say(`${height || "?"}p needs the relay — using ${relayFriendly.height || "?"}p instead (keeps playing).`);
-            chosenUri = relayFriendly.uri;
-            chosenHeight = relayFriendly.height;
-          }
         }
       } catch {
         // probe hiccup (abort, timeout) — fall through to the requested uri
@@ -1385,7 +1350,7 @@ export default function NativePlayerView({
       st.prev = bufferedSecs;
       if (refilling || Date.now() - st.since < BUFFER_UNDERFLOOR_MS) return;
       st.since = 0;
-      if (!autoLevel || metaRef.current?.cinesrcLevels) return;
+      if (metaRef.current?.cinesrcLevels) return;
       const curH = currentHeight || 0;
       const rungs = qualities
         .filter((q) => (q.height || 0) > 0 && (q.height || 0) < curH)
@@ -1400,7 +1365,7 @@ export default function NativePlayerView({
     }
     st.since = 0;
     st.prev = bufferedSecs;
-  }, [bufferedSecs, status, buffering, autoLevel, currentHeight, qualities, activeUri]);
+  }, [bufferedSecs, status, buffering, currentHeight, qualities, activeUri]);
 
   const pickAudio = (index) => {
     const hls = hlsRef.current;
@@ -2023,6 +1988,12 @@ export default function NativePlayerView({
                   <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", margin: "8px 0 2px" }}>
                     Video Quality
                   </p>
+                  {transportRelay && !isMasterMode && (
+                    <p style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", margin: "0 0 4px" }}>
+                      Source streams via relay — tall rungs auto-step down if your connection can&apos;t keep
+                      them filled.
+                    </p>
+                  )}
                   {isMasterMode && (
                     <DialogRow
                       selected={autoLevel}
@@ -2036,22 +2007,23 @@ export default function NativePlayerView({
                     />
                   )}
                   {qualities.map((q, i) => {
-                    const relayLimited = transportRelay && !isMasterMode && (q.height || 0) > 720;
                     const selected = isMasterMode
                       ? autoLevel
                         ? currentHeight != null && q.height === currentHeight
                         : manualHeight != null && manualHeight === q.height
-                      : !relayLimited && activeUri === q.uri;
+                      : activeUri === q.uri;
+                    const viaRelay = transportRelay && !isMasterMode && (q.height || 0) > 720;
                     return (
                       <DialogRow
                         key={`${q.uri}::${i}`}
                         selected={selected}
-                        disabled={relayLimited}
                         onClick={() => pickQuality(q.uri, q.height)}
                         title={q.label || `${q.height}p`}
                         sub={
-                          relayLimited
-                            ? "Relay-limited — this source can't sustain it"
+                          viaRelay
+                            ? q.bandwidth
+                              ? `${(q.bandwidth / 1e6).toFixed(1)} Mbps · via relay`
+                              : "via relay"
                             : q.bandwidth
                               ? `${(q.bandwidth / 1e6).toFixed(1)} Mbps`
                               : undefined

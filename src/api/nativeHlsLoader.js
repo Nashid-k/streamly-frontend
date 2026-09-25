@@ -29,7 +29,11 @@ const ENDPOINT = "/api/downloadify";
 // Every relay chunk is a fresh serverless round trip, so latency is weighed
 // once per chunk. 1MB slices made slow CDNs stall on multi-MB ts segments
 // (plays 5-10s, then endless loading). 3.5MB balances latency vs the 4.5MB
-// Vercel response cap and keeps most fragments to 1-2 round trips.
+// Vercel response cap and keeps most fragments to 1-2 round trips on their
+// own — BUT fragments are now chunked in PARALLEL (relayFragment fans out up
+// to 4 ranges concurrently), so the per-fragment wall-clock is ~one relay
+// latency, not N × latency. That is what lets 1080p/4K fragments survive the
+// serverless leg on the free tier instead of stalling at every segment edge.
 const FRAG_CHUNK_MAX = Math.floor(3.5 * 1024 * 1024);
 // Default per-load watchdog when hls.js passes no config.timeout. 20s is a
 // tolerant ceiling for a 3.5MB relayed slice through Vercel while still
@@ -503,48 +507,134 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath } = 
       return buf.buffer;
     }
 
+    /* Relay a single fragment with parallel range chunking. Chunk 0 is always
+       fetched alone — its exact byte count seeds the fan-out stride. When every
+       returned slice is a full FRAG_CHUNK_MAX (the uniform case), the remaining
+       ranges are fetched CONCURRENTLY and handed to hls.js strictly in byte
+       order: the per-fragment wall-clock collapses from N×relay-latency to ~one
+       relay latency, which is what lets tall (1080p/4K) fragments survive the
+       serverless leg instead of re-stalling at every segment boundary. A short
+       chunk 0 (a CDN that caps mid-file) can't seed uniform strides — that
+       fragment falls back to the proven serial chain. Abort cancels the shared
+       controller, so every in-flight range settles and the outer watchdog race
+       resolves. Each chunk request is an independent upstream Range fetch
+       (see api/downloadify.js fetchRangeChunk), so concurrency is safe. */
     async relayFragment(url, signal) {
       const refUrl = getRefUrl?.();
-      const chunks = [];
-      let total = 0;
-      let start = 0;
-      for (;;) {
-        if (this.aborted) throw new Error("Aborted");
+      const relayChunk = async (start) => {
         const response = await postDownloadify(
           { action: "segment", url, refUrl, range: { start, max: FRAG_CHUNK_MAX } },
           { signal },
         );
         await throwIfRelayError(response, "Segment request failed");
         const buf = new Uint8Array(await response.arrayBuffer());
-        if (buf.length === 0) break;
-        chunks.push(buf);
-        total += buf.length;
-        start += buf.length;
-        this.progress(buf, 0);
-        if (response.headers.get("x-streamly-more") !== "1") break;
+        return { buf, more: response.headers.get("x-streamly-more") === "1" };
+      };
+      const finish = (chunks) => {
+        const total = chunks.reduce((n, c) => n + c.length, 0);
+        const out = new Uint8Array(total);
+        let off = 0;
+        for (const c of chunks) {
+          out.set(c, off);
+          off += c.length;
+        }
+        this.relayStreak = (this.relayStreak || 0) + 1;
+        if (this.relayStreak === 1 || this.relayStreak % RELAY_LOG_EVERY === 0) {
+          logWarn("native", `${this.relayStreak} consecutive fragment(s) via Vercel relay — direct path unavailable.`, {
+            url: String(url).slice(0, 80),
+          });
+        } else {
+          logDebug("native", `Relayed fragment (${total} bytes).`, { url: String(url).slice(0, 80) });
+        }
+        // One relayed FRAGMENT landed (not one chunk): tell the player so it can
+        // count a real streak across fragments and steer tall renditions when
+        // the relay leg can't keep feeding them.
+        onRelayPath?.();
+        return out.buffer;
+      };
+
+      const first = await relayChunk(0);
+      if (this.aborted) throw new Error("Aborted");
+      if (!first.more) {
+        if (first.buf.length === 0) throw new Error("Relay returned no bytes");
+        this.progress(first.buf, 0);
+        return finish([first.buf]);
       }
-      const out = new Uint8Array(total);
-      let off = 0;
-      for (const c of chunks) {
-        out.set(c, off);
-        off += c.length;
+      if (first.buf.length !== FRAG_CHUNK_MAX) {
+        const serial = [first.buf];
+        this.progress(first.buf, 0);
+        let start = first.buf.length;
+        for (;;) {
+          if (this.aborted) throw new Error("Aborted");
+          const next = await relayChunk(start);
+          if (next.buf.length === 0) break;
+          serial.push(next.buf);
+          start += next.buf.length;
+          this.progress(next.buf, 0);
+          if (!next.more) break;
+        }
+        return finish(serial);
       }
-      // Relay-streak visibility: every relayed byte is Vercel bandwidth +
-      // invocations on the free tier. Log the first fallback and every 25th
-      // after it so serverless burn is observable, never silent.
-      this.relayStreak = (this.relayStreak || 0) + 1;
-      if (this.relayStreak === 1 || this.relayStreak % RELAY_LOG_EVERY === 0) {
-        logWarn("native", `${this.relayStreak} consecutive fragment(s) via Vercel relay — direct path unavailable.`, {
-          url: String(url).slice(0, 80),
-        });
-      } else {
-        logDebug("native", `Relayed fragment (${total} bytes).`, { url: String(url).slice(0, 80) });
-      }
-      // One relayed FRAGMENT landed (not one chunk): tell the player so it can
-      // count a real streak across fragments and demote a tall rendition that
-      // the relay leg can't keep feeding.
-      onRelayPath?.();
-      return out.buffer;
+
+      // Uniform-full-chunk path: parallel fan-out, in-order emission. The
+      // remaining ranges run in WINDOWS of CONCURRENCY — a window issues its
+      // slices, emits as each lands (strictly in order), and only when the
+      // WHOLE window has settled do we check whether EOF has been declared and
+      // launch the next window. Emitting per-settle keeps progress flowing
+      // (hls.js appends each slice as it arrives), while windowing keeps the
+      // total number of range requests bounded — a refill-on-every-settle pump
+      // would chase completions with a fresh request each time a slot frees and
+      // overshoot the tail before the EOF marker comes back.
+      const CONCURRENCY = 4;
+      const emitted = [first.buf]; // parts 0..N handed to hls.js in order
+      const parts = new Map(); // index -> bytes (1-based; index sits at stride*FRAG_CHUNK_MAX)
+      let nextIndex = 1;
+      let eofIndex = 0; // highest index where the stream declared EOF
+      const emitAll = () => {
+        while (!this.aborted) {
+          const idx = emitted.length;
+          const ready = parts.get(idx);
+          if (!ready) break;
+          parts.delete(idx);
+          this.progress(ready, 0);
+          emitted.push(ready);
+        }
+      };
+      const issueSingle = async (idx) => {
+        try {
+          const { buf, more } = await relayChunk(idx * FRAG_CHUNK_MAX);
+          if (this.aborted) return;
+          parts.set(idx, buf); // a 0-length slice is a valid EOF marker part
+          if (!more) {
+            eofIndex = Math.max(eofIndex, idx);
+          } else if (buf.length === 0 || buf.length < FRAG_CHUNK_MAX) {
+            // Short slice that still claims "more": the guessed strides are
+            // desynced (server caps at FRAG_CHUNK_MAX, so a mid-file short
+            // slice means we can't trust offsets) — treat it as the tail.
+            eofIndex = Math.max(eofIndex, idx);
+          }
+        } catch {
+          // Watchdog/abort settles the load; a lost slice surfaces through the
+          // load-level timeout/failover path rather than hanging this promise.
+          if (this.aborted) return;
+          eofIndex = Math.max(eofIndex, idx);
+        } finally {
+          emitAll();
+        }
+      };
+      const runWindow = async () => {
+        const window = [];
+        for (let i = 0; i < CONCURRENCY; i += 1) {
+          const idx = nextIndex++;
+          window.push(issueSingle(idx));
+        }
+        await Promise.all(window);
+        emitAll();
+        if (this.aborted) throw new Error("Aborted");
+        if (!eofIndex) await runWindow();
+      };
+      await runWindow();
+      return finish(emitted);
     }
   };
 }
