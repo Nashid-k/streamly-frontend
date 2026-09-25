@@ -930,173 +930,14 @@ async function fetchNet27Json(path, { retries = 3 } = {}) {
   throw lastError || new Error("net27 unreachable");
 }
 
-/* Canonical NetMirror mirrors — the rotating public instance family that runs
-   the OPEN NetMirror API: p.php hands a `t_hash` session to ANY client (public
-   handshake, no credentials), search/post/playlist are served by the mirror
-   itself, and the masters carry REAL #EXT-X-MEDIA AUDIO groups with language
-   names (netflix-style multi-audio). net27.cc hardened its proxy to a
-   per-session `clckd` token wall (429s even its own relay), so native playback
-   falls back to a live mirror. net52 → net51, in that order. */
-const NETMIRROR_MIRRORS = ["https://net52.cc", "https://net51.cc"];
-const NETMIRROR_T_HASH_T =
-  "988a734da1152ddea2c25c8904eede20%3A%3A0cb4f3935641c828678b8946867997e5%3A%3A1768993531%3A%3Ani";
-
-const netmirrorMirrorHosts = new Set(NETMIRROR_MIRRORS.map((m) => new URL(m).host));
-const netmirrorCookieCache = new Map(); // mirror origin -> { cookie, expires }
-
-async function netmirrorCookieFor(mirror) {
-  const now = Date.now();
-  const cached = netmirrorCookieCache.get(mirror);
-  if (cached && cached.expires > now) return cached.cookie;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 12000);
-  try {
-    // Mirrors reject cross-site form POSTs; speak as a same-origin page.
-    // The mirror 301s the handshake from some egresses (geo/CDN) — follow the
-    // hops manually (POST kept on 307/308, GET after 301/302/303) with the
-    // same SSRF re-validation as fetchUpstream.
-    const headers = baseHeaders();
-    headers["content-type"] = "application/x-www-form-urlencoded";
-    headers.origin = mirror;
-    headers.referer = `${mirror}/home`;
-    headers["x-requested-with"] = "XMLHttpRequest";
-    let current = `${mirror}/p.php`;
-    let method = "POST";
-    let body = "init=1";
-    let upstream = null;
-    for (let hop = 0; hop < MAX_REDIRECTS; hop += 1) {
-      upstream = await fetchNoRedirect(current, { method, headers, body: method === "POST" ? body : undefined, signal: controller.signal });
-      if (upstream.status < 300 || upstream.status >= 400) break;
-      const location = upstream.headers.get("location");
-      if (!location) throw new Error(`handshake redirect without location (${upstream.status})`);
-      current = await assertPublicDestination(new URL(location, current).toString());
-      if (upstream.status !== 307 && upstream.status !== 308) {
-        method = "GET";
-        body = null;
-        delete headers["content-type"];
-      }
-    }
-    const setCookie = upstream?.headers.get("set-cookie") || "";
-    const tHash = /(?:^|;)\s*t_hash=([^;]+)/.exec(setCookie)?.[1] || "";
-    if (!tHash || !upstream || upstream.status >= 400) {
-      throw new Error(`handshake failed (${upstream?.status || "no response"})`);
-    }
-    const cookie = `t_hash_t=${NETMIRROR_T_HASH_T}; t_hash=${tHash}`;
-    netmirrorCookieCache.set(mirror, { cookie, expires: now + 20 * 60 * 1000 });
-    return cookie;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-async function netmirrorMirrorFetch(mirror, cookie, path) {
-  const text = await fetchUpstream(mirror + path, {
-    referer: `${mirror}/home`,
-    timeoutMs: 15000,
-    extraHeaders: { cookie, "x-requested-with": "XMLHttpRequest" },
-  });
-  const trimmed = text.trim();
-  const jsonStart = trimmed.indexOf("{");
-  const jsonEnd = trimmed.lastIndexOf("}");
-  if (jsonStart < 0 || jsonEnd < jsonStart) throw new Error("non-JSON mirror reply");
-  return JSON.parse(trimmed.slice(jsonStart, jsonEnd + 1));
-}
-
-async function netmirrorSearch(mirror, cookie, title, type) {
-  // Search answers to the site's t param; try the type-appropriate value first.
-  for (const t of type === "tv" ? ["TV", "Movie", "x"] : ["Movie", "TV", "x"]) {
-    const data = await netmirrorMirrorFetch(mirror, cookie, `/search.php?s=${encodeURIComponent(title)}&t=${t}`);
-    const rows = Array.isArray(data?.searchResult)
-      ? data.searchResult
-      : Array.isArray(data?.result)
-        ? data.result
-        : Array.isArray(data?.rows)
-          ? data.rows
-          : null;
-    if (Array.isArray(rows) && rows.length > 0) return rows;
-  }
-  throw new Error("search returned nothing");
-}
-
-function netmirrorPickSearch(rows, title) {
-  // Prefer the closest title match; skip making-of/trailer-style extras.
-  const name = String(title || "").toLowerCase().trim();
-  const junk = /making|behind the scenes|blooper|trailer|teaser|interview|recap|compilation/i;
-  let best = null;
-  let bestScore = -1;
-  for (const row of rows) {
-    const id = String(row?.id || "");
-    const t = String(row?.t || row?.title || "").trim();
-    if (!id || !t || junk.test(t)) continue;
-    let score = 0;
-    const lower = t.toLowerCase();
-    if (name && lower.includes(name)) score += 100;
-    if (name && name.includes(lower)) score += 50;
-    if (score > bestScore) {
-      bestScore = score;
-      best = { id, t };
-    }
-  }
-  return best;
-}
-
-async function netmirrorPlaylistFile(mirror, cookie, playId) {
-  const ts = Math.floor(Date.now() / 1000);
-  const data = await netmirrorMirrorFetch(
-    mirror,
-    cookie,
-    `/playlist.php?id=${encodeURIComponent(playId)}&t=Video&tm=${ts}`,
-  );
-  const file = String(data?.[0]?.sources?.[0]?.file || "");
-  if (!file) throw new Error("playlist had no source file");
-  return file.startsWith("http") ? file : mirror + (file.startsWith("/") ? file : `/${file}`);
-}
-
-/* Resolve a title through a live mirror's canonical API into the client's HLS
-   contract: the master URL (which hls.js parses into levels AND audio groups),
-   the ladder variants for the quality menu, and the named audio groups. */
-async function resolveNetmirrorMirror({ type, season, episode, title }) {
-  let lastError;
-  for (const mirror of NETMIRROR_MIRRORS) {
-    try {
-      const cookie = await netmirrorCookieFor(mirror);
-      const rows = await netmirrorSearch(mirror, cookie, title, type);
-      const pick = netmirrorPickSearch(rows, title);
-      if (!pick) continue;
-      let playId = pick.id;
-      if (type === "tv") {
-        const detail = await netmirrorMirrorFetch(mirror, cookie, `/post.php?id=${encodeURIComponent(pick.id)}&t=Video`);
-        const episodes = Array.isArray(detail?.episodes) ? detail.episodes : [];
-        const wantSeason = Number(season) || 0;
-        const wantEpisode = Number(episode) || 0;
-        const episodeRow = episodes.find((e) => {
-          const s = Number.parseInt(String(e?.s || "").replace(/\D/g, ""), 10) || 0;
-          const ep = Number.parseInt(String(e?.ep || "").replace(/\D/g, ""), 10) || 0;
-          return s === wantSeason && ep === wantEpisode;
-        });
-        if (!episodeRow?.id) continue;
-        playId = String(episodeRow.id);
-      }
-      const masterUrl = await netmirrorPlaylistFile(mirror, cookie, playId);
-      const masterText = await fetchUpstream(masterUrl, {
-        referer: `${mirror}/home`,
-        timeoutMs: 15000,
-        extraHeaders: { cookie, "x-requested-with": "XMLHttpRequest" },
-      });
-      const levels = parseMasterPlaylist(masterText, masterUrl).filter((v) => v?.uri);
-      if (levels.length === 0) continue;
-      return {
-        ok: true,
-        source: { kind: "hls", url: masterUrl, refUrl: `${mirror}/`, multiLevelMaster: true },
-        variants: levels,
-        audio: parseAudioGroups(masterText, masterUrl),
-      };
-    } catch (error) {
-      lastError = error;
-    }
-  }
-  throw lastError || new Error("no netmirror mirror reached");
-}
+/* NOTE (2024-09): the public mirror fallback (net52 → net51 canonical-mirror
+   HLS with real audio groups) was removed. Investigation proved the mirror
+   single-session-gates its REAL video behind a Cloudflare interactive
+   challenge + a minted-per-session `in=` token (identical model to net27's
+   `clckd`); its public master is a static decoy (jpg slideshow) and post.php
+   returns metadata only. No legitimate egress (Vercel/AWS direct: 403;
+   Cloudflare worker relay: challenge-gated) can mint a real signed video URL.
+   net27's legacy path below remains the only NetMirror resolution. */
 
 async function net27NetmirrorPayload({ type, tmdbId, season, episode }) {
   const catalog = await fetchNet27Json(`/api/catalog/title/${type}/${tmdbId}`);
@@ -1211,31 +1052,12 @@ async function handleResolveNetmirror(body, res) {
   }
   const season = String(body.season ?? "").trim();
   const episode = String(body.episode ?? "").trim();
-  const title = String(body.title || "").trim();
 
   let payload = null;
   try {
     payload = await net27NetmirrorPayload({ type, tmdbId, season, episode });
   } catch (error) {
     payload = { ok: false, error: `NetMirror resolution failed: ${error?.message || "unknown"}`, code: "no-source" };
-  }
-
-  // net27 is a per-session clckd token wall (429s even its own relay) — when
-  // the primary copy can't be reached, fall back to a live canonical mirror
-  // (net52 → net51), which serves a REAL HLS master with per-language audio
-  // groups that hls.js renders as the player's Audio menu.
-  if (!payload?.ok && title) {
-    try {
-      const mirror = await resolveNetmirrorMirror({
-        type,
-        season: Number(season) || 0,
-        episode: Number(episode) || 0,
-        title,
-      });
-      if (mirror?.ok) payload = mirror;
-    } catch (error) {
-      payload = { ...payload, mirrorError: error?.message || "mirror fallback failed" };
-    }
   }
 
   json(res, 200, payload);
@@ -1291,24 +1113,8 @@ async function handlePlaylist(body, res) {
   }
 
   try {
-    // NetMirror mirror masters (net52.cc/net51.cc /hls/*.m3u8) demand the
-    // session cookie p.php handed out; the segment/level CDNs behind them
-    // (s20/s21.freecdn*.top) are open-CORS and need nothing.
-    let extraHeaders = {};
-    let mirrorInfo = null;
-    try {
-      const u = new URL(playlistUrl);
-      if (netmirrorMirrorHosts.has(u.host)) {
-        const cookie = await netmirrorCookieFor(u.origin);
-        extraHeaders = { cookie, "x-requested-with": "XMLHttpRequest" };
-        mirrorInfo = "mirror cookie minted";
-      }
-    } catch (error) {
-      mirrorInfo = `mirror handshake: ${error?.message || "failed"}`;
-    }
     const text = await fetchUpstream(playlistUrl, {
       referer: body.refUrl ? String(body.refUrl) : playlistUrl,
-      extraHeaders,
     });
     res.status(200);
     res.setHeader("content-type", "application/vnd.apple.mpegurl");
@@ -1319,7 +1125,6 @@ async function handlePlaylist(body, res) {
       ok: false,
       error: `Playlist fetch failed: ${error?.message || "unknown"}`,
       code: "manifest-fetch-failed",
-      mirrorInfo: mirrorInfo || undefined,
     });
   }
 }
