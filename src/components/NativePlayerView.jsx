@@ -248,9 +248,6 @@ export default function NativePlayerView({
   // Reassigned below; the run effect's relay-demote calls it at runtime (keeps
   // the effect's exhaustive-deps clean).
   const pickQualityRef = useRef(null);
-  // Mirrors activeUri for use right after an async swap (state would be stale
-  // inside the awaiting closure).
-  const activeUriRef = useRef(null);
   // Guards against rapid quality switches clobbering each other: each call
   // stamps a token; after every await it re-checks it's still the newest.
   const switchTokenRef = useRef(0);
@@ -1487,7 +1484,7 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
     };
   }, [type, id, season, episode]);
 
-  const pickQuality = async (uri, height) => {
+  const pickQuality = async (uri, height, opts) => {
     const hls = hlsRef.current;
     const meta = metaRef.current;
     if (!videoRef.current) return;
@@ -1547,14 +1544,17 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
       // relay-only app on the free tier; banning tall rungs bans everything).
       let chosenUri = uri;
       let chosenHeight = height;
-      // While "Audio 2" (the hidden -v1 base) is active, a quality pick must
-      // stay on the SAME soundtrack: variants list the -a1 uris, so map the
-      // pick to that rendition's alternating twin.
-      const twin = altAudioOn ? metaRef.current?.altByUri?.[uri] : null;
+      // While the alternate soundtrack (the hidden -v1 base) is active, a
+      // quality pick must stay on the SAME audio: variants list the -a1 uris,
+      // so map the pick to that rendition's alternating twin. The swap itself
+      // (pickAltAudio) passes rawAlt and bypasses this so its target uri is
+      // honored exactly in both directions.
+      const rawAlt = typeof opts === "object" && opts !== null && opts.rawAlt === true;
+      const twin = !rawAlt && altAudioOn ? metaRef.current?.altByUri?.[uri] : null;
       if (twin && twin !== uri) {
         chosenUri = twin;
         if (uri === activeUri) {
-          say(`Already on ${height || "?"}p (Audio 2) — no reload.`);
+          say(`Already on ${height || "?"}p (Alternate) — no reload.`);
           setBuffering(false);
           setControlsVisible(true);
           return;
@@ -1644,10 +1644,6 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
   };
   pickQualityRef.current = pickQuality;
 
-  useEffect(() => {
-    activeUriRef.current = activeUri;
-  }, [activeUri]);
-
   // YouTube's anti-stall rule. The depth goal only helps when the pipe can
   // refill faster than a segment plays; when it can't, the buffer drains and
   // playback enters the 5s/5s loop. Drop one rung once the forward buffer
@@ -1721,10 +1717,11 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
     say(`Audio -> ${audioTracks[index]?.name || index}.`);
   };
 
-  /* Videasy's dual soundtrack: "Audio 2" = the hidden base variant of the
-     currently playing rendition (-a1 ↔ -v1 siblings). Reuses the HLS
-     quality-swap machinery so the switch gets probe-warm + playhead + pause
-     preservation for free (the fragments are Open-CORS fMP4 in both). */
+  /* Videasy's dual soundtrack: the hidden base variant of the currently
+     playing rendition (-a1 ↔ -v1 siblings) is a second REAL soundtrack.
+     Reuses the HLS quality-swap machinery so the switch gets probe-warm +
+     playhead + pause preservation for free (the fragments are Open-CORS
+     fMP4 in both). rawAlt keeps pickQuality from re-mapping the twin. */
   const pickAltAudio = async (useAlt) => {
     const meta = metaRef.current;
     const video = videoRef.current;
@@ -1733,22 +1730,15 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
     const source = activeUri;
     const target = source && map[source];
     if (!target || target === source || useAlt === altAudioOn) return;
-    const height = meta.variants?.find((v) => v.uri === source)?.height ?? null;
-    say(`Audio -> ${useAlt ? "Audio 2" : "Original"}…`);
+    const height = meta.variants?.find((v) => v.uri === source || v.altUri === source)?.height ?? null;
+    say(`Audio -> ${useAlt ? "Alternate soundtrack" : "Original soundtrack"}…`);
     setAltAudioOn(useAlt);
     setBuffering(true);
     poke();
     try {
-      await pickQualityRef.current?.(target, height);
+      await pickQualityRef.current?.(target, height, { rawAlt: true });
     } catch (error) {
       say(`Audio switch failed: ${error?.message || "unknown"}.`);
-    }
-    // pickQuality swallows playback-level failures internally — verify the
-    // swap actually landed (activeUri reached the twin) before trusting it.
-    if (activeUriRef.current !== target) {
-      setAltAudioOn(!useAlt);
-      setBuffering(false);
-      say(`Audio switch failed — staying on the current track.`);
     }
   };
 
@@ -2472,21 +2462,23 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
                     ))
                   ) : !metaRef.current?.mp4Mode && activeUri && metaRef.current?.altByUri?.[activeUri] ? (
                     // Videasy (VidCore): a hidden base soundtrack (-v1) rides
-                    // alongside the listed -a1 streams — offer both.
+                    // alongside the listed -a1 streams — offer both. The CDN
+                    // ships NO language tags (API/playlist/container), so the
+                    // labels can only be positional, never faked languages.
                     <>
                       <DialogRow
                         key="alt-original"
                         selected={!altAudioOn}
                         onClick={() => pickAltAudio(false)}
                         title="Original"
-                        sub="Primary soundtrack"
+                        sub="Primary soundtrack — language not labelled"
                       />
                       <DialogRow
                         key="alt-2"
                         selected={altAudioOn}
                         onClick={() => pickAltAudio(true)}
-                        title="Audio 2"
-                        sub="Alternate soundtrack"
+                        title="Alternate"
+                        sub="Second soundtrack — language not labelled"
                       />
                     </>
                   ) : (
