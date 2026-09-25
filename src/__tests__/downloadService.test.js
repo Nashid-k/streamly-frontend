@@ -48,6 +48,7 @@ function relayError(code, message) {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
   vi.clearAllMocks();
 });
@@ -427,6 +428,92 @@ describe("downloadService.saveStream", () => {
     expect(result.filename).toBe("Fight Club (1999) [1080p].mp4");
     expect(writable.write).toHaveBeenCalledTimes(2);
     expect(writable.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("streams segment downloads through the Cloudflare proxy relay when configured", async () => {
+    const SEGMENT = "https://cdn.example.com/vd/a.m4s";
+    const proxyCalls = [];
+    const vercelCalls = [];
+    vi.stubEnv("VITE_STREAMLY_RELAY_URL", "https://streamly-proxy.nashidk1999.workers.dev");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        const headers = init?.headers || {};
+        const to = String(url);
+        if (!init?.method && headers.range === "bytes=0-0") {
+          // direct probe: the CDN serves no CORS → relay
+          return { ok: false, status: 404, headers: { get: () => "" } };
+        }
+        if (to.includes("workers.dev")) {
+          proxyCalls.push({ to, range: headers.range });
+          const bytes = new Uint8Array([5, 6, 7]);
+          return {
+            ok: true,
+            status: 206,
+            headers: { get: (name) => (name === "content-range" ? "bytes 0-2/3" : null) },
+            arrayBuffer: async () => bytes.buffer,
+          };
+        }
+        vercelCalls.push(to);
+        return { ok: true, status: 200, headers: { get: () => "application/octet-stream" }, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer };
+      }),
+    );
+    const writable = { write: vi.fn().mockResolvedValue(undefined), close: vi.fn().mockResolvedValue(undefined) };
+
+    const result = await downloadService.saveStream({
+      manifest: { kind: "fmp4", initUrl: null, segments: [SEGMENT], count: 1 },
+      source: { refUrl: "https://vidcore.io/" },
+      baseName: "Proxy Movie",
+      writable,
+    });
+
+    expect(result.bytes).toBe(3);
+    // ONE proxy request per segment (whole-fragment 60MB slice) — no Vercel.
+    expect(proxyCalls.length).toBe(1);
+    expect(proxyCalls[0].to).toBe(
+      `https://streamly-proxy.nashidk1999.workers.dev?url=${encodeURIComponent(SEGMENT)}`,
+    );
+    expect(proxyCalls[0].range).toBe(`bytes=0-${60 * 1024 * 1024 - 1}`);
+    expect(vercelCalls.length).toBe(0);
+    const written = writable.write.mock.calls.map(([chunk]) => Array.from(chunk));
+    expect(written).toEqual([[5, 6, 7]]);
+  });
+
+  it("falls back to Vercel for downloads when the proxy is down", async () => {
+    const SEGMENT = "https://cdn.example.com/vd/a.m4s";
+    const vercelBodies = [];
+    vi.stubEnv("VITE_STREAMLY_RELAY_URL", "https://streamly-proxy.nashidk1999.workers.dev");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        const headers = init?.headers || {};
+        const to = String(url);
+        if (!init?.method && headers.range === "bytes=0-0") {
+          return { ok: false, status: 404, headers: { get: () => "" } };
+        }
+        if (to.includes("workers.dev")) {
+          return { ok: false, status: 503, headers: { get: () => null }, body: { cancel: async () => {} } };
+        }
+        vercelBodies.push(JSON.parse(init.body));
+        return { ok: true, status: 200, headers: { get: () => "application/octet-stream" }, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer };
+      }),
+    );
+    const writable = { write: vi.fn().mockResolvedValue(undefined), close: vi.fn().mockResolvedValue(undefined) };
+
+    const result = await downloadService.saveStream({
+      manifest: { kind: "fmp4", initUrl: null, segments: [SEGMENT], count: 1 },
+      source: { refUrl: "https://vidcore.io/" },
+      baseName: "Fallback Movie",
+      writable,
+    });
+
+    // The dead proxy cascaded to the Vercel function, re-sliced at the 3.5MB
+    // serverless cap — the download survives a broken proxy deploy.
+    expect(vercelBodies.length).toBe(1);
+    expect(vercelBodies[0].range.max).toBe(3.5 * 1024 * 1024);
+    expect(result.bytes).toBe(3);
+    const written = writable.write.mock.calls.map(([chunk]) => Array.from(chunk));
+    expect(written).toEqual([[1, 2, 3]]);
   });
 
   it("falls back to an <a download> click when no save picker exists", async () => {

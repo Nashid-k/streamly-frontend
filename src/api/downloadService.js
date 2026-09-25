@@ -25,6 +25,10 @@
 // tells us when the piece ended. Where a CDN honestly supports CORS + Range
 // the browser downloads those segments DIRECTLY (zero serverless bandwidth);
 // everything else rides the relay. Both paths go to the same writable.
+// When VITE_STREAMLY_RELAY_URL points at the Cloudflare worker (see
+// relayProxy.js) those relayed bytes go through it FIRST — a whole segment can
+// arrive in one request (no 4.5MB cap) with zero Vercel Hobby egress — and
+// fall back to /api/downloadify automatically.
 //
 // Saving mirrors a normal browser download: where the File System Access API
 // exists we write each chunk straight to the chosen file (so a 2 GB movie
@@ -42,6 +46,7 @@ import {
 import { buildMuxedInit, muxSegment } from "../utils/fmp4Muxer.js";
 import { logDebug, logError, logInfo, logWarn } from "../utils/debugLogger.js";
 import { CINESRC_RESOLVER_ORIGIN } from "./cinesrcResolver.js";
+import { deriveSliceMore, relayProxyConfig } from "./relayProxy.js";
 
 const ENDPOINT = "/api/downloadify";
 const CHUNK_MAX = 3.5 * 1024 * 1024;
@@ -101,15 +106,56 @@ export function createPauseController() {
   };
 }
 
+/* Raw transport (segment bytes, playlist text) relay. Proxy-first when
+   configured, /api/downloadify as the automatic fallback — and re-sliced at
+   CHUNK_MAX for the Vercel leg so its 4.5MB body cap is never breached mid-file
+   (the proxy's own slice can be a whole segment). Non-transport actions never
+   reach here; resolution/manifest JSON still needs the serverless function
+   (it parses upstreams — the proxy is a dumb pipe). */
+async function fetchTransport(body, { signal }) {
+  const proxy = relayProxyConfig();
+  const candidates = proxy ? [proxy, null] : [null];
+  const isSegment = body.action === "segment";
+  const start = Math.max(0, Math.floor(Number(body.range?.start) || 0));
+  for (let index = 0; index < candidates.length; index += 1) {
+    const cfg = candidates[index];
+    try {
+      const response = cfg
+        ? await fetch(`${cfg.base}?url=${encodeURIComponent(isSegment ? body.url : body.playlistUrl)}`, {
+            method: "GET",
+            headers: isSegment ? { range: `bytes=${start}-${start + cfg.slice - 1}` } : undefined,
+            signal,
+          })
+        : await fetch(ENDPOINT, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(isSegment ? { ...body, range: { start, max: CHUNK_MAX } } : body),
+            signal,
+          });
+      if (response.ok || index === candidates.length - 1) return response;
+      await response.body?.cancel?.().catch?.(() => {});
+    } catch (error) {
+      // A throw from the proxy candidate falls through to Vercel; the last
+      // candidate's failure is the one that surfaces.
+      if (error?.name === "AbortError") throw error;
+      if (index === candidates.length - 1) throw error;
+    }
+  }
+  throw new DownloadUnavailableError("Download relay unreachable.", "offline");
+}
+
 async function post(body, { signal, as = "json" } = {}) {
   let response;
   try {
-    response = await fetch(ENDPOINT, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-      signal,
-    });
+    response =
+      body.action === "segment" || body.action === "playlist"
+        ? await fetchTransport(body, { signal })
+        : await fetch(ENDPOINT, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(body),
+            signal,
+          });
   } catch (error) {
     if (error?.name === "AbortError") throw error;
     logError("download", "downloadify request failed (is the function deployed?)", error, {
@@ -143,8 +189,11 @@ async function post(body, { signal, as = "json" } = {}) {
       throw new DownloadUnavailableError(message, code);
     }
     const ab = await response.arrayBuffer();
-    const more = response.headers.get("x-streamly-more") === "1";
-    return { bytes: new Uint8Array(ab), more };
+    const bytes = new Uint8Array(ab);
+    // x-streamly-more comes from downloadify; the proxy exposes content-range
+    // instead — deriveSliceMore answers "does the segment continue?" for both.
+    const more = deriveSliceMore(response, bytes.length, relayProxyConfig()?.slice || CHUNK_MAX);
+    return { bytes, more };
   }
 
   if (as === "text") {

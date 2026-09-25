@@ -24,19 +24,9 @@
 
 import { logDebug, logWarn } from "../utils/debugLogger.js";
 import { parseMasterPlaylist, parseMediaPlaylist } from "../utils/downloadQuality.js";
+import { deriveSliceMore, relayProxyConfig } from "./relayProxy.js";
 
 const ENDPOINT = "/api/downloadify";
-// Optional Cloudflare Workers FREE relay. When VITE_STREAMLY_RELAY_URL is a
-// deployed GET ?url= passthrough proxy (see .env.example), media bytes stream
-// via it FIRST — no Vercel egress charge and no 4.5MB function response cap,
-// so one request can pull a WHOLE fMP4 fragment. The proxy forwards our Range
-// header to the origin and exposes content-range/content-length (its
-// Access-Control-Expose-Headers is *), which is enough to derive "more" and
-// drive single-fragment-per-request playback instead of a chunk fan-out. The
-// Vercel function stays the automatic fallback when the proxy is down, plus
-// the safety net for hosts that demand a Referer (the proxy strips it — the
-// Vercel relay is the only one that can send one).
-const WORKER_SLICE_MAX = 60 * 1024 * 1024;
 // Every Vercel relay chunk is a fresh serverless round trip, so latency is
 // weighed once per chunk. 1MB slices made slow CDNs stall on multi-MB ts
 // segments (plays 5-10s, then endless loading). 3.5MB balances latency vs the
@@ -44,41 +34,24 @@ const WORKER_SLICE_MAX = 60 * 1024 * 1024;
 // their own — BUT Vercel fragments are also chunked in PARALLEL (relayFragment
 // fans out up to 4 ranges concurrently), so the per-fragment wall-clock is ~one
 // relay latency, not N × latency. That combination is what lets 1080p/4K
-// fragments survive a serverless leg at all.
+// fragments survive a serverless leg at all. The Cloudflare proxy relay
+// (VITE_STREAMLY_RELAY_URL — see relayProxy.js) is preferred when configured:
+// one request can pull a whole fragment with no serverless cap.
 const FRAG_CHUNK_MAX = Math.floor(3.5 * 1024 * 1024);
 
 /* Active relay endpoint + slice + protocol. Read lazily so tests can stub the
    env. Two transports, same relayChunk/playlist surface:
-     · mode "proxy" — any non-Vercel base: the deployed Cloudflare worker.
-       GET {base}?url=<encoded target>; segments add a Range header the proxy
-       forwards; slices can cover a whole fragment (60MB).
+     · mode "proxy" — the deployed Cloudflare worker (GET ?url= + Range,
+       whole-fragment 60MB slices).
      · mode "json"  — Vercel /api/downloadify. POST {action,...}; slices capped
        at FRAG_CHUNK_MAX by the function's 4.5MB body cap. */
 export function relayConfig() {
-  const relay =
-    typeof import.meta !== "undefined" ? String(import.meta.env?.VITE_STREAMLY_RELAY_URL || "") : "";
-  const trimmed = relay.trim().replace(/\/+$/, "");
-  return trimmed
-    ? { base: trimmed, slice: WORKER_SLICE_MAX, mode: "proxy" }
+  const proxy = relayProxyConfig();
+  return proxy
+    ? { base: proxy.base, slice: proxy.slice, mode: "proxy" }
     : { base: ENDPOINT, slice: FRAG_CHUNK_MAX, mode: "json" };
 }
 
-/* "Does a slice continue past what we just got?" — the proxy adds no
-   x-streamly-more (downloadify does), so derive it from content-range when
-   that header is absent: a served offset + bytes < total means more data. */
-export function deriveSliceMore(response, bufLength, slice) {
-  const header = response.headers.get("x-streamly-more");
-  if (header !== null && header !== undefined) return header === "1";
-  const m = /bytes\s+(\d+)-\d+\/(\d+)/i.exec(response.headers.get("content-range") || "");
-  if (m) {
-    const from = Number(m[1]);
-    const total = Number(m[2]);
-    if (Number.isFinite(from) && Number.isFinite(total) && total > 0) {
-      return from + bufLength < total;
-    }
-  }
-  return bufLength >= slice;
-}
 // Default per-load watchdog when hls.js passes no config.timeout. 20s is a
 // tolerant ceiling for a 3.5MB relayed slice through Vercel while still
 // firing before a user perceives a permanent hang.
