@@ -2434,6 +2434,7 @@ servers={SERVERS}
                 id={nativeNumericId}
                 season={selectedSeason}
                 episode={isTvContent ? nativeEpisode : 1}
+                originalLanguage={movie?.originalLanguage}
                 title={movie?.title || movie?.name || "Title"}
                 subtitle={
                   isTvContent

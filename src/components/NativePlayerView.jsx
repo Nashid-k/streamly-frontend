@@ -202,6 +202,10 @@ export default function NativePlayerView({
   // and the player simply never offers resume / never saves progress.
   watchedEntry,
   onProgressChange,
+  // TMDB original_language (iso code) for the TITLE — the only real language
+  // signal the streaming sources give us. Surfaced as film-level fact in the
+  // Audio panel; the per-TRACK languages are not exposed by any backend.
+  originalLanguage = "",
 }) {
   const videoRef = useRef(null);
   const screenRef = useRef(null);
@@ -270,8 +274,18 @@ export default function NativePlayerView({
   const [audioTracks, setAudioTracks] = useState([]);
   const [audioIndex, setAudioIndex] = useState(0);
   // Videasy (VidCore) titles expose a real second soundtrack under a hidden
-  // base playlist (index-s{res}-v1) — "Audio 2" swaps the whole stream to it.
+  // base playlist (index-s{res}-v1) — the alternate row swaps the whole
+  // stream to it. Only TRACK position is knowable; languages are not labelled
+  // by any backend (verified: API JSON, playlists, and media boxes carry none).
   const [altAudioOn, setAltAudioOn] = useState(false);
+  // TMDB iso_639_1 -> display name, for the film-level original-language line.
+  const FILM_LANG = {
+    en: "English", te: "Telugu", hi: "Hindi", ta: "Tamil", ml: "Malayalam",
+    kn: "Kannada", bn: "Bengali", pa: "Punjabi", mr: "Marathi", gu: "Gujarati",
+    es: "Spanish", fr: "French", de: "German", it: "Italian", pt: "Portuguese",
+    ru: "Russian", ja: "Japanese", ko: "Korean", zh: "Chinese", ar: "Arabic",
+    tr: "Turkish", vi: "Vietnamese", th: "Thai", id: "Indonesian", pl: "Polish",
+  };
   const [fatal, setFatal] = useState(null);
   const [playing, setPlaying] = useState(false);
   const [ended, setEnded] = useState(false);
@@ -2463,9 +2477,23 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
                   ) : !metaRef.current?.mp4Mode && activeUri && metaRef.current?.altByUri?.[activeUri] ? (
                     // Videasy (VidCore): a hidden base soundtrack (-v1) rides
                     // alongside the listed -a1 streams — offer both. The CDN
-                    // ships NO language tags (API/playlist/container), so the
-                    // labels can only be positional, never faked languages.
+                    // ships NO language tags, so track labels are positional;
+                    // the only real signal is the film's own original language.
                     <>
+                      {originalLanguage ? (
+                        <p
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: "rgba(255,255,255,0.5)",
+                            margin: "2px 0 10px",
+                            letterSpacing: "0.02em",
+                          }}
+                        >
+                          Film's original language:{" "}
+                          {FILM_LANG[originalLanguage] || (originalLanguage || "").toUpperCase() || "Unknown"}
+                        </p>
+                      ) : null}
                       <DialogRow
                         key="alt-original"
                         selected={!altAudioOn}
