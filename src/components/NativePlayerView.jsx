@@ -191,8 +191,6 @@ export default function NativePlayerView({
   onCloseRef.current = onClose;
   const onSelectEpisodeRef = useRef(onSelectEpisode);
   onSelectEpisodeRef.current = onSelectEpisode;
-  const resumeOfferRef = useRef(null);
-  resumeOfferRef.current = resumeOffer;
   const commitResumeRef = useRef(null); // assigned below, driven by the resume card
   const maybeOfferResumeRef = useRef(() => {}); // reassigned below; called from the run effect
 
@@ -457,8 +455,9 @@ export default function NativePlayerView({
       setResumeOffer((o) => (o && o.left > 1 ? { ...o, left: o.left - 1 } : null));
     }, 1000);
     const auto = setTimeout(() => {
-      const current = resumeOfferRef.current;
-      if (current) commitResumeRef.current?.(current.at);
+      // Closure over THIS render's resumeOffer (the effect re-arms on every
+      // card state change, so the captured position is always the latest).
+      if (resumeOffer) commitResumeRef.current?.(resumeOffer.at);
     }, resumeOffer.left * 1000);
     return () => {
       clearInterval(tick);
