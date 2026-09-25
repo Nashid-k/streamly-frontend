@@ -37,7 +37,7 @@ import Hls from "hls.js";
 import { downloadService } from "../api/downloadService";
 import { createStreamlyLoader, probeSourcePlayable } from "../api/nativeHlsLoader";
 import { SubtitleFetcher } from "../api/subtitleFetcher";
-import { logWarn } from "../utils/debugLogger";
+import { logWarn, logError } from "../utils/debugLogger";
 import { SubtitleEngine } from "../utils/subtitleEngine";
 
 // A source whose fragments keep failing without ever going fatal (VidCore's
@@ -209,6 +209,9 @@ export default function NativePlayerView({
   const hlsRef = useRef(null);
   const runRef = useRef(0);
   const metaRef = useRef({ variants: [], sourceKey: null, refUrl: null, cinesrcLevels: false, mp4Mode: false });
+  // Media URLs we already ran an on-failure diagnostic for (avoid console spam
+  // across quality/audio swaps of the same file).
+  const diagnosedMediaRef = useRef(new Set());
   const idleTimer = useRef(null);
   const clickTimer = useRef(null);
   // Pending "drop the hover overlay" deadline after a released scrub. Cleared
@@ -871,7 +874,7 @@ export default function NativePlayerView({
     await waitVideoElement(video, { signal });
   };
 
-  const swapMp4 = async (video, url, resumeAt, wasPaused) => {
+const swapMp4 = async (video, url, resumeAt, wasPaused) => {
     await loadMp4(video, url);
     if (resumeAt > 0) {
       try {
@@ -884,9 +887,58 @@ export default function NativePlayerView({
       try {
         await video.play();
       } catch {
-        // user gesture needed — custom transport is present
+        // autoplay policy fallback path handled by the outer play()
       }
     }
+  };
+
+  /* When a direct mp4 fails to load, re-request its first byte from the
+     browser and log the REAL answer (HTTP status, content-type, CORS) under
+     [Streamly][netmirror]. net27's proxy replies Access-Control-Allow-Origin:
+     *, so the status even for a refusal is readable here — that distinguishes
+     "net27 throttled this IP (429)" from "server up, stream fine (200/206)".
+     Fire-and-forget; deduped per URL; never throws. */
+  const diagnoseMediaLoad = (url) => {
+    if (diagnosedMediaRef.current.has(url)) return;
+    diagnosedMediaRef.current.add(url);
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    (async () => {
+      try {
+        const res = await fetch(url, { headers: { range: "bytes=0-0" }, signal: ctrl.signal });
+        const type = res.headers.get("content-type") || "";
+        const cr = res.headers.get("content-range") || "";
+        const acao = res.headers.get("access-control-allow-origin") || "";
+        let firstBytes;
+        try {
+          const buf = await res.arrayBuffer();
+          firstBytes = buf.byteLength
+            ? new TextDecoder().decode(buf.slice(0, 48)).replace(/\s+/g, " ").slice(0, 40)
+            : "";
+        } catch {
+          // head-only reply — still useful
+        }
+        logError(
+          "netmirror",
+          `Media diagnostic: HTTP ${res.status}${res.ok ? " (media served)" : " (refused)"}`,
+          null,
+          {
+            status: res.status,
+            contentType: type,
+            contentRange: cr,
+            acao,
+            firstBytes: firstBytes || undefined,
+            url: String(url).slice(0, 180),
+          },
+        );
+      } catch (error) {
+        logError("netmirror", "Media diagnostic: request failed from the browser (CORS/network)", error, {
+          url: String(url).slice(0, 180),
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+    })();
   };
 
   useEffect(() => {
@@ -1134,6 +1186,8 @@ export default function NativePlayerView({
               if (error?.name === "AbortError" || stale()) directOutcome = "abort";
               else {
                 say(`${def.label}: ${error?.message || "load failed"} — next source.`);
+                say(`${def.label}: media diagnostic logged to console ([Streamly][netmirror]).`);
+                diagnoseMediaLoad(entryUrl);
                 directOutcome = "fatal";
               }
             }
