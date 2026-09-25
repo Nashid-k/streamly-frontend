@@ -329,17 +329,17 @@ describe("downloadService.resolveNetmirror", () => {
           ok: true,
           source: {
             kind: "mp4",
-            url: "https://bcdnxw.hakunaymatata.com/convert-h264/d24cc4be271fffb5065d7723b7d6eafc.mp4?sign=abc",
+            url: "https://net27.cc/api/proxy/video?url=https%3A%2F%2Fbcdnxw.hakunaymatata.com%2Fconvert-h264%2Fd24cc4be271fffb5065d7723b7d6eafc.mp4%3Fsign%3Dabc",
             refUrl: "https://net27.cc/",
           },
           variants: [
-            { uri: "https://bcdnxw.hakunaymatata.com/convert-h264/d24cc4be271fffb5065d7723b7d6eafc.mp4?sign=abc", bandwidth: 2500000, height: 720, direct: true },
-            { uri: "https://bcdnxw.hakunaymatata.com/bt/ad04f2.mp4?sign=abc", bandwidth: 800000, height: 360, direct: true },
+            { uri: "https://net27.cc/api/proxy/video?url=https%3A%2F%2Fbcdnxw.hakunaymatata.com%2Fconvert-h264%2Fd24cc4be271fffb5065d7723b7d6eafc.mp4%3Fsign%3Dabc", bandwidth: 2500000, height: 720, direct: true },
+            { uri: "https://net27.cc/api/proxy/video?url=https%3A%2F%2Fbcdnxw.hakunaymatata.com%2Fbt%2Fad04f2.mp4%3Fsign%3Dabc", bandwidth: 800000, height: 360, direct: true },
           ],
           audio: [
-            { language: "Malayalam", url: "https://bcdnxw.hakunaymatata.com/convert-h264/d24cc4be271fffb5065d7723b7d6eafc.mp4?sign=abc" },
-            { language: "Hindi", url: "https://bcdnxw.hakunaymatata.com/tran-audio/20250609/13e051e0028d6dff24783acf8e2c48da.mp4?sign=abc" },
-            { language: "Tamil", url: "https://bcdnxw.hakunaymatata.com/bt/5f9023.mp4?sign=abc" },
+            { language: "Malayalam", url: "https://net27.cc/api/proxy/video?url=https%3A%2F%2Fbcdnxw.hakunaymatata.com%2Fconvert-h264%2Fd24cc4be271fffb5065d7723b7d6eafc.mp4%3Fsign%3Dabc" },
+            { language: "Hindi", url: "https://net27.cc/api/proxy/video?url=https%3A%2F%2Fbcdnxw.hakunaymatata.com%2Ftran-audio%2F20250609%2F13e051e0028d6dff24783acf8e2c48da.mp4%3Fsign%3Dabc" },
+            { language: "Tamil", url: "https://net27.cc/api/proxy/video?url=https%3A%2F%2Fbcdnxw.hakunaymatata.com%2Fbt%2F5f9023.mp4%3Fsign%3Dabc" },
           ],
         }),
       ),

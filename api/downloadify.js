@@ -874,6 +874,14 @@ async function handleResolveVidcore(body, res) {
 const NETMIRROR_ORIGIN = "https://net27.cc";
 const NETMIRROR_REFERER = "https://net27.cc/";
 
+/* bcdnxw.hakunaymatata.com hotlink-gates its mp4s: raw cross-site fetches 429
+   from both datacenter and residential IPs. net27's OWN player streams these
+   files through /api/proxy/video (which answers Access-Control-Allow-Origin: *
+   and fetches the CDN from a client that holds clearance), so every mp4 we
+   hand out is wrapped in that proxy. */
+const net27MediaUrl = (raw) =>
+  raw ? `${NETMIRROR_ORIGIN}/api/proxy/video?url=${encodeURIComponent(raw)}` : "";
+
 /* net27 publishes the original language as an ISO code; fold it into a usable
    menu label for the primary copy (the only dub guaranteed to lack a variant
    "corner"). */
@@ -965,7 +973,7 @@ async function handleResolveNetmirror(body, res) {
       );
       if (ed?.ok === false) continue;
       const streams = Array.isArray(ed?.streams) ? ed.streams : [];
-      const best = streams.length > 0 ? String(streams[0].url || "") : String(ed?.mp4 || "");
+      const best = streams.length > 0 ? net27MediaUrl(String(streams[0].url || "")) : net27MediaUrl(String(ed?.mp4 || ""));
       if (!best) continue;
       streamsBySubject.set(dub.subjectId, ed);
       const variant = cornerMap.get(dub.subjectId);
@@ -988,7 +996,7 @@ async function handleResolveNetmirror(body, res) {
     const primaryEd = streamsBySubject.get(dubs[primaryIndex]?.subjectId);
     const ladder = Array.isArray(primaryEd?.streams) ? primaryEd.streams : [];
     if (ladder.length === 0 && primaryEd?.mp4) {
-      ladder.push({ resolution: primaryEd.resolution || 720, url: primaryEd.mp4 });
+      ladder.push({ resolution: primaryEd.resolution || 720, url: net27MediaUrl(String(primaryEd?.mp4 || "")) });
     }
     if (ladder.length === 0) {
       json(res, 200, { ok: false, error: "NetMirror stream unavailable", code: "no-source" });
@@ -998,7 +1006,7 @@ async function handleResolveNetmirror(body, res) {
       .map((s) => {
         const height = Number.parseInt(String(s.resolution || "").replace(/\D/g, ""), 10) || 0;
         return {
-          uri: s.url,
+          uri: net27MediaUrl(String(s.url || "")),
           bandwidth: videasyBandwidth(height),
           width: 0,
           height,

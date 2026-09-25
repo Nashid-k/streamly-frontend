@@ -761,6 +761,22 @@ describe("probeSourcePlayable", () => {
     expect(probe).toMatchObject({ ok: true, via: "direct" });
   });
 
+  it("detects a net27 proxied mp4 (endpoints media) from the encoded query string", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, status: 206, headers: { get: () => null }, body: { cancel: async () => {} } }),
+    );
+    const probe = await probeSourcePlayable(
+      "https://net27.cc/api/proxy/video?url=https%3A%2F%2Fbcdnxw.hakunaymatata.com%2Ftran-audio%2F20250609%2F13e051e0028d6dff24783acf8e2c48da.mp4%3Fsign%3Dabc%26t%3D1790331948",
+      "https://net27.cc/",
+    );
+    expect(probe).toMatchObject({ ok: true, via: "direct" });
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "https://net27.cc/api/proxy/video?url=https%3A%2F%2Fbcdnxw.hakunaymatata.com%2Ftran-audio%2F20250609%2F13e051e0028d6dff24783acf8e2c48da.mp4%3Fsign%3Dabc%26t%3D1790331948",
+      expect.objectContaining({ headers: expect.objectContaining({ range: "bytes=0-0" }) }),
+    );
+  });
+
   it("falls back to the relay Range sip for a direct mp4 when the CDN gates direct reads", async () => {
     vi.stubGlobal(
       "fetch",

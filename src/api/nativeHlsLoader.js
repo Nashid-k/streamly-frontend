@@ -150,7 +150,9 @@ export async function probeSourcePlayable(entryUrl, refUrl, { signal } = {}) {
   // Direct mp4 sources (NetMirror/net27 dubs): no playlist to parse — prove
   // one media byte flows the same way playback will (direct fetch first, then
   // the range relay). Same verdict shape, reused by the mp4 quality/audio swap.
-  if (/\.mp4($|\?)/i.test(String(entryUrl))) return probeMp4Source(entryUrl, refUrl, { signal });
+  // net27 hands us proxied URLs, so the ".mp4" marker may live inside the
+  // encoded query string (https://net27.cc/api/proxy/video?url=...mp4%3Fsign...).
+  if (/\bmp4([%?]|$|\?)/i.test(String(entryUrl))) return probeMp4Source(entryUrl, refUrl, { signal });
   try {
     let base = entryUrl;
     let text = await relayPlaylistText(base, refUrl, signal);
