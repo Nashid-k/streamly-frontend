@@ -215,7 +215,17 @@ export default function NativePlayerView({
   // net27's mp4 proxy 429s this connection once, it will 429 forever (their
   // per-IP gate). Remember that so later plays skip NetMirror instead of
   // paying the stall again.
-  const netmirrorDownRef = useRef(false);
+  const netmirrorDownRef = useRef(
+    (() => {
+      try {
+        // Remember the verdict across page loads within the tab session so we
+        // never pay the ~14s resolve+stall again after net27 refused once.
+        return sessionStorage.getItem("streamly.netmirrorDown") === "1";
+      } catch {
+        return false;
+      }
+    })(),
+  );
   const idleTimer = useRef(null);
   const clickTimer = useRef(null);
   // Pending "drop the hover overlay" deadline after a released scrub. Cleared
@@ -935,7 +945,14 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
             url: String(url).slice(0, 180),
           },
         );
-        if (res.status >= 400) netmirrorDownRef.current = true;
+        if (res.status >= 400) {
+          netmirrorDownRef.current = true;
+          try {
+            sessionStorage.setItem("streamly.netmirrorDown", "1");
+          } catch {
+            // storage unavailable (private mode) — session-only verdict stays
+          }
+        }
       } catch (error) {
         logError("netmirror", "Media diagnostic: request failed from the browser (CORS/network)", error, {
           url: String(url).slice(0, 180),

@@ -147,14 +147,6 @@ async function relayPlaylistText(url, refUrl, signal) {
 }
 
 export async function probeSourcePlayable(entryUrl, refUrl, { signal } = {}) {
-  // net27's own /api/proxy/video is nginx-throttled per client, and the site's
-  // player opens exactly ONE request per stream. Our byte sip is an extra same-
-  // second request that can trip that throttle before <video> even starts, so
-  // for net27 media we skip the sip and let the media element itself be the
-  // probe — if it errors, the player falls through to the next source.
-  if (/^https:\/\/net27\.cc\/api\/proxy\/video/i.test(String(entryUrl))) {
-    return { ok: true, via: "trusted" };
-  }
   // Direct mp4 sources (NetMirror/net27 dubs): no playlist to parse — prove
   // one media byte flows the same way playback will (direct fetch first, then
   // the range relay). Same verdict shape, reused by the mp4 quality/audio swap.
@@ -206,12 +198,19 @@ export async function probeSourcePlayable(entryUrl, refUrl, { signal } = {}) {
 }
 
 async function probeMp4Source(url, refUrl, { signal } = {}) {
+  // net27's per-IP gate refuses with 429 from every egress; a net27-hosted URL
+  // that refuses is out. Other CDNs 429 Range reads but still serve full file
+  // via the relay — those fall through below.
+  const isNet27 = /net27\.cc\/api\/proxy\/video/i.test(String(url));
   // 1) direct 1-byte sip (Range) — exactly the path <video> will use first.
   try {
     const res = await fetch(url, { headers: { range: "bytes=0-0" }, signal });
     if (res.ok) {
       res.body?.cancel?.().catch?.(() => {});
       return { ok: true, via: "direct" };
+    }
+    if (isNet27 && (res.status === 429 || res.status === 403)) {
+      return { ok: false, reason: `refused (${res.status})` };
     }
   } catch {
     // fall through to the relay sip below
