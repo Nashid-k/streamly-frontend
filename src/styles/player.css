@@ -460,3 +460,110 @@
    CINEJOY SETTINGS UI & THEMES
    ═══════════════════════════════════════════════════════════ */
 
+
+/* ═══════════════════════════════════════════════════════════
+   NATIVE PLAYER (NativePlayerView) — Netflix-exact chrome CSS
+   All spacing, hover states, and animations for the player UI
+   ═══════════════════════════════════════════════════════════ */
+
+/* Up Next countdown bar animation — shrinks from 100% → 0% */
+@keyframes upNextCountdown {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+
+/* Volume slider — Netflix-style white track + white thumb */
+.np-volume-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+.np-volume-slider::-webkit-slider-runnable-track {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+}
+.np-volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  margin-top: -4.5px;
+  transition: transform 0.15s;
+}
+.np-volume-slider:hover::-webkit-slider-thumb {
+  transform: scale(1.25);
+}
+.np-volume-slider::-moz-range-track {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+  border: none;
+}
+.np-volume-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  border: none;
+}
+
+/* Panel dialog row hover states — CSS hover for clean interaction */
+.np-dialog-row {
+  transition: background 0.12s ease;
+}
+.np-dialog-row:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.07) !important;
+}
+.np-dialog-row:active:not(:disabled) {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+/* Transport icon buttons — subtle scale on active */
+.np-icon-btn {
+  transition: transform 0.1s ease, color 0.15s ease;
+}
+.np-icon-btn:hover:not(:disabled) {
+  transform: scale(1.1);
+}
+.np-icon-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+/* Skip Intro button hover */
+.np-skip-intro:hover {
+  background: rgba(0, 0, 0, 0.9) !important;
+  border-color: #fff !important;
+}
+
+/* Resume / restart button hover */
+.np-resume-btn:hover {
+  filter: brightness(0.92);
+}
+.np-restart-btn:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* Debug log scrollbar — minimal */
+.np-log::-webkit-scrollbar { width: 4px; }
+.np-log::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+/* Panel inner scroll scrollbar */
+.np-panel-scroll::-webkit-scrollbar { width: 4px; }
+.np-panel-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+/* Subtitle overlay — readable text at any background */
+.np-subtitle {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

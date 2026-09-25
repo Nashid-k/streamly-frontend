@@ -18,7 +18,6 @@ import { useToast } from "./Toast";
 import { useDownloads } from "../context/downloads";
 import { useOptionalPreferences } from "../context/preferences";
 import Chip from "./Chip";
-import Toggle from "./settings/Toggle";
 import {
   estimateBytes,
   formatBytes,
@@ -383,11 +382,7 @@ export default function DownloadModal({
      manager. Persisted; tests render without the PreferencesProvider, so the
      context is optional here. */
   const preferences = useOptionalPreferences();
-  const [browserSave, setBrowserSave] = useState(() => preferences?.browserDownloads ?? false);
-  const toggleBrowserSave = (value) => {
-    setBrowserSave(value);
-    preferences?.setPreference?.("browserDownloads", value);
-  };
+  const [browserSave] = useState(() => preferences?.browserDownloads ?? false);
 
   /* The actual download engine. Runs a server/quality across every selected
      episode, streaming progress into the session store. Deliberately
@@ -595,50 +590,50 @@ export default function DownloadModal({
           tabIndex={-1}
           className="download-panel w-[min(100%,36rem)] max-h-[min(88dvh,52rem)] flex flex-col overflow-hidden rounded-2xl sm:rounded-3xl outline-none"
         >
-          <header className="shrink-0 px-5 sm:px-7 pt-5 sm:pt-7 pb-5 border-b border-white/[0.08]">
+          {/* Header */}
+          <header className="shrink-0 px-5 sm:px-6 pt-5 sm:pt-6 pb-4 border-b border-white/[0.08]">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <span className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-white/50 mb-2">
+                <span className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45 mb-1.5">
                   Offline download
                 </span>
-                <h3 id="download-modal-title" className="truncate text-2xl sm:text-3xl font-bold tracking-tight text-white">
-                  Download
+                <h3 id="download-modal-title" className="truncate text-xl sm:text-2xl font-bold tracking-tight text-white">
+                  {movie?.title || movie?.name || "Movie"}
                 </h3>
-                <p className="mt-1.5 truncate text-sm text-white/60">{movie?.title || movie?.name || "Movie"}</p>
                 {isTv && (
-                  <p className="mt-1 text-xs text-white/40">
+                  <p className="mt-1 text-xs text-white/45">
                     Season {selectedSeason} · {selectedEpisodes.size} episode{selectedEpisodes.size === 1 ? "" : "s"} selected
                   </p>
                 )}
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  onClose?.();
-                }}
+                onClick={() => { onClose?.(); }}
                 aria-label="Close download"
-                className="shrink-0 rounded-full p-2 text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                className="shrink-0 rounded-full p-2 text-white/50 hover:text-white hover:bg-white/10 transition-colors mt-0.5"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
           </header>
 
-          <div className="download-panel-scroll px-4 sm:px-7 py-5 sm:py-6 space-y-5 sm:space-y-6 overflow-y-auto">
+          {/* Scrollable body */}
+          <div className="download-panel-scroll px-5 sm:px-6 py-4 sm:py-5 space-y-4 overflow-y-auto flex-1 min-h-0">
+
             {/* Series: season + episodes */}
             {isTv && resolveState.status !== "error" && (
-              <div>
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-white/45 mb-2">
+              <section>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-white/40 mb-2.5">
                   Episodes
-                </div>
-                <div className="relative mb-2">
+                </p>
+                <div className="relative mb-2.5">
                   <select
                     value={selectedSeason}
                     onChange={(e) => {
                       setSelectedSeason(Number(e.target.value));
                       setSelectedEpisodes(new Set([1]));
                     }}
-                    className="w-full appearance-none rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-white/25"
+                    className="w-full appearance-none rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none focus:border-white/25"
                     aria-label="Season"
                   >
                     {Array.from({ length: Math.max(1, Number(movie?.seasonsCount) || 1) }, (_, i) => i + 1).map((n) => (
@@ -647,7 +642,7 @@ export default function DownloadModal({
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+                  <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
                 </div>
                 <div className="max-h-40 overflow-y-auto rounded-xl border border-white/[0.07] divide-y divide-white/[0.05]">
                   {episodesLoading && (
@@ -665,7 +660,7 @@ export default function DownloadModal({
                         type="button"
                         key={ep.id || ep.episodeNumber}
                         onClick={() => toggleEpisode(ep.episodeNumber)}
-                        className="w-full flex items-center gap-3 px-3.5 sm:px-4 py-2.5 text-left text-sm hover:bg-white/[0.04] transition-colors"
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-white/[0.04] transition-colors"
                       >
                         <span
                           className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
@@ -681,39 +676,26 @@ export default function DownloadModal({
                     );
                   })}
                 </div>
-              </div>
+              </section>
             )}
 
-            {/* Source header + resolution progress */}
+            {/* Sources header */}
             <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-white/45">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-white/40 flex items-center gap-1.5">
                 <Server className="w-3.5 h-3.5" />
                 Sources
-              </div>
-              <div className="flex items-center gap-2">
-                {resolveState.status === "resolving" && (
-                  <span className="flex items-center gap-1.5 text-[11px] text-white/40">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    {resolveState.done}/{resolveState.total} scanned
-                  </span>
-                )}
-              </div>
+              </p>
+              {resolveState.status === "resolving" && (
+                <span className="flex items-center gap-1.5 text-[11px] text-white/35">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  {resolveState.done}/{resolveState.total} scanned
+                </span>
+              )}
             </div>
 
-            {/* Save destination toggle: FSA picker vs browser Downloads (Ctrl+J) */}
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-2.5">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-white/85">Save to browser Downloads</p>
-                <p className="mt-0.5 text-xs text-white/45">
-                  Shows in Ctrl+J; the file is built in memory first, so best for small/medium files.
-                </p>
-              </div>
-              <Toggle checked={browserSave} onChange={toggleBrowserSave} label="Save to browser Downloads" />
-            </div>
-
-            {/* Quality filter rail */}
+            {/* Quality filter chips */}
             {qualityGroups.length > 1 && (
-              <div className="flex flex-wrap gap-2 sm:gap-2.5" role="group" aria-label="Filter by quality">
+              <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by quality">
                 <Chip size="sm" active={qualityFilter === "all"} onClick={() => setQualityFilter("all")}>
                   All
                 </Chip>
@@ -730,24 +712,24 @@ export default function DownloadModal({
               </div>
             )}
 
-            {/* Skeleton while the first source answers */}
+            {/* Skeleton while first source resolves */}
             {resolveState.status === "resolving" && sortedRows.length === 0 && (
-              <div className="space-y-2.5 sm:space-y-3" aria-hidden="true">
+              <div className="space-y-2.5" aria-hidden="true">
                 {[0, 1, 2].map((i) => (
                   <div
                     key={i}
-                    className="h-14 rounded-xl border border-white/[0.06] bg-white/[0.03] animate-pulse"
+                    className="h-[60px] rounded-xl border border-white/[0.06] bg-white/[0.03] animate-pulse"
                   />
                 ))}
               </div>
             )}
 
-            {/* Error */}
+            {/* Resolve error */}
             {resolveState.status === "error" && (
-              <div className="flex items-start gap-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] px-4 py-3.5 text-sm text-amber-200/90">
+              <div className="flex items-start gap-2.5 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] px-4 py-3.5 text-sm text-amber-200/90">
                 <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                <div className="flex-1">
-                  <p>{resolveState.error}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="leading-relaxed">{resolveState.error}</p>
                   <button
                     type="button"
                     onClick={() => {
@@ -765,7 +747,7 @@ export default function DownloadModal({
 
             {/* Source rows */}
             {sortedRows.length > 0 && (
-              <div className="space-y-2.5 sm:space-y-3" role="list" aria-label="Available downloads">
+              <div className="space-y-2.5" role="list" aria-label="Available downloads">
                 {visibleRows.map((row) => {
                   const isTop = row.key === topKey;
                   const isActive = downloadState.rowKey === row.key && isDownloading;
@@ -773,25 +755,28 @@ export default function DownloadModal({
                     <div
                       key={row.key}
                       role="listitem"
-                      className={`flex flex-wrap items-center gap-x-3 gap-y-2.5 sm:gap-x-4 sm:flex-nowrap rounded-xl border px-3.5 sm:px-4 py-3 sm:py-3.5 transition-colors ${
+                      className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors ${
                         isActive
                           ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/10"
                           : "border-white/[0.07] bg-white/[0.03]"
                       }`}
                     >
-                      <div className="min-w-0 flex-1 basis-full sm:basis-auto">
-                        <div className="flex items-center gap-2.5 min-w-0 flex-wrap sm:flex-nowrap">
-                          <span className="truncate text-sm font-semibold text-white">{fileTitle}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-semibold text-white truncate max-w-[14rem]">{fileTitle}</span>
                           <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold bg-white/10 text-white/80">
                             {row.label}
                           </span>
                           {isTop && (
-                            <span className="shrink-0 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold text-black" style={{ background: "var(--accent-gradient)" }}>
+                            <span
+                              className="shrink-0 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold text-black"
+                              style={{ background: "var(--accent-gradient)" }}
+                            >
                               <Star className="w-3 h-3" fill="currentColor" /> BEST
                             </span>
                           )}
                         </div>
-                        <p className="mt-1 truncate text-[11px] text-white/40">
+                        <p className="mt-0.5 text-[11px] text-white/40 truncate">
                           {row.serverName} · {sizeLabelFor(row.variant)}
                         </p>
                         {row.audio.length > 1 && (
@@ -809,22 +794,17 @@ export default function DownloadModal({
                               className="max-w-full truncate rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] text-white outline-none focus:border-white/25 disabled:opacity-50"
                               aria-label={`Audio language for the ${row.label} download`}
                             >
-                              <option value="" className="bg-[#141414]">
-                                Default
-                              </option>
+                              <option value="" className="bg-[#141414]">Default</option>
                               {row.audio.map((a) => (
                                 <option
                                   key={a.url || `${a.language}-${a.name}`}
                                   value={a.language || a.name || a.groupId || a.url}
                                   className="bg-[#141414]"
                                 >
-                                  {audioLabel(a)}
-                                  {a.default ? " (default)" : ""}
+                                  {audioLabel(a)}{a.default ? " (default)" : ""}
                                 </option>
                               ))}
-                              <option value="none" className="bg-[#141414]">
-                                None (video only)
-                              </option>
+                              <option value="none" className="bg-[#141414]">None (video only)</option>
                             </select>
                           </div>
                         )}
@@ -834,12 +814,12 @@ export default function DownloadModal({
                         onClick={() => handleDownload(row)}
                         disabled={!canPickSource || (isTv && selectedEpisodes.size === 0)}
                         aria-label={`Download ${row.label} of ${fileTitle} from ${row.serverName}`}
-                        className="shrink-0 inline-flex items-center gap-1.5 ml-auto sm:ml-0 rounded-lg px-3.5 sm:px-4 py-2 text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-transform active:scale-[0.98]"
+                        className="shrink-0 inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-transform active:scale-[0.97]"
                         style={{ background: "var(--accent-gradient)", color: "var(--on-accent, #fff)" }}
                       >
-                        <Download className="w-3.5 h-3.5 shrink-0" />
-                        <span className="truncate">
-                          {isTv && selectedEpisodes.size > 1 ? `Download ${selectedEpisodes.size} episodes` : "Download"}
+                        <Download className="w-3.5 h-3.5" />
+                        <span>
+                          {isTv && selectedEpisodes.size > 1 ? `${selectedEpisodes.size} eps` : "Download"}
                         </span>
                       </button>
                     </div>
@@ -853,16 +833,16 @@ export default function DownloadModal({
               </div>
             )}
 
-            {/* Progress */}
+            {/* Download progress */}
             {isDownloading && (
-              <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] px-3.5 sm:px-4 py-3.5 sm:py-4">
-                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs text-white/60 mb-2 sm:mb-2.5">
+              <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-3.5">
+                <div className="flex items-center justify-between gap-2 text-xs text-white/60 mb-2.5">
                   <span className="truncate">
                     {downloadState.total > 1
                       ? `Episode ${downloadState.episodeIndex + 1} of ${downloadState.total}`
                       : "Downloading…"}
                   </span>
-                  <span className="flex items-center gap-3">
+                  <span className="flex items-center gap-3 shrink-0">
                     {downloadState.progress?.speed > 0 && (
                       <span className="text-white/40">{formatBytes(downloadState.progress.speed)}/s</span>
                     )}
@@ -879,7 +859,7 @@ export default function DownloadModal({
                   />
                 </div>
                 {downloadState.progress?.bytesLabel && (
-                  <p className="mt-2 text-[11px] text-white/40">
+                  <p className="mt-2 text-[11px] text-white/35">
                     {downloadState.progress.bytesLabel}
                     {downloadState.progress.totalBytes > 0
                       ? ` / ${formatBytes(downloadState.progress.totalBytes)}`
@@ -890,25 +870,25 @@ export default function DownloadModal({
               </div>
             )}
 
+            {/* Download error */}
             {downloadState.status === "error" && (
-              <div className="flex items-start gap-2 rounded-xl border border-red-400/20 bg-red-400/[0.06] px-4 py-3.5 text-sm text-red-200/90">
+              <div className="flex items-start gap-2.5 rounded-xl border border-red-400/20 bg-red-400/[0.06] px-4 py-3.5 text-sm text-red-200/90">
                 <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                <p>{downloadState.error}</p>
+                <p className="flex-1 min-w-0 leading-relaxed">{downloadState.error}</p>
               </div>
             )}
           </div>
 
-          <div className="sticky bottom-0 flex flex-col-reverse sm:flex-row sm:items-center gap-3 sm:gap-4 px-5 sm:px-7 py-4 border-t border-white/[0.08]">
-            <p className="flex-1 text-[11px] leading-relaxed text-white/35">
-              Available qualities, resolution and HDR are whatever the source server actually
-              provides — protected (DRM) streams can’t be downloaded. Please only download content
-              you’re allowed to keep.
+          {/* Footer */}
+          <div className="shrink-0 flex flex-col sm:flex-row sm:items-center gap-3 px-5 sm:px-6 py-4 border-t border-white/[0.08]">
+            <p className="flex-1 text-[11px] leading-relaxed text-white/30">
+              Qualities depend on what each source server offers. Protected (DRM) streams cannot be downloaded. Only download content you have the right to keep.
             </p>
             {isDownloading ? (
               <button
                 type="button"
                 onClick={() => abortRef.current?.abort()}
-                className="w-full sm:w-auto shrink-0 rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold text-white/80 hover:bg-white/[0.06] transition-colors"
+                className="shrink-0 rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold text-white/80 hover:bg-white/[0.06] transition-colors"
               >
                 Cancel
               </button>
@@ -916,7 +896,7 @@ export default function DownloadModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full sm:w-auto shrink-0 rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold text-white/80 hover:bg-white/[0.06] transition-colors"
+                className="shrink-0 rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold text-white/80 hover:bg-white/[0.06] transition-colors"
               >
                 Close
               </button>

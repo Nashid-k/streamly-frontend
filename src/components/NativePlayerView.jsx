@@ -24,7 +24,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
-  Bug,
   Captions,
   Check,
   ListVideo,
@@ -106,8 +105,10 @@ const IS_TOUCH =
   !!window.matchMedia &&
   window.matchMedia("(hover: none), (pointer: coarse)").matches;
 const BTN_SIZE = IS_TOUCH ? 44 : 40;
-const SAFE_TOP = IS_TOUCH ? "calc(12px + env(safe-area-inset-top, 0px))" : "12px";
-const SAFE_BOTTOM = IS_TOUCH ? "calc(10px + env(safe-area-inset-bottom, 0px))" : "10px";
+// Netflix top bar: 16px on desktop; safe-area inset on touch devices.
+const SAFE_TOP = IS_TOUCH ? "calc(16px + env(safe-area-inset-top, 0px))" : "16px";
+// Netflix bottom chrome: 24px on desktop; safe-area inset on touch devices.
+const SAFE_BOTTOM = IS_TOUCH ? "calc(20px + env(safe-area-inset-bottom, 0px))" : "24px";
 
 // Netflix-style Skip Intro (TV only). Netflix knows each episode's intro
 // boundaries from studio metadata; we don't, so the pill uses an opt-in
@@ -169,25 +170,28 @@ function DialogRow({ selected, onClick, title, sub, disabled }) {
         gap: 10,
         width: "100%",
         textAlign: "left",
-        padding: "9px 12px",
-        borderRadius: 8,
+        padding: "10px 0",
+        minHeight: 44,
+        borderRadius: 0,
         border: "none",
-        background: selected ? "rgba(255,255,255,0.12)" : "transparent",
-        color: "#fff",
+        background: "transparent",
+        color: selected ? "#fff" : "rgba(255,255,255,0.82)",
+        fontWeight: selected ? 700 : 400,
         opacity: disabled ? 0.45 : 1,
         cursor: disabled ? "not-allowed" : "pointer",
-        fontSize: 14,
+        fontSize: 15,
+        transition: "background 0.15s",
       }}
     >
-      <span style={{ width: 18, display: "flex", flexShrink: 0 }}>
-        {selected ? <Check size={16} /> : null}
+      <span style={{ width: 22, display: "flex", alignItems: "center", flexShrink: 0 }}>
+        {selected ? <Check size={16} color={NETFLIX_RED} /> : null}
       </span>
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{ display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {title}
         </span>
         {sub ? (
-          <span style={{ display: "block", fontSize: 12, color: "rgba(255,255,255,0.55)" }}>{sub}</span>
+          <span style={{ display: "block", fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 2 }}>{sub}</span>
         ) : null}
       </span>
     </button>
@@ -215,9 +219,6 @@ const SOURCE_RETRY_BACKOFF_MS = [800];
 
 const PARSE_TIMEOUT_MS = 75000;
 
-function stamp() {
-  return new Date().toLocaleTimeString();
-}
 
 function fmtTime(s) {
   const v = Math.max(0, Math.floor(Number(s) || 0));
@@ -330,8 +331,6 @@ export default function NativePlayerView({
   const subtitleEnabledRef = useRef(false); // mirrors state, read inside onTime
   const subtitleCueRef = useRef(null); // last rendered cue text
   const subtitleTokenRef = useRef(0); // download race guard (last pick wins)
-
-  const [lines, setLines] = useState([]);
   const [status, setStatus] = useState("idle");
   const [qualities, setQualities] = useState([]);
   const [activeUri, setActiveUri] = useState(null);
@@ -357,7 +356,6 @@ export default function NativePlayerView({
   // load, stall, seek). Driven by the video element's own signals.
   const [buffering, setBuffering] = useState(true);
   const [bufferedSecs, setBufferedSecs] = useState(0);
-  const [bufferedTargetSecs, setBufferedTargetSecs] = useState(30);
   const [bufferedRanges, setBufferedRanges] = useState([]);
   // Master-mode (CineSrc) starts on ABR auto; picking a level pins it.
   const [autoLevel, setAutoLevel] = useState(true);
@@ -376,7 +374,6 @@ export default function NativePlayerView({
   // Netflix chrome state.
   const [controlsVisible, setControlsVisible] = useState(true);
   const [panel, setPanel] = useState(null); // null | "subs" | "episodes"
-  const [showLog, setShowLog] = useState(false);
   const [volume, setVolume] = useState(() => {
     try {
       const v = Number(window.localStorage.getItem(VOLUME_STORAGE_KEY));
@@ -399,7 +396,6 @@ export default function NativePlayerView({
   // Fragments currently flowing via the Vercel relay (0 = all direct). A real
   // streak past a couple means the CDN throttled the direct pull mid-session
   // — surfaced in the attempt log so "loads on good internet" is diagnosable.
-  const [relayStreak, setRelayStreak] = useState(0);
   // Transport verdict for THIS session: does the current source's fragments
   // flow via the serverless relay (true) or straight from the CDN (false)?
   // Drives the quality menu's relay-limited rows and lets the switch skip its
@@ -409,7 +405,7 @@ export default function NativePlayerView({
   const displayTitle = title || (type === "tv" ? `TV ${id}` : `Movie ${id}`);
   const displaySubtitle = subtitle ?? (type === "tv" ? `S${season}:E${episode}` : "");
 
-  const say = (msg) => setLines((prev) => [...prev.slice(-60), `${stamp()} ${msg}`]);
+  const say = () => {};
 
   const togglePlay = async () => {
     const video = videoRef.current;
@@ -1118,14 +1114,12 @@ export default function NativePlayerView({
       setAudioIndex(0);
       setBuffering(true);
       setBufferedSecs(0);
-      setBufferedTargetSecs(30);
       setBufferedRanges([]);
       setAutoLevel(true);
       setManualHeight(null);
       setCurrentHeight(null);
       setResumeOffer(null);
       setPanel(null);
-      setRelayStreak(0);
       setTransportRelay(false);
       autoUriRef.current = null;
       autoUriHeightRef.current = null;
@@ -1254,7 +1248,6 @@ export default function NativePlayerView({
             Math.max(MIN_BUFFER_SIZE, Math.ceil((topBps / 8) * BUFFER_DEPTH_SECONDS)),
           );
           const bufferDepthSecs = Math.round(Math.floor(maxBufferSize / Math.max(1, topBps / 8)));
-          setBufferedTargetSecs(bufferDepthSecs);
           say(`Buffer: up to ~${bufferDepthSecs}s (~${Math.round(maxBufferSize / 1024 / 1024)}MB) ahead.`);
           // Start-conservative, pick-liberal transport policy: fragments load
           // through the Vercel relay with PARALLEL range chunking (see
@@ -1270,11 +1263,9 @@ export default function NativePlayerView({
             loader: createStreamlyLoader({
               getRefUrl: () => liveRefUrl,
               onRelayPath: () => {
-                setRelayStreak((n) => n + 1);
                 setTransportRelay(true);
               },
               onDirectPath: () => {
-                setRelayStreak(0);
                 setTransportRelay(false);
               },
             }),
@@ -1316,8 +1307,7 @@ export default function NativePlayerView({
               fragSn: frag?.sn ?? null,
             });
             // A dead source should show its evidence, not a bare spinner.
-            setShowLog(true);
-          };
+                      };
           const failOver = () => {
             try {
               hls.destroy();
@@ -1366,8 +1356,7 @@ export default function NativePlayerView({
                   hls.currentLevel = autoRung - 1;
                   consecFragFails = 0;
                   say(`${def.label}: downshifting to level ${autoRung - 1} (${data.details})…`);
-                  setShowLog(true);
-                } else if (consecFragFails >= MAX_CONSECUTIVE_FRAG_FAILURES) {
+                                  } else if (consecFragFails >= MAX_CONSECUTIVE_FRAG_FAILURES) {
                   reportFatal({ ...data, fatal: true, details: `${data.details} (×${consecFragFails} consecutive — giving up)` });
                   failOver();
                 } else {
@@ -1670,8 +1659,7 @@ export default function NativePlayerView({
       const target = rungs[0];
       if (!target || activeUri === target.uri) return;
       say(`Buffer holds <${BUFFER_FLOOR_SECONDS}s — stepping down to ${target.height || "?"}p so it refills (keeps playing).`);
-      setShowLog(true);
-      st.prev = bufferedSecs;
+            st.prev = bufferedSecs;
       pickQualityRef.current?.(target.uri, target.height)?.catch?.(() => {});
       return;
     }
@@ -1974,8 +1962,8 @@ export default function NativePlayerView({
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            padding: `${SAFE_TOP} 12px 28px`,
-            background: "linear-gradient(rgba(0,0,0,0.65), transparent)",
+            padding: `${SAFE_TOP} 24px 52px`,
+            background: "linear-gradient(180deg, rgba(0,0,0,0.80) 0%, rgba(0,0,0,0) 100%)",
             opacity: controlsVisible ? 1 : 0,
             transition: "opacity 0.3s",
             pointerEvents: controlsVisible ? "auto" : "none",
@@ -1989,35 +1977,8 @@ export default function NativePlayerView({
               else window.history.back();
             }}
           >
-            <ArrowLeft size={26} />
+            <ArrowLeft size={24} />
           </IconBtn>
-          {!IS_TOUCH && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowLog((v) => !v);
-              poke();
-            }}
-            aria-label="Toggle debug log"
-            title="Prototype attempt log"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "6px 12px",
-              borderRadius: 999,
-              border: "1px solid rgba(255,255,255,0.25)",
-              background: showLog ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.35)",
-              color: "#fff",
-              fontSize: 12,
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
-          >
-            <Bug size={14} /> Log
-          </button>
-          )}
         </div>
         {/* Netflix-style Skip Intro pill: top-left, just under the back row,
             present only inside the intro window, seeks just past the credits.
@@ -2031,24 +1992,23 @@ export default function NativePlayerView({
             title="Stop the intro, come right back in"
             style={{
               position: "absolute",
-              top: `calc(${SAFE_TOP} + 58px)`,
-              left: 16,
+              bottom: `calc(${SAFE_BOTTOM} + 96px)`,
+              right: 24,
               display: "flex",
               alignItems: "center",
               gap: 8,
-              padding: "8px 16px",
-              background: "#fff",
-              color: "#000",
-              border: "none",
-              borderRadius: 999,
-              fontWeight: 800,
-              fontSize: 14,
+              padding: "10px 20px",
+              background: "rgba(0,0,0,0.7)",
+              color: "#fff",
+              border: "2px solid rgba(255,255,255,0.9)",
+              borderRadius: 4,
+              fontWeight: 700,
+              fontSize: 16,
               cursor: "pointer",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
               zIndex: 5,
             }}
           >
-            <SkipForward size={18} />
+            <SkipForward size={16} />
             Skip Intro
           </button>
         )}
@@ -2070,7 +2030,7 @@ export default function NativePlayerView({
               zIndex: 3,
             }}
           >
-            <Loader2 size={56} className="animate-spin" color={NETFLIX_RED} />
+            <Loader2 size={48} className="animate-spin" color={NETFLIX_RED} />
           </div>
         )}
         {IS_TOUCH && !buffering && !ended && !playing && status === "playing" && (
@@ -2136,21 +2096,24 @@ export default function NativePlayerView({
             left: 0,
             right: 0,
             bottom: 0,
-            padding: `${IS_TOUCH ? 4 : 8}px ${IS_TOUCH ? 12 : 16}px ${SAFE_BOTTOM}`,
-            background: "linear-gradient(transparent, rgba(0,0,0,0.82))",
+            paddingTop: IS_TOUCH ? 4 : 8,
+            paddingLeft: IS_TOUCH ? 12 : 24,
+            paddingRight: IS_TOUCH ? 12 : 24,
+            paddingBottom: SAFE_BOTTOM,
+            background: "linear-gradient(0deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 60%, rgba(0,0,0,0) 100%)",
             opacity: controlsVisible ? 1 : 0,
             transition: "opacity 0.3s",
             pointerEvents: controlsVisible ? "auto" : "none",
             zIndex: 4,
           }}
         >
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: IS_TOUCH ? 4 : 6, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: IS_TOUCH ? 4 : 10, minWidth: 0 }}>
             <div style={{ minWidth: 0 }}>
               <div
                 style={{
                   color: "#fff",
                   fontWeight: 800,
-                  fontSize: "clamp(15px, 2.2vw, 20px)",
+                  fontSize: "clamp(16px, 2vw, 22px)",
                   letterSpacing: "-0.01em",
                   lineHeight: 1.1,
                   whiteSpace: "nowrap",
@@ -2161,7 +2124,7 @@ export default function NativePlayerView({
                 {displayTitle}
               </div>
               {displaySubtitle ? (
-                <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 600, marginTop: 2 }}>
+                <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 14, fontWeight: 500, marginTop: 4 }}>
                   {displaySubtitle}
                 </div>
               ) : null}
@@ -2200,7 +2163,7 @@ export default function NativePlayerView({
             onPointerLeave={onScrubLeave}
             style={{
               position: "relative",
-              height: 24,
+              height: 36,
               display: "flex",
               alignItems: "center",
               cursor: "pointer",
@@ -2210,9 +2173,9 @@ export default function NativePlayerView({
             <div
               style={{
                 position: "relative",
-                height: hoverRatio != null ? 6 : 4,
+                height: hoverRatio != null ? 5 : 3,
                 width: "100%",
-                background: "rgba(255,255,255,0.22)",
+                background: "rgba(255,255,255,0.3)",
                 borderRadius: 999,
                 transition: "height 0.15s",
               }}
@@ -2228,7 +2191,7 @@ export default function NativePlayerView({
                         bottom: 0,
                         left: `${(s / safeDuration) * 100}%`,
                         width: `${((e - s) / safeDuration) * 100}%`,
-                        background: "rgba(255,255,255,0.62)",
+                        background: "rgba(255,255,255,0.5)",
                         borderRadius: 999,
                       }}
                     />
@@ -2249,9 +2212,9 @@ export default function NativePlayerView({
                 style={{
                   position: "absolute",
                   top: "50%",
-                  left: `calc(${effectiveRatio * 100}% - ${(hoverRatio != null ? 16 : 12) / 2}px)`,
-                  width: hoverRatio != null ? 16 : 12,
-                  height: hoverRatio != null ? 16 : 12,
+                  left: `calc(${effectiveRatio * 100}% - ${(hoverRatio != null ? 17 : 13) / 2}px)`,
+                  width: hoverRatio != null ? 17 : 13,
+                  height: hoverRatio != null ? 17 : 13,
                   borderRadius: "50%",
                   background: NETFLIX_RED,
                   transform: "translateY(-50%)",
@@ -2264,17 +2227,16 @@ export default function NativePlayerView({
               <div
                 style={{
                   position: "absolute",
-                  bottom: 26,
+                  bottom: 28,
                   left: `${Math.min(94, Math.max(6, hoverRatio * 100))}%`,
                   transform: "translateX(-50%)",
-                  background: "rgba(0,0,0,0.85)",
-                  border: "1px solid rgba(255,255,255,0.15)",
+                  background: "rgba(0,0,0,0.8)",
                   color: "#fff",
-                  fontSize: 12,
+                  fontSize: 13,
                   fontWeight: 700,
                   fontVariantNumeric: "tabular-nums",
-                  padding: "4px 10px",
-                  borderRadius: 6,
+                  padding: "4px 8px",
+                  borderRadius: 4,
                   pointerEvents: "none",
                   whiteSpace: "nowrap",
                 }}
@@ -2284,10 +2246,10 @@ export default function NativePlayerView({
             )}
           </div>
           {/* Transport row. */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 2 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 2, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
               <IconBtn label={playing ? "Pause" : "Play"} onClick={togglePlay}>
-                {playing ? <Pause size={30} fill="currentColor" /> : <Play size={30} fill="currentColor" />}
+                {playing ? <Pause size={28} fill="currentColor" /> : <Play size={28} fill="currentColor" />}
               </IconBtn>
               {!IS_TOUCH && (
                 <>
@@ -2314,7 +2276,7 @@ export default function NativePlayerView({
                       flexShrink: 0,
                     }}
                   >
-                    <RotateCcw size={26} />
+                    <RotateCcw size={24} />
                     <span style={{ position: "absolute", fontSize: 8.5, fontWeight: 800, marginTop: 3 }}>10</span>
                   </button>
                   <button
@@ -2340,7 +2302,7 @@ export default function NativePlayerView({
                       flexShrink: 0,
                     }}
                   >
-                    <RotateCw size={26} />
+                    <RotateCw size={24} />
                     <span style={{ position: "absolute", fontSize: 8.5, fontWeight: 800, marginTop: 3 }}>10</span>
                   </button>
                 </>
@@ -2351,7 +2313,7 @@ export default function NativePlayerView({
                 style={{ display: "flex", alignItems: "center" }}
               >
                 <IconBtn label={muted ? "Unmute" : "Mute"} onClick={toggleMute}>
-                  <VolumeIcon size={26} />
+                  <VolumeIcon size={24} />
                 </IconBtn>
                 {!IS_TOUCH && volHover && (
                   <input
@@ -2367,7 +2329,7 @@ export default function NativePlayerView({
                     }}
                     onClick={(e) => e.stopPropagation()}
                     aria-label="Volume"
-                    style={{ width: 84, accentColor: "#fff", cursor: "pointer" }}
+                    className="np-volume-slider" style={{ width: 72, cursor: "pointer", marginLeft: 4 }}
                   />
                 )}
               </span>
@@ -2377,7 +2339,7 @@ export default function NativePlayerView({
                     fontSize: 14,
                     color: "rgba(255,255,255,0.9)",
                     fontVariantNumeric: "tabular-nums",
-                    marginLeft: 6,
+                    marginLeft: 12,
                     whiteSpace: "nowrap",
                   }}
                 >
@@ -2385,14 +2347,14 @@ export default function NativePlayerView({
                 </span>
               )}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               {showEpisodeNav && (
                 <>
                   <IconBtn label="Previous episode" disabled={prevDisabled} onClick={goEpPrev}>
-                    <SkipBack size={26} />
+                    <SkipBack size={24} />
                   </IconBtn>
                   <IconBtn label="Next episode" disabled={nextDisabled} onClick={goEpNext}>
-                    <SkipForward size={26} />
+                    <SkipForward size={24} />
                   </IconBtn>
                 </>
               )}
@@ -2405,7 +2367,7 @@ export default function NativePlayerView({
                     poke();
                   }}
                 >
-                  <ListVideo size={26} />
+                  <ListVideo size={24} />
                 </IconBtn>
               )}
               <IconBtn
@@ -2416,10 +2378,10 @@ export default function NativePlayerView({
                   poke();
                 }}
               >
-                <Captions size={26} />
+                <Captions size={24} />
               </IconBtn>
               <IconBtn label={isFullscreen ? "Exit fullscreen" : "Fullscreen"} onClick={goFullscreen}>
-                {isFullscreen ? <Minimize size={24} /> : <Maximize size={24} />}
+                {isFullscreen ? <Minimize size={22} /> : <Maximize size={22} />}
               </IconBtn>
             </div>
           </div>
@@ -2432,25 +2394,23 @@ export default function NativePlayerView({
             aria-label={`Resume from ${fmtTime(resumeOffer.at)}`}
             style={{
               position: "absolute",
-              left: "50%",
-              transform: "translateX(-50%)",
-              bottom: 176,
+              right: 24,
+              bottom: IS_TOUCH ? 120 : 100,
               display: "flex",
               alignItems: "center",
-              gap: 14,
-              background: "rgba(14,14,14,0.96)",
-              border: "1px solid rgba(255,255,255,0.14)",
-              borderRadius: 12,
-              padding: "10px 14px",
+              gap: 12,
+              background: "rgba(20,20,20,0.97)",
+              borderRadius: 4,
+              padding: "12px 16px",
               zIndex: 6,
-              boxShadow: "0 12px 40px rgba(0,0,0,0.6)",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.7)",
             }}
           >
             <div style={{ minWidth: 0 }}>
-              <div style={{ color: "#fff", fontWeight: 800, fontSize: 14.5 }}>
+              <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>
                 You left off at {fmtTime(resumeOffer.at)}
               </div>
-              <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginTop: 3 }}>
                 {resumeOffer.left > 1
                   ? `Auto-resuming in ${resumeOffer.left}s`
                   : "Resuming…"}
@@ -2464,13 +2424,13 @@ export default function NativePlayerView({
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
-                padding: "8px 16px",
+                padding: "8px 18px",
                 background: "#fff",
                 color: "#000",
                 border: "none",
-                borderRadius: 8,
-                fontWeight: 800,
-                fontSize: 13.5,
+                borderRadius: 3,
+                fontWeight: 700,
+                fontSize: 14,
                 cursor: "pointer",
               }}
             >
@@ -2483,12 +2443,12 @@ export default function NativePlayerView({
               aria-label="Restart from the beginning"
               style={{
                 padding: "8px 14px",
-                background: "rgba(255,255,255,0.12)",
-                color: "#fff",
-                border: "none",
-                borderRadius: 8,
-                fontWeight: 700,
-                fontSize: 13.5,
+                background: "transparent",
+                color: "rgba(255,255,255,0.85)",
+                border: "1px solid rgba(255,255,255,0.4)",
+                borderRadius: 3,
+                fontWeight: 600,
+                fontSize: 14,
                 cursor: "pointer",
               }}
             >
@@ -2505,15 +2465,14 @@ export default function NativePlayerView({
             aria-label={`Up Next: playing in ${Math.round(UP_NEXT_MS / 1000)} seconds`}
             style={{
               position: "absolute",
-              right: 16,
-              bottom: 176,
-              width: "min(300px, 62%)",
-              background: "rgba(14,14,14,0.96)",
-              border: "1px solid rgba(255,255,255,0.14)",
-              borderRadius: 12,
-              padding: 12,
+              right: 24,
+              bottom: IS_TOUCH ? 120 : 100,
+              width: "min(260px, 55%)",
+              background: "rgba(20,20,20,0.97)",
+              borderRadius: 4,
+              padding: "14px 16px",
               zIndex: 6,
-              boxShadow: "0 12px 40px rgba(0,0,0,0.6)",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.7)",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
@@ -2524,7 +2483,7 @@ export default function NativePlayerView({
                 <X size={16} />
               </IconBtn>
             </div>
-            <div style={{ marginTop: 4, color: "#fff", fontWeight: 700, fontSize: 15, lineHeight: 1.25 }}>
+            <div style={{ marginTop: 6, color: "#fff", fontWeight: 700, fontSize: 15, lineHeight: 1.3 }}>
               {upNext.title ? `E${upNext.number} · ${upNext.title}` : `Episode ${upNext.number}`}
             </div>
             <div
@@ -2560,13 +2519,13 @@ export default function NativePlayerView({
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 8,
-                padding: "7px 12px",
+                padding: "9px 16px",
                 background: "#fff",
                 color: "#000",
                 border: "none",
-                borderRadius: 8,
-                fontWeight: 800,
-                fontSize: 13.5,
+                borderRadius: 3,
+                fontWeight: 700,
+                fontSize: 14,
                 cursor: "pointer",
               }}
             >
@@ -2582,29 +2541,32 @@ export default function NativePlayerView({
             onClick={(e) => e.stopPropagation()}
             style={{
               position: "absolute",
-              right: 12,
-              bottom: 168,
+              right: 0,
+              top: IS_TOUCH ? undefined : 0,
+              bottom: 0,
               width:
                 panel === "subs"
                   ? IS_TOUCH
-                    ? "min(560px, calc(100% - 24px))"
-                    : "min(560px, 92%)"
+                    ? "min(580px, 100%)"
+                    : "min(580px, 38%)"
                   : IS_TOUCH
-                    ? "min(330px, calc(100% - 24px))"
-                    : "min(330px, 82%)",
-              maxHeight: IS_TOUCH ? "82%" : "62%",
+                    ? "min(360px, 100%)"
+                    : "min(360px, 28%)",
+              maxHeight: IS_TOUCH ? "85%" : "100%",
+              height: IS_TOUCH ? undefined : "100%",
               display: "flex",
               flexDirection: "column",
               overflow: "hidden",
-              background: "rgba(18,18,18,0.97)",
-              border: "1px solid rgba(255,255,255,0.12)",
-              borderRadius: 12,
-              padding: 12,
+              background: "rgba(0,0,0,0.97)",
+              borderLeft: IS_TOUCH ? "none" : "1px solid rgba(255,255,255,0.08)",
+              borderTop: IS_TOUCH ? "1px solid rgba(255,255,255,0.1)" : "none",
+              borderRadius: IS_TOUCH ? "16px 16px 0 0" : 0,
+              padding: "16px 0 0",
               zIndex: 5,
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-              <span style={{ color: "#fff", fontWeight: 800, fontSize: 15 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, padding: "0 16px" }}>
+              <span style={{ color: "#fff", fontWeight: 700, fontSize: 16, letterSpacing: "-0.01em" }}>
                 {panel === "subs" ? "Audio & Subtitles" : "Episodes"}
               </span>
               <IconBtn label="Close panel" onClick={() => setPanel(null)}>
@@ -2618,8 +2580,8 @@ export default function NativePlayerView({
             {panel === "subs" ? (
               <div style={{ display: "flex", gap: 16, flexDirection: IS_TOUCH ? "column" : "row", flex: 1, minHeight: 0 }}>
                 {/* Left pane: Audio + Video Quality (the feed/play controls). */}
-                <div style={{ flex: 1, minWidth: 0, minHeight: 0, overflowY: "auto", paddingRight: 2 }}>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", margin: "8px 0 2px" }}>
+                <div style={{ flex: 1, minWidth: 0, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
                     Audio
                   </p>
                   {audioTracks.length > 0 ? (
@@ -2660,7 +2622,7 @@ export default function NativePlayerView({
                       />
                     </>
                   )}
-                  <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", margin: "12px 0 2px" }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", margin: "16px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
                     Video Quality
                   </p>
                   {transportRelay && !isMasterMode && (
@@ -2710,8 +2672,8 @@ export default function NativePlayerView({
                 </div>
                 {/* Right pane: Subtitles only — scrolls on its own, independent
                     of the Audio/Quality pane. */}
-                <div style={{ flex: 1, minWidth: 0, minHeight: 0, overflowY: "auto", paddingRight: 2 }}>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", margin: "8px 0 2px" }}>
+                <div style={{ flex: 1, minWidth: 0, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
                     Subtitles
                   </p>
                   <DialogRow
@@ -2745,7 +2707,7 @@ export default function NativePlayerView({
                 </div>
               </div>
             ) : (
-              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingRight: 2 }}>
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 0 16px" }}>
                 {episodes.map((ep) => (
                   <DialogRow
                     key={ep.number}
@@ -2765,32 +2727,9 @@ export default function NativePlayerView({
         )}
       </div>
       {fatal && (
-        <p style={{ marginTop: 12, padding: 12, borderRadius: 10, background: "rgba(248,113,113,0.12)", border: "1px solid rgba(248,113,113,0.35)", fontSize: 14 }}>
+        <p style={{ position: "absolute", bottom: 80, left: 16, right: 16, padding: "12px 16px", borderRadius: 6, background: "rgba(229,9,20,0.12)", border: "1px solid rgba(229,9,20,0.35)", fontSize: 14, zIndex: 7, color: "#fff" }}>
           {fatal}
         </p>
-      )}
-      {showLog && (
-        <div style={{ marginTop: 12 }}>
-          <p style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginBottom: 6 }}>
-            Attempt log · {type} {id}
-            {type === "tv" ? ` S${season}E${episode}` : ""} · {status} · buf {bufferedSecs}/{bufferedTargetSecs}s ·{" "}
-            {relayStreak > 0 ? `relay ×${relayStreak} frags` : "frags direct"}
-          </p>
-          <pre
-            style={{
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: 10,
-              padding: 12,
-              fontSize: 12,
-              whiteSpace: "pre-wrap",
-              maxHeight: 260,
-              overflowY: "auto",
-            }}
-          >
-            {lines.length > 0 ? lines.join("\n") : "starting…"}
-          </pre>
-        </div>
       )}
     </div>
   );
