@@ -274,7 +274,7 @@ describe("downloadService.resolveVidcore", () => {
           ok: true,
           source: { kind: "hls", url: "https://moon.quietridge.top/vd/x/index-s2160p-v1-a1.m3u8", refUrl: "https://vidcore.io/" },
           variants: [
-            { uri: "https://moon.quietridge.top/vd/x/index-s2160p-v1-a1.m3u8", bandwidth: 16000000, height: 2160, altUri: "https://moon.quietridge.top/vd/x/index-s2160p-v1.m3u8" },
+            { uri: "https://moon.quietridge.top/vd/x/index-s2160p-v1-a1.m3u8", bandwidth: 16000000, height: 2160 },
             { uri: "https://moon.quietridge.top/vd/x/index-s1080p-v1-a1.m3u8", bandwidth: 6000000, height: 1080 },
             { uri: "https://moon.quietridge.top/vd/x/index-s720p-v1-a1.m3u8", bandwidth: 2500000, height: 720 },
           ],
@@ -285,8 +285,6 @@ describe("downloadService.resolveVidcore", () => {
     const resolved = await downloadService.resolveVidcore({ type: "movie", id: "693134" });
     expect(resolved.variants.map((v) => v.label)).toEqual(["4K", "1080p", "720p"]);
     expect(resolved.source.refUrl).toBe("https://vidcore.io/");
-    // the hidden base (-v1) twin survives normalization unchanged
-    expect(resolved.variants[0].altUri).toBe("https://moon.quietridge.top/vd/x/index-s2160p-v1.m3u8");
   });
 
   it("passes season+episode through for TV titles and sends no resolverUrl", async () => {

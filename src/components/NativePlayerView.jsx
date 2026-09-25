@@ -250,11 +250,6 @@ export default function NativePlayerView({
   const [isMasterMode, setIsMasterMode] = useState(false);
   const [audioTracks, setAudioTracks] = useState([]);
   const [audioIndex, setAudioIndex] = useState(0);
-  // Videasy (VidCore) titles expose a real second soundtrack under a hidden
-  // base playlist (index-s{res}-v1) — the alternate row swaps the whole
-  // stream to it. Only TRACK position is knowable; languages are not labelled
-  // by any backend (verified: API JSON, playlists, and media boxes carry none).
-  const [altAudioOn, setAltAudioOn] = useState(false);
   // TMDB iso_639_1 -> display name, for the film-level original-language line.
   const FILM_LANG = {
     en: "English", te: "Telugu", hi: "Hindi", ta: "Tamil", ml: "Malayalam",
@@ -930,7 +925,6 @@ export default function NativePlayerView({
       setQualities([]);
       setAudioTracks([]);
       setAudioIndex(0);
-      setAltAudioOn(false);
       setBuffering(true);
       setBufferedSecs(0);
       setBufferedTargetSecs(30);
@@ -1188,19 +1182,11 @@ export default function NativePlayerView({
             return false;
           }
           if (stale()) return true;
-          const altByUri = {};
-          variants.forEach((v) => {
-            if (v.altUri) {
-              altByUri[v.uri] = v.altUri;
-              altByUri[v.altUri] = v.uri;
-            }
-          });
           metaRef.current = {
             variants,
             sourceKey: def.key,
             refUrl: liveRefUrl,
             cinesrcLevels: isMaster,
-            altByUri,
           };
           startLevelFor(hls);
           setQualities(variants.map((v) => ({ uri: v.uri, height: v.height || 0, bandwidth: v.bandwidth || 0, label: v.label })));
@@ -1285,7 +1271,7 @@ export default function NativePlayerView({
     };
   }, [type, id, season, episode, title]);
 
-  const pickQuality = async (uri, height, opts) => {
+  const pickQuality = async (uri, height) => {
     const hls = hlsRef.current;
     if (!videoRef.current) return;
     if (!hls) return;
@@ -1321,22 +1307,6 @@ export default function NativePlayerView({
       // relay-only app on the free tier; banning tall rungs bans everything).
       let chosenUri = uri;
       let chosenHeight = height;
-      // While the alternate soundtrack (the hidden -v1 base) is active, a
-      // quality pick must stay on the SAME audio: variants list the -a1 uris,
-      // so map the pick to that rendition's alternating twin. The swap itself
-      // (pickAltAudio) passes rawAlt and bypasses this so its target uri is
-      // honored exactly in both directions.
-      const rawAlt = typeof opts === "object" && opts !== null && opts.rawAlt === true;
-      const twin = !rawAlt && altAudioOn ? metaRef.current?.altByUri?.[uri] : null;
-      if (twin && twin !== uri) {
-        chosenUri = twin;
-        if (uri === activeUri) {
-          say(`Already on ${height || "?"}p (Alternate) — no reload.`);
-          setBuffering(false);
-          setControlsVisible(true);
-          return;
-        }
-      }
       let warm = transportRelay ? { ok: true, via: "relay" } : null;
       const refUrl = metaRef.current?.refUrl;
       try {
@@ -1467,31 +1437,6 @@ export default function NativePlayerView({
     setAudioIndex(index);
     poke();
     say(`Audio -> ${audioTracks[index]?.name || index}.`);
-  };
-
-  /* Videasy's dual soundtrack: the hidden base variant of the currently
-     playing rendition (-a1 ↔ -v1 siblings) is a second REAL soundtrack.
-     Reuses the HLS quality-swap machinery so the switch gets probe-warm +
-     playhead + pause preservation for free (the fragments are Open-CORS
-     fMP4 in both). rawAlt keeps pickQuality from re-mapping the twin. */
-  const pickAltAudio = async (useAlt) => {
-    const meta = metaRef.current;
-    const video = videoRef.current;
-    const map = meta?.altByUri;
-    if (!video || !map) return;
-    const source = activeUri;
-    const target = source && map[source];
-    if (!target || target === source || useAlt === altAudioOn) return;
-    const height = meta.variants?.find((v) => v.uri === source || v.altUri === source)?.height ?? null;
-    say(`Audio -> ${useAlt ? "Alternate soundtrack" : "Original soundtrack"}…`);
-    setAltAudioOn(useAlt);
-    setBuffering(true);
-    poke();
-    try {
-      await pickQualityRef.current?.(target, height, { rawAlt: true });
-    } catch (error) {
-      say(`Audio switch failed: ${error?.message || "unknown"}.`);
-    }
   };
 
   /* Subtitles: OpenSubtitles track list for THIS title (mirrors
@@ -2212,11 +2157,11 @@ export default function NativePlayerView({
                         sub={a.lang && a.lang !== a.name ? a.lang : undefined}
                       />
                     ))
-                  ) : activeUri && metaRef.current?.altByUri?.[activeUri] ? (
-                    // Videasy (VidCore): a hidden base soundtrack (-v1) rides
-                    // alongside the listed -a1 streams — offer both. The CDN
-                    // ships NO language tags, so track labels are positional;
-                    // the only real signal is the film's own original language.
+                  ) : (
+                    // No #EXT-X-MEDIA AUDIO groups in this source's ladder:
+                    // hls.js reports no audioTracks, but the soundtrack IS
+                    // playing — surface it as the single track. The only real
+                    // language signal any backend gives is the film's own.
                     <>
                       {originalLanguage ? (
                         <p
@@ -2233,30 +2178,12 @@ export default function NativePlayerView({
                         </p>
                       ) : null}
                       <DialogRow
-                        key="alt-original"
-                        selected={!altAudioOn}
-                        onClick={() => pickAltAudio(false)}
+                        key="original"
+                        selected
                         title="Original"
-                        sub="Primary soundtrack — language not labelled"
-                      />
-                      <DialogRow
-                        key="alt-2"
-                        selected={altAudioOn}
-                        onClick={() => pickAltAudio(true)}
-                        title="Alternate"
-                        sub="Second soundtrack — language not labelled"
+                        sub="This source's soundtrack"
                       />
                     </>
-                  ) : (
-                    // No alternate-audio groups (#EXT-X-MEDIA AUDIO) in this
-                    // source's ladder: hls.js reports no audioTracks, but the
-                    // soundtrack IS playing — surface it as the single track.
-                    <DialogRow
-                      key="original"
-                      selected
-                      title="Original"
-                      sub="This source's soundtrack"
-                    />
                   )}
                   <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", margin: "12px 0 2px" }}>
                     Subtitles
