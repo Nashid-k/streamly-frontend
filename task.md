@@ -7,6 +7,12 @@
 
  ## Done (in order)
 
+- [x] **Underflow step-down + visible buffer (user order: "buffer more at 20s"; analysed and replaced with YouTube's real logic)**. User's proposed logic was "keep ≥20s buffered by buffering more" — but you can't *force* more buffering than the download rate allows; a draining buffer means the chosen rendition outruns the pipe, and YouTube's authentic mechanism is to **downgrade quality** so refill outruns playback. Also the buffer WAS drawn on the timeline but too faint to see. Fix:
+  - New YouTube anti-stall rule: while playing, if the forward buffer holds below `BUFFER_FLOOR_SECONDS`(18s) for a sustained 8s **without refilling** (startup fill is exempt), the player steps down one rung automatically (auto-level only — a manual pin is the user's override) and toasts "Buffer holds <18s — stepping down to Xp so it refills (keeps playing)". The 5s/5s loop can no longer drain to 0: either the pipe refills the 120s goal, or the quality falls until it can.
+  - Buffered range on the time scrubber is now clearly visible: track dimmed to 0.22 white, buffered-ahead raised to 0.62 white (red played still on top) — you can watch the gray bar grow ahead of the playhead.
+  - Buffered data at "buf 8s" now prints below the floor, so the log visibly predicts a step-down.
+  - Verified: oxlint 0 new warnings (only pre-existing `poke` at 577), vitest 45 files / 493/493, build OK.
+
 - [x] **2-minute buffering + fast playing-switches (user order)**. User observed "pause → switch to 4K is fast; switching while playing is slow" and asked for ≥2 min of buffering (or "how much YouTube buffers"). Root causes + fixes (`6e255dc` followup):
   - Why pause-then-switch is fast: a fresh `play()` with zero buffered data at the new position drops straight into `waiting` — the playing-switch shows the stall spinner; a paused-switch hides it while the first fragment lands. Fix: after `loadSource`+parse+seek, `pickQuality` now WAITS for the first media bytes (`canplay`/`loadeddata`, bounded 4s) BEFORE resuming play — reproduces the paused-switch behavior while playing.
   - YouTube's real policy (answered): media engine targets ~30-60s forward buffer (min ~2-3 chunks ≈ 10-15s, hard cap near ~60s for VOD), and it DOWNGRADES the bitrate rather than letting a stream stall. We exceed that: `BUFFER_DEPTH_SECONDS` 60 → **120 (2 min)**, with the byte cap already bitrate-scaled (covers 2min of a 16Mbps 4K under the 240MB ceiling; bigger rungs cheat to ~48-60s — the cap is a deliberate RAM floor).

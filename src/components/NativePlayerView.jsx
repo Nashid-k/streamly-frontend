@@ -70,6 +70,15 @@ const RESUME_WAIT_SECONDS = 8;
 const BUFFER_DEPTH_SECONDS = 120;
 const MIN_BUFFER_SIZE = 60 * 1000 * 1000; // hls.js default floor
 const MAX_BUFFER_SIZE = 240 * 1000 * 1000; // hard ceiling: ~2min of 4K@16Mbps, ~10min of 1080p
+// YouTube-style underflow guard: you cannot "buffer more" when a rendition
+// outruns the pipe — the buffer drains no matter the depth goal. YouTube's
+// actual mechanism is to step the quality DOWN so refill outruns playback.
+// If the forward buffer holds below this floor for a sustained stretch while
+// playing (and isn't refilling), we drop one rung instead of draining to 0
+// and stalling. Shared with the buffer display so "buf 8s" visibly maps to
+// "about to drop a rung".
+const BUFFER_FLOOR_SECONDS = 18;
+const BUFFER_UNDERFLOOR_MS = 8000;
 // While the forward buffer goes deep, don't let the WATCHED back buffer grow
 // without bound (default is Infinity — a 2h movie would pin ~7GB in the
 // browser's RAM). Keep 60s behind; hls.js trims the rest like Netflix does.
@@ -208,6 +217,9 @@ export default function NativePlayerView({
   // Guards against rapid quality switches clobbering each other: each call
   // stamps a token; after every await it re-checks it's still the newest.
   const switchTokenRef = useRef(0);
+  // Underflow watchdog: remembers when the forward buffer first dipped below
+  // BUFFER_FLOOR_SECONDS so the step-down fires only after a sustained shortfall.
+  const lowBufferRef = useRef({ since: 0, prev: -1 });
 
   const [lines, setLines] = useState([]);
   const [status, setStatus] = useState("idle");
@@ -1333,6 +1345,45 @@ export default function NativePlayerView({
   };
   pickQualityRef.current = pickQuality;
 
+  // YouTube's anti-stall rule. The depth goal only helps when the pipe can
+  // refill faster than a segment plays; when it can't, the buffer drains and
+  // playback enters the 5s/5s loop. Drop one rung once the forward buffer
+  // sits under BUFFER_FLOOR_SECONDS for a sustained stretch WITHOUT refilling
+  // (a bright startup fill is normal down to the floor and must not trigger).
+  // Auto-level only: a pinned selection is the user's explicit override.
+  useEffect(() => {
+    const st = lowBufferRef.current;
+    if (status !== "playing" || buffering) {
+      st.since = 0;
+      st.prev = bufferedSecs;
+      return;
+    }
+    if (bufferedSecs < BUFFER_FLOOR_SECONDS) {
+      if (!st.since) {
+        st.since = Date.now();
+        st.prev = bufferedSecs;
+      }
+      const refilling = bufferedSecs > st.prev + 1;
+      st.prev = bufferedSecs;
+      if (refilling || Date.now() - st.since < BUFFER_UNDERFLOOR_MS) return;
+      st.since = 0;
+      if (!autoLevel || metaRef.current?.cinesrcLevels) return;
+      const curH = currentHeight || 0;
+      const rungs = qualities
+        .filter((q) => (q.height || 0) > 0 && (q.height || 0) < curH)
+        .sort((a, b) => (b.height || 0) - (a.height || 0));
+      const target = rungs[0];
+      if (!target || activeUri === target.uri) return;
+      say(`Buffer holds <${BUFFER_FLOOR_SECONDS}s — stepping down to ${target.height || "?"}p so it refills (keeps playing).`);
+      setShowLog(true);
+      st.prev = bufferedSecs;
+      pickQualityRef.current?.(target.uri, target.height)?.catch?.(() => {});
+      return;
+    }
+    st.since = 0;
+    st.prev = bufferedSecs;
+  }, [bufferedSecs, status, buffering, autoLevel, currentHeight, qualities, activeUri]);
+
   const pickAudio = (index) => {
     const hls = hlsRef.current;
     if (!hls) return;
@@ -1546,7 +1597,7 @@ export default function NativePlayerView({
                 position: "relative",
                 height: hoverRatio != null ? 6 : 4,
                 width: "100%",
-                background: "rgba(255,255,255,0.3)",
+                background: "rgba(255,255,255,0.22)",
                 borderRadius: 999,
                 transition: "height 0.15s",
               }}
@@ -1562,7 +1613,7 @@ export default function NativePlayerView({
                         bottom: 0,
                         left: `${(s / safeDuration) * 100}%`,
                         width: `${((e - s) / safeDuration) * 100}%`,
-                        background: "rgba(255,255,255,0.45)",
+                        background: "rgba(255,255,255,0.62)",
                         borderRadius: 999,
                       }}
                     />
