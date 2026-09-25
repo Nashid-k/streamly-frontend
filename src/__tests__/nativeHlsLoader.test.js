@@ -748,4 +748,59 @@ describe("probeSourcePlayable", () => {
     expect(probe.ok).toBe(false);
     expect(probe.reason).toBeTruthy();
   });
+
+  it("passes a direct mp4 (NetMirror dub) when its Range sip flows from the browser", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, status: 206, headers: { get: () => null }, body: { cancel: async () => {} } }),
+    );
+    const probe = await probeSourcePlayable(
+      "https://bcdnxw.hakunaymatata.com/tran-audio/20250609/13e051e0028d6dff24783acf8e2c48da.mp4?sign=abc",
+      "https://net27.cc/",
+    );
+    expect(probe).toMatchObject({ ok: true, via: "direct" });
+  });
+
+  it("falls back to the relay Range sip for a direct mp4 when the CDN gates direct reads", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        if (typeof url === "string" && url.includes("downloadify")) {
+          const body = JSON.parse(init.body);
+          expect(body.action).toBe("segment");
+          expect(body.url).toContain(".mp4");
+          expect(body.range.start).toBe(0);
+          expect(typeof body.range.max).toBe("number");
+          expect(body.refUrl).toBe("https://net27.cc/");
+          return { ok: true, status: 200, headers: { get: () => null }, body: {} };
+        }
+        return { ok: false, status: 429, headers: { get: () => null } };
+      }),
+    );
+    const probe = await probeSourcePlayable(
+      "https://bcdnxw.hakunaymatata.com/bt/ad04f2.mp4?sign=abc",
+      "https://net27.cc/",
+    );
+    expect(probe).toMatchObject({ ok: true, via: "relay" });
+  });
+
+  it("reports the relay's refusal for a direct mp4 it cannot reach either way", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url) => {
+        if (typeof url === "string" && url.includes("downloadify")) {
+          return {
+            ok: false,
+            status: 502,
+            headers: { get: () => "application/json" },
+            text: async () => JSON.stringify({ ok: false, code: "segment-fetch-failed", error: "Upstream 429" }),
+          };
+        }
+        return { ok: false, status: 429, headers: { get: () => null } };
+      }),
+    );
+    const probe = await probeSourcePlayable("https://bcdnxw.hakunaymatata.com/x.mp4?sign=abc", "https://net27.cc/");
+    expect(probe.ok).toBe(false);
+    expect(probe.reason).toBeTruthy();
+  });
 });

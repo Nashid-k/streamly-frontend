@@ -157,6 +157,13 @@ function DialogRow({ selected, onClick, title, sub, disabled }) {
 }
 
 const SOURCES = [
+  // NetMirror (net27.cc) is a DIRECT mp4 source whose "audio" = per-language
+  // dubs, each with its own file — a true multiple-audio feed where the HLS
+  // sources only ever deliver track-within-the-same-stream alternates. Listed
+  // first so the native player catches every title (incl. K-drama / Malayalam
+  // hits like Premalu that the HLS catalogues lack); its probe is direct-first
+  // so a blocked CDN falls through to VidCore quickly.
+  { key: "netmirror", label: "NetMirror (native)", resolve: (a, o) => downloadService.resolveNetmirror(a, o) },
   { key: "vidcore", label: "VidCore (native)", resolve: (a, o) => downloadService.resolveVidcore(a, o) },
   { key: "vidsrc", label: "VidSrc (native)", resolve: (a, o) => downloadService.resolveVidsrc(a, o) },
   { key: "cinesrc", label: "CineSrc (native)", resolve: (a, o) => downloadService.resolveCinesrc(a, o) },
@@ -201,7 +208,7 @@ export default function NativePlayerView({
   const scrubRef = useRef(null);
   const hlsRef = useRef(null);
   const runRef = useRef(0);
-  const metaRef = useRef({ variants: [], sourceKey: null, refUrl: null, cinesrcLevels: false });
+  const metaRef = useRef({ variants: [], sourceKey: null, refUrl: null, cinesrcLevels: false, mp4Mode: false });
   const idleTimer = useRef(null);
   const clickTimer = useRef(null);
   // Pending "drop the hover overlay" deadline after a released scrub. Cleared
@@ -824,6 +831,64 @@ export default function NativePlayerView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [panel]);
 
+  /* Direct-mp4 (NetMirror) helpers: the <video> element plays a raw file, so
+     "waiting for the media" is a loadedmetadata/error race (mirrors the hls
+     waitParsed promise), and a quality/audio switch is a src swap that keeps
+     the playhead. */
+  const waitVideoElement = (video, { timeoutMs = PARSE_TIMEOUT_MS, signal } = {}) =>
+    new Promise((resolve, reject) => {
+      let settled = false;
+      let timer;
+      const cleanup = () => {
+        clearTimeout(timer);
+        video?.removeEventListener("loadedmetadata", onMeta);
+        video?.removeEventListener("error", onErr);
+        signal?.removeEventListener("abort", onAbort);
+      };
+      const finish = (fn, arg) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        fn(arg);
+      };
+      const onMeta = () => finish(resolve);
+      const onErr = () => finish(reject, new Error("mp4 load failed"));
+      const onAbort = () => {
+        const error = new Error("Aborted");
+        error.name = "AbortError";
+        finish(reject, error);
+      };
+      timer = setTimeout(() => finish(reject, new Error("Timed out waiting for the mp4")), timeoutMs);
+      video.addEventListener("loadedmetadata", onMeta);
+      video.addEventListener("error", onErr);
+      signal?.addEventListener("abort", onAbort, { once: true });
+    });
+
+  const loadMp4 = async (video, url, signal) => {
+    video.removeAttribute("src");
+    video.src = url;
+    video.load();
+    await waitVideoElement(video, { signal });
+  };
+
+  const swapMp4 = async (video, url, resumeAt, wasPaused) => {
+    await loadMp4(video, url);
+    if (resumeAt > 0) {
+      try {
+        video.currentTime = resumeAt;
+      } catch {
+        // live-edge clamp — start wherever the file begins
+      }
+    }
+    if (!wasPaused) {
+      try {
+        await video.play();
+      } catch {
+        // user gesture needed — custom transport is present
+      }
+    }
+  };
+
   useEffect(() => {
     if (!Hls.isSupported()) {
       setFatal("This browser has no MediaSource support — native playback cannot run here.");
@@ -952,6 +1017,10 @@ export default function NativePlayerView({
         }
         let liveSource = resolved.source;
         let liveRefUrl = resolved.source?.refUrl || resolved.source?.url;
+        // Direct-file sources (NetMirror's per-language mp4 dubs) skip hls.js
+        // entirely: the <video> element plays the file, and "audio" switching
+        // is a src swap to that language's own mp4.
+        const isDirect = liveSource && (liveSource.kind === "mp4" || liveSource.kind === "direct");
         // attempt 0 = initial URLs; attempt 1 = one token-refresh re-resolve.
         let preferHeight = null;
         let resumeTime = null;
@@ -1004,6 +1073,72 @@ export default function NativePlayerView({
               smoothStart = relayFriendly;
               entryUrl = entryUrlFor(def, { source: liveSource }, smoothStart);
             }
+          }
+          // NetMirror / any direct-mp4 source: no hls.js, no MSE manifest — the
+          // video element plays the raw file, quality and audio (per-language
+          // dubs) are src swaps. Parked until abort or a video-level error.
+          if (isDirect) {
+            if (attempt !== 0) return false;
+            try {
+              hlsRef.current?.destroy();
+            } catch {
+              // previous instance already gone
+            }
+            hlsRef.current = null;
+            const video = videoRef.current;
+            if (!video) return false;
+            let directOutcome = "fatal";
+            try {
+              setActiveUri(entryUrl);
+              setQualities(
+                variants.map((v) => ({ uri: v.uri, height: v.height || 0, bandwidth: v.bandwidth || 0, label: v.label })),
+              );
+              setIsMasterMode(false);
+              setAutoLevel(false);
+              setCurrentHeight(smoothStart?.height ?? null);
+              metaRef.current = { variants, sourceKey: def.key, refUrl: liveRefUrl, cinesrcLevels: false, mp4Mode: true };
+              const dubs = Array.isArray(resolved.audio) ? resolved.audio : [];
+              if (dubs.length > 0) {
+                setAudioTracks(
+                  dubs.map((d, i) => ({ index: i, name: d.language || `Audio ${i + 1}`, lang: d.language || "", url: d.url || "" })),
+                );
+                setAudioIndex(0);
+              } else {
+                setAudioTracks([]);
+                setAudioIndex(0);
+              }
+              await loadMp4(video, entryUrl, controller.signal);
+              if (stale()) return true;
+              setStatus(`playing via ${def.label}`);
+              say(`${def.label}: PLAYING direct (${smoothStart?.height || "?"}p).`);
+              try {
+                await video.play();
+              } catch {
+                say("Autoplay blocked — tap the custom play button.");
+              }
+              maybeOfferResumeRef.current?.();
+              directOutcome = await Promise.race([
+                abortPromise().then(() => "abort"),
+                new Promise((resolvePark) => {
+                  video.addEventListener(
+                    "error",
+                    () => {
+                      say(`${def.label}: direct stream error — next source.`);
+                      resolvePark("fatal");
+                    },
+                    { once: true },
+                  );
+                }),
+              ]);
+            } catch (error) {
+              if (error?.name === "AbortError" || stale()) directOutcome = "abort";
+              else {
+                say(`${def.label}: ${error?.message || "load failed"} — next source.`);
+                directOutcome = "fatal";
+              }
+            }
+            if (directOutcome === "abort") return true;
+            return false;
           }
           try {
             hlsRef.current?.destroy();
@@ -1221,7 +1356,7 @@ export default function NativePlayerView({
       }
       if (stale()) return;
       setStatus("error");
-      setFatal("No native source resolved this title (all three resolvers came up empty).");
+      setFatal("No native source resolved this title (all four resolvers came up empty).");
       say("All sources exhausted.");
     })();
 
@@ -1233,13 +1368,44 @@ export default function NativePlayerView({
         // already torn down
       }
       hlsRef.current = null;
+      // Direct-mp4 mode: drop the src so an abandoned file fetch stops on the
+      // next title/run instead of streaming in the background.
+      try {
+        videoRef.current?.removeAttribute?.("src");
+      } catch {
+        // element already detached
+      }
     };
   }, [type, id, season, episode]);
 
   const pickQuality = async (uri, height) => {
     const hls = hlsRef.current;
     const meta = metaRef.current;
-    if (!hls || !videoRef.current) return;
+    if (!videoRef.current) return;
+    // Direct-mp4 source: swap the file (keep the playhead + paused state).
+    if (meta?.mp4Mode) {
+      const video = videoRef.current;
+      const t = video.currentTime || 0;
+      const wasPaused = video.paused;
+      if (uri === activeUri) {
+        say(`Already playing ${height || "?"}p — no reload.`);
+        return;
+      }
+      say(`Switching to ${height || "?"}p…`);
+      setBuffering(true);
+      poke();
+      try {
+        await swapMp4(video, uri, t, wasPaused);
+        setActiveUri(uri);
+        setCurrentHeight(height || null);
+        say(`Switched to ${height || "?"}p.`);
+      } catch (error) {
+        say(`Switch failed: ${error?.message || "unknown"}.`);
+        setBuffering(false);
+      }
+      return;
+    }
+    if (!hls) return;
     const t = videoRef.current.currentTime || 0;
     const wasPaused = videoRef.current.paused;
     say(`Switching to ${height || "?"}p…`);
@@ -1396,6 +1562,31 @@ export default function NativePlayerView({
   }, [bufferedSecs, status, buffering, currentHeight, qualities, activeUri]);
 
   const pickAudio = (index) => {
+    const meta = metaRef.current;
+    const video = videoRef.current;
+    // Direct-mp4 source: the "audio tracks" are per-language mp4 dubs — switch
+    // is a src swap to that language's own file (playhead + paused preserved).
+    if (meta?.mp4Mode && video) {
+      const track = audioTracks[index];
+      setAudioIndex(index);
+      poke();
+      const resume = async () => {
+        const t = video.currentTime || 0;
+        const wasPaused = video.paused;
+        if (!track?.url || track.url === activeUri) return;
+        say(`Audio -> ${track.name}…`);
+        setBuffering(true);
+        try {
+          await swapMp4(video, track.url, t, wasPaused);
+          setActiveUri(track.url);
+          say(`Audio switched to ${track.name}.`);
+        } catch (error) {
+          say(`Audio switch failed: ${error?.message || "unknown"}.`);
+        }
+      };
+      resume();
+      return;
+    }
     const hls = hlsRef.current;
     if (!hls) return;
     hls.audioTrack = index;

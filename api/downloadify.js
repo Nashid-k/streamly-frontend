@@ -856,6 +856,174 @@ async function handleResolveVidcore(body, res) {
   json(res, 200, { ok: false, error: "No downloadable stream found via VidCore", code: "no-source" });
 }
 
+/* NetMirror (net27.cc) — the Cineby-family source that serves MULTIPLE AUDIO
+   as per-language "dubs". Each dub has its own subjectId and its own DIRECT
+   H.264 mp4 (that language's soundtrack), so an audio switch is a swap to a
+   different file. Chain (all public, auth-free GETs):
+     /api/catalog/title/{type}/{tmdbId}     -> catalog.detailPath + variants[]
+                                              (trimmed/sub'd langs) + audioLangs[]
+     /api/native/meta?dp=                   -> dubs[] (subjectId + per-dub
+                                              detailPath), one entry per language
+     /api/embed-direct/{subjectId}?type=&se=&ep=&dp={dubDetailPath}
+                                            -> that dub's mp4 + quality ladder
+                                              (360/480/720/1080) + captions
+   Each dub must be asked with its OWN detailPath as `dp`, or the server falls
+   back to the primary copy. bcdnxw mp4 URLs are signed+expiring and gated per
+   IP (429 from datacenter IPs) — the player probes direct-then-relay at runtime
+   and moves to the next source when blocked. */
+const NETMIRROR_ORIGIN = "https://net27.cc";
+const NETMIRROR_REFERER = "https://net27.cc/";
+
+/* net27 publishes the original language as an ISO code; fold it into a usable
+   menu label for the primary copy (the only dub guaranteed to lack a variant
+   "corner"). */
+const NETMIRROR_ISO_LANGS = {
+  ar: "Arabic", bn: "Bengali", de: "German", en: "English", es: "Spanish",
+  fr: "French", hi: "Hindi", ja: "Japanese", kn: "Kannada", ko: "Korean",
+  ml: "Malayalam", mr: "Marathi", pt: "Portuguese", ru: "Russian",
+  ta: "Tamil", te: "Telugu", zh: "Chinese",
+};
+
+async function fetchNet27Json(path, { retries = 3 } = {}) {
+  let lastError;
+  for (let attempt = 1; attempt <= retries; attempt += 1) {
+    try {
+      const text = await fetchUpstream(NETMIRROR_ORIGIN + path, { referer: NETMIRROR_REFERER });
+      const data = JSON.parse(text);
+      if (data == null) throw new Error("empty reply");
+      return data;
+    } catch (error) {
+      lastError = error;
+      if (attempt < retries) await new Promise((resolve) => setTimeout(resolve, 1100 * attempt));
+    }
+  }
+  throw lastError || new Error("net27 unreachable");
+}
+
+async function handleResolveNetmirror(body, res) {
+  const type = body.type === "tv" ? "tv" : "movie";
+  const tmdbId = String(body.id || "").trim();
+  if (!/^\d{1,12}$/.test(tmdbId)) {
+    json(res, 400, { ok: false, error: "Invalid TMDB id", code: "bad-id" });
+    return;
+  }
+  const season = String(body.season ?? "").trim();
+  const episode = String(body.episode ?? "").trim();
+
+  try {
+    const catalog = await fetchNet27Json(`/api/catalog/title/${type}/${tmdbId}`);
+    const cd = catalog?.catalog || {};
+    const detailPath = String(cd.detailPath || "");
+    if (cd.streamable === false || !detailPath) {
+      json(res, 200, { ok: false, error: "No NetMirror copy found for this title", code: "no-source" });
+      return;
+    }
+    let meta = await fetchNet27Json(`/api/native/meta?dp=${encodeURIComponent(detailPath)}`);
+    // Some titles publish their dubs under a VARIANT copy's slug instead of
+    // the primary one (e.g. RRR: the primary "rrr-0GHAuwZXoo3" lists none, but
+    // the second copy's slug lists all 11). Walk the variant watchUrls until a
+    // meta reply carries dubs — mirrors what the site's picker does.
+    let metaDp = detailPath;
+    const variantSlugs = Array.isArray(cd.variants)
+      ? cd.variants
+          .map((v) => String(v?.watchUrl || "").replace(/^.*\/movie\//, ""))
+          .filter((s) => s && s !== detailPath)
+      : [];
+    for (const slug of variantSlugs) {
+      if (Array.isArray(meta?.dubs) && meta.dubs.length > 0) break;
+      const candidate = await fetchNet27Json(`/api/native/meta?dp=${encodeURIComponent(slug)}`);
+      if (Array.isArray(candidate?.dubs) && candidate.dubs.length > 0) {
+        meta = candidate;
+        metaDp = slug;
+      }
+    }
+    const dubs = Array.isArray(meta?.dubs)
+      ? meta.dubs.filter((d) => d?.subjectId && d?.detailPath)
+      : [];
+    if (dubs.length === 0) {
+      json(res, 200, { ok: false, error: "NetMirror stream unavailable", code: "no-source" });
+      return;
+    }
+    const variants = Array.isArray(cd.variants) ? cd.variants : [];
+    const audioLangs = Array.isArray(cd.audioLangs) ? cd.audioLangs : [];
+    const cornerMap = new Map(variants.map((v) => [String(v.subjectId || ""), v]));
+    const originalName = NETMIRROR_ISO_LANGS[String(catalog?.originalLanguage || "").toLowerCase()] || "";
+    const suffix =
+      type === "tv" && season && episode
+        ? `&se=${encodeURIComponent(season)}&ep=${encodeURIComponent(episode)}`
+        : "";
+
+    const audio = [];
+    const streamsBySubject = new Map();
+    const primarySubject = String(meta?.subjectId || dubs[0]?.subjectId || "");
+    let primaryIndex = dubs.findIndex((d) => String(d.subjectId) === primarySubject);
+    if (primaryIndex < 0) primaryIndex = 0;
+    for (let index = 0; index < dubs.length; index += 1) {
+      const dub = dubs[index];
+      const ed = await fetchNet27Json(
+        `/api/embed-direct/${dub.subjectId}?type=${type}${suffix}&dp=${encodeURIComponent(dub.detailPath)}`,
+      );
+      if (ed?.ok === false) continue;
+      const streams = Array.isArray(ed?.streams) ? ed.streams : [];
+      const best = streams.length > 0 ? String(streams[0].url || "") : String(ed?.mp4 || "");
+      if (!best) continue;
+      streamsBySubject.set(dub.subjectId, ed);
+      const variant = cornerMap.get(dub.subjectId);
+      let language = "";
+      if (variant?.corner) language = String(variant.corner);
+      else {
+        // Variant titles carry the language in brackets ("Premalu [Hindi]").
+        // A bare "Show S5" label is NOT a language — leave it unnamed.
+        const bracketed = /\[([^\]]+)\]/.exec(String(variant?.title || ""));
+        if (bracketed) language = bracketed[1];
+      }
+      if (!language && dub.detailPath === metaDp && originalName) {
+        language = originalName;
+      } else if (!language && audioLangs.length === dubs.length) {
+        language = String(audioLangs[index] || "");
+      }
+      audio.push({ language: language || `Audio ${index + 1}`, url: best, subjectId: dub.subjectId });
+    }
+
+    const primaryEd = streamsBySubject.get(dubs[primaryIndex]?.subjectId);
+    const ladder = Array.isArray(primaryEd?.streams) ? primaryEd.streams : [];
+    if (ladder.length === 0 && primaryEd?.mp4) {
+      ladder.push({ resolution: primaryEd.resolution || 720, url: primaryEd.mp4 });
+    }
+    if (ladder.length === 0) {
+      json(res, 200, { ok: false, error: "NetMirror stream unavailable", code: "no-source" });
+      return;
+    }
+    const variantRows = ladder
+      .map((s) => {
+        const height = Number.parseInt(String(s.resolution || "").replace(/\D/g, ""), 10) || 0;
+        return {
+          uri: s.url,
+          bandwidth: videasyBandwidth(height),
+          width: 0,
+          height,
+          framerate: 0,
+          codecs: "",
+          hdr: false,
+          direct: true,
+        };
+      })
+      .sort((a, b) => b.height - a.height);
+    json(res, 200, {
+      ok: true,
+      source: { kind: "mp4", url: variantRows[0].uri, refUrl: NETMIRROR_REFERER },
+      variants: variantRows,
+      audio,
+    });
+  } catch (error) {
+    json(res, 200, {
+      ok: false,
+      error: `NetMirror resolution failed: ${error?.message || "unknown"}`,
+      code: "no-source",
+    });
+  }
+}
+
 async function handleManifest(body, res) {
   const playlistUrl = String(body.playlistUrl || "").trim();
   try {
@@ -1017,6 +1185,9 @@ export default async function handler(req, res) {
         return;
       case "resolvevidcore":
         await handleResolveVidcore(body, res);
+        return;
+      case "resolvenetmirror":
+        await handleResolveNetmirror(body, res);
         return;
       case "manifest":
         await handleManifest(body, res);

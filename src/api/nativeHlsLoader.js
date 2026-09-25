@@ -147,6 +147,10 @@ async function relayPlaylistText(url, refUrl, signal) {
 }
 
 export async function probeSourcePlayable(entryUrl, refUrl, { signal } = {}) {
+  // Direct mp4 sources (NetMirror/net27 dubs): no playlist to parse — prove
+  // one media byte flows the same way playback will (direct fetch first, then
+  // the range relay). Same verdict shape, reused by the mp4 quality/audio swap.
+  if (/\.mp4($|\?)/i.test(String(entryUrl))) return probeMp4Source(entryUrl, refUrl, { signal });
   try {
     let base = entryUrl;
     let text = await relayPlaylistText(base, refUrl, signal);
@@ -188,6 +192,32 @@ export async function probeSourcePlayable(entryUrl, refUrl, { signal } = {}) {
   } catch (error) {
     if (error?.name === "AbortError") throw error;
     return { ok: false, reason: error?.message || "probe failed" };
+  }
+}
+
+async function probeMp4Source(url, refUrl, { signal } = {}) {
+  // 1) direct 1-byte sip (Range) — exactly the path <video> will use first.
+  try {
+    const res = await fetch(url, { headers: { range: "bytes=0-0" }, signal });
+    if (res.ok) {
+      res.body?.cancel?.().catch?.(() => {});
+      return { ok: true, via: "direct" };
+    }
+  } catch {
+    // fall through to the relay sip below
+  }
+  if (signal?.aborted) throw new Error("Aborted");
+  // 2) relay byte sip (4KB through downloadify — server IP + referer).
+  try {
+    const res = await postDownloadify(
+      { action: "segment", url, refUrl, range: { start: 0, max: 4095 } },
+      { signal },
+    );
+    if (res.ok) return { ok: true, via: "relay" };
+    return { ok: false, reason: `relay refused (${res.status})` };
+  } catch (error) {
+    if (error?.name === "AbortError") throw error;
+    return { ok: false, reason: error?.code || error?.message || "relay failed" };
   }
 }
 

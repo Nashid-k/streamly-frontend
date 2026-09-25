@@ -320,6 +320,69 @@ describe("downloadService.resolveVidcore", () => {
   });
 });
 
+describe("downloadService.resolveNetmirror", () => {
+  it("returns a direct mp4 source plus the per-language audio dubs", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          ok: true,
+          source: {
+            kind: "mp4",
+            url: "https://bcdnxw.hakunaymatata.com/convert-h264/d24cc4be271fffb5065d7723b7d6eafc.mp4?sign=abc",
+            refUrl: "https://net27.cc/",
+          },
+          variants: [
+            { uri: "https://bcdnxw.hakunaymatata.com/convert-h264/d24cc4be271fffb5065d7723b7d6eafc.mp4?sign=abc", bandwidth: 2500000, height: 720, direct: true },
+            { uri: "https://bcdnxw.hakunaymatata.com/bt/ad04f2.mp4?sign=abc", bandwidth: 800000, height: 360, direct: true },
+          ],
+          audio: [
+            { language: "Malayalam", url: "https://bcdnxw.hakunaymatata.com/convert-h264/d24cc4be271fffb5065d7723b7d6eafc.mp4?sign=abc" },
+            { language: "Hindi", url: "https://bcdnxw.hakunaymatata.com/tran-audio/20250609/13e051e0028d6dff24783acf8e2c48da.mp4?sign=abc" },
+            { language: "Tamil", url: "https://bcdnxw.hakunaymatata.com/bt/5f9023.mp4?sign=abc" },
+          ],
+        }),
+      ),
+    );
+
+    const resolved = await downloadService.resolveNetmirror({ type: "movie", id: "1149791" });
+    expect(resolved.variants.map((v) => v.label)).toEqual(["720p", "SD"]);
+    expect(resolved.variants[0].direct).toBe(true);
+    expect(resolved.source.kind).toBe("mp4");
+    expect(resolved.audio.map((a) => a.language)).toEqual(["Malayalam", "Hindi", "Tamil"]);
+    expect(resolved.audio[1].url).toContain("13e051e0028d6dff24783acf8e2c48da.mp4");
+  });
+
+  it("passes season+episode through for TV titles", async () => {
+    let capturedBody = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        capturedBody = JSON.parse(init.body);
+        return jsonResponse({
+          ok: true,
+          source: { kind: "mp4", url: "https://bcdnxw.hakunaymatata.com/resource/x.mp4", refUrl: "https://net27.cc/" },
+          variants: [{ uri: "https://bcdnxw.hakunaymatata.com/resource/x.mp4", bandwidth: 2500000, height: 720, direct: true }],
+          audio: [{ language: "English", url: "https://bcdnxw.hakunaymatata.com/resource/x.mp4" }],
+        });
+      }),
+    );
+
+    await downloadService.resolveNetmirror({ type: "tv", id: "1396", season: 1, episode: 1 });
+    expect(capturedBody).toMatchObject({ action: "resolvenetmirror", type: "tv", id: "1396", season: "1", episode: "1" });
+  });
+
+  it("surfaces an honest no-source result", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse({ ok: false, error: "NetMirror stream unavailable", code: "no-source" })),
+    );
+    await expect(downloadService.resolveNetmirror({ type: "movie", id: "1149791" })).rejects.toMatchObject({
+      code: "no-source",
+    });
+  });
+});
+
 describe("downloadService.buildManifest with CineSrc audio", () => {
   it("attaches the audio's fMP4 manifest so saveStream can mux it in", async () => {
     const audio = { groupId: "audio", name: "LINE", language: "en", url: "https://cdn/en.m3u8" };
