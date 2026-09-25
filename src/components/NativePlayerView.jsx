@@ -117,11 +117,12 @@ function IconBtn({ label, onClick, children, active }) {
 }
 
 /* One selectable row in the Audio & Subtitles / Episodes panels. */
-function DialogRow({ selected, onClick, title, sub }) {
+function DialogRow({ selected, onClick, title, sub, disabled }) {
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
       style={{
         display: "flex",
         alignItems: "center",
@@ -133,7 +134,8 @@ function DialogRow({ selected, onClick, title, sub }) {
         border: "none",
         background: selected ? "rgba(255,255,255,0.12)" : "transparent",
         color: "#fff",
-        cursor: "pointer",
+        opacity: disabled ? 0.45 : 1,
+        cursor: disabled ? "not-allowed" : "pointer",
         fontSize: 14,
       }}
     >
@@ -276,6 +278,11 @@ export default function NativePlayerView({
   // streak past a couple means the CDN throttled the direct pull mid-session
   // — surfaced in the attempt log so "loads on good internet" is diagnosable.
   const [relayStreak, setRelayStreak] = useState(0);
+  // Transport verdict for THIS session: does the current source's fragments
+  // flow via the serverless relay (true) or straight from the CDN (false)?
+  // Drives the quality menu's relay-limited rows and lets the switch skip its
+  // re-probe when the verdict is already known. Live-flipped by the loader.
+  const [transportRelay, setTransportRelay] = useState(false);
 
   const displayTitle = title || (type === "tv" ? `TV ${id}` : `Movie ${id}`);
   const displaySubtitle = subtitle ?? (type === "tv" ? `S${season}:E${episode}` : "");
@@ -881,6 +888,7 @@ export default function NativePlayerView({
       setResumeOffer(null);
       setPanel(null);
       setRelayStreak(0);
+      setTransportRelay(false);
       const args = { type, id, season: type === "tv" ? season : undefined, episode: type === "tv" ? episode : undefined };
       const stale = () => runRef.current !== run || controller.signal.aborted;
       const abortPromise = () =>
@@ -954,6 +962,7 @@ export default function NativePlayerView({
             return false;
           }
           say(`${def.label}: segments flow via ${probe.via}.`);
+          setTransportRelay(probe?.via === "relay");
           // Relay delivery is latency-bound (every chunk is a fresh serverless
           // round trip), so starting a tall rendition over it asks for timeouts.
           // On the relay path reopen at the tallest ≤720p rendition; the direct
@@ -1022,11 +1031,13 @@ export default function NativePlayerView({
               onRelayPath: () => {
                 relayedFrags += 1;
                 setRelayStreak((n) => n + 1);
+                setTransportRelay(true);
                 maybeDemoteOffRelay();
               },
               onDirectPath: () => {
                 relayedFrags = 0;
                 setRelayStreak(0);
+                setTransportRelay(false);
               },
             }),
             // Adaptive bitrate + progressive MSE appends: chunks hit the
@@ -1257,9 +1268,10 @@ export default function NativePlayerView({
       // tallest ≤720p rung instead of a 5s/5s stall loop.
       let chosenUri = uri;
       let chosenHeight = height;
+      let warm = transportRelay ? { ok: true, via: "relay" } : null;
       const refUrl = metaRef.current?.refUrl;
       try {
-        const warm = await probeSourcePlayable(uri, refUrl);
+        if (!warm) warm = await probeSourcePlayable(uri, refUrl);
         if (switchTokenRef.current !== myId) return;
         if (!warm.ok) {
           say(`Quality ${height || "?"}p: target unreachable (${warm.reason || "probe failed"}) — keeping current.`);
@@ -1280,6 +1292,12 @@ export default function NativePlayerView({
         }
       } catch {
         // probe hiccup (abort, timeout) — fall through to the requested uri
+      }
+      if (chosenUri === activeUri) {
+        say(`Already playing ${chosenHeight || "?"}p — no reload.`);
+        setBuffering(false);
+        setControlsVisible(true);
+        return;
       }
       hls.loadSource(chosenUri);
       await new Promise((resolve, reject) => {
@@ -2018,18 +2036,26 @@ export default function NativePlayerView({
                     />
                   )}
                   {qualities.map((q, i) => {
+                    const relayLimited = transportRelay && !isMasterMode && (q.height || 0) > 720;
                     const selected = isMasterMode
                       ? autoLevel
                         ? currentHeight != null && q.height === currentHeight
                         : manualHeight != null && manualHeight === q.height
-                      : activeUri === q.uri;
+                      : !relayLimited && activeUri === q.uri;
                     return (
                       <DialogRow
                         key={`${q.uri}::${i}`}
                         selected={selected}
+                        disabled={relayLimited}
                         onClick={() => pickQuality(q.uri, q.height)}
                         title={q.label || `${q.height}p`}
-                        sub={q.bandwidth ? `${(q.bandwidth / 1e6).toFixed(1)} Mbps` : undefined}
+                        sub={
+                          relayLimited
+                            ? "Relay-limited — this source can't sustain it"
+                            : q.bandwidth
+                              ? `${(q.bandwidth / 1e6).toFixed(1)} Mbps`
+                              : undefined
+                        }
                       />
                     );
                   })}

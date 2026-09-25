@@ -7,6 +7,13 @@
 
  ## Done (in order)
 
+- [x] **Honest quality menu for relay-limited sources (user log showed tap-refuse-tap-refuse loop)**. Attached log: user tapped 2160p/1080p five times; each tap re-probed (2-3s) then demoted to 720p (7-9s per failed switch) and finally reloaded the SAME 720p rung it was already on — pure wasted round-trips. Now (`b5e2d43` followup):
+  - Session transport verdict (`transportRelay`): set at source settle from the probe (`flow via relay/direct`) and live-flipped by the loader's `onRelayPath`/`onDirectPath` (a throttle mid-session flips it truthfully). Reset on reopen.
+  - Quality dialog tells the truth up front, Netflix-style: on a relay-only source, rungs >720p render **disabled** (dimmed 0.45, not-allowed cursor, subtitle "Relay-limited — this source can't sustain it"). No more tap → buzz → 9s → same 720p. 720p/480p rows stay enabled.
+  - `pickQuality` short-circuits any pick that resolves to the rung already playing ("Already playing 720p — no reload.") instead of reloading the identical segment URL; and skips its re-probe entirely when the verdict is already "relay" (saved the repeated 2-3s probes too).
+  - `DialogRow` gained a `disabled` prop (opacity/cursor/no-op onClick).
+  - Verified: oxlint 0 new warnings (only pre-existing `poke` at 584), vitest 45 files / 493/493, build OK.
+
 - [x] **Underflow step-down + visible buffer (user order: "buffer more at 20s"; analysed and replaced with YouTube's real logic)**. User's proposed logic was "keep ≥20s buffered by buffering more" — but you can't *force* more buffering than the download rate allows; a draining buffer means the chosen rendition outruns the pipe, and YouTube's authentic mechanism is to **downgrade quality** so refill outruns playback. Also the buffer WAS drawn on the timeline but too faint to see. Fix:
   - New YouTube anti-stall rule: while playing, if the forward buffer holds below `BUFFER_FLOOR_SECONDS`(18s) for a sustained 8s **without refilling** (startup fill is exempt), the player steps down one rung automatically (auto-level only — a manual pin is the user's override) and toasts "Buffer holds <18s — stepping down to Xp so it refills (keeps playing)". The 5s/5s loop can no longer drain to 0: either the pipe refills the 120s goal, or the quality falls until it can.
   - Buffered range on the time scrubber is now clearly visible: track dimmed to 0.22 white, buffered-ahead raised to 0.62 white (red played still on top) — you can watch the gray bar grow ahead of the playhead.
