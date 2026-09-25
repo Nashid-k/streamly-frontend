@@ -22,6 +22,7 @@
 // desktop-only bits (volume slider via hover, debug-log toggle) are hidden.
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
   Captions,
@@ -32,6 +33,7 @@ import {
   Minimize,
   Pause,
   Play,
+  Ratio,
   RotateCcw,
   RotateCw,
   SkipBack,
@@ -41,6 +43,7 @@ import {
   VolumeX,
   X,
 } from "lucide-react";
+import { NetflixVolumeHUD, NetflixBrightnessHUD, NetflixAspectHUD } from "./player";
 import Hls from "hls.js";
 import { downloadService } from "../api/downloadService";
 import { createStreamlyLoader, probeSourcePlayable } from "../api/nativeHlsLoader";
@@ -95,6 +98,15 @@ const BUFFER_UNDERFLOOR_MS = 8000;
 const BACK_BUFFER_SECONDS = 60;
 const VOLUME_STORAGE_KEY = "streamly-native-volume";
 const MUTED_STORAGE_KEY = "streamly-native-muted";
+const BRIGHTNESS_STORAGE_KEY = "streamly-native-brightness";
+const ASPECT_STORAGE_KEY = "streamly-native-aspect";
+const BRIGHTNESS_MIN = 0.25;
+const BRIGHTNESS_MAX = 1.75;
+const HUD_MS = 1100;
+// Aspect menu = Fit / Fill / Zoom, mapped onto the shared ASPECT_RATIOS
+// catalog (indices 0/1/2) + an object-fit: contain / fill / cover.
+const ASPECT_INDEXES = [0, 1, 2];
+const ASPECT_FIT = { 0: "contain", 1: "fill", 2: "cover" };
 
 // Touch-first input detection: phones/tablets (hover-less, coarse pointer) get
 // larger tap targets, double-tap seek zones, safe-area padding, a centered
@@ -393,6 +405,39 @@ export default function NativePlayerView({
   const [volHover, setVolHover] = useState(false);
   const [scrubHover, setScrubHover] = useState(null); // 0..1 ratio or null
   const [scrubDragging, setScrubDragging] = useState(false);
+  // Netflix-style presentational HUDs: volume / brightness / aspect overlay
+  // pill that pops while a value changes, then self-fades (Netflix web).
+  const [autoMuted, setAutoMuted] = useState(false); // autoplay-block → muted play + hint
+  const [brightness, setBrightness] = useState(() => {
+    try {
+      const v = Number(window.localStorage.getItem(BRIGHTNESS_STORAGE_KEY));
+      return Number.isFinite(v) ? Math.min(BRIGHTNESS_MAX, Math.max(BRIGHTNESS_MIN, v)) : 1;
+    } catch {
+      return 1;
+    }
+  });
+  const [aspectRatioIndex, setAspectRatioIndex] = useState(() => {
+    try {
+      const i = Number(window.localStorage.getItem(ASPECT_STORAGE_KEY));
+      return ASPECT_INDEXES.includes(i) ? i : 0;
+    } catch {
+      return 0;
+    }
+  });
+  const [hud, setHud] = useState(null); // { kind: "volume"|"brightness"|"aspect", value }
+  // Render-time mirror refs: the keyboard handler + touch gestures bind once,
+  // so they read the LATEST value through these instead of a stale closure.
+  const volumeRef = useRef(volume);
+  volumeRef.current = volume;
+  const mutedRef = useRef(muted);
+  mutedRef.current = muted;
+  const brightnessRef = useRef(brightness);
+  brightnessRef.current = brightness;
+  const aspectRef = useRef(aspectRatioIndex);
+  aspectRef.current = aspectRatioIndex;
+  const hudTimerRef = useRef(null);
+  // Touch gesture state for Netflix's vertical drags on the video surface.
+  const gestureRef = useRef(null);
   // Fragments currently flowing via the Vercel relay (0 = all direct). A real
   // streak past a couple means the CDN throttled the direct pull mid-session
   // — surfaced in the attempt log so "loads on good internet" is diagnosable.
@@ -637,14 +682,41 @@ export default function NativePlayerView({
     };
   }, [resumeOffer]);
 
+  const showHud = useCallback((kind, value) => {
+    if (hudTimerRef.current) clearTimeout(hudTimerRef.current);
+    setHud({ kind, value });
+    hudTimerRef.current = setTimeout(() => setHud(null), HUD_MS);
+  }, []);
+
   const changeVolume = (delta) => {
+    const nv = Math.min(1, Math.max(0, Math.round((volumeRef.current + delta) * 100) / 100));
     setMuted(false);
-    setVolume((v) => Math.min(1, Math.max(0, Math.round((v + delta) * 100) / 100)));
+    setAutoMuted(false);
+    setVolume(nv);
+    showHud("volume", nv);
     poke();
   };
 
   const toggleMute = () => {
-    setMuted((m) => !m);
+    const m = !mutedRef.current;
+    setMuted(m);
+    setAutoMuted(false);
+    showHud("volume", m ? 0 : volumeRef.current);
+    poke();
+  };
+
+  const changeBrightness = (delta) => {
+    const nv = Math.min(BRIGHTNESS_MAX, Math.max(BRIGHTNESS_MIN, Math.round((brightnessRef.current + delta) * 100) / 100));
+    setBrightness(nv);
+    showHud("brightness", nv);
+    poke();
+  };
+
+  const cycleAspect = () => {
+    const idx = ASPECT_INDEXES.indexOf(aspectRef.current);
+    const next = ASPECT_INDEXES[(idx + 1) % ASPECT_INDEXES.length];
+    setAspectRatioIndex(next);
+    showHud("aspect", next);
     poke();
   };
 
@@ -706,6 +778,11 @@ export default function NativePlayerView({
     poke();
     suppressClickRef.current = true;
     if (buffering) return;
+    // A vertical gesture (volume/brightness drag) just happened — not a tap.
+    if (gestureRef.current?.active) {
+      gestureRef.current = null;
+      return;
+    }
     const rect = e.currentTarget.getBoundingClientRect();
     const t = e.changedTouches && e.changedTouches[0];
     if (!rect.width || !t) return;
@@ -727,6 +804,50 @@ export default function NativePlayerView({
       singleTapTimer.current = null;
       togglePlay();
     }, 260);
+  };
+
+  // Netflix mobile: a vertical drag on the LEFT half adjusts brightness, on
+  // the RIGHT half adjusts volume, with the matching HUD. Vertical-only —
+  // horizontal movement declares a non-gesture (keeps taps + double-taps
+  // intact); the top fade + bottom chrome + scrubber own their touch zones.
+  const handleGestureStart = (e) => {
+    if (!IS_TOUCH || buffering) return;
+    const t = e.touches && e.touches[0];
+    if (!t) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (!rect.width) return;
+    gestureRef.current = {
+      side: t.clientX < rect.left + rect.width / 2 ? "brightness" : "volume",
+      startY: t.clientY,
+      lastY: t.clientY,
+      active: false,
+    };
+  };
+
+  const handleGestureMove = (e) => {
+    const g = gestureRef.current;
+    if (!g) return;
+    const t = e.touches && e.touches[0];
+    if (!t) return;
+    const dy = t.clientY - g.lastY;
+    if (!g.active) {
+      if (Math.abs(t.clientY - g.startY) < 14) return;
+      g.active = true;
+      suppressClickRef.current = true;
+    }
+    if (g.side === "volume") {
+      const nv = Math.min(1, Math.max(0, volumeRef.current + dy * 0.008));
+      setMuted(false);
+      setAutoMuted(false);
+      setVolume(nv);
+      showHud("volume", nv);
+    } else {
+      const nb = Math.min(BRIGHTNESS_MAX, Math.max(BRIGHTNESS_MIN, brightnessRef.current + dy * 0.008));
+      setBrightness(nb);
+      showHud("brightness", nb);
+    }
+    g.lastY = t.clientY;
+    poke();
   };
 
   /* Custom transport state (no native video controls — play/pause/seek/time/
@@ -823,13 +944,15 @@ export default function NativePlayerView({
     };
   }, []);
 
-  /* Volume applies to the element and persists across visits. */
+  /* Volume applies to the element and persists across visits. autoMuted is the
+     transient autoplay-policy mute (Netflix autoplays muted + hints) — it
+     overrides until the user taps the "unmute" affordance. */
   useEffect(() => {
     const video = videoRef.current;
     if (video) {
       try {
         video.volume = volume;
-        video.muted = muted;
+        video.muted = muted || autoMuted;
       } catch {
         // element not ready — applied on the next change
       }
@@ -840,7 +963,23 @@ export default function NativePlayerView({
     } catch {
       // private mode — volume just won't persist
     }
-  }, [volume, muted]);
+  }, [volume, muted, autoMuted]);
+
+  /* Brightness (CSS filter) and aspect ratio persist across visits. */
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(BRIGHTNESS_STORAGE_KEY, String(brightness));
+    } catch {
+      // private mode — brightness just won't persist
+    }
+  }, [brightness]);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(ASPECT_STORAGE_KEY, String(aspectRatioIndex));
+    } catch {
+      // private mode — aspect just won't persist
+    }
+  }, [aspectRatioIndex]);
 
   /* Fullscreen icon follows the real fullscreen state (incl. iOS webkit). */
   useEffect(() => {
@@ -997,11 +1136,17 @@ export default function NativePlayerView({
           break;
         case "ArrowUp":
           e.preventDefault();
-          changeVolume(0.1);
+          if (e.shiftKey) changeBrightness(0.1);
+          else changeVolume(0.1);
           break;
         case "ArrowDown":
           e.preventDefault();
-          changeVolume(-0.1);
+          if (e.shiftKey) changeBrightness(-0.1);
+          else changeVolume(-0.1);
+          break;
+        case "KeyA":
+          e.preventDefault();
+          cycleAspect();
           break;
         case "KeyM":
           toggleMute();
@@ -1421,7 +1566,16 @@ export default function NativePlayerView({
           try {
             await videoRef.current?.play();
           } catch {
-            say("Autoplay blocked — tap the custom play button.");
+            // Browsers allow muted autoplay; an unmuted play() that lost its
+            // user-activation window rejects. Best-effort order (Netflix):
+            // try unmuted, else play muted + hint at the "Tap to unmute" pill.
+            try {
+              videoRef.current.muted = true;
+              setAutoMuted(true);
+              await videoRef.current.play();
+            } catch {
+              say("Autoplay blocked — tap the custom play button.");
+            }
           }
           // Non-master sources are single-rendition: their "current" level is
           // fixed, so feed the dialog the height directly.
@@ -1886,7 +2040,6 @@ export default function NativePlayerView({
       <div
         ref={screenRef}
         onMouseMove={poke}
-        onTouchStart={poke}
         style={{
           position: "relative",
           width: "100%",
@@ -1912,18 +2065,24 @@ export default function NativePlayerView({
             }
             handleVideoClick(e);
           }}
-          onTouchStart={() => {
+          onTouchStart={(e) => {
             // A fresh touch re-arms the click-swallow (a prior touch that
             // scrolled away never produced a click to clear it).
             suppressClickRef.current = false;
+            poke();
+            handleGestureStart(e);
           }}
+          onTouchMove={handleGestureMove}
           onTouchEnd={IS_TOUCH ? handleVideoTouchEnd : undefined}
           style={{
             width: "100%",
             height: "100%",
             display: "block",
-            objectFit: "contain",
-            background: "#000",
+            objectFit: ASPECT_FIT[aspectRatioIndex] || "contain",
+            filter: brightness !== 1 ? `brightness(${brightness})` : undefined,
+            // No background here on purpose: the screen div paints true black
+            // behind, so the brightness filter sees only the video frame (the
+            // letterbox bars never brighten with it).
             touchAction: "manipulation",
             WebkitUserSelect: "none",
           }}
@@ -2033,34 +2192,133 @@ export default function NativePlayerView({
             <Loader2 size={48} className="animate-spin" color={NETFLIX_RED} />
           </div>
         )}
-        {IS_TOUCH && !buffering && !ended && !playing && status === "playing" && (
-          <button
-            type="button"
-            onClick={() => {
-              poke();
-              togglePlayRef.current();
-            }}
-            aria-label="Play"
-            title="Play"
+        {!buffering && !ended && !playing && status === "playing" && (
+          <div
             style={{
               position: "absolute",
               inset: 0,
-              margin: "auto",
-              width: 88,
-              height: 88,
-              borderRadius: "50%",
-              border: "2px solid rgba(255,255,255,0.85)",
-              background: "rgba(0,0,0,0.5)",
-              color: "#fff",
-              cursor: "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              gap: IS_TOUCH ? 20 : 28,
               zIndex: 3,
-              boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
+              pointerEvents: "none",
             }}
           >
-            <Play size={40} fill="currentColor" />
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                poke();
+                seekRelative(-SKIP_SECONDS);
+              }}
+              aria-label="Rewind 10 seconds"
+              title="Rewind 10 seconds"
+              style={{
+                position: "relative",
+                width: IS_TOUCH ? 66 : 62,
+                height: IS_TOUCH ? 66 : 62,
+                borderRadius: "50%",
+                border: "1px solid rgba(255,255,255,0.55)",
+                background: "rgba(20,20,20,0.6)",
+                color: "#fff",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                pointerEvents: "auto",
+              }}
+            >
+              <RotateCcw size={26} />
+              <span style={{ position: "absolute", fontSize: 9.5, fontWeight: 800, marginTop: 3 }}>10</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                poke();
+                togglePlayRef.current();
+              }}
+              aria-label="Play"
+              title="Play"
+              style={{
+                width: 92,
+                height: 92,
+                borderRadius: "50%",
+                border: "none",
+                background: "#fff",
+                color: "#000",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                pointerEvents: "auto",
+                boxShadow: "0 10px 30px rgba(0,0,0,0.6)",
+              }}
+            >
+              <Play size={40} fill="currentColor" />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                poke();
+                seekRelative(SKIP_SECONDS);
+              }}
+              aria-label="Fast forward 10 seconds"
+              title="Fast forward 10 seconds"
+              style={{
+                position: "relative",
+                width: IS_TOUCH ? 66 : 62,
+                height: IS_TOUCH ? 66 : 62,
+                borderRadius: "50%",
+                border: "1px solid rgba(255,255,255,0.55)",
+                background: "rgba(20,20,20,0.6)",
+                color: "#fff",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                pointerEvents: "auto",
+              }}
+            >
+              <RotateCw size={26} />
+              <span style={{ position: "absolute", fontSize: 9.5, fontWeight: 800, marginTop: 3 }}>10</span>
+            </button>
+          </div>
+        )}
+        {/* Transient "Tap to unmute" pill (Netflix web) — only when playback
+            had to start muted because the autoplay-policy blocked sound. */}
+        {autoMuted && playing && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setAutoMuted(false);
+              setMuted(false);
+              poke();
+            }}
+            aria-label="Play with sound"
+            title="Unmute"
+            style={{
+              position: "absolute",
+              bottom: `calc(${SAFE_BOTTOM} + 140px)`,
+              left: 24,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "8px 14px",
+              background: "rgba(0,0,0,0.65)",
+              color: "#fff",
+              border: "1px solid rgba(255,255,255,0.55)",
+              borderRadius: 999,
+              fontWeight: 700,
+              fontSize: 13,
+              cursor: "pointer",
+              zIndex: 6,
+            }}
+          >
+            <VolumeX size={16} color="#E50914" />
+            Tap to unmute
           </button>
         )}
         {!buffering && ended && (
@@ -2323,8 +2581,11 @@ export default function NativePlayerView({
                     step={0.05}
                     value={muted ? 0 : volume}
                     onChange={(e) => {
-                      setVolume(Number(e.target.value));
+                      const nv = Number(e.target.value);
                       setMuted(false);
+                      setAutoMuted(false);
+                      setVolume(nv);
+                      showHud("volume", nv);
                       poke();
                     }}
                     onClick={(e) => e.stopPropagation()}
@@ -2380,6 +2641,14 @@ export default function NativePlayerView({
               >
                 <Captions size={24} />
               </IconBtn>
+              {/* Aspect ratio (Fit / Fill / Zoom). Hidden on touch only when a
+                  TV's prev/next + episodes already crowd the rail — keyboard
+                  A still cycles there. */}
+              {(!IS_TOUCH || !(showEpisodeNav || showEpisodesButton)) && (
+                <IconBtn label="Aspect ratio (key A)" onClick={cycleAspect}>
+                  <Ratio size={24} />
+                </IconBtn>
+              )}
               <IconBtn label={isFullscreen ? "Exit fullscreen" : "Fullscreen"} onClick={goFullscreen}>
                 {isFullscreen ? <Minimize size={22} /> : <Maximize size={22} />}
               </IconBtn>
@@ -2725,6 +2994,24 @@ export default function NativePlayerView({
             )}
           </div>
         )}
+        {/* Netflix HUD overlays: transient volume / brightness / aspect pills
+            that pop while a value changes and self-fade. Presentational only
+            (pointer-events none) — they ride above the player chrome. */}
+        <AnimatePresence>
+          {hud?.kind === "volume" && (
+            <NetflixVolumeHUD key="volume" effVolume={volume} isMuted={muted || autoMuted} volume={volume} top="34%" />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {hud?.kind === "brightness" && (
+            <NetflixBrightnessHUD key="brightness" brightness={brightness} top="34%" />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {hud?.kind === "aspect" && (
+            <NetflixAspectHUD key="aspect" aspectRatioIndex={aspectRatioIndex} top="36%" />
+          )}
+        </AnimatePresence>
       </div>
       {fatal && (
         <p style={{ position: "absolute", bottom: 80, left: 16, right: 16, padding: "12px 16px", borderRadius: 6, background: "rgba(229,9,20,0.12)", border: "1px solid rgba(229,9,20,0.35)", fontSize: 14, zIndex: 7, color: "#fff" }}>
