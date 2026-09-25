@@ -999,10 +999,11 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
     const controller = new AbortController();
 
     const entryUrlFor = (def, resolved, variant) => {
-      // CineSrc keeps audio groups + levels on the master — load the master so
-      // hls.js sees them. VidCore/VidSrc variants are per-quality media
-      // playlists, loadable directly.
-      if (def.key === "cinesrc") return resolved.source?.url;
+      // Master sources (CineSrc, canonical NetMirror mirrors) keep audio
+      // groups + levels on the master — load the master so hls.js sees them.
+      // VidCore/VidSrc variants are per-quality media playlists, loadable
+      // directly.
+      if (resolved?.source?.multiLevelMaster) return resolved.source?.url;
       return variant?.uri;
     };
 
@@ -1044,11 +1045,11 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
         controller.signal.addEventListener("abort", onAbort, { once: true });
       });
 
-    const startLevelFor = (hls, def) => {
-      // CineSrc loads its master: leave level selection on AUTO (-1) so ABR
-      // starts conservatively and steps up only when the pipe sustains it.
+    const startLevelFor = (hls) => {
+      // Master sources load their master: leave level selection on AUTO (-1) so
+      // ABR starts conservatively and steps up only when the pipe sustains it.
       // (Forcing the top level first is exactly what stalled 4K playback.)
-      if (def.key !== "cinesrc" || !Array.isArray(hls.levels) || hls.levels.length === 0) return;
+      if (!metaRef.current?.cinesrcLevels || !Array.isArray(hls.levels) || hls.levels.length === 0) return;
       hls.currentLevel = -1;
     };
 
@@ -1083,7 +1084,7 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
       setPanel(null);
       setRelayStreak(0);
       setTransportRelay(false);
-      const args = { type, id, season: type === "tv" ? season : undefined, episode: type === "tv" ? episode : undefined };
+      const args = { type, id, season: type === "tv" ? season : undefined, episode: type === "tv" ? episode : undefined, title };
       const stale = () => runRef.current !== run || controller.signal.aborted;
       const abortPromise = () =>
         new Promise((resolve) => {
@@ -1118,6 +1119,10 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
         }
         let liveSource = resolved.source;
         let liveRefUrl = resolved.source?.refUrl || resolved.source?.url;
+        // Master sources (CineSrc / canonical NetMirror mirrors) ship the whole
+        // multivariant + audio-group tree in ONE url; every other source is a
+        // per-rendition media playlist or a direct file.
+        const isMaster = Boolean(liveSource?.multiLevelMaster);
         // Direct-file sources (NetMirror's per-language mp4 dubs) skip hls.js
         // entirely: the <video> element plays the file, and "audio" switching
         // is a src swap to that language's own mp4.
@@ -1140,7 +1145,7 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
           }
           say(
             `${def.label}: ${variants.length} variant(s), loading ` +
-              (def.key === "cinesrc" ? "master (ABR auto)…" : `${smoothStart?.height || "?"}p (smooth start)…`),
+              (isMaster ? "master (ABR auto)…" : `${smoothStart?.height || "?"}p (smooth start)…`),
           );
           // Playability gate: prove one real media byte flows before hls.js
           // ever sees this source. A perfect-looking ladder with dead segments
@@ -1165,7 +1170,7 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
           // round trip), so starting a tall rendition over it asks for timeouts.
           // On the relay path reopen at the tallest ≤720p rendition; the direct
           // path keeps the ≤1080p choice.
-          if (def.key !== "cinesrc" && probe.via === "relay" && (smoothStart?.height || 0) > 720) {
+          if (!isMaster && probe.via === "relay" && (smoothStart?.height || 0) > 720) {
             const relayFriendly = variants
               .filter((v) => (v.height || 0) > 0 && (v.height || 0) <= 720)
               .sort((a, b) => (b.height || 0) - (a.height || 0))[0];
@@ -1406,16 +1411,16 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
             variants,
             sourceKey: def.key,
             refUrl: liveRefUrl,
-            cinesrcLevels: def.key === "cinesrc",
+            cinesrcLevels: isMaster,
             altByUri,
           };
-          startLevelFor(hls, def);
+          startLevelFor(hls);
           setQualities(variants.map((v) => ({ uri: v.uri, height: v.height || 0, bandwidth: v.bandwidth || 0, label: v.label })));
-          setIsMasterMode(def.key === "cinesrc");
-          setActiveUri(def.key === "cinesrc" ? null : smoothStart?.uri || null);
+          setIsMasterMode(isMaster);
+          setActiveUri(isMaster ? null : smoothStart?.uri || null);
           attachAudio(hls);
           setStatus(`playing via ${def.label}`);
-          say(`${def.label}: PLAYING (${def.key === "cinesrc" ? "ABR auto" : `${smoothStart?.height || "?"}p`}).`);
+          say(`${def.label}: PLAYING (${isMaster ? "ABR auto" : `${smoothStart?.height || "?"}p`}).`);
           if (resumeTime != null) {
             try {
               videoRef.current.currentTime = resumeTime;
@@ -1431,7 +1436,7 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
           }
           // Non-master sources are single-rendition: their "current" level is
           // fixed, so feed the dialog the height directly.
-          if (def.key !== "cinesrc") setCurrentHeight(smoothStart?.height ?? null);
+          if (!isMaster) setCurrentHeight(smoothStart?.height ?? null);
           // Netflix resume gate: first real playback for this title/episode.
           maybeOfferResumeRef.current();
           // Park this attempt: a fatal error AFTER playback started either
@@ -1496,7 +1501,7 @@ const swapMp4 = async (video, url, resumeAt, wasPaused) => {
         // element already detached
       }
     };
-  }, [type, id, season, episode]);
+  }, [type, id, season, episode, title]);
 
   const pickQuality = async (uri, height, opts) => {
     const hls = hlsRef.current;

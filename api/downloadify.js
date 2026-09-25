@@ -280,12 +280,13 @@ async function postJsonPublic(url, jsonBody, { timeoutMs = 55000, maxBytes = 100
   }
 }
 
-async function fetchUpstream(url, { as = "text", timeoutMs = 12000, referer, retryCount = 0 } = {}) {
+async function fetchUpstream(url, { as = "text", timeoutMs = 12000, referer, retryCount = 0, extraHeaders = {} } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const safeUrl = await assertPublicDestination(url);
     const headers = baseHeaders();
+    Object.assign(headers, extraHeaders);
     if (referer) {
       headers.referer = referer;
       headers["referrer-policy"] = "strict-origin-when-cross-origin";
@@ -296,7 +297,7 @@ async function fetchUpstream(url, { as = "text", timeoutMs = 12000, referer, ret
     } catch (error) {
       // Retry with a different user agent on transient 403/429 responses.
       if (as !== "buffer" && error?.status && (error.status === 403 || error.status === 429) && retryCount < 3) {
-        return fetchUpstream(url, { as, timeoutMs, referer, retryCount: retryCount + 1 });
+        return fetchUpstream(url, { as, timeoutMs, referer, retryCount: retryCount + 1, extraHeaders });
       }
       throw error;
     }
@@ -743,7 +744,7 @@ async function handleResolveCinesrc(body, res) {
     if (variants.length > 0) {
       json(res, 200, {
         ok: true,
-        source: { kind: "hls", url: playlistUrl, refUrl: "https://cinesrc.st/" },
+        source: { kind: "hls", url: playlistUrl, refUrl: "https://cinesrc.st/", multiLevelMaster: true },
         variants,
         // CineSrc keeps audio as separate HLS renditions (EXT-X-MEDIA AUDIO).
         // Surface them so the client can mux the chosen language into the
@@ -929,6 +930,265 @@ async function fetchNet27Json(path, { retries = 3 } = {}) {
   throw lastError || new Error("net27 unreachable");
 }
 
+/* Canonical NetMirror mirrors — the rotating public instance family that runs
+   the OPEN NetMirror API: p.php hands a `t_hash` session to ANY client (public
+   handshake, no credentials), search/post/playlist are served by the mirror
+   itself, and the masters carry REAL #EXT-X-MEDIA AUDIO groups with language
+   names (netflix-style multi-audio). net27.cc hardened its proxy to a
+   per-session `clckd` token wall (429s even its own relay), so native playback
+   falls back to a live mirror. net52 → net51, in that order. */
+const NETMIRROR_MIRRORS = ["https://net52.cc", "https://net51.cc"];
+const NETMIRROR_T_HASH_T =
+  "988a734da1152ddea2c25c8904eede20%3A%3A0cb4f3935641c828678b8946867997e5%3A%3A1768993531%3A%3Ani";
+
+const netmirrorMirrorHosts = new Set(NETMIRROR_MIRRORS.map((m) => new URL(m).host));
+const netmirrorCookieCache = new Map(); // mirror origin -> { cookie, expires }
+
+async function netmirrorCookieFor(mirror) {
+  const now = Date.now();
+  const cached = netmirrorCookieCache.get(mirror);
+  if (cached && cached.expires > now) return cached.cookie;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  try {
+    // Mirrors reject cross-site form POSTs; speak as a same-origin page.
+    const headers = baseHeaders();
+    headers["content-type"] = "application/x-www-form-urlencoded";
+    headers.origin = mirror;
+    headers.referer = `${mirror}/home`;
+    headers["x-requested-with"] = "XMLHttpRequest";
+    const upstream = await fetchNoRedirect(`${mirror}/p.php`, {
+      method: "POST",
+      headers,
+      body: "init=1",
+      signal: controller.signal,
+    });
+    const setCookie = upstream.headers.get("set-cookie") || "";
+    const tHash = /(?:^|;)\s*t_hash=([^;]+)/.exec(setCookie)?.[1] || "";
+    if (!tHash || upstream.status >= 400) {
+      throw new Error(`handshake failed (${upstream.status})`);
+    }
+    const cookie = `t_hash_t=${NETMIRROR_T_HASH_T}; t_hash=${tHash}`;
+    netmirrorCookieCache.set(mirror, { cookie, expires: now + 20 * 60 * 1000 });
+    return cookie;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function netmirrorMirrorFetch(mirror, cookie, path) {
+  const text = await fetchUpstream(mirror + path, {
+    referer: `${mirror}/home`,
+    timeoutMs: 15000,
+    extraHeaders: { cookie, "x-requested-with": "XMLHttpRequest" },
+  });
+  const trimmed = text.trim();
+  const jsonStart = trimmed.indexOf("{");
+  const jsonEnd = trimmed.lastIndexOf("}");
+  if (jsonStart < 0 || jsonEnd < jsonStart) throw new Error("non-JSON mirror reply");
+  return JSON.parse(trimmed.slice(jsonStart, jsonEnd + 1));
+}
+
+async function netmirrorSearch(mirror, cookie, title, type) {
+  // Search answers to the site's t param; try the type-appropriate value first.
+  for (const t of type === "tv" ? ["TV", "Movie", "x"] : ["Movie", "TV", "x"]) {
+    const data = await netmirrorMirrorFetch(mirror, cookie, `/search.php?s=${encodeURIComponent(title)}&t=${t}`);
+    const rows = Array.isArray(data?.searchResult)
+      ? data.searchResult
+      : Array.isArray(data?.result)
+        ? data.result
+        : Array.isArray(data?.rows)
+          ? data.rows
+          : null;
+    if (Array.isArray(rows) && rows.length > 0) return rows;
+  }
+  throw new Error("search returned nothing");
+}
+
+function netmirrorPickSearch(rows, title) {
+  // Prefer the closest title match; skip making-of/trailer-style extras.
+  const name = String(title || "").toLowerCase().trim();
+  const junk = /making|behind the scenes|blooper|trailer|teaser|interview|recap|compilation/i;
+  let best = null;
+  let bestScore = -1;
+  for (const row of rows) {
+    const id = String(row?.id || "");
+    const t = String(row?.t || row?.title || "").trim();
+    if (!id || !t || junk.test(t)) continue;
+    let score = 0;
+    const lower = t.toLowerCase();
+    if (name && lower.includes(name)) score += 100;
+    if (name && name.includes(lower)) score += 50;
+    if (score > bestScore) {
+      bestScore = score;
+      best = { id, t };
+    }
+  }
+  return best;
+}
+
+async function netmirrorPlaylistFile(mirror, cookie, playId) {
+  const ts = Math.floor(Date.now() / 1000);
+  const data = await netmirrorMirrorFetch(
+    mirror,
+    cookie,
+    `/playlist.php?id=${encodeURIComponent(playId)}&t=Video&tm=${ts}`,
+  );
+  const file = String(data?.[0]?.sources?.[0]?.file || "");
+  if (!file) throw new Error("playlist had no source file");
+  return file.startsWith("http") ? file : mirror + (file.startsWith("/") ? file : `/${file}`);
+}
+
+/* Resolve a title through a live mirror's canonical API into the client's HLS
+   contract: the master URL (which hls.js parses into levels AND audio groups),
+   the ladder variants for the quality menu, and the named audio groups. */
+async function resolveNetmirrorMirror({ type, season, episode, title }) {
+  let lastError;
+  for (const mirror of NETMIRROR_MIRRORS) {
+    try {
+      const cookie = await netmirrorCookieFor(mirror);
+      const rows = await netmirrorSearch(mirror, cookie, title, type);
+      const pick = netmirrorPickSearch(rows, title);
+      if (!pick) continue;
+      let playId = pick.id;
+      if (type === "tv") {
+        const detail = await netmirrorMirrorFetch(mirror, cookie, `/post.php?id=${encodeURIComponent(pick.id)}&t=Video`);
+        const episodes = Array.isArray(detail?.episodes) ? detail.episodes : [];
+        const wantSeason = Number(season) || 0;
+        const wantEpisode = Number(episode) || 0;
+        const episodeRow = episodes.find((e) => {
+          const s = Number.parseInt(String(e?.s || "").replace(/\D/g, ""), 10) || 0;
+          const ep = Number.parseInt(String(e?.ep || "").replace(/\D/g, ""), 10) || 0;
+          return s === wantSeason && ep === wantEpisode;
+        });
+        if (!episodeRow?.id) continue;
+        playId = String(episodeRow.id);
+      }
+      const masterUrl = await netmirrorPlaylistFile(mirror, cookie, playId);
+      const masterText = await fetchUpstream(masterUrl, {
+        referer: `${mirror}/home`,
+        timeoutMs: 15000,
+        extraHeaders: { cookie, "x-requested-with": "XMLHttpRequest" },
+      });
+      const levels = parseMasterPlaylist(masterText, masterUrl).filter((v) => v?.uri);
+      if (levels.length === 0) continue;
+      return {
+        ok: true,
+        source: { kind: "hls", url: masterUrl, refUrl: `${mirror}/`, multiLevelMaster: true },
+        variants: levels,
+        audio: parseAudioGroups(masterText, masterUrl),
+      };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error("no netmirror mirror reached");
+}
+
+async function net27NetmirrorPayload({ type, tmdbId, season, episode }) {
+  const catalog = await fetchNet27Json(`/api/catalog/title/${type}/${tmdbId}`);
+  const cd = catalog?.catalog || {};
+  const detailPath = String(cd.detailPath || "");
+  if (cd.streamable === false || !detailPath) {
+    return { ok: false, error: "No NetMirror copy found for this title", code: "no-source" };
+  }
+  let meta = await fetchNet27Json(`/api/native/meta?dp=${encodeURIComponent(detailPath)}`);
+  // Some titles publish their dubs under a VARIANT copy's slug instead of
+  // the primary one (e.g. RRR: the primary "rrr-0GHAuwZXoo3" lists none, but
+  // the second copy's slug lists all 11). Walk the variant watchUrls until a
+  // meta reply carries dubs — mirrors what the site's picker does.
+  let metaDp = detailPath;
+  const variantSlugs = Array.isArray(cd.variants)
+    ? cd.variants
+        .map((v) => String(v?.watchUrl || "").replace(/^.*\/movie\//, ""))
+        .filter((s) => s && s !== detailPath)
+    : [];
+  for (const slug of variantSlugs) {
+    if (Array.isArray(meta?.dubs) && meta.dubs.length > 0) break;
+    const candidate = await fetchNet27Json(`/api/native/meta?dp=${encodeURIComponent(slug)}`);
+    if (Array.isArray(candidate?.dubs) && candidate.dubs.length > 0) {
+      meta = candidate;
+      metaDp = slug;
+    }
+  }
+  const dubs = Array.isArray(meta?.dubs)
+    ? meta.dubs.filter((d) => d?.subjectId && d?.detailPath)
+    : [];
+  if (dubs.length === 0) {
+    return { ok: false, error: "NetMirror stream unavailable", code: "no-source" };
+  }
+  const variants = Array.isArray(cd.variants) ? cd.variants : [];
+  const audioLangs = Array.isArray(cd.audioLangs) ? cd.audioLangs : [];
+  const cornerMap = new Map(variants.map((v) => [String(v.subjectId || ""), v]));
+  const originalName = NETMIRROR_ISO_LANGS[String(catalog?.originalLanguage || "").toLowerCase()] || "";
+  const suffix =
+    type === "tv" && season && episode
+      ? `&se=${encodeURIComponent(season)}&ep=${encodeURIComponent(episode)}`
+      : "";
+
+  const audio = [];
+  const streamsBySubject = new Map();
+  const primarySubject = String(meta?.subjectId || dubs[0]?.subjectId || "");
+  let primaryIndex = dubs.findIndex((d) => String(d.subjectId) === primarySubject);
+  if (primaryIndex < 0) primaryIndex = 0;
+  for (let index = 0; index < dubs.length; index += 1) {
+    const dub = dubs[index];
+    const ed = await fetchNet27Json(
+      `/api/embed-direct/${dub.subjectId}?type=${type}${suffix}&dp=${encodeURIComponent(dub.detailPath)}`,
+    );
+    if (ed?.ok === false) continue;
+    const streams = Array.isArray(ed?.streams) ? ed.streams : [];
+    const best = streams.length > 0 ? net27MediaUrl(String(streams[0].url || "")) : net27MediaUrl(String(ed?.mp4 || ""));
+    if (!best) continue;
+    streamsBySubject.set(dub.subjectId, ed);
+    const variant = cornerMap.get(dub.subjectId);
+    let language = "";
+    if (variant?.corner) language = String(variant.corner);
+    else {
+      // Variant titles carry the language in brackets ("Premalu [Hindi]").
+      // A bare "Show S5" label is NOT a language — leave it unnamed.
+      const bracketed = /\[([^\]]+)\]/.exec(String(variant?.title || ""));
+      if (bracketed) language = bracketed[1];
+    }
+    if (!language && dub.detailPath === metaDp && originalName) {
+      language = originalName;
+    } else if (!language && audioLangs.length === dubs.length) {
+      language = String(audioLangs[index] || "");
+    }
+    audio.push({ language: language || `Audio ${index + 1}`, url: best, subjectId: dub.subjectId });
+  }
+
+  const primaryEd = streamsBySubject.get(dubs[primaryIndex]?.subjectId);
+  const ladder = Array.isArray(primaryEd?.streams) ? primaryEd.streams : [];
+  if (ladder.length === 0 && primaryEd?.mp4) {
+    ladder.push({ resolution: primaryEd.resolution || 720, url: net27MediaUrl(String(primaryEd?.mp4 || "")) });
+  }
+  if (ladder.length === 0) {
+    return { ok: false, error: "NetMirror stream unavailable", code: "no-source" };
+  }
+  const variantRows = ladder
+    .map((s) => {
+      const height = Number.parseInt(String(s.resolution || "").replace(/\D/g, ""), 10) || 0;
+      return {
+        uri: net27MediaUrl(String(s.url || "")),
+        bandwidth: videasyBandwidth(height),
+        width: 0,
+        height,
+        framerate: 0,
+        codecs: "",
+        hdr: false,
+        direct: true,
+      };
+    })
+    .sort((a, b) => b.height - a.height);
+  return {
+    ok: true,
+    source: { kind: "mp4", url: variantRows[0].uri, refUrl: NETMIRROR_REFERER },
+    variants: variantRows,
+    audio,
+  };
+}
+
 async function handleResolveNetmirror(body, res) {
   const type = body.type === "tv" ? "tv" : "movie";
   const tmdbId = String(body.id || "").trim();
@@ -938,119 +1198,34 @@ async function handleResolveNetmirror(body, res) {
   }
   const season = String(body.season ?? "").trim();
   const episode = String(body.episode ?? "").trim();
+  const title = String(body.title || "").trim();
 
+  let payload = null;
   try {
-    const catalog = await fetchNet27Json(`/api/catalog/title/${type}/${tmdbId}`);
-    const cd = catalog?.catalog || {};
-    const detailPath = String(cd.detailPath || "");
-    if (cd.streamable === false || !detailPath) {
-      json(res, 200, { ok: false, error: "No NetMirror copy found for this title", code: "no-source" });
-      return;
-    }
-    let meta = await fetchNet27Json(`/api/native/meta?dp=${encodeURIComponent(detailPath)}`);
-    // Some titles publish their dubs under a VARIANT copy's slug instead of
-    // the primary one (e.g. RRR: the primary "rrr-0GHAuwZXoo3" lists none, but
-    // the second copy's slug lists all 11). Walk the variant watchUrls until a
-    // meta reply carries dubs — mirrors what the site's picker does.
-    let metaDp = detailPath;
-    const variantSlugs = Array.isArray(cd.variants)
-      ? cd.variants
-          .map((v) => String(v?.watchUrl || "").replace(/^.*\/movie\//, ""))
-          .filter((s) => s && s !== detailPath)
-      : [];
-    for (const slug of variantSlugs) {
-      if (Array.isArray(meta?.dubs) && meta.dubs.length > 0) break;
-      const candidate = await fetchNet27Json(`/api/native/meta?dp=${encodeURIComponent(slug)}`);
-      if (Array.isArray(candidate?.dubs) && candidate.dubs.length > 0) {
-        meta = candidate;
-        metaDp = slug;
-      }
-    }
-    const dubs = Array.isArray(meta?.dubs)
-      ? meta.dubs.filter((d) => d?.subjectId && d?.detailPath)
-      : [];
-    if (dubs.length === 0) {
-      json(res, 200, { ok: false, error: "NetMirror stream unavailable", code: "no-source" });
-      return;
-    }
-    const variants = Array.isArray(cd.variants) ? cd.variants : [];
-    const audioLangs = Array.isArray(cd.audioLangs) ? cd.audioLangs : [];
-    const cornerMap = new Map(variants.map((v) => [String(v.subjectId || ""), v]));
-    const originalName = NETMIRROR_ISO_LANGS[String(catalog?.originalLanguage || "").toLowerCase()] || "";
-    const suffix =
-      type === "tv" && season && episode
-        ? `&se=${encodeURIComponent(season)}&ep=${encodeURIComponent(episode)}`
-        : "";
-
-    const audio = [];
-    const streamsBySubject = new Map();
-    const primarySubject = String(meta?.subjectId || dubs[0]?.subjectId || "");
-    let primaryIndex = dubs.findIndex((d) => String(d.subjectId) === primarySubject);
-    if (primaryIndex < 0) primaryIndex = 0;
-    for (let index = 0; index < dubs.length; index += 1) {
-      const dub = dubs[index];
-      const ed = await fetchNet27Json(
-        `/api/embed-direct/${dub.subjectId}?type=${type}${suffix}&dp=${encodeURIComponent(dub.detailPath)}`,
-      );
-      if (ed?.ok === false) continue;
-      const streams = Array.isArray(ed?.streams) ? ed.streams : [];
-      const best = streams.length > 0 ? net27MediaUrl(String(streams[0].url || "")) : net27MediaUrl(String(ed?.mp4 || ""));
-      if (!best) continue;
-      streamsBySubject.set(dub.subjectId, ed);
-      const variant = cornerMap.get(dub.subjectId);
-      let language = "";
-      if (variant?.corner) language = String(variant.corner);
-      else {
-        // Variant titles carry the language in brackets ("Premalu [Hindi]").
-        // A bare "Show S5" label is NOT a language — leave it unnamed.
-        const bracketed = /\[([^\]]+)\]/.exec(String(variant?.title || ""));
-        if (bracketed) language = bracketed[1];
-      }
-      if (!language && dub.detailPath === metaDp && originalName) {
-        language = originalName;
-      } else if (!language && audioLangs.length === dubs.length) {
-        language = String(audioLangs[index] || "");
-      }
-      audio.push({ language: language || `Audio ${index + 1}`, url: best, subjectId: dub.subjectId });
-    }
-
-    const primaryEd = streamsBySubject.get(dubs[primaryIndex]?.subjectId);
-    const ladder = Array.isArray(primaryEd?.streams) ? primaryEd.streams : [];
-    if (ladder.length === 0 && primaryEd?.mp4) {
-      ladder.push({ resolution: primaryEd.resolution || 720, url: net27MediaUrl(String(primaryEd?.mp4 || "")) });
-    }
-    if (ladder.length === 0) {
-      json(res, 200, { ok: false, error: "NetMirror stream unavailable", code: "no-source" });
-      return;
-    }
-    const variantRows = ladder
-      .map((s) => {
-        const height = Number.parseInt(String(s.resolution || "").replace(/\D/g, ""), 10) || 0;
-        return {
-          uri: net27MediaUrl(String(s.url || "")),
-          bandwidth: videasyBandwidth(height),
-          width: 0,
-          height,
-          framerate: 0,
-          codecs: "",
-          hdr: false,
-          direct: true,
-        };
-      })
-      .sort((a, b) => b.height - a.height);
-    json(res, 200, {
-      ok: true,
-      source: { kind: "mp4", url: variantRows[0].uri, refUrl: NETMIRROR_REFERER },
-      variants: variantRows,
-      audio,
-    });
+    payload = await net27NetmirrorPayload({ type, tmdbId, season, episode });
   } catch (error) {
-    json(res, 200, {
-      ok: false,
-      error: `NetMirror resolution failed: ${error?.message || "unknown"}`,
-      code: "no-source",
-    });
+    payload = { ok: false, error: `NetMirror resolution failed: ${error?.message || "unknown"}`, code: "no-source" };
   }
+
+  // net27 is a per-session clckd token wall (429s even its own relay) — when
+  // the primary copy can't be reached, fall back to a live canonical mirror
+  // (net52 → net51), which serves a REAL HLS master with per-language audio
+  // groups that hls.js renders as the player's Audio menu.
+  if (!payload?.ok && title) {
+    try {
+      const mirror = await resolveNetmirrorMirror({
+        type,
+        season: Number(season) || 0,
+        episode: Number(episode) || 0,
+        title,
+      });
+      if (mirror?.ok) payload = mirror;
+    } catch (error) {
+      // keep the net27 payload; the mirror path is best-effort
+    }
+  }
+
+  json(res, 200, payload);
 }
 
 async function handleManifest(body, res) {
@@ -1103,8 +1278,24 @@ async function handlePlaylist(body, res) {
   }
 
   try {
+    // NetMirror mirror masters (net52.cc/net51.cc /hls/*.m3u8) demand the
+    // session cookie p.php handed out; the segment/level CDNs behind them
+    // (s20/s21.freecdn*.top) are open-CORS and need nothing.
+    let extraHeaders = {};
+    try {
+      const u = new URL(playlistUrl);
+      if (netmirrorMirrorHosts.has(u.host)) {
+        extraHeaders = {
+          cookie: await netmirrorCookieFor(u.origin),
+          "x-requested-with": "XMLHttpRequest",
+        };
+      }
+    } catch {
+      // mirror handshake hiccup → the fetch below fails cleanly (502)
+    }
     const text = await fetchUpstream(playlistUrl, {
       referer: body.refUrl ? String(body.refUrl) : playlistUrl,
+      extraHeaders,
     });
     res.status(200);
     res.setHeader("content-type", "application/vnd.apple.mpegurl");

@@ -355,17 +355,20 @@ export const downloadService = {
   },
 
   /** Resolve the NetMirror provider (net27.cc — action "resolvenetmirror").
-      Same contract, but this one is a DIRECT mp4 source and carries real
-      MULTI-AUDIO: `audio` lists the per-language "dubs", each with its own mp4
-      (that language's soundtrack). A serverless pure-API mint, no browser
-      required. */
-  async resolveNetmirror({ type, id, season, episode }, { signal } = {}) {
+      The primary copy is a DIRECT mp4 source carrying real MULTI-AUDIO:
+      `audio` lists the per-language "dubs", each with its own mp4 (that
+      language's soundtrack). When net27 is gated the server falls back to a
+      live canonical mirror (net52 → net51) and returns a multi-level HLS
+      master whose EXT-X-MEDIA audio groups surface real language names.
+      `title` feeds the mirror's title-based search, so pass it when available. */
+  async resolveNetmirror({ type, id, season, episode, title }, { signal } = {}) {
     const kind = type === "tv" ? "tv" : "movie";
     const body = { action: "resolvenetmirror", type: kind, id: String(id || "") };
     if (kind === "tv") {
       if (season != null) body.season = String(season);
       if (episode != null) body.episode = String(episode);
     }
+    if (title != null && String(title).trim()) body.title = String(title).trim();
     const data = await post(body, { signal });
     const resolved = this.normalizeResolved(data);
     logInfo("download", `Resolved ${resolved.variants.length} download/stream variant(s) via NetMirror (${resolved.audio.length} audio dubs).`, {

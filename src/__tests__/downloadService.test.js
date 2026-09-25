@@ -370,8 +370,50 @@ describe("downloadService.resolveNetmirror", () => {
       }),
     );
 
-    await downloadService.resolveNetmirror({ type: "tv", id: "1396", season: 1, episode: 1 });
-    expect(capturedBody).toMatchObject({ action: "resolvenetmirror", type: "tv", id: "1396", season: "1", episode: "1" });
+    await downloadService.resolveNetmirror({ type: "tv", id: "1396", season: 1, episode: 1, title: "Breaking Bad" });
+    expect(capturedBody).toMatchObject({
+      action: "resolvenetmirror",
+      type: "tv",
+      id: "1396",
+      season: "1",
+      episode: "1",
+      title: "Breaking Bad",
+    });
+  });
+
+  it("passes the canonical-mirror HLS master through with its audio languages", async () => {
+    const hlsSource = {
+      kind: "hls",
+      url: "https://net52.cc/hls/81476453.m3u8?in=unknown::ni",
+      refUrl: "https://net52.cc/",
+      multiLevelMaster: true,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        const req = JSON.parse(init.body);
+        expect(req.action).toBe("resolvenetmirror");
+        expect(req.title).toBe("RRR");
+        return jsonResponse({
+          ok: true,
+          source: hlsSource,
+          variants: [
+            { uri: "https://s21.freecdn4.top/files/220884/1080p/x.m3u8?in=unknown::ni", bandwidth: 6000000, height: 1080, direct: true },
+            { uri: "https://s21.freecdn4.top/files/220884/720p/x.m3u8?in=unknown::ni", bandwidth: 2500000, height: 720, direct: true },
+          ],
+          audio: [
+            { language: "Hindi", groupId: "audio-hin", url: "https://s20.freecdn1.top/files/81476453/a/2/x.m3u8" },
+            { language: "Spanish", groupId: "audio-spa", url: "https://s20.freecdn1.top/files/81476453/a/1/x.m3u8" },
+          ],
+        });
+      }),
+    );
+
+    const resolved = await downloadService.resolveNetmirror({ type: "movie", id: "579974", title: "RRR" });
+    expect(resolved.source).toEqual(hlsSource);
+    expect(resolved.source.multiLevelMaster).toBe(true);
+    expect(resolved.variants.map((v) => v.label)).toEqual(["1080p", "720p"]);
+    expect(resolved.audio.map((a) => a.language)).toEqual(["Hindi", "Spanish"]);
   });
 
   it("surfaces an honest no-source result", async () => {
