@@ -26,15 +26,59 @@ import { logDebug, logWarn } from "../utils/debugLogger.js";
 import { parseMasterPlaylist, parseMediaPlaylist } from "../utils/downloadQuality.js";
 
 const ENDPOINT = "/api/downloadify";
-// Every relay chunk is a fresh serverless round trip, so latency is weighed
-// once per chunk. 1MB slices made slow CDNs stall on multi-MB ts segments
-// (plays 5-10s, then endless loading). 3.5MB balances latency vs the 4.5MB
-// Vercel response cap and keeps most fragments to 1-2 round trips on their
-// own — BUT fragments are now chunked in PARALLEL (relayFragment fans out up
-// to 4 ranges concurrently), so the per-fragment wall-clock is ~one relay
-// latency, not N × latency. That is what lets 1080p/4K fragments survive the
-// serverless leg on the free tier instead of stalling at every segment edge.
+// Optional Cloudflare Workers FREE relay. When VITE_STREAMLY_RELAY_URL is a
+// deployed GET ?url= passthrough proxy (see .env.example), media bytes stream
+// via it FIRST — no Vercel egress charge and no 4.5MB function response cap,
+// so one request can pull a WHOLE fMP4 fragment. The proxy forwards our Range
+// header to the origin and exposes content-range/content-length (its
+// Access-Control-Expose-Headers is *), which is enough to derive "more" and
+// drive single-fragment-per-request playback instead of a chunk fan-out. The
+// Vercel function stays the automatic fallback when the proxy is down, plus
+// the safety net for hosts that demand a Referer (the proxy strips it — the
+// Vercel relay is the only one that can send one).
+const WORKER_SLICE_MAX = 60 * 1024 * 1024;
+// Every Vercel relay chunk is a fresh serverless round trip, so latency is
+// weighed once per chunk. 1MB slices made slow CDNs stall on multi-MB ts
+// segments (plays 5-10s, then endless loading). 3.5MB balances latency vs the
+// 4.5MB Vercel response cap and keeps most fragments to 1-2 round trips on
+// their own — BUT Vercel fragments are also chunked in PARALLEL (relayFragment
+// fans out up to 4 ranges concurrently), so the per-fragment wall-clock is ~one
+// relay latency, not N × latency. That combination is what lets 1080p/4K
+// fragments survive a serverless leg at all.
 const FRAG_CHUNK_MAX = Math.floor(3.5 * 1024 * 1024);
+
+/* Active relay endpoint + slice + protocol. Read lazily so tests can stub the
+   env. Two transports, same relayChunk/playlist surface:
+     · mode "proxy" — any non-Vercel base: the deployed Cloudflare worker.
+       GET {base}?url=<encoded target>; segments add a Range header the proxy
+       forwards; slices can cover a whole fragment (60MB).
+     · mode "json"  — Vercel /api/downloadify. POST {action,...}; slices capped
+       at FRAG_CHUNK_MAX by the function's 4.5MB body cap. */
+export function relayConfig() {
+  const relay =
+    typeof import.meta !== "undefined" ? String(import.meta.env?.VITE_STREAMLY_RELAY_URL || "") : "";
+  const trimmed = relay.trim().replace(/\/+$/, "");
+  return trimmed
+    ? { base: trimmed, slice: WORKER_SLICE_MAX, mode: "proxy" }
+    : { base: ENDPOINT, slice: FRAG_CHUNK_MAX, mode: "json" };
+}
+
+/* "Does a slice continue past what we just got?" — the proxy adds no
+   x-streamly-more (downloadify does), so derive it from content-range when
+   that header is absent: a served offset + bytes < total means more data. */
+export function deriveSliceMore(response, bufLength, slice) {
+  const header = response.headers.get("x-streamly-more");
+  if (header !== null && header !== undefined) return header === "1";
+  const m = /bytes\s+(\d+)-\d+\/(\d+)/i.exec(response.headers.get("content-range") || "");
+  if (m) {
+    const from = Number(m[1]);
+    const total = Number(m[2]);
+    if (Number.isFinite(from) && Number.isFinite(total) && total > 0) {
+      return from + bufLength < total;
+    }
+  }
+  return bufLength >= slice;
+}
 // Default per-load watchdog when hls.js passes no config.timeout. 20s is a
 // tolerant ceiling for a 3.5MB relayed slice through Vercel while still
 // firing before a user perceives a permanent hang.
@@ -175,12 +219,59 @@ export async function probeSourcePlayable(entryUrl, refUrl, { signal } = {}) {
 }
 
 async function postDownloadify(body, { signal } = {}) {
-  return fetch(ENDPOINT, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-    signal,
-  });
+  const { base, slice, mode } = relayConfig();
+  // Per-candidate slice: a proxy whole-fragment call that falls back to the
+  // Vercel function MUST re-slice at FRAG_CHUNK_MAX, or the 4.5MB body cap
+  // would be breached mid-flight.
+  const candidates =
+    mode === "json"
+      ? [{ base, slice, mode }]
+      : [
+          { base, slice, mode: "proxy" },
+          { base: ENDPOINT, slice: FRAG_CHUNK_MAX, mode: "json" },
+        ];
+  const isSegment = body.action === "segment";
+  const start = Math.max(0, Math.floor(Number(body.range?.start) || 0));
+  let lastError;
+  for (let index = 0; index < candidates.length; index += 1) {
+    const candidate = candidates[index];
+    const target = isSegment ? body.url : body.playlistUrl;
+    const request =
+      candidate.mode === "proxy"
+        ? {
+            url: `${candidate.base}?url=${encodeURIComponent(target)}`,
+            init: {
+              method: "GET",
+              // The proxy forwards the Range to the origin AND its slices are
+              // capped only by origin/CDN (no 4.5MB serverless cap).
+              headers: isSegment ? { range: `bytes=${start}-${start + candidate.slice - 1}` } : undefined,
+              signal,
+            },
+          }
+        : {
+            url: candidate.base,
+            init: {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify(
+                isSegment ? { ...body, range: { start, max: candidate.slice } } : body,
+              ),
+              signal,
+            },
+          };
+    try {
+      const res = await fetch(request.url, request.init);
+      // A non-ok reply from the proxy (down/broken deploy) falls through to the
+      // Vercel function; the LAST candidate's error is the one that surfaces.
+      if (res.ok || index === candidates.length - 1) return res;
+      lastError = res;
+      await res.body?.cancel?.().catch?.(() => {});
+    } catch (error) {
+      lastError = error;
+      if (index === candidates.length - 1) throw error;
+    }
+  }
+  throw lastError ?? new Error("relay unavailable");
 }
 
 /* The relay answers failures with its JSON error envelope ({ ok:false, code,
@@ -509,7 +600,8 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath } = 
 
     /* Relay a single fragment with parallel range chunking. Chunk 0 is always
        fetched alone — its exact byte count seeds the fan-out stride. When every
-       returned slice is a full FRAG_CHUNK_MAX (the uniform case), the remaining
+       returned slice is a full slice (the uniform case — via a Worker that is
+       one whole fragment), the remaining
        ranges are fetched CONCURRENTLY and handed to hls.js strictly in byte
        order: the per-fragment wall-clock collapses from N×relay-latency to ~one
        relay latency, which is what lets tall (1080p/4K) fragments survive the
@@ -521,14 +613,15 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath } = 
        (see api/downloadify.js fetchRangeChunk), so concurrency is safe. */
     async relayFragment(url, signal) {
       const refUrl = getRefUrl?.();
+      const { slice } = relayConfig();
       const relayChunk = async (start) => {
         const response = await postDownloadify(
-          { action: "segment", url, refUrl, range: { start, max: FRAG_CHUNK_MAX } },
+          { action: "segment", url, refUrl, range: { start } },
           { signal },
         );
         await throwIfRelayError(response, "Segment request failed");
         const buf = new Uint8Array(await response.arrayBuffer());
-        return { buf, more: response.headers.get("x-streamly-more") === "1" };
+        return { buf, more: deriveSliceMore(response, buf.length, slice) };
       };
       const finish = (chunks) => {
         const total = chunks.reduce((n, c) => n + c.length, 0);
@@ -560,7 +653,7 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath } = 
         this.progress(first.buf, 0);
         return finish([first.buf]);
       }
-      if (first.buf.length !== FRAG_CHUNK_MAX) {
+      if (first.buf.length !== slice) {
         const serial = [first.buf];
         this.progress(first.buf, 0);
         let start = first.buf.length;
@@ -587,7 +680,7 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath } = 
       // overshoot the tail before the EOF marker comes back.
       const CONCURRENCY = 4;
       const emitted = [first.buf]; // parts 0..N handed to hls.js in order
-      const parts = new Map(); // index -> bytes (1-based; index sits at stride*FRAG_CHUNK_MAX)
+      const parts = new Map(); // index -> bytes (1-based; index sits at stride*slice)
       let nextIndex = 1;
       let eofIndex = 0; // highest index where the stream declared EOF
       const emitAll = () => {
@@ -602,15 +695,15 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath } = 
       };
       const issueSingle = async (idx) => {
         try {
-          const { buf, more } = await relayChunk(idx * FRAG_CHUNK_MAX);
+          const { buf, more } = await relayChunk(idx * slice);
           if (this.aborted) return;
           parts.set(idx, buf); // a 0-length slice is a valid EOF marker part
           if (!more) {
             eofIndex = Math.max(eofIndex, idx);
-          } else if (buf.length === 0 || buf.length < FRAG_CHUNK_MAX) {
+          } else if (buf.length === 0 || buf.length < slice) {
             // Short slice that still claims "more": the guessed strides are
-            // desynced (server caps at FRAG_CHUNK_MAX, so a mid-file short
-            // slice means we can't trust offsets) — treat it as the tail.
+            // desynced (relay caps at slice, so a mid-file short slice means we
+            // can't trust offsets) — treat it as the tail.
             eofIndex = Math.max(eofIndex, idx);
           }
         } catch {

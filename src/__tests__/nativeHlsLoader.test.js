@@ -9,6 +9,7 @@ import {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
   vi.clearAllMocks();
   vi.useRealTimers();
@@ -350,6 +351,102 @@ describe("createStreamlyLoader", () => {
     // boundary range (empty = EOF marker) — the whole fragment resolves in
     // roughly one relay latency instead of four serial ones.
     expect(relayCalls).toEqual([0, FRAG, 2 * FRAG, 3 * FRAG, 4 * FRAG]);
+  });
+
+  it("streams whole fragments through the Cloudflare proxy relay when configured", async () => {
+    vi.stubEnv("VITE_STREAMLY_RELAY_URL", "https://streamly-proxy.nashidk1999.workers.dev");
+    const SEGMENT = "https://cdn.example.com/vd/whole.m4s";
+    const proxyCalls = [];
+    const vercelCalls = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        if (init?.headers?.range === "bytes=0-0") return rangeOkResponse();
+        const body = JSON.parse(init?.body || "null");
+        const to = String(url);
+        if (!body && !init?.headers?.range) {
+          // direct CDN pull fails (no range header honored by the mock)
+          return { ok: false, status: 403, headers: { get: () => null }, body: { cancel: async () => {} } };
+        }
+        if (to.includes("workers.dev")) {
+          proxyCalls.push({ to, range: init?.headers?.range });
+          const bytes = new Uint8Array([9, 8, 7]);
+          return {
+            ok: true,
+            status: 206,
+            headers: { get: (name) => (name === "content-range" ? "bytes 0-2/3" : null) },
+            arrayBuffer: async () => bytes.buffer,
+          };
+        }
+        vercelCalls.push(body);
+        return { ok: false, status: 500, headers: { get: () => null }, body: { cancel: async () => {} } };
+      }),
+    );
+    const Loader = createStreamlyLoader({ getRefUrl: () => "https://vidcore.io/" });
+    const loader = new Loader();
+    const response = await new Promise((resolve, reject) => {
+      loader.load(
+        { url: SEGMENT, frag: { sn: 1 } },
+        {},
+        {
+          onSuccess: (resp) => resolve(resp),
+          onError: (err) => reject(new Error(err.text)),
+        },
+      );
+    });
+    // ONE proxy request for the whole fragment — no Vercel fan-out — because
+    // the proxy has no serverless response cap (60MB slice ceiling).
+    expect(proxyCalls.length).toBe(1);
+    expect(proxyCalls[0].to).toBe(
+      `https://streamly-proxy.nashidk1999.workers.dev?url=${encodeURIComponent(SEGMENT)}`,
+    );
+    expect(proxyCalls[0].range).toBe(`bytes=0-${60 * 1024 * 1024 - 1}`);
+    expect(vercelCalls.length).toBe(0);
+    expect([...new Uint8Array(response.data)]).toEqual([9, 8, 7]);
+  });
+
+  it("falls back to the Vercel relay when the proxy is down", async () => {
+    vi.stubEnv("VITE_STREAMLY_RELAY_URL", "https://streamly-proxy.nashidk1999.workers.dev");
+    const vercelCalls = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        if (init?.headers?.range === "bytes=0-0") return rangeOkResponse();
+        const body = JSON.parse(init?.body || "null");
+        const to = String(url);
+        if (!body && !init?.headers?.range) {
+          return { ok: false, status: 403, headers: { get: () => null }, body: { cancel: async () => {} } };
+        }
+        if (to.includes("workers.dev")) {
+          return { ok: false, status: 503, headers: { get: () => null }, body: { cancel: async () => {} } };
+        }
+        vercelCalls.push(body);
+        const bytes = new Uint8Array([1, 2, 3, 4]);
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: (name) => (name === "x-streamly-more" ? "0" : "application/octet-stream") },
+          arrayBuffer: async () => bytes.buffer,
+        };
+      }),
+    );
+    const Loader = createStreamlyLoader({ getRefUrl: () => "https://vidcore.io/" });
+    const loader = new Loader();
+    const response = await new Promise((resolve, reject) => {
+      loader.load(
+        { url: "https://cdn.example.com/vd/whole.m4s", frag: { sn: 1 } },
+        {},
+        {
+          onSuccess: (resp) => resolve(resp),
+          onError: (err) => reject(new Error(err.text)),
+        },
+      );
+    });
+    // The failed proxy GET cascaded to the Vercel function, which delivered
+    // the fragment — playback survives a broken proxy deploy.
+    expect(vercelCalls.length).toBe(1);
+    expect(vercelCalls[0].range.max).toBe(3.5 * 1024 * 1024);
+    expect([...new Uint8Array(response.data)]).toEqual([1, 2, 3, 4]);
   });
 
   it("falls back to serial chunking when the first relay slice is short", async () => {
