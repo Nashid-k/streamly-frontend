@@ -14,6 +14,12 @@
 // Subtitles · fullscreen on the right, auto-hiding controls, click/double-
 // click/keyboard shortcuts. Quality selection lives in the Audio & Subtitles
 // dialog (Netflix has no quality menu; our ladders need one).
+//
+// Touch-first devices get a distinct chrome: bigger 44px tap targets, safe-
+// area padding, a centered play glyph (so an autoplay-blocked stream has an
+// obvious affordance), double-tap seek (±10s by screen half), Media Session
+// lock-screen controls, and a stacked bottom-sheet settings panel; the
+// desktop-only bits (volume slider via hover, debug-log toggle) are hidden.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -89,6 +95,18 @@ const BACK_BUFFER_SECONDS = 60;
 const VOLUME_STORAGE_KEY = "streamly-native-volume";
 const MUTED_STORAGE_KEY = "streamly-native-muted";
 
+// Touch-first input detection: phones/tablets (hover-less, coarse pointer) get
+// larger tap targets, double-tap seek zones, safe-area padding, a centered
+// play glyph, and a stacked settings panel. Mouse/trackpad keeps the current
+// desktop chrome.
+const IS_TOUCH =
+  typeof window !== "undefined" &&
+  !!window.matchMedia &&
+  window.matchMedia("(hover: none), (pointer: coarse)").matches;
+const BTN_SIZE = IS_TOUCH ? 44 : 40;
+const SAFE_TOP = IS_TOUCH ? "calc(12px + env(safe-area-inset-top, 0px))" : "12px";
+const SAFE_BOTTOM = IS_TOUCH ? "calc(10px + env(safe-area-inset-bottom, 0px))" : "10px";
+
 /* Plain white circular icon button (Netflix transport glyphs). */
 function IconBtn({ label, onClick, children, active }) {
   return (
@@ -101,8 +119,8 @@ function IconBtn({ label, onClick, children, active }) {
         onClick?.(e);
       }}
       style={{
-        width: 40,
-        height: 40,
+        width: BTN_SIZE,
+        height: BTN_SIZE,
         borderRadius: "50%",
         border: "none",
         background: "transparent",
@@ -222,6 +240,16 @@ export default function NativePlayerView({
   const metaRef = useRef({ variants: [], sourceKey: null, refUrl: null, cinesrcLevels: false });
   const idleTimer = useRef(null);
   const clickTimer = useRef(null);
+  // Touch tap wiring: last-tap info for double-tap seek (±10s by screen side),
+  // the pending single-tap toggle, and a flag that swallows the synthetic
+  // click a browser fires right after touchend (it would double-toggle).
+  const touchTapRef = useRef({ time: 0, side: 0 });
+  const singleTapTimer = useRef(null);
+  const suppressClickRef = useRef(false);
+  // Live views of the play/seek closures for the media-session handlers (the
+  // handlers register once, so they must never capture a stale render).
+  const togglePlayRef = useRef(() => {});
+  const seekRelativeRef = useRef(() => {});
   // Pending "drop the hover overlay" deadline after a released scrub. Cleared
   // when a NEW scrub starts, or the bar snaps back to the playback head
   // mid-drag when the leftover 250ms timer fires between the two gestures.
@@ -356,6 +384,7 @@ export default function NativePlayerView({
       // Autoplay policy — the big custom button stays visible for a tap.
     }
   };
+  togglePlayRef.current = togglePlay;
 
   const seekTo = (value) => {
     const video = videoRef.current;
@@ -462,6 +491,7 @@ export default function NativePlayerView({
       // ignore out-of-range seeks
     }
   };
+  seekRelativeRef.current = seekRelative;
 
   /* Netflix resume: when a continue-watching entry exists for this title/
      episode, offer "Left off at …" once per session and auto-resume into the
@@ -574,10 +604,21 @@ export default function NativePlayerView({
 
   const goFullscreen = () => {
     try {
-      if (document.fullscreenElement) {
-        document.exitFullscreen()?.catch?.(() => {});
-      } else {
-        screenRef.current?.requestFullscreen?.()?.catch?.(() => {});
+      const video = videoRef.current;
+      const el = screenRef.current;
+      const rq = (el && (el.requestFullscreen || el.webkitRequestFullscreen)) || null;
+      if (rq) {
+        if (document.fullscreenElement || document.webkitFullscreenElement) {
+          const ex = document.exitFullscreen || document.webkitExitFullscreen;
+          ex?.call(document)?.catch?.(() => {});
+        } else {
+          rq.call(el)?.catch?.(() => {});
+        }
+      } else if (video && video.webkitEnterFullscreen) {
+        // iOS Safari: no DOM fullscreen for arbitrary <div>s — the <video>
+        // element itself enters a native fullscreen instead.
+        video.webkitEnterFullscreen();
+        setIsFullscreen(true);
       }
     } catch {
       // fullscreen unsupported — native video keeps playing inline
@@ -612,6 +653,36 @@ export default function NativePlayerView({
     }
   };
 
+  // Touch taps are handled on the video itself (overlay buttons/scrubber live
+  // above it and keep their own clicks). Single tap = play/pause; a second
+  // tap on the SAME half within 350ms = ±10s seek (Netflix mobile style).
+  const handleVideoTouchEnd = (e) => {
+    poke();
+    suppressClickRef.current = true;
+    if (buffering) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const t = e.changedTouches && e.changedTouches[0];
+    if (!rect.width || !t) return;
+    const side = t.clientX < rect.left + rect.width / 2 ? -1 : 1;
+    const now = performance.now();
+    const prev = touchTapRef.current;
+    if (now - prev.time < 350 && prev.side === side) {
+      touchTapRef.current = { time: 0, side: 0 };
+      if (singleTapTimer.current) {
+        clearTimeout(singleTapTimer.current);
+        singleTapTimer.current = null;
+      }
+      seekRelative(side * SKIP_SECONDS);
+      return;
+    }
+    touchTapRef.current = { time: now, side };
+    if (singleTapTimer.current) clearTimeout(singleTapTimer.current);
+    singleTapTimer.current = setTimeout(() => {
+      singleTapTimer.current = null;
+      togglePlay();
+    }, 260);
+  };
+
   /* Custom transport state (no native video controls — play/pause/seek/time/
      fullscreen below are all wired by hand). */
   useEffect(() => {
@@ -620,8 +691,12 @@ export default function NativePlayerView({
     const onPlay = () => {
       setPlaying(true);
       setBuffering(false);
+      if (navigator.mediaSession) navigator.mediaSession.playbackState = "playing";
     };
-    const onPause = () => setPlaying(false);
+    const onPause = () => {
+      setPlaying(false);
+      if (navigator.mediaSession) navigator.mediaSession.playbackState = "paused";
+    };
     const onEnded = () => {
       setPlaying(false);
       setEnded(true);
@@ -721,12 +796,68 @@ export default function NativePlayerView({
     }
   }, [volume, muted]);
 
-  /* Fullscreen icon follows the real fullscreen state. */
+  /* Fullscreen icon follows the real fullscreen state (incl. iOS webkit). */
   useEffect(() => {
-    const onFull = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    const onFull = () =>
+      setIsFullscreen(Boolean(document.fullscreenElement || document.webkitFullscreenElement));
     document.addEventListener("fullscreenchange", onFull);
-    return () => document.removeEventListener("fullscreenchange", onFull);
+    document.addEventListener("webkitfullscreenchange", onFull);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFull);
+      document.removeEventListener("webkitfullscreenchange", onFull);
+    };
   }, []);
+
+  /* Media Session (Android/iOS lock screen + hardware buttons): advertise the
+     title, reflect play/pause, and answer the 10s-seek buttons. Registered
+     once — the handlers call live refs so nothing goes stale. */
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return undefined;
+    try {
+      navigator.mediaSession.metadata = new window.MediaMetadata({
+        title: displayTitle,
+        artist: displaySubtitle || "Streamly",
+        album: "Streamly",
+      });
+      navigator.mediaSession.setActionHandler("play", () => togglePlayRef.current());
+      navigator.mediaSession.setActionHandler("pause", () => {
+        try {
+          videoRef.current?.pause();
+        } catch {
+          // element not ready
+        }
+      });
+      navigator.mediaSession.setActionHandler("seekbackward", (d) =>
+        seekRelativeRef.current(-(d?.seekOffset || SKIP_SECONDS)),
+      );
+      navigator.mediaSession.setActionHandler("seekforward", (d) =>
+        seekRelativeRef.current(d?.seekOffset || SKIP_SECONDS),
+      );
+      navigator.mediaSession.setActionHandler("seekto", (d) => {
+        const v = videoRef.current;
+        if (!v || d?.seekTime == null) return;
+        try {
+          v.currentTime = d.seekTime;
+        } catch {
+          // out-of-range seek — clamp handled by the element itself
+        }
+      });
+      return () => {
+        try {
+          navigator.mediaSession.setActionHandler("play", null);
+          navigator.mediaSession.setActionHandler("pause", null);
+          navigator.mediaSession.setActionHandler("seekbackward", null);
+          navigator.mediaSession.setActionHandler("seekforward", null);
+          navigator.mediaSession.setActionHandler("seekto", null);
+        } catch {
+          // session unavailable
+        }
+      };
+    } catch {
+      // MediaMetadata/session unsupported — playback is unaffected
+    }
+    return undefined;
+  }, [displayTitle, displaySubtitle]);
 
   /* Re-arm the autohide timer whenever play state flips. */
   useEffect(() => {
@@ -1631,18 +1762,35 @@ export default function NativePlayerView({
           cursor: !controlsVisible && playing ? "none" : "default",
           userSelect: "none",
           WebkitUserSelect: "none",
+          touchAction: "manipulation",
         }}
       >
         <video
           ref={videoRef}
           playsInline
-          onClick={handleVideoClick}
+          onClick={(e) => {
+            // A just-completed touch already acted (single/double tap) — the
+            // browser's synthetic click must not toggle play on top of it.
+            if (suppressClickRef.current) {
+              suppressClickRef.current = false;
+              return;
+            }
+            handleVideoClick(e);
+          }}
+          onTouchStart={() => {
+            // A fresh touch re-arms the click-swallow (a prior touch that
+            // scrolled away never produced a click to clear it).
+            suppressClickRef.current = false;
+          }}
+          onTouchEnd={IS_TOUCH ? handleVideoTouchEnd : undefined}
           style={{
             width: "100%",
             height: "100%",
             display: "block",
             objectFit: "contain",
             background: "#000",
+            touchAction: "manipulation",
+            WebkitUserSelect: "none",
           }}
         />
         {/* Subtitle overlay — active OpenSubtitles line, bottom-anchored above
@@ -1679,7 +1827,7 @@ export default function NativePlayerView({
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            padding: "12px 12px 28px",
+            padding: `${SAFE_TOP} 12px 28px`,
             background: "linear-gradient(rgba(0,0,0,0.65), transparent)",
             opacity: controlsVisible ? 1 : 0,
             transition: "opacity 0.3s",
@@ -1696,6 +1844,7 @@ export default function NativePlayerView({
           >
             <ArrowLeft size={26} />
           </IconBtn>
+          {!IS_TOUCH && (
           <button
             type="button"
             onClick={(e) => {
@@ -1721,9 +1870,12 @@ export default function NativePlayerView({
           >
             <Bug size={14} /> Log
           </button>
+          )}
         </div>
-        {/* Center: red buffering spinner, or the replay button at the end
-            (Netflix end state). No center play glyph otherwise. */}
+        {/* Center: red buffering spinner; on touch, a big play glyph whenever the
+            stream is simply paused (incl. the autoplay-policy case where a
+            cold start can't play without a tap); the replay button at the end
+            (Netflix end state). */}
         {buffering && (
           <div
             role="status"
@@ -1740,6 +1892,36 @@ export default function NativePlayerView({
           >
             <Loader2 size={56} className="animate-spin" color={NETFLIX_RED} />
           </div>
+        )}
+        {IS_TOUCH && !buffering && !ended && !playing && status === "playing" && (
+          <button
+            type="button"
+            onClick={() => {
+              poke();
+              togglePlayRef.current();
+            }}
+            aria-label="Play"
+            title="Play"
+            style={{
+              position: "absolute",
+              inset: 0,
+              margin: "auto",
+              width: 88,
+              height: 88,
+              borderRadius: "50%",
+              border: "2px solid rgba(255,255,255,0.85)",
+              background: "rgba(0,0,0,0.5)",
+              color: "#fff",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 3,
+              boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
+            }}
+          >
+            <Play size={40} fill="currentColor" />
+          </button>
         )}
         {!buffering && ended && (
           <button
@@ -1774,7 +1956,7 @@ export default function NativePlayerView({
             left: 0,
             right: 0,
             bottom: 0,
-            padding: "8px 16px 10px",
+            padding: `8px 16px ${SAFE_BOTTOM}`,
             background: "linear-gradient(transparent, rgba(0,0,0,0.82))",
             opacity: controlsVisible ? 1 : 0,
             transition: "opacity 0.3s",
@@ -1918,8 +2100,8 @@ export default function NativePlayerView({
                 }}
                 style={{
                   position: "relative",
-                  width: 40,
-                  height: 40,
+                  width: BTN_SIZE,
+                  height: BTN_SIZE,
                   borderRadius: "50%",
                   border: "none",
                   background: "transparent",
@@ -1944,8 +2126,8 @@ export default function NativePlayerView({
                 }}
                 style={{
                   position: "relative",
-                  width: 40,
-                  height: 40,
+                  width: BTN_SIZE,
+                  height: BTN_SIZE,
                   borderRadius: "50%",
                   border: "none",
                   background: "transparent",
@@ -1968,7 +2150,7 @@ export default function NativePlayerView({
                 <IconBtn label={muted ? "Unmute" : "Mute"} onClick={toggleMute}>
                   <VolumeIcon size={26} />
                 </IconBtn>
-                {volHover && (
+                {!IS_TOUCH && volHover && (
                   <input
                     type="range"
                     min={0}
@@ -2187,8 +2369,15 @@ export default function NativePlayerView({
               position: "absolute",
               right: 12,
               bottom: 168,
-              width: panel === "subs" ? "min(560px, 92%)" : "min(330px, 82%)",
-              maxHeight: "62%",
+              width:
+                panel === "subs"
+                  ? IS_TOUCH
+                    ? "min(560px, calc(100% - 24px))"
+                    : "min(560px, 92%)"
+                  : IS_TOUCH
+                    ? "min(330px, calc(100% - 24px))"
+                    : "min(330px, 82%)",
+              maxHeight: IS_TOUCH ? "82%" : "62%",
               overflowY: "auto",
               background: "rgba(18,18,18,0.97)",
               border: "1px solid rgba(255,255,255,0.12)",
@@ -2206,7 +2395,7 @@ export default function NativePlayerView({
               </IconBtn>
             </div>
             {panel === "subs" ? (
-              <div style={{ display: "flex", gap: 16 }}>
+              <div style={{ display: "flex", gap: 16, flexDirection: IS_TOUCH ? "column" : "row" }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", margin: "8px 0 2px" }}>
                     Audio
