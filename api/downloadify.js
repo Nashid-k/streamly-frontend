@@ -1221,7 +1221,7 @@ async function handleResolveNetmirror(body, res) {
       });
       if (mirror?.ok) payload = mirror;
     } catch (error) {
-      // keep the net27 payload; the mirror path is best-effort
+      payload = { ...payload, mirrorError: error?.message || "mirror fallback failed" };
     }
   }
 
@@ -1282,16 +1282,16 @@ async function handlePlaylist(body, res) {
     // session cookie p.php handed out; the segment/level CDNs behind them
     // (s20/s21.freecdn*.top) are open-CORS and need nothing.
     let extraHeaders = {};
+    let mirrorInfo = null;
     try {
       const u = new URL(playlistUrl);
       if (netmirrorMirrorHosts.has(u.host)) {
-        extraHeaders = {
-          cookie: await netmirrorCookieFor(u.origin),
-          "x-requested-with": "XMLHttpRequest",
-        };
+        const cookie = await netmirrorCookieFor(u.origin);
+        extraHeaders = { cookie, "x-requested-with": "XMLHttpRequest" };
+        mirrorInfo = "mirror cookie minted";
       }
-    } catch {
-      // mirror handshake hiccup → the fetch below fails cleanly (502)
+    } catch (error) {
+      mirrorInfo = `mirror handshake: ${error?.message || "failed"}`;
     }
     const text = await fetchUpstream(playlistUrl, {
       referer: body.refUrl ? String(body.refUrl) : playlistUrl,
@@ -1306,6 +1306,7 @@ async function handlePlaylist(body, res) {
       ok: false,
       error: `Playlist fetch failed: ${error?.message || "unknown"}`,
       code: "manifest-fetch-failed",
+      mirrorInfo: mirrorInfo || undefined,
     });
   }
 }
