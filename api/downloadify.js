@@ -952,21 +952,34 @@ async function netmirrorCookieFor(mirror) {
   const timer = setTimeout(() => controller.abort(), 12000);
   try {
     // Mirrors reject cross-site form POSTs; speak as a same-origin page.
+    // The mirror 301s the handshake from some egresses (geo/CDN) — follow the
+    // hops manually (POST kept on 307/308, GET after 301/302/303) with the
+    // same SSRF re-validation as fetchUpstream.
     const headers = baseHeaders();
     headers["content-type"] = "application/x-www-form-urlencoded";
     headers.origin = mirror;
     headers.referer = `${mirror}/home`;
     headers["x-requested-with"] = "XMLHttpRequest";
-    const upstream = await fetchNoRedirect(`${mirror}/p.php`, {
-      method: "POST",
-      headers,
-      body: "init=1",
-      signal: controller.signal,
-    });
-    const setCookie = upstream.headers.get("set-cookie") || "";
+    let current = `${mirror}/p.php`;
+    let method = "POST";
+    let body = "init=1";
+    let upstream = null;
+    for (let hop = 0; hop < MAX_REDIRECTS; hop += 1) {
+      upstream = await fetchNoRedirect(current, { method, headers, body: method === "POST" ? body : undefined, signal: controller.signal });
+      if (upstream.status < 300 || upstream.status >= 400) break;
+      const location = upstream.headers.get("location");
+      if (!location) throw new Error(`handshake redirect without location (${upstream.status})`);
+      current = await assertPublicDestination(new URL(location, current).toString());
+      if (upstream.status !== 307 && upstream.status !== 308) {
+        method = "GET";
+        body = null;
+        delete headers["content-type"];
+      }
+    }
+    const setCookie = upstream?.headers.get("set-cookie") || "";
     const tHash = /(?:^|;)\s*t_hash=([^;]+)/.exec(setCookie)?.[1] || "";
-    if (!tHash || upstream.status >= 400) {
-      throw new Error(`handshake failed (${upstream.status})`);
+    if (!tHash || !upstream || upstream.status >= 400) {
+      throw new Error(`handshake failed (${upstream?.status || "no response"})`);
     }
     const cookie = `t_hash_t=${NETMIRROR_T_HASH_T}; t_hash=${tHash}`;
     netmirrorCookieCache.set(mirror, { cookie, expires: now + 20 * 60 * 1000 });
