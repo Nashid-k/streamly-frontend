@@ -471,7 +471,7 @@ describe("downloadService.saveStream", () => {
     // ONE proxy request per segment (whole-fragment 60MB slice) — no Vercel.
     expect(proxyCalls.length).toBe(1);
     expect(proxyCalls[0].to).toBe(
-      `https://streamly-proxy.nashidk1999.workers.dev?url=${encodeURIComponent(SEGMENT)}`,
+      `https://streamly-proxy.nashidk1999.workers.dev?url=${encodeURIComponent(SEGMENT)}&referer=${encodeURIComponent("https://vidcore.io/")}`,
     );
     expect(proxyCalls[0].range).toBe(`bytes=0-${60 * 1024 * 1024 - 1}`);
     expect(vercelCalls.length).toBe(0);

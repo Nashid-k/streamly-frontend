@@ -9,6 +9,14 @@
 //     CORS + Range (VidCore's paperorbit.top/quietnexus.top: `*`, +206), and
 //     fall back to the downloadify `segment` range-relay otherwise (VidSrc's
 //     pchrelay hosts). The per-origin probe result is cached per page load.
+//   · Referer-GATED hosts (VidCore's moon.quietridge.top / palehive.top) are
+//     NEVER poked direct — a bare browser probe carries the app's referer, the
+//     CDN 403s it on sight and a burst of such probes trips its WAF (which is
+//     what made tall renditions "play a few seconds, then endless loading").
+//     They go straight to the relay; the Cloudflare proxy gets the source's
+//     own referer in the URL (?url=...&referer=...) so a redeployed worker
+//     serves them whole-fragment, and /api/downloadify (which always sends the
+//     referer) stays the automatic fallback.
 //   · VERCEL-FREE RULE: direct costs us nothing; every relayed byte costs
 //     bandwidth + invocations. So direct is always tried first, a throttling
 //     origin (401/403/429) is put on relay-only cooldown instead of being
@@ -67,6 +75,22 @@ const probeCache = new Map();
 // origin -> timestamp (ms) until which direct fetches are skipped.
 const directBlockedUntil = new Map();
 
+/* Hosts whose CDN gates on the owning player's referer (VidCore family):
+   a bare browser fetch (app referer) gets 403, and a burst of those probes
+   trips the CDN WAF, stalling tall renditions. These are relay-only by
+   construction — the relay (redeployed proxy or Vercel) supplies the referer. */
+const REFERER_GATED_HOST_SUFFIXES = ["quietridge.top", "palehive.top"];
+
+export function isRefererGated(url) {
+  let hostname = null;
+  try {
+    hostname = new URL(url).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  return REFERER_GATED_HOST_SUFFIXES.some((sfx) => hostname === sfx || hostname.endsWith(`.${sfx}`));
+}
+
 function originOf(url) {
   try {
     return new URL(url).origin;
@@ -79,6 +103,9 @@ function originOf(url) {
    cooldown (or the URL is unparseable) — the caller goes straight to the
    relay without spending a doomed direct attempt. */
 export function isDirectBlocked(url) {
+  // Referer-gated hosts are permanently direct-blocked: a bare browser probe
+  // is a guaranteed 403 AND risks tripping the CDN's WAF for the session.
+  if (isRefererGated(url)) return true;
   const origin = originOf(url);
   if (!origin) return true;
   const until = directBlockedUntil.get(origin);
@@ -162,17 +189,21 @@ export async function probeSourcePlayable(entryUrl, refUrl, { signal } = {}) {
     const target = media?.segments?.[0]?.url || media?.initUrl;
     if (!target) return { ok: false, reason: "playlist has no segments" };
     // 1) direct byte sip (1 byte Range — cheap, and exactly the path playback
-    //    will use first).
-    try {
-      const res = await fetch(target, { headers: { range: "bytes=0-0" }, signal });
-      if (res.ok) {
-        res.body?.cancel?.().catch?.(() => {});
-        return { ok: true, via: "direct" };
+    //    will use first). Referer-gated hosts skip this entirely: their CDN
+    //    403s a bare app-referer probe, and a burst of such probes is exactly
+    //    what trips the WAF that stalls tall renditions.
+    if (!isRefererGated(target)) {
+      try {
+        const res = await fetch(target, { headers: { range: "bytes=0-0" }, signal });
+        if (res.ok) {
+          res.body?.cancel?.().catch?.(() => {});
+          return { ok: true, via: "direct" };
+        }
+      } catch {
+        // fall through to the relay sip below
       }
-    } catch {
-      // fall through to the relay sip below
+      if (signal?.aborted) throw new Error("Aborted");
     }
-    if (signal?.aborted) throw new Error("Aborted");
     // 2) relay byte sip (4KB through downloadify — server IP + referer).
     try {
       const res = await postDownloadify(
@@ -205,6 +236,11 @@ async function postDownloadify(body, { signal } = {}) {
         ];
   const isSegment = body.action === "segment";
   const start = Math.max(0, Math.floor(Number(body.range?.start) || 0));
+  // The proxy can carry the owning player's referer (an upgraded worker
+  // forwards ?referer= upstream) — referer-gated CDNs like VidCore's
+  // moon/palehive 403 a bare worker fetch, so this is what lets the proxy
+  // serve them whole-fragment instead of taxing Vercel.
+  const referer = body.refUrl ? String(body.refUrl) : "";
   let lastError;
   for (let index = 0; index < candidates.length; index += 1) {
     const candidate = candidates[index];
@@ -212,7 +248,9 @@ async function postDownloadify(body, { signal } = {}) {
     const request =
       candidate.mode === "proxy"
         ? {
-            url: `${candidate.base}?url=${encodeURIComponent(target)}`,
+            url: `${candidate.base}?url=${encodeURIComponent(target)}${
+              referer ? `&referer=${encodeURIComponent(referer)}` : ""
+            }`,
             init: {
               method: "GET",
               // The proxy forwards the Range to the origin AND its slices are

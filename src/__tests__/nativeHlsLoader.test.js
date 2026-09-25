@@ -3,6 +3,7 @@ import {
   clearDirectBlocks,
   clearProbeCache,
   createStreamlyLoader,
+  isRefererGated,
   probeDirectOrigin,
   probeSourcePlayable,
 } from "../api/nativeHlsLoader";
@@ -88,6 +89,21 @@ describe("probeDirectOrigin", () => {
     // aborted { ok:false } verdict.
     const second = await probeDirectOrigin("https://paperorbit.top/vd/x/b.m4s");
     expect(second.ok).toBe(true);
+  });
+});
+
+describe("isRefererGated", () => {
+  it("flags VidCore's referer-gated CDN hosts (manifest + segment)", () => {
+    expect(isRefererGated("https://moon.quietridge.top/vd/x/index-s1080p-v1-a1.m3u8")).toBe(true);
+    expect(isRefererGated("https://palehive.top/vd/x/seg-1-s1080p-v1-a1.m4s")).toBe(true);
+    expect(isRefererGated("https://sub.quietridge.top/vd/x/init-s720p-v1-a1.mp4")).toBe(true);
+  });
+
+  it("leaves open-CORS hosts untouched", () => {
+    expect(isRefererGated("https://paperorbit.top/vd/x/seg-1.m4s")).toBe(false);
+    expect(isRefererGated("https://quietnexus.top/vd/x/seg-1.m4s")).toBe(false);
+    expect(isRefererGated("https://cdn.example.com/seg-1.m4s")).toBe(false);
+    expect(isRefererGated("not-a-url")).toBe(false);
   });
 });
 
@@ -398,11 +414,68 @@ describe("createStreamlyLoader", () => {
     // the proxy has no serverless response cap (60MB slice ceiling).
     expect(proxyCalls.length).toBe(1);
     expect(proxyCalls[0].to).toBe(
-      `https://streamly-proxy.nashidk1999.workers.dev?url=${encodeURIComponent(SEGMENT)}`,
+      `https://streamly-proxy.nashidk1999.workers.dev?url=${encodeURIComponent(SEGMENT)}&referer=${encodeURIComponent("https://vidcore.io/")}`,
     );
     expect(proxyCalls[0].range).toBe(`bytes=0-${60 * 1024 * 1024 - 1}`);
     expect(vercelCalls.length).toBe(0);
     expect([...new Uint8Array(response.data)]).toEqual([9, 8, 7]);
+  });
+
+  it("never pokes a referer-gated host direct — fragment goes straight to the relay with the referer", async () => {
+    const GATED = "https://palehive.top/vd/x/seg-1-s1080p-v1-a1.m4s";
+    const directCalls = [];
+    const proxyCalls = [];
+    const vercelCalls = [];
+    vi.stubEnv("VITE_STREAMLY_RELAY_URL", "https://streamly-proxy.nashidk1999.workers.dev");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        const to = String(url);
+        if (to.startsWith("https://palehive.top") || to.startsWith("https://moon.quietridge.top")) {
+          // A bare browser probe/pull of these hosts is a guaranteed 403 AND a
+          // WAF trip — the fix must mean this NEVER happens.
+          directCalls.push(to);
+          return { ok: false, status: 403, headers: { get: () => null }, body: { cancel: async () => {} } };
+        }
+        const body = JSON.parse(init?.body || "null");
+        if (body && body.action === "segment") {
+          vercelCalls.push(body);
+          return {
+            ok: true,
+            status: 200,
+            headers: { get: (name) => (name === "x-streamly-more" ? "0" : "application/octet-stream") },
+            arrayBuffer: async () => new Uint8Array([1, 2, 3, 4]).buffer,
+          };
+        }
+        if (to.includes("workers.dev")) {
+          proxyCalls.push(to);
+          return { ok: false, status: 403, headers: { get: () => null }, body: { cancel: async () => {} } };
+        }
+        return { ok: true, status: 206, headers: { get: (name) => (name === "content-range" ? "bytes 0-3/4" : null) }, arrayBuffer: async () => new Uint8Array([1, 2, 3, 4]).buffer };
+      }),
+    );
+    const Loader = createStreamlyLoader({ getRefUrl: () => "https://vidcore.io/" });
+    const loader = new Loader();
+    const response = await new Promise((resolve, reject) => {
+      loader.load(
+        { url: GATED, frag: { sn: 1 } },
+        {},
+        {
+          onSuccess: (resp) => resolve(resp),
+          onError: (err) => reject(new Error(err.text)),
+        },
+      );
+    });
+    // No direct probe, no direct pull — the bare app-referer request never fires.
+    expect(directCalls.length).toBe(0);
+    // The proxy attempt carried the owning player's referer (so a redeployed
+    // worker can serve it); its 403 cascades to the Vercel relay, which served.
+    expect(proxyCalls.length).toBe(1);
+    expect(proxyCalls[0]).toBe(
+      `https://streamly-proxy.nashidk1999.workers.dev?url=${encodeURIComponent(GATED)}&referer=${encodeURIComponent("https://vidcore.io/")}`,
+    );
+    expect(vercelCalls.length).toBe(1);
+    expect([...new Uint8Array(response.data)]).toEqual([1, 2, 3, 4]);
   });
 
   it("falls back to the Vercel relay when the proxy is down", async () => {
@@ -700,6 +773,37 @@ describe("probeSourcePlayable", () => {
     );
     const probe = await probeSourcePlayable("https://cdn.example.com/x/master.m3u8", "https://vidcore.io/");
     expect(probe).toMatchObject({ ok: true, via: "direct" });
+  });
+
+  it("probes a referer-gated source via the relay only (no direct sip)", async () => {
+    const directCalls = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        const to = String(url);
+        if (to.startsWith("https://palehive.top") && !to.includes("downloadify")) {
+          directCalls.push(to);
+          return { ok: false, status: 403, headers: { get: () => null } };
+        }
+        if (typeof to === "string" && to.includes("downloadify")) {
+          const body = JSON.parse(init.body);
+          if (body.action === "playlist") {
+            return { ok: true, status: 200, headers: { get: () => "text" }, text: async () => MEDIA_PLAYLIST };
+          }
+          return {
+            ok: true,
+            status: 200,
+            headers: { get: (name) => (name === "x-streamly-more" ? "0" : "application/octet-stream") },
+            arrayBuffer: async () => new Uint8Array([1]).buffer,
+          };
+        }
+        return { ok: true, status: 206, headers: { get: (name) => (name === "content-range" ? "bytes 0-0/1" : null) } };
+      }),
+    );
+    const probe = await probeSourcePlayable("https://palehive.top/vd/x/index.m3u8", "https://vidcore.io/");
+    expect(probe).toMatchObject({ ok: true, via: "relay" });
+    // The bare app-referer byte sip never fired — gated hosts are relay-only.
+    expect(directCalls.length).toBe(0);
   });
 
   it("passes via relay when direct is throttled but the relay serves", async () => {

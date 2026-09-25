@@ -117,15 +117,24 @@ async function fetchTransport(body, { signal }) {
   const candidates = proxy ? [proxy, null] : [null];
   const isSegment = body.action === "segment";
   const start = Math.max(0, Math.floor(Number(body.range?.start) || 0));
+  // An upgraded worker forwards ?referer= upstream, which is what lets it
+  // serve referer-gated CDNs (VidCore's moon.quietridge.top / palehive.top)
+  // instead of 403ing and falling back to the Vercel function on every byte.
+  const referer = body.refUrl ? String(body.refUrl) : "";
   for (let index = 0; index < candidates.length; index += 1) {
     const cfg = candidates[index];
     try {
       const response = cfg
-        ? await fetch(`${cfg.base}?url=${encodeURIComponent(isSegment ? body.url : body.playlistUrl)}`, {
-            method: "GET",
-            headers: isSegment ? { range: `bytes=${start}-${start + cfg.slice - 1}` } : undefined,
-            signal,
-          })
+        ? await fetch(
+            `${cfg.base}?url=${encodeURIComponent(isSegment ? body.url : body.playlistUrl)}${
+              referer ? `&referer=${encodeURIComponent(referer)}` : ""
+            }`,
+            {
+              method: "GET",
+              headers: isSegment ? { range: `bytes=${start}-${start + cfg.slice - 1}` } : undefined,
+              signal,
+            },
+          )
         : await fetch(ENDPOINT, {
             method: "POST",
             headers: { "content-type": "application/json" },

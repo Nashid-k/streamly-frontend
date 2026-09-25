@@ -7,8 +7,15 @@
 // transport (segments, playlists) at it first takes the bytes OFF Vercel Hobby
 // (no serverless 4.5MB body cap, no egress charge) — one request can pull a
 // whole fMP4 fragment instead of a fan-out of 3.5MB slices. Vercel
-// /api/downloadify remains the automatic fallback when the worker is down
-// (and is the only relay that can carry the player Referer some hosts demand).
+// /api/downloadify remains the automatic fallback when the worker is down.
+//
+// Referer-gated CDNs (VidCore's moon.quietridge.top / palehive.top) 403 a
+// bare fetch, so the client passes the owning player's referer as a
+// ?referer= query param: a worker deployed with the referer-forwarding snippet
+// sets it as the upstream Referer header, letting the proxy serve those hosts
+// whole-fragment (no Vercel burn). Older worker builds ignore the param and
+// 403 — the loader/downloader then cascade to the Vercel function, which
+// always carries the referer and therefore still works.
 
 const WORKER_SLICE_MAX = 60 * 1024 * 1024;
 
