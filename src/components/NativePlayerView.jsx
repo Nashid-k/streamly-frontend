@@ -36,7 +36,9 @@ import {
 import Hls from "hls.js";
 import { downloadService } from "../api/downloadService";
 import { createStreamlyLoader, probeSourcePlayable } from "../api/nativeHlsLoader";
+import { SubtitleFetcher } from "../api/subtitleFetcher";
 import { logWarn } from "../utils/debugLogger";
+import { SubtitleEngine } from "../utils/subtitleEngine";
 
 // A source whose fragments keep failing without ever going fatal (VidCore's
 // vidzen fallback: playlist 200, segments 429 on repeat) would otherwise spin
@@ -182,6 +184,9 @@ export default function NativePlayerView({
   episode = 1,
   title,
   subtitle,
+  // IMDb id used to look up OpenSubtitles tracks ({imdbId} or {imdb_id} from
+  // TMDB). Optional — subtitle menu shows "not found" when absent.
+  imdbId = "",
   episodes = [],
   onSelectEpisode,
   onClose,
@@ -222,6 +227,13 @@ export default function NativePlayerView({
   // Underflow watchdog: remembers when the forward buffer first dipped below
   // BUFFER_FLOOR_SECONDS so the step-down fires only after a sustained shortfall.
   const lowBufferRef = useRef({ since: 0, prev: -1 });
+  // Subtitle render state. The cue text is derived on video `timeupdate` from a
+  // SubtitleEngine binary-search; a ref snapshot avoids re-rendering the whole
+  // player on every tick (only when the active line actually changes).
+  const subtitleEngineRef = useRef(null);
+  const subtitleEnabledRef = useRef(false); // mirrors state, read inside onTime
+  const subtitleCueRef = useRef(null); // last rendered cue text
+  const subtitleTokenRef = useRef(0); // download race guard (last pick wins)
 
   const [lines, setLines] = useState([]);
   const [status, setStatus] = useState("idle");
@@ -251,6 +263,12 @@ export default function NativePlayerView({
   const [currentHeight, setCurrentHeight] = useState(null);
   // Netflix resume card: { at, left } where `at` is the saved position in s.
   const [resumeOffer, setResumeOffer] = useState(null);
+  // Subtitles (OpenSubtitles + SubtitleEngine overlay, mirrors CustomVideoPlayer).
+  const [subtitleLanguages, setSubtitleLanguages] = useState([]); // [{language, languageId, downloadLink}]
+  const [subtitleEnabled, setSubtitleEnabled] = useState(false);
+  const [activeSubtitle, setActiveSubtitle] = useState(null); // current cue line or null
+  const [currentSubtitle, setCurrentSubtitle] = useState(null); // the selected track object
+  const [isFetchingSubtitles, setIsFetchingSubtitles] = useState(false);
   // Netflix chrome state.
   const [controlsVisible, setControlsVisible] = useState(true);
   const [panel, setPanel] = useState(null); // null | "subs" | "episodes"
@@ -605,6 +623,16 @@ export default function NativePlayerView({
         setBufferedRanges(ranges);
       } catch {
         // buffered unreadable yet
+      }
+      // Subtitles: only touch React when the active line changes.
+      const engine = subtitleEngineRef.current;
+      if (engine && subtitleEnabledRef.current) {
+        const cue = engine.getActiveCue(video.currentTime || 0);
+        const text = cue?.text || null;
+        if (text !== subtitleCueRef.current) {
+          subtitleCueRef.current = text;
+          setActiveSubtitle(text);
+        }
       }
     };
     const onMeta = () => setDuration(video.duration || 0);
@@ -1376,6 +1404,106 @@ export default function NativePlayerView({
     say(`Audio -> ${audioTracks[index]?.name || index}.`);
   };
 
+  /* Subtitles: OpenSubtitles track list for THIS title (mirrors
+     CustomVideoPlayer). Selected line is downloaded+decompressed, parsed into a
+     SubtitleEngine, and the active cue overlaid on the frame. */
+  const applySubtitleCue = (text) => {
+    subtitleCueRef.current = text;
+    setActiveSubtitle(text);
+  };
+
+  const selectSubtitle = async (entry) => {
+    if (!entry) {
+      subtitleEnabledRef.current = false;
+      subtitleEngineRef.current?.setCues([]);
+      setSubtitleEnabled(false);
+      setCurrentSubtitle(null);
+      applySubtitleCue(null);
+      return;
+    }
+    subtitleTokenRef.current += 1;
+    const token = subtitleTokenRef.current;
+    setSubtitleEnabled(true);
+    subtitleEnabledRef.current = true;
+    setCurrentSubtitle(entry);
+    applySubtitleCue(null);
+    try {
+      window.localStorage.setItem(
+        `streamly-native-subtitle-${id}`,
+        entry.languageId || entry.language,
+      );
+    } catch {
+      // storage full/blocked — subtitle still works this session
+    }
+    try {
+      const text = await SubtitleFetcher.downloadAndDecompress(entry.downloadLink);
+      if (token !== subtitleTokenRef.current) return; // a newer pick superseded this
+      if (!text) {
+        if (token === subtitleTokenRef.current) {
+          subtitleEnabledRef.current = false;
+          setSubtitleEnabled(false);
+          say("Subtitle download failed — try another language.");
+        }
+        return;
+      }
+      const parsed = SubtitleEngine.parseSRT(text);
+      const cues = parsed.length ? parsed : SubtitleEngine.parseVTT(text);
+      const engine = subtitleEngineRef.current || (subtitleEngineRef.current = new SubtitleEngine());
+      engine.setCues(cues);
+      if (token === subtitleTokenRef.current) {
+        const cue = engine.getActiveCue(videoRef.current?.currentTime || 0);
+        applySubtitleCue(cue?.text || null);
+        say(`Subtitles -> ${entry.language} (${cues.length} lines).`);
+      }
+    } catch {
+      if (token === subtitleTokenRef.current) {
+        subtitleEnabledRef.current = false;
+        setSubtitleEnabled(false);
+        say("Subtitle download failed — try another language.");
+      }
+    }
+  };
+
+  // Load the language list once per title; remember (and restore) the last
+  // chosen language per title id.
+  useEffect(() => {
+    let cancelled = false;
+    subtitleTokenRef.current += 1;
+    subtitleEnabledRef.current = false;
+    subtitleEngineRef.current?.setCues([]);
+    setSubtitleLanguages([]);
+    setSubtitleEnabled(false);
+    setCurrentSubtitle(null);
+    applySubtitleCue(null);
+    if (!imdbId) return undefined;
+    setIsFetchingSubtitles(true);
+    SubtitleFetcher.searchAvailableSubtitles(imdbId, title || "")
+      .then((langs) => {
+        if (cancelled) return;
+        const list = langs || [];
+        setSubtitleLanguages(list);
+        let remembered = null;
+        try {
+          remembered = window.localStorage.getItem(`streamly-native-subtitle-${id}`);
+        } catch {
+          // storage unavailable — no auto restore
+        }
+        if (remembered) {
+          const match =
+            list.find((l) => l.languageId === remembered) ||
+            list.find((l) => l.language === remembered);
+          if (match) selectSubtitle(match);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsFetchingSubtitles(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, type, imdbId]);
+
   const pickAuto = () => {
     const hls = hlsRef.current;
     if (!hls) return;
@@ -1418,6 +1546,30 @@ export default function NativePlayerView({
           onClick={handleVideoClick}
           style={{ width: "100%", display: "block", aspectRatio: "16 / 9", background: "#000" }}
         />
+        {/* Subtitle overlay — active OpenSubtitles line, bottom-anchored above
+            the control chrome like CustomVideoPlayer. */}
+        {activeSubtitle ? (
+          <div
+            style={{
+              position: "absolute",
+              left: "6%",
+              right: "6%",
+              bottom: "96px",
+              textAlign: "center",
+              zIndex: 3,
+              pointerEvents: "none",
+              lineHeight: 1.4,
+              fontSize: "clamp(16px, 2.6vw, 26px)",
+              fontWeight: 700,
+              color: "#fff",
+              whiteSpace: "pre-line",
+              textShadow: "0 2px 6px rgba(0,0,0,0.95), 0 0 2px rgba(0,0,0,0.9)",
+              WebkitTextStroke: "0 0 transparent",
+            }}
+          >
+            {activeSubtitle}
+          </div>
+        ) : null}
         {/* Top bar: back + debug toggle. */}
         <div
           style={{
@@ -1971,18 +2123,47 @@ export default function NativePlayerView({
                       />
                     ))
                   ) : (
-                    <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.5)", margin: "6px 0 2px", lineHeight: 1.45 }}>
-                      This source serves one soundtrack — no alternate audio to
-                      switch to.
-                    </p>
+                    // No alternate-audio groups (#EXT-X-MEDIA AUDIO) in this
+                    // source's ladder: hls.js reports no audioTracks, but the
+                    // soundtrack IS playing — surface it as the single track.
+                    <DialogRow
+                      key="original"
+                      selected
+                      title="Original"
+                      sub="This source's soundtrack"
+                    />
                   )}
                   <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", margin: "12px 0 2px" }}>
                     Subtitles
                   </p>
-                  <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.5)", margin: "6px 0 2px", lineHeight: 1.45 }}>
-                    Not available — the native sources don&apos;t carry subtitle
-                    tracks.
-                  </p>
+                  <DialogRow
+                    key="off"
+                    selected={!subtitleEnabled}
+                    onClick={() => selectSubtitle(null)}
+                    title="Off"
+                  />
+                  {isFetchingSubtitles ? (
+                    <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.5)", margin: "6px 0 2px", lineHeight: 1.45 }}>
+                      Searching OpenSubtitles…
+                    </p>
+                  ) : subtitleLanguages.length > 0 ? (
+                    subtitleLanguages.map((s) => (
+                      <DialogRow
+                        key={s.languageId || s.language}
+                        selected={
+                          subtitleEnabled &&
+                          s.languageId === currentSubtitle?.languageId &&
+                          s.language === currentSubtitle?.language
+                        }
+                        onClick={() => selectSubtitle(s)}
+                        title={s.language}
+                      />
+                    ))
+                  ) : (
+                    <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.5)", margin: "6px 0 2px", lineHeight: 1.45 }}>
+                      No subtitles found for this title on OpenSubtitles.
+                    </p>
+                  )}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", margin: "8px 0 2px" }}>

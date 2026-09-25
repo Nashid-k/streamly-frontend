@@ -2451,6 +2451,7 @@ servers={SERVERS}
                 }
                 onSelectEpisode={(n) => setNativeEpisode(n)}
                 onClose={() => setNativeOpen(false)}
+                imdbId={movie?.imdbId || ""}
                 watchedEntry={nativeWatchEntry}
                 onProgressChange={(t) => {
                   updateProgress(
