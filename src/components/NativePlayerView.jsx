@@ -166,6 +166,15 @@ const SOURCES = [
   { key: "cinesrc", label: "CineSrc (native)", resolve: (a, o) => downloadService.resolveCinesrc(a, o) },
 ];
 
+// A single open used to resolve each provider once and give up on the first
+// hiccup — but a fresh open commonly fails on the FIRST attempt (cold Vercel
+// function, warm-up 429s, or a rate-flaky catalogue returning empty sources)
+// and succeeds on a retry (the "hit Native again and it plays" loop). So a
+// source's pre-play failure gets ONE auto retry with a short backoff before we
+// move to the next provider. Terminal "no-source" answers are not retried.
+const SOURCE_RETRIES = 1;
+const SOURCE_RETRY_BACKOFF_MS = [800];
+
 const PARSE_TIMEOUT_MS = 75000;
 
 function stamp() {
@@ -943,6 +952,19 @@ export default function NativePlayerView({
           if (controller.signal.aborted) resolve("done");
           else controller.signal.addEventListener("abort", () => resolve("done"), { once: true });
         });
+      const sleep = (ms) =>
+        new Promise((resolve) => {
+          if (controller.signal.aborted) return resolve();
+          const timer = setTimeout(() => resolve(), ms);
+          controller.signal.addEventListener(
+            "abort",
+            () => {
+              clearTimeout(timer);
+              resolve();
+            },
+            { once: true },
+          );
+        });
       // A loader/relay failure that smells like an expired token (VidCore
       // path tokens and CineSrc sessions both rotate) rather than a dead
       // CDN. Downloads survive this via re-mint; playback must too.
@@ -953,20 +975,25 @@ export default function NativePlayerView({
         list.filter((v) => (v.height || 0) > 0 && (v.height || 0) <= 1080).sort((a, b) => (b.height || 0) - (a.height || 0))[0] ||
         list[0];
 
-      // Returns true when playback settled on this source (caller stops), false
-      // to move to the next source.
-      const runSource = async (def) => {
+      // One pass at a source. Returns `true` when playback settled on this
+      // source (caller stops), `false` on a TRANSIENT failure worth retrying
+      // (warm-up hiccup, empty ladder, flaky probe), or `"off"` on a TERMINAL
+      // failure (the provider says this title is not on it — no retry).
+      const runSourceOnce = async (def) => {
         say(`Trying ${def.label}…`);
         let resolved = null;
         try {
           resolved = await def.resolve(args, { signal: controller.signal });
         } catch (error) {
           say(`${def.label}: resolve failed (${error?.code || error?.message}) — next source.`);
+          if (error?.code === "no-source") return "off";
           return false;
         }
         let variants = resolved?.variants || [];
         if (variants.length === 0) {
-          say(`${def.label}: no variants — next source.`);
+          // Empty is NOT terminal: the videasy/vidzen catalogue returns empty
+          // lists when rate-flaky (task-verified) and recovers on retry.
+          say(`${def.label}: no variants (maybe rate-flaky) — retrying/moving on.`);
           return false;
         }
         let liveSource = resolved.source;
@@ -1245,13 +1272,33 @@ export default function NativePlayerView({
         return false;
       };
 
+      // Bounded retry wrapper: the first attempt on a fresh open frequently
+      // fails on warm-ups (cold serverless, upstream 429s, flaky empty ladders)
+      // and succeeds on the retry — which is exactly why the old player needed
+      // a manual re-click ("hit Native again and it plays"). Auto-retry once
+      // with a short backoff; TERMINAL "no-source" answers are not retried.
+      const runSource = async (def) => {
+        for (let retry = 0; ; retry += 1) {
+          if (stale()) return true;
+          if (retry > 0) {
+            if (retry > SOURCE_RETRIES) return false;
+            say(`${def.label}: transient failure — auto-retry ${retry}/${SOURCE_RETRIES}…`);
+            await sleep(SOURCE_RETRY_BACKOFF_MS[retry - 1] ?? 1200);
+            if (stale()) return true;
+          }
+          const outcome = await runSourceOnce(def);
+          if (outcome === true) return true;
+          if (outcome === "off") return false;
+        }
+      };
+
       for (const def of SOURCES) {
         if (stale()) return;
         if (await runSource(def)) return;
       }
       if (stale()) return;
       setStatus("error");
-      setFatal("No native source resolved this title (all four resolvers came up empty).");
+      setFatal("No native source resolved this title (all sources came up empty).");
       say("All sources exhausted.");
     })();
 
