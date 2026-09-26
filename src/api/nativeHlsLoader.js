@@ -144,6 +144,20 @@ export function clearDirectBlocks() {
   directBlockedUntil.clear();
 }
 
+/* One-off thumbnail relay: pull a byte range of a segment/init through the same
+   transport playback uses (Cloudflare proxy first, Vercel function fallback)
+   and hand it back as a Blob for MSE append. The scrubber preview's off-screen
+   decoder feeds on this — bytes flow exactly like a relayed fragment, so
+   referer-gated CDNs work there too. */
+export async function relaySegmentBlob(url, refUrl, start, max, { signal } = {}) {
+  const response = await postDownloadify(
+    { action: "segment", url, refUrl, range: { start, max } },
+    { signal },
+  );
+  await throwIfRelayError(response, "Preview segment request failed");
+  return response.blob();
+}
+
 /* Playability probe: confirm ONE real media byte flows before the player commits
    a screen. A resolver can return a perfect-looking ladder whose segments never
    arrive (vidzen: playlist 200 + duration, segments 429 forever), which plays

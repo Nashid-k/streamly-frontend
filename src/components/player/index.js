@@ -8,3 +8,4 @@ export { default as NetflixBrightnessHUD } from "./NetflixBrightnessHUD";
 export { default as NetflixAspectHUD } from "./NetflixAspectHUD";
 export { default as NetflixSeekHUD } from "./NetflixSeekHUD";
 export { default as NetflixPlayPauseHUD } from "./NetflixPlayPauseHUD";
+export { default as NetflixHold2xHUD } from "./NetflixHold2xHUD";

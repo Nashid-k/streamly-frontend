@@ -34,17 +34,28 @@ import {
   NetflixAspectHUD,
   NetflixSeekHUD,
   NetflixPlayPauseHUD,
+  NetflixHold2xHUD,
 } from "./player";
+import NetflixStillWatching from "./NetflixStillWatching";
 import Hls from "hls.js";
 import { downloadService } from "../api/downloadService";
 import { variantLabel } from "../utils/downloadQuality";
 import { createStreamlyLoader, probeSourcePlayable } from "../api/nativeHlsLoader";
 import { SubtitleFetcher } from "../api/subtitleFetcher";
-import { logWarn } from "../utils/debugLogger";
+import { logDebug, logWarn } from "../utils/debugLogger";
 import { SubtitleEngine } from "../utils/subtitleEngine";
 import { readStoredNumber } from "../utils/storedNumber";
 import useContainerSize from "../hooks/useContainerSize";
-import { hudMetrics, aspectVideoStyle, ASPECT_RATIOS } from "../constants/playerUi";
+import {
+  hudMetrics,
+  previewMetrics,
+  aspectVideoStyle,
+  ASPECT_RATIOS,
+  HOLD_SPEED,
+  STILL_WATCHING_IDLE_MS,
+  STILL_WATCHING_EPISODES,
+} from "../constants/playerUi";
+import { getPreviewThumb, clearPreviewCache, resetPreviewPipeline } from "../api/previewThumbs";
 
 // A source can fail fragments forever without ever going fatal (VidCore's
 // vidzen: playlist 200, segments 429 on repeat) — so fail over ourselves.
@@ -55,6 +66,11 @@ const HIDE_DELAY_MS = 3000;
 const SKIP_SECONDS = 10;
 // Netflix "Up Next" auto-play countdown for a TV episode's next installment.
 const UP_NEXT_MS = 15000;
+// Hold-to-2x (Netflix mobile): how long the right-side hold must run before 2x
+// engages, so a normal double-tap seek never fires it.
+const HOLD_2X_DELAY_MS = 420;
+// "Still watching?" prompt idles that long in pause before it stops asking.
+const STILL_WATCHING_OFFER_MS = 90 * 1000;
 // Netflix resume gate: how long the "Left off at…" card waits before auto-resume.
 const RESUME_WAIT_SECONDS = 8;
 // Forward-buffer policy (YouTube-style). The byte cap is scaled to the top
@@ -267,6 +283,22 @@ export default function NativePlayerView({
   const touchTapRef = useRef({ time: 0, side: 0 });
   const singleTapTimer = useRef(null);
   const suppressClickRef = useRef(false);
+  // Hold-to-2x bookkeeping: the timer that arms 2x, the rate it must restore,
+  // and a pointer id for pointer-cleanup symmetry.
+  const holdTimerRef = useRef(null);
+  const heldRateRef = useRef(1);
+  const holdPointerRef = useRef(null);
+  // Still-watching bookkeeping.
+  const swIdleRef = useRef(null); // rolling play-with-no-input timer
+  const swAutoAdvRef = useRef(0); // consecutive auto-advanced episodes
+  const swOfferTimerRef = useRef(null); // offer expiry
+  // Desktop hold-to-2x on the forward transport button.
+  const desktopHoldTimerRef = useRef(null);
+  const desktopHoldFiredRef = useRef(false);
+  // Scrubber preview state: the latest captured thumbnail (data URL) + request
+  // serial so a fast drag only renders the newest hover position.
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const previewReqRef = useRef(0);
   // Live views of the play/seek closures for media-session handlers that register once.
   const togglePlayRef = useRef(() => {});
   const seekRelativeRef = useRef(() => {});
@@ -279,12 +311,19 @@ export default function NativePlayerView({
   const resumeHandledKeyRef = useRef(null); // title/episode key that already offered resume
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  // Live views for closures that must not read stale hold/still-watching state.
+  const hold2xRef = useRef(false);
+  hold2xRef.current = hold2x;
+  const endedRef = useRef(false);
+  endedRef.current = ended;
   const onSelectEpisodeRef = useRef(onSelectEpisode);
   onSelectEpisodeRef.current = onSelectEpisode;
   const onGoPrevRef = useRef(onGoPrev);
   onGoPrevRef.current = onGoPrev;
   const onGoNextRef = useRef(onGoNext);
   onGoNextRef.current = onGoNext;
+  const keyboardEpPrevRef = useRef(() => {});
+  const keyboardEpNextRef = useRef(() => {});
   // Non-master "Auto" rung: the variant negotiated at settle (smooth start / relay-friendly).
   const autoUriRef = useRef(null);
   const autoUriHeightRef = useRef(null);
@@ -408,7 +447,14 @@ export default function NativePlayerView({
     });
     return Number.isInteger(i) && ASPECT_RATIOS[i] ? i : 0;
   });
-  const [hud, setHud] = useState(null); // { kind: "volume"|"brightness"|"aspect", value }
+  const [hud, setHud] = useState(null); // { kind: "volume"|"brightness"|"aspect"|"seek"|"play"|"pause"|"hold2x", value }
+  // Hold-to-2x (Netflix mobile): press-and-hold on the right half of the screen
+  // plays at 2x; release restores the previous rate. Desktop holds the forward
+  // transport button.
+  const [hold2x, setHold2x] = useState(false);
+  // Netflix "Still watching?" — after enough unattended playback or auto-advanced
+  // episodes, pause and ask. The offer expires if ignored.
+  const [stillWatching, setStillWatching] = useState(false);
   // Mirror refs: the keyboard + gesture handlers bind once, so they must read current values.
   const volumeRef = useRef(volume);
   volumeRef.current = volume;
@@ -547,7 +593,40 @@ export default function NativePlayerView({
 
   const onScrubLeave = () => {
     if (!scrubDragging) setScrubHover(null);
+    setPreviewUrl(null);
   };
+
+  /* Scrubber preview (Netflix/YouTube hover thumbnails): while hovering or
+     dragging, decode the frame at the hover position off-screen and show it in
+     a small card above the time bubble. Cache miss decodes ride the preview
+     pipeline (same transport as playback); failures resolve null and scrubbing
+     keeps working — the card just stays hidden until a capture lands. */
+  const previewBox = useMemo(() => previewMetrics(playerW, playerH), [playerW, playerH]);
+  useEffect(() => {
+    if (hoverRatio == null || safeDuration <= 0 || IS_TOUCH) {
+      previewReqRef.current += 1; // invalidate any queued capture
+      return undefined;
+    }
+    const meta = metaRef.current;
+    if (!meta?.sourceKey || !meta?.refUrl) return undefined;
+    // The preview pipeline mounts per source entry URL: master playlists get
+    // the master (the decoder picks its own rendition), per-quality sources
+    // get the smooth-start rendition that playback actually uses.
+    const target = meta.masterLevels ? meta.entryUrl : meta.refUrl;
+    if (!target) return undefined;
+    const seconds = Math.min(Math.max(hoverRatio * safeDuration, 0), Math.max(0, safeDuration - 0.5));
+    const mine = ++previewReqRef.current;
+    let cancelled = false;
+    getPreviewThumb({ url: target, refUrl: meta.refUrl, sourceKey: meta.sourceKey, seconds }).then(
+      (thumb) => {
+        if (!cancelled && thumb && previewReqRef.current === mine) setPreviewUrl(thumb);
+      },
+      () => {},
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [hoverRatio, safeDuration]);
 
   const seekRelative = (delta) => {
     const video = videoRef.current;
@@ -737,7 +816,134 @@ export default function NativePlayerView({
     if (videoRef.current && !videoRef.current.paused) {
       idleTimer.current = setTimeout(() => setControlsVisible(false), HIDE_DELAY_MS);
     }
+    // Any interaction also resets the "Still watching?" idle window.
+    if (swIdleRef.current) clearTimeout(swIdleRef.current);
+    if (stillWatchingRef.current) {
+      stillWatchingRef.current = false;
+      setStillWatching(false);
+    }
+    if (videoRef.current && !videoRef.current.paused) {
+      swIdleRef.current = setTimeout(() => {
+        swIdleRef.current = null;
+        offerStillWatching("idle");
+      }, STILL_WATCHING_IDLE_MS);
+    } else {
+      swIdleRef.current = null;
+    }
   }, []);
+
+  // ---- "Still watching?" (Netflix pauses after long unattended playback) ----
+  // Mirrors for the once-bound idle effect + the offer, which reads live state.
+  const stillWatchingRef = useRef(false);
+  const offerStillWatching = (reason) => {
+    const video = videoRef.current;
+    if (!video || video.paused || endedRef.current) return;
+    logDebug("native", `Still-watching offer (${reason})`);
+    try {
+      video.pause();
+    } catch {
+      // already paused
+    }
+    stillWatchingRef.current = true;
+    setStillWatching(true);
+    if (swOfferTimerRef.current) clearTimeout(swOfferTimerRef.current);
+    // An ignored prompt must not sit there forever; the next poke rearms it.
+    swOfferTimerRef.current = setTimeout(() => {
+      swOfferTimerRef.current = null;
+      stillWatchingRef.current = false;
+      setStillWatching(false);
+    }, STILL_WATCHING_OFFER_MS);
+  };
+  // Reset the auto-advance streak when the viewer CHOOSES an episode (the
+  // streak only counts what the Up Next card started on its own).
+  useEffect(() => {
+    swAutoAdvRef.current = 0;
+  }, [id, season, episode]);
+  // Rolling 2h idle timer while playing, armed once and re-poked by `poke`.
+  useEffect(() => {
+    if (!playing) {
+      if (swIdleRef.current) {
+        clearTimeout(swIdleRef.current);
+        swIdleRef.current = null;
+      }
+      return undefined;
+    }
+    if (!swIdleRef.current) {
+      swIdleRef.current = setTimeout(() => {
+        swIdleRef.current = null;
+        offerStillWatching("idle");
+      }, STILL_WATCHING_IDLE_MS);
+    }
+    return undefined;
+  }, [playing]);
+  useEffect(
+    () => () => {
+      if (swIdleRef.current) clearTimeout(swIdleRef.current);
+      if (swOfferTimerRef.current) clearTimeout(swOfferTimerRef.current);
+    },
+    [],
+  );
+
+  // ---- Hold-to-2x (Netflix mobile): hold the right half of the screen ----
+  const engageHold2x = () => {
+    const video = videoRef.current;
+    if (!video || video.paused) return;
+    heldRateRef.current = video.playbackRate || 1;
+    try {
+      video.playbackRate = HOLD_SPEED;
+      setHold2x(true);
+      poke();
+    } catch {
+      // Some UWP webviews reject odd rates; staying at 1x is fine.
+    }
+  };
+  const releaseHold2x = () => {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    holdPointerRef.current = null;
+    const video = videoRef.current;
+    if (video) {
+      try {
+        video.playbackRate = heldRateRef.current || 1;
+      } catch {
+        // already reset
+      }
+    }
+    heldRateRef.current = 1;
+    setHold2x(false);
+  };
+  // Right-half hold: arm 2x after a short delay so double-tap seek wins sprints.
+  const handleHoldStart = (e) => {
+    if (!IS_TOUCH || buffering || stillWatching) return;
+    const t = e.touches && e.touches[0];
+    if (!t) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (!rect.width) return;
+    if (t.clientX < rect.left + rect.width / 2) return; // left half = brightness drag / double-tap seek
+    holdPointerRef.current = t.identifier ?? "touch";
+    if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+    holdTimerRef.current = setTimeout(() => {
+      holdTimerRef.current = null;
+      if (!gestureRef.current?.active && !stillWatchingRef.current) engageHold2x();
+    }, HOLD_2X_DELAY_MS);
+  };
+  const handleHoldEnd = () => {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    if (hold2xRef.current) releaseHold2x();
+  };
+  // Desktop forward-button hold release (pointerup / leave / cancel).
+  const desktopHoldRelease = () => {
+    if (desktopHoldTimerRef.current) {
+      clearTimeout(desktopHoldTimerRef.current);
+      desktopHoldTimerRef.current = null;
+    }
+    if (hold2xRef.current) releaseHold2x();
+  };
 
   // Single click toggles play, double click toggles fullscreen.
   const handleVideoClick = () => {
@@ -758,6 +964,13 @@ export default function NativePlayerView({
   const handleVideoTouchEnd = (e) => {
     poke();
     suppressClickRef.current = true;
+    if (hold2xRef.current || holdTimerRef.current) {
+      // A right-half hold just ended (2x engaged or still arming): it was not a
+      // tap — swallow it so play/pause doesn't fire on release.
+      handleHoldEnd();
+      suppressClickRef.current = true;
+      return;
+    }
     if (buffering) return;
     // A vertical gesture (volume/brightness drag) just happened — not a tap.
     if (gestureRef.current?.active) {
@@ -789,6 +1002,7 @@ export default function NativePlayerView({
 
   // Vertical drag: LEFT half = brightness, RIGHT half = volume. Vertical-only —
   // horizontal movement declares a non-gesture so taps and double-taps survive.
+  // A right-half hold arms 2x; a vertical move on that side cancels the arm.
   const handleGestureStart = (e) => {
     if (!IS_TOUCH || buffering) return;
     const t = e.touches && e.touches[0];
@@ -813,6 +1027,15 @@ export default function NativePlayerView({
       if (Math.abs(t.clientY - g.startY) < 14) return;
       g.active = true;
       suppressClickRef.current = true;
+      // A right-half drag is a volume gesture, not a hold — cancel the 2x arm.
+      if (g.side === "volume" && holdTimerRef.current) {
+        clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+      }
+    }
+    // 2x must never ride on top of a volume drag.
+    if (hold2xRef.current && g.side === "volume") {
+      releaseHold2x();
     }
     if (g.side === "volume") {
       // Netflix sign: drag UP → louder/brightter (clientY falls, so -dy is positive).
@@ -844,11 +1067,25 @@ export default function NativePlayerView({
     const onPause = () => {
       setPlaying(false);
       if (navigator.mediaSession) navigator.mediaSession.playbackState = "paused";
+      // A pause of any origin must not leave 2x armed for the next play.
+      if (hold2xRef.current) releaseHold2x();
+      if (holdTimerRef.current) {
+        clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+      }
     };
     const onEnded = () => {
       setPlaying(false);
       setEnded(true);
+      // Ending while held must not leave the next play stuck at 2x.
+      if (hold2xRef.current) releaseHold2x();
       poke();
+    };
+    const onRateChange = () => {
+      // An external rate change (media session, devtools) ends a hold.
+      if (hold2xRef.current && Math.abs((video.playbackRate || 1) - HOLD_SPEED) > 0.01) {
+        releaseHold2x();
+      }
     };
     const bufferedAhead = () => {
       try {
@@ -890,6 +1127,8 @@ export default function NativePlayerView({
     const onStalled = () => setBuffering(true);
     const onSeeking = () => {
       setBuffering(true);
+      // A seek of any origin ends a 2x hold.
+      if (hold2xRef.current) releaseHold2x();
       // timeupdate does not fire while seeking, so mirror currentTime (which already
       // carries the seek target) or the bar sits at the pre-seek position.
       setCurrentTime(video.currentTime || 0);
@@ -906,6 +1145,7 @@ export default function NativePlayerView({
     video.addEventListener("stalled", onStalled);
     video.addEventListener("seeking", onSeeking);
     video.addEventListener("seeked", onSeeked);
+    video.addEventListener("ratechange", onRateChange);
     video.addEventListener("canplay", onCanPlay);
     return () => {
       video.removeEventListener("play", onPlay);
@@ -918,6 +1158,7 @@ export default function NativePlayerView({
       video.removeEventListener("stalled", onStalled);
       video.removeEventListener("seeking", onSeeking);
       video.removeEventListener("seeked", onSeeked);
+      video.removeEventListener("ratechange", onRateChange);
       video.removeEventListener("canplay", onCanPlay);
     };
   }, []);
@@ -1042,6 +1283,16 @@ export default function NativePlayerView({
     [],
   );
 
+  /* Scrubber preview pipeline: one shared off-screen decoder for the app.
+     Remounted by the player on title/source changes (clearPreviewCache above);
+     torn down with the player so no hidden hls outlives the screen. */
+  useEffect(
+    () => () => {
+      resetPreviewPipeline();
+    },
+    [],
+  );
+
   /* One-off keyframes for the "Up Next" countdown bar (the player is fully
      inline-styled, so the 0%→100% sweep is injected into the head). */
   useEffect(() => {
@@ -1071,7 +1322,17 @@ export default function NativePlayerView({
     setUpNext(next);
     const timer = setTimeout(() => {
       setUpNext((prev) => {
-        if (prev) onSelectEpisodeRef.current?.(prev.number);
+        if (prev) {
+          // Still-watching guard: three auto-advances with zero interaction in
+          // between means nobody is behind the screen — pause and ask instead
+          // of burning data through a fourth episode.
+          if (swAutoAdvRef.current + 1 >= STILL_WATCHING_EPISODES) {
+            offerStillWatching("binge");
+            return null;
+          }
+          swAutoAdvRef.current += 1;
+          onSelectEpisodeRef.current?.(prev.number);
+        }
         return null;
       });
     }, UP_NEXT_MS);
@@ -1079,7 +1340,8 @@ export default function NativePlayerView({
   }, [type, ended, episodes, episode]);
 
   /* Netflix keyboard map. Space/K play-pause, arrows seek/volume, M mute,
-     F fullscreen, Esc closes the dialog first, then the player. */
+     F fullscreen, N/Shift+P next/previous episode, Esc closes the dialog
+     first, then the player. */
   useEffect(() => {
     const onKey = (e) => {
       if (e.defaultPrevented) return;
@@ -1131,6 +1393,18 @@ export default function NativePlayerView({
           break;
         case "KeyF":
           goFullscreen();
+          break;
+        case "KeyN":
+          // Netflix web: N = next episode.
+          e.preventDefault();
+          keyboardEpNextRef.current();
+          break;
+        case "KeyP":
+          // Netflix web: Shift+P = previous episode (plain P toggles play there).
+          if (e.shiftKey) {
+            e.preventDefault();
+            keyboardEpPrevRef.current();
+          }
           break;
         case "Escape":
           // In fullscreen the browser consumes Esc to exit it — don't also
@@ -1474,7 +1748,11 @@ export default function NativePlayerView({
             sourceKey: def.key,
             refUrl: liveRefUrl,
             masterLevels: isMaster,
+            entryUrl,
           };
+          // A fresh resolution carries a fresh referer token — thumbnails from
+          // the previous one are dead weight; the preview decoder remounts.
+          clearPreviewCache(def.key);
           startLevelFor(hls);
           setQualities(
             variants
@@ -1904,6 +2182,20 @@ export default function NativePlayerView({
     if (onGoNextRef.current) return onGoNextRef.current();
     if (navNextNumber != null) onSelectEpisodeRef.current?.(navNextNumber);
   };
+  // Keyboard episode paging reuses the same guards as the rail buttons. Shift+P
+  // mirrors Netflix's Shift+P (previous episode); N mirrors Netflix's N (next).
+  const keyboardPrevEpisode = () => {
+    if (prevDisabled) return;
+    goEpPrev();
+  };
+  const keyboardNextEpisode = () => {
+    if (nextDisabled) return;
+    goEpNext();
+  };
+  // The keydown effect binds once per panel flip — route it through mirrors so
+  // N / Shift+P always see the current episode's nav state.
+  keyboardEpPrevRef.current = keyboardPrevEpisode;
+  keyboardEpNextRef.current = keyboardNextEpisode;
 
   // Skip-intro window: we have no metadata, so under-claim — the pill shows only
   // inside [0, end + grace] and disappears for good once the head passes it.
@@ -1974,9 +2266,16 @@ export default function NativePlayerView({
             suppressClickRef.current = false;
             poke();
             handleGestureStart(e);
+            // Right-half press-and-hold arms 2x (Netflix mobile); a left-half
+            // touch never arms it (brightness drag + double-tap seek live there).
+            handleHoldStart(e);
           }}
           onTouchMove={handleGestureMove}
           onTouchEnd={IS_TOUCH ? handleVideoTouchEnd : undefined}
+          onTouchCancel={() => {
+            // A cancelled touch must not strand 2x at 2x.
+            handleHoldEnd();
+          }}
           style={{
             width: "100%",
             height: "100%",
@@ -1989,6 +2288,53 @@ export default function NativePlayerView({
             WebkitUserSelect: "none",
           }}
         />
+        {/* Netflix top/bottom gradient scrims: the chrome reads as white text on
+            the picture; on bright scenes it needs a fade to stay legible.
+            pointer-events none — clicks pass through to the video. */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 132,
+            background: "linear-gradient(to bottom, rgba(0,0,0,0.62), rgba(0,0,0,0))",
+            opacity: controlsVisible ? 1 : 0,
+            transition: "opacity 0.3s",
+            pointerEvents: "none",
+            zIndex: 2,
+          }}
+        />
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 168,
+            background: "linear-gradient(to top, rgba(0,0,0,0.72), rgba(0,0,0,0))",
+            opacity: controlsVisible ? 1 : 0,
+            transition: "opacity 0.3s",
+            pointerEvents: "none",
+            zIndex: 2,
+          }}
+        />
+        {/* Dim the picture while a dialog panel is open (Netflix does this) so
+            the rows read against the frame, not against the movie. */}
+        {(panel || stillWatching) && (
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "rgba(0,0,0,0.55)",
+              zIndex: 5,
+              pointerEvents: "none",
+            }}
+          />
+        )}
         {/* Subtitle overlay — active OpenSubtitles line, bottom-anchored above
             the control chrome like CustomVideoPlayer. */}
         {activeSubtitle ? (
@@ -2383,6 +2729,40 @@ export default function NativePlayerView({
                 }}
               />
             </div>
+            {/* Hover/drag thumbnail (Netflix/YouTube scrub preview): the latest
+                captured frame at the hover position, clamped so it never leaves
+                the frame. Hidden until a capture lands; scrubbing never waits
+                on it. */}
+            {hoverRatio != null && previewUrl && !IS_TOUCH && (
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: previewBox.lift,
+                  // Centre on the pointer, clamped so the card never leaves the frame.
+                  left: Math.min(
+                    Math.max(hoverRatio * playerW, previewBox.thumbInset),
+                    Math.max(previewBox.thumbInset, playerW - previewBox.thumbInset),
+                  ),
+                  transform: "translateX(-50%)",
+                  width: previewBox.thumbW,
+                  height: previewBox.thumbH,
+                  borderRadius: 6,
+                  border: "1px solid rgba(255,255,255,0.35)",
+                  boxShadow: "0 10px 30px rgba(0,0,0,0.65)",
+                  overflow: "hidden",
+                  pointerEvents: "none",
+                  zIndex: 4,
+                  background: "#000",
+                }}
+              >
+                <img
+                  src={previewUrl}
+                  alt=""
+                  aria-hidden="true"
+                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                />
+              </div>
+            )}
             {hoverRatio != null && safeDuration > 0 && (
               <div
                 style={{
@@ -2441,8 +2821,22 @@ export default function NativePlayerView({
                   </button>
                   <button
                     type="button"
-                    aria-label="Forward 10 seconds"
-                    title="Forward 10 seconds"
+                    aria-label="Forward 10 seconds (hold for 2x)"
+                    title="Forward 10 seconds (hold for 2x)"
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      if (e.pointerType === "touch") return; // touch holds the SCREEN, not the button
+                      // Arm 2x on a sustained press; the click still fires on a
+                      // quick press, so a hold both seeks AND speeds up (YouTube).
+                      desktopHoldTimerRef.current = setTimeout(() => {
+                        desktopHoldTimerRef.current = null;
+                        desktopHoldFiredRef.current = true;
+                        engageHold2x();
+                      }, HOLD_2X_DELAY_MS);
+                    }}
+                    onPointerUp={desktopHoldRelease}
+                    onPointerLeave={desktopHoldRelease}
+                    onPointerCancel={desktopHoldRelease}
                     onClick={(e) => {
                       e.stopPropagation();
                       seekRelative(SKIP_SECONDS);
@@ -2899,6 +3293,9 @@ export default function NativePlayerView({
           )}
         </AnimatePresence>
         <AnimatePresence>
+          {hold2x && <NetflixHold2xHUD key="hold2x" metrics={hudBox} />}
+        </AnimatePresence>
+        <AnimatePresence>
           {hud?.kind === "play" && <NetflixPlayPauseHUD key="pp" kind="play" metrics={hudBox} />}
         </AnimatePresence>
         <AnimatePresence>
@@ -2912,6 +3309,29 @@ export default function NativePlayerView({
         <AnimatePresence>
           {hud?.kind === "seek" && hud.value > 0 && (
             <NetflixSeekHUD key="seek-forward" direction="forward" metrics={hudBox} seconds={Math.abs(Math.round(hud.value))} />
+          )}
+        </AnimatePresence>
+        {/* Netflix "Still watching?" — pause + ask after unattended playback. */}
+        <AnimatePresence>
+          {stillWatching && (
+            <NetflixStillWatching
+              key="still-watching"
+              onContinue={() => {
+                setStillWatching(false);
+                swAutoAdvRef.current = 0;
+                poke();
+                const v = videoRef.current;
+                try {
+                  v?.play();
+                } catch {
+                  // user gesture needed — the custom transport is right there
+                }
+              }}
+              onExit={() => {
+                setStillWatching(false);
+                onCloseRef.current?.();
+              }}
+            />
           )}
         </AnimatePresence>
       </div>

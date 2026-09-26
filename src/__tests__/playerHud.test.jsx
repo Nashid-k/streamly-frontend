@@ -1,7 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { hudMetrics, HUD_REFERENCE_EDGE } from "../constants/playerUi";
-import { NetflixVolumeHUD, NetflixBrightnessHUD, NetflixAspectHUD, NetflixSeekHUD } from "../components/player";
+import {
+  NetflixVolumeHUD,
+  NetflixBrightnessHUD,
+  NetflixAspectHUD,
+  NetflixSeekHUD,
+  NetflixHold2xHUD,
+} from "../components/player";
 
 /* The player HUD used to be positioned by a hardcoded percentage (`top="34%"`)
    and sized with vw clamps, so the overlay sat in the middle of the frame on
@@ -138,6 +144,22 @@ describe("NetflixSeekHUD", () => {
     expect(badge.style.pointerEvents).toBe("none");
     expect(badge.getAttribute("aria-hidden")).toBe("true");
     expect(screen.getByText("+5s")).toBeInTheDocument();
+  });
+});
+
+describe("NetflixHold2xHUD", () => {
+  it("renders a decorative right-edge pill", () => {
+    const { container } = render(<NetflixHold2xHUD metrics={DESKTOP} />);
+    const pill = container.firstElementChild;
+    expect(pill.style.pointerEvents).toBe("none");
+    expect(pill.getAttribute("aria-hidden")).toBe("true");
+    expect(pill.style.right).toBe(`${DESKTOP.seekInset}px`);
+    expect(screen.getByText("2x")).toBeInTheDocument();
+  });
+
+  it("anchors to the measured frame like the other HUDs", () => {
+    const { container } = render(<NetflixHold2xHUD metrics={PHONE} />);
+    expect(container.firstElementChild.style.top).toBe(`${PHONE.top}px`);
   });
 });
 

@@ -4,6 +4,10 @@ import {
   ASPECT_RATIOS,
   ASPECT_VIDEO_STYLE,
   aspectVideoStyle,
+  previewMetrics,
+  HOLD_SPEED,
+  STILL_WATCHING_EPISODES,
+  STILL_WATCHING_IDLE_MS,
 } from "../constants/playerUi";
 
 describe("playerUi", () => {
@@ -51,5 +55,32 @@ describe("aspectVideoStyle", () => {
     expect(aspectVideoStyle(99)).toEqual({ objectFit: "contain" });
     expect(aspectVideoStyle(-1)).toEqual({ objectFit: "contain" });
     expect(aspectVideoStyle(undefined)).toEqual({ objectFit: "contain" });
+  });
+});
+
+describe("previewMetrics", () => {
+  it("derives a 16:9 thumb from the measured frame", () => {
+    const m = previewMetrics(1280, 720);
+    expect(m.thumbH).toBe(Math.round((m.thumbW * 9) / 16));
+    expect(m.thumbInset).toBeGreaterThan(m.thumbW / 2); // edge clamp beats half-width
+  });
+
+  it("stays within its clamps for a phone frame and a huge frame", () => {
+    const phone = previewMetrics(390, 844);
+    const huge = previewMetrics(3840, 2160);
+    expect(phone.thumbW).toBeGreaterThanOrEqual(128);
+    expect(huge.thumbW).toBeLessThanOrEqual(288);
+    expect(huge.thumbW).toBeGreaterThan(phone.thumbW);
+  });
+});
+
+describe("netflix behavior constants", () => {
+  it("hold-to-2x is Netflix's rate", () => {
+    expect(HOLD_SPEED).toBe(2);
+  });
+
+  it("still-watching asks after 3 auto-advanced episodes or 2 idle hours", () => {
+    expect(STILL_WATCHING_EPISODES).toBe(3);
+    expect(STILL_WATCHING_IDLE_MS).toBe(2 * 60 * 60 * 1000);
   });
 });

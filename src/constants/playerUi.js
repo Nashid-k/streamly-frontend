@@ -6,6 +6,15 @@
 
 export const PLAYER_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
+/* Netflix's press-and-hold trick: holding the right side of the screen (or the
+   forward button) plays at 2x, release snaps back to the previous rate. */
+export const HOLD_SPEED = 2;
+
+/* "Still watching?" idle prompt: after this much unattended playback (or this
+   many auto-advanced episodes) without any input, pause and ask. */
+export const STILL_WATCHING_IDLE_MS = 2 * 60 * 60 * 1000;
+export const STILL_WATCHING_EPISODES = 3;
+
 export const ASPECT_RATIOS = [
   { id: "fit", name: "Fit (Original 16:9)", scale: 1 },
   { id: "fill", name: "Fill Screen (Edge-to-Edge)", scale: 1.25 },
@@ -66,6 +75,21 @@ export const HUD_REFERENCE_EDGE = 720;
    lands the pill mid-frame on one screen size and off the top edge on the next.
    `useContainerSize` measures the frame and every HUD reads these numbers, so
    the overlay tracks the video instead of the viewport. */
+/* Scrubber preview (thumbnail on hover/drag) geometry, from the measured frame
+   like every other HUD. Thumbs sit above the time bubble; widths are tuned for
+   16:9 captures. */
+export const previewMetrics = (width, height) => {
+  const { scale } = hudMetrics(width, height);
+  const thumbW = Math.round(clamp(128, 192 * scale, 288));
+  return {
+    thumbW,
+    thumbH: Math.round(thumbW * 9 / 16),
+    // Horizontal inset so a thumb near the edges never leaves the frame.
+    thumbInset: Math.round(thumbW / 2 + 8),
+    lift: Math.round(clamp(46, 64 * scale, 96)),
+  };
+};
+
 export const hudMetrics = (width, height) => {
   const w = Math.max(0, Number(width) || 0);
   const h = Math.max(0, Number(height) || 0);
