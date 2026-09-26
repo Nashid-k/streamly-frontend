@@ -247,7 +247,7 @@ async function postDownloadify(body, { signal } = {}) {
   let lastError;
   for (let index = 0; index < candidates.length; index += 1) {
     const candidate = candidates[index];
-    const target = body.url || body.playlistUrl;
+    const target = isTransport ? body.url : body.playlistUrl;
     const request =
       candidate.mode === "proxy"
         ? {
