@@ -3381,7 +3381,7 @@ export default function NativePlayerView({
                 <DialogRow
                   onClick={() => setPanel("video")}
                   title="Video Quality"
-                  sub={currentQuality ? variantLabel(currentQuality) : "Auto"}
+                  sub={autoLevel ? "Auto" : (qualities.find(q => isMasterMode ? q.height === manualHeight : q.uri === activeUri)?.label || (currentHeight ? currentHeight + "p" : "Auto"))}
                   icon={<SlidersHorizontal size={20} />}
                   hasChevron
                 />
