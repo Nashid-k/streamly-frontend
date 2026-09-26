@@ -11,6 +11,8 @@ import {
   ArrowLeft,
   Captions,
   Check,
+  ChevronLeft,
+  ChevronRight,
   ListVideo,
   Loader2,
   Maximize,
@@ -19,7 +21,6 @@ import {
   Play,
   Ratio,
   RotateCcw,
-  RotateCw,
   SkipBack,
   SkipForward,
   Volume1,
@@ -27,7 +28,13 @@ import {
   VolumeX,
   X,
 } from "lucide-react";
-import { NetflixVolumeHUD, NetflixBrightnessHUD, NetflixAspectHUD, NetflixSeekHUD } from "./player";
+import {
+  NetflixVolumeHUD,
+  NetflixBrightnessHUD,
+  NetflixAspectHUD,
+  NetflixSeekHUD,
+  NetflixPlayPauseHUD,
+} from "./player";
 import Hls from "hls.js";
 import { downloadService } from "../api/downloadService";
 import { variantLabel } from "../utils/downloadQuality";
@@ -37,7 +44,7 @@ import { logWarn } from "../utils/debugLogger";
 import { SubtitleEngine } from "../utils/subtitleEngine";
 import { readStoredNumber } from "../utils/storedNumber";
 import useContainerSize from "../hooks/useContainerSize";
-import { hudMetrics } from "../constants/playerUi";
+import { hudMetrics, aspectVideoStyle, ASPECT_RATIOS } from "../constants/playerUi";
 
 // A source can fail fragments forever without ever going fatal (VidCore's
 // vidzen: playlist 200, segments 429 on repeat) — so fail over ourselves.
@@ -84,9 +91,6 @@ const ASPECT_STORAGE_KEY = "streamly-native-aspect";
 const BRIGHTNESS_MIN = 0.25;
 const BRIGHTNESS_MAX = 1.75;
 const HUD_MS = 1100;
-// Aspect menu = Fit / Fill / Zoom → ASPECT_RATIOS indices 0/1/2 + object-fit.
-const ASPECT_INDEXES = [0, 1, 2];
-const ASPECT_FIT = { 0: "contain", 1: "fill", 2: "cover" };
 
 // Touch-first devices (hover-less, coarse pointer) get bigger tap targets,
 // double-tap seek zones, safe-area padding, a centered play glyph and a stacked
@@ -395,8 +399,14 @@ export default function NativePlayerView({
     );
   });
   const [aspectRatioIndex, setAspectRatioIndex] = useState(() => {
-    const i = readStoredNumber(ASPECT_STORAGE_KEY, { min: 0, max: 2, fallback: 0 });
-    return ASPECT_INDEXES.includes(i) ? i : 0;
+    // Clamp to the shared catalog length — the mode list lives in
+    // constants/playerUi.js, so a stale stored index beyond it resets to Fit.
+    const i = readStoredNumber(ASPECT_STORAGE_KEY, {
+      min: 0,
+      max: ASPECT_RATIOS.length - 1,
+      fallback: 0,
+    });
+    return Number.isInteger(i) && ASPECT_RATIOS[i] ? i : 0;
   });
   const [hud, setHud] = useState(null); // { kind: "volume"|"brightness"|"aspect", value }
   // Mirror refs: the keyboard + gesture handlers bind once, so they must read current values.
@@ -443,6 +453,10 @@ export default function NativePlayerView({
     } catch {
       // Autoplay policy — the big custom button stays visible for a tap.
     }
+    // YouTube-style centre flash for the NEW state. After `await`, `video.paused`
+    // is settled either way (play resolved or pause is sync); a rejected play
+    // lands here still paused, so "play" never flashes for a failed start.
+    showHudRef.current(video.paused ? "pause" : "play");
   };
   togglePlayRef.current = togglePlay;
 
@@ -649,6 +663,10 @@ export default function NativePlayerView({
     setHud({ kind, value });
     hudTimerRef.current = setTimeout(() => setHud(null), HUD_MS);
   }, []);
+  // Mirror for once-bound closures (togglePlay) — same pattern as the value
+  // mirror refs above, so the YT-style centre flash survives stale closures.
+  const showHudRef = useRef(showHud);
+  showHudRef.current = showHud;
 
   const changeVolume = (delta) => {
     const nv = Math.min(1, Math.max(0, Math.round((volumeRef.current + delta) * 100) / 100));
@@ -675,8 +693,8 @@ export default function NativePlayerView({
   };
 
   const cycleAspect = () => {
-    const idx = ASPECT_INDEXES.indexOf(aspectRef.current);
-    const next = ASPECT_INDEXES[(idx + 1) % ASPECT_INDEXES.length];
+    // Cycle every shared-catalog mode; a corrupted index simply wraps to Fit.
+    const next = (Number.isInteger(aspectRef.current) && aspectRef.current >= 0 ? aspectRef.current + 1 : 0) % ASPECT_RATIOS.length;
     setAspectRatioIndex(next);
     showHud("aspect", next);
     poke();
@@ -1959,7 +1977,7 @@ export default function NativePlayerView({
             width: "100%",
             height: "100%",
             display: "block",
-            objectFit: ASPECT_FIT[aspectRatioIndex] || "contain",
+            ...aspectVideoStyle(aspectRatioIndex),
             filter: brightness !== 1 ? `brightness(${brightness})` : undefined,
             // No background on purpose: the screen div paints true black, so the
             // brightness filter sees only the video frame.
@@ -2109,7 +2127,7 @@ export default function NativePlayerView({
                 pointerEvents: "auto",
               }}
             >
-              <RotateCcw size={26} />
+              <ChevronLeft size={34} strokeWidth={1.5} />
               <span style={{ position: "absolute", fontSize: 9.5, fontWeight: 800, marginTop: 3 }}>10</span>
             </button>
             <button
@@ -2161,7 +2179,7 @@ export default function NativePlayerView({
                 pointerEvents: "auto",
               }}
             >
-              <RotateCw size={26} />
+              <ChevronRight size={34} strokeWidth={1.5} />
               <span style={{ position: "absolute", fontSize: 9.5, fontWeight: 800, marginTop: 3 }}>10</span>
             </button>
           </div>
@@ -2414,7 +2432,7 @@ export default function NativePlayerView({
                       flexShrink: 0,
                     }}
                   >
-                    <RotateCcw size={24} />
+                    <ChevronLeft size={24} strokeWidth={1.5} />
                     <span style={{ position: "absolute", fontSize: 8.5, fontWeight: 800, marginTop: 3 }}>10</span>
                   </button>
                   <button
@@ -2440,7 +2458,7 @@ export default function NativePlayerView({
                       flexShrink: 0,
                     }}
                   >
-                    <RotateCw size={24} />
+                    <ChevronRight size={24} strokeWidth={1.5} />
                     <span style={{ position: "absolute", fontSize: 8.5, fontWeight: 800, marginTop: 3 }}>10</span>
                   </button>
                 </>
@@ -2875,6 +2893,12 @@ export default function NativePlayerView({
           {hud?.kind === "aspect" && (
             <NetflixAspectHUD key="aspect" aspectRatioIndex={aspectRatioIndex} metrics={hudBox} />
           )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {hud?.kind === "play" && <NetflixPlayPauseHUD key="pp" kind="play" metrics={hudBox} />}
+        </AnimatePresence>
+        <AnimatePresence>
+          {hud?.kind === "pause" && <NetflixPlayPauseHUD key="pp" kind="pause" metrics={hudBox} />}
         </AnimatePresence>
         <AnimatePresence>
           {hud?.kind === "seek" && hud.value < 0 && (

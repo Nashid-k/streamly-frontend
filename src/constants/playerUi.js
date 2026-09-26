@@ -15,6 +15,32 @@ export const ASPECT_RATIOS = [
   { id: "stretch", name: "Stretch to Screen", scale: 1 },
 ];
 
+/* How the video surface renders a catalog mode. `objectFit` alone is a no-op
+   whenever the player box's ratio already matches the stream's (16:9 stream in
+   a ~16:9 window — the common case), so the zoomier modes also punch the video
+   in with a transform scale; `contain`-style modes reset it to 1. Fill/Stretch
+   intentionally share an appearance (filling the box IS stretching to it),
+   while Zoom/Cinema/16:10 crop or letterbox around the same punch-in. */
+export const ASPECT_VIDEO_STYLE = {
+  fit: { objectFit: "contain", scale: 1 },
+  fill: { objectFit: "cover", scale: 1 },
+  zoom: { objectFit: "contain", scale: 1.25 },
+  cinema: { objectFit: "contain", scale: 1.344 },
+  crop1610: { objectFit: "contain", scale: 1.111 },
+  stretch: { objectFit: "fill", scale: 1 },
+};
+
+/* Style object for the <video> at a catalog index: object-fit plus the punch-in
+   scale the mode needs to actually look different. Safe for any index (falls
+   back to Fit) so a stale localStorage value can never crash the player. */
+export const aspectVideoStyle = (aspectRatioIndex) => {
+  const mode = ASPECT_RATIOS[aspectRatioIndex] || ASPECT_RATIOS[0];
+  const style = ASPECT_VIDEO_STYLE[mode.id] || ASPECT_VIDEO_STYLE.fit;
+  return style.scale === 1
+    ? { objectFit: style.objectFit }
+    : { objectFit: style.objectFit, transform: `scale(${style.scale})` };
+};
+
 export const AR_GLYPH = [
   [44, 25],
   [52, 23],

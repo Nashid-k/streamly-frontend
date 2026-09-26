@@ -1,20 +1,27 @@
 import { memo } from "react";
-import { RotateCcw, RotateCw } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { SPRING_SNAPPY } from "../../constants/playerUi";
 
-/* Netflix-style rewind / forward badge.
-   Anchored to its own edge of the frame - left for rewind, right for forward -
-   at the vertical position the measured container reports, so it tracks the
-   video rather than a fixed offset. Presentational only (pointer-events none);
-   it rides above the player chrome and self-fades with the other HUDs. */
+/* YouTube-style rewind / forward badge: a chunky chevron pointing the seek
+   direction with a "seconds" caption under it (YouTube's double-tap flash
+   instead of Netflix's circular-arrow dial). Anchored to its own edge of the
+   frame - left for rewind, right for forward - at the vertical position the
+   measured container reports, so it tracks the video rather than a fixed
+   offset. Presentational only (pointer-events none); it rides above the
+   player chrome and self-fades with the other HUDs. */
 const NetflixSeekHUD = memo(function NetflixSeekHUD({ direction, metrics, seconds }) {
   const m = metrics;
   const back = direction === "back";
-  const Icon = back ? RotateCcw : RotateCw;
+  // The user-supplied glyph is lucide ChevronRight exactly (40x40, stroke 1.5,
+  // round caps/joins); ChevronLeft is its mirror for the rewind side.
+  const Icon = back ? ChevronLeft : ChevronRight;
   // Centre the badge with `top` rather than a translate: framer-motion owns
   // `transform` for the scale spring and would clobber a CSS translate.
   const top = Math.round(m.seekCenter - m.seekDiameter / 2);
+  // Chevron glyph size relative to the circle, matching the 40/84 ratio of the
+  // supplied 40x40 icon in an 84px badge.
+  const chevSize = Math.round(m.seekDiameter * 0.48);
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.86 }}
@@ -47,7 +54,7 @@ const NetflixSeekHUD = memo(function NetflixSeekHUD({ direction, metrics, second
           boxShadow: "0 12px 36px rgba(0,0,0,0.6)",
         }}
       >
-        <Icon size={m.seekIcon} color="#fff" strokeWidth={2.2} />
+        <Icon size={chevSize} color="#fff" strokeWidth={1.5} />
       </div>
       <span
         style={{
