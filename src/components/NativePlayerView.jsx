@@ -26,6 +26,7 @@ import {
   Play,
   Proportions,
   RotateCcw,
+  Settings,
   SkipBack,
   SkipForward,
   Volume1,
@@ -164,7 +165,7 @@ function IconBtn({ label, onClick, children, active, disabled }) {
 }
 
 /* One selectable row in the Audio & Subtitles / Episodes panels. */
-function DialogRow({ selected, onClick, title, sub, disabled }) {
+function DialogRow({ selected, onClick, title, sub, disabled, icon, hasChevron }) {
   return (
     <button
       type="button"
@@ -190,7 +191,7 @@ function DialogRow({ selected, onClick, title, sub, disabled }) {
       }}
     >
       <span style={{ width: 22, display: "flex", alignItems: "center", flexShrink: 0 }}>
-        {selected ? <Check size={16} color={NETFLIX_RED} /> : null}
+        {icon ? icon : selected ? <Check size={16} color={NETFLIX_RED} /> : null}
       </span>
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{ display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -200,6 +201,11 @@ function DialogRow({ selected, onClick, title, sub, disabled }) {
           <span style={{ display: "block", fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 2 }}>{sub}</span>
         ) : null}
       </span>
+      {hasChevron && (
+        <span style={{ display: "flex", alignItems: "center", color: "rgba(255,255,255,0.5)" }}>
+          <ChevronRight size={18} />
+        </span>
+      )}
     </button>
   );
 }
@@ -3127,53 +3133,16 @@ export default function NativePlayerView({
                 </IconBtn>
               )}
               <IconBtn
-                label="Subtitles"
-                active={panel === "subs"}
+                label="Settings"
+                active={panel === "settings" || panel === "audio" || panel === "video" || panel === "speed" || panel === "aspect"}
                 onClick={() => {
-                  setPanel((p) => (p === "subs" ? null : "subs"));
+                  // If clicking Settings while any settings panel is open, close it. Otherwise open root settings.
+                  setPanel((p) => (["settings", "audio", "video", "speed", "aspect"].includes(p) ? null : "settings"));
                   poke();
                 }}
               >
-                <Captions size={24} />
+                <Settings size={24} />
               </IconBtn>
-              <IconBtn
-                label="Audio"
-                active={panel === "audio"}
-                onClick={() => {
-                  setPanel((p) => (p === "audio" ? null : "audio"));
-                  poke();
-                }}
-              >
-                <AudioLines size={24} />
-              </IconBtn>
-              <IconBtn
-                label="Video quality"
-                active={panel === "video"}
-                onClick={() => {
-                  setPanel((p) => (p === "video" ? null : "video"));
-                  poke();
-                }}
-              >
-                <SlidersHorizontal size={24} />
-              </IconBtn>
-              <IconBtn
-                label="Playback Speed"
-                active={panel === "speed"}
-                onClick={() => {
-                  setPanel((p) => (p === "speed" ? null : "speed"));
-                  poke();
-                }}
-              >
-                <Gauge size={24} />
-              </IconBtn>
-              {/* Aspect ratio (Fit / Fill / Zoom). Hidden on touch only when a
-                  TV's prev/next + episodes already crowd the rail — keyboard
-                  A still cycles there. */}
-              {(!IS_TOUCH || !(showEpisodeNav || showEpisodesButton)) && (
-                <IconBtn label="Aspect ratio (key A)" onClick={cycleAspect}>
-                  <Proportions size={24} />
-                </IconBtn>
-              )}
               <IconBtn label={isFullscreen ? "Exit fullscreen" : "Fullscreen"} onClick={goFullscreen}>
                 {isFullscreen ? <Minimize size={22} /> : <Maximize size={22} />}
               </IconBtn>
@@ -3339,7 +3308,7 @@ export default function NativePlayerView({
               top: IS_TOUCH ? undefined : 0,
               bottom: 0,
               width:
-                panel === "subs" || panel === "audio" || panel === "video" || panel === "speed"
+                ["settings", "subs", "audio", "video", "speed", "aspect"].includes(panel)
                   ? IS_TOUCH
                     ? "min(480px, 100%)"
                     : "min(480px, 32%)"
@@ -3361,16 +3330,77 @@ export default function NativePlayerView({
             }}
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, padding: "0 16px" }}>
-              <span style={{ color: "#fff", fontWeight: 700, fontSize: 16, letterSpacing: "-0.01em" }}>
-                {panel === "subs" ? "Subtitles" : panel === "audio" ? "Audio" : panel === "video" ? "Video Quality" : panel === "speed" ? "Playback Speed" : ""}
-              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                {panel !== "settings" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPanel("settings");
+                      poke();
+                    }}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "#fff",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: 0
+                    }}
+                  >
+                    <ArrowLeft size={20} />
+                  </button>
+                )}
+                <span style={{ color: "#fff", fontWeight: 700, fontSize: 16, letterSpacing: "-0.01em" }}>
+                  {panel === "settings" ? "Settings" : panel === "subs" ? "Subtitles" : panel === "audio" ? "Audio" : panel === "video" ? "Video Quality" : panel === "speed" ? "Playback Speed" : panel === "aspect" ? "Aspect Ratio" : ""}
+                </span>
+              </div>
               <IconBtn label="Close panel" onClick={() => setPanel(null)}>
                 <X size={18} />
               </IconBtn>
             </div>
             {/* One panel per control (Netflix): Subtitles / Audio / Video
                 Quality each get their own sheet and their own scroll. */}
-            {panel === "subs" ? (
+            {panel === "settings" ? (
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
+                <DialogRow
+                  onClick={() => setPanel("audio")}
+                  title="Audio"
+                  sub={audioTracks.length > 0 ? (audioTracks.find(a => a.index === audioIndex)?.name || "Unknown") : (originalLanguage ? (FILM_LANG[originalLanguage] || (originalLanguage || "").toUpperCase() || "Unknown") : "Default")}
+                  icon={<AudioLines size={20} />}
+                  hasChevron
+                />
+                <DialogRow
+                  onClick={() => setPanel("subs")}
+                  title="Subtitles"
+                  sub={subtitleEnabled && currentSubtitle ? currentSubtitle.language : "Off"}
+                  icon={<Captions size={20} />}
+                  hasChevron
+                />
+                <DialogRow
+                  onClick={() => setPanel("video")}
+                  title="Video Quality"
+                  sub={currentQuality ? variantLabel(currentQuality) : "Auto"}
+                  icon={<SlidersHorizontal size={20} />}
+                  hasChevron
+                />
+                <DialogRow
+                  onClick={() => setPanel("speed")}
+                  title="Playback Speed"
+                  sub={playbackRate === 1 ? "Normal" : `${playbackRate}x`}
+                  icon={<Gauge size={20} />}
+                  hasChevron
+                />
+                <DialogRow
+                  onClick={() => setPanel("aspect")}
+                  title="Aspect Ratio"
+                  sub={ASPECT_RATIOS[aspectRatioIndex]?.label || "Fit"}
+                  icon={<Proportions size={20} />}
+                  hasChevron
+                />
+              </div>
+            ) : panel === "subs" ? (
               <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
                   <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
                     Subtitles
@@ -3495,6 +3525,24 @@ export default function NativePlayerView({
                         poke();
                       }}
                       title={rate === 1 ? "Normal (1x)" : `${rate}x`}
+                    />
+                  ))}
+              </div>
+            ) : panel === "aspect" ? (
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                    Aspect Ratio
+                  </p>
+                  {ASPECT_RATIOS.map((aspect, idx) => (
+                    <DialogRow
+                      key={aspect.label}
+                      selected={aspectRatioIndex === idx}
+                      onClick={() => {
+                        setAspectRatioIndex(idx);
+                        setPanel(null);
+                        poke();
+                      }}
+                      title={aspect.label}
                     />
                   ))}
               </div>
