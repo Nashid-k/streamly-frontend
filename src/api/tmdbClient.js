@@ -127,8 +127,7 @@ async function handleResponse(res, path, via, safeUrl, params) {
   return data;
 }
 
-async function tmdb(path, params = {}) {
-  const query = buildQuery(params);
+async function fetchTmdb(path, params, query) {
   const proxy = proxyBase();
   logDebug('tmdb', `GET ${path}`, { via: proxy ? 'proxy' : 'direct', params });
 
@@ -204,6 +203,33 @@ async function tmdb(path, params = {}) {
     throw error;
   } finally {
     clearTimeoutFn(timeout);
+  }
+}
+
+/* Identical GETs that are in flight at the same moment share ONE round trip.
+   A cold Home load mounts every rail in the same commit, and three of them ask
+   for /trending/all/week (featuredMovies, top10, trendingThisWeek) plus any URL
+   two genres share — the browser allowed 6 of them to go at once, so the extras
+   were pure queueing delay. Each caller still gets its OWN parsed object
+   (structuredClone) because the movieService normalizers are free to annotate
+   what they are handed. */
+const inFlightRequests = new Map();
+
+async function tmdb(path, params = {}) {
+  const query = buildQuery(params);
+  const key = `${path}?${query}`;
+  const shared = inFlightRequests.get(key);
+  if (shared) {
+    logDebug('tmdb', `deduped concurrent GET ${path}`, { path, params });
+    const data = await shared;
+    return typeof structuredClone === 'function' ? structuredClone(data) : data;
+  }
+  const request = fetchTmdb(path, params, query);
+  inFlightRequests.set(key, request);
+  try {
+    return await request;
+  } finally {
+    inFlightRequests.delete(key);
   }
 }
 

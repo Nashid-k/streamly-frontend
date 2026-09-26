@@ -1,7 +1,7 @@
-const CACHE_NAME = 'streamly-v19.5';
+const CACHE_NAME = 'streamly-v19.7';
 // Separate long-lived image cache — stale-while-revalidate so images load
 // from disk in <10ms on repeat visits, then silently refresh in background.
-const IMAGE_CACHE = 'streamly-images-v19.5';
+const IMAGE_CACHE = 'streamly-images-v19.7';
 
 self.addEventListener('install', (event) => {
   // Pre-cache core shell so navigations always have index.html
@@ -75,6 +75,13 @@ self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
 
+  // 0a. A non-GET request is never intercepted. Cache.put() accepts GET only, so
+  //     a POST that reached any caching branch threw "Request method 'POST' is
+  //     unsupported" as an unhandled promise rejection — which is what every
+  //     /api/downloadify resolve/save POST did. Nothing below may assume more
+  //     than a GET from here on.
+  if (request.method !== 'GET') return;
+
   // 0. wsrv.nl CDN images — stale-while-revalidate, 7-day freshness.
   //    Serve from cache instantly; refresh in the background so the next
   //    visit gets the latest version. Enables offline poster viewing.
@@ -118,10 +125,17 @@ self.addEventListener('fetch', (event) => {
         const response = await fetch(request);
         if (response && response.status === 200) {
           const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(cacheKey, responseClone.clone());
-            cache.put('/index.html', responseClone);
-          });
+          // Best effort: a full disk quota must not surface as an unhandled
+          // rejection, and must never cost the visitor the response itself.
+          caches
+            .open(CACHE_NAME)
+            .then((cache) =>
+              Promise.all([
+                cache.put(cacheKey, responseClone.clone()),
+                cache.put('/index.html', responseClone),
+              ])
+            )
+            .catch(() => {});
         }
         return response;
       } catch {
@@ -147,17 +161,45 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 4. Hashed JS/CSS assets — network-first. Files are immutable (hashed), so a
-  // 404 means the index.html shell is stale: fall back to a cached copy when one
-  // exists, and self-heal (wipe caches + reload tabs) so the stale shell can't
-  // keep 404ing old bundles on later navigations.
+  // 4a. Content-hashed Vite output (/assets/*, served `immutable` for a year) —
+  //     CACHE-FIRST. The filename changes whenever the bytes change, so a hit can
+  //     never be stale: it is the same file the CDN would return. Network-first
+  //     here used to re-download the entire critical path (~800KB of chunks) on
+  //     every single visit, which is most of a repeat visit's load time.
+  if (request.method === 'GET' && url.pathname.startsWith('/assets/')) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(CACHE_NAME);
+        const cached = await cache.match(event.request);
+        if (cached) return cached;
+        const response = await fetch(event.request);
+        if (response && response.status === 200) {
+          // A cache write must not be able to fail the delivery it was
+          // opportunistically copying.
+          await cache.put(event.request, response.clone()).catch(() => {});
+        } else if (response && response.status === 404) {
+          // Only a stale index.html explains a 404 on a hash nobody else requests.
+          await cleanStaleShell();
+        }
+        return response;
+      })()
+    );
+    return;
+  }
+
+  // 4b. Unhashed same-origin JS/CSS (sw.js, boot.js, fonts.js) — network-first,
+  // so a deploy is always picked up. A 404 means the served shell is stale: fall
+  // back to a cached copy and self-heal so it can't keep 404ing later.
   if (event.request.url.match(/\.(js|css)$/)) {
     event.respondWith(
       fetch(event.request)
         .then(async (response) => {
           if (response && response.status === 200) {
             const responseClone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+            caches
+              .open(CACHE_NAME)
+              .then((cache) => cache.put(event.request, responseClone))
+              .catch(() => {});
             return response;
           }
           const cached = await caches.match(event.request);
@@ -171,14 +213,18 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 5. Cache-first for images, fonts, and other assets
+  // 5. Cache-first for images, fonts, and other assets. Only ever reached by a
+  //    same-origin GET: non-GET returned at 0a, cross-origin at 1, /api/ at 2.
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
       return fetch(event.request).then((response) => {
         if (response && response.status === 200 && response.type === 'basic') {
           const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+          caches
+            .open(CACHE_NAME)
+            .then((cache) => cache.put(event.request, responseClone))
+            .catch(() => {});
         }
         return response;
       });

@@ -109,8 +109,17 @@ export default withLog(async function handler(req, res) {
     // Edge-cache only genuine catalog hits. Caching 401/404/429 bodies at the
     // edge (the old behavior) served stale errors for 5 minutes after a
     // transient upstream failure.
+    //
+    // The TTL is the biggest latency lever in the whole app. A cold Home load
+    // asks for ~20-90 catalogue paths, and every POP caches independently: with
+    // a 5-minute TTL each visitor in a quiet region paid origin + lambda cold
+    // start on every one of them, which is where the "fast in one country,
+    // 600ms+ in another" gap came from. 30 minutes + a day of
+    // stale-while-revalidate means a miss is served instantly from a neighbouring
+    // POP's revalidate and refreshes in the background, and trending/catalogue
+    // data genuinely does not move faster than that.
     if (upstream.status === 200) {
-      res.setHeader('cache-control', 'public, s-maxage=300, stale-while-revalidate=600');
+      res.setHeader('cache-control', 'public, s-maxage=1800, stale-while-revalidate=86400');
     } else {
       res.setHeader('cache-control', 'no-store');
     }

@@ -190,7 +190,9 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
 - `src/hooks/` — custom React hooks (`@/hooks`). `index.js` barrel. `useUserData.js` (localStorage lists,
   logs corrupt/quota failures), `useDebounce`, `useDetailView`, `useMediaQuery`, `useRailArrows`,
   `useScrollRestoration`, `useVirtualRenderAdapter` (IntersectionObserver adapter for heavy elements),
-  `useIsTouch`, `useContainerSize`.
+  `useNearViewport` (one shared "am I within N px of the viewport?" gate — returns `[ref, inView]`,
+  treats a browser without `IntersectionObserver` as visible so a missing API can never silently
+  suppress a query), `useIsTouch`, `useContainerSize`.
 - `src/context/` — React contexts (`@/context`). `index.js` barrel. `AuthContext.jsx` + `auth.js`
   (merges user data hooks), `PreferencesContext.jsx` + `preferences.js` (settings + `setting-*`).
 - `src/constants/` — app-level constant single sources (`@/constants`): `navigation`,
@@ -213,14 +215,56 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
   diagnostics + global error hooks.
 - `api/` — Vercel serverless functions (not bundled to the client).
   `api/tmdb.js` is the TMDB passthrough proxy — the reason
-  visitors on ISPs that block `api.themoviedb.org` still get data.
+  visitors on ISPs that block `api.themoviedb.org` still get data. Its edge
+  cache is `s-maxage=1800, stale-while-revalidate=86400`: rails are identical
+  for every visitor of a region for far longer than 5 minutes, so the CDN (not
+  the function) absorbs the repeated catalogue sweeps. That TTL is the
+  region-independent lever and the one that matters most — the CDN caches per
+  POP whatever region the function runs in. The function is additionally pinned
+  to `bom1` (Mumbai) via `functions."api/tmdb.js".regions` in `vercel.json`, so
+  on a plan without Fluid Compute it starts near the audience that needs the
+  proxy. If Fluid Compute is enabled for the project (it is the default for new
+  projects) Vercel places the function near the incoming request instead and the
+  pin is inert — which is acceptable, because the edge cache is doing the work.
   `api/downloadify.js` resolves embed-host + VidSrc HLS ladders and proxies
   media segments so the browser can save downloads (single-URL Range chunks
   under Vercel's 4.5MB cap; allowlisted embed hosts + DNS-resolved SSRF guard;
-  stateless, nothing persisted).
+  stateless, nothing persisted). It owns only routing and the provider walks;
+  the two cross-cutting concerns it used to inline now live beside it:
+  - `api/lib/ssrf.js` — the only sanctioned way to name an outbound host.
+    `assertPublicDestination` is called for the first hop *and* every redirect
+    hop, and refuses a URL unless the scheme is http(s) and **every** resolved
+    address is public (loopback, RFC1918, CGNAT 100.64/10, link-local incl.
+    `169.254.169.254`, IPv6 ULA/`fe80::/10`, multicast). The literal blocklist
+    is only the cheap first pass; the resolved-address check is what actually
+    stops a public name pointing inward.
+  - `api/lib/net.js` — the single outbound HTTP path: browser-shaped headers,
+    the manual redirect walk, the response-size ceiling and the Range-chunk
+    reader the byte relay depends on.
+  Both are pure and unit-tested (`src/__tests__/ssrfGuard.test.js`), which the
+  inline versions never were. `src/__tests__/apiModules.test.js` imports every
+  `api/` entry point so a broken import graph fails CI instead of production, and
+  `src/__tests__/downloadifyHandler.test.js` drives the handler itself (preflight,
+  method rejection, unknown action, malformed body, and every action without a URL
+  answering a structured `{ok:false}` envelope) so a function that fails to load
+  can never again present as a per-title "no downloadable stream".
   Root: `index.html` (fonts/CDN preconnect, SW cache-buster), `vite.config.js`
-  (vendor chunk split, `@/` path alias, `/api/tmdb` dev proxy), `vercel.json`
+  (vendor chunk split + a dedicated lazy `hls-vendor` chunk so the player is not
+  on the critical path, `@/` path alias, `/api/tmdb` dev proxy), `vercel.json`
   (`/api/tmdb/(.*)` proxy rewrite + SPA rewrite + cache headers), `.env` / `.env.example`.
+- `public/sw.js` — the service worker (untranspiled, registered from `public/boot.js`).
+  Its fetch handler's first rule is that **a non-GET request is never intercepted**:
+  `Cache.put()` accepts GET only, so letting a POST reach any caching branch throws
+  `Request method 'POST' is unsupported` as an unhandled rejection (this actually
+  happened for every `/api/downloadify` POST). Ordering after that: cross-origin
+  passes through, `/api/` passes through (the client owns its failover and timeouts),
+  navigations are network-first with a cached shell, content-hashed `/assets/*` are
+  cache-first (immutable, so a hit can never be stale), and everything else
+  same-origin is cache-first. Background cache writes are best-effort and never
+  reject: a full quota must not cost the visitor the response. `wsrv.nl` posters are
+  the one cross-origin exception (stale-while-revalidate, for offline viewing).
+  `src/__tests__/serviceWorker.test.js` imports the real file with stubbed
+  `self`/`caches` and pins that routing, so the invariant is enforced, not assumed.
 
 ## 4. Six architecture decisions + why
 

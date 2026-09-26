@@ -10,10 +10,12 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
-    <!-- Preconnect: CDN image proxy first, then fallback origins -->
+    <!-- Preconnect: CDN image proxy first, then fallback origins.
+         No preconnect to api.themoviedb.org: that host is ISP-blocked on some
+         networks (see api/tmdb.js) and the app reads TMDB through the same-origin
+         /api/tmdb proxy, so the handshake would be paid for nothing. -->
     <link rel="preconnect" href="https://wsrv.nl" crossorigin />
     <link rel="dns-prefetch" href="https://image.tmdb.org" />
-    <link rel="preconnect" href="https://api.themoviedb.org" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 

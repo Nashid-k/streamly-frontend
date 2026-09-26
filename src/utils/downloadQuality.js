@@ -6,7 +6,9 @@ const KIND_TS = "ts";
 export const KIND_FMP4 = "fmp4";
 
 // Resolve a possibly-relative URI against the playlist's base URL.
-function resolveUrl(base, ref) {
+// Exported because api/downloadify.js resolves manifest/segment URIs server-side
+// with the same rules the browser playlist parser uses.
+export function resolveUrl(base, ref) {
   if (!base) return ref;
   try {
     return new URL(ref, base).toString();

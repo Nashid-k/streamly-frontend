@@ -118,6 +118,12 @@ export default defineConfig(({ mode }) => {
             if (id.includes('@tanstack') || id.includes('react-query')) return 'query-vendor';
             if (id.includes('lucide-react')) return 'icons-vendor';
             if (id.includes('slugify')) return 'slugify-vendor';
+            // hls.js is ~600KB and only reachable from the lazy player/download
+            // routes. It used to fall into the catch-all 'vendor' chunk, which the
+            // ENTRY statically imports for react-router -> every page preloaded
+            // 600KB of streaming engine it never runs. Keep it in its own chunk so
+            // it downloads with the player, not with the shell.
+            if (id.includes('hls.js') || id.includes('/hls.js/')) return 'hls-vendor';
             return 'vendor';
           },
           // Stable, content-hashed filenames — lets Vercel/CDN cache assets for 1 year

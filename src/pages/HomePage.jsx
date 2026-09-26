@@ -18,6 +18,7 @@ import AmbientBackground from "../components/AmbientBackground";
 import HeroTitleLogo from "../components/HeroTitleLogo";
 import useDetailView from "../hooks/useDetailView";
 import useIsTouch from "../hooks/useIsTouch";
+import { useNearViewport } from "../hooks/useNearViewport";
 import RatingsCluster from "../components/RatingsCluster";
 
 import RailArrow from "../components/RailArrow";
@@ -140,9 +141,16 @@ export default function Home({
   // Regional (Tamil/Hindi/Malayalam/Telugu) feeds, merged into the Upcoming and
   // Airing rails so those keep their global breadth. Each is a /discover sweep,
   // cached 10 min like the other rails.
+  //
+  // These three are ~38 catalogue requests between them (4 languages x pages,
+  // plus 10 detail calls), and everything they build is a rail BELOW the hero.
+  // They wait for the rail section to come within 600px of the viewport, so a
+  // cold load no longer pays for them before the viewer has scrolled anywhere.
+  const [railsSentinelRef, railsNear] = useNearViewport("600px 0px");
   const { data: regionalUpcomingData, error: regionalUpcomingError } = useQuery({
     queryKey: ["upcoming-regional"],
     queryFn: () => movieService.getRegionalUpcoming(90),
+    enabled: railsNear,
     staleTime: 1000 * 60 * 10,
     retry: false,
     refetchOnWindowFocus: false,
@@ -151,6 +159,7 @@ export default function Home({
   const { data: regionalAiringData, error: regionalAiringError } = useQuery({
     queryKey: ["airing-regional"],
     queryFn: () => movieService.getRegionalAiring(10),
+    enabled: railsNear,
     staleTime: 1000 * 60 * 10,
     retry: false,
     refetchOnWindowFocus: false,
@@ -161,6 +170,7 @@ export default function Home({
   const { data: newReleasesData, error: newReleasesError } = useQuery({
     queryKey: ["new-releases"],
     queryFn: () => movieService.getNewReleases(90),
+    enabled: railsNear,
     staleTime: 1000 * 60 * 10,
     retry: false,
     refetchOnWindowFocus: false,
@@ -1201,6 +1211,7 @@ export default function Home({
 
       {/* Categories Section */}
       <section
+        ref={railsSentinelRef}
         style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}
       >
         <div className="section-header" style={{ marginBottom: 0 }}>

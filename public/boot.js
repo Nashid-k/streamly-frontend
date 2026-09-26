@@ -14,10 +14,15 @@ document.addEventListener('contextmenu', function (event) {
    PREVIOUS app version (keeps SW registered + image/trailer caches warm so
    the next request revalidates via SWR instead of re-downloading everything). */
 (function () {
-  var V = 'v19.6';
+  var V = 'v19.7';
   var prev = null;
   try { prev = localStorage.getItem('_sv'); } catch (nothing) {}
   if (prev !== V) {
+    // A first-ever visit (no stored version) has nothing stale to recover from:
+    // no prior shell, no caches, no service worker yet. Reloading there made the
+    // whole cold load — HTML, shell scripts and the entire module graph — happen
+    // twice, and aborted the in-flight module fetch. Only a real upgrade pays it.
+    var isUpgrade = prev !== null;
     try {
       localStorage.setItem('_sv', V);
       var tasks = [];
@@ -26,7 +31,7 @@ document.addEventListener('contextmenu', function (event) {
           caches.keys().then(function (names) {
             // Nuke every SW-managed cache (they are all named `streamly-*`)
             // on a version bump; the freshly-registered SW re-creates
-            // streamly-v19.6 / streamly-images-v19.6 on first activation.
+            // streamly-v19.7 / streamly-images-v19.7 on first activation.
             var stale = names.filter(function (k) { return k.indexOf('streamly') === 0; });
             return Promise.all(stale.map(function (k) { return caches.delete(k); }));
           })
@@ -39,14 +44,10 @@ document.addEventListener('contextmenu', function (event) {
           })
         );
       }
-      Promise.all(tasks).then(function () { window.location.reload(); });
+      Promise.all(tasks).then(function () {
+        if (isUpgrade) window.location.reload();
+      });
     } catch (nothing) {}
   }
 })();
 
-// Block native context menu everywhere except when React has already handled it.
-document.addEventListener('contextmenu', function (event) {
-  if (!event.defaultPrevented) {
-    event.preventDefault();
-  }
-});

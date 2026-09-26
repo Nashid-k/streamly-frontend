@@ -25,7 +25,7 @@ import {
   safeFileName,
   variantLabel,
 } from "../utils/downloadQuality";
-import { logDebug, logWarn } from "../utils/debugLogger";
+import { logDebug, logError, logWarn } from "../utils/debugLogger";
 
 /* ── DownloadModal — browser-only offline downloads ────────────────────
    Vercel has no storage and the app has no backend, so "download" means either
@@ -217,6 +217,14 @@ export default function DownloadModal({
             failed += 1;
             if (error instanceof DownloadUnavailableError && error.code === "offline") {
               offlineError = error;
+              // The resolver itself is down (function missing, not deployed, or
+              // answering HTML). Saying "this title has no stream" here sent us
+              // hunting for a per-title problem while every POST was 500ing, so
+              // name the real fault.
+              logError("download", `${def.name}: download service unavailable.`, error, {
+                code: error?.code,
+              });
+              return;
             }
             logWarn("download", `${def.name} has no downloadable stream.`, {
               message: error?.message,

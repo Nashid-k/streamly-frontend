@@ -1,8 +1,9 @@
 import { useMemo, useEffect } from "react";
-import { useQueries } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { movieService } from "../api/movieService";
 import { DiscoveryRail } from "./DiscoveryRails";
+import { useNearViewport } from "../hooks/useNearViewport";
 import ErrorBoundary from "./ErrorBoundary";
 import { logEmptyData, reportQueryError } from "../utils/debugLogger";
 
@@ -49,90 +50,96 @@ export default function GenreShowcase({ filter = "all", activeGenre = "All", lim
   const mediaTypes = useMemo(() => mediaTypesFor(filter), [filter]);
   const visible = activeGenre === "All";
 
-  const results = useQueries({
-    queries: GENRE_RAILS.map((rail) => ({
-      queryKey: ["genre-showcase", rail.id, mediaTypes.join(",")],
-      queryFn: () =>
-        movieService.getDiscoverByGenre({
-          movies: mediaTypes.includes("movie") ? rail.movieGenres : [],
-          tv: mediaTypes.includes("tv") ? rail.tvGenres : [],
-        }),
-      enabled: visible,
-      staleTime: 1000 * 60 * 10,
-      retry: false,
-      refetchOnWindowFocus: false,
-    })),
-  });
-
-  const rails = useMemo(
-    () =>
-      GENRE_RAILS.map((rail, i) => {
-        const movies = (results[i]?.data || []).slice(0, limit);
-        if (movies.length === 0) return null;
-        const title = railTitle(rail, mediaTypes);
-        return {
-          id: `gs-${rail.id}`,
-          title,
-          movies,
-          href: `/category/${encodeURIComponent(title)}`,
-          linkState: { movies, name: title },
-        };
-      }).filter(Boolean),
-    [results, limit, mediaTypes],
-  );
-
-  const loading = results.some((q) => q.isLoading);
-
-  const errorSignature = results.map((q) => q.error?.message || "").join("|");
-  useEffect(() => {
-    results.forEach((q, i) => {
-      if (q.error) {
-        reportQueryError("GenreShowcase", ["genre-showcase", GENRE_RAILS[i]?.id], q.error, { rail: GENRE_RAILS[i]?.id });
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [errorSignature]);
-
-  useEffect(() => {
-    if (visible && !loading && rails.length === 0) {
-      logEmptyData("GenreShowcase", "All genre rails empty — /discover/movie + /discover/tv returned nothing. Check TMDB discover + genre ids.", { filter });
-    }
-  }, [visible, loading, rails.length, filter]);
-
   if (!visible) return null;
 
-  if (!loading && rails.length === 0) return null;
-
+  /* One component per rail, each with its OWN viewport-gated query. This used to
+     be a single useQueries fan-out that fired all six (12 catalogue requests)
+     the moment Home mounted, three rails below the fold. */
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}>
-      {loading
-        ? [1, 2, 3, 4].map((rail) => (
-            <div key={rail}>
-              <div className="skeleton skeleton-title"></div>
-              <div className="skeleton-rail">
-                {[1, 2, 3, 4, 5].map((card) => (
-                  <div key={card} className="skeleton-moviecard">
-                    <div className="skeleton sk-poster"></div>
-                    <div className="skeleton sk-line sk-line--w70"></div>
-                    <div className="skeleton sk-line sk-line--sub"></div>
-                  </div>
-                ))}
+      {GENRE_RAILS.map((rail) => (
+        <GenreRail key={rail.id} rail={rail} mediaTypes={mediaTypes} limit={limit} />
+      ))}
+    </div>
+  );
+}
+
+function GenreRail({ rail, mediaTypes, limit }) {
+  const [sentinelRef, nearViewport] = useNearViewport();
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ["genre-showcase", rail.id, mediaTypes.join(",")],
+    queryFn: () =>
+      movieService.getDiscoverByGenre({
+        movies: mediaTypes.includes("movie") ? rail.movieGenres : [],
+        tv: mediaTypes.includes("tv") ? rail.tvGenres : [],
+      }),
+    enabled: nearViewport,
+    staleTime: 1000 * 60 * 10,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  const movies = useMemo(() => (data || []).slice(0, limit), [data, limit]);
+
+  useEffect(() => {
+    if (isError) reportQueryError("GenreShowcase", ["genre-showcase", rail.id], error, { rail: rail.id });
+  }, [isError, error, rail.id]);
+
+  useEffect(() => {
+    if (!isLoading && !isError && movies.length === 0) {
+      logEmptyData(
+        "GenreShowcase",
+        `Genre rail "${rail.id}" empty — /discover returned nothing. Check TMDB discover + genre ids.`,
+        { rail: rail.id },
+      );
+    }
+  }, [isLoading, isError, movies.length, rail.id]);
+
+  const title = railTitle(rail, mediaTypes);
+  const section = {
+    id: `gs-${rail.id}`,
+    title,
+    movies,
+    href: `/category/${encodeURIComponent(title)}`,
+    linkState: { movies, name: title },
+  };
+
+  // Settled and empty: render nothing at all (not even the sentinel), so an
+  // empty rail leaves no gap in the stack. Still-pending (including while the
+  // viewport gate is closed) keeps the sentinel mounted — that is what lets the
+  // observer open the gate.
+  if (data !== undefined && movies.length === 0) return null;
+
+  return (
+    // Always mounted so the observer has a target; a row with nothing to show
+    // collapses to zero height.
+    <div ref={sentinelRef}>
+      {isLoading && (
+        <div>
+          <div className="skeleton skeleton-title"></div>
+          <div className="skeleton-rail">
+            {[1, 2, 3, 4, 5].map((card) => (
+              <div key={card} className="skeleton-moviecard">
+                <div className="skeleton sk-poster"></div>
+                <div className="skeleton sk-line sk-line--w70"></div>
+                <div className="skeleton sk-line sk-line--sub"></div>
               </div>
-            </div>
-          ))
-        : rails.map((rail) => (
-            <motion.section
-              key={rail.id}
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-80px" }}
-              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-            >
-              <ErrorBoundary>
-                <DiscoveryRail section={rail} />
-              </ErrorBoundary>
-            </motion.section>
-          ))}
+            ))}
+          </div>
+        </div>
+      )}
+      {movies.length > 0 && (
+        <motion.section
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <ErrorBoundary>
+            <DiscoveryRail section={section} />
+          </ErrorBoundary>
+        </motion.section>
+      )}
     </div>
   );
 }
