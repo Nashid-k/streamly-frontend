@@ -65,6 +65,7 @@ const REFERER_GATED_HOST_SUFFIXES = [
   "palehive.top",
   "grandpearl.top",
   "wisehive.top",
+  "hypergate.top",
 ];
 
 export function isRefererGated(url) {
@@ -229,8 +230,13 @@ async function postDownloadify(body, { signal } = {}) {
       : [
           { base, slice, mode: "proxy" },
           { base: ENDPOINT, slice: FRAG_CHUNK_MAX, mode: "json" },
-        ];
-  const isTransport = body.action === "segment" || body.action === "playlist";
+        ];    const isTransport = body.action === "segment" || body.action === "playlist";
+    // A transport call without a URL would hit the worker as ?url=undefined — a
+    // guaranteed 500 + CORS noise. Fail HERE with a real error so the caller's
+    // retry/failover logic runs instead of the browser's opaque fetch failure.
+    if (isTransport && !body.url && !body.playlistUrl) {
+      throw new Error("relay: missing target URL (source had no playable URL)");
+    }
   // Only fragment pulls send a Range slice; playlists are small full-text GETs.
   const isSegment = body.action === "segment";
   const start = Math.max(0, Math.floor(Number(body.range?.start) || 0));

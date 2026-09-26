@@ -1590,6 +1590,13 @@ export default function NativePlayerView({
               say(`${def.label}: relay path — smooth-starting at ${relayFriendly.height || "?"}p (≤720p)…`);
               smoothStart = relayFriendly;
               entryUrl = entryUrlFor(def, { source: liveSource }, smoothStart);
+              // A per-quality source whose variant lacks a uri must not reach
+              // hls.loadSource(undefined) — that surfaced as ?url=undefined at
+              // the worker (500 + CORS noise) instead of a clean failover.
+              if (!entryUrl) {
+                say(`${def.label}: no playable URL after relay re-route — next source.`);
+                return false;
+              }
             }
           }
           try {
@@ -1902,6 +1909,14 @@ export default function NativePlayerView({
         }
       } catch {
         // probe hiccup (abort, timeout) — fall through to the requested uri
+      }
+      // A probe hiccup with no requested uri would reach loadSource(undefined)
+      // → the worker's ?url=undefined 500. Bail to the current quality instead.
+      if (!chosenUri) {
+        say(`Quality ${height || "?"}p: no URL for that rung — keeping current.`);
+        setBuffering(false);
+        setControlsVisible(true);
+        return;
       }
       if (chosenUri === activeUri) {
         say(`Already playing ${chosenHeight || "?"}p — no reload.`);

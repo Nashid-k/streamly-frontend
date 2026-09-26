@@ -101,6 +101,29 @@ describe("isRefererGated", () => {
     // bare fetch exactly like the originals (user console log).
     expect(isRefererGated("https://grandpearl.top/vd/x/seg-1-s1080p-v1-a1.m4s")).toBe(true);
     expect(isRefererGated("https://wisehive.top/vd/x/init-s720p-v1-a1.mp4")).toBe(true);
+    // rotation-3 (Wild Robot session log): bare init-segment 403.
+    expect(isRefererGated("https://hypergate.top/vd/x/init-s720p-v1-a1.mp4")).toBe(true);
+  });  it("refuses transport calls with no target URL instead of ?url=undefined at the worker", async () => {
+    // A per-quality source missing its variant uri used to reach the worker as
+    // ?url=undefined (500 + CORS noise). The loader must fail via onError with
+    // a real message so the player's failover runs, and no fetch may leave.
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const Loader = createStreamlyLoader({ getRefUrl: () => "https://vidcore.io/" });
+    const loader = new Loader();
+    await expect(
+      new Promise((resolve, reject) => {
+        loader.load(
+          { url: undefined },
+          {},
+          {
+            onSuccess: (resp) => resolve(resp),
+            onError: (err) => reject(new Error(err.text)),
+          },
+        );
+      }),
+    ).rejects.toThrow(/missing target URL/);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("leaves open-CORS hosts untouched", () => {
