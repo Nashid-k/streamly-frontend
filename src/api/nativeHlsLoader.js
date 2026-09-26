@@ -66,6 +66,7 @@ const REFERER_GATED_HOST_SUFFIXES = [
   "grandpearl.top",
   "wisehive.top",
   "hypergate.top",
+  "echogate.top",
 ];
 
 export function isRefererGated(url) {
