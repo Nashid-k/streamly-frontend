@@ -9,11 +9,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
+  AudioLines,
   Captions,
   Check,
   ChevronLeft,
   ChevronRight,
   ListVideo,
+  SlidersHorizontal,
   Loader2,
   Maximize,
   Minimize,
@@ -30,7 +32,6 @@ import {
 } from "lucide-react";
 import {
   NetflixVolumeHUD,
-  NetflixBrightnessHUD,
   NetflixAspectHUD,
   NetflixSeekHUD,
   NetflixPlayPauseHUD,
@@ -96,16 +97,11 @@ const BACK_BUFFER_SECONDS = 60;
 const INITIAL_BW_BITS = 10 * 1000 * 1000;
 const VOLUME_STORAGE_KEY = "streamly-native-volume";
 const MUTED_STORAGE_KEY = "streamly-native-muted";
-const BRIGHTNESS_STORAGE_KEY = "streamly-native-brightness";
-/* One-time brightness clear: an old gesture build (inverted drag sign) could
-   park brightness very low, and the v1 fix shipped with a broken unset-read
-   (`Number(null) === 0` passed the isFinite guard) that floored every viewer
-   to BRIGHTNESS_MIN. Cleared exactly once; a later deliberate low choice
-   persists like any other. */
-const BRIGHTNESS_RESET_FLAG = "streamly-native-brightness-reset-v2";
 const ASPECT_STORAGE_KEY = "streamly-native-aspect";
-const BRIGHTNESS_MIN = 0.25;
-const BRIGHTNESS_MAX = 1.75;
+/* Brightness is GONE (user call): a CSS filter is not the device backlight —
+   it dims the video while the OS brightness setting stays where it was, which
+   reads as a broken picture. The OS owns screen brightness on every platform.
+   The old localStorage keys are simply no longer read. */
 const HUD_MS = 1100;
 
 // Touch-first devices (hover-less, coarse pointer) get bigger tap targets,
@@ -280,7 +276,7 @@ export default function NativePlayerView({
   const clickTimer = useRef(null);
   // Touch taps: last-tap info for double-tap seek (±10s by screen side) and a
   // flag that swallows the synthetic click after touchend (it would double-toggle).
-  const touchTapRef = useRef({ time: 0, side: 0 });
+  const touchTapRef = useRef({ time: 0, zone: null });
   const singleTapTimer = useRef(null);
   const suppressClickRef = useRef(false);
   // Hold-to-2x bookkeeping: the timer that arms 2x, the rate it must restore,
@@ -421,22 +417,8 @@ export default function NativePlayerView({
   const [volHover, setVolHover] = useState(false);
   const [scrubHover, setScrubHover] = useState(null); // 0..1 ratio or null
   const [scrubDragging, setScrubDragging] = useState(false);
-  // Netflix-style HUD pill (volume / brightness / aspect) that pops then self-fades.
+  // Netflix-style HUD pill (volume / aspect) that pops then self-fades.
   const [autoMuted, setAutoMuted] = useState(false); // autoplay-block → muted play + hint
-  const [brightness, setBrightness] = useState(() => {
-    try {
-      if (!window.localStorage.getItem(BRIGHTNESS_RESET_FLAG)) {
-        window.localStorage.removeItem(BRIGHTNESS_STORAGE_KEY);
-        window.localStorage.setItem(BRIGHTNESS_RESET_FLAG, "1");
-      }
-    } catch {
-      // private mode — the read below answers with the default anyway
-    }
-    return readStoredNumber(
-      BRIGHTNESS_STORAGE_KEY,
-      { min: BRIGHTNESS_MIN, max: BRIGHTNESS_MAX, fallback: 1 },
-    );
-  });
   const [aspectRatioIndex, setAspectRatioIndex] = useState(() => {
     // Clamp to the shared catalog length — the mode list lives in
     // constants/playerUi.js, so a stale stored index beyond it resets to Fit.
@@ -447,7 +429,7 @@ export default function NativePlayerView({
     });
     return Number.isInteger(i) && ASPECT_RATIOS[i] ? i : 0;
   });
-  const [hud, setHud] = useState(null); // { kind: "volume"|"brightness"|"aspect"|"seek"|"play"|"pause"|"hold2x", value }
+  const [hud, setHud] = useState(null); // { kind: "volume"|"aspect"|"seek"|"play"|"pause"|"hold2x", value }
   // Hold-to-2x (Netflix mobile): press-and-hold on the right half of the screen
   // plays at 2x; release restores the previous rate. Desktop holds the forward
   // transport button.
@@ -460,8 +442,6 @@ export default function NativePlayerView({
   volumeRef.current = volume;
   const mutedRef = useRef(muted);
   mutedRef.current = muted;
-  const brightnessRef = useRef(brightness);
-  brightnessRef.current = brightness;
   const aspectRef = useRef(aspectRatioIndex);
   aspectRef.current = aspectRatioIndex;
   // Hold/still-watching mirrors — synced here because `hold2x`/`ended` are
@@ -748,13 +728,6 @@ export default function NativePlayerView({
     poke();
   };
 
-  const changeBrightness = (delta) => {
-    const nv = Math.min(BRIGHTNESS_MAX, Math.max(BRIGHTNESS_MIN, Math.round((brightnessRef.current + delta) * 100) / 100));
-    setBrightness(nv);
-    showHud("brightness", nv);
-    poke();
-  };
-
   const cycleAspect = () => {
     // Cycle every shared-catalog mode; a corrupted index simply wraps to Fit.
     const next = (Number.isInteger(aspectRef.current) && aspectRef.current >= 0 ? aspectRef.current + 1 : 0) % ASPECT_RATIOS.length;
@@ -901,7 +874,7 @@ export default function NativePlayerView({
     if (!t) return;
     const rect = e.currentTarget.getBoundingClientRect();
     if (!rect.width) return;
-    if (t.clientX < rect.left + rect.width / 2) return; // left half = brightness drag / double-tap seek
+    if (zoneOf(rect, t.clientX) !== "right") return; // center = play/pause, left = double-tap seek
     holdPointerRef.current = t.identifier ?? "touch";
     if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
     holdTimerRef.current = setTimeout(() => {
@@ -939,20 +912,28 @@ export default function NativePlayerView({
     }
   };
 
-  // Touch taps land on the video itself (overlay buttons keep their own clicks):
-  // single tap = play/pause, a second tap on the SAME half within 350ms = ±10s.
+  // Touch taps land on the video itself (overlay buttons keep their own clicks).
+  // THREE zones, YouTube/Netflix style: double-tap LEFT = rewind, double-tap
+  // RIGHT = forward, and any tap in the CENTER THIRD = play/pause (single tap,
+  // no 260ms lag). A double-tap in the center is just two play/pause toggles.
+  const zoneOf = (rect, clientX) => {
+    const x = clientX - rect.left;
+    if (x < rect.width / 3) return "left";
+    if (x > (rect.width * 2) / 3) return "right";
+    return "center";
+  };
   const handleVideoTouchEnd = (e) => {
     poke();
     suppressClickRef.current = true;
     if (hold2xRef.current || holdTimerRef.current) {
-      // A right-half hold just ended (2x engaged or still arming): it was not a
+      // A right-zone hold just ended (2x engaged or still arming): it was not a
       // tap — swallow it so play/pause doesn't fire on release.
       handleHoldEnd();
       suppressClickRef.current = true;
       return;
     }
     if (buffering) return;
-    // A vertical gesture (volume/brightness drag) just happened — not a tap.
+    // A vertical gesture (volume drag) just happened — not a tap.
     if (gestureRef.current?.active) {
       gestureRef.current = null;
       return;
@@ -960,19 +941,32 @@ export default function NativePlayerView({
     const rect = e.currentTarget.getBoundingClientRect();
     const t = e.changedTouches && e.changedTouches[0];
     if (!rect.width || !t) return;
-    const side = t.clientX < rect.left + rect.width / 2 ? -1 : 1;
-    const now = performance.now();
-    const prev = touchTapRef.current;
-    if (now - prev.time < 350 && prev.side === side) {
-      touchTapRef.current = { time: 0, side: 0 };
+    const zone = zoneOf(rect, t.clientX);
+    // Center taps toggle playback immediately — the 260ms single-tap delay
+    // only exists where a double-tap means seek.
+    if (zone === "center") {
       if (singleTapTimer.current) {
         clearTimeout(singleTapTimer.current);
         singleTapTimer.current = null;
       }
-      seekRelative(side * SKIP_SECONDS);
+      touchTapRef.current = { time: 0, zone: "center" };
+      togglePlay();
       return;
     }
-    touchTapRef.current = { time: now, side };
+    const now = performance.now();
+    const prev = touchTapRef.current;
+    if (now - prev.time < 350 && prev.zone === zone) {
+      touchTapRef.current = { time: 0, zone: null };
+      if (singleTapTimer.current) {
+        clearTimeout(singleTapTimer.current);
+        singleTapTimer.current = null;
+      }
+      seekRelative((zone === "left" ? -1 : 1) * SKIP_SECONDS);
+      return;
+    }
+    touchTapRef.current = { time: now, zone };
+    // A lone edge tap waits briefly in case it becomes a double-tap seek;
+    // if nothing follows, it plays/pauses.
     if (singleTapTimer.current) clearTimeout(singleTapTimer.current);
     singleTapTimer.current = setTimeout(() => {
       singleTapTimer.current = null;
@@ -980,17 +974,20 @@ export default function NativePlayerView({
     }, 260);
   };
 
-  // Vertical drag: LEFT half = brightness, RIGHT half = volume. Vertical-only —
-  // horizontal movement declares a non-gesture so taps and double-taps survive.
-  // A right-half hold arms 2x; a vertical move on that side cancels the arm.
+  // Vertical drag on the RIGHT THIRD = volume (brightness removed — the OS
+  // owns screen brightness). Vertical-only — horizontal movement declares a
+  // non-gesture so taps and double-taps survive. A right-zone hold arms 2x;
+  // a vertical move on that side cancels the arm.
   const handleGestureStart = (e) => {
     if (!IS_TOUCH || buffering) return;
     const t = e.touches && e.touches[0];
     if (!t) return;
     const rect = e.currentTarget.getBoundingClientRect();
     if (!rect.width) return;
+    // Only the right zone drives a drag now; left/center drags do nothing.
+    if (zoneOf(rect, t.clientX) !== "right") return;
     gestureRef.current = {
-      side: t.clientX < rect.left + rect.width / 2 ? "brightness" : "volume",
+      side: "volume",
       startY: t.clientY,
       lastY: t.clientY,
       active: false,
@@ -1017,18 +1014,12 @@ export default function NativePlayerView({
     if (hold2xRef.current && g.side === "volume") {
       releaseHold2x();
     }
-    if (g.side === "volume") {
-      // Netflix sign: drag UP → louder/brightter (clientY falls, so -dy is positive).
-      const nv = Math.min(1, Math.max(0, volumeRef.current - dy * 0.008));
-      setMuted(false);
-      setAutoMuted(false);
-      setVolume(nv);
-      showHud("volume", nv);
-    } else {
-      const nb = Math.min(BRIGHTNESS_MAX, Math.max(BRIGHTNESS_MIN, brightnessRef.current - dy * 0.008));
-      setBrightness(nb);
-      showHud("brightness", nb);
-    }
+    // Netflix sign: drag UP → louder (clientY falls, so -dy is positive).
+    const nv = Math.min(1, Math.max(0, volumeRef.current - dy * 0.008));
+    setMuted(false);
+    setAutoMuted(false);
+    setVolume(nv);
+    showHud("volume", nv);
     g.lastY = t.clientY;
     poke();
   };
@@ -1164,14 +1155,8 @@ export default function NativePlayerView({
     }
   }, [volume, muted, autoMuted]);
 
-  /* Brightness (CSS filter) and aspect ratio persist across visits. */
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(BRIGHTNESS_STORAGE_KEY, String(brightness));
-    } catch {
-      // private mode — brightness just won't persist
-    }
-  }, [brightness]);
+  /* Aspect ratio persists across visits (brightness is gone — the OS owns
+     screen brightness; a CSS filter only broke the picture). */
   useEffect(() => {
     try {
       window.localStorage.setItem(ASPECT_STORAGE_KEY, String(aspectRatioIndex));
@@ -1356,13 +1341,11 @@ export default function NativePlayerView({
           break;
         case "ArrowUp":
           e.preventDefault();
-          if (e.shiftKey) changeBrightness(0.1);
-          else changeVolume(0.1);
+          changeVolume(0.1);
           break;
         case "ArrowDown":
           e.preventDefault();
-          if (e.shiftKey) changeBrightness(-0.1);
-          else changeVolume(-0.1);
+          changeVolume(-0.1);
           break;
         case "KeyA":
           e.preventDefault();
@@ -2322,9 +2305,6 @@ export default function NativePlayerView({
             height: "100%",
             display: "block",
             ...aspectVideoStyle(aspectRatioIndex),
-            filter: brightness !== 1 ? `brightness(${brightness})` : undefined,
-            // No background on purpose: the screen div paints true black, so the
-            // brightness filter sees only the video frame.
             touchAction: "manipulation",
             WebkitUserSelect: "none",
           }}
@@ -2944,7 +2924,7 @@ export default function NativePlayerView({
                 </IconBtn>
               )}
               <IconBtn
-                label="Audio and subtitles"
+                label="Subtitles"
                 active={panel === "subs"}
                 onClick={() => {
                   setPanel((p) => (p === "subs" ? null : "subs"));
@@ -2952,6 +2932,26 @@ export default function NativePlayerView({
                 }}
               >
                 <Captions size={24} />
+              </IconBtn>
+              <IconBtn
+                label="Audio"
+                active={panel === "audio"}
+                onClick={() => {
+                  setPanel((p) => (p === "audio" ? null : "audio"));
+                  poke();
+                }}
+              >
+                <AudioLines size={24} />
+              </IconBtn>
+              <IconBtn
+                label="Video quality"
+                active={panel === "video"}
+                onClick={() => {
+                  setPanel((p) => (p === "video" ? null : "video"));
+                  poke();
+                }}
+              >
+                <SlidersHorizontal size={24} />
               </IconBtn>
               {/* Aspect ratio (Fit / Fill / Zoom). Hidden on touch only when a
                   TV's prev/next + episodes already crowd the rail — keyboard
@@ -3126,10 +3126,10 @@ export default function NativePlayerView({
               top: IS_TOUCH ? undefined : 0,
               bottom: 0,
               width:
-                panel === "subs"
+                panel === "subs" || panel === "audio" || panel === "video"
                   ? IS_TOUCH
-                    ? "min(580px, 100%)"
-                    : "min(580px, 38%)"
+                    ? "min(480px, 100%)"
+                    : "min(480px, 32%)"
                   : IS_TOUCH
                     ? "min(360px, 100%)"
                     : "min(360px, 28%)",
@@ -3149,20 +3149,50 @@ export default function NativePlayerView({
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, padding: "0 16px" }}>
               <span style={{ color: "#fff", fontWeight: 700, fontSize: 16, letterSpacing: "-0.01em" }}>
-                {panel === "subs" ? "Audio & Subtitles" : "Episodes"}
+                {panel === "subs" ? "Subtitles" : panel === "audio" ? "Audio" : panel === "video" ? "Video Quality" : "Episodes"}
               </span>
               <IconBtn label="Close panel" onClick={() => setPanel(null)}>
                 <X size={18} />
               </IconBtn>
             </div>
-            {/* Each pane scrolls on its own: Audio + Video Quality stay in one
-                column (the shared controls), Subtitles in its own — so
-                scrolling the quality ladder never scrolls the subtitle list
-                past you, and vice versa. */}
+            {/* One panel per control (Netflix): Subtitles / Audio / Video
+                Quality each get their own sheet and their own scroll. */}
             {panel === "subs" ? (
-              <div style={{ display: "flex", gap: 16, flexDirection: IS_TOUCH ? "column" : "row", flex: 1, minHeight: 0 }}>
-                {/* Left pane: Audio + Video Quality (the feed/play controls). */}
-                <div style={{ flex: 1, minWidth: 0, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                    Subtitles
+                  </p>
+                  <DialogRow
+                    key="off"
+                    selected={!subtitleEnabled}
+                    onClick={() => selectSubtitle(null)}
+                    title="Off"
+                  />
+                  {isFetchingSubtitles ? (
+                    <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.5)", margin: "6px 0 2px", lineHeight: 1.45 }}>
+                      Searching OpenSubtitles…
+                    </p>
+                  ) : subtitleLanguages.length > 0 ? (
+                    subtitleLanguages.map((s) => (
+                      <DialogRow
+                        key={s.languageId || s.language}
+                        selected={
+                          subtitleEnabled &&
+                          s.languageId === currentSubtitle?.languageId &&
+                          s.language === currentSubtitle?.language
+                        }
+                        onClick={() => selectSubtitle(s)}
+                        title={s.language}
+                      />
+                    ))
+                  ) : (
+                    <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.5)", margin: "6px 0 2px", lineHeight: 1.45 }}>
+                      No subtitles found for this title on OpenSubtitles.
+                    </p>
+                  )}
+              </div>
+            ) : panel === "audio" ? (
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
                   <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
                     Audio
                   </p>
@@ -3202,7 +3232,10 @@ export default function NativePlayerView({
                       />
                     </>
                   )}
-                  <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", margin: "16px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+              </div>
+            ) : panel === "video" ? (
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
                     Video Quality
                   </p>
                   {/* Auto is ALWAYS present — the active mode on every source
@@ -3233,42 +3266,6 @@ export default function NativePlayerView({
                       />
                     );
                   })}
-                </div>
-                {/* Right pane: Subtitles only — scrolls on its own, independent
-                    of the Audio/Quality pane. */}
-                <div style={{ flex: 1, minWidth: 0, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
-                  <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                    Subtitles
-                  </p>
-                  <DialogRow
-                    key="off"
-                    selected={!subtitleEnabled}
-                    onClick={() => selectSubtitle(null)}
-                    title="Off"
-                  />
-                  {isFetchingSubtitles ? (
-                    <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.5)", margin: "6px 0 2px", lineHeight: 1.45 }}>
-                      Searching OpenSubtitles…
-                    </p>
-                  ) : subtitleLanguages.length > 0 ? (
-                    subtitleLanguages.map((s) => (
-                      <DialogRow
-                        key={s.languageId || s.language}
-                        selected={
-                          subtitleEnabled &&
-                          s.languageId === currentSubtitle?.languageId &&
-                          s.language === currentSubtitle?.language
-                        }
-                        onClick={() => selectSubtitle(s)}
-                        title={s.language}
-                      />
-                    ))
-                  ) : (
-                    <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.5)", margin: "6px 0 2px", lineHeight: 1.45 }}>
-                      No subtitles found for this title on OpenSubtitles.
-                    </p>
-                  )}
-                </div>
               </div>
             ) : (
               <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 0 16px" }}>
@@ -3289,7 +3286,7 @@ export default function NativePlayerView({
             )}
           </div>
         )}
-        {/* Netflix HUD overlays: transient volume / brightness / aspect pills
+        {/* Netflix HUD overlays: transient volume / aspect pills
             that pop while a value changes and self-fade, plus the rewind /
             forward badge on its own edge. All geometry comes from hudMetrics
             (the measured frame), so they track the video rather than the
@@ -3297,11 +3294,6 @@ export default function NativePlayerView({
         <AnimatePresence>
           {hud?.kind === "volume" && (
             <NetflixVolumeHUD key="volume" effVolume={volume} isMuted={muted || autoMuted} metrics={hudBox} volume={volume} />
-          )}
-        </AnimatePresence>
-        <AnimatePresence>
-          {hud?.kind === "brightness" && (
-            <NetflixBrightnessHUD key="brightness" brightness={brightness} metrics={hudBox} />
           )}
         </AnimatePresence>
         <AnimatePresence>
