@@ -312,10 +312,10 @@ export default function NativePlayerView({
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   // Live views for closures that must not read stale hold/still-watching state.
+  // (Declared here; SYNCED below next to the other mirror refs — the states
+  // they read are declared further down, and assigning earlier is a TDZ crash.)
   const hold2xRef = useRef(false);
-  hold2xRef.current = hold2x;
   const endedRef = useRef(false);
-  endedRef.current = ended;
   const onSelectEpisodeRef = useRef(onSelectEpisode);
   onSelectEpisodeRef.current = onSelectEpisode;
   const onGoPrevRef = useRef(onGoPrev);
@@ -464,6 +464,10 @@ export default function NativePlayerView({
   brightnessRef.current = brightness;
   const aspectRef = useRef(aspectRatioIndex);
   aspectRef.current = aspectRatioIndex;
+  // Hold/still-watching mirrors — synced here because `hold2x`/`ended` are
+  // declared above this line, not at the ref block up top.
+  hold2xRef.current = hold2x;
+  endedRef.current = ended;
   const hudTimerRef = useRef(null);
   // Touch gesture state for Netflix's vertical drags on the video surface.
   const gestureRef = useRef(null);
