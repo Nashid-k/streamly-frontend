@@ -113,9 +113,10 @@ VITE_SITE_URL=https://your-project.vercel.app
    (`id: movie-<n>/tv-<n>`, `posterUrl/backdropUrl`, `imdbRating`,
    `isSeries`), then lives in the **React Query** cache
    (`src/queryClient.js`).
-4. **Playback:** titles play through third-party iframe hosts (CineSrc,
-   Vidlink, 2Embed, …) listed in `src/api/videoSourceAdapter.js`. Viewers
-   re-order them in Settings → Server Order.
+4. **Playback:** titles play through the native player, which pulls real HLS
+   ladders from the serverless sources (VidSrc, VidCore); the CineSrc fallback
+   was removed with its mint service. Viewers re-order servers in
+   Settings → Server Order.
 5. **Personal state:** `localStorage` first — `aios_my_list`,
    `aios_my_collections` (named folders), `aios_continue_watching`,
    `aios_search_history`, `setting-*` preference
@@ -126,35 +127,19 @@ VITE_SITE_URL=https://your-project.vercel.app
    hidden locally immediately and purged from storage on later merges.
 7. **Offline downloads:** TitleDetailsPage → `DownloadModal` →
    `downloadService` → Vercel `api/downloadify.js` (`resolve` / VidSrc
-   `resolvevidsrc` / VidCore `resolvevidcore` / CineSrc `resolvecinesrc` →
-   `manifest` → single-URL
+   `resolvevidsrc` / VidCore `resolvevidcore` → `manifest` → single-URL
    Range-chunked `segment`, ≤3.5MB chunks with an `x-streamly-more` header —
    the old 6-URL batch POSTs 413'd on Vercel's 4.5MB cap). VidCore (Server 5)
    is fully serverless: the vidcore.org/embed "videasy" sources catalogue lists
    direct HLS ladders incl. 4K, and the m3u8s/segments are relayed behind
-   `Referer: https://vidcore.io/` (supplied as `source.refUrl`). CineSrc's tokens
-   are browser-fingerprint-bound, so minting runs on an always-on self-hosted
-   Chrome service (`cinesrc-resolver/`). The service origin is baked into the
-   client bundle (`src/api/cinesrcResolver.js` → `CINESRC_RESOLVER_ORIGIN`) and
-   sent with every request, so the Vercel deployment needs **no env var**;
-   `CINESRC_RESOLVER_URL` can still be set server-side to override it without a
-   redeploy. With neither configured, CineSrc reports unavailable and the
-   serverless sources (VidSrc, VidCore) still fill the sheet.
-   CineSrc keeps audio as separate HLS renditions (`EXT-X-MEDIA AUDIO`): the
-   modal offers a per-quality language picker and, when both streams are
-   fMP4, `saveStream` muxes the chosen audio in via the dependency-free
-   `src/utils/fmp4Muxer.js` (`buildMuxedInit`/`muxSegment` remap the audio
-   track to a non-video id and interleave A/V fragments) so the saved MP4
-   isn't a silent video-only file. Where a CDN allows CORS the browser
-   downloads segments directly, falling back to the proxy. Resolver is
-   embed-host allowlisted + SSRF-guarded (DNS-resolved, redirect hops
-   re-validated), and files save via the File System Access API (Blob
-   `<a download>` fallback). CineSrc sessions are time-scoped and die
-   mid-file (~86 min of segments per movie, minute-scale token TTL), so
-   `saveStream` re-mints through the row's resolver on the relay's honest
-   `segment-fetch-failed` (single-flight, ≤2 refreshes) and retries the same
-   segment — the audio rendition rides the same fresh mint — and the file
-   resumes in place, never restarts.
+   `Referer: https://vidcore.io/` (supplied as `source.refUrl`). Where a CDN
+   allows CORS the browser downloads segments directly, falling back to the
+   proxy. Fetching is embed-host allowlisted + SSRF-guarded (DNS-resolved,
+   redirect hops re-validated), and files save via the File System Access API
+   (Blob `<a download>` fallback). A former third source, CineSrc, was removed
+   — its tokens were browser-fingerprint-bound and needed an always-on
+   self-hosted Chrome mint service, so downloads are now video-only and written
+   exactly as the manifest lists them.
 
 ---
 
@@ -298,9 +283,9 @@ src/
 
 ### `DownloadModal`
 - Offline downloader (TitleDetailsPage): source pick (player rotation +
-  "VidSrc (Alt)" and "CineSrc" third-party providers), quality ladder with HDR
+   "VidSrc (Alt)" and "VidCore" third-party providers), quality ladder with HDR
   badges + estimated sizes, TV season/episode batch, progress + cancel
-- Streams via `api/downloadify.js` resolve/resolvevidsrc/resolvecinesrc →
+- Streams via `api/downloadify.js` resolve/resolvevidsrc/resolvevidcore →
   manifest → segment (single-URL Range chunks, direct-CORS when the CDN
   allows) and saves through the File System Access API (Blob `<a download>`
   fallback)

@@ -26,9 +26,9 @@
 //     report, so the loader always answers playlist loads with the ORIGINAL
 //     upstream URL (never the relay endpoint).
 //
-// The class factory takes `getRefUrl` (the current source's refUrl) because
-// token rotation (CineSrc) may swap it mid-session; the prototype keeps it
-// fixed per source attempt.
+// The class factory takes `getRefUrl` (the current source's refUrl) so a
+// mid-session re-resolution can pick up a new refUrl; it stays fixed per
+// source attempt.
 
 import { logDebug, logWarn } from "../utils/debugLogger.js";
 import { parseMasterPlaylist, parseMediaPlaylist } from "../utils/downloadQuality.js";
@@ -175,7 +175,7 @@ export function clearDirectBlocks() {
    ladder whose segments never arrive (VidCore's vidzen fallback: playlist 200
    + duration, segments 429 forever) — without this check that plays as a
    black screen with a known duration and no error. Returns { ok, via, reason }.
-   Follows the entry URL through a master (CineSrc) when needed. */
+   Follows the entry URL through a master playlist when needed. */
 async function relayPlaylistText(url, refUrl, signal) {
   const response = await postDownloadify({ action: "playlist", playlistUrl: url, refUrl }, { signal });
   await throwIfRelayError(response, "Playlist request failed");

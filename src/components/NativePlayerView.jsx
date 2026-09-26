@@ -3,7 +3,7 @@
 //
 // The former iframe embed player (CustomVideoPlayer) was retired; this is what
 // the hero Play / episode Play buttons open. Resolves VidCore-first →
-// VidSrc → CineSrc via downloadService, plays through hls.js
+// VidSrc via downloadService, plays through hls.js
 // (manifest-relay + direct-segment loader), and offers our own quality ladder
 // + audio menu + attempt log. Custom transport only — no native <video
 // controls> anywhere in here.
@@ -227,10 +227,12 @@ const SOURCES = [
   // Streaming backends are relayed HLS providers only (VidCore first — its
   // probe is direct-first so a blocked CDN falls through quickly). The former
   // NetMirror (net27.cc) direct-mp4 provider was removed: its video layer is
-  // per-IP 429-gated behind a Cloudflare challenge.
+  // per-IP 429-gated behind a Cloudflare challenge. The former third entry,
+  // CineSrc, was removed with its Chrome mint service (cinesrc-resolver/):
+  // no serverless function can mint its fingerprint-bound tokens, so it only
+  // worked through that separately-hosted resolver, which is retired.
   { key: "vidcore", label: "VidCore (native)", resolve: (a, o) => downloadService.resolveVidcore(a, o) },
   { key: "vidsrc", label: "VidSrc (native)", resolve: (a, o) => downloadService.resolveVidsrc(a, o) },
-  { key: "cinesrc", label: "CineSrc (native)", resolve: (a, o) => downloadService.resolveCinesrc(a, o) },
 ];
 
 // A single open used to resolve each provider once and give up on the first
@@ -304,7 +306,7 @@ export default function NativePlayerView({
   const scrubRef = useRef(null);
   const hlsRef = useRef(null);
   const runRef = useRef(0);
-  const metaRef = useRef({ variants: [], sourceKey: null, refUrl: null, cinesrcLevels: false });
+  const metaRef = useRef({ variants: [], sourceKey: null, refUrl: null, masterLevels: false });
   const idleTimer = useRef(null);
   const clickTimer = useRef(null);
   // Touch tap wiring: last-tap info for double-tap seek (±10s by screen side),
@@ -411,7 +413,7 @@ export default function NativePlayerView({
   }, [buffering, playing]);
   const [bufferedSecs, setBufferedSecs] = useState(0);
   const [bufferedRanges, setBufferedRanges] = useState([]);
-  // Master-mode (CineSrc) starts on ABR auto; picking a level pins it.
+  // Master-mode (multi-variant) sources start on ABR auto; picking a level pins it.
   const [autoLevel, setAutoLevel] = useState(true);
   const [manualHeight, setManualHeight] = useState(null);
   // The rendition ABR currently settled on (LEVEL_SWITCHED) — shows the real
@@ -1235,7 +1237,7 @@ export default function NativePlayerView({
     const controller = new AbortController();
 
     const entryUrlFor = (def, resolved, variant) => {
-      // Master sources (CineSrc) keep audio groups + levels on the master, so
+      // Master sources keep audio groups + levels on the master, so
       // load the master and let hls.js see them. VidCore/VidSrc variants are
       // per-quality media playlists, loadable directly.
       if (resolved?.source?.multiLevelMaster) return resolved.source?.url;
@@ -1284,7 +1286,7 @@ export default function NativePlayerView({
       // Master sources load their master: leave level selection on AUTO (-1) so
       // ABR starts conservatively and steps up only when the pipe sustains it.
       // (Forcing the top level first is exactly what stalled 4K playback.)
-      if (!metaRef.current?.cinesrcLevels || !Array.isArray(hls.levels) || hls.levels.length === 0) return;
+      if (!metaRef.current?.masterLevels || !Array.isArray(hls.levels) || hls.levels.length === 0) return;
       hls.currentLevel = -1;
     };
 
@@ -1339,8 +1341,8 @@ export default function NativePlayerView({
           );
         });
       // A loader/relay failure that smells like an expired token (VidCore
-      // path tokens and CineSrc sessions both rotate) rather than a dead
-      // CDN. Downloads survive this via re-mint; playback must too.
+      // path tokens rotate) rather than a dead CDN. Downloads survive this via
+      // re-mint; playback must too.
       const isAuthFatal = (detail) =>
         /\[relay:(segment-fetch-failed|manifest-fetch-failed)\]/.test(detail || "") ||
         /failed \((401|403|429)\)/.test(detail || "");
@@ -1371,7 +1373,7 @@ export default function NativePlayerView({
         }
         let liveSource = resolved.source;
         let liveRefUrl = resolved.source?.refUrl || resolved.source?.url;
-        // Master sources (CineSrc) ship the whole multivariant + audio-group
+        // Master sources ship the whole multivariant + audio-group
         // tree in ONE url; every other source is a per-rendition media
         // playlist.
         const isMaster = Boolean(liveSource?.multiLevelMaster);
@@ -1452,8 +1454,8 @@ export default function NativePlayerView({
           // 4K/1080p pick after 2 relayed fragments (every source here is
           // relay-only on the free tier; banning tall rungs bans everything).
           // Startup STAYS conservative (≤720p over relay) so a fresh open is
-          // always instant; the menu lets the user raise from there. CineSrc is
-          // multi-level ABR and self-adjusts entirely.
+          // always instant; the menu lets the user raise from there. A
+          // multi-level master source is ABR and self-adjusts entirely.
           const hls = new Hls({
             loader: createStreamlyLoader({
               getRefUrl: () => liveRefUrl,
@@ -1584,7 +1586,7 @@ export default function NativePlayerView({
             variants,
             sourceKey: def.key,
             refUrl: liveRefUrl,
-            cinesrcLevels: isMaster,
+            masterLevels: isMaster,
           };
           startLevelFor(hls);
           // Canonical ladder order + labels: SD → 720p → 1080p → 2K → 4K,
@@ -1726,7 +1728,7 @@ export default function NativePlayerView({
     setBuffering(true);
     poke();
     try {
-      if (metaRef.current?.cinesrcLevels && Array.isArray(hls.levels) && hls.levels.length > 0) {
+      if (metaRef.current?.masterLevels && Array.isArray(hls.levels) && hls.levels.length > 0) {
         let best = 0;
         hls.levels.forEach((lvl, i) => {
           if (Math.abs((lvl.height || 0) - (height || 0)) < Math.abs((hls.levels[best].height || 0) - (height || 0))) best = i;
@@ -1858,7 +1860,7 @@ export default function NativePlayerView({
       st.prev = bufferedSecs;
       if (refilling || Date.now() - st.since < BUFFER_UNDERFLOOR_MS) return;
       st.since = 0;
-      if (metaRef.current?.cinesrcLevels) return;
+      if (metaRef.current?.masterLevels) return;
       const curH = currentHeight || 0;
       const rungs = qualities
         .filter((q) => (q.height || 0) > 0 && (q.height || 0) < curH)

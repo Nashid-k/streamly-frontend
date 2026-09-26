@@ -151,11 +151,12 @@ export function parseMediaPlaylist(text, baseUrl) {
 }
 
 /* EXT-X-MEDIA audio renditions (RFC 8216 §4.3.4.1) from a master playlist.
-   CineSrc keeps audio as a SEPARATE stream from the video renditions — the
-   master's STREAM-INF rows point only at video, and each audio group has its
-   own media playlist + init + fragments. Returning these lets the downloader
-   mux the chosen language back into the file. `default`/`autoselect` follow
-   the HLS spec (DEFAULT/YES, AUTOSELECT/YES, ALLOWED-CAPTIONS ignored). */
+   Some providers keep audio as a SEPARATE stream from the video renditions —
+   the master's STREAM-INF rows point only at video, and each audio group has
+   its own media playlist + init + fragments. `default`/`autoselect` follow
+   the HLS spec (DEFAULT/YES, AUTOSELECT/YES, ALLOWED-CAPTIONS ignored).
+   No production caller left: the downloader is video-only since the muxing
+   provider was removed; kept as a tested pure parser. */
 export function parseAudioGroups(text, baseUrl) {
   const lines = String(text || "").split(/\r?\n/);
   const out = [];

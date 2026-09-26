@@ -2,21 +2,13 @@
 //
 // Flow (all through the stateless /api/downloadify Vercel function):
 //   1. resolveVidsrc({type,id,season?,episode?}) -> VidSrc (Alt) HLS ladder
-//      resolveCinesrc({type,id,season?,episode?}) -> CineSrc HLS ladder (needs
-//      the separately-hosted cinesrc-resolver Chrome service — see the
-//      architecture note in api/downloadify.js). resolveVidcore({...}) is the
-//      VidCore (Server 5) equivalent and, like VidSrc, is fully serverless —
-//      its sources catalogue serves direct HLS ladders (incl. 4K). All three
-//      return the same shape so the modal can fan out over any source;
-//      CineSrc also carries `audio` — its EXT-X-MEDIA AUDIO renditions
-//      (separate streams from the video renditions, muxed back in at save time
-//      so the MP4 isn't silent).
-//   2. buildManifest(source, variant, { audio? }) -> concrete segment URL
-//      list (+ `audioManifest` when the audio rendition is muxable fMP4)
+//      resolveVidcore({type,id,season?,episode?}) -> VidCore (Server 5) ladder.
+//      Both are fully serverless — their catalogues list direct HLS ladders
+//      (incl. 4K) — and return the same shape so the modal can fan out over
+//      either source.
+//   2. buildManifest(source, variant)          -> concrete segment URL list
 //   3. saveStream(...)                    -> fetch segments in bounded Range
-//                                            chunks (muxing A/V when both
-//                                            streams are fMP4) and write them
-//                                            to disk
+//                                            chunks and write them to disk
 //
 // Byte transport changed for a reason: Vercel caps a function's response at
 // 4.5MB, so the old "batch N segments in one POST" design crashed with 413 on
@@ -43,9 +35,7 @@ import {
   safeFileName,
   variantLabel,
 } from "../utils/downloadQuality.js";
-import { buildMuxedInit, muxSegment } from "../utils/fmp4Muxer.js";
 import { logDebug, logError, logInfo, logWarn } from "../utils/debugLogger.js";
-import { CINESRC_RESOLVER_ORIGIN } from "./cinesrcResolver.js";
 import { deriveSliceMore, relayProxyConfig } from "./relayProxy.js";
 import { isRefererGated } from "./nativeHlsLoader.js";
 
@@ -54,82 +44,6 @@ const CHUNK_MAX = 3.5 * 1024 * 1024;
 // How many segments download in parallel. Videos stitch fine when bytes are
 // written to the file in ORDER; only the network fetch needs to overlap.
 const SEGMENT_CONCURRENCY = 4;
-
-/* CineSrc resolver circuit breaker (client side).
-   cinesrc-resolver hosts Chrome; when its host runs out of memory the service
-   just disappears. Hitting it then through /api/downloadify leaves the Vercel
-   function waiting near its own maxDuration (~55s) for a corpse — during which
-   the PLAYER shows nothing but the loading spinner. That wait is what a viewer
-   reads as "fantastically slow internet", so we never let a resolve land on a
-   dead resolver: a cheap direct /healthz probe decides, and repeated failures
-   open a short circuit that makes every CineSrc attempt fail in milliseconds.
-   The breaker ONLY gates the pre-flight probe + confirmed server errors — a
-   genuine response (even a 404) resets it, so a resurrected service is
-   re-adopted on the next probe window without user action. */
-const CINESRC_HEALTHZ_TIMEOUT_MS = 3500;
-const CINESRC_HEALTHZ_TTL_MS = 30 * 1000; // fresh probe skips the pre-flight
-const CINESRC_OPEN_BLOCK_MS = 15 * 1000; // after 1 miss
-const CINESRC_OPEN_BLOCK_LONG_MS = 2 * 60 * 1000; // after consecutive misses
-const cinesrcBreaker = { okUntil: 0, blockUntil: 0, misses: 0 };
-
-async function cinesrcHealthz(origin, { signal } = {}) {
-  if (signal?.aborted) throw Object.assign(new Error("Aborted"), { name: "AbortError" });
-  const probe = new AbortController();
-  const timer = setTimeout(() => probe.abort(), CINESRC_HEALTHZ_TIMEOUT_MS);
-  const onOuterAbort = () => probe.abort();
-  signal?.addEventListener?.("abort", onOuterAbort, { once: true });
-  try {
-    const res = await fetch(`${origin}/healthz`, {
-      signal: probe.signal,
-      credentials: "omit",
-      cache: "no-store",
-      redirect: "follow",
-    });
-    return res.ok;
-  } catch (error) {
-    if (signal?.aborted) throw error; // caller cancelled — let that propagate
-    return false;
-  } finally {
-    clearTimeout(timer);
-    signal?.removeEventListener?.("abort", onOuterAbort);
-  }
-}
-
-/* Ask the breaker whether a CineSrc resolve may proceed. Returns true when
-   the resolver is probe-healthy (or freshly probed). Sets `open` so the
-   caller can fail fast with a clear code instead of feeding Vercel's ~55s
-   wait. When healthy it records the timestamp so repeated resolves in a
-   session don't ping healthz every time. */
-async function cinesrcProceed(origin, { signal } = {}) {
-  const now = Date.now();
-  if (now < cinesrcBreaker.blockUntil) {
-    cinesrcBreaker.misses += 1;
-    logInfo("download", "CineSrc resolver circuit open — failing fast.", {
-      blockMs: cinesrcBreaker.blockUntil - now,
-    });
-    return false;
-  }
-  if (now < cinesrcBreaker.okUntil) return true;
-  const healthy = await cinesrcHealthz(origin, { signal });
-  if (healthy) {
-    cinesrcBreaker.okUntil = Date.now() + CINESRC_HEALTHZ_TTL_MS;
-    cinesrcBreaker.misses = 0;
-    cinesrcBreaker.blockUntil = 0;
-    return true;
-  }
-  cinesrcBreaker.misses += 1;
-  // First miss politely skips one resolve window; repeats slam the door
-  // longer (a cold Render instance wakes within seconds — a dead one stays
-  // dead for minutes).
-  cinesrcBreaker.blockUntil =
-    Date.now() + (cinesrcBreaker.misses >= 2 ? CINESRC_OPEN_BLOCK_LONG_MS : CINESRC_OPEN_BLOCK_MS);
-  cinesrcBreaker.okUntil = 0;
-  logWarn("download", "CineSrc resolver unreachable — pausing CineSrc usage.", {
-    misses: cinesrcBreaker.misses,
-    healthz: origin,
-  });
-  return false;
-}
 
 export class DownloadUnavailableError extends Error {
   constructor(message, code) {
@@ -256,10 +170,9 @@ async function post(body, { signal, as = "json" } = {}) {
   if (as === "buffer") {
     if (!response.ok) {
       // The relay returns 502 { ok:false, code:"segment-fetch-failed" } when the
-      // upstream refused a segment (most commonly a CineSrc playlist token that
-      // expired mid-file). Surface the server's real code instead of a generic
-      // "http" so saveStream can tell a stale token apart from a transient blip
-      // and survive it by re-minting.
+      // upstream refused a segment. Surface the server's real code instead of a
+      // generic "http" so saveStream can tell a real upstream refusal apart
+      // from a transient blip.
       let code = "http";
       let message = `Segment request failed (${response.status}).`;
       try {
@@ -360,9 +273,7 @@ export const downloadService = {
       label: variantLabel(v),
       estimatedBytes: estimateBytes(v.bandwidth, 0),
     }));
-    // CineSrc's EXT-X-MEDIA AUDIO renditions ride alongside the variants so
-    // the sheet can offer a language picker and mux the chose one in.
-    return { source: data.source, variants, audio: data.audio || [] };
+    return { source: data.source, variants };
   },
 
   /** Resolve an allow-listed embed host's URL into the qualities it offers. */
@@ -394,55 +305,9 @@ export const downloadService = {
     return resolved;
   },
 
-  /** Resolve the CineSrc provider (action "resolvecinesrc"). Same contract as
-      resolveVidsrc, but the mint happens on a separately-hosted Chrome service
-      (`cinesrc-resolver/`). The service origin ships in the client bundle
-      (`CINESRC_RESOLVER_ORIGIN`) so no Vercel env var is needed; pass
-      `resolverUrl` to override per-call. If neither origin nor a server-side
-      `CINESRC_RESOLVER_URL` exists, the function replies `resolver-unavailable`
-      and the modal quietly drops the CineSrc row — VidSrc (Alt) still fills. */
-  async resolveCinesrc({ type, id, season, episode }, { signal, resolverUrl = CINESRC_RESOLVER_ORIGIN } = {}) {
-    const kind = type === "tv" ? "tv" : "movie";
-    const body = { action: "resolvecinesrc", type: kind, id: String(id || "") };
-    if (kind === "tv") {
-      if (season != null) body.season = String(season);
-      if (episode != null) body.episode = String(episode);
-    }
-    const origin = String(resolverUrl || "").trim().replace(/\/+$/, "");
-    if (origin) body.resolverUrl = origin;
-    // Fail fast on a dead resolver BEFORE the Vercel round-trip can hang the
-    // player for ~55s (see cinesrcBreaker above). A down CineSrc becomes a
-    // fast, honest "resolver-unavailable" — the modal drops the row, the
-    // player moves to the next source in hundreds of ms, not a minute of
-    // spinner.
-    const proceed = await cinesrcProceed(origin, { signal });
-    if (!proceed) {
-      throw new DownloadUnavailableError(
-        "CineSrc resolver is unavailable (its Chrome service is down or waking up).",
-        "resolver-unavailable",
-      );
-    }
-    const data = await post(body, { signal });
-    // A real answer from the resolver proofs it was actually reachable and
-    // healthy — reset the breaker so a recovered service is re-used at once.
-    cinesrcBreaker.okUntil = Date.now() + CINESRC_HEALTHZ_TTL_MS;
-    cinesrcBreaker.misses = 0;
-    cinesrcBreaker.blockUntil = 0;
-    const resolved = this.normalizeResolved(data);
-    logInfo("download", `Resolved ${resolved.variants.length} downloadable variant(s) via CineSrc.`, {
-      type: kind,
-      id,
-      season: season ?? null,
-      episode: episode ?? null,
-      variants: resolved.variants.map((v) => v.label),
-    });
-    return resolved;
-  },
-
   /** Resolve the VidCore provider (Server 5 — action "resolvevidcore"). Same
-      contract as resolveCinesrc, but the mint is pure serverless: vidcore.org's
-      sources catalogue serves direct HLS ladders (incl. 4K) with no browser
-      required, so no separate resolver service or `resolverUrl` is involved. */
+      contract as resolveVidsrc, and equally serverless: vidcore.org's sources
+      catalogue serves direct HLS ladders (incl. 4K) with no browser required. */
   async resolveVidcore({ type, id, season, episode }, { signal } = {}) {
     const kind = type === "tv" ? "tv" : "movie";
     const body = { action: "resolvevidcore", type: kind, id: String(id || "") };
@@ -472,12 +337,8 @@ export const downloadService = {
     return text;
   },
 
-  /** Expand a chosen variant into a concrete segment list. When `audio` is a
-      CineSrc EXT-X-MEDIA AUDIO rendition, its media playlist is fetched too and
-      attached as `audioManifest` — saveStream then muxes the audio stream into
-      the file so the download isn't a silent video-only mp4. Degrades to video
-      only (with a logged warning) if the audio rendition can't be read. */
-  async buildManifest(source, variant, { signal, audio } = {}) {
+  /** Expand a chosen variant into a concrete segment list. */
+  async buildManifest(source, variant, { signal } = {}) {
     const refUrl = source?.refUrl || source?.url;
     const data = await post(
       {
@@ -490,35 +351,6 @@ export const downloadService = {
     logDebug("download", `Manifest: ${data.count} segment(s), kind=${data.kind}.`, {
       duration: data.duration,
     });
-    if (audio?.url) {
-      try {
-        const audioData = await post(
-          {
-            action: "manifest",
-            playlistUrl: audio.url,
-            refUrl,
-          },
-          { signal },
-        );
-        if (data.kind === KIND_FMP4 && audioData?.kind === KIND_FMP4 && audioData?.count > 0) {
-          data.audioManifest = audioData;
-          logInfo("download", `Audio rendition ready: ${audio.language} (${audioData.count} segments).`);
-        } else if (audioData?.count > 0) {
-          // Audio exists but isn't the same container — can't mux, keep video.
-          logWarn("download", "Audio rendition is not fMP4 — downloading video only.", {
-            video: data.kind,
-            audio: audioData?.kind,
-          });
-        }
-      } catch (error) {
-        if (error?.name === "AbortError") throw error;
-        logWarn("download", "Audio rendition unavailable — downloading video only.", {
-          message: error?.message,
-          code: error?.code,
-          language: audio.language,
-        });
-      }
-    }
     return data;
   },
 
@@ -545,11 +377,6 @@ export const downloadService = {
   /**
    * Fetch every segment and persist the file.
    * @param {FileSystemWritableFileStream|null} writable - from pickSaveTarget
-   * @param {() => Promise<{source, manifest}>} [refresh] - re-mint a fresh
-   *   source/manifest when the current tokens expire mid-file (CineSrc playlist
-   *   IDs rotate every few minutes). Called at most MAX_TOKEN_REFRESHES times;
-   *   the download RESERVES its position and picks up at the segment that
-   *   failed — bytes already written stay put, nothing restarts from zero.
    * @returns {{bytes:number, filename:string, method:'fs'|'blob'}}
    */
   async saveStream({
@@ -569,73 +396,13 @@ export const downloadService = {
     totalBytes: targetBytes = 0,
     signal,
     pause,
-    refresh,
   }) {
     const kind = manifest.kind || KIND_FMP4;
     const extension = kind === "ts" ? "ts" : "mp4";
     const filename = `${safeFileName(baseName)}.${extension}`;
-    // Live view of the source: refresh() swaps these when the token expires
-    // mid-file, and every fetch resolves its URL/referer against the current
-    // value so a re-mint resumes in place instead of restarting the episode.
-    let liveSegments = manifest.segments || [];
-    let liveInitUrl = manifest.initUrl || null;
-    let liveRefUrl = source?.refUrl || source?.url;
-    // CineSrc audio rendition (separate fMP4 stream). When both the video and
-    // audio playlists are fMP4 we mux them into one file; the audio track (its
-    // init, its segments, its per-fragment tfhd) is remapped to a non-video
-    // track id. `audioTrackId` is set once the inits are fetched below.
-    const audioManifest =
-      manifest.kind === KIND_FMP4 && manifest.audioManifest?.kind === KIND_FMP4
-        ? manifest.audioManifest
-        : null;
-    let muxing = Boolean(audioManifest);
-    let audioTrackId = 0;
-    let liveAudioSegments = audioManifest?.segments || [];
-    let liveAudioInitUrl = audioManifest?.initUrl || null;
-    let tokenRefreshes = 0;
-    const MAX_TOKEN_REFRESHES = 2;
-
-    // A stale CineSrc token fails in the middle of an episode. Re-mint through
-    // the same resolver the row came from, then keep going from the segment
-    // that 403'd. Bounded — each mint boots real Chrome upstream. Single-flight
-    // so several concurrent workers hitting the same expired token share ONE
-    // re-mint instead of stomping on the shared origin.
-    let refreshInFlight = null;
-    const refreshTokens = async () => {
-      if (!refresh || tokenRefreshes >= MAX_TOKEN_REFRESHES) return false;
-      if (!refreshInFlight) {
-        refreshInFlight = (async () => {
-          tokenRefreshes += 1;
-          const next = await refresh();
-          const freshSegments = next?.manifest?.segments || [];
-          if (!next?.manifest || freshSegments.length === 0) {
-            throw new DownloadUnavailableError("Server no longer offers this title.", "no-source");
-          }
-          liveSegments = freshSegments;
-          liveInitUrl = next.manifest.initUrl || null;
-          liveRefUrl = next.source?.refUrl || next.source?.url || liveRefUrl;
-          // A re-mint rotates the audio rendition too (same session tokens).
-          const freshAudio = next.manifest.audioManifest;
-          if (muxing && freshAudio?.kind === KIND_FMP4 && freshAudio?.segments?.length > 0) {
-            liveAudioSegments = freshAudio.segments;
-            liveAudioInitUrl = freshAudio.initUrl || null;
-          } else if (freshAudio && freshAudio.kind !== KIND_FMP4) {
-            // Audio stream changed container — stop muxing rather than emit a
-            // corrupt file; the video tail still plays.
-            muxing = false;
-            logWarn("download", "Audio rendition no longer fMP4 after refresh — video-only tail.");
-          }
-          logWarn("download", "CineSrc token expired — re-minted, resuming in place.", {
-            refresh: tokenRefreshes,
-            segments: freshSegments.length,
-          });
-          return true;
-        })().finally(() => {
-          refreshInFlight = null;
-        });
-      }
-      return refreshInFlight;
-    };
+    const liveSegments = manifest.segments || [];
+    const liveInitUrl = manifest.initUrl || null;
+    const liveRefUrl = source?.refUrl || source?.url;
 
     let writer = writable;
     let memoryChunks = null;
@@ -737,9 +504,7 @@ export const downloadService = {
     };
 
     const report = (done) => {
-      const total = muxing
-        ? Math.min(liveSegments.length, liveAudioSegments.length)
-        : liveSegments.length;
+      const total = liveSegments.length;
       lastDone = done;
       lastTotal = total;
       onProgress?.({
@@ -811,185 +576,59 @@ export const downloadService = {
       await onChunk(chunk);
     };
 
-    // Runs `fn` and, on a token-expiry failure (stale CineSrc playlist IDs),
-    // re-mints once via refresh() and re-runs it. Bounded — each mint boots
-    // real Chrome upstream — so after MAX_TOKEN_REFRESHES the error surfaces.
-    const withTokenRetry = async (fn) => {
-      for (let attempt = 0; ; attempt += 1) {
-        try {
-          return await fn();
-        } catch (error) {
-          if (error?.name === "AbortError") throw error;
-          if (error?.code !== "segment-fetch-failed" && error?.code !== "manifest-fetch-failed") throw error;
-          if (attempt >= MAX_TOKEN_REFRESHES) throw error;
-          const refreshed = await refreshTokens();
-          if (!refreshed) throw error;
-          // Loop re-runs fn() against the fresh token/URL.
-        }
-      }
-    };
-
     /* Fetch one whole segment and emit its chunks (direct in a single
-       request, else relayed in 3.5MB Range chunk). `index` is resolved against
-       liveSegments on EVERY attempt, so a mid-file re-mint that rotates the
-       URLs (CineSrc) naturally picks the fresh one. `emit` is optional: when
+       request, else relayed in 3.5MB Range chunk). `emit` is optional: when
        omitted the chunks are collected and returned; when provided (single
        whole-file segments — see manifest.direct) they stream straight to the
        writer so a long movie never sits in RAM. Pure — never touches the
        shared writer — so many of these can run concurrently. */
-    const fetchSegmentBytes = (index, emit = null) =>
-      withTokenRetry(() => {
-        const url = liveSegments[index];
-        if (!url) throw new DownloadUnavailableError("Server offered no stream.", "no-source");
-        const collect = emit || (async () => {});
-        if (directEnabled) {
-          return (async () => {
-            let origin = null;
-            try {
-              origin = new URL(url).origin;
-            } catch {
-              origin = null;
-            }
-            // Cache the probe PROMISE per origin, not just the result, so two
-            // concurrent workers probing the same CDN share one request.
-            let probePromise = origin ? probeCache.get(origin) : undefined;
-            if (!probePromise) {
-              probePromise = probeDirect(url, { signal });
-              if (origin) probeCache.set(origin, probePromise);
-            }
-            const probe = await probePromise;
-            if (probe.ok) {
-              try {
-                await fetchSegmentDirect(url, collect);
-                return null;
-              } catch (error) {
-                if (error?.name === "AbortError") throw error;
-                logWarn("download", "Direct segment fetch failed — falling back to relay.", {
-                  message: error?.message,
-                });
-                directEnabled = false;
-              }
-            }
-            await relayRange(url, collect);
-            return null;
-          })();
-        }
-        return relayRange(url, collect).then(() => null);
-      });
-
-    /* Fetch one whole payload and return its bytes (direct in a single
-       request, else relayed in 3.5MB Range chunks). Works for whole segments
-       (resolved against the CURRENT live list so a re-mint rotates onto fresh
-       tokens) and for init segments (a single URL). Unlike fetchSegmentBytes
-       it returns the assembled bytes rather than streaming them — muxing needs
-       the complete fragment before it can pair A/V. If a direct fetch dies
-       MID-segment the partial bytes are discarded and the relay re-pulls from
-       byte 0, so a single segment is never corrupted. */
-    const collectUrl = (url) => async () => {
-      const directChunks = [];
-      const relayChunks = [];
-      let collected = relayChunks;
-      let origin = null;
-      try {
-        origin = new URL(url).origin;
-      } catch {
-        origin = null;
-      }
-      let probePromise = origin ? probeCache.get(origin) : undefined;
-      if (!probePromise) {
-        probePromise = probeDirect(url, { signal });
-        if (origin) probeCache.set(origin, probePromise);
-      }
-      const probe = await probePromise;
-      if (probe.ok) {
+    const fetchSegmentBytes = async (index, emit = null) => {
+      const url = liveSegments[index];
+      if (!url) throw new DownloadUnavailableError("Server offered no stream.", "no-source");
+      const collect = emit || (async () => {});
+      if (directEnabled) {
+        let origin = null;
         try {
-          collected = directChunks;
-          await fetchSegmentDirect(url, (chunk) => {
-            if (chunk?.length) directChunks.push(chunk);
-          });
-        } catch (error) {
-          if (error?.name === "AbortError") throw error;
-          logWarn("download", "Direct segment fetch failed — falling back to relay.", {
-            message: error?.message,
-          });
-          directChunks.length = 0; // discard the partial, never duplicate
-          directEnabled = false;
+          origin = new URL(url).origin;
+        } catch {
+          origin = null;
         }
+        // Cache the probe PROMISE per origin, not just the result, so two
+        // concurrent workers probing the same CDN share one request.
+        let probePromise = origin ? probeCache.get(origin) : undefined;
+        if (!probePromise) {
+          probePromise = probeDirect(url, { signal });
+          if (origin) probeCache.set(origin, probePromise);
+        }
+        const probe = await probePromise;
+        if (probe.ok) {
+          try {
+            await fetchSegmentDirect(url, collect);
+            return;
+          } catch (error) {
+            if (error?.name === "AbortError") throw error;
+            logWarn("download", "Direct segment fetch failed — falling back to relay.", {
+              message: error?.message,
+            });
+            directEnabled = false;
+          }
+        }
+        await relayRange(url, collect);
+        return;
       }
-      if (!probe.ok || !directEnabled) {
-        collected = relayChunks;
-        await relayRange(url, (chunk) => {
-          if (chunk?.length) relayChunks.push(chunk);
-        });
-      }
-      const total = collected.reduce((sum, c) => sum + c.length, 0);
-      const out = new Uint8Array(total);
-      let off = 0;
-      for (const c of collected) {
-        out.set(c, off);
-        off += c.length;
-      }
-      return out;
+      await relayRange(url, collect);
     };
-    const fetchAnyBytes = (segmentsRef) => (index) =>
-      withTokenRetry(() => {
-        // segmentsRef is a getter over the LIVE list, so a mid-file re-mint
-        // rotates every attempt onto the fresh token URLs (same contract as
-        // fetchSegmentBytes).
-        const url = segmentsRef()[index];
-        if (!url) throw new DownloadUnavailableError("Server offered no stream.", "no-source");
-        return collectUrl(url)();
-      });
-    const fetchBytesFromUrl = (urlRef) =>
-      withTokenRetry(() => {
-        const url = urlRef();
-        if (!url) throw new DownloadUnavailableError("Server offered no stream.", "no-source");
-        return collectUrl(url)();
-      });
-    const fetchVideoBytes = fetchAnyBytes(() => liveSegments);
-    const fetchAudioBytes = fetchAnyBytes(() => liveAudioSegments);
-    const fetchInitBytes = () => fetchBytesFromUrl(() => liveInitUrl);
-    const fetchAudioInitBytes = () => fetchBytesFromUrl(() => liveAudioInitUrl);
 
     try {
       if (liveInitUrl) {
-        if (muxing) {
-          // Fetch BOTH inits, merge their moov into one header (audio track
-          // remapped to a non-video id), and write that single init. A stale
-          // CineSrc token re-mints and re-fetches fresh inits via withTokenRetry.
-          await withTokenRetry(async () => {
-            const videoInit = await fetchInitBytes();
-            const audioInit = await fetchAudioInitBytes();
-            if (!videoInit?.length || !audioInit?.length) {
-              throw new DownloadUnavailableError("CineSrc audio init missing — cannot mux audio.", "segment-fetch-failed");
-            }
-            const built = buildMuxedInit(videoInit, audioInit);
-            audioTrackId = built.audioTrackId;
-            await write(built.init);
-          });
-        } else {
-          await withTokenRetry(() => relayRange(liveInitUrl, write));
-        }
+        await relayRange(liveInitUrl, write);
       }
 
       report(0);
       /* Single whole-file segment (manifest.direct): stream it straight to the
-         writer — a long movie must not sit in RAM. No concurrency needed.
-         When muxing (single-segment CineSrc with an audio rendition), we still
-         pair the fragments — you can't stream both halves through one writer
-         because A/V bytes must interleave inside the single segment. */
+         writer — a long movie must not sit in RAM. No concurrency needed. */
       if (liveSegments.length === 1) {
-        if (muxing && audioTrackId > 0) {
-          const videoChunk = await fetchVideoBytes(0);
-          if (liveAudioSegments[0]) {
-            const audioChunk = await fetchAudioBytes(0);
-            await write(muxSegment(videoChunk, audioChunk, audioTrackId));
-          } else {
-            await write(videoChunk);
-          }
-        } else {
-          await fetchSegmentBytes(0, write);
-        }
+        await fetchSegmentBytes(0, write);
         report(1);
       } else {
         /* Segment writes to a single file MUST be in order, but the network
@@ -998,9 +637,7 @@ export const downloadService = {
            (an out-of-order segment is held until the one before it lands). This
            turns a round-trip-bound pipeline into one that uses all the bandwidth
            the connection offers. */
-        const SEGMENTS = muxing
-          ? Math.min(liveSegments.length, liveAudioSegments.length)
-          : liveSegments.length;
+        const SEGMENTS = liveSegments.length;
         let nextToFetch = 0;
         let nextToWrite = 0;
         const buffered = new Map();
@@ -1034,25 +671,11 @@ export const downloadService = {
             const index = nextToFetch;
             nextToFetch += 1;
             if (index >= SEGMENTS) return;
-            if (muxing && audioTrackId > 0) {
-              // Pair the video fragment with the same-position audio fragment
-              // and mux them into one chunk (video moof+mdat then audio
-              // moof+mdat with the audio track id remapped). If the audio list
-              // ran short, fall back to a bare video fragment for that index.
-              const videoChunk = await fetchVideoBytes(index);
-              if (liveAudioSegments[index]) {
-                const audioChunk = await fetchAudioBytes(index);
-                buffered.set(index, [muxSegment(videoChunk, audioChunk, audioTrackId)]);
-              } else {
-                buffered.set(index, [videoChunk]);
-              }
-            } else {
-              const chunks = [];
-              await fetchSegmentBytes(index, async (chunk) => {
-                if (chunk?.length) chunks.push(chunk);
-              });
-              buffered.set(index, chunks);
-            }
+            const chunks = [];
+            await fetchSegmentBytes(index, async (chunk) => {
+              if (chunk?.length) chunks.push(chunk);
+            });
+            buffered.set(index, chunks);
             await enqueueFlush();
           }
         };

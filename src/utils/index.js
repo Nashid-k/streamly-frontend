@@ -62,14 +62,6 @@ export {
   safeFileName,
 } from "./downloadQuality";
 
-// Dependency-free fMP4 A/V muxing (CineSrc audio renditions → MP4 track)
-export {
-  buildMuxedInit,
-  muxSegment,
-  extractTrackBytes,
-  remapMoofTrackId,
-} from "./fmp4Muxer";
-
 // Dynamic Import Chunk Recovery
 export {
   isChunkLoadError,

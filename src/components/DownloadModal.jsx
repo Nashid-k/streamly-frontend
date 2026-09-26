@@ -38,9 +38,8 @@ import { logDebug, logWarn } from "../utils/debugLogger";
    can open in browser or download with yt-dlp/ffmpeg.
 
    Layout mirrors Cinejoy's download sheet: a quality filter rail plus one
-   row per quality each download source (VidSrc (Alt), VidCore (Server 5),
-   and CineSrc when its Chrome resolver is configured) offers, with a
-   top-quality badge, a size estimate, and a download action.
+   row per quality each download source (VidSrc (Alt) and VidCore (Server 5))
+   offers, with a top-quality badge, a size estimate, and a download action.
 
    Accessibility mirrors the Settings sign-in modal: portal + scroll lock +
    Tab trap + Escape + focus return. */
@@ -55,13 +54,12 @@ const getNumericId = (s) => {
 // these serves — there is no player-rotation scan. VidSrc (Alt) scrapes
 // server-side (/api/downloadify action "resolvevidsrc"). VidCore (Server 5)
 // is likewise serverless — its sources catalogue lists direct HLS ladders,
-// incl. 4K (action "resolvevidcore"). CineSrc mints via the separately-hosted
-// cinesrc-resolver Chrome service (action "resolvecinesrc"); when that service
-// isn't configured the source fails softly and the others fill the sheet.
-// `sourceKey` is how the download engine later re-mints the fresh per-title
-// tokens through the same resolver.
+// incl. 4K (action "resolvevidcore"). A third source (CineSrc) was removed
+// with its Chrome mint service (cinesrc-resolver/): its tokens can only be
+// minted in a real browser, so it never worked without that resolver.
+// `sourceKey` is how the download engine re-resolves the title's tokens
+// through the same resolver.
 const VIDSRC_SOURCE_NAME = "VidSrc (Alt)";
-const CINESRC_SOURCE_NAME = "CineSrc";
 const VIDCORE_SOURCE_NAME = "VidCore (Server 5)";
 
 const RESOLVE_SOURCES = [
@@ -76,12 +74,6 @@ const RESOLVE_SOURCES = [
     name: VIDCORE_SOURCE_NAME,
     serverIndex: 4, // Server 5 in the player rotation (videoSourceAdapter).
     resolve: (args, opts) => downloadService.resolveVidcore(args, opts),
-  },
-  {
-    key: "cinesrc",
-    name: CINESRC_SOURCE_NAME,
-    serverIndex: 1,
-    resolve: (args, opts) => downloadService.resolveCinesrc(args, opts),
   },
 ];
 
@@ -114,29 +106,6 @@ function matchVariant(variants, chosen) {
   );
 }
 
-/* Pick which CineSrc EXT-X-MEDIA AUDIO rendition to mux into the download.
-   Precedence: an explicit choice ("none" = silent video-only), then the URL
-   the user picked in the sheet (may have rotated with the session tokens), then
-   the playlist's `default` rendition, then the first entry. */
-function matchAudio(audioList, chosen) {
-  if (!audioList || audioList.length === 0) return null;
-  if (chosen === "none") return null;
-  if (chosen) {
-    const byUrl = audioList.find((a) => a.url === chosen);
-    if (byUrl) return byUrl;
-  }
-  const byLang = audioList.find(
-    (a) => a.language === chosen || a.name === chosen || a.groupId === chosen,
-  );
-  if (byLang) return byLang;
-  return audioList.find((a) => a.default) || audioList[0];
-}
-
-function audioLabel(a) {
-  if (a.language) return a.language;
-  return a.name || a.groupId || "Audio";
-}
-
 export default function DownloadModal({
   movie,
   isTvContent = false,
@@ -160,10 +129,6 @@ export default function DownloadModal({
   );
   const [qualityFilter, setQualityFilter] = useState("all");
   const [rows, setRows] = useState([]);
-  // Per-row CineSrc audio-language pick ("none" = silent video-only, "" = the
-  // playlist default). Keyed by row key; languages stay stable across re-mints
-  // even though the rendition URLs rotate with the session tokens.
-  const [audioChoices, setAudioChoices] = useState({});
   const [resolveState, setResolveState] = useState({
     status: "idle",
     error: null,
@@ -194,13 +159,11 @@ export default function DownloadModal({
      actually serves. Each source resolves independently: one slow source never
      blocks another's rows, and each failure is honest about ITS source while
      the others keep answering. The error row only appears when EVERY source
-     came up empty; a `resolver-unavailable` (CineSrc Chrome service not
-     configured) is a soft skip, not a sheet-fatal error. */
+     came up empty. */
   const resolveAll = useCallback(
     async (signal) => {
       setRows([]);
       setQualityFilter("all");
-      setAudioChoices({});
       if (!numericId) {
         setResolveState({ status: "error", error: "This title has no streamable ID.", done: 0, total: 0, failed: 0 });
         return;
@@ -237,7 +200,7 @@ export default function DownloadModal({
       await Promise.all(
         RESOLVE_SOURCES.map(async (def) => {
           try {
-            const { source, variants, audio } = await def.resolve(
+            const { source, variants } = await def.resolve(
               resolveArgs(sourceType, numericId, isTv, selectedSeason, initialEpisode),
               { signal },
             );
@@ -251,7 +214,6 @@ export default function DownloadModal({
               label: variantLabel(variant),
               group: resolutionLabel(variant.width, variant.height),
               source,
-              audio: Array.isArray(audio) ? audio : [],
             }));
             if (nextRows.length > 0) {
               accRows = [...accRows, ...nextRows];
@@ -395,10 +357,6 @@ export default function DownloadModal({
       if (!row) return;
       const targets = isTv ? [...selectedEpisodes].sort((a, b) => a - b) : [null];
       if (isTv && targets.length === 0) return;
-      // Stable per-row audio choice ("" = default rendition, "none" = silent,
-      // or a language tag). Captured once at kick-off and re-matched inside
-      // mintTokens, so re-mints keep the SAME language even as URLs rotate.
-      const audioChoice = audioChoices[row.key] || "";
 
       // Single-file downloads get the native Save-As picker, opened
       // synchronously so the browser keeps the user activation. Browser mode
@@ -474,30 +432,27 @@ export default function DownloadModal({
           const episode = targets[i];
           setDownloadState((prev) => ({ ...prev, episodeIndex: i, episode, progress: null }));
           updateDownload(downloadId, { episodeIndex: i });
-          // CineSrc playlist IDs rotate every few minutes and a long episode's
-          // segments outlive that. Re-minting goes through here and returns a
-          // set of tokens that saveStream swaps in mid-file (it retries the
-          // segment that 403'd — the download resumes in place, never restarts).
-          const mintTokens = async () => {
+          // Resolve the title's tokens for this episode through the same
+          // resolver the row came from, then expand the chosen variant into
+          // concrete segments.
+          const resolveEpisode = async () => {
             const resolverName =
-              row.sourceKey === "cinesrc" ? "resolveCinesrc" : row.sourceKey === "vidcore" ? "resolveVidcore" : "resolveVidsrc";
+              row.sourceKey === "vidcore" ? "resolveVidcore" : "resolveVidsrc";
             const resolved = await downloadService[resolverName](
               resolveArgs(sourceType, numericId, isTv, selectedSeason, episode),
               { signal: controller.signal },
             );
             const variant = matchVariant(resolved.variants, row.variant);
             if (!variant) throw new DownloadUnavailableError("That quality is no longer offered by the server.", "no-source");
-            const chosenAudio = matchAudio(Array.isArray(resolved.audio) ? resolved.audio : [], audioChoice);
             return {
               source: resolved.source,
               variant,
               manifest: await downloadService.buildManifest(resolved.source, variant, {
                 signal: controller.signal,
-                audio: chosenAudio,
               }),
             };
           };
-          const { source, variant, manifest } = await mintTokens();
+          const { source, variant, manifest } = await resolveEpisode();
           const totalBytes = manifest?.duration
             ? estimateBytes(variant.bandwidth, manifest.duration)
             : estimateBytes(variant.bandwidth, durationSeconds);
@@ -509,7 +464,6 @@ export default function DownloadModal({
             mode: browserSave ? "browser" : undefined,
             signal: controller.signal,
             pause: gate,
-            refresh: row.sourceKey === "cinesrc" ? () => mintTokens() : undefined,
             totalBytes,
             onProgress: (progress) => {
               // saveStream reports a true network-arrival rate (windowed); the
@@ -548,7 +502,7 @@ export default function DownloadModal({
         abortRef.current = null;
       }
     },
-    [isTv, selectedEpisodes, selectedSeason, movie, sourceType, numericId, durationSeconds, audioChoices,
+    [isTv, selectedEpisodes, selectedSeason, movie, sourceType, numericId, durationSeconds,
       registerDownload, updateDownload, cancelDownload, removeDownload, toast, browserSave],
   );
 
@@ -779,35 +733,6 @@ export default function DownloadModal({
                         <p className="mt-0.5 text-[11px] text-white/40 truncate">
                           {row.serverName} · {sizeLabelFor(row.variant)}
                         </p>
-                        {row.audio.length > 1 && (
-                          <div className="mt-2 flex items-center gap-2">
-                            <label className="shrink-0 text-[11px] text-white/40" htmlFor={`audio-${row.key}`}>
-                              Audio
-                            </label>
-                            <select
-                              id={`audio-${row.key}`}
-                              value={audioChoices[row.key] || ""}
-                              onChange={(e) =>
-                                setAudioChoices((prev) => ({ ...prev, [row.key]: e.target.value }))
-                              }
-                              disabled={!canPickSource}
-                              className="max-w-full truncate rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] text-white outline-none focus:border-white/25 disabled:opacity-50"
-                              aria-label={`Audio language for the ${row.label} download`}
-                            >
-                              <option value="" className="bg-[#141414]">Default</option>
-                              {row.audio.map((a) => (
-                                <option
-                                  key={a.url || `${a.language}-${a.name}`}
-                                  value={a.language || a.name || a.groupId || a.url}
-                                  className="bg-[#141414]"
-                                >
-                                  {audioLabel(a)}{a.default ? " (default)" : ""}
-                                </option>
-                              ))}
-                              <option value="none" className="bg-[#141414]">None (video only)</option>
-                            </select>
-                          </div>
-                        )}
                       </div>
                       <button
                         type="button"
