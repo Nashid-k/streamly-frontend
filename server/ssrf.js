@@ -1,4 +1,4 @@
-// api/lib/ssrf.js — outbound-request allow-list for the download function.
+// server/ssrf.js — outbound-request allow-list for the download function.
 // Every upstream URL (and every redirect hop) must pass assertPublicDestination
 // before the function is allowed to fetch it: a public hostname may still
 // resolve to a loopback/link-local/metadata address, which would turn this

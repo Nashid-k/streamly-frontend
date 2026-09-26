@@ -1,4 +1,4 @@
-// api/lib/googleVerify.js — local verification of Google ID tokens.
+// server/googleVerify.js — local verification of Google ID tokens.
 //
 // Google's own docs call the `tokeninfo` endpoint "not suitable for use in
 // production code — requests may be throttled or otherwise subject to

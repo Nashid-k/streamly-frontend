@@ -1,6 +1,6 @@
 // api/tmdb.js — same-origin TMDB proxy (Vercel serverless function).
-import { withLog } from './lib/logger.js';
-import { rateLimit, tooManyRequests, clientIp } from './lib/rateLimit.js';
+import { withLog } from '../server/logger.js';
+import { rateLimit, tooManyRequests, clientIp } from '../server/rateLimit.js';
 //
 // Why this exists: some ISPs (e.g. in India) block api.themoviedb.org outright
 // (DNS/IP level). Browsers calling TMDB directly fail on those networks while

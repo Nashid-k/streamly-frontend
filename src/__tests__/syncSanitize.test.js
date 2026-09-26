@@ -19,7 +19,7 @@ const usersCol = {
   deleteOne: () => Promise.resolve({ deletedCount: 1 }),
 };
 
-vi.mock("../../api/lib/db.js", () => ({
+vi.mock("../../server/db.js", () => ({
   connectToDatabase: () =>
     Promise.resolve({
       db: {

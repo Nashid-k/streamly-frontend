@@ -4,8 +4,8 @@
 // middleware + vercel rewrites route /api/groq to this function.
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
-import { withLog } from "./lib/logger.js";
-import { rateLimit, tooManyRequests, clientIp } from "./lib/rateLimit.js";
+import { withLog } from "../server/logger.js";
+import { rateLimit, tooManyRequests, clientIp } from "../server/rateLimit.js";
 
 const GROQ_BASE = "https://api.groq.com/openai/v1";
 

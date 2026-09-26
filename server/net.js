@@ -1,4 +1,4 @@
-// api/lib/net.js — the single outbound HTTP path for the download function.
+// server/net.js — the single outbound HTTP path for the download function.
 // One place owns the browser-shaped headers, the manual redirect walk (each hop
 // re-validated by ssrf.assertPublicDestination), the response-size ceiling and
 // the Range-chunk reader the byte relay depends on.

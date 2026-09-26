@@ -17,10 +17,10 @@
 // `collections.visibility: 'public'` — and let the pure helpers do the exact
 // publicId/tombstone narrowing. An index on that field keeps the scan bounded.
 
-import { connectToDatabase } from './lib/db.js';
-import { withLog } from './lib/logger.js';
-import { extractPublicCollections, findPublicCollection } from './lib/publicCollections.js';
-import { rateLimit, tooManyRequests, clientIp } from './lib/rateLimit.js';
+import { connectToDatabase } from '../server/db.js';
+import { withLog } from '../server/logger.js';
+import { extractPublicCollections, findPublicCollection } from '../server/publicCollections.js';
+import { rateLimit, tooManyRequests, clientIp } from '../server/rateLimit.js';
 
 function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { rateLimit, clientIp } from "../../api/lib/rateLimit.js";
+import { rateLimit, clientIp } from "../../server/rateLimit.js";
 
 function uniqueKey() {
   return `test-${Math.random().toString(36).slice(2)}`;

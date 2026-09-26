@@ -1,9 +1,9 @@
 // api/auth.js — Authentication endpoint with Google OAuth & MongoDB persistence
-import { connectToDatabase } from './lib/db.js';
-import { signSyncToken } from './lib/syncToken.js';
-import { verifyGoogleIdToken } from './lib/googleVerify.js';
-import { withLog } from './lib/logger.js';
-import { rateLimit, tooManyRequests, clientIp } from './lib/rateLimit.js';
+import { connectToDatabase } from '../server/db.js';
+import { signSyncToken } from '../server/syncToken.js';
+import { verifyGoogleIdToken } from '../server/googleVerify.js';
+import { withLog } from '../server/logger.js';
+import { rateLimit, tooManyRequests, clientIp } from '../server/rateLimit.js';
 
 // No hardcoded fallback: a client id baked into the repo can never be rotated
 // via env and leaks the OAuth origin pairing. Set GOOGLE_CLIENT_ID (or

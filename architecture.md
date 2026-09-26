@@ -87,12 +87,12 @@ are always the morphed v2 shape (`visibility`/`publicId` normalized,
 `src/hooks/collectionMorph.js`). Cloud preferences sync both ways: the upload
 carries every locally-set `setting-*` value; pulls apply remote values ONLY
 for keys the device has never touched (`src/utils/preferencesSnapshot.js`).
-All endpoints are rate-limited per IP (`api/lib/rateLimit.js`, fixed window:
+All endpoints are rate-limited per IP (`server/rateLimit.js`, fixed window:
 auth 20/min, sync 60/min, public collections 60/min, tmdb 120/min, groq
 20/min per IP + a 240/min global budget + 1MB payload cap (413 over), downloadify
 600/min — a movie is hundreds of three-megabyte chunk fetches).
 
-Auth trust path (`api/auth.js` + `api/lib/googleVerify.js`): the Google ID
+Auth trust path (`api/auth.js` + `server/googleVerify.js`): the Google ID
 token is verified **locally** with `node:crypto` against Google's public JWKS
 (cached ~6h per warm container; 8s timeout) checking signature (RS256), `iss`,
 `aud`, `exp` — no `tokeninfo` round-trip (dev-only, throttle-prone). `/api/auth`
@@ -107,7 +107,7 @@ GET `?publicId=X` → `{ name, publicId, itemIds }` (≤ 300 items) or
 `$elemMatch` filter (plus a best-effort index) instead of scanning the whole
 collection, and tombstoned (deleted) collections are skipped so un-publishing
 propagates. Frozen contract: it never emits a googleId, email, or username —
-the Explore surface is anonymous by design (`api/lib/publicCollections.js`
+the Explore surface is anonymous by design (`server/publicCollections.js`
 pure helpers: PUBLIC + stable `publicId` only, deduped, newest-updated
 first). Client-side the Explore page shows a real error + retry state when
 the backend fails (`ExploreError`) instead of a lying empty list, and the
@@ -151,7 +151,7 @@ that recovered a time-scoped playlist token — both went away with that
 provider.
 Stream-service/NetMirror calling code was deleted (`src/api/env.js` removed);
 the client no longer makes those HTTP calls. Every function is wrapped in a request
-logger (`api/lib/logger.js`); `vercel.json` sets `maxDuration` per function
+logger (`server/logger.js`); `vercel.json` sets `maxDuration` per function
 (15s tmdb / 30s auth+sync) to stay inside the Hobby ceiling.
 
 ## 3. Folders — where things go
@@ -213,7 +213,17 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
 - `src/__tests__/` — vitest suites (service shape, ranking, engines, components, barrels).
   `src/queryClient.js` — QueryClient + global `QueryCache.onError` logger. `src/main.jsx` — boot
   diagnostics + global error hooks.
-- `api/` — Vercel serverless functions (not bundled to the client).
+- `api/` — Vercel serverless functions (not bundled to the client). **Every `.js`
+  file under `api/` becomes its own deployed function**, so this directory holds
+  endpoints and nothing else — shared modules live in `server/`. The Hobby plan
+  caps a deployment at 12 functions, and the 6 helpers that once sat in `api/lib/`
+  were silently consuming half that budget as six publicly-invokable no-op routes.
+  `src/__tests__/apiModules.test.js` enforces both halves of that rule (count ≤ 12,
+  no nested modules), so a stray helper fails CI instead of failing the build.
+- `server/` — shared server-side modules, outside `api/` so Vercel bundles them
+  into each function through the import graph instead of deploying them as
+  endpoints: `db` (Mongo pool), `logger` (`withLog`), `rateLimit`, `syncToken`,
+  `googleVerify`, `publicCollections`, `ssrf`, `net`.
   `api/tmdb.js` is the TMDB passthrough proxy — the reason
   visitors on ISPs that block `api.themoviedb.org` still get data. Its edge
   cache is `s-maxage=1800, stale-while-revalidate=86400`: rails are identical
@@ -231,19 +241,20 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
   under Vercel's 4.5MB cap; allowlisted embed hosts + DNS-resolved SSRF guard;
   stateless, nothing persisted). It owns only routing and the provider walks;
   the two cross-cutting concerns it used to inline now live beside it:
-  - `api/lib/ssrf.js` — the only sanctioned way to name an outbound host.
+  - `server/ssrf.js` — the only sanctioned way to name an outbound host.
     `assertPublicDestination` is called for the first hop *and* every redirect
     hop, and refuses a URL unless the scheme is http(s) and **every** resolved
     address is public (loopback, RFC1918, CGNAT 100.64/10, link-local incl.
     `169.254.169.254`, IPv6 ULA/`fe80::/10`, multicast). The literal blocklist
     is only the cheap first pass; the resolved-address check is what actually
     stops a public name pointing inward.
-  - `api/lib/net.js` — the single outbound HTTP path: browser-shaped headers,
+  - `server/net.js` — the single outbound HTTP path: browser-shaped headers,
     the manual redirect walk, the response-size ceiling and the Range-chunk
     reader the byte relay depends on.
   Both are pure and unit-tested (`src/__tests__/ssrfGuard.test.js`), which the
   inline versions never were. `src/__tests__/apiModules.test.js` imports every
-  `api/` entry point so a broken import graph fails CI instead of production, and
+  `api/` endpoint and every `server/` module so a broken import graph fails CI
+  instead of production, and
   `src/__tests__/downloadifyHandler.test.js` drives the handler itself (preflight,
   method rejection, unknown action, malformed body, and every action without a URL
   answering a structured `{ok:false}` envelope) so a function that fails to load

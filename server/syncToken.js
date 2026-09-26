@@ -1,4 +1,4 @@
-// api/lib/syncToken.js — expiring HMAC proof-of-ownership for /api/sync.
+// server/syncToken.js — expiring HMAC proof-of-ownership for /api/sync.
 //
 // /api/auth returns a token = "<subject>.<expiryMs>.<base64url(hmac-sha256(subject.expiryMs))>".
 // /api/sync requires `Authorization: Bearer <token>` and verifies the subject

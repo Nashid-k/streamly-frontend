@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import handler from "../../api/publicCollections.js";
-import { extractPublicCollections, findPublicCollection } from "../../api/lib/publicCollections.js";
+import { extractPublicCollections, findPublicCollection } from "../../server/publicCollections.js";
 import { fetchPublicCollections, fetchPublicCollection, ExploreError } from "../api/publicCollections";
 
 const db = { instance: null };
@@ -29,7 +29,7 @@ const userDataCol = {
   },
 };
 
-vi.mock("../../api/lib/db.js", () => ({
+vi.mock("../../server/db.js", () => ({
   connectToDatabase: () =>
     Promise.resolve({
       db: {
@@ -80,7 +80,7 @@ const SECOND = {
   ],
 };
 
-describe("api/lib/publicCollections helpers", () => {
+describe("server/publicCollections helpers", () => {
   it("flattens only PUBLIC, deduped, newest-first, anonymous fields", () => {
     const result = extractPublicCollections([
       OTHER,

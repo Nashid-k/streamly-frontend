@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createHmac } from "node:crypto";
-import { signSyncToken, verifySyncToken, SYNC_TOKEN_TTL_MS } from "../../api/lib/syncToken.js";
+import { signSyncToken, verifySyncToken, SYNC_TOKEN_TTL_MS } from "../../server/syncToken.js";
 
 const ORIGINAL_SECRET = process.env.SYNC_SECRET || process.env.GOOGLE_CLIENT_SECRET || "";
 

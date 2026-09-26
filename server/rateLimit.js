@@ -1,4 +1,4 @@
-// api/lib/rateLimit.js — in-memory fixed-window rate limiter for serverless.
+// server/rateLimit.js — in-memory fixed-window rate limiter for serverless.
 //
 // Every public endpoint used to be unauthenticated and unlimited: a single
 // visitor could burn the TMDB/Groq quotas or hammer /api/sync forever. Vercel

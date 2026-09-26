@@ -43,15 +43,15 @@ import {
   parseMediaPlaylist,
   resolveUrl,
 } from "../src/utils/downloadQuality.js";
-import { rateLimit, tooManyRequests, clientIp } from "./lib/rateLimit.js";
-import { assertPublicDestination } from "./lib/ssrf.js";
+import { rateLimit, tooManyRequests, clientIp } from "../server/rateLimit.js";
+import { assertPublicDestination } from "../server/ssrf.js";
 import {
   json,
   fetchUpstream,
   fetchRangeChunk,
   RANGE_CHUNK_BYTES,
   MAX_TEXT_BYTES,
-} from "./lib/net.js";
+} from "../server/net.js";
 
 export const config = { maxDuration: 60 };
 

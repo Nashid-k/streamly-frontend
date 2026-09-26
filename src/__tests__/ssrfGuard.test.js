@@ -2,7 +2,7 @@
 // predicates are the only thing standing between a public endpoint and the
 // platform's internal network (loopback, RFC1918, link-local, the 169.254.169.254
 // metadata address, IPv6 ULA). They had no coverage at all before the guard
-// moved into api/lib/ssrf.js.
+// moved into server/ssrf.js.
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const { lookup } = vi.hoisted(() => ({ lookup: vi.fn() }));
@@ -15,7 +15,7 @@ import {
   isPrivateIpV4,
   isPrivateIpV6,
   ipv4ToInt,
-} from "../../api/lib/ssrf.js";
+} from "../../server/ssrf.js";
 
 beforeEach(() => {
   lookup.mockReset();

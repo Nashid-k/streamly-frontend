@@ -1,4 +1,4 @@
-// api/lib/logger.js — tiny structured request logger for Vercel serverless
+// server/logger.js — tiny structured request logger for Vercel serverless
 // functions. Vercel captures function stdout/stderr per invocation free on
 // Hobby, so a line per request turns the dashboard into a usable signal
 // (5xx bursts, slow cold-starts, /api/tmdb edge-hit vs function-hit rate).

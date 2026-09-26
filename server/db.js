@@ -1,4 +1,4 @@
-// api/lib/db.js — MongoDB connection pooling for serverless and local environments.
+// server/db.js — MongoDB connection pooling for serverless and local environments.
 import { MongoClient } from 'mongodb';
 
 // Resolved lazily so a missing MONGODB_URI can NEVER crash the function at

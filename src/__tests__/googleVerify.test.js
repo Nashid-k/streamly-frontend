@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { generateKeyPairSync, sign } from "node:crypto";
-import { verifyGoogleIdToken } from "../../api/lib/googleVerify";
+import { verifyGoogleIdToken } from "../../server/googleVerify";
 
 const { privateKey, publicKey } = generateKeyPairSync("rsa", {
   modulusLength: 2048,

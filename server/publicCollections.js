@@ -1,4 +1,4 @@
-// api/lib/publicCollections.js — pure helpers for the anonymous public surface.
+// server/publicCollections.js — pure helpers for the anonymous public surface.
 //
 // A "public" collection is any saved list whose storage attrs include
 // `visibility: 'public'`, a stable `publicId`, and NO `deletedAt` tombstone.

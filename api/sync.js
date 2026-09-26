@@ -2,7 +2,7 @@
 //
 // Only verified identities may read/write: every request must present an
 // `Authorization: Bearer <token>` issued by /api/auth for the googleId being
-// accessed (see api/lib/syncToken.js). Guests never call this endpoint — the
+// accessed (see server/syncToken.js). Guests never call this endpoint — the
 // client keeps guest state in localStorage only. Payloads are capped so a
 // bad actor can't bloat the shared 'streamly' collection.
 //
@@ -14,10 +14,10 @@
 // `name` for every visitor, so a hostile payload (`name: {...}`) would crash
 // the shared Explore page for everyone. Only clean strings/lists survive.
 
-import { connectToDatabase } from './lib/db.js';
-import { isSyncEnabled, verifySyncToken } from './lib/syncToken.js';
-import { withLog } from './lib/logger.js';
-import { rateLimit, tooManyRequests, clientIp } from './lib/rateLimit.js';
+import { connectToDatabase } from '../server/db.js';
+import { isSyncEnabled, verifySyncToken } from '../server/syncToken.js';
+import { withLog } from '../server/logger.js';
+import { rateLimit, tooManyRequests, clientIp } from '../server/rateLimit.js';
 
 const MAX_WATCHLIST = 500;
 const MAX_HISTORY = 500;
