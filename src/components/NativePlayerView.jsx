@@ -2555,7 +2555,13 @@ export default function NativePlayerView({
           </div>
         ) : null}
         {/* Top bar: back + debug toggle. */}
-        <div
+        <motion.div
+          initial={false}
+          animate={{
+            opacity: controlsVisible ? 1 : 0,
+            y: controlsVisible ? 0 : -20
+          }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
           style={{
             position: "absolute",
             top: 0,
@@ -2566,8 +2572,6 @@ export default function NativePlayerView({
             justifyContent: "space-between",
             padding: `${SAFE_TOP} 24px 52px`,
             background: "linear-gradient(180deg, rgba(0,0,0,0.80) 0%, rgba(0,0,0,0) 100%)",
-            opacity: controlsVisible ? 1 : 0,
-            transition: "opacity 0.3s",
             pointerEvents: controlsVisible ? "auto" : "none",
             zIndex: 4,
           }}
@@ -2581,7 +2585,7 @@ export default function NativePlayerView({
           >
             <ArrowLeft size={24} />
           </IconBtn>
-        </div>
+        </motion.div>
         {/* Netflix-style Skip Intro pill: top-left, just under the back row,
             present only inside the intro window, seeks just past the credits.
             Stays tappable even with the chrome hidden (Netflix keeps it while
@@ -2644,7 +2648,10 @@ export default function NativePlayerView({
           </div>
         )}
         {!buffering && !ended && !playing && status === "playing" && (
-          <div
+          <motion.div
+            initial={false}
+            animate={{ opacity: controlsVisible ? 1 : 0, scale: controlsVisible ? 1 : 0.9 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
             style={{
               position: "absolute",
               inset: 0,
@@ -2681,7 +2688,6 @@ export default function NativePlayerView({
               }}
             >
               <ChevronLeft size={34} strokeWidth={1.5} />
-              <span style={{ position: "absolute", fontSize: 9.5, fontWeight: 800, marginTop: 3 }}>10</span>
             </button>
             <button
               type="button"
@@ -2733,9 +2739,8 @@ export default function NativePlayerView({
               }}
             >
               <ChevronRight size={34} strokeWidth={1.5} />
-              <span style={{ position: "absolute", fontSize: 9.5, fontWeight: 800, marginTop: 3 }}>10</span>
             </button>
-          </div>
+          </motion.div>
         )}
         {/* Transient "Tap to unmute" pill (Netflix web) — only when playback
             had to start muted because the autoplay-policy blocked sound. */}
@@ -2799,7 +2804,13 @@ export default function NativePlayerView({
           </button>
         )}
         {/* Bottom chrome: title, scrubber, transport row. */}
-        <div
+        <motion.div
+          initial={false}
+          animate={{
+            opacity: controlsVisible ? 1 : 0,
+            y: controlsVisible ? 0 : 20
+          }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
           style={{
             position: "absolute",
             left: 0,
@@ -2810,8 +2821,6 @@ export default function NativePlayerView({
             paddingRight: IS_TOUCH ? 12 : 24,
             paddingBottom: SAFE_BOTTOM,
             background: "linear-gradient(0deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 60%, rgba(0,0,0,0) 100%)",
-            opacity: controlsVisible ? 1 : 0,
-            transition: "opacity 0.3s",
             pointerEvents: controlsVisible ? "auto" : "none",
             zIndex: 4,
           }}
@@ -3022,7 +3031,6 @@ export default function NativePlayerView({
                     }}
                   >
                     <ChevronLeft size={24} strokeWidth={1.5} />
-                    <span style={{ position: "absolute", fontSize: 8.5, fontWeight: 800, marginTop: 3 }}>10</span>
                   </button>
                   <button
                     type="button"
@@ -3062,7 +3070,6 @@ export default function NativePlayerView({
                     }}
                   >
                     <ChevronRight size={24} strokeWidth={1.5} />
-                    <span style={{ position: "absolute", fontSize: 8.5, fontWeight: 800, marginTop: 3 }}>10</span>
                   </button>
                 </>
               )}
@@ -3148,7 +3155,7 @@ export default function NativePlayerView({
               </IconBtn>
             </div>
           </div>
-        </div>
+        </motion.div>
         {/* Netflix "Left off at …" resume card — auto-resumes after a short wait. */}
         {resumeOffer && !ended && (
           <div
