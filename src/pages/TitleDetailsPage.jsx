@@ -2185,6 +2185,10 @@ export default function TitleDetails() {
                             ? (episodes || []).map((e) => ({
                                 number: e.episodeNumber,
                                 title: e.title,
+                                thumbnailUrl: e.thumbnailUrl,
+                                durationMins: e.durationMins,
+                                description: e.description,
+                                airDate: e.airDate,
                               }))
                             : []
                         }

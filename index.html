@@ -38,9 +38,39 @@
     <!-- Fonts: apply the preloaded Google stylesheet before first paint (CSP-safe,
          no inline handler) -->
     <script src="/fonts.js"></script>
+    <style>
+      #initial-loader {
+        position: fixed;
+        inset: 0;
+        background: #050505;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        color: #fff;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .spinner-ring {
+        width: 48px;
+        height: 48px;
+        border: 3px solid rgba(255,255,255,0.1);
+        border-top-color: #E50914;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 24px;
+      }
+      @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="initial-loader">
+        <div class="spinner-ring"></div>
+        <div style="font-size: 20px; font-weight: 700; letter-spacing: -0.02em;">Streamly</div>
+        <div style="font-size: 14px; color: rgba(255,255,255,0.5); margin-top: 8px;">Loading app...</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

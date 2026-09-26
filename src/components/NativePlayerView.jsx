@@ -14,6 +14,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Gauge,
   ListVideo,
   SlidersHorizontal,
   Loader2,
@@ -237,6 +238,39 @@ function qualityLabelFor(v) {
   return variantLabel(v);
 }
 
+const FUN_FACTS = [
+  "Reticulating splines...",
+  "Warming up the projector...",
+  "Dimming the lights...",
+  "Grabbing the popcorn...",
+  "Tuning the audio...",
+  "Finding the best quality...",
+  "Rolling film...",
+  "Silencing cellphones...",
+  "Preparing the stream...",
+];
+
+function LoadingMessage({ title }) {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setIndex((i) => (i + 1) % FUN_FACTS.length);
+    }, 2500);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+      {title && <span style={{ fontSize: 20, color: "#fff" }}>Loading {title}</span>}
+      <span style={{ fontSize: 14, color: "rgba(255,255,255,0.7)", fontStyle: "italic", minHeight: "20px" }}>
+        {FUN_FACTS[index]}
+      </span>
+    </div>
+  );
+}
+
+
 export default function NativePlayerView({
   type = "movie",
   id,
@@ -429,6 +463,7 @@ export default function NativePlayerView({
     });
     return Number.isInteger(i) && ASPECT_RATIOS[i] ? i : 0;
   });
+  const [playbackRate, setPlaybackRate] = useState(1);
   const [hud, setHud] = useState(null); // { kind: "volume"|"aspect"|"seek"|"play"|"pause"|"hold2x", value }
   // Hold-to-2x (Netflix mobile): press-and-hold on the right half of the screen
   // plays at 2x; release restores the previous rate. Desktop holds the forward
@@ -1154,6 +1189,17 @@ export default function NativePlayerView({
       // private mode — volume just won't persist
     }
   }, [volume, muted, autoMuted]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video && !hold2x) {
+      try {
+        video.playbackRate = playbackRate;
+        heldRateRef.current = playbackRate;
+      } catch {
+      }
+    }
+  }, [playbackRate, hold2x]);
 
   /* Aspect ratio persists across visits (brightness is gone — the OS owns
      screen brightness; a CSS filter only broke the picture). */
@@ -2425,13 +2471,21 @@ export default function NativePlayerView({
               position: "absolute",
               inset: 0,
               display: "flex",
+              flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
               pointerEvents: "none",
               zIndex: 3,
+              background: "rgba(0,0,0,0.6)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
+              transition: "opacity 0.3s",
             }}
           >
-            <Loader2 size={48} className="animate-spin" color={NETFLIX_RED} />
+            <Loader2 size={56} className="animate-spin" color={NETFLIX_RED} />
+            <div style={{ marginTop: 32, textAlign: "center", textShadow: "0 2px 8px rgba(0,0,0,0.8)" }}>
+              <LoadingMessage title={displayTitle} />
+            </div>
           </div>
         )}
         {!buffering && !ended && !playing && status === "playing" && (
@@ -2953,6 +3007,16 @@ export default function NativePlayerView({
               >
                 <SlidersHorizontal size={24} />
               </IconBtn>
+              <IconBtn
+                label="Playback Speed"
+                active={panel === "speed"}
+                onClick={() => {
+                  setPanel((p) => (p === "speed" ? null : "speed"));
+                  poke();
+                }}
+              >
+                <Gauge size={24} />
+              </IconBtn>
               {/* Aspect ratio (Fit / Fill / Zoom). Hidden on touch only when a
                   TV's prev/next + episodes already crowd the rail — keyboard
                   A still cycles there. */}
@@ -3116,8 +3180,8 @@ export default function NativePlayerView({
           </div>
         )}
 
-        {/* Audio & Subtitles / Episodes panel. */}
-        {panel && (
+        {/* Audio & Subtitles panel. */}
+        {panel && panel !== "episodes" && (
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
@@ -3126,7 +3190,7 @@ export default function NativePlayerView({
               top: IS_TOUCH ? undefined : 0,
               bottom: 0,
               width:
-                panel === "subs" || panel === "audio" || panel === "video"
+                panel === "subs" || panel === "audio" || panel === "video" || panel === "speed"
                   ? IS_TOUCH
                     ? "min(480px, 100%)"
                     : "min(480px, 32%)"
@@ -3149,7 +3213,7 @@ export default function NativePlayerView({
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, padding: "0 16px" }}>
               <span style={{ color: "#fff", fontWeight: 700, fontSize: 16, letterSpacing: "-0.01em" }}>
-                {panel === "subs" ? "Subtitles" : panel === "audio" ? "Audio" : panel === "video" ? "Video Quality" : "Episodes"}
+                {panel === "subs" ? "Subtitles" : panel === "audio" ? "Audio" : panel === "video" ? "Video Quality" : panel === "speed" ? "Playback Speed" : ""}
               </span>
               <IconBtn label="Close panel" onClick={() => setPanel(null)}>
                 <X size={18} />
@@ -3267,23 +3331,131 @@ export default function NativePlayerView({
                     );
                   })}
               </div>
-            ) : (
-              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 0 16px" }}>
-                {episodes.map((ep) => (
-                  <DialogRow
-                    key={ep.number}
-                    selected={ep.number === episode}
-                    onClick={() => {
-                      setResumeOffer(null);
-                      setPanel(null);
-                      setBuffering(true);
-                      onSelectEpisode?.(ep.number);
-                    }}
-                    title={`E${ep.number}${ep.title ? ` · ${ep.title}` : ""}`}
-                  />
-                ))}
+            ) : panel === "speed" ? (
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                    Playback Speed
+                  </p>
+                  {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
+                    <DialogRow
+                      key={rate}
+                      selected={playbackRate === rate}
+                      onClick={() => {
+                        setPlaybackRate(rate);
+                        setPanel(null);
+                        poke();
+                      }}
+                      title={rate === 1 ? "Normal (1x)" : `${rate}x`}
+                    />
+                  ))}
               </div>
-            )}
+            ) : null}
+          </div>
+        )}
+
+        {/* YouTube-style Bottom Sheet for Episodes */}
+        {panel === "episodes" && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              background: "rgba(10,10,10,0.95)",
+              borderTop: "1px solid rgba(255,255,255,0.1)",
+              zIndex: 6,
+              padding: `20px 24px calc(20px + env(safe-area-inset-bottom, 0px))`,
+              display: "flex",
+              flexDirection: "column",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <span style={{ color: "#fff", fontWeight: 700, fontSize: 18, letterSpacing: "-0.01em" }}>
+                Episodes
+              </span>
+              <IconBtn label="Close episodes" onClick={() => setPanel(null)}>
+                <X size={20} />
+              </IconBtn>
+            </div>
+            <div style={{ display: "flex", overflowX: "auto", gap: 16, paddingBottom: 8, scrollbarWidth: "none" }}>
+              {episodes.map((ep) => (
+                <button
+                  key={ep.number}
+                  type="button"
+                  onClick={() => {
+                    setResumeOffer(null);
+                    setPanel(null);
+                    setBuffering(true);
+                    onSelectEpisode?.(ep.number);
+                  }}
+                  style={{
+                    flex: "0 0 auto",
+                    width: IS_TOUCH ? 220 : 260,
+                    textAlign: "left",
+                    background: "transparent",
+                    border: "none",
+                    padding: 0,
+                    cursor: "pointer",
+                    opacity: ep.number === episode ? 1 : 0.6,
+                    transition: "opacity 0.2s, transform 0.2s",
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.opacity = 1;
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.opacity = ep.number === episode ? 1 : 0.6;
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "relative",
+                      width: "100%",
+                      aspectRatio: "16/9",
+                      backgroundColor: "#1a1a1a",
+                      borderRadius: 8,
+                      overflow: "hidden",
+                      marginBottom: 10,
+                      boxShadow: ep.number === episode ? "0 0 0 2px #E50914" : "none",
+                    }}
+                  >
+                    {ep.thumbnailUrl ? (
+                      <img
+                        src={ep.thumbnailUrl}
+                        alt={ep.title || `Episode ${ep.number}`}
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                    ) : (
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", color: "#666" }}>
+                        <Play size={32} />
+                      </div>
+                    )}
+                    {ep.number === episode && (
+                      <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <span style={{ color: "#fff", fontWeight: 700, fontSize: 13, background: "#E50914", padding: "4px 8px", borderRadius: 4 }}>
+                          Now Playing
+                        </span>
+                      </div>
+                    )}
+                    {ep.durationMins && (
+                      <span style={{ position: "absolute", bottom: 6, right: 6, background: "rgba(0,0,0,0.85)", color: "#fff", fontSize: 11, padding: "2px 6px", borderRadius: 4, fontWeight: 600 }}>
+                        {ep.durationMins}m
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ color: "#fff", fontSize: 14, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {ep.number}. {ep.title || `Episode ${ep.number}`}
+                  </div>
+                  {ep.description && (
+                    <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, marginTop: 4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                      {ep.description}
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
         )}
         {/* Netflix HUD overlays: transient volume / aspect pills
