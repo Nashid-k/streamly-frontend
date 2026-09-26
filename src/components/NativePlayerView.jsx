@@ -19,7 +19,7 @@ import {
   Minimize,
   Pause,
   Play,
-  Ratio,
+  Proportions,
   RotateCcw,
   SkipBack,
   SkipForward,
@@ -553,11 +553,15 @@ export default function NativePlayerView({
     const video = videoRef.current;
     if (!video) return;
     poke();
-    showHud("seek", delta);
+    // HUD shows the amount actually applied (clamped at 0 / duration), not the
+    // requested one — YouTube shows +Xs / -Xs, never a lie like -0s.
     const dur = Number(video.duration);
-    const next = (video.currentTime || 0) + delta;
+    const from = video.currentTime || 0;
+    const next = from + delta;
+    const real = Number.isFinite(dur) && dur > 0 ? Math.min(Math.max(0, next), dur) : Math.max(0, next);
+    showHudRef.current("seek", real - from);
     try {
-      video.currentTime = Number.isFinite(dur) && dur > 0 ? Math.min(Math.max(0, next), dur) : Math.max(0, next);
+      video.currentTime = real;
     } catch {
       // ignore out-of-range seeks
     }
@@ -2117,8 +2121,8 @@ export default function NativePlayerView({
                 width: IS_TOUCH ? 66 : 62,
                 height: IS_TOUCH ? 66 : 62,
                 borderRadius: "50%",
-                border: "1px solid rgba(255,255,255,0.55)",
-                background: "rgba(20,20,20,0.6)",
+                border: "none",
+                background: "transparent",
                 color: "#fff",
                 cursor: "pointer",
                 display: "flex",
@@ -2169,8 +2173,8 @@ export default function NativePlayerView({
                 width: IS_TOUCH ? 66 : 62,
                 height: IS_TOUCH ? 66 : 62,
                 borderRadius: "50%",
-                border: "1px solid rgba(255,255,255,0.55)",
-                background: "rgba(20,20,20,0.6)",
+                border: "none",
+                background: "transparent",
                 color: "#fff",
                 cursor: "pointer",
                 display: "flex",
@@ -2544,7 +2548,7 @@ export default function NativePlayerView({
                   A still cycles there. */}
               {(!IS_TOUCH || !(showEpisodeNav || showEpisodesButton)) && (
                 <IconBtn label="Aspect ratio (key A)" onClick={cycleAspect}>
-                  <Ratio size={24} />
+                  <Proportions size={24} />
                 </IconBtn>
               )}
               <IconBtn label={isFullscreen ? "Exit fullscreen" : "Fullscreen"} onClick={goFullscreen}>

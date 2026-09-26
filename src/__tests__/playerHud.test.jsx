@@ -103,7 +103,7 @@ describe("NetflixSeekHUD", () => {
     const badge = container.firstElementChild;
     expect(badge.style.left).toBe(`${DESKTOP.seekInset}px`);
     expect(badge.style.right).toBe("");
-    expect(screen.getByText("10 seconds")).toBeInTheDocument();
+    expect(screen.getByText("-10s")).toBeInTheDocument();
   });
 
   it("renders the forward badge against the right edge", () => {
@@ -111,6 +111,18 @@ describe("NetflixSeekHUD", () => {
     const badge = container.firstElementChild;
     expect(badge.style.right).toBe(`${DESKTOP.seekInset}px`);
     expect(badge.style.left).toBe("");
+    expect(screen.getByText("+10s")).toBeInTheDocument();
+  });
+
+  it("keeps YouTube's glyph placement: chevron trails forward, leads rewind", () => {
+    const back = render(<NetflixSeekHUD direction="back" metrics={DESKTOP} seconds={10} />);
+    const fwd = render(<NetflixSeekHUD direction="forward" metrics={DESKTOP} seconds={10} />);
+    const firstSvgOf = (c) => c.container.querySelector("svg");
+    // Rewind: chevron is the first child, before the label. Forward: label first.
+    expect(back.container.firstElementChild.firstElementChild.tagName).toBe("svg");
+    expect(fwd.container.firstElementChild.firstElementChild.tagName).not.toBe("svg");
+    expect(firstSvgOf(back)).not.toBeNull();
+    expect(firstSvgOf(fwd)).not.toBeNull();
   });
 
   it("moves with the frame instead of a fixed offset", () => {
@@ -125,7 +137,7 @@ describe("NetflixSeekHUD", () => {
     const badge = container.firstElementChild;
     expect(badge.style.pointerEvents).toBe("none");
     expect(badge.getAttribute("aria-hidden")).toBe("true");
-    expect(screen.getByText("5 seconds")).toBeInTheDocument();
+    expect(screen.getByText("+5s")).toBeInTheDocument();
   });
 });
 
