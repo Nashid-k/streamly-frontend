@@ -44,6 +44,7 @@ export function isHdrCodecs(codecs = "") {
   return false;
 }
 
+// Resolution rung only. No bitrate, no transport.
 export function resolutionLabel(width, height) {
   const h = Number(height) || 0;
   const w = Number(width) || 0;
@@ -53,16 +54,33 @@ export function resolutionLabel(width, height) {
   if (px >= 1440) return "2K";
   if (px >= 1080) return "1080p";
   if (px >= 720) return "720p";
-  if (px >= 480) return "SD";
-  return "SD";
+  return "480p";
+}
+
+/* HDR/SDR/60fps are only ever shown when the playlist actually says so.
+   Anything unproven (no VIDEO-RANGE, no colour transfer, no codec string, no
+   FRAME-RATE) gets no tag rather than a guess. */
+export function rangeTag(v = {}) {
+  const vr = String(v.videoRange || "").toUpperCase();
+  const ct = String(v.colorTransfer || "").toLowerCase();
+  if (vr === "PQ" || vr === "HLG" || /smpte2084|arib-std-b67/.test(ct)) return "HDR";
+  if (v.hdr === true || isHdrCodecs(v.codecs || "")) return "HDR";
+  if (vr === "SDR") return "SDR";
+  // AVC cannot carry HDR, so a plain avc1/avc3 string is a proven SDR ladder.
+  if (/^avc[13]\./i.test(String(v.codecs || "").trim())) return "SDR";
+  return "";
+}
+
+// 60fps covers 59.94 and 60 (>=55); 24/25/30/50 are the assumed default and stay mute.
+export function fpsTag(framerate) {
+  const f = Number(framerate) || 0;
+  return f >= 55 ? "60fps" : "";
 }
 
 export function variantLabel(v) {
   const res = resolutionLabel(v.width, v.height);
-  const extras = [];
-  if (v.hdr) extras.push("HDR");
-  if (v.framerate && v.framerate >= 50) extras.push(`${v.framerate}fps`);
-  return extras.length > 0 ? `${res} ${extras.join(" · ")}` : res;
+  const tags = [rangeTag(v), fpsTag(v.framerate)].filter(Boolean);
+  return tags.length > 0 ? `${res} ${tags.join(" · ")}` : res;
 }
 
 // Master playlist -> media variant list. A playlist with no STREAM-INF rows
@@ -84,6 +102,8 @@ export function parseMasterPlaylist(text, baseUrl) {
         framerate: Number(attrs["FRAME-RATE"]) || 0,
         codecs: attrs.CODECS || "",
         hdr: isHdrCodecs(attrs.CODECS || ""),
+        videoRange: String(attrs["VIDEO-RANGE"] || "").toUpperCase(),
+        colorTransfer: String(attrs["COLOR-TRANSFER"] || "").toLowerCase(),
         audio: attrs.AUDIO || null,
         video: attrs.VIDEO || null,
       };
@@ -105,6 +125,8 @@ export function parseMasterPlaylist(text, baseUrl) {
       framerate: 0,
       codecs: "",
       hdr: false,
+      videoRange: "",
+      colorTransfer: "",
     });
   }
   return variants;

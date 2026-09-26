@@ -30,6 +30,7 @@ import {
 import { NetflixVolumeHUD, NetflixBrightnessHUD, NetflixAspectHUD } from "./player";
 import Hls from "hls.js";
 import { downloadService } from "../api/downloadService";
+import { variantLabel } from "../utils/downloadQuality";
 import { createStreamlyLoader, probeSourcePlayable } from "../api/nativeHlsLoader";
 import { SubtitleFetcher } from "../api/subtitleFetcher";
 import { logWarn } from "../utils/debugLogger";
@@ -211,15 +212,11 @@ function fmtTime(s) {
 }
 
 // Canonical quality label + order: feeds list their ladders in any order, so
-// the menu always shows SD → 720p → 1080p → 2K → 4K regardless.
-function qualityLabelFor(h) {
-  const p = Number(h) || 0;
-  if (p >= 2160) return "4K UHD";
-  if (p >= 1440) return "2K";
-  if (p >= 1000) return "1080p Full HD";
-  if (p >= 600) return "720p HD";
-  if (p >= 300) return `${p}p SD`;
-  return p ? `${p}p` : "Auto";
+// the menu always reads low → high (480p → 720p → 1080p → 2K → 4K) regardless.
+// Resolution + verified-only tags (HDR/SDR/60fps), no bitrate, no transport notes.
+function qualityLabelFor(v) {
+  if (!v?.height) return "Auto";
+  return variantLabel(v);
 }
 
 export default function NativePlayerView({
@@ -1456,8 +1453,7 @@ export default function NativePlayerView({
               .map((v) => ({
                 uri: v.uri,
                 height: v.height || 0,
-                bandwidth: v.bandwidth || 0,
-                label: qualityLabelFor(v.height),
+                label: qualityLabelFor(v),
               })),
           );
           setIsMasterMode(isMaster);
@@ -2768,12 +2764,6 @@ export default function NativePlayerView({
                   <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", margin: "16px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
                     Video Quality
                   </p>
-                  {transportRelay && !isMasterMode && (
-                    <p style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", margin: "0 0 4px" }}>
-                      Source streams via relay — tall rungs auto-step down if your connection can&apos;t keep
-                      them filled.
-                    </p>
-                  )}
                   {/* Auto is ALWAYS present — the active mode on every source
                       (master = hls.js ABR; per-rendition sources = the rung the
                       player negotiated at open, smooth-start / relay-friendly). */}
@@ -2793,22 +2783,12 @@ export default function NativePlayerView({
                         ? currentHeight != null && q.height === currentHeight
                         : manualHeight != null && manualHeight === q.height
                       : !autoLevel && activeUri === q.uri;
-                    const viaRelay = transportRelay && !isMasterMode && (q.height || 0) > 720;
                     return (
                       <DialogRow
                         key={`${q.uri}::${i}`}
                         selected={selected}
                         onClick={() => pickQuality(q.uri, q.height)}
                         title={q.label || `${q.height}p`}
-                        sub={
-                          viaRelay
-                            ? q.bandwidth
-                              ? `${(q.bandwidth / 1e6).toFixed(1)} Mbps · via relay`
-                              : "via relay"
-                            : q.bandwidth
-                              ? `${(q.bandwidth / 1e6).toFixed(1)} Mbps`
-                              : undefined
-                        }
                       />
                     );
                   })}

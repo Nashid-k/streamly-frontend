@@ -137,8 +137,7 @@ describe("DownloadModal", () => {
     renderModal();
 
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
-    // The row badge shows the full label ("4K HDR"); the filter rail chip
-    // shortens it ("4K"), so assert the variant is at least present once.
+    // Row badge carries the verified tag; the filter rail chip stays resolution-only.
     expect((await screen.findAllByText("4K HDR")).length).toBeGreaterThanOrEqual(1);
     expect(downloadService.resolveVidsrc).toHaveBeenCalledWith(
       { type: "movie", id: "550", season: undefined, episode: undefined },

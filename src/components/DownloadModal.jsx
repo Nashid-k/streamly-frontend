@@ -315,7 +315,7 @@ export default function DownloadModal({
   const sizeLabelFor = (variant) => {
     if (variant?.direct) return "direct file";
     const size = estimateBytes(variant?.bandwidth, durationSeconds * episodeCount);
-    return size ? `~${formatBytes(size)}` : variant?.bandwidth ? `${Math.round(variant.bandwidth / 1e6)} Mbps` : "";
+    return size ? `~${formatBytes(size)}` : "";
   };
 
   const toggleEpisode = (num) => {

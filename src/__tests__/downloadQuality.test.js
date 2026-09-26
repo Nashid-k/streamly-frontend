@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   estimateBytes,
   formatBytes,
+  fpsTag,
   isHdrCodecs,
   parseAudioGroups,
   parseMasterPlaylist,
@@ -42,6 +43,19 @@ describe("parseMasterPlaylist", () => {
     expect(variants[1].hdr).toBe(false);
   });
 
+  it("captures the range signals the label tags are verified from", () => {
+    const variants = parseMasterPlaylist(
+      `#EXTM3U
+#EXT-X-STREAM-INF:BANDWIDTH=20000000,RESOLUTION=3840x2160,FRAME-RATE=60,CODECS="hvc1.2.4.L153.B0",VIDEO-RANGE=PQ
+https://cdn.example.com/2160/index.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=9000000,RESOLUTION=1920x1080,CODECS="hvc1.1.6.L93.B0",COLOR-TRANSFER=smpte2084
+https://cdn.example.com/1080/index.m3u8`,
+      MASTER_URL,
+    );
+    expect(variants[0].videoRange).toBe("PQ");
+    expect(variants[1].colorTransfer).toBe("smpte2084");
+  });
+
   it("treats a media playlist (no STREAM-INF) as a single rendition", () => {
     const variants = parseMasterPlaylist("#EXTM3U\n#EXTINF:6,\nseg.ts", MASTER_URL);
     expect(variants).toHaveLength(1);
@@ -78,17 +92,37 @@ seg2.m4s`;
 });
 
 describe("quality labels", () => {
-  it("maps pixel height to a human label", () => {
+  it("maps pixel height to a bare resolution label", () => {
     expect(resolutionLabel(3840, 2160)).toBe("4K");
     expect(resolutionLabel(2560, 1440)).toBe("2K");
     expect(resolutionLabel(1920, 1080)).toBe("1080p");
     expect(resolutionLabel(1280, 720)).toBe("720p");
-    expect(resolutionLabel(854, 480)).toBe("SD");
+    expect(resolutionLabel(854, 480)).toBe("480p");
+    expect(resolutionLabel(0, 0)).toBe("480p");
   });
 
-  it("appends HDR and high-framerate tags", () => {
-    expect(variantLabel({ height: 2160, hdr: true, framerate: 59.94 })).toBe("4K HDR · 59.94fps");
-    expect(variantLabel({ height: 1080, hdr: false, framerate: 24 })).toBe("1080p");
+  it("tags HDR/SDR/60fps only when the playlist proves it", () => {
+    // Proved by VIDEO-RANGE, colour transfer, HDR codec markers or AVC (cannot be HDR).
+    expect(variantLabel({ width: 3840, height: 2160, videoRange: "PQ", framerate: 60 })).toBe("4K HDR · 60fps");
+    expect(variantLabel({ width: 3840, height: 2160, colorTransfer: "smpte2084" })).toBe("4K HDR");
+    expect(variantLabel({ width: 1920, height: 1080, codecs: "hev1.1.6.L93.B0" })).toBe("1080p HDR");
+    expect(variantLabel({ width: 1920, height: 1080, videoRange: "SDR", framerate: 50 })).toBe("1080p SDR");
+    expect(variantLabel({ width: 1920, height: 1080, codecs: "avc1.640028" })).toBe("1080p SDR");
+    // Nothing proven -> nothing shown, never a guess.
+    expect(variantLabel({ width: 1920, height: 1080, codecs: "", framerate: 0 })).toBe("1080p");
+    expect(variantLabel({ width: 1920, height: 1080, codecs: "hev1.1.6.L120.90" })).toBe("1080p");
+  });
+
+  it("labels a parsed ladder straight from its own playlist signals", () => {
+    const variants = parseMasterPlaylist(MASTER, MASTER_URL);
+    expect(variants.map((v) => variantLabel(v))).toEqual(["4K HDR · 60fps", "1080p SDR", "720p SDR"]);
+  });
+
+  it("counts 59.94/60 as 60fps and leaves 50fps unmentioned", () => {
+    expect(fpsTag(59.94)).toBe("60fps");
+    expect(fpsTag(60)).toBe("60fps");
+    expect(fpsTag(50)).toBe("");
+    expect(fpsTag(0)).toBe("");
   });
 
   it("identifies HDR-capable codec strings", () => {
