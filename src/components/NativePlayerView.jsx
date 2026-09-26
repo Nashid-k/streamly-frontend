@@ -6,7 +6,9 @@
 // touch devices get a stacked settings sheet instead of the desktop chrome.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
+import useRailArrows from "../hooks/useRailArrows";
+import RailArrow from "./RailArrow";
 import {
   ArrowLeft,
   AudioLines,
@@ -267,6 +269,153 @@ function LoadingMessage({ title }) {
         {FUN_FACTS[index]}
       </span>
     </div>
+  );
+}
+
+function EpisodesRail({ episodes, episode, onSelectEpisode, setPanel, setBuffering, setResumeOffer, IS_TOUCH }) {
+  const railRef = useRef(null);
+  const { canScrollLeft, canScrollRight, refresh } = useRailArrows(railRef);
+
+  const scroll = useCallback((dir) => {
+    const el = railRef.current;
+    if (!el) return;
+    const amount = el.clientWidth > 800 ? el.clientWidth * 0.8 : el.clientWidth * 0.9;
+    el.scrollBy({ left: dir === "left" ? -amount : amount, behavior: "smooth" });
+    refresh();
+  }, [refresh]);
+
+  return (
+    <motion.div
+      initial={{ y: "100%", opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      exit={{ y: "100%", opacity: 0 }}
+      transition={{ type: "spring", damping: 25, stiffness: 200 }}
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        background: "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 60%, transparent 100%)",
+        zIndex: 6,
+        padding: `40px 24px calc(30px + env(safe-area-inset-bottom, 0px))`,
+        display: "flex",
+        alignItems: "center",
+      }}
+    >
+      {canScrollLeft && <RailArrow dir="left" onClick={() => scroll("left")} />}
+      {canScrollRight && <RailArrow dir="right" onClick={() => scroll("right")} />}
+      
+      <div 
+        ref={railRef}
+        style={{ 
+          display: "flex", 
+          overflowX: "auto", 
+          gap: 16, 
+          paddingBottom: 8, 
+          scrollbarWidth: "none",
+          width: "100%",
+          WebkitOverflowScrolling: "touch"
+        }}
+      >
+        {episodes.map((ep) => (
+          <button
+            key={ep.number}
+            type="button"
+            onClick={() => {
+              setResumeOffer(null);
+              setPanel(null);
+              setBuffering(true);
+              onSelectEpisode?.(ep.number);
+            }}
+            style={{
+              flex: "0 0 auto",
+              width: IS_TOUCH ? 220 : 260,
+              textAlign: "left",
+              background: "transparent",
+              border: "none",
+              padding: 0,
+              cursor: "pointer",
+              opacity: ep.number === episode ? 1 : 0.6,
+              transition: "opacity 0.2s, transform 0.2s",
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.opacity = 1;
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.opacity = ep.number === episode ? 1 : 0.6;
+            }}
+          >
+            <div
+              style={{
+                position: "relative",
+                width: "100%",
+                aspectRatio: "16/9",
+                backgroundColor: "#1a1a1a",
+                borderRadius: 8,
+                overflow: "hidden",
+                marginBottom: 10,
+                boxShadow: ep.number === episode ? "0 0 0 2px #E50914" : "none",
+              }}
+            >
+              {ep.thumbnailUrl ? (
+                <img
+                  src={ep.thumbnailUrl}
+                  alt={ep.title || `Episode ${ep.number}`}
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", color: "#666" }}>
+                  <Play size={32} />
+                </div>
+              )}
+              {ep.number === episode && (
+                <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ color: "#fff", fontWeight: 700, fontSize: 13, background: "#E50914", padding: "4px 8px", borderRadius: 4 }}>
+                    Now Playing
+                  </span>
+                </div>
+              )}
+              {ep.durationMins && (
+                <span style={{ position: "absolute", bottom: 6, right: 6, background: "rgba(0,0,0,0.85)", color: "#fff", fontSize: 11, padding: "2px 6px", borderRadius: 4, fontWeight: 600 }}>
+                  {ep.durationMins}m
+                </span>
+              )}
+            </div>
+            <div style={{ color: "#fff", fontSize: 14, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {ep.number}. {ep.title || `Episode ${ep.number}`}
+            </div>
+            {ep.description && (
+              <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, marginTop: 4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                {ep.description}
+              </div>
+            )}
+          </button>
+        ))}
+      </div>
+      
+      <button
+        onClick={() => setPanel(null)}
+        style={{
+          position: "absolute",
+          top: 8,
+          right: 24,
+          background: "rgba(0,0,0,0.5)",
+          border: "none",
+          borderRadius: "50%",
+          width: 32,
+          height: 32,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#fff",
+          cursor: "pointer",
+          zIndex: 7
+        }}
+      >
+        <X size={18} />
+      </button>
+    </motion.div>
   );
 }
 
@@ -3354,110 +3503,19 @@ export default function NativePlayerView({
         )}
 
         {/* YouTube-style Bottom Sheet for Episodes */}
-        {panel === "episodes" && (
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: "absolute",
-              bottom: 0,
-              left: 0,
-              right: 0,
-              background: "rgba(10,10,10,0.95)",
-              borderTop: "1px solid rgba(255,255,255,0.1)",
-              zIndex: 6,
-              padding: `20px 24px calc(20px + env(safe-area-inset-bottom, 0px))`,
-              display: "flex",
-              flexDirection: "column",
-              backdropFilter: "blur(12px)",
-              WebkitBackdropFilter: "blur(12px)",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-              <span style={{ color: "#fff", fontWeight: 700, fontSize: 18, letterSpacing: "-0.01em" }}>
-                Episodes
-              </span>
-              <IconBtn label="Close episodes" onClick={() => setPanel(null)}>
-                <X size={20} />
-              </IconBtn>
-            </div>
-            <div style={{ display: "flex", overflowX: "auto", gap: 16, paddingBottom: 8, scrollbarWidth: "none" }}>
-              {episodes.map((ep) => (
-                <button
-                  key={ep.number}
-                  type="button"
-                  onClick={() => {
-                    setResumeOffer(null);
-                    setPanel(null);
-                    setBuffering(true);
-                    onSelectEpisode?.(ep.number);
-                  }}
-                  style={{
-                    flex: "0 0 auto",
-                    width: IS_TOUCH ? 220 : 260,
-                    textAlign: "left",
-                    background: "transparent",
-                    border: "none",
-                    padding: 0,
-                    cursor: "pointer",
-                    opacity: ep.number === episode ? 1 : 0.6,
-                    transition: "opacity 0.2s, transform 0.2s",
-                  }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.opacity = 1;
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.opacity = ep.number === episode ? 1 : 0.6;
-                  }}
-                >
-                  <div
-                    style={{
-                      position: "relative",
-                      width: "100%",
-                      aspectRatio: "16/9",
-                      backgroundColor: "#1a1a1a",
-                      borderRadius: 8,
-                      overflow: "hidden",
-                      marginBottom: 10,
-                      boxShadow: ep.number === episode ? "0 0 0 2px #E50914" : "none",
-                    }}
-                  >
-                    {ep.thumbnailUrl ? (
-                      <img
-                        src={ep.thumbnailUrl}
-                        alt={ep.title || `Episode ${ep.number}`}
-                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                      />
-                    ) : (
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", color: "#666" }}>
-                        <Play size={32} />
-                      </div>
-                    )}
-                    {ep.number === episode && (
-                      <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <span style={{ color: "#fff", fontWeight: 700, fontSize: 13, background: "#E50914", padding: "4px 8px", borderRadius: 4 }}>
-                          Now Playing
-                        </span>
-                      </div>
-                    )}
-                    {ep.durationMins && (
-                      <span style={{ position: "absolute", bottom: 6, right: 6, background: "rgba(0,0,0,0.85)", color: "#fff", fontSize: 11, padding: "2px 6px", borderRadius: 4, fontWeight: 600 }}>
-                        {ep.durationMins}m
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ color: "#fff", fontSize: 14, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {ep.number}. {ep.title || `Episode ${ep.number}`}
-                  </div>
-                  {ep.description && (
-                    <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, marginTop: 4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                      {ep.description}
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {panel === "episodes" && (
+            <EpisodesRail 
+              episodes={episodes}
+              episode={episode}
+              onSelectEpisode={onSelectEpisode}
+              setPanel={setPanel}
+              setBuffering={setBuffering}
+              setResumeOffer={setResumeOffer}
+              IS_TOUCH={IS_TOUCH}
+            />
+          )}
+        </AnimatePresence>
         {/* Netflix HUD overlays: transient volume / aspect pills
             that pop while a value changes and self-fade, plus the rewind /
             forward badge on its own edge. All geometry comes from hudMetrics
