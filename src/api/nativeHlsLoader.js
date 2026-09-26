@@ -59,7 +59,10 @@ const directBlockedUntil = new Map();
    browser fetch 403s and a probe burst trips their WAF. Relay-only by
    construction — the relay supplies the referer. */
 /* VidCore rotates its segment CDN, and every host seen so far gates on the
-   owning player's referer. Keep this list current when a new family 403s. */
+   owning player's referer (rotation-4 hosts gate on the browser's Origin —
+   verified live: bare probe with an Origin header 403s, header-less 206s —
+   which still burns a doomed direct probe + risks a WAF trip). Keep this list
+   current when a new family 403s. */
 const REFERER_GATED_HOST_SUFFIXES = [
   "quietridge.top",
   "palehive.top",
@@ -67,6 +70,8 @@ const REFERER_GATED_HOST_SUFFIXES = [
   "wisehive.top",
   "hypergate.top",
   "echogate.top",
+  "cybergate.top",
+  "lightgrove.top",
 ];
 
 export function isRefererGated(url) {

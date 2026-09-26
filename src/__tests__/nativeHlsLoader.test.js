@@ -103,6 +103,11 @@ describe("isRefererGated", () => {
     expect(isRefererGated("https://wisehive.top/vd/x/init-s720p-v1-a1.mp4")).toBe(true);
     // rotation-3 (Wild Robot session log): bare init-segment 403.
     expect(isRefererGated("https://hypergate.top/vd/x/init-s720p-v1-a1.mp4")).toBe(true);
+    // rotation-4 (live-probed 2026-09): manifests still on moon.quietridge.top
+    // now point segments at cybergate.top (TV) / lightgrove.top (movies). Both
+    // gate on the browser's Origin header — a bare probe with Origin 403s.
+    expect(isRefererGated("https://cybergate.top/vd/x/init-s1080p-v1-a1.mp4")).toBe(true);
+    expect(isRefererGated("https://lightgrove.top/vd/x/seg-1-s1080p-v1-a1.m4s")).toBe(true);
   });  it("refuses transport calls with no target URL instead of ?url=undefined at the worker", async () => {
     // A per-quality source missing its variant uri used to reach the worker as
     // ?url=undefined (500 + CORS noise). The loader must fail via onError with

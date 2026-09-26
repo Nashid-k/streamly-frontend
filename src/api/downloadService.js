@@ -246,12 +246,14 @@ export const downloadService = {
   /** Normalize a resolver `{ ok, source, variants }` payload into the shape
       the sheet consumes (labeled variants, per-variant index). */
   normalizeResolved(data) {
-    const variants = (data.variants || []).map((v, index) => ({
-      ...v,
-      index,
-      label: variantLabel(v),
-      estimatedBytes: estimateBytes(v.bandwidth, 0),
-    }));
+    const variants = (data.variants || [])
+      .filter((v) => !!v.uri)
+      .map((v, index) => ({
+        ...v,
+        index,
+        label: variantLabel(v),
+        estimatedBytes: estimateBytes(v.bandwidth, 0),
+      }));
     return { source: data.source, variants };
   },
 
