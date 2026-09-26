@@ -98,7 +98,7 @@ describe("quality labels", () => {
     expect(resolutionLabel(1920, 1080)).toBe("1080p");
     expect(resolutionLabel(1280, 720)).toBe("720p");
     expect(resolutionLabel(854, 480)).toBe("480p");
-    expect(resolutionLabel(0, 0)).toBe("480p");
+    expect(resolutionLabel(0, 0)).toBe("Auto");
   });
 
   it("tags HDR/SDR/60fps only when the playlist proves it", () => {

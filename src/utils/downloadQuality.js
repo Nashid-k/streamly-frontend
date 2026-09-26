@@ -50,6 +50,8 @@ export function resolutionLabel(width, height) {
   const w = Number(width) || 0;
   // Rank by the shorter edge so 2560x1440 reads as 2K, 3840x2160 as 4K.
   const px = h && w ? Math.min(h, w) : Math.max(h, w);
+  // Nothing to rank (a direct file, a provider that never says) — never guess a rung.
+  if (!px) return "Auto";
   if (px >= 2160) return "4K";
   if (px >= 1440) return "2K";
   if (px >= 1080) return "1080p";
