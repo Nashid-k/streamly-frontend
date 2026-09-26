@@ -50,6 +50,7 @@ import { createStreamlyLoader, probeSourcePlayable } from "../api/nativeHlsLoade
 import { SubtitleFetcher } from "../api/subtitleFetcher";
 import { logWarn } from "../utils/debugLogger";
 import { SubtitleEngine } from "../utils/subtitleEngine";
+import { readStoredNumber } from "../utils/storedNumber";
 
 // A source whose fragments keep failing without ever going fatal (VidCore's
 // vidzen fallback: playlist 200, segments 429 on repeat) would otherwise spin
@@ -110,8 +111,11 @@ const BRIGHTNESS_STORAGE_KEY = "streamly-native-brightness";
 /* One-time reset flag: an old gesture build could park brightness very low
    (inverted drag sign), and the user order was "back to normal (100%)".
    Everyone's brightness is cleared exactly once; a later deliberate low
-   choice persists like any other. */
-const BRIGHTNESS_RESET_FLAG = "streamly-native-brightness-reset-v1";
+   choice persists like any other. v2 exists because the v1 fix shipped with a
+   broken unset-read (`Number(null) === 0` passed the isFinite guard) that
+   floored EVERY viewer without the key to BRIGHTNESS_MIN and persisted it —
+   including the ones v1 had already cleared. */
+const BRIGHTNESS_RESET_FLAG = "streamly-native-brightness-reset-v2";
 const ASPECT_STORAGE_KEY = "streamly-native-aspect";
 const BRIGHTNESS_MIN = 0.25;
 const BRIGHTNESS_MAX = 1.75;
@@ -430,14 +434,9 @@ export default function NativePlayerView({
   // Netflix chrome state.
   const [controlsVisible, setControlsVisible] = useState(true);
   const [panel, setPanel] = useState(null); // null | "subs" | "episodes"
-  const [volume, setVolume] = useState(() => {
-    try {
-      const v = Number(window.localStorage.getItem(VOLUME_STORAGE_KEY));
-      return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 1;
-    } catch {
-      return 1;
-    }
-  });
+  const [volume, setVolume] = useState(() =>
+    readStoredNumber(VOLUME_STORAGE_KEY, { min: 0, max: 1, fallback: 1 }),
+  );
   const [muted, setMuted] = useState(() => {
     try {
       return window.localStorage.getItem(MUTED_STORAGE_KEY) === "1";
@@ -458,19 +457,17 @@ export default function NativePlayerView({
         window.localStorage.removeItem(BRIGHTNESS_STORAGE_KEY);
         window.localStorage.setItem(BRIGHTNESS_RESET_FLAG, "1");
       }
-      const v = Number(window.localStorage.getItem(BRIGHTNESS_STORAGE_KEY));
-      return Number.isFinite(v) ? Math.min(BRIGHTNESS_MAX, Math.max(BRIGHTNESS_MIN, v)) : 1;
     } catch {
-      return 1;
+      // private mode — the read below answers with the default anyway
     }
+    return readStoredNumber(
+      BRIGHTNESS_STORAGE_KEY,
+      { min: BRIGHTNESS_MIN, max: BRIGHTNESS_MAX, fallback: 1 },
+    );
   });
   const [aspectRatioIndex, setAspectRatioIndex] = useState(() => {
-    try {
-      const i = Number(window.localStorage.getItem(ASPECT_STORAGE_KEY));
-      return ASPECT_INDEXES.includes(i) ? i : 0;
-    } catch {
-      return 0;
-    }
+    const i = readStoredNumber(ASPECT_STORAGE_KEY, { min: 0, max: 2, fallback: 0 });
+    return ASPECT_INDEXES.includes(i) ? i : 0;
   });
   const [hud, setHud] = useState(null); // { kind: "volume"|"brightness"|"aspect", value }
   // Render-time mirror refs: the keyboard handler + touch gestures bind once,

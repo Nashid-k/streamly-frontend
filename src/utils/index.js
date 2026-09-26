@@ -62,6 +62,9 @@ export {
   safeFileName,
 } from "./downloadQuality";
 
+// Numeric preference reads (unset ≠ 0)
+export { readStoredNumber } from "./storedNumber";
+
 // Dynamic Import Chunk Recovery
 export {
   isChunkLoadError,
