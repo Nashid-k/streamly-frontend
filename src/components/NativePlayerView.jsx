@@ -600,33 +600,9 @@ export default function NativePlayerView({
      dragging, decode the frame at the hover position off-screen and show it in
      a small card above the time bubble. Cache miss decodes ride the preview
      pipeline (same transport as playback); failures resolve null and scrubbing
-     keeps working — the card just stays hidden until a capture lands. */
-  const previewBox = useMemo(() => previewMetrics(playerW, playerH), [playerW, playerH]);
-  useEffect(() => {
-    if (hoverRatio == null || safeDuration <= 0 || IS_TOUCH) {
-      previewReqRef.current += 1; // invalidate any queued capture
-      return undefined;
-    }
-    const meta = metaRef.current;
-    if (!meta?.sourceKey || !meta?.refUrl) return undefined;
-    // The preview pipeline mounts per source entry URL: master playlists get
-    // the master (the decoder picks its own rendition), per-quality sources
-    // get the smooth-start rendition that playback actually uses.
-    const target = meta.masterLevels ? meta.entryUrl : meta.refUrl;
-    if (!target) return undefined;
-    const seconds = Math.min(Math.max(hoverRatio * safeDuration, 0), Math.max(0, safeDuration - 0.5));
-    const mine = ++previewReqRef.current;
-    let cancelled = false;
-    getPreviewThumb({ url: target, refUrl: meta.refUrl, sourceKey: meta.sourceKey, seconds }).then(
-      (thumb) => {
-        if (!cancelled && thumb && previewReqRef.current === mine) setPreviewUrl(thumb);
-      },
-      () => {},
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [hoverRatio, safeDuration]);
+     keeps working — the card just stays hidden until a capture lands.
+     NOTE: declared AFTER safeDuration/hoverRatio below — this effect reads
+     them, and an earlier placement read them before initialization (TDZ crash). */
 
   const seekRelative = (delta) => {
     const video = videoRef.current;
@@ -1754,16 +1730,27 @@ export default function NativePlayerView({
           // the previous one are dead weight; the preview decoder remounts.
           clearPreviewCache(def.key);
           startLevelFor(hls);
-          setQualities(
-            variants
-              .slice()
-              .sort((a, b) => (a.height || 0) - (b.height || 0))
-              .map((v) => ({
-                uri: v.uri,
-                height: v.height || 0,
-                label: qualityLabelFor(v),
-              })),
-          );
+          // One row per DISTINCT LABEL: providers list several renditions of the
+          // same rung (640x272 + 640x360 both read "480p"), which showed as
+          // duplicate menu rows. Keep the tallest/highest-bandwidth rendition
+          // per label; rows carry their RAW height so level matching (highlight,
+          // step-down) keeps comparing like with like.
+          const byLabel = new Map();
+          variants
+            .slice()
+            .sort((a, b) => (a.height || 0) - (b.height || 0))
+            .forEach((v) => {
+              const label = qualityLabelFor(v);
+              const prev = byLabel.get(label);
+              if (
+                !prev ||
+                (v.height || 0) > (prev.height || 0) ||
+                ((v.height || 0) === (prev.height || 0) && (v.bandwidth || 0) > (prev.bandwidth || 0))
+              ) {
+                byLabel.set(label, { uri: v.uri, height: v.height || 0, label, bandwidth: v.bandwidth || 0 });
+              }
+            });
+          setQualities(Array.from(byLabel.values()));
           setIsMasterMode(isMaster);
           setActiveUri(isMaster ? null : smoothStart?.uri || null);
           // Remember the rung the player negotiated (non-master "Auto").
@@ -2150,6 +2137,41 @@ export default function NativePlayerView({
   // While dragging, the bar follows the pointer, not the frozen playback head.
   const effectiveRatio = scrubDragging ? (scrubHover ?? progressRatio) : progressRatio;
   const hoverRatio = scrubHover ?? (scrubDragging ? progressRatio : null);
+
+  /* Scrubber preview (thumbnail on hover/drag): while hovering or dragging,
+     decode the frame at the hover position off-screen and show it in a small
+     card above the time bubble. */
+  const previewBox = useMemo(() => previewMetrics(playerW, playerH), [playerW, playerH]);
+  useEffect(() => {
+    // Touch included: a drag on the scrubber is exactly when a frame preview
+    // matters most (no hover state on mobile). The 8s cache + newest-wins
+    // queue keeps the relay cost of a drag bounded.
+    if (hoverRatio == null || safeDuration <= 0) {
+      previewReqRef.current += 1; // invalidate any queued capture
+      setPreviewUrl(null);
+      return undefined;
+    }
+    const meta = metaRef.current;
+    if (!meta?.sourceKey || !meta?.refUrl) return undefined;
+    // The preview pipeline mounts per source entry URL: master playlists get
+    // the master (the decoder picks its own rendition), per-quality sources
+    // get the smooth-start rendition that playback actually uses.
+    const target = meta.masterLevels ? meta.entryUrl : meta.refUrl;
+    if (!target) return undefined;
+    const seconds = Math.min(Math.max(hoverRatio * safeDuration, 0), Math.max(0, safeDuration - 0.5));
+    const mine = ++previewReqRef.current;
+    let cancelled = false;
+    getPreviewThumb({ url: target, refUrl: meta.refUrl, sourceKey: meta.sourceKey, seconds }).then(
+      (thumb) => {
+        if (!cancelled && thumb && previewReqRef.current === mine) setPreviewUrl(thumb);
+      },
+      () => {},
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [hoverRatio, safeDuration]);
+
   const VolumeIcon = muted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
   const showEpisodesButton = Array.isArray(episodes) && episodes.length > 0;
 
@@ -2288,50 +2310,23 @@ export default function NativePlayerView({
             WebkitUserSelect: "none",
           }}
         />
-        {/* Netflix top/bottom gradient scrims: the chrome reads as white text on
-            the picture; on bright scenes it needs a fade to stay legible.
-            pointer-events none — clicks pass through to the video. */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 132,
-            background: "linear-gradient(to bottom, rgba(0,0,0,0.62), rgba(0,0,0,0))",
-            opacity: controlsVisible ? 1 : 0,
-            transition: "opacity 0.3s",
-            pointerEvents: "none",
-            zIndex: 2,
-          }}
-        />
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 168,
-            background: "linear-gradient(to top, rgba(0,0,0,0.72), rgba(0,0,0,0))",
-            opacity: controlsVisible ? 1 : 0,
-            transition: "opacity 0.3s",
-            pointerEvents: "none",
-            zIndex: 2,
-          }}
-        />
+        {/* (No standalone scrims: the top bar and bottom chrome paint their own
+            gradients — stacking more here double-darkened the picture.) */}
         {/* Dim the picture while a dialog panel is open (Netflix does this) so
-            the rows read against the frame, not against the movie. */}
-        {(panel || stillWatching) && (
+            the rows read against the frame, not against the movie. Tapping the
+            dim (outside the sheet) closes the panel — mobile has no Esc. */}
+        {panel && (
           <div
             aria-hidden="true"
+            onClick={() => {
+              setPanel(null);
+              poke();
+            }}
             style={{
               position: "absolute",
               inset: 0,
               background: "rgba(0,0,0,0.55)",
               zIndex: 5,
-              pointerEvents: "none",
             }}
           />
         )}
@@ -2669,7 +2664,9 @@ export default function NativePlayerView({
             onPointerLeave={onScrubLeave}
             style={{
               position: "relative",
-              height: 36,
+              // 44px hit target on touch (Apple HIG minimum) — the visual bar
+              // stays thin, only the touchable band grows.
+              height: IS_TOUCH ? 44 : 36,
               display: "flex",
               alignItems: "center",
               cursor: "pointer",
@@ -2733,7 +2730,7 @@ export default function NativePlayerView({
                 captured frame at the hover position, clamped so it never leaves
                 the frame. Hidden until a capture lands; scrubbing never waits
                 on it. */}
-            {hoverRatio != null && previewUrl && !IS_TOUCH && (
+            {hoverRatio != null && previewUrl && (
               <div
                 style={{
                   position: "absolute",
@@ -3126,8 +3123,9 @@ export default function NativePlayerView({
               borderLeft: IS_TOUCH ? "none" : "1px solid rgba(255,255,255,0.08)",
               borderTop: IS_TOUCH ? "1px solid rgba(255,255,255,0.1)" : "none",
               borderRadius: IS_TOUCH ? "16px 16px 0 0" : 0,
-              padding: "16px 0 0",
-              zIndex: 5,
+              // Bottom inset keeps rows clear of the Android/iOS gesture bar.
+              padding: `16px 0 calc(12px + env(safe-area-inset-bottom, 0px))`,
+              zIndex: 6,
             }}
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, padding: "0 16px" }}>
@@ -3197,7 +3195,7 @@ export default function NativePlayerView({
                     title="Auto"
                     sub={
                       autoLevel && currentHeight != null
-                        ? `Now ${currentHeight}p · adjusts with your connection`
+                        ? `Now ${qualities.find((q) => q.height === currentHeight)?.label || `${currentHeight}p`} · adjusts with your connection`
                         : "Adjusts with your connection"
                     }
                   />

@@ -101,6 +101,29 @@ describe("quality labels", () => {
     expect(resolutionLabel(0, 0)).toBe("Auto");
   });
 
+  it("buckets a 2.39:1 scope master by its full-width rung, not its raw height", () => {
+    // Scope films are cut at the reference width: 1920x804 carries the same
+    // 1920 pixel rows as 1080p — "804p" was never a thing.
+    expect(resolutionLabel(1920, 804)).toBe("1080p");
+    expect(resolutionLabel(1280, 536)).toBe("720p");
+    expect(resolutionLabel(640, 272)).toBe("480p");
+    expect(resolutionLabel(3840, 1608)).toBe("4K");
+    // A cropped 640x360 cannot read as 720p: its 16:9-equivalent is 360.
+    expect(resolutionLabel(640, 360)).toBe("480p");
+    // Height-only metadata ranks raw height, rounding down: 804 is below 1080p.
+    expect(resolutionLabel(0, 804)).toBe("720p");
+  });
+
+  it("labels a scope ladder without duplicate rungs", () => {
+    const labels = [
+      { width: 640, height: 272, codecs: "avc1.64001f" },
+      { width: 1280, height: 536, codecs: "avc1.64001f" },
+      { width: 1920, height: 804, codecs: "avc1.64001f" },
+    ].map((v) => variantLabel(v));
+    expect(labels).toEqual(["480p SDR", "720p SDR", "1080p SDR"]);
+    expect(new Set(labels).size).toBe(labels.length);
+  });
+
   it("tags HDR/SDR/60fps only when the playlist proves it", () => {
     // Proved by VIDEO-RANGE, colour transfer, HDR codec markers or AVC (cannot be HDR).
     expect(variantLabel({ width: 3840, height: 2160, videoRange: "PQ", framerate: 60 })).toBe("4K HDR · 60fps");

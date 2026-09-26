@@ -47,17 +47,25 @@ export function isHdrCodecs(codecs = "") {
 }
 
 // Resolution rung only. No bitrate, no transport.
+// Scope-aware: cinema masters (2.39:1) are cut at the FULL reference width —
+// 1920x804 carries exactly the 1920 pixel rows of a 1080p frame, just shorter.
+// Bucketing by raw height called it "804p" and buried scope films at "480p".
+// Instead rank by the 16:9-EQUIVALENT height: max(w * 9/16, h) — width-bound
+// for wider-than-16:9 scope frames, height-bound for 4:3 and taller. A scope
+// frame and a 16:9 frame cut from the same master read as the same rung.
 export function resolutionLabel(width, height) {
   const h = Number(height) || 0;
   const w = Number(width) || 0;
-  // Rank by the shorter edge so 2560x1440 reads as 2K, 3840x2160 as 4K.
-  const px = h && w ? Math.min(h, w) : Math.max(h, w);
-  // Nothing to rank (a direct file, a provider that never says) — never guess a rung.
-  if (!px) return "Auto";
-  if (px >= 2160) return "4K";
-  if (px >= 1440) return "2K";
-  if (px >= 1080) return "1080p";
-  if (px >= 720) return "720p";
+  // Nothing to rank (a direct file, a provider that never says) — never guess.
+  if (!h && !w) return "Auto";
+  // One missing edge (height-only metadata): rank the raw height against the
+  // standard rungs, rounding DOWN — an 804-row frame is below 1080p, never
+  // above it, so "720p" is the honest rung.
+  const eq = w && h ? Math.max((w * 9) / 16, h) : Math.max(h, w);
+  if (eq >= 2160) return "4K";
+  if (eq >= 1440) return "2K";
+  if (eq >= 1080) return "1080p";
+  if (eq >= 720) return "720p";
   return "480p";
 }
 
