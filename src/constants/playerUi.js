@@ -25,3 +25,58 @@ export const AR_GLYPH = [
 ];
 
 export const SPRING_SNAPPY = { type: "spring", stiffness: 500, damping: 28 };
+
+const clamp = (lo, value, hi) => (value < lo ? lo : value > hi ? hi : value);
+
+/* Short edge that renders at 1x. A 1280x720 and a 720x1280 player both scale
+   identically, so a portrait phone and a 4K panel read the same. */
+export const HUD_REFERENCE_EDGE = 720;
+
+/* Geometry for the transient HUDs (volume / brightness / aspect / seek), derived
+   from the measured player box rather than a magic number.
+
+   The player is not the window: a phone-width player inside a desktop window
+   makes `vw` clamps size the HUD for the window, and a fixed `top` percentage
+   lands the pill mid-frame on one screen size and off the top edge on the next.
+   `useContainerSize` measures the frame and every HUD reads these numbers, so
+   the overlay tracks the video instead of the viewport. */
+export const hudMetrics = (width, height) => {
+  const w = Math.max(0, Number(width) || 0);
+  const h = Math.max(0, Number(height) || 0);
+  // Before the first ResizeObserver tick there is no box to measure; fall back
+  // to the reference so the HUD renders at a sane size instead of collapsing.
+  const basis = Math.min(w || HUD_REFERENCE_EDGE, h || HUD_REFERENCE_EDGE);
+  const frameW = w || HUD_REFERENCE_EDGE;
+  const frameH = h || HUD_REFERENCE_EDGE;
+  // Sub-linear: a 720p window is 1x, but a 1080p or 4K frame should only read
+  // slightly larger. Linear scaling would balloon the pill to 1.5x at 1080p.
+  const scale = clamp(0.62, Math.sqrt(basis / HUD_REFERENCE_EDGE), 1.5);
+  return {
+    width: w,
+    height: h,
+    scale,
+    // Top-anchored band, clear of the back-button row. The upper clamp stops a
+    // very tall frame from stranding the pill in the middle of the picture.
+    top: Math.round(clamp(14, frameH * 0.13, 104)),
+    // Rewind/forward badges hug their own edge, a little above centre.
+    seekInset: Math.round(clamp(16, frameW * 0.06, 88)),
+    seekCenter: Math.round(frameH * 0.42),
+    seekDiameter: Math.round(clamp(56, 84 * scale, 124)),
+    seekIcon: Math.round(clamp(20, 30 * scale, 44)),
+    seekFont: Math.round(clamp(10, 13 * scale, 17)),
+    // Pill (volume / brightness) internals.
+    pillGap: Math.round(clamp(8, 12 * scale, 18)),
+    pillPadY: Math.round(clamp(8, 13 * scale, 20)),
+    pillPadX: Math.round(clamp(12, 20 * scale, 30)),
+    pillRadius: Math.round(clamp(6, 8 * scale, 12)),
+    pillIcon: Math.round(clamp(16, 20 * scale, 30)),
+    barWidth: Math.round(clamp(72, 120 * scale, 170)),
+    barHeight: Math.round(clamp(3, 5 * scale, 7)),
+    valueFont: Math.round(clamp(11, 15 * scale, 22)),
+    valueMinWidth: Math.round(clamp(30, 44 * scale, 62)),
+    // Aspect card: AR_GLYPH is authored against 720px, so it scales as a unit.
+    glyphScale: scale,
+    labelGap: Math.round(clamp(6, 10 * scale, 14)),
+    labelFont: Math.round(clamp(11, 14 * scale, 20)),
+  };
+};

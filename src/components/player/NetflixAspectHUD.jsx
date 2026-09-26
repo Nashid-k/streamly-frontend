@@ -2,10 +2,14 @@ import { memo } from "react";
 import { motion } from "framer-motion";
 import { ASPECT_RATIOS, AR_GLYPH, SPRING_SNAPPY } from "../../constants/playerUi";
 
-const NetflixAspectHUD = memo(function NetflixAspectHUD({ aspectRatioIndex, top }) {
+const NetflixAspectHUD = memo(function NetflixAspectHUD({ aspectRatioIndex, metrics }) {
   const ar = ASPECT_RATIOS[aspectRatioIndex] || ASPECT_RATIOS[0];
   const glyph = AR_GLYPH[aspectRatioIndex] || AR_GLYPH[0];
+  // AR_GLYPH is authored against a 720px short edge, so scale it with the
+  // measured frame instead of rendering a fixed-size box.
   const [gw, gh] = glyph;
+  const width = Math.max(12, Math.round(gw * metrics.glyphScale));
+  const height = Math.max(8, Math.round(gh * metrics.glyphScale));
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.9, y: -10 }}
@@ -16,16 +20,16 @@ const NetflixAspectHUD = memo(function NetflixAspectHUD({ aspectRatioIndex, top 
         position: "absolute", inset: 0,
         display: "flex", flexDirection: "column",
         alignItems: "center", justifyContent: "flex-start",
-        paddingTop: top,
+        paddingTop: metrics.top,
         pointerEvents: "none", zIndex: 65,
       }}
     >
       <div style={{
         display: "flex", flexDirection: "column", alignItems: "center",
-        gap: "clamp(6px, 1.2vw, 10px)",
+        gap: metrics.labelGap,
       }}>
         <motion.div
-          animate={{ width: gw, height: gh }}
+          animate={{ width, height }}
           transition={{ type: "spring", stiffness: 420, damping: 30 }}
           style={{
             background: "rgba(0,0,0,0.88)", border: "2px solid #E50914",
@@ -33,9 +37,9 @@ const NetflixAspectHUD = memo(function NetflixAspectHUD({ aspectRatioIndex, top 
           }}
         />
         <span style={{
-          color: "#fff", fontSize: "clamp(11px, 1.6vw, 14px)", fontWeight: 700,
+          color: "#fff", fontSize: metrics.labelFont, fontWeight: 700,
           background: "rgba(0,0,0,0.88)", borderRadius: 8,
-          padding: "clamp(3px, 0.6vw, 5px) clamp(8px, 1.6vw, 14px)",
+          padding: `${Math.max(3, Math.round(metrics.labelFont * 0.35))}px ${Math.max(8, Math.round(metrics.labelFont * 0.9))}px`,
           textShadow: "0 1px 4px rgba(0,0,0,0.8)",
           border: "1px solid rgba(255,255,255,0.1)",
           whiteSpace: "nowrap",

@@ -6,3 +6,4 @@ export { default as LoadingArc } from "./LoadingArc";
 export { default as NetflixVolumeHUD } from "./NetflixVolumeHUD";
 export { default as NetflixBrightnessHUD } from "./NetflixBrightnessHUD";
 export { default as NetflixAspectHUD } from "./NetflixAspectHUD";
+export { default as NetflixSeekHUD } from "./NetflixSeekHUD";

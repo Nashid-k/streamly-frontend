@@ -5,7 +5,7 @@
 // Quality lives in the Audio & Subtitles dialog (Netflix has no quality menu), and
 // touch devices get a stacked settings sheet instead of the desktop chrome.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -27,7 +27,7 @@ import {
   VolumeX,
   X,
 } from "lucide-react";
-import { NetflixVolumeHUD, NetflixBrightnessHUD, NetflixAspectHUD } from "./player";
+import { NetflixVolumeHUD, NetflixBrightnessHUD, NetflixAspectHUD, NetflixSeekHUD } from "./player";
 import Hls from "hls.js";
 import { downloadService } from "../api/downloadService";
 import { variantLabel } from "../utils/downloadQuality";
@@ -36,6 +36,8 @@ import { SubtitleFetcher } from "../api/subtitleFetcher";
 import { logWarn } from "../utils/debugLogger";
 import { SubtitleEngine } from "../utils/subtitleEngine";
 import { readStoredNumber } from "../utils/storedNumber";
+import useContainerSize from "../hooks/useContainerSize";
+import { hudMetrics } from "../constants/playerUi";
 
 // A source can fail fragments forever without ever going fatal (VidCore's
 // vidzen: playlist 200, segments 429 on repeat) — so fail over ourselves.
@@ -245,6 +247,11 @@ export default function NativePlayerView({
 }) {
   const videoRef = useRef(null);
   const screenRef = useRef(null);
+  // HUD geometry follows the measured frame, not the window: the player is
+  // often a phone-width box on a desktop viewport (and vice versa), so vw/vh
+  // units and a fixed top percentage both land the overlay in the wrong place.
+  const { w: playerW, h: playerH } = useContainerSize(screenRef);
+  const hudBox = useMemo(() => hudMetrics(playerW, playerH), [playerW, playerH]);
   const scrubRef = useRef(null);
   const hlsRef = useRef(null);
   const runRef = useRef(0);
@@ -532,6 +539,7 @@ export default function NativePlayerView({
     const video = videoRef.current;
     if (!video) return;
     poke();
+    showHud("seek", delta);
     const dur = Number(video.duration);
     const next = (video.currentTime || 0) + delta;
     try {
@@ -2849,21 +2857,33 @@ export default function NativePlayerView({
           </div>
         )}
         {/* Netflix HUD overlays: transient volume / brightness / aspect pills
-            that pop while a value changes and self-fade. Presentational only
-            (pointer-events none) — they ride above the player chrome. */}
+            that pop while a value changes and self-fade, plus the rewind /
+            forward badge on its own edge. All geometry comes from hudMetrics
+            (the measured frame), so they track the video rather than the
+            viewport. Presentational only (pointer-events none). */}
         <AnimatePresence>
           {hud?.kind === "volume" && (
-            <NetflixVolumeHUD key="volume" effVolume={volume} isMuted={muted || autoMuted} volume={volume} top="34%" />
+            <NetflixVolumeHUD key="volume" effVolume={volume} isMuted={muted || autoMuted} metrics={hudBox} volume={volume} />
           )}
         </AnimatePresence>
         <AnimatePresence>
           {hud?.kind === "brightness" && (
-            <NetflixBrightnessHUD key="brightness" brightness={brightness} top="34%" />
+            <NetflixBrightnessHUD key="brightness" brightness={brightness} metrics={hudBox} />
           )}
         </AnimatePresence>
         <AnimatePresence>
           {hud?.kind === "aspect" && (
-            <NetflixAspectHUD key="aspect" aspectRatioIndex={aspectRatioIndex} top="36%" />
+            <NetflixAspectHUD key="aspect" aspectRatioIndex={aspectRatioIndex} metrics={hudBox} />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {hud?.kind === "seek" && hud.value < 0 && (
+            <NetflixSeekHUD key="seek-back" direction="back" metrics={hudBox} seconds={Math.abs(Math.round(hud.value))} />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {hud?.kind === "seek" && hud.value > 0 && (
+            <NetflixSeekHUD key="seek-forward" direction="forward" metrics={hudBox} seconds={Math.abs(Math.round(hud.value))} />
           )}
         </AnimatePresence>
       </div>

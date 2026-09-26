@@ -178,7 +178,8 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
   (`CastRail`, `DiscoveryRails`, `ContinueWatchingRail`, `GenreShowcase`, `LeavingSoonBanner`),
   cards (`MovieCard`), player subsystem (`CustomVideoPlayer`, `PlayerPreview`,
   `YoutubeRawTrailer`, and `player/` leaf subfolder — `ArcRing`, `LoadingArc`,
-  `NetflixVolumeHUD`, `NetflixBrightnessHUD`, `NetflixAspectHUD`, `index.js`),
+  `NetflixVolumeHUD`, `NetflixBrightnessHUD`, `NetflixAspectHUD`,
+  `NetflixSeekHUD`, `index.js`),
   feature-grouped subfolders (`browse/` — `FilterPill`, `MenuItem`, `SearchField`,
   `PillAction`; `detail/` — `SeasonDropdown`,
   `ProductionCompaniesBlock`; `rails/` — `FadeInSection`, `MovieRail`, `Top10Rail`,
@@ -187,6 +188,16 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
   `ServerOrderList`), modals (`TitleInfoModal`, `DownloadModal`, `GlobalShortcuts`), and
   primitives (`Button`, `Chip`, `Toast`, `ConfirmDialog`, `Loader`, `EmptyState`,
   `SEO`, `ErrorBoundary`).
+
+  The transient player HUDs (`player/Netflix*HUD`) are positioned **from the measured
+  frame, never from the viewport or a magic percentage**: `hudMetrics(width, height)`
+  in `src/constants/playerUi.js` turns the box measured by `useContainerSize(screenRef)`
+  into every offset, icon size and font size, and each leaf reads those numbers. The
+  player is frequently a phone-width box on a desktop viewport, so `vw` units and a
+  fixed `top` percentage both misplace the overlay. Volume/brightness/aspect sit in a
+  top-anchored band; `NetflixSeekHUD` anchors the rewind badge to the left edge and the
+  forward badge to the right, vertically above centre, and `seekRelative` raises it for
+  every seek path (keys, the transport buttons, double-tap on that side).
 - `src/hooks/` — custom React hooks (`@/hooks`). `index.js` barrel. `useUserData.js` (localStorage lists,
   logs corrupt/quota failures), `useDebounce`, `useDetailView`, `useMediaQuery`, `useRailArrows`,
   `useScrollRestoration`, `useVirtualRenderAdapter` (IntersectionObserver adapter for heavy elements),
