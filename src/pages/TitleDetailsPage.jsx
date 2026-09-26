@@ -56,8 +56,7 @@ import { getPlatformName } from "../utils/platforms";
 import { logEmptyData, logError, reportQueryError } from "../utils/debugLogger";
 const DownloadModal = lazy(() => import("../components/DownloadModal"));
 // NativePlayerView is the app's player: direct HLS playback through the
-// serverless + Cloudflare relay, with the Netflix-style chrome (quality,
-// episodes, subtitles, audio, resume, Up Next).
+// serverless + Cloudflare relay, with the Netflix-style chrome.
 const NativePlayerView = lazy(() => import("../components/NativePlayerView"));
 import ErrorBoundary from "../components/ErrorBoundary";
 
@@ -77,7 +76,6 @@ const formatAirsDate = (dateStr) => {
   });
 };
 
-// ─── SeasonDropdown — custom styled dropdown (no native <select>) ─────────────
 
 
 /* "Ends 5:53 AM" — runtime end time if the viewer pressed play right now
@@ -345,7 +343,7 @@ export default function TitleDetails() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [similar]);
 
-  // Reset season/episode when navigating to a different movie (#8 fix)
+    // Reset season/episode when navigating to a different movie
   useEffect(() => {
     setSelectedSeason(1);
     setPlayingEpisode(1);
@@ -378,10 +376,10 @@ export default function TitleDetails() {
 
   const endsAt = formatEndsAt(movie?.durationMins);
   const runtimeLabel = formatRuntimeLabel(movie?.durationMins);
-  // Cinejoy-style series info table — Status / Language / First Aired /
-  // Last Aired / Seasons / Episodes. Movies keep Runtime / Language / Release
-  // Date. Rendered identically in the mobile and desktop info blocks. Lives
-  // above the loading early-return so hook order stays unconditional.
+    // Cinejoy-style info table (Status / Language / First & Last Aired / Seasons /
+    // Episodes for series; Runtime / Language / Release Date for movies), rendered
+    // identically on mobile and desktop. Above the loading early-return so hook
+    // order stays unconditional.
   const infoRows = useMemo(() => {
     const rows = [];
     const dateOpts = { year: "numeric", month: "short", day: "numeric" };
@@ -449,7 +447,6 @@ export default function TitleDetails() {
     || (selectedSeason === airingSeasonNumber && !!movie?.nextEpisode?.releaseDate);
   const hasSeriesEpisodes = isTvContent;
 
-  // ── Episode header controls (Cinejoy parity) ─────────────────────────────
   const [ratingsOpen, setRatingsOpen] = useState(false);
   const [sortNewest, setSortNewest] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
@@ -588,10 +585,9 @@ export default function TitleDetails() {
     };
   }, [isPlaying]);
 
-  // Close the TRAILER on Escape. The stream player (NativePlayerView) owns
-  // Escape itself (dialog-first, then onClose) — the parent must not also
-  // close it, or a single Esc would kill a session that only aimed to close
-  // a menu.
+    // Close the TRAILER on Escape. NativePlayerView owns Escape itself
+    // (dialog-first, then onClose), so the parent must not also close it or a
+    // single Esc would kill a session that only meant to close a menu.
   useEffect(() => {
     if (!isPlaying || playMode !== "trailer") return;
     const handleKey = (e) => {
@@ -713,9 +709,8 @@ export default function TitleDetails() {
     return m ? m[0] : null;
   })();
 
-  // Continue-watching entry that matches the player's CURRENT view (movie, or
-  // the exact season+episode in flight). Only usable resume points (>0s
-  // watched) are offered; the player gate handles the rest.
+    // Continue-watching entry matching the player's CURRENT view (movie, or the
+    // exact season+episode in flight). Only real resume points (>0s) are offered.
   const viewEpisode = () =>
     isTvContent ? (playingEpisode || episodeToPlay || 1) : 1;
   const watchEntry = (() => {
@@ -729,11 +724,10 @@ export default function TitleDetails() {
     return found;
   })();
 
-  // ── Season-aware episode navigation ─────────────────────────────────────
-  // Same philosophy as the hero Play button: step within the *aired* episodes
-  // of the selected season, and roll across season boundaries to the previous
-  // season's last / next season's first episode instead of landing on an
-  // episode number that doesn't exist.
+    // ── Season-aware episode navigation ─────────────────────────────────────
+    // Step within the *aired* episodes of the selected season and roll across
+    // season boundaries to the previous season's last / next season's first
+    // episode instead of landing on a number that doesn't exist.
   const currentSeasonIndex = availableSeasonNumbers.indexOf(selectedSeason);
   const hasPrevSeason = currentSeasonIndex > 0;
   const hasNextSeason =
@@ -1414,9 +1408,9 @@ export default function TitleDetails() {
                     const watchedTs = isLiveWatched ? (continueEntryForMovie?.timestamp || 0) : 0;
                     const isAired = isEpAired(ep);
                     const playable = isAired;
-                    // Upcoming episodes have no TMDB still — fall back to the
-                    // series artwork so every card shows an image (grayed out).
-                    // Catalog objects sometimes store art in the non-Url fields.
+                                        // Upcoming episodes have no TMDB still — fall back to the
+                                        // series artwork so every card shows an image. Catalog objects
+                                        // sometimes store art in the non-Url fields.
                     const epThumb = ep.thumbnailUrl || ep.posterUrl || ep.backdropUrl || movie.backdropUrl || movie.posterUrl || movie.backdrop || movie.poster || movie.thumbnailUrl || null;
                     const pctWatched = isWatched && watchedTs <= 0
                       ? 100
@@ -1436,7 +1430,7 @@ export default function TitleDetails() {
                     };
 
                     if (isCard) {
-                      // ── GRID / CAROUSEL CARD ──
+                                          // Grid / carousel card
                       return (
                         <motion.div
                           key={ep.id || idx}
@@ -1552,7 +1546,7 @@ export default function TitleDetails() {
                       );
                     }
 
-                    // ── LIST ROW ──
+                                        // List row
                     return (
                       <motion.div
                         key={ep.id || idx}

@@ -28,21 +28,15 @@ import {
 import { logDebug, logWarn } from "../utils/debugLogger";
 
 /* ── DownloadModal — browser-only offline downloads ────────────────────
-   Vercel has no storage and the app has no backend, so "download" means
-   either:
-   1. Opening the HLS stream URL directly (let browser/external tools handle it)
-   2. Fetching bytes through our serverless resolver and saving to disk
+   Vercel has no storage and the app has no backend, so "download" means either
+   opening the HLS stream URL directly (the browser or external tools handle it)
+   or fetching bytes through the serverless resolver and saving to disk. Direct
+   MP4 downloads are not feasible: external embed hosts block automated scraping.
 
-   External embed hosts block automated scraping, so direct MP4 downloads are
-   not feasible. The industry pattern is to offer the stream URL that users
-   can open in browser or download with yt-dlp/ffmpeg.
-
-   Layout mirrors Cinejoy's download sheet: a quality filter rail plus one
-   row per quality each download source (VidSrc (Alt) and VidCore (Server 5))
-   offers, with a top-quality badge, a size estimate, and a download action.
-
-   Accessibility mirrors the Settings sign-in modal: portal + scroll lock +
-   Tab trap + Escape + focus return. */
+   Layout: a quality filter rail plus one row per quality each source offers,
+   with a top-quality badge, a size estimate and a download action. Accessibility
+   mirrors the Settings sign-in modal (portal + scroll lock + Tab trap + Escape +
+   focus return). */
 
 const getNumericId = (s) => {
   if (!s) return null;
@@ -50,15 +44,12 @@ const getNumericId = (s) => {
   return m ? m[0] : null;
 };
 
-// The download sources the sheet fans out over. Every row is a quality one of
-// these serves — there is no player-rotation scan. VidSrc (Alt) scrapes
-// server-side (/api/downloadify action "resolvevidsrc"). VidCore (Server 5)
-// is likewise serverless — its sources catalogue lists direct HLS ladders,
-// incl. 4K (action "resolvevidcore"). A third source (CineSrc) was removed
-// with its Chrome mint service (cinesrc-resolver/): its tokens can only be
-// minted in a real browser, so it never worked without that resolver.
-// `sourceKey` is how the download engine re-resolves the title's tokens
-// through the same resolver.
+// The sources the sheet fans out over; every row is a quality one of these
+// serves. VidSrc (Alt) scrapes server-side (action "resolvevidsrc") and VidCore
+// (Server 5) likewise (action "resolvevidcore") — both list direct HLS ladders
+// incl. 4K. A third source (CineSrc) was removed with its Chrome mint service:
+// its tokens can only be minted in a real browser.
+// `sourceKey` is how the engine re-resolves the title's tokens.
 const VIDSRC_SOURCE_NAME = "VidSrc (Alt)";
 const VIDCORE_SOURCE_NAME = "VidCore (Server 5)";
 
@@ -155,11 +146,9 @@ export default function DownloadModal({
   });
   const episodes = episodesData?.episodes || [];
 
-  /* Resolve every download source in parallel so the sheet can list what each
-     actually serves. Each source resolves independently: one slow source never
-     blocks another's rows, and each failure is honest about ITS source while
-     the others keep answering. The error row only appears when EVERY source
-     came up empty. */
+    /* Resolve every source in parallel so the sheet can list what each actually
+       serves: one slow source never blocks another's rows, each failure is honest
+       about ITS source, and the error row appears only when EVERY source is empty. */
   const resolveAll = useCallback(
     async (signal) => {
       setRows([]);
@@ -181,9 +170,8 @@ export default function DownloadModal({
         const finished = done === total;
         let error = null;
         if (finished && accRows.length === 0) {
-          // Every source failed: offline (whole service down) wins the copy so
-          // the user sees the actionable message; otherwise name each source
-          // that came up empty — the honest phrasing, never a lying fallback.
+                    // Every source failed: offline (whole service down) wins the copy so the
+                    // user sees the actionable message; otherwise name each empty source.
           error =
             offlineError?.message ||
             RESOLVE_SOURCES.map((s) => `${s.name} did not offer a downloadable version of this title.`).join(" ");
@@ -339,29 +327,25 @@ export default function DownloadModal({
     });
   };
 
-  /* "Save to browser Downloads" (Ctrl+J): skip the File System Access picker
-     and let saveStream buffer the file in memory → the browser's own download
-     manager. Persisted; tests render without the PreferencesProvider, so the
-     context is optional here. */
+    /* "Save to browser Downloads" (Ctrl+J): skip the File System Access picker and
+       let saveStream buffer the file for the browser's own download manager.
+       Persisted; tests render without the PreferencesProvider, so it is optional. */
   const preferences = useOptionalPreferences();
   const [browserSave] = useState(() => preferences?.browserDownloads ?? false);
 
-  /* The actual download engine. Runs a server/quality across every selected
-     episode, streaming progress into the session store. Deliberately
-     independent of the modal's own lifecycle so a download keeps running in
-     the background after the sheet closes, and retries from the /downloads
-     page work without the modal (the in-memory `retry` closure re-runs
-     this). */
+    /* The download engine. Runs a server/quality across every selected episode,
+       streaming progress into the session store. Deliberately independent of the
+       modal's lifecycle so a download survives the sheet closing, and retries from
+       /downloads re-run it through the in-memory `retry` closure. */
   const runDownload = useCallback(
     async (row) => {
       if (!row) return;
       const targets = isTv ? [...selectedEpisodes].sort((a, b) => a - b) : [null];
       if (isTv && targets.length === 0) return;
 
-      // Single-file downloads get the native Save-As picker, opened
-      // synchronously so the browser keeps the user activation. Browser mode
-      // skips the picker entirely so the file lands in the browser's own
-      // Downloads list (Ctrl+J) instead of a disk path.
+            // Single-file downloads open the native Save-As picker synchronously so the
+            // browser keeps the user activation; browser mode skips it so the file lands
+            // in the browser's own Downloads list.
       let writable = null;
       if (targets.length === 1 && !browserSave) {
         try {
@@ -399,9 +383,8 @@ export default function DownloadModal({
         abort: () => controller.abort(),
       });
 
-      // The /downloads page drives these through the store record. Each is a
-      // stable closure over this run's own ids/controllers, so Pause/Resume/
-      // Retry keep working long after the modal closed.
+            // The /downloads page drives these through the store record; each is a
+            // stable closure over this run's ids/controllers, so they keep working.
       updateDownload(downloadId, {
         pause: () => {
           gate.pause();
@@ -432,9 +415,8 @@ export default function DownloadModal({
           const episode = targets[i];
           setDownloadState((prev) => ({ ...prev, episodeIndex: i, episode, progress: null }));
           updateDownload(downloadId, { episodeIndex: i });
-          // Resolve the title's tokens for this episode through the same
-          // resolver the row came from, then expand the chosen variant into
-          // concrete segments.
+                    // Resolve the episode's tokens through the same resolver the row came
+                    // from, then expand the chosen variant into concrete segments.
           const resolveEpisode = async () => {
             const resolverName =
               row.sourceKey === "vidcore" ? "resolveVidcore" : "resolveVidsrc";
@@ -466,9 +448,8 @@ export default function DownloadModal({
             pause: gate,
             totalBytes,
             onProgress: (progress) => {
-              // saveStream reports a true network-arrival rate (windowed); the
-              // old EMA here measured delta between _write_ bursts and showed
-              // unrealistic disk speed. Fall back to 0 when no rate is given.
+                            // saveStream reports a true windowed network-arrival rate; an EMA over
+                            // _write_ deltas reads as unrealistic disk speed. Default 0.
               updateDownload(downloadId, {
                 progress: { ...progress, speed: progress.speed || 0, totalBytes },
                 episodeIndex: i,
@@ -512,9 +493,8 @@ export default function DownloadModal({
   };
 
   const isDownloading = downloadState.status === "downloading";
-  // A row is downloadable as soon as ITS source answered — the sheet never
-  // blocks on a slower source, so the first click always lands on a live
-  // button even while another source is still minting.
+    // A row is downloadable as soon as ITS source answered — the sheet never blocks
+    // on a slower source, so the first click always lands on a live button.
   const canPickSource = !isDownloading && sortedRows.length > 0;
 
   return createPortal(

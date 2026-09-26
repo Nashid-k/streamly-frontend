@@ -3,9 +3,8 @@ import { logDebug, logError, logWarn } from '../utils/debugLogger';
 // Direct TMDB base — used as fallback when no same-origin proxy is deployed
 // (plain static hosting, `vite preview`), and by non-browser runtimes.
 const DIRECT_BASE = 'https://api.themoviedb.org/3';
-// The key is NEVER bundled: deploys supply VITE_TMDB_API_KEY (client) and the
-// same-origin /api/tmdb proxy injects its own server-side key. An empty key
-// fails TMDB with 401 and surfaces the guidance below.
+// The key is NEVER bundled: deploys supply VITE_TMDB_API_KEY and the same-origin
+// /api/tmdb proxy injects its own server-side key. An empty key 401s TMDB.
 const API_KEY = import.meta.env.VITE_TMDB_API_KEY || '';
 const REQUEST_TIMEOUT_MS = 10_000;
 
@@ -18,11 +17,10 @@ if (!API_KEY) {
   );
 }
 
-// Same-origin proxy: `/api/tmdb` is served by the Vercel function in
-// `api/tmdb.js` (production) and by the Vite dev proxy in
-// `vite.config.js` (local dev). Requests leave from the host's network, so
-// visitors on ISPs that block api.themoviedb.org still get data. Returns
-// null outside browsers (node scripts/tests) where relative URLs can't run.
+// Same-origin proxy `/api/tmdb`: the Vercel function in api/tmdb.js in production,
+// the Vite dev proxy locally. Requests leave from the host's network, so visitors
+// on ISPs that block api.themoviedb.org still get data. Null outside browsers,
+// where relative URLs cannot run.
 function proxyBase() {
   try {
     if (typeof window !== 'undefined' && window.location?.origin) {
@@ -38,7 +36,7 @@ function redact(url) {
   return String(url).replace(/api_key=[^&]*/i, 'api_key=***');
 }
 
-export function getActiveLanguage() {
+function getActiveLanguage() {
   try {
     if (typeof localStorage !== 'undefined') {
       const stored = localStorage.getItem('setting-defaultLanguage');
@@ -55,10 +53,9 @@ export function getActiveLanguage() {
 
 function buildQuery(params = {}) {
   const q = new URLSearchParams();
-  // Send api_key only when the client actually has one. An EMPTY api_key
-  // defeats the /api/tmdb proxy's server-side key injection (params.has('api_key')
-  // is true for an empty value), which quietly 401s every request when
-  // VITE_TMDB_API_KEY is unset at build time.
+    // Send api_key only when the client actually has one: an EMPTY api_key defeats
+    // the /api/tmdb proxy's server-side injection (params.has('api_key') is true for
+    // an empty value), quietly 401ing every request when the var is unset.
   if (API_KEY) q.set('api_key', API_KEY);
   const activeLang = params.language !== undefined ? params.language : getActiveLanguage();
   if (activeLang && activeLang !== 'none') {
@@ -71,12 +68,10 @@ function buildQuery(params = {}) {
   return q.toString();
 }
 
-// A deployed proxy always answers JSON (TMDB payload or TMDB error).
-// Anything else means no function served the request and the caller should
-// retry direct instead:
+// A deployed proxy always answers JSON (TMDB payload or TMDB error); anything
+// else means no function served the request, so the caller retries direct:
 //   - text/html → SPA fallback on plain static hosts (index.html, often 200)
-//   - text/plain 404 → Vercel "NOT_FOUND" when the deployment predates the
-//     api function (or the function failed to deploy)
+//   - text/plain 404 → Vercel NOT_FOUND on a deploy predating the api function
 // Headerless responses (unit-test mocks) count as TMDB-shaped.
 function proxyLooksLikeTmdb(res) {
   let ct = '';

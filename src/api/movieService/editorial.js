@@ -47,10 +47,9 @@ async function resolveEditorialKeyword(candidates) {
 
 // ── Editorial curated rails (Cinejoy-style rows) ─────────────────────────
 // Keyword-keyed rails resolve their TMDB keyword ids once (cached in a
-// module-level map) then run /discover with with_keywords so every row the
-// catalog can fill is genuinely curated. Sort-mode rails ("Top Rated",
-// "Rotten Tomatoes Best") just use sort_by + a vote-count floor. Rows with
-// no resolvable keyword or no results return [] — the rail hides itself.
+// module-level map) then run /discover with with_keywords; sort-mode rows
+// ("Top Rated", "Rotten Tomatoes Best") just use sort_by + a vote-count floor.
+// Rows with no resolvable keyword or no results return [] — the rail hides itself.
 export const getEditorialRail = async (key) => {
   const cfg = EDITORIAL_RAILS.find((r) => r.key === key);
   if (!cfg) {
@@ -74,9 +73,8 @@ export const getEditorialRail = async (key) => {
       params.vote_count_gte = cfg.sort.voteCountGte;
     }
     let data = await tmdb(`/discover/${mt}`, params);
-    // Sparse keyword catalogs (festival/niche tags) can sink a strict vote
-    // floor to zero rows. Remove the floor (English fallback) so the rail
-    // still surfaces whatever the matched keyword actually has.
+        // Sparse keyword catalogs (festival/niche tags) can sink a strict vote floor
+        // to zero rows — drop it so the rail still surfaces what the keyword has.
     if (cfg.keywords && !(data.results || []).length) {
       delete params.vote_count_gte;
       params.language = 'en';
@@ -93,8 +91,7 @@ export const getEditorialRail = async (key) => {
         try {
           return await byType(mt);
         } catch (error) {
-          // A failed type must not blank the whole rail — log and return []
-          // so the other types still render (rows hide themselves when empty).
+                    // A failed type must not blank the rail — log and return [] (rows hide).
           logServiceError(`getEditorialRail[${key}][${mt}]`, error, { key });
           return [];
         }

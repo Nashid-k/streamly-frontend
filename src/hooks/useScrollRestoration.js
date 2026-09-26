@@ -63,7 +63,6 @@ export function useScrollRestoration() {
       }, 150);
     };
 
-    // Save scroll periodically
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => {
       clearTimeout(scrollTimer);

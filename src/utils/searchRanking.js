@@ -1,16 +1,10 @@
 /**
- * searchRanking.js — Advanced search result relevance scoring
+ * searchRanking.js — search relevance scoring.
  *
- * Implements patterns from Netflix, Prime Video, Disney+, HBO Max, Apple TV+:
- *
- * 1. EXACT TITLE MATCH (100) — "The Matrix" for query "the matrix"
- * 2. WORD BOUNDARY BONUS (98) — "Hi Nanna" for query "hi" (complete word)
- * 3. PREFIX MATCH (95) — "HIM" for query "hi" (starts with)
- * 4. GENRE MATCH (+8) — "Horror" query boosts horror movies
- * 5. CAST/DIRECTOR MATCH (+12) — "Tom Hanks" boosts his movies
- * 6. POPULARITY BOOST (+5) — trending/popular content ranks higher
- * 7. RECENCY BOOST (+3) — newer content gets a small bonus
- * 8. FRANCHISE MATCH (+6) — "Marvel" boosts MCU titles
+ * Tiers (Netflix/Prime/Disney+ style): exact title (100), word boundary (98),
+ * prefix (95), word match (70-85), substring (40-65), weak (0-25), then
+ * bonuses: cast/director (+12), genre (+8), franchise (+6), popularity (+5),
+ * recency (+3).
  */
 
 // Common genre aliases (what users type vs. what's in the data)
@@ -64,7 +58,7 @@ export function getSearchRelevance(movie, query) {
 
   let score = 0;
 
-  // ── TIER 1: Exact / near-exact (88-100) ──
+    // Tier 1: exact / near-exact (88-100)
 
   if (title === q) {
     score = 100;
@@ -76,7 +70,7 @@ export function getSearchRelevance(movie, query) {
   } else if (q.startsWith(title) && title.length >= 3) {
     score = 88;
   } else {
-    // ── TIER 2: Word matches (70-85) ──
+        // Tier 2: word matches (70-85)
     const queryWords = q.split(/\s+/).filter(Boolean);
     const titleWords = title.split(/\s+/);
 
@@ -110,7 +104,7 @@ export function getSearchRelevance(movie, query) {
       }
     }
 
-    // ── TIER 3: Substring / partial (40-65) ──
+        // Tier 3: substring / partial (40-65)
     if (score === 0) {
       if (title.includes(q)) {
         score = 65;
@@ -135,7 +129,7 @@ export function getSearchRelevance(movie, query) {
       }
     }
 
-    // ── TIER 4: Weak matches (0-25) ──
+        // Tier 4: weak matches (0-25)
     if (score === 0) {
       const minLen = Math.max(3, Math.floor(q.length * 0.6));
       const prefix = q.substring(0, minLen);
@@ -144,8 +138,7 @@ export function getSearchRelevance(movie, query) {
     }
   }
 
-  // ── BONUS: Genre matching (+8) ──
-  // If query matches a genre (e.g. "horror", "sci-fi"), boost movies with that genre
+    // Genre bonus (+8) when the query names a genre ("horror", "sci-fi")
   const aliasedQuery = GENRE_ALIASES[q] || q;
   if (movie.genres && Array.isArray(movie.genres)) {
     const genresLower = movie.genres.map((g) => g.toLowerCase());
@@ -161,8 +154,7 @@ export function getSearchRelevance(movie, query) {
     }
   }
 
-  // ── BONUS: Cast/Director matching (+12) ──
-  // If query looks like a person name (2+ words, no digits), check cast/director
+    // Cast/director bonus (+12) when the query looks like a person name (2+ words, no digits)
   const nameWords = q.split(/\s+/).filter(Boolean);
   if (
     nameWords.length >= 2 &&
@@ -179,12 +171,12 @@ export function getSearchRelevance(movie, query) {
     }
   }
 
-  // ── BONUS: Popularity/trending boost (+5) ──
+    // Popularity/trending bonus (+5)
   if (movie.matchScore && movie.matchScore > 70) {
     score += 5;
   }
 
-  // ── BONUS: Recency boost (+3) ──
+    // Recency bonus (+3)
   const year = movie.releaseYear || movie.year;
   if (year) {
     const currentYear = new Date().getFullYear();
@@ -195,10 +187,7 @@ export function getSearchRelevance(movie, query) {
   return Math.min(score, 120);
 }
 
-/**
- * Rank search results by relevance to query.
- * Returns sorted array with most relevant first.
- */
+/** Rank search results by relevance to `query`, most relevant first. */
 export function rankSearchResults(results, query) {
   if (!results || !query) return results || [];
 
@@ -234,9 +223,7 @@ export function rankSearchResults(results, query) {
     });
 }
 
-/**
- * Find "Did you mean" suggestions when no exact match exists.
- */
+/** "Did you mean" suggestions for when no exact match exists. */
 export function getDidYouMean(query, results = [], threshold = 0.4) {
   if (!query || !results.length) return [];
 
@@ -268,9 +255,7 @@ export function getDidYouMean(query, results = [], threshold = 0.4) {
   });
 }
 
-/**
- * Calculate string similarity using longest common subsequence ratio.
- */
+/** String similarity via longest-common-subsequence ratio. */
 function getStringSimilarity(a, b) {
   if (a === b) return 1;
   if (!a || !b) return 0;

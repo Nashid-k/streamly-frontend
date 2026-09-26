@@ -1,25 +1,9 @@
-// src/components/NativePlayerView.jsx — the app's player: direct HLS playback
-// with a Netflix-style player chrome.
-//
-// The former iframe embed player (CustomVideoPlayer) was retired; this is what
-// the hero Play / episode Play buttons open. Resolves VidCore-first →
-// VidSrc via downloadService, plays through hls.js
-// (manifest-relay + direct-segment loader), and offers our own quality ladder
-// + audio menu + attempt log. Custom transport only — no native <video
-// controls> anywhere in here.
-//
-// Chrome mirrors the Netflix web player: top bar (back), bottom gradient with
-// title, full-width scrubber (red played / gray buffered / hover knob + time
-// bubble), play · ∓10s · volume · time on the left, Episodes · Audio &
-// Subtitles · fullscreen on the right, auto-hiding controls, click/double-
-// click/keyboard shortcuts. Quality selection lives in the Audio & Subtitles
-// dialog (Netflix has no quality menu; our ladders need one).
-//
-// Touch-first devices get a distinct chrome: bigger 44px tap targets, safe-
-// area padding, a centered play glyph (so an autoplay-blocked stream has an
-// obvious affordance), double-tap seek (±10s by screen half), Media Session
-// lock-screen controls, and a stacked bottom-sheet settings panel; the
-// desktop-only bits (volume slider via hover, debug-log toggle) are hidden.
+// src/components/NativePlayerView.jsx — the app's player, opened by the hero /
+// episode Play buttons. Resolves VidCore-first → VidSrc via downloadService and
+// plays through hls.js (manifest relay + direct-segment loader). Custom transport
+// only: no native <video controls>.
+// Quality lives in the Audio & Subtitles dialog (Netflix has no quality menu), and
+// touch devices get a stacked settings sheet instead of the desktop chrome.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
@@ -52,10 +36,8 @@ import { logWarn } from "../utils/debugLogger";
 import { SubtitleEngine } from "../utils/subtitleEngine";
 import { readStoredNumber } from "../utils/storedNumber";
 
-// A source whose fragments keep failing without ever going fatal (VidCore's
-// vidzen fallback: playlist 200, segments 429 on repeat) would otherwise spin
-// forever on a black screen. After this many CONSECUTIVE fragment failures we
-// force the failover ourselves.
+// A source can fail fragments forever without ever going fatal (VidCore's
+// vidzen: playlist 200, segments 429 on repeat) — so fail over ourselves.
 const MAX_CONSECUTIVE_FRAG_FAILURES = 4;
 
 const NETFLIX_RED = "#E50914";
@@ -63,72 +45,49 @@ const HIDE_DELAY_MS = 3000;
 const SKIP_SECONDS = 10;
 // Netflix "Up Next" auto-play countdown for a TV episode's next installment.
 const UP_NEXT_MS = 15000;
-// Netflix resume gate: wait this long on the "Left off at…" card before
-// auto-resuming playback from the saved position.
+// Netflix resume gate: how long the "Left off at…" card waits before auto-resume.
 const RESUME_WAIT_SECONDS = 8;
-// Forward-buffer policy (YouTube-style deep buffering). hls.js stops fetching
-// ahead when EITHER maxBufferLength(seconds) OR maxBufferSize(bytes) is hit.
-// A FIXED 60MB byte cap is the reason "4K" never builds a buffer: a ~20Mbps
-// stream burns 60MB in ~24s, so the pipe is idled before it can get ahead.
-// Scale the byte cap to the top rendition's bitrate instead: always keep room
-// for ~BUFFER_DEPTH_SECONDS of the tallest variant we serve. This buffer lives
-// in the USER's browser MSE — it never touches our Vercel function memory, and
-// the total relayed bytes per title are unchanged (buffering downloads the
-// same data sooner, not more). Dead-source failfast is preserved: our own
-// frag-failure counter/step-down fire on LOAD events, independent of depth.
-// Depth note: YouTube's media engine targets roughly 30-60s of forward buffer
-// (min ~2-3 chunks) and DOWNGRADES quality when the arrival rate can't
-// sustain it — it never lets a stream play in a stall loop. The user asked
-// for "2 minutes of buffering", so the goal is set to two minutes at the
-// served bitrate; the hard byte cap bounds the RAM hit at the top.
+// Forward-buffer policy (YouTube-style). The byte cap is scaled to the top
+// rendition's bitrate: a FIXED 60MB cap idled the pipe before 4K could get
+// ahead (~20Mbps burns 60MB in ~24s), which is why 4K never buffered. The
+// buffer is the viewer's MSE, not our function's RAM, and the total relayed
+// bytes per title are unchanged. Failfast is separate: the frag-failure
+// counter/step-down fire on LOAD events, independent of depth.
 const BUFFER_DEPTH_SECONDS = 120;
 const MIN_BUFFER_SIZE = 60 * 1000 * 1000; // hls.js default floor
 const MAX_BUFFER_SIZE = 240 * 1000 * 1000; // hard ceiling: ~2min of 4K@16Mbps, ~10min of 1080p
-// YouTube-style underflow guard: you cannot "buffer more" when a rendition
-// outruns the pipe — the buffer drains no matter the depth goal. YouTube's
-// actual mechanism is to step the quality DOWN so refill outruns playback.
-// If the forward buffer holds below this floor for a sustained stretch while
-// playing (and isn't refilling), we drop one rung instead of draining to 0
-// and stalling. Shared with the buffer display so "buf 8s" visibly maps to
-// "about to drop a rung".
+// Underflow guard: you cannot "buffer more" when a rendition outruns the pipe.
+// YouTube's answer is to step quality DOWN; we drop one rung after a sustained
+// shortfall so the buffer refills faster than it drains.
 const BUFFER_FLOOR_SECONDS = 18;
 const BUFFER_UNDERFLOOR_MS = 8000;
-// While the forward buffer goes deep, don't let the WATCHED back buffer grow
-// without bound (default is Infinity — a 2h movie would pin ~7GB in the
-// browser's RAM). Keep 60s behind; hls.js trims the rest like Netflix does.
+// Cap the WATCHED back buffer (hls.js defaults to Infinity — a 2h movie would
+// pin ~7GB of browser RAM). hls.js trims the rest, like Netflix.
 const BACK_BUFFER_SECONDS = 60;
-// ABR starting point. hls.js's default initial bandwidth estimate is 1Mbps,
-// so Auto quality starts low and "climbs a ladder" — and with a cloud relay
-// leg, every rung's probe is a fresh round-trip, so the up-steps arrive as
-// visible "loading". On modern connections the viewer is served a far fatter
-// pipe; seeding the estimate at a realistic value (10Mbps) lets Auto start
-// mid-ladder, then measure and converge. The deep-buffer floor step-down
-// still protects against an optimistic start overestimating a bad pipe.
+// ABR seed: hls.js starts its bandwidth estimate at 1Mbps, so Auto would climb
+// the ladder one relay round-trip at a time (a visible "loading" per rung).
+// 10Mbps starts Auto mid-ladder; the floor step-down still guards a bad pipe.
 const INITIAL_BW_BITS = 10 * 1000 * 1000;
 const VOLUME_STORAGE_KEY = "streamly-native-volume";
 const MUTED_STORAGE_KEY = "streamly-native-muted";
 const BRIGHTNESS_STORAGE_KEY = "streamly-native-brightness";
-/* One-time reset flag: an old gesture build could park brightness very low
-   (inverted drag sign), and the user order was "back to normal (100%)".
-   Everyone's brightness is cleared exactly once; a later deliberate low
-   choice persists like any other. v2 exists because the v1 fix shipped with a
-   broken unset-read (`Number(null) === 0` passed the isFinite guard) that
-   floored EVERY viewer without the key to BRIGHTNESS_MIN and persisted it —
-   including the ones v1 had already cleared. */
+/* One-time brightness clear: an old gesture build (inverted drag sign) could
+   park brightness very low, and the v1 fix shipped with a broken unset-read
+   (`Number(null) === 0` passed the isFinite guard) that floored every viewer
+   to BRIGHTNESS_MIN. Cleared exactly once; a later deliberate low choice
+   persists like any other. */
 const BRIGHTNESS_RESET_FLAG = "streamly-native-brightness-reset-v2";
 const ASPECT_STORAGE_KEY = "streamly-native-aspect";
 const BRIGHTNESS_MIN = 0.25;
 const BRIGHTNESS_MAX = 1.75;
 const HUD_MS = 1100;
-// Aspect menu = Fit / Fill / Zoom, mapped onto the shared ASPECT_RATIOS
-// catalog (indices 0/1/2) + an object-fit: contain / fill / cover.
+// Aspect menu = Fit / Fill / Zoom → ASPECT_RATIOS indices 0/1/2 + object-fit.
 const ASPECT_INDEXES = [0, 1, 2];
 const ASPECT_FIT = { 0: "contain", 1: "fill", 2: "cover" };
 
-// Touch-first input detection: phones/tablets (hover-less, coarse pointer) get
-// larger tap targets, double-tap seek zones, safe-area padding, a centered
-// play glyph, and a stacked settings panel. Mouse/trackpad keeps the current
-// desktop chrome.
+// Touch-first devices (hover-less, coarse pointer) get bigger tap targets,
+// double-tap seek zones, safe-area padding, a centered play glyph and a stacked
+// settings panel; mouse/trackpad keeps the desktop chrome.
 const IS_TOUCH =
   typeof window !== "undefined" &&
   !!window.matchMedia &&
@@ -139,14 +98,10 @@ const SAFE_TOP = IS_TOUCH ? "calc(16px + env(safe-area-inset-top, 0px))" : "16px
 // Netflix bottom chrome: 24px on desktop; safe-area inset on touch devices.
 const SAFE_BOTTOM = IS_TOUCH ? "calc(20px + env(safe-area-inset-bottom, 0px))" : "24px";
 
-// Netflix-style Skip Intro (TV only). Netflix knows each episode's intro
-// boundaries from studio metadata; we don't, so the pill uses an opt-in
-// per-title override table (add entries as boundaries are confirmed) with a
-// conservative default otherwise. Mirroring Netflix: the button is visible
-// ONLY while the playback head sits inside [0, end + grace] and seeking jumps
-// just past the intro, staying fully in-play. Episodes shorter than the floor
-// never get the guess — a spur-of-the-moment "skip" on a 5-minute short is a
-// worse cut than letting the cold open play.
+// Skip Intro (TV only). Netflix knows intro boundaries from studio metadata; we
+// don't, so the pill uses an opt-in per-title table with a conservative default.
+// Like Netflix it is visible ONLY while the head sits inside [0, end + grace].
+// Episodes shorter than the floor never get the guess.
 const SKIP_INTRO_OVERRIDES = {
   // tmdbId: { endSeconds: 90 } — drop confirmed boundaries in here
 };
@@ -228,23 +183,18 @@ function DialogRow({ selected, onClick, title, sub, disabled }) {
 }
 
 const SOURCES = [
-  // Streaming backends are relayed HLS providers only (VidCore first — its
-  // probe is direct-first so a blocked CDN falls through quickly). The former
-  // NetMirror (net27.cc) direct-mp4 provider was removed: its video layer is
-  // per-IP 429-gated behind a Cloudflare challenge. The former third entry,
-  // CineSrc, was removed with its Chrome mint service (cinesrc-resolver/):
-  // no serverless function can mint its fingerprint-bound tokens, so it only
-  // worked through that separately-hosted resolver, which is retired.
+  // Streaming backends are relayed HLS providers, VidCore first (its probe is
+  // direct-first, so a blocked CDN falls through quickly). NetMirror (net27.cc)
+  // was removed: its video layer is per-IP 429-gated behind a Cloudflare
+  // challenge. CineSrc went with its Chrome mint service — no serverless function
+  // can mint fingerprint-bound tokens.
   { key: "vidcore", label: "VidCore (native)", resolve: (a, o) => downloadService.resolveVidcore(a, o) },
   { key: "vidsrc", label: "VidSrc (native)", resolve: (a, o) => downloadService.resolveVidsrc(a, o) },
 ];
 
-// A single open used to resolve each provider once and give up on the first
-// hiccup — but a fresh open commonly fails on the FIRST attempt (cold Vercel
-// function, warm-up 429s, or a rate-flaky catalogue returning empty sources)
-// and succeeds on a retry (the "hit Native again and it plays" loop). So a
-// source's pre-play failure gets ONE auto retry with a short backoff before we
-// move to the next provider. Terminal "no-source" answers are not retried.
+// One auto-retry per source: a fresh open often fails on the FIRST attempt
+// (cold function, warm-up 429s, a rate-flaky catalogue returning nothing) and
+// succeeds on the retry. Terminal "no-source" answers are not retried.
 const SOURCE_RETRIES = 1;
 const SOURCE_RETRY_BACKOFF_MS = [800];
 
@@ -260,10 +210,8 @@ function fmtTime(s) {
   return (h > 0 ? `${h}:` : "") + (h > 0 ? String(m).padStart(2, "0") : `${m}`) + `:${String(r).padStart(2, "0")}`;
 }
 
-// Standardized quality label + order. Sources return their ladder in whatever
-// order their catalog lists it (some ship 1080→720→480, others 720→1080→480),
-// so the menu always displays one canonical sequence — SD → 720p → 1080p →
-// 2K → 4K — with a name for each bucket, regardless of feed order.
+// Canonical quality label + order: feeds list their ladders in any order, so
+// the menu always shows SD → 720p → 1080p → 2K → 4K regardless.
 function qualityLabelFor(h) {
   const p = Number(h) || 0;
   if (p >= 2160) return "4K UHD";
@@ -281,28 +229,21 @@ export default function NativePlayerView({
   episode = 1,
   title,
   subtitle,
-  // IMDb id used to look up OpenSubtitles tracks ({imdbId} or {imdb_id} from
-  // TMDB). Optional — subtitle menu shows "not found" when absent.
+  // IMDb id ({imdbId}/{imdb_id} from TMDB) for OpenSubtitles lookups; optional.
   imdbId = "",
   episodes = [],
   onSelectEpisode,
-  // Netflix-style prev/next episode paging. The parent owns the authoritative
-  // navigation (it can cross season boundaries), so it hands us the booleans
-  // and callbacks; when they're missing (standalone player story) we fall back
-  // to walking the local `episodes` list one step at a time.
+  // Netflix-style prev/next episode paging. The parent owns navigation (it can
+  // cross season boundaries), so without its canGo*/onGo* we walk `episodes`.
   canGoPrev,
   canGoNext,
   onGoPrev,
   onGoNext,
   onClose,
-  // Continue-watching entry for THIS title/episode ({ timestamp } in s, >0),
-  // plus a sink to persist playback positions. Both optional — leave them off
-  // and the player simply never offers resume / never saves progress.
+  // Continue-watching entry for this title/episode ({ timestamp } in s, >0) + progress sink.
   watchedEntry,
   onProgressChange,
-  // TMDB original_language (iso code) for the TITLE — the only real language
-  // signal the streaming sources give us. Surfaced as film-level fact in the
-  // Audio panel; the per-TRACK languages are not exposed by any backend.
+  // TMDB original_language — the only language signal the sources give us.
   originalLanguage = "",
 }) {
   const videoRef = useRef(null);
@@ -313,19 +254,16 @@ export default function NativePlayerView({
   const metaRef = useRef({ variants: [], sourceKey: null, refUrl: null, masterLevels: false });
   const idleTimer = useRef(null);
   const clickTimer = useRef(null);
-  // Touch tap wiring: last-tap info for double-tap seek (±10s by screen side),
-  // the pending single-tap toggle, and a flag that swallows the synthetic
-  // click a browser fires right after touchend (it would double-toggle).
+  // Touch taps: last-tap info for double-tap seek (±10s by screen side) and a
+  // flag that swallows the synthetic click after touchend (it would double-toggle).
   const touchTapRef = useRef({ time: 0, side: 0 });
   const singleTapTimer = useRef(null);
   const suppressClickRef = useRef(false);
-  // Live views of the play/seek closures for the media-session handlers (the
-  // handlers register once, so they must never capture a stale render).
+  // Live views of the play/seek closures for media-session handlers that register once.
   const togglePlayRef = useRef(() => {});
   const seekRelativeRef = useRef(() => {});
-  // Pending "drop the hover overlay" deadline after a released scrub. Cleared
-  // when a NEW scrub starts, or the bar snaps back to the playback head
-  // mid-drag when the leftover 250ms timer fires between the two gestures.
+  // Pending "drop the hover overlay" deadline; cleared when a NEW scrub starts,
+  // or a leftover timer snaps the bar back mid-drag between two gestures.
   const scrubHoverTimer = useRef(null);
   const watchedEntryRef = useRef(watchedEntry);
   watchedEntryRef.current = watchedEntry;
@@ -339,25 +277,19 @@ export default function NativePlayerView({
   onGoPrevRef.current = onGoPrev;
   const onGoNextRef = useRef(onGoNext);
   onGoNextRef.current = onGoNext;
-  // Non-master "Auto" rung: the variant the player itself negotiated at settle
-  // (smooth start / relay-friendly top). Picking "Auto" after a manual rung
-  // returns to this one — the player's own choice, not a user pin.
+  // Non-master "Auto" rung: the variant negotiated at settle (smooth start / relay-friendly).
   const autoUriRef = useRef(null);
   const autoUriHeightRef = useRef(null);
   const commitResumeRef = useRef(null); // assigned below, driven by the resume card
   const maybeOfferResumeRef = useRef(() => {}); // reassigned below; called from the run effect
-  // Reassigned below; the run effect's relay-demote calls it at runtime (keeps
-  // the effect's exhaustive-deps clean).
+  // Reassigned below; the run effect calls it at runtime to keep its deps honest.
   const pickQualityRef = useRef(null);
-  // Guards against rapid quality switches clobbering each other: each call
-  // stamps a token; after every await it re-checks it's still the newest.
+  // Rapid quality switches stamp a token and re-check it after every await.
   const switchTokenRef = useRef(0);
-  // Underflow watchdog: remembers when the forward buffer first dipped below
-  // BUFFER_FLOOR_SECONDS so the step-down fires only after a sustained shortfall.
+  // When the forward buffer first dipped under BUFFER_FLOOR_SECONDS (sustained-shortfall guard).
   const lowBufferRef = useRef({ since: 0, prev: -1 });
-  // Subtitle render state. The cue text is derived on video `timeupdate` from a
-  // SubtitleEngine binary-search; a ref snapshot avoids re-rendering the whole
-  // player on every tick (only when the active line actually changes).
+  // Subtitle cue text is derived on timeupdate from a SubtitleEngine search; a
+  // ref snapshot keeps ticks off the React render path.
   const subtitleEngineRef = useRef(null);
   const subtitleEnabledRef = useRef(false); // mirrors state, read inside onTime
   const subtitleCueRef = useRef(null); // last rendered cue text
@@ -384,21 +316,15 @@ export default function NativePlayerView({
   const [upNext, setUpNext] = useState(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  // Real loader state: true while the screen has nothing new to show (initial
-  // load, stall, seek). Driven by the video element's own signals.
+  // Real loader state: true while the screen has nothing new (initial load, stall, seek).
   const [buffering, setBuffering] = useState(true);
-  // UI mirror of `buffering` that only turns ON after a real pause in media
-  // flow (~700ms). `buffering` stays honest & immediate for the logic (source
-  // failover, seek, low-buffer stepper); the SPINNER is what a viewer reads as
-  // "loading", and Netflix never flashes a spinner on a 200ms micro-stall
-  // between ABR level switches — that flicker at EVERY quality is exactly the
-  // complaint this kills. Falls off instantly when media resumes.
+  // UI mirror of `buffering` that only turns on after ~700ms of stalled media
+  // flow. `buffering` stays honest and immediate for logic (failover, seek,
+  // step-down); the SPINNER is what a viewer reads, and Netflix never flashes one
+  // on the 200ms hole between ABR level switches.
   const [spinner, setSpinner] = useState(true);
-  // During a cold open (no frame has EVER rendered this session) a genuine
-  // loading glyph must show immediately — the first fetch is real work. Once
-  // we're mid-playback, a 200ms hole between ABR level switches is NOT
-  // "loading" to a viewer; only a sustained (~700ms) stall earns the spinner.
-  // A paused-but-loaded stream must not spin either.
+  // Cold open (no frame has EVER rendered) shows the glyph immediately; a
+  // paused-but-loaded stream never spins.
   useEffect(() => {
     if (!buffering) {
       setSpinner(false);
@@ -425,7 +351,7 @@ export default function NativePlayerView({
   const [currentHeight, setCurrentHeight] = useState(null);
   // Netflix resume card: { at, left } where `at` is the saved position in s.
   const [resumeOffer, setResumeOffer] = useState(null);
-  // Subtitles (OpenSubtitles + SubtitleEngine overlay, mirrors CustomVideoPlayer).
+  // Subtitles: OpenSubtitles tracks + SubtitleEngine overlay.
   const [subtitleLanguages, setSubtitleLanguages] = useState([]); // [{language, languageId, downloadLink}]
   const [subtitleEnabled, setSubtitleEnabled] = useState(false);
   const [activeSubtitle, setActiveSubtitle] = useState(null); // current cue line or null
@@ -448,8 +374,7 @@ export default function NativePlayerView({
   const [volHover, setVolHover] = useState(false);
   const [scrubHover, setScrubHover] = useState(null); // 0..1 ratio or null
   const [scrubDragging, setScrubDragging] = useState(false);
-  // Netflix-style presentational HUDs: volume / brightness / aspect overlay
-  // pill that pops while a value changes, then self-fades (Netflix web).
+  // Netflix-style HUD pill (volume / brightness / aspect) that pops then self-fades.
   const [autoMuted, setAutoMuted] = useState(false); // autoplay-block → muted play + hint
   const [brightness, setBrightness] = useState(() => {
     try {
@@ -470,8 +395,7 @@ export default function NativePlayerView({
     return ASPECT_INDEXES.includes(i) ? i : 0;
   });
   const [hud, setHud] = useState(null); // { kind: "volume"|"brightness"|"aspect", value }
-  // Render-time mirror refs: the keyboard handler + touch gestures bind once,
-  // so they read the LATEST value through these instead of a stale closure.
+  // Mirror refs: the keyboard + gesture handlers bind once, so they must read current values.
   const volumeRef = useRef(volume);
   volumeRef.current = volume;
   const mutedRef = useRef(muted);
@@ -483,13 +407,10 @@ export default function NativePlayerView({
   const hudTimerRef = useRef(null);
   // Touch gesture state for Netflix's vertical drags on the video surface.
   const gestureRef = useRef(null);
-  // Fragments currently flowing via the Vercel relay (0 = all direct). A real
-  // streak past a couple means the CDN throttled the direct pull mid-session
-  // — surfaced in the attempt log so "loads on good internet" is diagnosable.
-  // Transport verdict for THIS session: does the current source's fragments
-  // flow via the serverless relay (true) or straight from the CDN (false)?
-  // Drives the quality menu's relay-limited rows and lets the switch skip its
-  // re-probe when the verdict is already known. Live-flipped by the loader.
+  // Fragments flowing via the Vercel relay (0 = all direct). A streak past a
+  // couple means the CDN throttled us mid-session — surfaced in the attempt log.
+  // The per-session verdict (relay vs direct) drives the quality menu's
+  // relay-limited rows and skips a re-probe when it is already known.
   const [transportRelay, setTransportRelay] = useState(false);
 
   const displayTitle = title || (type === "tv" ? `TV ${id}` : `Movie ${id}`);
@@ -509,8 +430,7 @@ export default function NativePlayerView({
           commitResumeRef.current?.(resumeOffer.at);
           return;
         }
-        // Netflix behavior: play at the end restarts from the top instead of
-        // immediately re-ending (play() at currentTime==duration is a no-op).
+        // Netflix behavior: play at the end restarts from the top instead of re-ending.
         if (video.ended) video.currentTime = 0;
         await video.play();
       } else {
@@ -540,7 +460,6 @@ export default function NativePlayerView({
     try {
       video.currentTime = 0;
     } catch {
-      // ignore
     }
     setEnded(false);
     try {
@@ -574,9 +493,8 @@ export default function NativePlayerView({
     setScrubDragging(true);
     const ratio = scrubRatioOf(e.clientX);
     setScrubHover(ratio);
-    // No seek here: the bar tracks the drag position and the seek is
-    // committed exactly once on release. Seeking on every pointermove would
-    // make hls.js cancel in-flight fragment loads and stall the seek.
+    // No seek per pointermove: the bar tracks the drag and the seek commits once on
+    // release — seeking on every move makes hls.js cancel in-flight fragments.
   };
 
   const onScrubMove = (e) => {
@@ -595,13 +513,11 @@ export default function NativePlayerView({
       seekTo(target);
     }
     setScrubDragging(false);
-    // Let the red bar settle on the seek target (currentTime syncs on the
-    // `seeking` event) before dropping the hover overlay.
+    // Let the red bar settle on the seek target before dropping the hover overlay.
     scrubHoverTimer.current = window.setTimeout(() => setScrubHover(null), 250);
   };
 
-  // A cancelled gesture (Esc on touch, scroll steal, pointer leaving the
-  // window) must not strand the scrubber in the dragging state.
+  // A cancelled gesture (Esc, scroll steal, pointer leaving) must not strand the scrubber.
   const onScrubCancel = () => {
     setScrubDragging(false);
     setScrubHover(null);
@@ -674,7 +590,6 @@ export default function NativePlayerView({
     try {
       video.currentTime = 0;
     } catch {
-      // unchanged
     }
     if (video.paused) {
       video.play().catch(() => {
@@ -684,8 +599,7 @@ export default function NativePlayerView({
     say("Playing from the beginning.");
   };
 
-  // Progress persistence sink: report every ~5s while playing (>10s in, so a
-  // stray 3s peek never writes a resume point). The parent owns storage.
+  // Progress sink: report every ~5s while playing (>10s in, so a 3s peek never writes).
   useEffect(() => {
     if (!playing || !onProgressChange) return undefined;
     const save = () => {
@@ -703,15 +617,13 @@ export default function NativePlayerView({
     return () => clearInterval(iv);
   }, [playing, onProgressChange]);
 
-  // Resume card countdown: tick the seconds-remaining and auto-commit when it
-  // runs out. Uses refs so the effect only re-arms on card state changes.
+  // Resume countdown: tick seconds-remaining, auto-commit at zero; refs keep the effect cheap.
   useEffect(() => {
     if (!resumeOffer) return undefined;
-    // Netflix behavior: the countdown only runs while playback is actually
-    // underway. When autoplay is blocked (or the user pauses mid-card) the
-    // ticks freeze and the auto-commit does nothing — committing a seek into
-    // a paused player would flash "Resuming…" and vanish with the card. The
-    // user tapping play commits the offer immediately instead (togglePlay).
+    // The countdown only runs while playback is actually underway. When autoplay is
+    // blocked (or the user pauses mid-card) the ticks freeze and no seek fires —
+    // seeking into a paused player would flash "Resuming…" and vanish. Tapping play
+    // commits the offer instead (togglePlay).
     const tick = setInterval(() => {
       if (videoRef.current?.paused) return;
       setResumeOffer((o) => (o && o.left > 1 ? { ...o, left: o.left - 1 } : null));
@@ -778,8 +690,7 @@ export default function NativePlayerView({
           rq.call(el)?.catch?.(() => {});
         }
       } else if (video && video.webkitEnterFullscreen) {
-        // iOS Safari: no DOM fullscreen for arbitrary <div>s — the <video>
-        // element itself enters a native fullscreen instead.
+        // iOS Safari: the <video> enters its own native fullscreen (no DOM fullscreen on a div).
         video.webkitEnterFullscreen();
         setIsFullscreen(true);
       }
@@ -789,8 +700,7 @@ export default function NativePlayerView({
     poke();
   };
 
-  // Controls autohide (Netflix behavior): any activity shows them; 3s of idle
-  // while playing hides them again (plus the cursor). Paused always shows.
+  // Controls autohide: activity shows them, 3s idle while playing hides them. Paused always shows.
   const poke = useCallback(() => {
     setControlsVisible(true);
     if (idleTimer.current) {
@@ -816,9 +726,8 @@ export default function NativePlayerView({
     }
   };
 
-  // Touch taps are handled on the video itself (overlay buttons/scrubber live
-  // above it and keep their own clicks). Single tap = play/pause; a second
-  // tap on the SAME half within 350ms = ±10s seek (Netflix mobile style).
+  // Touch taps land on the video itself (overlay buttons keep their own clicks):
+  // single tap = play/pause, a second tap on the SAME half within 350ms = ±10s.
   const handleVideoTouchEnd = (e) => {
     poke();
     suppressClickRef.current = true;
@@ -851,10 +760,8 @@ export default function NativePlayerView({
     }, 260);
   };
 
-  // Netflix mobile: a vertical drag on the LEFT half adjusts brightness, on
-  // the RIGHT half adjusts volume, with the matching HUD. Vertical-only —
-  // horizontal movement declares a non-gesture (keeps taps + double-taps
-  // intact); the top fade + bottom chrome + scrubber own their touch zones.
+  // Vertical drag: LEFT half = brightness, RIGHT half = volume. Vertical-only —
+  // horizontal movement declares a non-gesture so taps and double-taps survive.
   const handleGestureStart = (e) => {
     if (!IS_TOUCH || buffering) return;
     const t = e.touches && e.touches[0];
@@ -881,9 +788,7 @@ export default function NativePlayerView({
       suppressClickRef.current = true;
     }
     if (g.side === "volume") {
-      // Netflix sign: drag UP → louder (clientY falls, dy is negative → -dy
-      // is positive). The old +dy build moved DOWN when dragging up, which is
-      // how a volume/brightness drag could end up stuck at the bottom.
+      // Netflix sign: drag UP → louder/brightter (clientY falls, so -dy is positive).
       const nv = Math.min(1, Math.max(0, volumeRef.current - dy * 0.008));
       setMuted(false);
       setAutoMuted(false);
@@ -953,16 +858,13 @@ export default function NativePlayerView({
       }
     };
     const onMeta = () => setDuration(video.duration || 0);
-    // The video element itself is the honest stall detector: waiting/stalled/
-    // seeking mean "screen has nothing new", playing/canplay mean pixels flow.
+    // The element is the honest stall detector: waiting/stalled/seeking = nothing new to show.
     const onWaiting = () => setBuffering(true);
     const onStalled = () => setBuffering(true);
     const onSeeking = () => {
       setBuffering(true);
-      // timeupdate does NOT fire while the element is seeking, so without this
-      // the red bar would sit at the pre-seek position until the new segment
-      // buffers (the "progress bar won't jump" bug). currentTime already
-      // carries the seek target here — mirror it.
+      // timeupdate does not fire while seeking, so mirror currentTime (which already
+      // carries the seek target) or the bar sits at the pre-seek position.
       setCurrentTime(video.currentTime || 0);
     };
     const onSeeked = () => setBuffering(false);
@@ -1221,8 +1123,6 @@ export default function NativePlayerView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [panel]);
 
-/* The direct-mp4 (NetMirror) helpers waitVideoElement/loadMp4/swapMp4 and the
-     diagnoseMediaLoad probe were removed with the provider in 2024-09. */
 
   useEffect(() => {
     if (!Hls.isSupported()) {
@@ -1234,9 +1134,8 @@ export default function NativePlayerView({
     const controller = new AbortController();
 
     const entryUrlFor = (def, resolved, variant) => {
-      // Master sources keep audio groups + levels on the master, so
-      // load the master and let hls.js see them. VidCore/VidSrc variants are
-      // per-quality media playlists, loadable directly.
+      // Master sources keep their levels + audio groups on the master, so load the
+      // master and let hls.js see them; other sources are per-quality media playlists.
       if (resolved?.source?.multiLevelMaster) return resolved.source?.url;
       return variant?.uri;
     };
@@ -1263,9 +1162,8 @@ export default function NativePlayerView({
           finish();
           reject(new Error(data?.details || "hls fatal error"));
         };
-        // Abort hygiene: a source failover / title switch mid-load previously
-        // left this promise hanging past its 75s timer (cleanup destroyed hls
-        // but the timer kept the shadow). Reject immediately on abort.
+        // Abort hygiene: a failover/title switch mid-load used to leave this promise
+        // hanging past its 75s timer. Reject immediately on abort.
         const onAbort = () => {
           if (settled) return;
           settled = true;
@@ -1280,9 +1178,8 @@ export default function NativePlayerView({
       });
 
     const startLevelFor = (hls) => {
-      // Master sources load their master: leave level selection on AUTO (-1) so
-      // ABR starts conservatively and steps up only when the pipe sustains it.
-      // (Forcing the top level first is exactly what stalled 4K playback.)
+      // Master sources load their master with level selection on AUTO (-1): forcing
+      // the top level first is what stalled 4K playback.
       if (!metaRef.current?.masterLevels || !Array.isArray(hls.levels) || hls.levels.length === 0) return;
       hls.currentLevel = -1;
     };
@@ -1337,9 +1234,7 @@ export default function NativePlayerView({
             { once: true },
           );
         });
-      // A loader/relay failure that smells like an expired token (VidCore
-      // path tokens rotate) rather than a dead CDN. Downloads survive this via
-      // re-mint; playback must too.
+      // A failure that smells like an expired token (VidCore path tokens rotate) is not a dead CDN.
       const isAuthFatal = (detail) =>
         /\[relay:(segment-fetch-failed|manifest-fetch-failed)\]/.test(detail || "") ||
         /failed \((401|403|429)\)/.test(detail || "");
@@ -1347,10 +1242,8 @@ export default function NativePlayerView({
         list.filter((v) => (v.height || 0) > 0 && (v.height || 0) <= 1080).sort((a, b) => (b.height || 0) - (a.height || 0))[0] ||
         list[0];
 
-      // One pass at a source. Returns `true` when playback settled on this
-      // source (caller stops), `false` on a TRANSIENT failure worth retrying
-      // (warm-up hiccup, empty ladder, flaky probe), or `"off"` on a TERMINAL
-      // failure (the provider says this title is not on it — no retry).
+      // One pass at a source: true = settled (caller stops), false = transient (retryable
+      // warm-up/empty/flaky), "off" = terminal (the provider doesn't have this title).
       const runSourceOnce = async (def) => {
         say(`Trying ${def.label}…`);
         let resolved = null;
@@ -1363,16 +1256,13 @@ export default function NativePlayerView({
         }
         let variants = resolved?.variants || [];
         if (variants.length === 0) {
-          // Empty is NOT terminal: the videasy/vidzen catalogue returns empty
-          // lists when rate-flaky (task-verified) and recovers on retry.
+          // Empty is not terminal: the catalogue returns empty lists when rate-flaky.
           say(`${def.label}: no variants (maybe rate-flaky) — retrying/moving on.`);
           return false;
         }
         let liveSource = resolved.source;
         let liveRefUrl = resolved.source?.refUrl || resolved.source?.url;
-        // Master sources ship the whole multivariant + audio-group
-        // tree in ONE url; every other source is a per-rendition media
-        // playlist.
+        // Master sources ship levels + audio groups in ONE url; others are per-rendition.
         const isMaster = Boolean(liveSource?.multiLevelMaster);
         // attempt 0 = initial URLs; attempt 1 = one token-refresh re-resolve.
         let preferHeight = null;
@@ -1380,10 +1270,8 @@ export default function NativePlayerView({
         for (let attempt = 0; attempt < 2; attempt += 1) {
           if (stale()) return true;
           const pool = preferHeight != null ? variants.filter((v) => (v.height || 0) === preferHeight) : [];
-          // Smooth start: open on the tallest rendition at or below 1080p so
-          // the first seconds play instantly; 4K stays one tap away in the
-          // menu. (A 4K segment needs ~20 Mbps sustained — opening straight
-          // on it is what stalled playback after 5–10s.)
+          // Smooth start: open on the tallest rendition ≤1080p (a 4K segment needs
+          // ~20Mbps sustained — opening there is what stalled playback after 5-10s).
           let smoothStart = pool[0] || pickSmooth(variants);
           let entryUrl = entryUrlFor(def, { source: liveSource }, smoothStart);
           if (!entryUrl) {
@@ -1394,10 +1282,8 @@ export default function NativePlayerView({
             `${def.label}: ${variants.length} variant(s), loading ` +
               (isMaster ? "master (ABR auto)…" : `${smoothStart?.height || "?"}p (smooth start)…`),
           );
-          // Playability gate: prove one real media byte flows before hls.js
-          // ever sees this source. A perfect-looking ladder with dead segments
-          // (vidzen: playlist 200, fragments 429) otherwise plays as a black
-          // screen with a known duration and no error.
+          // Playability gate: prove one real media byte flows before hls.js sees the
+          // source, or a perfect ladder over dead segments plays as a black screen.
           say(`${def.label}: probing one media byte…`);
           let probe = { ok: false, reason: "probe error" };
           try {
@@ -1413,10 +1299,8 @@ export default function NativePlayerView({
           }
           say(`${def.label}: segments flow via ${probe.via}.`);
           setTransportRelay(probe?.via === "relay");
-          // Relay delivery is latency-bound (every chunk is a fresh serverless
-          // round trip), so starting a tall rendition over it asks for timeouts.
-          // On the relay path reopen at the tallest ≤720p rendition; the direct
-          // path keeps the ≤1080p choice.
+          // Relay delivery is latency-bound (fresh serverless round trip per chunk), so
+          // a relay start reopens at the tallest ≤720p; the direct path keeps ≤1080p.
           if (!isMaster && probe.via === "relay" && (smoothStart?.height || 0) > 720) {
             const relayFriendly = variants
               .filter((v) => (v.height || 0) > 0 && (v.height || 0) <= 720)
@@ -1427,15 +1311,12 @@ export default function NativePlayerView({
               entryUrl = entryUrlFor(def, { source: liveSource }, smoothStart);
             }
           }
-          // The former NetMirror direct-mp4 branch lived here; no provider
-          // returns direct-mp4 sources anymore.
           try {
             hlsRef.current?.destroy();
           } catch {
             // previous instance already gone
           }
-          // Deep, bitrate-aware forward buffer: size the byte cap so the top
-          // rendition we serve can always get BUFFER_DEPTH_SECONDS ahead.
+          // Byte cap scaled so the top rendition we serve can get BUFFER_DEPTH_SECONDS ahead.
           const topBps = variants.reduce((m, v) => Math.max(m, Number(v.bandwidth) || 0), 0) || 8 * 1000 * 1000;
           const maxBufferSize = Math.min(
             MAX_BUFFER_SIZE,
@@ -1443,16 +1324,11 @@ export default function NativePlayerView({
           );
           const bufferDepthSecs = Math.round(Math.floor(maxBufferSize / Math.max(1, topBps / 8)));
           say(`Buffer: up to ~${bufferDepthSecs}s (~${Math.round(maxBufferSize / 1024 / 1024)}MB) ahead.`);
-          // Start-conservative, pick-liberal transport policy: fragments load
-          // through the Vercel relay with PARALLEL range chunking (see
-          // nativeHlsLoader), so a manual pick of a tall rendition is allowed
-          // to try — the buffer-floor step-down negotiates back down seamlessly
-          // if the pipe can't sustain it. What we no longer do is yank a user's
-          // 4K/1080p pick after 2 relayed fragments (every source here is
-          // relay-only on the free tier; banning tall rungs bans everything).
-          // Startup STAYS conservative (≤720p over relay) so a fresh open is
-          // always instant; the menu lets the user raise from there. A
-          // multi-level master source is ABR and self-adjusts entirely.
+          // Start-conservative, pick-liberal: fragments come through the Vercel relay with
+          // parallel range chunking, so a manual tall pick may try and the buffer-floor
+          // step-down negotiates back down. We do NOT yank a user's 4K/1080p pick (every
+          // source is relay-only on the free tier; banning tall rungs bans everything).
+          // Startup stays ≤720p over relay; master sources self-adjust.
           const hls = new Hls({
             loader: createStreamlyLoader({
               getRefUrl: () => liveRefUrl,
@@ -1463,25 +1339,18 @@ export default function NativePlayerView({
                 setTransportRelay(false);
               },
             }),
-            // Adaptive bitrate + progressive MSE appends: chunks hit the
-            // screen while the rest of the segment is still arriving. The
-            // depth is now scaled to the served bitrate (see the constants
-            // above) — a fixed 60MB cap is what strangled buffering at high
-            // quality. The back buffer stays small (watched content is
-            // trimmed) so device RAM stays bounded even on long titles.
+            // ABR + progressive MSE appends: chunks hit the screen while the segment is
+            // still arriving. The back buffer stays small so device RAM stays bounded.
             abrEnabled: true,
             progressive: true,
             maxBufferLength: BUFFER_DEPTH_SECONDS,
             maxBufferSize,
             backBufferLength: BACK_BUFFER_SECONDS,
-            // Start Auto mid-ladder (see INITIAL_BW_BITS above) so the buyer
-            // doesn't watch quality climb rung-by-rung through the relay.
+            // Auto starts mid-ladder (INITIAL_BW_BITS) so quality doesn't climb rung-by-rung.
             initialBandwidthEstimate: INITIAL_BW_BITS,
-            // Netflix-authentic ABR: judge by MEASURED bytes/sec (not the
-            // manifest's advertised bitrate, which relay-proxied sources lie
-            // about), and never pull a rendition taller than the player's own
-            // rendered size — a small window doesn't need 1080p and every rung
-            // saved off the relay leg is one fewer stall.
+            // Judge ABR by MEASURED bytes/sec, not the advertised bitrate (relayed sources
+            // lie), and never exceed the rendered size — a small window doesn't need 1080p
+            // and every rung saved off the relay is one fewer stall.
             abrMaxWithRealBitrate: true,
             capLevelToPlayerSize: true,
           });
@@ -1513,10 +1382,8 @@ export default function NativePlayerView({
             }
             resolveFatal?.();
           };
-          // Non-fatal fragment failures never reach the attempt log otherwise —
-          // yet a loop of them IS the black screen (vidzen 429s). Count
-          // consecutive ones and force the failover ourselves instead of
-          // waiting out hls.js's long retry budget.
+          // Non-fatal fragment failures never reach the attempt log, yet a loop of them IS
+          // the black screen (vidzen 429s) — count them and fail over ourselves.
           let consecFragFails = 0;
           hls.on(Hls.Events.FRAG_BUFFERED, () => {
             consecFragFails = 0;
@@ -1533,13 +1400,9 @@ export default function NativePlayerView({
                 data?.details === "levelLoadError"
               ) {
                 consecFragFails += 1;
-                // Multi-level sources get an early ABR step-down: pin one rung
-                // lower so hls.js's own retry has a fighting chance instead of
-                // re-burning the same doomed top-level fragment. Single-level
-                // sources (VidCore/VidSrc) can't step down — only failover.
-                // Only step down while in PURE AUTO (manualLevel -1): a quality
-                // the user pinned in the menu is never overridden — a pinned
-                // level that keeps failing goes straight to failover.
+                // Multi-level sources step down early so hls.js's own retry has a chance instead
+                // of re-burning the same doomed fragment. Only in PURE AUTO (manualLevel -1):
+                // a pinned rung goes straight to failover.
                 const isPureAuto =
                   Number.isInteger(hls.manualLevel) && hls.manualLevel < 0;
                 const autoRung = hls.autoLevel ?? -1;
@@ -1586,8 +1449,6 @@ export default function NativePlayerView({
             masterLevels: isMaster,
           };
           startLevelFor(hls);
-          // Canonical ladder order + labels: SD → 720p → 1080p → 2K → 4K,
-          // sorted regardless of the feed's listing order.
           setQualities(
             variants
               .slice()
@@ -1611,16 +1472,14 @@ export default function NativePlayerView({
             try {
               videoRef.current.currentTime = resumeTime;
             } catch {
-              // live-edge clamp — start wherever the fresh playlist begins
             }
             resumeTime = null;
           }
           try {
             await videoRef.current?.play();
           } catch {
-            // Browsers allow muted autoplay; an unmuted play() that lost its
-            // user-activation window rejects. Best-effort order (Netflix):
-            // try unmuted, else play muted + hint at the "Tap to unmute" pill.
+            // Muted autoplay is allowed, an unmuted play() outside a user-activation window
+            // is not: try unmuted, else play muted + hint at "Tap to unmute".
             try {
               videoRef.current.muted = true;
               setAutoMuted(true);
@@ -1629,15 +1488,12 @@ export default function NativePlayerView({
               say("Autoplay blocked — tap the custom play button.");
             }
           }
-          // Non-master sources are single-rendition: their "current" level is
-          // fixed, so feed the dialog the height directly.
+          // Non-master sources are single-rendition: their current height is fixed.
           if (!isMaster) setCurrentHeight(smoothStart?.height ?? null);
           // Netflix resume gate: first real playback for this title/episode.
           maybeOfferResumeRef.current();
-          // Park this attempt: a fatal error AFTER playback started either
-          // refreshes tokens in place (same source, same quality, resume at
-          // the saved position) or moves to the next source — never a dead
-          // "playing" screen. Unmount/abort ends the park quietly.
+          // A fatal error AFTER playback started either refreshes tokens in place (same
+          // source/quality, resume position) or moves on — never a dead "playing" screen.
           const parked = await Promise.race([fatalLater.then(() => "fatal"), abortPromise()]);
           if (parked === "done") return true;
           if (attempt === 0 && isAuthFatal(lastFatalDetail) && !stale()) {
@@ -1666,11 +1522,6 @@ export default function NativePlayerView({
         return false;
       };
 
-      // Bounded retry wrapper: the first attempt on a fresh open frequently
-      // fails on warm-ups (cold serverless, upstream 429s, flaky empty ladders)
-      // and succeeds on the retry — which is exactly why the old player needed
-      // a manual re-click ("hit Native again and it plays"). Auto-retry once
-      // with a short backoff; TERMINAL "no-source" answers are not retried.
       const runSource = async (def) => {
         for (let retry = 0; ; retry += 1) {
           if (stale()) return true;
@@ -1718,8 +1569,7 @@ export default function NativePlayerView({
     if (!hls) return;
     const t = videoRef.current.currentTime || 0;
     const wasPaused = videoRef.current.paused;
-    // A manual rung pick leaves Auto; the Auto entry keeps it selected (this
-    // is how the menu highlights "Auto" as the active mode, not a specific row).
+    // A manual rung pick leaves Auto; the Auto row stays highlighted as the active mode.
     if (!opts.auto) setAutoLevel(false);
     say(`Switching to ${height || "?"}p…`);
     setBuffering(true);
@@ -1732,23 +1582,16 @@ export default function NativePlayerView({
         });
         hls.currentLevel = best;
         setAutoLevel(false);
-        // Pin the dialog highlight to the level ACTUALLY selected (the
-        // advertised row height can differ a few px from the real stream).
+        // Pin the dialog highlight to the level ACTUALLY selected (row height can differ a few px).
         setManualHeight(hls.levels[best]?.height || height || null);
         setActiveUri(null);
         say(`Level -> ${hls.levels[best]?.height || "?"}p (pinned).`);
         return;
       }
       const myId = (switchTokenRef.current += 1);
-      // Pre-warm the swap. A single-level rendition is a separate media
-      // playlist, so the swap itself pays a manifest fetch + first fragment.
-      // Probe the TARGET first (while the current level still plays): it warms
-      // the CDN edge AND proves the route is alive. With the relay now
-      // fetching fragments' range slices in PARALLEL (nativeHlsLoader), a tall
-      // pick is allowed to try; if the pipe can't sustain it the buffer-floor
-      // step-down negotiates back down seamlessly — the old auto-substitute to
-      // ≤720p is gone, so a user can genuinely choose 1080p/4K (this is a
-      // relay-only app on the free tier; banning tall rungs bans everything).
+      // Pre-warm the swap: probe the TARGET while the current level still plays (warms
+      // the CDN edge and proves the route). With parallel range chunking a tall pick
+      // may try; the floor step-down negotiates back down.
       let chosenUri = uri;
       let chosenHeight = height;
       let warm = transportRelay ? { ok: true, via: "relay" } : null;
@@ -1791,13 +1634,10 @@ export default function NativePlayerView({
       try {
         video.currentTime = t;
       } catch {
-        // live-edge clamp — start wherever the new playlist begins
       }
-      // Reproduce the "paused switch feels instant" behavior: a fresh play()
-      // with zero buffered data at the new position drops straight back into
-      // `waiting` (the playing-switch stall). So wait for the first media
-      // bytes to land BEFORE resuming — bounded by a short timeout so a dead
-      // source still surfaces the switch error, not a forever-spinner.
+      // Reproduce "a paused switch feels instant": a fresh play() with zero buffered data
+      // drops straight back to `waiting`, so wait for the first media bytes (bounded)
+      // before resuming.
       if (!wasPaused && video && (video.readyState ?? 0) < 3) {
         await Promise.race([
           new Promise((resolve) => {
@@ -1827,20 +1667,16 @@ export default function NativePlayerView({
       say(`Switched to ${chosenHeight || "?"}p.`);
     } catch (error) {
       say(`Switch failed: ${error?.message || "unknown"}.`);
-      // A failed switch must never leave the honest buffering spinner stuck.
-      // (The runSource ERROR handler's failover, when invoked, re-drives its
-      // own spinner for the next source.)
+      // A failed switch must never leave the buffering spinner stuck (the runSource
+      // ERROR handler's failover re-drives its own spinner).
       setBuffering(false);
     }
   };
   pickQualityRef.current = pickQuality;
 
-  // YouTube's anti-stall rule. The depth goal only helps when the pipe can
-  // refill faster than a segment plays; when it can't, the buffer drains and
-  // playback enters the 5s/5s loop. Drop one rung once the forward buffer
-  // sits under BUFFER_FLOOR_SECONDS for a sustained stretch WITHOUT refilling
-  // (a bright startup fill is normal down to the floor and must not trigger).
-  // Auto-level only: a pinned selection is the user's explicit override.
+  // YouTube's anti-stall rule: when the pipe can't refill faster than a segment
+  // plays, drop one rung once the forward buffer sits under BUFFER_FLOOR_SECONDS
+  // for a sustained stretch without refilling. Auto-level only.
   useEffect(() => {
     const st = lowBufferRef.current;
     if (status !== "playing" || buffering) {
@@ -1942,8 +1778,7 @@ export default function NativePlayerView({
     }
   };
 
-  // Load the language list once per title; remember (and restore) the last
-  // chosen language per title id.
+  // Load the language list once per title; remember the last choice per title id.
   useEffect(() => {
     let cancelled = false;
     subtitleTokenRef.current += 1;
@@ -1996,9 +1831,7 @@ export default function NativePlayerView({
       hls.currentLevel = -1;
       setActiveUri(null);
     } else if (!isMasterMode && autoUri && autoUri !== activeUri) {
-      // Non-master: "Auto" = the rung the player itself negotiated at settle
-      // (smooth start / relay-friendly top). Applied live like a quality pick
-      // but NOT a pin (opts.auto keeps Auto selected).
+      // Non-master "Auto" = the rung negotiated at settle, applied live but never pinned.
       pickQuality(autoUri, autoHeight ?? null, { auto: true });
     }
     setAutoLevel(true);
@@ -2010,16 +1843,13 @@ export default function NativePlayerView({
   // Render-time derivations for the scrubber.
   const safeDuration = Number.isFinite(duration) && duration > 0 ? duration : 0;
   const progressRatio = safeDuration > 0 ? Math.min(1, Math.max(0, currentTime / safeDuration)) : 0;
-  // While dragging, the bar follows the pointer — not the playback head, which
-  // is frozen until the single commit-on-release seek lands.
+  // While dragging, the bar follows the pointer, not the frozen playback head.
   const effectiveRatio = scrubDragging ? (scrubHover ?? progressRatio) : progressRatio;
   const hoverRatio = scrubHover ?? (scrubDragging ? progressRatio : null);
   const VolumeIcon = muted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
   const showEpisodesButton = Array.isArray(episodes) && episodes.length > 0;
 
-  // Netflix-style episode paging (TV only). The parent's canGo*/onGo* are
-  // authoritative — they know how to cross a season boundary. Without them we
-  // walk the local episodes list step by step.
+  // Episode paging (TV only): the parent's canGo*/onGo* cross seasons; we fall back to walking `episodes`.
   const showEpisodeNav = type === "tv";
   const navIndex = episodes.findIndex((e) => e.number === episode);
   const navPrevNumber = navIndex > 0 ? episodes[navIndex - 1]?.number : null;
@@ -2049,10 +1879,8 @@ export default function NativePlayerView({
     if (navNextNumber != null) onSelectEpisodeRef.current?.(navNextNumber);
   };
 
-  // Intro window for the Skip Intro pill. Real Netflix intros run ~60-150s;
-  // with no metadata we'd rather under-claim than over-claim, so the pill only
-  // shows inside [0, end + grace] and disappears permanently once the head
-  // passes it — exactly how Netflix behaves.
+  // Skip-intro window: we have no metadata, so under-claim — the pill shows only
+  // inside [0, end + grace] and disappears for good once the head passes it.
   let skipIntroEnd = 0;
   if (type === "tv") {
     const o = SKIP_INTRO_OVERRIDES[id];
@@ -2069,7 +1897,6 @@ export default function NativePlayerView({
     try {
       v.currentTime = skipIntroTarget;
     } catch {
-      // live-edge clamp — start wherever the fresh playlist begins
     }
     poke();
     try {
@@ -2109,8 +1936,7 @@ export default function NativePlayerView({
           ref={videoRef}
           playsInline
           onClick={(e) => {
-            // A just-completed touch already acted (single/double tap) — the
-            // browser's synthetic click must not toggle play on top of it.
+            // The synthetic click after a touch must not toggle play on top of the gesture.
             if (suppressClickRef.current) {
               suppressClickRef.current = false;
               return;
@@ -2118,8 +1944,7 @@ export default function NativePlayerView({
             handleVideoClick(e);
           }}
           onTouchStart={(e) => {
-            // A fresh touch re-arms the click-swallow (a prior touch that
-            // scrolled away never produced a click to clear it).
+            // A fresh touch re-arms the click-swallow.
             suppressClickRef.current = false;
             poke();
             handleGestureStart(e);
@@ -2132,9 +1957,8 @@ export default function NativePlayerView({
             display: "block",
             objectFit: ASPECT_FIT[aspectRatioIndex] || "contain",
             filter: brightness !== 1 ? `brightness(${brightness})` : undefined,
-            // No background here on purpose: the screen div paints true black
-            // behind, so the brightness filter sees only the video frame (the
-            // letterbox bars never brighten with it).
+            // No background on purpose: the screen div paints true black, so the
+            // brightness filter sees only the video frame.
             touchAction: "manipulation",
             WebkitUserSelect: "none",
           }}
@@ -2916,10 +2740,8 @@ export default function NativePlayerView({
                       />
                     ))
                   ) : (
-                    // No #EXT-X-MEDIA AUDIO groups in this source's ladder:
-                    // hls.js reports no audioTracks, but the soundtrack IS
-                    // playing — surface it as the single track. The only real
-                    // language signal any backend gives is the film's own.
+                    // No #EXT-X-MEDIA AUDIO groups: hls.js reports no audioTracks, but the
+                    // soundtrack IS playing — surface it as the single track.
                     <>
                       {originalLanguage ? (
                         <p

@@ -2,13 +2,11 @@
 //
 // Reads the same-origin /api/publicCollections endpoint that flattens PUBLIC
 // collections from every user's cloud library. The surface is anonymous by
-// contract: responses contain only name/publicId/itemCount (+ itemIds for a
-// single lookup).
-//
-// Errors are THROWN as ExploreError, not swallowed into `[]`: the old
-// fails-soft behavior made a broken/misconfigured backend indistinguishable
-// from "nobody has published anything", which is exactly how the
-// "my public collection is invisible to others" bug hid for weeks.
+// contract: only name/publicId/itemCount (+ itemIds for a single lookup).
+// Errors THROW as ExploreError instead of collapsing into `[]`: the old
+// fails-soft behavior made a broken backend indistinguishable from "nobody
+// published anything", which is how "my public collection is invisible to others"
+// hid for weeks.
 
 import { logDebug, logWarn } from '../utils/debugLogger';
 
@@ -29,8 +27,8 @@ function apiBase() {
 }
 
 // List every public collection across users: [{ name, publicId, itemCount }].
-// Throws ExploreError on backend failure (network, 4xx/5xx) so the Explore
-// page can show a real error + retry instead of a lying empty state.
+// Throws on backend failure so Explore shows a real error + retry instead of a
+// lying empty state.
 export async function fetchPublicCollections({ signal } = {}) {
   try {
     const res = await fetch(`${apiBase()}/api/publicCollections`, { signal });
@@ -54,10 +52,9 @@ export async function fetchPublicCollections({ signal } = {}) {
   }
 }
 
-// Fetch one public collection by its opaque publicId: { name, publicId, itemIds }.
-// Returns null for a genuinely missing collection; throws ExploreError when
-// the backend itself fails (so a shared link can distinguish "gone" from
-// "broken" and offer a retry).
+// Fetch one collection by its opaque publicId: { name, publicId, itemIds }.
+// null for a genuinely missing collection; throws when the backend fails, so a
+// shared link can tell "gone" from "broken" and offer a retry.
 export async function fetchPublicCollection(publicId, { signal } = {}) {
   if (!publicId) return null;
   try {

@@ -8,10 +8,9 @@ import { useDownloads } from "../context/downloads";
 import AccountMenu from "./AccountMenu";
 
 /* ── Primary navigation ────────────────────────────────────────────────────
-   Two independent floating islands (Cinejoy .header-row):
-   • brand-mark hangs ALONE at the left end
-   • the desktop-nav glass pill (tabs · divider · icons) floats at the
-     right end — no single connected navbar bar between them. */
+   Two independent floating islands (Cinejoy .header-row): the brand mark hangs
+   ALONE at the left end, the desktop-nav glass pill (tabs · divider · icons)
+   floats at the right end — no connected navbar bar between them. */
 function Header() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -19,10 +18,10 @@ function Header() {
   const { t } = useI18n();
   const { downloads, activeCount } = useDownloads();
 
-  /* ── Settings dropdown (Cinejoy .head-menu) ──────────────────────────────
-     Clicking the settings icon drops a menu with Login / Settings / Watch
-     History (no Shorts). The menu is positioned with fixed coords measured
-     off the button so it escapes the pill's overflow/backdrop root. */
+    /* ── Settings dropdown (Cinejoy .head-menu) ──────────────────────────────
+       Clicking the settings icon drops a menu with Login / Settings / Watch
+       History (no Shorts), positioned with fixed coords measured off the button so
+       it escapes the pill's overflow/backdrop root. */
   const settingsBtnRef = useRef(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState(null);
@@ -83,11 +82,11 @@ function Header() {
     };
   }, []);
 
-  /* ── Sliding active pill (Cinejoy .nav-pill) ─────────────────────────────
-     One shared highlight that glides between whatever nav item is active —
-     brand links AND icon buttons on the same track. Position/width are driven
-     by real DOM measurements fed into CSS vars so the transition uses the
-     exact same `--nav-transition` cubic-bezier as the real site. */
+    /* ── Sliding active pill (Cinejoy .nav-pill) ─────────────────────────────
+       One shared highlight glides between whatever nav item is active — brand links
+       AND icon buttons on the same track. Position/width come from real DOM
+       measurements fed into CSS vars, so the transition reuses the site's own
+       `--nav-transition` cubic-bezier. */
   const navRef = useRef(null);
   const [pill, setPill] = useState({ x: 0, w: 0, ready: false });
   const measureTick = useRef(0);
@@ -95,13 +94,12 @@ function Header() {
   const measurePill = useCallback(() => {
     const nav = navRef.current;
     if (!nav) return;
-    /* Measure against the navbar track with getBoundingClientRect — NOT
-       offsetLeft. offsetLeft is relative to each item's nearest positioned
-       ancestor, and the icon-items (Search/Settings) live in a different
-       positioned cluster than the text links, so their pills would measure
-       from a different origin and land slid off-track. A rect diff off the
-       shared navbar box stays correct no matter which nested container the
-       active item happens to sit in. */
+        /* Measure against the navbar track with getBoundingClientRect — NOT
+           offsetLeft. offsetLeft is relative to each item's nearest positioned
+           ancestor, and the icon items (Search/Settings) sit in a different
+           positioned cluster than the text links, so their pills would measure from
+           another origin and land slid off-track. A rect diff off the shared navbar
+           box stays correct for any nested container. */
     const active = nav.querySelector('[data-nav-active="true"]');
     const trackRect = nav.getBoundingClientRect();
     const x = active ? active.getBoundingClientRect().left - trackRect.left : 0;
@@ -119,9 +117,8 @@ function Header() {
     });
   }, [measurePill]);
 
-  // Measure when the nav could actually change: route change, scrolled state
-  // (header grows/shrinks) or async icon mounts (fonts, auth). No more
-  // measure-on-every-render.
+    // Measure when the nav could actually change: route change, scrolled state
+    // (the header grows/shrinks) or async icon mounts. Never on every render.
   useLayoutEffect(() => {
     measurePill();
   }, [measurePill, location.pathname, isScrolled, downloads.length]);

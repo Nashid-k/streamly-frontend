@@ -1,20 +1,16 @@
 /**
- * debugLogger — single place for browser console diagnostics.
+ * debugLogger — the single place for browser console diagnostics.
  *
- * Why this exists: several data paths (TMDB fetches, React Query rails,
- * localStorage lists, stream servers, thumbnails/subtitles) used to fail
- * silently — an empty rail or a "Title not found" screen gave no hint about
- * *why* data didn't load. These helpers standardise the log shape so any
- * failure can be traced from the console:
+ * Data paths (TMDB fetches, React Query rails, localStorage lists, stream
+ * servers, thumbnails) used to fail silently, so these helpers standardise the
+ * shape and make every failure traceable:
  *
- *   [Streamly][<scope>] <message> + optional structured context object
+ *   [Streamly][<scope>] <message> + optional structured context
  *
- * - `logError`   → console.error (real failures: network, HTTP, exceptions)
- * - `logWarn`    → console.warn  (degraded / empty-data states)
- * - `logInfo`    → console.info  (useful lifecycle checkpoints, dev + prod)
- * - `logDebug`   → console.debug (verbose, dev only unless ?debug=1)
- *
- * All helpers are safe to call with undefined errors/context and never throw.
+ * logError → console.error (real failures), logWarn → console.warn (degraded /
+ * empty data), logInfo → console.info (lifecycle), logDebug → console.debug
+ * (verbose, dev only unless ?debug=1). All helpers tolerate undefined
+ * errors/context and never throw.
  */
 
 const PREFIX = "[Streamly]";
@@ -107,9 +103,8 @@ export function logError(scope, message, error, context) {
   try {
     const errInfo = describeError(error);
     const ctx = safeContext(context);
-    // Ring buffer of recent errors — `window.__streamlyErrors` lets anyone
-    // (devtools, automation, the ErrorBoundary screen) read the last
-    // failures without digging through console noise.
+        // Ring buffer of recent errors — `window.__streamlyErrors` lets devtools,
+        // automation or the ErrorBoundary read the last failures without console noise.
     try {
       if (isBrowser()) {
         window.__streamlyErrors = window.__streamlyErrors || [];
@@ -149,10 +144,8 @@ export function logDebug(scope, message, context) {
   }
 }
 
-/**
- * Standard "query returned nothing usable" warning. Use it wherever a page
- * would otherwise render an empty rail / grid / hero with no explanation.
- */
+/** Standard "query returned nothing usable" warning — use wherever a page would
+    otherwise render an empty rail/grid/hero with no explanation. */
 export function logEmptyData(scope, message, context) {
   logWarn(scope, `No data: ${message}`, {
     online: isBrowser() ? navigator.onLine : undefined,
@@ -160,10 +153,8 @@ export function logEmptyData(scope, message, context) {
   });
 }
 
-/**
- * Standard React Query failure log. Captures the query key, offline state,
- * HTTP status (when available) and the original error for stack traces.
- */
+/** Standard React Query failure log: query key, offline state, HTTP status when
+    available, and the original error for stack traces. */
 export function reportQueryError(scope, queryKey, error, extra) {
   logError(scope, `Query failed: ${Array.isArray(queryKey) ? queryKey.join(" / ") : String(queryKey)}`, error, {
     queryKey,
@@ -172,11 +163,8 @@ export function reportQueryError(scope, queryKey, error, extra) {
   });
 }
 
-/**
- * One-line environment checkpoint. Call once on boot (main.jsx) so the
- * console always shows whether the TMDB key is present and whether the
- * browser is online — the two most common "nothing loads" causes.
- */
+/** One-line environment checkpoint, called once on boot: whether the TMDB key is
+    present and whether the browser is online — the two usual "nothing loads" causes. */
 export function logBootDiagnostics(scope = "boot") {
   try {
     let hasTmdbKey = false;
@@ -215,12 +203,9 @@ export function logBootDiagnostics(scope = "boot") {
   }
 }
 
-/**
- * Global crash / rejection hooks. Call once from main.jsx so uncaught render
- * errors, failed dynamic imports (stale Vite chunks) and unhandled promise
- * rejections (usually a fetch that nobody caught) all land in the console
- * with a consistent prefix instead of disappearing.
- */
+/** Global crash/rejection hooks, called once from main.jsx: uncaught render errors,
+ *  failed dynamic imports (stale Vite chunks) and unhandled rejections all land in
+ *  the console with a consistent prefix instead of disappearing. */
 let globalsInstalled = false;
 export function initGlobalErrorLogging() {
   if (!isBrowser() || globalsInstalled) return;

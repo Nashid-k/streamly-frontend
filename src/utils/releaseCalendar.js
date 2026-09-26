@@ -1,14 +1,10 @@
 /**
- * releaseCalendar.js — Release intelligence system
- *
- * Provides:
- *   • Countdown timers for upcoming content
- *   • "Leaving Soon" alerts for content about to leave platforms
+ * releaseCalendar.js — release intelligence: countdown timers for upcoming
+ * content and "Leaving Soon" alerts for titles about to leave a platform.
  */
 
 import { formatTMDBDate, getTimeUntil } from "./timezone";
 
-// ─── Airing / Upcoming normalization ───────────────────────────────────────
 
 const isTvishItem = (item) =>
   Boolean(
@@ -18,10 +14,9 @@ const isTvishItem = (item) =>
   );
 
 /**
- * Resolve the NEXT-episode airing info for a title, no matter how the backend
- * shipped it. Handles both shapes seen in the wild:
- *   • { nextEpisode: { releaseDate, season, episode } }
- *   • flat airing rows: { releaseDate, season, episode } on TV titles
+ * Resolve the NEXT-episode airing info for a title regardless of the backend
+ * shape: { nextEpisode: { releaseDate, season, episode } } or flat airing rows
+ * ({ releaseDate, season, episode } on a TV title).
  *
  * @returns {{ releaseDate: string, season: number, episode: number, episodeLabel: string|null } | null}
  */
@@ -61,9 +56,9 @@ function buildUpcomingInRange(items, todayStr, endStr) {
     const dateStr = air?.releaseDate || (!isTv ? item.releaseDate : null);
     if (!dateStr) continue;
 
-    // Only keep well-formed YYYY-MM-DD strings, dated today or later. Backend
-    // "isUpcoming" flags are honored beyond the window end so explicitly
-    // announced premieres aren't dropped just because they're far out.
+        // Only well-formed YYYY-MM-DD strings dated today or later. Backend
+        // "isUpcoming" flags are honoured past the window so announced premieres
+        // aren't dropped just for being far out.
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
     if (dateStr < todayStr) continue;
     if (dateStr > endStr && !(item.isUpcoming === true)) continue;
@@ -112,9 +107,9 @@ function buildUpcomingInRange(items, todayStr, endStr) {
 }
 
 /**
- * Build an "Upcoming" list from any pool of titles — enriched with kind,
- * relative labels, and release metadata. Surfaces future premiere dates and
- * next-episode airings on a rolling window.
+ * Build an "Upcoming" list from any pool of titles, enriched with kind, relative
+ * labels and release metadata: future premieres plus next-episode airings on a
+ * rolling window.
  *
  * @returns {Array} items enriched with { kind, formattedRelease, releaseDay,
  *   releaseMonthDay, nextEpisode } sorted by release date (soonest first).
@@ -132,12 +127,9 @@ export function buildUpcoming(items = [], windowDays = 90) {
   return buildUpcomingInRange(items, todayStr, endStr);
 }
 
-// ─── Countdown Timer ────────────────────────────────────────────────────────
 
 /**
- * Calculate countdown to a release date.
- * Returns a human-readable countdown string and numeric values.
- *
+ * Countdown to a release date.
  * @param {string} releaseDate - YYYY-MM-DD
  * @param {string} platform - Platform key for timezone handling
  * @returns {Object} { text, days, hours, minutes, isReleased, isToday }
@@ -176,9 +168,7 @@ export function getCountdown(releaseDate, platform) {
   return { text, days, hours, minutes, isReleased: false, isToday };
 }
 
-/**
- * Get countdown urgency level for badge styling.
- */
+/** Countdown urgency level for badge styling. */
 export function getCountdownUrgency(days) {
   if (days <= 0) return "released";
   if (days <= 1) return "imminent";  // red pulse
@@ -187,13 +177,9 @@ export function getCountdownUrgency(days) {
   return "future";                    // gray
 }
 
-// ─── Leaving Soon Detection ─────────────────────────────────────────────────
 
 /**
- * Detect content that's leaving a platform soon.
- * Uses license expiry data from the backend/API.
- *
- * @param {Array} items - Content items with leavingDate field
+ * Content leaving a platform soon, from backend licence-expiry data.
  * @param {number} thresholdDays - Alert threshold (default 14 days)
  * @returns {Array} Content leaving soon, sorted by urgency
  */

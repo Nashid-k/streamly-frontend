@@ -16,9 +16,8 @@ import { movieService } from "../api/movieService";
 // bloated payload can no longer explode into an unbounded TMDB request storm.
 const MAX_ITEMS = 300;
 
-// Fetched with bounded concurrency and stored in the shared React Query
-// cache — the old raw Promise.all hit TMDB once per item on EVERY visit and
-// bypassed the cache entirely.
+// Fetched with bounded concurrency and stored in the shared React Query cache —
+// the old raw Promise.all hit TMDB once per item on EVERY visit, bypassing it.
 async function fetchCollectionItems(itemIds) {
   const ids = [...new Set(itemIds)].slice(0, MAX_ITEMS);
   const results = [];
@@ -47,9 +46,8 @@ export default function PublicCollectionPage() {
   // Local public collection (the viewer's own device).
   const local = useMemo(() => getPublicCollection(publicId), [getPublicCollection, publicId]);
 
-  // Remote public collection (any user's public list, fetched by publicId).
-  // React Query owns loading/error/retry states — no more blank-page null
-  // while the lookup was in flight.
+    // Remote public collection (any user's public list, fetched by publicId). React
+    // Query owns loading/error/retry — no more blank-page null while in flight.
   const remoteQuery = useQuery({
     queryKey: ["public-collection", publicId],
     queryFn: ({ signal }) => fetchPublicCollection(publicId, { signal }),
@@ -86,9 +84,8 @@ export default function PublicCollectionPage() {
     retry: false,
   });
 
-  // Resolve the collection's items:
-  //   • own local collection → match against the viewer's saved myList
-  //   • remote collection    → items fetched (cached) from TMDB above
+    // Resolve the collection's items: the viewer's own list matches their saved
+    // myList, a remote one uses the items fetched (and cached) from TMDB above.
   const items = useMemo(() => {
     if (!collection) return [];
     const ids = new Set(collection.itemIds || []);

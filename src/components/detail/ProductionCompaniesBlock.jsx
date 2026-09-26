@@ -22,7 +22,6 @@ function ProductionCompaniesBlock({ companies }) {
 
   if (normalized.length === 0) return null;
 
-  // Display up to 6 authentic company logos
   const displayCompanies = normalized.slice(0, 6);
 
   return (

@@ -6,27 +6,25 @@ import { useOptionalPreferences } from "../context/preferences";
 
 /* ── Streamly i18n ────────────────────────────────────────────────────────
    Lightweight, dependency-free translation layer. The catalogs in
-   src/i18n/{en,latin,script}.js are deep-merged over English so any missing
-   key falls back to `en` instead of blanking the UI.
+   src/i18n/{en,latin,script}.js are deep-merged over English so any missing key
+   falls back to `en` instead of blanking the UI. `defaultLanguage` (Settings →
+   Subtitles) is the single source of truth; the provider mirrors it into
+   <html lang> + dir (rtl for Arabic). Outside a provider useI18n() resolves to
+   English, which is what keeps isolated tests/stories stable. */
 
-   `defaultLanguage` (Settings → Subtitles → Default Language) is the single
-   source of truth; the provider mirrors it into <html lang> + dir (rtl for
-   Arabic). Components may call useI18n() anywhere — outside a provider it
-   resolves to English, which is what keeps isolated tests/stories stable. */
+const SUPPORTED_LANGUAGES = ["en", "es", "fr", "de", "it", "pt", "ja", "ko", "hi", "ar"];
 
-export const SUPPORTED_LANGUAGES = ["en", "es", "fr", "de", "it", "pt", "ja", "ko", "hi", "ar"];
-
-export const DICTIONARIES = { en, es, fr, de, it, pt, ja, ko, hi, ar };
+const DICTIONARIES = { en, es, fr, de, it, pt, ja, ko, hi, ar };
 
 /* Merge the additive accountExtra leaf (cloud-data deletion strings) into
-   settings.account for every catalog — other languages fall back to English
-   for these new keys via the deep-merge, so only `en` defines them. */
+   settings.account for every catalog; other languages fall back to English for
+   these new keys via the deep-merge, so only `en` defines them. */
 if (en?.accountExtra && en?.settings) {
   en.settings.account = { ...en.settings.account, ...en.accountExtra };
   delete en.accountExtra;
 }
 
-export const LANG_DIR = Object.freeze({ ar: "rtl" });
+const LANG_DIR = Object.freeze({ ar: "rtl" });
 
 function getPath(obj, key) {
   if (!key || !obj) return undefined;
@@ -46,7 +44,7 @@ function interpolate(str, vars) {
 }
 
 /* Build a bound `t(key, vars)` for a given language (en fallback for gaps). */
-export function makeT(lang = "en") {
+function makeT(lang = "en") {
   const dict = DICTIONARIES[lang] || en;
   return (key, vars) => {
     let value = getPath(dict, key);

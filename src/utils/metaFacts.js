@@ -2,7 +2,7 @@
    (TitleInfoModal). Kept outside the component file so both the component
    and its tests can import them without tripping fast-refresh rules. */
 
-export function formatRuntime(mins) {
+function formatRuntime(mins) {
   const m = Number(mins);
   if (!m || m <= 0) return null;
   const h = Math.floor(m / 60);

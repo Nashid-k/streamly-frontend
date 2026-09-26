@@ -1,7 +1,6 @@
-/* App-level settings constants: theme palettes, subtitle languages, seek
-   presets, subtitle styling, server order labels, and Settings section tabs.
-   Single source of truth — SettingsPage imports these; keep the data here
-   only (components that render them live in src/components/settings/). */
+/* App-level settings constants: theme palettes, subtitle languages, seek presets,
+   subtitle styling, server order labels, and Settings section tabs. Single source
+   of truth — SettingsPage imports these; keep the data here only. */
 
 import { LayoutGrid, User, Palette, Play, Server, Captions, Bell } from "lucide-react";
 
@@ -78,9 +77,8 @@ export const SUBTITLE_COLORS = [
   { name: "Emerald", value: "#95ff50" },
 ];
 
-/* Mirrors DEFAULT_PREFERENCES.serverOrder (plain Server 1 … Server 8
-   labels). Kept as data here so the Settings page renders before the
-   provider resolves; the adapter owns the authoritative list. */
+/* Mirrors DEFAULT_PREFERENCES.serverOrder (plain Server 1 … Server 8) so the
+   Settings page renders before the provider resolves; the adapter owns the list. */
 export const DEFAULT_SERVER_ORDER = [
   "Server 1",
   "Server 2",
@@ -102,13 +100,11 @@ export const TABS = [
   { id: "notifications", label: "Notifications", icon: Bell },
 ];
 
-/* Search index for the settings filter. Every term a user can see on the
-   screen must appear here, otherwise filtering looks broken. The value is a
-   plain lowercase "haystack" per section; `visibleSection` tokenises the query
-   and requires every word to be present, so multi-word searches work.
-   When copy changes in a section, update its haystack here in the same edit
-   (the unit test `search resolves real on-screen wording` guards the common
-   terms). */
+/* Search index for the settings filter. Every term a user can see on screen must
+   appear here or filtering looks broken. The value is a lowercase "haystack" per
+   section; `visibleSection` tokenises the query and requires every word, so
+   multi-word searches work. Update a section's haystack in the same edit as its
+   copy (the `search resolves real on-screen wording` test guards common terms). */
 export const SECTION_SEARCH_TERMS = {
   account: [
     "account sign in signed out sync settings watch progress across devices",

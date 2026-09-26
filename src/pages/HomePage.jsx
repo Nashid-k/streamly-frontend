@@ -32,9 +32,9 @@ import MovieRail from "../components/rails/MovieRail";
 import Top10Rail from "../components/rails/Top10Rail";
 import EditorialRails from "../components/rails/EditorialRails";
 
-// Shared content-type predicates. Anime is merged into Movies/TV Shows by
-// whether each title is a movie or a series, so both stay discoverable
-// without a dedicated tab.
+// Shared content-type predicates: anime folds into Movies/TV Shows by whether
+// the title is a movie or a series, so both stay discoverable without a
+// dedicated tab.
 const isSeriesLike = (m) =>
   Boolean(
     m.isSeries ||
@@ -48,7 +48,6 @@ const isAnime = (m) =>
       (m.tags && m.tags.some((t) => t.toLowerCase().includes("anime"))),
   );
 
-// ... (skipping MovieRail and Top10Rail for brevity, they remain unchanged)
 export default function Home({
   filter = "all",
   title,
@@ -63,9 +62,9 @@ export default function Home({
   const [activePlatform, setActivePlatform] = useState("all");
   const { continueWatching, myList, isInList, toggleMyList } = useAppAuth();
 
-  // Every details affordance routes through one gateway: Detail View Type
-  // "page" → details page, "modal" → Netflix-style info modal. The hero
-  // Play button stays a direct watch link (play ≠ details).
+  // Every details affordance routes through one gateway: Detail View Type "page"
+  // → details page, "modal" → info modal. The hero Play button stays a direct
+  // watch link (play ≠ details).
   const { openDetails, modalHost } = useDetailView();
 
   const {
@@ -138,10 +137,9 @@ export default function Home({
     refetchOnWindowFocus: false,
   });
 
-  // Regional (Tamil/Hindi/Malayalam/Telugu) feeds — merged into the Upcoming
-  // and Airing rails so the rounds still surface without the "Coming This
-  // Month"/"Airing" rails losing their global breadth. Each is a /discover
-  // sweep, cached 10 min like the other rails.
+  // Regional (Tamil/Hindi/Malayalam/Telugu) feeds, merged into the Upcoming and
+  // Airing rails so those keep their global breadth. Each is a /discover sweep,
+  // cached 10 min like the other rails.
   const { data: regionalUpcomingData, error: regionalUpcomingError } = useQuery({
     queryKey: ["upcoming-regional"],
     queryFn: () => movieService.getRegionalUpcoming(90),
@@ -158,8 +156,8 @@ export default function Home({
     refetchOnWindowFocus: false,
   });
 
-  // Fresh Hindi/English/Malayalam/Tamil releases — the home banner's "newly
-  // released" lineup (newest first). Same cadence as the other hero feeds.
+  // Fresh Hindi/English/Malayalam/Tamil releases (newest first) for the banner's
+  // "newly released" lineup.
   const { data: newReleasesData, error: newReleasesError } = useQuery({
     queryKey: ["new-releases"],
     queryFn: () => movieService.getNewReleases(90),
@@ -168,12 +166,10 @@ export default function Home({
     refetchOnWindowFocus: false,
   });
 
-  // ── Data-failure diagnostics ──────────────────────────────────────────
-  // Every silent empty rail on Home used to be invisible in the console.
-  // Log each failed query (with key + HTTP status) and each query that
-  // succeeded but returned nothing usable, so "no data" is always traceable.
-  // NOTE: `loading` is declared here (before these effects) — referencing it
-  // earlier in the component body throws "Cannot access before initialization".
+  // Log every failed query (key + HTTP status) and every query that succeeded with
+  // nothing usable, so a silent empty rail is always traceable.
+  // NOTE: `loading` must be declared before these effects — referencing it earlier
+  // throws "Cannot access before initialization".
   const loading = featuredLoading || catsLoading;
 
   useEffect(() => {
@@ -202,10 +198,6 @@ export default function Home({
 
   const rawCategories = asArray(categoriesData);
 
-  const newHindi = useMemo(() => asArray(newReleasesData).filter(m => m.originalLanguage === 'hi'), [newReleasesData]);
-  const newTamil = useMemo(() => asArray(newReleasesData).filter(m => m.originalLanguage === 'ta'), [newReleasesData]);
-  const newMalayalam = useMemo(() => asArray(newReleasesData).filter(m => m.originalLanguage === 'ml'), [newReleasesData]);
-
   const featuredMovies = useMemo(
     () => {
       try {
@@ -229,7 +221,7 @@ export default function Home({
           document.body.offsetHeight - 800
         ) {
           setVisibleCatCount((prev) => {
-            // Don't load more than what we have (#27 fix)
+            // Don't load more than we have
             const maxCategories = (rawCategories?.length || 0) + 4; // +4 for dynamic rails
             return Math.min(prev + 3, maxCategories);
           });
@@ -245,14 +237,12 @@ export default function Home({
   const [isHeroHovered, setIsHeroHovered] = useState(false);
   const isHeroHoveredRef = useRef(false);
   const isCoarse = useIsTouch();
-  /* Netflix behavior: the banner's Info button always opens the in-place
-     info modal — regardless of the Detail View Type setting (that setting
-     governs card/banner-card clicks, not the explicit Info affordance). */
+  /* The banner's Info button always opens the in-place info modal, whatever the
+     Detail View Type is — that setting governs card clicks, not this button. */
 
-  // Interval logic moved below totalFeatured
 
   useEffect(() => {
-    // Reset visible count and featured index when filter changes (#7 fix)
+    // Reset visible count and featured index when the filter changes
     setVisibleCatCount(4);
     setActiveGenre("All");
     setActivePlatform("all");
@@ -262,7 +252,7 @@ export default function Home({
 
   const categories = useMemo(() => {
     try {
-    // 1. Collect all unique movies for dynamic rails
+    // Collect all unique movies for the dynamic rails
     const allUniqueMovies = new Map();
     for (const cat of asArray(rawCategories)) {
       for (const m of (Array.isArray(cat.movies) ? cat.movies : [])) {
@@ -271,7 +261,6 @@ export default function Home({
     }
     let allMovies = Array.from(allUniqueMovies.values());
 
-    // Apply base tab filter to allMovies
     if (filter === "series" || filter === "tv shows")
       allMovies = allMovies.filter((m) => m.isSeries);
     else if (filter === "movies") allMovies = allMovies.filter((m) => !m.isSeries);
@@ -289,9 +278,8 @@ export default function Home({
         .sort((a, b) => (b.imdbRating || 0) - (a.imdbRating || 0));
     };
 
-    // 2. Generate dynamic discovery rails (authentic Netflix/Prime pattern):
-    //    New & Popular on Home, and anime split into Movies vs TV Shows,
-    //    interleaved with the regional rails below.
+    // Dynamic discovery rails: New & Popular plus anime split into Movies vs TV
+    // Shows, interleaved with the regional rails below.
     let dynamicRails = [];
     if (activeGenre === "All" && activePlatform === "all") {
       if (filter === "all") {
@@ -409,7 +397,6 @@ export default function Home({
         filter === "tv shows" ||
         filter === "movies"
       ) {
-        // Sort by rating descending for quality-first ordering
         filtered = filtered.sort(
           (a, b) => (b.imdbRating || 0) - (a.imdbRating || 0),
         );
@@ -420,20 +407,19 @@ export default function Home({
       }
     }
 
-    // 3. Interleave dynamic rails (New & Popular / Anime / Regional) with standard backend rails
+    // Interleave the dynamic rails (New & Popular / Anime / Regional) with the
+    // standard backend rails
     const finalCategories = [];
     let dynamicIdx = 0;
 
     for (let i = 0; i < standardCategories.length; i++) {
       finalCategories.push(standardCategories[i]);
-      // Insert a dynamic rail every 2 standard rails to distribute them beautifully
       if ((i + 1) % 2 === 0 && dynamicIdx < dynamicRails.length) {
         finalCategories.push(dynamicRails[dynamicIdx]);
         dynamicIdx++;
       }
     }
 
-    // Append any remaining dynamic rails at the end
     while (dynamicIdx < dynamicRails.length) {
       finalCategories.push(dynamicRails[dynamicIdx]);
       dynamicIdx++;
@@ -456,24 +442,17 @@ export default function Home({
     return Array.isArray(list) ? list : [];
   };
 
-  // enrich a movie array: (No-op now since platforms are removed)
-  const enrichWithPlatforms = useCallback((movies) => {
-    return Array.isArray(movies) ? movies : [];
-  }, []);
-
-  // Real cross-platform Top 10 from the backend (ranked, not a client-side shuffle).
 
   const trendingThisWeek = useMemo(
-    () => enrichWithPlatforms(applyPageFilter(asArray(trendingData)).slice(0, 20)),
+    () => applyPageFilter(asArray(trendingData)).slice(0, 20),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [trendingData, filter, enrichWithPlatforms],
+    [trendingData, filter],
   );
 
   const airingThisWeek = useMemo(() => {
-    // Global /tv/on_the_air and regional (Tamil/Hindi/Malayalam/Telugu)
-    // on-the-air series interleaved — deduped by id so no title doubles up.
-    // Global gets a 15-slot cap here so a full 20-row on_the_air feed can't
-    // crowd the regional on-air series out of the rail.
+    // Global /tv/on_the_air and regional on-the-air series interleaved, deduped by
+    // id. Global is capped at 15 slots so a full 20-row feed cannot crowd the
+    // regional series out of the rail.
     const regional = applyPageFilter(asArray(regionalAiringData));
     const merged = [
       ...applyPageFilter(asArray(airingData)).slice(0, 20 - Math.min(regional.length, 8)),
@@ -486,42 +465,36 @@ export default function Home({
       seen.add(m.id);
       deduped.push(m);
     }
-    return enrichWithPlatforms(deduped).slice(0, 20);
+    return deduped.slice(0, 20);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [airingData, regionalAiringData, filter, enrichWithPlatforms]);
+  }, [airingData, regionalAiringData, filter]);
 
   const popularNow = useMemo(
-    () => enrichWithPlatforms(applyPageFilter(asArray(popularData)).slice(0, 20)),
+    () => applyPageFilter(asArray(popularData)).slice(0, 20),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [popularData, filter, enrichWithPlatforms],
+    [popularData, filter],
   );
 
   const topRated = useMemo(
-    () => enrichWithPlatforms(applyPageFilter(asArray(topRatedData)).slice(0, 20)),
+    () => applyPageFilter(asArray(topRatedData)).slice(0, 20),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [topRatedData, filter, enrichWithPlatforms],
+    [topRatedData, filter],
   );
 
   const nowPlaying = useMemo(
     () =>
-      enrichWithPlatforms(
-        applyPageFilter(
-          asArray(nowPlayingData).map((m) => ({ ...m, isSeries: false })),
-        ).slice(0, 20),
-      ),
+      applyPageFilter(
+        asArray(nowPlayingData).map((m) => ({ ...m, isSeries: false })),
+      ).slice(0, 20),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [nowPlayingData, filter, enrichWithPlatforms],
+    [nowPlayingData, filter],
   );
 
-  // "Upcoming" — only PREMIERES: movies with a future release date plus series
-  // the backend explicitly flags isUpcoming (first-air date in the future).
-  // Ongoing shows whose *next episode* is in the future are excluded — those
-  // airings already live in the Airing rail. Mirrors how Netflix/JustWatch
-  // split "Coming Soon" (premieres) from ongoing new episodes. Rail rows are
-  // anchored to the current date (TODAY/TOMORROW/weekday/month-day chips),
-  // sorted soonest-first, given a 365-day window. The rail is NEVER padded
-  // with trending/airing titles: released films are not "coming soon", so if
-  // fewer premieres exist the rail simply shows what's genuinely upcoming.
+  // "Upcoming" — premieres only: movies with a future release date plus series the
+  // backend flags isUpcoming. Ongoing shows whose NEXT EPISODE is in the future are
+  // excluded (they live in the Airing rail). Rows are anchored to the current date
+  // (TODAY/TOMORROW/weekday chips), sorted soonest-first, 365-day window, and NEVER
+  // padded with trending/airing titles — released films are not "coming soon".
   const upcomingReleases = useMemo(() => {
     const pool = [
       ...asArray(airingData),
@@ -534,11 +507,10 @@ export default function Home({
     const hasArtwork = (m) => m && (m.posterUrl || m.backdropUrl);
     const built = applyPageFilter(buildUpcoming(pool, 365))
       .filter((m) => !isSeriesMovie(m) || m.isUpcoming === true)
-      .map(enrichWithPlatforms)
       .filter(hasArtwork);
     // Regional premieres get a guaranteed share: a pure date-sort + slice(0, 12)
     // lets nearer global dates crowd Tamil/Hindi/Malayalam/Telugu theatrical
-    // releases out of the rail entirely, which read as "no regional upcoming".
+    // releases out of the rail entirely.
     const regionalIds = new Set(asArray(regionalUpcomingData).map((m) => m.id));
     const regionalTitles = [];
     const globalTitles = [];
@@ -550,7 +522,7 @@ export default function Home({
       ...globalTitles,
     ].slice(0, 12);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [airingData, trendingData, top10Data, featuredData, regionalUpcomingData, rawCategories, filter, enrichWithPlatforms]);
+  }, [airingData, trendingData, top10Data, featuredData, regionalUpcomingData, rawCategories, filter]);
 
   // Proximity-aware heading: surface when the next premiere drops instead of
   // always saying a flat "Upcoming".
@@ -575,15 +547,12 @@ export default function Home({
       : t("home.rails.upcoming");
   })();
 
-  // Top 10 — backend rank first, padded to a full 10 per tab. The backend
-  // list is filtered per page type, which can leave fewer than 10 (e.g. only a
-  // handful of movies on the "Movies" tab). Pad the rest with tab-filtered
-  // trending/airing/upcoming entries, deduped by id so the real backend
-  // ranking keeps leading and the rank badges always count 1–10.
+  // Top 10 — backend rank first, padded to a full 10 per tab (the per-page-type
+  // backend list can be short). Padding comes from tab-filtered
+  // trending/airing/upcoming, deduped by id so real ranks keep leading and the
+  // rank badges always count 1–10.
   const top10Movies = useMemo(() => {
-    const ranked = enrichWithPlatforms(applyPageFilter(asArray(top10Data)))
-      
-      .slice(0, 10);
+    const ranked = applyPageFilter(asArray(top10Data)).slice(0, 10);
     if (ranked.length >= 10) return ranked;
 
     const seen = new Set(ranked.map((m) => m.id));
@@ -597,14 +566,13 @@ export default function Home({
     }
     return padded;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [top10Data, filter, trendingThisWeek, airingThisWeek, upcomingReleases, enrichWithPlatforms]);
+  }, [top10Data, filter, trendingThisWeek, airingThisWeek, upcomingReleases]);
 
   const lastWatched =
     continueWatching && continueWatching.length > 0
       ? continueWatching[0]
       : null;
 
-  // Real "Because you watched X" recommendations from the backend
   const { data: rawRecommendations, error: recommendationsError } = useQuery({
     queryKey: ["recommendations", lastWatched?.id],
     queryFn: () => movieService.getRecommendations(lastWatched.id),
@@ -619,10 +587,7 @@ export default function Home({
       reportQueryError("HomePage", ["recommendations", lastWatched?.id], recommendationsError, { lastWatchedId: lastWatched?.id });
     }
   }, [recommendationsError, lastWatched?.id]);
-  const recommendations = useMemo(
-    () => Array.isArray(rawRecommendations) ? enrichWithPlatforms(rawRecommendations) : [],
-    [rawRecommendations, enrichWithPlatforms],
-  );
+  const recommendations = useMemo(() => asArray(rawRecommendations), [rawRecommendations]);
 
   const finalPool = useMemo(() => {
     try {
@@ -631,7 +596,6 @@ export default function Home({
     let recommendedPool = [];
     let tabFilteredMovies = [];
 
-    // 1. Gather Global Featured
     if (featuredMovies.length > 0) {
       featuredMovies.forEach((fm) => {
         if ((filter === "series" || filter === "tv shows") && fm.isSeries)
@@ -642,7 +606,6 @@ export default function Home({
       });
     }
 
-    // 2. Gather Regional & Recommended from Categories
     if (categories.length > 0) {
       const allCategoryMovies = [];
       categories.forEach((c) => {
@@ -653,20 +616,17 @@ export default function Home({
         });
       });
 
-      // Filter for the current tab (Movies vs Series)
       tabFilteredMovies = allCategoryMovies;
       if (filter === "series" || filter === "tv shows")
         tabFilteredMovies = tabFilteredMovies.filter((m) => m.isSeries);
       if (filter === "movies")
         tabFilteredMovies = tabFilteredMovies.filter((m) => !m.isSeries);
 
-      // 2a. RESERVED regional pool — the dedicated /discover sweeps
-      // (getRegionalUpcoming → regional films, getRegionalAiring → regional
-      // series) are the primary source so the banner actually surfaces
-      // Tamil/Hindi/Malayalam/Telugu titles instead of hoping trending
-      // category rows carry a matching language/title string. Filtered by the
-      // active tab: series tab gets airing series, movies tab gets upcoming
-      // films, everything else gets both.
+      // Regional pool: the dedicated /discover sweeps (getRegionalUpcoming /
+      // getRegionalAiring) are primary so the banner surfaces real
+      // Tamil/Hindi/Malayalam/Telugu titles instead of hoping trending category rows
+      // carry a matching language string. Series tab → airing series, movies tab →
+      // upcoming films, otherwise both.
       const regionalFeed = [
         ...asArray(regionalUpcomingData),
         ...asArray(regionalAiringData),
@@ -677,14 +637,11 @@ export default function Home({
         if (!regionalPool.some((p) => p.id === m.id)) regionalPool.push(m);
       }
 
-      // Fallback for empty regional — category-derived language/title match
-      // ONLY (never international Drama/rating rows, which is what used to mix
-      // "old regional" a.k.a. generic international titles into the banner).
-      // Each fallback must ALSO carry a title image so the hero <h1>-fallback
-      // bridge never renders a blank regional slot over a pretty international
-      // banner item. The filter above already requires a title image; keep the
-      // recent-release bias by preferring entries that have their own logo
-      // (logoUrl) so we never surface an old regional alongside international.
+      // Empty-regional fallback: category-derived language/title match ONLY — the
+      // international Drama/rating rows are what used to mix generic titles into the
+      // banner. Each fallback must also carry a title image, and entries with their
+      // own logoUrl are preferred so an old regional never shows beside an
+      // international item.
       if (regionalPool.length === 0) {
         regionalPool = tabFilteredMovies.filter(
           (m) =>
@@ -718,24 +675,19 @@ export default function Home({
       );
     }
 
-    // 3. Filter strictly for items with a TITLE IMAGE (logo/wordmark).
-    //    The hero renders the actual show logo (HeroTitleLogo), so a bare
-    //    backdrop/poster with no logo would render the <h1> text fallback —
-    //    which the user explicitly does NOT want on the banner. A title logo
-    //    is the only thing that makes a slot look like a proper banner item.
-    //    (logoUrl = the TMDB English logo path; titleImage/titleLogo are the
-    //    normalized aliases some feeds carry.)
+    // Banner slots need a TITLE IMAGE: the hero renders the show logo
+    // (HeroTitleLogo), and a bare backdrop/poster falls back to the <h1> text the
+    // user does not want on a banner. logoUrl is the TMDB English logo;
+    // titleImage/titleLogo are the normalized aliases some feeds carry.
     const bannerReady = (m) =>
       m.logoUrl || m.titleImage || m.logoUrl?.trim() || m.titleLogo || m.logo;
     globalPool = globalPool.filter(bannerReady);
     regionalPool = regionalPool.filter(bannerReady);
     recommendedPool = recommendedPool.filter(bannerReady);
 
-    // 2.5. NEW RELEASES pool — the dedicated Hindi/English/Malayalam/Tamil
-    // "new releases" sweep (newest first). It leads the hero mix (right after
-    // Continue Watching) so freshly-released titles in those four languages
-    // are what the banner actually surfaces, instead of only trending/regional
-    // rows.
+    // New-releases pool: the Hindi/English/Malayalam/Tamil sweep (newest first)
+    // leads the hero mix right after Continue Watching, so freshly released titles
+    // in those languages surface instead of trending rows.
     const newReleasesPool = [];
     for (const m of asArray(newReleasesData)) {
       if (!m || m.id === null || m.id === undefined) continue;
@@ -745,7 +697,6 @@ export default function Home({
     }
     const newReleasesReady = newReleasesPool.filter(bannerReady);
 
-    // 4. The "Surpass Authentic" Mixing Algorithm
     const pool = [];
     const usedIds = new Set();
 
@@ -756,7 +707,7 @@ export default function Home({
       }
     };
 
-    // 0. Continue Watching — the most recent resumed title leads the banner
+    // Continue Watching leads the banner (most recent resumed title)
     const cwSeeded = Array.isArray(continueWatching) ? continueWatching : [];
     for (const m of cwSeeded.slice(0, 3)) {
       if (bannerReady(m)) pushToPool(m);

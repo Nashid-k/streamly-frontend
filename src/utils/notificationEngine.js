@@ -1,21 +1,13 @@
 /**
- * notificationEngine.js — Smart notification intelligence
- *
- * Generates rich, context-aware notifications for:
- *   • Episode releases (new episode of Y season released)
- *   • Upcoming episodes (Z will air on K day)
- *   • Movie additions (movie streaming on platform name)
- *   • Watchlist milestones (binge reminders, completion)
- *   • Recommendations (based on viewing patterns)
- *
- * All notifications include image thumbnails, platform badges,
- * deep-links, and categorized types for smart display.
+ * notificationEngine.js — context-aware notification builders: episode
+ * releases, upcoming airings, watchlist additions, watch milestones and
+ * recommendations. Every notification carries a thumbnail, platform badge,
+ * deep link and a category type for smart display.
  */
 
 import { formatTMDBDate, getTMDBWeekday, getTimeUntil } from "./timezone";
 import { getPlatformName, normalizePlatformKey } from "./platforms";
 
-// ─── Notification Types ─────────────────────────────────────────────────────
 
 export const NOTIF_TYPES = {
   EPISODE_RELEASED: "episode_released",
@@ -30,12 +22,8 @@ export const NOTIF_TYPES = {
   WELCOME: "welcome",
 };
 
-// ─── Notification Builders ──────────────────────────────────────────────────
 
-/**
- * Create a notification for a newly released episode.
- * "Season 2 Episode 5 of Stranger Things released on Netflix"
- */
+/** Newly released episode: "Season 2 Episode 5 of Stranger Things released on Netflix". */
 export function buildEpisodeReleasedNotification({ title, season, episode, episodeTitle, platform, releaseDate, imageUrl, movieId }) {
   const platformKey = normalizePlatformKey(platform);
   const platformName = getPlatformName(platform) || "streaming";
@@ -60,10 +48,7 @@ export function buildEpisodeReleasedNotification({ title, season, episode, episo
   };
 }
 
-/**
- * Create a notification for an upcoming episode.
- * "New episode of The Bear airs on Wednesday, Sep 10"
- */
+/** Upcoming episode: "New episode of The Bear airs on Wednesday, Sep 10". */
 export function buildEpisodeAiringNotification({ title, season, episode, episodeTitle, platform, releaseDate, imageUrl, movieId }) {
   const platformKey = normalizePlatformKey(platform);
   const platformName = getPlatformName(platform) || "streaming";
@@ -95,10 +80,7 @@ export function buildEpisodeAiringNotification({ title, season, episode, episode
   };
 }
 
-/**
- * Create a notification for a movie added to watchlist.
- * "🎬 Inception added — Now streaming on Netflix"
- */
+/** Watchlist addition: "Inception added — Now streaming on Netflix". */
 export function buildMovieAddedNotification({ title, platform, year, duration, imageUrl, movieId, isSeries }) {
   const platformKey = normalizePlatformKey(platform);
   const platformName = getPlatformName(platform);
@@ -127,10 +109,7 @@ export function buildMovieAddedNotification({ title, platform, year, duration, i
   };
 }
 
-/**
- * Create a recommendation notification.
- * "💡 Because you watched Inception — Interstellar is now streaming"
- */
+/** Recommendation: "Because you watched Inception — Interstellar is now streaming". */
 export function buildRecommendationNotification({ title, reason, platform, imageUrl, movieId }) {
   const platformKey = normalizePlatformKey(platform);
   const platformName = getPlatformName(platform);
@@ -152,10 +131,7 @@ export function buildRecommendationNotification({ title, reason, platform, image
   };
 }
 
-/**
- * Create a milestone notification.
- * "🎉 You've watched 50 episodes this month!"
- */
+/** Milestone: "You've watched 50 episodes this month!". */
 export function buildMilestoneNotification({ type, count, title }) {
   const messages = {
     watch_count: `You've watched ${count} titles so far. Keep exploring!`,
@@ -178,9 +154,7 @@ export function buildMilestoneNotification({ type, count, title }) {
   };
 }
 
-/**
- * Create a welcome notification (improved).
- */
+/** Welcome notification. */
 export function buildWelcomeNotification({ isSignedIn }) {
   return {
     id: `welcome-${isSignedIn ? 'in' : 'out' }`,
@@ -198,9 +172,8 @@ export function buildWelcomeNotification({ isSignedIn }) {
   };
 }
 
-// ─── Notification Preferences ───────────────────────────────────────────────
 
-export const DEFAULT_NOTIF_PREFS = {
+const DEFAULT_NOTIF_PREFS = {
   episodeReleased: true,
   episodeAiring: true,
   movieAdded: false, // Don't notify for own actions
@@ -211,7 +184,7 @@ export const DEFAULT_NOTIF_PREFS = {
   continueWatching: true,
 };
 
-export function getNotificationPrefs() {
+function getNotificationPrefs() {
   try {
     const stored = localStorage.getItem("streamly_notif_prefs");
     return stored ? { ...DEFAULT_NOTIF_PREFS, ...JSON.parse(stored) } : DEFAULT_NOTIF_PREFS;

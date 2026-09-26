@@ -1,26 +1,20 @@
 // src/utils/mergeRemote.js — timestamp-aware union merge for cloud pulls.
 //
-// The old merge was local-first union by `id`: remote items were appended only
-// when their id was missing locally, and a remote UPDATE to an existing item
-// was silently dropped forever (multi-device edits/last-watched never synced).
-//
-// Policy:
-//   • items missing locally   → appended, UNLESS remote carries a tombstone
-//     (`deletedAt`) — deletions must propagate instead of resurrecting.
-//   • items present locally   → the NEWER one wins by `updatedAt`/`deletedAt`;
-//     if either side lacks a timestamp (legacy localStorage payloads) the
-//     newer remote data still lands.
-//   • a tombstone on either side wins over an older live copy, so removing a
-//     collection on device A stays removed after device B syncs.
-//   • optional `pruneTombstonesMs` → drops tombstones older than the window
-//     (final GC once every device has certainly seen the delete).
+// Policy (the old local-first union by `id` dropped every remote UPDATE, so
+// multi-device edits and last-watched never synced):
+//   • missing locally  → appended, UNLESS remote carries a tombstone
+//     (`deletedAt`): deletions must propagate instead of resurrecting.
+//   • present locally  → the NEWER side wins by `updatedAt`/`deletedAt`; when
+//     either side lacks a timestamp the newer remote data still lands.
+//   • a tombstone on either side beats an older live copy, so a delete on one
+//     device stays deleted after another syncs.
+//   • `pruneTombstonesMs` drops tombstones past that window (final GC).
 //
 // Returns a NEW array; inputs are never mutated.
 
-// Timestamps ride the wire as JSON numbers, but legacy local payloads can
-// carry string dates ("2024-01-01T12:00:00Z" or numeric strings). Comparing
-// raw strings vs numbers silently wrong-orders merges (every string > every
-// number in JS), so coerce before comparing.
+// Timestamps ride the wire as JSON numbers, but legacy local payloads carry
+// string dates. Comparing raw strings against numbers silently wrong-orders
+// merges (every string > every number in JS), so coerce before comparing.
 function toMillis(value) {
   const n = typeof value === "number" ? value : Number(value);
   return Number.isFinite(n) ? n : 0;
@@ -40,9 +34,8 @@ export function mergeListsById(local = [], remote = [], { limit, pruneTombstones
     if (!item || item.id === undefined || item.id === null) continue;
     const existingIdx = index.get(item.id);
     if (existingIdx === undefined) {
-      // Brand-new remote tombstone = "this was deleted on another device";
-      // keep it (so the id can't be re-added by an even staler copy) unless
-      // GC asks us to drop old ones. Live items always append.
+            // Brand-new remote tombstone: keep it so the id can't be re-added by an
+            // even staler copy, unless GC asks to drop old ones. Live items append.
       if (item.deletedAt !== undefined) {
         if (typeof pruneTombstonesMs === "number") {
           if (Date.now() - item.deletedAt > pruneTombstonesMs) continue;
@@ -58,8 +51,7 @@ export function mergeListsById(local = [], remote = [], { limit, pruneTombstones
     }
   }
 
-  // Local-only tombstones get GC'd on merge too (they've done their job once
-  // every synced device has pulled them; 30 days is the convention here).
+    // Local-only tombstones get GC'd on merge too (30 days is the convention).
   const pruned =
     typeof pruneTombstonesMs === "number"
       ? out.filter(
@@ -68,10 +60,9 @@ export function mergeListsById(local = [], remote = [], { limit, pruneTombstones
         )
       : out;
 
-  // Tombstone-safe cap: a delete marker must never be evicted by the `limit`
-  // (a sliced-away tombstone resurrects the title on the next merge). Split
-  // the two groups, sort only the live items when a comparator is provided,
-  // cap the live group, then re-append surviving tombstones.
+    // Tombstone-safe cap: a delete marker must never be evicted by `limit` (a
+    // sliced-away tombstone resurrects the title on the next merge). Cap the live
+    // group only, then re-append surviving tombstones.
   const tombstones = [];
   const live = [];
   for (const item of pruned) {

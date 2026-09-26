@@ -19,11 +19,10 @@ import { buildUpcoming } from "../utils/releaseCalendar";
 import { logEmptyData, reportQueryError } from "../utils/debugLogger";
 
 /* ── Cinejoy-mirrored Movies / Series discovery pages ───────────────────
-   One parameterized layout drives both /movies and /series, matching the
-   cinejoy.to browse pages: a big glass header, filter pills (Random, Genre,
-   Year, Sort, Provider, Country), a landscape editorial rail ("Upcoming" /
-   "New Seasons Airing"), and a 2/4/5/6-column poster grid. Filtering talks
-   straight to TMDB /discover so every pill combination is genuinely live. */
+   One parameterized layout drives /movies and /series: glass header, filter
+   pills (Random, Genre, Year, Sort, Provider, Country), a landscape editorial
+   rail ("Upcoming" / "New Seasons Airing") and a 2/4/5/6-column poster grid.
+   Every pill combination talks straight to TMDB /discover. */
 
 const MODE_CONFIG = {
   movies: {
@@ -53,9 +52,8 @@ const SORT_OPTIONS = [
 
 const YEAR_START = 1975;
 
-// TMDB's /discover returns 20 titles per page. The grid appends the next page
-// when the sentinel below the last row scrolls into view (Cinejoy behavior),
-// so we stop when a short page proves there is nothing left to fetch.
+// TMDB /discover returns 20 titles per page; the grid appends the next one when
+// the sentinel scrolls into view, and a short page proves nothing is left.
 const DISCOVER_PAGE_SIZE = 20;
 
 // ── Random pill — expands on hover like Cinejoy's ────────────────────────
@@ -89,8 +87,8 @@ function RandomPill({ ariaLabel, onClick, busy }) {
 
 // ── Landscape editorial card (rail) ───────────────────────────────────────
 // w-[70vw] mobile → 264px → 316px desktop, aspect-video, with the spotlight
-// badge, hover veil, encoded overlay (title + "Ep X · Mon DD") and a
-// below-card meta block for non-hover devices.
+// badge, hover veil, encoded overlay (title + "Ep X · Mon DD") and below-card
+// meta for non-hover devices.
 function LandscapeCard({ item, badgeLabel, onOpen }) {
   const imgUrl = CdnImageAdapter.getUrl(item.backdropUrl || item.posterUrl, "w780");
   const nextEpisode = item.nextEpisode || {};
@@ -153,10 +151,9 @@ function LandscapeCard({ item, badgeLabel, onOpen }) {
 }
 
 // ── Month-grouped "Upcoming" rail ─────────────────────────────────────────
-// Cinejoy's movies page surfaces the full theatrical slate, not one sparse
-// row. Groups railItems (already date-sorted soonest-first) into per-month
-// rails with a count pill and self-contained fade-in arrows. Series mode
-// keeps its single consolidated "New Seasons Airing" rail instead.
+// The full theatrical slate, not one sparse row: railItems (already sorted
+// soonest-first) group into per-month rails with a count pill and self-contained
+// fade-in arrows. Series mode keeps its single "New Seasons Airing" rail.
 function UpcomingMonthRail({ heading, itemCount, items, onOpen }) {
   const reduceMotion = useReducedMotion();
   const railRef = useRef(null);
@@ -270,9 +267,8 @@ export default function DiscoveryPage({ mode = "movies" }) {
     refetchOnWindowFocus: false,
   });
 
-  // ── The browse grid — refetches whenever any pill changes. Paginated so it
-  // loads progressively as the user scrolls (Cinejoy behavior) instead of
-  // fetching the whole catalogue at once. ─────────────────────────────────
+    // ── The browse grid — refetches whenever any pill changes, and is paginated
+    // so it grows with the scroll instead of fetching the whole catalogue. ────
   const gridQuery = useInfiniteQuery({
     queryKey: [
       "discover",
@@ -304,11 +300,10 @@ export default function DiscoveryPage({ mode = "movies" }) {
     refetchOnWindowFocus: false,
   });
 
-  // ── Top editorial rail — movies: upcoming; series: new seasons airing ───
-  // Movies merge TMDB /movie/upcoming (paginated) with a /discover sweep of
-  // the next year AND the regional (Tamil/Hindi/Malayalam/Telugu) future
-  // slate so the rail is dense instead of a single sparse page and regional
-  // premieres are not skipped.
+    // ── Top editorial rail — movies: upcoming; series: new seasons airing ───
+    // Movies merge TMDB /movie/upcoming (paginated) with a /discover sweep of the
+    // next year AND the regional future slate, so the rail is dense and regional
+    // premieres are not skipped.
   const loadUpcomingFilmSlate = async () => {
     const [upcoming, future, regional] = await Promise.allSettled([
       movieService.getUpcomingMovies(),
@@ -372,10 +367,9 @@ export default function DiscoveryPage({ mode = "movies" }) {
     [gridQuery.data],
   );
 
-  // ── Scroll-triggered pagination ─────────────────────────────────────────
-  // A sentinel below the last grid row; a generous bottom rootMargin starts
-  // the next page before the user hits the floor, so the grid appears to grow
-  // with the scroll rather than loading everything up front.
+    // ── Scroll-triggered pagination ─────────────────────────────────────────
+    // A generous bottom rootMargin starts the next page before the user hits the
+    // floor, so the grid appears to grow with the scroll.
   const loadMoreRef = useRef(null);
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = gridQuery;
   useEffect(() => {
@@ -469,13 +463,10 @@ export default function DiscoveryPage({ mode = "movies" }) {
   const countryLabel = countryParam && countryByCode.get(countryParam) ? countryByCode.get(countryParam) : "Country";
   const languageLabel = languageParam ? (LANGUAGE_OPTIONS.find(l => l.id === languageParam)?.name || "Language") : "Language";
 
-  // ── Random: open a random title from the current grid ───────────────────
-  // Force the instant info modal (never the page route) so the click gives
-  // immediate content — no route-load spinner/skeleton, just the pill's
-  // hover animation and a smooth pop-in.
-  // Busy state drives the in-button spinner; the reveal is deferred ~0.6s so
-  // the pill visibly "rolls" before snapping to the random pick (compositor
-  // sleep: only the pill's icon/state change, nothing re-blurs).
+    // ── Random: open a random title from the current grid ───────────────────
+    // Forces the instant info modal (never the page route) so the click gives
+    // immediate content with no route-load skeleton. The reveal is deferred ~0.6s
+    // so the pill visibly "rolls" before snapping to the random pick.
   const [randomPicking, setRandomPicking] = useState(false);
   const randomTimerRef = useRef(null);
   useEffect(() => () => clearTimeout(randomTimerRef.current), []);

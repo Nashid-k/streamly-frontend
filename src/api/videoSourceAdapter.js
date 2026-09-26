@@ -58,29 +58,26 @@ const BASE_SERVERS = [
 ];
 
 export class VideoSourceAdapter {
-  /* Server 1 (CineSrc iframe) is the default, and every server in the rotation
-     renders in an iframe — no direct-stream resolution code remains anywhere.
-     Direct extraction was retired earlier (its relay proxied every segment
-     through the decommissioned stream-service proxy, buffering/stalling), and
-     the NetMirror (net27) provider was removed outright (its video layer is
-     per-IP 429-gated behind a Cloudflare challenge).
-
-     Server names were restored to the original player-dropdown labels
-     (Server 1 … Server 8) from the pre-rename history; the URLs are
-     unchanged. See LEGACY_SERVER_NAME_MAP in PreferencesContext for the
-     Lisbon/Nebula/… → Server N rename migration. */
+    /* Server 1 (CineSrc iframe) is the default, and every server in the rotation
+       renders in an iframe — no direct-stream resolution code remains anywhere.
+       Direct extraction was retired (its relay proxied every segment through the
+       decommissioned stream-service proxy, buffering/stalling) and the NetMirror
+       (net27) provider was removed outright (per-IP 429-gated behind a Cloudflare
+       challenge). Server names are back to the original "Server 1 … Server 8"
+       dropdown labels; see LEGACY_SERVER_NAME_MAP in PreferencesContext for the
+       Lisbon/Nebula/… → Server N rename migration. */
   static SERVERS = BASE_SERVERS;
 
   static getServers() {
     return this.SERVERS;
   }
 
-  /**
-   * Returns the server list re-ordered by the user's saved preference array.
-   * Servers not in the preference list are appended at the end in default order.
-   *
-   * @param {string[]} serverOrder - Ordered names from preferences.serverOrder
-   */
+    /**
+     * Returns the server list re-ordered by the user's saved preference array.
+     * Servers not in the preference list are appended in default order.
+     *
+     * @param {string[]} serverOrder - Ordered names from preferences.serverOrder
+     */
   static getOrderedServers(serverOrder) {
     const base = [...this.SERVERS];
     if (Array.isArray(serverOrder) && serverOrder.length > 0) {
@@ -110,13 +107,11 @@ export class VideoSourceAdapter {
     return server.url(movieId, season, episode, imdbId);
   }
 
-  /* ── Ordered-list helpers ──────────────────────────────────────────
-     The Settings page lets viewers re-order servers, and TitleDetails
-     passes that ordered list into CustomVideoPlayer via the `servers`
-     prop. These helpers resolve everything against the *passed* list so
-     the player's indices always match the dropdown the viewer sees.
-     Every helper falls back to the static base list when no list (or an
-     empty list) is provided, so existing callers and tests keep working. */
+    /* ── Ordered-list helpers ──────────────────────────────────────────
+       Settings lets viewers re-order servers and TitleDetails passes that list into
+       the player, so these resolve against the *passed* list to keep the player's
+       indices matching the dropdown. Every helper falls back to the static base list
+       when none is provided, keeping existing callers and tests working. */
   static count(list) {
     return Array.isArray(list) && list.length > 0 ? list.length : this.SERVERS.length;
   }

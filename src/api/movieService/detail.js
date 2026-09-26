@@ -72,9 +72,9 @@ export const getMovieDetails = async (id) => {
     seasonsCount: detail.number_of_seasons || null,
     episodesCount: detail.number_of_episodes || null,
     lastAiredDate: detail.last_air_date || null,
-    // Preserve the real season numbers instead of deriving options from the
-    // count. TMDB includes specials in the count, so counting from one can
-    // point the watch page at a season that does not exist.
+        // Preserve real season numbers instead of deriving options from the count:
+        // TMDB includes specials in the count, so counting from one can point the
+        // watch page at a season that does not exist.
     seasons: (detail.seasons || [])
       .filter(s => s.season_number > 0)
       .map(s => ({
@@ -83,10 +83,9 @@ export const getMovieDetails = async (id) => {
         episodeCount: s.episode_count || 0,
         airDate: s.air_date || null,
       })),
-    // Canonical next-episode shape ({ season, episode, releaseDate, title }).
-    // The old getAiringRail emitted this; getMovieDetails used to emit
-    // { seasonNumber, episodeNumber } too. Consumers union both fields today
-    // (MovieCard.jsx:211-213), so unify on ONE shape for the domain contract.
+        // Canonical next-episode shape ({ season, episode, releaseDate, title }).
+        // Consumers still union the old { seasonNumber, episodeNumber } fields, so
+        // emit ONE shape for the domain contract.
     nextEpisode: detail.next_episode_to_air ? {
       season: detail.next_episode_to_air.season_number,
       episode: detail.next_episode_to_air.episode_number,
@@ -99,9 +98,9 @@ export const getMovieDetails = async (id) => {
       releaseDate: detail.last_episode_to_air.air_date || null,
       title: detail.last_episode_to_air.name || null,
     } : null,
-    // Only a scheduled next episode means the show is actively airing. A
-    // last episode exists for completed shows too, which should keep their
-    // normal Season 1 landing state unless the viewer has a resume point.
+        // Only a scheduled next episode means the show is actively airing; a "last
+        // episode" also exists for completed shows, which keep their normal Season 1
+        // landing state unless the viewer has a resume point.
     airingSeasonNumber: detail.next_episode_to_air?.season_number || null,
     imdbId: externalIds.imdb_id || null,
     voteCount: detail.vote_count || 0,
@@ -156,9 +155,8 @@ export const getSeasonEpisodes = async (id, seasonNumber) => {
     title: ep.name,
     description: ep.overview,
     airDate: ep.air_date,
-    // Cinejoy episode thumbs come straight from TMDB's still CDN (w500) —
-    // the same src the dumped series page ships. Avoid the wsrv proxy
-    // here so a still can never be dropped by an upstream optimizer.
+        // Episode thumbs come straight from TMDB's still CDN (w500), skipping the
+        // wsrv proxy so an upstream optimizer can never drop a still.
     thumbnailUrl: ep.still_path ? `https://image.tmdb.org/t/p/w500${ep.still_path}` : null,
     durationMins: ep.runtime,
     duration: ep.runtime ? `${ep.runtime}m` : '',
@@ -187,9 +185,8 @@ export const getExternalIds = async (id) => {
     if (!data?.imdb_id) {
       logDebug('movieService', `getExternalIds: no IMDb id for ${id} — OMDb ratings will be skipped.`, { id });
     }
-    // Return ONLY the normalized imdbId — earlier this spread the raw TMDB
-    // payload (`...data`), leaking snake_case `imdb_id` across the domain
-    // boundary into the player (CustomVideoPlayer read `e?.imdb_id`).
+        // Return ONLY the normalized imdbId — spreading the raw TMDB payload leaked
+        // snake_case `imdb_id` across the domain boundary into the player.
     return { imdbId: data?.imdb_id || null };
   } catch (error) {
     logServiceError('getExternalIds', error, { id });
@@ -257,13 +254,12 @@ export const getAiringThisWeek = async () => {
   }
 };
 
-// Regional (Indian-language) now-airing series — /discover/tv for each of
-// the primary Indian languages (Tamil/Hindi/Malayalam/Telugu) airing in the
-// last week, sorted by popularity, then enriched with next_episode_to_air
-// for the top titles so the Airing rails can show the "Ep X · Mon DD" chips.
-// A failed detail look-up never kills the rail. NOTE: no `region` param here
-// — /discover/tv region filters by first-air-date country, which TMDB rarely
-// tags as IN for regional shows; `with_original_language` is the reliable
+// Regional (Indian-language) now-airing series — /discover/tv per primary Indian
+// language (Tamil/Hindi/Malayalam/Telugu) airing in the last week, sorted by
+// popularity then enriched with next_episode_to_air for the top titles so the
+// Airing rails can show "Ep X · Mon DD" chips. A failed detail look-up never
+// kills the rail. No `region` param: /discover/tv region filters by first-air-date
+// country, which TMDB rarely tags as IN; with_original_language is the reliable
 // regional signal.
 export const getRegionalAiring = async (limit = 10) => {
   try {
@@ -330,11 +326,9 @@ export const getRegionalAiring = async (limit = 10) => {
   }
 };
 
-// Series rail ("New Seasons Airing") — /tv/on_the_air plus a light
-// next-episode look-up for the first few titles so cards can show the
-// "Season N" badge and "Ep X · Mon DD" overlay, exactly like Cinejoy.
-// A failed detail look-up never kills the rail: it falls back to the plain
-// list item and keeps going.
+// Series rail ("New Seasons Airing") — /tv/on_the_air plus a light next-episode
+// look-up for the first few titles so cards can show the "Season N" badge and
+// "Ep X · Mon DD" overlay. A failed look-up falls back to the plain list item.
 export const getAiringRail = async (limit = 10) => {
   try {
     const data = await tmdb('/tv/on_the_air');

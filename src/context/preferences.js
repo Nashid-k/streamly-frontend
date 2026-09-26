@@ -1,12 +1,11 @@
 import { createContext, useContext } from "react";
 
 /* ── Server naming migration ──────────────────────────────────────────
-   The player dropdown originally shipped as "Server 1 … Server 7", was
-   renamed to Lisbon/Nebula/Solara/Athens/Joy/Castle/Sakura (f584ba3),
-   then Canaias/SmashyStream was added as an 8th, then the "Server N
-   (suffix)" style came back. Today the labels are plain Server 1 … 8;
-   this map carries ANY legacy spelling across so existing visitors keep
-   their exact priority. Same position, new label. */
+   The player dropdown shipped as "Server 1 … Server 7", was renamed to
+   Lisbon/Nebula/Solara/Athens/Joy/Castle/Sakura, then Canaias/SmashyStream
+   joined as an 8th, then the "Server N (suffix)" style came back. Today the
+   labels are plain Server 1 … 8; this map carries ANY legacy spelling across so
+   existing visitors keep their exact priority. Same position, new label. */
 export const LEGACY_SERVER_NAME_MAP = Object.freeze({
   "Lisbon": "Server 1",
   "Nebula": "Server 2",
@@ -53,13 +52,12 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   seekTime: 10,
   autoSubtitles: true,
   defaultLanguage: "en",
-  // Downloads — when ON, downloads land in the browser's own download list
-  // (Ctrl+J) instead of the File System Access picker. The file is built in
-  // memory first, so it suits small/medium files.
+    // Downloads — when ON, files land in the browser's own download list (Ctrl+J)
+    // instead of the File System Access picker. Built in memory first, so it suits
+    // small/medium files.
   browserDownloads: false,
-  // Servers — plain labels (Server 1 … Server 8). Stored orders saved
-  // under the interim Lisbon/Nebula/… or "Server N (suffix)" names are
-  // migrated by PreferencesProvider on boot.
+    // Servers — plain labels (Server 1 … Server 8). Orders saved under the interim
+    // Lisbon/Nebula/… or "Server N (suffix)" names are migrated on boot.
   serverOrder: [
     "Server 1",
     "Server 2",

@@ -41,7 +41,6 @@ export class SubtitleFetcher {
         return [];
       }
 
-      // Filter for SRT format and group by language
       const srtSubs = data.filter((s) => s.SubFormat === "srt");
 
       const languageMap = new Map();

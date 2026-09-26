@@ -1,21 +1,18 @@
-// src/api/relayProxy.js — shared Cloudflare Workers relay protocol for BOTH the
+// src/api/relayProxy.js — shared Cloudflare Workers relay protocol for the
 // native player loader and the download stream.
 //
-// The deployed worker (see .env.example: VITE_STREAMLY_RELAY_URL) is a GET
-// ?url= passthrough: it strips Origin/Referer/Host, forwards our Range header,
-// follows redirects, and exposes content-range/content-length. Pointing raw
-// transport (segments, playlists) at it first takes the bytes OFF Vercel Hobby
-// (no serverless 4.5MB body cap, no egress charge) — one request can pull a
-// whole fMP4 fragment instead of a fan-out of 3.5MB slices. Vercel
-// /api/downloadify remains the automatic fallback when the worker is down.
+// The worker (VITE_STREAMLY_RELAY_URL) is a GET ?url= passthrough: it strips
+// Origin/Referer/Host, forwards our Range, follows redirects and exposes
+// content-range/content-length. Raw transport pointed at it first takes bytes
+// OFF Vercel Hobby (no 4.5MB body cap, no egress charge) — one request can pull
+// a whole fMP4 fragment instead of a fan-out of 3.5MB slices.
+// /api/downloadify stays the automatic fallback.
 //
-// Referer-gated CDNs (VidCore's moon.quietridge.top / palehive.top) 403 a
-// bare fetch, so the client passes the owning player's referer as a
-// ?referer= query param: a worker deployed with the referer-forwarding snippet
-// sets it as the upstream Referer header, letting the proxy serve those hosts
-// whole-fragment (no Vercel burn). Older worker builds ignore the param and
-// 403 — the loader/downloader then cascade to the Vercel function, which
-// always carries the referer and therefore still works.
+// Referer-gated CDNs (VidCore's moon/palehive) 403 a bare fetch, so the client
+// passes the owning player's referer as ?referer= and a worker deployed with the
+// referer-forwarding snippet serves those hosts whole-fragment. Older workers
+// ignore the param and 403, and the client then cascades to the Vercel function,
+// which always carries the referer.
 
 const WORKER_SLICE_MAX = 60 * 1024 * 1024;
 

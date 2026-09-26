@@ -204,8 +204,7 @@ src/
 │   ├── player/                      ← Player chrome leaves: ArcRing, LoadingArc,
 │   │                                  Netflix Volume/Brightness/Aspect HUDs
 │   ├── browse/                      ← FilterPill, MenuItem, SearchField, PillAction
-│   ├── detail/                      ← SeasonDropdown, ServerDropdown,
-│   │                                  ProductionCompaniesBlock
+│   ├── detail/                      ← SeasonDropdown, ProductionCompaniesBlock
 │   ├── rails/                       ← FadeInSection, MovieRail, Top10Rail,
 │   │                                  EditorialRails
 │   ├── overlays/                    ← CollectionNameDialog, AddTitlesDialog

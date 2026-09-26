@@ -13,25 +13,18 @@ import { useToast } from "./Toast";
 import { buildMetaFacts } from "../utils/metaFacts";
 
 /* ── TitleInfoModal — Netflix-style quick info ──────────────────────
-   One shared modal for every "more info" affordance:
-     · hero banner Info button (always, like Netflix)
-     · MovieCard / banner-card clicks when Detail View Type = "modal"
-
-   Anatomy (matches Netflix's title modal):
-     backdrop header with gradient fade → title → match % · year ·
-     runtime/seasons → genre chips → full overview → cast →
-     [▶ Play] [+ My List] [Full Details] actions.
-
-   Ergonomics: centered card sized min(92vw, 780px) with a viewport-capped
-   max-height and internal scroll; ≤640px it becomes a full-width
-   bottom sheet with rounded top corners and safe-area padding, so it
-   never touches the top/bottom edges or spans the whole screen.
-
-   Portaling: rendered via createPortal(document.body). Without it, any
-   ancestor with a transform/will-change (carousel rows animate y on
-   hover/entry) becomes the containing block for position:fixed, stretching
-   the backdrop across the whole document — and the initial focus() then
-   makes the browser scroll the page to reveal the close button. */
+   One shared modal for every "more info" affordance: the hero banner Info button
+   (always) and MovieCard / banner-card clicks when Detail View Type = "modal".
+   Anatomy: gradient-faded backdrop header → title → match % · year ·
+   runtime/seasons → genre chips → overview → cast → [▶ Play] [+ My List]
+   [Full Details]. Centered card min(92vw, 780px), viewport-capped max-height with
+   internal scroll; ≤640px it becomes a full-width bottom sheet with rounded top
+   corners and safe-area padding.
+   createPortal(document.body) is required: an ancestor with a
+   transform/will-change (carousel rows animate y) would otherwise become the
+   containing block for position:fixed, stretching the backdrop across the
+   document, and the initial focus() would scroll the page to reveal the close
+   button. */
 
 const SPRING = { type: "spring", stiffness: 380, damping: 30 };
 
@@ -99,9 +92,8 @@ export default function TitleInfoModal({ movie, onClose, onSelectMovie }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above
   }, []);
 
-  /* Follow the global "Episode View Style" preference (Settings and the
-     details page). When onSelectMovie swaps the movie in place, reset the
-     card scroll so a new title always starts at the top. */
+    /* Follow the global "Episode View Style" preference (Settings and the details
+       page). onSelectMovie swaps the movie in place, so reset the card scroll. */
   useEffect(() => {
     if (SIMILAR_MODES.includes(episodeViewStyle)) {
       setSimilarLayout(episodeViewStyle);

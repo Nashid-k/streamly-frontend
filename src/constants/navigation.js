@@ -6,7 +6,7 @@ import { Home, Clapperboard, Tv, Bookmark } from "lucide-react";
 // Kind of the title behind a details page (`/watch/<id>/...`) so the nav pill
 // can light up correctly: `tv-*` / `tmdb-tv-*` ids are series, everything
 // else on /watch is a movie. Mirrors movieService#isTvId.
-export const navWatchKind = (path) => {
+const navWatchKind = (path) => {
   const m = path.match(/^\/watch\/([^/]+)/);
   if (!m) return null;
   const id = m[1];

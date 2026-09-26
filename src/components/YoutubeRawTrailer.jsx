@@ -23,21 +23,17 @@ window.onYouTubeIframeAPIReady = () => {
   apiSubscribers.splice(0).forEach((resolve) => resolve(window.YT));
 };
 
-/* Full-bleed youtube trailer with the player UI suppressed:
-   - IFrame API lets us mute + start playback ourselves, loop reliably,
-     and KNOW when playback actually begins.
-   - The trailer plays from 0:00, but an opaque cover (backdrop image) stays
-     over the player until playback is running AND ~3s have passed — that's
-     how long YouTube keeps its big play-button/title overlay up after a
-     video starts. So the very moment the cover lifts, that overlay is gone
-     and only raw video is visible.
-   - The iframe is oversized + cropped inside the overflow:hidden thumb box
-     so YouTube's edge chrome (title strip, bottom-right watermark) is
-     pushed off-screen even while playing. pointer-events:none stops hover
-     from summoning the controls. */
+/* Full-bleed YouTube trailer with the player UI suppressed. The IFrame API lets
+   us mute + start playback ourselves, loop reliably, and KNOW when playback
+   begins. Playback starts at 0:00 but an opaque cover (backdrop image) stays over
+   the player until playback is running AND COVER_DELAY_MS has passed — roughly how
+   long YouTube keeps its big play-button/title overlay up, so the moment the cover
+   lifts that overlay is gone. The iframe is oversized + cropped inside the
+   overflow:hidden thumb box so YouTube's edge chrome (title strip, watermark) is
+   pushed off-screen; pointer-events:none stops hover summoning the controls. */
 
-// How long YouTube shows its startup play-button/title overlay after the
-// video begins — keep the cover up this long, then reveal the raw frames.
+// How long YouTube keeps its startup play-button/title overlay up after the video
+// begins — the cover lifts once it is gone.
 const REVEAL_DELAY_MS = 3000;
 
 export default function YoutubeRawTrailer({ videoKey, poster }) {
@@ -81,8 +77,7 @@ export default function YoutubeRawTrailer({ videoKey, poster }) {
             if (cancelled) return;
             if (e.data === YT.PlayerState.PLAYING) {
               setPlaying(true);
-              // YouTube keeps its play-button/title overlay up for a few
-              // seconds after playback starts; only reveal once it's gone.
+                            // Only reveal once YouTube's post-start play-button/title overlay is gone.
               if (revealTimerRef.current == null) {
                 revealTimerRef.current = setTimeout(() => {
                   if (!cancelled) setReveal(true);

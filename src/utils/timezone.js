@@ -1,29 +1,18 @@
 /**
  * Platform-aware timezone utilities.
  *
- * Different platforms release content at different times:
- *   - Streaming (Netflix, Prime, Hotstar, JioCinema, etc.):
- *       Global/regional release at midnight LOCAL time.
- *       TMDB date = the user's local date (no conversion needed).
- *   - US Broadcast (ABC, NBC, CBS, FOX, etc.):
- *       Airs at 8PM Eastern Time on the listed date.
- *       For users outside ET, the local date may shift forward.
- *
- * This module auto-detects the user's timezone and applies the
- * correct conversion based on the content's source platform.
+ * Streaming platforms (Netflix, Prime, Hotstar, JioCinema, …) release at
+ * midnight local time, so the TMDB date IS the viewer's local date. US
+ * broadcast networks air at 8PM Eastern, which shifts the local date for viewers
+ * outside ET. The platform's release rule picks the conversion.
  */
 
-// ─── Platform → Release Time mapping ───────────────────────────────────────
-// Key: lowercase platform ID (matches movie.source / movie.platform)
-// Value: release time config
-//
-// "midnight-local"  → Available at midnight in the viewer's own timezone
-//                     (TMDB date IS the local date — no shift needed)
-// "midnight-utc"    → Available at midnight UTC (e.g. Prime Video)
-// "midnight-source" → Available at midnight in the source region's timezone
-//                      e.g. "Asia/Kolkata" for Hotstar/JioCinema
-// "8pm-et"          → Traditional US broadcast at 8PM Eastern Time
-// ───────────────────────────────────────────────────────────────────────────
+// Platform → release-time config, keyed by lowercase platform ID (matches
+// movie.source / movie.platform):
+//   "midnight-local"  → midnight in the viewer's timezone (no shift needed)
+//   "midnight-utc"    → midnight UTC (Prime Video)
+//   "midnight-source" → midnight in the source region, e.g. Asia/Kolkata
+//   "8pm-et"          → traditional US broadcast at 8PM Eastern
 const PLATFORM_RELEASE = {
   // Streaming platforms — midnight local
   netflix:    { type: 'midnight-local' },
@@ -42,7 +31,6 @@ const PLATFORM_RELEASE = {
 // Default for unknown platforms / US broadcast networks
 const DEFAULT_RELEASE = { type: '8pm-et' };
 
-// ─── Helpers ───────────────────────────────────────────────────────────────
 
 export function getUserTimezone() {
   try {
@@ -53,9 +41,8 @@ export function getUserTimezone() {
 }
 
 /**
- * Get the IANA timezone for a given platform.
- * For streaming platforms that release at midnight local, returns the viewer's timezone.
- * For regional platforms, returns the source region's timezone.
+ * The IANA timezone for a platform: the viewer's own for midnight-local
+ * platforms, the source region's for regional ones.
  */
 function getSourceTimezone(platform, viewerTimezone) {
   const config = PLATFORM_RELEASE[platform?.toLowerCase()] || DEFAULT_RELEASE;
@@ -66,10 +53,7 @@ function getSourceTimezone(platform, viewerTimezone) {
   return 'America/New_York';
 }
 
-/**
- * Get the release hour (in the source timezone) for a given platform.
- * Returns { hour, minute, utcOffsetHours } in the source timezone.
- */
+/** Release hour in the source timezone for a platform: { hour, minute, utcOffsetHours }. */
 function getReleaseTime(platform) {
   const config = PLATFORM_RELEASE[platform?.toLowerCase()] || DEFAULT_RELEASE;
   switch (config.type) {
@@ -84,10 +68,7 @@ function getReleaseTime(platform) {
   }
 }
 
-/**
- * Get the UTC offset in hours for a given IANA timezone at a given Date.
- * Handles DST automatically via Intl formatting.
- */
+/** UTC offset in hours for an IANA timezone at a given Date, DST included (via Intl). */
 function getUTCOffsetHours(timezone, date) {
   try {
     const str = date.toLocaleString('en-US', {
@@ -113,45 +94,34 @@ function getUTCOffsetHours(timezone, date) {
   }
 }
 
-// ─── Core conversion ───────────────────────────────────────────────────────
 
 /**
- * Convert a raw TMDB date string (YYYY-MM-DD) to the viewer's local date.
+ * Convert a raw TMDB date (YYYY-MM-DD) to the viewer's local date.
  *
- * Platform-aware logic:
- *   - Streaming platforms (Netflix, Prime, Hotstar, JioCinema, etc.):
- *     Release at midnight local/source time. The TMDB date IS the viewer's
- *     local date for most platforms (Netflix, Apple TV+, Zee5, Sony LIV).
- *     For regional platforms (Hotstar, Jio), the release is at midnight IST,
- *     so IST users see the same date but users in other timezones may shift.
- *   - US Broadcast networks (default fallback):
- *     Airs at 8PM Eastern Time. For an Indian user (IST = ET+9:30), a
- *     Monday 8PM ET show arrives Tuesday 5:30 AM IST — so they see Tuesday.
+ * Midnight-local platforms need no conversion; other platforms resolve the
+ * release moment in the source timezone and reformat it locally. US broadcast
+ * (the default fallback) is the case that actually shifts: a Monday 8PM ET show
+ * reaches an IST viewer (ET+9:30) on Tuesday.
  *
  * @param {string} tmdbDateString - Raw TMDB date (YYYY-MM-DD)
  * @param {string} [viewerTimezone] - IANA timezone of the viewer (auto-detected if omitted)
  * @param {string} [platform] - Content platform (e.g. "netflix", "hotstar", "prime")
  * @returns {string|null} Local date string (YYYY-MM-DD) or null
  */
-export function tmdbDateToLocalDate(tmdbDateString, viewerTimezone, platform) {
+function tmdbDateToLocalDate(tmdbDateString, viewerTimezone, platform) {
   if (!tmdbDateString) return null;
   const tz = viewerTimezone || getUserTimezone();
   const srcTz = getSourceTimezone(platform, tz);
   const { hour, minute } = getReleaseTime(platform);
 
   try {
-    // For midnight-local: the release is at midnight in the viewer's own timezone.
-    // So the TMDB date IS the local date — no conversion needed.
+        // Midnight-local: the TMDB date is already the viewer's local date.
     if (platform && (PLATFORM_RELEASE[platform?.toLowerCase()] || DEFAULT_RELEASE).type === 'midnight-local') {
-      // The date as-is is the viewer's local date
       return tmdbDateString;
     }
 
-    // For other platforms: construct the release moment in the source timezone,
-    // then convert to the viewer's local timezone to get their local date.
-    //
-    // Strategy: create a UTC date from (source date + source offset)
-    // then format it in the viewer's timezone.
+        // Otherwise build the release moment in the source timezone (date + source
+        // offset → a UTC instant) and format that instant in the viewer's timezone.
     const srcOffset = getUTCOffsetHours(srcTz, new Date(tmdbDateString + 'T12:00:00Z'));
     const releaseUTC = new Date(
       new Date(tmdbDateString + 'T12:00:00Z').getTime() -
@@ -177,10 +147,7 @@ export function tmdbDateToLocalDate(tmdbDateString, viewerTimezone, platform) {
 
 // ─── Formatting helpers ────────────────────────────────────────────────────
 
-/**
- * Format a TMDB date for the user's locale and timezone.
- * Returns e.g. "Monday, Sep 7" or "Sep 7, 2026" depending on options.
- */
+/** Format a TMDB date for the user's locale and timezone, e.g. "Monday, Sep 7". */
 export function formatTMDBDate(
   tmdbDateString,
   options = {},
@@ -200,25 +167,19 @@ export function formatTMDBDate(
   }
 }
 
-/**
- * Get the weekday name in the user's locale for a TMDB date.
- * e.g. "Tuesday" for a Monday US broadcast viewed from India.
- */
+/** Weekday name in the user's locale, e.g. "Tuesday" for a Monday US-broadcast
+    date viewed from India. */
 export function getTMDBWeekday(tmdbDateString, viewerTimezone, platform) {
   return formatTMDBDate(tmdbDateString, { weekday: 'long' }, viewerTimezone, platform);
 }
 
-/**
- * Get short weekday (e.g. "Tue") for a TMDB date.
- */
+/** Short weekday (e.g. "Tue") for a TMDB date. */
 export function getTMDBWeekdayShort(tmdbDateString, viewerTimezone, platform) {
   return formatTMDBDate(tmdbDateString, { weekday: 'short' }, viewerTimezone, platform);
 }
 
-/**
- * Format a TMDB date as "Mon DD, YYYY" in user's locale.
- */
-export function formatTMDBDateFull(tmdbDateString, viewerTimezone, platform) {
+/** Format a TMDB date as "Mon DD, YYYY" in the user's locale. */
+function formatTMDBDateFull(tmdbDateString, viewerTimezone, platform) {
   return formatTMDBDate(
     tmdbDateString,
     { month: 'short', day: 'numeric', year: 'numeric' },
@@ -227,10 +188,7 @@ export function formatTMDBDateFull(tmdbDateString, viewerTimezone, platform) {
   );
 }
 
-/**
- * Get a human-readable "time until" string for a TMDB date.
- * e.g. "in 2 days", "tomorrow", "today", "yesterday"
- */
+/** Human-readable "time until" for a TMDB date: "in 2 days", "tomorrow", "today", "yesterday". */
 export function getTimeUntil(tmdbDateString, viewerTimezone, platform) {
   if (!tmdbDateString) return '';
   const tz = viewerTimezone || getUserTimezone();

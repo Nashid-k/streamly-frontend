@@ -96,10 +96,9 @@ export const getRegions = async () => {
   }
 };
 
-// Movies rail — near-term theatrical release schedule enriched with the
-// release dates buildUpcoming needs to power the "Upcoming / Coming Soon"
-// landscape rail on the Movies discovery page. Paginates the first three
-// pages so the rail is dense, not a single sparse page.
+// Movies rail — near-term theatrical schedule carrying the release dates
+// buildUpcoming needs for the "Upcoming / Coming Soon" rail. Paginates the first
+// three pages so the rail is dense, not one sparse page.
 export const getUpcomingMovies = async () => {
   try {
     const pages = await Promise.allSettled(
@@ -121,9 +120,9 @@ export const getUpcomingMovies = async () => {
   }
 };
 
-// Future theatrical slate — a /discover/movie sweep of English-language
-// titles with a release date within the next year, sorted soonest-first.
-// Keeps the Upcoming rail populated when TMDB's /movie/upcoming window is thin.
+// Future theatrical slate — a /discover/movie sweep of English-language titles
+// releasing within the next year, soonest-first, keeping Upcoming populated when
+// TMDB's /movie/upcoming window is thin.
 export const getFutureMovies = async () => {
   try {
     const pad = (n) => String(n).padStart(2, '0');
@@ -159,14 +158,13 @@ export const getFutureMovies = async () => {
   }
 };
 
-// Banner "New Releases" feed — Hindi / English / Malayalam / Tamil releases
-// from the last `pastDays`, NEWEST first. The home hero wants the freshest
-// Indian + English lineup, so it needs its own sweep (the future slates above
-// sort asceding and the "now playing" rail has no language bias): one
-// /discover/movie + one /discover/tv pass per language, merged, deduped, and
-// sorted by release date descending. `REGIONAL_PRIMARY_LANGUAGES` covers
-// ta/hi/ml/te — here we swap Telugu for English, the four the banner should
-// actually surface.
+// Banner "New Releases" feed — Hindi / English / Malayalam / Tamil releases from
+// the last `pastDays`, NEWEST first, so the hero surfaces the freshest Indian +
+// English lineup. It needs its own sweep: the future slates above sort ascending
+// and the "now playing" rail has no language bias. One /discover/movie + one
+// /discover/tv pass per language, merged, deduped, sorted desc by release date.
+// REGIONAL_PRIMARY_LANGUAGES covers ta/hi/ml/te; here Telugu is swapped for
+// English — the four the banner should surface.
 export const getNewReleases = async (pastDays = 90) => {
   try {
     const pad = (n) => String(n).padStart(2, '0');
@@ -231,13 +229,11 @@ export const getNewReleases = async (pastDays = 90) => {
   }
 };
 
-// Regional upcoming premieres — a future release-date sweep across pages
-// 1–2 for each primary Indian language, sorted soonest-first. Merged into
-// the global Upcoming / "Coming This Month" rails (Home + Movies discovery)
-// so regional theatrical releases share the slate alongside the English
-// future-movies sweep. No `region` param: with_original_language is the
-// reliable regional signal, and region=IN would require TMDB to tag each
-// title with an IN release-date country (many regional films aren't).
+// Regional upcoming premieres — a future release-date sweep across pages 1–2 for
+// each primary Indian language, soonest-first, merged into the global Upcoming /
+// "Coming This Month" rails so regional theatrical releases share the slate. No
+// `region` param: with_original_language is the reliable regional signal, since
+// region=IN would need TMDB to tag each title with an IN release-date country.
 export const getRegionalUpcoming = async (windowDays = 90) => {
   try {
     const pad = (n) => String(n).padStart(2, '0');
@@ -281,10 +277,9 @@ export const getRegionalUpcoming = async (windowDays = 90) => {
 };
 
 // Genre-cluster discover rails for the home showcase ("Action & Adventure",
-// "Sci-Fi & Fantasy", "Comedies" ...). Accepts per-type genre id lists so a
-// single rail can mix the movie genre (28) with its TV equivalent (10759).
-// Results from movie + tv are interleaved so the row feels curated. Quality
-// floor via vote_count_gte mirrors what authentic platforms surface.
+// "Sci-Fi & Fantasy", ...). Per-type genre id lists let one rail mix the movie
+// genre (28) with its TV equivalent (10759); movie + tv results interleave so the
+// row feels curated, and vote_count_gte is the quality floor.
 export const getDiscoverByGenre = async ({ movies = [], tv = [] } = {}) => {
   const jobs = [];
   const typed = (list) => (Array.isArray(list) ? list.filter(Boolean) : []);

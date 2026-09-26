@@ -10,20 +10,16 @@ import { useToast } from "./Toast";
 
 /* ─────────────────────────────────────────────────────────────
 MovieCard — "Cinematic Curtain" hover design
-   
-   How it works:
-   • Everything lives INSIDE .poster-wrapper (overflow: hidden)
-   • The curtain is driven by ONE source: a debounced isHovered state (150ms
-     debounce prevents thrash on quick swipes; mouse/focus both feed it), so
-     there is no second whileHover change fighting the same variants.
-   • The curtain panel slides up from translateY(100%) → 0
-   • The image dims via a flat opacity veil (no filter repaint)
-   • Mouse enter/leave is on one element — can never get stuck
-   ─────────────────────────────────────────────────────────────*/
 
-// Animation variants — defined outside component so they're stable refs.
-// Stagger: scale first (instant lift), then dim + curtain slides up,
-// then title → meta → actions cascade in. Feels fast but layered.
+   Everything lives INSIDE .poster-wrapper (overflow: hidden). The curtain is
+   driven by ONE source — a debounced isHovered state (150ms, so quick swipes
+   don't thrash; mouse and focus both feed it) — so no second whileHover fights
+   the same variants. The panel slides up from translateY(100%) → 0, the image
+   dims via a flat opacity veil (no filter repaint), and enter/leave sit on one
+   element so it can never get stuck. ───────────────────────────────────── */
+
+// Animation variants live outside the component so they stay stable refs.
+// Stagger: instant scale lift, then dim + curtain, then title → meta → actions.
 const EASE_OUT = [0.16, 1, 0.3, 1];
 
 const cardVariants = {
@@ -81,11 +77,9 @@ import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import { useOptionalPreferences } from "../context/preferences";
 import { logWarn } from "../utils/debugLogger";
 
-// Device capability is static per session - computed once at module scope so
-// it never re-runs on every card render (object churn / memo invalidation).
-// "Touch device" means the PRIMARY pointer has no hover (phones/tablets).
-// Touchscreen laptops (touch + mouse) keep the hover curtain; the banner
-// LandscapeCard is pure CSS hover and was already animating on them.
+// Device capability is static per session — computed once at module scope so it
+// never re-runs on every card render. "Touch" means the PRIMARY pointer has no
+// hover (phones/tablets); touchscreen laptops keep the curtain.
 const isTouchDevice =
   typeof window !== "undefined" &&
   !!window.matchMedia &&
@@ -139,7 +133,7 @@ const MovieCard = memo(function MovieCard({
     setIsHovered(false);
   }, []);
 
-  // Fix: Clean up hoverTimeoutRef on unmount to prevent setState on unmounted component
+    // Clear hoverTimeoutRef on unmount to avoid setState on an unmounted component
   useEffect(() => {
     return () => {
       if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
@@ -199,11 +193,10 @@ const MovieCard = memo(function MovieCard({
     setHasImageError(false);
   }, [posterSrc]);
 
-  // ── Next-airing info for the rail badges ──────────────────────────────
-  // Airing-rail cards (and any series with an announced next episode) show
-  // which DAY the episode drops plus its season/episode. Series that are only
-  // airing (not premiering) fall back to nextEpisode; premiering series use
-  // their future release date.
+    // ── Next-airing info for the rail badges ──────────────────────────────
+    // Airing-rail cards (and any series with an announced next episode) show the
+    // DAY it drops plus season/episode: airing-only series use nextEpisode,
+    // premiering series their future release date.
   const platformForDate = movie.source || movie.platform;
   const nextEpisodeInfo = movie.nextEpisode || {};
   const nextAirDate =

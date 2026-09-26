@@ -1,9 +1,8 @@
 import { CdnImageAdapter } from '../cdnImageAdapter';
 
 // Helper: pick the English (or any) title logo from a TMDB images payload.
-// Prefers the given size (default w500) and dedupes against the highly
-// decorated primary logo that TMDB sometimes returns with a white/key-art
-// version — those block-type logos are excluded so brand wordmarks win.
+// Prefers the given size (default w500), skipping the decorated "block" logos TMDB
+// sometimes returns alongside the brand wordmark so the wordmark wins.
 const LOGO_SIZE_SCORE = { original: 3, w500: 2, w185: 1 };
 export function logoUrlFromImages(images, size = 'w500') {
   const logos = (images?.logos || []).filter((l) => {
@@ -77,9 +76,8 @@ const GENRE_MAP = {
 };
 
 // Original-language codes for the regional (Indian) rails — Tamil, Hindi,
-// Malayalam and Telugu. The app already treats these as its regional cluster
-// (Home's Tamil/Malayalam/Hindi/Telugu rows), so the Upcoming + Airing rails
-// pull the same languages through /discover instead of the English-only sweep.
+// Malayalam, Telugu. The app already treats these as its regional cluster, so the
+// Upcoming + Airing rails pull the same languages through /discover.
 export const REGIONAL_PRIMARY_LANGUAGES = ['ta', 'hi', 'ml', 'te'];
 
 // ── Trailer curation ────────────────────────────────────────────────────────

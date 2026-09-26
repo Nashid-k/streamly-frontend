@@ -4,12 +4,9 @@ import { logDebug } from "../utils/debugLogger";
 import { usePreferences } from "../context/preferences";
 
 /* ═══ PlayerPreview ═══════════════════════════════════════════════════
-   A truthful mini player with the SAME fixed Netflix-style chrome the
-   real CustomVideoPlayer renders (black + #E50914): a muted looping
-   demo video, red progress scrubber and a subtitle line styled live
-   from preferences.
-
-   Props:
+   A truthful mini player with the SAME fixed Netflix-style chrome the real
+   player renders (black + #E50914): a muted looping demo video, red progress
+   scrubber and a subtitle line styled live from preferences. Props:
    - showChrome  false → video + subtitle line only (Subtitles preview)
    - label       preset/custom name shown on the caption chip
    - title       meta title next to the time row

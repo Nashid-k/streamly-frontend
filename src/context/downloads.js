@@ -10,7 +10,7 @@ import { createContext, useContext } from "react";
 export const DownloadsContext = createContext(null);
 
 /* No-op fallback so isolated component tests never need the provider. */
-export const DEFAULT_DOWNLOADS_FALLBACK = {
+const DEFAULT_DOWNLOADS_FALLBACK = {
   downloads: [],
   activeCount: 0,
   registerDownload: () => "",

@@ -24,9 +24,8 @@ function hexToRgbTriplet(hex) {
   return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
 }
 
-/* Darken a hex accent to produce the secondary "--accent-secondary" tone used
-   by gradients / translucent surfaces. Malformed input falls back to the
-   default Streamly toggle green. */
+/* Darken a hex accent for the secondary "--accent-secondary" tone used by
+   gradients / translucent surfaces; malformed input falls back to the default. */
 function deriveSecondary(hex) {
   const match = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
   if (!match) return "#3f8a1d";
@@ -39,8 +38,7 @@ function deriveSecondary(hex) {
 }
 
 /* Allowed theme ids come from src/constants/settings.js THEMES plus the
-   "custom" seed-driven mode. Anything else is a corrupt/garbage input —
-   fall back to the default theme instead of poisoning the dataset. */
+   "custom" seed-driven mode; anything else is corrupt input and falls back. */
 const ALLOWED_THEMES = new Set([
   "default",
   "emerald",
@@ -123,9 +121,8 @@ function parseValue(raw, fallback) {
       return Array.isArray(value) ? value : fallback;
     }
     if (isPlainObject(fallback)) {
-      // Merge over the defaults so newly added control keys default to on
-      // even for visitors with older stored objects, and so corrupt stored
-      // values (strings, numbers, arrays) can never break consumers.
+            // Merge over the defaults so newly added control keys default to on for
+            // visitors with older stored objects and corrupt values can't break consumers.
       return { ...fallback, ...(isPlainObject(value) ? value : {}) };
     }
     return value ?? fallback;
@@ -180,10 +177,9 @@ export function PreferencesProvider({ children }) {
 
   const setPreference = useCallback((key, value) => {
     if (!Object.hasOwn(DEFAULT_PREFERENCES, key)) return;
-    // Sanitize against the key's contract: type checks, allowed theme ids,
-    // numeric clamps, valid hex accents, and deduped Server 1–8 order names.
-    // A garbage value no longer reaches state/localStorage (a corrupt value
-    // used to ride alongside and could surface as NaN% / broken selects).
+        // Sanitize against each key's contract: type checks, allowed theme ids,
+        // numeric clamps, valid hex accents, deduped Server 1–8 order names — so a
+        // garbage value never reaches state/localStorage (it used to surface as NaN%).
     const nextValue = sanitizePreference(key, value);
     setPreferences((current) =>
       current[key] === nextValue ? current : { ...current, [key]: nextValue },
@@ -215,9 +211,9 @@ export function PreferencesProvider({ children }) {
         [key]: parseValue(event.newValue, DEFAULT_PREFERENCES[key]),
       }));
     };
-    // Same-tab cloud fill-in: applyRemotePreferences writes setting-* keys for
-    // never-touched settings and fires this, so the UI picks them up without
-    // waiting for a cross-tab storage event.
+        // Same-tab cloud fill-in: applyRemotePreferences writes setting-* keys for
+        // never-touched settings and fires this, so the UI updates without waiting
+        // for a cross-tab storage event.
     const resyncFromStorage = () => {
       setPreferences(readPreferences());
     };

@@ -12,8 +12,8 @@ const SYNC_TOKEN_KEY = "streamly_sync_token";
 const TOMBSTONE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 // Per-account HMAC sync token issued by /api/auth for verified Google users.
-// Stored separately from the user profile so logout doesn't wipe it before
-// the /api/sync calls finish, and so guests never possess one.
+// Kept apart from the profile so logout cannot wipe it before /api/sync finishes
+// and so guests never hold one.
 function readSyncToken() {
   if (typeof window === "undefined") return "";
   try {
@@ -56,7 +56,6 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  // ─── Manual or Automated Cloud Sync to MongoDB ─────────────────────────────
   const syncToCloud = useCallback(async (customPayload = null) => {
     const currentUser = user || safeUserParse();
     // Verified Google users only. Guests and legacy email profiles stay
@@ -85,9 +84,9 @@ export function AuthProvider({ children }) {
       try {
         currentList = JSON.parse(localStorage.getItem("aios_my_list") || "[]");
         currentCw = JSON.parse(localStorage.getItem("aios_continue_watching") || "[]");
-        // Upload the MORPHED shape (visibility/publicId normalized), not the
-        // raw legacy localStorage — unmorphed rows synced as private and the
-        // collection never became public for anyone else.
+                // Upload the MORPHED shape (visibility/publicId normalized), not the raw
+                // legacy localStorage — unmorphed rows synced as private, so the collection
+                // never became public for anyone else.
         currentCollections = morphCollections(JSON.parse(localStorage.getItem("aios_my_collections") || "[]"));
       } catch {}
 
@@ -125,7 +124,6 @@ export function AuthProvider({ children }) {
     }
   }, [user]);
 
-  // ─── Initial Cloud Sync on Mount if User Logged In ─────────────────────────
   useEffect(() => {
     // Only verified Google identities pull cloud data; guests stay local.
     if (!user || !user.googleId) return;
@@ -153,10 +151,10 @@ export function AuthProvider({ children }) {
 
         const { watchlist = [], watchHistory = [], collections = [], preferences = {} } = data.userData;
 
-        // Timestamp-aware union merge: replace stale-local by newer-remote.
-        // (Legacy local items without updatedAt lose to any new remote data.)
-        // Watchlist removals ride as tombstones too — a delete on another
-        // device must not be resurrected by this device's staler copy.
+                // Timestamp-aware union merge: newer remote replaces stale local. Legacy
+                // local items without updatedAt lose to any remote data, and watchlist
+                // removals ride as tombstones so a delete on another device is not
+                // resurrected by this device's staler copy.
         if (Array.isArray(watchlist) && watchlist.length > 0) {
           try {
             const localList = JSON.parse(localStorage.getItem("aios_my_list") || "[]");
@@ -171,9 +169,8 @@ export function AuthProvider({ children }) {
           } catch {}
         }
 
-        // Merge watch history (capped to 20 like local writes). Capping is
-        // tombstone-safe and newest-lastWatched-first, so the freshest
-        // episodes survive and delete markers are never sliced away.
+                // Watch history merges capped to 20 like local writes; the cap is
+                // tombstone-safe and newest-first, so delete markers are never sliced away.
         if (Array.isArray(watchHistory) && watchHistory.length > 0) {
           try {
             const localCw = JSON.parse(localStorage.getItem("aios_continue_watching") || "[]");
@@ -226,7 +223,6 @@ export function AuthProvider({ children }) {
     };
   }, [user]);
 
-  // ─── Debounced Auto-Sync when Watchlist or History Updates ──────────────────
   useEffect(() => {
     if (!user) return;
 
@@ -240,7 +236,6 @@ export function AuthProvider({ children }) {
     };
   }, [myListData.myList, cwData.continueWatching, collectionsData.collections, syncToCloud, user]);
 
-  // ─── Cloud data deletion (Settings → Account) ────────────────────────────
   const deleteCloudData = useCallback(async () => {
     const currentUser = user || safeUserParse();
     const token = readSyncToken();
@@ -264,7 +259,6 @@ export function AuthProvider({ children }) {
     }
   }, [user]);
 
-  // ─── Google OAuth Login ───────────────────────────────────────────────────
   const loginWithGoogle = useCallback(async (credential) => {
     if (!credential) {
       logWarn("auth", "loginWithGoogle called without credential.");
@@ -332,13 +326,11 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  // ─── Guest / Local Sign-In ─────────────────────────────────────────────────
-  // Guests are LOCAL-ONLY by design. Signing in as guest must never write to
-  // MongoDB: the former default email ("viewer@streamly.io") collapsed every
-  // anonymous visitor into ONE shared cloud document, so any viewer's
-  // watchlist/history leaked into everyone else's. Cloud sync is reserved for
-  // verified Google identities (googleId), and even those need a per-account
-  // sync token issued by /api/auth.
+    // Guests are LOCAL-ONLY by design. Signing in as guest must never write to
+    // MongoDB: the former default email ("viewer@streamly.io") collapsed every
+    // anonymous visitor into ONE shared cloud document, so any viewer's watchlist
+    // and history leaked into everyone else's. Cloud sync is reserved for verified
+    // Google identities, and even those need a per-account sync token.
   const loginAsGuest = useCallback(async (name, email) => {
     const guestUser = {
       name: name || "Streamly Viewer",
@@ -358,7 +350,6 @@ export function AuthProvider({ children }) {
     return { success: true, user: guestUser };
   }, []);
 
-  // ─── Sign Out ─────────────────────────────────────────────────────────────
   const logout = useCallback(() => {
     setUser(null);
     try {
@@ -379,10 +370,9 @@ export function AuthProvider({ children }) {
     logDebug("auth", "User signed out.");
   }, []);
 
-  // syncStatus/lastSyncedAt churn on EVERY cloud sync (idle → syncing →
-  // synced/error). Riding them on the shared AppContext value re-rendered every
-  // auth consumer (every MovieCard, every rail) twice per sync. They now live
-  // on their own SyncStatusContext so only SettingsPage re-renders.
+    // syncStatus/lastSyncedAt churn on EVERY cloud sync. Riding them on the shared
+    // AppContext value re-rendered every auth consumer (every MovieCard, every
+    // rail) twice per sync, so they live on their own SyncStatusContext.
   const syncValue = useMemo(
     () => ({ syncStatus, lastSyncedAt }),
     [syncStatus, lastSyncedAt],

@@ -1,27 +1,23 @@
-// src/utils/googleAuth.js — Google Identity Services (GIS) Web SDK client helper
+// src/utils/googleAuth.js — Google Identity Services (GIS) Web SDK client helper.
 //
-// Why the login popup sometimes never appears (the "works in incognito only"
-// bug): the fallback path calls google.accounts.id.prompt() — the One Tap
-// prompt — which Google SUPPRESSES per browser profile after a few
-// dismissals (exponential cooldown), when third-party cookies are blocked,
-// or when the user opted out. A fresh incognito profile has none of that
-// state, so it works there. Mitigations implemented here:
-//   1. initialize() runs exactly ONCE per page load with a swappable
-//      credential handler — repeated initialize() calls are documented by
-//      Google to cause "unexpected behavior" and were logged on every modal
-//      open before.
-//   2. Valid initialize options only (ux_mode was never valid for
-//      id.initialize) + explicit FedCM/ITP support flags.
-//   3. When prompt() is suppressed, we surface the machine-readable reason
-//      as an actionable toast instead of a generic error.
-// The official GIS button (renderButton) is NOT subject to the One Tap
-// cooldown — it always opens the account-chooser popup — so it stays the
-// primary path whenever it rendered.
+// The "works in incognito only" bug: the fallback path calls
+// google.accounts.id.prompt() (One Tap), which Google SUPPRESSES per browser
+// profile after a few dismissals (exponential cooldown), when third-party
+// cookies are blocked, or on opt-out. A fresh incognito profile has none of that
+// state. Mitigations here:
+//   1. initialize() runs exactly ONCE per page load with a swappable credential
+//      handler — repeated calls are documented to cause "unexpected behavior"
+//      and were logged on every modal open before.
+//   2. Valid initialize options only (ux_mode was never valid for id.initialize)
+//      plus explicit FedCM/ITP support flags.
+//   3. A suppressed prompt() surfaces its machine-readable reason as an
+//      actionable toast instead of a generic error.
+// renderButton is NOT subject to the cooldown, so it stays the primary path.
 import { logDebug, logWarn } from "./debugLogger";
 
-// No hardcoded fallback (matches the api/auth.js hardening): a client id
-// baked into the repo can never be rotated via env. Set VITE_GOOGLE_CLIENT_ID
-// in the build env — without it the sign-in button reports "unavailable".
+// No hardcoded fallback (matches api/auth.js): a client id baked into the repo can
+// never be rotated. Set VITE_GOOGLE_CLIENT_ID — without it the button reports
+// "unavailable".
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 
 if (!GOOGLE_CLIENT_ID && typeof window !== "undefined") {
@@ -36,9 +32,9 @@ let gsiScriptPromise = null;
 let initializedGoogleId = null;
 let initPromise = null;
 
-// The credential handler is swapped by whoever is driving sign-in right now
-// (the rendered button or a prompt click) BEFORE they act, so the single
-// initialize() callback always routes to the current owner.
+// The credential handler is swapped by whoever drives sign-in right now (the
+// rendered button or a prompt click) BEFORE they act, so the single initialize()
+// callback always routes to the current owner.
 let activeCredentialHandler = null;
 let activeErrorHandler = null;
 
@@ -50,12 +46,9 @@ function routeCredential(credential) {
   }
 }
 
-/**
- * Dynamically loads the official Google Identity Services client script.
- * A failed load resets the cached promise so the next click can retry
- * (previously a blocked/offline load poisoned the promise until reload).
- */
-export function loadGoogleGsiScript() {
+/** Load the GIS client script. A failed load resets the cached promise so the next
+ *  click retries (a blocked/offline load used to poison it until reload). */
+function loadGoogleGsiScript() {
   if (typeof window === "undefined") return Promise.reject(new Error("SSR environment"));
   if (window.google?.accounts?.id) return Promise.resolve(window.google.accounts.id);
 
@@ -93,12 +86,10 @@ export function loadGoogleGsiScript() {
   return gsiScriptPromise;
 }
 
-/**
- * Initializes GIS exactly once per page load; later calls reuse the session.
- * Only valid id.initialize options are passed (the old `ux_mode` key belonged
- * to the oauth2 clients and was silently ignored — and misleading — here).
- */
-export async function initGoogleAuth({ onCredential, onError } = {}) {
+/** Initialize GIS exactly once per page load; later calls reuse the session. Only
+ *  valid id.initialize options are passed (the old `ux_mode` key belonged to the
+ *  oauth2 clients and was silently ignored here). */
+async function initGoogleAuth({ onCredential, onError } = {}) {
   if (onCredential) activeCredentialHandler = onCredential;
   if (onError) activeErrorHandler = onError;
 
@@ -133,11 +124,8 @@ export async function initGoogleAuth({ onCredential, onError } = {}) {
   return initPromise;
 }
 
-/**
- * Renders the official Google Sign-In button into a DOM container element.
- * The rendered button always opens the account-chooser popup on click
- * (it is not subject to the One Tap suppression cooldown).
- */
+/** Render the official Google Sign-In button into a container. It always opens the
+ *  account-chooser popup on click (not subject to the One Tap cooldown). */
 export async function renderGoogleButton(
   containerElement,
   { onCredential, onError, theme = "filled_black", text = "signin_with", shape = "pill", width = 280 } = {},
@@ -185,18 +173,16 @@ const SUPPRESSION_HINTS = {
   wrong_origin: "This site's origin is not registered with Google sign-in.",
 };
 
-export function describeSuppression(reason) {
+function describeSuppression(reason) {
   return (
     SUPPRESSION_HINTS[reason] ||
     "Google did not display the sign-in popup. Try the official Google button instead."
   );
 }
 
-/**
- * Prompts the Google One Tap / Sign-In dialog programmatically (the fallback
- * path used when the official button could not render). Suppressed prompts
- * are reported with an actionable reason, never as a silent no-op.
- */
+/** Prompt the One Tap / Sign-In dialog programmatically (the fallback when the
+ *  official button could not render). Suppressed prompts report an actionable
+ *  reason, never a silent no-op. */
 export async function promptGoogleSignIn({ onCredential, onError } = {}) {
   try {
     const googleId = await initGoogleAuth({ onCredential, onError });

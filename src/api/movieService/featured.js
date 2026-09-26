@@ -38,9 +38,8 @@ export const getFeaturedMovies = async () => {
   }
 };
 
-// Fetch just the English title logo for a movie or TV show. Used by the
-// hero banner to render the actual show logo image instead of the text
-// fallback. Returns the biggest available logo (original) for crispness.
+// Fetch just the English title logo for a movie or TV show, so the hero banner
+// renders the real logo instead of the text fallback. Biggest available (original).
 export const getTitleLogo = async (id) => {
   const isTV = isTvId(id);
   const rid = rawId(id);
@@ -57,10 +56,9 @@ export const getTitleLogo = async (id) => {
   }
 };
 
-// Fetch an embeddable YouTube trailer key for any movie/TV id. Reaches
-// into the live details so even titles stored before trailers were wired
-// up (old continue-watching entries) get a preview. Picks the most
-// prominent trailer (Final → Official → Trailer → Teaser → Extended),
+// Fetch an embeddable YouTube trailer key for any movie/TV id, reaching into the
+// live details so titles stored before trailers were wired up still get a preview.
+// Most prominent trailer wins (Final → Official → Trailer → Teaser → Extended),
 // falling back to the first usable YouTube video for legacy titles.
 export const getTitleTrailer = async (id) => {
   const isTV = isTvId(id);

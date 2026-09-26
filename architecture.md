@@ -180,7 +180,7 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
   `YoutubeRawTrailer`, and `player/` leaf subfolder — `ArcRing`, `LoadingArc`,
   `NetflixVolumeHUD`, `NetflixBrightnessHUD`, `NetflixAspectHUD`, `index.js`),
   feature-grouped subfolders (`browse/` — `FilterPill`, `MenuItem`, `SearchField`,
-  `PillAction`; `detail/` — `SeasonDropdown`, `ServerDropdown`,
+  `PillAction`; `detail/` — `SeasonDropdown`,
   `ProductionCompaniesBlock`; `rails/` — `FadeInSection`, `MovieRail`, `Top10Rail`,
   `EditorialRails`; `overlays/` — `CollectionNameDialog`, `AddTitlesDialog`;
   `settings/` — `LanguageFlag`, `Toggle`, `SegmentControl`, `SettingRow`,
@@ -193,8 +193,9 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
   `useIsTouch`, `useContainerSize`.
 - `src/context/` — React contexts (`@/context`). `index.js` barrel. `AuthContext.jsx` + `auth.js`
   (merges user data hooks), `PreferencesContext.jsx` + `preferences.js` (settings + `setting-*`).
-- `src/constants/` — app-level constant single sources (`@/constants`). `index.js` barrel.
-  `navigation.js` (`NAV_ITEMS`, `navWatchKind`), `settings.js` (live single source for `THEMES`,
+- `src/constants/` — app-level constant single sources (`@/constants`): `navigation`,
+  `playerUi`, `settings`. Imported per module (there is no barrel).
+  `navigation.js` (`NAV_ITEMS`), `settings.js` (live single source for `THEMES`,
   `LANGUAGES`, `SEEK_TIMES`, `SUBTITLE_FONTS`, `SUBTITLE_COLORS`, `DEFAULT_SERVER_ORDER`, `TABS`,
   `SECTION_SEARCH_TERMS`), `playerUi.js` (`PLAYER_SPEEDS`, `ASPECT_RATIOS`, `AR_GLYPH`,
   `SPRING_SNAPPY`).

@@ -1,18 +1,13 @@
 import { logDebug, logWarn } from "./debugLogger";
 
 /* ── Stale-chunk recovery ─────────────────────────────────────────────
-   After a redeploy, browsers holding the old index.html request hashed
-   chunks that no longer exist (Vercel purges old deploys), so Vite
-   throws and React shows the ErrorBoundary fallback. Recovery = wipe
-   every Cache Storage bucket (old SW assets + old HTML shell), then
-   reload into a fresh boot.
-
-   Detection is message-based because the exact wording varies across
-   bundlers AND browsers — the same failure surfaces as
-   "Failed to fetch dynamically imported module" (Chromium),
-   "Importing a module script failed" (WebKit), and
-   "error loading dynamically imported module" (Vite 7 / Firefox),
-   matching case-insensitively. */
+   After a redeploy, browsers holding the old index.html request hashed chunks that
+   no longer exist, Vite throws, and React shows the ErrorBoundary. Recovery = wipe
+   every Cache Storage bucket, then reload into a fresh boot.
+   Detection is message-based because the wording varies: "Failed to fetch
+   dynamically imported module" (Chromium), "Importing a module script failed"
+   (WebKit), "error loading dynamically imported module" (Vite 7 / Firefox),
+   matched case-insensitively. */
 
 const CHUNK_ERROR_RE =
   /failed to fetch dynamically imported module|importing a module script failed|error loading dynamically imported module|error loading module|failed to load module script/i;
@@ -38,12 +33,9 @@ export function clearRuntimeCaches() {
     });
 }
 
-/**
- * One-shot guard so a persistently failing chunk can never trap the
- * visitor in a reload loop (e.g. CDN outage). sessionStorage tracks the
- * last recovery; repeated failures within 5s skip the reload and let
- * the ErrorBoundary fallback UI show with a working reload button.
- */
+/** One-shot guard so a persistently failing chunk cannot trap the visitor in a
+ *  reload loop: sessionStorage tracks the last recovery and repeat failures within
+ *  5s stand down for the ErrorBoundary fallback. */
 export function shouldAttemptRecovery(throttleKey = "chunk_reload_time") {
   try {
     const last = sessionStorage.getItem(throttleKey);

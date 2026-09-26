@@ -527,7 +527,6 @@ describe("createStreamlyLoader", () => {
   });
 
   it("falls back to serial chunking when the first relay slice is short", async () => {
-    const FRAG = Math.floor(3.5 * 1024 * 1024);
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation(async (url, init) => {
@@ -752,7 +751,7 @@ describe("probeSourcePlayable", () => {
   it("passes when the first segment flows direct", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockImplementation(async (url, init) => {
+      vi.fn().mockImplementation(async (url) => {
         if (typeof url === "string" && url.includes("downloadify")) {
           return { ok: true, status: 200, headers: { get: () => "text" }, text: async () => MEDIA_PLAYLIST };
         }

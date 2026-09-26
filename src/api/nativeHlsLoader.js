@@ -1,88 +1,65 @@
-// src/api/nativeHlsLoader.js — hls.js transport for the native-playback prototype.
+// src/api/nativeHlsLoader.js — hls.js transport for the native player.
 //
-// Design (proven by the audit, 2026-09-25):
-//   · Manifest/level/audio playlists go through the downloadify `playlist`
-//     action: the server fetches with the owning player's referer (VidCore's
-//     moon.quietridge.top m3u8s 403 a bare browser fetch) and hands back text.
-//     Playlists are kilobytes — negligible serverless cost.
-//   · Media fragments go DIRECT from the browser when the segment host allows
-//     CORS + Range (VidCore's paperorbit.top/quietnexus.top: `*`, +206), and
-//     fall back to the downloadify `segment` range-relay otherwise (VidSrc's
-//     pchrelay hosts). The per-origin probe result is cached per page load.
-//   · Referer-GATED hosts (VidCore's moon.quietridge.top / palehive.top) are
-//     NEVER poked direct — a bare browser probe carries the app's referer, the
-//     CDN 403s it on sight and a burst of such probes trips its WAF (which is
-//     what made tall renditions "play a few seconds, then endless loading").
-//     They go straight to the relay; the Cloudflare proxy gets the source's
-//     own referer in the URL (?url=...&referer=...) so a redeployed worker
-//     serves them whole-fragment, and /api/downloadify (which always sends the
-//     referer) stays the automatic fallback.
-//   · VERCEL-FREE RULE: direct costs us nothing; every relayed byte costs
-//     bandwidth + invocations. So direct is always tried first, a throttling
-//     origin (401/403/429) is put on relay-only cooldown instead of being
-//     re-poked on every fragment, and relay streaks are logged so serverless
-//     burn stays visible instead of silent.
-//   · hls.js resolves relative playlist URLs against the manifest URL we
-//     report, so the loader always answers playlist loads with the ORIGINAL
-//     upstream URL (never the relay endpoint).
+//   · Playlists go through the relay: the server fetches with the owning
+//     player's referer, which referer-gated m3u8s 403 on a bare browser fetch.
+//   · Fragments go DIRECT when the segment host allows CORS + Range (probe
+//     cached per origin), else through the relay.
+//   · Referer-gated hosts are NEVER poked direct: the CDN 403s the app referer
+//     and a burst of probes trips its WAF — that is what made tall renditions
+//     "play a few seconds, then endless loading". The relay carries the real
+//     referer, so those hosts go straight there.
+//   · Vercel-free rule: direct is free, relayed bytes are not — try direct
+//     first, park throttling origins (401/403/429) on relay-only cooldown, and
+//     log relay streaks so burn is never silent.
+//   · hls.js resolves relative playlist URLs against the URL we report, so
+//     playlist loads always answer with the ORIGINAL upstream URL.
 //
-// The class factory takes `getRefUrl` (the current source's refUrl) so a
-// mid-session re-resolution can pick up a new refUrl; it stays fixed per
-// source attempt.
+// `getRefUrl` lets a mid-session re-resolution pick up a new refUrl; it stays
+// fixed per source attempt.
 
 import { logDebug, logWarn } from "../utils/debugLogger.js";
 import { parseMasterPlaylist, parseMediaPlaylist } from "../utils/downloadQuality.js";
 import { deriveSliceMore, relayProxyConfig } from "./relayProxy.js";
 
 const ENDPOINT = "/api/downloadify";
-// Every Vercel relay chunk is a fresh serverless round trip, so latency is
-// weighed once per chunk. 1MB slices made slow CDNs stall on multi-MB ts
-// segments (plays 5-10s, then endless loading). 3.5MB balances latency vs the
-// 4.5MB Vercel response cap and keeps most fragments to 1-2 round trips on
-// their own — BUT Vercel fragments are also chunked in PARALLEL (relayFragment
-// fans out up to 4 ranges concurrently), so the per-fragment wall-clock is ~one
-// relay latency, not N × latency. That combination is what lets 1080p/4K
-// fragments survive a serverless leg at all. The Cloudflare proxy relay
-// (VITE_STREAMLY_RELAY_URL — see relayProxy.js) is preferred when configured:
-// one request can pull a whole fragment with no serverless cap.
+// Every relay chunk is a fresh serverless round trip, so latency is weighed
+// once per chunk. 3.5MB balances latency against the 4.5MB Vercel response
+// cap, and the parallel range fan-out below collapses a fragment to ~one relay
+// latency — that is what lets 1080p/4K survive a serverless leg. The Cloudflare
+// proxy relay (relayProxy.js) is preferred when configured: one request, whole
+// fragment, no serverless cap.
 const FRAG_CHUNK_MAX = Math.floor(3.5 * 1024 * 1024);
 
-/* Active relay endpoint + slice + protocol. Read lazily so tests can stub the
-   env. Two transports, same relayChunk/playlist surface:
-     · mode "proxy" — the deployed Cloudflare worker (GET ?url= + Range,
-       whole-fragment 60MB slices).
-     · mode "json"  — Vercel /api/downloadify. POST {action,...}; slices capped
-       at FRAG_CHUNK_MAX by the function's 4.5MB body cap. */
-export function relayConfig() {
+/* Active relay endpoint + slice + protocol, read lazily so tests can stub the
+   env. mode "proxy" = the Cloudflare worker (GET ?url= + Range, whole-fragment
+   60MB slices). mode "json" = Vercel /api/downloadify (POST {action,...},
+   slices capped at FRAG_CHUNK_MAX by its 4.5MB body cap). */
+function relayConfig() {
   const proxy = relayProxyConfig();
   return proxy
     ? { base: proxy.base, slice: proxy.slice, mode: "proxy" }
     : { base: ENDPOINT, slice: FRAG_CHUNK_MAX, mode: "json" };
 }
 
-// Default per-load watchdog when hls.js passes no config.timeout. 20s is a
-// tolerant ceiling for a 3.5MB relayed slice through Vercel while still
-// firing before a user perceives a permanent hang.
+// Default per-load watchdog when hls.js passes no config.timeout: a tolerant
+// ceiling for a 3.5MB relayed slice, firing before a hang looks permanent.
 const DEFAULT_LOAD_TIMEOUT_MS = 20 * 1000;
-// A throttled origin stays relay-only this long — long enough to ride out a
-// WAF burst, short enough to re-probe direct while the title still plays.
+// How long a throttled origin stays relay-only: long enough to ride out a WAF
+// burst, short enough to re-probe direct while the title still plays.
 const DIRECT_BLOCK_MS = 5 * 60 * 1000;
-// Log relay usage at these streak lengths (1 = first fallback, then every 25)
-// so Vercel burn is observable in the console, never silent.
+// Relay streaks to log (1 = first fallback, then every 25) so Vercel burn stays
+// observable instead of silent.
 const RELAY_LOG_EVERY = 25;
 
 const probeCache = new Map();
 // origin -> timestamp (ms) until which direct fetches are skipped.
 const directBlockedUntil = new Map();
 
-/* Hosts whose CDN gates on the owning player's referer (VidCore family):
-   a bare browser fetch (app referer) gets 403, and a burst of those probes
-   trips the CDN WAF, stalling tall renditions. These are relay-only by
-   construction — the relay (redeployed proxy or Vercel) supplies the referer. */
-/* VidCore rotates its segment CDN periodically — every host seen so far gates
-   on the owning player's referer (bare fetch → 403 + WAF-burst risk). Keep
-   this list current when a new CDN family shows up 403ing in the console:
-   quietridge/palehive (2026-09), grandpearl/wisehive (2026-09 rotation 2). */
+/* Hosts whose CDN gates on the owning player's referer (VidCore family): a bare
+   browser fetch 403s and a probe burst trips their WAF. Relay-only by
+   construction — the relay supplies the referer. */
+/* VidCore rotates its segment CDN, and every host seen so far gates on the
+   owning player's referer. Keep this list current when a new family 403s. */
 const REFERER_GATED_HOST_SUFFIXES = [
   "quietridge.top",
   "palehive.top",
@@ -108,10 +85,9 @@ function originOf(url) {
   }
 }
 
-/* Direct path open for this URL? False when the origin is on throttle
-   cooldown (or the URL is unparseable) — the caller goes straight to the
-   relay without spending a doomed direct attempt. */
-export function isDirectBlocked(url) {
+/* Direct path open for this URL? False while the origin sits on throttle
+   cooldown (or the URL is unparseable) — go straight to the relay. */
+function isDirectBlocked(url) {
   // Referer-gated hosts are permanently direct-blocked: a bare browser probe
   // is a guaranteed 403 AND risks tripping the CDN's WAF for the session.
   if (isRefererGated(url)) return true;
@@ -124,9 +100,9 @@ export function isDirectBlocked(url) {
   return false;
 }
 
-/* Direct-CORS probe per segment origin: Range 0-0 must come back with an
-   allow-origin we can read AND a content-range (seekable). Cached as a
-   promise so concurrent fragment loads share one probe. */
+/* Direct-CORS probe per segment origin: Range 0-0 must return a readable
+   allow-origin AND a content-range. Cached as a promise so concurrent fragment
+   loads share one probe. */
 export async function probeDirectOrigin(url, { signal } = {}) {
   let origin = null;
   try {
@@ -147,12 +123,10 @@ export async function probeDirectOrigin(url, { signal } = {}) {
           res.body?.cancel?.().catch?.(() => {});
           return { ok: Boolean(allowed && match) };
         } catch (error) {
-          // An AbortError here means the OWNING load was cancelled (source
-          // failover, watchdog timeout, user seek/title switch). Cache the
-          // result as "not direct" and every later fragment of this origin
-          // would ride the Vercel relay for the rest of the session — even
-          // though the CDN serves CORS happily. Drop the entry so the next
-          // load re-probes with its own live signal.
+          // An AbortError means the OWNING load was cancelled (failover, watchdog,
+          // seek/title switch). Caching "not direct" would ride the relay for the rest of
+          // the session even though the CDN serves CORS — drop the entry so the next load
+          // re-probes with its own live signal.
           if (error?.name === "AbortError") probeCache.delete(origin);
           return { ok: false };
         }
@@ -170,12 +144,11 @@ export function clearDirectBlocks() {
   directBlockedUntil.clear();
 }
 
-/* Playability probe: verify ONE real media byte flows before the player
-   commits a screen to this source. A resolver can hand us a perfect-looking
-   ladder whose segments never arrive (VidCore's vidzen fallback: playlist 200
-   + duration, segments 429 forever) — without this check that plays as a
-   black screen with a known duration and no error. Returns { ok, via, reason }.
-   Follows the entry URL through a master playlist when needed. */
+/* Playability probe: confirm ONE real media byte flows before the player commits
+   a screen. A resolver can return a perfect-looking ladder whose segments never
+   arrive (vidzen: playlist 200 + duration, segments 429 forever), which plays
+   as a black screen with a known duration and no error. Returns {ok, via,
+   reason}; follows the entry URL through a master playlist when needed. */
 async function relayPlaylistText(url, refUrl, signal) {
   const response = await postDownloadify({ action: "playlist", playlistUrl: url, refUrl }, { signal });
   await throwIfRelayError(response, "Playlist request failed");
@@ -197,12 +170,11 @@ export async function probeSourcePlayable(entryUrl, refUrl, { signal } = {}) {
     const media = parseMediaPlaylist(text, base);
     const target = media?.segments?.[0]?.url || media?.initUrl;
     if (!target) return { ok: false, reason: "playlist has no segments" };
-    // 1) direct byte sip (1 byte Range — cheap, and exactly the path playback
-    //    will use first). Referer-gated hosts skip this entirely: their CDN
-    //    403s a bare app-referer probe, and a burst of such probes is exactly
-    //    what trips the WAF that stalls tall renditions. The manifest host may
-    //    be gated while the segment host is new (or vice versa) — check BOTH
-    //    the entry URL and the sip target.
+    // 1) direct byte sip (1 byte Range — cheap, and exactly the path playback uses
+    //    first). Referer-gated hosts skip it: their CDN 403s a bare app-referer
+    //    probe and probe bursts are what trip the WAF. The manifest host may be
+    //    gated while the segment host is new (or vice versa) — check both the entry
+    //    URL and the sip target.
     if (!isRefererGated(target) && !isRefererGated(base)) {
       try {
         const res = await fetch(target, { headers: { range: "bytes=0-0" }, signal });
@@ -235,9 +207,8 @@ export async function probeSourcePlayable(entryUrl, refUrl, { signal } = {}) {
 
 async function postDownloadify(body, { signal } = {}) {
   const { base, slice, mode } = relayConfig();
-  // Per-candidate slice: a proxy whole-fragment call that falls back to the
-  // Vercel function MUST re-slice at FRAG_CHUNK_MAX, or the 4.5MB body cap
-  // would be breached mid-flight.
+  // A proxy whole-fragment call that falls back to the Vercel function MUST
+  // re-slice at FRAG_CHUNK_MAX or the 4.5MB body cap breaks mid-flight.
   const candidates =
     mode === "json"
       ? [{ base, slice, mode }]
@@ -249,10 +220,9 @@ async function postDownloadify(body, { signal } = {}) {
   // Only fragment pulls send a Range slice; playlists are small full-text GETs.
   const isSegment = body.action === "segment";
   const start = Math.max(0, Math.floor(Number(body.range?.start) || 0));
-  // The proxy can carry the owning player's referer (an upgraded worker
-  // forwards ?referer= upstream) — referer-gated CDNs like VidCore's
-  // moon/palehive 403 a bare worker fetch, so this is what lets the proxy
-  // serve them whole-fragment instead of taxing Vercel.
+  // The proxy can carry the owning player's referer (?referer= upstream), which
+  // is what lets it serve referer-gated CDNs whole-fragment instead of taxing
+  // Vercel.
   const referer = body.refUrl ? String(body.refUrl) : "";
   let lastError;
   for (let index = 0; index < candidates.length; index += 1) {
@@ -261,20 +231,18 @@ async function postDownloadify(body, { signal } = {}) {
     const request =
       candidate.mode === "proxy"
         ? {
-            // The worker is a GET ?url= passthrough: it proxies BOTH fragments
-            // (Range-forwarding) AND playlists (plain text GET), carrying our
-            // upstream referer in ?referer=. Playlists riding the worker keep
-            // every manifest reload off Vercel Hobby — on the free tier each
-            // serverless playlist call is a cold-start latency lottery that
-            // reads exactly like endless "loading" (hls.js refreshes the level
-            // playlist on a rolling basis while the buffer refills).
+            // The worker is a GET ?url= passthrough for BOTH fragments (Range-forwarding)
+            // and playlists (plain GET), carrying our referer in ?referer= — which keeps
+            // every manifest reload off Vercel Hobby, where a cold-start playlist call
+            // reads exactly like endless "loading" (hls.js refreshes the level playlist
+            // on a rolling basis while the buffer refills).
             url: `${candidate.base}?url=${encodeURIComponent(target)}${
               referer ? `&referer=${encodeURIComponent(referer)}` : ""
             }`,
             init: {
               method: "GET",
-              // The proxy forwards the Range to the origin AND its slices are
-              // capped only by origin/CDN (no 4.5MB serverless cap).
+              // The proxy forwards Range to the origin and is capped only by the origin
+              // (no 4.5MB serverless cap).
               headers: isSegment ? { range: `bytes=${start}-${start + candidate.slice - 1}` } : undefined,
               signal,
             },
@@ -292,8 +260,8 @@ async function postDownloadify(body, { signal } = {}) {
           };
     try {
       const res = await fetch(request.url, request.init);
-      // A non-ok reply from the proxy (down/broken deploy) falls through to the
-      // Vercel function; the LAST candidate's error is the one that surfaces.
+      // A non-ok proxy reply (down/broken deploy) falls through to the Vercel
+      // function; the LAST candidate's error is the one that surfaces.
       if (res.ok || index === candidates.length - 1) return res;
       lastError = res;
       await res.body?.cancel?.().catch?.(() => {});
@@ -305,9 +273,8 @@ async function postDownloadify(body, { signal } = {}) {
   throw lastError ?? new Error("relay unavailable");
 }
 
-/* The relay answers failures with its JSON error envelope ({ ok:false, code,
-   error }) — surface the real code instead of a generic HTTP error so the
-   player can tell an expired token from a dead CDN. */
+/* The relay's JSON error envelope ({ok:false, code, error}) carries the real
+   code — surface it so the player can tell an expired token from a dead CDN. */
 async function throwIfRelayError(response, fallback) {
   if (response.ok) return;
   let code = "http";
@@ -330,20 +297,18 @@ async function throwIfRelayError(response, fallback) {
 export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath } = {}) {
   const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
 
-  /* Distinct from AbortError so the watchdog win is tellable from a player
-     abort: hls.js routes this into fragLoadTimeout (with its own retry /
-     backoff policy) instead of a hard error. */
+  /* Distinct from AbortError so a watchdog win is tellable from a player abort:
+       hls.js routes this into fragLoadTimeout (its own retry/backoff policy). */
   function timeoutError(message) {
     const error = new Error(message);
     error.name = "TimeoutError";
     return error;
   }
 
-  /* hls.js internal handlers WRITE into the stats object we hand them
-     (e.g. playlist-loader sets stats.parsing.start on success), so it must
-     carry the full LoadStats shape — flat fields PLUS the loading / parsing /
-     buffering sub-objects. A partial object crashes inside hls with
-     "Cannot set properties of undefined (setting 'start')". */
+  /* hls.js handlers WRITE into the stats object we hand them (playlist-loader sets
+       stats.parsing.start), so it must carry the full LoadStats shape — flat
+       fields PLUS the loading/parsing/buffering sub-objects, or hls throws
+       "Cannot set properties of undefined". */
   const finishStats = (trequest, loaded) => {
     const end = now();
     return {
@@ -368,12 +333,11 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath } = 
       this.controller = null;
       this._timeoutTimer = null;
       this.trequest = 0;
-      // hls.js grabs this reference directly (fragment-loader does
-      // `loader.stats.retry = frag.stats.retry; frag.stats = loader.stats`),
-      // so it must ALWAYS be a full LoadStats-shaped object — never undefined.
+      // hls.js grabs this reference directly (fragment-loader assigns
+      // frag.stats = loader.stats), so it must ALWAYS be a full LoadStats-shaped
+      // object — never undefined.
       this.stats = finishStats(0, 0);
-      // Consecutive fragments served through the Vercel relay (serverless
-      // burn). Reset by any direct success.
+      // Consecutive fragments served through the relay. Reset by any direct success.
       this.relayStreak = 0;
     }
 
@@ -394,32 +358,28 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath } = 
     load(context, config, callbacks) {
       this.context = context;
       this.callbacks = callbacks;
-      // A loader instance is REUSED across retries / the next fragment, so
-      // start each load un-aborted with a fresh cancel handle or one abort()
-      // would poison every later request.
+      // A loader instance is REUSED across retries/fragments, so start each load
+      // un-aborted with a fresh cancel handle or one abort() poisons the rest.
       this.aborted = false;
-      // One controller per LOAD, shared by every sub-request (playlist,
-      // probe, direct stream, relay chunks) so the watchdog and abort() cancel
-      // the whole fragment pull at once.
+      // One controller per LOAD, shared by every sub-request (playlist, probe, direct
+      // stream, relay chunks) so watchdog/abort cancel the whole pull at once.
       this.controller = new AbortController();
       this.trequest = now();
-      // One live object for the whole load: hls.js keeps references to it
-      // (frag.stats = loader.stats) and reads loaded/total off the progress
-      // calls, so mutate in place — never replace it mid-load.
+      // One live object for the whole load: hls.js keeps the reference and reads
+      // loaded/total off the progress calls, so mutate in place — never replace it.
       this.stats = finishStats(this.trequest, 0);
       this.firstByteSeen = false;
       this.resetTimer();
 
-      // hls.js passes config.timeout and expects onTimeout (→ its own retry /
-      // failover) when a load hangs. A fetch that never resolves would
-      // otherwise spin the spinner forever — the core of the "plays 5-10s,
-      // then endless loading" bug. Race the real load against a watchdog that
-      // aborts the controller and settles.
+      // hls.js expects onTimeout (→ its own retry/failover) when a load hangs; a
+      // never-resolving fetch would spin forever — the core of the "plays 5-10s, then
+      // endless loading" bug. Race the load against a watchdog that aborts and
+      // settles.
       const timeoutMs = config?.timeout || DEFAULT_LOAD_TIMEOUT_MS;
       const runPromise = this.run();
       runPromise.catch(() => {
-        // The watchdog usually wins a hung request, so this one rejects first
-        // (AbortError). The loser must not surface as an unhandled rejection.
+        // The watchdog usually wins, so this rejects first; the loser must not surface
+        // as an unhandled rejection.
       });
       const watchdog = new Promise((resolve, reject) => {
         this._timeoutTimer = setTimeout(() => {
@@ -452,18 +412,17 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath } = 
         (error) => {
           this.resetTimer();
           if (this.aborted) return;
-          // Watchdog win: let hls.js handle it (its retry config drives
-          // fragLoadTimeout → backoff / ABR step-down in the player).
+          // Watchdog win: hand it to hls.js — its retry config drives fragLoadTimeout
+          // → backoff / ABR step-down.
           if (error?.name === "TimeoutError") {
             callbacks.onTimeout(this.stats, context, null);
             return;
           }
           if (error?.name === "AbortError") return;
-          // Pass the relay's real code through in the text (hls.js only
-          // forwards {code, text} to its error handlers, and builds its own
-          // "HTTP Error 0 <text>" message from them). The player parses the
-          // [relay:<code>] tag to tell an expired token (re-resolve + resume)
-          // apart from a dead CDN (fail over).
+          // Pass the relay's real code in the text (hls.js forwards only {code, text} and
+          // builds its own "HTTP Error 0 <text>"). The player parses the [relay:<code>]
+          // tag to tell an expired token (re-resolve + resume) from a dead CDN (fail
+          // over).
           const relayTag =
             error && error.code && error.code !== "http" ? `[relay:${error.code}] ` : "";
           callbacks.onError(
@@ -484,8 +443,8 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath } = 
     }
 
     signal() {
-      // Sub-requests share the load's controller (created in load()) so the
-      // watchdog and abort() cancel the entire fragment pull at once.
+      // Sub-requests share the load's controller so watchdog/abort cancel the whole
+      // pull at once.
       return this.controller?.signal;
     }
 
@@ -497,9 +456,9 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath } = 
       return this.loadPlaylist(url);
     }
 
-    /* Feed hls.js progress callbacks as bytes arrive (drives the bandwidth
-       estimator + progressive MSE appends). Mutates the live stats object in
-       place. callbacks.onProgress is optional (unit tests omit it). */
+    /* Feed hls.js progress callbacks as bytes arrive (bandwidth estimator +
+       progressive MSE appends), mutating the live stats object in place.
+       callbacks.onProgress is optional. */
     progress(chunk, total) {
       if (!chunk || chunk.length === 0) return;
       if (!this.firstByteSeen) {
@@ -533,9 +492,8 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath } = 
 
     async loadFragment(url) {
       const signal = this.signal();
-      // Throttle-cooldown origins skip direct entirely: no probe, no doomed
-      // attempt — straight to the relay. Keeps playback moving AND keeps us
-      // from re-poking a WAF burst on every fragment.
+      // Throttle-cooldown origins skip direct entirely — no probe, no doomed attempt
+      // — straight to the relay, which also stops us re-poking a WAF burst.
       if (!isDirectBlocked(url)) {
         let probe = { ok: false };
         try {
@@ -554,10 +512,9 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath } = 
             return data;
           } catch (error) {
             if (error?.name === "AbortError" || this.aborted) throw error;
-            // The server said no (401/403/429): park this origin on
-            // relay-only cooldown instead of failing one fragment at a time.
-            // Anything else (network blip, CSP, offline) stays direct-first —
-            // those fail fast and may clear on their own.
+            // The server said no (401/403/429): park this origin on relay-only cooldown
+            // instead of failing one fragment at a time. Other errors (blip, CSP, offline)
+            // stay direct-first — they fail fast and may clear on their own.
             const status = error?.status;
             if (status === 401 || status === 403 || status === 429) {
               const origin = originOf(url);
@@ -569,9 +526,8 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath } = 
                 });
               }
             } else {
-              // A CDN that passed the probe but fails the pull for another
-              // reason (rotated token, reset connection) still falls back to
-              // the relay below.
+              // A CDN that passed the probe but fails the pull for another reason (rotated
+              // token, reset connection) still falls back to the relay below.
               logWarn("native", "Direct fragment fetch failed — falling back to relay.", {
                 message: error?.message,
               });
@@ -582,8 +538,8 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath } = 
       return this.relayFragment(url, signal);
     }
 
-    /* Direct pull, streamed so progress callbacks fire while the bytes are
-       still arriving (TTFB-to-first-append, not whole-segment latency). */
+    /* Direct pull, streamed so progress fires while bytes are still arriving
+       (TTFB-to-first-append, not whole-segment latency). */
     async directFragment(url, signal) {
       const res = await fetch(url, { signal });
       if (!res.ok) {
@@ -629,19 +585,16 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath } = 
       return buf.buffer;
     }
 
-    /* Relay a single fragment with parallel range chunking. Chunk 0 is always
-       fetched alone — its exact byte count seeds the fan-out stride. When every
-       returned slice is a full slice (the uniform case — via a Worker that is
-       one whole fragment), the remaining
-       ranges are fetched CONCURRENTLY and handed to hls.js strictly in byte
-       order: the per-fragment wall-clock collapses from N×relay-latency to ~one
-       relay latency, which is what lets tall (1080p/4K) fragments survive the
-       serverless leg instead of re-stalling at every segment boundary. A short
-       chunk 0 (a CDN that caps mid-file) can't seed uniform strides — that
-       fragment falls back to the proven serial chain. Abort cancels the shared
-       controller, so every in-flight range settles and the outer watchdog race
-       resolves. Each chunk request is an independent upstream Range fetch
-       (see api/downloadify.js fetchRangeChunk), so concurrency is safe. */
+    /* Relay one fragment with parallel range chunking. Chunk 0 is fetched alone: its
+       exact byte count seeds the fan-out stride. When every returned slice is full
+       (the uniform case — e.g. a worker serving one whole fragment) the remaining
+       ranges run CONCURRENTLY and are handed to hls.js strictly in byte order,
+       collapsing per-fragment wall-clock from N×relay-latency to ~one relay
+       latency, which is what lets tall (1080p/4K) fragments survive the serverless
+       leg. A short chunk 0 (a CDN capping mid-file) cannot seed uniform strides, so
+       that fragment falls back to the serial chain. Abort settles every in-flight
+       range, and each chunk is an independent upstream Range fetch, so concurrency
+       is safe. */
     async relayFragment(url, signal) {
       const refUrl = getRefUrl?.();
       const { slice } = relayConfig();
@@ -670,9 +623,8 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath } = 
         } else {
           logDebug("native", `Relayed fragment (${total} bytes).`, { url: String(url).slice(0, 80) });
         }
-        // One relayed FRAGMENT landed (not one chunk): tell the player so it can
-        // count a real streak across fragments and steer tall renditions when
-        // the relay leg can't keep feeding them.
+        // One relayed FRAGMENT landed (not one chunk): tell the player so it can count
+        // a real streak and steer tall renditions when relay can't keep feeding them.
         onRelayPath?.();
         return out.buffer;
       };
@@ -700,15 +652,11 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath } = 
         return finish(serial);
       }
 
-      // Uniform-full-chunk path: parallel fan-out, in-order emission. The
-      // remaining ranges run in WINDOWS of CONCURRENCY — a window issues its
-      // slices, emits as each lands (strictly in order), and only when the
-      // WHOLE window has settled do we check whether EOF has been declared and
-      // launch the next window. Emitting per-settle keeps progress flowing
-      // (hls.js appends each slice as it arrives), while windowing keeps the
-      // total number of range requests bounded — a refill-on-every-settle pump
-      // would chase completions with a fresh request each time a slot frees and
-      // overshoot the tail before the EOF marker comes back.
+      // Uniform-full-chunk path: parallel fan-out, in-order emission. The remaining
+      // ranges run in WINDOWS of CONCURRENCY: a window issues its slices, emits each
+      // in order, and launches the next window only once the whole window has settled
+      // (bounded request count — pumping per settle overshoots the tail before the
+      // EOF marker lands) while hls.js still appends slices as they arrive.
       const CONCURRENCY = 4;
       const emitted = [first.buf]; // parts 0..N handed to hls.js in order
       const parts = new Map(); // index -> bytes (1-based; index sits at stride*slice)
@@ -732,14 +680,14 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath } = 
           if (!more) {
             eofIndex = Math.max(eofIndex, idx);
           } else if (buf.length === 0 || buf.length < slice) {
-            // Short slice that still claims "more": the guessed strides are
-            // desynced (relay caps at slice, so a mid-file short slice means we
-            // can't trust offsets) — treat it as the tail.
+            // Short slice that still claims "more": the guessed strides are desynced (relay
+            // caps at slice, so a mid-file short slice means we can't trust offsets) — treat
+            // it as the tail.
             eofIndex = Math.max(eofIndex, idx);
           }
         } catch {
-          // Watchdog/abort settles the load; a lost slice surfaces through the
-          // load-level timeout/failover path rather than hanging this promise.
+          // Watchdog/abort settles the load; a lost slice surfaces through the load-level
+          // timeout/failover path rather than hanging this promise.
           if (this.aborted) return;
           eofIndex = Math.max(eofIndex, idx);
         } finally {

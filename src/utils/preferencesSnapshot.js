@@ -1,10 +1,8 @@
-// src/utils/preferencesSnapshot.js — bridge between the cloud-sync layer and
-// the settings engine without importing the React context (AuthContext must
-// stay import-safe from tests and non-React modules).
-//
-// Snapshot: reads every `setting-*` key that the Preferences engine owns.
-// Apply: writes ONLY keys the device has never set locally, so a second
-// device's defaults can never clobber this device's explicit choices.
+// src/utils/preferencesSnapshot.js — bridge between the cloud-sync layer and the
+// settings engine without importing the React context (AuthContext must stay
+// import-safe from tests and non-React modules). Snapshot: reads every `setting-*`
+// key the Preferences engine owns. Apply: writes ONLY keys this device has never
+// set locally, so a second device's defaults can never clobber local choices.
 
 import { DEFAULT_PREFERENCES } from '../context/preferences';
 import { logDebug } from './debugLogger';
@@ -31,10 +29,8 @@ export function readPreferencesSnapshot() {
   return snapshot;
 }
 
-/**
- * Fill in preferences that this device has never touched. Returns the list of
- * keys applied so the caller can log/toast. Never overwrites a local choice.
- */
+/** Fill in preferences this device has never touched. Returns the applied keys so
+    the caller can log/toast. Never overwrites a local choice. */
 export function applyRemotePreferences(remote = {}) {
   const applied = [];
   for (const [key, value] of Object.entries(remote)) {

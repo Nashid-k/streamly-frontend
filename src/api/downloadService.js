@@ -1,32 +1,20 @@
 // src/api/downloadService.js — client half of the browser-only download flow.
+//   1. resolveVidsrc / resolveVidcore  -> HLS ladder (both serverless, same shape)
+//   2. buildManifest(source, variant) -> concrete segment URL list
+//   3. saveStream(...)                -> bounded Range chunks written to disk
 //
-// Flow (all through the stateless /api/downloadify Vercel function):
-//   1. resolveVidsrc({type,id,season?,episode?}) -> VidSrc (Alt) HLS ladder
-//      resolveVidcore({type,id,season?,episode?}) -> VidCore (Server 5) ladder.
-//      Both are fully serverless — their catalogues list direct HLS ladders
-//      (incl. 4K) — and return the same shape so the modal can fan out over
-//      either source.
-//   2. buildManifest(source, variant)          -> concrete segment URL list
-//   3. saveStream(...)                    -> fetch segments in bounded Range
-//                                            chunks and write them to disk
+// Byte transport: Vercel caps a function response at 4.5MB, so segments are
+// pulled ONE at a time as <= ~3.5MB Range chunks, with the server's
+// x-streamly-more header saying when the piece ended. A CDN that supports CORS +
+// Range is pulled DIRECTLY (zero serverless bandwidth); everything else rides
+// the relay, preferring the Cloudflare worker (relayProxy.js) when
+// VITE_STREAMLY_RELAY_URL is set — whole segment per request, no 4.5MB cap, no
+// Vercel egress — and falling back to /api/downloadify.
 //
-// Byte transport changed for a reason: Vercel caps a function's response at
-// 4.5MB, so the old "batch N segments in one POST" design crashed with 413 on
-// the first 1080p movie. Segments are now pulled ONE at a time, each as a
-// sequence of ≤ ~3.5MB Range chunks; the server's `x-streamly-more` header
-// tells us when the piece ended. Where a CDN honestly supports CORS + Range
-// the browser downloads those segments DIRECTLY (zero serverless bandwidth);
-// everything else rides the relay. Both paths go to the same writable.
-// When VITE_STREAMLY_RELAY_URL points at the Cloudflare worker (see
-// relayProxy.js) those relayed bytes go through it FIRST — a whole segment can
-// arrive in one request (no 4.5MB cap) with zero Vercel Hobby egress — and
-// fall back to /api/downloadify automatically.
-//
-// Saving mirrors a normal browser download: where the File System Access API
-// exists we write each chunk straight to the chosen file (so a 2 GB movie
-// never lives in RAM); otherwise we assemble a Blob and click an <a download>.
-// Cancellation is an AbortController; a PauseController (below) pauses the
-// fetch loops without killing the save; progress is segment-count based.
+// Saving mirrors a browser download: File System Access API writes each chunk
+// straight to the chosen file (a 2GB movie never lives in RAM), else we assemble
+// a Blob and click an <a download>. Cancel is an AbortController; the
+// PauseController below pauses the loops without killing the save.
 
 import {
   KIND_FMP4,
@@ -53,12 +41,11 @@ export class DownloadUnavailableError extends Error {
   }
 }
 
-/* Pause gate shared by the download modal and the /downloads page. One
-   instance rides each download: the page's Pause/Resume buttons flip the
-   gate, and saveStream's fetch loops await waitIfPaused() between network
-   requests — so a pause stops pulling bytes without burying the file or
-   losing what's on disk. Aborts still interrupt a paused gate (the wait
-   races against the signal), so Cancel always lands, even mid-pause. */
+/* Pause gate shared by the download modal and the /downloads page: one instance
+   rides each download, and saveStream's fetch loops await waitIfPaused() between
+   requests — so a pause stops pulling bytes without losing what is on disk.
+   Aborts interrupt a paused gate too (the wait races the signal), so Cancel
+   always lands. */
 export function createPauseController() {
   let paused = false;
   let release = null;
@@ -97,20 +84,18 @@ export function createPauseController() {
   };
 }
 
-/* Raw transport (segment bytes, playlist text) relay. Proxy-first when
-   configured, /api/downloadify as the automatic fallback — and re-sliced at
-   CHUNK_MAX for the Vercel leg so its 4.5MB body cap is never breached mid-file
-   (the proxy's own slice can be a whole segment). Non-transport actions never
-   reach here; resolution/manifest JSON still needs the serverless function
-   (it parses upstreams — the proxy is a dumb pipe). */
+/* Raw transport (segment bytes, playlist text) relay: proxy-first when
+   configured, /api/downloadify as the automatic fallback, and re-sliced at
+   CHUNK_MAX so the Vercel leg's 4.5MB cap is never breached mid-file.
+   Resolution/manifest JSON never reaches here — the proxy cannot parse
+   upstreams, only pipe bytes. */
 async function fetchTransport(body, { signal }) {
   const proxy = relayProxyConfig();
   const candidates = proxy ? [proxy, null] : [null];
   const isSegment = body.action === "segment";
   const start = Math.max(0, Math.floor(Number(body.range?.start) || 0));
-  // An upgraded worker forwards ?referer= upstream, which is what lets it
-  // serve referer-gated CDNs (VidCore's moon.quietridge.top / palehive.top)
-  // instead of 403ing and falling back to the Vercel function on every byte.
+  // An upgraded worker forwards ?referer= upstream, so it can serve referer-gated
+  // CDNs instead of 403ing and falling back to Vercel on every byte.
   const referer = body.refUrl ? String(body.refUrl) : "";
   for (let index = 0; index < candidates.length; index += 1) {
     const cfg = candidates[index];
@@ -169,10 +154,8 @@ async function post(body, { signal, as = "json" } = {}) {
 
   if (as === "buffer") {
     if (!response.ok) {
-      // The relay returns 502 { ok:false, code:"segment-fetch-failed" } when the
-      // upstream refused a segment. Surface the server's real code instead of a
-      // generic "http" so saveStream can tell a real upstream refusal apart
-      // from a transient blip.
+      // A 502 {ok:false, code:"segment-fetch-failed"} means the upstream refused the
+      // segment — keep the server's real code so saveStream can tell that from a blip.
       let code = "http";
       let message = `Segment request failed (${response.status}).`;
       try {
@@ -196,9 +179,8 @@ async function post(body, { signal, as = "json" } = {}) {
   }
 
   if (as === "text") {
-    // Raw-text actions (e.g. `playlist` for native HLS playback): the body is
-    // the upstream text, not JSON. Non-OK answers are still the relay's JSON
-    // error envelope, so parse those for the real code/message like above.
+    // Raw-text actions (`playlist`): the body is upstream text, not JSON, but a
+    // non-OK answer is still the relay's JSON error envelope — parse it as above.
     if (!response.ok) {
       let code = "http";
       let message = `Request failed (${response.status}).`;
@@ -233,15 +215,12 @@ async function post(body, { signal, as = "json" } = {}) {
   return json;
 }
 
-/* Direct-CORS probe: can the browser honestly read this CDN's bytes?
-   Returns { ok, total } where total comes from a Range 0-0 content-range.
-   We only go direct when the CDN both allows cross-origin reads AND answers
-   Range headers — anything else falls through to the relay. */
+/* Direct-CORS probe: Range 0-0 must return a readable allow-origin AND a
+   content-range (whose total seeds progress). Anything else falls to the relay. */
 async function probeDirect(url, { signal }) {
-  // Referer-gated CDNs (VidCore's moon.quietridge.top / palehive.top /
-  // grandpearl.top / wisehive.top family) 403 a bare browser probe on sight,
-  // and a burst of such probes trips their WAF — skip the probe entirely so
-  // every byte of these origins goes through the referer-carrying relay.
+  // Referer-gated CDNs 403 a bare browser probe on sight and probe bursts trip
+  // their WAF, so skip the probe and let every byte of those origins ride the
+  // referer-carrying relay.
   if (isRefererGated(url)) return { ok: false, total: 0 };
   try {
     const res = await fetch(url, { headers: { range: "bytes=0-0" }, signal });
@@ -282,10 +261,9 @@ export const downloadService = {
     return this.normalizeResolved(data);
   },
 
-  /** Resolve the VidSrc (Alt) provider — the only third-party provider the
-      downloader scrapes server-side (action "resolvevidsrc"). `type` is
-      "movie" | "tv"; `season`/`episode` only matter for TV and both default
-      to whatever VidSrc serves when omitted. */
+  /** Resolve the VidSrc (Alt) provider (action "resolvevidsrc") — the only
+      third-party provider the downloader scrapes server-side. `season`/`episode`
+      only matter for TV and default to whatever VidSrc serves. */
   async resolveVidsrc({ type, id, season, episode }, { signal } = {}) {
     const kind = type === "tv" ? "tv" : "movie";
     const body = { action: "resolvevidsrc", type: kind, id: String(id || "") };
@@ -305,9 +283,8 @@ export const downloadService = {
     return resolved;
   },
 
-  /** Resolve the VidCore provider (Server 5 — action "resolvevidcore"). Same
-      contract as resolveVidsrc, and equally serverless: vidcore.org's sources
-      catalogue serves direct HLS ladders (incl. 4K) with no browser required. */
+  /** Resolve the VidCore provider (Server 5, action "resolvevidcore"); same
+      contract as resolveVidsrc. */
   async resolveVidcore({ type, id, season, episode }, { signal } = {}) {
     const kind = type === "tv" ? "tv" : "movie";
     const body = { action: "resolvevidcore", type: kind, id: String(id || "") };
@@ -327,10 +304,9 @@ export const downloadService = {
     return resolved;
   },
 
-  /** Fetch a raw m3u8 playlist through the relay (server supplies the owning
-      player's referer, which a browser fetch cannot send). Used by native HLS
-      playback: the MSE player parses levels/audio groups itself from the text.
-      Throws DownloadUnavailableError with the relay's real code on failure. */
+  /** Fetch a raw m3u8 through the relay — the server supplies the owning player's
+      referer, which a browser fetch cannot send. Throws DownloadUnavailableError
+      with the relay's real code. */
   async fetchPlaylistText(playlistUrl, refUrl, { signal } = {}) {
     const text = await post({ action: "playlist", playlistUrl, refUrl }, { signal, as: "text" });
     logDebug("download", `Relayed playlist text (${text.length} chars).`, { playlistUrl });
@@ -355,10 +331,9 @@ export const downloadService = {
   },
 
   /**
-   * Open the native Save-As picker. MUST be called synchronously from the
-   * click handler (browsers drop user activation across awaits) — returns a
-   * writable stream, or null when the API/gesture isn't available.
-   * Throws an AbortError if the viewer cancels the picker.
+   * Open the native Save-As picker. MUST be called synchronously from the click
+   * handler (browsers drop user activation across awaits). Null when the API or
+   * gesture is unavailable; AbortError when the viewer cancels.
    */
   async pickSaveTarget(filename) {
     if (typeof window === "undefined" || !window.showSaveFilePicker) return null;
@@ -384,15 +359,12 @@ export const downloadService = {
     source,
     baseName,
     writable = null,
-    // "browser" forces the in-memory <a download> path (lands in the browser's
-    // own download list) even when a writable is available — used by the modal's
-    // "Save to browser Downloads" toggle.
+    // "browser" forces the in-memory <a download> path even when a writable exists
+    // — the modal's "Save to browser Downloads" toggle.
     mode,
     onProgress,
-    // Estimated total byte size (bandwidth × duration). When provided, progress
-    // `ratio` is derived from bytes / totalBytes so the bar and the "x / y MB"
-    // readout move together in REAL time instead of snapping one segment at a
-    // time (a whole-file stream would otherwise sit at 0% until it finished).
+    // Estimated total (bandwidth × duration) so progress `ratio` runs off
+    // bytes / totalBytes in real time instead of snapping one segment at a time.
     totalBytes: targetBytes = 0,
     signal,
     pause,
@@ -415,13 +387,10 @@ export const downloadService = {
     }
     let bytes = 0;
 
-    // Real throughput is measured where bytes ARRIVE from the network (each
-    // chunk a segment fetch yields), NOT where they're flushed to disk. With
-    // SEGMENT_CONCURRENCY segments in flight, a whole buffer window can be
-    // written in a few milliseconds — a delta between _write_ events reads
-    // like RAM/disk speed (tens of MB/s), while the connection was actually
-    // feeding that buffer over seconds at a normal rate. Sample arrival time
-    // and bytes, then report the windowed rate (a download-manager average).
+    // Throughput is measured where bytes ARRIVE, not where they are flushed: with
+    // SEGMENT_CONCURRENCY in flight a whole window can be written in milliseconds,
+    // so a delta between _write events reads like RAM speed while the connection
+    // fed that buffer over seconds. Sample arrival time + bytes.
     const RATE_WINDOW_MS = 3000;
     let received = 0;
     const rateSamples = [];
@@ -465,12 +434,9 @@ export const downloadService = {
       kickProgress();
     };
 
-    // Live byte-level progress. Segment-boundary report() below is precise but
-    // sparse (a whole-file faststart stream calls it ONCE at the end; a slow
-    // connection sits inside one segment for many seconds), and the %/bytes UI
-    // read those updates — so without this the "x / y MB" counter froze for
-    // 5-10s at a time while the speed number (a windowed network average)
-    // looked perfectly alive. This throttled reporter fills those gaps.
+    // Live byte-level progress: the segment-boundary report() below is precise but
+    // sparse (a whole-file stream calls it ONCE at the end), so this throttled
+    // reporter is what keeps the "x / y MB" counter moving.
     const PROGRESS_TICK_MS = 250;
     let progressTimer = null;
     let lastDone = 0;
@@ -517,9 +483,8 @@ export const downloadService = {
       });
     };
 
-    /* Relay: Range-chunked stream of one segment through /api/downloadify,
-       stopping when the server's x-streamly-more header says the file ended.
-       Each fetched chunk is handed to `onChunk`. */
+    /* Relay one segment as Range chunks, stopping when the server's x-streamly-more
+       header says the file ended; each chunk is handed to `onChunk`. */
     const relayRange = async (url, onChunk) => {
       let start = 0;
       for (;;) {
@@ -541,11 +506,9 @@ export const downloadService = {
       }
     };
 
-    /* Direct: the CDN allowed CORS + Range, so pull the segment straight from
-       the browser (one request, no relay hop). Any hiccup drops us back to the
-       relay for the REST of the file (bytes already written stay exactly where
-       they belong). The probe is done per-origin and cached — resolved CDN
-       capabilities don't flip between segments of the same stream. */
+    /* Direct: the CDN allowed CORS + Range, so one request, no relay hop. Any
+       hiccup drops back to the relay for the REST of the file (bytes already
+       written stay where they are). The probe is per-origin and cached. */
     const probeCache = new Map();
     let directEnabled = true;
     const fetchSegmentDirect = async (url, onChunk) => {
@@ -576,12 +539,11 @@ export const downloadService = {
       await onChunk(chunk);
     };
 
-    /* Fetch one whole segment and emit its chunks (direct in a single
-       request, else relayed in 3.5MB Range chunk). `emit` is optional: when
-       omitted the chunks are collected and returned; when provided (single
-       whole-file segments — see manifest.direct) they stream straight to the
-       writer so a long movie never sits in RAM. Pure — never touches the
-       shared writer — so many of these can run concurrently. */
+    /* Fetch one whole segment and emit its chunks (direct in a single request, else
+       relayed in 3.5MB Range chunks). `emit` is optional: when provided (single
+       whole-file segments) they stream straight to the writer so a long movie never
+       sits in RAM; when omitted they are collected and returned. Pure — never
+       touches the shared writer — so many can run concurrently. */
     const fetchSegmentBytes = async (index, emit = null) => {
       const url = liveSegments[index];
       if (!url) throw new DownloadUnavailableError("Server offered no stream.", "no-source");
@@ -631,12 +593,10 @@ export const downloadService = {
         await fetchSegmentBytes(0, write);
         report(1);
       } else {
-        /* Segment writes to a single file MUST be in order, but the network
-           fetches can overlap. Keep a small window of concurrent fetches; each
-           result is buffered and flushed to the writer only when its turn comes
-           (an out-of-order segment is held until the one before it lands). This
-           turns a round-trip-bound pipeline into one that uses all the bandwidth
-           the connection offers. */
+        /* Segment writes to one file MUST be in order but the fetches can overlap:
+           buffer each result and flush only when its turn comes (an out-of-order
+           segment waits for the one before it), which turns a round-trip-bound
+           pipeline into one that uses the connection's full bandwidth. */
         const SEGMENTS = liveSegments.length;
         let nextToFetch = 0;
         let nextToWrite = 0;
@@ -719,7 +679,7 @@ export const downloadService = {
   },
 };
 
-export function triggerBlobDownload(blob, filename) {
+function triggerBlobDownload(blob, filename) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;

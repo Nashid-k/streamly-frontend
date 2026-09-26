@@ -2,8 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useIsFetching, useIsMutating } from "@tanstack/react-query";
 
 /**
- * Universal Loader — redesigned with smoother dual-ring spinner,
- * context-aware colors, and better visual feedback.
+ * Universal Loader — smoother dual-ring spinner with context-aware colors.
  *
  * Variants:
  * - 'page': Full-page centered spinner for Suspense/loading states

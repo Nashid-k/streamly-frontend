@@ -2,11 +2,11 @@
 // Pure string/math helpers — no DOM, no fetch — so they unit-test cleanly
 // in jsdom and can run inside the Vercel function too.
 
-export const KIND_TS = "ts";
+const KIND_TS = "ts";
 export const KIND_FMP4 = "fmp4";
 
 // Resolve a possibly-relative URI against the playlist's base URL.
-export function resolveUrl(base, ref) {
+function resolveUrl(base, ref) {
   if (!base) return ref;
   try {
     return new URL(ref, base).toString();
@@ -17,7 +17,7 @@ export function resolveUrl(base, ref) {
 
 /* Parse EXT-X-STREAM-INF attributes into a key/value map.
    "BANDWIDTH=3060000,RESOLUTION=1920x1080,CODECS=\"avc1.640028,mp4a.40.2\"" */
-export function parseAttr(line) {
+function parseAttr(line) {
   const out = {};
   // Match key="value" OR key=value, separated by commas (values can contain
   // commas, so split on the attr boundary instead of naively on ",").
@@ -30,12 +30,11 @@ export function parseAttr(line) {
 }
 
 /* Cosmetics heuristic for HDR. Airtight detection needs the VVC/HEVC
-   profile+10-bit signals in CODECS; video-range metadata is only partially
-   surfaced in playlists. We treat these as HDR-capable:
-   · Dolby Vision start codes (dvh1/dvhe)
-   · HEVC codec strings carrying a 10-bit tier/profile suffix (.10 / L93.B0)
-   · explicit hdr10/pq markers in the name
-   Everything else (avc1/vp9 8-bit/av01 without markers) reads as SDR. */
+   profile+10-bit signals in CODECS and video-range metadata is only partially
+   surfaced in playlists, so we treat Dolby Vision start codes (dvh1/dvhe), HEVC
+   strings carrying a 10-bit tier/profile suffix (.10 / L93.B0) and explicit
+   hdr10/pq markers as HDR-capable. Everything else (avc1/vp9 8-bit, av01 without
+   markers) reads as SDR. */
 export function isHdrCodecs(codecs = "") {
   const c = codecs.trim();
   if (!c) return false;
@@ -150,13 +149,11 @@ export function parseMediaPlaylist(text, baseUrl) {
   return { kind, initUrl, segments, duration, count: segments.length };
 }
 
-/* EXT-X-MEDIA audio renditions (RFC 8216 §4.3.4.1) from a master playlist.
-   Some providers keep audio as a SEPARATE stream from the video renditions —
-   the master's STREAM-INF rows point only at video, and each audio group has
-   its own media playlist + init + fragments. `default`/`autoselect` follow
-   the HLS spec (DEFAULT/YES, AUTOSELECT/YES, ALLOWED-CAPTIONS ignored).
-   No production caller left: the downloader is video-only since the muxing
-   provider was removed; kept as a tested pure parser. */
+/* EXT-X-MEDIA audio renditions (RFC 8216 §4.3.4.1) from a master playlist. Some
+   providers keep audio as a SEPARATE stream whose own media playlist + init +
+   fragments the master's STREAM-INF rows never point at; `default`/`autoselect`
+   follow the HLS spec. No production caller left (the downloader is video-only
+   since the muxing provider was removed) — kept as a tested pure parser. */
 export function parseAudioGroups(text, baseUrl) {
   const lines = String(text || "").split(/\r?\n/);
   const out = [];

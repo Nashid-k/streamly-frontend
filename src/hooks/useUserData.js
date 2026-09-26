@@ -60,10 +60,9 @@ function splitTombstones(list) {
 }
 
 export function useMyList() {
-  // State retains tombstones (so cloud/cross-tab merges can't resurrect a
-  // removed title); the EXPOSED list filters them out. Mirror of the
-  // useMyCollections pattern — removals write { id, deletedAt } markers, and
-  // mergeListsById prunes them after the 30-day window.
+    // State retains tombstones (so cloud/cross-tab merges can't resurrect a
+    // removed title) while the EXPOSED list filters them out. Removals write
+    // { id, deletedAt } markers and mergeListsById prunes them after 30 days.
   const [myListState, setMyListState] = useState(() => readStorage('aios_my_list'));
 
   useEffect(() => {
@@ -88,9 +87,9 @@ export function useMyList() {
     if (!movie?.id) return;
     const prev = myListRef.current;
     const exists = prev.some(m => m.id === movie.id && m.deletedAt === undefined);
-    // updatedAt drives timestamp-aware cloud merges (src/utils/mergeRemote.js).
-    // A removal becomes a tombstone (delete-on-every-device); a re-add drops
-    // the stale tombstone and writes a fresh live copy.
+        // updatedAt drives timestamp-aware cloud merges (src/utils/mergeRemote.js);
+        // a removal becomes a tombstone (delete on every device) and a re-add drops
+        // the stale tombstone for a fresh live copy.
     const next = exists
       ? prev.map(m => (m.id === movie.id ? { ...m, deletedAt: Date.now(), updatedAt: Date.now() } : m))
       : [...prev.filter(m => m.id !== movie.id), { ...movie, updatedAt: Date.now() }];
@@ -121,11 +120,10 @@ export function useMyList() {
   return { myList, toggleMyList, removeBatchFromMyList, isInList };
 }
 
-/* User-created collections — named folders that group saved titles.
-   Persisted under aios_my_collections, cross-tab via aios_sync_collections.
-   itemIds reference aios_my_list ids so a collection never duplicates a
-   title's full payload. Collections ride the same cloud payload as the
-   watchlist when signed in (src/context/AuthContext.jsx). */
+/* User-created collections — named folders grouping saved titles. Persisted under
+   aios_my_collections, cross-tab via aios_sync_collections; itemIds reference
+   aios_my_list ids so a collection never duplicates a title's payload. They ride
+   the same cloud payload as the watchlist (src/context/AuthContext.jsx). */
 const COLLECTIONS_KEY = 'aios_my_collections';
 const COLLECTIONS_SYNC = 'aios_sync_collections';
 
@@ -136,10 +134,9 @@ function makeCollectionId() {
 // morphCollections + makePublicId live in ./collectionMorph (shared with the
 // cloud-sync layer so uploads always carry the normalized v2 shape).
 
-/* Merge freshly-read storage into the current state using the same
-   timestamp-aware rules as the cloud merge, so a second tab's writes are no
-   longer clobbered (the old `setX(readStorage(key))` was blind last-write-
-   wins on the WHOLE array and silently dropped the other tab's updates). */
+/* Merge freshly-read storage into current state with the same timestamp-aware
+   rules as the cloud merge, so a second tab's writes are not clobbered (the old
+   blind setX(readStorage(key)) silently dropped them). */
 function mergeStoredCollections(current, incoming) {
   const merged = mergeListsById(current, morphCollections(incoming), {
     pruneTombstonesMs: TOMBSTONE_TTL_MS,
@@ -214,9 +211,8 @@ export function useMyCollections() {
     );
   }, [commitCollections]);
 
-  /* Delete keeps a 30-day tombstone so the deletion survives cloud +
-     cross-tab merges (old devices re-uploading a stale copy can no longer
-     resurrect it). The card UI filters tombstones out of view. */
+    /* Delete keeps a 30-day tombstone so it survives cloud + cross-tab merges (a
+       stale re-upload can no longer resurrect it). The card UI filters them out. */
   const deleteCollection = useCallback((id) => {
     const target = collectionsRef.current.find((c) => c.id === id);
     if (!target) return;
@@ -300,10 +296,9 @@ export function useMyCollections() {
 }
 
 export function useContinueWatching() {
-  // Raw state includes tombstones; the exposed list filters them out (same
-  // contract as useMyCollections / the new useMyList). The 20-title cap only
-  // applies to LIVE entries, so a delete marker is never sliced away (a
-  // sliced tombstone would resurrect the title on the next cloud pull).
+    // Raw state includes tombstones; the exposed list filters them out. The
+    // 20-title cap applies to LIVE entries only, so a delete marker is never sliced
+    // away (a sliced tombstone resurrects the title on the next cloud pull).
   const [cwState, setCwState] = useState(() => readStorage('aios_continue_watching'));
 
   const sortByLastWatched = useCallback((a, b) => toMillis(b.lastWatched) - toMillis(a.lastWatched), []);

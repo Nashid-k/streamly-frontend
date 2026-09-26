@@ -67,11 +67,10 @@ export default function SettingsPage() {
   const [showSignInModal, setShowSignInModal] = useState(false);
   const [signInTab, setSignInTab] = useState("signin");
 
-  // Auth / Accounts state — the context is the SINGLE source of truth for the
-  // profile. This page previously kept a shadow `localUser` copy in useState
-  // and double-wrote streamly_user with different defaults (user@streamly.io,
-  // no picture) than AuthContext (viewer@streamly.io, picture:""), so context
-  // state and storage diverged until reload.
+    // Auth state comes from the context as the SINGLE source of truth. This page
+    // used to keep a shadow `localUser` in useState and double-write
+    // streamly_user with different defaults, so context and storage diverged
+    // until reload.
   const auth = useAppAuth();
   const user = auth?.user;
   const { syncStatus, lastSyncedAt } = useSyncStatus();
@@ -128,9 +127,8 @@ export default function SettingsPage() {
     [defaultLanguage],
   );
 
-  // Dropdown plumbing. Each trigger gets its own wrapper + trigger ref so an
-  // outside click only closes that menu, and only one menu can be open at a
-  // time (the shared state is a single name, not three booleans).
+    // Each trigger gets its own wrapper + trigger ref so an outside click closes
+    // only that menu, and the shared state is a single name, not three booleans.
   const sectionsTopRef = useRef(null);
   const themeWrapRef = useRef(null);
   const seekWrapRef = useRef(null);
@@ -190,9 +188,9 @@ export default function SettingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openDropdown]);
 
-  // Roving focus inside an open menu: Up/Down/Home/End move between options,
-  // Escape closes and restores the trigger. Enter/Space activate the focused
-  // <button> natively.
+    // Roving focus inside an open menu: Up/Down/Home/End move between options,
+    // Escape closes and restores the trigger. Enter/Space activate the focused
+    // <button> natively.
   const handleMenuKeyDown = (e) => {
     const panel = e.currentTarget;
     if (e.key === "Escape") {
@@ -216,9 +214,8 @@ export default function SettingsPage() {
     options[next]?.focus();
   };
 
-  // Lock body scroll while the sign-in modal is open, move focus into the
-  // panel, trap Tab inside it, allow Escape to dismiss, and return focus to
-  // the element that opened it on close.
+    // Sign-in modal: lock body scroll, move focus into the panel, trap Tab inside
+    // it, allow Escape to dismiss, and return focus to the opener on close.
   const anyModalOpen = showSignInModal;
   useEffect(() => {
     if (!anyModalOpen) return undefined;
@@ -277,11 +274,10 @@ export default function SettingsPage() {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "?", shiftKey: true }));
   };
 
-  // Tabs are filters: "All" shows every section, any other tab isolates one.
-  // The active tab lives in the URL (?tab=servers) so it survives refresh and
-  // is shareable. After switching, bring the sections list into view —
-  // honouring the Reduce Motion preference, which the plain CSS media query
-  // can't see.
+    // Tabs are filters: "All" shows every section, any other tab isolates one. The
+    // active tab lives in the URL (?tab=servers) so it survives refresh and is
+    // shareable; after switching we bring the sections list into view, honouring
+    // the Reduce Motion preference the CSS media query cannot see.
   const handleTabClick = (tabId) => {
     setActiveTab(tabId);
     setSearchParams({ tab: tabId }, { replace: true });
@@ -304,9 +300,9 @@ export default function SettingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  // Server reordering — drag-and-drop (mouse + touch via Reorder) and
-  // keyboard (ArrowUp/ArrowDown on a focused row) land here. The order is
-  // the single source of truth for TitleDetails + CustomVideoPlayer.
+    // Server reordering — drag-and-drop (mouse + touch via Reorder) and keyboard
+    // (ArrowUp/ArrowDown on a focused row) land here. The order is the single
+    // source of truth for TitleDetails + the player.
   const serverList = Array.isArray(serverOrder) && serverOrder.length > 0
     ? serverOrder
     : DEFAULT_SERVER_ORDER;
@@ -373,10 +369,9 @@ export default function SettingsPage() {
     });
   };
 
-  // A section shows when the active tab selects it ("All" shows everything)
-  // AND the search query matches its data-driven index. The Reset card keeps
-  // its Account/All placement but joins search and the empty state so the
-  // page never shows "no matches" next to a visible card.
+    // A section shows when the active tab selects it ("All" shows everything) AND
+    // the search query matches its data-driven index. The Reset card keeps its
+    // Account/All placement but joins search and the empty state.
   const matchesSearch = (id) => {
     if (!q) return true;
     const haystack = (SECTION_SEARCH_TERMS[id] || "").toLowerCase();
