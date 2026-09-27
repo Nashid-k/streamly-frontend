@@ -377,27 +377,33 @@ installable APK. Full docs: [`mobile/README.md`](mobile/README.md) · architectu
 [`architecture.md` §5](architecture.md).
 
 ```bash
+npm run smoke:mobile      # live contract test: catalogue + resolver + playback bytes
 cd mobile
 npm install
-cp .env.example .env     # EXPO_PUBLIC_TMDB_API_KEY (or _TMDB_PROXY) + EXPO_PUBLIC_API_BASE
 npm run typecheck        # the app's compile gate (no test runner in mobile/)
 npm run apk              # → android/app/build/outputs/apk/release/app-release.apk
 ```
+
+**No `.env` is needed.** The APK ships pointed at the deployed origin, so
+installing it is the whole onboarding: the catalogue comes from the site's
+keyless `/api/tmdb` proxy (which injects the TMDB key server-side, so no
+credential is in the binary) and playback from `/api/downloadify`. `mobile/.env`
+exists only for forks and self-hosted copies.
 
 | | |
 |---|---|
 | Identity | `com.streamly.app`, label `Streamly`, minSdk 24 / targetSdk 36, `arm64-v8a` |
 | Stack | Expo SDK 54 · RN 0.81.5 · React 19.1 · Hermes · TypeScript strict |
-| Screens | Home · Search · Details (seasons/episodes) · Player · Library |
+| Screens | Home · Search · Details (seasons/episodes) · Player · Library · Settings |
 | Player | ExoPlayer (`react-native-video`) — **no iframe** |
-| Playback | `/api/downloadify` (deployed) → Cloudflare relay → rewritten local `.m3u8` → `file://` |
+| Playback | `/api/downloadify` → `pickSmooth` ≤1080p → direct + `Referer` (relay rewrite as fallback) |
 | State | AsyncStorage under `streamly.mobile.*` |
 
 The app is a real client, not a WebView: it calls TMDB over its own HTTP stack,
-keeps the same `normalizeResult` contract, and reuses the deployed resolver and
-the project's Cloudflare worker. `android/` is generated — edit `app.json`, then
-`npm run prebuild:android`. A `assembleRelease` on a 4-core / 8 GB laptop takes
-~25 min with the committed Gradle tuning (one ABI, no daemon, capped heap).
+keeps the same `normalizeResult` contract, and reuses the deployed resolver.
+`android/` is generated — edit `app.json`, then `npm run prebuild:android`. A
+`assembleRelease` on a 4-core / 8 GB laptop takes ~25 min cold and ~2 min
+incremental with the committed Gradle tuning (one ABI, no daemon, capped heap).
 
 ---
 

@@ -26,84 +26,95 @@ RN and keeps the **data contract and the resolver** shared with the web build.
 | Details | `src/screens/DetailsScreen.tsx` | backdrop hero, rating/runtime/genre, My List toggle, cast, season chips + episode list with airdates |
 | Player | `src/screens/PlayerScreen.tsx` | resolves a stream, plays it in ExoPlayer full-screen (landscape unlocked), saves progress |
 | Library | `src/screens/LibraryScreen.tsx` | Continue Watching (with progress bars) + My List, both on-device |
-| Settings | `src/screens/SettingsScreen.tsx` | TMDB key / proxy / deployed-URL entry, connection test, diagnostics |
+| Settings | `src/screens/SettingsScreen.tsx` | connection status + diagnostics; *Advanced connection options* holds the optional overrides |
 
 Bottom tabs: Home / Search / Library / Settings. `Details` and `Player` are
 pushed on the root stack (`src/navigation/types.ts` is the param contract).
 
-## Playback pipeline (no iframe, no per-segment headers)
+## Playback pipeline (no iframe)
 
 ```
 resolvePlayback(type, id, season, episode)
-  └─ POST {EXPO_PUBLIC_API_BASE}/api/downloadify   action: resolvevidcore
-       (fallback: resolvevidsrc)                   → { source, variants[] }
-  └─ preparePlaybackSource(variants[0].uri)         src/api/relay.ts
-       1. GET {EXPO_PUBLIC_RELAY_URL}?url=<manifest>   worker injects Referer/UA
-       2. master playlist → pick the best variant ≤ 1080p → recurse (max depth 2)
-       3. rewrite every URI line + EXT-X-KEY/MAP/MEDIA URI="…" to a worker URL
-       4. write the rewritten manifest to FileSystem cache, return file://…
-  └─ <Video source={{ uri: file://… }} />          ExoPlayer (react-native-video)
+  └─ POST {apiBase}/api/downloadify        action: resolvevidcore
+       (fallback: resolvevidsrc)          → { source: {kind,url,refUrl}, variants[] }
+  └─ pickSmooth(variants)                  tallest rendition ≤ 1080p
+  └─ probeDirect(uri, source.refUrl)       src/api/relay.ts — one bounded GET
+       ok → <Video source={{uri, headers:{Referer,User-Agent}}} />   ExoPlayer
+       refused → preparePlaybackSource(uri)  (relay fallback, below)
+            1. GET {relayUrl}?url=<manifest>    worker injects Referer/UA
+            2. master → best variant ≤ 1080p → recurse (max depth 2)
+            3. rewrite every URI line + EXT-X-KEY/MAP/MEDIA URI="…" to a worker URL
+            4. write the rewritten manifest to the FS cache, return file://…
+            → <Video source={{uri: file://…}} />
 ```
 
-Why the rewrite instead of handing ExoPlayer the manifest URL: the resolved
-hosts reject requests without a browser-ish `Referer`/`User-Agent` (and some
-reject a browser `Origin`), and `react-native-video` cannot attach headers to
-every segment ExoPlayer fetches. The local playlist means the player only ever
-talks to the cache file and the worker — the same trick `src/api/nativeHlsLoader.js`
-plays in the browser.
+**Direct first, relay second.** The measured facts (`npm run smoke:mobile` pins
+all of them): a bare fetch of a resolved manifest gets **403**, the same fetch
+with `Referer: https://vidcore.io/` gets a real 188 KB `#EXTM3U`, and the first
+segment then returns **206 with `video/mp4` bytes**. `react-native-video` passes
+`source.headers` into ExoPlayer's data-source factory, so those headers reach the
+manifest *and* every segment and key load — which means no rewriting is needed at
+all on the common path, and the app depends on one less piece of infrastructure.
+The relay rewrite stays as the fallback for hosts that refuse the header approach.
 
-`EXPO_PUBLIC_API_BASE` must point at a **deployed** Streamly Vercel project: the
-resolver (`api/downloadify.js`) scrapes providers server-side and is
-deliberately not bundled into the APK. Without it the catalogue works and
-playback shows an explicit "resolver not configured" state.
+The resolver is deliberately not bundled: `api/downloadify.js` scrapes providers
+server-side. The app therefore needs a reachable deployment, which
+`DEPLOYED_API_BASE` provides — a fork or self-hosted copy overrides it in Settings
+or `.env`.
 
 ## Data layer
 
 - `src/api/tmdb.ts` — TMDB REST client. Proxy-first (`/api/tmdb`, which injects
-  the server-side key), direct `api.themoviedb.org` fallback, 12s timeout,
-  in-flight de-duplication, and a **field-identical `normalizeResult`** to the
-  web build (the frozen contract in `architecture.md` §2).
-- `src/config.ts` — two-layer config resolver (`getConfig()`), env first,
-  on-device settings overriding.
+  the server-side key when the client omits one), direct `api.themoviedb.org`
+  fallback, 12s timeout, in-flight de-duplication, and a **field-identical
+  `normalizeResult`** to the web build (the frozen contract in `architecture.md` §2).
+- `src/config.ts` — `getConfig()`: runtime settings > `EXPO_PUBLIC_*` env >
+  `DEPLOYED_API_BASE`.
 - `src/store/settings.tsx` — runtime settings (AsyncStorage + a module mirror so
   non-React modules can read them synchronously).
-- `src/api/relay.ts` — Cloudflare passthrough + playlist rewrite (above).
+- `src/api/relay.ts` — `probeDirect` + `playbackHeaders` (the primary path) and
+  the Cloudflare playlist rewrite used as the fallback.
 - `src/api/streams.ts` — `resolveVidcore` / `resolveVidsrc` / `resolveBest` /
-  `resolvePlayback` against the deployed resolver.
+  `resolvePlayback` against the deployed resolver, plus `pickSmooth`.
 - `src/store/userData.tsx` — AsyncStorage persistence: `streamly.mobile.myList`,
   `streamly.mobile.continueWatching` (namespaced, because the web
   `aios_*` localStorage keys are frozen for the browser).
 - `src/utils/logger.ts` — every diagnostic is a `[Streamly][scope]` line. On a
   phone the console is `adb logcat`, which is the equivalent of devtools.
 
-## Configuration: two layers, device wins
+## Configuration: pre-wired, with an escape hatch
 
-| Layer | Where | When it applies |
+**There is nothing to configure.** A release APK ships with the deployed Streamly
+origin baked in (`DEPLOYED_API_BASE` in `src/config.ts`), so installing it is the
+whole onboarding:
+
+| Need | Comes from | Why it is safe to bake in |
 |---|---|---|
-| **Runtime** | Settings tab on the phone → AsyncStorage `streamly.mobile.settings` | read at **request** time, highest priority |
-| **Build-time** | `EXPO_PUBLIC_*` in `mobile/.env`, inlined by Metro | the default for a blank field |
+| Catalogue | `<origin>/api/tmdb` | a public read proxy; `api/tmdb.js:78-100` injects `TMDB_API_KEY` **only when the client omits one**, so the app sends no key and the APK contains no credential |
+| Playback | `<origin>/api/downloadify` | the resolver scrapes providers server-side and therefore cannot be bundled at all |
 
-The runtime layer exists because an installed APK has no `.env`: telling someone
-to edit a file on a build machine to make an app show a catalogue is a dead end,
-and a "TMDB is not configured" wall on first launch reads as a broken app. The
-`Settings` screen takes a TMDB read key, a `/api/tmdb` proxy URL, or — the
-single-value shortcut — the deployed Streamly URL, and everything downstream
-(`api/tmdb.ts`, `api/streams.ts`, `api/relay.ts`) calls `getConfig()` per request
-instead of reading module constants. Saving takes effect immediately: Home and
-Search re-query on the config tick, with no restart and no rebuild. A wrong value
-is corrected the same way.
+That is the same trick the website uses — a visitor never sees a key — applied to
+a binary you cannot hand out a `.env` with.
 
-A TMDB key is a public read token (it is already readable inside any web
-bundle), and the `/api/tmdb` proxy is offered first so a user can stay keyless.
+Three layers exist anyway, for forks and self-hosted copies, highest first:
 
-### Env vars (build-time defaults)
+1. **Runtime** — Settings › *Advanced connection options*, AsyncStorage
+   `streamly.mobile.settings`.
+2. **Build-time** — `EXPO_PUBLIC_*` in `mobile/.env` (see `.env.example`).
+3. **Shipped default** — `DEPLOYED_API_BASE`, then `DEFAULT_RELAY_URL`.
 
-| Variable | Required | Purpose |
+`getConfig()` resolves at **request** time, so a change in layer 1 or 2 applies to
+the next call with no restart and no rebuild; Home and Search re-query on the
+config tick.
+
+### Env vars (build-time overrides only)
+
+| Variable | Needed? | Purpose |
 |---|---|---|
-| `EXPO_PUBLIC_TMDB_API_KEY` | one of… | direct TMDB access |
-| `EXPO_PUBLIC_TMDB_PROXY` | …these | keyless alternative (`…/api/tmdb`) |
-| `EXPO_PUBLIC_API_BASE` | for playback | deployed site origin: resolver + TMDB proxy |
-| `EXPO_PUBLIC_RELAY_URL` | no | Cloudflare passthrough (default: the project's worker) |
+| `EXPO_PUBLIC_API_BASE` | no | different deployment origin (resolver + TMDB proxy) |
+| `EXPO_PUBLIC_TMDB_PROXY` | no | different catalogue proxy |
+| `EXPO_PUBLIC_TMDB_API_KEY` | no | bypass the proxy and hit TMDB directly |
+| `EXPO_PUBLIC_RELAY_URL` | no | playback fallback worker |
 | `EXPO_PUBLIC_DEBUG` | no | `1` = also emit `[Streamly]` info logs |
 
 ## Commands
@@ -139,10 +150,19 @@ keystore for a store release.
 
 | Gate | Result |
 |---|---|
+| `npm run smoke:mobile` (repo root) | **13/13** against the live deployment: 6 catalogue paths, the resolver contract, `pickSmooth`, direct-manifest-with-Referer (403 → 200 `#EXTM3U`), first segment 206 `video/mp4` |
 | `npx tsc --noEmit` | clean, 0 errors |
 | `npx expo export --platform android` | bundled, 889 modules |
-| `gradlew assembleRelease` | BUILD SUCCESSFUL, 25m 8s |
+| `gradlew assembleRelease` | BUILD SUCCESSFUL, 25m 8s cold / ~2 min incremental |
 | APK badging | `com.streamly.app` 1.0.0, label `Streamly`, minSdk 24 / targetSdk 36, `arm64-v8a` |
+| `npm run lint` / `npm test` / `npm run build` (web) | 0 errors · 663/663 · OK |
+
+`smoke:mobile` exists because the app's dependencies are **remote contracts**:
+the TMDB proxy injects a key, the resolver returns a `source`/`variants` shape,
+and the source hosts 403 anything without the right `Referer`. Those can all
+change without a line of app code changing, and a silent break would only show up
+as an empty rail or a black player on someone else's phone. It is a network test,
+so run it before blaming the app.
 
 There is **no unit-test runner in `mobile/`** (the web build's vitest suites
 target the DOM). Say so rather than claiming a test pass; the gates above are

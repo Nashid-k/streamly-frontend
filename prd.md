@@ -68,13 +68,18 @@ Shipped as an installable APK, not a WebView wrapper.
   subtitle/audio switching, ratings cluster, genre/category + person pages,
   regional rails, cloud sync and in-player quality switching stay web-only for
   now; the web build remains the full-featured surface.
-- **No bundled resolver.** `api/downloadify.js` scrapes providers server-side
-  and is reached over the deployed site origin; without it the app browses and
-  says so, instead of pretending.
-- **Configurable on the device.** Credentials (TMDB read key, `/api/tmdb` proxy,
-  or the deployed site URL) are entered in the in-app Settings tab and read at
-  request time; build-time `EXPO_PUBLIC_*` env only sets the defaults. A shipped
-  APK must never be a dead end that needs a rebuild to become usable.
+- **No bundled resolver.** `api/downloadify.js` scrapes providers server-side and
+  is reached over the deployed site origin; without it the app browses and says
+  so, instead of pretending.
+- **Pre-wired, not configurable.** A release APK ships with the deployed origin
+  baked in, so installing it is the entire onboarding: the catalogue comes from
+  the site's keyless `/api/tmdb` proxy (no credential in the binary) and playback
+  from `/api/downloadify`. Settings exists only as an escape hatch for forks and
+  self-hosted copies, behind *Advanced*. A consumer app that opens with a "not
+  configured" wall reads as broken, and asking a phone user for a `.env` is a
+  dead end.
+- **Playback goes direct with a Referer**, verified live rather than assumed; the
+  Cloudflare relay playlist rewrite is a fallback, not the main path.
 - Build on modest hardware: one ABI, no Gradle daemon, capped heap — see
   `mobile/README.md` ("Building the APK on a small machine").
 

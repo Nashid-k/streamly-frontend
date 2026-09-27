@@ -53,12 +53,8 @@ export function HomeScreen(_props: Props) {
       <View style={[styles.root, { paddingTop: insets.top }]}>
         <Banner
           tone="error"
-          title="TMDB is not configured"
-          detail={
-            "This build has no catalogue credentials baked in. Open the Settings tab and enter a TMDB " +
-            "read key, your site's /api/tmdb proxy URL, or simply your deployed Streamly URL — the app " +
-            "starts working immediately, with no rebuild."
-          }
+          title="No catalogue source"
+          detail="This build has no Streamly origin to talk to. Reinstall the official APK, or set a deployment URL under Settings › Advanced."
         />
       </View>
     );
@@ -114,7 +110,7 @@ export function HomeScreen(_props: Props) {
         <Banner
           tone="info"
           title="Playback needs a deployed resolver"
-          detail="The app does not bundle the stream resolver. Add your deployed Streamly URL in Settings to play; browsing works without it."
+          detail="The stream resolver lives on the Streamly deployment rather than in the app, so it needs a reachable origin. Browsing works without it."
         />
       ) : null}
     </ScrollView>

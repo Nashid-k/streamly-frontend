@@ -2,16 +2,19 @@
  *
  * The resolvers are NOT bundled into the app: they live in the deployed Vercel
  * project (api/downloadify.js) because they scrape third-party embeds
- * server-side. The app therefore needs EXPO_PUBLIC_API_BASE pointing at that
- * deployment, and calls it exactly like the web build does
+ * server-side. The app therefore talks to that deployment - DEPLOYED_API_BASE in
+ * src/config.ts is baked into the build, so a released APK is usable with no
+ * setup - and calls it exactly like the web build does
  * (src/api/downloadService.js -> resolveVidcore / resolveVidsrc).
  *
- * React Native's fetch has no CORS layer, so cross-origin POSTs to the deployed
- * function are fine. The returned manifest URL is handed to the relay
- * (src/api/relay.ts) which produces a local playlist ExoPlayer can open. */
+ * The returned manifest URL needs a Referer, so it goes to
+ * src/api/relay.ts, which hands ExoPlayer the upstream URL plus that Referer and
+ * keeps the Cloudflare-relay rewrite as a fallback.
+ *
+ * React Native's fetch has no CORS layer, so the cross-origin POST is fine. */
 
 import { getConfig, REQUEST_TIMEOUT_MS } from "../config";
-import { preparePlaybackSource } from "./relay";
+import { playbackHeaders, preparePlaybackSource, probeDirect } from "./relay";
 import { logError, logInfo, logWarn } from "../utils/logger";
 
 const RESOLVE_TIMEOUT_MS = 20_000;
@@ -23,9 +26,11 @@ export interface ResolvedSource {
 
 export interface PlaybackTarget {
   uri: string;
+  headers: Record<string, string>;
   qualityLabel: string;
   resolver: "vidcore" | "vidsrc";
   refUrl: string | null;
+  via: "direct" | "relay";
 }
 
 function label(height: number, bandwidth: number, index: number): string {
@@ -51,8 +56,8 @@ async function post(body: Record<string, unknown>): Promise<any> {
   const { apiBase, hasResolver } = getConfig();
   if (!hasResolver) {
     const err = new Error(
-      "No stream resolver configured. Open Settings and enter your deployed Streamly URL " +
-        "(e.g. https://your-app.vercel.app) - the app calls its /api/downloadify endpoint.",
+      "No stream resolver configured. This build has no Streamly deployment to call - " +
+        "set one under Settings > Advanced (the official APK ships with one).",
     );
     logError("streams", "Refusing to resolve a stream without a deployed resolver.", err, { body });
     throw err;
@@ -138,16 +143,18 @@ export async function resolveVidsrc(
 }
 
 /* Tries VidCore first (primary provider on the web build) and falls back to
- * VidSrc, mirroring the fallback chain in src/components/NativePlayerView.jsx. */
+ * VidSrc, mirroring the fallback chain in src/components/NativePlayerView.jsx.
+ * The winning provider is reported, because a title that only VidSrc can serve is
+ * worth seeing in the log next to a real playback failure. */
 export async function resolveBest(
   type: string,
   id: string,
   season?: number,
   episode?: number,
-): Promise<ResolvedSource> {
+): Promise<ResolvedSource & { provider: "vidcore" | "vidsrc" }> {
   try {
     const primary = await resolveVidcore(type, id, season, episode);
-    if (primary.variants.length) return primary;
+    if (primary.variants.length) return { ...primary, provider: "vidcore" };
     logWarn("streams", "VidCore returned no variants; trying VidSrc.", { type, id, season, episode });
   } catch (error) {
     logWarn("streams", "VidCore failed; trying VidSrc.", {
@@ -158,11 +165,28 @@ export async function resolveBest(
       message: String((error as Error)?.message || error),
     });
   }
-  return resolveVidsrc(type, id, season, episode);
+  return { ...(await resolveVidsrc(type, id, season, episode)), provider: "vidsrc" };
 }
 
-/* Full pipeline: resolve -> pick the highest rendition -> relay it into a local
- * playlist. This is the only entry point the player screen needs. */
+/* Smooth start, same rule as the web build's pickSmooth: the tallest rendition at
+ * or below 1080p. Opening a 2160p variant needs ~16 Mbps sustained and stalls on
+ * ordinary mobile data, which is exactly the "buffering forever" first impression
+ * this app must not have. */
+const SMOOTH_MAX_HEIGHT = 1080;
+
+function pickSmooth(variants: ResolvedSource["variants"]): ResolvedSource["variants"][number] {
+  const atOrBelow = variants.filter((v) => v.height > 0 && v.height <= SMOOTH_MAX_HEIGHT);
+  const pool = atOrBelow.length ? atOrBelow : variants;
+  return pool.reduce((best, v) => {
+    if (!best) return v;
+    if (v.height && best.height) return v.height > best.height ? v : best;
+    return v.bandwidth > best.bandwidth ? v : best;
+  }, pool[0]);
+}
+
+/* Full pipeline: resolve -> smooth start -> direct-with-Referer, falling back to
+ * the relayed local playlist when the direct host refuses. This is the only entry
+ * point the player screen needs. */
 export async function resolvePlayback(
   type: string,
   id: string,
@@ -177,13 +201,42 @@ export async function resolvePlayback(
     logError("streams", "Resolver succeeded but returned zero variants.", err, { type, id, season, episode });
     throw err;
   }
-  const variant = resolved.variants[0];
+
+  const variant = pickSmooth(resolved.variants);
+  const refUrl = resolved.source?.refUrl || null;
+  const headers = playbackHeaders(refUrl);
+  const resolver = resolved.provider;
+
+  if (await probeDirect(variant.uri, refUrl)) {
+    logInfo("streams", "Playing direct from the source host with a Referer.", {
+      type,
+      id,
+      quality: variant.label,
+      hasRefUrl: Boolean(refUrl),
+    });
+    return {
+      uri: variant.uri,
+      headers,
+      qualityLabel: variant.label,
+      resolver,
+      refUrl,
+      via: "direct",
+    };
+  }
+
+  logWarn("streams", "Direct playback refused; falling back to the relay-rewritten playlist.", {
+    type,
+    id,
+    source: variant.uri,
+  });
   const uri = await preparePlaybackSource(variant.uri);
   return {
     uri,
+    headers,
     qualityLabel: variant.label,
-    resolver: "vidcore",
-    refUrl: resolved.source?.refUrl || resolved.source?.url || null,
+    resolver,
+    refUrl,
+    via: "relay",
   };
 }
 

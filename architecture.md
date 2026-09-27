@@ -369,8 +369,8 @@ versions honest.
 | Search | `Search` (tab) | 350 ms debounce → `searchMulti` (`/search/multi`) | none |
 | Library | `Library` (tab) | none (local only) | `streamly.mobile.myList`, `streamly.mobile.continueWatching` |
 | Open a title | `Details` (stack) | `getDetail` (`/{kind}/{id}` + `credits` + `videos`), `getEpisodes` (`/tv/{id}/season/{n}`) | My List toggle, resume read |
-| Watch | `Player` (stack, full-screen) | `resolvePlayback` → `/api/downloadify` `resolvevidcore`\|`resolvevidsrc` → relay rewrite → ExoPlayer | progress write every 5s, cap 40 entries |
-| Configure | `Settings` (tab) | `Save & test` → `api.themoviedb.org/3/configuration` | `streamly.mobile.settings` (key / proxy / API base / relay) |
+| Watch | `Player` (stack, full-screen) | `resolvePlayback` → `/api/downloadify` `resolvevidcore`\|`resolvevidsrc` → `pickSmooth` ≤1080p → `probeDirect` + Referer (relay rewrite as fallback) → ExoPlayer | progress write every 5s, cap 40 entries |
+| Configure | `Settings` (tab) | status + diagnostics; *Advanced* overrides `streamly.mobile.settings` (key / proxy / origin / relay) |
 
 Episode availability reuses the web rule verbatim: `isEpAired` (air date in the
 past, or no date at all) — the app never offers to play an episode the site
@@ -380,15 +380,22 @@ would refuse.
 
 - **Two config layers, device wins.** `mobile/src/config.ts` resolves at REQUEST
   time: on-device Settings (AsyncStorage `streamly.mobile.settings`) over
-  build-time `EXPO_PUBLIC_*` env. An installed APK has no `.env`, so a build
-  shipped without credentials is still fixable from the phone — and a wrong value
-  is corrected without a rebuild. `api/*` modules call `getConfig()` per request
-  (never module-load constants); Home/Search re-query on the config tick, so
-  saving a key turns the setup state into a catalogue with no restart.
-- **No bundled resolver.** `EXPO_PUBLIC_API_BASE` (or the same value typed in
-  Settings) must be a deployed Streamly Vercel project; `api/downloadify.js`
-  scrapes providers server-side. React Native's `fetch` has no CORS layer, so the
-  cross-origin POST is fine.
+  build-time `EXPO_PUBLIC_*` env, over the shipped `DEPLOYED_API_BASE`. That last
+  layer is what makes a release APK work like any store app — no `.env`, no
+  account, no setup screen — because one public origin serves both the keyless
+  catalogue proxy (`<origin>/api/tmdb`, which injects `TMDB_API_KEY` only when the
+  client omits one, so no credential is ever baked into the APK) and the resolver
+  (`<origin>/api/downloadify`) that cannot be bundled at all. `api/*` modules call
+  `getConfig()` per request (never module-load constants); Home/Search re-query on
+  the config tick, so a change applies to the next call with no restart.
+- **Playback is direct-with-Referer first, relay second.** Measured, not assumed:
+  a resolved manifest 403s without a `Referer` and returns a real `#EXTM3U` with
+  one, and `react-native-video` passes `source.headers` into ExoPlayer's
+  data-source factory, so those headers reach every segment and key load. The
+  Cloudflare-relay playlist rewrite therefore stays a FALLBACK for hosts that
+  refuse the header approach, not the primary path. `npm run smoke:mobile` pins
+  all of it — catalogue paths, the resolver's `source`/`variants` shape, the
+  `pickSmooth` ≤1080p rule, the Referer, and the first segment's bytes.
 - **Catalogue keys** (`EXPO_PUBLIC_TMDB_API_KEY` direct, or
   `EXPO_PUBLIC_TMDB_PROXY` / `<API_BASE>/api/tmdb` keyless). An empty
   `api_key` is never sent, because that would defeat the proxy's injection. With

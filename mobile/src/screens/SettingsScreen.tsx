@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Banner } from "../components/PosterCard";
-import { getConfig, isPreconfigured, DEFAULT_RELAY_URL } from "../config";
+import { DEPLOYED_API_BASE, getConfig, DEFAULT_RELAY_URL } from "../config";
 import { probeTmdb } from "../api/tmdb";
 import { colors, radius, space, type } from "../theme";
 import { useSettings, type RuntimeSettings } from "../store/settings";
@@ -11,18 +11,22 @@ import { logInfo } from "../utils/logger";
 
 type Probe = { tone: "ok" | "error" | "info"; label: string; detail: string } | null;
 
-/* The fix for "TMDB is not configured" on an installed APK: the credentials are
- * typed here, on the device, and read at request time (src/config.ts) - so a
- * shipped build never needs a rebuild, and a wrong value can be corrected
- * without touching a build machine. The same three values can still be baked in
- * at build time via EXPO_PUBLIC_* (see .env.example); whatever is filled in here
- * wins. */
+function hostOf(url: string): string {
+  return url.replace(/^https?:\/\//i, "").replace(/\/+$/, "") || "the deployment";
+}
+
+/* Not a setup screen - the APK ships wired to the deployed Streamly origin
+ * (see src/config.ts), so this is an escape hatch: a fork, a self-hosted copy, or
+ * a direct TMDB key for someone who wants one. Everything in here is optional and
+ * stored only on this device; leave it alone and the app behaves like any other
+ * streaming app. */
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { settings, save, clearAll } = useSettings();
   const [draft, setDraft] = useState<RuntimeSettings>(settings);
   const [probe, setProbe] = useState<Probe>(null);
   const [testing, setTesting] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const dirty = useMemo(
     () => (Object.keys(draft) as (keyof RuntimeSettings)[]).some((key) => draft[key] !== settings[key]),
@@ -132,78 +136,84 @@ export function SettingsScreen() {
     >
       <Text style={styles.heading}>Settings</Text>
 
-      {cfg.hasTmdbAccess ? (
-        <Banner
-          tone="info"
-          title="Catalogue connected"
-          detail={`Configured: TMDB will be reached ${cfg.tmdbApiKey ? "directly with your key" : `through ${cfg.tmdbProxy}`}. Use "Save & test" below to confirm which route really answers.`}
-        />
-      ) : (
-        <Banner
-          tone="error"
-          title="TMDB is not configured"
-          detail="The app cannot load any catalogue until it knows where TMDB is. Fill in ONE of the first two fields below, or give it your deployed Streamly URL and it will use that site's /api/tmdb proxy for you."
-        />
-      )}
+      <Banner
+        tone="info"
+        title={`Connected to ${hostOf(cfg.apiBase)}`}
+        detail="This build is wired to the Streamly deployment - catalogue and playback both work out of the box. Change anything below only if you are running your own copy."
+      />
 
-      {isPreconfigured() ? null : (
-        <Text style={styles.note}>
-          This build shipped without credentials baked in, which is why you are seeing this. Values are
-          stored only on this device.
-        </Text>
-      )}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={showAdvanced ? "Hide advanced settings" : "Show advanced settings"}
+        accessibilityState={{ expanded: showAdvanced }}
+        onPress={() => setShowAdvanced((v) => !v)}
+        style={styles.disclosure}
+      >
+        <Text style={styles.disclosureText}>{showAdvanced ? "▾" : "▸"} Advanced connection options</Text>
+      </Pressable>
 
-      {field(
-        "tmdbApiKey",
-        "TMDB API read key",
-        "e.g. 1a2b3c… (v3 read access token)",
-        "From themoviedb.org/settings/api. A read token is designed to be public — it is already readable inside any web bundle.",
-        true,
-      )}
-      {field(
-        "tmdbProxy",
-        "TMDB proxy URL (optional)",
-        "https://your-app.vercel.app/api/tmdb",
-        "Leave blank if you entered a key. Set this instead to stay keyless: the proxy injects the key server-side.",
-      )}
-      {field(
-        "apiBase",
-        "Deployed Streamly URL",
-        "https://your-app.vercel.app",
-        "Needed to PLAY anything: the stream resolver lives at <url>/api/downloadify on your deployed site. Also used for the TMDB proxy when the field above is blank.",
-      )}
-      {field("relayUrl", "Relay URL (advanced)", `default: ${DEFAULT_RELAY_URL}`, "Cloudflare passthrough that adds the Referer/User-Agent the source hosts require. Leave blank for the default.")}
+      {showAdvanced ? (
+        <>
+          {field(
+            "tmdbApiKey",
+            "TMDB API read key",
+            "e.g. 1a2b3c… (v3 read access token)",
+            "Optional. Only needed to bypass the site's own proxy - which is worth doing on networks where api.themoviedb.org is blocked and the proxy is not.",
+            true,
+          )}
+          {field(
+            "tmdbProxy",
+            "TMDB proxy URL",
+            `${cfg.apiBase}/api/tmdb`,
+            "Optional. Defaults to the deployed site's /api/tmdb, which injects the key server-side.",
+          )}
+          {field(
+            "apiBase",
+            "Deployed Streamly URL",
+            DEPLOYED_API_BASE,
+            "Optional. Hosts the catalogue proxy and the stream resolver. Defaults to the official deployment.",
+          )}
+          {field(
+            "relayUrl",
+            "Relay URL (playback fallback)",
+            `default: ${DEFAULT_RELAY_URL}`,
+            "Optional. Only used when a source host refuses direct playback and every URI has to be rewritten.",
+          )}
+        </>
+      ) : null}
+
+      {showAdvanced ? (
+        <View style={styles.actions}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Save settings"
+            disabled={!dirty}
+            onPress={() => {
+              save(draft);
+              logInfo("settings", "Saved runtime settings from the device.");
+            }}
+            style={[styles.primary, !dirty && styles.disabled]}
+          >
+            <Text style={styles.primaryText}>Save</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Save and test" onPress={test} style={styles.secondary}>
+            <Text style={styles.secondaryText}>{testing ? "Testing…" : "Save & test"}</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Clear settings" onPress={clearAll} style={styles.ghost}>
+            <Text style={styles.ghostText}>Reset to default</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       {probe ? (
         <Banner tone={probe.tone === "ok" ? "info" : "error"} title={probe.label} detail={probe.detail} />
       ) : null}
 
-      <View style={styles.actions}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Save settings"
-          disabled={!dirty}
-          onPress={() => {
-            save(draft);
-            logInfo("settings", "Saved runtime settings from the device.");
-          }}
-          style={[styles.primary, !dirty && styles.disabled]}
-        >
-          <Text style={styles.primaryText}>Save</Text>
-        </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Save and test" onPress={test} style={styles.secondary}>
-          <Text style={styles.secondaryText}>{testing ? "Testing…" : "Save & test"}</Text>
-        </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Clear settings" onPress={clearAll} style={styles.ghost}>
-          <Text style={styles.ghostText}>Reset</Text>
-        </Pressable>
-      </View>
-
       <Text style={styles.diagnostics}>Diagnostics</Text>
       <View style={styles.diagList}>
-        <DiagRow label="Catalogue" value={cfg.hasTmdbAccess ? "configured" : "missing"} ok={cfg.hasTmdbAccess} />
-        <DiagRow label="Stream resolver" value={cfg.hasResolver ? cfg.apiBase : "missing"} ok={cfg.hasResolver} />
-        <DiagRow label="Relay" value={cfg.relayUrl} ok />
+        <DiagRow label="Catalogue" value={cfg.hasTmdbAccess ? hostOf(cfg.tmdbProxy) : "missing"} ok={cfg.hasTmdbAccess} />
+        <DiagRow label="Playback" value={cfg.hasResolver ? hostOf(cfg.apiBase) : "missing"} ok={cfg.hasResolver} />
+        <DiagRow label="Key stored" value={cfg.tmdbApiKey ? "yes (direct TMDB)" : "no (proxy injects it)"} ok />
       </View>
       <Text style={styles.hint}>
         Every failure also lands in logcat: adb logcat | Select-String "[Streamly]".
@@ -227,6 +237,8 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   heading: { color: colors.text, fontSize: type.hero, fontWeight: "800", marginBottom: space.md },
   note: { color: colors.textFaint, fontSize: type.tiny, marginBottom: space.sm, lineHeight: 15 },
+  disclosure: { paddingVertical: space.md },
+  disclosureText: { color: colors.textDim, fontSize: type.small, fontWeight: "700" },
   field: { gap: space.xs, marginTop: space.lg },
   label: { color: colors.text, fontSize: type.small, fontWeight: "700" },
   input: {

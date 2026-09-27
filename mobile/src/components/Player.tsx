@@ -37,6 +37,10 @@ function formatTime(seconds: number): string {
 
 interface PlayerProps {
   uri: string;
+  /* Per-source request headers. react-native-video passes these into ExoPlayer's
+   * data-source factory, so they reach the manifest AND every segment/key load -
+   * which is what makes referer-gated hosts playable at all. */
+  headers?: Record<string, string>;
   title: string;
   qualityLabel?: string | null;
   startPosition?: number;
@@ -44,7 +48,7 @@ interface PlayerProps {
   onEnded?: () => void;
 }
 
-export function Player({ uri, title, qualityLabel, startPosition = 0, onProgress, onEnded }: PlayerProps) {
+export function Player({ uri, headers, title, qualityLabel, startPosition = 0, onProgress, onEnded }: PlayerProps) {
   const player = useRef<VideoRef>(null);
   const [paused, setPaused] = useState(false);
   const [buffering, setBuffering] = useState(true);
@@ -107,7 +111,7 @@ export function Player({ uri, title, qualityLabel, startPosition = 0, onProgress
       >
         <Video
           ref={player}
-          source={{ uri }}
+          source={{ uri, headers }}
           style={styles.video}
           paused={paused}
           resizeMode="contain"
@@ -118,7 +122,12 @@ export function Player({ uri, title, qualityLabel, startPosition = 0, onProgress
           onLoad={(data: OnLoadData) => {
             setDuration(data.duration);
             setBuffering(false);
-            logInfo("player", "Stream ready.", { uri, duration: data.duration, quality: qualityLabel });
+            logInfo("player", "Stream ready.", {
+              uri,
+              duration: data.duration,
+              quality: qualityLabel,
+              sentReferer: Boolean(headers?.Referer),
+            });
             if (startPosition > 0) {
               player.current?.seek(startPosition);
               logInfo("player", "Resumed from saved position.", { startPosition });

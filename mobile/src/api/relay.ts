@@ -1,28 +1,36 @@
-/* HLS relay for ExoPlayer.
+/* Playback sources for ExoPlayer.
  *
- * Why this exists: the resolver hands back manifest URLs on hosts that reject
- * requests without a browser-ish Referer/User-Agent (and some reject requests
- * carrying a browser Origin). ExoPlayer in react-native-video cannot be given
- * per-request headers for every segment it fetches, and a master playlist also
- * points at variants/segments/keys that would each need rewriting anyway. The
- * web build solves this with the same Cloudflare worker
- * (src/api/relayProxy.js + src/api/nativeHlsLoader.js): a GET passthrough that
- * injects the required headers and forwards Range requests.
+ * Live-measured facts (scripts/smoke-mobile-config.mjs pins all of them):
+ *   - the resolver hands back manifest URLs on hosts that REFUSE a request
+ *     without a browser-ish Referer (a bare fetch gets 403; the same fetch with
+ *     `Referer: https://vidcore.io/` gets a real 188 KB #EXTM3U), and
+ *   - react-native-video passes `source.headers` into ExoPlayer's data-source
+ *     factory, so those headers reach the manifest AND every segment/key load.
  *
- * So the app does the same thing, one layer up:
- *   1. pull the manifest through the worker,
- *   2. follow the master -> variant if needed,
- *   3. rewrite every URI (segments, variant, EXT-X-KEY) to a worker URL,
- *   4. write the result to a local .m3u8 and hand ExoPlayer a file:// URL.
- * The player then only ever talks to the local file and the worker. */
+ * So the PRIMARY path is direct: give ExoPlayer the upstream URL plus the
+ * resolver's `source.refUrl` as a Referer. No worker, no rewriting, no local
+ * file, one less hop - and it is the only path that does not depend on someone
+ * else's Cloudflare project staying up.
+ *
+ * The relay rewrite below is the FALLBACK for the hosts that need every URI
+ * rewritten (or that refuse the header approach entirely): pull the manifest
+ * through the worker, rewrite segments/variants/EXT-X-KEY to worker URLs and
+ * hand ExoPlayer a local file:// playlist. */
 
 import { File, Paths } from "expo-file-system";
 
 import { getConfig } from "../config";
-import { logDebug, logError, logWarn } from "../utils/logger";
+import { logDebug, logError, logInfo, logWarn } from "../utils/logger";
 
 const REQUEST_TIMEOUT_MS = 15_000;
+const PROBE_TIMEOUT_MS = 10_000;
 const MAX_VARIANT_DEPTH = 2;
+const PROBE_MAX_BYTES = 512 * 1024;
+
+/* The player sends this UA as well as the Referer: a few hosts reject okhttp's
+ * default outright, and nothing objects to a normal Chrome string. */
+export const PLAYBACK_USER_AGENT =
+  "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36";
 
 const writerCache = new Set<string>();
 const MAX_CACHED_PLAYLISTS = 24;
@@ -30,6 +38,60 @@ const MAX_CACHED_PLAYLISTS = 24;
 export function relayUrl(target: string): string {
   // Read per call so a relay changed in Settings takes effect immediately.
   return `${getConfig().relayUrl}?url=${encodeURIComponent(target)}`;
+}
+
+/* The headers ExoPlayer must send for `refUrl` to be honoured. */
+export function playbackHeaders(refUrl?: string | null): Record<string, string> {
+  const headers: Record<string, string> = { "User-Agent": PLAYBACK_USER_AGENT };
+  if (refUrl) headers.Referer = refUrl;
+  return headers;
+}
+
+/* Proves the direct path before the player commits to it: one bounded GET of the
+ * manifest with the Referer attached. Without this a refused source looks like a
+ * black screen inside ExoPlayer; with it the app can fall back (or say why). */
+export async function probeDirect(manifestUrl: string, refUrl?: string | null): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
+  try {
+    const res = await fetch(manifestUrl, {
+      method: "GET",
+      headers: { ...playbackHeaders(refUrl), Range: "bytes=0-65535" },
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      logWarn("relay", `Direct source refused the manifest (${res.status}); will fall back to the relay.`, {
+        manifestUrl,
+        hasRefUrl: Boolean(refUrl),
+      });
+      return false;
+    }
+    const body = await res.text();
+    const looksLikeMedia = body.includes("#EXTM3U") || body.length > 0;
+    logInfo("relay", `Direct source reachable (${res.status}, ${body.length} bytes).`, {
+      manifestUrl,
+      hasRefUrl: Boolean(refUrl),
+      isPlaylist: body.includes("#EXTM3U"),
+    });
+    if (!looksLikeMedia) return false;
+    if (body.length >= PROBE_MAX_BYTES && !body.includes("#EXTM3U")) {
+      logWarn("relay", "Direct probe returned a large non-playlist body; treating as unusable.", { manifestUrl });
+      return false;
+    }
+    return true;
+  } catch (error: any) {
+    if (error?.name === "AbortError") {
+      logWarn("relay", `Direct probe timed out after ${PROBE_TIMEOUT_MS}ms; will fall back to the relay.`, { manifestUrl });
+      return false;
+    }
+    logWarn("relay", "Direct probe failed (offline or host refused); will fall back to the relay.", {
+      manifestUrl,
+      message: String(error?.message || error),
+    });
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function fetchText(url: string, label: string): Promise<string> {
@@ -181,13 +243,14 @@ async function resolveManifest(manifestUrl: string, depth: number): Promise<{ bo
   return { body, base: manifestUrl };
 }
 
-/* Turns a resolver manifest URL into something ExoPlayer can open. Returns the
- * relayed original URL for non-HLS sources. */
+/* Relay fallback: turns a resolver manifest URL into a local .m3u8 ExoPlayer can
+ * open even when the host needs every URI rewritten. Returns a worker URL for
+ * non-HLS sources. */
 export async function preparePlaybackSource(manifestUrl: string): Promise<string> {
   const { body, base } = await resolveManifest(manifestUrl, 0);
   if (!body) return relayUrl(manifestUrl);
   const rewritten = rewriteUris(body, base);
   const uri = writePlaylist(playlistName(manifestUrl), rewritten);
-  logDebug("relay", "Prepared local playlist for ExoPlayer.", { source: manifestUrl, uri });
+  logInfo("relay", "Prepared a relayed local playlist for ExoPlayer.", { source: manifestUrl, uri });
   return uri;
 }

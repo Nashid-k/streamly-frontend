@@ -144,7 +144,7 @@ export function DetailsScreen({ route, navigation }: Props) {
           <Banner
             tone="info"
             title="Playback is not configured"
-            detail="The app does not bundle the stream resolver. Add your deployed Streamly URL in the Settings tab to play; browsing works without it."
+            detail="The stream resolver lives on the Streamly deployment rather than in the app, so it needs a reachable origin. Browsing works without it."
           />
         ) : null}
 

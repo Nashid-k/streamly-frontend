@@ -39,7 +39,15 @@ export function PlayerScreen({ route, navigation }: Props) {
         const resolved = await resolvePlayback(type, id, season ?? undefined, episode ?? undefined);
         if (cancelled) return;
         setTarget(resolved);
-        logInfo("player", "Playback source ready.", { id, type, season, episode, quality: resolved.qualityLabel });
+        logInfo("player", "Playback source ready.", {
+          id,
+          type,
+          season,
+          episode,
+          quality: resolved.qualityLabel,
+          resolver: resolved.resolver,
+          via: resolved.via,
+        });
       } catch (err) {
         if (cancelled) return;
         setError(String((err as Error)?.message || err));
@@ -101,6 +109,7 @@ export function PlayerScreen({ route, navigation }: Props) {
       {target ? (
         <Player
           uri={target.uri}
+          headers={target.headers}
           title={type === "tv" && season != null && episode != null ? `${title} · S${season}E${episode}` : title}
           qualityLabel={target.qualityLabel}
           startPosition={startPosition}

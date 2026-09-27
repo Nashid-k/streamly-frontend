@@ -49,8 +49,8 @@ export function SearchScreen({ navigation: _navigation }: Props) {
       <View style={[styles.root, { paddingTop: insets.top }]}>
         <Banner
           tone="error"
-          title="TMDB is not configured"
-          detail="Add a TMDB read key (or your deployed Streamly URL) in the Settings tab to search."
+          title="No catalogue source"
+          detail="Set a Streamly deployment URL under Settings › Advanced to search."
         />
       </View>
     );
