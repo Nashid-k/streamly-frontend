@@ -17,6 +17,13 @@
    minimal diffs, never fail silently, verify with
    `npm run lint` + `npm run test` + `npm run build`, record in `task.md`.
 
+## Git credentials
+
+- The GitHub PAT for `github.com` (user `Nashid-k`) lives in **Windows
+  Credential Manager** (git helper `manager`, encrypted) — `git push`/`pull`
+  authenticate on their own. Do **not** ask the user for a token again, and
+  never write one into the repo, a config file, or a command that echoes it.
+
 ## Non-negotiables
 
 - Data/UI contract: `normalizeResult` fields, React Query keys, localStorage
