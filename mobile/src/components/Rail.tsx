@@ -142,10 +142,10 @@ const styles = StyleSheet.create({
   },
   heroBackdrop: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%" },
   heroBody: { padding: space.lg, gap: space.xs },
-  heroKicker: { color: colors.red, fontSize: type.tiny, fontWeight: "800", letterSpacing: 1.4 },
+  heroKicker: { color: "rgba(255,255,255,0.8)", fontSize: type.tiny, fontWeight: "800", letterSpacing: 1.4 },
   heroTitle: { color: colors.text, fontSize: type.hero, fontWeight: "800" },
   heroMeta: { color: colors.textDim, fontSize: type.small },
   heroActions: { flexDirection: "row", marginTop: space.sm },
-  heroCta: { backgroundColor: colors.red, paddingHorizontal: space.lg, paddingVertical: space.sm, borderRadius: radius.pill },
-  heroCtaText: { color: colors.text, fontWeight: "700", fontSize: type.small },
+  heroCta: { backgroundColor: "#FFFFFF", paddingHorizontal: space.lg, paddingVertical: space.sm, borderRadius: radius.md },
+  heroCtaText: { color: "#000000", fontWeight: "800", fontSize: type.small },
 });

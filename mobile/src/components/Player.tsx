@@ -37,6 +37,7 @@ import {
 import Video, { type OnBufferData, type OnLoadData, type OnProgressData, type VideoRef } from "react-native-video";
 import { useKeepAwake } from "expo-keep-awake";
 import * as Brightness from "expo-brightness";
+import { BlurView } from "expo-blur";
 import VolumeManager from "react-native-volume-manager";
 
 import { colors, radius, space, type } from "../theme";
@@ -138,6 +139,9 @@ export function Player({
   const volumeRef = useRef(1);
   const controlsVisibleRef = useRef(true);
   const speedRef = useRef(1);
+
+  const [locked, setLocked] = useState(false);
+  const [aspectRatio, setAspectRatio] = useState<"contain" | "cover" | "stretch">("contain");
 
   useEffect(() => {
     let live = true;
@@ -278,6 +282,15 @@ export function Player({
     }).start(({ finished }) => finished && setControlsVisible(false));
   }, [chromeOpacity]);
 
+  const cycleAspect = useCallback(() => {
+    setAspectRatio((prev) => {
+      if (prev === "contain") return "cover";
+      if (prev === "cover") return "stretch";
+      return "contain";
+    });
+    bumpControls();
+  }, [bumpControls]);
+
   useEffect(() => {
     bumpControls();
     return () => {
@@ -330,8 +343,12 @@ export function Player({
     bumpRef.current = bumpControls;
   }, [bumpControls]);
 
-  const makeHalfPan = (side: "left" | "right") =>
-    PanResponder.create({
+  /* Per-gesture flag inside the factory closure; the responders are created once
+   * so the flag survives the whole gesture. */
+  const makeHalfPan = (side: "left" | "right") => {
+    let gestureMoved = false;
+    let gestureStartValue = 0;
+    return PanResponder.create({
       /* The half claims the touch from the start: it is an overlay with no
        * children, so nothing inside it ever needs a normal press. The chrome
        * (buttons, menus) lives OUTSIDE the halves and is hit-tested first. */
@@ -339,6 +356,7 @@ export function Player({
       onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: () => {
         gestureMoved = false;
+        gestureStartValue = side === "left" ? brightnessRef.current : volumeRef.current;
         bumpRef.current();
       },
       onPanResponderMove: (_e, g) => {
@@ -347,17 +365,15 @@ export function Player({
           gestureMoved = true;
         }
         const delta = (-g.dy / GESTURE_RANGE_PX) * 0.9; // drag UP = brighter / louder
-        if (side === "left") applyBrightness(brightnessRef.current + delta);
-        else applyVolume(volumeRef.current + delta);
+        if (side === "left") applyBrightness(gestureStartValue + delta);
+        else applyVolume(gestureStartValue + delta);
       },
       onPanResponderRelease: () => {
         if (!gestureMoved) tapHandlerRef.current(side);
       },
     });
+  };
 
-  /* Per-gesture flag inside the factory closure; the responders are created once
-   * so the flag survives the whole gesture. */
-  let gestureMoved = false;
   const leftPan = useMemo(() => makeHalfPan("left"), [applyBrightness, applyVolume]);
   const rightPan = useMemo(() => makeHalfPan("right"), [applyBrightness, applyVolume]);
 
@@ -450,7 +466,8 @@ export function Player({
           paused={paused}
           rate={speed}
           muted={muted}
-          resizeMode="contain"
+          volume={volume}
+          resizeMode={aspectRatio}
           controls={false}
           playInBackground={false}
           playWhenInactive={false}
@@ -516,17 +533,41 @@ export function Player({
         ) : null}
 
         {paused && !buffering && !error ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Play"
-            onPress={() => {
-              setPaused(false);
-              bumpControls();
-            }}
-            style={styles.centerPlay}
-          >
-            <Text style={styles.centerPlayText}>▶</Text>
-          </Pressable>
+          <View style={styles.centerCluster} pointerEvents="box-none">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Back 10 seconds"
+              onPress={() => {
+                seekBy(-SKIP_SECONDS);
+                showHud("jump", `⏪ ${SKIP_SECONDS}s`);
+              }}
+              style={styles.centerGhost}
+            >
+              <Text style={styles.centerGhostText}>↺ 10</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Play"
+              onPress={() => {
+                setPaused(false);
+                bumpControls();
+              }}
+              style={styles.centerPlay}
+            >
+              <Text style={styles.centerPlayText}>▶</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Forward 10 seconds"
+              onPress={() => {
+                seekBy(SKIP_SECONDS);
+                showHud("jump", `⏩ ${SKIP_SECONDS}s`);
+              }}
+              style={styles.centerGhost}
+            >
+              <Text style={styles.centerGhostText}>10 ↻</Text>
+            </Pressable>
+          </View>
         ) : null}
 
         {error ? (
@@ -551,7 +592,18 @@ export function Player({
                   <Text style={styles.errorGhostText}>Back to the title</Text>
                 </Pressable>
               ) : null}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Aspect Ratio"
+                onPress={cycleAspect}
+                style={styles.chip}
+                hitSlop={6}
+              >
+                <Text style={styles.chipText}>{aspectRatio === "contain" ? "Fit" : aspectRatio === "cover" ? "Fill" : "Zoom"}</Text>
+              </Pressable>
             </View>
+
+            <View style={styles.spacerFlex} />
           </View>
         ) : null}
 
@@ -629,118 +681,82 @@ export function Player({
          * their own touches. */}
         {controlsVisible ? (
           <Animated.View style={[styles.controls, { opacity: chromeOpacity }]} pointerEvents="box-none">
+            
+            {/* Top Bar (Apple TV Style) */}
             <View style={styles.headerRow}>
-              <Pressable accessibilityRole="button" accessibilityLabel="Leave the player" onPress={onClose} style={styles.chip} hitSlop={6}>
-                <Text style={styles.chipText}>▼</Text>
-              </Pressable>
-              <Text style={styles.title} numberOfLines={1}>
-                {title}
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={muted ? "Unmute" : "Mute"}
-                accessibilityState={{ checked: muted }}
-                onPress={() => {
-                  setMuted((m) => !m);
-                  bumpControls();
-                }}
-                style={styles.chip}
-                hitSlop={6}
-              >
-                <Text style={styles.chipText}>{muted ? "🔇" : "🔊"}</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Playback speed"
-                onPress={() => {
-                  setMenu(menu === "speed" ? null : "speed");
-                  bumpControls();
-                }}
-                style={styles.chip}
-                hitSlop={6}
-              >
-                <Text style={styles.chipText}>{speed === 1 ? "1×" : `${speed}×`}</Text>
-              </Pressable>
-              {qualities?.length ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Video quality"
-                  onPress={() => {
-                    setMenu(menu === "quality" ? null : "quality");
-                    bumpControls();
-                  }}
-                  style={styles.chip}
-                  hitSlop={6}
-                >
-                  <Text style={styles.chipText}>{shownQuality ?? "HQ"}</Text>
+              <BlurView intensity={30} tint="dark" style={styles.glassHeader}>
+                <Pressable accessibilityRole="button" accessibilityLabel="Leave the player" onPress={onClose} style={styles.chip} hitSlop={6}>
+                  <Text style={styles.chipText}>✕</Text>
                 </Pressable>
-              ) : null}
+                <Text style={styles.title} numberOfLines={1}>
+                  {title}
+                </Text>
+                <Pressable accessibilityRole="button" accessibilityLabel={muted ? "Unmute" : "Mute"} onPress={() => { setMuted((m) => !m); bumpControls(); }} style={styles.chip} hitSlop={6}>
+                  <Text style={styles.chipText}>{muted ? "🔇" : "🔊"}</Text>
+                </Pressable>
+                <Pressable accessibilityRole="button" onPress={() => { setMenu(menu === "speed" ? null : "speed"); bumpControls(); }} style={styles.chip} hitSlop={6}>
+                  <Text style={styles.chipText}>{speed === 1 ? "1x" : `${speed}x`}</Text>
+                </Pressable>
+                {qualities?.length ? (
+                  <Pressable accessibilityRole="button" onPress={() => { setMenu(menu === "quality" ? null : "quality"); bumpControls(); }} style={styles.chip} hitSlop={6}>
+                    <Text style={styles.chipText}>{shownQuality ?? "HQ"}</Text>
+                  </Pressable>
+                ) : null}
+                <Pressable accessibilityRole="button" onPress={cycleAspect} style={styles.chip} hitSlop={6}>
+                  <Text style={styles.chipText}>{aspectRatio === "contain" ? "Fit" : aspectRatio === "cover" ? "Fill" : "Zoom"}</Text>
+                </Pressable>
+              </BlurView>
             </View>
 
             <View style={styles.spacerFlex} />
 
-            <Pressable
-              accessibilityRole="adjustable"
-              accessibilityLabel="Seek bar"
-              onLayout={(e: LayoutChangeEvent) => setTrackWidth(e.nativeEvent.layout.width)}
-              onPress={(e) => seekToRatio(e.nativeEvent.locationX)}
-              style={styles.trackHit}
-            >
-              <View style={styles.track}>
-                <View style={[styles.trackFill, { width: `${ratio * 100}%` }]} />
-                <View style={[styles.trackKnob, { left: `${ratio * 100}%` }]} />
+            {/* Skip Intro */}
+            {title.includes(" - S") && duration > 900 && position > 0 && position < 90 ? (
+              <View style={styles.skipRow}>
+                <Pressable accessibilityRole="button" accessibilityLabel="Skip Intro" onPress={() => seekBy(90 - position)}>
+                  <BlurView intensity={40} tint="dark" style={styles.skipButtonGlass}>
+                    <Text style={styles.skipButtonText}>⏭ Skip Intro</Text>
+                  </BlurView>
+                </Pressable>
               </View>
-            </Pressable>
+            ) : null}
 
-            <View style={styles.row}>
-              <Text style={styles.time}>{formatTime(position)}</Text>
-              <View style={styles.spacer} />
-              {hasPrev ? (
-                <Pressable accessibilityRole="button" accessibilityLabel="Previous episode" onPress={onPrev} style={styles.button}>
-                  <Text style={styles.buttonText}>⏮</Text>
+            {/* Bottom Floating Glass Pill (Apple UX) */}
+            <BlurView intensity={50} tint="dark" style={styles.bottomPill}>
+              
+              {/* Play/Pause & Nav */}
+              <View style={styles.pillActions}>
+                <Pressable accessibilityRole="button" onPress={hasPrev ? onPrev : undefined} style={[styles.pillBtn, !hasPrev && {opacity: 0.3}]} hitSlop={10}>
+                  <Text style={styles.pillBtnText}>⏮</Text>
                 </Pressable>
-              ) : null}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Back 10 seconds"
-                onPress={() => {
-                  seekBy(-SKIP_SECONDS);
-                  bumpControls();
-                }}
-                style={styles.button}
-              >
-                <Text style={styles.buttonText}>↺ {SKIP_SECONDS}</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={paused ? "Play" : "Pause"}
-                onPress={() => {
-                  setPaused((p) => !p);
-                  bumpControls();
-                }}
-                style={styles.playButton}
-              >
-                <Text style={styles.playText}>{paused ? "▶" : "❚❚"}</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Forward 10 seconds"
-                onPress={() => {
-                  seekBy(SKIP_SECONDS);
-                  bumpControls();
-                }}
-                style={styles.button}
-              >
-                <Text style={styles.buttonText}>{SKIP_SECONDS} ↻</Text>
-              </Pressable>
-              {hasNext ? (
-                <Pressable accessibilityRole="button" accessibilityLabel="Next episode" onPress={advance} style={styles.button}>
-                  <Text style={styles.buttonText}>⏭</Text>
+
+                <Pressable accessibilityRole="button" onPress={() => { setPaused((p) => !p); bumpControls(); }} style={styles.pillPlayBtn} hitSlop={10}>
+                  <Text style={styles.pillPlayText}>{paused ? "▶" : "⏸"}</Text>
                 </Pressable>
-              ) : null}
-              <View style={styles.spacer} />
-              <Text style={styles.time}>{formatTime(duration)}</Text>
-            </View>
+
+                <Pressable accessibilityRole="button" onPress={hasNext ? advance : undefined} style={[styles.pillBtn, !hasNext && {opacity: 0.3}]} hitSlop={10}>
+                  <Text style={styles.pillBtnText}>⏭</Text>
+                </Pressable>
+              </View>
+
+              {/* Scrubber */}
+              <View style={styles.pillTrackArea}>
+                <Text style={styles.time}>{formatTime(position)}</Text>
+                <Pressable
+                  accessibilityRole="adjustable"
+                  accessibilityLabel="Seek bar"
+                  onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
+                  onPress={(e) => seekToRatio(e.nativeEvent.locationX)}
+                  style={styles.pillTrackHit}
+                >
+                  <View style={styles.pillTrack}>
+                    <View style={[styles.pillTrackFill, { width: `${ratio * 100}%` }]} />
+                    <View style={[styles.pillTrackKnob, { left: `${ratio * 100}%` }]} />
+                  </View>
+                </Pressable>
+                <Text style={styles.time}>{remaining > 0 && remaining < duration ? `-${formatTime(remaining)}` : formatTime(duration)}</Text>
+              </View>
+            </BlurView>
           </Animated.View>
         ) : null}
       </View>
@@ -775,6 +791,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   centerPlayText: { color: colors.text, fontSize: 30, marginLeft: 4 },
+  centerCluster: {
+    ...StyleSheet.absoluteFillObject,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: space.xl,
+  },
+  centerGhost: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.pill,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  centerGhostText: { color: colors.text, fontSize: type.small, fontWeight: "700" },
   hud: {
     position: "absolute",
     top: "38%",
@@ -856,12 +888,13 @@ const styles = StyleSheet.create({
     top: 0,
     padding: space.lg,
     gap: space.md,
+    justifyContent: "space-between",
   },
   headerRow: { flexDirection: "row", alignItems: "center", gap: space.sm },
   chip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.55)",
+    backgroundColor: "rgba(255,255,255,0.15)",
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     borderRadius: radius.pill,
@@ -877,7 +910,108 @@ const styles = StyleSheet.create({
     textShadowColor: "rgba(0,0,0,0.8)",
     textShadowRadius: 6,
   },
+
+  glassHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+    padding: space.md,
+    borderRadius: radius.lg,
+    overflow: "hidden",
+    width: "100%",
+  },
+  skipButtonGlass: {
+    paddingHorizontal: space.lg,
+    paddingVertical: space.sm,
+    borderRadius: radius.pill,
+    overflow: "hidden",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.2)",
+  },
+  bottomPill: {
+    flexDirection: "column",
+    borderRadius: radius.lg,
+    padding: space.lg,
+    overflow: "hidden",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.1)",
+    marginBottom: space.sm,
+  },
+  pillActions: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: space.xxl,
+    marginBottom: space.md,
+  },
+  pillBtn: {
+    padding: space.sm,
+  },
+  pillBtnText: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: "700",
+  },
+  pillPlayBtn: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.pill,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  pillPlayText: {
+    color: "#000000",
+    fontSize: 26,
+    fontWeight: "900",
+    marginLeft: 3, // visual center for play icon
+  },
+  pillTrackArea: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.md,
+  },
+  pillTrackHit: {
+    flex: 1,
+    paddingVertical: space.sm,
+  },
+  pillTrack: {
+    height: 6,
+    borderRadius: radius.pill,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    overflow: "visible",
+  },
+  pillTrackFill: {
+    height: 6,
+    borderRadius: radius.pill,
+    backgroundColor: "#FFFFFF",
+  },
+  pillTrackKnob: {
+    position: "absolute",
+    top: -5,
+    width: 16,
+    height: 16,
+    marginLeft: -8,
+    borderRadius: radius.pill,
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#000",
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
   spacerFlex: { flex: 1 },
+  skipRow: { flexDirection: "row", paddingHorizontal: space.lg, marginBottom: space.sm, justifyContent: "flex-end" },
+  skipButton: { backgroundColor: "rgba(255, 255, 255, 0.2)", paddingHorizontal: space.md, paddingVertical: space.sm, borderRadius: radius.pill },
+  skipButtonText: { color: colors.text, fontSize: type.small, fontWeight: "700" },
+  trackRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: space.lg },
+  lockedContainer: { ...StyleSheet.absoluteFillObject, justifyContent: "center", alignItems: "center" },
+  unlockButton: { backgroundColor: "rgba(0,0,0,0.7)", paddingHorizontal: space.xl, paddingVertical: space.lg, borderRadius: radius.pill, borderWidth: 1, borderColor: "rgba(255,255,255,0.3)" },
+  unlockButtonText: { color: colors.text, fontSize: type.title, fontWeight: "700" },
   trackHit: { paddingVertical: space.sm },
   track: { height: 5, borderRadius: radius.pill, backgroundColor: "rgba(255,255,255,0.22)", overflow: "visible" },
   trackFill: { height: 5, borderRadius: radius.pill, backgroundColor: colors.red },

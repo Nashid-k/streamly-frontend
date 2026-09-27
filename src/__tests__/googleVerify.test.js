@@ -57,7 +57,10 @@ describe("verifyGoogleIdToken (local JWKS verification)", () => {
 
   it("rejects a tampered signature", async () => {
     const token = makeToken();
-    const tampered = `${token.slice(0, -2)}ab`;
+    const parts = token.split(".");
+    const sigStart = parts[2];
+    const tamperedSig = (sigStart[0] === "a" ? "b" : "a") + sigStart.slice(1);
+    const tampered = `${parts[0]}.${parts[1]}.${tamperedSig}`;
     const claims = await verifyGoogleIdToken(tampered, "client-123", JWKS);
     expect(claims).toBeNull();
   });

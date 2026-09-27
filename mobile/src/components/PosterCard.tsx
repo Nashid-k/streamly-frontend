@@ -1,5 +1,6 @@
 import React from "react";
 import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
+import { BlurView } from "expo-blur";
 
 import { colors, radius, space, type } from "../theme";
 import type { MediaItem } from "../api/tmdb";
@@ -54,7 +55,7 @@ const styles = StyleSheet.create({
   poster: {
     borderRadius: radius.md,
     overflow: "hidden",
-    backgroundColor: colors.surface,
+    // backgroundColor removed for BlurView
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
@@ -75,7 +76,7 @@ const styles = StyleSheet.create({
 export function Spinner({ label }: { label?: string }) {
   return (
     <View style={spinnerStyles.wrap}>
-      <ActivityIndicator color={colors.red} />
+      <ActivityIndicator color={colors.text} />
       {label ? <Text style={spinnerStyles.label}>{label}</Text> : null}
     </View>
   );
@@ -100,7 +101,7 @@ export function Banner({
   onAction?: () => void;
 }) {
   return (
-    <View style={[bannerStyles.wrap, tone === "error" && bannerStyles.error]}>
+    <BlurView intensity={30} tint="dark" style={[bannerStyles.wrap, tone === "error" && bannerStyles.error]}>
       <Text style={bannerStyles.title}>{title}</Text>
       {detail ? <Text style={bannerStyles.detail}>{detail}</Text> : null}
       {actionLabel && onAction ? (
@@ -108,7 +109,7 @@ export function Banner({
           <Text style={bannerStyles.buttonText}>{actionLabel}</Text>
         </Touchable>
       ) : null}
-    </View>
+    </BlurView>
   );
 }
 
@@ -117,7 +118,8 @@ const bannerStyles = StyleSheet.create({
     margin: space.lg,
     padding: space.lg,
     borderRadius: radius.lg,
-    backgroundColor: colors.surface,
+    overflow: "hidden",
+    // backgroundColor removed for BlurView
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     gap: space.sm,
@@ -133,5 +135,5 @@ const bannerStyles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: colors.red,
   },
-  buttonText: { color: colors.text, fontSize: type.small, fontWeight: "700" },
+  buttonText: { color: "#FFFFFF", fontSize: type.small, fontWeight: "700" },
 });

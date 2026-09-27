@@ -7,7 +7,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Player } from "../components/Player";
 import { Banner, Spinner } from "../components/PosterCard";
 import { resolvePlayback, type PlaybackTarget } from "../api/streams";
-import { minimalMediaItem } from "../api/tmdb";
+import { minimalMediaItem, getEpisodes, isEpAired } from "../api/tmdb";
+import { ScrollView, Image } from "react-native";
 import { colors, radius, space, type } from "../theme";
 import type { RootStackParamList } from "../navigation/types";
 import { useUserData } from "../store/userData";
@@ -56,6 +57,20 @@ export function PlayerScreen({ route, navigation }: Props) {
   const [target, setTarget] = useState<PlaybackTarget | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [episodesSheetVisible, setEpisodesSheetVisible] = useState(false);
+  const [episodesCache, setEpisodesCache] = useState<any[]>([]);
+
+  const openEpisodes = useCallback(async () => {
+    setEpisodesSheetVisible(true);
+    if (episodesCache.length === 0 && season != null) {
+      try {
+        const eps = await getEpisodes(id, season);
+        setEpisodesCache(eps);
+      } catch (err) {
+        logWarn("player", "Could not fetch episodes list.", { err });
+      }
+    }
+  }, [id, season, episodesCache.length]);
   const [nonce, setNonce] = useState(0);
   const lastSaved = useRef(0);
   const latest = useRef({ position: startPosition, duration: 0 });
@@ -212,6 +227,51 @@ export function PlayerScreen({ route, navigation }: Props) {
         />
       ) : null}
 
+      {episodesSheetVisible ? (
+        <View style={styles.sheetOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setEpisodesSheetVisible(false)} />
+          <View style={[styles.sheetContent, { paddingBottom: insets.bottom + space.lg }]}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>Episodes</Text>
+              <Pressable onPress={() => setEpisodesSheetVisible(false)} accessibilityRole="button" hitSlop={10}>
+                <Text style={styles.sheetClose}>✕</Text>
+              </Pressable>
+            </View>
+            <ScrollView style={styles.sheetList}>
+              {episodesCache.length > 0 ? episodesCache.map(ep => {
+                const isAired = isEpAired(ep);
+                const isPlaying = ep.episodeNumber === episode;
+                return (
+                  <Pressable
+                    key={ep.episodeNumber}
+                    style={[styles.sheetEpisodeRow, isPlaying && styles.sheetEpisodeRowActive]}
+                    onPress={() => {
+                      if (!isAired) return;
+                      setEpisodesSheetVisible(false);
+                      goToEpisode(ep.episodeNumber);
+                    }}
+                  >
+                    <View style={styles.sheetEpisodeThumbPlaceholder}>
+                      {ep.thumbnailUrl ? <Image source={{uri: ep.thumbnailUrl}} style={styles.sheetEpisodeThumb} /> : null}
+                    </View>
+                    <View style={styles.sheetEpisodeInfo}>
+                      <Text style={[styles.sheetEpisodeTitle, isPlaying && styles.sheetEpisodeTitleActive]}>
+                        {ep.episodeNumber}. {ep.title}
+                      </Text>
+                      <Text style={styles.sheetEpisodeMeta}>
+                        {!isAired ? `Airs ${ep.airDate}` : ep.durationMins ? `${ep.durationMins}m` : ""}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              }) : (
+                <Text style={styles.sheetLoadingText}>Loading episodes...</Text>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      ) : null}
+
       {/* While the stream is resolving (or has failed) there is no player chrome
        * to leave from, so an explicit ✕ is the only way out. Once the player is
        * up, its own ▼ chip owns leaving. */}
@@ -248,4 +308,19 @@ const styles = StyleSheet.create({
   backLink: { marginTop: space.lg, paddingVertical: space.sm, paddingHorizontal: space.lg },
   backLinkPressed: { opacity: 0.6 },
   backLinkText: { color: colors.textFaint, fontSize: type.small, fontWeight: "600" },
+  sheetOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end", zIndex: 100 },
+  sheetContent: { backgroundColor: "rgba(20,20,20,0.98)", borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, maxHeight: "60%" },
+  sheetHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: space.lg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  sheetTitle: { color: colors.text, fontSize: type.title, fontWeight: "800" },
+  sheetClose: { color: colors.textDim, fontSize: type.title },
+  sheetList: { padding: space.md },
+  sheetEpisodeRow: { flexDirection: "row", padding: space.sm, gap: space.md, alignItems: "center", borderRadius: radius.md },
+  sheetEpisodeRowActive: { backgroundColor: "rgba(255,255,255,0.1)" },
+  sheetEpisodeThumbPlaceholder: { width: 120, height: 68, backgroundColor: colors.border, borderRadius: radius.sm, overflow: "hidden" },
+  sheetEpisodeThumb: { width: "100%", height: "100%" },
+  sheetEpisodeInfo: { flex: 1, justifyContent: "center" },
+  sheetEpisodeTitle: { color: colors.text, fontSize: type.small, fontWeight: "700" },
+  sheetEpisodeTitleActive: { color: colors.text },
+  sheetEpisodeMeta: { color: colors.textDim, fontSize: type.tiny, marginTop: 4 },
+  sheetLoadingText: { color: colors.textDim, textAlign: "center", marginTop: space.xl },
 });

@@ -51,6 +51,11 @@ Both surfaces read from the same deployed serverless functions and the same
    retention loop.
 5. **Real ratings (TMDB + IMDb + RT)** — `ratingService` + `omdbClient` +
    `RatingsCluster`, cached 24h in localStorage (OMDb quota: 1,000 req/day).
+6. **Watch Party (web)** — in-player invite-by-code rooms with synced playback
+   (host-controlled) and room chat. Polls the same-origin `/api/watchParty`
+   function every 2s; rooms live 24h-idle in the existing MongoDB. Guests
+   follow the host within ~2s with drift correction; a `?party=CODE` share
+   link joins mid-party with the full transcript caught up.
 
 ## 4. The Android app (`mobile/`)
 
@@ -88,7 +93,9 @@ Shipped as an installable APK, not a WebView wrapper.
 - ❌ Any backend, auth server, or database (Firebase/backend references in
   `README.md` are **stale docs** — the web code uses localStorage and the app
   uses AsyncStorage).
-- ❌ Uploads, user accounts, social, comments, or payments.
+- ❌ Uploads, user accounts, social, comments, or payments. (Watch Party chat
+   is the one deliberate exception: ephemeral, room-scoped text only, no
+   profiles, no history beyond the 24h room TTL.)
 - ❌ New stream extraction / proxy infrastructure (`src/api/env.js` is a stub;
   stream-service calls intentionally resolve to `''`). The app reuses the
   existing Cloudflare worker and the deployed resolver — it adds no new

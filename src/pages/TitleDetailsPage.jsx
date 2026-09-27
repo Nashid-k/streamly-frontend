@@ -10,7 +10,7 @@ import Loader from "../components/Loader";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import { createPortal } from "react-dom";
 import { useState, useEffect, useRef, useMemo, useLayoutEffect, lazy, Suspense } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom";
 import {
   Play,
   Star,
@@ -50,6 +50,7 @@ import ProductionCompaniesBlock from "../components/detail/ProductionCompaniesBl
 
 import { buildMovieAddedNotification } from "../utils/notificationEngine";
 import { formatTMDBDate, getTMDBWeekday } from "../utils/timezone";
+import { useWatchParty } from "../hooks/useWatchParty";
 import { formatRuntimeLabel, isUnreleased, voteSplitPct } from "../utils/titleDetails";
 import { buildEpisodeOrder, episodeNumberLabel, isEpAired, formatAirsDate } from "../utils/titleDetails";
 import { getPlatformName } from "../utils/platforms";
@@ -80,6 +81,10 @@ function formatEndsAt(durationMins) {
 export default function TitleDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  // ?party=CODE deep link: a joiner opening a share link lands mid-party with
+  // no extra navigation (the hook consumes it once, on mount).
+  const [searchParams] = useSearchParams();
+  const partyDeepLink = (searchParams.get("party") || "").toUpperCase();
   const {
     muteTrailers,
     useImageLogos = true,
@@ -197,6 +202,10 @@ export default function TitleDetails() {
 
 
   const [isPlaying, setIsPlaying] = useState(false);
+  // Watch Party room controller — created once per mount, handed to the player.
+  // Polling and heartbeat only run while connected; solo viewers never hit the
+  // endpoint. useSearchParams above supplies the ?party= deep link.
+  const party = useWatchParty({ deepLinkCode: partyDeepLink });
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [unreleasedModalOpen, setUnreleasedModalOpen] = useState(false);
   const [iframeLoading, setIframeLoading] = useState(false);
@@ -268,6 +277,27 @@ export default function TitleDetails() {
   }, [loading, rawMovie, movieError, id]);
 
   const movie = rawMovie;
+
+  /* Watch Party: guests follow the host's TITLE. When the host picks another
+     episode (or the room's title changes to another show/movie entirely), a
+     connected guest navigates to match — local selection wins while solo or
+     hosting. The hook supplies the room; navigation goes through the same
+     state the local episode picker writes, so player + page stay in step. */
+  const followedTitleRef = useRef(null);
+  useEffect(() => {
+    if (!party?.room || party.isHost) return;
+    const t = party.room.title;
+    if (!t?.titleId) return;
+    const key = `${t.titleId}:${t.kind === "tv" ? `${t.season}:${t.episode}` : ""}`;
+    if (followedTitleRef.current === key) return;
+    const first = followedTitleRef.current === null;
+    followedTitleRef.current = key;
+    if (first) return; // mid-party joiner: adopt silently, never rewind
+    if (t.kind !== "tv") return;
+    if (typeof t.season === "number" && t.season !== selectedSeason) setSelectedSeason(t.season);
+    if (typeof t.episode === "number" && t.episode !== playingEpisode) setPlayingEpisode(t.episode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- follow only these room changes
+  }, [party?.room?.title, party?.isHost]);
   const movieId = movie?.id;
 
   // Member of at least one collection → tiny folder badge on the List button.
@@ -2186,6 +2216,7 @@ export default function TitleDetails() {
                         onGoPrev={goToPrevEpisode}
                         onGoNext={goToNextEpisode}
                         onClose={() => setIsPlaying(false)}
+                        party={party}
                         imdbId={movie?.imdbId || ""}
                         watchedEntry={watchEntry}
                         onProgressChange={(t) => {

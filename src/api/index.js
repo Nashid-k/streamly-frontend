@@ -18,3 +18,12 @@ export { PrefetchAdapter } from "./prefetchAdapter";
 export { CdnImageAdapter } from "./cdnImageAdapter";
 export { useVirtualRenderAdapter } from "./virtualRenderAdapter";
 export { fetchPublicCollections, fetchPublicCollection } from "./publicCollections";
+export {
+  PartyError,
+  createParty,
+  joinParty,
+  pollPartyState,
+  syncPartyPlayback,
+  sendPartyChat,
+  leaveParty,
+} from "./watchParty";

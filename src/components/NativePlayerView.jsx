@@ -30,6 +30,7 @@ import {
   Settings,
   SkipBack,
   SkipForward,
+  Users,
   Volume1,
   Volume2,
   VolumeX,
@@ -63,6 +64,7 @@ import {
   STILL_WATCHING_EPISODES,
 } from "../constants/playerUi";
 import { getPreviewThumb, clearPreviewCache, resetPreviewPipeline } from "../api/previewThumbs";
+import WatchPartyPanel from "./WatchPartyPanel";
 
 // A source can fail fragments forever without ever going fatal (VidCore's
 // vidzen: playlist 200, segments 429 on repeat) — so fail over ourselves.
@@ -585,6 +587,10 @@ export default function NativePlayerView({
   onProgressChange,
   // TMDB original_language — the only language signal the sources give us.
   originalLanguage = "",
+  // Watch Party controller from TitleDetailsPage (the useWatchParty result).
+  // Null = solo playback (feature off). Present = the Users button renders and
+  // the host broadcasts / guests follow below.
+  party = null,
 }) {
   const videoRef = useRef(null);
   const screenRef = useRef(null);
@@ -749,7 +755,7 @@ export default function NativePlayerView({
   const [isFetchingSubtitles, setIsFetchingSubtitles] = useState(false);
   // Netflix chrome state.
   const [controlsVisible, setControlsVisible] = useState(true);
-  const [panel, setPanel] = useState(null); // null | "subs" | "episodes"
+  const [panel, setPanel] = useState(null); // null | "subs" | "episodes" | "party"
   /* A sheet is open. Everything that floats in the bottom-right corner — the
      Skip Intro pill, the "Tap to unmute" pill, the "Left off at" card — yields
      while this is true: that corner is where the episodes rail and the settings
@@ -1012,6 +1018,8 @@ export default function NativePlayerView({
     const entry = watchedEntryRef.current;
     const video = videoRef.current;
     if (!entry || !video) return;
+    // Guests follow the host's position — a local resume card would fight it.
+    if (partyActiveRef.current && !partyIsHostRef.current) return;
     const at = Number(entry.timestamp) || 0;
     const dur = Number(video.duration) || 0;
     const key = `${type}:${id}:${season}:${episode}`;
@@ -1537,7 +1545,12 @@ export default function NativePlayerView({
       // carries the seek target) or the bar sits at the pre-seek position.
       setCurrentTime(video.currentTime || 0);
     };
-    const onSeeked = () => setBuffering(false);
+    const onSeeked = () => {
+      setBuffering(false);
+      // Host: push the new position to the room immediately so a skip lands on
+      // guests within one poll, not at the next 10s keepalive.
+      partyPushNowRef.current?.();
+    };
     const onCanPlay = () => setBuffering(false);
     video.addEventListener("play", onPlay);
     video.addEventListener("pause", onPause);
@@ -1565,6 +1578,9 @@ export default function NativePlayerView({
       video.removeEventListener("ratechange", onRateChange);
       video.removeEventListener("canplay", onCanPlay);
     };
+    // partyPushNowRef is a ref mirror (host push), read only inside the
+    // seeked handler at event time — binding once is the point here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* Volume applies to the element and persists across visits. autoMuted is the
@@ -1727,6 +1743,13 @@ export default function NativePlayerView({
      countdown card that auto-plays it. Replaying/cancelling tears it down (a
      cancelled card's fired timer is a no-op thanks to the `prev` guard). */
   useEffect(() => {
+    // Guests never auto-advance independently: the host's advance is
+    // broadcast (title sync) and everyone follows — two countdowns would
+    // double-fire out of step.
+    if (partyActiveRef.current && !partyIsHostRef.current) {
+      setUpNext(null);
+      return undefined;
+    }
     if (type !== "tv" || !ended) {
       setUpNext(null);
       return undefined;
@@ -1839,6 +1862,96 @@ export default function NativePlayerView({
     // refs + functional setState, so binding once per panel flip is safe.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [panel]);
+
+  /* ── Watch Party (opt-in via the `party` prop) ────────────────────────────
+     HOST is the single playback authority: every local play/pause transition
+     is broadcast, position re-sent every 10s while playing, and a seek push
+     rides onSeeked so skips land on guests within one poll instead of at the
+     next keepalive. GUESTS never drive the element from their own controls —
+     remote state applies edge-triggered (play/pause) with >2.5s drift
+     correction, and stale room echoes (updatedAt not newer than last applied)
+     are dropped. With no party this whole block is inert. */
+  const partyActive = Boolean(party?.room);
+  const partyActiveRef = useRef(false);
+  partyActiveRef.current = partyActive;
+  const partyIsHostRef = useRef(false);
+  partyIsHostRef.current = Boolean(party?.isHost);
+  const partyRemoteRef = useRef(null);
+  const partyLastSentRef = useRef({ playing: null, at: 0 });
+  const partyPushNowRef = useRef(null);
+
+  // HOST — broadcast transitions + a 10s position keepalive while playing.
+  useEffect(() => {
+    if (!partyActive || !partyIsHostRef.current || !party?.broadcastPlayback) return undefined;
+    const push = () => {
+      const v = videoRef.current;
+      party.broadcastPlayback({
+        isPlaying: Boolean(v && !v.paused),
+        positionSec: Math.floor(v?.currentTime || 0),
+        rev: Date.now(),
+        // The episode/title ride every push: guests follow the host across
+        // episodes (and titles, via the page-level effect on room.title).
+        title: {
+          titleId: `${type === "tv" ? "tv" : "movie"}-${id}`,
+          title: title || "Untitled",
+          kind: type === "tv" ? "tv" : "movie",
+          season: type === "tv" ? season : null,
+          episode: type === "tv" ? episode : null,
+        },
+      });
+    };
+    if (partyLastSentRef.current.playing !== playing) {
+      partyLastSentRef.current = { playing, at: Date.now() };
+      push();
+    }
+    partyPushNowRef.current = push;
+    if (!playing) {
+      return () => {
+        partyPushNowRef.current = null;
+      };
+    }
+    const iv = setInterval(push, 10_000);
+    return () => {
+      clearInterval(iv);
+      partyPushNowRef.current = null;
+    };
+    // party.broadcastPlayback is a stable useCallback in the hook; the title
+    // props ride the closure and re-arm the (transition-guarded) push.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing, partyActive, type, id, season, episode, title]);
+
+  // GUEST — apply the host's playback state (drift-corrected).
+  useEffect(() => {
+    const rb = party?.remotePlayback;
+    if (!partyActive || partyIsHostRef.current || !rb?.updatedAt) return;
+    if (partyRemoteRef.current && rb.updatedAt <= partyRemoteRef.current) return;
+    partyRemoteRef.current = rb.updatedAt;
+    const video = videoRef.current;
+    if (!video) return;
+    const dur = Number(video.duration);
+    if (Number.isFinite(dur) && dur > 0) {
+      // Age the host position by network latency so a playing room stays in
+      // step rather than snapping the guest back one poll every time.
+      const ageSec = Math.max(0, (Date.now() - rb.updatedAt) / 1000);
+      const target = Math.max(0, rb.positionSec + (rb.isPlaying ? ageSec : 0));
+      const drift = video.currentTime - target;
+      if (Math.abs(drift) > 2.5) {
+        try {
+          video.currentTime = Math.min(target, Math.max(0, dur - 1));
+        } catch {
+          // out-of-range seek — the next poll retries
+        }
+      }
+    }
+    if (rb.isPlaying && video.paused) {
+      video.play().catch(() => {
+        // autoplay policy — the tap lands, drift correction catches up after
+      });
+    } else if (!rb.isPlaying && !video.paused) {
+      video.pause();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [party?.remotePlayback, partyActive]);
 
 
   useEffect(() => {
@@ -3510,7 +3623,7 @@ export default function NativePlayerView({
                   panel === "speed" ||
                   panel === "aspect"
                 }
-                expanded={Boolean(panel && panel !== "episodes")}
+                expanded={Boolean(panel && panel !== "episodes" && panel !== "party")}
                 onClick={() => {
                   // If clicking Settings while any settings panel is open, close it. Otherwise open root settings.
                   setPanel((p) =>
@@ -3523,6 +3636,19 @@ export default function NativePlayerView({
               >
                 <Settings size={24} />
               </IconBtn>
+              {party && (
+                <IconBtn
+                  label="Watch Party"
+                  active={panel === "party"}
+                  expanded={panel === "party"}
+                  onClick={() => {
+                    setPanel((p) => (p === "party" ? null : "party"));
+                    poke();
+                  }}
+                >
+                  <Users size={22} />
+                </IconBtn>
+              )}
               <IconBtn label={isFullscreen ? "Exit fullscreen" : "Fullscreen"} onClick={goFullscreen}>
                 {isFullscreen ? <Minimize size={22} /> : <Maximize size={22} />}
               </IconBtn>
@@ -3724,7 +3850,9 @@ export default function NativePlayerView({
                         ? "Video quality"
                         : panel === "speed"
                           ? "Playback speed"
-                          : "Aspect ratio"
+                          : panel === "party"
+                            ? "Watch Party"
+                            : "Aspect ratio"
               }
               tabIndex={-1}
               onClick={(e) => e.stopPropagation()}
@@ -3735,7 +3863,7 @@ export default function NativePlayerView({
                 top: IS_TOUCH ? undefined : 0,
                 bottom: 0,
                 width:
-                  ["settings", "subs", "audio", "video", "speed", "aspect"].includes(panel)
+                  ["settings", "subs", "audio", "video", "speed", "aspect", "party"].includes(panel)
                     ? IS_TOUCH
                       ? "min(480px, 100%)"
                       : "min(480px, 32%)"
@@ -3786,7 +3914,7 @@ export default function NativePlayerView({
                   </button>
                 )}
                 <span style={{ color: "#fff", fontWeight: 700, fontSize: 16, letterSpacing: "-0.01em" }}>
-                  {panel === "settings" ? "Settings" : panel === "subs" ? "Subtitles" : panel === "audio" ? "Audio" : panel === "video" ? "Video Quality" : panel === "speed" ? "Playback Speed" : panel === "aspect" ? "Aspect Ratio" : ""}
+                  {panel === "settings" ? "Settings" : panel === "subs" ? "Subtitles" : panel === "audio" ? "Audio" : panel === "video" ? "Video Quality" : panel === "speed" ? "Playback Speed" : panel === "aspect" ? "Aspect Ratio" : panel === "party" ? "Watch Party" : ""}
                 </span>
               </div>
               <IconBtn label="Close panel" onClick={() => setPanel(null)}>
@@ -3979,6 +4107,21 @@ export default function NativePlayerView({
                     />
                   ))}
               </div>
+            ) : panel === "party" && party ? (
+              <WatchPartyPanel
+                party={party}
+                onBack={() => {
+                  setPanel(null);
+                  poke();
+                }}
+                activeTitle={{
+                  titleId: `${type === "tv" ? "tv" : "movie"}-${id}`,
+                  title: title || "Untitled",
+                  kind: type === "tv" ? "tv" : "movie",
+                  season: type === "tv" ? season : null,
+                  episode: type === "tv" ? episode : null,
+                }}
+              />
             ) : null}
             </motion.aside>
           )}

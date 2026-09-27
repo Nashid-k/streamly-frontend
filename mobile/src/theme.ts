@@ -1,54 +1,48 @@
-/* Dark cinematic palette — the mobile mirror of src/styles/tokens.css. Kept in
- * one place so a screen never invents a shade, and so the app reads as the same
- * product as the web build. */
+/* Apple TV+ inspired cinematic palette.
+ * Premium, ultra-high contrast, and glassmorphic. */
 
 export const colors = {
-  bg: "#050505",
-  surface: "#141414",
-  surfaceHi: "#1f1f1f",
-  border: "rgba(255,255,255,0.10)",
-  text: "#ffffff",
-  textDim: "rgba(255,255,255,0.62)",
-  textFaint: "rgba(255,255,255,0.38)",
-  red: "#E50914",
-  redDim: "rgba(229,9,20,0.35)",
-  green: "#3c8217",
-  scrim: "rgba(0,0,0,0.72)",
+  bg: "#000000",             // OLED Black
+  surface: "#1C1C1E",        // Elevated Apple Dark Surface
+  surfaceHi: "#2C2C2E",      // Higher elevation surface
+  border: "rgba(255, 255, 255, 0.15)", // Softer border
+  text: "#FFFFFF",
+  textDim: "rgba(255, 255, 255, 0.6)",
+  textFaint: "rgba(255, 255, 255, 0.3)",
+  red: "#0A84FF",            // Switched primary action to Apple Blue
+  redDim: "rgba(10, 132, 255, 0.25)",
+  green: "#30D158",          // Apple Green
+  scrim: "rgba(0,0,0,0.5)",  // Lighter scrim for glass effects
 } as const;
 
 export const space = {
-  xs: 4,
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 24,
-  xxl: 60,
+  xs: 6,
+  sm: 12,
+  md: 18,
+  lg: 24,
+  xl: 32,
+  xxl: 64,
 } as const;
 
 export const radius = {
-  sm: 6,
-  md: 10,
-  lg: 16,
+  sm: 10,
+  md: 16,
+  lg: 24,
   pill: 999,
 } as const;
 
 export const type = {
-  hero: 30,
-  title: 20,
-  body: 14,
-  small: 12,
+  hero: 34,
+  title: 22,
+  body: 16,
+  small: 13,
   tiny: 11,
 } as const;
 
-/* Motion tokens. Every duration in the app comes from here so the whole product
- * moves at one speed; a screen that invents its own timings is the reason an app
- * feels assembled rather than designed. */
 export const motion = {
   press: 120,
   enter: 320,
   fade: 220,
   shimmer: 750,
-  /* How far a section rises as it enters. Small on purpose: a large travel reads
-   * as a transition between screens rather than content settling into place. */
-  rise: 12,
+  rise: 20,
 } as const;

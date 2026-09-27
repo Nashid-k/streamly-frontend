@@ -1,5 +1,6 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useCallback, useMemo, useState } from "react";
+import { BlurView } from "expo-blur";
 import {
   ImageBackground,
   Linking,
@@ -253,18 +254,24 @@ export function DetailsScreen({ route, navigation }: Props) {
               />
             ) : null}
 
-            {playableEpisodes.map((ep) => {
+            {(episodes.data ?? []).map((ep) => {
+              const isAired = tmdb.isEpAired(ep);
               const selected = (selectedEpisode ?? playableEpisodes[0]?.episodeNumber) === ep.episodeNumber;
               return (
                 <Touchable
                   key={`${ep.seasonNumber}-${ep.episodeNumber}`}
-                  accessibilityLabel={`Play episode ${ep.episodeNumber}: ${ep.title}`}
+                  accessibilityLabel={isAired ? `Play episode ${ep.episodeNumber}: ${ep.title}` : `Unaired episode ${ep.episodeNumber}: ${ep.title}`}
                   onPress={() => {
+                    if (!isAired) return;
                     setSelectedEpisode(ep.episodeNumber);
                     play(ep.episodeNumber);
                   }}
-                  style={[styles.episode, selected && styles.episodeSelected]}
-                  scaleTo={0.98}
+                  style={[
+                    styles.episode,
+                    selected && styles.episodeSelected,
+                    !isAired && { opacity: 0.5 },
+                  ]}
+                  scaleTo={isAired ? 0.98 : 1}
                 >
                   <View style={styles.episodeThumb}>
                     {ep.thumbnailUrl ? <FadeImage uri={ep.thumbnailUrl} style={styles.episodeImage} /> : null}
@@ -275,14 +282,24 @@ export function DetailsScreen({ route, navigation }: Props) {
                       {ep.title}
                     </Text>
                     <Text style={styles.episodeMeta} numberOfLines={1}>
-                      {ep.durationMins ? `${ep.durationMins}m` : ""}
-                      {ep.airDate ? `  ·  aired ${ep.airDate}` : ""}
+                      {!isAired ? (
+                        <Text style={styles.unairedChip}>Airs {ep.airDate}</Text>
+                      ) : (
+                        <>
+                          {ep.durationMins ? `${ep.durationMins}m` : ""}
+                          {ep.airDate ? `  ·  aired ${ep.airDate}` : ""}
+                        </>
+                      )}
                     </Text>
                     {ep.overview ? (
                       <Text style={styles.episodeOverview} numberOfLines={2}>
                         {ep.overview}
                       </Text>
-                    ) : null}
+                    ) : (
+                      <Text style={[styles.episodeOverview, styles.muted]} numberOfLines={2}>
+                        No description yet.
+                      </Text>
+                    )}
                   </View>
                 </Touchable>
               );
@@ -311,11 +328,13 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: radius.pill,
+    overflow: "hidden",
+  },
+  iconButtonBlur: {
+    width: "100%",
+    height: "100%",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(0,0,0,0.55)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
   },
   iconText: { color: colors.text, fontSize: 20, lineHeight: 24 },
   spacer: { flex: 1 },
@@ -324,9 +343,9 @@ const styles = StyleSheet.create({
   meta: { color: colors.textDim, fontSize: type.small },
   tagline: { color: colors.textFaint, fontSize: type.small, fontStyle: "italic" },
   actions: { flexDirection: "row", gap: space.md, marginTop: space.sm },
-  play: { backgroundColor: colors.red, paddingHorizontal: space.xl, paddingVertical: space.md, borderRadius: radius.pill },
-  playText: { color: colors.text, fontWeight: "800", fontSize: type.body },
-  secondary: { paddingHorizontal: space.xl, paddingVertical: space.md, borderRadius: radius.pill, backgroundColor: colors.surfaceHi },
+  play: { backgroundColor: "#FFFFFF", paddingHorizontal: space.xl, paddingVertical: space.md, borderRadius: radius.md },
+  playText: { color: "#000000", fontWeight: "800", fontSize: type.body, textAlign: "center" },
+  secondary: { paddingHorizontal: space.xl, paddingVertical: space.md, borderRadius: radius.md, backgroundColor: "rgba(255,255,255,0.15)" },
   secondaryText: { color: colors.text, fontWeight: "700", fontSize: type.body },
   resumeNote: { color: colors.green, fontSize: type.tiny, fontWeight: "700" },
   overview: { color: colors.textDim, fontSize: type.body, lineHeight: 20, marginTop: space.sm },
@@ -378,4 +397,5 @@ const styles = StyleSheet.create({
   episodeMeta: { color: colors.textFaint, fontSize: type.tiny },
   episodeOverview: { color: colors.textDim, fontSize: type.tiny, lineHeight: 15 },
   muted: { color: colors.textFaint, fontSize: type.small },
+  unairedChip: { color: colors.green, fontWeight: "700" },
 });

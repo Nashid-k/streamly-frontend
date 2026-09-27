@@ -46,6 +46,7 @@ Firebase SDK in the bundle.
 | My List | `/watchlist` (`/mylist` redirects) | local only | `aios_my_list`, `aios_my_collections` (local) |
 | History | `/history` | local only | `aios_continue_watching` (local) |
 | Settings | `/settings` (+ optional `?tab=<section>`) | local only | `setting-*` keys (local) |
+| Watch Party | `/watch/:id/:slug?` in-player panel (`Users` button) + `?party=CODE` deep link | `POST /api/watchParty` actions (`create`/`join`/`state`/`sync`/`chat`/`leave`) via `src/api/watchParty.js` → `useWatchParty` (2s poll loop) | `watchParties` collection (MongoDB, 24h TTL) |
 
 The `?tab=` query param on `/settings` is a navigation affordance only: it
 selects the section filter (see `SECTION_SEARCH_TERMS` in `SettingsPage.jsx`),
@@ -113,6 +114,8 @@ first). Client-side the Explore page shows a real error + retry state when
 the backend fails (`ExploreError`) instead of a lying empty list, and the
 shared-collection page resolves items through the React Query cache with
 capped concurrency (≤ 300 items, 6 parallel).
+
+Watch Party (`api/watchParty.js` + `server/watchParty.js`): an ephemeral, invite-by-code room layered over native playback. Vercel Hobby functions cannot hold WebSockets, so realtime is a **2s poll loop** (`state` action doubles as heartbeat) against the existing MongoDB (`watchParties` collection). The **host is the single playback authority** — only their `sync` writes `playback { isPlaying, positionSec, updatedAt, rev }` (the endpoint 403s everyone else), and guests apply it client-side with >2.5s drift correction plus latency aging. Identity is self-claimed (nickname + random `participantId`, persisted in the NEW `streamly_watchparty` localStorage key — the frozen `aios_*`/`setting-*` keys are untouched). Rooms are sanitized server-side (names ≤24, messages ≤280, ≤25 participants, ≤200 messages, 6-char unambiguous codes over `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`) and expire after **24h idle** (read-path GC + a MongoDB TTL index); the host leaving deletes the room for everyone. Chat rides the same poll with a monotonic `sinceMsgId` cursor, so no transcript is re-downloaded. Rate limit: 120/min per IP (a state poll is ~30/min). Registered in `vercel.json` at `maxDuration: 10` — 7 functions of the Hobby 12.
 
 External services: `api.themoviedb.org/3` (catalog, 10s timeout in
 `tmdbClient.js`), `image.tmdb.org` (artwork, `cdnImageAdapter` sizes
