@@ -240,13 +240,14 @@ async function postDownloadify(body, { signal } = {}) {
       : [
           { base, slice, mode: "proxy" },
           { base: ENDPOINT, slice: FRAG_CHUNK_MAX, mode: "json" },
-        ];    const isTransport = body.action === "segment" || body.action === "playlist";
-    // A transport call without a URL would hit the worker as ?url=undefined — a
-    // guaranteed 500 + CORS noise. Fail HERE with a real error so the caller's
-    // retry/failover logic runs instead of the browser's opaque fetch failure.
-    if (isTransport && !body.url && !body.playlistUrl) {
-      throw new Error("relay: missing target URL (source had no playable URL)");
-    }
+        ];
+  const isTransport = body.action === "segment" || body.action === "playlist";
+  // A transport call without a URL would hit the worker as ?url=undefined — a
+  // guaranteed 500 + CORS noise. Fail HERE with a real error so the caller's
+  // retry/failover logic runs instead of the browser's opaque fetch failure.
+  if (isTransport && !body.url && !body.playlistUrl) {
+    throw new Error("relay: missing target URL (source had no playable URL)");
+  }
   // Only fragment pulls send a Range slice; playlists are small full-text GETs.
   const isSegment = body.action === "segment";
   const start = Math.max(0, Math.floor(Number(body.range?.start) || 0));
@@ -257,7 +258,10 @@ async function postDownloadify(body, { signal } = {}) {
   let lastError;
   for (let index = 0; index < candidates.length; index += 1) {
     const candidate = candidates[index];
-    const target = isTransport ? body.url : body.playlistUrl;
+    // Fragments carry `url`, playlists carry `playlistUrl`. Picking the wrong one
+    // asked the worker for `?url=undefined`, whose 200 landing page came back as a
+    // "playlist" and killed every source at the playability probe.
+    const target = isSegment ? body.url : body.playlistUrl;
     const request =
       candidate.mode === "proxy"
         ? {
@@ -282,19 +286,36 @@ async function postDownloadify(body, { signal } = {}) {
             init: {
               method: "POST",
               headers: { "content-type": "application/json" },
-              body: JSON.stringify(
-                isTransport ? { ...body, range: { start, max: candidate.slice } } : body,
-              ),
+              body: JSON.stringify(isSegment ? { ...body, range: { start, max: candidate.slice } } : body),
               signal,
             },
           };
     try {
       const res = await fetch(request.url, request.init);
-      // A non-ok proxy reply (down/broken deploy) falls through to the Vercel
-      // function; the LAST candidate's error is the one that surfaces.
-      if (res.ok || index === candidates.length - 1) return res;
+      if (isSegment) {
+        // A non-ok proxy reply (down/broken deploy) falls through to the Vercel
+        // function; the LAST candidate's error is the one that surfaces.
+        if (res.ok || index === candidates.length - 1) return res;
+        lastError = res;
+        await res.body?.cancel?.().catch?.(() => {});
+        continue;
+      }
+      // A 200 is NOT proof of a playlist: the worker answers a bad ?url= with its
+      // landing page, and a CDN WAF block can arrive as 200 HTML. Either body used
+      // to reach the caller as a "playlist" — the player then reported "not a
+      // playlist" and failed every source while downloads kept working. Playlists
+      // are small text, so buffer it and accept only a real #EXTM3U.
+      const text = await res.text();
+      if (text.includes("#EXTM3U") || index === candidates.length - 1) {
+        const status = res.status >= 200 && res.status <= 599 ? res.status : 502;
+        return new Response(text, {
+          status,
+          headers: {
+            "content-type": res.headers?.get?.("content-type") || "application/vnd.apple.mpegurl",
+          },
+        });
+      }
       lastError = res;
-      await res.body?.cancel?.().catch?.(() => {});
     } catch (error) {
       lastError = error;
       if (index === candidates.length - 1) throw error;

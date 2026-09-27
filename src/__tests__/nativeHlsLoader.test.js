@@ -453,6 +453,82 @@ describe("createStreamlyLoader", () => {
     expect([...new Uint8Array(response.data)]).toEqual([9, 8, 7]);
   });
 
+  it("asks the proxy relay for the playlist URL, never ?url=undefined", async () => {
+    vi.stubEnv("VITE_STREAMLY_RELAY_URL", "https://streamly-proxy.nashidk1999.workers.dev");
+    const MANIFEST = "https://moon.quietridge.top/vd/x/index-s1080p-v1-a1.m3u8";
+    const calls = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url) => {
+        calls.push(String(url));
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: () => "application/vnd.apple.mpegurl" },
+          text: async () => MEDIA_PLAYLIST,
+        };
+      }),
+    );
+    const Loader = createStreamlyLoader({ getRefUrl: () => "https://vidcore.io/" });
+    const response = await new Promise((resolve, reject) => {
+      new Loader().load({ url: MANIFEST }, {}, {
+        onSuccess: (resp) => resolve(resp),
+        onError: (err) => reject(new Error(err.text)),
+      });
+    });
+    // Regression: playlists carry `playlistUrl`, fragments carry `url`. Reading
+    // the wrong one asked the worker for `?url=undefined`, and its 200 landing
+    // page was accepted as a playlist — every source then failed the playability
+    // probe with "not a playlist" while downloads kept working.
+    expect(calls[0]).toBe(
+      `https://streamly-proxy.nashidk1999.workers.dev?url=${encodeURIComponent(MANIFEST)}&referer=${encodeURIComponent("https://vidcore.io/")}`,
+    );
+    expect(calls[0]).not.toContain("undefined");
+    expect(response.data).toContain("#EXTM3U");
+  });
+
+  it("falls back to the Vercel function when the proxy answers 200 without a playlist", async () => {
+    vi.stubEnv("VITE_STREAMLY_RELAY_URL", "https://streamly-proxy.nashidk1999.workers.dev");
+    const MANIFEST = "https://moon.quietridge.top/vd/x/index-s1080p-v1-a1.m3u8";
+    const calls = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        const to = String(url);
+        calls.push(to);
+        // The worker answers a bad ?url= (or a CDN WAF block) with 200 HTML.
+        if (to.includes("workers.dev")) {
+          return {
+            ok: true,
+            status: 200,
+            headers: { get: () => "text/html" },
+            text: async () => "Streamly Proxy is Running!",
+          };
+        }
+        const body = JSON.parse(init.body);
+        expect(body.playlistUrl).toBe(MANIFEST);
+        // A playlist is a full-text GET: it must not carry a fragment range.
+        expect(body.range).toBeUndefined();
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: () => "application/vnd.apple.mpegurl" },
+          text: async () => MEDIA_PLAYLIST,
+        };
+      }),
+    );
+    const Loader = createStreamlyLoader({ getRefUrl: () => "https://vidcore.io/" });
+    const response = await new Promise((resolve, reject) => {
+      new Loader().load({ url: MANIFEST }, {}, {
+        onSuccess: (resp) => resolve(resp),
+        onError: (err) => reject(new Error(err.text)),
+      });
+    });
+    expect(calls.some((to) => to.includes("workers.dev"))).toBe(true);
+    expect(calls.some((to) => to.includes("downloadify"))).toBe(true);
+    expect(response.data).toContain("#EXTM3U");
+  });
+
   it("never pokes a referer-gated host direct — fragment goes straight to the relay with the referer", async () => {
     const GATED = "https://palehive.top/vd/x/seg-1-s1080p-v1-a1.m4s";
     const directCalls = [];
@@ -882,5 +958,43 @@ describe("probeSourcePlayable", () => {
     const probe = await probeSourcePlayable("https://vidzen.fun/api/stream/x", "https://vidcore.io/");
     expect(probe.ok).toBe(false);
     expect(probe.reason).toBeTruthy();
+  });
+
+  it("survives a proxy 200 landing page - the 'not a playlist' regression", async () => {
+    vi.stubEnv("VITE_STREAMLY_RELAY_URL", "https://streamly-proxy.nashidk1999.workers.dev");
+    const seen = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        const to = String(url);
+        seen.push(to);
+        if (to.includes("workers.dev")) {
+          // A bad ?url= (or a WAF block page) reaches the caller as 200 HTML.
+          if (to.includes("%2F%2F") && !to.includes("url=undefined")) {
+            return { ok: false, status: 403, headers: { get: () => null }, body: { cancel: async () => {} } };
+          }
+          return {
+            ok: true,
+            status: 200,
+            headers: { get: () => "text/html" },
+            text: async () => "Streamly Proxy is Running!",
+          };
+        }
+        const body = JSON.parse(init.body);
+        if (body.action === "playlist") {
+          return { ok: true, status: 200, headers: { get: () => "text" }, text: async () => MEDIA_PLAYLIST };
+        }
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: (name) => (name === "x-streamly-more" ? "0" : "application/octet-stream") },
+          arrayBuffer: async () => new Uint8Array([1]).buffer,
+        };
+      }),
+    );
+    // The gate is referer-gated, so the probe skips the direct sip and relays.
+    const probe = await probeSourcePlayable("https://palehive.top/vd/x/index.m3u8", "https://vidcore.io/");
+    expect(seen.some((to) => to.includes("url=undefined"))).toBe(false);
+    expect(probe).toMatchObject({ ok: true, via: "relay" });
   });
 });
