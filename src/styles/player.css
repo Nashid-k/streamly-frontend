@@ -511,20 +511,29 @@
   border: none;
 }
 
-/* Panel dialog row hover states — CSS hover for clean interaction */
-.np-dialog-row {
-  transition: background 0.12s ease;
-}
-.np-dialog-row:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.07) !important;
-}
-.np-dialog-row:active:not(:disabled) {
-  background: rgba(255, 255, 255, 0.04) !important;
-}
-
 /* Transport icon buttons — subtle scale on active */
 .np-icon-btn {
+  position: relative;
   transition: transform 0.1s ease, color 0.15s ease;
+}
+/* Material backdrop: a soft disc that blooms under the glyph on hover/focus.
+   The player chrome sits on live video, so an unbacked white glyph disappears
+   on a bright frame — this is the affordance that keeps it readable. */
+.np-icon-btn::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  opacity: 0;
+  transform: scale(0.72);
+  transition: opacity 0.18s var(--ease-out), transform 0.18s var(--ease-out);
+  pointer-events: none;
+}
+.np-icon-btn:hover:not(:disabled)::before,
+.np-icon-btn:focus-visible::before {
+  opacity: 1;
+  transform: scale(1);
 }
 .np-icon-btn:hover:not(:disabled) {
   transform: scale(1.1);
@@ -532,27 +541,88 @@
 .np-icon-btn:active:not(:disabled) {
   transform: scale(0.95);
 }
+.np-icon-btn > svg {
+  position: relative;
+  transition: transform 0.18s var(--ease-out);
+}
+.np-icon-btn:hover:not(:disabled) > svg {
+  transform: scale(1.06);
+}
 
-/* Skip Intro button hover */
+/* Keyboard focus must be visible: every player control is reachable by Tab, and
+   a player that hides focus is a player blind keyboard users cannot use. */
+.np-icon-btn:focus-visible,
+.np-scrub:focus-visible,
+.np-dialog-row:focus-visible,
+.np-skip-intro:focus-visible,
+.np-resume-btn:focus-visible,
+.np-restart-btn:focus-visible,
+.np-replay:focus-visible,
+.np-center-btn:focus-visible,
+.np-fatal-btn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+/* Scrubber: the bar grows a hair and the knob ring blooms on hover/focus/drag. */
+.np-scrub {
+  border-radius: 999px;
+  transition: transform 0.18s var(--ease-out);
+}
+.np-scrub:hover,
+.np-scrub:focus-visible {
+  transform: scaleY(1.06);
+}
+
+/* Skip Intro pill hover */
+.np-skip-intro {
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s var(--ease-out),
+    box-shadow 0.18s ease;
+}
 .np-skip-intro:hover {
   background: rgba(0, 0, 0, 0.9) !important;
   border-color: #fff !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+.np-skip-intro:active {
+  transform: translateY(0) scale(0.97);
 }
 
 /* Resume / restart button hover */
+.np-resume-btn {
+  transition: transform 0.18s var(--ease-out), box-shadow 0.18s ease, filter 0.18s ease;
+}
 .np-resume-btn:hover {
   filter: brightness(0.92);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+.np-resume-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+.np-restart-btn {
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
 }
 .np-restart-btn:hover {
   background: rgba(255, 255, 255, 0.1) !important;
   border-color: rgba(255, 255, 255, 0.6) !important;
+  color: #fff !important;
+}
+.np-restart-btn:active {
+  transform: scale(0.97);
 }
 
-/* Debug log scrollbar — minimal */
-.np-log::-webkit-scrollbar { width: 4px; }
-.np-log::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
+/* Panel dialog rows — CSS hover for clean interaction */
+.np-dialog-row {
+  transition: background 0.12s ease, color 0.12s ease, padding 0.18s var(--ease-out);
+}
+.np-dialog-row:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.07) !important;
+}
+.np-dialog-row:active:not(:disabled) {
+  background: rgba(255, 255, 255, 0.04) !important;
+  transform: scale(0.995);
 }
 
 /* Panel inner scroll scrollbar */
@@ -562,8 +632,72 @@
   border-radius: 4px;
 }
 
-/* Subtitle overlay — readable text at any background */
+/* Panel sheet: the slide-in is framer-motion's, but the surface itself gets a
+   hairline lift + inner shadow so the pane reads as a layer over the picture. */
+.np-panel-surface {
+  box-shadow: -18px 0 48px rgba(0, 0, 0, 0.55);
+}
+@media (hover: none), (max-width: 768px) {
+  .np-panel-surface {
+    box-shadow: 0 -18px 48px rgba(0, 0, 0, 0.55);
+  }
+}
+
+/* Episode card in the rail — lift + ring on hover/focus. */
+.np-episode-card {
+  transition: transform 0.2s var(--ease-out), box-shadow 0.2s ease, outline-color 0.2s ease;
+}
+.np-episode-card:hover,
+.np-episode-card:focus-visible {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.55);
+}
+
+/* Subtitle overlay — a whisper of scrim so a cue stays readable over a white
+   frame without turning into a black bar. */
 .np-subtitle {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: opacity 0.14s ease, transform 0.14s var(--ease-out);
 }
+.np-subtitle span {
+  background: rgba(0, 0, 0, 0.42);
+  border-radius: 6px;
+  padding: 2px 10px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* Reduced motion: the OS setting wins over every player animation (springs,
+   pops, the Up Next countdown, the buffering spinner). */
+@media (prefers-reduced-motion: reduce) {
+  .np-icon-btn,
+  .np-icon-btn::before,
+  .np-icon-btn > svg,
+  .np-scrub,
+  .np-skip-intro,
+  .np-resume-btn,
+  .np-restart-btn,
+  .np-dialog-row,
+  .np-episode-card,
+  .np-subtitle {
+    transition: none !important;
+    animation: none !important;
+  }
+  .np-icon-btn:hover:not(:disabled),
+  .np-icon-btn:hover:not(:disabled) > svg,
+  .np-scrub:hover,
+  .np-skip-intro:hover,
+  .np-resume-btn:hover,
+  .np-episode-card:hover {
+    transform: none !important;
+  }
+  .np-icon-btn:hover:not(:disabled)::before {
+    opacity: 1;
+    transform: none !important;
+  }
+  .np-upnext-countdown {
+    animation: none !important;
+  }
+}
+

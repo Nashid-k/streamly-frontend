@@ -5,11 +5,14 @@ import { SPRING_SNAPPY } from "../../constants/playerUi";
 
 const clamp = (lo, value, hi) => (value < lo ? lo : value > hi ? hi : value);
 
-/* YouTube-style transient play/pause overlay: a big filled glyph in a dark
-   translucent squircle, dead centre of the frame, that pops on every
-   play/pause toggle and self-fades with the other HUDs (the player clears it
-   via the shared hud timer). Presentational only (pointer-events none,
-   aria-hidden); `kind` is the NEW state after the toggle ("play" | "pause").
+/* YouTube-style transient play/pause overlay: a big filled glyph, dead centre of
+   the frame, that pops on every play/pause toggle and self-fades with the other
+   HUDs (the player clears it via the shared hud timer). Presentational only
+   (pointer-events none, aria-hidden); `kind` is the NEW state after the toggle
+   ("play" | "pause").
+   The glyph sits on the picture with NO dark box behind it (an earlier version
+   drew a 55%-black squircle, which read as a grey smear over the frame and
+   fought bright scenes) — legibility comes from a soft text shadow instead.
    Size derives from the measured frame like every other HUD, so a phone and a
    4K window both read right. */
 const NetflixPlayPauseHUD = memo(function NetflixPlayPauseHUD({ kind, metrics }) {
@@ -39,15 +42,26 @@ const NetflixPlayPauseHUD = memo(function NetflixPlayPauseHUD({ kind, metrics })
         style={{
           width: box,
           height: box,
-          borderRadius: Math.round(box * 0.22),
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "rgba(0,0,0,0.55)",
-          boxShadow: "0 12px 36px rgba(0,0,0,0.55)",
         }}
       >
-        <Icon size={icon} color="#fff" fill="#fff" strokeWidth={0} />
+        <motion.span
+          initial={{ scale: 0.55, rotate: kind === "play" ? -25 : 0, opacity: 0 }}
+          animate={{ scale: 1, rotate: 0, opacity: 1 }}
+          exit={{ scale: 0.7, opacity: 0 }}
+          transition={SPRING_SNAPPY}
+          style={{ display: "flex", lineHeight: 0 }}
+        >
+          <Icon
+            size={icon}
+            color="#fff"
+            fill="#fff"
+            strokeWidth={0}
+            style={{ filter: "drop-shadow(0 2px 10px rgba(0,0,0,0.75))" }}
+          />
+        </motion.span>
       </div>
     </motion.div>
   );

@@ -6,7 +6,7 @@ import { hudMetrics } from "../constants/playerUi";
 const DESKTOP = hudMetrics(1280, 720);
 const PHONE = hudMetrics(390, 844);
 
-/* The squircle box is the overlay's first (and only) element child. */
+/* The sized glyph container is the overlay's first (and only) element child. */
 const innerBox = (container) => container.firstElementChild.firstElementChild;
 
 describe("NetflixPlayPauseHUD", () => {
@@ -31,7 +31,22 @@ describe("NetflixPlayPauseHUD", () => {
     expect(svg.getAttribute("fill")).toBe("#fff");
   });
 
-  it("sizes the squircle from the measured frame, clamped for phone and 4K", () => {
+  it("draws NO dark plate behind the glyph", () => {
+    // The first version centred the glyph in a 55%-black squircle with a heavy
+    // drop shadow, which read as a grey smear over the picture. Legibility now
+    // comes from a drop-shadow on the glyph instead, so nothing on the frame
+    // may paint a background.
+    const { container } = render(<NetflixPlayPauseHUD kind="pause" metrics={DESKTOP} />);
+    const overlay = container.firstElementChild;
+    expect(overlay.style.background).toBe("");
+    expect(innerBox(container).style.background).toBe("");
+    expect(innerBox(container).style.boxShadow).toBe("");
+    expect(overlay.style.backdropFilter).toBe("");
+    // And the glyph keeps a shadow so it still reads over a white frame.
+    expect(container.querySelector("svg").getAttribute("style") || "").toContain("drop-shadow");
+  });
+
+  it("sizes the glyph container from the measured frame, clamped for phone and 4K", () => {
     const desktop = render(<NetflixPlayPauseHUD kind="play" metrics={DESKTOP} />);
     const phone = render(<NetflixPlayPauseHUD kind="play" metrics={PHONE} />);
     // 720p frame → scale 1 → 96px; phone short edge → sub-linear scale clamps to the 72px floor.
