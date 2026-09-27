@@ -14,7 +14,7 @@
  * React Native's fetch has no CORS layer, so the cross-origin POST is fine. */
 
 import { getConfig, REQUEST_TIMEOUT_MS } from "../config";
-import { playbackHeaders, preparePlaybackSource, probeDirect } from "./relay";
+import { playbackHeaders, preparePlaybackSource, probeDirect, relayIsKnownBad } from "./relay";
 import { logError, logInfo, logWarn } from "../utils/logger";
 
 const RESOLVE_TIMEOUT_MS = 20_000;
@@ -229,6 +229,17 @@ export async function resolvePlayback(
     id,
     source: variant.uri,
   });
+  /* Only route left. If the relay was already found to be answering with a 403, say
+   * that plainly instead of making the user watch one more dead round trip per
+   * attempt before reading the same conclusion. */
+  if (relayIsKnownBad()) {
+    const err = new Error(
+      "The source host refused this stream and the backup relay is not reachable either. " +
+        "Nothing on the device can fix that - try again later.",
+    );
+    logError("streams", "Both playback routes are unusable.", err, { type, id, source: variant.uri });
+    throw err;
+  }
   const uri = await preparePlaybackSource(variant.uri);
   return {
     uri,

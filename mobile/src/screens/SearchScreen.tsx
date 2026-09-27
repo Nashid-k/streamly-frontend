@@ -78,37 +78,46 @@ export function SearchScreen({ navigation: _navigation }: Props) {
         </View>
       ) : results.loading ? (
         <Spinner label={`Searching for "${debounced}"…`} />
-      ) : results.error ? (
-        <Banner
-          tone="error"
-          title="Search failed"
-          detail={results.error}
-          actionLabel="Retry"
-          onAction={results.reload}
-        />
-      ) : !data.length ? (
-        <View style={styles.hintWrap}>
-          <Text style={styles.hint}>
-            {submitted ? `No results for "${submitted}".` : `No results for "${debounced}".`}
-          </Text>
-        </View>
       ) : (
-        <FlatList
-          data={data}
-          keyExtractor={(item) => item.id}
-          numColumns={3}
-          columnWrapperStyle={styles.gridRow}
-          contentContainerStyle={styles.grid}
-          keyboardShouldPersistTaps="handled"
-          renderItem={({ item }) => (
-            <PosterCard item={item} onPress={() => openDetails(item.id, item.title)} />
+        <>
+          {/* A new query keeps the previous results on screen with a progress line,
+              instead of blanking to a spinner: the list stays where the user's eyes
+              are and the answer replaces it when it lands. */}
+          {results.refreshing ? <Text style={styles.progress}>Searching for “{debounced}”…</Text> : null}
+          {results.error && !data.length ? (
+            <Banner
+              tone="error"
+              title="Search failed"
+              detail={results.error}
+              actionLabel="Retry"
+              onAction={results.reload}
+            />
+          ) : !data.length ? (
+            <View style={styles.hintWrap}>
+              <Text style={styles.hint}>
+                {submitted ? `No results for "${submitted}".` : `No results for "${debounced}".`}
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={data}
+              keyExtractor={(item) => item.id}
+              numColumns={3}
+              columnWrapperStyle={styles.gridRow}
+              contentContainerStyle={styles.grid}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item }) => (
+                <PosterCard item={item} onPress={() => openDetails(item.id, item.title)} />
+              )}
+              ListFooterComponent={
+                <Text style={styles.footer}>
+                  {results.stale ? "Showing your last results — could not reach TMDB. " : ""}
+                  {data.length} result{data.length === 1 ? "" : "s"} for “{debounced}”
+                </Text>
+              }
+            />
           )}
-          ListFooterComponent={
-            <Text style={styles.footer}>
-              {data.length} result{data.length === 1 ? "" : "s"} for “{debounced}”
-            </Text>
-          }
-        />
+        </>
       )}
     </View>
   );
@@ -130,6 +139,7 @@ const styles = StyleSheet.create({
   },
   hintWrap: { paddingVertical: space.xl, alignItems: "center" },
   hint: { color: colors.textFaint, fontSize: type.small, textAlign: "center" },
+  progress: { color: colors.textFaint, fontSize: type.tiny, paddingTop: space.md },
   grid: { paddingTop: space.lg, gap: space.lg },
   gridRow: { gap: space.md, justifyContent: "flex-start" },
   footer: { color: colors.textFaint, fontSize: type.tiny, textAlign: "center", paddingVertical: space.lg },

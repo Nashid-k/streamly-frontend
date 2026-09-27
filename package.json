@@ -9,7 +9,8 @@
     "test": "vitest run",
     "smoke:mobile": "node scripts/smoke-mobile-config.mjs",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "probe:latency": "node scripts/probe-catalogue-latency.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.102.1",

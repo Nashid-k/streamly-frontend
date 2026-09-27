@@ -17,6 +17,7 @@ import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { DetailsScreen } from "./src/screens/DetailsScreen";
 import { PlayerScreen } from "./src/screens/PlayerScreen";
 import type { RootStackParamList, TabParamList } from "./src/navigation/types";
+import { useWarmup } from "./src/hooks/useWarmup";
 import { logInfo } from "./src/utils/logger";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -65,6 +66,8 @@ function TabsNavigator() {
 }
 
 export default function App() {
+  useWarmup();
+
   useEffect(() => {
     // Phone-shaped UI everywhere except the player, which unlocks landscape.
     ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch((error) =>

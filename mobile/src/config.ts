@@ -93,4 +93,37 @@ export function isPreconfigured(): boolean {
 
 export const TMDB_DIRECT_BASE = "https://api.themoviedb.org/3";
 
-export const REQUEST_TIMEOUT_MS = 12_000;
+/* Timeouts are PER LEG, not per call, and the split is the point.
+ *
+ * The 12s single budget this replaces was a real bug with two faces:
+ *   - it applied to the direct-TMDB FALLBACK too, so on a network where
+ *     api.themoviedb.org is blocked (DNS/ISP) a single failed proxy leg could burn
+ *     12s and then ANOTHER 12s on the fallback before the user saw an error - which
+ *     is where "search failed after 12000ms" came from, and why a search could take
+ *     half a minute to report a failure it should have reported in two;
+ *   - it was a hard give-up with no retry, so one dropped packet on a train turned
+ *     into an error screen.
+ * The primary leg is generous (a real answer is worth waiting for, and with the
+ * cache most of the time it is not even fetched), the fallback leg is short (it is
+ * a bonus route and must not eat the budget), and failures are retried once. */
+export const REQUEST_TIMEOUT_MS = 20_000;
+export const FALLBACK_TIMEOUT_MS = 4_000;
+export const RETRY_BACKOFF_MS = 350;
+
+/* How long a failed route is skipped. Direct TMDB is blocked outright on plenty of
+ * networks (it is blocked on the build machine), so retrying it per rail is pure
+ * latency; five minutes is long enough to skip the rest of a session's rails. */
+export const DIRECT_BREAKER_MS = 5 * 60_000;
+export const PROXY_BREAKER_MS = 30_000;
+
+/* Freshness windows, matched to what the data actually is. Trending and rails move
+ * on a scale of hours, a search should feel current, a title's details barely
+ * change. Anything older than STALE_MS is still shown while it is refetched - a
+ * saved catalogue beats an empty screen on a bad connection. */
+export const TTL = {
+  rail: 15 * 60_000,
+  search: 5 * 60_000,
+  detail: 30 * 60_000,
+  config: 24 * 60 * 60_000,
+} as const;
+export const STALE_MS = 24 * 60 * 60_000;

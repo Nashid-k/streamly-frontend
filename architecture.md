@@ -378,7 +378,7 @@ would refuse.
 
 ### 5.3 Boundaries
 
-- **Two config layers, device wins.** `mobile/src/config.ts` resolves at REQUEST
+- **Three config layers, device wins.** `mobile/src/config.ts` resolves at REQUEST
   time: on-device Settings (AsyncStorage `streamly.mobile.settings`) over
   build-time `EXPO_PUBLIC_*` env, over the shipped `DEPLOYED_API_BASE`. That last
   layer is what makes a release APK work like any store app — no `.env`, no
@@ -388,20 +388,47 @@ would refuse.
   (`<origin>/api/downloadify`) that cannot be bundled at all. `api/*` modules call
   `getConfig()` per request (never module-load constants); Home/Search re-query on
   the config tick, so a change applies to the next call with no restart.
+- **The catalogue is cached, and the cache is the feature.** Measured against the
+  live origin with the real client: a cold install costs 4 requests / 422 ms for
+  all four rails; the next launch costs **0 requests / 11 ms**, because
+  `mobile/src/api/cache.ts` answers from AsyncStorage and revalidates in the
+  background. TTLs: rails 15 min, search 5 min, details 30 min, config 24 h;
+  entries older than 24 h are dropped, 60 entries / 512 KB max, writes batched on
+  a 400 ms idle timer. This is the native equivalent of the web's React Query +
+  Vercel edge cache, and it exists because `npm run probe:latency` proved the
+  backend was never the problem (cold avg 624 ms, warm avg 381 ms, cold 4-rail
+  Home in parallel 978 ms).
+- **Timeout, retry and breaker policy** (`mobile/src/config.ts` owns the numbers):
+  **20 s** for the primary route, **4 s** for the direct-TMDB fallback, so a bonus
+  route can never eat the budget; **one** retry for timeout/network/429/5xx and
+  none for 401/404; a failed route is skipped for 5 min (direct) / 30 s (proxy)
+  and a success clears the window. Direct TMDB is attempted **only when a key is
+  configured** — the old `!tmdbApiKey && !tmdbProxy` guard let a keyless build fall
+  through to a host that could never answer, which is what produced a doubled
+  wait per rail and a bare "failed after 12000ms". `mobile/src/api/cache.test.js`
+  pins all of it.
+- **The connection is warmed at start.** `useWarmup` issues one 57-byte
+  `/configuration` call during app start, so DNS + TLS are paid while the UI
+  renders rather than on the first rail the user asked for. `useResource` keeps
+  existing content during a refresh and only reports `error` when there is
+  nothing to show, so a failed revalidation never replaces a catalogue with an
+  error screen.
 - **Playback is direct-with-Referer first, relay second.** Measured, not assumed:
   a resolved manifest 403s without a `Referer` and returns a real `#EXTM3U` with
   one, and `react-native-video` passes `source.headers` into ExoPlayer's
   data-source factory, so those headers reach every segment and key load. The
   Cloudflare-relay playlist rewrite therefore stays a FALLBACK for hosts that
-  refuse the header approach, not the primary path. `npm run smoke:mobile` pins
-  all of it — catalogue paths, the resolver's `source`/`variants` shape, the
-  `pickSmooth` ≤1080p rule, the Referer, and the first segment's bytes.
+  refuse the header approach, not the primary path — and when the worker is itself
+  answering 403, that is remembered for 5 min so every play does not re-pay a
+  route that cannot work. `npm run smoke:mobile` pins all of it — catalogue
+  paths, the resolver's `source`/`variants` shape, the `pickSmooth` ≤1080p rule,
+  the Referer, and the first segment's bytes.
 - **Catalogue keys** (`EXPO_PUBLIC_TMDB_API_KEY` direct, or
   `EXPO_PUBLIC_TMDB_PROXY` / `<API_BASE>/api/tmdb` keyless). An empty
-  `api_key` is never sent, because that would defeat the proxy's injection. With
-  nothing set in either layer, every catalogue surface shows an explicit setup
-  state pointing at Settings — the app never renders an empty rail that looks
-  like a broken TMDB.
+  `api_key` is never sent, because that would defeat the proxy's injection, and
+  the direct route is skipped entirely without a key. With nothing set in either
+  layer, every catalogue surface shows an explicit setup state pointing at
+  Settings — the app never renders an empty rail that looks like a broken TMDB.
 - **Relay** (`EXPO_PUBLIC_RELAY_URL`, default the project's worker) is public
   infrastructure: a GET passthrough that injects `Referer`/`User-Agent` and
   forwards `Range`. Same worker, same role as `src/api/relayProxy.js`.

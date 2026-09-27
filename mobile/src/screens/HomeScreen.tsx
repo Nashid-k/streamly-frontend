@@ -44,9 +44,13 @@ export function HomeScreen(_props: Props) {
         { title: "Now playing", res: movies },
         { title: "Top rated", res: topRated },
         { title: "Airing today", res: airing },
-      ].filter((rail) => !rail.res.error),
+      ].filter((rail) => !rail.res.error || rail.res.data?.length),
     [movies, topRated, airing],
   );
+
+  /* A rail that failed with nothing to show is worth a line of its own; a rail that
+   * merely could not be revalidated keeps its posters and is not called out. */
+  const emptyRail = rails.find((rail) => !rail.res.data?.length && rail.res.error);
 
   if (!hasTmdbAccess) {
     return (
@@ -60,8 +64,9 @@ export function HomeScreen(_props: Props) {
     );
   }
 
-  const allFailed = [trending, movies, topRated, airing].every((r) => r.error);
+  const allFailed = [trending, movies, topRated, airing].every((r) => r.error && !r.data);
   const firstError = [trending, movies, topRated, airing].find((r) => r.error)?.error || null;
+  const anyRefreshing = [trending, movies, topRated, airing].some((r) => r.refreshing);
 
   return (
     <ScrollView
@@ -70,6 +75,10 @@ export function HomeScreen(_props: Props) {
       testID="home-scroll"
     >
       {trending.loading && !hero ? <Spinner label="Loading the catalogue…" /> : null}
+
+      {anyRefreshing && !trending.loading ? (
+        <Text style={styles.refreshing}>Updating the catalogue…</Text>
+      ) : null}
 
       {allFailed ? (
         <Banner
@@ -83,6 +92,16 @@ export function HomeScreen(_props: Props) {
             topRated.reload();
             airing.reload();
           }}
+        />
+      ) : null}
+
+      {emptyRail ? (
+        <Banner
+          tone="error"
+          title={`${emptyRail.title} did not load`}
+          detail={emptyRail.res.error || "Unknown error."}
+          actionLabel="Retry"
+          onAction={() => emptyRail.res.reload()}
         />
       ) : null}
 
@@ -105,7 +124,6 @@ export function HomeScreen(_props: Props) {
           onSelect={(item) => openDetails(item.id, item.title)}
         />
       ))}
-
       {!hasResolver ? (
         <Banner
           tone="info"
@@ -148,6 +166,12 @@ function ContinueRow({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
+  refreshing: {
+    color: colors.textFaint,
+    fontSize: type.tiny,
+    paddingHorizontal: space.lg,
+    paddingBottom: space.sm,
+  },
   continue: { marginTop: space.lg, gap: space.sm, paddingHorizontal: space.lg },
   continueCard: {
     flexDirection: "row",

@@ -27,6 +27,25 @@ const PROBE_TIMEOUT_MS = 10_000;
 const MAX_VARIANT_DEPTH = 2;
 const PROBE_MAX_BYTES = 512 * 1024;
 
+/* The relay is a FALLBACK, and the deployment it points at is not this repo's to
+ * fix. Today it answers every request with a Cloudflare 403 page, which is fast -
+ * but "fast failure on every single play" still means every play waits for a route
+ * that cannot work. So a failed relay fetch parks the route for a few minutes: the
+ * next play goes straight to the error the user needs to see, and a relay that
+ * starts working again is picked up on its own after the window closes. */
+const RELAY_UNHEALTHY_MS = 5 * 60_000;
+const RELAY_HEALTHY_MS = 10 * 60_000;
+let relayHealthyUntil = 0;
+
+export function relayIsKnownBad(): boolean {
+  return Date.now() < relayHealthyUntil;
+}
+
+function noteRelayFailure(status?: number) {
+  relayHealthyUntil = Date.now() + RELAY_UNHEALTHY_MS;
+  logWarn("relay", `Relay marked unusable for ${RELAY_UNHEALTHY_MS / 1000}s.`, { status });
+}
+
 /* The player sends this UA as well as the Referer: a few hosts reject okhttp's
  * default outright, and nothing objects to a normal Chrome string. */
 export const PLAYBACK_USER_AGENT =
@@ -102,18 +121,24 @@ async function fetchText(url: string, label: string): Promise<string> {
     if (!res.ok) {
       const err = new Error(`${label} returned ${res.status} via relay.`);
       logError("relay", `Failed to fetch ${label}`, err, { status: res.status, url });
+      noteRelayFailure(res.status);
       throw err;
     }
     const body = await res.text();
+    /* The worker is answering again, so whatever made it unusable (a deployment
+     * that started 403ing, a DNS change) is over. */
+    relayHealthyUntil = Date.now() + RELAY_HEALTHY_MS;
     logDebug("relay", `Fetched ${label} (${body.length} bytes) via relay.`, { url });
     return body;
   } catch (error: any) {
     if (error?.name === "AbortError") {
       const err = new Error(`${label} timed out after ${REQUEST_TIMEOUT_MS}ms.`);
       logError("relay", `Timeout fetching ${label}`, err, { url });
+      noteRelayFailure();
       throw err;
     }
     logError("relay", `Network error fetching ${label} (offline or worker down?)`, error, { url });
+    noteRelayFailure();
     throw error;
   } finally {
     clearTimeout(timer);

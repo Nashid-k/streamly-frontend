@@ -66,14 +66,21 @@ or `.env`.
 
 - `src/api/tmdb.ts` — TMDB REST client. Proxy-first (`/api/tmdb`, which injects
   the server-side key when the client omits one), direct `api.themoviedb.org`
-  fallback, 12s timeout, in-flight de-duplication, and a **field-identical
+  fallback **only when a key is actually configured**, per-leg timeouts, one
+  retry, circuit breakers, in-flight de-duplication, and a **field-identical
   `normalizeResult`** to the web build (the frozen contract in `architecture.md` §2).
+- `src/api/cache.ts` — the durable response cache: one JSON blob under
+  `streamly.mobile.cache`, newest-first, 60 entries / 512 KB each, batched writes.
+  This is what makes a relaunch instant; see *Speed* below.
 - `src/config.ts` — `getConfig()`: runtime settings > `EXPO_PUBLIC_*` env >
-  `DEPLOYED_API_BASE`.
+  `DEPLOYED_API_BASE`. Also owns the timeout/TTL/breaker constants.
 - `src/store/settings.tsx` — runtime settings (AsyncStorage + a module mirror so
   non-React modules can read them synchronously).
-- `src/api/relay.ts` — `probeDirect` + `playbackHeaders` (the primary path) and
-  the Cloudflare playlist rewrite used as the fallback.
+- `src/hooks/useWarmup.ts` — one 57-byte `/configuration` call at app start, so DNS
+  + TLS are already paid before the first rail is asked for.
+- `src/api/relay.ts` — `probeDirect` + `playbackHeaders` (the primary path), the
+  Cloudflare playlist rewrite as the fallback, and a 5-minute unhealthy-relay
+  window so a dead worker is not re-probed on every play.
 - `src/api/streams.ts` — `resolveVidcore` / `resolveVidsrc` / `resolveBest` /
   `resolvePlayback` against the deployed resolver, plus `pickSmooth`.
 - `src/store/userData.tsx` — AsyncStorage persistence: `streamly.mobile.myList`,
@@ -81,6 +88,42 @@ or `.env`.
   `aios_*` localStorage keys are frozen for the browser).
 - `src/utils/logger.ts` — every diagnostic is a `[Streamly][scope]` line. On a
   phone the console is `adb logcat`, which is the equivalent of devtools.
+
+## Speed: why the catalogue is instant, and why it used not to be
+
+Measured against the deployed origin, from the real client:
+
+| | requests | time |
+|---|---|---|
+| Cold install, 4 rails in parallel | 4 | 422 ms |
+| **Relaunch (same rails)** | **0** | **11 ms** |
+| Search, first time | 1 | 95 ms |
+| **Search, same query again** | **0** | **1 ms** |
+
+Five things produce that, and each one replaced a specific defect:
+
+1. **A durable cache with stale-while-revalidate** (`src/api/cache.ts`). Freshness
+   windows: rails 15 min, search 5 min, details 30 min, config 24 h; anything
+   older than 24 h is dropped. A stale-but-usable answer is returned immediately
+   and refreshed in the background, so the catalogue is on screen *before* the
+   request is even sent. Before this, every launch and every back-and-forth into
+   Details re-paid the network for answers the app had already had.
+2. **Direct TMDB is only tried when a key exists.** The old guard was
+   `if (!tmdbApiKey && !tmdbProxy)`, so in the shipped keyless config a failed
+   proxy request fell straight through to `api.themoviedb.org` with no `api_key` —
+   a request that could never succeed, on a host that is DNS-blocked on plenty of
+   networks. On such a network that doubled the wait on every rail and produced
+   the "search failed after 12000ms" report.
+3. **Per-leg timeouts** — 20 s for the primary route, 4 s for the fallback, so a
+   bonus route can never eat the budget — plus **one retry** for the failures that
+   are usually transient (timeout, network, 429, 5xx) and none for the ones that
+   are not (401/404).
+4. **Circuit breakers.** A route that fails is skipped for 5 min (direct) / 30 s
+   (proxy), and a *successful* call clears the window, so a recovery is picked up
+   without a rebuild. The relay gets the same treatment in `relay.ts`.
+5. **A warm connection** (`useWarmup`) plus `useResource` keeping existing content
+   during a refresh — a revalidation that fails leaves the screen alone and says
+   so in the log instead of replacing it with an error.
 
 ## Configuration: pre-wired, with an escape hatch
 
@@ -145,17 +188,19 @@ Reference build on a Dell Latitude 5400 (i5-8365U, 7.8 GB RAM): **25m 8s**,
 `app-release.apk` **27.2 MB**, 429 tasks. The release variant signs with the
 debug keystore (RN template default) so it installs anywhere; use a real
 keystore for a store release.
-
 ## Verification performed
 
 | Gate | Result |
 |---|---|
 | `npm run smoke:mobile` (repo root) | **13/13** against the live deployment: 6 catalogue paths, the resolver contract, `pickSmooth`, direct-manifest-with-Referer (403 → 200 `#EXTM3U`), first segment 206 `video/mp4` |
+| `npm run probe:latency` (repo root) | every catalogue path, cold (cache-busted) and warm: cold avg **624 ms**, max 1343 ms; warm avg **381 ms**; a 4-rail cold Home in parallel **978 ms** — i.e. the backend was never the problem |
+| `npx vitest run mobile/src/api/tmdb.cache.test.js` (repo root) | **9/9** — no keyless direct fallback, per-leg timeout text, proxy-then-direct order with a key, concurrent dedup, cache hit, stale-while-revalidate, cache survives a relaunch, retry policy |
 | `npx tsc --noEmit` | clean, 0 errors |
 | `npx expo export --platform android` | bundled, 889 modules |
 | `gradlew assembleRelease` | BUILD SUCCESSFUL, 25m 8s cold / ~2 min incremental |
 | APK badging | `com.streamly.app` 1.0.0, label `Streamly`, minSdk 24 / targetSdk 36, `arm64-v8a` |
-| `npm run lint` / `npm test` / `npm run build` (web) | 0 errors · 663/663 · OK |
+| `npm run lint` / `npm test` / `npm run build` (web) | 0 errors · **672/672** · OK |
+| Catalogue timings, real client, live origin | cold 4 rails **422 ms** / 4 requests · relaunch **11 ms** / **0 requests** · search 95 ms → **1 ms** |
 
 `smoke:mobile` exists because the app's dependencies are **remote contracts**:
 the TMDB proxy injects a key, the resolver returns a `source`/`variants` shape,
@@ -164,9 +209,12 @@ change without a line of app code changing, and a silent break would only show u
 as an empty rail or a black player on someone else's phone. It is a network test,
 so run it before blaming the app.
 
-There is **no unit-test runner in `mobile/`** (the web build's vitest suites
-target the DOM). Say so rather than claiming a test pass; the gates above are
-what the app is verified with today.
+`tmdb.cache.test.js` is the one piece of app code with real unit coverage. It
+lives in `mobile/` but is **executed by the repository's root vitest** (`npm test`
+from the repo root), which is what can resolve the mobile modules and stub the
+single native import they pull in — `mobile/` still has no test runner of its own,
+so nothing here should be read as "the app is unit tested"; it is the caching,
+retry and routing logic that regresses silently, and that is what is covered.
 
 ## Not in the app (yet)
 

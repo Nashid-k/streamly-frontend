@@ -14,8 +14,19 @@
  * same field names the web rails, details and search depend on, so both clients
  * can share stored titles and the app can be extended without a migration. */
 
-import { getConfig, REQUEST_TIMEOUT_MS, TMDB_DIRECT_BASE } from "../config";
+import {
+  DIRECT_BREAKER_MS,
+  FALLBACK_TIMEOUT_MS,
+  getConfig,
+  PROXY_BREAKER_MS,
+  REQUEST_TIMEOUT_MS,
+  RETRY_BACKOFF_MS,
+  STALE_MS,
+  TMDB_DIRECT_BASE,
+  TTL,
+} from "../config";
 import { logDebug, logEmptyData, logError, logInfo, logWarn } from "../utils/logger";
+import { readCache, writeCache } from "./cache";
 
 export interface MediaItem {
   id: string;
@@ -140,9 +151,44 @@ function buildQuery(path: string, params: Record<string, unknown> = {}, apiKey: 
 
 const inFlight = new Map<string, Promise<any>>();
 
-async function fetchJson(url: string, path: string, via: string) {
+/* Route health, so a dead host is not paid for twice.
+ *
+ * api.themoviedb.org is blocked DNS-side on a lot of networks (including the
+ * machine this was built on). Without this, EVERY rail and EVERY search that
+ * arrived while the proxy was slow first waited out its own timeout and then
+ * waited out another full one on the direct fallback - a 12s error, a second
+ * 12s, and nothing on screen. After one failure the fallback is skipped for
+ * DIRECT_BREAKER_MS; if the proxy itself is the thing that is failing, the direct
+ * leg is tried FIRST for the next PROXY_BREAKER_MS instead of after it. */
+const breaker = { proxyUntil: 0, directUntil: 0 };
+
+function noteFailure(route: "proxy" | "direct") {
+  const window = route === "proxy" ? PROXY_BREAKER_MS : DIRECT_BREAKER_MS;
+  if (route === "proxy") breaker.proxyUntil = Date.now() + window;
+  else breaker.directUntil = Date.now() + window;
+  logWarn("tmdb", `${route} route marked unhealthy for ${Math.round(window / 1000)}s.`, {
+    route,
+    windowMs: window,
+  });
+}
+
+function noteSuccess(route: "proxy" | "direct") {
+  if (route === "proxy") breaker.proxyUntil = 0;
+  else breaker.directUntil = 0;
+}
+
+/* A retry is worth it for the failures that are usually transient (a dropped
+ * packet, a cold lambda, a 5xx, a rate limit) and pointless for the ones that are
+ * not (401 bad key, 404 no such title) - retrying those only delays the answer. */
+function isWorthRetrying(error: unknown): boolean {
+  const message = String((error as Error)?.message || "");
+  if (/\b(401|403|404)\b/.test(message)) return false;
+  return /timed out|Network error|failed: (429|5\d\d)/.test(message);
+}
+
+async function fetchJson(url: string, path: string, via: string, timeoutMs: number) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(url, { signal: controller.signal });
     if (!res.ok) {
@@ -158,8 +204,8 @@ async function fetchJson(url: string, path: string, via: string) {
     return await res.json();
   } catch (error: any) {
     if (error?.name === "AbortError") {
-      const timeoutErr = new Error(`TMDB ${path} timed out after ${REQUEST_TIMEOUT_MS}ms.`);
-      logError("tmdb", `Request timed out: ${path}`, timeoutErr, { path, via });
+      const timeoutErr = new Error(`TMDB ${path} timed out after ${timeoutMs}ms via ${via}.`);
+      logError("tmdb", `Request timed out: ${path}`, timeoutErr, { path, via, timeoutMs });
       throw timeoutErr;
     }
     if (String(error?.message || "").startsWith("TMDB ")) throw error;
@@ -170,34 +216,48 @@ async function fetchJson(url: string, path: string, via: string) {
   }
 }
 
-export async function tmdb<T = any>(path: string, params: Record<string, unknown> = {}): Promise<T> {
+async function fetchJsonWithRetry(url: string, path: string, via: string, timeoutMs: number) {
+  try {
+    return await fetchJson(url, path, via, timeoutMs);
+  } catch (error) {
+    if (!isWorthRetrying(error)) throw error;
+    logInfo("tmdb", `Retrying ${path} via ${via} once.`, {
+      path,
+      via,
+      reason: String((error as Error)?.message || error),
+    });
+    await new Promise((resolve) => setTimeout(resolve, RETRY_BACKOFF_MS));
+    return fetchJson(url, path, via, timeoutMs);
+  }
+}
+
+export interface TmdbOptions {
+  /** How long a cached response is served without revalidating. */
+  ttlMs?: number;
+  /** Ignore the cache and force a network read (pull-to-refresh). */
+  forceFresh?: boolean;
+}
+
+export async function tmdb<T = any>(
+  path: string,
+  params: Record<string, unknown> = {},
+  options: TmdbOptions = {},
+): Promise<T> {
   // Read per request: the user can paste credentials in Settings while the app is
   // open, and the very next call must use them.
   const { tmdbApiKey, tmdbProxy } = getConfig();
   const query = buildQuery(path, params, tmdbApiKey);
   const directUrl = `${TMDB_DIRECT_BASE}${path}?${query}`;
-  const key = `${path}?${query}`;
+  /* The cache key deliberately omits the api_key: it is a credential, not part of
+   * the question, and keying on it would orphan every entry the day a key changed. */
+  const key = `${path}?${new URLSearchParams(
+    Object.entries(params)
+      .filter(([, v]) => v !== undefined && v !== null && v !== "")
+      .map(([k, v]) => [k, String(v)]),
+  ).toString()}`;
 
-  const shared = inFlight.get(key);
-  if (shared) {
-    logDebug("tmdb", `deduped concurrent GET ${path}`, { path });
-    return shared as Promise<T>;
-  }
-
-  const request = (async () => {
-    if (tmdbProxy) {
-      try {
-        const data = await fetchJson(`${tmdbProxy}${path}?${query}`, path, "proxy");
-        logEmptyCheck(path, data);
-        return data;
-      } catch (error) {
-        logWarn("tmdb", `Proxy ${tmdbProxy} failed - falling back to direct TMDB.`, {
-          path,
-          message: String((error as Error)?.message || error),
-        });
-      }
-    }
-    if (!tmdbApiKey && !tmdbProxy) {
+  const fresh = async (): Promise<T> => {
+    if (!tmdbProxy && !tmdbApiKey) {
       const err = new Error(
         "TMDB is not configured. Open Settings in the app and enter a TMDB read key, a " +
           "/api/tmdb proxy URL, or the deployed Streamly URL (used for both).",
@@ -205,18 +265,93 @@ export async function tmdb<T = any>(path: string, params: Record<string, unknown
       logError("tmdb", "No TMDB credentials configured.", err, { path });
       throw err;
     }
-    const data = await fetchJson(redact(directUrl), path, "direct");
-    logEmptyCheck(path, data);
-    return data;
-  })();
 
-  inFlight.set(key, request);
-  try {
-    return await request;
-  } finally {
-    inFlight.delete(key);
+    /* Which routes exist, and which of them are worth touching. A route on
+     * cooldown is only skipped when there is somewhere else to go - if the proxy is
+     * the ONLY way to TMDB, a cold cache still tries it rather than refusing. */
+    const proxyOpen = Date.now() >= breaker.proxyUntil;
+    const directOpen = Date.now() >= breaker.directUntil;
+    const order: ("proxy" | "direct")[] = [];
+    if (tmdbProxy) {
+      if (proxyOpen || !tmdbApiKey) order.push("proxy");
+      if (tmdbApiKey && (directOpen || !tmdbProxy)) order.push("direct");
+    } else if (tmdbApiKey) {
+      order.push("direct");
+    }
+
+    let lastError: unknown = null;
+    for (const route of order) {
+      try {
+        const url = route === "proxy" ? `${tmdbProxy}${path}?${query}` : redact(directUrl);
+        const data = await fetchJsonWithRetry(
+          url,
+          path,
+          route,
+          route === "proxy" ? REQUEST_TIMEOUT_MS : FALLBACK_TIMEOUT_MS,
+        );
+        noteSuccess(route);
+        return data as T;
+      } catch (error) {
+        noteFailure(route);
+        lastError = error;
+      }
+    }
+    throw lastError || new Error(`TMDB ${path} could not be reached.`);
+  };
+
+  /* Concurrent identical GETs still share ONE round trip: a cold Home mount fires
+   * every rail in the same commit and three of them ask for /trending/all/week.
+   * The dedup wraps the NETWORK leg only, so a cached answer still returns
+   * instantly instead of waiting behind a refresh. */
+  const netKey = `net:${key}`;
+  const request = async (): Promise<T> => {
+    const shared = inFlight.get(netKey);
+    if (shared) {
+      logDebug("tmdb", `deduped concurrent GET ${path}`, { path });
+      return shared as Promise<T>;
+    }
+    const promise = fresh();
+    inFlight.set(netKey, promise);
+    try {
+      return await promise;
+    } finally {
+      inFlight.delete(netKey);
+    }
+  };
+
+  /* Stale-while-revalidate. Fresh cache: answer instantly, no network. Stale but
+   * usable: answer instantly and refresh behind the user's back - the catalogue is
+   * on screen before the request is even sent, which is the whole point. */
+  if (!options.forceFresh) {
+    const entry = await readCache<T>(key);
+    if (entry) {
+      const age = Date.now() - entry.savedAt;
+      if (age < (options.ttlMs ?? TTL.rail)) {
+        logDebug("tmdb", `cache hit ${path}`, { path, ageMs: age });
+        return entry.data;
+      }
+      if (age < STALE_MS) {
+        logInfo("tmdb", `Serving stale ${path} while revalidating.`, { path, ageMs: age });
+        void request()
+          .then((data) => writeCache(key, data))
+          .catch((error) =>
+            logWarn("tmdb", `Background revalidate failed for ${path}; keeping the saved copy.`, {
+              path,
+              message: String((error as Error)?.message || error),
+            }),
+          );
+        return entry.data;
+      }
+    }
   }
+
+  const data = await request();
+  void writeCache(key, data);
+  logEmptyCheck(path, data);
+  return data as T;
 }
+
+
 
 function logEmptyCheck(path: string, data: any) {
   if (Array.isArray(data?.results) && data.results.length === 0) {
@@ -244,7 +379,7 @@ export async function probeTmdb(): Promise<TmdbProbeResult> {
 
   if (tmdbProxy) {
     try {
-      const data = await fetchJson(`${tmdbProxy}${path}?${query}`, path, "proxy");
+      const data = await fetchJson(`${tmdbProxy}${path}?${query}`, path, "proxy", REQUEST_TIMEOUT_MS);
       logInfo("tmdb", "Probe succeeded through the configured proxy.", { proxy: tmdbProxy });
       return { via: "proxy", imageBaseUrl: data?.images?.secure_base_url ?? null };
     } catch (error) {
@@ -255,7 +390,7 @@ export async function probeTmdb(): Promise<TmdbProbeResult> {
     }
   }
 
-  const data = await fetchJson(`${TMDB_DIRECT_BASE}${path}?${query}`, path, "direct");
+  const data = await fetchJson(`${TMDB_DIRECT_BASE}${path}?${query}`, path, "direct", FALLBACK_TIMEOUT_MS);
   logInfo("tmdb", "Probe succeeded against TMDB directly.", { hasKey: Boolean(tmdbApiKey) });
   return { via: "direct", imageBaseUrl: data?.images?.secure_base_url ?? null };
 }
@@ -266,29 +401,32 @@ const asItems = (data: any): MediaItem[] =>
   Array.isArray(data?.results) ? data.results.map(normalizeResult) : [];
 
 export async function getTrending(): Promise<MediaItem[]> {
-  return asItems(await tmdb("/trending/all/week"));
+  return asItems(await tmdb("/trending/all/week", {}, { ttlMs: TTL.rail }));
 }
 
 export async function getTopRated(): Promise<MediaItem[]> {
-  return asItems(await tmdb("/movie/top_rated"));
+  return asItems(await tmdb("/movie/top_rated", {}, { ttlMs: TTL.rail }));
 }
 
 export async function getPopular(): Promise<MediaItem[]> {
-  return asItems(await tmdb("/trending/all/day"));
+  return asItems(await tmdb("/trending/all/day", {}, { ttlMs: TTL.rail }));
 }
 
 export async function getNowPlaying(): Promise<MediaItem[]> {
-  return asItems(await tmdb("/movie/now_playing"));
+  return asItems(await tmdb("/movie/now_playing", {}, { ttlMs: TTL.rail }));
 }
 
 export async function getAiringThisWeek(): Promise<MediaItem[]> {
-  return asItems(await tmdb("/tv/airing_today"));
+  return asItems(await tmdb("/tv/airing_today", {}, { ttlMs: TTL.rail }));
 }
 
 export async function searchMulti(query: string): Promise<MediaItem[]> {
   const q = query.trim();
   if (!q) return [];
-  return asItems(await tmdb("/search/multi", { query: q, include_adult: "false" }));
+  /* Short TTL: a search is the one screen where "current" is the whole point, but
+   * the answer is still cached so retyping a query, or coming back from a title,
+   * paints instantly instead of spinning. */
+  return asItems(await tmdb("/search/multi", { query: q, include_adult: "false" }, { ttlMs: TTL.search }));
 }
 
 export async function getTrailers(id: string): Promise<{ key: string; name: string; type: string }[]> {
@@ -320,9 +458,9 @@ export async function getDetail(id: string): Promise<TitleDetail> {
   const isTv = String(id).startsWith("tv-");
   const kind = isTv ? "tv" : "movie";
   const [detail, credits, videos] = await Promise.all([
-    tmdb(`/${kind}/${tmdbId}`, { append_to_response: "external_ids" }),
-    tmdb(`/${kind}/${tmdbId}/credits`),
-    tmdb(`/${kind}/${tmdbId}/videos`),
+    tmdb(`/${kind}/${tmdbId}`, { append_to_response: "external_ids" }, { ttlMs: TTL.detail }),
+    tmdb(`/${kind}/${tmdbId}/credits`, {}, { ttlMs: TTL.detail }),
+    tmdb(`/${kind}/${tmdbId}/videos`, {}, { ttlMs: TTL.detail }),
   ]);
 
   const trailer = (videos?.results || []).find(
@@ -358,7 +496,7 @@ export async function getEpisodes(id: string, season: number): Promise<Episode[]
   const tmdbId = numericId(id);
   const isTv = String(id).startsWith("tv-");
   if (!isTv) return [];
-  const data = await tmdb(`/tv/${tmdbId}/season/${season}`);
+  const data = await tmdb(`/tv/${tmdbId}/season/${season}`, {}, { ttlMs: TTL.detail });
   const episodes: any[] = Array.isArray(data?.episodes) ? data.episodes : [];
   return episodes.map((e) => ({
     episodeNumber: e.episode_number,
