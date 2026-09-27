@@ -26,7 +26,7 @@ export function HomeScreen(_props: Props) {
   // there turns this screen from "not configured" into a catalogue with no
   // restart and no rebuild.
   const configTick = useConfigTick();
-  const { hasTmdbAccess, hasResolver } = getConfig();
+  const { hasTmdbAccess } = getConfig();
 
   const trending = useResource(() => tmdb.getTrending(), [configTick], "Trending this week");
   const movies = useResource(() => tmdb.getNowPlaying(), [configTick], "Now playing");
@@ -67,8 +67,10 @@ export function HomeScreen(_props: Props) {
       <View style={[styles.root, { paddingTop: insets.top }]}>
         <Banner
           tone="error"
-          title="No catalogue source"
-          detail="This build has no Streamly origin to talk to. Reinstall the official APK, or set a deployment URL under Settings › Advanced."
+          title="The catalogue could not be reached"
+          detail="Check your internet connection and try again. If this keeps happening, the service may be briefly down."
+          actionLabel="Retry"
+          onAction={reloadAll}
         />
       </View>
     );
@@ -140,13 +142,7 @@ export function HomeScreen(_props: Props) {
           index={index + 1}
         />
       ))}
-      {!hasResolver ? (
-        <Banner
-          tone="info"
-          title="Playback needs a deployed resolver"
-          detail="The stream resolver lives on the Streamly deployment rather than in the app, so it needs a reachable origin. Browsing works without it."
-        />
-      ) : null}
+
     </ScrollView>
   );
 }

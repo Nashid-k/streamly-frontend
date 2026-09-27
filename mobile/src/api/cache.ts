@@ -122,6 +122,21 @@ export async function writeCache<T>(key: string, data: T): Promise<void> {
   scheduleFlush();
 }
 
+/* Settings › Data and storage shows the real size of the cache instead of a
+ * guess: entry count and the serialised bytes that would be written to disk. */
+export async function cacheStats(): Promise<{ entries: number; bytes: number }> {
+  const file = await load();
+  let bytes = 0;
+  for (const entry of Object.values(file)) {
+    try {
+      bytes += JSON.stringify(entry.data ?? {}).length;
+    } catch {
+      // An unserialisable entry was never stored; skip it.
+    }
+  }
+  return { entries: Object.keys(file).length, bytes };
+}
+
 export async function clearCache(): Promise<void> {
   mirror = {};
   try {

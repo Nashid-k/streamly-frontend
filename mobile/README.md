@@ -24,9 +24,9 @@ RN and keeps the **data contract and the resolver** shared with the web build.
 | Home | `src/screens/HomeScreen.tsx` | featured hero, Continue Watching rows, four rails (Trending, Now playing, Top rated, Airing today) |
 | Search | `src/screens/SearchScreen.tsx` | debounced live TMDB multi-search into a poster grid |
 | Details | `src/screens/DetailsScreen.tsx` | backdrop hero, rating/runtime/genre, My List toggle, cast, season chips + episode list with airdates |
-| Player | `src/screens/PlayerScreen.tsx` | resolves a stream, plays it in ExoPlayer full-screen (landscape unlocked), saves progress |
+| Player | `src/screens/PlayerScreen.tsx` | resolves a stream, plays it in ExoPlayer full-screen (landscape unlocked), saves progress. True touch player: double-tap seek, left-drag = brightness (activity-scoped), right-drag = system volume, quality/speed menus, prev/next + Up-Next auto-advance |
 | Library | `src/screens/LibraryScreen.tsx` | Continue Watching (with progress bars) + My List, both on-device |
-| Settings | `src/screens/SettingsScreen.tsx` | connection status + diagnostics; *Advanced connection options* holds the optional overrides |
+| Settings | `src/screens/SettingsScreen.tsx` | default quality, autoplay-next, data & storage (cache stats, clears), about; fork-only connection overrides collapsed at the bottom |
 
 Bottom tabs: Home / Search / Library / Settings. `Details` and `Player` are
 pushed on the root stack (`src/navigation/types.ts` is the param contract).
@@ -75,7 +75,9 @@ or `.env`.
 - `src/config.ts` — `getConfig()`: runtime settings > `EXPO_PUBLIC_*` env >
   `DEPLOYED_API_BASE`. Also owns the timeout/TTL/breaker constants.
 - `src/store/settings.tsx` — runtime settings (AsyncStorage + a module mirror so
-  non-React modules can read them synchronously).
+  non-React modules can read them synchronously). User-facing: default quality
+  (caps the initial rendition; `auto` = ≤1080p) and autoplay-next. Connection
+  fields stay hidden for forks; the official APK needs none of them.
 - `src/hooks/useWarmup.ts` — one 57-byte `/configuration` call at app start, so DNS
   + TLS are already paid before the first rail is asked for.
 - `src/api/relay.ts` — `probeDirect` + `playbackHeaders` (the primary path), the

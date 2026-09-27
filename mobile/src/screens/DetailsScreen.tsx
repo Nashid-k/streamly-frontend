@@ -20,7 +20,6 @@ import {
 } from "../components/motion";
 import { useResource } from "../hooks/useResource";
 import * as tmdb from "../api/tmdb";
-import { getConfig } from "../config";
 import { colors, radius, space, type } from "../theme";
 import type { RootStackParamList } from "../navigation/types";
 import { useUserData } from "../store/userData";
@@ -56,6 +55,9 @@ export function DetailsScreen({ route, navigation }: Props) {
         season: detail.data.isSeries ? activeSeason : null,
         episode: detail.data.isSeries ? episodeNumber : null,
         startPosition: saved?.positionSec ?? 0,
+        /* The player steps prev/next and auto-advances through the AIRED list,
+         * not through episode+1, which can be unaired or missing. */
+        episodeNumbers: detail.data.isSeries ? playableEpisodes.map((ep) => ep.episodeNumber) : null,
       });
     },
     [activeSeason, detail.data, id, navigation, saved?.positionSec],
@@ -171,13 +173,7 @@ export function DetailsScreen({ route, navigation }: Props) {
           ) : null}
         </View>
 
-        {!getConfig().hasResolver ? (
-          <Banner
-            tone="info"
-            title="Playback is not configured"
-            detail="The stream resolver lives on the Streamly deployment rather than in the app, so it needs a reachable origin. Browsing works without it."
-          />
-        ) : null}
+
 
         {saved ? (
           <Text style={styles.resumeNote}>

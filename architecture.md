@@ -369,8 +369,8 @@ versions honest.
 | Search | `Search` (tab) | 350 ms debounce → `searchMulti` (`/search/multi`) | none |
 | Library | `Library` (tab) | none (local only) | `streamly.mobile.myList`, `streamly.mobile.continueWatching` |
 | Open a title | `Details` (stack) | `getDetail` (`/{kind}/{id}` + `credits` + `videos`), `getEpisodes` (`/tv/{id}/season/{n}`) | My List toggle, resume read |
-| Watch | `Player` (stack, full-screen) | `resolvePlayback` → `/api/downloadify` `resolvevidcore`\|`resolvevidsrc` → `pickSmooth` ≤1080p → `probeDirect` + Referer (relay rewrite as fallback) → ExoPlayer | progress write every 5s, cap 40 entries |
-| Configure | `Settings` (tab) | status + diagnostics; *Advanced* overrides `streamly.mobile.settings` (key / proxy / origin / relay) |
+| Watch | `Player` (stack, full-screen) | `resolvePlayback` → `/api/downloadify` `resolvevidcore`\|`resolvevidsrc` → quality cap (Settings › Default quality, "auto" = ≤1080p) → `probeDirect` + Referer (relay rewrite as fallback) → ExoPlayer. Touch: single tap chrome, double-tap ±10s, LEFT-half vertical drag = brightness (`expo-brightness`, activity-scoped), RIGHT-half = system volume (`react-native-volume-manager`, music stream). Quality/speed/mute menus, prev/next + 12s Up-Next auto-advance through the AIRED episode list | progress write every 5s, cap 40 entries |
+| Configure | `Settings` (tab) | user settings: default quality (auto/1080/720/480), autoplay-next toggle, data & storage (cache stats + clears, watch history removal), about. Connection overrides (key/proxy/origin/relay) collapsed under a fork-only *Connection options* disclosure | `streamly.mobile.settings` |
 
 Episode availability reuses the web rule verbatim: `isEpAired` (air date in the
 past, or no date at all) — the app never offers to play an episode the site

@@ -1,14 +1,12 @@
 /* Runtime settings, typed on the phone.
  *
- * Why this exists: a shipped APK has no `.env`. Asking someone to edit a file on
- * a build machine to make an installed app show a catalogue is a dead end, and a
- * "TMDB is not configured" wall on first launch is worse - it reads as a broken
- * app. So the credentials are entered in Settings, persisted in AsyncStorage, and
- * read at REQUEST time (see src/config.ts), which means a wrong value can be
- * corrected without a rebuild.
- *
- * A TMDB key is a public read token; the deployed /api/tmdb proxy is offered
- * first so a user can stay keyless entirely. */
+ * Two kinds of value live here. The playback preferences (default quality,
+ * auto-play next) are the user-facing Settings screen. The connection fields
+ * are deliberately NOT surfaced as a form any more: the shipped APK is pre-wired
+ * to the deployed origin and the empty values mean "use the baked defaults" -
+ * they exist so a fork or a self-hosted copy can be pointed elsewhere via a
+ * build-time env var without touching code (see src/config.ts), not because the
+ * person holding the phone should ever meet them. */
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
@@ -17,14 +15,27 @@ import { logError, logInfo } from "../utils/logger";
 
 const SETTINGS_KEY = "streamly.mobile.settings";
 
+export type QualityPreference = "auto" | "1080" | "720" | "480";
+
 export interface RuntimeSettings {
+  /* Connection overrides (hidden; empty = the shipped deployment). */
   tmdbApiKey: string;
   tmdbProxy: string;
   apiBase: string;
   relayUrl: string;
+  /* User-facing playback preferences. */
+  defaultQuality: QualityPreference;
+  autoPlayNext: boolean;
 }
 
-const EMPTY: RuntimeSettings = { tmdbApiKey: "", tmdbProxy: "", apiBase: "", relayUrl: "" };
+const EMPTY: RuntimeSettings = {
+  tmdbApiKey: "",
+  tmdbProxy: "",
+  apiBase: "",
+  relayUrl: "",
+  defaultQuality: "auto",
+  autoPlayNext: true,
+};
 
 /* Module-level mirror so non-React modules (api/*) can read the current values
  * synchronously. The provider is the only writer. */
@@ -50,11 +61,14 @@ interface SettingsValue {
 const SettingsContext = createContext<SettingsValue | null>(null);
 
 function sanitize(raw: any): RuntimeSettings {
+  const quality = raw?.defaultQuality;
   return {
     tmdbApiKey: typeof raw?.tmdbApiKey === "string" ? raw.tmdbApiKey.trim() : "",
     tmdbProxy: typeof raw?.tmdbProxy === "string" ? raw.tmdbProxy.trim() : "",
     apiBase: typeof raw?.apiBase === "string" ? raw.apiBase.trim() : "",
     relayUrl: typeof raw?.relayUrl === "string" ? raw.relayUrl.trim() : "",
+    defaultQuality: quality === "1080" || quality === "720" || quality === "480" ? quality : "auto",
+    autoPlayNext: typeof raw?.autoPlayNext === "boolean" ? raw.autoPlayNext : true,
   };
 }
 
@@ -72,9 +86,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         commit(parsed);
         setSettings(parsed);
         logInfo("settings", "Runtime settings hydrated.", {
-          hasKey: Boolean(parsed.tmdbApiKey),
-          hasProxy: Boolean(parsed.tmdbProxy),
-          hasApiBase: Boolean(parsed.apiBase),
+          defaultQuality: parsed.defaultQuality,
+          autoPlayNext: parsed.autoPlayNext,
         });
       } catch (error) {
         logError("settings", "Could not read runtime settings; starting empty.", error);
@@ -95,9 +108,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         logError("settings", "Could not persist runtime settings.", error),
       );
       logInfo("settings", "Runtime settings updated.", {
-        hasKey: Boolean(next.tmdbApiKey),
-        hasProxy: Boolean(next.tmdbProxy),
-        hasApiBase: Boolean(next.apiBase),
+        defaultQuality: next.defaultQuality,
+        autoPlayNext: next.autoPlayNext,
       });
       return next;
     });

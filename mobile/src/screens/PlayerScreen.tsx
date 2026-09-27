@@ -6,7 +6,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Player } from "../components/Player";
 import { Banner, Spinner } from "../components/PosterCard";
-import { Touchable } from "../components/motion";
 import { resolvePlayback, type PlaybackTarget } from "../api/streams";
 import { minimalMediaItem } from "../api/tmdb";
 import { colors, radius, space, type } from "../theme";
@@ -51,7 +50,7 @@ function explainDetail(message: string): string {
 }
 
 export function PlayerScreen({ route, navigation }: Props) {
-  const { id, title, type, season, episode, startPosition } = route.params;
+  const { id, title, type, season, episode, startPosition, episodeNumbers } = route.params;
   const insets = useSafeAreaInsets();
   const { saveProgress } = useUserData();
   const [target, setTarget] = useState<PlaybackTarget | null>(null);
@@ -60,6 +59,13 @@ export function PlayerScreen({ route, navigation }: Props) {
   const [nonce, setNonce] = useState(0);
   const lastSaved = useRef(0);
   const latest = useRef({ position: startPosition, duration: 0 });
+
+  /* Aired-episode stepping: the list arrives from DetailsScreen, so prev/next
+   * and the Up-Next auto-advance never walk into an unaired or absent episode. */
+  const episodes = episodeNumbers ?? [];
+  const currentIndex = episode != null ? episodes.indexOf(episode) : -1;
+  const prevEpisode = currentIndex > 0 ? episodes[currentIndex - 1] : null;
+  const nextEpisode = currentIndex >= 0 && currentIndex < episodes.length - 1 ? episodes[currentIndex + 1] : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -93,6 +99,14 @@ export function PlayerScreen({ route, navigation }: Props) {
 
     return () => {
       cancelled = true;
+      /* NO brightness restore here, deliberately. The drag gesture sets an
+       * ACTIVITY-scoped brightness (expo-brightness on Android), which the OS
+       * drops by itself when this screen's activity tears down - and calling
+       * back into a native module from cleanup races the activity detach
+       * (expo-brightness resolves `throwingActivity`, which THROWS once the
+       * activity is going away). That race is a hard crash on exit, for a call
+       * that would have been a no-op anyway. The same reasoning keeps every
+       * other native teardown call out of this cleanup. */
       ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {
         // Screen may already be gone; nothing to report.
       });
@@ -119,6 +133,29 @@ export function PlayerScreen({ route, navigation }: Props) {
     );
     navigation.goBack();
   }, [episode, id, navigation, saveProgress, season, title, type]);
+
+  /* Episode switch = save the outgoing episode where it stopped, then re-resolve
+   * with the new episode number and a zero start. setParams re-runs the resolve
+   * effect; the Player keeps its own auto-advance guard so this fires once. */
+  const goToEpisode = useCallback(
+    (target: number) => {
+      saveProgress(
+        minimalMediaItem(id, title, type),
+        latest.current.position,
+        latest.current.duration,
+        season,
+        episode,
+      );
+      logInfo("player", "Stepping to another episode.", { from: episode, to: target, season });
+      /* Drop the old stream BEFORE re-resolving: keeping it would mean a failed
+       * re-resolve leaves the previous episode playing behind the error banner. */
+      setTarget(null);
+      setError(null);
+      setLoading(true);
+      navigation.setParams({ episode: target, startPosition: 0 });
+    },
+    [episode, id, navigation, saveProgress, season, title, type],
+  );
 
   /* "This title will not play" was true of every title in the shipped APK and told
    * the user nothing. The message now says WHICH stage failed, because the fix and
@@ -163,20 +200,31 @@ export function PlayerScreen({ route, navigation }: Props) {
           headers={target.headers}
           title={type === "tv" && season != null && episode != null ? `${title} · S${season}E${episode}` : title}
           qualityLabel={target.qualityLabel}
+          qualities={target.qualities}
           startPosition={startPosition}
           onProgress={handleProgress}
-          onEnded={close}
+          onClose={close}
+          hasNext={nextEpisode != null}
+          hasPrev={prevEpisode != null}
+          nextLabel={nextEpisode != null ? `Episode ${nextEpisode}` : null}
+          onNext={nextEpisode != null ? () => goToEpisode(nextEpisode) : undefined}
+          onPrev={prevEpisode != null ? () => goToEpisode(prevEpisode) : undefined}
         />
       ) : null}
 
-      <Touchable
-        accessibilityLabel="Close player"
-        onPress={close}
-        style={[styles.close, { top: insets.top + space.sm }]}
-        scaleTo={0.88}
-      >
-        <Text style={styles.closeText}>✕</Text>
-      </Touchable>
+      {/* While the stream is resolving (or has failed) there is no player chrome
+       * to leave from, so an explicit ✕ is the only way out. Once the player is
+       * up, its own ▼ chip owns leaving. */}
+      {!target ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close player"
+          onPress={close}
+          style={[styles.close, { top: insets.top + space.sm }]}
+        >
+          <Text style={styles.closeText}>✕</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

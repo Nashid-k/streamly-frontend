@@ -55,8 +55,8 @@ export function SearchScreen({ navigation: _navigation }: Props) {
       <View style={[styles.root, { paddingTop: insets.top }]}>
         <Banner
           tone="error"
-          title="No catalogue source"
-          detail="Set a Streamly deployment URL under Settings › Advanced to search."
+          title="Search is not reachable right now"
+          detail="Check your internet connection and try again."
         />
       </View>
     );

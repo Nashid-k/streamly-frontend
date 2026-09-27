@@ -14,6 +14,7 @@
  * React Native's fetch has no CORS layer, so the cross-origin POST is fine. */
 
 import { getConfig, REQUEST_TIMEOUT_MS } from "../config";
+import { runtimeSettings, type QualityPreference } from "../store/settings";
 import { numericId } from "./tmdb";
 import { playbackHeaders, preparePlaybackSource, probeDirect, relayIsKnownBad } from "./relay";
 import { logError, logInfo, logWarn } from "../utils/logger";
@@ -32,6 +33,9 @@ export interface PlaybackTarget {
   resolver: "vidcore" | "vidsrc";
   refUrl: string | null;
   via: "direct" | "relay";
+  /* Every rendition the resolver offered, so the player can switch quality
+   * without re-resolving. Sorted tallest-first for the menu. */
+  qualities: { uri: string; label: string; height: number }[];
 }
 
 function label(height: number, bandwidth: number, index: number): string {
@@ -203,12 +207,29 @@ export async function resolveBest(
 }
 
 /* Smooth start, same rule as the web build's pickSmooth: the tallest rendition at
- * or below 1080p. Opening a 2160p variant needs ~16 Mbps sustained and stalls on
- * ordinary mobile data, which is exactly the "buffering forever" first impression
- * this app must not have. */
+ * or below the cap. "auto" caps at 1080p - opening a 2160p variant needs ~16 Mbps
+ * sustained and stalls on ordinary mobile data, which is exactly the "buffering
+ * forever" first impression this app must not have. A user-chosen cap (1080/720/
+ * 480 from Settings › Default quality) replaces the 1080 ceiling. */
 const SMOOTH_MAX_HEIGHT = 1080;
 
-function pickSmooth(variants: ResolvedSource["variants"]): ResolvedSource["variants"][number] {
+function pickForPreference(
+  variants: ResolvedSource["variants"],
+  preference: QualityPreference,
+): ResolvedSource["variants"][number] {
+  const cap = preference === "auto" ? SMOOTH_MAX_HEIGHT : Number(preference);
+  const atOrBelow = variants.filter((v) => v.height > 0 && v.height <= cap);
+  const pool = atOrBelow.length ? atOrBelow : variants;
+  return pool.reduce((best, v) => {
+    if (!best) return v;
+    if (v.height && best.height) return v.height > best.height ? v : best;
+    return v.bandwidth > best.bandwidth ? v : best;
+  }, pool[0]);
+}
+
+/* Exported for the player's quality menu - the app's own smooth-start rule is
+ * also how the initial pick is labelled. */
+export function pickSmooth(variants: ResolvedSource["variants"]): ResolvedSource["variants"][number] {
   const atOrBelow = variants.filter((v) => v.height > 0 && v.height <= SMOOTH_MAX_HEIGHT);
   const pool = atOrBelow.length ? atOrBelow : variants;
   return pool.reduce((best, v) => {
@@ -218,9 +239,9 @@ function pickSmooth(variants: ResolvedSource["variants"]): ResolvedSource["varia
   }, pool[0]);
 }
 
-/* Full pipeline: resolve -> smooth start -> direct-with-Referer, falling back to
- * the relayed local playlist when the direct host refuses. This is the only entry
- * point the player screen needs. */
+/* Full pipeline: resolve -> the user's quality cap (Settings) -> direct-with-
+ * Referer, falling back to the relayed local playlist when the direct host
+ * refuses. This is the only entry point the player screen needs. */
 export async function resolvePlayback(
   type: string,
   id: string,
@@ -236,10 +257,15 @@ export async function resolvePlayback(
     throw err;
   }
 
-  const variant = pickSmooth(resolved.variants);
+  const variant = pickForPreference(resolved.variants, runtimeSettings().defaultQuality);
   const refUrl = resolved.source?.refUrl || null;
   const headers = playbackHeaders(refUrl);
   const resolver = resolved.provider;
+  /* Quality menu: every rendition, tallest first, labelled the way the resolver
+   * labelled it. The initial pick is marked in PlayerScreen via qualityLabel. */
+  const qualities = [...resolved.variants]
+    .sort((a, b) => (b.height || 0) - (a.height || 0))
+    .map((v) => ({ uri: v.uri, label: v.label, height: v.height }));
 
   if (await probeDirect(variant.uri, refUrl)) {
     logInfo("streams", "Playing direct from the source host with a Referer.", {
@@ -255,6 +281,7 @@ export async function resolvePlayback(
       resolver,
       refUrl,
       via: "direct",
+      qualities,
     };
   }
 
@@ -282,6 +309,7 @@ export async function resolvePlayback(
     resolver,
     refUrl,
     via: "relay",
+    qualities,
   };
 }
 
