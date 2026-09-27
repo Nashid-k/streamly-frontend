@@ -13,6 +13,10 @@
 (same-origin `/api/*` Vercel functions, local-first state, optional Google
 cloud sync + offline downloads)
 
+**Plus a native Android app in [`mobile/`](mobile/README.md)** — Expo +
+React Native, `com.streamly.app`, real ExoPlayer playback instead of iframes,
+shipped as an installable APK.
+
 </div>
 
 ---
@@ -27,6 +31,7 @@ cloud sync + offline downloads)
 - [Components](#-components)
 - [Hooks & Context](#-hooks--context)
 - [Keyboard Shortcuts](#-keyboard-shortcuts)
+- [Android app (mobile/)](#-android-app-mobile)
 - [Deployment](#-deployment)
 
 ---
@@ -362,6 +367,37 @@ await movieService.getSimilarMovies(id);
 await movieService.getSeasonEpisodes(id, seasonNumber);
 await movieService.getPersonDetails(id);
 ```
+
+---
+
+## 📱 Android app (`mobile/`)
+
+A native **Expo + React Native** client for the same catalogue, shipped as an
+installable APK. Full docs: [`mobile/README.md`](mobile/README.md) · architecture:
+[`architecture.md` §5](architecture.md).
+
+```bash
+cd mobile
+npm install
+cp .env.example .env     # EXPO_PUBLIC_TMDB_API_KEY (or _TMDB_PROXY) + EXPO_PUBLIC_API_BASE
+npm run typecheck        # the app's compile gate (no test runner in mobile/)
+npm run apk              # → android/app/build/outputs/apk/release/app-release.apk
+```
+
+| | |
+|---|---|
+| Identity | `com.streamly.app`, label `Streamly`, minSdk 24 / targetSdk 36, `arm64-v8a` |
+| Stack | Expo SDK 54 · RN 0.81.5 · React 19.1 · Hermes · TypeScript strict |
+| Screens | Home · Search · Details (seasons/episodes) · Player · Library |
+| Player | ExoPlayer (`react-native-video`) — **no iframe** |
+| Playback | `/api/downloadify` (deployed) → Cloudflare relay → rewritten local `.m3u8` → `file://` |
+| State | AsyncStorage under `streamly.mobile.*` |
+
+The app is a real client, not a WebView: it calls TMDB over its own HTTP stack,
+keeps the same `normalizeResult` contract, and reuses the deployed resolver and
+the project's Cloudflare worker. `android/` is generated — edit `app.json`, then
+`npm run prebuild:android`. A `assembleRelease` on a 4-core / 8 GB laptop takes
+~25 min with the committed Gradle tuning (one ABI, no daemon, capped heap).
 
 ---
 

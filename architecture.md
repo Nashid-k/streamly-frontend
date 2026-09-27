@@ -286,9 +286,16 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
   reject: a full quota must not cost the visitor the response. `wsrv.nl` posters are
   the one cross-origin exception (stale-while-revalidate, for offline viewing).
   `src/__tests__/serviceWorker.test.js` imports the real file with stubbed
-  `self`/`caches` and pins that routing, so the invariant is enforced, not assumed.
+   `self`/`caches` and pins that routing, so the invariant is enforced, not assumed.
+- `mobile/` — the Android app (Expo + React Native + TypeScript, §5). Its own
+  `src/` (`api/`, `components/`, `screens/`, `store/`, `hooks/`, `navigation/`,
+  `theme.ts`, `utils/logger.ts`) plus `app.json` (identity + Android config) and
+  a **generated** `android/` (git-ignored, rebuilt with `expo prebuild`). The two
+  `src/` trees are separate and share the `normalizeResult` contract, not files.
+  No test runner in `mobile/` yet — its gates are `tsc --noEmit`,
+  `expo export` and a real Gradle build.
 
-## 4. Six architecture decisions + why
+## 4. Seven architecture decisions + why
 
 1. **Same-origin TMDB through a thin Vercel proxy, direct fallback** — removes
    the old NestJS/Render hop (latency, cold starts, proxy stalls). `/api/tmdb`
@@ -320,3 +327,93 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
    `MovieCard`, `FadeInSection`, `DiscoveryPage`) additionally branch on
    `useReducedMotion`. Skeleton shimmer, countdown ring, ambient hero blobs
    and the card curtain stay GPU-friendly by design. (Task 91.)
+7. **The Android app is a native client, and its playback is a rewritten local
+   playlist** — no WebView, no iframe: ExoPlayer via `react-native-video`, which
+   an embedded browser could never match for landscape, resume or per-segment
+   `Referer` control. Because ExoPlayer cannot attach headers to every segment
+   it fetches, `mobile/src/api/relay.ts` pulls the manifest through the same
+   Cloudflare worker the browser loader uses, rewrites every URI (master →
+   variant, segments, `EXT-X-KEY`/`MAP`/`MEDIA`) to a worker URL, writes the
+   result to the app cache and plays the `file://` copy. The resolver stays on
+   the deployed Vercel project (`api/downloadify.js`) and is called over
+   `EXPO_PUBLIC_API_BASE` — the same contract, the same providers, no scraper in
+   the APK.
+
+## 5. The Android app (`mobile/`) — Expo + React Native
+
+### 5.1 Stack + versions (exact, from `mobile/package.json`)
+
+| Layer | Package | Version |
+|---|---|---|
+| Runtime | `expo` | `~54.0.36` (SDK 54) |
+| UI | `react`, `react-native` | `19.1.0`, `0.81.5` (New Architecture + Hermes) |
+| Language | `typescript` | `~5.9.2` (`strict: true`) |
+| Player | `react-native-video` | `^6.19.3` (ExoPlayer) |
+| Navigation | `@react-navigation/native`, `native-stack`, `bottom-tabs` | `^7.4.1`, `^7.19.2`, `^7.19.2` |
+| Native deps | `react-native-screens`, `react-native-safe-area-context`, `react-native-gesture-handler` | `~4.16.0`, `~5.6.0`, `~2.28.0` |
+| Storage | `@react-native-async-storage/async-storage` | `2.2.0` |
+| Files | `expo-file-system` | `~19.0.24` (new `File`/`Paths` API) |
+| Device | `expo-keep-awake`, `expo-screen-orientation`, `expo-status-bar`, `expo-system-ui` | `15.0.8`, `9.0.9`, `3.0.9`, `6.0.9` |
+| Identity | `com.streamly.app` | label `Streamly`, v1.0.0, minSdk 24, targetSdk 36, `arm64-v8a` |
+
+SDK 54 (RN 0.81) is pinned deliberately: it is the newest SDK whose
+`compileSdk` (35→36 toolchain here) and JDK 17 floor match a normal dev laptop,
+whereas SDK 57 pulls a newer JDK/AGP pair. `npx expo install` keeps these
+versions honest.
+
+### 5.2 User → Screen → Data
+
+| User action | Screen | Loader | Store |
+|---|---|---|---|
+| Open app | `Home` (tab) | `getTrending` (`/trending/all/week`), `getNowPlaying`, `getTopRated`, `getAiringThisWeek` | `streamly.mobile.continueWatching` (read) |
+| Search | `Search` (tab) | 350 ms debounce → `searchMulti` (`/search/multi`) | none |
+| Library | `Library` (tab) | none (local only) | `streamly.mobile.myList`, `streamly.mobile.continueWatching` |
+| Open a title | `Details` (stack) | `getDetail` (`/{kind}/{id}` + `credits` + `videos`), `getEpisodes` (`/tv/{id}/season/{n}`) | My List toggle, resume read |
+| Watch | `Player` (stack, full-screen) | `resolvePlayback` → `/api/downloadify` `resolvevidcore`\|`resolvevidsrc` → relay rewrite → ExoPlayer | progress write every 5s, cap 40 entries |
+| Configure | `Settings` (tab) | `Save & test` → `api.themoviedb.org/3/configuration` | `streamly.mobile.settings` (key / proxy / API base / relay) |
+
+Episode availability reuses the web rule verbatim: `isEpAired` (air date in the
+past, or no date at all) — the app never offers to play an episode the site
+would refuse.
+
+### 5.3 Boundaries
+
+- **Two config layers, device wins.** `mobile/src/config.ts` resolves at REQUEST
+  time: on-device Settings (AsyncStorage `streamly.mobile.settings`) over
+  build-time `EXPO_PUBLIC_*` env. An installed APK has no `.env`, so a build
+  shipped without credentials is still fixable from the phone — and a wrong value
+  is corrected without a rebuild. `api/*` modules call `getConfig()` per request
+  (never module-load constants); Home/Search re-query on the config tick, so
+  saving a key turns the setup state into a catalogue with no restart.
+- **No bundled resolver.** `EXPO_PUBLIC_API_BASE` (or the same value typed in
+  Settings) must be a deployed Streamly Vercel project; `api/downloadify.js`
+  scrapes providers server-side. React Native's `fetch` has no CORS layer, so the
+  cross-origin POST is fine.
+- **Catalogue keys** (`EXPO_PUBLIC_TMDB_API_KEY` direct, or
+  `EXPO_PUBLIC_TMDB_PROXY` / `<API_BASE>/api/tmdb` keyless). An empty
+  `api_key` is never sent, because that would defeat the proxy's injection. With
+  nothing set in either layer, every catalogue surface shows an explicit setup
+  state pointing at Settings — the app never renders an empty rail that looks
+  like a broken TMDB.
+- **Relay** (`EXPO_PUBLIC_RELAY_URL`, default the project's worker) is public
+  infrastructure: a GET passthrough that injects `Referer`/`User-Agent` and
+  forwards `Range`. Same worker, same role as `src/api/relayProxy.js`.
+- **Storage keys are namespaced** `streamly.mobile.*`; the web `aios_*`
+  localStorage keys stay frozen for the browser and the phone has no business
+  sharing them.
+- **Diagnostics** stay `[Streamly][scope]` via `mobile/src/utils/logger.ts`;
+  on a device the console is `adb logcat`.
+
+### 5.4 Build
+
+`app.json` is the source of truth; `android/` is generated
+(`npx expo prebuild --platform android`) and git-ignored, so an app identity
+change is a one-line `app.json` edit plus a re-prebuild — never a hand-edited
+Gradle file that the next prebuild clobbers.
+
+`android/gradle.properties` is tuned for a small host (one ABI, `parallel=false`,
+`workers.max=2`, Kotlin `in-process`, `daemon=false`, `vfs.watch=false`, 2.5 GB
+heap) and `GRADLE_USER_HOME` is pointed at a second drive. Reference build on a
+Dell Latitude 5400 (i5-8365U / 4 cores / 7.8 GB RAM): `assembleRelease` in
+**25m 8s**, `app-release.apk` **27.2 MB**, 429 tasks, signed with the template's
+debug keystore.
