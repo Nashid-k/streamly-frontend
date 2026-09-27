@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import NativePlayerView from "../components/NativePlayerView";
 
 // jsdom has no ResizeObserver (the player measures its frame with it) and no
@@ -170,5 +170,114 @@ describe("player failure recovery", () => {
     render(<NativePlayerView type="movie" id="550" title="Fight Club" onClose={onClose} />);
     fireEvent.click(screen.getByRole("button", { name: /back to browse/i }));
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe("episode rail with unaired episodes", () => {
+  const future = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const past = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+  const openRail = (onSelectEpisode = vi.fn()) => {
+    render(
+      <NativePlayerView
+        type="tv"
+        id="1399"
+        season={1}
+        episode={1}
+        title="Game of Thrones"
+        episodes={[
+          { number: 1, title: "Winter Is Coming", description: "Ned Stark is torn.", durationMins: 62, airDate: past },
+          // Unreleased: TMDB has no still, no runtime and no synopsis for it.
+          { number: 2, title: "The Kingsroad", airDate: future },
+        ]}
+        onSelectEpisode={onSelectEpisode}
+        onClose={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^episodes$/i }));
+    return { onSelectEpisode, cards: [...document.querySelectorAll(".np-episode-card")] };
+  };
+
+  it("reserves the same text block for an episode with no synopsis", () => {
+    const { cards } = openRail();
+    const blocks = cards.map((c) => c.querySelector("div[style*='min-height']"));
+    // The ragged rail: an unaired episode has no description, so its block used
+    // to collapse to 0px and the card ended higher than its neighbours.
+    expect(blocks).toHaveLength(2);
+    const heights = blocks.map((b) => b.style.minHeight);
+    expect(new Set(heights).size).toBe(1);
+    expect(heights[0]).not.toBe("");
+    // …and it says something rather than leaving a hole.
+    expect(blocks[1].textContent).toMatch(/airs/i);
+  });
+
+  it("marks an unaired episode unavailable instead of letting it play", () => {
+    const { onSelectEpisode, cards } = openRail();
+    expect(cards[0].getAttribute("aria-disabled")).toBeNull();
+    expect(cards[1]).toHaveAttribute("aria-disabled", "true");
+    fireEvent.click(cards[1]);
+    // It used to fire straight through to a source that cannot resolve, which
+    // is how a viewer ended up staring at the fatal banner.
+    expect(onSelectEpisode).not.toHaveBeenCalled();
+    fireEvent.click(cards[0]);
+    expect(onSelectEpisode).toHaveBeenCalledWith(1);
+  });
+
+  it("shows the air date on the card and names it for assistive tech", () => {
+    const { cards } = openRail();
+    expect(cards[1].textContent).toMatch(/\d/);
+    // Not `disabled`: that would make the card unfocusable, so a keyboard user
+    // could never find out why it will not play.
+    expect(cards[1]).not.toBeDisabled();
+  });
+});
+
+describe("episode rail chrome", () => {
+  const past = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+  const mountTv = () =>
+    render(
+      <NativePlayerView
+        type="tv"
+        id="1399"
+        season={1}
+        episode={1}
+        title="Game of Thrones"
+        episodes={[{ number: 1, title: "Winter Is Coming", description: "Ned Stark is torn.", airDate: past }]}
+        onClose={() => {}}
+      />,
+    );
+
+  const openRail = () => {
+    fireEvent.click(screen.getByRole("button", { name: /^episodes$/i }));
+  };
+
+  it("hides the Skip Intro pill behind an open panel", async () => {
+    // jsdom reports no duration, so the player sits inside its intro window and
+    // the pill is genuinely on screen before any panel opens.
+    mountTv();
+    expect(screen.getByRole("button", { name: /skip the opening credits/i })).toBeInTheDocument();
+    openRail();
+    // It shares the bottom-right corner with the rail, whose gradient fades to
+    // transparent at the top — so the pill used to hover over the open sheet,
+    // tappable, on a second layer. AnimatePresence unmounts it after the exit
+    // animation, hence the wait.
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: /skip the opening credits/i })).toBeNull();
+    });
+    // …and it comes back once the panel is closed.
+    fireEvent.click(screen.getByRole("button", { name: /close episodes/i }));
+    expect(screen.getByRole("button", { name: /skip the opening credits/i })).toBeInTheDocument();
+  });
+
+  it("keeps room above the cards so the current episode's red ring is not clipped", () => {
+    mountTv();
+    openRail();
+    const rail = document.querySelector(".np-episode-card").parentElement;
+    // `overflow-x: auto` forces the block axis to clip too, so the 2px outer
+    // ring on the playing card used to lose its top edge to the container.
+    expect(rail.style.overflowX).toBe("auto");
+    expect(rail.style.paddingTop).not.toBe("");
+    expect(rail.style.paddingTop).not.toBe("0px");
   });
 });

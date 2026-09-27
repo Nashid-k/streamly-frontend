@@ -652,6 +652,14 @@
   transform: translateY(-3px);
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.55);
 }
+/* Not aired yet: no lift, no shadow. A hover cue on a card that cannot be
+   played is a promise the player cannot keep. */
+.np-episode-card[aria-disabled="true"],
+.np-episode-card[aria-disabled="true"]:hover,
+.np-episode-card[aria-disabled="true"]:focus-visible {
+  transform: none;
+  box-shadow: none;
+}
 
 /* Subtitle overlay — a whisper of scrim so a cue stays readable over a white
    frame without turning into a black bar. */

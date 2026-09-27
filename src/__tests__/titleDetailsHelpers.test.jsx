@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatRuntimeLabel, isUnreleased, voteSplitPct, buildEpisodeOrder, episodeNumberLabel, isEpAired } from "../utils/titleDetails";
+import { formatRuntimeLabel, isUnreleased, voteSplitPct, buildEpisodeOrder, episodeNumberLabel, isEpAired, formatAirsDate } from "../utils/titleDetails";
 import { certificationFromDetail } from "../api/movieService";
 
 describe("TitleDetails meta helpers", () => {
@@ -71,6 +71,14 @@ describe("episode layout helpers (Cinejoy episodes section)", () => {
     expect(isEpAired({ episodeNumber: 2, airDate: future }, now)).toBe(false);
     expect(isEpAired({ episodeNumber: 2, airDate: future })).toBe(false);
     expect(isEpAired({ episodeNumber: 3, airDate: "not-a-date" }, now)).toBe(true);
+  });
+
+  it("labels an upcoming episode's air date for both the details page and the player", () => {
+    expect(formatAirsDate(null)).toBe("Upcoming");
+    expect(formatAirsDate("")).toBe("Upcoming");
+    // An unparseable date is shown verbatim rather than as "Invalid Date".
+    expect(formatAirsDate("whenever")).toBe("whenever");
+    expect(formatAirsDate("2026-09-09")).toMatch(/2026|9/);
   });
 });
 

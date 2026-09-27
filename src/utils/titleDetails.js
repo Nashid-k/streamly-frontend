@@ -41,9 +41,23 @@ export function episodeNumberLabel(episodeNumber) {
 }
 
 /* An episode is playable once its air date is not in the future (null date
-   counts as aired). Rule shared by the card, list and controls. */
+   counts as aired). Rule shared by the card, list and controls — and by the
+   player's episode rail, so both surfaces agree on what is playable. */
 export function isEpAired(ep, now = new Date()) {
   if (!ep || !ep.airDate) return true;
   const t = new Date(ep.airDate).getTime();
   return !Number.isFinite(t) || t <= now.getTime();
+}
+
+/* Compact "Thu, Sep 9"-style label for an upcoming episode chip. Lives here so
+   the details page and the player's episode rail cannot drift apart. */
+export function formatAirsDate(dateStr) {
+  if (!dateStr) return "Upcoming";
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return String(dateStr);
+  return date.toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
 }

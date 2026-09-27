@@ -12,6 +12,7 @@ import RailArrow from "./RailArrow";
 import {
   ArrowLeft,
   AudioLines,
+  Calendar,
   Captions,
   Check,
   ChevronLeft,
@@ -50,6 +51,7 @@ import { SubtitleFetcher } from "../api/subtitleFetcher";
 import { logDebug, logWarn } from "../utils/debugLogger";
 import { SubtitleEngine } from "../utils/subtitleEngine";
 import { readStoredNumber } from "../utils/storedNumber";
+import { isEpAired, formatAirsDate } from "../utils/titleDetails";
 import useContainerSize from "../hooks/useContainerSize";
 import {
   hudMetrics,
@@ -338,9 +340,18 @@ function EpisodesRail({ episodes, episode, onSelectEpisode, setPanel, setBufferi
         ref={railRef}
         style={{ 
           display: "flex", 
+          // Explicit: the cards must share one height, and `stretch` is what
+          // guarantees that when a card's own content is shorter than its
+          // neighbour's (an unreleased episode has no synopsis).
+          alignItems: "stretch",
           overflowX: "auto", 
           gap: 16, 
-          paddingBottom: 8, 
+          // Top padding as well as bottom, and it is load-bearing: `overflow-x`
+          // forces the block axis to `auto` too, so this element CLIPS its
+          // children vertically. With no top padding the current episode's red
+          // ring — which is an outer box-shadow — had its top edge sliced off.
+          // It also gives the hover lift somewhere to go.
+          padding: "8px 0",
           scrollbarWidth: "none",
           width: "100%",
           WebkitOverflowScrolling: "touch"
@@ -348,6 +359,11 @@ function EpisodesRail({ episodes, episode, onSelectEpisode, setPanel, setBufferi
       >
         {episodes.map((ep) => {
           const isCurrent = ep.number === episode;
+          // Same "is it aired yet" rule the details page uses. An episode that
+          // has not aired carries no still, no runtime and no synopsis, and
+          // clicking it used to send the player off to resolve a source that
+          // does not exist and land on the fatal banner.
+          const aired = isEpAired(ep);
           return (
           <button
             key={ep.number}
@@ -355,8 +371,13 @@ function EpisodesRail({ episodes, episode, onSelectEpisode, setPanel, setBufferi
             // The selected episode was only marked by a red outline; assistive
             // tech had no idea which one was playing.
             aria-current={isCurrent ? "true" : undefined}
+            // Deliberately not `disabled`: a disabled button is unfocusable, so
+            // a keyboard or screen-reader user could never discover the card or
+            // find out why it will not play. Same call as the details page.
+            aria-disabled={aired ? undefined : "true"}
             className="np-episode-card"
             onClick={() => {
+              if (!aired) return;
               setResumeOffer(null);
               setPanel(null);
               setBuffering(true);
@@ -365,15 +386,17 @@ function EpisodesRail({ episodes, episode, onSelectEpisode, setPanel, setBufferi
             style={{
               flex: "0 0 auto",
               width: IS_TOUCH ? 220 : 260,
+              display: "flex",
+              flexDirection: "column",
               textAlign: "left",
               background: "transparent",
               border: "none",
               padding: 0,
-              cursor: "pointer",
+              cursor: aired ? "pointer" : "default",
               // Dimming is CSS-driven (`.np-episode-card` + :hover/:focus-visible);
               // this used to be flipped by writing style.opacity straight from
               // onMouseOver/onMouseOut, which fought React's own style updates.
-              opacity: isCurrent ? 1 : 0.62,
+              opacity: isCurrent ? 1 : aired ? 0.62 : 0.4,
             }}
           >
             <div
@@ -381,6 +404,7 @@ function EpisodesRail({ episodes, episode, onSelectEpisode, setPanel, setBufferi
                 position: "relative",
                 width: "100%",
                 aspectRatio: "16/9",
+                flexShrink: 0,
                 backgroundColor: "#1a1a1a",
                 borderRadius: 8,
                 overflow: "hidden",
@@ -391,12 +415,44 @@ function EpisodesRail({ episodes, episode, onSelectEpisode, setPanel, setBufferi
               {ep.thumbnailUrl ? (
                 <img
                   src={ep.thumbnailUrl}
-                  alt={ep.title || `Episode ${ep.number}`}
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  alt=""
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    // An unaired episode's still is a placeholder anyway; the
+                    // greyscale is what makes the state readable at a glance.
+                    filter: aired ? "none" : "grayscale(0.85) brightness(0.6)",
+                  }}
                 />
               ) : (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", color: "#666" }}>
-                  <Play size={32} />
+                /* No still yet: a bare Play glyph advertised an action the card
+                   can't take. Numbered plate instead, like the details page. */
+                <div
+                  aria-hidden="true"
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 4,
+                    width: "100%",
+                    height: "100%",
+                    color: "rgba(255,255,255,0.28)",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 26,
+                      fontWeight: 800,
+                      lineHeight: 1,
+                      color: "rgba(255,255,255,0.5)",
+                      fontFamily: "monospace",
+                    }}
+                  >
+                    {String(ep.number).padStart(2, "0")}
+                  </span>
+                  <Play size={16} />
                 </div>
               )}
               {isCurrent && (
@@ -406,20 +462,72 @@ function EpisodesRail({ episodes, episode, onSelectEpisode, setPanel, setBufferi
                   </span>
                 </div>
               )}
-              {ep.durationMins && (
+              {!aired && (
+                /* "Airs Thu, Sep 9" where the details page shows its green chip,
+                   so an unaired episode looks the same on both surfaces. */
+                <span
+                  style={{
+                    position: "absolute",
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 5,
+                    background: "#3c8217",
+                    color: "#fff",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    lineHeight: 1.45,
+                    padding: "4px 8px",
+                  }}
+                >
+                  <Calendar size={11} strokeWidth={2} aria-hidden="true" />
+                  {formatAirsDate(ep.airDate)}
+                </span>
+              )}
+              {aired && ep.durationMins ? (
                 <span style={{ position: "absolute", bottom: 6, right: 6, background: "rgba(0,0,0,0.85)", color: "#fff", fontSize: 11, padding: "2px 6px", borderRadius: 4, fontWeight: 600 }}>
                   {ep.durationMins}m
                 </span>
-              )}
+              ) : null}
             </div>
-            <div style={{ color: "#fff", fontSize: 14, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <div
+              style={{
+                color: "#fff",
+                fontSize: 14,
+                fontWeight: 700,
+                // Pinned so a two-line title can never push the block below it
+                // out of alignment with its neighbours.
+                lineHeight: "20px",
+                height: 20,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
               {ep.number}. {ep.title || `Episode ${ep.number}`}
             </div>
-            {ep.description && (
-              <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, marginTop: 4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                {ep.description}
-              </div>
-            )}
+            {/* Fixed two-line slot. An unaired episode has no synopsis, and
+                leaving this block at its natural 0px height is what made the
+                rail ragged — every such card ended higher than the rest. */}
+            <div
+              style={{
+                color: "rgba(255,255,255,0.5)",
+                fontSize: 12,
+                lineHeight: 1.4,
+                marginTop: 4,
+                minHeight: 34,
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+                fontStyle: aired ? "normal" : "italic",
+              }}
+            >
+              {ep.description || (aired ? "No synopsis available" : `Airs ${formatAirsDate(ep.airDate)}`)}
+            </div>
           </button>
           );
         })}
@@ -642,6 +750,12 @@ export default function NativePlayerView({
   // Netflix chrome state.
   const [controlsVisible, setControlsVisible] = useState(true);
   const [panel, setPanel] = useState(null); // null | "subs" | "episodes"
+  /* A sheet is open. Everything that floats in the bottom-right corner — the
+     Skip Intro pill, the "Tap to unmute" pill, the "Left off at" card — yields
+     while this is true: that corner is where the episodes rail and the settings
+     pane land, their gradients are transparent at the top, so those controls
+     used to show *through* an open panel on a second layer, still tappable. */
+  const sheetOpen = Boolean(panel);
   const [volume, setVolume] = useState(() =>
     readStoredNumber(VOLUME_STORAGE_KEY, { min: 0, max: 1, fallback: 1 }),
   );
@@ -1600,6 +1714,15 @@ export default function NativePlayerView({
     return undefined;
   }, []);
 
+  /* Episodes that have actually aired. Everything that can move the viewer to a
+     different episode — the transport arrows, the keyboard paging, Up Next —
+     walks this instead of `episodes`, so an unaired episode (no still, no
+     runtime, no source) can never be paged into or auto-played. */
+  const airedEpisodes = useMemo(
+    () => (Array.isArray(episodes) ? episodes.filter((e) => isEpAired(e)) : []),
+    [episodes],
+  );
+
   /* Netflix "Up Next": when a TV episode ends and a next one exists, offer a
      countdown card that auto-plays it. Replaying/cancelling tears it down (a
      cancelled card's fired timer is a no-op thanks to the `prev` guard). */
@@ -1608,8 +1731,8 @@ export default function NativePlayerView({
       setUpNext(null);
       return undefined;
     }
-    const idx = episodes.findIndex((e) => e.number === episode);
-    const next = idx >= 0 ? episodes[idx + 1] : null;
+    const idx = airedEpisodes.findIndex((e) => e.number === episode);
+    const next = idx >= 0 ? airedEpisodes[idx + 1] : null;
     if (!next) {
       setUpNext(null);
       return undefined;
@@ -1632,7 +1755,7 @@ export default function NativePlayerView({
       });
     }, UP_NEXT_MS);
     return () => clearTimeout(timer);
-  }, [type, ended, episodes, episode]);
+  }, [type, ended, airedEpisodes, episode]);
 
   /* Netflix keyboard map. Space/K play-pause, arrows seek/volume, M mute,
      F fullscreen, N/Shift+P next/previous episode, Esc closes the dialog
@@ -2509,10 +2632,10 @@ export default function NativePlayerView({
 
   // Episode paging (TV only): the parent's canGo*/onGo* cross seasons; we fall back to walking `episodes`.
   const showEpisodeNav = type === "tv";
-  const navIndex = episodes.findIndex((e) => e.number === episode);
-  const navPrevNumber = navIndex > 0 ? episodes[navIndex - 1]?.number : null;
+  const navIndex = airedEpisodes.findIndex((e) => e.number === episode);
+  const navPrevNumber = navIndex > 0 ? airedEpisodes[navIndex - 1]?.number : null;
   const navNextNumber =
-    navIndex >= 0 && navIndex < episodes.length - 1 ? episodes[navIndex + 1]?.number : null;
+    navIndex >= 0 && navIndex < airedEpisodes.length - 1 ? airedEpisodes[navIndex + 1]?.number : null;
   const prevDisabled = typeof canGoPrev === "boolean" ? !canGoPrev : navPrevNumber == null;
   const nextDisabled = typeof canGoNext === "boolean" ? !canGoNext : navNextNumber == null;
 
@@ -2737,12 +2860,12 @@ export default function NativePlayerView({
             <ArrowLeft size={24} />
           </IconBtn>
         </motion.div>
-        {/* Netflix-style Skip Intro pill: top-left, just under the back row,
+        {/* Netflix-style Skip Intro pill: bottom-right, above the transport row,
             present only inside the intro window, seeks just past the credits.
             Stays tappable even with the chrome hidden (Netflix keeps it while
-            the intro plays). */}
+            the intro plays) — but yields to any open panel. */}
         <AnimatePresence>
-          {showSkipIntro && (
+          {showSkipIntro && !sheetOpen && (
             <motion.button
               key="np-skip"
               type="button"
@@ -2940,9 +3063,10 @@ export default function NativePlayerView({
           </motion.div>
         )}
         {/* Transient "Tap to unmute" pill (Netflix web) — only when playback
-            had to start muted because the autoplay-policy blocked sound. */}
+            had to start muted because the autoplay-policy blocked sound. Yields
+            to an open panel for the same reason the skip pill does. */}
         <AnimatePresence>
-          {autoMuted && playing && (
+          {autoMuted && playing && !sheetOpen && (
             <motion.button
               key="np-automute"
               type="button"
@@ -3405,9 +3529,11 @@ export default function NativePlayerView({
             </div>
           </div>
         </motion.div>
-        {/* Netflix "Left off at …" resume card — auto-resumes after a short wait. */}
+        {/* Netflix "Left off at …" resume card — auto-resumes after a short wait.
+            Same bottom-right corner as the episodes rail, whose gradient is
+            transparent at the top, so it showed through an open panel too. */}
         <AnimatePresence>
-          {resumeOffer && !ended && (
+          {resumeOffer && !ended && !sheetOpen && (
             <motion.div
               key="np-resume"
               role="complementary"

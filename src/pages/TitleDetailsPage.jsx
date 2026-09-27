@@ -51,7 +51,7 @@ import ProductionCompaniesBlock from "../components/detail/ProductionCompaniesBl
 import { buildMovieAddedNotification } from "../utils/notificationEngine";
 import { formatTMDBDate, getTMDBWeekday } from "../utils/timezone";
 import { formatRuntimeLabel, isUnreleased, voteSplitPct } from "../utils/titleDetails";
-import { buildEpisodeOrder, episodeNumberLabel, isEpAired } from "../utils/titleDetails";
+import { buildEpisodeOrder, episodeNumberLabel, isEpAired, formatAirsDate } from "../utils/titleDetails";
 import { getPlatformName } from "../utils/platforms";
 import { logEmptyData, logError, reportQueryError } from "../utils/debugLogger";
 const DownloadModal = lazy(() => import("../components/DownloadModal"));
@@ -63,18 +63,6 @@ import ErrorBoundary from "../components/ErrorBoundary";
 import { progressPct } from "../utils/resumeProgress";
 import { usePreferences } from "../context/preferences";
 const EMPTY_ARRAY = [];
-
-// Compact "Airs Thu, Sep 9"-style date for upcoming episode chips.
-const formatAirsDate = (dateStr) => {
-  if (!dateStr) return "Upcoming";
-  const date = new Date(dateStr);
-  if (Number.isNaN(date.getTime())) return dateStr;
-  return date.toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-};
 
 
 
