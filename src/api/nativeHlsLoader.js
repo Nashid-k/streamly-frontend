@@ -62,7 +62,11 @@ const directBlockedUntil = new Map();
    owning player's referer (rotation-4 hosts gate on the browser's Origin —
    verified live: bare probe with an Origin header 403s, header-less 206s —
    which still burns a doomed direct probe + risks a WAF trip). Keep this list
-   current when a new family 403s. */
+   current when a new family 403s.
+   Rotation-5 (`cleartrail.top`, movie + TV segments) is deliberately NOT here:
+   verified live it serves `ACAO: *` + `206` on a BARE range probe, direct and
+   through the relay alike, so gating it would push free direct bytes onto the
+   relay/Vercel for nothing. Re-probe before ever adding a rotation-5+ host. */
 const REFERER_GATED_HOST_SUFFIXES = [
   "quietridge.top",
   "palehive.top",

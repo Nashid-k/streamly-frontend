@@ -1,4 +1,32 @@
 import { logError, logWarn } from "../utils/debugLogger";
+import { relayProxyConfig } from "./relayProxy.js";
+
+/* OpenSubtitles is the one upstream the browser cannot serve on its own: the
+   search API intermittently answers without CORS headers (the fetch dies as
+   "Failed to fetch"), and the download endpoint UA-gates every .gz — 401 unless
+   the legacy TemporaryUserAgent rides along, which JS can never set. So both
+   calls go relay-first (the Cloudflare worker injects that UA and always adds
+   CORS) and fall back to a direct fetch, which keeps today's behaviour when no
+   relay is configured or the worker is down. */
+async function fetchSubtitleResource(url, init = {}) {
+  const relay = relayProxyConfig();
+  if (relay) {
+    try {
+      const res = await fetch(`${relay.base}?url=${encodeURIComponent(url)}`, {
+        method: "GET",
+        signal: init.signal,
+      });
+      if (res.ok) return res;
+      await res.body?.cancel?.().catch?.(() => {});
+      logWarn("subtitles", `Relay refused a subtitle request (${res.status}) — trying direct.`, {
+        status: res.status,
+      });
+    } catch (error) {
+      logWarn("subtitles", "Subtitle relay unavailable — trying direct.", { message: error?.message });
+    }
+  }
+  return fetch(url, init);
+}
 
 export class SubtitleFetcher {
   /**
@@ -25,7 +53,7 @@ export class SubtitleFetcher {
         return [];
       }
 
-      const res = await fetch(searchUrl, {
+      const res = await fetchSubtitleResource(searchUrl, {
         headers: { "User-Agent": "TemporaryUserAgent" },
       });
 
@@ -69,23 +97,26 @@ export class SubtitleFetcher {
    */
   static async downloadAndDecompress(downloadLink) {
     try {
-      const subRes = await fetch(downloadLink);
+      const subRes = await fetchSubtitleResource(downloadLink);
       if (!subRes.ok) {
         const err = new Error("Failed to download subtitle file");
         err.status = subRes.status;
         throw err;
       }
 
-      let text = "";
-      if (typeof DecompressionStream !== "undefined") {
+      /* Only gunzip when the response still says it is gzipped: the relay
+         transparently decompresses the body and drops content-encoding, so
+         piping that through DecompressionStream would throw on plain SRT. */
+      const encoding = (subRes.headers.get("content-encoding") || "").toLowerCase();
+      if (encoding.includes("gzip") && typeof DecompressionStream !== "undefined") {
         const ds = new DecompressionStream("gzip");
         const decompressedStream = subRes.body.pipeThrough(ds);
-        text = await new Response(decompressedStream).text();
-      } else {
-        logWarn("subtitles", "DecompressionStream not supported in this browser — reading subtitle as plain text.", {});
-        text = await subRes.text();
+        return await new Response(decompressedStream).text();
       }
-      return text;
+      if (encoding.includes("gzip")) {
+        logWarn("subtitles", "DecompressionStream not supported in this browser — reading gzipped subtitle as plain text.", {});
+      }
+      return await subRes.text();
     } catch (err) {
       logError("subtitles", "Subtitle download/decompress failed.", err, {});
       return null;
