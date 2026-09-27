@@ -1,10 +1,8 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useCallback, useMemo, useState } from "react";
 import {
-  Image,
   ImageBackground,
   Linking,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,7 +10,14 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Banner, Spinner } from "../components/PosterCard";
+import { Banner } from "../components/PosterCard";
+import {
+  EmptyState,
+  FadeImage,
+  FadeIn,
+  SkeletonBlock,
+  Touchable,
+} from "../components/motion";
 import { useResource } from "../hooks/useResource";
 import * as tmdb from "../api/tmdb";
 import { getConfig } from "../config";
@@ -56,7 +61,22 @@ export function DetailsScreen({ route, navigation }: Props) {
     [activeSeason, detail.data, id, navigation, saved?.positionSec],
   );
 
-  if (detail.loading) return <Spinner label="Loading title…" />;
+  if (detail.loading) {
+    /* Shaped blocks in the geometry of the page that is coming: a backdrop, a
+     * title line, a meta line, the action pill, the synopsis. The old full-screen
+     * spinner made every title open on a blank black page. */
+    return (
+      <View style={styles.loadingRoot}>
+        <SkeletonBlock height={260} cornerRadius={0} />
+        <View style={styles.loadingBody}>
+          <SkeletonBlock height={26} style={styles.loadingW70} />
+          <SkeletonBlock height={12} style={styles.loadingW40} />
+          <SkeletonBlock height={44} style={styles.loadingW55} />
+          <SkeletonBlock height={72} style={styles.loadingW90} />
+        </View>
+      </View>
+    );
+  }
 
   if (detail.error || !detail.data) {
     return (
@@ -79,31 +99,42 @@ export function DetailsScreen({ route, navigation }: Props) {
       contentContainerStyle={{ paddingBottom: 60 }}
       testID="details-scroll"
     >
-      <View>
-        {data.backdropUrl ? (
-          <ImageBackground source={{ uri: data.backdropUrl }} style={styles.backdrop} imageStyle={styles.backdropImage}>
-            <View style={styles.backdropScrim} />
-          </ImageBackground>
-        ) : (
-          <View style={[styles.backdrop, styles.backdropBlank]} />
-        )}
-        <View style={[styles.headerRow, { paddingTop: insets.top + space.md }]}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()} style={styles.iconButton}>
-            <Text style={styles.iconText}>‹</Text>
-          </Pressable>
-          <View style={styles.spacer} />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={inList ? "Remove from My List" : "Add to My List"}
-            onPress={() => toggleMyList(data)}
-            style={styles.iconButton}
-          >
-            <Text style={styles.iconText}>{inList ? "★" : "☆"}</Text>
-          </Pressable>
+      {/* Hero settles first, the body follows: one entrance instead of everything
+       * popping at once. */}
+      <FadeIn>
+        <View>
+          {data.backdropUrl ? (
+            <ImageBackground source={{ uri: data.backdropUrl }} style={styles.backdrop} imageStyle={styles.backdropImage}>
+              <View style={styles.backdropScrim} />
+            </ImageBackground>
+          ) : (
+            <View style={[styles.backdrop, styles.backdropBlank]} />
+          )}
+          <View style={[styles.headerRow, { paddingTop: insets.top + space.md }]}>
+            <Touchable
+              accessibilityLabel="Go back"
+              onPress={() => navigation.goBack()}
+              style={styles.iconButton}
+              hitSlop={8}
+              scaleTo={0.9}
+            >
+              <Text style={styles.iconText}>‹</Text>
+            </Touchable>
+            <View style={styles.spacer} />
+            <Touchable
+              accessibilityLabel={inList ? "Remove from My List" : "Add to My List"}
+              onPress={() => toggleMyList(data)}
+              style={styles.iconButton}
+              hitSlop={8}
+              scaleTo={0.9}
+            >
+              <Text style={styles.iconText}>{inList ? "★" : "☆"}</Text>
+            </Touchable>
+          </View>
         </View>
-      </View>
+      </FadeIn>
 
-      <View style={styles.body}>
+      <FadeIn delay={60} style={styles.body}>
         <Text style={styles.title}>{data.title}</Text>
         <Text style={styles.meta}>
           {data.imdbRating ? `★ ${data.imdbRating.toFixed(1)}` : "No rating"}
@@ -114,17 +145,16 @@ export function DetailsScreen({ route, navigation }: Props) {
         {data.tagline ? <Text style={styles.tagline}>{data.tagline}</Text> : null}
 
         <View style={styles.actions}>
-          <Pressable
-            accessibilityRole="button"
+          <Touchable
             accessibilityLabel={saved ? "Resume" : "Play"}
             onPress={() => play(selectedEpisode ?? playableEpisodes[0]?.episodeNumber ?? null)}
-            style={({ pressed }) => [styles.play, { opacity: pressed ? 0.8 : 1 }]}
+            style={styles.play}
+            scaleTo={0.96}
           >
             <Text style={styles.playText}>▶  {saved ? "Resume" : "Play"}</Text>
-          </Pressable>
+          </Touchable>
           {data.trailerKey ? (
-            <Pressable
-              accessibilityRole="button"
+            <Touchable
               accessibilityLabel="Open trailer"
               onPress={() => {
                 const url = `https://www.youtube.com/watch?v=${data.trailerKey}`;
@@ -134,9 +164,10 @@ export function DetailsScreen({ route, navigation }: Props) {
                 );
               }}
               style={styles.secondary}
+              scaleTo={0.96}
             >
               <Text style={styles.secondaryText}>Trailer</Text>
-            </Pressable>
+            </Touchable>
           ) : null}
         </View>
 
@@ -163,11 +194,9 @@ export function DetailsScreen({ route, navigation }: Props) {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.castStrip}>
               {data.cast.map((person) => (
                 <View key={person.id} style={styles.castCard}>
-                  {person.profileUrl ? (
-                    <Image source={{ uri: person.profileUrl }} style={styles.castImage} />
-                  ) : (
-                    <View style={[styles.castImage, styles.castBlank]} />
-                  )}
+                  <View style={styles.castImage}>
+                    {person.profileUrl ? <FadeImage uri={person.profileUrl} style={styles.castImageFill} /> : null}
+                  </View>
                   <Text style={styles.castName} numberOfLines={1}>
                     {person.name}
                   </Text>
@@ -185,7 +214,7 @@ export function DetailsScreen({ route, navigation }: Props) {
             <Text style={styles.sectionTitle}>Episodes</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.seasonStrip}>
               {data.seasons.map((s) => (
-                <Pressable
+                <Touchable
                   key={s.seasonNumber}
                   accessibilityRole="button"
                   accessibilityState={{ selected: s.seasonNumber === activeSeason }}
@@ -194,15 +223,24 @@ export function DetailsScreen({ route, navigation }: Props) {
                     setSelectedEpisode(null);
                   }}
                   style={[styles.seasonChip, s.seasonNumber === activeSeason && styles.seasonChipActive]}
+                  scaleTo={0.93}
                 >
                   <Text style={[styles.seasonText, s.seasonNumber === activeSeason && styles.seasonTextActive]}>
                     S{s.seasonNumber}
                   </Text>
-                </Pressable>
+                </Touchable>
               ))}
             </ScrollView>
 
-            {episodes.loading ? <Spinner label={`Loading season ${activeSeason}…`} /> : null}
+            {episodes.loading ? (
+              /* Episode-row-shaped blocks: the list keeps its height when the real
+               * rows land instead of jumping from a spinner to a full season. */
+              <View style={styles.episodeSkeletons}>
+                <SkeletonBlock height={78} />
+                <SkeletonBlock height={78} />
+                <SkeletonBlock height={78} />
+              </View>
+            ) : null}
             {episodes.error ? (
               <Banner
                 tone="error"
@@ -213,28 +251,27 @@ export function DetailsScreen({ route, navigation }: Props) {
               />
             ) : null}
             {!episodes.loading && !episodes.error && !playableEpisodes.length ? (
-              <Text style={styles.muted}>No aired episodes in this season yet.</Text>
+              <EmptyState
+                title="No aired episodes yet"
+                detail="Newer episodes appear here once they air."
+              />
             ) : null}
 
             {playableEpisodes.map((ep) => {
               const selected = (selectedEpisode ?? playableEpisodes[0]?.episodeNumber) === ep.episodeNumber;
               return (
-                <Pressable
+                <Touchable
                   key={`${ep.seasonNumber}-${ep.episodeNumber}`}
-                  accessibilityRole="button"
                   accessibilityLabel={`Play episode ${ep.episodeNumber}: ${ep.title}`}
                   onPress={() => {
                     setSelectedEpisode(ep.episodeNumber);
                     play(ep.episodeNumber);
                   }}
-                  style={({ pressed }) => [styles.episode, selected && styles.episodeSelected, { opacity: pressed ? 0.75 : 1 }]}
+                  style={[styles.episode, selected && styles.episodeSelected]}
+                  scaleTo={0.98}
                 >
                   <View style={styles.episodeThumb}>
-                    {ep.thumbnailUrl ? (
-                      <Image source={{ uri: ep.thumbnailUrl }} style={styles.episodeImage} />
-                    ) : (
-                      <View style={[styles.episodeImage, styles.episodeBlank]} />
-                    )}
+                    {ep.thumbnailUrl ? <FadeImage uri={ep.thumbnailUrl} style={styles.episodeImage} /> : null}
                     <Text style={styles.episodeNumber}>E{ep.episodeNumber}</Text>
                   </View>
                   <View style={styles.episodeBody}>
@@ -251,18 +288,24 @@ export function DetailsScreen({ route, navigation }: Props) {
                       </Text>
                     ) : null}
                   </View>
-                </Pressable>
+                </Touchable>
               );
             })}
           </View>
         ) : null}
-      </View>
+      </FadeIn>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
+  loadingRoot: { flex: 1, backgroundColor: colors.bg },
+  loadingBody: { padding: space.lg, gap: space.md },
+  loadingW40: { width: "40%" },
+  loadingW55: { width: "55%" },
+  loadingW70: { width: "70%" },
+  loadingW90: { width: "90%" },
   backdrop: { height: 260, justifyContent: "flex-end" },
   backdropImage: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
   backdropBlank: { backgroundColor: colors.surface },
@@ -295,8 +338,14 @@ const styles = StyleSheet.create({
   sectionTitle: { color: colors.text, fontSize: type.title, fontWeight: "700" },
   castStrip: { gap: space.md },
   castCard: { width: 88, gap: space.xs },
-  castImage: { width: 88, height: 88, borderRadius: radius.md, backgroundColor: colors.surfaceHi },
-  castBlank: { backgroundColor: colors.surfaceHi },
+  castImage: {
+    width: 88,
+    height: 88,
+    borderRadius: radius.md,
+    overflow: "hidden",
+    backgroundColor: colors.surfaceHi,
+  },
+  castImageFill: { width: "100%", height: "100%" },
   castName: { color: colors.text, fontSize: type.tiny, fontWeight: "700" },
   castRole: { color: colors.textFaint, fontSize: type.tiny },
   seasonStrip: { gap: space.sm },
@@ -304,6 +353,7 @@ const styles = StyleSheet.create({
   seasonChipActive: { backgroundColor: colors.red },
   seasonText: { color: colors.textDim, fontSize: type.small, fontWeight: "700" },
   seasonTextActive: { color: colors.text },
+  episodeSkeletons: { gap: space.sm },
   episode: {
     flexDirection: "row",
     gap: space.md,
@@ -315,7 +365,6 @@ const styles = StyleSheet.create({
   episodeSelected: { backgroundColor: colors.surface, borderColor: colors.redDim },
   episodeThumb: { width: 108, height: 62, borderRadius: radius.sm, overflow: "hidden", backgroundColor: colors.surfaceHi },
   episodeImage: { width: "100%", height: "100%" },
-  episodeBlank: { backgroundColor: colors.surfaceHi },
   episodeNumber: {
     position: "absolute",
     left: 4,

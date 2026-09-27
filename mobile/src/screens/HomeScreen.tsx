@@ -2,11 +2,12 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import React, { useCallback, useMemo } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Banner, Spinner } from "../components/PosterCard";
 import { Hero, Rail } from "../components/Rail";
+import { FadeImage, Touchable } from "../components/motion";
 import { useResource } from "../hooks/useResource";
 import * as tmdb from "../api/tmdb";
 import { getConfig } from "../config";
@@ -31,6 +32,15 @@ export function HomeScreen(_props: Props) {
   const movies = useResource(() => tmdb.getNowPlaying(), [configTick], "Now playing");
   const topRated = useResource(() => tmdb.getTopRated(), [configTick], "Top rated");
   const airing = useResource(() => tmdb.getAiringThisWeek(), [configTick], "Airing today");
+
+  /* Pull-to-refresh re-asks every rail at once; each keeps its content visible
+   * while it revalidates (useResource reports `refreshing`, not a blank screen). */
+  const reloadAll = useCallback(() => {
+    trending.reload();
+    movies.reload();
+    topRated.reload();
+    airing.reload();
+  }, [trending, movies, topRated, airing]);
 
   const openDetails = useCallback(
     (id: string, title: string) => navigation.navigate("Details", { id, title }),
@@ -73,6 +83,15 @@ export function HomeScreen(_props: Props) {
       style={styles.root}
       contentContainerStyle={{ paddingTop: insets.top + space.md, paddingBottom: space.xl }}
       testID="home-scroll"
+      refreshControl={
+        <RefreshControl
+          refreshing={anyRefreshing}
+          onRefresh={reloadAll}
+          tintColor={colors.red}
+          colors={[colors.red]}
+          progressBackgroundColor={colors.surface}
+        />
+      }
     >
       {trending.loading && !hero ? <Spinner label="Loading the catalogue…" /> : null}
 
@@ -86,12 +105,7 @@ export function HomeScreen(_props: Props) {
           title="Could not reach TMDB"
           detail={firstError || "Unknown error."}
           actionLabel="Retry"
-          onAction={() => {
-            trending.reload();
-            movies.reload();
-            topRated.reload();
-            airing.reload();
-          }}
+          onAction={reloadAll}
         />
       ) : null}
 
@@ -115,13 +129,15 @@ export function HomeScreen(_props: Props) {
         </View>
       ) : null}
 
-      {rails.map((rail) => (
+      {rails.map((rail, index) => (
         <Rail
           key={rail.title}
           title={rail.title}
           items={rail.res.data ?? []}
           loading={rail.res.loading}
           onSelect={(item) => openDetails(item.id, item.title)}
+          /* +1: the hero (index 0) settles first, then the shelves in order. */
+          index={index + 1}
         />
       ))}
       {!hasResolver ? (
@@ -144,13 +160,14 @@ function ContinueRow({
 }) {
   const pct = entry.durationSec ? Math.min(1, entry.positionSec / entry.durationSec) : 0;
   return (
-    <Pressable
-      accessibilityRole="button"
+    <Touchable
       accessibilityLabel={`Resume ${entry.title}`}
       onPress={onPress}
-      style={({ pressed }) => [styles.continueCard, { opacity: pressed ? 0.7 : 1 }]}
+      style={styles.continueCard}
     >
-      {entry.posterUrl ? <Image source={{ uri: entry.posterUrl }} style={styles.continuePoster} /> : <View style={[styles.continuePoster, styles.continuePosterBlank]} />}
+      <View style={styles.continuePoster}>
+        {entry.posterUrl ? <FadeImage uri={entry.posterUrl} style={styles.continuePosterImage} /> : null}
+      </View>
       <View style={styles.continueBody}>
         <Text style={styles.continueTitle} numberOfLines={1}>
           {entry.title}
@@ -160,7 +177,7 @@ function ContinueRow({
         </View>
         <Text style={styles.continueSub}>{Math.round(pct * 100)}% watched</Text>
       </View>
-    </Pressable>
+    </Touchable>
   );
 }
 
@@ -183,8 +200,14 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
-  continuePoster: { width: 44, height: 66, borderRadius: radius.sm, backgroundColor: colors.surfaceHi },
-  continuePosterBlank: { backgroundColor: colors.surfaceHi },
+  continuePoster: {
+    width: 44,
+    height: 66,
+    borderRadius: radius.sm,
+    overflow: "hidden",
+    backgroundColor: colors.surfaceHi,
+  },
+  continuePosterImage: { width: "100%", height: "100%" },
   continueBody: { flex: 1, gap: space.xs },
   continueTitle: { color: colors.text, fontSize: type.small, fontWeight: "700" },
   continueTrack: { height: 4, borderRadius: radius.pill, backgroundColor: "rgba(255,255,255,0.18)" },

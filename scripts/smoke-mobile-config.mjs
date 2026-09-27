@@ -32,11 +32,24 @@ async function tmdb(path, params = {}) {
   return res.json();
 }
 
+/* Mirrors mobile/src/api/streams.ts `resolverPayload`, including the id unwrap.
+ *
+ * That mirroring used to be the problem: this file hard-coded the bare TMDB id, so
+ * it passed while the app - which sends "movie-27205" - got a 400 on every title.
+ * The id is now derived from an APP-SHAPED id here, so the two can only disagree
+ * if someone changes one and not the other, and the check below asserts the rule
+ * the resolver actually enforces (api/downloadify.js:270). */
+function appPayload(action, appId, extra = {}) {
+  const numeric = String(appId).match(/\d+/)?.[0] || "";
+  const type = String(appId).startsWith("tv-") ? "tv" : "movie";
+  return { action, type, id: numeric, ...extra };
+}
+
 async function resolve(action, extra = {}) {
   const res = await fetch(`${API_BASE}/api/downloadify`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ action, type: "movie", id: "27205", ...extra }),
+    body: JSON.stringify(appPayload(action, "movie-27205", extra)),
   });
   const text = await res.text();
   let json = null;
@@ -71,11 +84,28 @@ async function main() {
   check("tv season (episode list)", season.episodes?.length > 0, `${season.episodes?.length} episodes`);
 
   /* ── Resolution: the exact contract src/api/streams.ts parses ───────────── */
+  /* The id the app now sends must satisfy the resolver's own validation, or every
+   * title 400s with `bad-id` - which is exactly what the shipped APK did. */
+  check(
+    "app-shaped id is unwrapped to the resolver's digit-only contract",
+    /^\d{1,12}$/.test(appPayload("resolvevidcore", "movie-27205").id),
+    `sent id="${appPayload("resolvevidcore", "movie-27205").id}"`,
+  );
+
   const vidcore = await resolve("resolvevidcore");
   check(
     "POST /api/downloadify resolvevidcore",
     vidcore.status === 200 && vidcore.json?.ok === true,
     `http=${vidcore.status} keys=${vidcore.json ? Object.keys(vidcore.json).join(",") : vidcore.text.slice(0, 140)}`,
+  );
+
+  /* A series must carry BOTH season and episode or the resolver answers
+   * no-source, so the TV path is checked against a real show too. */
+  const tv = await resolve("resolvevidcore", { type: "tv", id: "1399", season: "1", episode: "1" });
+  check(
+    "POST /api/downloadify resolvevidcore (tv + season + episode)",
+    tv.status === 200 && Array.isArray(tv.json?.variants) && tv.json.variants.length > 0,
+    `http=${tv.status} ${tv.json?.code || tv.json?.error || `${tv.json?.variants?.length ?? 0} variants`}`,
   );
 
   const variants = vidcore.json?.variants;

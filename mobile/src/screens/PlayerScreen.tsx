@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Player } from "../components/Player";
 import { Banner, Spinner } from "../components/PosterCard";
+import { Touchable } from "../components/motion";
 import { resolvePlayback, type PlaybackTarget } from "../api/streams";
 import { minimalMediaItem } from "../api/tmdb";
 import { colors, radius, space, type } from "../theme";
@@ -17,6 +18,38 @@ type Props = NativeStackScreenProps<RootStackParamList, "Player">;
 
 const SAVE_EVERY_SEC = 5;
 
+/* Turns a resolver/player failure into something a person can act on. The raw
+ * message is kept in the log either way; this is the layer that decides whether
+ * "Try again" is even worth offering. */
+function explainTitle(message: string): string {
+  if (/no variants|zero variants|no playable source|no-source/i.test(message)) {
+    return "No stream for this title";
+  }
+  if (/not a Streamly title id/i.test(message)) return "This title cannot be looked up";
+  if (/relay|route/i.test(message)) return "Playback source unreachable";
+  if (/timed out/i.test(message)) return "The server took too long";
+  return "This title will not play";
+}
+
+function explainDetail(message: string): string {
+  if (/no variants|zero variants|no playable source|no-source/i.test(message)) {
+    return (
+      "The providers have this title indexed but no playable stream right now — usually " +
+      "a region lock or a source that is temporarily down. Nothing is wrong with your device."
+    );
+  }
+  if (/not a Streamly title id/i.test(message)) {
+    return "The id for this title is not one the resolver understands. Reinstalling the app will fix it.";
+  }
+  if (/relay|route/i.test(message)) {
+    return "The stream host refused the request and the backup route is down too. Trying again in a minute is usually enough.";
+  }
+  if (/timed out/i.test(message)) {
+    return "The request did not come back in time. Check your connection and try again.";
+  }
+  return message;
+}
+
 export function PlayerScreen({ route, navigation }: Props) {
   const { id, title, type, season, episode, startPosition } = route.params;
   const insets = useSafeAreaInsets();
@@ -24,6 +57,7 @@ export function PlayerScreen({ route, navigation }: Props) {
   const [target, setTarget] = useState<PlaybackTarget | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [nonce, setNonce] = useState(0);
   const lastSaved = useRef(0);
   const latest = useRef({ position: startPosition, duration: 0 });
 
@@ -63,7 +97,7 @@ export function PlayerScreen({ route, navigation }: Props) {
         // Screen may already be gone; nothing to report.
       });
     };
-  }, [id, type, season, episode]);
+  }, [id, type, season, episode, nonce]);
 
   const handleProgress = useCallback(
     (positionSec: number, durationSec: number) => {
@@ -86,6 +120,16 @@ export function PlayerScreen({ route, navigation }: Props) {
     navigation.goBack();
   }, [episode, id, navigation, saveProgress, season, title, type]);
 
+  /* "This title will not play" was true of every title in the shipped APK and told
+   * the user nothing. The message now says WHICH stage failed, because the fix and
+   * the next action differ completely: a bad id or a missing source is not worth
+   * retrying, while a timeout or a dead relay is. */
+  const retry = useCallback(() => {
+    setError(null);
+    setLoading(true);
+    setNonce((n) => n + 1);
+  }, []);
+
   return (
     <View style={styles.root}>
       {loading ? (
@@ -98,11 +142,18 @@ export function PlayerScreen({ route, navigation }: Props) {
         <View style={styles.centered}>
           <Banner
             tone="error"
-            title="This title will not play"
-            detail={error}
-            actionLabel="Back"
-            onAction={close}
+            title={explainTitle(error)}
+            detail={explainDetail(error)}
+            actionLabel="Try again"
+            onAction={retry}
           />
+          <Pressable
+            accessibilityRole="button"
+            onPress={close}
+            style={({ pressed }) => [styles.backLink, pressed && styles.backLinkPressed]}
+          >
+            <Text style={styles.backLinkText}>Back to the title</Text>
+          </Pressable>
         </View>
       ) : null}
 
@@ -118,14 +169,14 @@ export function PlayerScreen({ route, navigation }: Props) {
         />
       ) : null}
 
-      <Pressable
-        accessibilityRole="button"
+      <Touchable
         accessibilityLabel="Close player"
         onPress={close}
         style={[styles.close, { top: insets.top + space.sm }]}
+        scaleTo={0.88}
       >
         <Text style={styles.closeText}>✕</Text>
-      </Pressable>
+      </Touchable>
     </View>
   );
 }
@@ -146,4 +197,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   closeText: { color: colors.text, fontSize: type.body, fontWeight: "800" },
+  backLink: { marginTop: space.lg, paddingVertical: space.sm, paddingHorizontal: space.lg },
+  backLinkPressed: { opacity: 0.6 },
+  backLinkText: { color: colors.textFaint, fontSize: type.small, fontWeight: "600" },
 });

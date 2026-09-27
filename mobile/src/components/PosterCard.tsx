@@ -1,8 +1,9 @@
 import React from "react";
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
 
 import { colors, radius, space, type } from "../theme";
 import type { MediaItem } from "../api/tmdb";
+import { FadeImage, Touchable } from "./motion";
 
 interface PosterCardProps {
   item: Pick<MediaItem, "id" | "title" | "posterUrl" | "imdbRating" | "year">;
@@ -13,15 +14,14 @@ interface PosterCardProps {
 
 export function PosterCard({ item, onPress, width = 116, showMeta = true }: PosterCardProps) {
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${item.title}${item.year ? `, ${item.year}` : ""}`}
+    <Touchable
       onPress={onPress}
-      style={({ pressed }) => [{ width, opacity: pressed ? 0.7 : 1 }]}
+      accessibilityLabel={`${item.title}${item.year ? `, ${item.year}` : ""}`}
+      style={{ width }}
     >
       <View style={[styles.poster, { width, height: width * 1.5 }]}>
         {item.posterUrl ? (
-          <Image source={{ uri: item.posterUrl }} style={styles.image} resizeMode="cover" />
+          <FadeImage uri={item.posterUrl} style={styles.image} />
         ) : (
           <View style={styles.placeholder}>
             <Text style={styles.placeholderText} numberOfLines={3}>
@@ -35,13 +35,18 @@ export function PosterCard({ item, onPress, width = 116, showMeta = true }: Post
           <Text style={styles.title} numberOfLines={1}>
             {item.title}
           </Text>
-          <Text style={styles.sub}>
-            {item.imdbRating ? `★ ${item.imdbRating.toFixed(1)}` : "—"}
-            {item.year ? `  ·  ${item.year}` : ""}
-          </Text>
+          {/* A card with neither a rating nor a year (My List entries) says nothing
+           * here rather than printing a bare "—", which read as missing data. */}
+          {item.imdbRating || item.year ? (
+            <Text style={styles.sub}>
+              {item.imdbRating ? `★ ${item.imdbRating.toFixed(1)}` : ""}
+              {item.imdbRating && item.year ? "  ·  " : ""}
+              {item.year ? item.year : ""}
+            </Text>
+          ) : null}
         </View>
       ) : null}
-    </Pressable>
+    </Touchable>
   );
 }
 
@@ -99,9 +104,9 @@ export function Banner({
       <Text style={bannerStyles.title}>{title}</Text>
       {detail ? <Text style={bannerStyles.detail}>{detail}</Text> : null}
       {actionLabel && onAction ? (
-        <Pressable accessibilityRole="button" onPress={onAction} style={bannerStyles.button}>
+        <Touchable onPress={onAction} style={bannerStyles.button} scaleTo={0.94}>
           <Text style={bannerStyles.buttonText}>{actionLabel}</Text>
-        </Pressable>
+        </Touchable>
       ) : null}
     </View>
   );

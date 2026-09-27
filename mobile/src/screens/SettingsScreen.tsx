@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Banner } from "../components/PosterCard";
+import { Touchable } from "../components/motion";
 import { DEPLOYED_API_BASE, getConfig, DEFAULT_RELAY_URL } from "../config";
 import { probeTmdb } from "../api/tmdb";
 import { colors, radius, space, type } from "../theme";
@@ -142,15 +143,15 @@ export function SettingsScreen() {
         detail="This build is wired to the Streamly deployment - catalogue and playback both work out of the box. Change anything below only if you are running your own copy."
       />
 
-      <Pressable
-        accessibilityRole="button"
+      <Touchable
         accessibilityLabel={showAdvanced ? "Hide advanced settings" : "Show advanced settings"}
         accessibilityState={{ expanded: showAdvanced }}
         onPress={() => setShowAdvanced((v) => !v)}
         style={styles.disclosure}
+        scaleTo={0.98}
       >
         <Text style={styles.disclosureText}>{showAdvanced ? "▾" : "▸"} Advanced connection options</Text>
-      </Pressable>
+      </Touchable>
 
       {showAdvanced ? (
         <>
@@ -184,8 +185,7 @@ export function SettingsScreen() {
 
       {showAdvanced ? (
         <View style={styles.actions}>
-          <Pressable
-            accessibilityRole="button"
+          <Touchable
             accessibilityLabel="Save settings"
             disabled={!dirty}
             onPress={() => {
@@ -193,15 +193,16 @@ export function SettingsScreen() {
               logInfo("settings", "Saved runtime settings from the device.");
             }}
             style={[styles.primary, !dirty && styles.disabled]}
+            scaleTo={0.95}
           >
             <Text style={styles.primaryText}>Save</Text>
-          </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="Save and test" onPress={test} style={styles.secondary}>
+          </Touchable>
+          <Touchable accessibilityLabel="Save and test" onPress={test} style={styles.secondary} scaleTo={0.95}>
             <Text style={styles.secondaryText}>{testing ? "Testing…" : "Save & test"}</Text>
-          </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="Clear settings" onPress={clearAll} style={styles.ghost}>
+          </Touchable>
+          <Touchable accessibilityLabel="Clear settings" onPress={clearAll} style={styles.ghost} scaleTo={0.97}>
             <Text style={styles.ghostText}>Reset to default</Text>
-          </Pressable>
+          </Touchable>
         </View>
       ) : null}
 

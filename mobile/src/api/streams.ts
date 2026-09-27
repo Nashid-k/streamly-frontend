@@ -14,6 +14,7 @@
  * React Native's fetch has no CORS layer, so the cross-origin POST is fine. */
 
 import { getConfig, REQUEST_TIMEOUT_MS } from "../config";
+import { numericId } from "./tmdb";
 import { playbackHeaders, preparePlaybackSource, probeDirect, relayIsKnownBad } from "./relay";
 import { logError, logInfo, logWarn } from "../utils/logger";
 
@@ -96,12 +97,45 @@ async function post(body: Record<string, unknown>): Promise<any> {
   }
 }
 
-function resolverBody(action: string, type: string, id: string, season?: number, episode?: number) {
-  const kind = type === "tv" ? "tv" : "movie";
-  const body: Record<string, unknown> = { action, type: kind, id: String(id) };
+/* The resolver payload, and the one place that has ever broken playback.
+ *
+ * The app stores ids as "movie-27205" / "tv-1399" - that is the FROZEN id contract
+ * shared with the web build, so the same title and the same My List entry mean the
+ * same thing in both clients. The resolver is a different system with a stricter
+ * contract: api/downloadify.js:270 and :385 validate the id with /^\d{1,12}$/ and
+ * answer 400 `bad-id` for anything else. So the prefixed id has to be unwrapped
+ * here, at the boundary.
+ *
+ * This was the bug behind "this title will not play - resolver failed (400)" in
+ * the shipped APK: `type: "movie", id: "movie-27205"` 400s in 626ms, while
+ * `type: "movie", id: "27205"` returns 4 variants. The web build was unaffected
+ * because it holds the bare TMDB id. The previous smoke test missed it for the
+ * same reason - it built the request itself instead of using this function - so
+ * the builder is exported and pinned by tests now. */
+export function resolverPayload(
+  action: string,
+  type: string | undefined,
+  id: string,
+  season?: number,
+  episode?: number,
+): Record<string, unknown> {
+  const numeric = numericId(id);
+  if (!numeric) {
+    throw new Error(
+      `"${id}" is not a Streamly title id (expected movie-<id> or tv-<id>), so the ` +
+        "resolver cannot be asked for it.",
+    );
+  }
+  /* The id prefix is the more reliable signal: a deep link (streamly://play/:id)
+   * arrives with no type at all, and a TV title asked for as a movie resolves to
+   * the wrong thing rather than failing. */
+  const kind = String(id).startsWith("tv-") ? "tv" : type === "tv" ? "tv" : "movie";
+  const body: Record<string, unknown> = { action, type: kind, id: numeric };
   if (kind === "tv") {
-    if (season != null) body.season = String(season);
-    if (episode != null) body.episode = String(episode);
+    /* The resolver needs BOTH or it answers no-source, and a series Play button
+     * with no episode list yet still has to do something sensible. */
+    body.season = String(season ?? 1);
+    body.episode = String(episode ?? 1);
   }
   return body;
 }
@@ -112,7 +146,7 @@ export async function resolveVidcore(
   season?: number,
   episode?: number,
 ): Promise<ResolvedSource> {
-  const data = await post(resolverBody("resolvevidcore", type, id, season, episode));
+  const data = await post(resolverPayload("resolvevidcore", type, id, season, episode));
   const resolved = normalize(data);
   logInfo("streams", `VidCore returned ${resolved.variants.length} variant(s).`, {
     type,
@@ -130,7 +164,7 @@ export async function resolveVidsrc(
   season?: number,
   episode?: number,
 ): Promise<ResolvedSource> {
-  const data = await post(resolverBody("resolvevidsrc", type, id, season, episode));
+  const data = await post(resolverPayload("resolvevidsrc", type, id, season, episode));
   const resolved = normalize(data);
   logInfo("streams", `VidSrc returned ${resolved.variants.length} variant(s).`, {
     type,

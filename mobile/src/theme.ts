@@ -39,3 +39,16 @@ export const type = {
   small: 12,
   tiny: 11,
 } as const;
+
+/* Motion tokens. Every duration in the app comes from here so the whole product
+ * moves at one speed; a screen that invents its own timings is the reason an app
+ * feels assembled rather than designed. */
+export const motion = {
+  press: 120,
+  enter: 320,
+  fade: 220,
+  shimmer: 750,
+  /* How far a section rises as it enters. Small on purpose: a large travel reads
+   * as a transition between screens rather than content settling into place. */
+  rise: 12,
+} as const;

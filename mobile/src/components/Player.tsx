@@ -20,6 +20,7 @@ import Video, { type OnBufferData, type OnLoadData, type OnProgressData, type Vi
 import { useKeepAwake } from "expo-keep-awake";
 
 import { colors, radius, space, type } from "../theme";
+import { FadeIn, Touchable } from "./motion";
 import { logError, logInfo } from "../utils/logger";
 
 const SKIP_SECONDS = 15;
@@ -164,6 +165,9 @@ export function Player({ uri, headers, title, qualityLabel, startPosition = 0, o
       </Pressable>
 
       {controlsVisible ? (
+        /* Fades in rather than snapping on: the first thing a viewer does is tap
+         * the frame, and a chrome block appearing out of nowhere reads as a glitch. */
+        <FadeIn style={styles.controlsFade}>
         <View style={styles.controls}>
           <View style={styles.headerRow}>
             <Text style={styles.title} numberOfLines={1}>
@@ -185,24 +189,25 @@ export function Player({ uri, headers, title, qualityLabel, startPosition = 0, o
           <View style={styles.row}>
             <Text style={styles.time}>{formatTime(position)}</Text>
             <View style={styles.spacer} />
-            <Pressable accessibilityRole="button" accessibilityLabel="Back 15 seconds" onPress={() => seekBy(-SKIP_SECONDS)} style={styles.button}>
+            <Touchable accessibilityLabel="Back 15 seconds" onPress={() => seekBy(-SKIP_SECONDS)} style={styles.button} scaleTo={0.92}>
               <Text style={styles.buttonText}>↺ 15</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
+            </Touchable>
+            <Touchable
               accessibilityLabel={paused ? "Play" : "Pause"}
               onPress={() => setPaused((p) => !p)}
               style={styles.playButton}
+              scaleTo={0.9}
             >
               <Text style={styles.playText}>{paused ? "▶" : "❚❚"}</Text>
-            </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="Forward 15 seconds" onPress={() => seekBy(SKIP_SECONDS)} style={styles.button}>
+            </Touchable>
+            <Touchable accessibilityLabel="Forward 15 seconds" onPress={() => seekBy(SKIP_SECONDS)} style={styles.button} scaleTo={0.92}>
               <Text style={styles.buttonText}>15 ↻</Text>
-            </Pressable>
+            </Touchable>
             <View style={styles.spacer} />
             <Text style={styles.time}>{formatTime(duration)}</Text>
           </View>
         </View>
+        </FadeIn>
       ) : null}
     </View>
   );
@@ -215,11 +220,15 @@ const styles = StyleSheet.create({
   centered: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", gap: space.sm, padding: space.lg },
   errorTitle: { color: colors.text, fontWeight: "700", fontSize: type.body },
   errorDetail: { color: colors.textDim, fontSize: type.small, textAlign: "center" },
-  controls: {
+  controlsFade: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
+  },
+  /* Placement (absolute bottom strip) belongs to the FadeIn wrapper above; this
+   * is only the strip's own paint. */
+  controls: {
     padding: space.lg,
     gap: space.md,
     backgroundColor: "rgba(0,0,0,0.55)",

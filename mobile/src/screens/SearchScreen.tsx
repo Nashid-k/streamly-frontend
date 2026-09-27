@@ -2,10 +2,11 @@ import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { FlatList, StyleSheet, Text, TextInput, View } from "react-native";
+import { FlatList, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Banner, PosterCard, Spinner } from "../components/PosterCard";
+import { Banner, PosterCard } from "../components/PosterCard";
+import { EmptyState, PosterSkeletonGrid } from "../components/motion";
 import { useResource } from "../hooks/useResource";
 import * as tmdb from "../api/tmdb";
 import { getConfig } from "../config";
@@ -25,6 +26,11 @@ export function SearchScreen({ navigation: _navigation }: Props) {
   const [query, setQuery] = useState("");
   const [submitted, setSubmitted] = useState("");
   const [debounced, setDebounced] = useState("");
+
+  /* Three columns must fit the row, not overflow it: a fixed 116px card is 372px
+   * of card in a 344px row on a 360dp phone, so the width is derived instead. */
+  const { width: screenWidth } = useWindowDimensions();
+  const cardWidth = Math.floor((screenWidth - space.lg * 2 - space.md * 2) / 3);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(query.trim()), DEBOUNCE_MS);
@@ -73,11 +79,14 @@ export function SearchScreen({ navigation: _navigation }: Props) {
       />
 
       {!debounced ? (
-        <View style={styles.hintWrap}>
-          <Text style={styles.hint}>Type at least two characters. Search hits TMDB directly.</Text>
-        </View>
+        <EmptyState
+          title="Find something to watch"
+          detail="Movies, shows and people — at least two characters."
+        />
       ) : results.loading ? (
-        <Spinner label={`Searching for "${debounced}"…`} />
+        /* The grid of placeholders holds the exact geometry the results will use,
+         * so the answers replace it instead of shoving the page down. */
+        <PosterSkeletonGrid cardWidth={cardWidth} />
       ) : (
         <>
           {/* A new query keeps the previous results on screen with a progress line,
@@ -93,11 +102,10 @@ export function SearchScreen({ navigation: _navigation }: Props) {
               onAction={results.reload}
             />
           ) : !data.length ? (
-            <View style={styles.hintWrap}>
-              <Text style={styles.hint}>
-                {submitted ? `No results for "${submitted}".` : `No results for "${debounced}".`}
-              </Text>
-            </View>
+            <EmptyState
+              title="No results"
+              detail={`Nothing matched “${submitted || debounced}”. Check the spelling, or try a shorter phrase.`}
+            />
           ) : (
             <FlatList
               data={data}
@@ -107,7 +115,7 @@ export function SearchScreen({ navigation: _navigation }: Props) {
               contentContainerStyle={styles.grid}
               keyboardShouldPersistTaps="handled"
               renderItem={({ item }) => (
-                <PosterCard item={item} onPress={() => openDetails(item.id, item.title)} />
+                <PosterCard item={item} width={cardWidth} onPress={() => openDetails(item.id, item.title)} />
               )}
               ListFooterComponent={
                 <Text style={styles.footer}>
@@ -137,8 +145,6 @@ const styles = StyleSheet.create({
     paddingVertical: space.md,
     fontSize: type.body,
   },
-  hintWrap: { paddingVertical: space.xl, alignItems: "center" },
-  hint: { color: colors.textFaint, fontSize: type.small, textAlign: "center" },
   progress: { color: colors.textFaint, fontSize: type.tiny, paddingTop: space.md },
   grid: { paddingTop: space.lg, gap: space.lg },
   gridRow: { gap: space.md, justifyContent: "flex-start" },

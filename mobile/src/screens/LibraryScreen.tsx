@@ -1,10 +1,11 @@
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import React, { useCallback } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Banner, PosterCard } from "../components/PosterCard";
+import { PosterCard } from "../components/PosterCard";
+import { EmptyState, FadeImage, Skeleton, Touchable } from "../components/motion";
 import { colors, radius, space, type } from "../theme";
 import type { RootStackParamList } from "../navigation/types";
 import { useUserData, type ProgressEntry } from "../store/userData";
@@ -21,15 +22,22 @@ export function LibraryScreen() {
   );
 
   if (!ready) {
-    return <View style={styles.root} />;
+    /* Two shaped blocks instead of a black flash: the first paint stands in for
+     * the sections that are about to fill them. */
+    return (
+      <View style={[styles.root, { paddingTop: insets.top + space.md, paddingHorizontal: space.lg, gap: space.md }]}>
+        <Skeleton width="55%" height={28} cornerRadius={6} />
+        <Skeleton width="100%" height={72} cornerRadius={radius.md} />
+        <Skeleton width="100%" height={72} cornerRadius={radius.md} />
+      </View>
+    );
   }
 
   if (!myList.length && !continueWatching.length) {
     return (
-      <View style={[styles.root, { paddingTop: insets.top }]}>
+      <View style={[styles.root, { paddingTop: insets.top + space.md, paddingHorizontal: space.lg }]}>
         <Text style={styles.heading}>My Library</Text>
-        <Banner
-          tone="info"
+        <EmptyState
           title="Nothing saved yet"
           detail="Tap the star on any title to keep it in My List. Watched titles and their resume points show up here automatically."
         />
@@ -63,9 +71,9 @@ export function LibraryScreen() {
         </View>
       }
       ListFooterComponent={
-        <Pressable
-          accessibilityRole="button"
+        <Touchable
           accessibilityLabel="Clear local data"
+          accessibilityRole="button"
           onPress={() => {
             clearAll();
             logInfo("library", "User cleared all local data.");
@@ -73,7 +81,7 @@ export function LibraryScreen() {
           style={styles.clear}
         >
           <Text style={styles.clearText}>Clear local data</Text>
-        </Pressable>
+        </Touchable>
       }
       renderItem={({ item }) => (
         <View style={styles.listRow}>
@@ -87,7 +95,6 @@ export function LibraryScreen() {
             }}
             onPress={() => open(item.id, item.title)}
           />
-          <Text style={styles.listNote}>Saved on this device</Text>
         </View>
       )}
     />
@@ -105,12 +112,14 @@ function ContinueCard({
 }) {
   const pct = entry.durationSec ? Math.min(1, entry.positionSec / entry.durationSec) : 0;
   return (
-    <Pressable
-      accessibilityRole="button"
+    <Touchable
       accessibilityLabel={`Resume ${entry.title}`}
       onPress={onPress}
-      style={({ pressed }) => [styles.continue, { opacity: pressed ? 0.75 : 1 }]}
+      style={styles.continue}
     >
+      <View style={styles.continuePoster}>
+        {entry.posterUrl ? <FadeImage uri={entry.posterUrl} style={styles.continuePosterImage} /> : null}
+      </View>
       <View style={styles.continueBody}>
         <Text style={styles.continueTitle} numberOfLines={1}>
           {entry.title}
@@ -123,10 +132,15 @@ function ContinueCard({
           <View style={[styles.continueFill, { width: `${pct * 100}%` }]} />
         </View>
       </View>
-      <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${entry.title} from continue watching`} onPress={onRemove} style={styles.remove}>
+      <Touchable
+        accessibilityLabel={`Remove ${entry.title} from continue watching`}
+        onPress={onRemove}
+        style={styles.remove}
+        scaleTo={0.88}
+      >
         <Text style={styles.removeText}>✕</Text>
-      </Pressable>
-    </Pressable>
+      </Touchable>
+    </Touchable>
   );
 }
 
@@ -146,6 +160,14 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
+  continuePoster: {
+    width: 44,
+    height: 66,
+    borderRadius: radius.sm,
+    overflow: "hidden",
+    backgroundColor: colors.surfaceHi,
+  },
+  continuePosterImage: { width: "100%", height: "100%" },
   continueBody: { flex: 1, gap: space.xs },
   continueTitle: { color: colors.text, fontSize: type.body, fontWeight: "700" },
   continueMeta: { color: colors.textDim, fontSize: type.tiny },
@@ -153,8 +175,7 @@ const styles = StyleSheet.create({
   continueFill: { height: 4, borderRadius: radius.pill, backgroundColor: colors.red },
   remove: { width: 32, height: 32, borderRadius: radius.pill, alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceHi },
   removeText: { color: colors.textDim, fontSize: type.small, fontWeight: "800" },
-  listRow: { gap: space.xs, marginTop: space.lg },
-  listNote: { color: colors.textFaint, fontSize: type.tiny },
+  listRow: { marginTop: space.lg },
   clear: { marginTop: space.xxl, alignSelf: "center", padding: space.md },
   clearText: { color: colors.textFaint, fontSize: type.small, textDecorationLine: "underline" },
 });

@@ -171,6 +171,14 @@ npm run prebuild:android    # regenerate android/ from app.json (--clean)
 npm run apk                 # prebuild + assembleRelease → the installable APK
 ```
 
+From the **repo root**, the icon artwork (no image library needed):
+
+```bash
+node scripts/generate-app-icons.mjs   # redraw every icon from one vector source
+node scripts/verify-app-icons.mjs     # measure the generated icons instead of trusting them
+node scripts/probe-resolver-id.mjs    # live: the resolver's id contract, prefixed vs digit-only
+```
+
 ### Building the APK on a small machine
 
 `assembleRelease` on a 4-core / 8 GB laptop is workable **only** with the tuning
@@ -192,14 +200,16 @@ keystore for a store release.
 
 | Gate | Result |
 |---|---|
-| `npm run smoke:mobile` (repo root) | **13/13** against the live deployment: 6 catalogue paths, the resolver contract, `pickSmooth`, direct-manifest-with-Referer (403 → 200 `#EXTM3U`), first segment 206 `video/mp4` |
+| `npm run smoke:mobile` (repo root) | **15/15** against the live deployment: 6 catalogue paths, the resolver contract (including the app-shaped id being unwrapped to the resolver's digit-only form), `pickSmooth`, direct-manifest-with-Referer (403 → 200 `#EXTM3U`), first segment 206 `video/mp4` |
+| `npx vitest run mobile/src/api/streams.payload.test.js` (repo root) | **5/5** — the resolver id contract pinned: the `movie-`/`tv-` prefix is unwrapped, the prefix wins over a missing type (deep links), series always carry season+episode, a no-digit id throws instead of mailing a guaranteed 400 |
+| `node scripts/verify-app-icons.mjs` (repo root) | **ALL ICON CHECKS PASSED** — glyph inside the adaptive 66% safe zone, centred, pointing right (centroid-measured, not eyeballed), smooth anti-aliasing, round vs squircle genuinely different artwork, per-density sizes and contrast. The built APK was verified with `aapt2 dump resources`: the adaptive XML's foreground is `@mipmap/ic_launcher_foreground` and every density carries the generated `ic_launcher`/`ic_launcher_round` PNGs |
 | `npm run probe:latency` (repo root) | every catalogue path, cold (cache-busted) and warm: cold avg **624 ms**, max 1343 ms; warm avg **381 ms**; a 4-rail cold Home in parallel **978 ms** — i.e. the backend was never the problem |
 | `npx vitest run mobile/src/api/tmdb.cache.test.js` (repo root) | **9/9** — no keyless direct fallback, per-leg timeout text, proxy-then-direct order with a key, concurrent dedup, cache hit, stale-while-revalidate, cache survives a relaunch, retry policy |
 | `npx tsc --noEmit` | clean, 0 errors |
 | `npx expo export --platform android` | bundled, 889 modules |
 | `gradlew assembleRelease` | BUILD SUCCESSFUL, 25m 8s cold / ~2 min incremental |
 | APK badging | `com.streamly.app` 1.0.0, label `Streamly`, minSdk 24 / targetSdk 36, `arm64-v8a` |
-| `npm run lint` / `npm test` / `npm run build` (web) | 0 errors · **672/672** · OK |
+| `npm run lint` / `npm test` / `npm run build` (web) | 0 errors · **677/677** (56 files, includes both mobile test files) · OK |
 | Catalogue timings, real client, live origin | cold 4 rails **422 ms** / 4 requests · relaunch **11 ms** / **0 requests** · search 95 ms → **1 ms** |
 
 `smoke:mobile` exists because the app's dependencies are **remote contracts**:
