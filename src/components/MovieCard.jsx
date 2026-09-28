@@ -4,6 +4,8 @@ import { Play, Plus, Check, Star } from "lucide-react";
 import { getTMDBWeekdayShort } from "../utils/timezone";
 import { buildMovieAddedNotification } from "../utils/notificationEngine";
 import CountdownBadge from "./CountdownBadge";
+import ContentTag from "./ContentTag";
+import { getContentTags } from "../utils/contentTags";
 import useDetailView from "../hooks/useDetailView";
 import { useAppAuth } from "../context/auth";
 import { useToast } from "./Toast";
@@ -215,6 +217,11 @@ const MovieCard = memo(function MovieCard({
     ? getTMDBWeekdayShort(nextAirDate, undefined, platformForDate)
     : "";
 
+  // Content tags ("NEW" = recently released) come from one pure helper so the
+  // rule lives in contentTags.js and is unit-tested there, not re-derived here.
+  // Empty for unreleased titles — those are CountdownBadge's job.
+  const contentTags = getContentTags(movie);
+
   return (
     <div
       ref={virtualRef}
@@ -301,6 +308,17 @@ const MovieCard = memo(function MovieCard({
                   pointerEvents: "none",
                 }}
               >
+                {/* Content tags first (NEW). getContentTags suppresses itself
+                    when the rail already renders an equivalent label, so this
+                    never double-labels a card. */}
+                {contentTags.map((tag) => (
+                  <ContentTag
+                    key={tag.id}
+                    label={tag.label}
+                    tone={tag.tone}
+                    reason={tag.reason}
+                  />
+                ))}
                 {/* Non-series premiere: explicit date chip (rail-provided) or
                     a countdown when only the raw date is known */}
                 {!isTvContent && movie.formattedRelease && (
