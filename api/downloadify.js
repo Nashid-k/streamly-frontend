@@ -11,6 +11,7 @@
 //   resolve        { embedUrl }                         -> { source, variants }
 //   resolvevidsrc  { type, id, season?, episode? }      -> { source, variants }
 //   resolvevidcore { type, id, season?, episode? }      -> { source, variants }
+//   resolvenhd     { type, id, season?, episode? }      -> { source, variants, audioTracks }
 //   manifest       { playlistUrl, refUrl }              -> { kind, initUrl, segments, duration }
 //   playlist       { playlistUrl, refUrl }              -> raw m3u8 text (referer-supplied)
 //   segment        { url, refUrl?, range: {start,max} } -> bytes (octet-stream)
@@ -480,6 +481,161 @@ async function handleResolveVidcore(body, res) {
    entries and player branches were removed; CineSrc (iframe sources) |
    VidCore | Videasy | VidVid remain the playback paths. */
 
+/* ── NHD Embed third-party provider ─────────────────────────────────────
+   NHD (https://nhdapi.com) aggregates 8 upstream providers behind one JW
+   Player embed (`/movie/{tmdbId}`, `/tv/{tmdbId}/{s}/{e}`) with a Server
+   switcher and — for dubbed titles — a real Audio language switcher.
+   Scraped server-side exactly like VidCore so our own player serves the
+   bytes instead of their iframe:
+
+   1. GET the embed page (no key needed, plays with ads in a browser) and
+      read its per-title `var API_PATH` + `var API_KEY` (the /api/* JSON
+      answers `invalid or missing API key` without it; the key differs per
+      title, verified live: 579974 vs 299534).
+   2. GET `{API_PATH}?_ts=…&key=…[&provider=…|&exclude=…]` with the embed
+      page as referer. The answer is `{ success, playUrl, kind, provider,
+      audioTracks }` where `playUrl` is a tokenized
+      `nhdapi.streamfinder.st/api/hls?t=…` URL and `audioTracks` — when
+      present — is a list of SIBLING full-stream URLs
+      (`[{ label, playUrl }]`, one HLS manifest per dub), never
+      `#EXT-X-MEDIA` renditions inside one manifest.
+   3. Every minted token is VERIFIED before it is served (one cheap GET of
+      the manifest must answer a real m3u8): a mint is NOT guaranteed
+      playable — meowtvru (nxsha.space) extractions come out born-403 some
+      of the time (their own player survives that only through its
+      exclude-and-retry recovery ladder, read off their embed source), and
+      `fresh=1` re-mints can land non-HLS kinds or poison the upstream's
+      cached extraction, so `fresh` is never sent by us. The ladder mirrors
+      theirs: meowtvru first (the only provider whose extractions carry
+      `audioTracks` — per their player source "every other provider serves
+      exactly one"), then the all-provider race, then the race with
+      meowtvru excluded. Dub siblings are verified individually too — a
+      healthy main mint can still ship dead dub tokens.
+
+   Only `kind === "hls"` extractions are served: `kind === "mp4"` titles
+   have no HLS ladder for the native pipeline (its NetMirror mp4 branch
+   was removed) or the manifest→segment downloader, so they answer an
+   honest `no-source` instead of a URL nothing can play. Tokens are
+   time-scoped (a captured `t=…` 502s minutes later) but NOT single-use —
+   the verify GET and the player's first fetch of the same token both
+   answer — so resolve fresh per playback; the player's token-refresh
+   re-resolve already does this. The streamfinder host answers CORS *
+   headerless (verified live), so no referer rides on playback. */
+const NHD_EMBED_BASE = "https://nhdapi.com";
+const NHD_MULTI_AUDIO_PROVIDER = "meowtvru";
+
+function extractNhdPageKey(html) {
+  const text = String(html || "");
+  const pathMatch = /var\s+API_PATH\s*=\s*"([^"]+)"/.exec(text);
+  const keyMatch = /var\s+API_KEY\s*=\s*"([^"]+)"/.exec(text);
+  const apiPath = pathMatch?.[1] || null;
+  const apiKey = keyMatch?.[1] || null;
+  if (!apiPath || !apiKey || !apiPath.startsWith("/api/")) return null;
+  return { apiPath, apiKey };
+}
+
+async function fetchNhdExtraction(key, embedUrl, { provider, exclude } = {}) {
+  const api = new URL(NHD_EMBED_BASE + key.apiPath);
+  api.searchParams.set("_ts", String(Date.now()));
+  if (provider) api.searchParams.set("provider", provider);
+  if (exclude) api.searchParams.set("exclude", exclude);
+  api.searchParams.set("key", key.apiKey);
+  const text = await fetchUpstream(api.toString(), { referer: embedUrl });
+  const data = JSON.parse(text);
+  if (!data || data.success !== true || !data.playUrl) return null;
+  return data;
+}
+
+/* The verify gate: a minted NHD token must answer a real m3u8 before we
+   offer it to the player — a born-403 token would otherwise surface as a
+   black-screen source instead of a clean failover to the next attempt. */
+async function verifyNhdPlaylist(url) {
+  try {
+    const text = await fetchUpstream(url);
+    return text.startsWith("#EXTM3U");
+  } catch {
+    return false;
+  }
+}
+
+async function handleResolveNhd(body, res) {
+  const type = body.type === "tv" ? "tv" : "movie";
+  const tmdbId = String(body.id || "").trim();
+  if (!/^\d{1,12}$/.test(tmdbId)) {
+    json(res, 400, { ok: false, error: "Invalid TMDB id", code: "bad-id" });
+    return;
+  }
+  const season = String(body.season ?? "").trim();
+  const episode = String(body.episode ?? "").trim();
+
+  const embedUrl =
+    type === "tv"
+      ? `${NHD_EMBED_BASE}/tv/${tmdbId}/${season || "1"}/${episode || "1"}`
+      : `${NHD_EMBED_BASE}/movie/${tmdbId}`;
+
+  let page;
+  try {
+    page = await fetchUpstream(embedUrl, { referer: embedUrl });
+  } catch {
+    page = null;
+  }
+  const key = page ? extractNhdPageKey(page) : null;
+  if (!key) {
+    json(res, 200, { ok: false, error: "No downloadable stream found via NHD", code: "no-source" });
+    return;
+  }
+
+  // Their own ladder, with the verify gate on every rung: meowtvru (multi-
+  // audio), the all-provider race, then their recovery move — the race with
+  // meowtvru excluded. A rung whose mint fails verification is skipped, not
+  // served; running the ladder dry is an honest no-source.
+  const attempts = [
+    { provider: NHD_MULTI_AUDIO_PROVIDER },
+    {},
+    { exclude: NHD_MULTI_AUDIO_PROVIDER },
+  ];
+  for (const params of attempts) {
+    let data = null;
+    try {
+      data = await fetchNhdExtraction(key, embedUrl, params);
+    } catch {
+      data = null;
+    }
+    if (!data || data.kind !== "hls") continue;
+    if (!(await verifyNhdPlaylist(data.playUrl))) continue;
+    // Dub siblings are verified one by one: a healthy main mint can still
+    // carry dead dub tokens, and an unplayable dub must never reach the
+    // Audio menu (the player probes again before switching, but the menu
+    // should only ever list tracks that can actually play).
+    const audioTracks = [];
+    for (const t of Array.isArray(data.audioTracks) ? data.audioTracks : []) {
+      if (!t?.playUrl || !t?.label) continue;
+      if (await verifyNhdPlaylist(t.playUrl)) {
+        audioTracks.push({ label: String(t.label), uri: String(t.playUrl) });
+      }
+    }
+    json(res, 200, {
+      ok: true,
+      source: { kind: "hls", url: data.playUrl, refUrl: "" },
+      variants: [
+        {
+          uri: data.playUrl,
+          bandwidth: 0,
+          width: 0,
+          height: 0,
+          framerate: 0,
+          codecs: "",
+          hdr: false,
+        },
+      ],
+      provider: data.provider || params.provider || "",
+      audioTracks,
+    });
+    return;
+  }
+  json(res, 200, { ok: false, error: "No downloadable stream found via NHD", code: "no-source" });
+}
+
 async function handleManifest(body, res) {
   const playlistUrl = String(body.playlistUrl || "").trim();
   try {
@@ -624,6 +780,9 @@ export default async function handler(req, res) {
         return;
       case "resolvevidcore":
         await handleResolveVidcore(body, res);
+        return;
+      case "resolvenhd":
+        await handleResolveNhd(body, res);
         return;
       case "manifest":
         await handleManifest(body, res);

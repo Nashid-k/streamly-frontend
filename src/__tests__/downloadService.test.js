@@ -159,6 +159,66 @@ describe("downloadService.resolveVidcore", () => {
   });
 });
 
+describe("downloadService.resolveNhd", () => {
+  it("carries the sibling-URL dub audioTracks through to the player", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          ok: true,
+          source: { kind: "hls", url: "https://nhdapi.streamfinder.st/api/hls?t=abc", refUrl: "" },
+          variants: [{ uri: "https://nhdapi.streamfinder.st/api/hls?t=abc", bandwidth: 0, height: 0 }],
+          provider: "meowtvru",
+          audioTracks: [
+            { label: "Original", uri: "https://nhdapi.streamfinder.st/api/hls?t=abc" },
+            { label: "Hindi", uri: "https://nhdapi.streamfinder.st/api/hls?t=def" },
+            { label: "Telugu", uri: "https://nhdapi.streamfinder.st/api/hls?t=ghi" },
+          ],
+        }),
+      ),
+    );
+
+    const resolved = await downloadService.resolveNhd({ type: "movie", id: "579974" });
+    // NHD serves ONE unlabeled rung (height 0 -> the honest "Auto" label), so the
+    // ladder is not the interesting part — the dub list is.
+    expect(resolved.variants.map((v) => v.label)).toEqual(["Auto"]);
+    expect(resolved.audioTracks.map((t) => t.label)).toEqual(["Original", "Hindi", "Telugu"]);
+    expect(resolved.audioTracks[1]).toEqual({
+      label: "Hindi",
+      uri: "https://nhdapi.streamfinder.st/api/hls?t=def",
+    });
+  });
+
+  it("passes season+episode through for TV and drops dub-less extractions to an empty list", async () => {
+    let capturedBody = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        capturedBody = JSON.parse(init.body);
+        return jsonResponse({
+          ok: true,
+          source: { kind: "hls", url: "https://nhdapi.streamfinder.st/api/hls?t=tv", refUrl: "" },
+          variants: [{ uri: "https://nhdapi.streamfinder.st/api/hls?t=tv", bandwidth: 0 }],
+        });
+      }),
+    );
+
+    const resolved = await downloadService.resolveNhd({ type: "tv", id: "1399", season: 2, episode: 3 });
+    expect(capturedBody).toMatchObject({ action: "resolvenhd", type: "tv", id: "1399", season: "2", episode: "3" });
+    expect(resolved.audioTracks).toEqual([]);
+  });
+
+  it("surfaces an honest no-source result", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse({ ok: false, error: "No downloadable stream found via NHD", code: "no-source" })),
+    );
+    await expect(downloadService.resolveNhd({ type: "movie", id: "550" })).rejects.toMatchObject({
+      code: "no-source",
+    });
+  });
+});
+
 describe("downloadService.buildManifest", () => {
   it("posts the manifest action with the source referer and returns the segment list", async () => {
     let capturedBody = null;

@@ -127,7 +127,7 @@ VITE_SITE_URL=https://your-project.vercel.app
    hidden locally immediately and purged from storage on later merges.
 7. **Offline downloads:** TitleDetailsPage → `DownloadModal` →
    `downloadService` → Vercel `api/downloadify.js` (`resolve` / VidSrc
-   `resolvevidsrc` / VidCore `resolvevidcore` → `manifest` → single-URL
+   `resolvevidsrc` / VidCore `resolvevidcore` / NHD `resolvenhd` → `manifest` → single-URL
    Range-chunked `segment`, ≤3.5MB chunks with an `x-streamly-more` header —
    the old 6-URL batch POSTs 413'd on Vercel's 4.5MB cap). VidCore (Server 5)
    is fully serverless: the vidcore.org/embed "videasy" sources catalogue lists
@@ -284,10 +284,10 @@ src/
 - Offline downloader (TitleDetailsPage): source pick (player rotation +
    "VidSrc (Alt)" and "VidCore" third-party providers), quality ladder with HDR
   badges + estimated sizes, TV season/episode batch, progress + cancel
-- Streams via `api/downloadify.js` resolve/resolvevidsrc/resolvevidcore →
-  manifest → segment (single-URL Range chunks, direct-CORS when the CDN
-  allows) and saves through the File System Access API (Blob `<a download>`
-  fallback)
+- Streams via `api/downloadify.js` resolve/resolvevidsrc/resolvevidcore/
+  resolvenhd → manifest → segment (single-URL Range chunks, direct-CORS when
+  the CDN allows) and saves through the File System Access API (Blob
+  `<a download>` fallback)
 
 ### `RailArrow`
 - Canonical ghost scroll arrow for every rail/hero/back button; always visible

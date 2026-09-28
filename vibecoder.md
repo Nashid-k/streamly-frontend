@@ -34,11 +34,13 @@ Debug: open the browser console — every data failure logs as
 `[Streamly][scope] message + context`. Append `?debug=1` (or set
 `localStorage["streamly:debug"]="1"`) for verbose `console.debug` output.
 
-### Mobile app (reserved)
+### Mobile app (`mobile/` — Flutter)
 
-The previous Expo app under `mobile/` was removed; the owner is replacing it.
-`mobile/` is reserved for the replacement — its toolchain, gates, and rules
-will be documented when the new app lands.
+`mobile/README.md` owns the toolchain: `flutter pub get`, `flutter analyze`
+(static gate), `flutter test`, `flutter run`, `flutter build apk`. No
+Flutter/Dart SDK is installed on this machine, so Dart gates cannot run here —
+say so explicitly instead of claiming a pass. Never commit `build/`,
+`.dart_tool/`, keys, or APKs (covered by `mobile/.gitignore`).
 
 ## 3. Coding rules
 

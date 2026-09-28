@@ -52,11 +52,13 @@ The web build reads from the deployed serverless functions under the shared
    follow the host within ~2s with drift correction; a `?party=CODE` share
    link joins mid-party with the full transcript caught up.
 
-## 4. Mobile app (reserved)
+## 4. Mobile app (`mobile/` — Flutter)
 
-The previous Expo Android app (`mobile/`) was removed; the owner is replacing
-it with a new app. Until that lands, the web build is the only surface, and
-`mobile/` is reserved for the replacement — do not recreate the old structure.
+`streamly_mobile`: ExoPlayer playback (`better_player_plus`), TMDB catalogue,
+multi-server resolution (Vercel `/api/source` + headless-WebView embed
+sniffer + visible WebView fallback), `provider` + `shared_preferences`
+state. Full docs in `mobile/README.md`. Known player gaps (no subtitle
+fetch/picker, no audio picker) are tracked in `task.md`.
 
 ## 5. Explicitly NOT building
 

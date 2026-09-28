@@ -1,7 +1,8 @@
 // src/components/NativePlayerView.jsx — the app's player, opened by the hero /
-// episode Play buttons. Resolves VidCore-first → VidSrc via downloadService and
-// plays through hls.js (manifest relay + direct-segment loader). Custom transport
-// only: no native <video controls>.
+// episode Play buttons. Resolves VidCore-first (4K) → VidSrc → NHD (multi-
+// audio) via downloadService, with a Servers menu to switch the active server,
+// and plays through hls.js (manifest relay + direct-segment loader). Custom
+// transport only: no native <video controls>.
 // Quality lives in the Audio & Subtitles dialog (Netflix has no quality menu), and
 // touch devices get a stacked settings sheet instead of the desktop chrome.
 
@@ -27,6 +28,8 @@ import {
   Play,
   Proportions,
   RotateCcw,
+  Server,
+  ServerCog,
   Settings,
   SkipBack,
   SkipForward,
@@ -238,12 +241,20 @@ function DialogRow({ selected, onClick, title, sub, disabled, icon, hasChevron }
 
 const SOURCES = [
   // Streaming backends are relayed HLS providers, VidCore first (its probe is
-  // direct-first, so a blocked CDN falls through quickly). NetMirror (net27.cc)
-  // was removed: its video layer is per-IP 429-gated behind a Cloudflare
-  // challenge. CineSrc went with its Chrome mint service — no serverless function
-  // can mint fingerprint-bound tokens.
-  { key: "vidcore", label: "VidCore (native)", resolve: (a, o) => downloadService.resolveVidcore(a, o) },
-  { key: "vidsrc", label: "VidSrc (native)", resolve: (a, o) => downloadService.resolveVidsrc(a, o) },
+  // direct-first, so a blocked CDN falls through quickly) and ALWAYS the
+  // default — it is the only source whose ladder reaches 4K. NetMirror
+  // (net27.cc) was removed: its video layer is per-IP 429-gated behind a
+  // Cloudflare challenge. CineSrc went with its Chrome mint service — no
+  // serverless function can mint fingerprint-bound tokens.
+  // `tag` is the Servers-menu one-liner: what the viewer gets from this
+  // server, in the player's own words (a ladder ceiling, an audio feature,
+  // or its delivery limit) — never marketing.
+  { key: "vidcore", label: "VidCore", tag: "4K · multiple qualities", resolve: (a, o) => downloadService.resolveVidcore(a, o) },
+  { key: "vidsrc", label: "VidSrc", tag: "Original audio · up to 1080p", resolve: (a, o) => downloadService.resolveVidsrc(a, o) },
+  // NHD carries the fewest titles, but it is the ONLY native source with
+  // real dub audio (sibling-URL audioTracks) — last, so dubbed titles still
+  // land somewhere without costing VidCore its default seat.
+  { key: "nhd", label: "NHD", tag: "Multi audio (dubs) · one quality", resolve: (a, o) => downloadService.resolveNhd(a, o) },
 ];
 
 // One auto-retry per source: a fresh open often fails on the FIRST attempt
@@ -681,6 +692,19 @@ export default function NativePlayerView({
   const [isMasterMode, setIsMasterMode] = useState(false);
   const [audioTracks, setAudioTracks] = useState([]);
   const [audioIndex, setAudioIndex] = useState(0);
+  /* NHD sibling-URL dubs: `audioTracks` from the resolver, each a FULL alternate
+     manifest (one per dub), never #EXT-X-MEDIA groups — so unlike hls.js tracks a
+     dub switch is a position-preserving manifest swap, and the pick must survive
+     the token-refresh re-resolve below. */
+  const [dubTracks, setDubTracks] = useState([]);
+  const [activeDub, setActiveDub] = useState(0);
+  // Mirror of activeDub for the async resolve loop (same pattern as mutedRef et al.).
+  const activeDubRef = useRef(0);
+  /* Server switcher: which source the viewer chose in the Servers menu (null
+     = the auto rotation's winner, the default being VidCore). A manual pick
+     re-resolves through runSourceOnce's `forceSource` argument. */
+  const [requestedServer, setRequestedServer] = useState(null);
+  const requestedServerRef = useRef(null); // mirror for the async resolve loop
   // TMDB iso_639_1 -> display name, for the film-level original-language line.
   const FILM_LANG = {
     en: "English", te: "Telugu", hi: "Hindi", ta: "Tamil", ml: "Malayalam",
@@ -1968,6 +1992,10 @@ export default function NativePlayerView({
     const run = runRef.current + 1;
     runRef.current = run;
     const controller = new AbortController();
+    // The source committed by the PREVIOUS run (null on first mount): a dub
+    // pin carried across a SERVER switch must not index into the new
+    // server's audioTracks — see the publish guard in the commit block.
+    const prevSourceKey = metaRef.current?.sourceKey || null;
 
     const entryUrlFor = (def, resolved, variant) => {
       // Master sources keep their levels + audio groups on the master, so load the
@@ -2039,6 +2067,8 @@ export default function NativePlayerView({
       setQualities([]);
       setAudioTracks([]);
       setAudioIndex(0);
+      setDubTracks([]);
+      setActiveDub(0);
       setBuffering(true);
       setBufferedSecs(0);
       setBufferedRanges([]);
@@ -2080,7 +2110,11 @@ export default function NativePlayerView({
 
       // One pass at a source: true = settled (caller stops), false = transient (retryable
       // warm-up/empty/flaky), "off" = terminal (the provider doesn't have this title).
-      const runSourceOnce = async (def) => {
+      const runSourceOnce = async (defArg) => {
+        // Auto rotation walks SOURCES in order; a Servers-menu pick overrides
+        // it for one pass (stale().guards everything as usual).
+        const def = defArg || SOURCES.find((s) => s.key === requestedServerRef.current) || null;
+        if (!def) return false;
         say(`Trying ${def.label}…`);
         let resolved = null;
         try {
@@ -2096,6 +2130,13 @@ export default function NativePlayerView({
           say(`${def.label}: no variants (maybe rate-flaky) — retrying/moving on.`);
           return false;
         }
+        // Sibling-URL dubs ride OUTSIDE the ladder (resolved.audioTracks); variants
+        // above is rewritten by the token-refresh path, so the dub list keeps the
+        // FIRST resolution's — sibling URLs never refresh tokens anyway.
+        const dubTracks = Array.isArray(resolved?.audioTracks) ? resolved.audioTracks : [];
+        if (dubTracks.length > 1) {
+          say(`${def.label}: ${dubTracks.length} dub audio track(s) available.`);
+        }
         let liveSource = resolved.source;
         let liveRefUrl = resolved.source?.refUrl || resolved.source?.url;
         // Master sources ship levels + audio groups in ONE url; others are per-rendition.
@@ -2109,6 +2150,16 @@ export default function NativePlayerView({
           // Smooth start: open on the tallest rendition ≤1080p (a 4K segment needs
           // ~20Mbps sustained — opening there is what stalled playback after 5-10s).
           let smoothStart = pool[0] || pickSmooth(variants);
+          // A pinned NHD dub re-opens on ITS OWN sibling manifest (the token-refresh
+          // attempt below), not the original-language entry — the position restore
+          // then lands the viewer back inside the dub they were watching.
+          const pinnedDub =
+            activeDubRef.current > 0 && activeDubRef.current < dubTracks.length
+              ? dubTracks[activeDubRef.current]
+              : null;
+          if (pinnedDub) {
+            smoothStart = { uri: pinnedDub.uri, height: 0 };
+          }
           let entryUrl = entryUrlFor(def, { source: liveSource }, smoothStart);
           if (!entryUrl) {
             say(`${def.label}: no playable URL — next source.`);
@@ -2317,6 +2368,18 @@ export default function NativePlayerView({
               }
             });
           setQualities(Array.from(byLabel.values()));
+          // Publish this run's dub list — unless a dub pin carried over from
+          // a DIFFERENT server (a Servers-menu switch): a stale index must not
+          // auto-pin a dub on the new server (its attempt loop would re-open
+          // a dead old token). Same-server re-runs keep the pin by design.
+          if (activeDubRef.current > 0 && def.key !== prevSourceKey) {
+            activeDubRef.current = 0;
+            setActiveDub(0);
+            setDubTracks([]);
+          } else {
+            setDubTracks(dubTracks);
+            setActiveDub(activeDubRef.current);
+          }
           setIsMasterMode(isMaster);
           setActiveUri(isMaster ? null : smoothStart?.uri || null);
           // Remember the rung the player negotiated (non-master "Auto").
@@ -2353,6 +2416,14 @@ export default function NativePlayerView({
           // source/quality, resume position) or moves on — never a dead "playing" screen.
           const parked = await Promise.race([fatalLater.then(() => "fatal"), abortPromise()]);
           if (parked === "done") return true;
+          // A pinned dub whose token died mid-play cannot refresh in place — its
+          // sibling URL is fixed — so drop back to the original track and let the
+          // token-refresh re-resolve below mint a fresh ladder for it.
+          if (activeDubRef.current > 0 && isAuthFatal(lastFatalDetail) && !stale()) {
+            say(`${def.label}: dubbed audio token expired — falling back to the original track.`);
+            activeDubRef.current = 0;
+            setActiveDub(0);
+          }
           if (attempt === 0 && isAuthFatal(lastFatalDetail) && !stale()) {
             const savedT = videoRef.current?.currentTime || 0;
             say(`${def.label}: token may have expired — re-resolving…`);
@@ -2362,6 +2433,8 @@ export default function NativePlayerView({
             } catch {
               fresh = null;
             }
+            // Dub tracks survive: the fresh re-resolve rewrites the LADDER only,
+            // so a pinned dub keeps playing across the token refresh.
             const freshVariants = fresh?.variants || [];
             if (fresh && freshVariants.length > 0) {
               preferHeight = smoothStart?.height ?? null;
@@ -2394,13 +2467,25 @@ export default function NativePlayerView({
         }
       };
 
-      for (const def of SOURCES) {
-        if (stale()) return;
-        if (await runSource(def)) return;
+      // A Servers-menu pick plays ONLY that server (its own retry + token-
+      // refresh machinery still applies); the auto rotation is the no-pick
+      // path. Silently falling back to another provider would lie about what
+      // the viewer chose — the fatal message points at the Servers menu.
+      if (requestedServerRef.current) {
+        if (await runSource(null)) return;
+      } else {
+        for (const def of SOURCES) {
+          if (stale()) return;
+          if (await runSource(def)) return;
+        }
       }
       if (stale()) return;
       setStatus("error");
-      setFatal("No native source resolved this title (all sources came up empty).");
+      setFatal(
+        requestedServerRef.current
+          ? `${SOURCES.find((s) => s.key === requestedServerRef.current)?.label || "That server"} had no playable stream — try another server (gear → Servers).`
+          : "No native source resolved this title (all sources came up empty).",
+      );
       say("All sources exhausted.");
     })();
 
@@ -2424,6 +2509,16 @@ export default function NativePlayerView({
     const hls = hlsRef.current;
     if (!videoRef.current) return;
     if (!hls) return;
+    // A pinned NHD dub IS the manifest — the source serves one rung per dub, so
+    // a quality pick while a dub plays would silently swap the viewer back to
+    // the original language instead of changing quality. Honest answer: fixed.
+    // (Dub switches pass dubSwitch — pickDub commits the ref only after its own
+    // probe passed, and picking "Original" clears the ref first.)
+    if (activeDubRef.current > 0 && !opts.dubSwitch) {
+      say("Quality is fixed while dubbed audio plays (this source serves one rung per dub).");
+      setBuffering(false);
+      return;
+    }
     const t = videoRef.current.currentTime || 0;
     const wasPaused = videoRef.current.paused;
     // A manual rung pick leaves Auto; the Auto row stays highlighted as the active mode.
@@ -2539,6 +2634,25 @@ export default function NativePlayerView({
   };
   pickQualityRef.current = pickQuality;
 
+  /* Servers menu: re-drive the whole load effect through a different source.
+     The ref is committed FIRST so the next resolve run sees the pick, the
+     reload token re-runs the effect (full teardown → fresh resolve), and the
+     dub pin is dropped so no NHD dub URL leaks across servers. The transport
+     row highlights this icon while a Servers-menu panel is open. */
+  const pickServer = (key) => {
+    if (requestedServerRef.current === key) return;
+    requestedServerRef.current = key;
+    setRequestedServer(key);
+    activeDubRef.current = 0;
+    setActiveDub(0);
+    setDubTracks([]);
+    setPanel(null);
+    poke();
+    const def = SOURCES.find((s) => s.key === key);
+    say(`Switching to ${def?.label || "that"} server…`);
+    setReloadToken((t) => t + 1);
+  };
+
   // YouTube's anti-stall rule: when the pipe can't refill faster than a segment
   // plays, drop one rung once the forward buffer sits under BUFFER_FLOOR_SECONDS
   // for a sustained stretch without refilling. Auto-level only.
@@ -2564,6 +2678,9 @@ export default function NativePlayerView({
         .filter((q) => (q.height || 0) > 0 && (q.height || 0) < curH)
         .sort((a, b) => (b.height || 0) - (a.height || 0));
       const target = rungs[0];
+      // A pinned NHD dub IS the manifest — stepping down a rung would swap the
+      // viewer back to the original-language track, so leave the dub alone.
+      if (activeDubRef.current > 0) return;
       if (!target || activeUri === target.uri) return;
       say(`Buffer holds <${BUFFER_FLOOR_SECONDS}s — stepping down to ${target.height || "?"}p so it refills (keeps playing).`);
             st.prev = bufferedSecs;
@@ -2581,6 +2698,51 @@ export default function NativePlayerView({
     setAudioIndex(index);
     poke();
     say(`Audio -> ${audioTracks[index]?.name || index}.`);
+  };
+
+  /* NHD dub switch: each dub is a SEPARATE HLS manifest (a sibling full-stream
+     URL from the resolver's audioTracks, never an in-manifest audio group), so
+     switching = swapping the source with pickQuality's position-preserving
+     mechanics. Tracks 0 is the original soundtrack — picking it swaps back to
+     the resolution's own entry URL. */
+  const pickDub = async (index) => {
+    // Index 0 = the row for the ORIGINAL soundtrack (dubTracks is the sibling
+    // list only; the resolution's own playUrl IS the original). A sibling is
+    // NOT provably the original — NHD's own player highlights tracks[0] while
+    // playing the main URL — so the two lists must never be conflated.
+    if (index === activeDubRef.current) return;
+    const target = dubTracks[index];
+    if (!target?.uri) return;
+    const meta = metaRef.current;
+    const targetUri =
+      index === 0 ? meta?.variants?.[0]?.uri || meta?.entryUrl : target.uri;
+    if (!targetUri) return;
+    poke();
+    say(index === 0 ? "Audio -> Original…" : `Audio -> ${target.label}…`);
+    // Prove the target manifest flows BEFORE committing the pick — NHD tokens are
+    // time-scoped, and a dead dub must not end up highlighted with the previous
+    // audio still playing. (The same gate pickQuality applies to quality rungs.)
+    try {
+      const probe = await probeSourcePlayable(targetUri, meta?.refUrl);
+      if (!probe.ok) {
+        say(
+          index === 0
+            ? `Original audio is unreachable right now (${probe.reason}) — keeping current audio.`
+            : `${target.label}: unreachable right now (${probe.reason}) — keeping current audio.`,
+        );
+        setControlsVisible(true);
+        return;
+      }
+    } catch {
+      // probe hiccup (abort/timeout) — let the switch itself decide
+    }
+    activeDubRef.current = index;
+    setActiveDub(index);
+    try {
+      await pickQualityRef.current?.(targetUri, null, { dubSwitch: true });
+    } catch {
+      // pickQuality never rejects; the catch is future-proofing
+    }
   };
 
   /* Subtitles: OpenSubtitles track list for THIS title (mirrors
@@ -3646,6 +3808,19 @@ export default function NativePlayerView({
                   <ListVideo size={24} />
                 </IconBtn>
               )}
+              {/* Server switcher: always available — VidCore (4K default),
+                  VidSrc and NHD (dubs) are pickable mid-playback. */}
+              <IconBtn
+                label="Servers"
+                active={panel === "servers"}
+                expanded={panel === "servers"}
+                onClick={() => {
+                  setPanel((p) => (p === "servers" ? null : "servers"));
+                  poke();
+                }}
+              >
+                <Server size={22} />
+              </IconBtn>
               <IconBtn
                 label="Settings"
                 // "subs" was missing here, so opening Subtitles left the gear
@@ -3658,7 +3833,7 @@ export default function NativePlayerView({
                   panel === "speed" ||
                   panel === "aspect"
                 }
-                expanded={Boolean(panel && panel !== "episodes" && panel !== "party")}
+                expanded={Boolean(panel && panel !== "episodes" && panel !== "party" && panel !== "servers")}
                 onClick={() => {
                   // If clicking Settings while any settings panel is open, close it. Otherwise open root settings.
                   setPanel((p) =>
@@ -3883,11 +4058,13 @@ export default function NativePlayerView({
                       ? "Audio"
                       : panel === "video"
                         ? "Video quality"
-                        : panel === "speed"
-                          ? "Playback speed"
-                          : panel === "party"
-                            ? "Watch Party"
-                            : "Aspect ratio"
+                        :                panel === "speed"
+                  ? "Playback speed"
+                  : panel === "party"
+                    ? "Watch Party"
+                    : panel === "servers"
+                      ? "Servers"
+                      : "Aspect ratio"
               }
               tabIndex={-1}
               onClick={(e) => e.stopPropagation()}
@@ -3949,7 +4126,7 @@ export default function NativePlayerView({
                   </button>
                 )}
                 <span style={{ color: "#fff", fontWeight: 700, fontSize: 16, letterSpacing: "-0.01em" }}>
-                  {panel === "settings" ? "Settings" : panel === "subs" ? "Subtitles" : panel === "audio" ? "Audio" : panel === "video" ? "Video Quality" : panel === "speed" ? "Playback Speed" : panel === "aspect" ? "Aspect Ratio" : panel === "party" ? "Watch Party" : ""}
+                  {panel === "settings" ? "Settings" : panel === "subs" ? "Subtitles" : panel === "audio" ? "Audio" : panel === "video" ? "Video Quality" : panel === "speed" ? "Playback Speed" : panel === "aspect" ? "Aspect Ratio" : panel === "party" ? "Watch Party" : panel === "servers" ? "Servers" : ""}
                 </span>
               </div>
               <IconBtn label="Close panel" onClick={() => setPanel(null)}>
@@ -3963,8 +4140,28 @@ export default function NativePlayerView({
                 <DialogRow
                   onClick={() => setPanel("audio")}
                   title="Audio"
-                  sub={audioTracks.length > 0 ? (audioTracks.find(a => a.index === audioIndex)?.name || "Unknown") : (originalLanguage ? (FILM_LANG[originalLanguage] || (originalLanguage || "").toUpperCase() || "Unknown") : "Default")}
+                  sub={
+                    audioTracks.length > 0
+                      ? audioTracks.find((a) => a.index === audioIndex)?.name || "Unknown"
+                      : dubTracks.length > 0
+                        ? dubTracks[activeDub]?.label || "Original"
+                        : originalLanguage
+                          ? FILM_LANG[originalLanguage] || (originalLanguage || "").toUpperCase() || "Unknown"
+                          : "Default"
+                  }
                   icon={<AudioLines size={20} />}
+                  hasChevron
+                />
+                <DialogRow
+                  onClick={() => setPanel("servers")}
+                  title="Servers"
+                  // What the viewer is watching right now, in the same words
+                  // the Servers sheet uses — not the resolver's internal key.
+                  // Requested wins over committed: after a failed switch the
+                  // committed key would highlight the server the viewer just
+                  // abandoned.
+                  sub={SOURCES.find((s) => s.key === (requestedServer || metaRef.current?.sourceKey || "vidcore"))?.label || "VidCore"}
+                  icon={<ServerCog size={20} />}
                   hasChevron
                 />
                 <DialogRow
@@ -3995,6 +4192,25 @@ export default function NativePlayerView({
                   icon={<Proportions size={20} />}
                   hasChevron
                 />
+              </div>
+            ) : panel === "servers" ? (
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                    Servers
+                  </p>
+                  <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.5)", margin: "6px 0 8px", lineHeight: 1.45 }}>
+                    Same title, different stream providers. Switching reloads the
+                    stream from the chosen server.
+                  </p>
+                  {SOURCES.map((s) => (
+                    <DialogRow
+                      key={s.key}
+                      selected={(requestedServer || metaRef.current?.sourceKey || "vidcore") === s.key}
+                      onClick={() => pickServer(s.key)}
+                      title={s.label}
+                      sub={s.tag}
+                    />
+                  ))}
               </div>
             ) : panel === "subs" ? (
               <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
@@ -4052,6 +4268,31 @@ export default function NativePlayerView({
                         sub={a.lang && a.lang !== a.name ? a.lang : undefined}
                       />
                     ))
+                  ) : dubTracks.length > 0 ? (
+                    // Sibling-URL dubs (NHD): one manifest per dub, switched by
+                    // swapping the source (pickDub) — NOT hls.js audio groups.
+                    <>
+                      <DialogRow
+                        key="dub-original"
+                        selected={activeDub === 0}
+                        onClick={() => pickDub(0)}
+                        title="Original"
+                        sub="This source's soundtrack"
+                      />
+                      {/* ALL siblings get rows: NHD's own player highlights
+                          tracks[0] while playing the main URL, so track[0] is
+                          NOT provably the original soundtrack — hiding it
+                          would hide a real language. Labels verbatim (usually
+                          dubs like "Hindi", sometimes mirrors like "1080p"). */}
+                      {dubTracks.map((t, i) => (
+                        <DialogRow
+                          key={`dub-${i + 1}`}
+                          selected={activeDub === i + 1}
+                          onClick={() => pickDub(i + 1)}
+                          title={t.label}
+                        />
+                      ))}
+                    </>
                   ) : (
                     // No #EXT-X-MEDIA AUDIO groups: hls.js reports no audioTracks, but the
                     // soundtrack IS playing — surface it as the single track.
@@ -4073,7 +4314,7 @@ export default function NativePlayerView({
                       <DialogRow
                         key="original"
                         selected
-                        title="Original"
+                        title={originalLanguage ? `Original — ${FILM_LANG[originalLanguage] || (originalLanguage || "").toUpperCase() || "Unknown"}` : "Original"}
                         sub="This source's soundtrack"
                       />
                     </>

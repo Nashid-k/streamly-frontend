@@ -244,7 +244,9 @@ async function probeDirect(url, { signal }) {
 
 export const downloadService = {
   /** Normalize a resolver `{ ok, source, variants }` payload into the shape
-      the sheet consumes (labeled variants, per-variant index). */
+      the sheet consumes (labeled variants, per-variant index). Sibling-URL
+      dub tracks (NHD `audioTracks`) ride through untouched — the native
+      player's Audio menu consumes them, the download sheet ignores them. */
   normalizeResolved(data) {
     const variants = (data.variants || [])
       .filter((v) => !!v.uri)
@@ -254,7 +256,10 @@ export const downloadService = {
         label: variantLabel(v),
         estimatedBytes: estimateBytes(v.bandwidth, 0),
       }));
-    return { source: data.source, variants };
+    const audioTracks = Array.isArray(data.audioTracks)
+      ? data.audioTracks.filter((t) => t?.uri && t?.label).map((t) => ({ label: String(t.label), uri: String(t.uri) }))
+      : [];
+    return { source: data.source, variants, audioTracks };
   },
 
   /** Resolve an allow-listed embed host's URL into the qualities it offers. */
@@ -303,6 +308,34 @@ export const downloadService = {
       episode: episode ?? null,
       variants: resolved.variants.map((v) => v.label),
     });
+    return resolved;
+  },
+
+  /** Resolve the NHD provider (action "resolvenhd"); same contract as
+      resolveVidsrc, plus sibling-URL `audioTracks` (dub labels) when the
+      winning extraction carries more than one language. */
+  async resolveNhd({ type, id, season, episode }, { signal } = {}) {
+    const kind = type === "tv" ? "tv" : "movie";
+    const body = { action: "resolvenhd", type: kind, id: String(id || "") };
+    if (kind === "tv") {
+      if (season != null) body.season = String(season);
+      if (episode != null) body.episode = String(episode);
+    }
+    const data = await post(body, { signal });
+    const resolved = this.normalizeResolved(data);
+    logInfo(
+      "download",
+      `Resolved ${resolved.variants.length} downloadable variant(s) via NHD` +
+        (resolved.audioTracks.length > 1 ? ` with ${resolved.audioTracks.length} dubbed audio track(s).` : "."),
+      {
+        type: kind,
+        id,
+        season: season ?? null,
+        episode: episode ?? null,
+        variants: resolved.variants.map((v) => v.label),
+        audioTracks: resolved.audioTracks.map((t) => t.label),
+      },
+    );
     return resolved;
   },
 

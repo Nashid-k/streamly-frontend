@@ -41,7 +41,7 @@ Firebase SDK in the bundle.
 | Genre | `/genre/:genre` | `genre-search:<genre>` → `searchMovies` + `selectGenreResults` | network only |
 | Collection | `/category/:name` | `categories` (exact→fuzzy→token match) or `location.state.movies` | network / nav state |
 | Watch title | `/watch/:id/:slug?` (`movie-<n>` / `tv-<n>`) | `movie:<id>` → `getMovieDetails` (credits+videos+images, external_ids best-effort); `similar:<id>`; `episodes:<id>:<season>` → `getSeasonEpisodes` | + `aios_continue_watching` (resume) |
-| Download title | `/watch/:id/:slug?` (in-page `DownloadModal`) | `DownloadModal` → `downloadService` → Vercel `api/downloadify.js` (`resolve`|`resolvevidsrc`|`resolvevidcore` → `manifest` → single-URL Range-chunked `segment`); episodes via `getSeasonEpisodes` | file saved to device (File System Access API, Blob fallback); nothing persisted |
+| Download title | `/watch/:id/:slug?` (in-page `DownloadModal`) | `DownloadModal` → `downloadService` → Vercel `api/downloadify.js` (`resolve`|`resolvevidsrc`|`resolvevidcore`|`resolvenhd` → `manifest` → single-URL Range-chunked `segment`); episodes via `getSeasonEpisodes` | file saved to device (File System Access API, Blob fallback); nothing persisted |
 | Person | `/person/:id/:slug?` | `person:<id>` → `getPersonDetails` (`/person`, `/combined_credits`, top-40) | network only |
 | My List | `/watchlist` (`/mylist` redirects) | local only | `aios_my_list`, `aios_my_collections` (local) |
 | History | `/history` | local only | `aios_continue_watching` (local) |
@@ -131,7 +131,21 @@ the vidcore.org/embed sources catalogue is fully serverless — the "videasy" AP
 (`vidrack.created.app/api/sources/videasy`) lists direct HLS ladders incl. 4K,
 and the m3u8s/segments are relayed with `Referer: https://vidcore.io/`
 (`source.refUrl` drives the manifest/segment actions; the fMP4 segments on
-`paperorbit.top` also allow browser-direct CORS). A third third-party
+`paperorbit.top` also allow browser-direct CORS). A fourth third-party
+provider, NHD (`resolvenhd`), serves the native PLAYER only (not the download
+sheet): a two-step server-side scrape of the nhdapi.com embed — the per-title
+`var API_PATH`/`var API_KEY` pair read off the embed page, then the
+`{API_PATH}?key=…` extraction JSON with the embed page as referer — walking
+the provider ladder their own player uses (`meowtvru` first — the only one
+whose extractions carry `audioTracks` — then the all-provider race, then the
+race with meowtvru excluded), with every minted token VERIFY- gated server-side
+(a cheap GET must answer a real m3u8 — meowtvru mints come out born-403 some
+of the time, and mp4-kind extractions are refused because the native pipeline
+is HLS-only). The winning `playUrl` is a tokenized `nhdapi.streamfinder.st`
+HLS manifest (CORS *, no referer needed), and dubbed titles ship SIBLING
+full-stream URLs (one manifest per dub, each individually verified) in
+`audioTracks`, which the player's Audio menu surfaces as a position-preserving
+manifest swap rather than hls.js audio groups. A third third-party
 provider, CineSrc, was REMOVED: its stream tokens are minted inside a real
 browser (canvas/TLS fingerprint-bound), so it only ever worked through a
 separately-hosted Chrome mint service (`cinesrc-resolver/`, Render-hosted) that

@@ -281,3 +281,38 @@ describe("episode rail chrome", () => {
     expect(rail.style.paddingTop).not.toBe("0px");
   });
 });
+
+describe("player Servers menu", () => {
+  it("lists every server with honest capability tags, VidCore first", () => {
+    // jsdom has no MediaSource → the mount takes the fatal path, but the
+    // chrome (and therefore the sheet) still renders — enough to verify the
+    // menu wiring and its copy.
+    mount();
+    fireEvent.click(screen.getByRole("button", { name: "Servers" }));
+    const dialog = screen.getByRole("dialog", { name: "Servers" });
+    expect(dialog).toBeInTheDocument();
+    // Row order = auto-rotation priority; tags describe what the viewer gets
+    // (a 4K ceiling, dubs) — not marketing or internal resolver keys.
+    const rows = [...dialog.querySelectorAll(".np-dialog-row")];
+    // Exactly three servers, VidCore first (the default), each tag honest.
+    expect(rows.length).toBe(3);
+    expect(rows[0].textContent).toContain("VidCore");
+    expect(rows[0].textContent).toContain("4K");
+    expect(rows[1].textContent).toContain("VidSrc");
+    expect(rows[2].textContent).toContain("NHD");
+    expect(rows[2].textContent).toContain("Multi audio");
+  });
+
+  it("exposes the switcher as a transport icon with dialog semantics", () => {
+    const { rerender } = render(
+      <NativePlayerView type="movie" id="550" title="Fight Club" onClose={() => {}} />,
+    );
+    const btn = screen.getByRole("button", { name: "Servers" });
+    expect(btn).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(btn);
+    expect(btn).toHaveAttribute("aria-expanded", "true");
+    // TV mounts carry the same switcher (chrome is shared).
+    rerender(<NativePlayerView type="tv" id="1399" season={1} episode={1} title="Game of Thrones" onClose={() => {}} />);
+    expect(screen.getByRole("button", { name: "Servers" })).toBeInTheDocument();
+  });
+});

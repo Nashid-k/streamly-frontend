@@ -91,7 +91,7 @@ describe("POST /api/downloadify", () => {
     expect(res.statusCode).not.toBe(500);
   });
 
-  it.each(["resolve", "resolvevidsrc", "resolvevidcore", "manifest", "playlist", "segment"])(
+  it.each(["resolve", "resolvevidsrc", "resolvevidcore", "resolvenhd", "manifest", "playlist", "segment"])(
     "%s without a URL returns a structured refusal, never a 500",
     async (action) => {
       // No upstream host supplied, so the provider walk must bail out through its

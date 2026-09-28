@@ -16,9 +16,10 @@
 3. Follow `vibecoder.md` workflow 1-2-3-4-5. The short version: read first,
    minimal diffs, never fail silently, verify with
    `npm run lint` + `npm run test` + `npm run build`, record in `task.md`.
-4. `mobile/` is reserved for the replacement mobile app (the old Expo app was
-   removed) — its toolchain and gates will be documented when the new app
-   lands; until then there is no app code to touch.
+4. `mobile/` is the Flutter replacement app (`mobile/README.md` is its
+   source of truth). No Flutter/Dart SDK on this machine, so run no Dart
+   gates here — state that explicitly instead of claiming them. Dart edits
+   still follow the repo rules: no silent failures, minimal diffs.
 
 ## Git credentials
 
