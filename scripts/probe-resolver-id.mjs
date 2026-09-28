@@ -1,4 +1,4 @@
-/* Confirms the resolver 400 the APK hits: same title, the app's id vs the web's id. */
+/* Confirms the resolver 400 for prefixed ids: same title, the app-shaped id vs the web's digit-only id. */
 const API = "https://streamlyvercelin.vercel.app/api/downloadify";
 
 async function post(body) {
@@ -26,7 +26,7 @@ async function post(body) {
 }
 
 console.log("=== movie 27205 (Inception)");
-await post({ action: "resolvevidcore", type: "movie", id: "movie-27205" }); // what the APK sends
+await post({ action: "resolvevidcore", type: "movie", id: "movie-27205" }); // app-shaped (prefixed) id
 await post({ action: "resolvevidcore", type: "movie", id: "27205" }); // what the web sends
 await post({ action: "resolvevidsrc", type: "movie", id: "movie-27205" });
 await post({ action: "resolvevidsrc", type: "movie", id: "27205" });
@@ -34,5 +34,5 @@ await post({ action: "resolvevidsrc", type: "movie", id: "27205" });
 console.log("\n=== tv 1399 (Game of Thrones)");
 await post({ action: "resolvevidcore", type: "tv", id: "tv-1399", season: "1", episode: "1" });
 await post({ action: "resolvevidcore", type: "tv", id: "1399", season: "1", episode: "1" });
-console.log("--- tv with no episode (what the app sends when the series Play button is used):");
+console.log("--- tv with no episode (what a series Play button sends without one):");
 await post({ action: "resolvevidcore", type: "tv", id: "1399", season: "1" });

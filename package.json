@@ -7,7 +7,6 @@
     "dev": "vite",
     "build": "vite build",
     "test": "vitest run",
-    "smoke:mobile": "node scripts/smoke-mobile-config.mjs",
     "lint": "oxlint",
     "preview": "vite preview",
     "probe:latency": "node scripts/probe-catalogue-latency.mjs"

@@ -6,22 +6,17 @@
 
 ## 1. What this is
 
-**Streamly** is a Netflix-style browse-and-watch product shipped on **two
-surfaces from one repo**:
+**Streamly** is a Netflix-style browse-and-watch product: the **web SPA**
+(React + Vite, deployed to Vercel).
 
-- **`/` — the web SPA** (React + Vite, deployed to Vercel). No active backend:
-  catalog data comes from TMDB (same-origin `/api/tmdb` proxy, direct fallback),
-  ratings are enriched via OMDb, images via TMDB CDN, and playback runs through
-  third-party iframe stream servers. Personal state (My List, Continue
-  Watching, history, preferences) lives in **localStorage**.
-- **`mobile/` — the Android app** (Expo + React Native + TypeScript, package
-  `com.streamly.app`, installable APK). Same catalogue contract and same
-  deployed resolver, but a **real native player** (ExoPlayer via
-  `react-native-video`) instead of iframes, and AsyncStorage instead of
-  localStorage.
+- **Catalog:** TMDB (same-origin `/api/tmdb` proxy, direct fallback),
+  ratings enriched via OMDb, images via TMDB CDN, playback through the
+  native player over third-party stream sources.
+- **Personal state** (My List, Continue Watching, history, preferences)
+  lives in **localStorage**.
 
-Both surfaces read from the same deployed serverless functions and the same
-`normalizeResult` domain contract; neither owns a database.
+The web build reads from the deployed serverless functions under the shared
+`normalizeResult` domain contract; it owns no database.
 
 ## 2. For whom
 
@@ -57,42 +52,16 @@ Both surfaces read from the same deployed serverless functions and the same
    follow the host within ~2s with drift correction; a `?party=CODE` share
    link joins mid-party with the full transcript caught up.
 
-## 4. The Android app (`mobile/`)
+## 4. Mobile app (reserved)
 
-Shipped as an installable APK, not a WebView wrapper.
-
-- **Player is native.** ExoPlayer through `react-native-video`; no iframe, no
-  embedded browser. The manifest is pulled through the project's Cloudflare
-  relay, rewritten (master → variant, segments, `EXT-X-KEY`) into a local
-  `.m3u8`, and played from `file://` — the only way to satisfy source hosts
-  that gate on `Referer`/`User-Agent` per segment.
-- **Core loop, phone-shaped:** Home (hero + rails + Continue Watching), Search,
-  Details (seasons, episodes, airdates, cast, My List), Player (full-screen,
-  landscape, ±15s, resume), Library (Continue Watching + My List).
-- **Deliberately small.** Simple UI/UX over feature count. Offline downloads,
-  subtitle/audio switching, ratings cluster, genre/category + person pages,
-  regional rails, cloud sync and in-player quality switching stay web-only for
-  now; the web build remains the full-featured surface.
-- **No bundled resolver.** `api/downloadify.js` scrapes providers server-side and
-  is reached over the deployed site origin; without it the app browses and says
-  so, instead of pretending.
-- **Pre-wired, not configurable.** A release APK ships with the deployed origin
-  baked in, so installing it is the entire onboarding: the catalogue comes from
-  the site's keyless `/api/tmdb` proxy (no credential in the binary) and playback
-  from `/api/downloadify`. Settings exists only as an escape hatch for forks and
-  self-hosted copies, behind *Advanced*. A consumer app that opens with a "not
-  configured" wall reads as broken, and asking a phone user for a `.env` is a
-  dead end.
-- **Playback goes direct with a Referer**, verified live rather than assumed; the
-  Cloudflare relay playlist rewrite is a fallback, not the main path.
-- Build on modest hardware: one ABI, no Gradle daemon, capped heap — see
-  `mobile/README.md` ("Building the APK on a small machine").
+The previous Expo Android app (`mobile/`) was removed; the owner is replacing
+it with a new app. Until that lands, the web build is the only surface, and
+`mobile/` is reserved for the replacement — do not recreate the old structure.
 
 ## 5. Explicitly NOT building
 
 - ❌ Any backend, auth server, or database (Firebase/backend references in
-  `README.md` are **stale docs** — the web code uses localStorage and the app
-  uses AsyncStorage).
+  `README.md` are **stale docs** — the web code uses localStorage).
 - ❌ Uploads, user accounts, social, comments, or payments. (Watch Party chat
    is the one deliberate exception: ephemeral, room-scoped text only, no
    profiles, no history beyond the 24h room TTL.)
@@ -100,8 +69,7 @@ Shipped as an installable APK, not a WebView wrapper.
   stream-service calls intentionally resolve to `''`). The app reuses the
   existing Cloudflare worker and the deployed resolver — it adds no new
   provider or extraction path.
-- ❌ Design-system rewrite (dark cinematic theme + Tailwind v4 tokens stay;
-  the app mirrors them in `mobile/src/theme.ts`).
+- ❌ Design-system rewrite (dark cinematic theme + Tailwind v4 tokens stay).
 - ❌ Features that break Vercel static deploy (`npm run build` → `dist/`).
-- ❌ Shipping the stream resolver inside the APK, or any bundled secret that
-  isn't already a public read token.
+- ❌ Shipping the stream resolver inside a mobile binary, or any bundled secret
+  that isn't already a public read token.

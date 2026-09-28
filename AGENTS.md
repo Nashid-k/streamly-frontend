@@ -16,11 +16,9 @@
 3. Follow `vibecoder.md` workflow 1-2-3-4-5. The short version: read first,
    minimal diffs, never fail silently, verify with
    `npm run lint` + `npm run test` + `npm run build`, record in `task.md`.
-4. Touching the Android app (`mobile/`)? Also read `mobile/README.md` and
-   `architecture.md` §5, work inside `mobile/`, and gate with
-   `cd mobile && npm run typecheck` plus `npx expo export --platform android`.
-   `mobile/android/` is generated — edit `mobile/app.json`, never the Gradle
-   files. `mobile/` has **no** test runner: never claim a test pass for app code.
+4. `mobile/` is reserved for the replacement mobile app (the old Expo app was
+   removed) — its toolchain and gates will be documented when the new app
+   lands; until then there is no app code to touch.
 
 ## Git credentials
 
@@ -33,12 +31,10 @@
 
 - Data/UI contract: `normalizeResult` fields, React Query keys, localStorage
   keys, and route paths in `architecture.md` §2–3 are frozen unless the user
-  orders a migration. `mobile/` implements the same `normalizeResult` shape and
-  keeps its storage under `streamly.mobile.*`.
+  orders a migration.
 - No silent failures: all diagnostics via `src/utils/debugLogger.js` as
   `[Streamly][scope]` logs. No bare `catch {}`, no raw `console.*` in `src/`.
-  The app uses `mobile/src/utils/logger.ts` with the same prefix (logcat).
-- Never commit `.env`, `node_modules/`, `dist/`, `mobile/android/`, APKs, or
+- Never commit `.env`, `node_modules/`, `dist/`, APKs, or
   secrets. Never revive the `env.js` backend/Firebase without an explicit order.
 - Keep docs truthful: if a contract changes, update `prd.md` /
   `architecture.md` / `task.md` in the same change.

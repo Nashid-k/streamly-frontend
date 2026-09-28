@@ -13,10 +13,6 @@
 (same-origin `/api/*` Vercel functions, local-first state, optional Google
 cloud sync + offline downloads)
 
-**Plus a native Android app in [`mobile/`](mobile/README.md)** — Expo +
-React Native, `com.streamly.app`, real ExoPlayer playback instead of iframes,
-shipped as an installable APK.
-
 </div>
 
 ---
@@ -31,7 +27,6 @@ shipped as an installable APK.
 - [Components](#-components)
 - [Hooks & Context](#-hooks--context)
 - [Keyboard Shortcuts](#-keyboard-shortcuts)
-- [Android app (mobile/)](#-android-app-mobile)
 - [Deployment](#-deployment)
 
 ---
@@ -367,43 +362,6 @@ await movieService.getSimilarMovies(id);
 await movieService.getSeasonEpisodes(id, seasonNumber);
 await movieService.getPersonDetails(id);
 ```
-
----
-
-## 📱 Android app (`mobile/`)
-
-A native **Expo + React Native** client for the same catalogue, shipped as an
-installable APK. Full docs: [`mobile/README.md`](mobile/README.md) · architecture:
-[`architecture.md` §5](architecture.md).
-
-```bash
-npm run smoke:mobile      # live contract test: catalogue + resolver + playback bytes
-cd mobile
-npm install
-npm run typecheck        # the app's compile gate (no test runner in mobile/)
-npm run apk              # → android/app/build/outputs/apk/release/app-release.apk
-```
-
-**No `.env` is needed.** The APK ships pointed at the deployed origin, so
-installing it is the whole onboarding: the catalogue comes from the site's
-keyless `/api/tmdb` proxy (which injects the TMDB key server-side, so no
-credential is in the binary) and playback from `/api/downloadify`. `mobile/.env`
-exists only for forks and self-hosted copies.
-
-| | |
-|---|---|
-| Identity | `com.streamly.app`, label `Streamly`, minSdk 24 / targetSdk 36, `arm64-v8a` |
-| Stack | Expo SDK 54 · RN 0.81.5 · React 19.1 · Hermes · TypeScript strict |
-| Screens | Home · Search · Details (seasons/episodes) · Player · Library · Settings |
-| Player | ExoPlayer (`react-native-video`) — **no iframe** |
-| Playback | `/api/downloadify` → `pickSmooth` ≤1080p → direct + `Referer` (relay rewrite as fallback) |
-| State | AsyncStorage under `streamly.mobile.*` |
-
-The app is a real client, not a WebView: it calls TMDB over its own HTTP stack,
-keeps the same `normalizeResult` contract, and reuses the deployed resolver.
-`android/` is generated — edit `app.json`, then `npm run prebuild:android`. A
-`assembleRelease` on a 4-core / 8 GB laptop takes ~25 min cold and ~2 min
-incremental with the committed Gradle tuning (one ABI, no daemon, capped heap).
 
 ---
 
