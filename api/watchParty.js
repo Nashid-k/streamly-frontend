@@ -27,6 +27,7 @@ import { withLog } from '../server/logger.js';
 import { rateLimit, tooManyRequests, clientIp } from '../server/rateLimit.js';
 import {
   generatePartyCode,
+  refreshHeartbeat,
   sanitizeMessage,
   sanitizeName,
   sanitizeParticipant,
@@ -235,12 +236,10 @@ export default withLog(async function handler(req, res) {
         return;
       }
       const now = Date.now();
-      // Heartbeat + prune: participants silent for 90s drop off the roster.
-      const cutoff = now - 90_000;
-      const pruned = (room.participants || []).filter((p) => (p.lastSeenAt || 0) >= cutoff);
-      if (!pruned.some((p) => p.participantId === participantId)) {
-        pruned.push({ ...sanitizeParticipant({ participantId, name: 'Guest' }), lastSeenAt: now });
-      }
+      // Heartbeat + prune: the poller is alive by definition, so its own
+      // seat (name included) is always kept — only other silent seats past
+      // 90s drop off the roster.
+      const pruned = refreshHeartbeat(room.participants, participantId, now);
       await col.updateOne(
         { code },
         {

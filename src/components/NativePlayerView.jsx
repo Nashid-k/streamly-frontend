@@ -753,6 +753,12 @@ export default function NativePlayerView({
   const [activeSubtitle, setActiveSubtitle] = useState(null); // current cue line or null
   const [currentSubtitle, setCurrentSubtitle] = useState(null); // the selected track object
   const [isFetchingSubtitles, setIsFetchingSubtitles] = useState(false);
+  // Persistent subtitle failure line for the subs pane. The `say()` announcer
+  // is a no-op stub, so without this a refused download (Cloudflare relay
+  // without the UA injection) or an unreadable file fails SILENTLY: the pick
+  // flips back to Off with no visible reason. This state keeps the reason on
+  // screen until the next pick or title change.
+  const [subtitleError, setSubtitleError] = useState(null);
   // Netflix chrome state.
   const [controlsVisible, setControlsVisible] = useState(true);
   const [panel, setPanel] = useState(null); // null | "subs" | "episodes" | "party"
@@ -2591,6 +2597,7 @@ export default function NativePlayerView({
       subtitleEngineRef.current?.setCues([]);
       setSubtitleEnabled(false);
       setCurrentSubtitle(null);
+      setSubtitleError(null);
       applySubtitleCue(null);
       return;
     }
@@ -2599,6 +2606,7 @@ export default function NativePlayerView({
     setSubtitleEnabled(true);
     subtitleEnabledRef.current = true;
     setCurrentSubtitle(entry);
+    setSubtitleError(null);
     applySubtitleCue(null);
     try {
       window.localStorage.setItem(
@@ -2615,29 +2623,56 @@ export default function NativePlayerView({
         if (token === subtitleTokenRef.current) {
           subtitleEnabledRef.current = false;
           setSubtitleEnabled(false);
+          setCurrentSubtitle(null);
+          // The fetcher logs the precise leg/status to the console; the pane
+          // keeps the actionable half on screen (say() is a no-op stub).
+          setSubtitleError(
+            "Subtitle download failed — try another language. If every language fails, the Cloudflare relay is serving without the OpenSubtitles update (redeploy the worker snippet from .env.example).",
+          );
           say("Subtitle download failed — try another language.");
         }
         return;
       }
       const parsed = SubtitleEngine.parseSRT(text);
       const cues = parsed.length ? parsed : SubtitleEngine.parseVTT(text);
+      if (!cues.length) {
+        // The fetcher already refuses non-subtitle bodies, so reaching here
+        // means a real caption file with zero parseable lines — never leave
+        // the track "enabled" with nothing to render.
+        if (token === subtitleTokenRef.current) {
+          subtitleEnabledRef.current = false;
+          setSubtitleEnabled(false);
+          setCurrentSubtitle(null);
+          subtitleEngineRef.current?.setCues([]);
+          applySubtitleCue(null);
+          setSubtitleError("This subtitle file had no readable lines — pick another language.");
+          say("This subtitle file had no readable lines — pick another language.");
+        }
+        return;
+      }
       const engine = subtitleEngineRef.current || (subtitleEngineRef.current = new SubtitleEngine());
       engine.setCues(cues);
       if (token === subtitleTokenRef.current) {
         const cue = engine.getActiveCue(videoRef.current?.currentTime || 0);
         applySubtitleCue(cue?.text || null);
+        setSubtitleError(null);
         say(`Subtitles -> ${entry.language} (${cues.length} lines).`);
       }
     } catch {
       if (token === subtitleTokenRef.current) {
         subtitleEnabledRef.current = false;
         setSubtitleEnabled(false);
+        setCurrentSubtitle(null);
+        setSubtitleError("Subtitle download failed — try another language.");
         say("Subtitle download failed — try another language.");
       }
     }
   };
 
   // Load the language list once per title; remember the last choice per title id.
+  // No imdbId gate: the fetcher falls back to a title search on its own, so a
+  // title whose external_ids lookup failed still gets a list instead of a
+  // silent empty pane.
   useEffect(() => {
     let cancelled = false;
     subtitleTokenRef.current += 1;
@@ -2646,8 +2681,8 @@ export default function NativePlayerView({
     setSubtitleLanguages([]);
     setSubtitleEnabled(false);
     setCurrentSubtitle(null);
+    setSubtitleError(null);
     applySubtitleCue(null);
-    if (!imdbId) return undefined;
     setIsFetchingSubtitles(true);
     SubtitleFetcher.searchAvailableSubtitles(imdbId, title || "")
       .then((langs) => {
@@ -3991,9 +4026,16 @@ export default function NativePlayerView({
                     ))
                   ) : (
                     <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.5)", margin: "6px 0 2px", lineHeight: 1.45 }}>
-                      No subtitles found for this title on OpenSubtitles.
+                      {!imdbId
+                        ? "No subtitles found for this title on OpenSubtitles (no IMDb id — title search also came up empty)."
+                        : "No subtitles found for this title on OpenSubtitles."}
                     </p>
                   )}
+                  {subtitleError ? (
+                    <p role="alert" style={{ fontSize: 12.5, color: "#ff9d9d", margin: "8px 0 2px", lineHeight: 1.5 }}>
+                      {subtitleError}
+                    </p>
+                  ) : null}
               </div>
             ) : panel === "audio" ? (
               <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>

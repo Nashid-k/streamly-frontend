@@ -159,4 +159,34 @@ describe("SubtitleFetcher.downloadAndDecompress", () => {
 
     await expect(SubtitleFetcher.downloadAndDecompress(DOWNLOAD)).resolves.toBeNull();
   });
+
+  it("refuses a 200 body with no timestamp lines (relay error page, not captions)", async () => {
+    vi.stubEnv("VITE_STREAMLY_RELAY_URL", RELAY);
+    stubFetch(async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => "text/html" },
+      text: async () => "<html><body>Attention Required! | Cloudflare</body></html>",
+    }));
+
+    // A track that "enables" with zero cues never renders — null keeps it Off
+    // with a visible reason instead.
+    await expect(SubtitleFetcher.downloadAndDecompress(DOWNLOAD)).resolves.toBeNull();
+  });
+});
+
+describe("SubtitleFetcher.isSubtitleText", () => {
+  it("accepts SRT and VTT timestamp lines", () => {
+    expect(SubtitleFetcher.isSubtitleText(srtBody())).toBe(true);
+    expect(
+      SubtitleFetcher.isSubtitleText("WEBVTT\n\n00:00:01.000 --> 00:00:04.000\nHello\n"),
+    ).toBe(true);
+  });
+
+  it("rejects error pages, empty and binary-garbage bodies", () => {
+    expect(SubtitleFetcher.isSubtitleText("")).toBe(false);
+    expect(SubtitleFetcher.isSubtitleText(null)).toBe(false);
+    expect(SubtitleFetcher.isSubtitleText("<html><body>error code: 1027</body></html>")).toBe(false);
+    expect(SubtitleFetcher.isSubtitleText("\u001f\u008b\u0008\u0000garbage-bytes")).toBe(false);
+  });
 });

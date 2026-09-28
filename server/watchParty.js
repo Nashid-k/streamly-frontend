@@ -98,6 +98,31 @@ export function isRoomExpired(room, now = Date.now()) {
   return now - last > PARTY_TTL_MS;
 }
 
+// Heartbeat refresh for the 2s state poll: the poller is alive BY DEFINITION
+// (it just asked), so its own seat is always kept with its stored name — only
+// OTHER silent seats are pruned. Previously the endpoint pruned first and
+// re-added the poller as a nameless "Guest": after ~90s every quiet member's
+// name reset to "Guest" and the roster order churned, which reads as "party
+// mode not working". Pure: returns a new array, never mutates the input.
+export function refreshHeartbeat(participants, participantId, now = Date.now(), staleAfterMs = 90_000) {
+  const cutoff = now - staleAfterMs;
+  const next = [];
+  let seenSelf = false;
+  for (const p of participants || []) {
+    if (!p || typeof p.participantId !== "string") continue;
+    if (p.participantId === participantId) {
+      seenSelf = true;
+      next.push({ ...p, lastSeenAt: now });
+    } else if ((p.lastSeenAt || 0) >= cutoff) {
+      next.push(p);
+    }
+  }
+  if (!seenSelf) {
+    next.push({ ...sanitizeParticipant({ participantId, name: "Guest" }), lastSeenAt: now });
+  }
+  return next;
+}
+
 // Sort participants oldest-first (host lands first — they joined the room
 // into existence). Stable, pure, used by the response builder.
 export function sortParticipants(list) {

@@ -12,6 +12,7 @@ import {
   CODE_LENGTH,
   MAX_MESSAGES,
   generatePartyCode,
+  refreshHeartbeat,
   sanitizeName,
   sanitizeMessage,
   sanitizeParticipant,
@@ -175,6 +176,45 @@ describe("PartyError (client contract)", () => {
     expect(err.status).toBe(403);
     expect(err.action).toBe("sync");
     expect(err.message).toContain("host");
+  });
+});
+
+describe("refreshHeartbeat (state-poll presence)", () => {
+  const NOW = 1_800_000_000_000;
+
+  it("keeps the poller's seat with its name — a quiet member never degrades to Guest", () => {
+    const before = [
+      { participantId: "host", name: "Nash", isHost: true, joinedAt: 100, lastSeenAt: NOW - 500_000 },
+      { participantId: "guest", name: "Alice", isHost: false, joinedAt: 200, lastSeenAt: NOW - 500_000 },
+    ];
+    const after = refreshHeartbeat(before, "guest", NOW);
+    const me = after.find((p) => p.participantId === "guest");
+    // Alive by definition: name/joinedAt/isHost preserved, presence refreshed.
+    expect(me).toMatchObject({ name: "Alice", isHost: false, joinedAt: 200, lastSeenAt: NOW });
+    // The input array is never mutated.
+    expect(before[1].lastSeenAt).toBe(NOW - 500_000);
+  });
+
+  it("prunes other silent seats past 90s but keeps the recent ones", () => {
+    const before = [
+      { participantId: "me", name: "Me", isHost: false, joinedAt: 100, lastSeenAt: NOW - 1000 },
+      { participantId: "gone", name: "Gone", isHost: false, joinedAt: 200, lastSeenAt: NOW - 91_000 },
+      { participantId: "here", name: "Here", isHost: false, joinedAt: 300, lastSeenAt: NOW - 89_000 },
+    ];
+    const ids = refreshHeartbeat(before, "me", NOW).map((p) => p.participantId);
+    expect(ids).toEqual(["me", "here"]);
+  });
+
+  it("re-adds an unknown poller as Guest (never duplicates)", () => {
+    const after = refreshHeartbeat(
+      [{ participantId: "host", name: "Nash", isHost: true, joinedAt: 100, lastSeenAt: NOW }],
+      "newbie",
+      NOW,
+    );
+    expect(after).toHaveLength(2);
+    expect(after[1]).toMatchObject({ participantId: "newbie", name: "Guest", lastSeenAt: NOW });
+    const twice = refreshHeartbeat(after, "newbie", NOW + 1000);
+    expect(twice.filter((p) => p.participantId === "newbie")).toHaveLength(1);
   });
 });
 

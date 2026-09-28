@@ -93,6 +93,17 @@ export class SubtitleFetcher {
   }
 
   /**
+   * True when a downloaded body actually looks like subtitle text (SRT or
+   * VTT): it must carry at least one `HH:MM:SS,mmm --> …` / `HH:MM:SS.mmm
+   * --> …` timestamp line. Guards the player against accepting an HTML error
+   * page (Cloudflare 401/403, a dead relay echo) or gunzip garbage as a
+   * "0-line" track that would enable successfully and then never render.
+   */
+  static isSubtitleText(text) {
+    return typeof text === "string" && /\d{2}:\d{2}:\d{2}[,.]\d{3}\s*-->/.test(text);
+  }
+
+  /**
    * Fetch and decompress a specific subtitle file by URL
    */
   static async downloadAndDecompress(downloadLink) {
@@ -101,6 +112,13 @@ export class SubtitleFetcher {
       if (!subRes.ok) {
         const err = new Error("Failed to download subtitle file");
         err.status = subRes.status;
+        // A 401 here almost always means the Cloudflare relay is serving
+        // without the OpenSubtitles `User-Agent: TemporaryUserAgent`
+        // injection (JS cannot set User-Agent itself, so the direct fallback
+        // 401s too) — the worker snippet in .env.example must be redeployed.
+        if (subRes.status === 401) {
+          logWarn("subtitles", "Subtitle download refused (401) on both legs — the relay is almost certainly missing the OpenSubtitles User-Agent injection. Redeploy the Cloudflare worker snippet from .env.example.", { downloadLink });
+        }
         throw err;
       }
 
@@ -108,15 +126,28 @@ export class SubtitleFetcher {
          transparently decompresses the body and drops content-encoding, so
          piping that through DecompressionStream would throw on plain SRT. */
       const encoding = (subRes.headers.get("content-encoding") || "").toLowerCase();
+      let text;
       if (encoding.includes("gzip") && typeof DecompressionStream !== "undefined") {
         const ds = new DecompressionStream("gzip");
         const decompressedStream = subRes.body.pipeThrough(ds);
-        return await new Response(decompressedStream).text();
+        text = await new Response(decompressedStream).text();
+      } else {
+        if (encoding.includes("gzip")) {
+          logWarn("subtitles", "DecompressionStream not supported in this browser — reading gzipped subtitle as plain text.", {});
+        }
+        text = await subRes.text();
       }
-      if (encoding.includes("gzip")) {
-        logWarn("subtitles", "DecompressionStream not supported in this browser — reading gzipped subtitle as plain text.", {});
+      /* Refuse bodies that are not subtitle text at all: an HTML error page
+         (relay 401/403 echo, upstream block) or undecodable gzip bytes would
+         otherwise parse to zero cues — a track that "enables" and then never
+         renders a single line, with no visible reason. */
+      if (!SubtitleFetcher.isSubtitleText(text)) {
+        logWarn("subtitles", "Subtitle download answered 200 but the body has no timestamp lines — refusing it as a track (upstream error page, not captions).", {
+          preview: String(text || "").slice(0, 120),
+        });
+        return null;
       }
-      return await subRes.text();
+      return text;
     } catch (err) {
       logError("subtitles", "Subtitle download/decompress failed.", err, {});
       return null;
