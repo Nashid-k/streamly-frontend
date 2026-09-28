@@ -255,6 +255,14 @@ const SOURCES = [
   // real dub audio (sibling-URL audioTracks) — last, so dubbed titles still
   // land somewhere without costing VidCore its default seat.
   { key: "nhd", label: "NHD", tag: "Multi audio (dubs) · one quality", resolve: (a, o) => downloadService.resolveNhd(a, o) },
+  // The four ZXC/VIDSTUCK servers, each kept as its OWN row so the Servers menu
+  // can target one directly instead of auto-rotation racing to a winner. Two of
+  // them ship DASH, which the server transcodes to an HLS fMP4 master (no
+  // remux, no per-byte work) so hls.js can ABR and mux just like native HLS.
+  { key: "zxc-centaurus", label: "ZXC Centaurus", tag: "Multi audio (dubs) · up to 1080p", resolve: (a, o) => downloadService.resolveZxc({ ...a, server: "centaurus" }, o) },
+  { key: "zxc-andromeda", label: "ZXC Andromeda", tag: "Original audio · up to 1080p", resolve: (a, o) => downloadService.resolveZxc({ ...a, server: "andromeda" }, o) },
+  { key: "zxc-atlas", label: "ZXC Atlas", tag: "Original audio · one quality", resolve: (a, o) => downloadService.resolveZxc({ ...a, server: "atlas" }, o) },
+  { key: "zxc-milkyway", label: "ZXC Milky Way", tag: "Original audio · up to 1080p", resolve: (a, o) => downloadService.resolveZxc({ ...a, server: "milkyway" }, o) },
 ];
 
 // One auto-retry per source: a fresh open often fails on the FIRST attempt
@@ -2150,12 +2158,13 @@ export default function NativePlayerView({
           // Smooth start: open on the tallest rendition ≤1080p (a 4K segment needs
           // ~20Mbps sustained — opening there is what stalled playback after 5-10s).
           let smoothStart = pool[0] || pickSmooth(variants);
-          // A pinned NHD dub re-opens on ITS OWN sibling manifest (the token-refresh
+          // A pinned dub re-opens on ITS OWN sibling manifest (the token-refresh
           // attempt below), not the original-language entry — the position restore
           // then lands the viewer back inside the dub they were watching.
+          // Row index N is dubTracks[N - 1] (row 0 is the original).
           const pinnedDub =
-            activeDubRef.current > 0 && activeDubRef.current < dubTracks.length
-              ? dubTracks[activeDubRef.current]
+            activeDubRef.current > 0 && activeDubRef.current <= dubTracks.length
+              ? dubTracks[activeDubRef.current - 1]
               : null;
           if (pinnedDub) {
             smoothStart = { uri: pinnedDub.uri, height: 0 };
@@ -2523,11 +2532,15 @@ export default function NativePlayerView({
     const wasPaused = videoRef.current.paused;
     // A manual rung pick leaves Auto; the Auto row stays highlighted as the active mode.
     if (!opts.auto) setAutoLevel(false);
-    say(`Switching to ${height || "?"}p…`);
+    // pickDub already said "Audio -> <track>…" — don't overwrite it with "?p".
+    if (!opts.dubSwitch) say(`Switching to ${height || "?"}p…`);
     setBuffering(true);
     poke();
     try {
-      if (metaRef.current?.masterLevels && Array.isArray(hls.levels) && hls.levels.length > 0) {
+      // A dub switch on a multi-rung master replaces the whole playlist (the dub
+      // is a sibling master URL), so it must NOT be short-circuited into
+      // `hls.currentLevel` — that would keep the original language playing.
+      if (!opts.dubSwitch && metaRef.current?.masterLevels && Array.isArray(hls.levels) && hls.levels.length > 0) {
         let best = 0;
         hls.levels.forEach((lvl, i) => {
           if (Math.abs((lvl.height || 0) - (height || 0)) < Math.abs((hls.levels[best].height || 0) - (height || 0))) best = i;
@@ -2552,7 +2565,8 @@ export default function NativePlayerView({
         if (!warm) warm = await probeSourcePlayable(uri, refUrl);
         if (switchTokenRef.current !== myId) return;
         if (!warm.ok) {
-          say(`Quality ${height || "?"}p: target unreachable (${warm.reason || "probe failed"}) — keeping current.`);
+          const what = opts.dubSwitch ? "That audio track" : `Quality ${height || "?"}p`;
+          say(`${what}: target unreachable (${warm.reason || "probe failed"}) — keeping current.`);
           setBuffering(false);
           setControlsVisible(true);
           return;
@@ -2563,13 +2577,13 @@ export default function NativePlayerView({
       // A probe hiccup with no requested uri would reach loadSource(undefined)
       // → the worker's ?url=undefined 500. Bail to the current quality instead.
       if (!chosenUri) {
-        say(`Quality ${height || "?"}p: no URL for that rung — keeping current.`);
+        say(`${opts.dubSwitch ? "That audio track" : `Quality ${height || "?"}p`}: no URL — keeping current.`);
         setBuffering(false);
         setControlsVisible(true);
         return;
       }
       if (chosenUri === activeUri) {
-        say(`Already playing ${chosenHeight || "?"}p — no reload.`);
+        if (!opts.dubSwitch) say(`Already playing ${chosenHeight || "?"}p — no reload.`);
         setBuffering(false);
         setControlsVisible(true);
         return;
@@ -2624,7 +2638,9 @@ export default function NativePlayerView({
         }
       }
       setActiveUri(chosenUri);
-      say(`Switched to ${chosenHeight || "?"}p.`);
+      // A dub switch has no quality to report — pickDub already announced the
+      // track it is moving to, so don't overwrite it with "?p".
+      if (!opts.dubSwitch) say(`Switched to ${chosenHeight || "?"}p.`);
     } catch (error) {
       say(`Switch failed: ${error?.message || "unknown"}.`);
       // A failed switch must never leave the buffering spinner stuck (the runSource
@@ -2700,19 +2716,22 @@ export default function NativePlayerView({
     say(`Audio -> ${audioTracks[index]?.name || index}.`);
   };
 
-  /* NHD dub switch: each dub is a SEPARATE HLS manifest (a sibling full-stream
+  /* Dub switch: each dub is a SEPARATE HLS manifest (a sibling full-stream
      URL from the resolver's audioTracks, never an in-manifest audio group), so
      switching = swapping the source with pickQuality's position-preserving
-     mechanics. Tracks 0 is the original soundtrack — picking it swaps back to
-     the resolution's own entry URL. */
+     mechanics. Row index 0 is the original soundtrack — picking it swaps back to
+     the resolution's own entry URL.
+
+     The row index and the dubTracks index are OFF BY ONE on purpose: the panel
+     renders an "Original" row first, so row N is dubTracks[N - 1]. Indexing
+     both with the same N played the WRONG language under the clicked label. */
   const pickDub = async (index) => {
-    // Index 0 = the row for the ORIGINAL soundtrack (dubTracks is the sibling
-    // list only; the resolution's own playUrl IS the original). A sibling is
-    // NOT provably the original — NHD's own player highlights tracks[0] while
-    // playing the main URL — so the two lists must never be conflated.
+    // A sibling is NOT provably the original — the provider's own player
+    // highlights tracks[0] while playing the main URL — so the two lists must
+    // never be conflated.
     if (index === activeDubRef.current) return;
-    const target = dubTracks[index];
-    if (!target?.uri) return;
+    const target = index === 0 ? null : dubTracks[index - 1];
+    if (index > 0 && !target?.uri) return;
     const meta = metaRef.current;
     const targetUri =
       index === 0 ? meta?.variants?.[0]?.uri || meta?.entryUrl : target.uri;
@@ -4141,10 +4160,14 @@ export default function NativePlayerView({
                   onClick={() => setPanel("audio")}
                   title="Audio"
                   sub={
-                    audioTracks.length > 0
-                      ? audioTracks.find((a) => a.index === audioIndex)?.name || "Unknown"
-                      : dubTracks.length > 0
-                        ? dubTracks[activeDub]?.label || "Original"
+                    // Sibling-URL dubs win over in-manifest groups for the same
+                    // reason the Audio panel lists them first (see there).
+                    dubTracks.length > 0
+                      ? activeDub > 0
+                        ? dubTracks[activeDub - 1]?.label || "Original"
+                        : "Original"
+                      : audioTracks.length > 0
+                        ? audioTracks.find((a) => a.index === audioIndex)?.name || "Unknown"
                         : originalLanguage
                           ? FILM_LANG[originalLanguage] || (originalLanguage || "").toUpperCase() || "Unknown"
                           : "Default"
@@ -4258,19 +4281,16 @@ export default function NativePlayerView({
                   <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
                     Audio
                   </p>
-                  {audioTracks.length > 0 ? (
-                    audioTracks.map((a) => (
-                      <DialogRow
-                        key={a.index}
-                        selected={a.index === audioIndex}
-                        onClick={() => pickAudio(a.index)}
-                        title={a.name}
-                        sub={a.lang && a.lang !== a.name ? a.lang : undefined}
-                      />
-                    ))
-                  ) : dubTracks.length > 0 ? (
-                    // Sibling-URL dubs (NHD): one manifest per dub, switched by
-                    // swapping the source (pickDub) — NOT hls.js audio groups.
+                  {dubTracks.length > 0 ? (
+                    // Sibling-URL dubs (NHD, ZXC Centaurus): one MASTER per dub,
+                    // switched by swapping the source (pickDub) — NOT hls.js
+                    // audio groups.
+                    //
+                    // Checked BEFORE audioTracks on purpose: a transcoded DASH
+                    // master always carries an in-manifest #EXT-X-MEDIA group
+                    // (the muxed AAC), so testing audioTracks first would show
+                    // one lonely "eng" row and hide every real dub behind it.
+                    // The sibling list is a superset — it starts at the original.
                     <>
                       <DialogRow
                         key="dub-original"
@@ -4279,11 +4299,10 @@ export default function NativePlayerView({
                         title="Original"
                         sub="This source's soundtrack"
                       />
-                      {/* ALL siblings get rows: NHD's own player highlights
-                          tracks[0] while playing the main URL, so track[0] is
-                          NOT provably the original soundtrack — hiding it
-                          would hide a real language. Labels verbatim (usually
-                          dubs like "Hindi", sometimes mirrors like "1080p"). */}
+                      {/* ALL siblings get rows: the provider's own player
+                          highlights tracks[0] while playing the main URL, so
+                          track[0] is NOT provably the original soundtrack —
+                          hiding it would hide a real language. Labels verbatim. */}
                       {dubTracks.map((t, i) => (
                         <DialogRow
                           key={`dub-${i + 1}`}
@@ -4293,6 +4312,16 @@ export default function NativePlayerView({
                         />
                       ))}
                     </>
+                  ) : audioTracks.length > 0 ? (
+                    audioTracks.map((a) => (
+                      <DialogRow
+                        key={a.index}
+                        selected={a.index === audioIndex}
+                        onClick={() => pickAudio(a.index)}
+                        title={a.name}
+                        sub={a.lang && a.lang !== a.name ? a.lang : undefined}
+                      />
+                    ))
                   ) : (
                     // No #EXT-X-MEDIA AUDIO groups: hls.js reports no audioTracks, but the
                     // soundtrack IS playing — surface it as the single track.

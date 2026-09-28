@@ -219,6 +219,94 @@ describe("downloadService.resolveNhd", () => {
   });
 });
 
+describe("downloadService.resolveZxc", () => {
+  it("sends the chosen server so each ZXC row targets its own backend", async () => {
+    let capturedBody = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        capturedBody = JSON.parse(init.body);
+        return jsonResponse({
+          ok: true,
+          source: {
+            kind: "hls",
+            url: "https://vidstuck.xyz/backend/servers/centaurus?zx=streamly",
+            refUrl: "https://vidstuck.xyz/embed/movie/1101383",
+            multiLevelMaster: true,
+          },
+          variants: [
+            { uri: "https://vidstuck.xyz/backend/servers/centaurus?zv=media&zr=0", bandwidth: 2200000, width: 2592, height: 1080 },
+            { uri: "https://vidstuck.xyz/backend/servers/centaurus?zv=media&zr=1", bandwidth: 1000000, width: 1728, height: 720 },
+          ],
+          server: "centaurus",
+          audioTracks: [
+            { label: "Original Audio", uri: "https://vidstuck.xyz/backend/servers/centaurus?zv=master&zd=en" },
+            { label: "French dub", uri: "https://vidstuck.xyz/backend/servers/centaurus?zv=master&zd=fr" },
+          ],
+        });
+      }),
+    );
+
+    const resolved = await downloadService.resolveZxc({ type: "movie", id: "1101383", server: "centaurus" });
+    expect(capturedBody).toMatchObject({
+      action: "resolvezxc",
+      type: "movie",
+      id: "1101383",
+      server: "centaurus",
+    });
+    // A DASH ladder must keep multiLevelMaster so hls.js does ABR + mux itself.
+    expect(resolved.source.multiLevelMaster).toBe(true);
+    expect(resolved.variants.map((v) => v.height)).toEqual([1080, 720]);
+    expect(resolved.audioTracks.map((t) => t.label)).toEqual(["Original Audio", "French dub"]);
+  });
+
+  it("carries season+episode for TV", async () => {
+    let capturedBody = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        capturedBody = JSON.parse(init.body);
+        return jsonResponse({
+          ok: true,
+          source: { kind: "hls", url: "https://vidstuck.xyz/x", refUrl: "" },
+          variants: [{ uri: "https://vidstuck.xyz/x", bandwidth: 0 }],
+        });
+      }),
+    );
+    await downloadService.resolveZxc({ type: "tv", id: "1399", season: 2, episode: 3, server: "atlas" });
+    expect(capturedBody).toMatchObject({ server: "atlas", type: "tv", id: "1399", season: "2", episode: "3" });
+  });
+
+  it("keeps a single-rung HLS server as an honest Auto entry with no fake ladder", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          ok: true,
+          source: { kind: "hls", url: "https://vidstuck.xyz/backend/servers/atlas/edge?url=x", refUrl: "" },
+          variants: [{ uri: "https://vidstuck.xyz/backend/servers/atlas/edge?url=x", bandwidth: 0, width: 0, height: 0 }],
+          server: "atlas",
+          audioTracks: [],
+        }),
+      ),
+    );
+    const resolved = await downloadService.resolveZxc({ type: "movie", id: "1101383", server: "atlas" });
+    expect(resolved.variants.map((v) => v.label)).toEqual(["Auto"]);
+    expect(resolved.source.multiLevelMaster).toBeUndefined();
+    expect(resolved.audioTracks).toEqual([]);
+  });
+
+  it("surfaces an honest no-source result", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse({ ok: false, error: "ZXC atlas has no source", code: "no-source" })),
+    );
+    await expect(
+      downloadService.resolveZxc({ type: "movie", id: "550", server: "atlas" }),
+    ).rejects.toMatchObject({ code: "no-source" });
+  });
+});
+
 describe("downloadService.buildManifest", () => {
   it("posts the manifest action with the source referer and returns the segment list", async () => {
     let capturedBody = null;

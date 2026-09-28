@@ -12,6 +12,7 @@
 //   resolvevidsrc  { type, id, season?, episode? }      -> { source, variants }
 //   resolvevidcore { type, id, season?, episode? }      -> { source, variants }
 //   resolvenhd     { type, id, season?, episode? }      -> { source, variants, audioTracks }
+//   resolvezxc     { type, id, season?, episode?, server? } -> { source, variants, audioTracks }
 //   manifest       { playlistUrl, refUrl }              -> { kind, initUrl, segments, duration }
 //   playlist       { playlistUrl, refUrl }              -> raw m3u8 text (referer-supplied)
 //   segment        { url, refUrl?, range: {start,max} } -> bytes (octet-stream)
@@ -39,13 +40,17 @@
 //   · Quality/HDR labels reflect what the host actually serves — we never
 //     upscale or transcode, and DRM-protected renditions cannot be saved.
 
+import crypto from "node:crypto";
+
 import {
   parseMasterPlaylist,
   parseMediaPlaylist,
   resolveUrl,
 } from "../src/utils/downloadQuality.js";
+import { parseMpd, buildMasterPlaylist, buildMediaPlaylist } from "../server/dashToHls.js";
 import { rateLimit, tooManyRequests, clientIp } from "../server/rateLimit.js";
 import { assertPublicDestination } from "../server/ssrf.js";
+import { logWarn } from "../src/utils/debugLogger.js";
 import {
   json,
   fetchUpstream,
@@ -636,6 +641,550 @@ async function handleResolveNhd(body, res) {
   json(res, 200, { ok: false, error: "No downloadable stream found via NHD", code: "no-source" });
 }
 
+/* ── ZXC / vidstuck third-party provider ────────────────────────────────
+   zxcstream.icu is a thin shell around a vidstuck.xyz JW Player embed; every
+   real stream is behind vidstuck's own two-step backend, so we mint and read
+   it server-side exactly like VidCore/NHD and serve the bytes ourselves.
+
+   The contract, read off the shipped client chunk (vidstuck's `queryFn`):
+
+   1. `POST /backend/meow` with `{tmdbId, media_type, path[, season, episode]}`
+      -> `{ token, ts }`. This endpoint is SELF-ORIGIN ONLY: a correct body with
+      any other (or missing) `Origin` header answers 500 "Internal Server
+      Error" — verified across a header matrix, where only
+      `Origin: https://vidstuck.xyz` returned 200. So the origin we send is not
+      cosmetic; it is the whole gate.
+
+   2. `GET /backend/servers/{path}?…` with a dozen OBFUSCATED query names
+      (hex strings, mapped below) plus the token/ts from step 1, and optionally
+      `dubCode`/`dubType` to pick an audio language. Answers
+      `{ success, links: [{ type: "hls"|"dash", link, resolution }], dubs: [...] }`.
+      Every `link` is AES-256-CBC encrypted with a hardcoded passphrase using
+      CryptoJS's OpenSSL envelope (`Salted__` + 8-byte salt, key/IV derived by
+      EVP_BytesToKey with MD5 and ONE round). `decryptZxcLink` below is that
+      derivation, and it is the only reason this works — the ciphertext is
+      opaque without it.
+
+   The four servers, and why they need different handling:
+     · andromeda / centaurus -> `type: "dash"`. MPD, not HLS. Transcoded to an
+       fMP4 HLS ladder by server/dashToHls.js (manifest only — no media bytes
+       are re-encoded, the segments are already CMAF).
+     · atlas  -> `type: "hls"` behind vidstuck's own `/backend/servers/atlas/edge`
+       relay, so its relative `link` must be resolved against the origin.
+     · milkyway -> `type: "hls"` direct off a Cloudflare worker.
+
+   MULTI-AUDIO is centaurus-only (`dubSupport`), and it is per-MANIFEST, not
+   per-adaptation-set: `dubCode`/`dubType` swap which language the returned MPD's
+   single audio AdaptationSet carries. That is why dubs ship as SIBLING master
+   URLs (`audioTracks: [{label, uri}]`, the NHD convention the player already
+   implements) instead of `#EXT-X-MEDIA` rows in one master.
+
+   Honesty gates, in the same spirit as the NHD ladder: the advertised `dubs`
+   list overstates reality. Verified live against tmdb 1101383 — `hi` and `ta`
+   are listed but their MPDs answer HTTP 427 ("Fetch failed"), and the one
+   subtitle row (`es`, `dubType=1`) answers "No sources found". So every dub is
+   individually minted and its manifest fetched before it may reach the Audio
+   menu; a dub that cannot produce an MPD is dropped, never listed. */
+
+const ZXC_ORIGIN = "https://vidstuck.xyz";
+const ZXC_SERVERS = ["andromeda", "centaurus", "atlas", "milkyway"];
+// The servers that answer with a DASH manifest, and the one that carries dubs.
+const ZXC_DASH_SERVERS = new Set(["andromeda", "centaurus"]);
+const ZXC_DUB_SERVER = "centaurus";
+
+/* The obfuscated parameter names the client sends. Read straight off the
+   shipped bundle's `uo/up/ug/uf/uh/ul/uu/ud/uc/um` constants — renaming any of
+   them makes the request fail closed. */
+const ZXC_PARAM = {
+  tmdbId: "a7f39c821d604e5b9c71f36e1547b",
+  mediaType: "c285f91ab306d28147a35632e816b",
+  path: "6b491e7253ad84d392e7561a9384c",
+  season: "d8427b59ce30684a2f957c3613e85b",
+  episode: "91c6e4a728503d1f785c92346b713d",
+  ts: "61d9a5274c8e3b29afd6384c291e6",
+  token: "c492f7a183d6502b1e7436c538a716d",
+  title: "5e28c9147a306d1e829f3674b392a1",
+  year: "b731e6c94f08269d725f8341c306e",
+  date: "e164932c50216a39e5814b3027",
+};
+const ZXC_LINK_KEY = "7f4c9e2a81d63b05c4f7a9e8126d3b50e1a8c7f23d9465ab0c6e9f1d4a7b832c";
+const ZXC_IMDB_PARAM = "f35a8c19d674b3265e871c4933a725f";
+const ZXC_LATEST_DATE_PARAM = "e16932c543416ad739e5814b3027";
+
+// Our own playlist marker. A generated playlist has to be ADDRESSABLE, because
+// hls.js asks for it by URL (the loader posts `{action:"playlist", playlistUrl}`)
+// and the download sheet asks the same way. Rather than mint opaque signed state
+// we store, the marker rides ON the provider's own servers URL: the URL replays
+// the exact request, the handler re-mints a fresh token, and the function stays
+// the stateless pipe it documents itself to be.
+const ZXC_MARKER = { marker: "zx", value: "streamly", view: "zv", rep: "zr" };
+const ZXC_VIEW_MASTER = "master";
+const ZXC_VIEW_MEDIA = "media";
+
+// How many provider links we will probe per plain-HLS server. atlas/milkyway
+// hand back 2-3 links that are alternate encodes or mirrors of ONE runtime, not
+// a quality ladder, so we pick a single one — the bound only stops a
+// pathological payload from fanning out without limit.
+const ZXC_MAX_HLS_LINKS = 4;
+
+function zxcEmbedPath({ type, tmdbId, season, episode }) {
+  if (type === "tv") return `/embed/tv/${tmdbId}/${encodeURIComponent(season || "1")}/${encodeURIComponent(episode || "1")}`;
+  return `/embed/movie/${tmdbId}`;
+}
+
+function zxcHeaders(refererPath, { json: asJson = false } = {}) {
+  const headers = {
+    origin: ZXC_ORIGIN,
+    referer: `${ZXC_ORIGIN}${refererPath}`,
+    accept: asJson ? "application/json, text/plain, */*" : "*/*",
+  };
+  if (asJson) headers["content-type"] = "application/json";
+  return headers;
+}
+
+/* CryptoJS.AES.decrypt(ciphertext, passphrase).toString(enc.Utf8) — the
+   OpenSSL envelope: "Salted__" + 8-byte salt, then AES-256-CBC with key and IV
+   derived from passphrase+salt by iterated MD5 (EVP_BytesToKey, 1 round).
+   Node has no OpenSSL-format EVP_BytesToKey, so it is spelled out here; a raw
+   ciphertext (no salt header) is passed through unchanged. */
+function decryptZxcLink(ciphertext, passphrase) {
+  const raw = Buffer.from(String(ciphertext || ""), "base64");
+  if (raw.length === 0) throw new Error("empty link ciphertext");
+  if (raw.subarray(0, 8).toString("latin1") !== "Salted__") return raw.toString("utf8");
+
+  const salt = raw.subarray(8, 16);
+  const body = raw.subarray(16);
+  const chunks = [];
+  let previous = Buffer.alloc(0);
+  let collected = 0;
+  // 32-byte key + 16-byte IV, MD5 digest per block.
+  while (collected < 48) {
+    const digest = crypto.createHash("md5").update(previous).update(passphrase, "utf8").update(salt).digest();
+    chunks.push(digest);
+    previous = digest;
+    collected += digest.length;
+  }
+  const keyMaterial = Buffer.concat(chunks);
+  const decipher = crypto.createDecipheriv("aes-256-cbc", keyMaterial.subarray(0, 32), keyMaterial.subarray(32, 48));
+  return Buffer.concat([decipher.update(body), decipher.final()]).toString("utf8");
+}
+
+/* Title/year/date/imdbId are advisory — the servers endpoint resolves with
+   blanks, verified — but they are sent when their detail lookup succeeds so the
+   provider sees the same request the browser makes. Never fatal. */
+async function zxcTitleMeta({ type, tmdbId, refererPath }) {
+  try {
+    const text = await fetchUpstream(`${ZXC_ORIGIN}/backend/tmdb/details/${type}/${tmdbId}?language=en-US`, {
+      referer: `${ZXC_ORIGIN}${refererPath}`,
+      extraHeaders: zxcHeaders(refererPath, { json: true }),
+    });
+    const data = JSON.parse(text);
+    return {
+      title: String(data?.title || ""),
+      date: String(data?.release_date || data?.last_air_date || ""),
+      year: (() => {
+        const d = String(data?.release_date || data?.last_air_date || "");
+        return /^\d{4}/.test(d) ? d.slice(0, 4) : "";
+      })(),
+      imdbId: String(data?.imdb_id || ""),
+    };
+  } catch (error) {
+    // The ZXC params are advisory upstream — a blank title/year still resolves,
+    // so this degrades instead of failing the whole resolve.
+    logWarn("zxc", "title metadata lookup failed, continuing with blank params", {
+      message: error?.message,
+    });
+    return { title: "", date: "", year: "", imdbId: "" };
+  }
+}
+
+/* Step 1: mint a token. Fails closed on anything but a 200 with a token. */
+async function zxcMint({ type, tmdbId, server, season, episode, refererPath }) {
+  const payload = {
+    [ZXC_PARAM.tmdbId]: tmdbId,
+    [ZXC_PARAM.mediaType]: type,
+    [ZXC_PARAM.path]: server,
+  };
+  if (type === "tv") {
+    payload[ZXC_PARAM.season] = String(season || "");
+    payload[ZXC_PARAM.episode] = String(episode || "");
+  }
+  const text = await fetchUpstream(`${ZXC_ORIGIN}/backend/meow`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+    referer: `${ZXC_ORIGIN}${refererPath}`,
+    extraHeaders: zxcHeaders(refererPath, { json: true }),
+  });
+  const data = JSON.parse(text);
+  if (!data?.token || data?.ts === undefined) throw new Error("token mint returned no token");
+  return { token: String(data.token), ts: String(data.ts) };
+}
+
+/* Step 2: the servers endpoint. `link` is decrypted here so nothing upstream of
+   this function ever sees ciphertext. */
+async function zxcServerLinks(meta, { server, dubCode, dubType } = {}) {
+  const { token, ts } = await zxcMint({ ...meta, server });
+  const query = new URLSearchParams({
+    [ZXC_PARAM.tmdbId]: meta.tmdbId,
+    [ZXC_PARAM.path]: server,
+    [ZXC_PARAM.mediaType]: meta.type,
+    [ZXC_PARAM.ts]: ts,
+    [ZXC_PARAM.token]: token,
+    [ZXC_PARAM.title]: meta.title,
+    [ZXC_PARAM.year]: meta.year,
+    [ZXC_PARAM.date]: meta.date,
+  });
+  if (meta.type === "tv") {
+    query.set(ZXC_PARAM.season, String(meta.season || ""));
+    query.set(ZXC_PARAM.episode, String(meta.episode || ""));
+    if (meta.latestDate) query.set(ZXC_LATEST_DATE_PARAM, meta.latestDate);
+  }
+  if (dubCode) {
+    query.set("dubCode", String(dubCode));
+    query.set("dubType", String(dubType ?? "0"));
+  }
+  if (meta.imdbId) query.set(ZXC_IMDB_PARAM, meta.imdbId);
+
+  const url = `${ZXC_ORIGIN}/backend/servers/${server}?${query.toString()}`;
+  const text = await fetchUpstream(url, {
+    referer: `${ZXC_ORIGIN}${meta.refererPath}`,
+    extraHeaders: zxcHeaders(meta.refererPath, { json: true }),
+  });
+  const data = JSON.parse(text);
+  if (data?.success !== true || !Array.isArray(data.links)) throw new Error("servers endpoint returned no links");
+
+  const links = data.links
+    .filter((l) => l?.link)
+    .map((l) => {
+      let url2;
+      try {
+        url2 = decryptZxcLink(l.link, ZXC_LINK_KEY);
+      } catch {
+        return null;
+      }
+      return {
+        // atlas hands back a vidstuck-relative relay path; the rest are absolute.
+        url: url2.startsWith("/") ? `${ZXC_ORIGIN}${url2}` : url2,
+        kind: String(l.type || "").toLowerCase(),
+        resolution: Number(l.resolution) || 0,
+      };
+    })
+    .filter(Boolean);
+  if (links.length === 0) throw new Error("no link survived decryption");
+  return { links, dubs: Array.isArray(data.dubs) ? data.dubs : [] };
+}
+
+/* The replayable URL of a generated playlist. Carries the whole title/server/dub
+   identity so `handlePlaylist`/`handleManifest` can rebuild it from scratch. */
+function zxcPlaylistUrl(meta, { server, dubCode, dubType, view, representationId }) {
+  const query = new URLSearchParams({
+    [ZXC_PARAM.tmdbId]: meta.tmdbId,
+    [ZXC_PARAM.mediaType]: meta.type,
+    [ZXC_PARAM.path]: server,
+    [ZXC_PARAM.title]: meta.title,
+    [ZXC_PARAM.year]: meta.year,
+    [ZXC_PARAM.date]: meta.date,
+    [ZXC_MARKER.marker]: ZXC_MARKER.value,
+    [ZXC_MARKER.view]: view,
+  });
+  if (meta.type === "tv") {
+    query.set(ZXC_PARAM.season, String(meta.season || ""));
+    query.set(ZXC_PARAM.episode, String(meta.episode || ""));
+  }
+  if (dubCode) {
+    query.set("dubCode", String(dubCode));
+    query.set("dubType", String(dubType ?? "0"));
+  }
+  if (representationId !== undefined) query.set(ZXC_MARKER.rep, String(representationId));
+  return `${ZXC_ORIGIN}/backend/servers/${server}?${query.toString()}`;
+}
+
+/* The inverse. Returns null for ANY url that is not one of ours, so a caller's
+   ordinary playlist URL keeps its existing meaning untouched. */
+function parseZxcPlaylistUrl(rawUrl) {
+  let url;
+  try {
+    url = new URL(String(rawUrl || ""));
+  } catch {
+    return null;
+  }
+  if (url.origin !== ZXC_ORIGIN) return null;
+  if (url.searchParams.get(ZXC_MARKER.marker) !== ZXC_MARKER.value) return null;
+
+  const view = url.searchParams.get(ZXC_MARKER.view) || "";
+  if (view !== ZXC_VIEW_MASTER && view !== ZXC_VIEW_MEDIA) return null;
+  const server = url.searchParams.get(ZXC_PARAM.path) || "";
+  if (!ZXC_SERVERS.includes(server)) return null;
+  const type = url.searchParams.get(ZXC_PARAM.mediaType) === "tv" ? "tv" : "movie";
+  const tmdbId = url.searchParams.get(ZXC_PARAM.tmdbId) || "";
+  if (!/^\d{1,12}$/.test(tmdbId)) return null;
+
+  return {
+    meta: {
+      type,
+      tmdbId,
+      server,
+      title: url.searchParams.get(ZXC_PARAM.title) || "",
+      year: url.searchParams.get(ZXC_PARAM.year) || "",
+      date: url.searchParams.get(ZXC_PARAM.date) || "",
+      imdbId: "",
+      season: url.searchParams.get(ZXC_PARAM.season) || "",
+      episode: url.searchParams.get(ZXC_PARAM.episode) || "",
+      refererPath: zxcEmbedPath({
+        type,
+        tmdbId,
+        season: url.searchParams.get(ZXC_PARAM.season) || "",
+        episode: url.searchParams.get(ZXC_PARAM.episode) || "",
+      }),
+    },
+    view,
+    representationId: url.searchParams.get(ZXC_MARKER.rep),
+    dubCode: url.searchParams.get("dubCode") || "",
+    dubType: url.searchParams.get("dubType") || "",
+  };
+}
+
+/* MPD in, transcoded ladder out. One mint + one servers call + one manifest
+   fetch — the cost a single generated playlist request costs, which is why the
+   marker URL replays instead of caching. */
+async function zxcDashManifest(target) {
+  const { meta, dubCode, dubType } = target;
+  const { links } = await zxcServerLinks(meta, { server: meta.server, dubCode, dubType });
+  const dash = links.find((l) => l.kind === "dash") || links[0];
+  if (!dash?.url) throw new Error("no dash manifest for this server");
+  const xml = await fetchUpstream(dash.url, {
+    referer: `${ZXC_ORIGIN}${meta.refererPath}`,
+    extraHeaders: zxcHeaders(meta.refererPath),
+  });
+  const manifest = parseMpd(xml);
+  if (!manifest) throw new Error("manifest is not a transcodable MPD");
+  return { manifest, refUrl: `${ZXC_ORIGIN}${meta.refererPath}` };
+}
+
+function zxcGeneratedPlaylist(target) {
+  return target.view === ZXC_VIEW_MASTER ? buildMasterPlaylist : buildMediaPlaylist;
+}
+
+async function handleZxcPlaylist(rawUrl) {
+  const target = parseZxcPlaylistUrl(rawUrl);
+  if (!target) return null;
+  const { manifest } = await zxcDashManifest(target);
+  const build = zxcGeneratedPlaylist(target);
+  if (target.view === ZXC_VIEW_MASTER) {
+    return build(manifest, (representationId) => zxcPlaylistUrl(target.meta, {
+      server: target.meta.server,
+      dubCode: target.dubCode,
+      dubType: target.dubType,
+      view: ZXC_VIEW_MEDIA,
+      representationId,
+    }));
+  }
+  const rep =
+    manifest.video.find((r) => r.id === target.representationId) ||
+    manifest.audio.find((r) => r.id === target.representationId);
+  if (!rep) throw new Error("no such representation in this manifest");
+  return build(rep);
+}
+
+async function handleResolveZxc(body, res) {
+  const type = body.type === "tv" ? "tv" : "movie";
+  const tmdbId = String(body.id || "").trim();
+  if (!/^\d{1,12}$/.test(tmdbId)) {
+    json(res, 400, { ok: false, error: "Invalid TMDB id", code: "bad-id" });
+    return;
+  }
+  const season = String(body.season ?? "").trim();
+  const episode = String(body.episode ?? "").trim();
+  const requested = String(body.server || "").trim().toLowerCase();
+  // An unknown server name is a client bug, not a title problem: answer 400
+  // rather than silently resolving a different server than the viewer picked.
+  if (requested && !ZXC_SERVERS.includes(requested)) {
+    json(res, 400, { ok: false, error: "Unknown ZXC server", code: "bad-server" });
+    return;
+  }
+  const server = requested || "centaurus";
+
+  const refererPath = zxcEmbedPath({ type, tmdbId, season, episode });
+  const titleMeta = await zxcTitleMeta({ type, tmdbId, refererPath });
+  const meta = {
+    type,
+    tmdbId,
+    season,
+    episode,
+    refererPath,
+    title: titleMeta.title,
+    year: titleMeta.year,
+    date: titleMeta.date,
+    imdbId: titleMeta.imdbId,
+  };
+
+  let data;
+  try {
+    data = await zxcServerLinks(meta, { server });
+  } catch (error) {
+    json(res, 200, {
+      ok: false,
+      error: `ZXC ${server} returned no stream: ${error?.message || "unknown"}`,
+      code: "no-source",
+    });
+    return;
+  }
+
+  const refUrl = `${ZXC_ORIGIN}${refererPath}`;
+  // Plain-HLS servers hand back MORE THAN ONE link, and they are not a quality
+  // ladder: atlas ships two media playlists for the SAME runtime (identical
+  // #EXTINF total, different segment granularity and bitrate — measured at
+  // ~1.4 Mbps vs ~0.5 Mbps on Reacher S1E1) and milkyway ships three masters
+  // that are byte-identical mirrors of one 640x360 encode. Publishing all of
+  // them as "variants" would show the user the same picture three times, so we
+  // pick ONE — but we probe them in order and fall through, because a dead
+  // first link must not kill a title that has a working mirror behind it.
+  const hlsLinks = data.links.filter((l) => l.kind === "hls").slice(0, ZXC_MAX_HLS_LINKS);
+
+  if (!ZXC_DASH_SERVERS.has(server) && hlsLinks.length > 0) {
+    let playable = null;
+    for (const link of hlsLinks) {
+      let text = "";
+      try {
+        text = await fetchUpstream(link.url, { referer: refUrl, extraHeaders: zxcHeaders(refererPath) });
+      } catch (err) {
+        logWarn("zxc", `${server} HLS link ${link.url.slice(0, 48)} failed`, { message: err?.message });
+        continue;
+      }
+      if (!text.startsWith("#EXTM3U")) {
+        logWarn("zxc", `${server} HLS link ${link.url.slice(0, 48)} is not a playlist`);
+        continue;
+      }
+      // Some HLS servers already publish a real ladder; do not flatten it to a
+      // single "Auto" rung when the master playlist is present. A multi-rung
+      // master always beats a single rendition, whatever the provider ordered.
+      const levels = text.includes("#EXT-X-STREAM-INF") ? parseMasterPlaylist(text, link.url) : [];
+      if (playable === null || levels.length > playable.levels.length) {
+        playable = { link, levels };
+        if (levels.length > 1) break;
+      }
+    }
+    if (playable) {
+      const { link, levels } = playable;
+      json(res, 200, {
+        ok: true,
+        source: {
+          kind: "hls",
+          url: link.url,
+          refUrl,
+          multiLevelMaster: levels.length > 1 ? true : undefined,
+        },
+        variants:
+          levels.length > 0
+            ? levels
+            : [
+                {
+                  uri: link.url,
+                  bandwidth: 0,
+                  width: 0,
+                  height: link.resolution || 0,
+                  framerate: 0,
+                  codecs: "",
+                  hdr: false,
+                },
+              ],
+        server,
+        audioTracks: [],
+      });
+      return;
+    }
+  }
+
+  // DASH servers: the ladder is only real once the MPD has been transcoded, so
+  // fetch it here rather than claiming rungs the player would discover broken.
+  let manifest;
+  try {
+    ({ manifest } = await zxcDashManifest({ meta: { ...meta, server }, dubCode: "", dubType: "" }));
+  } catch (error) {
+    json(res, 200, {
+      ok: false,
+      error: `ZXC ${server} manifest unreadable: ${error?.message || "unknown"}`,
+      code: "no-source",
+    });
+    return;
+  }
+  if (manifest.video.length === 0) {
+    json(res, 200, { ok: false, error: `ZXC ${server} has no video rendition`, code: "no-source" });
+    return;
+  }
+
+  const masterUrl = zxcPlaylistUrl(meta, { server, view: ZXC_VIEW_MASTER });
+  const variants = manifest.video.map((rep) => ({
+    uri: zxcPlaylistUrl(meta, { server, view: ZXC_VIEW_MEDIA, representationId: rep.id }),
+    bandwidth: rep.bandwidth,
+    width: rep.width,
+    height: rep.height,
+    framerate: rep.frameRate,
+    codecs: rep.codecs,
+    hdr: false,
+  }));
+
+  // Dubs: sibling masters, each verified by actually minting + transcoding it.
+  const audioTracks = [];
+  if (server === ZXC_DUB_SERVER && Array.isArray(data.dubs)) {
+    const seen = new Set();
+    // Filter to type-0 (audio). Drop the "original" row if present (it's the
+    // native soundtrack already served by the master) to avoid duplicate labels,
+    // and also dedupe by (lanCode/type) when the provider lists the same pair
+    // twice. DO NOT hard-cap to 8: some titles carry 11+ type-0 dubs — the cap
+    // silently truncated Telugu/ptbr/esla etc.
+    // Only an explicitly provider-flagged row is the original. If the payload
+    // carries no flag (older provider responses) we must NOT guess a winner —
+    // dropping an arbitrary first row would silently hide a real dub.
+    const originalKey = data.dubs.find((d) => d?.original && d?.lanCode) || null;
+    const originalKeyStr = originalKey ? `${originalKey.lanCode}/${String(originalKey.type ?? "0")}` : null;
+    const candidates = data.dubs
+      .filter((d) => d?.lanCode && String(d.type ?? "0") === "0")
+      .filter((d) => {
+        const key = `${d.lanCode}/${String(d.type ?? "0")}`;
+        if (originalKeyStr && key === originalKeyStr) return false;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    const verified = await Promise.all(
+      candidates.map(async (dub) => {
+        const uri = zxcPlaylistUrl(meta, {
+          server,
+          dubCode: String(dub.lanCode),
+          dubType: String(dub.type ?? "0"),
+          view: ZXC_VIEW_MASTER,
+        });
+        try {
+          await zxcDashManifest({
+            meta: { ...meta, server },
+            dubCode: String(dub.lanCode),
+            dubType: String(dub.type ?? "0"),
+          });
+          return { label: String(dub.lanName || dub.lanCode), uri };
+        } catch (error) {
+          // Advertised but dead upstream (the 427 rows). Never listed.
+          logWarn("zxc", `dropping dead ${server} dub ${dub.lanCode}/${dub.type}`, {
+            message: error?.message,
+          });
+          return null;
+        }
+      }),
+    );
+    for (const track of verified) if (track) audioTracks.push(track);
+  }
+
+  json(res, 200, {
+    ok: true,
+    // A transcoded MPD needs its levels + audio group in ONE url so hls.js can
+    // ABR and mux; the variants list stays for the quality menu.
+    source: { kind: "hls", url: masterUrl, refUrl, multiLevelMaster: true },
+    variants,
+    server,
+    audioTracks,
+  });
+}
+
 async function handleManifest(body, res) {
   const playlistUrl = String(body.playlistUrl || "").trim();
   try {
@@ -644,6 +1193,43 @@ async function handleManifest(body, res) {
     await assertPublicDestination(u.toString());
   } catch {
     json(res, 400, { ok: false, error: "Invalid playlist URL", code: "bad-url" });
+    return;
+  }
+
+  // A ZXC marker URL is transcoded from the provider's MPD rather than fetched.
+  const zxcTarget = parseZxcPlaylistUrl(playlistUrl);
+  if (zxcTarget) {
+    // A master has no segments of its own — the download sheet always asks for a
+    // concrete rendition, so asking for the master is a client bug and gets a
+    // clear answer instead of a silent empty segment list.
+    if (zxcTarget.view === ZXC_VIEW_MASTER) {
+      json(res, 400, {
+        ok: false,
+        error: "Master playlist has no segments — resolve a rendition first",
+        code: "bad-url",
+      });
+      return;
+    }
+    let text;
+    try {
+      text = await handleZxcPlaylist(playlistUrl);
+    } catch (error) {
+      json(res, 502, {
+        ok: false,
+        error: `Manifest transcode failed: ${error?.message || "unknown"}`,
+        code: "manifest-fetch-failed",
+      });
+      return;
+    }
+    const parsed = parseMediaPlaylist(text, playlistUrl);
+    json(res, 200, {
+      ok: true,
+      kind: parsed.kind,
+      initUrl: parsed.initUrl,
+      segments: parsed.segments.map((s) => s.url),
+      duration: parsed.duration,
+      count: parsed.count,
+    });
     return;
   }
 
@@ -686,9 +1272,13 @@ async function handlePlaylist(body, res) {
   }
 
   try {
-    const text = await fetchUpstream(playlistUrl, {
-      referer: body.refUrl ? String(body.refUrl) : playlistUrl,
-    });
+    // A ZXC marker URL is transcoded from the provider's MPD rather than fetched,
+    // and the result is byte-for-byte the m3u8 hls.js expects.
+    const text = parseZxcPlaylistUrl(playlistUrl)
+      ? await handleZxcPlaylist(playlistUrl)
+      : await fetchUpstream(playlistUrl, {
+          referer: body.refUrl ? String(body.refUrl) : playlistUrl,
+        });
     res.status(200);
     res.setHeader("content-type", "application/vnd.apple.mpegurl");
     res.setHeader("cache-control", "no-store");
@@ -783,6 +1373,9 @@ export default async function handler(req, res) {
         return;
       case "resolvenhd":
         await handleResolveNhd(body, res);
+        return;
+      case "resolvezxc":
+        await handleResolveZxc(body, res);
         return;
       case "manifest":
         await handleManifest(body, res);

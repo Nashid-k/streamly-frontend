@@ -339,6 +339,37 @@ export const downloadService = {
     return resolved;
   },
 
+  /** Resolve one of the four ZXC/VIDSTUCK servers (action "resolvezxc"). The
+      `server` arg picks the row (andromeda | centaurus | atlas | milkyway), so
+      every server stays individually selectable instead of racing to a winner.
+      DASH servers come back as a transcoded multi-level master plus sibling-URL
+      `audioTracks` (Centaurus dubs); HLS servers pass their own ladder through. */
+  async resolveZxc({ type, id, season, episode, server }, { signal } = {}) {
+    const kind = type === "tv" ? "tv" : "movie";
+    const body = { action: "resolvezxc", type: kind, id: String(id || ""), server: String(server || "") };
+    if (kind === "tv") {
+      if (season != null) body.season = String(season);
+      if (episode != null) body.episode = String(episode);
+    }
+    const data = await post(body, { signal });
+    const resolved = this.normalizeResolved(data);
+    logInfo(
+      "download",
+      `Resolved ${resolved.variants.length} variant(s) via ZXC ${server}` +
+        (resolved.audioTracks.length ? ` with ${resolved.audioTracks.length} audio track(s).` : "."),
+      {
+        type: kind,
+        id,
+        server,
+        season: season ?? null,
+        episode: episode ?? null,
+        variants: resolved.variants.map((v) => v.label),
+        audioTracks: resolved.audioTracks.map((t) => t.label),
+      },
+    );
+    return resolved;
+  },
+
   /** Fetch a raw m3u8 through the relay — the server supplies the owning player's
       referer, which a browser fetch cannot send. Throws DownloadUnavailableError
       with the relay's real code. */

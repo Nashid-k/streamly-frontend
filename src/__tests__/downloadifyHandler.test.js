@@ -91,18 +91,91 @@ describe("POST /api/downloadify", () => {
     expect(res.statusCode).not.toBe(500);
   });
 
-  it.each(["resolve", "resolvevidsrc", "resolvevidcore", "resolvenhd", "manifest", "playlist", "segment"])(
-    "%s without a URL returns a structured refusal, never a 500",
-    async (action) => {
-      // No upstream host supplied, so the provider walk must bail out through its
-      // own error path. What matters is the shape: a JSON envelope with ok:false,
-      // not an unhandled throw (which Vercel renders as a bodiless 500).
-      const res = await call({ action });
-      expect(res.statusCode).toBeGreaterThanOrEqual(400);
-      expect(res.statusCode).toBeLessThan(600);
-      const payload = JSON.parse(res.body);
-      expect(payload.ok).toBe(false);
-      expect(typeof payload.error).toBe("string");
-    },
-  );
+  it.each([
+    "resolve",
+    "resolvevidsrc",
+    "resolvevidcore",
+    "resolvenhd",
+    "resolvezxc",
+    "manifest",
+    "playlist",
+    "segment",
+  ])("%s without a URL returns a structured refusal, never a 500", async (action) => {
+    // No upstream host supplied, so the provider walk must bail out through its
+    // own error path. What matters is the shape: a JSON envelope with ok:false,
+    // not an unhandled throw (which Vercel renders as a bodiless 500).
+    const res = await call({ action });
+    expect(res.statusCode).toBeGreaterThanOrEqual(400);
+    expect(res.statusCode).toBeLessThan(600);
+    const payload = JSON.parse(res.body);
+    expect(payload.ok).toBe(false);
+    expect(typeof payload.error).toBe("string");
+  });
+});
+
+describe("POST /api/downloadify — resolvezxc", () => {
+  const callZxc = (body) => call({ action: "resolvezxc", type: "movie", id: "1101383", ...body });
+
+  it("rejects an unknown server before any provider request", async () => {
+    const fetchMock = vi.fn(async () => new Response("nope", { status: 502 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const res = await callZxc({ server: "not-a-server" });
+    expect(res.statusCode).toBe(400);
+    const payload = JSON.parse(res.body);
+    expect(payload.ok).toBe(false);
+    expect(payload.error).toMatch(/server/i);
+    // A bad server key is a client bug — it must not spend an upstream call.
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("defaults to centaurus when no server is named", async () => {
+    // The client always names a server (each SOURCES row binds one), so a
+    // missing key is a lenient fallback rather than an error.
+    const fetchMock = vi.fn(async () => new Response("nope", { status: 502 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const res = await callZxc({});
+    expect([200, 400]).toContain(res.statusCode);
+    expect(JSON.parse(res.body).ok).toBe(false);
+  });
+
+  it("returns a structured refusal when the provider is unreachable, not a 500", async () => {
+    // beforeEach stubs every fetch to a 502, so the mint/lookup chain fails
+    // upstream. The handler must still answer with a JSON envelope.
+    const res = await callZxc({ server: "centaurus" });
+    expect(res.statusCode).toBe(200);
+    const payload = JSON.parse(res.body);
+    expect(payload.ok).toBe(false);
+    expect(typeof payload.error).toBe("string");
+  });
+
+  it("carries season/episode into the TV provider request", async () => {
+    // TV identity has to reach the provider's mint call, or every episode
+    // would resolve to the same stream.
+    const fetchMock = vi.fn(async () => new Response("nope", { status: 502 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await callZxc({ type: "tv", season: 2, episode: 7, server: "atlas" });
+    const bodies = fetchMock.mock.calls
+      .map(([, init]) => init?.body)
+      .filter(Boolean)
+      .map((b) => JSON.parse(b));
+    const mint = bodies.find((b) => b["6b491e7253ad84d392e7561a9384c"] === "atlas");
+    expect(mint).toBeTruthy();
+    expect(mint["d8427b59ce30684a2f957c3613e85b"]).toBe("2");
+    expect(mint["91c6e4a728503d1f785c92346b713d"]).toBe("7");
+  });
+
+  it("omits season/episode for a movie", async () => {
+    const fetchMock = vi.fn(async () => new Response("nope", { status: 502 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await callZxc({ type: "movie", season: 2, episode: 7, server: "atlas" });
+    const bodies = fetchMock.mock.calls
+      .map(([, init]) => init?.body)
+      .filter(Boolean)
+      .map((b) => JSON.parse(b));
+    const mint = bodies.find((b) => b["6b491e7253ad84d392e7561a9384c"] === "atlas");
+    expect(mint).toBeTruthy();
+    // Sending empty episode keys would make the provider answer episode 0.
+    expect(mint["d8427b59ce30684a2f957c3613e85b"]).toBeUndefined();
+    expect(mint["91c6e4a728503d1f785c92346b713d"]).toBeUndefined();
+  });
 });

@@ -114,9 +114,11 @@ VITE_SITE_URL=https://your-project.vercel.app
    `isSeries`), then lives in the **React Query** cache
    (`src/queryClient.js`).
 4. **Playback:** titles play through the native player, which pulls real HLS
-   ladders from the serverless sources (VidSrc, VidCore); the CineSrc fallback
-   was removed with its mint service. Viewers re-order servers in
-   Settings → Server Order.
+   ladders from the serverless sources (VidSrc, VidCore, NHD, VIDSTUCK); the
+   CineSrc fallback was removed with its mint service. VIDSTUCK contributes
+   **four** Servers-menu rows — Andromeda, Centaurus (dubs), Atlas, Milky Way —
+   and its DASH backends are transcoded to HLS fMP4 server-side. Viewers
+   re-order servers in Settings → Server Order.
 5. **Personal state:** `localStorage` first — `aios_my_list`,
    `aios_my_collections` (named folders), `aios_continue_watching`,
    `aios_search_history`, `setting-*` preference
@@ -151,11 +153,17 @@ api/
 │                           (CORS, OPTIONS, server-side key injection)
 ├── auth.js              ← Google sign-in (ID-token verify via local JWKS)
 ├── sync.js              ← cloud sync (HMAC-signed, MongoDB, merge policy)
-├── downloadify.js       ← offline-download resolver (embed hosts + VidSrc,
-│                           single-URL Range-chunked segment proxy, SSRF guard)
+├── downloadify.js       ← offline-download resolver (embed hosts + VidSrc +
+│                           NHD + VIDSTUCK, single-URL Range-chunked segment
+│                           proxy, SSRF guard, DASH→HLS fMP4 transcoding)
 ├── publicCollections.js ← publish / read public collections
 ├── groq.js              ← optional AI helper endpoint
 └── lib/                 ← db.js, googleVerify.js, syncToken.js (HMAC)
+server/
+├── net.js               ← guarded outbound fetch (redirect re-validation, retries,
+│                           optional POST method/body for provider token mints)
+└── dashToHls.js         ← MPD → HLS fMP4 transcoder (SegmentTemplate expansion,
+                            replayable marker URLs for VIDSTUCK's DASH backends)
 public/
 └── sw.js               ← Service worker (offline shell, caches streamly-v19.5)
 

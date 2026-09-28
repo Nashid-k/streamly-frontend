@@ -294,13 +294,20 @@ describe("player Servers menu", () => {
     // Row order = auto-rotation priority; tags describe what the viewer gets
     // (a 4K ceiling, dubs) — not marketing or internal resolver keys.
     const rows = [...dialog.querySelectorAll(".np-dialog-row")];
-    // Exactly three servers, VidCore first (the default), each tag honest.
-    expect(rows.length).toBe(3);
+    // Seven servers, VidCore first (the default), each tag honest. The four
+    // ZXC/VIDSTUCK rows each name their own server so one can be targeted
+    // directly instead of racing auto-rotation.
+    expect(rows.length).toBe(7);
     expect(rows[0].textContent).toContain("VidCore");
     expect(rows[0].textContent).toContain("4K");
     expect(rows[1].textContent).toContain("VidSrc");
     expect(rows[2].textContent).toContain("NHD");
     expect(rows[2].textContent).toContain("Multi audio");
+    expect(rows[3].textContent).toContain("ZXC Centaurus");
+    expect(rows[3].textContent).toContain("Multi audio");
+    expect(rows[4].textContent).toContain("ZXC Andromeda");
+    expect(rows[5].textContent).toContain("ZXC Atlas");
+    expect(rows[6].textContent).toContain("ZXC Milky Way");
   });
 
   it("exposes the switcher as a transport icon with dialog semantics", () => {

@@ -145,7 +145,65 @@ is HLS-only). The winning `playUrl` is a tokenized `nhdapi.streamfinder.st`
 HLS manifest (CORS *, no referer needed), and dubbed titles ship SIBLING
 full-stream URLs (one manifest per dub, each individually verified) in
 `audioTracks`, which the player's Audio menu surfaces as a position-preserving
-manifest swap rather than hls.js audio groups. A third third-party
+manifest swap rather than hls.js audio groups.
+
+**VIDSTUCK / ZXC (`resolvezxc`) is a FIFTH provider that contributes FOUR
+separate Servers-menu rows** — `zxc-andromeda`, `zxc-centaurus`, `zxc-atlas`,
+`zxc-milkyway` — because it fronts four independent backends with different
+capabilities, not one source with four quality rungs. Minting is a single
+`POST https://vidstuck.xyz/backend/meow` with a same-origin
+`Origin: https://vidstuck.xyz` and an obfuscated body (`mediaType`, `server`,
+`season`, `episode`); the answer is AES-256-CBC encrypted with the session's
+`secretKey`, so the whole exchange runs server-side. The decrypted
+`lookupServer` result is an AES-encrypted per-server playlist; `playbackServers`
+maps each backend to a host:
+
+| row | backend | wire format | dubs |
+| --- | --- | --- | --- |
+| Andromeda | `andromeda` | DASH MPD | no |
+| Centaurus | `centaurus` | DASH MPD (3 rungs) | yes |
+| Atlas | `atlas` | single HLS media playlist | no |
+| Milky Way | `milkyway` | HLS master (3 rungs) | no |
+
+**DASH is transcoded to HLS fMP4 server-side** (`server/dashToHls.js`) rather
+than played with `dash.js`: the MPD's `SegmentTemplate` is substituted per
+representation, and `buildMasterPlaylist`/`buildMediaPlaylist` emit a replayable
+HLS pair addressed by a marker URL that re-runs the conversion on demand —
+`…/backend/servers/{server}?zx=streamly&zv=master|media&zr={representationId}`
+(plus `zd={lang}` for a dub), so the browser never sees a time-scoped MPD. This
+keeps the whole native pipeline HLS-only (one MSE append path, one manifest
+parser, the existing relay). Real upstream captures confirm 997 fMP4 segments
+per 1080p Centaurus/Andromeda rendition with `ftyp` init + `styp` segments and
+no unsubstituted `$Number$`/`$RepresentationID$` left behind. Generated masters
+set `source.multiLevelMaster: true` so the player loads the master and keeps the
+ladder in one document; native HLS masters (Milky Way) and single-rung media
+playlists (Atlas) are parsed as-is.
+
+Centaurus dubs are SIBLING masters, not `#EXT-X-MEDIA` groups: `en/0`→`eng`,
+`fr/0`→`ave`, `esla/0`→`aka`, each probed server-side and dropped when dead
+(`hi/0` and `ta/0` currently answer HTTP 427). Duplicate `en/0` rows are
+deduplicated so one language cannot appear twice under two labels. Because a
+transcoded master *always* carries an in-manifest audio group for its own muxed
+AAC, the Audio panel checks `dubTracks` BEFORE `audioTracks` — testing
+`audioTracks` first showed a single lonely "eng" row and hid every real dub.
+Sibling rows are index-shifted by one (row 0 is "Original", row N is
+`dubTracks[N-1]`), and the same shift applies to the pinned-dub restore on token
+refresh and to the Settings → Audio label.
+
+**ZXC bytes are relay-only in practice.** Its rotating worker/CDN hosts
+(`*.workers.dev`, `sopas9`, `onion18`, `invalid4`, `hakunaymatata`) gate on the
+owning origin: verified live, a request carrying a foreign `Origin` gets a bare
+`403 Forbidden`, and only `Origin: https://vidstuck.xyz` is answered (with
+`ACAO: https://vidstuck.xyz`). Andromeda's `sacdn` host is the exception
+(`ACAO: *`). A browser XHR always sends `Origin`, so the player can never fetch
+those fragments directly — it does not need to: `nativeHlsLoader` probes direct,
+sees no usable `ACAO`, and falls back to the server-side relay, which sends no
+`Origin` and carries the embed referer (that path returns real `styp` bytes with
+`ACAO: *` for every server). The player has no native-`canPlayType` HLS path, so
+this holds on Safari too. Cost consequence: ZXC fragments ride the relay, so
+`VITE_STREAMLY_RELAY_URL` (the Cloudflare worker) matters for these rows — on
+the Vercel fallback every fragment is a serverless round trip.
+ A third third-party
 provider, CineSrc, was REMOVED: its stream tokens are minted inside a real
 browser (canvas/TLS fingerprint-bound), so it only ever worked through a
 separately-hosted Chrome mint service (`cinesrc-resolver/`, Render-hosted) that

@@ -51,14 +51,21 @@ function baseHeaders() {
   };
 }
 
-async function followRedirects(url, headers, signal, as) {
+/* `init` carries method/body for the few upstreams that are POST-only (the ZXC
+   token mint). Redirects are walked by hand, and each hop is re-validated. A
+   303 — and the 301/302 that browsers treat as "see other" for a POST — drops
+   the body and downgrades to GET, so a redirect can never replay a JSON payload
+   onto a GET endpoint. */
+async function followRedirects(url, headers, signal, as, init) {
   let current = url;
-  let upstream = await fetchNoRedirect(current, { headers, signal });
+  const isPost = String(init?.method || "GET").toUpperCase() === "POST";
+  let upstream = await fetchNoRedirect(current, { ...init, headers, signal });
   for (let hop = 0; hop < MAX_REDIRECTS && upstream.status >= 300 && upstream.status < 400; hop += 1) {
     const location = upstream.headers.get("location");
     if (!location) throw new Error("Redirect without location");
     current = await assertPublicDestination(new URL(location, current).toString());
-    upstream = await fetchNoRedirect(current, { headers, signal });
+    const downgrades = upstream.status === 303 || (isPost && (upstream.status === 301 || upstream.status === 302));
+    upstream = await fetchNoRedirect(current, downgrades ? { headers, signal } : { ...init, headers, signal });
   }
   if (!upstream.ok) {
     const err = new Error(`Upstream ${upstream.status}`);
@@ -75,7 +82,7 @@ async function followRedirects(url, headers, signal, as) {
   return text;
 }
 
-async function fetchUpstream(url, { as = "text", timeoutMs = 12000, referer, retryCount = 0, extraHeaders = {} } = {}) {
+async function fetchUpstream(url, { as = "text", timeoutMs = 12000, referer, retryCount = 0, extraHeaders = {}, method, body } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -86,13 +93,16 @@ async function fetchUpstream(url, { as = "text", timeoutMs = 12000, referer, ret
       headers.referer = referer;
       headers["referrer-policy"] = "strict-origin-when-cross-origin";
     }
+    // An explicit content-type from the caller must win over nothing else; the
+    // default header set carries none, so there is nothing to strip.
+    const init = method ? { method: String(method).toUpperCase(), ...(body !== undefined ? { body } : {}) } : {};
 
     try {
-      return await followRedirects(safeUrl, headers, controller.signal, as);
+      return await followRedirects(safeUrl, headers, controller.signal, as, init);
     } catch (error) {
       // Retry with a different user agent on transient 403/429 responses.
       if (as !== "buffer" && error?.status && (error.status === 403 || error.status === 429) && retryCount < 3) {
-        return fetchUpstream(url, { as, timeoutMs, referer, retryCount: retryCount + 1, extraHeaders });
+        return fetchUpstream(url, { as, timeoutMs, referer, retryCount: retryCount + 1, extraHeaders, method, body });
       }
       throw error;
     }
