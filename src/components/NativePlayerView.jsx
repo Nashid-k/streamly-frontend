@@ -48,7 +48,6 @@ import {
 } from "./player";
 import NetflixStillWatching from "./NetflixStillWatching";
 import Hls from "hls.js";
-import { downloadService } from "../api/downloadService";
 import { variantLabel } from "../utils/downloadQuality";
 import { createStreamlyLoader, probeSourcePlayable } from "../api/nativeHlsLoader";
 import { SubtitleFetcher } from "../api/subtitleFetcher";
@@ -66,6 +65,21 @@ import {
   STILL_WATCHING_IDLE_MS,
   STILL_WATCHING_EPISODES,
 } from "../constants/playerUi";
+import {
+  PLAYER_SOURCES,
+  DEFAULT_SOURCE_KEY,
+  sourceByKey,
+  sourceLabel,
+} from "../constants/sources";
+import {
+  getSkipIntroTarget,
+  shouldShowSkipIntro,
+  getSkipOutroTarget,
+  shouldShowSkipOutro,
+  shouldAutoSkipIntroOnce,
+} from "../utils/skipMarkers";
+import { pickInitialBandwidthBits } from "../utils/streamTuning";
+import { useOptionalPreferences } from "../context/preferences";
 import { getPreviewThumb, clearPreviewCache, resetPreviewPipeline } from "../api/previewThumbs";
 import WatchPartyPanel from "./WatchPartyPanel";
 
@@ -133,16 +147,10 @@ const SAFE_TOP = IS_TOUCH ? "calc(16px + env(safe-area-inset-top, 0px))" : "16px
 // Netflix bottom chrome: 24px on desktop; safe-area inset on touch devices.
 const SAFE_BOTTOM = IS_TOUCH ? "calc(20px + env(safe-area-inset-bottom, 0px))" : "24px";
 
-// Skip Intro (TV only). Netflix knows intro boundaries from studio metadata; we
-// don't, so the pill uses an opt-in per-title table with a conservative default.
-// Like Netflix it is visible ONLY while the head sits inside [0, end + grace].
-// Episodes shorter than the floor never get the guess.
-const SKIP_INTRO_OVERRIDES = {
-  // tmdbId: { endSeconds: 90 } — drop confirmed boundaries in here
-};
-const SKIP_INTRO_DEFAULT_END = 90; // seconds — typical cold-open + title card
-const SKIP_INTRO_MIN_EPISODE_SECONDS = 15 * 60; // only guess for >= 15 min eps
-const SKIP_INTRO_GRACE = 10; // keep the pill a few seconds past the end
+// Skip Intro / Skip Outro live in src/utils/skipMarkers.js — the boundaries are
+// estimates (no provider supplies markers) and the module documents that, plus
+// the SKIP_INTRO_OVERRIDES seam for confirmed boundaries. Everything below is
+// presentation only.
 
 /* Plain white circular icon button (Netflix transport glyphs). */
 function IconBtn({ label, onClick, children, active, disabled, expanded }) {
@@ -238,32 +246,6 @@ function DialogRow({ selected, onClick, title, sub, disabled, icon, hasChevron }
     </button>
   );
 }
-
-const SOURCES = [
-  // Streaming backends are relayed HLS providers, VidCore first (its probe is
-  // direct-first, so a blocked CDN falls through quickly) and ALWAYS the
-  // default — it is the only source whose ladder reaches 4K. NetMirror
-  // (net27.cc) was removed: its video layer is per-IP 429-gated behind a
-  // Cloudflare challenge. CineSrc went with its Chrome mint service — no
-  // serverless function can mint fingerprint-bound tokens.
-  // `tag` is the Servers-menu one-liner: what the viewer gets from this
-  // server, in the player's own words (a ladder ceiling, an audio feature,
-  // or its delivery limit) — never marketing.
-  { key: "vidcore", label: "VidCore", tag: "4K · multiple qualities", resolve: (a, o) => downloadService.resolveVidcore(a, o) },
-  { key: "vidsrc", label: "VidSrc", tag: "Original audio · up to 1080p", resolve: (a, o) => downloadService.resolveVidsrc(a, o) },
-  // NHD carries the fewest titles, but it is the ONLY native source with
-  // real dub audio (sibling-URL audioTracks) — last, so dubbed titles still
-  // land somewhere without costing VidCore its default seat.
-  { key: "nhd", label: "NHD", tag: "Multi audio (dubs) · one quality", resolve: (a, o) => downloadService.resolveNhd(a, o) },
-  // The four ZXC/VIDSTUCK servers, each kept as its OWN row so the Servers menu
-  // can target one directly instead of auto-rotation racing to a winner. Two of
-  // them ship DASH, which the server transcodes to an HLS fMP4 master (no
-  // remux, no per-byte work) so hls.js can ABR and mux just like native HLS.
-  { key: "zxc-centaurus", label: "ZXC Centaurus", tag: "Multi audio (dubs) · up to 1080p", resolve: (a, o) => downloadService.resolveZxc({ ...a, server: "centaurus" }, o) },
-  { key: "zxc-andromeda", label: "ZXC Andromeda", tag: "Original audio · up to 1080p", resolve: (a, o) => downloadService.resolveZxc({ ...a, server: "andromeda" }, o) },
-  { key: "zxc-atlas", label: "ZXC Atlas", tag: "Original audio · one quality", resolve: (a, o) => downloadService.resolveZxc({ ...a, server: "atlas" }, o) },
-  { key: "zxc-milkyway", label: "ZXC Milky Way", tag: "Original audio · up to 1080p", resolve: (a, o) => downloadService.resolveZxc({ ...a, server: "milkyway" }, o) },
-];
 
 // One auto-retry per source: a fresh open often fails on the FIRST attempt
 // (cold function, warm-up 429s, a rate-flaky catalogue returning nothing) and
@@ -2119,9 +2101,9 @@ export default function NativePlayerView({
       // One pass at a source: true = settled (caller stops), false = transient (retryable
       // warm-up/empty/flaky), "off" = terminal (the provider doesn't have this title).
       const runSourceOnce = async (defArg) => {
-        // Auto rotation walks SOURCES in order; a Servers-menu pick overrides
+        // Auto rotation walks PLAYER_SOURCES in order; a Servers-menu pick overrides
         // it for one pass (stale().guards everything as usual).
-        const def = defArg || SOURCES.find((s) => s.key === requestedServerRef.current) || null;
+        const def = defArg || PLAYER_SOURCES.find((s) => s.key === requestedServerRef.current) || null;
         if (!def) return false;
         say(`Trying ${def.label}…`);
         let resolved = null;
@@ -2227,6 +2209,17 @@ export default function NativePlayerView({
           );
           const bufferDepthSecs = Math.round(Math.floor(maxBufferSize / Math.max(1, topBps / 8)));
           say(`Buffer: up to ~${bufferDepthSecs}s (~${Math.round(maxBufferSize / 1024 / 1024)}MB) ahead.`);
+          // ABR seed. A fixed 10Mbps is a blind guess: too low on a fast TV, far
+          // too high on a phone (an over-optimistic first rung shows a rebuffer
+          // before hls.js corrects itself). navigator.connection already knows
+          // the pipe's shape before a byte flows, so use it as a PRIOR only —
+          // hls.js's own measurement still wins after the first segments, and
+          // the underflow step-down is unchanged. Absent the API (Safari,
+          // Firefox) this is exactly the old fixed seed.
+          const streamSeedBits = pickInitialBandwidthBits(
+            typeof navigator !== "undefined" ? navigator.connection : undefined,
+            INITIAL_BW_BITS,
+          );
           // Start-conservative, pick-liberal: fragments come through the Vercel relay with
           // parallel range chunking, so a manual tall pick may try and the buffer-floor
           // step-down negotiates back down. We do NOT yank a user's 4K/1080p pick (every
@@ -2250,7 +2243,7 @@ export default function NativePlayerView({
             maxBufferSize,
             backBufferLength: BACK_BUFFER_SECONDS,
             // Auto starts mid-ladder (INITIAL_BW_BITS) so quality doesn't climb rung-by-rung.
-            initialBandwidthEstimate: INITIAL_BW_BITS,
+            initialBandwidthEstimate: streamSeedBits,
             // Judge ABR by MEASURED bytes/sec, not the advertised bitrate (relayed sources
             // lie), and never exceed the rendered size — a small window doesn't need 1080p
             // and every rung saved off the relay is one fewer stall.
@@ -2270,7 +2263,11 @@ export default function NativePlayerView({
               (data?.error?.message ? ` (${data.error.message})` : "") +
               (frag ? ` [sn ${frag.sn ?? "?"} ${String(frag.url || "").slice(0, 90)}]` : "");
             say(`${def.label}: fatal ${lastFatalDetail} — next source.`);
-            logWarn("native", `${def.label} fatal during playback`, {
+            // Logs name the PROVIDER, not the generic row: "Server 4" in a
+            // console tells you nothing, `zxc-centaurus` tells you which
+            // backend to go debug. The viewer-facing `say` keeps the generic name.
+            logWarn("native", `${def.provider} (${def.label}) fatal during playback`, {
+              sourceKey: def.key,
               details: data?.details,
               message: data?.error?.message,
               fragSn: frag?.sn ?? null,
@@ -2483,7 +2480,7 @@ export default function NativePlayerView({
       if (requestedServerRef.current) {
         if (await runSource(null)) return;
       } else {
-        for (const def of SOURCES) {
+        for (const def of PLAYER_SOURCES) {
           if (stale()) return;
           if (await runSource(def)) return;
         }
@@ -2492,7 +2489,7 @@ export default function NativePlayerView({
       setStatus("error");
       setFatal(
         requestedServerRef.current
-          ? `${SOURCES.find((s) => s.key === requestedServerRef.current)?.label || "That server"} had no playable stream — try another server (gear → Servers).`
+          ? `${sourceLabel(requestedServerRef.current)} had no playable stream — try another server (gear → Servers).`
           : "No native source resolved this title (all sources came up empty).",
       );
       say("All sources exhausted.");
@@ -2664,7 +2661,7 @@ export default function NativePlayerView({
     setDubTracks([]);
     setPanel(null);
     poke();
-    const def = SOURCES.find((s) => s.key === key);
+    const def = sourceByKey(key);
     say(`Switching to ${def?.label || "that"} server…`);
     setReloadToken((t) => t + 1);
   };
@@ -3003,23 +3000,49 @@ export default function NativePlayerView({
   keyboardEpPrevRef.current = keyboardPrevEpisode;
   keyboardEpNextRef.current = keyboardNextEpisode;
 
-  // Skip-intro window: we have no metadata, so under-claim — the pill shows only
-  // inside [0, end + grace] and disappears for good once the head passes it.
-  let skipIntroEnd = 0;
-  if (type === "tv") {
-    const o = SKIP_INTRO_OVERRIDES[id];
-    if (o && Number(o.endSeconds) > 0) skipIntroEnd = Number(o.endSeconds);
-    else if (safeDuration === 0 || safeDuration >= SKIP_INTRO_MIN_EPISODE_SECONDS)
-      skipIntroEnd = SKIP_INTRO_DEFAULT_END;
-  }
-  const showSkipIntro =
-    skipIntroEnd > 0 && !ended && currentTime >= 0 && currentTime <= skipIntroEnd + SKIP_INTRO_GRACE;
-  const skipIntroTarget = Math.min(skipIntroEnd, safeDuration > 5 ? safeDuration - 5 : skipIntroEnd);
-  const doSkipIntro = () => {
+  // Skip-intro / skip-credits windows. The RULE lives in utils/skipMarkers.js;
+  // this is only the viewer's choice about how to apply it (the Auto Skip Intro
+  // preference, previously dead on web — it was wired in Settings but nothing
+  // here ever read it).
+  const prefs = useOptionalPreferences();
+  const autoSkipIntro = prefs?.autoSkipIntro === true;
+
+  const skipIntroTarget = getSkipIntroTarget({ type, id, duration: safeDuration });
+  const showSkipIntro = shouldShowSkipIntro({
+    type,
+    id,
+    duration: safeDuration,
+    currentTime,
+    ended,
+    autoSkip: autoSkipIntro,
+  });
+  const skipOutroTarget = getSkipOutroTarget({ type, duration: safeDuration });
+  const showSkipOutro = shouldShowSkipOutro({ type, duration: safeDuration, currentTime, ended });
+
+  // Auto-skip fires once per playback, and only while the head is still inside
+  // the intro, so the viewer is never yanked before the opening has played.
+  const autoSkipFiredRef = useRef(false);
+  useEffect(() => {
+    if (!autoSkipIntro) {
+      autoSkipFiredRef.current = false;
+      return;
+    }
+    if (autoSkipFiredRef.current) return;
+    if (!shouldAutoSkipIntroOnce({ type, id, duration: safeDuration, currentTime, firedRef: autoSkipFiredRef })) return;
+    autoSkipFiredRef.current = true;
+    const v = videoRef.current;
+    if (!v || skipIntroTarget <= 0) return;
+    try {
+      v.currentTime = skipIntroTarget;
+    } catch {
+    }
+  }, [autoSkipIntro, type, id, safeDuration, currentTime, skipIntroTarget]);
+
+  const doSeekPast = (target) => {
     const v = videoRef.current;
     if (!v) return;
     try {
-      v.currentTime = skipIntroTarget;
+      v.currentTime = target;
     } catch {
     }
     poke();
@@ -3029,6 +3052,8 @@ export default function NativePlayerView({
       // user gesture needed — custom transport is present
     }
   };
+  const doSkipIntro = () => doSeekPast(skipIntroTarget);
+  const doSkipOutro = () => doSeekPast(skipOutroTarget);
 
   return (
     // reducedMotion="user" makes every framer-motion transition in this tree
@@ -3229,6 +3254,45 @@ export default function NativePlayerView({
             >
               <SkipForward size={16} />
               Skip Intro
+            </motion.button>
+          )}
+        </AnimatePresence>
+        {/* Skip Credits. Only ever a button — a wrong tail guess must never
+            auto-jump the viewer, so `shouldShowSkipOutro` has no auto path. */}
+        <AnimatePresence>
+          {showSkipOutro && !sheetOpen && !showSkipIntro && (
+            <motion.button
+              key="np-skip-outro"
+              type="button"
+              className="np-skip-intro"
+              onClick={doSkipOutro}
+              aria-label="Skip the ending credits"
+              title="Jump to the end"
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 30 }}
+              transition={{ type: "spring", stiffness: 380, damping: 30 }}
+              whileTap={{ scale: 0.97 }}
+              style={{
+                position: "absolute",
+                bottom: `calc(${SAFE_BOTTOM} + 96px)`,
+                right: 24,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "10px 20px",
+                background: "rgba(0,0,0,0.7)",
+                color: "#fff",
+                border: "2px solid rgba(255,255,255,0.9)",
+                borderRadius: 4,
+                fontWeight: 700,
+                fontSize: 16,
+                cursor: "pointer",
+                zIndex: 5,
+              }}
+            >
+              <SkipForward size={16} />
+              Skip Credits
             </motion.button>
           )}
         </AnimatePresence>
@@ -4183,7 +4247,7 @@ export default function NativePlayerView({
                   // Requested wins over committed: after a failed switch the
                   // committed key would highlight the server the viewer just
                   // abandoned.
-                  sub={SOURCES.find((s) => s.key === (requestedServer || metaRef.current?.sourceKey || "vidcore"))?.label || "VidCore"}
+                  sub={sourceLabel(requestedServer || metaRef.current?.sourceKey || DEFAULT_SOURCE_KEY, "Server 1")}
                   icon={<ServerCog size={20} />}
                   hasChevron
                 />
@@ -4211,7 +4275,7 @@ export default function NativePlayerView({
                 <DialogRow
                   onClick={() => setPanel("aspect")}
                   title="Aspect Ratio"
-                  sub={ASPECT_RATIOS[aspectRatioIndex]?.label || "Fit"}
+                  sub={ASPECT_RATIOS[aspectRatioIndex]?.name || "Fit"}
                   icon={<Proportions size={20} />}
                   hasChevron
                 />
@@ -4225,10 +4289,10 @@ export default function NativePlayerView({
                     Same title, different stream providers. Switching reloads the
                     stream from the chosen server.
                   </p>
-                  {SOURCES.map((s) => (
+                  {PLAYER_SOURCES.map((s) => (
                     <DialogRow
                       key={s.key}
-                      selected={(requestedServer || metaRef.current?.sourceKey || "vidcore") === s.key}
+                      selected={(requestedServer || metaRef.current?.sourceKey || DEFAULT_SOURCE_KEY) === s.key}
                       onClick={() => pickServer(s.key)}
                       title={s.label}
                       sub={s.tag}
@@ -4408,14 +4472,19 @@ export default function NativePlayerView({
                   </p>
                   {ASPECT_RATIOS.map((aspect, idx) => (
                     <DialogRow
-                      key={aspect.label}
+                      /* `name`, not `label`: the catalog has only ever had
+                         `name`. Reading `.label` here made every option's text
+                         undefined, so the whole panel rendered as six blank
+                         rows — the reason the aspect labels looked "missing".
+                         Keyed on id so rows stay stable. */
+                      key={aspect.id}
                       selected={aspectRatioIndex === idx}
                       onClick={() => {
                         setAspectRatioIndex(idx);
                         setPanel(null);
                         poke();
                       }}
-                      title={aspect.label}
+                      title={aspect.name}
                     />
                   ))}
               </div>

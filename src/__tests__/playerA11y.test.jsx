@@ -282,8 +282,62 @@ describe("episode rail chrome", () => {
   });
 });
 
+describe("player aspect-ratio panel", () => {
+  const openAspectPanel = () => {
+    mount();
+    // gear → Settings → Aspect Ratio
+    fireEvent.click(screen.getByRole("button", { name: /settings/i }));
+    fireEvent.click(screen.getByText("Aspect Ratio"));
+    return screen.getByRole("dialog");
+  };
+
+  // REGRESSION: the panel read `aspect.label`, but the ASPECT_RATIOS catalog has
+  // only ever had `name`. `undefined` renders as nothing, so all six options
+  // were blank rows. It looked server-dependent because switching servers
+  // closes the sheet, and the Settings root row masked it with a `|| "Fit"`
+  // fallback — the symptom was "the aspect texts vanish after I change server".
+  it("shows real text for every aspect option, not blank rows", () => {
+    const dialog = openAspectPanel();
+    const rows = [...dialog.querySelectorAll(".np-dialog-row")];
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect((row.textContent || "").trim().length).toBeGreaterThan(0);
+    }
+    expect(dialog.textContent).toContain("Cinema 2.39:1");
+    expect(dialog.textContent).toContain("Stretch to Screen");
+  });
+
+  it("the Settings row reports the CURRENT mode, not a hardcoded 'Fit'", () => {
+    // The same `.label` bug made this always fall through to "Fit" via `||`,
+    // so a viewer on Cinema was told "Fit" on the row that opens the panel.
+    mount();
+    fireEvent.click(screen.getByRole("button", { name: /settings/i }));
+    const row = [...document.querySelectorAll(".np-dialog-row")].find((r) =>
+      (r.textContent || "").includes("Aspect Ratio"),
+    );
+    expect(row.textContent).toContain("Fit (Original 16:9)");
+  });
+
+  it("picking an option selects it and closes the sheet", async () => {
+    const dialog = openAspectPanel();
+    const cinema = [...dialog.querySelectorAll(".np-dialog-row")].find((r) =>
+      (r.textContent || "").includes("Cinema 2.39:1"),
+    );
+    fireEvent.click(cinema);
+    // The sheet animates out, so it is still mounted for a moment — wait for
+    // the exit rather than asserting a synchronous unmount that never happens.
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    // …and the choice is now the reported current mode, not the "Fit" default.
+    fireEvent.click(screen.getByRole("button", { name: /settings/i }));
+    const row = [...document.querySelectorAll(".np-dialog-row")].find((r) =>
+      (r.textContent || "").includes("Aspect Ratio"),
+    );
+    expect(row.textContent).toContain("Cinema 2.39:1");
+  });
+});
+
 describe("player Servers menu", () => {
-  it("lists every server with honest capability tags, VidCore first", () => {
+  it("lists every server as a generic 'Server N' row with a capability line", () => {
     // jsdom has no MediaSource → the mount takes the fatal path, but the
     // chrome (and therefore the sheet) still renders — enough to verify the
     // menu wiring and its copy.
@@ -291,23 +345,42 @@ describe("player Servers menu", () => {
     fireEvent.click(screen.getByRole("button", { name: "Servers" }));
     const dialog = screen.getByRole("dialog", { name: "Servers" });
     expect(dialog).toBeInTheDocument();
-    // Row order = auto-rotation priority; tags describe what the viewer gets
-    // (a 4K ceiling, dubs) — not marketing or internal resolver keys.
+    // Row order = auto-rotation priority. The visible name is deliberately the
+    // generic "Server N" (a viewer picks on capability, not on brand), and the
+    // grey sub-line states the capability: a 4K ceiling, multi-audio, etc.
     const rows = [...dialog.querySelectorAll(".np-dialog-row")];
-    // Seven servers, VidCore first (the default), each tag honest. The four
-    // ZXC/VIDSTUCK rows each name their own server so one can be targeted
-    // directly instead of racing auto-rotation.
     expect(rows.length).toBe(7);
-    expect(rows[0].textContent).toContain("VidCore");
-    expect(rows[0].textContent).toContain("4K");
-    expect(rows[1].textContent).toContain("VidSrc");
-    expect(rows[2].textContent).toContain("NHD");
-    expect(rows[2].textContent).toContain("Multi audio");
-    expect(rows[3].textContent).toContain("ZXC Centaurus");
-    expect(rows[3].textContent).toContain("Multi audio");
-    expect(rows[4].textContent).toContain("ZXC Andromeda");
-    expect(rows[5].textContent).toContain("ZXC Atlas");
-    expect(rows[6].textContent).toContain("ZXC Milky Way");
+    const expected = [
+      ["Server 1", "4K"],
+      ["Server 2", "Original audio"],
+      ["Server 3", "Multi audio"],
+      ["Server 4", "Multi audio"],
+      ["Server 5", "Original audio"],
+      ["Server 6", "Original audio"],
+      ["Server 7", "Original audio"],
+    ];
+    expected.forEach(([label, cap], i) => {
+      expect(rows[i].textContent).toContain(label);
+      expect(rows[i].textContent).toContain(cap);
+    });
+  });
+
+  it("never leaks a provider's own name into the menu", () => {
+    // The whole point of the rename: the sheet describes what you GET, not
+    // which host serves it. Provider names stay in debug logs only.
+    mount();
+    fireEvent.click(screen.getByRole("button", { name: "Servers" }));
+    const dialog = screen.getByRole("dialog", { name: "Servers" });
+    for (const leak of ["VidCore", "VidSrc", "NHD", "ZXC", "Centaurus", "Andromeda", "Atlas", "Milky"]) {
+      expect(dialog.textContent).not.toContain(leak);
+    }
+  });
+
+  it("does not call the audio capability 'dubs' in the menu copy", () => {
+    mount();
+    fireEvent.click(screen.getByRole("button", { name: "Servers" }));
+    const dialog = screen.getByRole("dialog", { name: "Servers" });
+    expect(dialog.textContent).not.toContain("dubs");
   });
 
   it("exposes the switcher as a transport icon with dialog semantics", () => {
