@@ -122,21 +122,35 @@ export class SubtitleFetcher {
         throw err;
       }
 
-      /* Only gunzip when the response still says it is gzipped: the relay
-         transparently decompresses the body and drops content-encoding, so
-         piping that through DecompressionStream would throw on plain SRT. */
+      /* Read raw bytes first, then decide. dl.opensubtitles.org serves the
+         .gz as a plain download WITHOUT content-encoding (and the relay
+         passes headers through), so a header-only gunzip decision reads gzip
+         bytes as text and finds zero cues. Sniff the gzip magic (1F 8B) on
+         the bytes themselves — string-level sniffing is unreliable because
+         text-decoding binary is lossy (0x8B already becomes U+FFFD). */
+      const buf = await subRes.arrayBuffer();
+      const bytes = new Uint8Array(buf);
       const encoding = (subRes.headers.get("content-encoding") || "").toLowerCase();
-      let text;
-      if (encoding.includes("gzip") && typeof DecompressionStream !== "undefined") {
-        const ds = new DecompressionStream("gzip");
-        const decompressedStream = subRes.body.pipeThrough(ds);
-        text = await new Response(decompressedStream).text();
-      } else {
-        if (encoding.includes("gzip")) {
-          logWarn("subtitles", "DecompressionStream not supported in this browser — reading gzipped subtitle as plain text.", {});
+      const looksGzipped =
+        encoding.includes("gzip") || (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b);
+      const decodeRaw = () => new TextDecoder().decode(buf);
+      let text = null;
+      if (looksGzipped && typeof DecompressionStream !== "undefined") {
+        try {
+          const ds = new DecompressionStream("gzip");
+          const decompressedStream = new Response(buf).body.pipeThrough(ds);
+          const candidate = await new Response(decompressedStream).text();
+          // A stale gzip header on an already-plain body throws above (raw
+          // fallback below); a "successful" gunzip of the wrong bytes yields
+          // garbage, so only accept subtitle-shaped output.
+          if (SubtitleFetcher.isSubtitleText(candidate)) text = candidate;
+        } catch {
+          // Not actually gzipped despite the header/magic hint — raw decode below.
         }
-        text = await subRes.text();
+      } else if (looksGzipped) {
+        logWarn("subtitles", "DecompressionStream not supported in this browser — reading gzipped subtitle as plain text.", {});
       }
+      if (text === null) text = decodeRaw();
       /* Refuse bodies that are not subtitle text at all: an HTML error page
          (relay 401/403 echo, upstream block) or undecodable gzip bytes would
          otherwise parse to zero cues — a track that "enables" and then never

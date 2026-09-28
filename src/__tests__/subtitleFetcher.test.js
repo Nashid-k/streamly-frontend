@@ -112,7 +112,7 @@ describe("SubtitleFetcher.downloadAndDecompress", () => {
         ok: true,
         status: 200,
         headers: { get: () => null },
-        text: async () => srtBody(),
+        arrayBuffer: async () => new TextEncoder().encode(srtBody()).buffer,
       };
     });
 
@@ -124,7 +124,9 @@ describe("SubtitleFetcher.downloadAndDecompress", () => {
 
   it("gunzips a direct body that still carries content-encoding: gzip", async () => {
     vi.stubEnv("VITE_STREAMLY_RELAY_URL", RELAY);
-    const gzipped = new Response(new Response(srtBody()).body.pipeThrough(new CompressionStream("gzip")));
+    const gzipped = await new Response(
+      new Response(srtBody()).body.pipeThrough(new CompressionStream("gzip")),
+    ).arrayBuffer();
     const calls = [];
     stubFetch(async (url) => {
       const to = String(url);
@@ -137,8 +139,7 @@ describe("SubtitleFetcher.downloadAndDecompress", () => {
         ok: true,
         status: 200,
         headers: { get: (name) => (name === "content-encoding" ? "gzip" : null) },
-        body: gzipped.body,
-        text: async () => srtBody(),
+        arrayBuffer: async () => gzipped.slice(0),
       };
     });
 
@@ -146,6 +147,37 @@ describe("SubtitleFetcher.downloadAndDecompress", () => {
 
     expect(calls).toEqual([`${RELAY}?url=${encodeURIComponent(DOWNLOAD)}`, DOWNLOAD]);
     expect(text).toBe(srtBody());
+  });
+
+  it("decompresses gzip bytes served WITHOUT content-encoding (the dl.opensubtitles.org shape)", async () => {
+    // Live proof from the console: the .gz arrives 200 with no
+    // content-encoding (the relay passes headers through), so a header-only
+    // gunzip decision reads gzip bytes as text and finds zero cues.
+    vi.stubEnv("VITE_STREAMLY_RELAY_URL", RELAY);
+    const gzipped = await new Response(
+      new Response(srtBody()).body.pipeThrough(new CompressionStream("gzip")),
+    ).arrayBuffer();
+    stubFetch(async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      arrayBuffer: async () => gzipped.slice(0),
+    }));
+
+    await expect(SubtitleFetcher.downloadAndDecompress(DOWNLOAD)).resolves.toBe(srtBody());
+  });
+
+  it("falls back to a raw decode when the gzip header lies on an already-plain body", async () => {
+    vi.stubEnv("VITE_STREAMLY_RELAY_URL", RELAY);
+    stubFetch(async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: (name) => (name === "content-encoding" ? "gzip" : null) },
+      arrayBuffer: async () => new TextEncoder().encode(srtBody()).buffer,
+    }));
+
+    // Gunzipping plain text throws; the raw fallback still yields captions.
+    await expect(SubtitleFetcher.downloadAndDecompress(DOWNLOAD)).resolves.toBe(srtBody());
   });
 
   it("returns null when the download is refused (e.g. relay without the UA injection)", async () => {
@@ -166,7 +198,8 @@ describe("SubtitleFetcher.downloadAndDecompress", () => {
       ok: true,
       status: 200,
       headers: { get: () => "text/html" },
-      text: async () => "<html><body>Attention Required! | Cloudflare</body></html>",
+      arrayBuffer: async () =>
+        new TextEncoder().encode("<html><body>Attention Required! | Cloudflare</body></html>").buffer,
     }));
 
     // A track that "enables" with zero cues never renders — null keeps it Off
