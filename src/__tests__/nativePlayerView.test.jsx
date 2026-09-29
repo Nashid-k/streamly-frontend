@@ -64,11 +64,9 @@ describe("NativePlayerView loading stage", () => {
     const backdrop = stage.querySelector(".np-loading-art");
     expect(backdrop).toBeTruthy();
     expect(backdrop.getAttribute("src")).toBe("https://image.test/backdrop.jpg");
-    // The horizontal loader line sits under the title, animating a red segment.
-    const line = stage.querySelector(".np-loading-line");
-    expect(line).toBeTruthy();
-    const sweep = line.querySelector("span");
-    expect(sweep.style.animation).toContain("npLoadingLine");
+    // The Tailspin conic ring sits under the art (ZXC composition).
+    const ring = stage.querySelector(".np-tailspin > span");
+    expect(ring).toBeTruthy();
   });
 
   it("keeps the title-only layout honest when no art is available", () => {
@@ -84,7 +82,7 @@ describe("NativePlayerView loading stage", () => {
       (d) => d.textContent === "Fight Club" && d.style.fontSize.includes("clamp"),
     );
     expect(fallback).toBeTruthy();
-    // The line still loads — a black stage never looks frozen.
-    expect(stage.querySelector(".np-loading-line")).toBeTruthy();
+    // The Tailspin ring still loads — a black stage never looks frozen.
+    expect(stage.querySelector(".np-tailspin > span")).toBeTruthy();
   });
 });

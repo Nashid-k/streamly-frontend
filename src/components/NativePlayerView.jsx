@@ -417,32 +417,12 @@ function LoadingStage({ title, backdropUrl, posterUrl, message }) {
               {title}
             </div>
           ) : null}
-          {/* Horizontal loader line under the title: a hairline track with a
-              red segment sweeping across it. Purely decorative, so the
-              reduced-motion block in player.css freezes it like the ring. */}
-          <span
-            className="np-loading-line"
-            aria-hidden="true"
-            style={{
-              width: "min(56vw, 340px)",
-              height: 3,
-              borderRadius: 2,
-              background: "rgba(255,255,255,0.16)",
-              overflow: "hidden",
-              display: "block",
-            }}
-          >
-            <span
-              style={{
-                display: "block",
-                width: "32%",
-                height: "100%",
-                borderRadius: 2,
-                background: NETFLIX_RED,
-                animation: "npLoadingLine 1.3s ease-in-out infinite",
-              }}
-            />
-          </span>
+          {/* The Tailspin ring sits under the art (their composition: centred
+              column, logo, ring below). Purely decorative — the reduced-motion
+              block stops and dims it. */}
+          <div style={{ marginTop: 10, display: "flex", justifyContent: "center" }}>
+            <RingSpinner size={44} />
+          </div>
         </div>
       ) : null}
       {message ? (
@@ -466,20 +446,17 @@ function LoadingStage({ title, backdropUrl, posterUrl, message }) {
    reduced-motion block in player.css stops it entirely for viewers who asked for
    that — an endlessly spinning ring is the textbook case of motion that causes
    discomfort, and it is exactly what that media query exists for. */
+/* Tailspin: the conic-gradient ring player.zxcprime.xyz uses (scraped from
+   their shipped CSS module). The comet-tail sweep reads lighter than a
+   border-arc spinner at the same size; rendered white over video. */
 function RingSpinner({ size = 34 }) {
   return (
-    <span className="np-ring-spinner" aria-hidden="true" style={{ width: size, height: size }}>
-      <span
-        style={{
-          display: "block",
-          width: "100%",
-          height: "100%",
-          borderRadius: "50%",
-          border: "2.5px solid rgba(255,255,255,0.18)",
-          borderTopColor: "#fff",
-          animation: "npRingSpin 720ms linear infinite",
-        }}
-      />
+    <span
+      className="np-tailspin np-ring-spinner"
+      aria-hidden="true"
+      style={{ "--uib-size": `${size}px`, "--uib-color": "#fff", "--uib-speed": "0.9s", "--uib-stroke": "4px" }}
+    >
+      <span />
     </span>
   );
 }
@@ -3550,6 +3527,7 @@ export default function NativePlayerView({
       <div
         ref={screenRef}
         onMouseMove={poke}
+        className="np-root"
         style={{
           position: "relative",
           width: "100%",
@@ -5157,6 +5135,7 @@ export default function NativePlayerView({
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={M.SPRING.SHEET}
+          className="np-fatal"
           style={{
             position: "absolute",
             bottom: 80,
@@ -5166,9 +5145,9 @@ export default function NativePlayerView({
             alignItems: "center",
             gap: 12,
             padding: "12px 16px",
-            borderRadius: 6,
-            background: "rgba(20,20,20,0.94)",
-            border: "1px solid rgba(229,9,20,0.35)",
+            borderRadius: 12,
+            background: "rgba(24,24,27,0.94)",
+            border: "1px solid rgba(255,255,255,0.16)",
             fontSize: 14,
             zIndex: 7,
             color: "#fff",

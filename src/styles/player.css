@@ -782,3 +782,179 @@
   }
 }
 
+/* ═══ ZXC-inspired design tokens (scraped from player.zxcprime.xyz) ═══════
+   Their theme, extracted from the shipped Tailwind bundle: zinc scale for
+   chrome (NOT pure black/white), 0.45rem control radius, fast 150-300ms
+   ease-out motion, one amber accent. Applied to the player chrome only —
+   feature behaviour is untouched. */
+.np-root {
+  --zxc-bg: #09090b;
+  --zxc-surface: #18181b;
+  --zxc-surface-2: #27272a;
+  --zxc-line: rgba(255, 255, 255, 0.1);
+  --zxc-line-strong: rgba(255, 255, 255, 0.16);
+  --zxc-text: #fafafa;
+  --zxc-text-dim: #a1a1aa;
+  --zxc-text-faint: #71717b;
+  --zxc-accent: #ffd236;
+  --zxc-danger: #ff6568;
+  --zxc-radius: 0.45rem;
+  --zxc-radius-lg: 0.75rem;
+  --zxc-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --zxc-t-fast: 150ms;
+  --zxc-t-med: 300ms;
+  --zxc-t-slow: 500ms;
+}
+
+/* ── Tailspin loader (their exact construction) ────────────────────────────
+   A masked conic-gradient ring: the conic sweep reads as a comet tail, and the
+   radial mask punches the donut hole. Their defaults: 40px, 0.9s, stroke 5.
+   Ours renders white-on-video at the player's 56px footprint. */
+.np-tailspin {
+  width: var(--uib-size, 56px);
+  height: var(--uib-size, 56px);
+  flex-shrink: 0;
+  justify-content: center;
+  align-items: center;
+  display: inline-flex;
+}
+.np-tailspin > span {
+  --mask-size: calc(var(--uib-size, 56px) / 2 - var(--uib-stroke, 5px));
+  height: var(--uib-size, 56px);
+  width: var(--uib-size, 56px);
+  -webkit-mask: radial-gradient(circle var(--mask-size), transparent 99%, #000 100%);
+  mask: radial-gradient(circle var(--mask-size), transparent 99%, #000 100%);
+  background-image: conic-gradient(transparent 25%, var(--uib-color, #fff));
+  animation: npTailspin calc(var(--uib-speed, 0.9s)) linear infinite;
+  border-radius: 50%;
+  justify-content: flex-start;
+  align-items: center;
+  display: flex;
+  position: relative;
+}
+@keyframes npTailspin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ── Glass surfaces: their dark zinc chrome ─────────────────────────────── */
+.np-glass {
+  background: color-mix(in srgb, var(--zxc-surface) 88%, transparent);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  border: 1px solid var(--zxc-line);
+}
+
+/* Menu / panel rows: their zinc hover + selected state */
+.np-dialog-row {
+  border-radius: var(--zxc-radius);
+  transition: background var(--zxc-t-fast) var(--zxc-ease),
+    color var(--zxc-t-fast) var(--zxc-ease),
+    padding-left var(--zxc-t-med) var(--zxc-ease);
+}
+.np-dialog-row:hover:not(:disabled) {
+  background: var(--zxc-surface-2) !important;
+  padding-left: 6px;
+}
+.np-dialog-row[aria-pressed="true"] {
+  background: var(--zxc-surface-2);
+}
+.np-dialog-row:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+/* Panel surface: zinc glass sheet, hairline left border */
+.np-panel-surface {
+  background: color-mix(in srgb, var(--zxc-bg) 92%, transparent);
+  backdrop-filter: blur(22px) saturate(1.3);
+  -webkit-backdrop-filter: blur(22px) saturate(1.3);
+  border-left: 1px solid var(--zxc-line) !important;
+  box-shadow: -24px 0 64px rgba(0, 0, 0, 0.6);
+}
+@media (hover: none), (max-width: 768px) {
+  .np-panel-surface {
+    border-left: none !important;
+    border-top: 1px solid var(--zxc-line) !important;
+    box-shadow: 0 -24px 64px rgba(0, 0, 0, 0.6);
+  }
+}
+
+/* Fatal banner: zinc glass, amber emphasis instead of red border */
+.np-fatal {
+  background: color-mix(in srgb, var(--zxc-surface) 94%, transparent) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--zxc-line-strong) !important;
+  border-radius: var(--zxc-radius-lg) !important;
+}
+
+/* Skip pills: their rounded-lg chrome-on-glass */
+.np-skip-intro,
+.np-skip-credits {
+  border-radius: var(--zxc-radius-lg) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition: background var(--zxc-t-fast) var(--zxc-ease),
+    border-color var(--zxc-t-fast) var(--zxc-ease),
+    transform var(--zxc-t-med) var(--zxc-ease),
+    box-shadow var(--zxc-t-med) var(--zxc-ease) !important;
+}
+.np-skip-intro:hover,
+.np-skip-credits:hover {
+  background: rgba(39, 39, 42, 0.92) !important;
+  border-color: var(--zxc-line-strong) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+}
+
+/* Loading stage: centered column, logo + tailspin ring; the hairline sweep
+   line is retired in favour of their ring-under-art composition. */
+.np-loading-line {
+  display: none !important;
+}
+
+/* Up Next card: glass */
+.np-upnext-card {
+  backdrop-filter: blur(18px) saturate(1.35);
+  -webkit-backdrop-filter: blur(18px) saturate(1.35);
+  border: 1px solid var(--zxc-line) !important;
+  border-radius: var(--zxc-radius-lg) !important;
+}
+
+/* Reduced motion: the Tailspin ring stops (frozen ring reads as "paused load"
+   no better than a spinner mid-spin, so we also fade it to 40% to signal
+   stillness); every other added rule is covered by the audit block below. */
+@media (prefers-reduced-motion: reduce) {
+  .np-tailspin > span {
+    animation: none !important;
+    -webkit-animation: none !important;
+    opacity: 0.4;
+  }
+  .np-dialog-row,
+  .np-skip-intro,
+  .np-skip-credits,
+  .np-upnext-card {
+    transition: none !important;
+    -webkit-transition: none !important;
+  }
+  .np-dialog-row:hover:not(:disabled),
+  .np-skip-intro:hover,
+  .np-skip-credits:hover {
+    transform: none !important;
+    padding-left: 0 !important;
+  }
+}
+
+/* Episode cards + Up Next: zinc glass hover lift (their card language) */
+.np-episode-card {
+  border-radius: var(--zxc-radius-lg) !important;
+}
+/* Selected menu row: their check keeps the brand red, the row gains the
+   zinc surface so the active choice reads at a glance. */
+.np-dialog-row[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 1px var(--zxc-line-strong);
+}
+/* Volume slider: zinc track, brand thumb */
+.np-volume-slider::-webkit-slider-runnable-track {
+  background: var(--zxc-line-strong);
+}
