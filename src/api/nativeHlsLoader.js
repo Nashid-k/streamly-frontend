@@ -340,6 +340,9 @@ async function postDownloadify(body, { signal } = {}) {
   }
   // Only fragment pulls send a Range slice; playlists are small full-text GETs.
   const isSegment = body.action === "segment";
+  // The last refused PLAYLIST leg is preserved (status + body) so the caller can
+  // surface the relay's real error envelope after every candidate fails.
+  let lastPlaylist = null;
   const start = Math.max(0, Math.floor(Number(body.range?.start) || 0));
   // The proxy can carry the owning player's referer (?referer= upstream), which
   // is what lets it serve referer-gated CDNs whole-fragment instead of taxing
@@ -395,8 +398,14 @@ async function postDownloadify(body, { signal } = {}) {
       // to reach the caller as a "playlist" — the player then reported "not a
       // playlist" and failed every source while downloads kept working. Playlists
       // are small text, so buffer it and accept only a real #EXTM3U.
+      // A non-ok reply is equally not the answer: the worker passes upstream
+      // failures through (a quota-dead vidzen bypass chain answers 429 "error
+      // code: 1027" with no CORS headers — the browser turns the whole thing
+      // into an opaque CORS error). Cascading to the Vercel function is what
+      // keeps the source alive while ONE leg is down; only the LAST candidate's
+      // refusal surfaces, so the real status still reaches the player.
       const text = await res.text();
-      if (text.includes("#EXTM3U") || index === candidates.length - 1) {
+      if (text.includes("#EXTM3U")) {
         const status = res.status >= 200 && res.status <= 599 ? res.status : 502;
         return new Response(text, {
           status,
@@ -405,11 +414,30 @@ async function postDownloadify(body, { signal } = {}) {
           },
         });
       }
+      lastPlaylist = {
+        status: res.status,
+        text,
+        contentType: res.headers?.get?.("content-type"),
+      };
       lastError = res;
     } catch (error) {
       lastError = error;
       if (index === candidates.length - 1) throw error;
     }
+  }
+  // Every playlist leg refused: hand back the LAST reply as a Response so
+  // throwIfRelayError can parse the relay's {ok:false, code, error} envelope —
+  // the player then tells an expired token (re-resolve + resume) from a dead
+  // relay instead of dying on a bare status.
+  if (lastPlaylist) {
+    const status =
+      lastPlaylist.status >= 200 && lastPlaylist.status <= 599 ? lastPlaylist.status : 502;
+    return new Response(lastPlaylist.text || "", {
+      status,
+      headers: {
+        "content-type": lastPlaylist.contentType || "application/json",
+      },
+    });
   }
   throw lastError ?? new Error("relay unavailable");
 }

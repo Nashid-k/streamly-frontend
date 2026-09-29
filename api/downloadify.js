@@ -1330,6 +1330,14 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  // The relay contract reads x-streamly-more ("does a slice continue past what
+  // we just got?") and content-range (slice derivation when the header is
+  // absent). Default CORS exposes neither, so every JS read was null — that
+  // mattered for any cross-origin caller slicing over simple requests.
+  res.setHeader(
+    "Access-Control-Expose-Headers",
+    "x-streamly-more, content-range, content-length",
+  );
 
   if (req.method === "OPTIONS") {
     res.status(204).end();

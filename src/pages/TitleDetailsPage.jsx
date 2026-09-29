@@ -2220,7 +2220,7 @@ export default function TitleDetails() {
                         party={party}
                         imdbId={movie?.imdbId || ""}
                         backdropUrl={movie?.backdropUrl || ""}
-                        posterUrl={movie?.posterUrl || movie?.backdropUrl || ""}
+                        posterUrl={movie?.logoUrl || movie?.posterUrl || movie?.backdropUrl || ""}
                         watchedEntry={watchEntry}
                         onProgressChange={(t) => {
                           if (t > 10) {

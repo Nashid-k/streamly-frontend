@@ -23,7 +23,6 @@ import {
   Gauge,
   ListVideo,
   SlidersHorizontal,
-  Loader2,
   Maximize,
   Minimize,
   Pause,
@@ -370,57 +369,89 @@ function LoadingStage({ title, subtitle, backdropUrl, posterUrl, message }) {
           someone slapped a label on. Contained rather than cover: cropping the
           poster's top and bottom during a load makes an unrecognisable
           fragment, which defeats the entire point of showing it. */}
-      {posterUrl ? (
-        <img
-          src={posterUrl}
-          alt=""
-          aria-hidden="true"
-          className="np-loading-poster"
-          style={{
-            position: "relative",
-            zIndex: 1,
-            width: "auto",
-            height: "auto",
-            maxWidth: "min(64vw, 460px)",
-            maxHeight: "min(56vh, 470px)",
-            objectFit: "contain",
-            borderRadius: 10,
-            boxShadow: "0 18px 64px rgba(0,0,0,0.78)",
-          }}
-        />
-      ) : null}
       {title ? (
         <div
           style={{
             position: "relative",
-            fontSize: "clamp(18px, 3.2vw, 30px)",
-            fontWeight: 700,
-            color: "#fff",
-            letterSpacing: "-0.02em",
-            textAlign: "center",
-            padding: "0 24px",
-            textShadow: "0 2px 18px rgba(0,0,0,0.7)",
+            zIndex: 1,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 14,
+            maxWidth: "min(88vw, 620px)",
           }}
         >
-          {title}
-          {subtitle ? (
-            <div
+          {/* The title ART is the centrepiece: the logo-style still TMDB
+              serves, contained so nothing crops it. */}
+          {posterUrl ? (
+            <img
+              src={posterUrl}
+              alt=""
+              aria-hidden="true"
+              className="np-loading-poster"
               style={{
-                marginTop: 6,
-                fontSize: 13,
-                fontWeight: 500,
-                color: "rgba(255,255,255,0.65)",
-                letterSpacing: "0.01em",
+                width: "auto",
+                height: "auto",
+                maxWidth: "min(72vw, 520px)",
+                maxHeight: "min(30vh, 220px)",
+                objectFit: "contain",
               }}
-            >
-              {subtitle}
-            </div>
+            />
           ) : null}
+          <div
+            style={{
+              fontSize: "clamp(18px, 3.2vw, 30px)",
+              fontWeight: 700,
+              color: "#fff",
+              letterSpacing: "-0.02em",
+              textAlign: "center",
+              padding: "0 24px",
+              textShadow: "0 2px 18px rgba(0,0,0,0.7)",
+            }}
+          >
+            {title}
+            {subtitle ? (
+              <div
+                style={{
+                  marginTop: 6,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: "rgba(255,255,255,0.65)",
+                  letterSpacing: "0.01em",
+                }}
+              >
+                {subtitle}
+              </div>
+            ) : null}
+          </div>
+          {/* Horizontal loader line under the title: a hairline track with a
+              red segment sweeping across it. Purely decorative, so the
+              reduced-motion block in player.css freezes it like the ring. */}
+          <span
+            className="np-loading-line"
+            aria-hidden="true"
+            style={{
+              width: "min(56vw, 340px)",
+              height: 3,
+              borderRadius: 2,
+              background: "rgba(255,255,255,0.16)",
+              overflow: "hidden",
+              display: "block",
+            }}
+          >
+            <span
+              style={{
+                display: "block",
+                width: "32%",
+                height: "100%",
+                borderRadius: 2,
+                background: NETFLIX_RED,
+                animation: "npLoadingLine 1.3s ease-in-out infinite",
+              }}
+            />
+          </span>
         </div>
       ) : null}
-      <div style={{ position: "relative" }}>
-        <RingSpinner />
-      </div>
       {message ? (
         <div
           style={{
@@ -735,9 +766,9 @@ export default function NativePlayerView({
      back to black, which is the old behaviour and still correct — a missing
      backdrop must never be the reason a load looks broken. */
   backdropUrl = "",
-  /* The poster/title art shown centred inside the loading stage, distinct from
-     backdropUrl, which is only the blurred ambience behind it. Optional for the
-     same reason as above. */
+  /* The title IMAGE centred inside the loading stage (the TMDB logo when the
+     page has one), distinct from backdropUrl, which is the blurred full-screen
+     ambience behind it. Optional for the same reason as above. */
   posterUrl = "",
   episodes = [],
   onSelectEpisode,
@@ -2696,6 +2727,15 @@ export default function NativePlayerView({
           // source/quality, resume position) or moves on â€” never a dead "playing" screen.
           const parked = await Promise.race([fatalLater.then(() => "fatal"), abortPromise()]);
           if (parked === "done") return true;
+          // The stream died mid-play (expired token, dead CDN, quota'd relay):
+          // the frozen frame belongs to a source that is no longer delivering,
+          // so bring the art stage back over it for the reconnect/rotation wait.
+          // Cold-open state, exactly like a server switch — hasStartedRef must
+          // be dropped too, or the spinner effect would classify the next stall
+          // as a "warm" one and hide the stage this open just armed.
+          hasStartedRef.current = false;
+          setStageWhileLoading(true);
+          setSwitchingNote("Reconnecting…");
           // A pinned dub whose token died mid-play cannot refresh in place â€” its
           // sibling URL is fixed â€” so drop back to the original track and let the
           // token-refresh re-resolve below mint a fresh ladder for it.
@@ -3739,7 +3779,7 @@ export default function NativePlayerView({
                 transition={M.SPRING.SHEET}
                 style={{ display: "flex", lineHeight: 0 }}
               >
-                <Loader2 size={56} className="animate-spin" color={NETFLIX_RED} />
+              <RingSpinner size={56} />
               </motion.span>
               <div
                 style={{

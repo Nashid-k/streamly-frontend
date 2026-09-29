@@ -749,12 +749,27 @@
      its blur (that is legibility, not movement) but loses the slow scale. */
   .np-ring-spinner,
   .np-ring-spinner > span,
-  .np-loading-art {
+  .np-loading-art,
+  .np-loading-line > span {
     animation: none !important;
     -webkit-animation: none !important;
   }
   .np-loading-art {
     transform: none !important;
+  }
+  /* The sweeping segment parks mid-track instead of animating: a frozen full
+     bar would read as progress, a parked partial bar reads as "loading". */
+  .np-loading-line > span {
+    width: 32%;
+  }
+}
+
+@keyframes npLoadingLine {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(420%);
   }
 }
 

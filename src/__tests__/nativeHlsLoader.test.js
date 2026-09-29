@@ -531,6 +531,80 @@ describe("createStreamlyLoader", () => {
     expect(response.data).toContain("#EXTM3U");
   });
 
+  it("cascades a refused playlist (worker 429 passthrough) to the Vercel function", async () => {
+    vi.stubEnv("VITE_STREAMLY_RELAY_URL", "https://streamly-proxy.nashidk1999.workers.dev");
+    const MANIFEST = "https://vidzen.fun/api/stream/v1_abc";
+    const calls = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        const to = String(url);
+        calls.push(to);
+        if (to.includes("workers.dev")) {
+          // The real pasted failure: vidzen's quota-dead bypass chain answers
+          // 429 (Cloudflare error 1027) THROUGH our healthy worker — the browser
+          // reported it as an opaque CORS error (no ACAO on the refusal).
+          return {
+            ok: false,
+            status: 429,
+            headers: { get: () => "text/html" },
+            text: async () => "error code: 1027",
+            body: { cancel: async () => {} },
+          };
+        }
+        const body = JSON.parse(init.body);
+        expect(body.playlistUrl).toBe(MANIFEST);
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: () => "application/vnd.apple.mpegurl" },
+          text: async () => MEDIA_PLAYLIST,
+        };
+      }),
+    );
+    const Loader = createStreamlyLoader({ getRefUrl: () => "https://vidcore.io/" });
+    const response = await new Promise((resolve, reject) => {
+      new Loader().load({ url: MANIFEST }, {}, {
+        onSuccess: (resp) => resolve(resp),
+        onError: (err) => reject(new Error(err.text)),
+      });
+    });
+    // The refusal must NOT kill the source: the Vercel leg answered instead.
+    expect(calls.filter((to) => to.includes("downloadify")).length).toBe(1);
+    expect(response.data).toContain("#EXTM3U");
+  });
+
+  it("surfaces the last refusal when every playlist leg fails", async () => {
+    vi.stubEnv("VITE_STREAMLY_RELAY_URL", "https://streamly-proxy.nashidk1999.workers.dev");
+    const MANIFEST = "https://vidzen.fun/api/stream/v1_dead";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url) => {
+        const to = String(url);
+        if (to.includes("workers.dev")) {
+          return { ok: false, status: 429, headers: { get: () => "text/html" }, text: async () => "error code: 1027", body: { cancel: async () => {} } };
+        }
+        return {
+          ok: false,
+          status: 502,
+          headers: { get: (name) => (name === "content-type" ? "application/json" : null) },
+          text: async () => JSON.stringify({ ok: false, error: "Segment fetch failed: upstream gone", code: "segment-fetch-failed" }),
+        };
+      }),
+    );
+    const Loader = createStreamlyLoader({ getRefUrl: () => "https://vidcore.io/" });
+    const errorText = await new Promise((resolve, reject) => {
+      new Loader().load({ url: MANIFEST }, {}, {
+        onSuccess: (resp) => reject(new Error(`should not succeed: ${resp.data}`)),
+        onError: (err) => resolve(err.text),
+      });
+    });
+    // The relay's real envelope survives (code relayed in the text) instead of
+    // the load dying as a generic "not a playlist".
+    expect(errorText).toContain("[relay:segment-fetch-failed]");
+    expect(errorText).toContain("upstream gone");
+  });
+
   it("never pokes a referer-gated host direct — fragment goes straight to the relay with the referer", async () => {
     const GATED = "https://palehive.top/vd/x/seg-1-s1080p-v1-a1.m4s";
     const directCalls = [];
