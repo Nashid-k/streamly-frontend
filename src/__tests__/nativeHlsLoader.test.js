@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   clearDirectBlocks,
+  clearPlaylistMemo,
   clearProbeCache,
   createStreamlyLoader,
   isRefererGated,
@@ -16,6 +17,7 @@ afterEach(() => {
   vi.useRealTimers();
   clearProbeCache();
   clearDirectBlocks();
+  clearPlaylistMemo();
 });
 
 function rangeOkResponse() {

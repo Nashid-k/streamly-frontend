@@ -442,6 +442,58 @@
   margin-top: 0.25rem;
 }
 
+/* Public / Private segmented control in the create form. Neutral fill when
+   selected; Public additionally takes the accent tint because that is the
+   state that publishes the list to the anonymous Explore page. */
+.collection-dialog__visibility {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.collection-dialog__vis {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+
+.collection-dialog__vis:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.collection-dialog__vis[aria-checked="true"] {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
+.collection-dialog__vis[aria-checked="true"][data-visibility="public"] {
+  background: rgba(var(--accent-primary-rgb, 149, 255, 80), 0.12);
+  border-color: rgba(var(--accent-primary-rgb, 149, 255, 80), 0.35);
+}
+
+.collection-dialog__vis-hint {
+  margin: -0.35rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.55);
+}
+
 .collection-add__list {
   display: flex;
   flex-direction: column;

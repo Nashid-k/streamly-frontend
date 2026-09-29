@@ -383,6 +383,10 @@ export const en = {
     visibilityHintPrivate: "Only you can see this collection",
     copyPublicLink: "Copy public link",
     publicLinkCopied: "Public link copied",
+    /* Clipboard writes are routinely blocked (insecure http:// context,
+       permission denied, headless browsers). Saying nothing there made a dead
+       copy button look like the link had been shared. */
+    publicLinkCopyFailed: "Couldn't copy the link",
     /* Honest publishing feedback: guests never reach the cloud, so "public"
        cannot mean "anyone" for them. The old silent lie made this bug look
        like the sync pipeline was broken. */

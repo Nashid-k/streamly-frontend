@@ -19,6 +19,7 @@
 
 import { logDebug, logWarn } from "../utils/debugLogger.js";
 import { parseMasterPlaylist, parseMediaPlaylist } from "../utils/downloadQuality.js";
+import { getCueBoundaries } from "../utils/hlsCueTags.js";
 import { deriveSliceMore, relayProxyConfig } from "./relayProxy.js";
 
 const ENDPOINT = "/api/downloadify";
@@ -179,6 +180,56 @@ export function clearProbeCache() {
   probeCache.clear();
 }
 
+/* Playlist text memo. The playability probe fetches the entry playlist (and, for a
+   master, its first media playlist) through the relay, validates it, then THROWS THE
+   TEXT AWAY. hls.js then calls loadSource on the same URL and the loader re-fetches
+   that exact playlist — a second serverless round trip for bytes we already hold. On
+   Vercel Hobby that is a cold start per duplicate, and the function concurrency cap
+   serialises them, so a relay-only title start paid up to three wasted fetches
+   (entry playlist, media playlist, then the real load).
+
+   Memoising the validated text removes the duplicate entirely: the probe warms it and
+   the loader consumes it. Keyed by URL AND refUrl because a referer-gated host serves
+   different manifests per referer, and TTL-capped so a seek, reload or token rotation
+   can never be served a stale segment list. */
+const PLAYLIST_MEMO_TTL_MS = 30_000;
+const PLAYLIST_MEMO_MAX = 12;
+const playlistMemo = new Map();
+
+function playlistMemoKey(url, refUrl) {
+  return `${refUrl || ""}|${url}`;
+}
+
+function memoPlaylist(url, refUrl, text) {
+  if (!text || !text.includes("#EXTM3U")) return;
+  // VOD ONLY. A live playlist keeps one URL and mutates in place, so serving a
+  // memoized copy would freeze its segment window and stall live edge updates.
+  // A VOD manifest is immutable for the lifetime of the token that named it, which
+  // is exactly the case the probe/load duplicate wastes a round trip on.
+  if (!text.includes("#EXT-X-ENDLIST")) return;
+  // Re-insert so the Map's insertion order doubles as LRU order.
+  playlistMemo.delete(playlistMemoKey(url, refUrl));
+  playlistMemo.set(playlistMemoKey(url, refUrl), { text, at: Date.now() });
+  while (playlistMemo.size > PLAYLIST_MEMO_MAX) {
+    const oldest = playlistMemo.keys().next().value;
+    if (oldest === undefined) break;
+    playlistMemo.delete(oldest);
+  }
+}
+
+function takeMemoPlaylist(url, refUrl) {
+  const key = playlistMemoKey(url, refUrl);
+  const hit = playlistMemo.get(key);
+  if (!hit) return null;
+  playlistMemo.delete(key);
+  if (Date.now() - hit.at > PLAYLIST_MEMO_TTL_MS) return null;
+  return hit.text;
+}
+
+export function clearPlaylistMemo() {
+  playlistMemo.clear();
+}
+
 export function clearDirectBlocks() {
   directBlockedUntil.clear();
 }
@@ -205,7 +256,9 @@ export async function relaySegmentBlob(url, refUrl, start, max, { signal } = {})
 async function relayPlaylistText(url, refUrl, signal) {
   const response = await postDownloadify({ action: "playlist", playlistUrl: url, refUrl }, { signal });
   await throwIfRelayError(response, "Playlist request failed");
-  return response.text();
+  const text = await response.text();
+  memoPlaylist(url, refUrl, text);
+  return text;
 }
 
 export async function probeSourcePlayable(entryUrl, refUrl, { signal } = {}) {
@@ -382,7 +435,7 @@ async function throwIfRelayError(response, fallback) {
   throw error;
 }
 
-export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath } = {}) {
+export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath, onCueBoundaries } = {}) {
   const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
 
   /* Distinct from AbortError so a watchdog win is tellable from a player abort:
@@ -566,6 +619,14 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath } = 
 
     async loadPlaylist(url) {
       const refUrl = getRefUrl?.();
+      // The playability probe already pulled this exact manifest through the relay a
+      // moment ago. Serve that copy instead of paying a second serverless round trip
+      // for a byte-identical playlist.
+      const memoized = takeMemoPlaylist(url, refUrl);
+      if (memoized) {
+        this.reportCues(memoized, url);
+        return memoized;
+      }
       const response = await postDownloadify(
         { action: "playlist", playlistUrl: url, refUrl },
         { signal: this.signal() },
@@ -575,7 +636,40 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath } = 
       if (!text || !text.includes("#EXTM3U")) {
         throw new Error("Upstream did not return a playlist");
       }
+      memoPlaylist(url, refUrl, text);
+      this.reportCues(text, url);
       return text;
+    }
+
+    /* A manifest that states its own cue boundaries beats the player's 90s intro
+       guess. No provider is known to emit them, so this also REPORTS the answer for
+       every source it sees — which is the only way to learn whether any of them do.
+       Logged at warn level on purpose: logDebug is gated behind a debug flag, so a
+       debug-level note would be invisible in the one place the answer is needed. */
+    reportCues(text, url) {
+      // A MASTER playlist carries variants, never cues. Reporting it would burn the
+      // one-shot flag and leave the media playlist — where the tags actually live —
+      // unchecked, which is exactly the source shape most titles use.
+      if (!text.includes("#EXT-X-STREAM-INF") && this.cueChecked) return;
+      const isMaster = text.includes("#EXT-X-STREAM-INF");
+      if (isMaster) return;
+      this.cueChecked = true;
+      const bounds = getCueBoundaries(text);
+      if (bounds) {
+        logWarn("native", "Manifest carries cue tags — using real skip boundaries.", {
+          url: String(url).slice(0, 80),
+          ...bounds,
+        });
+      } else {
+        logWarn("native", "No cue tags in manifest — skip windows stay estimated.", {
+          url: String(url).slice(0, 80),
+        });
+      }
+      try {
+        onCueBoundaries?.(bounds || null);
+      } catch {
+        // a throwing listener must never kill a playlist load
+      }
     }
 
     async loadFragment(url) {
@@ -750,6 +844,7 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath } = 
       const parts = new Map(); // index -> bytes (1-based; index sits at stride*slice)
       let nextIndex = 1;
       let eofIndex = 0; // highest index where the stream declared EOF
+      let firstError = null; // a chunk that failed for any reason other than abort
       const emitAll = () => {
         while (!this.aborted) {
           const idx = emitted.length;
@@ -773,10 +868,14 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath } = 
             // it as the tail.
             eofIndex = Math.max(eofIndex, idx);
           }
-        } catch {
-          // Watchdog/abort settles the load; a lost slice surfaces through the load-level
-          // timeout/failover path rather than hanging this promise.
+        } catch (error) {
+          // Stop the fan-out, but DO NOT let this degrade into a short read: returning
+          // the bytes collected so far would hand hls.js a TRUNCATED fragment as a
+          // success, which appends a corrupt segment (decode error / stutter) instead
+          // of retrying a fragment that may well succeed. Abort is the owning load's
+          // call and settles on its own; anything else fails this load.
           if (this.aborted) return;
+          if (!firstError) firstError = error;
           eofIndex = Math.max(eofIndex, idx);
         } finally {
           emitAll();
@@ -791,6 +890,7 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath } = 
         await Promise.all(window);
         emitAll();
         if (this.aborted) throw new Error("Aborted");
+        if (firstError) throw firstError;
         if (!eofIndex) await runWindow();
       };
       await runWindow();

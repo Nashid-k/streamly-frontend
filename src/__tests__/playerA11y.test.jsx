@@ -253,9 +253,17 @@ describe("episode rail chrome", () => {
   };
 
   it("hides the Skip Intro pill behind an open panel", async () => {
-    // jsdom reports no duration, so the player sits inside its intro window and
-    // the pill is genuinely on screen before any panel opens.
+    // The pill only appears as the intro approaches its end (see
+    // SKIP_INTRO_LEAD_SECONDS), so the playhead has to be inside that window for it
+    // to exist at all. jsdom reports no duration, which means no boundary and a 90s
+    // estimate; 75s is comfortably inside [60, 100].
     mountTv();
+    const video = document.querySelector("video");
+    expect(video).toBeTruthy();
+    // jsdom's media element ignores a plain currentTime assignment (no resource),
+    // so define the value outright, then fire the act-wrapped event the player listens for.
+    Object.defineProperty(video, "currentTime", { configurable: true, writable: true, value: 75 });
+    fireEvent.timeUpdate(video);
     expect(screen.getByRole("button", { name: /skip the opening credits/i })).toBeInTheDocument();
     openRail();
     // It shares the bottom-right corner with the rail, whose gradient fades to

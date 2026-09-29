@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import {
   Bookmark,
@@ -11,6 +11,7 @@ import {
   Plus,
   ChevronLeft,
   Globe,
+  Link2,
   Lock,
   Compass,
 } from "lucide-react";
@@ -30,10 +31,11 @@ import SearchField from "../components/browse/SearchField";
 import PillAction, { ACCENT_PILL, GHOST_PILL } from "../components/browse/PillAction";
 import CollectionNameDialog from "../components/overlays/CollectionNameDialog";
 import AddTitlesDialog from "../components/overlays/AddTitlesDialog";
+import { copyTextToClipboard } from "../utils/clipboard";
 
 
 /* ── Collection folder card: 2×2 cover collage mining the saved list ────── */
-function CollectionCard({ collection, items, onOpen, onRename, onDelete, onToggleVisibility }) {
+function CollectionCard({ collection, items, onOpen, onRename, onDelete, onToggleVisibility, onCopyLink }) {
   const { t } = useI18n();
   const hasItems = collection.itemIds.length > 0;
   const posters = (collection.itemIds || [])
@@ -124,6 +126,22 @@ function CollectionCard({ collection, items, onOpen, onRename, onDelete, onToggl
           >
             <Pencil size={14} />
           </button>
+          {/* Only a PUBLIC collection has a link worth copying — offering the
+              button on a private one would promise a share that cannot work. */}
+          {collection.visibility === "public" && collection.publicId && (
+            <button
+              type="button"
+              className="collection-card__action"
+              aria-label={`${t("collections.copyPublicLink")} — ${collection.name}`}
+              title={t("collections.copyPublicLink")}
+              onClick={(e) => {
+                e.stopPropagation();
+                onCopyLink?.(collection);
+              }}
+            >
+              <Link2 size={14} />
+            </button>
+          )}
           <button
             type="button"
             className="collection-card__action"
@@ -170,6 +188,7 @@ export default function WatchlistPage() {
     toggleMyList,
     removeBatchFromMyList,
     collections,
+    publicCollections,
     user,
     createCollection,
     createCollectionWithItems,
@@ -214,6 +233,90 @@ export default function WatchlistPage() {
     const ids = new Set(activeCollection.itemIds || []);
     return myList.filter((m) => ids.has(m.id));
   }, [activeCollection, myList]);
+
+  /* ── "Best Collections" — your PUBLIC lists, biggest first ──────────────
+     Ranked by how much is actually in the list (ties broken by most recently
+     updated), because "most-loved" has to be measured by something and item
+     count is the only signal this app actually stores. Only public lists
+     qualify: the rail's promise is a shareable, username-free list, and a
+     private one has no link to hand anyone. `publicCollections` is the field
+     useMyCollections exposes for exactly this and had no consumer until now. */
+  const bestCollections = useMemo(
+    () =>
+      (publicCollections || [])
+        .filter((c) => c.publicId && (c.itemIds?.length || 0) > 0)
+        .sort((a, b) => {
+          const sizeDiff = (b.itemIds?.length || 0) - (a.itemIds?.length || 0);
+          if (sizeDiff !== 0) return sizeDiff;
+          return (b.updatedAt || 0) - (a.updatedAt || 0);
+        })
+        .slice(0, 6),
+    [publicCollections],
+  );
+
+  /* Copy the opaque public link, with an honest outcome on both sides: a
+     failure logs (utils/clipboard) AND tells the viewer, so a blocked
+     clipboard can never look like a successful share. */
+  const copyPublicLink = useCallback(
+    async (collection) => {
+      const failed = () =>
+        toast({
+          title: t("collections.publicLinkCopyFailed"),
+          message: t("collections.visibilityHintPublic"),
+          type: "error",
+          duration: 6000,
+        });
+
+      if (!collection?.publicId) {
+        failed();
+        return;
+      }
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const url = `${origin}/collections/${collection.publicId}`;
+      const ok = await copyTextToClipboard(url, `collection:${collection.publicId}`);
+      if (!ok) {
+        failed();
+        return;
+      }
+      toast({
+        title: t("collections.publicLinkCopied"),
+        message: url,
+        type: "success",
+        duration: 4000,
+      });
+    },
+    [t, toast],
+  );
+
+  /* Shared by both rails so the publish/flip behaviour (and the honest guest
+     warning) cannot drift between them. */
+  const handleToggleVisibility = useCallback(
+    (c) => {
+      const nextVisibility = c.visibility === "public" ? "private" : "public";
+      setCollectionVisibility(c.id, nextVisibility);
+      if (nextVisibility === "public") {
+        if (!user?.googleId) {
+          // Honest UX: guests never reach the cloud, so "public" can only
+          // ever be shared device-locally. The old hint promised "anyone via
+          // its public link" — a silent lie for guests.
+          toast({
+            title: t("collections.visibilityPublic"),
+            message: t("collections.guestPublishWarning"),
+            type: "warning",
+            duration: 6000,
+          });
+        } else {
+          toast({
+            title: t("collections.visibilityPublic"),
+            message: t("collections.publishSuccess"),
+            type: "success",
+            duration: 4000,
+          });
+        }
+      }
+    },
+    [setCollectionVisibility, user?.googleId, toast, t],
+  );
 
   const filteredAndSortedList = useMemo(() => {
     let list = [...(activeCollection ? collectionItems : myList || [])];
@@ -289,8 +392,8 @@ export default function WatchlistPage() {
   };
 
   /* Per-card picker: toggle membership of one title across any collection. */
-  const confirmPickerCreate = (name, movieId) => {
-    const id = createCollectionWithItems(name, [movieId]);
+  const confirmPickerCreate = (name, movieId, visibility) => {
+    const id = createCollectionWithItems(name, [movieId], { visibility });
     toast({
       title: "Collection Created",
       message: `"${name}" created with 1 title.`,
@@ -571,34 +674,50 @@ export default function WatchlistPage() {
                     key={collection.id}
                     collection={collection}
                     items={myList}
-onOpen={(c) => setActiveCollectionId(c.id)}
-            onRename={(c) => setNameDialog({ mode: "rename", collection: c })}
-            onDelete={(c) => confirmDelete(c)}
-            onToggleVisibility={(c) => {
-              const nextVisibility = c.visibility === "public" ? "private" : "public";
-              setCollectionVisibility(c.id, nextVisibility);
-              if (nextVisibility === "public") {
-                if (!user?.googleId) {
-                  // Honest UX: guests never reach the cloud, so "public" can
-                  // only ever be shared device-locally. The old hint promised
-                  // "anyone via its public link" — a silent lie for guests.
-                  toast({
-                    title: t("collections.visibilityPublic"),
-                    message: t("collections.guestPublishWarning"),
-                    type: "warning",
-                    duration: 6000,
-                  });
-                } else {
-                  toast({
-                    title: t("collections.visibilityPublic"),
-                    message: t("collections.publishSuccess"),
-                    type: "success",
-                    duration: 4000,
-                  });
-                }
-              }
-            }}
-          />
+                    onCopyLink={copyPublicLink}
+                    onOpen={(c) => setActiveCollectionId(c.id)}
+                    onRename={(c) => setNameDialog({ mode: "rename", collection: c })}
+                    onDelete={(c) => confirmDelete(c)}
+                    onToggleVisibility={handleToggleVisibility}
+                  />
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ── Best Collections rail — the public lists worth sharing ────── */}
+        {!inCollectionView && bestCollections.length > 0 && (
+          <section className="relative z-10 mt-6">
+            <div className="flex items-center gap-3 px-4 md:px-8">
+              <h2 className="text-lg sm:text-xl font-semibold text-white/90 drop-shadow-md">
+                {t("collections.bestCollectionsTitle")}
+              </h2>
+              <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-0.5 text-[0.7rem] font-medium text-white/60">
+                <Globe size={11} className="text-white/45" />
+                {bestCollections.length}
+              </span>
+              <Link to="/explore/collections" className={GHOST_PILL}>
+                <Compass size={15} />
+                {t("collections.exploreCollections")}
+              </Link>
+            </div>
+            <p className="mt-1 px-4 md:px-8 text-sm text-white/55">
+              {t("collections.bestCollectionsHint")}
+            </p>
+            <div className="mt-4 px-4 md:px-8">
+              <div className="collections-rail__grid">
+                {bestCollections.map((collection) => (
+                  <CollectionCard
+                    key={`best-${collection.id}`}
+                    collection={collection}
+                    items={myList}
+                    onCopyLink={copyPublicLink}
+                    onOpen={(c) => setActiveCollectionId(c.id)}
+                    onRename={(c) => setNameDialog({ mode: "rename", collection: c })}
+                    onDelete={(c) => confirmDelete(c)}
+                    onToggleVisibility={handleToggleVisibility}
+                  />
                 ))}
               </div>
             </div>
@@ -905,7 +1024,9 @@ onOpen={(c) => setActiveCollectionId(c.id)}
         movie={pickerMovie}
         collections={collections}
         onToggle={toggleInCollection}
-        onCreateWithItems={(name) => confirmPickerCreate(name, pickerMovie?.id)}
+        onCreateWithItems={(name, visibility) =>
+          confirmPickerCreate(name, pickerMovie?.id, visibility)
+        }
         onClose={() => setPickerMovie(null)}
       />
 

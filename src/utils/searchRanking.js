@@ -3,8 +3,18 @@
  *
  * Tiers (Netflix/Prime/Disney+ style): exact title (100), word boundary (98),
  * prefix (95), word match (70-85), substring (40-65), weak (0-25), then
- * bonuses: cast/director (+12), genre (+8), franchise (+6), popularity (+5),
- * recency (+3).
+ * bonuses: genre (+8), popularity (+5), recency (+3).
+ *
+ * Deliberately NOT a cast/director bonus, despite this file historically
+ * advertising one: TMDB's `/search/multi` payload carries no credits (the
+ * detail endpoint is the only place `cast`/`director` exist, see
+ * movieService/detail.js:43,49), and `normalizeResult` has no fields for them,
+ * so every scorer input in this repo was a shape where the +12 branch read
+ * `""`/`[]` and never fired. A bonus that cannot fire is worse than no bonus:
+ * it documents a signal the ranking does not actually use. Scoring it from a
+ * per-result `/credits` call would turn one search into N requests. If a future
+ * caller genuinely has people data, add the branch back WITH a test that proves
+ * it fires, rather than leaving dead code here.
  */
 
 // Common genre aliases (what users type vs. what's in the data)
@@ -154,25 +164,18 @@ export function getSearchRelevance(movie, query) {
     }
   }
 
-    // Cast/director bonus (+12) when the query looks like a person name (2+ words, no digits)
-  const nameWords = q.split(/\s+/).filter(Boolean);
-  if (
-    nameWords.length >= 2 &&
-    nameWords.every((w) => /^[a-z]+$/.test(w)) &&
-    score > 0
-  ) {
-    const director = (movie.director || "").toLowerCase();
-    const cast = (movie.cast || []).map((c) =>
-      typeof c === "string" ? c.toLowerCase() : (c.name || "").toLowerCase(),
-    );
-    const allPeople = [director, ...cast].filter(Boolean);
-    if (allPeople.some((p) => p.includes(q) || q.includes(p))) {
-      score += 12;
-    }
-  }
+    // People bonus REMOVED — see the file header. Search results carry no
+    // cast/director, so this block always read "" and [] and never scored.
 
-    // Popularity/trending bonus (+5)
-  if (movie.matchScore && movie.matchScore > 70) {
+    // Popularity bonus (+5). This used to read `movie.matchScore > 70`, which
+    // was self-referential twice over: searchMovies ZEROS matchScore before
+    // calling this (so it never fired there), and rankSearchResults writes
+    // matchScore FROM the relevance it is about to compute (so a high score
+    // bought itself a higher score). TMDB `popularity` is the independent
+    // quantity this bonus was always meant to measure — it is present on every
+    // normalized result (normalize.js:64).
+  const popularity = Number(movie.popularity);
+  if (Number.isFinite(popularity) && popularity >= 40) {
     score += 5;
   }
 

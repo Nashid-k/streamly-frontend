@@ -308,9 +308,9 @@ export default function TitleDetails() {
   );
 
   // Pickers' inline "create + add" target.
-  const handlePickerCreateFromDetails = (name) => {
+  const handlePickerCreateFromDetails = (name, visibility) => {
     if (!movie) return;
-    const created = createCollectionWithItems(name, [movie.id]);
+    const created = createCollectionWithItems(name, [movie.id], { visibility });
     if (created) {
       toast({
         title: "Collection Created",
@@ -2219,6 +2219,8 @@ export default function TitleDetails() {
                         onClose={() => setIsPlaying(false)}
                         party={party}
                         imdbId={movie?.imdbId || ""}
+                        backdropUrl={movie?.backdropUrl || ""}
+                        posterUrl={movie?.posterUrl || movie?.backdropUrl || ""}
                         watchedEntry={watchEntry}
                         onProgressChange={(t) => {
                           if (t > 10) {
@@ -2308,7 +2310,9 @@ export default function TitleDetails() {
         movie={movie}
         collections={collections || []}
         onToggle={toggleInCollection}
-        onCreateWithItems={(name) => handlePickerCreateFromDetails(name)}
+        onCreateWithItems={(name, visibility) =>
+          handlePickerCreateFromDetails(name, visibility)
+        }
         onClose={() => setCollectionPickerOpen(false)}
       />
     </div>

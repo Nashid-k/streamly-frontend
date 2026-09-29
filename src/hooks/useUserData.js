@@ -185,18 +185,31 @@ export function useMyCollections() {
   }, [commitCollections]);
 
   /* Atomic create-and-fill: builds the new collection WITH itemIds in one
-     commit, so a follow-up addToCollection call can't race a stale ref. */
-  const createCollectionWithItems = useCallback((name, movieIds) => {
+     commit, so a follow-up addToCollection call can't race a stale ref.
+     `opts.visibility` lets a caller create the list public from the first
+     commit (default stays private — the storage contract treats an absent
+     visibility field as private). Publishing must mint the same publicId the
+     visibility toggle does, otherwise a public list would be created with no
+     link to share. */
+  const createCollectionWithItems = useCallback((name, movieIds, opts = {}) => {
     const trimmed = String(name || '').trim();
     if (!trimmed) return null;
     const ids = Array.isArray(movieIds)
       ? [...new Set(movieIds.filter(Boolean))]
       : [];
     const id = makeCollectionId();
-    const next = [
-      ...collectionsRef.current,
-      { id, name: trimmed, createdAt: Date.now(), updatedAt: Date.now(), itemIds: ids },
-    ];
+    const record = {
+      id,
+      name: trimmed,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      itemIds: ids,
+    };
+    if (opts.visibility === 'public') {
+      record.visibility = 'public';
+      record.publicId = makePublicId();
+    }
+    const next = [...collectionsRef.current, record];
     commitCollections(next);
     return id;
   }, [commitCollections]);

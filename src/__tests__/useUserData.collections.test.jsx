@@ -133,4 +133,40 @@ describe("useMyCollections", () => {
     const stored = JSON.parse(localStorage.getItem("aios_my_collections"));
     expect(stored[0].itemIds.sort()).toEqual(["movie-1", "tv-2"]);
   });
+
+  it("creates a private collection by default — no visibility field, no publicId", async () => {
+    const read = setup();
+    await act(async () => {
+      read().createCollectionWithItems("Just Mine", ["movie-1"]);
+    });
+    const [created] = read().collections;
+    // The storage contract treats an ABSENT visibility field as private, so
+    // the default must not mint a publicId either — a private list with a
+    // shareable id is a list anyone can open by guessing its URL.
+    expect(created.visibility).toBeUndefined();
+    expect(created.publicId).toBeUndefined();
+  });
+
+  it("creates a public collection with a shareable publicId when asked", async () => {
+    const read = setup();
+    await act(async () => {
+      read().createCollectionWithItems("Party Picks", ["movie-1"], { visibility: "public" });
+    });
+    const [created] = read().collections;
+    expect(created.visibility).toBe("public");
+    expect(created.publicId).toBeTruthy();
+    expect(created.itemIds).toEqual(["movie-1"]);
+    // Persisted, not just in memory — the Explore page reads storage.
+    const stored = JSON.parse(localStorage.getItem("aios_my_collections"));
+    expect(stored[0].publicId).toBe(created.publicId);
+  });
+
+  it("treats an unknown visibility value as private", async () => {
+    const read = setup();
+    await act(async () => {
+      read().createCollectionWithItems("Odd Value", [], { visibility: "wat" });
+    });
+    expect(read().collections[0].visibility).toBeUndefined();
+    expect(read().collections[0].publicId).toBeUndefined();
+  });
 });

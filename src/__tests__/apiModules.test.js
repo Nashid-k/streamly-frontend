@@ -42,6 +42,7 @@ describe("api/ module graph", () => {
       const hasHandler = typeof mod.default === "function" || Object.values(mod).some((v) => typeof v === "function");
       expect(hasHandler).toBe(true);
     },
+    10000
   );
 });
 

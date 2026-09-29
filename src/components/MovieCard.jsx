@@ -2,6 +2,7 @@ import { useCallback, useState, useEffect, useRef, memo } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Play, Plus, Check, Star } from "lucide-react";
 import { getTMDBWeekdayShort } from "../utils/timezone";
+import { highlightSegments } from "../utils/highlightMatch";
 import { buildMovieAddedNotification } from "../utils/notificationEngine";
 import CountdownBadge from "./CountdownBadge";
 import ContentTag from "./ContentTag";
@@ -92,6 +93,10 @@ const MovieCard = memo(function MovieCard({
   showProgress = false,
   progressValue = 0,
   compact = false,
+  // Search-only: when present, the matched span of this query renders as
+  // <mark> in the title so a result visibly answers what was typed. Undefined
+  // everywhere else, so nothing outside search pays for it.
+  highlightQuery,
 }) {
   const { isInList, toggleMyList, addNotification } = useAppAuth();
   const { toast } = useToast();
@@ -104,8 +109,11 @@ const MovieCard = memo(function MovieCard({
   const reduceMotion = useReducedMotion();
   const isTvContent = movie?.isSeries || String(movie?.id || '').startsWith('tmdb-tv-');
   // Touch devices never see the hover curtain, so metadata moves below the
-  // poster (Cinejoy-style "mobile card meta").
-  const showBelowMeta = isTouchDevice;
+  // poster (Cinejoy-style "mobile card meta"). Desktop keeps the curtain-only
+  // look — EXCEPT when a search query is being highlighted, because a <mark>
+  // nobody can see is not a highlight. Search results therefore always print
+  // their title, which is also what every other streaming search does.
+  const showBelowMeta = isTouchDevice || Boolean(highlightQuery);
 
 
   const handleMouseEnter = useCallback(() => {
@@ -626,7 +634,11 @@ const MovieCard = memo(function MovieCard({
       {isVisible && showBelowMeta && (
         <div className="movie-info" role="presentation">
           <p className="movie-title" title={movie.title}>
-            {movie.title}
+            {highlightQuery
+              ? highlightSegments(movie.title, highlightQuery).map((seg, i) =>
+                  seg.hit ? <mark key={i}>{seg.text}</mark> : seg.text,
+                )
+              : movie.title}
           </p>
           <div className="movie-meta">
             {rating > 0 ? (

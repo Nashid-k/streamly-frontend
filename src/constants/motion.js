@@ -53,6 +53,10 @@ export const SPRING = {
    cover fades and opacity-only work, where a spring would overshoot past 1. */
 export const DURATION = { FAST: 0.18, MED: 0.28, SLOW: 0.45 };
 
+/* `useMotionTokens` is a hook, so it needs the import. Kept at the top of the
+   file with the other module setup rather than added at the use site. */
+import { useMemo } from "react";
+
 /* The one easing curve for tweened motion. Matches the card curtain so the
    player and the cards decelerate identically. */
 export const EASE_OUT = [0.16, 1, 0.3, 1];
@@ -102,4 +106,36 @@ export const FADE = {
  */
 export function motionSafe(reduced, transition) {
   return reduced ? { duration: 0 } : transition;
+}
+
+/**
+ * The whole vocabulary, pre-checked against the viewer's motion preference.
+ *
+ * `motionSafe` was written for exactly this and then never called, so the
+ * reduced-motion contract in the comment above it was aspirational. Wrapping each
+ * token here means a call site writes `M.SHEET` instead of `SPRING.SHEET` and
+ * cannot forget the check: the preference is resolved once, at the top of the
+ * component, rather than at every transition.
+ *
+ * The shared shapes (HUD_POP, PILL_IN, CHECK_POP) are spread as whole objects
+ * `{...PILL_IN}`, so they need the same treatment — hence returning them
+ * rebuilt rather than as constants.
+ */
+export function useMotionTokens(reduced) {
+  return useMemo(
+    () => {
+      const t = (transition) => motionSafe(reduced, transition);
+      const withTransition = (shape) => ({ ...shape, transition: t(shape.transition) });
+      return {
+        SPRING: Object.fromEntries(
+          Object.entries(SPRING).map(([role, transition]) => [role, t(transition)]),
+        ),
+        HUD_POP: withTransition(HUD_POP),
+        PILL_IN: withTransition(PILL_IN),
+        CHECK_POP: withTransition(CHECK_POP),
+        FADE: withTransition(FADE),
+      };
+    },
+    [reduced],
+  );
 }

@@ -124,7 +124,7 @@ beforeEach(() => {
   movieService.getExternalIds.mockResolvedValue({ imdb_id: "tt0137523" });
   movieService.getSeasonEpisodes.mockResolvedValue({ episodes: [] });
   downloadService.pickSaveTarget.mockResolvedValue(null);
-  // VidCore (Server 5) is serverless; default it to a soft no-source so the
+  // VidCore (Server 1) is serverless; default it to a soft no-source so the
   // rows-tested base (VidSrc alone) stays stable. Dedicated tests override it.
   downloadService.resolveVidcore.mockRejectedValue(new Error("no source"));
   downloadService.buildManifest.mockResolvedValue({ kind: "fmp4", initUrl: null, segments: ["https://cdn/a.m4s"], count: 1 });
@@ -189,7 +189,7 @@ describe("DownloadModal", () => {
       .mockReturnValue(new Promise((resolve) => setTimeout(() => resolve({ source: { url: "slow" }, variants: VARIANTS }), 100)));
     renderModal();
 
-    // VidSrc (Alt) is still minting — nothing is shown yet, so no rows exist
+    // VidSrc (Server 2) is still minting — nothing is shown yet, so no rows exist
     // until the slow source lands.
     expect(screen.queryByRole("button", { name: /^Download \d/i })).not.toBeInTheDocument();
 
@@ -205,13 +205,13 @@ describe("DownloadModal", () => {
 
     const dialog = await screen.findByRole("dialog");
     expect(
-      await screen.findByText(/VidSrc \(Alt\) did not offer a downloadable version of this title/i),
+      await screen.findByText(/Server 2 did not offer a downloadable version of this title/i),
     ).toBeInTheDocument();
     // VidCore also named — the sheet never hides that a source was tried.
-    expect(dialog).toHaveTextContent(/VidCore \(Server 5\) did not offer a downloadable version of this title/i);
+    expect(dialog).toHaveTextContent(/Server 1 did not offer a downloadable version of this title/i);
   });
 
-  it("adds VidCore (Server 5) quality rows alongside VidSrc (Alt)", async () => {
+  it("adds Server 1 (VidCore) quality rows alongside Server 2 (VidSrc)", async () => {
     downloadService.resolveVidsrc.mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
     downloadService.resolveVidcore.mockResolvedValue({
       source: { url: "https://moon.quietridge.top/vd/x/index-s2160p-v1-a1.m3u8", refUrl: "https://vidcore.io/" },
@@ -223,7 +223,7 @@ describe("DownloadModal", () => {
       { type: "movie", id: "550", season: undefined, episode: undefined },
       expect.objectContaining({ signal: expect.anything() }),
     ));
-    expect(await screen.findByText(/VidCore \(Server 5\)/)).toBeInTheDocument();
+    expect(await screen.findAllByText(/Server 1 ·/)).not.toHaveLength(0);
   });
 
   it("keeps a second source's soft failure from sinking the sheet", async () => {
@@ -266,7 +266,7 @@ describe("DownloadModal", () => {
       expect(record).toBeDefined();
       expect(record.status).toBe("done");
       expect(record.quality).toBe("4K HDR");
-      expect(record.serverName).toBe("VidSrc (Alt)");
+      expect(record.serverName).toBe("Server 2");
     });
   });
 

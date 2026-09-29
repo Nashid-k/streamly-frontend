@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { movieService } from "../api/movieService";
 import { rankSearchResults, getDidYouMean } from "../utils/searchRanking";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Search, Film, Tv, Flame, Sparkles, Star, Clock, X, RotateCw } from "lucide-react";
 import { motion } from "framer-motion";
@@ -83,7 +83,7 @@ export default function SearchPage() {
     refetch,
   } = useQuery({
     queryKey: ["search", query],
-    queryFn: () => movieService.searchMovies(query),
+    queryFn: ({ signal }) => movieService.searchMovies(query, { signal }),
     enabled: !!query.trim(),
   });
 
@@ -99,8 +99,13 @@ export default function SearchPage() {
     }
   }, [loading, query, queryError, rawResults]);
 
-  // Suggestions from backend ("did you mean")
-  const backendSuggestions = useMemo(() => rawResults?.suggestions || [], [rawResults]);
+  // NOTE: there is deliberately no "backend suggestions" branch here. Nothing
+  // in src/api produces a `suggestions` field (searchMovies returns a bare
+  // array), so the old `rawResults?.suggestions` memo was always [] and the
+  // merge below it was dead code wearing the appearance of a second signal.
+  // "Did you mean" now has exactly one source: the fuzzy pass over real
+  // results. If a backend ever does answer with suggestions, add them HERE and
+  // give them their own test rather than resurrecting a field nothing sets.
 
   const results = useMemo(() => {
     const list = Array.isArray(rawResults) ? rawResults : rawResults?.movies;
@@ -121,25 +126,19 @@ export default function SearchPage() {
 
   const error = queryError ? "Failed to load search results." : null;
 
-  // "Did you mean" suggestions — combine backend suggestions + fuzzy match
+  // "Did you mean" — a single fuzzy source, with an exact-match short circuit
+  // (there is no point offering alternatives when the typed title is a result).
   const didYouMean = useMemo(() => {
     if (!query) return [];
-    const hasExactMatch = results?.some(m =>
-      (m.title || '').toLowerCase().trim() === query.toLowerCase().trim()
+    const hasExactMatch = results?.some(
+      (m) => (m.title || "").toLowerCase().trim() === query.toLowerCase().trim(),
     );
     if (hasExactMatch) return [];
 
-    // Fuzzy-match from results
-    const fuzzy = getDidYouMean(query, results || [], 0.35);
-    const fuzzyTitles = fuzzy.map(s => s.title);
-
-    // Merge: backend suggestions first, then fuzzy matches not already in backend
-    const merged = [
-      ...backendSuggestions.filter(s => !fuzzyTitles.includes(s)),
-      ...fuzzyTitles,
-    ].slice(0, 5);
-    return merged;
-  }, [query, results, backendSuggestions]);
+    return getDidYouMean(query, results || [], 0.35)
+      .map((s) => s.title)
+      .slice(0, 5);
+  }, [query, results]);
 
   const filteredAndSortedList = useMemo(() => {
     let list = [...(results || [])];
@@ -197,6 +196,74 @@ export default function SearchPage() {
 
   const visibleResults = filteredAndSortedList.slice(0, visibleCount);
 
+  /* ── Keyboard navigation ────────────────────────────────────────────────
+     The grid is a wall of card buttons with no arrow-key story of its own, so
+     a keyboard viewer could only Tab through dozens of cards to reach one.
+     ArrowDown leaves the input for the first result, then walks the results
+     with ArrowUp/ArrowDown/Home/End; ArrowUp from the first result (and
+     Escape from anywhere) returns to the query box. Enter/Space stay on the
+     card itself — MovieCard already activates natively, so re-implementing
+     that here would only double-fire navigation. Delegated from the section
+     so cards added by the 20-item "load more" window are covered too. */
+  const searchInputRef = useRef(null);
+  const resultsRef = useRef(null);
+
+  const resultCards = useCallback(
+    () =>
+      Array.from(
+        resultsRef.current?.querySelectorAll("[data-search-result] .movie-card") || [],
+      ),
+    [],
+  );
+
+  const focusResultCard = useCallback(
+    (index) => {
+      const cards = resultCards();
+      if (!cards.length) return;
+      const clamped = Math.max(0, Math.min(cards.length - 1, index));
+      cards[clamped]?.focus();
+    },
+    [resultCards],
+  );
+
+  const handleInputKeyDown = (e) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      focusResultCard(0);
+    }
+  };
+
+  const handleResultsKeyDown = (e) => {
+    const cards = resultCards();
+    if (!cards.length) return;
+    const current = cards.indexOf(document.activeElement);
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        focusResultCard(current === -1 ? 0 : current + 1);
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        if (current <= 0) searchInputRef.current?.focus();
+        else focusResultCard(current - 1);
+        break;
+      case "Home":
+        e.preventDefault();
+        focusResultCard(0);
+        break;
+      case "End":
+        e.preventDefault();
+        focusResultCard(cards.length - 1);
+        break;
+      case "Escape":
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        break;
+      default:
+        break;
+    }
+  };
+
   // Landing rail — "Trending Today" grid, fetched only while browsing
   const trendingQuery = useQuery({
     queryKey: ["trending-this-week"],
@@ -252,10 +319,12 @@ export default function SearchPage() {
               aria-hidden="true"
             />
             <input
+              ref={searchInputRef}
               className="search-panel__input"
               type="text"
               value={localQuery}
               onChange={(e) => setLocalQuery(e.target.value)}
+              onKeyDown={handleInputKeyDown}
               placeholder={t("search.placeholder")}
               aria-label={t("nav.search")}
               autoFocus={!isTouchDevice}
@@ -504,11 +573,17 @@ export default function SearchPage() {
             }
           />
         ) : (
-          <section className="mt-6" aria-label={`${results.length} results for "${query}"`}>
+          <section
+            ref={resultsRef}
+            className="mt-6"
+            aria-label={`${results.length} results for "${query}"`}
+            onKeyDown={handleResultsKeyDown}
+          >
             <div className="movie-grid">
               {visibleResults.map((movie, idx) => (
                 <motion.div
                   key={movie.id}
+                  data-search-result=""
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{
@@ -517,7 +592,7 @@ export default function SearchPage() {
                     ease: "easeOut",
                   }}
                 >
-                  <MovieCard movie={movie} />
+                  <MovieCard movie={movie} highlightQuery={query} />
                 </motion.div>
               ))}
             </div>

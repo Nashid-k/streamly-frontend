@@ -688,16 +688,52 @@
   .np-restart-btn,
   .np-dialog-row,
   .np-episode-card,
-  .np-subtitle {
+  .np-subtitle,
+  /* Added by the audit below. Every rule in this file that declares a
+     `transition` or `animation` is listed here, because a selector missing
+     from this block keeps animating for a viewer who asked the OS to stop it —
+     and the miss is silent: nothing looks broken, the page just moves when it
+     should not. `-webkit-` prefixes are kept where the base rule has them, since
+     an unprefixed `transition: none` does not cancel a prefixed one. */
+  .np-volume-slider,
+  .np-panel-surface,
+  .np-skip-credits,
+  .np-toast,
+  .np-skip-pill,
+  .np-upnext-card,
+  .np-mirror-row,
+  .np-quality-row,
+  .hero-rotation-control,
+  .void-hover,
+  .void-scrubber,
+  .void-volume,
+  .void-volume-bar,
+  .search-history__items button {
     transition: none !important;
+    -webkit-transition: none !important;
     animation: none !important;
+    -webkit-animation: none !important;
   }
   .np-icon-btn:hover:not(:disabled),
   .np-icon-btn:hover:not(:disabled) > svg,
   .np-scrub:hover,
   .np-skip-intro:hover,
+  .np-episode-card:hover,
+  /* The hover/active transforms of the controls added by the audit: without
+     these the `transition: none` above still leaves the element SNAPPING to
+     its hovered position, which is a transform animation with no tween. */
+  .np-skip-credits:hover,
   .np-resume-btn:hover,
-  .np-episode-card:hover {
+  .np-restart-btn:hover,
+  .np-dialog-row:hover,
+  .np-volume-slider:hover,
+  .np-upnext-card:hover,
+  .np-skip-pill:hover,
+  .void-hover:hover,
+  .void-scrubber:hover,
+  .void-volume:hover,
+  .search-history__items button:hover,
+  .hero-rotation-control:hover {
     transform: none !important;
   }
   .np-icon-btn:hover:not(:disabled)::before {
@@ -706,6 +742,28 @@
   }
   .np-upnext-countdown {
     animation: none !important;
+  }
+  /* The loading ring and the blurred stage art. An infinite rotation is the
+     clearest possible case of motion that triggers vestibular discomfort, so
+     under this preference it must not merely slow down — it stops. The art keeps
+     its blur (that is legibility, not movement) but loses the slow scale. */
+  .np-ring-spinner,
+  .np-ring-spinner > span,
+  .np-loading-art {
+    animation: none !important;
+    -webkit-animation: none !important;
+  }
+  .np-loading-art {
+    transform: none !important;
+  }
+}
+
+@keyframes npRingSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }
 

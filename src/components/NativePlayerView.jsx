@@ -1,5 +1,5 @@
-// src/components/NativePlayerView.jsx — the app's player, opened by the hero /
-// episode Play buttons. Resolves VidCore-first (4K) → VidSrc → NHD (multi-
+// src/components/NativePlayerView.jsx â€” the app's player, opened by the hero /
+// episode Play buttons. Resolves VidCore-first (4K) â†’ VidSrc â†’ NHD (multi-
 // audio) via downloadService, with a Servers menu to switch the active server,
 // and plays through hls.js (manifest relay + direct-segment loader). Custom
 // transport only: no native <video controls>.
@@ -7,8 +7,9 @@
 // touch devices get a stacked settings sheet instead of the desktop chrome.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, MotionConfig, motion } from "framer-motion";
-import { SPRING, PILL_IN, CHECK_POP } from "../constants/motion";
+import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "framer-motion";
+import { useMotionTokens } from "../constants/motion";
+import { buildAudioTrackList, originalTrackLabel } from "../utils/audioLabels";
 import useRailArrows from "../hooks/useRailArrows";
 import RailArrow from "./RailArrow";
 import {
@@ -51,6 +52,7 @@ import NetflixStillWatching from "./NetflixStillWatching";
 import Hls from "hls.js";
 import { variantLabel } from "../utils/downloadQuality";
 import { createStreamlyLoader, probeSourcePlayable } from "../api/nativeHlsLoader";
+import { SKIP_DATA_CREDIT, fetchSkipBoundaries } from "../api/skipBoundarySource";
 import { SubtitleFetcher } from "../api/subtitleFetcher";
 import { logDebug, logWarn } from "../utils/debugLogger";
 import { SubtitleEngine } from "../utils/subtitleEngine";
@@ -78,6 +80,8 @@ import {
   getSkipOutroTarget,
   shouldShowSkipOutro,
   shouldAutoSkipIntroOnce,
+  mergeSkipBoundaries,
+  rescopeBoundaries,
 } from "../utils/skipMarkers";
 import { pickInitialBandwidthBits } from "../utils/streamTuning";
 import { useOptionalPreferences } from "../context/preferences";
@@ -85,7 +89,7 @@ import { getPreviewThumb, clearPreviewCache, resetPreviewPipeline } from "../api
 import WatchPartyPanel from "./WatchPartyPanel";
 
 // A source can fail fragments forever without ever going fatal (VidCore's
-// vidzen: playlist 200, segments 429 on repeat) — so fail over ourselves.
+// vidzen: playlist 200, segments 429 on repeat) â€” so fail over ourselves.
 const MAX_CONSECUTIVE_FRAG_FAILURES = 4;
 
 const NETFLIX_RED = "#E50914";
@@ -98,7 +102,7 @@ const UP_NEXT_MS = 15000;
 const HOLD_2X_DELAY_MS = 420;
 // "Still watching?" prompt idles that long in pause before it stops asking.
 const STILL_WATCHING_OFFER_MS = 90 * 1000;
-// Netflix resume gate: how long the "Left off at…" card waits before auto-resume.
+// Netflix resume gate: how long the "Left off atâ€¦" card waits before auto-resume.
 const RESUME_WAIT_SECONDS = 8;
 // Forward-buffer policy (YouTube-style). The byte cap is scaled to the top
 // rendition's bitrate: a FIXED 60MB cap idled the pipe before 4K could get
@@ -114,7 +118,7 @@ const MAX_BUFFER_SIZE = 240 * 1000 * 1000; // hard ceiling: ~2min of 4K@16Mbps, 
 // shortfall so the buffer refills faster than it drains.
 const BUFFER_FLOOR_SECONDS = 18;
 const BUFFER_UNDERFLOOR_MS = 8000;
-// Cap the WATCHED back buffer (hls.js defaults to Infinity — a 2h movie would
+// Cap the WATCHED back buffer (hls.js defaults to Infinity â€” a 2h movie would
 // pin ~7GB of browser RAM). hls.js trims the rest, like Netflix.
 const BACK_BUFFER_SECONDS = 60;
 // ABR seed: hls.js starts its bandwidth estimate at 1Mbps, so Auto would climb
@@ -124,7 +128,7 @@ const INITIAL_BW_BITS = 10 * 1000 * 1000;
 const VOLUME_STORAGE_KEY = "streamly-native-volume";
 const MUTED_STORAGE_KEY = "streamly-native-muted";
 const ASPECT_STORAGE_KEY = "streamly-native-aspect";
-/* Brightness is GONE (user call): a CSS filter is not the device backlight —
+/* Brightness is GONE (user call): a CSS filter is not the device backlight â€”
    it dims the video while the OS brightness setting stays where it was, which
    reads as a broken picture. The OS owns screen brightness on every platform.
    The old localStorage keys are simply no longer read. */
@@ -141,14 +145,14 @@ const BTN_SIZE = IS_TOUCH ? 44 : 40;
 // Centre-screen rewind/forward chevrons sit directly on the picture with no
 // plate behind them, so a light shadow is the only thing keeping them readable
 // over a white frame. (A dark box here is exactly what we removed from the
-// play/pause HUD — same problem, same answer: shadow, not a scrim.)
+// play/pause HUD â€” same problem, same answer: shadow, not a scrim.)
 const CENTER_GLYPH_SHADOW = { filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.8))" };
 // Netflix top bar: 16px on desktop; safe-area inset on touch devices.
 const SAFE_TOP = IS_TOUCH ? "calc(16px + env(safe-area-inset-top, 0px))" : "16px";
 // Netflix bottom chrome: 24px on desktop; safe-area inset on touch devices.
 const SAFE_BOTTOM = IS_TOUCH ? "calc(20px + env(safe-area-inset-bottom, 0px))" : "24px";
 
-// Skip Intro / Skip Outro live in src/utils/skipMarkers.js — the boundaries are
+// Skip Intro / Skip Outro live in src/utils/skipMarkers.js â€” the boundaries are
 // estimates (no provider supplies markers) and the module documents that, plus
 // the SKIP_INTRO_OVERRIDES seam for confirmed boundaries. Everything below is
 // presentation only.
@@ -190,6 +194,10 @@ function IconBtn({ label, onClick, children, active, disabled, expanded }) {
 
 /* One selectable row in the Audio & Subtitles / Episodes panels. */
 function DialogRow({ selected, onClick, title, sub, disabled, icon, hasChevron }) {
+  // DialogRow is a module-level component, so it has no access to the player's
+  // `M` tokens and must resolve the preference itself — the same value, read
+  // from the same hook, so the checkmark still collapses to a cut.
+  const M = useMotionTokens(useReducedMotion());
   return (
     <button
       type="button"
@@ -222,9 +230,9 @@ function DialogRow({ selected, onClick, title, sub, disabled, icon, hasChevron }
           // The check itself pops, so a selection change is felt, not just seen.
           <motion.span
             key={`check-${title}`}
-            initial={CHECK_POP.initial}
-            animate={CHECK_POP.animate}
-            transition={CHECK_POP.transition}
+            initial={M.CHECK_POP.initial}
+            animate={M.CHECK_POP.animate}
+            transition={M.CHECK_POP.transition}
             style={{ display: "flex" }}
           >
             <Check size={16} color={NETFLIX_RED} />
@@ -267,7 +275,7 @@ function fmtTime(s) {
 }
 
 // Canonical quality label + order: feeds list their ladders in any order, so
-// the menu always reads low → high (480p → 720p → 1080p → 2K → 4K) regardless.
+// the menu always reads low â†’ high (480p â†’ 720p â†’ 1080p â†’ 2K â†’ 4K) regardless.
 // Resolution + verified-only tags (HDR/SDR/60fps), no bitrate, no transport notes.
 function qualityLabelFor(v) {
   if (!v?.height) return "Auto";
@@ -306,9 +314,157 @@ function LoadingMessage({ title }) {
   );
 }
 
+/* The stage a viewer stares at while a stream resolves: the title's own art,
+   blurred and dimmed as a backdrop, with the name and a spinner over it.
+   Reused for the first load AND for every server / quality / dub switch, because
+   those are the same wait wearing different clothes — the artwork is what tells
+   the viewer the player did not lose their place, and a bare black rectangle
+   with a dot in it does not. */
+function LoadingStage({ title, subtitle, backdropUrl, posterUrl, message }) {
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        position: "absolute",
+        inset: 0,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 18,
+        overflow: "hidden",
+        background: "#000",
+        zIndex: 3,
+      }}
+    >
+      {backdropUrl ? (
+        <img
+          src={backdropUrl}
+          alt=""
+          aria-hidden="true"
+          className="np-loading-art"
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            // Heavily blurred so it reads as COLOUR, not as a photo the viewer
+            // might mistake for the frame that is about to appear. The dim layer
+            // under it keeps the white text and spinner legible over a bright
+            // still — a light backdrop would otherwise eat both.
+            filter: "blur(28px) saturate(1.2) brightness(0.5)",
+            transform: "scale(1.15)", // blur samples the edge; scale hides it
+          }}
+        />
+      ) : null}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "radial-gradient(circle at 50% 45%, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.78) 70%)",
+        }}
+      />
+      {/* The title art itself, big and centred. The blurred backdrop behind is
+          only ambient colour; without this the stage looks like a black screen
+          someone slapped a label on. Contained rather than cover: cropping the
+          poster's top and bottom during a load makes an unrecognisable
+          fragment, which defeats the entire point of showing it. */}
+      {posterUrl ? (
+        <img
+          src={posterUrl}
+          alt=""
+          aria-hidden="true"
+          className="np-loading-poster"
+          style={{
+            position: "relative",
+            zIndex: 1,
+            width: "auto",
+            height: "auto",
+            maxWidth: "min(64vw, 460px)",
+            maxHeight: "min(56vh, 470px)",
+            objectFit: "contain",
+            borderRadius: 10,
+            boxShadow: "0 18px 64px rgba(0,0,0,0.78)",
+          }}
+        />
+      ) : null}
+      {title ? (
+        <div
+          style={{
+            position: "relative",
+            fontSize: "clamp(18px, 3.2vw, 30px)",
+            fontWeight: 700,
+            color: "#fff",
+            letterSpacing: "-0.02em",
+            textAlign: "center",
+            padding: "0 24px",
+            textShadow: "0 2px 18px rgba(0,0,0,0.7)",
+          }}
+        >
+          {title}
+          {subtitle ? (
+            <div
+              style={{
+                marginTop: 6,
+                fontSize: 13,
+                fontWeight: 500,
+                color: "rgba(255,255,255,0.65)",
+                letterSpacing: "0.01em",
+              }}
+            >
+              {subtitle}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      <div style={{ position: "relative" }}>
+        <RingSpinner />
+      </div>
+      {message ? (
+        <div
+          style={{
+            position: "relative",
+            fontSize: 12.5,
+            color: "rgba(255,255,255,0.6)",
+            letterSpacing: "0.01em",
+          }}
+        >
+          {message}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/* A white ring with a gap that travels around it. Purely decorative, so it is
+   aria-hidden and the real state is announced by the `say` line instead. The
+   reduced-motion block in player.css stops it entirely for viewers who asked for
+   that — an endlessly spinning ring is the textbook case of motion that causes
+   discomfort, and it is exactly what that media query exists for. */
+function RingSpinner({ size = 34 }) {
+  return (
+    <span className="np-ring-spinner" aria-hidden="true" style={{ width: size, height: size }}>
+      <span
+        style={{
+          display: "block",
+          width: "100%",
+          height: "100%",
+          borderRadius: "50%",
+          border: "2.5px solid rgba(255,255,255,0.18)",
+          borderTopColor: "#fff",
+          animation: "npRingSpin 720ms linear infinite",
+        }}
+      />
+    </span>
+  );
+}
+
 function EpisodesRail({ episodes, episode, onSelectEpisode, setPanel, setBuffering, setResumeOffer, IS_TOUCH }) {
   const railRef = useRef(null);
   const { canScrollLeft, canScrollRight, refresh } = useRailArrows(railRef);
+  // Module-level component, so it resolves the preference itself (see DialogRow).
+  const M = useMotionTokens(useReducedMotion());
 
   const scroll = useCallback((dir) => {
     const el = railRef.current;
@@ -323,7 +479,7 @@ function EpisodesRail({ episodes, episode, onSelectEpisode, setPanel, setBufferi
       initial={{ y: "100%", opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       exit={{ y: "100%", opacity: 0 }}
-      transition={SPRING.SHEET}
+      transition={M.SPRING.SHEET}
       onClick={(e) => e.stopPropagation()}
       style={{
         position: "absolute",
@@ -353,7 +509,7 @@ function EpisodesRail({ episodes, episode, onSelectEpisode, setPanel, setBufferi
           // Top padding as well as bottom, and it is load-bearing: `overflow-x`
           // forces the block axis to `auto` too, so this element CLIPS its
           // children vertically. With no top padding the current episode's red
-          // ring — which is an outer box-shadow — had its top edge sliced off.
+          // ring â€” which is an outer box-shadow â€” had its top edge sliced off.
           // It also gives the hover lift somewhere to go.
           padding: "8px 0",
           scrollbarWidth: "none",
@@ -515,7 +671,7 @@ function EpisodesRail({ episodes, episode, onSelectEpisode, setPanel, setBufferi
             </div>
             {/* Fixed two-line slot. An unaired episode has no synopsis, and
                 leaving this block at its natural 0px height is what made the
-                rail ragged — every such card ended higher than the rest. */}
+                rail ragged â€” every such card ended higher than the rest. */}
             <div
               style={{
                 color: "rgba(255,255,255,0.5)",
@@ -575,6 +731,14 @@ export default function NativePlayerView({
   subtitle,
   // IMDb id ({imdbId}/{imdb_id} from TMDB) for OpenSubtitles lookups; optional.
   imdbId = "",
+  /* Title artwork for the loading stage. Optional: without it the stage falls
+     back to black, which is the old behaviour and still correct — a missing
+     backdrop must never be the reason a load looks broken. */
+  backdropUrl = "",
+  /* The poster/title art shown centred inside the loading stage, distinct from
+     backdropUrl, which is only the blurred ambience behind it. Optional for the
+     same reason as above. */
+  posterUrl = "",
   episodes = [],
   onSelectEpisode,
   // Netflix-style prev/next episode paging. The parent owns navigation (it can
@@ -587,7 +751,7 @@ export default function NativePlayerView({
   // Continue-watching entry for this title/episode ({ timestamp } in s, >0) + progress sink.
   watchedEntry,
   onProgressChange,
-  // TMDB original_language — the only language signal the sources give us.
+  // TMDB original_language â€” the only language signal the sources give us.
   originalLanguage = "",
   // Watch Party controller from TitleDetailsPage (the useWatchParty result).
   // Null = solo playback (feature off). Present = the Users button renders and
@@ -602,7 +766,7 @@ export default function NativePlayerView({
   const { w: playerW, h: playerH } = useContainerSize(screenRef);
   const hudBox = useMemo(() => hudMetrics(playerW, playerH), [playerW, playerH]);
   const scrubRef = useRef(null);
-  // Settings sheet surface — focus moves here on open and back to the control
+  // Settings sheet surface â€” focus moves here on open and back to the control
   // that opened it on close, so the panel is actually operable by keyboard.
   const panelRef = useRef(null);
   // Non-null while a settings sheet is open, holding the element that opened
@@ -613,7 +777,7 @@ export default function NativePlayerView({
   const metaRef = useRef({ variants: [], sourceKey: null, refUrl: null, masterLevels: false });
   const idleTimer = useRef(null);
   const clickTimer = useRef(null);
-  // Touch taps: last-tap info for double-tap seek (±10s by screen side) and a
+  // Touch taps: last-tap info for double-tap seek (Â±10s by screen side) and a
   // flag that swallows the synthetic click after touchend (it would double-toggle).
   const touchTapRef = useRef({ time: 0, zone: null });
   const singleTapTimer = useRef(null);
@@ -623,6 +787,15 @@ export default function NativePlayerView({
   const holdTimerRef = useRef(null);
   const heldRateRef = useRef(1);
   const holdPointerRef = useRef(null);
+  // Space tap-vs-hold: is the key currently down, and did the hold already
+  // engage 2x (so the keyup must NOT also toggle play).
+  const spaceHoldRef = useRef(false);
+  const spaceFiredRef = useRef(false);
+  /* The motion vocabulary, already checked against the viewer's OS preference.
+     Every `SPRING.*` / `PILL_IN` / `CHECK_POP` below reads `M`, not the raw
+     constants, so the reduced-motion contract in constants/motion.js is enforced
+     here rather than merely documented. */
+  const M = useMotionTokens(useReducedMotion());
   // Still-watching bookkeeping.
   const swIdleRef = useRef(null); // rolling play-with-no-input timer
   const swAutoAdvRef = useRef(0); // consecutive auto-advanced episodes
@@ -647,7 +820,7 @@ export default function NativePlayerView({
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   // Live views for closures that must not read stale hold/still-watching state.
-  // (Declared here; SYNCED below next to the other mirror refs — the states
+  // (Declared here; SYNCED below next to the other mirror refs â€” the states
   // they read are declared further down, and assigning earlier is a TDZ crash.)
   const hold2xRef = useRef(false);
   const endedRef = useRef(false);
@@ -684,7 +857,7 @@ export default function NativePlayerView({
   const [audioTracks, setAudioTracks] = useState([]);
   const [audioIndex, setAudioIndex] = useState(0);
   /* NHD sibling-URL dubs: `audioTracks` from the resolver, each a FULL alternate
-     manifest (one per dub), never #EXT-X-MEDIA groups — so unlike hls.js tracks a
+     manifest (one per dub), never #EXT-X-MEDIA groups â€” so unlike hls.js tracks a
      dub switch is a position-preserving manifest swap, and the pick must survive
      the token-refresh re-resolve below. */
   const [dubTracks, setDubTracks] = useState([]);
@@ -696,6 +869,17 @@ export default function NativePlayerView({
      re-resolves through runSourceOnce's `forceSource` argument. */
   const [requestedServer, setRequestedServer] = useState(null);
   const requestedServerRef = useRef(null); // mirror for the async resolve loop
+  /* Which source is ACTUALLY playing, as state rather than a ref.
+     `metaRef.current.sourceKey` already tracked this, but a ref mutation cannot
+     schedule a render, so every reader during render saw whatever the last
+     render happened to observe. That is fine while the user is the one switching
+     (pickServer also flips `status`, forcing a render) and wrong when the LOADER
+     decides: a dead source falling over to the next one writes only the ref, so
+     the Servers menu and the settings label kept naming the server we just
+     abandoned until some unrelated state change happened to re-render.
+     Promoting it makes the source change observable, which is what the boundary
+     scoping below needs in order to trust it. */
+  const [activeSourceKey, setActiveSourceKey] = useState(null);
   // TMDB iso_639_1 -> display name, for the film-level original-language line.
   const FILM_LANG = {
     en: "English", te: "Telugu", hi: "Hindi", ta: "Tamil", ml: "Malayalam",
@@ -705,7 +889,7 @@ export default function NativePlayerView({
     tr: "Turkish", vi: "Vietnamese", th: "Thai", id: "Indonesian", pl: "Polish",
   };
   const [fatal, setFatal] = useState(null);
-  // Bumped by the fatal banner's "Try again" to re-run the whole load effect —
+  // Bumped by the fatal banner's "Try again" to re-run the whole load effect â€”
   // the effect re-resolves the source from scratch (a stale CDN token or a
   // transient 403 usually clears on a second resolve), which is why it is a
   // dependency of that effect and not just a local teardown.
@@ -752,12 +936,31 @@ export default function NativePlayerView({
     const t = setTimeout(() => setSpinner(true), 700);
     return () => clearTimeout(t);
   }, [buffering, playing]);
+  /* Two waits, two treatments.
+     `stageWhileLoading` is true when there is no picture worth keeping: the very
+     first load of a title, and any server / dub / quality switch, where the old
+     frame belongs to a stream that is no longer playing. There the viewer gets
+     the title art, blurred, with the name and a ring over it — proof the player
+     still knows what it is playing.
+     A mid-playback stall is the opposite case: the frame IS the content, and the
+     earlier version that dimmed and blurred it during a stall read as a broken
+     player (see the note at the spinner). So a stall keeps the light overlay. */
+  const [stageWhileLoading, setStageWhileLoading] = useState(true);
+  // Set by a server switch, cleared when frames return; null means a cold open.
+  const [switchingNote, setSwitchingNote] = useState(null);
+  const showStage = spinner && (stageWhileLoading || !hasStartedRef.current);
+  // Why this particular wait is happening. "Loading…" alone is identical for a
+  // cold open and for a server the viewer just picked, and those two deserve
+  // different wording — one is the app working, the other is the app admitting
+  // it is fetching from a different provider.
+  const stageNote = switchingNote || "Loading…";
+
   const [bufferedSecs, setBufferedSecs] = useState(0);
   const [bufferedRanges, setBufferedRanges] = useState([]);
   // Master-mode (multi-variant) sources start on ABR auto; picking a level pins it.
   const [autoLevel, setAutoLevel] = useState(true);
   const [manualHeight, setManualHeight] = useState(null);
-  // The rendition ABR currently settled on (LEVEL_SWITCHED) — shows the real
+  // The rendition ABR currently settled on (LEVEL_SWITCHED) â€” shows the real
   // "now playing" resolution in the quality dialog even while on Auto.
   const [currentHeight, setCurrentHeight] = useState(null);
   // Netflix resume card: { at, left } where `at` is the saved position in s.
@@ -777,8 +980,8 @@ export default function NativePlayerView({
   // Netflix chrome state.
   const [controlsVisible, setControlsVisible] = useState(true);
   const [panel, setPanel] = useState(null); // null | "subs" | "episodes" | "party"
-  /* A sheet is open. Everything that floats in the bottom-right corner — the
-     Skip Intro pill, the "Tap to unmute" pill, the "Left off at" card — yields
+  /* A sheet is open. Everything that floats in the bottom-right corner â€” the
+     Skip Intro pill, the "Tap to unmute" pill, the "Left off at" card â€” yields
      while this is true: that corner is where the episodes rail and the settings
      pane land, their gradients are transparent at the top, so those controls
      used to show *through* an open panel on a second layer, still tappable. */
@@ -798,9 +1001,9 @@ export default function NativePlayerView({
   const [scrubHover, setScrubHover] = useState(null); // 0..1 ratio or null
   const [scrubDragging, setScrubDragging] = useState(false);
   // Netflix-style HUD pill (volume / aspect) that pops then self-fades.
-  const [autoMuted, setAutoMuted] = useState(false); // autoplay-block → muted play + hint
+  const [autoMuted, setAutoMuted] = useState(false); // autoplay-block â†’ muted play + hint
   const [aspectRatioIndex, setAspectRatioIndex] = useState(() => {
-    // Clamp to the shared catalog length — the mode list lives in
+    // Clamp to the shared catalog length â€” the mode list lives in
     // constants/playerUi.js, so a stale stored index beyond it resets to Fit.
     const i = readStoredNumber(ASPECT_STORAGE_KEY, {
       min: 0,
@@ -815,7 +1018,7 @@ export default function NativePlayerView({
   // plays at 2x; release restores the previous rate. Desktop holds the forward
   // transport button.
   const [hold2x, setHold2x] = useState(false);
-  // Netflix "Still watching?" — after enough unattended playback or auto-advanced
+  // Netflix "Still watching?" â€” after enough unattended playback or auto-advanced
   // episodes, pause and ask. The offer expires if ignored.
   const [stillWatching, setStillWatching] = useState(false);
   // Mirror refs: the keyboard + gesture handlers bind once, so they must read current values.
@@ -825,7 +1028,7 @@ export default function NativePlayerView({
   mutedRef.current = muted;
   const aspectRef = useRef(aspectRatioIndex);
   aspectRef.current = aspectRatioIndex;
-  // Hold/still-watching mirrors — synced here because `hold2x`/`ended` are
+  // Hold/still-watching mirrors â€” synced here because `hold2x`/`ended` are
   // declared above this line, not at the ref block up top.
   hold2xRef.current = hold2x;
   endedRef.current = ended;
@@ -833,13 +1036,24 @@ export default function NativePlayerView({
   // Touch gesture state for Netflix's vertical drags on the video surface.
   const gestureRef = useRef(null);
   // Fragments flowing via the Vercel relay (0 = all direct). A streak past a
-  // couple means the CDN throttled us mid-session — surfaced in the attempt log.
+  // couple means the CDN throttled us mid-session â€” surfaced in the attempt log.
   // The per-session verdict (relay vs direct) drives the quality menu's
   // relay-limited rows and skips a re-probe when it is already known.
   const [transportRelay, setTransportRelay] = useState(false);
 
   const displayTitle = title || (type === "tv" ? `TV ${id}` : `Movie ${id}`);
   const displaySubtitle = subtitle ?? (type === "tv" ? `S${season}:E${episode}` : "");
+
+  /* What the Audio panel lists, in viewer words. The providers send their own
+     strings ("Tamil Dub") and call the original track "Original", so both are
+     normalised here once rather than at each render site: the original is named
+     by the film's real language when TMDB told us, and a dub row is just the
+     language. Covers every multi-audio source — Server 3 (NHD) and Server 4
+     (ZXC Centaurus) both arrive as the same `audioTracks` array. */
+  const audioTrackList = useMemo(
+    () => buildAudioTrackList(dubTracks, originalLanguage),
+    [dubTracks, originalLanguage],
+  );
 
   const say = () => {};
 
@@ -862,7 +1076,7 @@ export default function NativePlayerView({
         video.pause();
       }
     } catch {
-      // Autoplay policy — the big custom button stays visible for a tap.
+      // Autoplay policy â€” the big custom button stays visible for a tap.
     }
     // YouTube-style centre flash for the NEW state. After `await`, `video.paused`
     // is settled either way (play resolved or pause is sync); a rejected play
@@ -878,7 +1092,7 @@ export default function NativePlayerView({
     try {
       video.currentTime = Number(value) || 0;
     } catch {
-      // live-edge clamp — ignore out-of-range seeks
+      // live-edge clamp â€” ignore out-of-range seeks
     }
   };
 
@@ -894,7 +1108,7 @@ export default function NativePlayerView({
     try {
       await video.play();
     } catch {
-      // user gesture needed — controls are visible
+      // user gesture needed â€” controls are visible
     }
   };
 
@@ -913,17 +1127,17 @@ export default function NativePlayerView({
       clearTimeout(scrubHoverTimer.current);
       scrubHoverTimer.current = null;
     }
-    if (resumeOffer) setResumeOffer(null); // user grabbed the bar — they pick the spot
+    if (resumeOffer) setResumeOffer(null); // user grabbed the bar â€” they pick the spot
     try {
       scrubRef.current?.setPointerCapture?.(e.pointerId);
     } catch {
-      // pointer capture unsupported — drag still works while over the bar
+      // pointer capture unsupported â€” drag still works while over the bar
     }
     setScrubDragging(true);
     const ratio = scrubRatioOf(e.clientX);
     setScrubHover(ratio);
     // No seek per pointermove: the bar tracks the drag and the seek commits once on
-    // release — seeking on every move makes hls.js cancel in-flight fragments.
+    // release â€” seeking on every move makes hls.js cancel in-flight fragments.
   };
 
   const onScrubMove = (e) => {
@@ -967,7 +1181,7 @@ export default function NativePlayerView({
      same feedback a drag gives.
      stopPropagation is load-bearing: the window keydown handler also binds
      ArrowLeft/ArrowRight, and without it one press seeks twice.
-     Up/Down are deliberately NOT handled here — they fall through to the global
+     Up/Down are deliberately NOT handled here â€” they fall through to the global
      volume binding, which is the convention this player uses everywhere else
      (and matches YouTube); hijacking them for seeking would make the same key
      mean two different things depending on focus. */
@@ -1009,8 +1223,8 @@ export default function NativePlayerView({
      dragging, decode the frame at the hover position off-screen and show it in
      a small card above the time bubble. Cache miss decodes ride the preview
      pipeline (same transport as playback); failures resolve null and scrubbing
-     keeps working — the card just stays hidden until a capture lands.
-     NOTE: declared AFTER safeDuration/hoverRatio below — this effect reads
+     keeps working â€” the card just stays hidden until a capture lands.
+     NOTE: declared AFTER safeDuration/hoverRatio below â€” this effect reads
      them, and an earlier placement read them before initialization (TDZ crash). */
 
   const seekRelative = (delta) => {
@@ -1018,7 +1232,7 @@ export default function NativePlayerView({
     if (!video) return;
     poke();
     // HUD shows the amount actually applied (clamped at 0 / duration), not the
-    // requested one — YouTube shows +Xs / -Xs, never a lie like -0s.
+    // requested one â€” YouTube shows +Xs / -Xs, never a lie like -0s.
     const dur = Number(video.duration);
     const from = video.currentTime || 0;
     const next = from + delta;
@@ -1033,13 +1247,13 @@ export default function NativePlayerView({
   seekRelativeRef.current = seekRelative;
 
   /* Netflix resume: when a continue-watching entry exists for this title/
-     episode, offer "Left off at …" once per session and auto-resume into the
+     episode, offer "Left off at â€¦" once per session and auto-resume into the
      saved position after a short countdown. Restart scrubs to 0. */
   const maybeOfferResume = () => {
     const entry = watchedEntryRef.current;
     const video = videoRef.current;
     if (!entry || !video) return;
-    // Guests follow the host's position — a local resume card would fight it.
+    // Guests follow the host's position â€” a local resume card would fight it.
     if (partyActiveRef.current && !partyIsHostRef.current) return;
     const at = Number(entry.timestamp) || 0;
     const dur = Number(video.duration) || 0;
@@ -1060,11 +1274,11 @@ export default function NativePlayerView({
     try {
       video.currentTime = at;
     } catch {
-      // live-edge clamp — start where the stream begins
+      // live-edge clamp â€” start where the stream begins
     }
     if (video.paused) {
       video.play().catch(() => {
-        // autoplay policy — the big custom play button stays available
+        // autoplay policy â€” the big custom play button stays available
       });
     }
     say(`Resumed from ${fmtTime(at)}.`);
@@ -1082,7 +1296,7 @@ export default function NativePlayerView({
     }
     if (video.paused) {
       video.play().catch(() => {
-        // autoplay policy — the big custom play button stays available
+        // autoplay policy â€” the big custom play button stays available
       });
     }
     say("Playing from the beginning.");
@@ -1110,8 +1324,8 @@ export default function NativePlayerView({
   useEffect(() => {
     if (!resumeOffer) return undefined;
     // The countdown only runs while playback is actually underway. When autoplay is
-    // blocked (or the user pauses mid-card) the ticks freeze and no seek fires —
-    // seeking into a paused player would flash "Resuming…" and vanish. Tapping play
+    // blocked (or the user pauses mid-card) the ticks freeze and no seek fires â€”
+    // seeking into a paused player would flash "Resumingâ€¦" and vanish. Tapping play
     // commits the offer instead (togglePlay).
     const tick = setInterval(() => {
       if (videoRef.current?.paused) return;
@@ -1133,7 +1347,7 @@ export default function NativePlayerView({
     setHud({ kind, value });
     hudTimerRef.current = setTimeout(() => setHud(null), HUD_MS);
   }, []);
-  // Mirror for once-bound closures (togglePlay) — same pattern as the value
+  // Mirror for once-bound closures (togglePlay) â€” same pattern as the value
   // mirror refs above, so the YT-style centre flash survives stale closures.
   const showHudRef = useRef(showHud);
   showHudRef.current = showHud;
@@ -1141,7 +1355,7 @@ export default function NativePlayerView({
   /* Settings-sheet focus management. Two real problems: focus was never moved
      into the sheet (so its rows were never announced and Tab started from
      wherever the transport row left off), and closing it dropped focus on the
-     floor. Deliberately NOT a focus trap and NOT aria-modal — the sheet is a
+     floor. Deliberately NOT a focus trap and NOT aria-modal â€” the sheet is a
      side pane, the transport row stays visible and operable beneath it, and
      trapping Tab would make the play button unreachable while it is open.
 
@@ -1167,7 +1381,7 @@ export default function NativePlayerView({
     const session = panelSessionRef.current;
     panelSessionRef.current = null;
     // <body> means nothing was focused when the sheet opened (a synthetic click,
-    // or focus was never on the chrome) — focusing it is a no-op.
+    // or focus was never on the chrome) â€” focusing it is a no-op.
     if (session?.el?.isConnected && session.el !== document.body) session.el.focus();
     return undefined;
   }, [panel]);
@@ -1215,7 +1429,7 @@ export default function NativePlayerView({
         setIsFullscreen(true);
       }
     } catch {
-      // fullscreen unsupported — native video keeps playing inline
+      // fullscreen unsupported â€” native video keeps playing inline
     }
     poke();
   };
@@ -1389,13 +1603,13 @@ export default function NativePlayerView({
     suppressClickRef.current = true;
     if (hold2xRef.current || holdTimerRef.current) {
       // A right-zone hold just ended (2x engaged or still arming): it was not a
-      // tap — swallow it so play/pause doesn't fire on release.
+      // tap â€” swallow it so play/pause doesn't fire on release.
       handleHoldEnd();
       suppressClickRef.current = true;
       return;
     }
     if (buffering) return;
-    // A vertical gesture (volume drag) just happened — not a tap.
+    // A vertical gesture (volume drag) just happened â€” not a tap.
     if (gestureRef.current?.active) {
       gestureRef.current = null;
       return;
@@ -1404,7 +1618,7 @@ export default function NativePlayerView({
     const t = e.changedTouches && e.changedTouches[0];
     if (!rect.width || !t) return;
     const zone = zoneOf(rect, t.clientX);
-    // Center taps toggle playback immediately — the 260ms single-tap delay
+    // Center taps toggle playback immediately â€” the 260ms single-tap delay
     // only exists where a double-tap means seek.
     if (zone === "center") {
       if (singleTapTimer.current) {
@@ -1436,8 +1650,8 @@ export default function NativePlayerView({
     }, 260);
   };
 
-  // Vertical drag on the RIGHT THIRD = volume (brightness removed — the OS
-  // owns screen brightness). Vertical-only — horizontal movement declares a
+  // Vertical drag on the RIGHT THIRD = volume (brightness removed â€” the OS
+  // owns screen brightness). Vertical-only â€” horizontal movement declares a
   // non-gesture so taps and double-taps survive. A right-zone hold arms 2x;
   // a vertical move on that side cancels the arm.
   const handleGestureStart = (e) => {
@@ -1466,7 +1680,7 @@ export default function NativePlayerView({
       if (Math.abs(t.clientY - g.startY) < 14) return;
       g.active = true;
       suppressClickRef.current = true;
-      // A right-half drag is a volume gesture, not a hold — cancel the 2x arm.
+      // A right-half drag is a volume gesture, not a hold â€” cancel the 2x arm.
       if (g.side === "volume" && holdTimerRef.current) {
         clearTimeout(holdTimerRef.current);
         holdTimerRef.current = null;
@@ -1476,7 +1690,7 @@ export default function NativePlayerView({
     if (hold2xRef.current && g.side === "volume") {
       releaseHold2x();
     }
-    // Netflix sign: drag UP → louder (clientY falls, so -dy is positive).
+    // Netflix sign: drag UP â†’ louder (clientY falls, so -dy is positive).
     const nv = Math.min(1, Math.max(0, volumeRef.current - dy * 0.008));
     setMuted(false);
     setAutoMuted(false);
@@ -1486,7 +1700,7 @@ export default function NativePlayerView({
     poke();
   };
 
-  /* Custom transport state (no native video controls — play/pause/seek/time/
+  /* Custom transport state (no native video controls â€” play/pause/seek/time/
      fullscreen below are all wired by hand). */
   useEffect(() => {
     const video = videoRef.current;
@@ -1528,7 +1742,7 @@ export default function NativePlayerView({
           if (b.start(i) <= t && t <= b.end(i)) return Math.max(0, b.end(i) - t);
         }
       } catch {
-        // buffered unreadable (no media yet) — report zero
+        // buffered unreadable (no media yet) â€” report zero
       }
       return 0;
     };
@@ -1600,12 +1814,12 @@ export default function NativePlayerView({
       video.removeEventListener("canplay", onCanPlay);
     };
     // partyPushNowRef is a ref mirror (host push), read only inside the
-    // seeked handler at event time — binding once is the point here.
+    // seeked handler at event time â€” binding once is the point here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* Volume applies to the element and persists across visits. autoMuted is the
-     transient autoplay-policy mute (Netflix autoplays muted + hints) — it
+     transient autoplay-policy mute (Netflix autoplays muted + hints) â€” it
      overrides until the user taps the "unmute" affordance. */
   useEffect(() => {
     const video = videoRef.current;
@@ -1614,14 +1828,14 @@ export default function NativePlayerView({
         video.volume = volume;
         video.muted = muted || autoMuted;
       } catch {
-        // element not ready — applied on the next change
+        // element not ready â€” applied on the next change
       }
     }
     try {
       window.localStorage.setItem(VOLUME_STORAGE_KEY, String(volume));
       window.localStorage.setItem(MUTED_STORAGE_KEY, muted ? "1" : "0");
     } catch {
-      // private mode — volume just won't persist
+      // private mode â€” volume just won't persist
     }
   }, [volume, muted, autoMuted]);
 
@@ -1634,15 +1848,22 @@ export default function NativePlayerView({
       } catch {
       }
     }
-  }, [playbackRate, hold2x]);
+    /* `hold2x` releasing used to fall straight into the branch above, which
+       re-applied the STATE rate over the rate releaseHold2x had just restored.
+       For a viewer at 1x that is invisible (both are 1). For anyone who chose
+       1.25x or 1.5x in Settings it meant a hold-to-2x snapped them back to their
+       state rate a frame later — the restore was correct and then immediately
+       undone. Only a real SETTING change re-syncs the element now; a hold
+       release is releaseHold2x's business alone. */
+  }, [playbackRate]);
 
-  /* Aspect ratio persists across visits (brightness is gone — the OS owns
+  /* Aspect ratio persists across visits (brightness is gone â€” the OS owns
      screen brightness; a CSS filter only broke the picture). */
   useEffect(() => {
     try {
       window.localStorage.setItem(ASPECT_STORAGE_KEY, String(aspectRatioIndex));
     } catch {
-      // private mode — aspect just won't persist
+      // private mode â€” aspect just won't persist
     }
   }, [aspectRatioIndex]);
 
@@ -1660,7 +1881,7 @@ export default function NativePlayerView({
 
   /* Media Session (Android/iOS lock screen + hardware buttons): advertise the
      title, reflect play/pause, and answer the 10s-seek buttons. Registered
-     once — the handlers call live refs so nothing goes stale. */
+     once â€” the handlers call live refs so nothing goes stale. */
   useEffect(() => {
     if (!("mediaSession" in navigator)) return undefined;
     try {
@@ -1689,7 +1910,7 @@ export default function NativePlayerView({
         try {
           v.currentTime = d.seekTime;
         } catch {
-          // out-of-range seek — clamp handled by the element itself
+          // out-of-range seek â€” clamp handled by the element itself
         }
       });
       return () => {
@@ -1704,7 +1925,7 @@ export default function NativePlayerView({
         }
       };
     } catch {
-      // MediaMetadata/session unsupported — playback is unaffected
+      // MediaMetadata/session unsupported â€” playback is unaffected
     }
     return undefined;
   }, [displayTitle, displaySubtitle]);
@@ -1740,7 +1961,7 @@ export default function NativePlayerView({
   );
 
   /* One-off keyframes for the "Up Next" countdown bar (the player is fully
-     inline-styled, so the 0%→100% sweep is injected into the head). */
+     inline-styled, so the 0%â†’100% sweep is injected into the head). */
   useEffect(() => {
     const styleId = "streamly-upnext-keyframes";
     if (document.getElementById(styleId)) return undefined;
@@ -1752,7 +1973,7 @@ export default function NativePlayerView({
   }, []);
 
   /* Episodes that have actually aired. Everything that can move the viewer to a
-     different episode — the transport arrows, the keyboard paging, Up Next —
+     different episode â€” the transport arrows, the keyboard paging, Up Next â€”
      walks this instead of `episodes`, so an unaired episode (no still, no
      runtime, no source) can never be paged into or auto-played. */
   const airedEpisodes = useMemo(
@@ -1765,7 +1986,7 @@ export default function NativePlayerView({
      cancelled card's fired timer is a no-op thanks to the `prev` guard). */
   useEffect(() => {
     // Guests never auto-advance independently: the host's advance is
-    // broadcast (title sync) and everyone follows — two countdowns would
+    // broadcast (title sync) and everyone follows â€” two countdowns would
     // double-fire out of step.
     if (partyActiveRef.current && !partyIsHostRef.current) {
       setUpNext(null);
@@ -1786,7 +2007,7 @@ export default function NativePlayerView({
       setUpNext((prev) => {
         if (prev) {
           // Still-watching guard: three auto-advances with zero interaction in
-          // between means nobody is behind the screen — pause and ask instead
+          // between means nobody is behind the screen â€” pause and ask instead
           // of burning data through a fourth episode.
           if (swAutoAdvRef.current + 1 >= STILL_WATCHING_EPISODES) {
             offerStillWatching("binge");
@@ -1805,17 +2026,55 @@ export default function NativePlayerView({
      F fullscreen, N/Shift+P next/previous episode, Esc closes the dialog
      first, then the player. */
   useEffect(() => {
+    /* The other half of tap-vs-hold Space. A keyup with no 2x engaged means the
+       viewer tapped, so play/pause fires HERE — after the intent is known — and
+       a keyup when 2x IS engaged just restores the rate and does nothing else. */
+    const onKeyUp = (e) => {
+      if (e.code !== "Space") return;
+      if (!spaceHoldRef.current) return;
+      spaceHoldRef.current = false;
+      const engaged = spaceFiredRef.current;
+      spaceFiredRef.current = false;
+      if (holdTimerRef.current) {
+        clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+      }
+      if (engaged) {
+        releaseHold2x();
+        return;
+      }
+      togglePlayRef.current?.();
+    };
+    window.addEventListener("keyup", onKeyUp);
     const onKey = (e) => {
       if (e.defaultPrevented) return;
       const tag = String(e.target?.tagName || "").toLowerCase();
       if (tag === "input" || tag === "textarea" || tag === "select") return;
-      // Space/Enter on a focused button already clicks it — running our own
+      // Space/Enter on a focused button already clicks it â€” running our own
       // toggle too would double-fire into a no-op.
       if (tag === "button" && (e.code === "Space" || e.code === "Enter")) return;
       const video = videoRef.current;
       if (!video) return;
       switch (e.code) {
         case "Space":
+          e.preventDefault();
+          /* Space is the one key that must wait to know the intent: a TAP is
+             play/pause, a HOLD is 2x (YouTube/Netflix both do this). Toggling on
+             keydown and then also engaging 2x would pause the video out from
+             under a viewer who is only holding the key to skim, so the tap is
+             deferred to keyup and cancelled outright if 2x engaged. KeyK stays
+             an instant toggle — it has no hold meaning. */
+          if (spaceHoldRef.current) return; // auto-repeat: ignore the held-down stream
+          spaceHoldRef.current = true;
+          spaceFiredRef.current = false;
+          if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+          holdTimerRef.current = setTimeout(() => {
+            holdTimerRef.current = null;
+            if (!spaceHoldRef.current) return;
+            spaceFiredRef.current = true;
+            engageHold2x();
+          }, HOLD_2X_DELAY_MS);
+          break;
         case "KeyK":
           e.preventDefault();
           togglePlay();
@@ -1867,7 +2126,7 @@ export default function NativePlayerView({
           }
           break;
         case "Escape":
-          // In fullscreen the browser consumes Esc to exit it — don't also
+          // In fullscreen the browser consumes Esc to exit it â€” don't also
           // close the player underneath.
           if (document.fullscreenElement) return;
           if (panel) setPanel(null);
@@ -1878,17 +2137,21 @@ export default function NativePlayerView({
       }
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keyup", onKeyUp);
+    };
     // togglePlay/seekRelative/changeVolume/toggleMute/goFullscreen only touch
     // refs + functional setState, so binding once per panel flip is safe.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [panel]);
 
-  /* ── Watch Party (opt-in via the `party` prop) ────────────────────────────
+  /* â”€â”€ Watch Party (opt-in via the `party` prop) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
      HOST is the single playback authority: every local play/pause transition
      is broadcast, position re-sent every 10s while playing, and a seek push
      rides onSeeked so skips land on guests within one poll instead of at the
-     next keepalive. GUESTS never drive the element from their own controls —
+     next keepalive. GUESTS never drive the element from their own controls â€”
      remote state applies edge-triggered (play/pause) with >2.5s drift
      correction, and stale room echoes (updatedAt not newer than last applied)
      are dropped. With no party this whole block is inert. */
@@ -1901,7 +2164,7 @@ export default function NativePlayerView({
   const partyLastSentRef = useRef({ playing: null, at: 0 });
   const partyPushNowRef = useRef(null);
 
-  // HOST — broadcast transitions + a 10s position keepalive while playing.
+  // HOST â€” broadcast transitions + a 10s position keepalive while playing.
   useEffect(() => {
     if (!partyActive || !partyIsHostRef.current || !party?.broadcastPlayback) return undefined;
     const push = () => {
@@ -1941,7 +2204,7 @@ export default function NativePlayerView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing, partyActive, type, id, season, episode, title]);
 
-  // GUEST — apply the host's playback state (drift-corrected).
+  // GUEST â€” apply the host's playback state (drift-corrected).
   useEffect(() => {
     const rb = party?.remotePlayback;
     if (!partyActive || partyIsHostRef.current || !rb?.updatedAt) return;
@@ -1960,13 +2223,13 @@ export default function NativePlayerView({
         try {
           video.currentTime = Math.min(target, Math.max(0, dur - 1));
         } catch {
-          // out-of-range seek — the next poll retries
+          // out-of-range seek â€” the next poll retries
         }
       }
     }
     if (rb.isPlaying && video.paused) {
       video.play().catch(() => {
-        // autoplay policy — the tap lands, drift correction catches up after
+        // autoplay policy â€” the tap lands, drift correction catches up after
       });
     } else if (!rb.isPlaying && !video.paused) {
       video.pause();
@@ -1977,7 +2240,7 @@ export default function NativePlayerView({
 
   useEffect(() => {
     if (!Hls.isSupported()) {
-      setFatal("This browser has no MediaSource support — native playback cannot run here.");
+      setFatal("This browser has no MediaSource support â€” native playback cannot run here.");
       return undefined;
     }
     const run = runRef.current + 1;
@@ -1985,7 +2248,7 @@ export default function NativePlayerView({
     const controller = new AbortController();
     // The source committed by the PREVIOUS run (null on first mount): a dub
     // pin carried across a SERVER switch must not index into the new
-    // server's audioTracks — see the publish guard in the commit block.
+    // server's audioTracks â€” see the publish guard in the commit block.
     const prevSourceKey = metaRef.current?.sourceKey || null;
 
     const entryUrlFor = (def, resolved, variant) => {
@@ -2106,24 +2369,24 @@ export default function NativePlayerView({
         // it for one pass (stale().guards everything as usual).
         const def = defArg || PLAYER_SOURCES.find((s) => s.key === requestedServerRef.current) || null;
         if (!def) return false;
-        say(`Trying ${def.label}…`);
+        say(`Trying ${def.label}â€¦`);
         let resolved = null;
         try {
           resolved = await def.resolve(args, { signal: controller.signal });
         } catch (error) {
-          say(`${def.label}: resolve failed (${error?.code || error?.message}) — next source.`);
+          say(`${def.label}: resolve failed (${error?.code || error?.message}) â€” next source.`);
           if (error?.code === "no-source") return "off";
           return false;
         }
         let variants = resolved?.variants || [];
         if (variants.length === 0) {
           // Empty is not terminal: the catalogue returns empty lists when rate-flaky.
-          say(`${def.label}: no variants (maybe rate-flaky) — retrying/moving on.`);
+          say(`${def.label}: no variants (maybe rate-flaky) â€” retrying/moving on.`);
           return false;
         }
         // Sibling-URL dubs ride OUTSIDE the ladder (resolved.audioTracks); variants
         // above is rewritten by the token-refresh path, so the dub list keeps the
-        // FIRST resolution's — sibling URLs never refresh tokens anyway.
+        // FIRST resolution's â€” sibling URLs never refresh tokens anyway.
         const dubTracks = Array.isArray(resolved?.audioTracks) ? resolved.audioTracks : [];
         if (dubTracks.length > 1) {
           say(`${def.label}: ${dubTracks.length} dub audio track(s) available.`);
@@ -2138,11 +2401,11 @@ export default function NativePlayerView({
         for (let attempt = 0; attempt < 2; attempt += 1) {
           if (stale()) return true;
           const pool = preferHeight != null ? variants.filter((v) => (v.height || 0) === preferHeight) : [];
-          // Smooth start: open on the tallest rendition ≤1080p (a 4K segment needs
-          // ~20Mbps sustained — opening there is what stalled playback after 5-10s).
+          // Smooth start: open on the tallest rendition â‰¤1080p (a 4K segment needs
+          // ~20Mbps sustained â€” opening there is what stalled playback after 5-10s).
           let smoothStart = pool[0] || pickSmooth(variants);
           // A pinned dub re-opens on ITS OWN sibling manifest (the token-refresh
-          // attempt below), not the original-language entry — the position restore
+          // attempt below), not the original-language entry â€” the position restore
           // then lands the viewer back inside the dub they were watching.
           // Row index N is dubTracks[N - 1] (row 0 is the original).
           const pinnedDub =
@@ -2154,16 +2417,16 @@ export default function NativePlayerView({
           }
           let entryUrl = entryUrlFor(def, { source: liveSource }, smoothStart);
           if (!entryUrl) {
-            say(`${def.label}: no playable URL — next source.`);
+            say(`${def.label}: no playable URL â€” next source.`);
             return false;
           }
           say(
             `${def.label}: ${variants.length} variant(s), loading ` +
-              (isMaster ? "master (ABR auto)…" : `${smoothStart?.height || "?"}p (smooth start)…`),
+              (isMaster ? "master (ABR auto)â€¦" : `${smoothStart?.height || "?"}p (smooth start)â€¦`),
           );
           // Playability gate: prove one real media byte flows before hls.js sees the
           // source, or a perfect ladder over dead segments plays as a black screen.
-          say(`${def.label}: probing one media byte…`);
+          say(`${def.label}: probing one media byteâ€¦`);
           let probe = { ok: false, reason: "probe error" };
           try {
             probe = await probeSourcePlayable(entryUrl, liveRefUrl, { signal: controller.signal });
@@ -2173,26 +2436,26 @@ export default function NativePlayerView({
           }
           if (stale()) return true;
           if (!probe.ok) {
-            say(`${def.label}: segments unreachable (${probe.reason}) — next source.`);
+            say(`${def.label}: segments unreachable (${probe.reason}) â€” next source.`);
             return false;
           }
           say(`${def.label}: segments flow via ${probe.via}.`);
           setTransportRelay(probe?.via === "relay");
           // Relay delivery is latency-bound (fresh serverless round trip per chunk), so
-          // a relay start reopens at the tallest ≤720p; the direct path keeps ≤1080p.
+          // a relay start reopens at the tallest â‰¤720p; the direct path keeps â‰¤1080p.
           if (!isMaster && probe.via === "relay" && (smoothStart?.height || 0) > 720) {
             const relayFriendly = variants
               .filter((v) => (v.height || 0) > 0 && (v.height || 0) <= 720)
               .sort((a, b) => (b.height || 0) - (a.height || 0))[0];
             if (relayFriendly && relayFriendly.uri !== smoothStart?.uri) {
-              say(`${def.label}: relay path — smooth-starting at ${relayFriendly.height || "?"}p (≤720p)…`);
+              say(`${def.label}: relay path â€” smooth-starting at ${relayFriendly.height || "?"}p (â‰¤720p)â€¦`);
               smoothStart = relayFriendly;
               entryUrl = entryUrlFor(def, { source: liveSource }, smoothStart);
               // A per-quality source whose variant lacks a uri must not reach
-              // hls.loadSource(undefined) — that surfaced as ?url=undefined at
+              // hls.loadSource(undefined) â€” that surfaced as ?url=undefined at
               // the worker (500 + CORS noise) instead of a clean failover.
               if (!entryUrl) {
-                say(`${def.label}: no playable URL after relay re-route — next source.`);
+                say(`${def.label}: no playable URL after relay re-route â€” next source.`);
                 return false;
               }
             }
@@ -2213,7 +2476,7 @@ export default function NativePlayerView({
           // ABR seed. A fixed 10Mbps is a blind guess: too low on a fast TV, far
           // too high on a phone (an over-optimistic first rung shows a rebuffer
           // before hls.js corrects itself). navigator.connection already knows
-          // the pipe's shape before a byte flows, so use it as a PRIOR only —
+          // the pipe's shape before a byte flows, so use it as a PRIOR only â€”
           // hls.js's own measurement still wins after the first segments, and
           // the underflow step-down is unchanged. Absent the API (Safari,
           // Firefox) this is exactly the old fixed seed.
@@ -2225,7 +2488,7 @@ export default function NativePlayerView({
           // parallel range chunking, so a manual tall pick may try and the buffer-floor
           // step-down negotiates back down. We do NOT yank a user's 4K/1080p pick (every
           // source is relay-only on the free tier; banning tall rungs bans everything).
-          // Startup stays ≤720p over relay; master sources self-adjust.
+          // Startup stays â‰¤720p over relay; master sources self-adjust.
           const hls = new Hls({
             loader: createStreamlyLoader({
               getRefUrl: () => liveRefUrl,
@@ -2235,6 +2498,8 @@ export default function NativePlayerView({
               onDirectPath: () => {
                 setTransportRelay(false);
               },
+              // Manifest cue tags, when present, replace the guessed skip windows.
+              onCueBoundaries: (bounds) => mergeBoundaries(bounds, "cues"),
             }),
             // ABR + progressive MSE appends: chunks hit the screen while the segment is
             // still arriving. The back buffer stays small so device RAM stays bounded.
@@ -2246,7 +2511,7 @@ export default function NativePlayerView({
             // Auto starts mid-ladder (INITIAL_BW_BITS) so quality doesn't climb rung-by-rung.
             initialBandwidthEstimate: streamSeedBits,
             // Judge ABR by MEASURED bytes/sec, not the advertised bitrate (relayed sources
-            // lie), and never exceed the rendered size — a small window doesn't need 1080p
+            // lie), and never exceed the rendered size â€” a small window doesn't need 1080p
             // and every rung saved off the relay is one fewer stall.
             abrMaxWithRealBitrate: true,
             capLevelToPlayerSize: true,
@@ -2263,7 +2528,7 @@ export default function NativePlayerView({
               `${data?.details || "error"}` +
               (data?.error?.message ? ` (${data.error.message})` : "") +
               (frag ? ` [sn ${frag.sn ?? "?"} ${String(frag.url || "").slice(0, 90)}]` : "");
-            say(`${def.label}: fatal ${lastFatalDetail} — next source.`);
+            say(`${def.label}: fatal ${lastFatalDetail} â€” next source.`);
             // Logs name the PROVIDER, not the generic row: "Server 4" in a
             // console tells you nothing, `zxc-centaurus` tells you which
             // backend to go debug. The viewer-facing `say` keeps the generic name.
@@ -2284,7 +2549,7 @@ export default function NativePlayerView({
             resolveFatal?.();
           };
           // Non-fatal fragment failures never reach the attempt log, yet a loop of them IS
-          // the black screen (vidzen 429s) — count them and fail over ourselves.
+          // the black screen (vidzen 429s) â€” count them and fail over ourselves.
           let consecFragFails = 0;
           hls.on(Hls.Events.FRAG_BUFFERED, () => {
             consecFragFails = 0;
@@ -2316,12 +2581,12 @@ export default function NativePlayerView({
                 if (consecFragFails >= 2 && canStepDown) {
                   hls.currentLevel = autoRung - 1;
                   consecFragFails = 0;
-                  say(`${def.label}: downshifting to level ${autoRung - 1} (${data.details})…`);
+                  say(`${def.label}: downshifting to level ${autoRung - 1} (${data.details})â€¦`);
                                   } else if (consecFragFails >= MAX_CONSECUTIVE_FRAG_FAILURES) {
-                  reportFatal({ ...data, fatal: true, details: `${data.details} (×${consecFragFails} consecutive — giving up)` });
+                  reportFatal({ ...data, fatal: true, details: `${data.details} (Ã—${consecFragFails} consecutive â€” giving up)` });
                   failOver();
                 } else {
-                  say(`${def.label}: segment retry ${consecFragFails} (${data.details})…`);
+                  say(`${def.label}: segment retry ${consecFragFails} (${data.details})â€¦`);
                 }
               }
               return;
@@ -2334,7 +2599,7 @@ export default function NativePlayerView({
             hls.attachMedia(videoRef.current);
             await waitParsed(hls);
           } catch (error) {
-            say(`${def.label}: ${error?.message || "load failed"} — next source.`);
+            say(`${def.label}: ${error?.message || "load failed"} â€” next source.`);
             try {
               hls.destroy();
             } catch {
@@ -2350,7 +2615,11 @@ export default function NativePlayerView({
             masterLevels: isMaster,
             entryUrl,
           };
-          // A fresh resolution carries a fresh referer token — thumbnails from
+          // Single write point for the live source, so this is the single place
+          // that has to announce it. Runs for a manual pick AND for the loader's
+          // own fail-over, which is the case the ref could not express.
+          setActiveSourceKey(def.key);
+          // A fresh resolution carries a fresh referer token â€” thumbnails from
           // the previous one are dead weight; the preview decoder remounts.
           clearPreviewCache(def.key);
           startLevelFor(hls);
@@ -2375,7 +2644,7 @@ export default function NativePlayerView({
               }
             });
           setQualities(Array.from(byLabel.values()));
-          // Publish this run's dub list — unless a dub pin carried over from
+          // Publish this run's dub list â€” unless a dub pin carried over from
           // a DIFFERENT server (a Servers-menu switch): a stale index must not
           // auto-pin a dub on the new server (its attempt loop would re-open
           // a dead old token). Same-server re-runs keep the pin by design.
@@ -2394,6 +2663,10 @@ export default function NativePlayerView({
           autoUriHeightRef.current = isMaster ? null : smoothStart?.height ?? null;
           attachAudio(hls);
           setStatus(`playing via ${def.label}`);
+          // Real frames exist again: any later stall is a mid-playback one and
+          // must use the light overlay, not hide the picture behind art.
+          setStageWhileLoading(false);
+          setSwitchingNote(null);
           say(`${def.label}: PLAYING (${isMaster ? "ABR auto" : `${smoothStart?.height || "?"}p`}).`);
           if (resumeTime != null) {
             try {
@@ -2412,7 +2685,7 @@ export default function NativePlayerView({
               setAutoMuted(true);
               await videoRef.current.play();
             } catch {
-              say("Autoplay blocked — tap the custom play button.");
+              say("Autoplay blocked â€” tap the custom play button.");
             }
           }
           // Non-master sources are single-rendition: their current height is fixed.
@@ -2420,20 +2693,20 @@ export default function NativePlayerView({
           // Netflix resume gate: first real playback for this title/episode.
           maybeOfferResumeRef.current();
           // A fatal error AFTER playback started either refreshes tokens in place (same
-          // source/quality, resume position) or moves on — never a dead "playing" screen.
+          // source/quality, resume position) or moves on â€” never a dead "playing" screen.
           const parked = await Promise.race([fatalLater.then(() => "fatal"), abortPromise()]);
           if (parked === "done") return true;
-          // A pinned dub whose token died mid-play cannot refresh in place — its
-          // sibling URL is fixed — so drop back to the original track and let the
+          // A pinned dub whose token died mid-play cannot refresh in place â€” its
+          // sibling URL is fixed â€” so drop back to the original track and let the
           // token-refresh re-resolve below mint a fresh ladder for it.
           if (activeDubRef.current > 0 && isAuthFatal(lastFatalDetail) && !stale()) {
-            say(`${def.label}: dubbed audio token expired — falling back to the original track.`);
+            say(`${def.label}: dubbed audio token expired â€” falling back to the original track.`);
             activeDubRef.current = 0;
             setActiveDub(0);
           }
           if (attempt === 0 && isAuthFatal(lastFatalDetail) && !stale()) {
             const savedT = videoRef.current?.currentTime || 0;
-            say(`${def.label}: token may have expired — re-resolving…`);
+            say(`${def.label}: token may have expired â€” re-resolvingâ€¦`);
             let fresh = null;
             try {
               fresh = await def.resolve(args, { signal: controller.signal });
@@ -2449,10 +2722,10 @@ export default function NativePlayerView({
               variants = freshVariants;
               liveSource = fresh.source;
               liveRefUrl = fresh.source?.refUrl || fresh.source?.url;
-              say(`${def.label}: fresh tokens minted — resuming…`);
+              say(`${def.label}: fresh tokens minted â€” resumingâ€¦`);
               continue;
             }
-            say(`${def.label}: re-resolve failed — next source.`);
+            say(`${def.label}: re-resolve failed â€” next source.`);
           }
           return false;
         }
@@ -2464,7 +2737,7 @@ export default function NativePlayerView({
           if (stale()) return true;
           if (retry > 0) {
             if (retry > SOURCE_RETRIES) return false;
-            say(`${def.label}: transient failure — auto-retry ${retry}/${SOURCE_RETRIES}…`);
+            say(`${def.label}: transient failure â€” auto-retry ${retry}/${SOURCE_RETRIES}â€¦`);
             await sleep(SOURCE_RETRY_BACKOFF_MS[retry - 1] ?? 1200);
             if (stale()) return true;
           }
@@ -2477,7 +2750,7 @@ export default function NativePlayerView({
       // A Servers-menu pick plays ONLY that server (its own retry + token-
       // refresh machinery still applies); the auto rotation is the no-pick
       // path. Silently falling back to another provider would lie about what
-      // the viewer chose — the fatal message points at the Servers menu.
+      // the viewer chose â€” the fatal message points at the Servers menu.
       if (requestedServerRef.current) {
         if (await runSource(null)) return;
       } else {
@@ -2490,7 +2763,7 @@ export default function NativePlayerView({
       setStatus("error");
       setFatal(
         requestedServerRef.current
-          ? `${sourceLabel(requestedServerRef.current)} had no playable stream — try another server (gear → Servers).`
+          ? `${sourceLabel(requestedServerRef.current)} had no playable stream â€” try another server (gear â†’ Servers).`
           : "No native source resolved this title (all sources came up empty).",
       );
       say("All sources exhausted.");
@@ -2516,10 +2789,10 @@ export default function NativePlayerView({
     const hls = hlsRef.current;
     if (!videoRef.current) return;
     if (!hls) return;
-    // A pinned NHD dub IS the manifest — the source serves one rung per dub, so
+    // A pinned NHD dub IS the manifest â€” the source serves one rung per dub, so
     // a quality pick while a dub plays would silently swap the viewer back to
     // the original language instead of changing quality. Honest answer: fixed.
-    // (Dub switches pass dubSwitch — pickDub commits the ref only after its own
+    // (Dub switches pass dubSwitch â€” pickDub commits the ref only after its own
     // probe passed, and picking "Original" clears the ref first.)
     if (activeDubRef.current > 0 && !opts.dubSwitch) {
       say("Quality is fixed while dubbed audio plays (this source serves one rung per dub).");
@@ -2530,14 +2803,14 @@ export default function NativePlayerView({
     const wasPaused = videoRef.current.paused;
     // A manual rung pick leaves Auto; the Auto row stays highlighted as the active mode.
     if (!opts.auto) setAutoLevel(false);
-    // pickDub already said "Audio -> <track>…" — don't overwrite it with "?p".
-    if (!opts.dubSwitch) say(`Switching to ${height || "?"}p…`);
+    // pickDub already said "Audio -> <track>â€¦" â€” don't overwrite it with "?p".
+    if (!opts.dubSwitch) say(`Switching to ${height || "?"}pâ€¦`);
     setBuffering(true);
     poke();
     try {
       // A dub switch on a multi-rung master replaces the whole playlist (the dub
       // is a sibling master URL), so it must NOT be short-circuited into
-      // `hls.currentLevel` — that would keep the original language playing.
+      // `hls.currentLevel` â€” that would keep the original language playing.
       if (!opts.dubSwitch && metaRef.current?.masterLevels && Array.isArray(hls.levels) && hls.levels.length > 0) {
         let best = 0;
         hls.levels.forEach((lvl, i) => {
@@ -2564,28 +2837,41 @@ export default function NativePlayerView({
         if (switchTokenRef.current !== myId) return;
         if (!warm.ok) {
           const what = opts.dubSwitch ? "That audio track" : `Quality ${height || "?"}p`;
-          say(`${what}: target unreachable (${warm.reason || "probe failed"}) — keeping current.`);
+          say(`${what}: target unreachable (${warm.reason || "probe failed"}) â€” keeping current.`);
           setBuffering(false);
           setControlsVisible(true);
           return;
         }
       } catch {
-        // probe hiccup (abort, timeout) — fall through to the requested uri
+        // probe hiccup (abort, timeout) â€” fall through to the requested uri
       }
       // A probe hiccup with no requested uri would reach loadSource(undefined)
-      // → the worker's ?url=undefined 500. Bail to the current quality instead.
+      // â†’ the worker's ?url=undefined 500. Bail to the current quality instead.
       if (!chosenUri) {
-        say(`${opts.dubSwitch ? "That audio track" : `Quality ${height || "?"}p`}: no URL — keeping current.`);
+        say(`${opts.dubSwitch ? "That audio track" : `Quality ${height || "?"}p`}: no URL â€” keeping current.`);
         setBuffering(false);
         setControlsVisible(true);
         return;
       }
       if (chosenUri === activeUri) {
-        if (!opts.dubSwitch) say(`Already playing ${chosenHeight || "?"}p — no reload.`);
+        if (!opts.dubSwitch) say(`Already playing ${chosenHeight || "?"}p â€” no reload.`);
         setBuffering(false);
         setControlsVisible(true);
         return;
       }
+      // The picture is about to go black for real: everything above either
+      // returned early (probe failed, same URI, pinned level) or proved the
+      // target reachable. Only now is it honest to hide the old frame behind
+      // the art stage — a viewer staring at a frozen frame during the reload
+      // has no idea whether it stalled. The in-manifest shortcut above is
+      // deliberately NOT armed: it never drops the frame, so it must not blank
+      // the player either.
+      setStageWhileLoading(true);
+      setSwitchingNote(
+        opts.dubSwitch
+          ? "Switching audio…"
+          : `Switching to ${chosenHeight || "?"}p…`,
+      );
       hls.loadSource(chosenUri);
       await new Promise((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error("switch timed out")), 30000);
@@ -2632,25 +2918,34 @@ export default function NativePlayerView({
         try {
           await videoRef.current.play();
         } catch {
-          // user gesture needed — custom transport is present
+          // user gesture needed â€” custom transport is present
         }
       }
       setActiveUri(chosenUri);
-      // A dub switch has no quality to report — pickDub already announced the
+      // A dub switch has no quality to report â€” pickDub already announced the
       // track it is moving to, so don't overwrite it with "?p".
       if (!opts.dubSwitch) say(`Switched to ${chosenHeight || "?"}p.`);
+      // Real frames again. The loader's own success path clears this too, but a
+      // direct hls.loadSource() swap (quality/dub) never goes through that path,
+      // so without this the art stage would sit on top of working video.
+      setStageWhileLoading(false);
+      setSwitchingNote(null);
     } catch (error) {
       say(`Switch failed: ${error?.message || "unknown"}.`);
       // A failed switch must never leave the buffering spinner stuck (the runSource
       // ERROR handler's failover re-drives its own spinner).
       setBuffering(false);
+      // Nor the art stage: the old picture is still there and still correct, so
+      // the viewer gets their frame back immediately instead of a stuck overlay.
+      setStageWhileLoading(false);
+      setSwitchingNote(null);
     }
   };
   pickQualityRef.current = pickQuality;
 
   /* Servers menu: re-drive the whole load effect through a different source.
      The ref is committed FIRST so the next resolve run sees the pick, the
-     reload token re-runs the effect (full teardown → fresh resolve), and the
+     reload token re-runs the effect (full teardown â†’ fresh resolve), and the
      dub pin is dropped so no NHD dub URL leaks across servers. The transport
      row highlights this icon while a Servers-menu panel is open. */
   const pickServer = (key) => {
@@ -2663,8 +2958,12 @@ export default function NativePlayerView({
     setPanel(null);
     poke();
     const def = sourceByKey(key);
-    say(`Switching to ${def?.label || "that"} server…`);
+    say(`Switching to ${def?.label || "that"} serverâ€¦`);
     setReloadToken((t) => t + 1);
+    // A server switch leaves no valid frame behind, so the wait is a cold one
+    // and gets the art stage rather than the light overlay.
+    setStageWhileLoading(true);
+    setSwitchingNote(`Switching to ${def?.label || "that server"}…`);
   };
 
   // YouTube's anti-stall rule: when the pipe can't refill faster than a segment
@@ -2692,11 +2991,11 @@ export default function NativePlayerView({
         .filter((q) => (q.height || 0) > 0 && (q.height || 0) < curH)
         .sort((a, b) => (b.height || 0) - (a.height || 0));
       const target = rungs[0];
-      // A pinned NHD dub IS the manifest — stepping down a rung would swap the
+      // A pinned NHD dub IS the manifest â€” stepping down a rung would swap the
       // viewer back to the original-language track, so leave the dub alone.
       if (activeDubRef.current > 0) return;
       if (!target || activeUri === target.uri) return;
-      say(`Buffer holds <${BUFFER_FLOOR_SECONDS}s — stepping down to ${target.height || "?"}p so it refills (keeps playing).`);
+      say(`Buffer holds <${BUFFER_FLOOR_SECONDS}s â€” stepping down to ${target.height || "?"}p so it refills (keeps playing).`);
             st.prev = bufferedSecs;
       pickQualityRef.current?.(target.uri, target.height)?.catch?.(() => {});
       return;
@@ -2717,26 +3016,33 @@ export default function NativePlayerView({
   /* Dub switch: each dub is a SEPARATE HLS manifest (a sibling full-stream
      URL from the resolver's audioTracks, never an in-manifest audio group), so
      switching = swapping the source with pickQuality's position-preserving
-     mechanics. Row index 0 is the original soundtrack — picking it swaps back to
+     mechanics. Row index 0 is the original soundtrack â€” picking it swaps back to
      the resolution's own entry URL.
 
      The row index and the dubTracks index are OFF BY ONE on purpose: the panel
      renders an "Original" row first, so row N is dubTracks[N - 1]. Indexing
      both with the same N played the WRONG language under the clicked label. */
   const pickDub = async (index) => {
-    // A sibling is NOT provably the original — the provider's own player
-    // highlights tracks[0] while playing the main URL — so the two lists must
+    // A sibling is NOT provably the original â€” the provider's own player
+    // highlights tracks[0] while playing the main URL â€” so the two lists must
     // never be conflated.
     if (index === activeDubRef.current) return;
     const target = index === 0 ? null : dubTracks[index - 1];
     if (index > 0 && !target?.uri) return;
+    /* Announce the NORMALISED name ("Tamil"), not the provider's raw string
+       ("Tamil Dub"): the toast and the Audio panel are read in the same breath,
+       and a name changing between the two looks like it switched to something
+       else. Resolved by sourceIndex because rows can be dropped. */
+    const spokenLabel =
+      audioTrackList.find((r) => r.sourceIndex === index - 1)?.label ||
+      originalTrackLabel(originalLanguage);
     const meta = metaRef.current;
     const targetUri =
       index === 0 ? meta?.variants?.[0]?.uri || meta?.entryUrl : target.uri;
     if (!targetUri) return;
     poke();
-    say(index === 0 ? "Audio -> Original…" : `Audio -> ${target.label}…`);
-    // Prove the target manifest flows BEFORE committing the pick — NHD tokens are
+    say(index === 0 ? `Audio -> ${spokenLabel}…` : `Audio -> ${spokenLabel}…`);
+    // Prove the target manifest flows BEFORE committing the pick â€” NHD tokens are
     // time-scoped, and a dead dub must not end up highlighted with the previous
     // audio still playing. (The same gate pickQuality applies to quality rungs.)
     try {
@@ -2744,14 +3050,14 @@ export default function NativePlayerView({
       if (!probe.ok) {
         say(
           index === 0
-            ? `Original audio is unreachable right now (${probe.reason}) — keeping current audio.`
-            : `${target.label}: unreachable right now (${probe.reason}) — keeping current audio.`,
+            ? `Original audio is unreachable right now (${probe.reason}) â€” keeping current audio.`
+            : `${spokenLabel}: unreachable right now (${probe.reason}) â€” keeping current audio.`,
         );
         setControlsVisible(true);
         return;
       }
     } catch {
-      // probe hiccup (abort/timeout) — let the switch itself decide
+      // probe hiccup (abort/timeout) â€” let the switch itself decide
     }
     activeDubRef.current = index;
     setActiveDub(index);
@@ -2793,7 +3099,7 @@ export default function NativePlayerView({
         entry.languageId || entry.language,
       );
     } catch {
-      // storage full/blocked — subtitle still works this session
+      // storage full/blocked â€” subtitle still works this session
     }
     try {
       const text = await SubtitleFetcher.downloadAndDecompress(entry.downloadLink);
@@ -2806,9 +3112,9 @@ export default function NativePlayerView({
           // The fetcher logs the precise leg/status to the console; the pane
           // keeps the actionable half on screen (say() is a no-op stub).
           setSubtitleError(
-            "Subtitle download failed — try another language. If every language fails, the Cloudflare relay is serving without the OpenSubtitles update (redeploy the worker snippet from .env.example).",
+            "Subtitle download failed â€” try another language. If every language fails, the Cloudflare relay is serving without the OpenSubtitles update (redeploy the worker snippet from .env.example).",
           );
-          say("Subtitle download failed — try another language.");
+          say("Subtitle download failed â€” try another language.");
         }
         return;
       }
@@ -2816,7 +3122,7 @@ export default function NativePlayerView({
       const cues = parsed.length ? parsed : SubtitleEngine.parseVTT(text);
       if (!cues.length) {
         // The fetcher already refuses non-subtitle bodies, so reaching here
-        // means a real caption file with zero parseable lines — never leave
+        // means a real caption file with zero parseable lines â€” never leave
         // the track "enabled" with nothing to render.
         if (token === subtitleTokenRef.current) {
           subtitleEnabledRef.current = false;
@@ -2824,8 +3130,8 @@ export default function NativePlayerView({
           setCurrentSubtitle(null);
           subtitleEngineRef.current?.setCues([]);
           applySubtitleCue(null);
-          setSubtitleError("This subtitle file had no readable lines — pick another language.");
-          say("This subtitle file had no readable lines — pick another language.");
+          setSubtitleError("This subtitle file had no readable lines â€” pick another language.");
+          say("This subtitle file had no readable lines â€” pick another language.");
         }
         return;
       }
@@ -2842,8 +3148,8 @@ export default function NativePlayerView({
         subtitleEnabledRef.current = false;
         setSubtitleEnabled(false);
         setCurrentSubtitle(null);
-        setSubtitleError("Subtitle download failed — try another language.");
-        say("Subtitle download failed — try another language.");
+        setSubtitleError("Subtitle download failed â€” try another language.");
+        say("Subtitle download failed â€” try another language.");
       }
     }
   };
@@ -2872,7 +3178,7 @@ export default function NativePlayerView({
         try {
           remembered = window.localStorage.getItem(`streamly-native-subtitle-${id}`);
         } catch {
-          // storage unavailable — no auto restore
+          // storage unavailable â€” no auto restore
         }
         if (remembered) {
           const match =
@@ -2996,29 +3302,108 @@ export default function NativePlayerView({
     if (nextDisabled) return;
     goEpNext();
   };
-  // The keydown effect binds once per panel flip — route it through mirrors so
+  // The keydown effect binds once per panel flip â€” route it through mirrors so
   // N / Shift+P always see the current episode's nav state.
   keyboardEpPrevRef.current = keyboardPrevEpisode;
   keyboardEpNextRef.current = keyboardNextEpisode;
 
   // Skip-intro / skip-credits windows. The RULE lives in utils/skipMarkers.js;
   // this is only the viewer's choice about how to apply it (the Auto Skip Intro
-  // preference, previously dead on web — it was wired in Settings but nothing
+  // preference, previously dead on web â€” it was wired in Settings but nothing
   // here ever read it).
   const prefs = useOptionalPreferences();
   const autoSkipIntro = prefs?.autoSkipIntro === true;
 
-  const skipIntroTarget = getSkipIntroTarget({ type, id, duration: safeDuration });
+  /* Real skip boundaries read off the manifest's own cue tags, when a provider
+     emits any. Null keeps the 90s/150s estimates in skipMarkers.js. Reset on
+     every title change so one episode's credits window can't leak into the next. */
+  const [cueBoundaries, setCueBoundaries] = useState(null);
+  const cueIntroEnd = cueBoundaries?.introEndSeconds ?? 0;
+  const cueCreditsStart = cueBoundaries?.creditsStartSeconds ?? null;
+  /* Boundaries arrive from two independent places: cue tags in the manifest
+     itself, and the SkipDB dataset, fetched in parallel. Whichever finishes
+     first is luck, so the ranking (measured cue > dataset) lives in
+     mergeSkipBoundaries rather than being implied by who called setState last. */
+  const mergeBoundaries = useCallback((incoming, source) => {
+    setCueBoundaries((prev) => mergeSkipBoundaries(prev, incoming, source));
+  }, []);
+  useEffect(() => {
+    setCueBoundaries(null);
+    // A new title has no playing source yet. Left set, it would name the PREVIOUS
+    // title's server in the Servers menu during the first resolve.
+    setActiveSourceKey(null);
+  }, [type, id]);
+
+  /* Cue tags are scoped to ONE MANIFEST; dataset boundaries are scoped to the
+     TITLE. That difference decides what survives a source switch:
+
+       server switch / dub switch  -> a different manifest, so its cue tags (if
+         any) must be re-measured. Keeping the previous manifest's tags would
+         apply one provider's cut to another's encode â€” and, worse, the loader
+         logs "No cue tags in manifest â€” skip windows stay estimated" while the
+         windows are in fact NOT estimates, so the one diagnostic meant to answer
+         "does any provider emit cue tags" reports a falsehood.
+       in-manifest audio group      -> pickAudio only sets hls.audioTrack; the
+         manifest is untouched, so the tags still describe what is playing.
+
+     Dataset boundaries are keyed by IMDb id, so they describe the content and are
+     kept across every source switch â€” that is the whole reason to have them. */
+  const manifestScope = `${activeSourceKey || ""}|${activeDub}`;
+  const prevScopeRef = useRef(manifestScope);
+  useEffect(() => {
+    setCueBoundaries((prev) => rescopeBoundaries(prev, prevScopeRef.current, manifestScope));
+    prevScopeRef.current = manifestScope;
+  }, [manifestScope]);
+
+  /* Fetch real boundaries for this title, keyed by IMDb id. Deliberately AFTER
+     the first render and never awaited: the player shows and seeks its estimates
+     immediately, and this only refines the window once it lands. An absent imdbId
+     simply means no lookup. */
+  useEffect(() => {
+    if (!imdbId) return undefined;
+    const controller = new AbortController();
+    let alive = true;
+    fetchSkipBoundaries({
+      imdbId,
+      season: type === "tv" ? season : undefined,
+      episode: type === "tv" ? episode : undefined,
+      signal: controller.signal,
+    }).then((bounds) => {
+      if (alive && bounds) mergeBoundaries(bounds, "dataset");
+    });
+    return () => {
+      alive = false;
+      controller.abort();
+    };
+  }, [imdbId, type, season, episode, mergeBoundaries]);
+
+  const skipIntroTarget = getSkipIntroTarget({
+    type,
+    id,
+    season,
+    episode,
+    duration: safeDuration,
+    cueIntroEnd,
+  });
   const showSkipIntro = shouldShowSkipIntro({
     type,
     id,
+    season,
+    episode,
     duration: safeDuration,
     currentTime,
     ended,
     autoSkip: autoSkipIntro,
+    cueIntroEnd,
   });
-  const skipOutroTarget = getSkipOutroTarget({ type, duration: safeDuration });
-  const showSkipOutro = shouldShowSkipOutro({ type, duration: safeDuration, currentTime, ended });
+  const skipOutroTarget = getSkipOutroTarget({ type, duration: safeDuration, cueCreditsStart });
+  const showSkipOutro = shouldShowSkipOutro({
+    type,
+    duration: safeDuration,
+    currentTime,
+    ended,
+    cueCreditsStart,
+  });
 
   // Auto-skip fires once per playback, and only while the head is still inside
   // the intro, so the viewer is never yanked before the opening has played.
@@ -3029,7 +3414,7 @@ export default function NativePlayerView({
       return;
     }
     if (autoSkipFiredRef.current) return;
-    if (!shouldAutoSkipIntroOnce({ type, id, duration: safeDuration, currentTime, firedRef: autoSkipFiredRef })) return;
+    if (!shouldAutoSkipIntroOnce({ type, id, season, episode, duration: safeDuration, currentTime, firedRef: autoSkipFiredRef, cueIntroEnd })) return;
     autoSkipFiredRef.current = true;
     const v = videoRef.current;
     if (!v || skipIntroTarget <= 0) return;
@@ -3037,7 +3422,7 @@ export default function NativePlayerView({
       v.currentTime = skipIntroTarget;
     } catch {
     }
-  }, [autoSkipIntro, type, id, safeDuration, currentTime, skipIntroTarget]);
+  }, [autoSkipIntro, type, id, season, episode, safeDuration, currentTime, skipIntroTarget, cueIntroEnd]);
 
   const doSeekPast = (target) => {
     const v = videoRef.current;
@@ -3050,7 +3435,7 @@ export default function NativePlayerView({
     try {
       v.play();
     } catch {
-      // user gesture needed — custom transport is present
+      // user gesture needed â€” custom transport is present
     }
   };
   const doSkipIntro = () => doSeekPast(skipIntroTarget);
@@ -3123,10 +3508,10 @@ export default function NativePlayerView({
           }}
         />
         {/* (No standalone scrims: the top bar and bottom chrome paint their own
-            gradients — stacking more here double-darkened the picture.) */}
+            gradients â€” stacking more here double-darkened the picture.) */}
         {/* Dim the picture while a dialog panel is open (Netflix does this) so
             the rows read against the frame, not against the movie. Tapping the
-            dim (outside the sheet) closes the panel — mobile has no Esc. */}
+            dim (outside the sheet) closes the panel â€” mobile has no Esc. */}
         {panel && (
           <div
             aria-hidden="true"
@@ -3142,7 +3527,7 @@ export default function NativePlayerView({
             }}
           />
         )}
-        {/* Subtitle overlay — active OpenSubtitles line, bottom-anchored above
+        {/* Subtitle overlay â€” active OpenSubtitles line, bottom-anchored above
             the control chrome like CustomVideoPlayer. */}
         <AnimatePresence mode="wait">
           {activeSubtitle ? (
@@ -3186,7 +3571,7 @@ export default function NativePlayerView({
             opacity: controlsVisible ? 1 : 0,
             y: controlsVisible ? 0 : -20
           }}
-          transition={SPRING.SHEET}
+          transition={M.SPRING.SHEET}
           style={{
             position: "absolute",
             top: 0,
@@ -3197,7 +3582,7 @@ export default function NativePlayerView({
             justifyContent: "space-between",
             padding: `${SAFE_TOP} 24px 44px`,
             // The top bar holds a back button and a title only. The old scrim
-            // (0.80 → 0 over 52px of dead space) read as a heavy black band over
+            // (0.80 â†’ 0 over 52px of dead space) read as a heavy black band over
             // the frame; 0.55 fading out faster keeps the text legible without
             // painting the top third of the picture.
             background: "linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.22) 45%, rgba(0,0,0,0) 100%)",
@@ -3218,7 +3603,7 @@ export default function NativePlayerView({
         {/* Netflix-style Skip Intro pill: bottom-right, above the transport row,
             present only inside the intro window, seeks just past the credits.
             Stays tappable even with the chrome hidden (Netflix keeps it while
-            the intro plays) — but yields to any open panel. */}
+            the intro plays) â€” but yields to any open panel. */}
         <AnimatePresence>
           {showSkipIntro && !sheetOpen && (
             <motion.button
@@ -3230,7 +3615,7 @@ export default function NativePlayerView({
               title="Stop the intro, come right back in"
               // Enters from the right edge it lives on, so the eye is pulled
               // away from the picture toward the action.
-              {...PILL_IN}
+              {...M.PILL_IN}
               whileTap={{ scale: 0.97 }}
               style={{
                 position: "absolute",
@@ -3255,7 +3640,7 @@ export default function NativePlayerView({
             </motion.button>
           )}
         </AnimatePresence>
-        {/* Skip Credits. Only ever a button — a wrong tail guess must never
+        {/* Skip Credits. Only ever a button â€” a wrong tail guess must never
             auto-jump the viewer, so `shouldShowSkipOutro` has no auto path. */}
         <AnimatePresence>
           {showSkipOutro && !sheetOpen && !showSkipIntro && (
@@ -3266,7 +3651,7 @@ export default function NativePlayerView({
               onClick={doSkipOutro}
               aria-label="Skip the ending credits"
               title="Jump to the end"
-              {...PILL_IN}
+              {...M.PILL_IN}
               whileTap={{ scale: 0.97 }}
               style={{
                 position: "absolute",
@@ -3298,10 +3683,35 @@ export default function NativePlayerView({
             The spinner carries deliberately NO full-frame scrim or backdrop blur
             (the first version had both): dimming + blurring the picture during
             every stall read as a broken player, and its fade needs
-            AnimatePresence — a `transition` on a conditionally mounted node never
+            AnimatePresence â€” a `transition` on a conditionally mounted node never
             plays, which is why it looked frozen. */}
+        {/* Cold wait: no frame to preserve, so the stage is the picture. */}
         <AnimatePresence>
-          {spinner && (
+          {showStage && (
+            <motion.div
+              key="np-stage"
+              role="status"
+              aria-label="Loading video"
+              aria-live="polite"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.22 }}
+              style={{ position: "absolute", inset: 0, zIndex: 3 }}
+            >
+              <LoadingStage
+                title={displayTitle}
+                subtitle={displaySubtitle}
+                backdropUrl={backdropUrl}
+                posterUrl={posterUrl}
+                message={stageNote}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+        {/* Warm stall: the picture stays, only a ring appears. */}
+        <AnimatePresence>
+          {spinner && !showStage && (
             <motion.div
               key="np-spinner"
               role="status"
@@ -3326,7 +3736,7 @@ export default function NativePlayerView({
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.85, opacity: 0 }}
-                transition={SPRING.SHEET}
+                transition={M.SPRING.SHEET}
                 style={{ display: "flex", lineHeight: 0 }}
               >
                 <Loader2 size={56} className="animate-spin" color={NETFLIX_RED} />
@@ -3347,7 +3757,7 @@ export default function NativePlayerView({
           <motion.div
             initial={false}
             animate={{ opacity: controlsVisible ? 1 : 0, scale: controlsVisible ? 1 : 0.9 }}
-            transition={SPRING.SHEET}
+            transition={M.SPRING.SHEET}
             style={{
               position: "absolute",
               inset: 0,
@@ -3450,7 +3860,7 @@ export default function NativePlayerView({
             </button>
           </motion.div>
         )}
-        {/* Transient "Tap to unmute" pill (Netflix web) — only when playback
+        {/* Transient "Tap to unmute" pill (Netflix web) â€” only when playback
             had to start muted because the autoplay-policy blocked sound. Yields
             to an open panel for the same reason the skip pill does. */}
         <AnimatePresence>
@@ -3461,7 +3871,7 @@ export default function NativePlayerView({
               initial={{ opacity: 0, y: 14, scale: 0.94 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.96 }}
-              transition={SPRING.LIFT}
+              transition={M.SPRING.LIFT}
               onClick={(e) => {
                 e.stopPropagation();
                 setAutoMuted(false);
@@ -3508,7 +3918,7 @@ export default function NativePlayerView({
             animate={{ opacity: 1, scale: [0.7, 1.08, 1] }}
             transition={{
               opacity: { duration: 0.2 },
-              scale: SPRING.PRESS,
+              scale: M.SPRING.PRESS,
             }}
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.95 }}
@@ -3539,7 +3949,7 @@ export default function NativePlayerView({
             opacity: controlsVisible ? 1 : 0,
             y: controlsVisible ? 0 : 20
           }}
-          transition={SPRING.SHEET}
+          transition={M.SPRING.SHEET}
           style={{
             position: "absolute",
             left: 0,
@@ -3578,7 +3988,7 @@ export default function NativePlayerView({
                 </div>
               ) : null}
             </div>
-            {/* On touch the transport row stays one line — the clock lives in
+            {/* On touch the transport row stays one line â€” the clock lives in
                 the title row instead. */}
             {IS_TOUCH && (
               <span
@@ -3596,7 +4006,7 @@ export default function NativePlayerView({
               </span>
             )}
           </div>
-          {/* Scrubber: red played · gray buffered · hover knob + time bubble. */}
+          {/* Scrubber: red played Â· gray buffered Â· hover knob + time bubble. */}
           <div
             ref={scrubRef}
             className="np-scrub"
@@ -3616,7 +4026,7 @@ export default function NativePlayerView({
             onPointerLeave={onScrubLeave}
             style={{
               position: "relative",
-              // 44px hit target on touch (Apple HIG minimum) — the visual bar
+              // 44px hit target on touch (Apple HIG minimum) â€” the visual bar
               // stays thin, only the touchable band grows.
               height: IS_TOUCH ? 44 : 36,
               display: "flex",
@@ -3811,7 +4221,7 @@ export default function NativePlayerView({
                 </>
               )}
               {/* Volume cluster. The slider used to open on hover alone, which
-                  made it unreachable by keyboard and a no-show on touch —
+                  made it unreachable by keyboard and a no-show on touch â€”
                   `volHover` now also tracks focus, and the blur handler ignores
                   focus moving from the mute button into the slider itself. */}
               <span
@@ -3886,7 +4296,42 @@ export default function NativePlayerView({
                   <ListVideo size={24} />
                 </IconBtn>
               )}
-              {/* Server switcher: always available — VidCore (4K default),
+              {/* Audio + Subtitles live HERE, not only in the gear sheet. A
+                  viewer who wants the Tamil track should not have to guess which
+                  submenu of Settings holds it — these are the two controls every
+                  streaming player puts in the transport row, and burying them was
+                  the thing this change exists to fix.
+                  Each button appears only when it has something to do: no dub on
+                  a single-audio server means no Audio button, and an empty or
+                  still-searching subtitle list means no Subtitles button. A
+                  button that opens an empty list is worse than no button. */}
+              {audioTrackList.length > 1 ? (
+                <IconBtn
+                  label="Audio"
+                  active={panel === "audio"}
+                  expanded={panel === "audio"}
+                  onClick={() => {
+                    setPanel((p) => (p === "audio" ? null : "audio"));
+                    poke();
+                  }}
+                >
+                  <AudioLines size={22} />
+                </IconBtn>
+              ) : null}
+              {subtitleLanguages.length > 0 || isFetchingSubtitles || subtitleError ? (
+                <IconBtn
+                  label="Subtitles"
+                  active={panel === "subs"}
+                  expanded={panel === "subs"}
+                  onClick={() => {
+                    setPanel((p) => (p === "subs" ? null : "subs"));
+                    poke();
+                  }}
+                >
+                  <Captions size={22} />
+                </IconBtn>
+              ) : null}
+              {/* Server switcher: always available â€” VidCore (4K default),
                   VidSrc and NHD (dubs) are pickable mid-playback. */}
               <IconBtn
                 label="Servers"
@@ -3943,7 +4388,7 @@ export default function NativePlayerView({
             </div>
           </div>
         </motion.div>
-        {/* Netflix "Left off at …" resume card — auto-resumes after a short wait.
+        {/* Netflix "Left off at â€¦" resume card â€” auto-resumes after a short wait.
             Same bottom-right corner as the episodes rail, whose gradient is
             transparent at the top, so it showed through an open panel too. */}
         <AnimatePresence>
@@ -3955,7 +4400,7 @@ export default function NativePlayerView({
               initial={{ opacity: 0, x: 28, scale: 0.97 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: 20, scale: 0.98 }}
-              transition={SPRING.SHEET}
+              transition={M.SPRING.SHEET}
               onClick={(e) => e.stopPropagation()}
               style={{
                 position: "absolute",
@@ -3978,7 +4423,7 @@ export default function NativePlayerView({
               <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginTop: 3 }}>
                 {resumeOffer.left > 1
                   ? `Auto-resuming in ${resumeOffer.left}s`
-                  : "Resuming…"}
+                  : "Resumingâ€¦"}
               </div>
             </div>
             <button
@@ -4035,7 +4480,7 @@ export default function NativePlayerView({
               initial={{ opacity: 0, x: 28, scale: 0.97 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: 20, scale: 0.98 }}
-              transition={SPRING.SHEET}
+              transition={M.SPRING.SHEET}
               onClick={(e) => e.stopPropagation()}
               style={{
                 position: "absolute",
@@ -4058,7 +4503,7 @@ export default function NativePlayerView({
                 </IconBtn>
               </div>
               <div style={{ marginTop: 6, color: "#fff", fontWeight: 700, fontSize: 15, lineHeight: 1.3 }}>
-                {upNext.title ? `E${upNext.number} · ${upNext.title}` : `Episode ${upNext.number}`}
+                {upNext.title ? `E${upNext.number} Â· ${upNext.title}` : `Episode ${upNext.number}`}
               </div>
               <div
                 style={{
@@ -4070,7 +4515,7 @@ export default function NativePlayerView({
                 }}
               >
                 <div
-                  // Full width, drained by the keyframe — the old `width:
+                  // Full width, drained by the keyframe â€” the old `width:
                   // "15000ms"` was not a length CSS understands, so the bar
                   // rendered at the track's natural 0% and never counted down.
                   className="np-upnext-countdown"
@@ -4124,7 +4569,7 @@ export default function NativePlayerView({
               initial={IS_TOUCH ? { y: "100%" } : { x: "100%" }}
               animate={IS_TOUCH ? { y: 0 } : { x: 0 }}
               exit={IS_TOUCH ? { y: "100%" } : { x: "100%" }}
-              transition={SPRING.SHEET}
+              transition={M.SPRING.SHEET}
               ref={panelRef}
               role="dialog"
               aria-label={
@@ -4215,42 +4660,24 @@ export default function NativePlayerView({
                 Quality each get their own sheet and their own scroll. */}
             {panel === "settings" ? (
               <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
-                <DialogRow
-                  onClick={() => setPanel("audio")}
-                  title="Audio"
-                  sub={
-                    // Sibling-URL dubs win over in-manifest groups for the same
-                    // reason the Audio panel lists them first (see there).
-                    dubTracks.length > 0
-                      ? activeDub > 0
-                        ? dubTracks[activeDub - 1]?.label || "Original"
-                        : "Original"
-                      : audioTracks.length > 0
-                        ? audioTracks.find((a) => a.index === audioIndex)?.name || "Unknown"
-                        : originalLanguage
-                          ? FILM_LANG[originalLanguage] || (originalLanguage || "").toUpperCase() || "Unknown"
-                          : "Default"
-                  }
-                  icon={<AudioLines size={20} />}
-                  hasChevron
-                />
+                {/* Audio and Subtitles were REMOVED from this list, not just
+                    duplicated: they now have their own buttons in the transport
+                    row. Leaving them here too would mean two routes to the same
+                    panel, and the two would disagree the moment one of them fell
+                    behind — which is exactly the drift the motion-token work
+                    already had to clean up once. Settings keeps what belongs to
+                    the stream rather than the viewer: server, quality, speed,
+                    aspect. */}
                 <DialogRow
                   onClick={() => setPanel("servers")}
                   title="Servers"
                   // What the viewer is watching right now, in the same words
-                  // the Servers sheet uses — not the resolver's internal key.
+                  // the Servers sheet uses â€” not the resolver's internal key.
                   // Requested wins over committed: after a failed switch the
                   // committed key would highlight the server the viewer just
                   // abandoned.
-                  sub={sourceLabel(requestedServer || metaRef.current?.sourceKey || DEFAULT_SOURCE_KEY, "Server 1")}
+                  sub={sourceLabel(activeSourceKey || requestedServer || DEFAULT_SOURCE_KEY, "Server 1")}
                   icon={<ServerCog size={20} />}
-                  hasChevron
-                />
-                <DialogRow
-                  onClick={() => setPanel("subs")}
-                  title="Subtitles"
-                  sub={subtitleEnabled && currentSubtitle ? currentSubtitle.language : "Off"}
-                  icon={<Captions size={20} />}
                   hasChevron
                 />
                 <DialogRow
@@ -4274,6 +4701,32 @@ export default function NativePlayerView({
                   icon={<Proportions size={20} />}
                   hasChevron
                 />
+                {/* The SkipDB data licence (ODbL) requires attribution wherever
+                    its boundaries are used, so this is a licence term, not a
+                    nicety. Gated on `source === "dataset"` so we credit it only
+                    for titles where its data actually reached the player â€”
+                    attribution for data we never used would be false. */}
+                {cueBoundaries?.source === "dataset" ? (
+                  <p
+                    style={{
+                      fontSize: 11,
+                      color: "rgba(255,255,255,0.35)",
+                      margin: "14px 0 0",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Skip boundaries by{" "}
+                    <a
+                      href={SKIP_DATA_CREDIT.url}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      style={{ color: "rgba(255,255,255,0.55)" }}
+                    >
+                      {SKIP_DATA_CREDIT.name}
+                    </a>{" "}
+                    (open data, ODbL).
+                  </p>
+                ) : null}
               </div>
             ) : panel === "servers" ? (
               <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
@@ -4287,7 +4740,7 @@ export default function NativePlayerView({
                   {PLAYER_SOURCES.map((s) => (
                     <DialogRow
                       key={s.key}
-                      selected={(requestedServer || metaRef.current?.sourceKey || DEFAULT_SOURCE_KEY) === s.key}
+                      selected={(activeSourceKey || requestedServer || DEFAULT_SOURCE_KEY) === s.key}
                       onClick={() => pickServer(s.key)}
                       title={s.label}
                       sub={s.tag}
@@ -4307,7 +4760,7 @@ export default function NativePlayerView({
                   />
                   {isFetchingSubtitles ? (
                     <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.5)", margin: "6px 0 2px", lineHeight: 1.45 }}>
-                      Searching OpenSubtitles…
+                      Searching OpenSubtitlesâ€¦
                     </p>
                   ) : subtitleLanguages.length > 0 ? (
                     subtitleLanguages.map((s) => (
@@ -4325,7 +4778,7 @@ export default function NativePlayerView({
                   ) : (
                     <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.5)", margin: "6px 0 2px", lineHeight: 1.45 }}>
                       {!imdbId
-                        ? "No subtitles found for this title on OpenSubtitles (no IMDb id — title search also came up empty)."
+                        ? "No subtitles found for this title on OpenSubtitles (no IMDb id â€” title search also came up empty)."
                         : "No subtitles found for this title on OpenSubtitles."}
                     </p>
                   )}
@@ -4342,31 +4795,39 @@ export default function NativePlayerView({
                   </p>
                   {dubTracks.length > 0 ? (
                     // Sibling-URL dubs (NHD, ZXC Centaurus): one MASTER per dub,
-                    // switched by swapping the source (pickDub) — NOT hls.js
+                    // switched by swapping the source (pickDub) â€” NOT hls.js
                     // audio groups.
                     //
                     // Checked BEFORE audioTracks on purpose: a transcoded DASH
                     // master always carries an in-manifest #EXT-X-MEDIA group
                     // (the muxed AAC), so testing audioTracks first would show
                     // one lonely "eng" row and hide every real dub behind it.
-                    // The sibling list is a superset — it starts at the original.
+                    // The sibling list is a superset â€” it starts at the original.
                     <>
+                      {/* Row 0 is the original, named by the film's language
+                          rather than the word "Original": TMDB already told us
+                          what it is, and "Original" next to a row called "Tamil"
+                          reads as a category rather than a language. */}
                       <DialogRow
                         key="dub-original"
                         selected={activeDub === 0}
                         onClick={() => pickDub(0)}
-                        title="Original"
+                        title={audioTrackList[0]?.label || "Original"}
                         sub="This source's soundtrack"
                       />
                       {/* ALL siblings get rows: the provider's own player
                           highlights tracks[0] while playing the main URL, so
-                          track[0] is NOT provably the original soundtrack —
-                          hiding it would hide a real language. Labels verbatim. */}
-                      {dubTracks.map((t, i) => (
+                          track[0] is NOT provably the original soundtrack â€”
+                          hiding it would hide a real language. Labels are the
+                          normalised language names from audioLabels.js. */}
+                      {audioTrackList.slice(1).map((t) => (
+                        /* sourceIndex, NOT the row's own position: buildAudioTrackList
+                           drops duplicate/empty rows, so positional indexing here
+                           would play a different language than the one clicked. */
                         <DialogRow
-                          key={`dub-${i + 1}`}
-                          selected={activeDub === i + 1}
-                          onClick={() => pickDub(i + 1)}
+                          key={`dub-${t.sourceIndex}`}
+                          selected={activeDub === t.sourceIndex + 1}
+                          onClick={() => pickDub(t.sourceIndex + 1)}
                           title={t.label}
                         />
                       ))}
@@ -4383,7 +4844,7 @@ export default function NativePlayerView({
                     ))
                   ) : (
                     // No #EXT-X-MEDIA AUDIO groups: hls.js reports no audioTracks, but the
-                    // soundtrack IS playing — surface it as the single track.
+                    // soundtrack IS playing â€” surface it as the single track.
                     <>
                       {originalLanguage ? (
                         <p
@@ -4402,7 +4863,7 @@ export default function NativePlayerView({
                       <DialogRow
                         key="original"
                         selected
-                        title={originalLanguage ? `Original — ${FILM_LANG[originalLanguage] || (originalLanguage || "").toUpperCase() || "Unknown"}` : "Original"}
+                        title={originalLanguage ? `Original â€” ${FILM_LANG[originalLanguage] || (originalLanguage || "").toUpperCase() || "Unknown"}` : "Original"}
                         sub="This source's soundtrack"
                       />
                     </>
@@ -4413,7 +4874,7 @@ export default function NativePlayerView({
                   <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
                     Video Quality
                   </p>
-                  {/* Auto is ALWAYS present — the active mode on every source
+                  {/* Auto is ALWAYS present â€” the active mode on every source
                       (master = hls.js ABR; per-rendition sources = the rung the
                       player negotiated at open, smooth-start / relay-friendly). */}
                   <DialogRow
@@ -4422,7 +4883,7 @@ export default function NativePlayerView({
                     title="Auto"
                     sub={
                       autoLevel && currentHeight != null
-                        ? `Now ${qualities.find((q) => q.height === currentHeight)?.label || `${currentHeight}p`} · adjusts with your connection`
+                        ? `Now ${qualities.find((q) => q.height === currentHeight)?.label || `${currentHeight}p`} Â· adjusts with your connection`
                         : "Adjusts with your connection"
                     }
                   />
@@ -4453,6 +4914,18 @@ export default function NativePlayerView({
                       selected={playbackRate === rate}
                       onClick={() => {
                         setPlaybackRate(rate);
+                        // The element is driven too, not just the state. Without
+                        // this the row updated the checkmark and the settings
+                        // label while the video kept playing at its old speed,
+                        // and hold-to-2x then restored THAT stale rate — so
+                        // picking 1.25x and holding Space returned you to 1x.
+                        if (videoRef.current) {
+                          try {
+                            videoRef.current.playbackRate = rate;
+                          } catch {
+                            // some webviews reject odd rates; the row still applies
+                          }
+                        }
                         setPanel(null);
                         poke();
                       }}
@@ -4470,7 +4943,7 @@ export default function NativePlayerView({
                       /* `name`, not `label`: the catalog has only ever had
                          `name`. Reading `.label` here made every option's text
                          undefined, so the whole panel rendered as six blank
-                         rows — the reason the aspect labels looked "missing".
+                         rows â€” the reason the aspect labels looked "missing".
                          Keyed on id so rows stay stable. */
                       key={aspect.id}
                       selected={aspectRatioIndex === idx}
@@ -4551,7 +5024,7 @@ export default function NativePlayerView({
             <NetflixSeekHUD key="seek-forward" direction="forward" metrics={hudBox} seconds={Math.abs(Math.round(hud.value))} />
           )}
         </AnimatePresence>
-        {/* Netflix "Still watching?" — pause + ask after unattended playback. */}
+        {/* Netflix "Still watching?" â€” pause + ask after unattended playback. */}
         <AnimatePresence>
           {stillWatching && (
             <NetflixStillWatching
@@ -4564,7 +5037,7 @@ export default function NativePlayerView({
                 try {
                   v?.play();
                 } catch {
-                  // user gesture needed — the custom transport is right there
+                  // user gesture needed â€” the custom transport is right there
                 }
               }}
               onExit={() => {
@@ -4579,14 +5052,14 @@ export default function NativePlayerView({
         /* The old banner was a bare <p> with no role and no exit: a screen
            reader never announced the failure, and a viewer whose source failed
            had no way forward but the browser Back button. role="alert" goes on
-           the MESSAGE only — putting it on the wrapper would make a live region
-           announce "…cannot run here.Try againBack" as one string. Try again
+           the MESSAGE only â€” putting it on the wrapper would make a live region
+           announce "â€¦cannot run here.Try againBack" as one string. Try again
            re-runs the load effect via `reloadToken`. */
         <motion.div
           key="np-fatal"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={SPRING.SHEET}
+          transition={M.SPRING.SHEET}
           style={{
             position: "absolute",
             bottom: 80,

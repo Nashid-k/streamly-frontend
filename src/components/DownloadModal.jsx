@@ -27,6 +27,7 @@ import {
   variantLabel,
 } from "../utils/downloadQuality";
 import { logDebug, logError, logWarn } from "../utils/debugLogger";
+import { sourceLabel } from "../constants/sources";
 
 /* ── DownloadModal — browser-only offline downloads ────────────────────
    Vercel has no storage and the app has no backend, so "download" means either
@@ -46,25 +47,29 @@ const getNumericId = (s) => {
 };
 
 // The sources the sheet fans out over; every row is a quality one of these
-// serves. VidSrc (Alt) scrapes server-side (action "resolvevidsrc") and VidCore
-// (Server 5) likewise (action "resolvevidcore") — both list direct HLS ladders
-// incl. 4K. A third source (CineSrc) was removed with its Chrome mint service:
-// its tokens can only be minted in a real browser.
+// serves. VidSrc scrapes server-side (action "resolvevidsrc") and VidCore
+// likewise (action "resolvevidcore") — both list direct HLS ladders incl. 4K.
+// A third source (CineSrc) was removed with its Chrome mint service: its tokens
+// can only be minted in a real browser.
 // `sourceKey` is how the engine re-resolves the title's tokens.
-const VIDSRC_SOURCE_NAME = "VidSrc (Alt)";
-const VIDCORE_SOURCE_NAME = "VidCore (Server 5)";
-
+//
+// Display names are DERIVED from the one catalogue the player's Servers menu
+// uses (constants/sources.js). They used to be hardcoded here as "VidSrc
+// (Alt)" and "VidCore (Server 5)", and that "Server 5" was inherited from an
+// older, unrelated scraper rotation — so the same provider was two different
+// numbers in two sheets. `serverIndex` below is only this sheet's own
+// sort/precedence key for its rows; it is NOT a position in that catalogue.
 const RESOLVE_SOURCES = [
   {
     key: "vidsrc",
-    name: VIDSRC_SOURCE_NAME,
+    name: sourceLabel("vidsrc", "VidSrc"),
     serverIndex: 0,
     resolve: (args, opts) => downloadService.resolveVidsrc(args, opts),
   },
   {
     key: "vidcore",
-    name: VIDCORE_SOURCE_NAME,
-    serverIndex: 4, // Server 5 in the player rotation (videoSourceAdapter).
+    name: sourceLabel("vidcore", "VidCore"),
+    serverIndex: 4,
     resolve: (args, opts) => downloadService.resolveVidcore(args, opts),
   },
 ];

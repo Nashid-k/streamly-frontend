@@ -181,6 +181,15 @@
 .movie-card:hover .movie-title {
   color: #ffffff;
 }
+/* Search-result highlight (<mark>). The UA default is black-on-yellow, which
+   clashes with the dark card palette; tint with the accent instead and keep
+   the inherited title colour so the hover state (above) still reads. */
+.movie-title mark {
+  background: rgba(var(--accent-primary-rgb), 0.28);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 1px;
+}
 .movie-meta {
   display: flex;
   justify-content: space-between;

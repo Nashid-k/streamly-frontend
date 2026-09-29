@@ -127,8 +127,9 @@ async function handleResponse(res, path, via, safeUrl, params) {
   return data;
 }
 
-async function fetchTmdb(path, params, query) {
+async function fetchTmdb(path, params, query, opts = {}) {
   const proxy = proxyBase();
+  const externalSignal = opts?.signal;
   logDebug('tmdb', `GET ${path}`, { via: proxy ? 'proxy' : 'direct', params });
 
   const setTimeoutFn =
@@ -147,6 +148,20 @@ async function fetchTmdb(path, params, query) {
 
   const controller = new AbortController();
   const timeout = setTimeoutFn(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  /* Caller cancellation (react-query hands each queryFn a signal). It shares
+     our controller so one abort stops the network, but is tracked separately:
+     the catch below turns a plain AbortError into "timed out", and reporting a
+     viewer who simply typed another letter as a TMDB timeout would be a
+     false diagnostic. A caller abort rethrows the raw AbortError silently. */
+  let abortedByCaller = false;
+  const onCallerAbort = () => {
+    abortedByCaller = true;
+    controller.abort();
+  };
+  if (externalSignal) {
+    if (externalSignal.aborted) onCallerAbort();
+    else externalSignal.addEventListener('abort', onCallerAbort, { once: true });
+  }
   try {
     // 1. Same-origin proxy first — works on every ISP once deployed.
     if (proxy) {
@@ -186,6 +201,11 @@ async function fetchTmdb(path, params, query) {
     const res = await fetch(directUrl, { signal: controller.signal });
     return await handleResponse(res, path, 'direct', redact(directUrl), params);
   } catch (error) {
+    if (abortedByCaller) {
+      // A cancelled request is a normal outcome, not a failure. Rethrow
+      // untouched so react-query can recognise its own abort signal.
+      throw error;
+    }
     if (error?.name === 'AbortError') {
       const timeoutErr = toTimeoutError();
       logError('tmdb', `TMDB request timed out: ${path}`, timeoutErr, {
@@ -203,6 +223,7 @@ async function fetchTmdb(path, params, query) {
     throw error;
   } finally {
     clearTimeoutFn(timeout);
+    externalSignal?.removeEventListener('abort', onCallerAbort);
   }
 }
 
@@ -215,7 +236,12 @@ async function fetchTmdb(path, params, query) {
    what they are handed. */
 const inFlightRequests = new Map();
 
-async function tmdb(path, params = {}) {
+/* `opts.signal` lets a caller cancel (search uses it so a stale query for the
+   previous keystroke never lands on screen). Identical in-flight GETs still
+   share one round trip: a joining caller simply does not get its own handle on
+   the shared request, which is right — aborting a request someone else is
+   waiting on would be the wrong trade. */
+async function tmdb(path, params = {}, opts = {}) {
   const query = buildQuery(params);
   const key = `${path}?${query}`;
   const shared = inFlightRequests.get(key);
@@ -224,7 +250,7 @@ async function tmdb(path, params = {}) {
     const data = await shared;
     return typeof structuredClone === 'function' ? structuredClone(data) : data;
   }
-  const request = fetchTmdb(path, params, query);
+  const request = fetchTmdb(path, params, query, opts);
   inFlightRequests.set(key, request);
   try {
     return await request;

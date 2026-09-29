@@ -6,7 +6,7 @@
 // the two things that matter when an estimate is involved:
 //   1. the boundaries are where we say they are, and
 //   2. a wrong estimate is CONTAINED — it costs a button, never a jump.
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   getSkipIntroEnd,
   shouldShowSkipIntro,
@@ -16,8 +16,13 @@ import {
   shouldShowSkipOutro,
   getSkipOutroTarget,
   shouldAutoSkipIntroOnce,
+  episodeKey,
+  lookupSkipIntro,
+  mergeSkipBoundaries,
+  rescopeBoundaries,
   SKIP_INTRO_DEFAULT_END,
   SKIP_INTRO_GRACE,
+  SKIP_INTRO_LEAD_SECONDS,
   SKIP_OUTRO_MIN_EPISODE_SECONDS,
   SKIP_OUTRO_TAIL_SECONDS,
 } from "../utils/skipMarkers.js";
@@ -44,12 +49,25 @@ describe("skip intro", () => {
     expect(getSkipIntroEnd({ type: "tv", id: "1" })).toBe(SKIP_INTRO_DEFAULT_END);
   });
 
-  it("is only visible inside the window, then disappears for good", () => {
-    expect(shouldShowSkipIntro({ ...tv, currentTime: 0 })).toBe(true);
+  it("appears only as the intro approaches its end, never from the cold open", () => {
+    const opens = SKIP_INTRO_DEFAULT_END - SKIP_INTRO_LEAD_SECONDS;
+    // Sitting on screen from t=0 trains viewers to ignore it and puts a control on
+    // screen aimed at the wrong moment.
+    expect(shouldShowSkipIntro({ ...tv, currentTime: 0 })).toBe(false);
+    expect(shouldShowSkipIntro({ ...tv, currentTime: opens - 1 })).toBe(false);
+    expect(shouldShowSkipIntro({ ...tv, currentTime: opens })).toBe(true);
     expect(shouldShowSkipIntro({ ...tv, currentTime: SKIP_INTRO_DEFAULT_END })).toBe(true);
     // grace keeps it up a moment past the boundary
     expect(shouldShowSkipIntro({ ...tv, currentTime: SKIP_INTRO_DEFAULT_END + SKIP_INTRO_GRACE })).toBe(true);
     expect(shouldShowSkipIntro({ ...tv, currentTime: SKIP_INTRO_DEFAULT_END + SKIP_INTRO_GRACE + 1 })).toBe(false);
+  });
+
+  it("opens the window from t=0 when the intro genuinely ends that early", () => {
+    // A measured 12s boundary has no room for a lead-in, and clamping to 0 is
+    // correct: the pill must still be reachable.
+    expect(shouldShowSkipIntro({ ...tv, currentTime: 0, cueIntroEnd: 12 })).toBe(true);
+    expect(shouldShowSkipIntro({ ...tv, currentTime: 5, cueIntroEnd: 12 })).toBe(true);
+    expect(shouldShowSkipIntro({ ...tv, currentTime: 12 + SKIP_INTRO_GRACE + 1, cueIntroEnd: 12 })).toBe(false);
   });
 
   it("never shows at the end, or at a negative head", () => {
@@ -87,6 +105,60 @@ describe("skip intro", () => {
       expect(getSkipIntroEnd({ type: "tv", id: "__test-override", duration: LONG_EPISODE })).toBe(42);
     } finally {
       delete SKIP_INTRO_OVERRIDES["__test-override"];
+    }
+  });
+});
+
+// ── Per-episode dataset keying ─────────────────────────────────────────────
+// TV overrides used to be keyed by SHOW id, which meant every episode of a series
+// shared one cold-open length. A dataset cannot work that way, so episodes are
+// keyed "SxxExx" and the episode entry wins over a series-wide one.
+describe("per-episode skip boundaries", () => {
+  const SHOW = "__test-show";
+
+  afterEach(() => {
+    delete SKIP_INTRO_OVERRIDES[SHOW];
+    delete SKIP_INTRO_OVERRIDES.S01E01;
+    delete SKIP_INTRO_OVERRIDES.S01E02;
+  });
+
+  it("builds a padded episode key", () => {
+    expect(episodeKey(1, 2)).toBe("S01E02");
+    expect(episodeKey(12, 34)).toBe("S12E34");
+    expect(episodeKey(0, 1)).toBeNull();
+    expect(episodeKey(1, 0)).toBeNull();
+    expect(episodeKey("x", 1)).toBeNull();
+  });
+
+  it("gives each episode its own boundary", () => {
+    SKIP_INTRO_OVERRIDES.S01E01 = { endSeconds: 132 };
+    SKIP_INTRO_OVERRIDES.S01E02 = { endSeconds: 45 };
+    expect(getSkipIntroEnd({ type: "tv", id: SHOW, season: 1, episode: 1, duration: LONG_EPISODE })).toBe(132);
+    expect(getSkipIntroEnd({ type: "tv", id: SHOW, season: 1, episode: 2, duration: LONG_EPISODE })).toBe(45);
+  });
+
+  it("falls back to the show for an episode with no entry of its own", () => {
+    SKIP_INTRO_OVERRIDES[SHOW] = { endSeconds: 90 };
+    expect(getSkipIntroEnd({ type: "tv", id: SHOW, season: 1, episode: 7, duration: LONG_EPISODE })).toBe(90);
+  });
+
+  it("lets the episode entry override a series-wide one", () => {
+    SKIP_INTRO_OVERRIDES[SHOW] = { endSeconds: 90 };
+    SKIP_INTRO_OVERRIDES.S01E03 = { endSeconds: 61 };
+    expect(getSkipIntroEnd({ type: "tv", id: SHOW, season: 1, episode: 3, duration: LONG_EPISODE })).toBe(61);
+  });
+
+  it("still lets a measured cue outrank the dataset", () => {
+    SKIP_INTRO_OVERRIDES.S01E01 = { endSeconds: 132 };
+    expect(getSkipIntroEnd({ type: "tv", id: SHOW, season: 1, episode: 1, duration: LONG_EPISODE, cueIntroEnd: 20 })).toBe(20);
+  });
+
+  it("accepts the loose key shapes a public dataset tends to use", () => {
+    SKIP_INTRO_OVERRIDES.__test_loose = { seconds: 88 };
+    try {
+      expect(lookupSkipIntro({ id: "__test_loose" })).toBe(88);
+    } finally {
+      delete SKIP_INTRO_OVERRIDES.__test_loose;
     }
   });
 });
@@ -150,5 +222,154 @@ describe("skip credits", () => {
     const t = getSkipOutroTarget({ type: "tv", duration: LONG_EPISODE });
     expect(t).toBeLessThan(LONG_EPISODE);
     expect(LONG_EPISODE - t).toBeLessThanOrEqual(5);
+  });
+});
+
+// ── Measured cue boundaries ────────────────────────────────────────────────
+// When a manifest states its own #EXT-X-CUE-OUT/#EXT-X-CUE-IN window, that fact
+// outranks every guess below. These pin the precedence, because getting it wrong
+// is how a real boundary would get ignored in favour of a blind 90s seek.
+describe("measured cue boundaries beat the estimates", () => {
+  it("uses the manifest intro end instead of the 90s default", () => {
+    expect(getSkipIntroEnd({ type: "tv", duration: LONG_EPISODE })).toBe(SKIP_INTRO_DEFAULT_END);
+    expect(getSkipIntroEnd({ type: "tv", duration: LONG_EPISODE, cueIntroEnd: 42 })).toBe(42);
+  });
+
+  it("offers a measured movie intro, which the TV-only guess must never do", () => {
+    expect(getSkipIntroEnd({ type: "movie", duration: 5400 })).toBe(0);
+    expect(getSkipIntroEnd({ type: "movie", duration: 5400, cueIntroEnd: 63 })).toBe(63);
+  });
+
+  it("ignores a non-positive or missing cue and keeps the estimate", () => {
+    expect(getSkipIntroEnd({ type: "tv", duration: LONG_EPISODE, cueIntroEnd: 0 })).toBe(SKIP_INTRO_DEFAULT_END);
+    expect(getSkipIntroEnd({ type: "tv", duration: LONG_EPISODE, cueIntroEnd: null })).toBe(SKIP_INTRO_DEFAULT_END);
+  });
+
+  it("shows and targets the intro pill at the measured boundary", () => {
+    expect(shouldShowSkipIntro({ type: "tv", duration: LONG_EPISODE, currentTime: 42, cueIntroEnd: 42 })).toBe(true);
+    expect(shouldShowSkipIntro({ type: "tv", duration: LONG_EPISODE, currentTime: 80, cueIntroEnd: 42 })).toBe(false);
+    expect(getSkipIntroTarget({ type: "tv", duration: LONG_EPISODE, cueIntroEnd: 42 })).toBe(42);
+  });
+
+  it("uses the measured credits start even on a short movie", () => {
+    // A 40s credits marker on a film the length floor would normally exclude.
+    const w = getSkipOutroWindow({ type: "movie", duration: 5400, cueCreditsStart: 5200 });
+    expect(w).not.toBeNull();
+    expect(w.start).toBe(5200);
+    expect(shouldShowSkipOutro({ type: "movie", duration: 5400, currentTime: 5200, cueCreditsStart: 5200 })).toBe(true);
+  });
+
+  it("keeps a measured credits window from running past the asset", () => {
+    const w = getSkipOutroWindow({ type: "tv", duration: 1000, cueCreditsStart: 99999 });
+    expect(w.start).toBeLessThanOrEqual(1000);
+    expect(getSkipOutroTarget({ type: "tv", duration: 1000, cueCreditsStart: 99999 })).toBeLessThanOrEqual(1000);
+  });
+
+  it("auto-skips against a measured boundary, once, via the caller's one-shot ref", () => {
+    // The predicate never writes the ref; NativePlayerView owns that write, so the
+    // "exactly once" guarantee is the ref's contract, not this function's.
+    const fired = { current: false };
+    expect(shouldAutoSkipIntroOnce({ type: "tv", duration: LONG_EPISODE, currentTime: 10, firedRef: fired, cueIntroEnd: 42 })).toBe(true);
+    fired.current = true;
+    expect(shouldAutoSkipIntroOnce({ type: "tv", duration: LONG_EPISODE, currentTime: 10, firedRef: fired, cueIntroEnd: 42 })).toBe(false);
+  });
+});
+
+describe("mergeSkipBoundaries", () => {
+  const CUES = { introEndSeconds: 246.5, creditsStartSeconds: 3434 };
+  const DATASET = { introEndSeconds: 132, creditsStartSeconds: 3400 };
+
+  it("keeps a cue tag when the dataset lands afterwards", () => {
+    // The regression this function exists for. The two fetches race, and without
+    // ranking a slow SkipDB response would replace a boundary the provider
+    // embedded in the actual stream — silently, with both values looking valid.
+    const afterCues = mergeSkipBoundaries({ ...CUES, source: "cues" }, DATASET, "dataset");
+    expect(afterCues.source).toBe("cues");
+    expect(afterCues.introEndSeconds).toBe(246.5);
+  });
+
+  it("lets a cue tag win when it lands afterwards", () => {
+    const afterDataset = mergeSkipBoundaries({ ...DATASET, source: "dataset" }, CUES, "cues");
+    expect(afterDataset.source).toBe("cues");
+    expect(afterDataset.introEndSeconds).toBe(246.5);
+  });
+
+  it("is order-independent — both arrival orders converge", () => {
+    const a = mergeSkipBoundaries({ ...CUES, source: "cues" }, DATASET, "dataset");
+    const b = mergeSkipBoundaries({ ...DATASET, source: "dataset" }, CUES, "cues");
+    expect(a).toEqual(b);
+  });
+
+  it("accepts the dataset when it is the only source", () => {
+    const out = mergeSkipBoundaries(null, DATASET, "dataset");
+    expect(out.source).toBe("dataset");
+    expect(out.introEndSeconds).toBe(132);
+  });
+
+  it("accepts a first cue when nothing is held yet", () => {
+    expect(mergeSkipBoundaries(null, CUES, "cues").source).toBe("cues");
+  });
+
+  it("ignores an empty arrival instead of clearing good boundaries", () => {
+    // A dataset that resolves null (uncrowdsourced title, or offline) must not
+    // wipe a cue tag we already have.
+    const held = { ...CUES, source: "cues" };
+    expect(mergeSkipBoundaries(held, null, "dataset")).toBe(held);
+  });
+
+  it("replaces dataset with dataset on a title change", () => {
+    // Same trust level, so the newer value is kept — the player resets on title
+    // change, but a late response for the PREVIOUS title must not stick.
+    const out = mergeSkipBoundaries({ ...DATASET, source: "dataset" }, CUES, "cues");
+    expect(out.introEndSeconds).toBe(246.5);
+  });
+});
+
+describe("rescopeBoundaries", () => {
+  const cues = { introEndSeconds: 246.5, creditsStartSeconds: 3434, source: "cues" };
+  const dataset = { introEndSeconds: 132, creditsStartSeconds: 3400, source: "dataset" };
+  const VIDCORE = "vidcore|0"; // server|dub
+  const NHD_DUB1 = "nhd|1";
+
+  it("drops cue tags when a different server starts playing", () => {
+    // A cue describes one encode. Server 2's video is not Server 1's, so
+    // Server 1's measured boundary is a claim we never made about it.
+    expect(rescopeBoundaries(cues, VIDCORE, "vidsrc|0")).toBeNull();
+  });
+
+  it("drops cue tags when a dub switch swaps to another manifest", () => {
+    // NHD dubs are separate full-stream manifests, not in-manifest groups.
+    expect(rescopeBoundaries(cues, VIDCORE, NHD_DUB1)).toBeNull();
+  });
+
+  it("keeps dataset boundaries across a server switch", () => {
+    // Keyed by IMDb id: the data describes the TITLE, so it stays true for every
+    // server. This is the reason the dataset beats a hardcoded table.
+    expect(rescopeBoundaries(dataset, VIDCORE, "vidsrc|0")).toBe(dataset);
+  });
+
+  it("keeps dataset boundaries across a dub switch", () => {
+    expect(rescopeBoundaries(dataset, VIDCORE, NHD_DUB1)).toBe(dataset);
+  });
+
+  it("keeps everything when the manifest did not change", () => {
+    // pickAudio only sets hls.audioTrack — same manifest, so the tags still
+    // describe what is on screen and must survive.
+    expect(rescopeBoundaries(cues, VIDCORE, VIDCORE)).toBe(cues);
+    expect(rescopeBoundaries(dataset, VIDCORE, VIDCORE)).toBe(dataset);
+  });
+
+  it("treats the dub index as part of the manifest identity", () => {
+    // Same server, different manifest. A scope key of just the server key would
+    // read as "unchanged" and carry the old dub's tags onto the new one.
+    expect(rescopeBoundaries(cues, "nhd|0", "nhd|1")).toBeNull();
+  });
+
+  it("passes null through untouched", () => {
+    expect(rescopeBoundaries(null, VIDCORE, "vidsrc|0")).toBeNull();
+  });
+
+  it("is safe to call before anything has been measured", () => {
+    expect(rescopeBoundaries(undefined, null, VIDCORE)).toBeUndefined();
   });
 });

@@ -1,20 +1,27 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Check, Plus, X } from "lucide-react";
+import { Check, Globe, Lock, Plus, X } from "lucide-react";
+import { useI18n } from "../i18n";
 
 /* ── Collection picker: add/remove ONE title from ANY collection ──────────
    Shared by WatchlistPage (per-card, "Add to / remove from collection") and
    TitleDetailsPage (opens automatically when a newly added title hits a list
    that already has collection folders). */
 function CollectionPickerDialog({ open, movie, collections, onToggle, onCreateWithItems, onClose }) {
+  const { t } = useI18n();
   const [showCreate, setShowCreate] = useState(false);
   const [createName, setCreateName] = useState("");
+  // Private by default: publishing a list is a deliberate act everywhere else
+  // in the app (it puts the list on the anonymous Explore page), so a create
+  // form must never get there by omission.
+  const [createVisibility, setCreateVisibility] = useState("private");
   const inputRef = useRef(null);
 
   useEffect(() => {
     if (open) {
       setShowCreate(false);
       setCreateName("");
+      setCreateVisibility("private");
       requestAnimationFrame(() => inputRef.current?.focus());
     }
   }, [open]);
@@ -24,9 +31,10 @@ function CollectionPickerDialog({ open, movie, collections, onToggle, onCreateWi
   const submitCreate = (e) => {
     e.preventDefault();
     if (!createName.trim()) return;
-    onCreateWithItems(createName.trim(), [movie.id]);
+    onCreateWithItems(createName.trim(), [movie.id], createVisibility);
     setShowCreate(false);
     setCreateName("");
+    setCreateVisibility("private");
   };
 
   // Portaled to <body>: the app wraps every page in a motion.div that keeps a
@@ -94,6 +102,39 @@ function CollectionPickerDialog({ open, movie, collections, onToggle, onCreateWi
                 maxLength={60}
                 className="collection-dialog__input"
               />
+              <div
+                className="collection-dialog__visibility"
+                role="radiogroup"
+                aria-label="Collection visibility"
+              >
+                <button
+                  type="button"
+                  role="radio"
+                  data-visibility="private"
+                  aria-checked={createVisibility === "private"}
+                  className="collection-dialog__vis"
+                  onClick={() => setCreateVisibility("private")}
+                >
+                  <Lock size={13} />
+                  {t("collections.visibilityPrivate")}
+                </button>
+                <button
+                  type="button"
+                  role="radio"
+                  data-visibility="public"
+                  aria-checked={createVisibility === "public"}
+                  className="collection-dialog__vis"
+                  onClick={() => setCreateVisibility("public")}
+                >
+                  <Globe size={13} />
+                  {t("collections.visibilityPublic")}
+                </button>
+              </div>
+              <p className="collection-dialog__vis-hint">
+                {createVisibility === "public"
+                  ? t("collections.visibilityHintPublic")
+                  : t("collections.visibilityHintPrivate")}
+              </p>
               <div className="collection-dialog__actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowCreate(false)}>
                   Cancel

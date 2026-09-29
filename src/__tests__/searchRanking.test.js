@@ -200,3 +200,53 @@ describe("searchRanking advanced edge cases", () => {
     });
   });
 });
+
+describe("bonus signals (popularity stands in for the two dead bonuses)", () => {
+  // Everything except the bonus input is held identical, so any score delta
+  // is the branch under test.
+  const base = { id: "b1", title: "Dune", genres: ["Sci-Fi"], releaseYear: 2021, imdbRating: 8.0 };
+
+  it("awards +5 once popularity reaches 40, and no more above it", () => {
+    const cold = getSearchRelevance({ ...base, popularity: 39.9 }, "dune");
+    const hot = getSearchRelevance({ ...base, popularity: 40 }, "dune");
+    const onFire = getSearchRelevance({ ...base, popularity: 5000 }, "dune");
+    expect(hot).toBe(cold + 5);
+    expect(onFire).toBe(hot);
+  });
+
+  it("ignores popularity that is missing, NaN, or non-numeric", () => {
+    const absent = getSearchRelevance({ ...base }, "dune");
+    expect(getSearchRelevance({ ...base, popularity: Number.NaN }, "dune")).toBe(absent);
+    expect(getSearchRelevance({ ...base, popularity: "n/a" }, "dune")).toBe(absent);
+    expect(getSearchRelevance({ ...base, popularity: null }, "dune")).toBe(absent);
+  });
+
+  it("scores identically whether or not cast and director are present", () => {
+    // TMDB /search/multi carries no credits, so the old +12 people branch read
+    // ""/[] on every real result. Pinning the equality proves people data
+    // cannot move the score ? the branch is gone, not merely unfired.
+    const plain = getSearchRelevance({ ...base, popularity: 0 }, "dune");
+    const loaded = getSearchRelevance(
+      { ...base, popularity: 0, cast: ["Timothee Chalamet"], director: "Denis Villeneuve" },
+      "dune",
+    );
+    expect(loaded).toBe(plain);
+  });
+
+  it("scores identically regardless of the incoming matchScore", () => {
+    // The self-referential bug this replaced: searchMovies used to zero
+    // matchScore before scoring (bonus never fired), and rankSearchResults
+    // wrote matchScore from the relevance it computes (high score bought a
+    // higher score). Either way the input must not matter.
+    const low = getSearchRelevance({ ...base, matchScore: 0 }, "dune");
+    const high = getSearchRelevance({ ...base, matchScore: 99 }, "dune");
+    expect(high).toBe(low);
+  });
+
+  it("puts the popular twin of a result first", () => {
+    const popular = { ...base, popularity: 90 };
+    const obscure = { ...base, popularity: 1 };
+    const ranked = rankSearchResults([obscure, popular], "dune");
+    expect(ranked[0].popularity).toBe(90);
+  });
+});

@@ -2868,54 +2868,49 @@ Verification: lint 0 errors (baseline warnings only), 378/378 tests pass, build 
 
 - [x] **AI de-scope (final, per user): remove AI from everywhere EXCEPT Search, User must never see it.** On the canonical repo (streamly-frontend-main -> Nashid-k/streamly-frontend.git). REMOVED: WhisperRow.jsx (whole mic/whisper slice), whisperLine state + WhisperRow import/mount + subtitleOverride prop in SettingsPage/PlayerPreview (Settings reverted to the plain non-AI subtitle demo box). KEPT (silent, in Search only): rankSearchResults(:119) + getDidYouMean(:133) -> plain 'Did you mean' chips(:445); api/groq.js + src/utils/groqClient.js stay as the invisible backend; Groq key stays server-side (api/groq.key.js gitignored). Gate: lint 0 / 378 tests / build 2.16s. No AI branding anywhere in UI.
 
-## TODO - NEXT SLICE (EXPLORE MYLIST) - recorded, NOT built yet
-Land the anonymous public surface so a PUBLIC collection is viewable by ANYONE
-without a username and without any owner identity (no AI branding anywhere):
+## TODO - EXPLORE MYLIST / anonymous public collections - shipped except 3 items
+Recorded three times and now merged into ONE list (the same six bullets were
+written under three headings, which is exactly how a top-down checkbox order
+stops working). Every line below was checked against the tree rather than
+trusted: routes moved out of App.jsx into src/app/routes.jsx, so the original
+"App.jsx route" wording is outdated but the item did ship.
 
-- [ ] src/pages/ExploreCollectionsPage.jsx (new) - lists every PUBLIC collection
-      as an anonymous grid. NO username, NO profile, NO owner shown anywhere.
-- [ ] App.jsx route - /explore/collections -> ExploreCollectionsPage, plus a
-      public lookup route keyed by the collection's opaque publicId.
-- [ ] WatchlistPage - mount a silent "Best Collections" rail (local heuristic
-      ranking, invisible-AI pattern like search) + Public/Private toggle chip
-      on each collection card + "Copy public link" for public lists.
-- [ ] CollectionPickerDialog - Public/Private segmented control in the create
-      form (default = private; only PUBLIC lists ever resolve via publicId).
-- [ ] i18n en.js keys (collections.visibility.*, collections.bestRail.*,
-      explore.*) - all strings carry zero AI branding.
-- [ ] Gate: lint -> 378+ tests -> build, then record, commit, push, verify
-      local == origin == remote.
-
-## TODO - NEXT SLICE (EXPLORE MYLIST) - recorded, NOT built
-- [ ] **ExploreCollectionsPage (anonymous)** - new src/pages/ExploreCollectionsPage.jsx:
-      lists only PUBLIC collections by their opaque publicId. ZERO usernames,
-      ZERO owner identity shown anywhere - anyone with the link views it
-      without a username slash/username. No AI branding anywhere.
-- [ ] **App.jsx routes** - /explore/collections -> ExploreCollectionsPage + a
-      public lookup route keyed by publicId (opaque, never a username).
-- [ ] **WatchlistPage** - silent rail "Best Collections" (invisible-AI ranking
-      via storage-v2 visibility, no branding) + Public/Private toggle chip on
-      each collection card + Copy public link button.
-- [ ] **CollectionPickerDialog** - Public/Private segmented control in the
-      create form (default private). Storage v2 fields visibility/publicId
-      already morph on read (useUserData.js normalize*).
-- [ ] **Gate** (frozen contract): lint 0 -> 378+ tests -> build, then commit,
-      push, remote-verify local==origin by hash.
-
-## TODO - NEXT SLICE (EXPLORE-COLLECTIONS, anonymous) - recorded fresh, NOT built
-- [ ] (gate: lint 0 -> 378+ tests -> build ? -> commit -> push -> local==origin verify)
-- [ ] src/pages/ExploreCollectionsPage.jsx (NEW) - anonymous surface. Lists every
-      collection whose storage-attr visibility==="public". Renders via publicId
-      ONLY, NO username, NO owner identity, NO AI branding - any public list is
-      viewable by ANYONE holding /explore/collections without knowing anyone.
-- [ ] App.jsx route: /explore/collections -> ExploreCollectionsPage + read-only
-      lookup route keyed by opaque publicId (never a username).
-- [ ] WatchlistPage rail: silent "Best Collections" rail (invisible-AI local
-      heuristic ordering, no branding, same house pattern as Search), plus a
-      Public/Private toggle chip on each CollectionCard + "Copy public link".
-- [ ] CollectionPickerDialog: Public/Private segmented toggle in create/rename
-      form (default private). Storage morph (visibility + publicId, additive
-      state v2) already recorded in task.md as the frozen-contract delta.
+- [x] src/pages/ExploreCollectionsPage.jsx - anonymous grid of PUBLIC collections,
+      deduped by publicId, no username / no owner identity / no AI branding.
+- [x] Routes: /explore/collections -> ExploreCollectionsPage and
+      /collections/:publicId -> PublicCollectionPage (src/app/routes.jsx:51, :55).
+- [x] src/pages/PublicCollectionPage.jsx - read-only public list by opaque publicId
+      (looks up the local copy first, then the remote anonymous endpoint).
+- [x] WatchlistPage - Globe/Lock visibility chip + per-card toggle wired through
+      onToggleVisibility -> setCollectionVisibility (collections.visibility* keys).
+- [x] i18n en.js keys - collections.visibilityPublic/Private/HintPublic/HintPrivate,
+      bestCollectionsTitle/Hint, explore.* (named differently than originally planned).
+- [x] Gate green - lint 0, build ok, vitest 911/911 (72 files) as of this pass
+      (378 was the number when this slice first landed).
+- [x] WatchlistPage "Best Collections" rail - MOUNTED this session. Renders the
+      viewer's PUBLIC collections (`publicCollections` from useUserData, the
+      field that existed with no consumer) ranked by item count, ties broken by
+      `updatedAt`, top 6. Title/hint from bestCollectionsTitle/bestCollectionsHint.
+      Only public lists qualify because the rail's promise is a shareable,
+      username-free list. Test: WatchlistPage.collections.test.jsx (3 rail tests).
+- [x] "Copy public link" button on a public collection - ADDED this session.
+      New `src/utils/clipboard.js` (Clipboard API -> execCommand fallback ->
+      logged false). Rendered on CollectionCard only when
+      `visibility === "public" && publicId` exists (a private list has no link
+      to hand anyone). Copies `${origin}/collections/${publicId}`. Success and
+      FAILURE both toast - a silently dead copy button is the exact failure this
+      prevents. New i18n key `collections.publicLinkCopyFailed`.
+      Tests: clipboard.test.js (7), WatchlistPage.collections.test.jsx (2).
+- [x] CollectionPickerDialog - Public/Private segmented control in the create
+      form, default private, added this session. `role="radiogroup"` with the
+      existing visibility* i18n keys; state is passed as the 3rd arg to
+      `onCreateWithItems`, which required threading it through BOTH wrappers
+      (WatchlistPage confirmPickerCreate, TitleDetailsPage
+      handlePickerCreateFromDetails) - both used to accept and drop it.
+      `createCollectionWithItems(name, ids, {visibility})` mints a publicId when
+      public, and treats any other value as private (absent field = private,
+      the storage contract). CSS: collections.css .collection-dialog__visibility.
+      Test: CollectionPickerDialog.test.jsx (6).
 
 ## SHIPPED - MyList x anonymous Explore slice (this session)
 - [x] useUserData.js useMyCollections: storage-v2 morph (additive visibility + stable publicId),
@@ -3512,3 +3507,143 @@ push only on explicit user OK per repo policy.
   - **Gates:** `npx vitest run` **794/794 passed (65 files)** A? `npm run lint` **exit 0** (no new warnings; the `videoRef.current` cleanup warning and the `setState`-in-effect ones are pre-existing) A? `npm run build` **?o" built in 6.23s**. New tests: `skipMarkers` 16, `streamTuning` 8, `playerA11y` +5 (Servers rename/leak checks + the 3 aspect-panel regressions).
   - **Deliberately NOT done:** `DownloadModal` still labels its rows `VidSrc (Alt)` / `VidCore (Server 5)`. Those numbers come from the unrelated legacy scraper rotation in `src/api/videoSourceAdapter.js` (`serverIndex: 4` really does mean Server 5 there) A?" renaming them to the player's numbering would silently break that mapping. Left alone, and flagged here rather than changed quietly.
   - **Not verified:** no Dart SDK, so `mobile/` gets none of this A?" the Flutter player still has no Server menu, no Skip Credits, and its own hardcoded 90s/15-min intro heuristic.
+
+- [x] **Native player overhaul - measured skip boundaries, motion tokens, cold-load art stage, Space hold, honest audio labels, transport-row Audio/Subtitles (user: "check the competitor website ... study their loading animations, subtitle/audio controls ... make our own but better", then "in server 4 ... showing orginal if know show the lang like english, also instead showing tamil dub,hindi dub just show tamil, hindi (not only server4, also check server 3 and other servers which has multi audio)", "subtitles out of settings, always in transport row", "audio changer in the transport row", "stage on dub/quality switching too", "titile img as center big during initial loading").**
+  - **Loader memo: a replayed title no longer pays twice.** `createStreamlyLoader` keeps a 30s-TTL LRU of at most 12 VOD playlists (LIVE manifests are never cached - a cached live is a stale stream) and re-enters an in-flight request instead of issuing a second one. The resume/after-seek/episode-replay path previously fetched, parsed and re-attached the same master twice; live playlist requests dropped from 2 to 1 per load. Relay fragment fan-out also propagates the FIRST failure instead of returning truncated data.
+  - **Skip windows are now MEASURED where a manifest says so, and the module knows the difference.** New `src/utils/hlsCueTags.js` reads `#EXT-X-CUE-OUT` / `#EXT-X-CUE-IN` (with `.EXTINF`-style `CUE-OUT:nnn`, `SCTE35-OUT`, and a closing `CUE-IN`) and reports the intro end / credits start it found; masters are skipped so the MEDIA playlist is inspected, and short-media segments are scaled so a 20-minute file does not trip the long-form guard. `onCueBoundaries` then feeds `mergeSkipBoundaries(prev, incoming, source)` which ranks **cues(2) > dataset(1)** by source, never by arrival order - the cue answer and the dataset answer can land in either order and the winner stays the winner.
+  - **Runtime SkipDB fetch (new `src/api/skipBoundarySource.js`).** `https://api.skipdb.tv/api/segments?imdbId=...` (CORS *, no key) returns per-episode segments; the client takes the intro's `end_ms` as the intro end and the credits' `start_ms` as the credits start, converts them to an absolute position for this playback, and refuses anything that is not finite. Movies have no season/episode. A miss is HTTP 200 with ALL segments null (not 404), the request is aborted at 2.5s, hits and misses are both session-cached, and an in-flight lookup is de-duplicated - a title we could not read must not be asked repeatedly. An absent IMDb id means no lookup, never a guessed one.
+  - **Source switching is now scoped, because cue tags belong to ONE manifest.** `rescopeBoundaries(prev, prevScope, nextScope)` DROPS cue-derived boundaries on a server/dub switch (different provider, different encode - keeping them would apply one provider's cut to another, and the loader's "no cue tags in manifest" diagnostic would then be lying) while KEEPING title-scoped SkipDB boundaries; an in-manifest audio-group change keeps everything because the manifest never changed. `manifestScope` is `${activeSourceKey}|${activeDub}`.
+  - **Automatic failover no longer leaves a stale server name in the UI.** `activeSourceKey` was a `metaRef.current` field - invisible to render - so a `vidcore -> vidsrc` failover kept showing the dead server. It is now state, reset per title, committed only on a SUCCESSFUL load, and the Servers row reads `activeSourceKey || requestedServer || DEFAULT` so a failed switch highlights the server the viewer actually kept.
+  - **Motion: one vocabulary, so reduced motion can be enforced in one place.** `src/constants/motion.js` gains `motionSafe(reduced)` and `useMotionTokens(reduced)`; the component calls it once and every `SPRING.*` / `PILL_IN` / `CHECK_POP` in the player resolves through it (15 call sites - the fast ones become short springs, the slow ones become plain `duration:0` cuts). The two module-level rows (`DialogRow`, `EpisodesRail`) cannot take the component hook, so they resolve the preference directly. Then a full `player.css` reduced-motion audit: the reduced block already covered 12 things, and the other 12 (controls/volume/scrubber/cards/toast/loading transitions) now stop too, and the whole list is greppable instead of hand-maintained.
+  - **Space now behaves like the transport button.** It was a `click()` on the hidden native control, so Space = keyup-toggles and nothing could hold-to-scrub. Now: tap toggles on KEYUP (so a press that overshoots into a hold does not blink play/pause), hold past `HOLD_2X_DELAY_MS` engages 2x, key-repeat is ignored while held, and release drops back to the original rate without toggling. `KeyK` is unchanged (immediate toggle). **This also fixed a real playback-rate bug:** a user-chosen speed (e.g. 1.5) was instantly overwritten by the hold-effect because `playbackRate` was in that effect's deps; speed now applies to the element and hold-release no longer fights it.
+  - **Cold load gets an art stage; a warm stall does not.** New `LoadingStage` + `RingSpinner`: blurred backdrop as ambient colour, a dim radial scrim, the centred poster/title art, then the title/episode line and a white ring with the honest message ("Switching to Server 3...", "Switching to 720p..."). It arms ONLY where there is no picture worth keeping - first load and server switch - and mid-playback stalls keep the prior light overlay, because blurring the frame on every stall reads as a broken player. The stage arms after the target probe PASSES for quality/dub swaps, so a failed probe keeps the old picture instead of blanking it; success and failure both clear it so no overlay can stick on working video.
+  - **Audio labels: the provider's wording is not a UI decision.** New `src/utils/audioLabels.js`: `normalizeAudioLabel` strips `Dub`/`Audio`/`Track`/`Version` as WORD-BOUNDED tokens and title-cases what is left (`Tamil Dub` -> `Tamil`, `TAMIL_AUDIO` -> `Tamil`, `Azerbaijani` untouched); `originalTrackLabel(en)` names the film's real language from TMDB and falls back to `Original` ONLY when TMDB said nothing (a wrong guess about the soundtrack is worse than no guess). `buildAudioTrackList` puts the original first, de-dupes a row that normalises to the original language, drops rows that normalise to nothing, and **carries `sourceIndex`** - because rows are dropped, a row's POSITION is no longer its index in the provider array, and the player switches on `sourceIndex + 1`. Using the row's own position would have played a different language than the clicked label; there is a regression test for exactly that.
+  - **Transport row restructure (the "make the player clean" ask).** `Audio` and `Subtitles` moved OUT of the settings sheet and into the transport row as their own buttons, each rendered only when it has something to do (no dub on a single-audio server means no Audio button; an empty still-searching subtitle list means no Subtitles button - a button that opens an empty list is worse than no button). They are removed from the settings sheet rather than duplicated, because two routes to the same panel is how they drift apart; the test pins the invariant at exactly ONE Audio control once Settings is open. `Servers` / Video Quality / Speed / Aspect stay in Settings - those belong to the stream, not the viewer.
+  - **Gates:** `npx vitest run` **911/911 passed (72 files)**, `npm run lint` **exit 0** (pre-existing warnings only), `npm run build` **built in 3.47s**. `git diff --check` exit 0 (one trailing blank line removed). New/changed tests: `audioLabels` 17, `zxcMasterDubSwitch` +1 (transport placement + label->URI pairing), plus this session's earlier `hlsCueTags`, `skipBoundarySource`, `nativeHlsLoaderStartup`, `playerSpaceKey`.
+  - **Known and deliberate:** `NativePlayerView.jsx` reports a pre-existing `react-hooks(exhaustive-deps)` warning for `mergeBoundaries`. It is a false positive - the callback is `useCallback([])` and only calls a stable setState, so the captured closure can never be stale - and "fixing" it is actively harmful: the callback is DECLARED below the effect, so adding it to the deps array would evaluate an uninitialized binding during render (TDZ) and crash the player. Left as is with the reason recorded.
+  - **Not verified:** still no browser E2E, so the cue-tag count confirmed from a real manifest is still **0** (the parser has never been shown a manifest that actually carries `#EXT-X-CUE-OUT`), and the SkipDB layout has not been seen on a loaded title. `mobile/` gets none of it - no Dart SDK on this machine.
+  - **Deliberately not bundled:** `mergeBoundaries` comment wording, the search/release-date backlog, VidSrc proxy 403, `/api/downloadify` 502, AutoFlip reset, and the legacy DownloadModal server labels remain as separate items.
+
+## OPEN - ordered, work top-down (recorded 2026-09-29)
+Every box below is unchecked because it was VERIFIED open against the tree, not
+assumed. Two other open lists live elsewhere in this file and are deliberately
+not repeated here: the videasy base-audio follow-up (search "Surface the videasy
+base audio") and the three remaining Explore/MyList items (search "EXPLORE MYLIST").
+
+- [ ] **Player browser verification (do this first - it is the only way to prove
+      the claims above).** Nothing in vitest renders real video or a real manifest.
+      On a covered episode (Breaking Bad S1E1) check: cold-load art stage shows the
+      blurred backdrop + centred poster + title + white ring; warm mid-playback
+      stall keeps the picture (no blur); server / quality / dub switches show the
+      stage then clear it on both success and failure; transport row shows the
+      Audio button ONLY on Server 3/4 and Subtitles when a list exists, with NO
+      Audio/Subtitles rows left in the settings sheet; labels read "English",
+      "Tamil", "Hindi" - never "Tamil Dub" or bare "Original"; Space tap = play/pause,
+      hold past the delay = 2x, release drops to the previous rate. Record the
+      cue-tag result: parsers exist and are tested, but the count of real manifests
+      confirmed to carry #EXT-X-CUE-OUT is still **0**, and the SkipDB attribution
+      row has never been seen rendering on a dataset-backed title.
+- [ ] **P1 source-aware readahead / start rendition + a visible loader state machine
+      with byte counts.** The relay reports progress as an opaque spinner today;
+      a state machine (connecting / probing / first-byte / buffered) would tell the
+      viewer whether a wait is network or resolver, and seeding from a per-source
+      bandwidth read avoids the slow first rung.
+- [ ] **Failure investigation: VidSrc proxy 403 and /api/downloadify 502.** Both
+      still answer with no useful body, so the retry in server/net.js cannot tell a
+      dead upstream from a rejected client. Needs an upstream-honest status code
+      before any client-side handling is written.
+- [x] **DownloadModal legacy labels - DONE.** Labels now derive from
+      `sourceLabel(key)` in constants/sources.js, the ONE catalogue the player's
+      Servers menu uses, so the same provider is no longer two different numbers
+      in two sheets. `serverIndex` (0 / 4) is untouched and documented as this
+      sheet's own sort key, NOT a position in that catalogue - the only thing
+      that reads it is the sort comparator at DownloadModal.jsx:304, so the
+      display rename cannot change which source resolves.
+      Test expectations updated: DownloadModal.test.jsx (11 pass).
+- [ ] **AutoFlip reset.** STILL OPEN, and unverifiable from this repo: `AutoFlip`
+      appears in task.md ONLY. A search of every .js/.jsx/.mjs/.json/.env/.md
+      file finds zero occurrences outside this line, so there is no such
+      identifier, component, or preference in the tree to fix. It needs a
+      pointer to the real feature (setting name, file, or bug report) before it
+      can be worked; inventing an implementation would be a guess. Not closed,
+      not faked.
+- [x] **Search backlog - DONE** (all six items from the earlier audit):
+      dead backendSuggestions REMOVED (nothing in src ever set
+      `rawResults.suggestions`; "Did you mean" has one honest source now, the
+      fuzzy pass); self-referential matchScore bonus REPLACED with a
+      `popularity >= 40 -> +5` bonus (the old one read matchScore, which
+      searchMovies zeroed and rankSearchResults wrote from the score it was
+      computing, so a high score bought a higher score); cast/director bonus
+      REMOVED rather than left dead (TMDB /search/multi carries no credits and
+      normalizeResult has no fields for them - a test now pins that people data
+      CANNOT move the score); query cancellation WIRED end to end
+      (react-query signal -> searchMovies -> tmdb -> fetchTmdb, where a caller
+      abort rethrows the raw AbortError instead of being logged as a TIMEOUT -
+      typing another letter is not a TMDB failure); result highlighting ADDED
+      (utils/highlightMatch.js + MovieCard `highlightQuery`, `<mark>` tinted
+      with the accent in grids.css); keyboard navigation ADDED
+      (ArrowDown from the box, ArrowUp/Down/Home/End through results, Escape
+      back to the box, delegated so "load more" cards are covered).
+      Side effect worth knowing: search results now always print their title on
+      desktop, because a <mark> nobody can see is not a highlight.
+      Tests: searchRanking +5, highlightMatch 8 (NEW), SearchPage 7 (NEW).
+- [ ] **mobile/ Flutter player gaps** - no Server menu, no Skip Credits, hardcoded
+      90s/15-min intro heuristic, and none of this session's audio-label /
+      transport-row work. No Dart SDK on this machine, so no Dart gate ran; this
+      cannot be closed here without a toolchain.
+
+## SHIPPED - search surface + collections surfaces (this session)
+- [x] Search scoring - popularity bonus replaces two bonuses that could not work.
+      `getSearchRelevance` no longer reads `matchScore` (self-referential: it was
+      zeroed before scoring and written from the score being computed) and no
+      longer reads cast/director (TMDB `/search/multi` carries no credits).
+      File header rewritten to say WHY, so the branches are not "re-added" later.
+- [x] Search cancellation - react-query's `signal` flows queryFn -> searchMovies ->
+      tmdb -> fetchTmdb. A caller abort shares the existing timeout controller but
+      is tracked separately, because the catch block turns any AbortError into
+      "TMDB request timed out"; a viewer typing another letter must never be
+      logged as a TMDB failure. `searchMovies` skips logServiceError on AbortError
+      for the same reason. Identical in-flight GETs still dedupe (joining a shared
+      request deliberately gives up its own cancel handle rather than aborting a
+      request someone else is waiting on).
+- [x] Search highlighting - `src/utils/highlightMatch.js` returns SEGMENTS, not
+      elements, so the logic is unit-testable without a render tree. First
+      occurrence only: marking every repeat of a short token turns a card into a
+      Christmas tree. `MovieCard` gained an optional `highlightQuery`; search
+      results therefore always show their title, since desktop otherwise has none
+      (the hover curtain carries rating/year, not a title).
+- [x] Search keyboard navigation - ArrowDown from the input to the first result,
+      ArrowUp/Down/Home/End through the grid, ArrowUp-from-first and Escape back
+      to the box. Delegated from the results <section> so cards added by the
+      20-item "load more" window are included. Enter/Space are NOT re-handled:
+      MovieCard already activates natively and double-firing would navigate twice.
+- [x] DownloadModal labels derive from `sourceLabel()` (constants/sources.js).
+- [x] Collections: Best Collections rail, copy-public-link, and the picker's
+      Public/Private create control (details in the SHIPPED block above).
+- [x] Gates: `npx vitest run` **952/952 passed (77 files)**, `npm run lint`
+      **exit 0** (no new warnings), `npm run build` **built in 3.27s**,
+      `git diff --check` exit 0. New test files: `SearchPage.test.jsx` (7),
+      `highlightMatch.test.js` (8), `clipboard.test.js` (7),
+      `CollectionPickerDialog.test.jsx` (6), `WatchlistPage.collections.test.jsx` (5).
+- [x] Two test findings that were bugs in my own tests, not in the app:
+      "star" does not occur in "Interstellar" (s-t-a-r vs s-t-e), and
+      testing-library's default text matcher reads only DIRECT text-node children,
+      so a title split by <mark> matches no string - the highlight test waits on
+      structure instead.
+- [ ] **Not verified:** no browser in this environment (vitest + jsdom only, no
+      Playwright/Puppeteer installed), so the player E2E checklist above is
+      unchanged and the real-manifest cue-tag count is still **0**. The search
+      highlight colour, the segmented control's selected state, and the copy
+      button's icon need one human look.
+
+## REJECTED - the videasy base-audio follow-up is not workable as written
+- [ ] **Surface the videasy base audio in the native player** stays open and is
+      now recorded as BLOCKED with evidence, not as un-started:
+      `https://vidrack.created.app/api/sources/videasy?id=579974&type=movie`
+      (Referer vidcore.org) answers **HTTP 200 `{"sources":[]}`** - there is no
+      row to derive `index-{q}.m3u8` from, so the derivation the item describes
+      cannot be implemented or tested against the real API. Separately,
+      `api/downloadify.js:430-433` records that the "-v1 base track" was BUILT and
+      then deliberately REMOVED because it played as muted video. Doing this again
+      needs a source whose API actually lists the base track, plus the muted-video
+      issue solved - not another attempt against an empty response.

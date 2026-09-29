@@ -159,11 +159,14 @@ describe("ZXC DASH master — dub switching", () => {
     // The dub list must be the SIBLING-URL list (Original + every dub), not the
     // single in-manifest "eng" group the transcoded master carries.
     expect(screen.getByRole("button", { name: /Original/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /French dub/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^French/i })).toBeInTheDocument();
+    // Labels are normalised for display: the provider's raw "French dub" is
+    // shown as the language name alone. A viewer sees "French", never "Dub".
+    expect(screen.queryByRole("button", { name: /French dub/i })).toBeNull();
 
     // The dub row is a sibling master URL, so switching to it must RELOAD the
     // source. Setting hls.currentLevel would keep the original language.
-    fireEvent.click(screen.getByRole("button", { name: /French dub/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^French/i }));
 
     // jsdom has no play(); the reload decision (loadSource) happens before the
     // resume, so assert on the load, not on playback.
@@ -178,12 +181,15 @@ describe("ZXC DASH master — dub switching", () => {
     // Row N is dubTracks[N-1] because row 0 is the original. Indexing both with
     // the same N played the wrong language under the clicked label — the
     // clickable row said "French dub" while esla was loaded.
+    // The label shown is now the normalised name, so "esla dub" reads "Esla";
+    // the mapping assertion below is unchanged, because a rename must never be
+    // able to re-break the label->URI pairing.
     render(<NativePlayerView type="movie" id="1101383" title="The End of Oak Street" onClose={() => {}} />);
     await waitFor(() => expect(hlsState.loadSourceCalls.length).toBeGreaterThan(0), { timeout: 5000 });
 
     openAudioPanel();
     // The LAST dub must reach the LAST track, not run off the end.
-    fireEvent.click(screen.getByRole("button", { name: /esla dub/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Esla/i }));
     await waitFor(() => {
       expect(hlsState.loadSourceCalls).toContain(ESLA_DUB);
     }, { timeout: 3000 });
@@ -197,5 +203,32 @@ describe("ZXC DASH master — dub switching", () => {
       const last = hlsState.loadSourceCalls[hlsState.loadSourceCalls.length - 1];
       expect(last).not.toContain("zd=");
     }, { timeout: 3000 });
+  });
+
+  it("puts Audio in the transport row instead of burying it in Settings", async () => {
+    // The point of the restructure: a multi-audio source must offer its dubs
+    // from the transport row, where every other player puts audio, and must
+    // offer them ONCE. Two routes to the same panel is how the two drift apart.
+    render(<NativePlayerView type="movie" id="1101383" title="The End of Oak Street" onClose={() => {}} />);
+    await waitFor(() => expect(hlsState.loadSourceCalls.length).toBeGreaterThan(0), { timeout: 5000 });
+    await waitFor(() => expect(hlsState.resolveCalls.length).toBeGreaterThan(0), { timeout: 5000 });
+
+    // Reachable without opening Settings at all.
+    const audioBtn = screen.getByRole("button", { name: /^Audio/i });
+    expect(audioBtn).toBeInTheDocument();
+
+    // ...and opening Settings does NOT add a second route to it. The transport
+    // bar stays mounted behind the sheet, so the invariant is "exactly one Audio
+    // control exists", not "none": a duplicate is what would let the two drift.
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(screen.queryAllByRole("button", { name: /^Audio/i })).toHaveLength(1);
+    // Subtitles moved out too — at most one control, wherever it is placed. The
+    // row itself only appears once a subtitle list exists, so do not assert a
+    // count here; assert the absence of a duplicate.
+    expect(screen.queryAllByRole("button", { name: /^Subtitles/i }).length).toBeLessThanOrEqual(1);
+    // Servers stayed in Settings: it belongs to the stream, not the viewer. Both
+    // the transport icon and the settings row are labelled "Servers", so a count
+    // of two IS the assertion that the row survived the edit.
+    expect(screen.queryAllByRole("button", { name: /^Servers/i }).length).toBeGreaterThanOrEqual(2);
   });
 });
