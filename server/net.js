@@ -100,8 +100,17 @@ async function fetchUpstream(url, { as = "text", timeoutMs = 12000, referer, ret
     try {
       return await followRedirects(safeUrl, headers, controller.signal, as, init);
     } catch (error) {
-      // Retry with a different user agent on transient 403/429 responses.
-      if (as !== "buffer" && error?.status && (error.status === 403 || error.status === 429) && retryCount < 3) {
+      // 403 is a WAF fingerprint block, so a different user agent is a
+      // legitimate second attempt (and 3 is the cap).
+      //
+      // 429 is deliberately NOT retried. It is not a fingerprint problem, it is
+      // an explicit "you are sending too much" — re-asking immediately, up to
+      // three more times with no delay, is precisely what turns a soft throttle
+      // into a hard block, and it multiplies the latency of a request that was
+      // never going to succeed. Surface the status instead so the caller can
+      // back off; the client's origin-cooldown logic then skips the doomed
+      // direct path and stops re-asking for minutes.
+      if (as !== "buffer" && error?.status === 403 && retryCount < 3) {
         return fetchUpstream(url, { as, timeoutMs, referer, retryCount: retryCount + 1, extraHeaders, method, body });
       }
       throw error;

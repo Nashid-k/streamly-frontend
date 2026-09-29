@@ -121,18 +121,46 @@ export async function probeDirectOrigin(url, { signal } = {}) {
   } catch {
     return { ok: false };
   }
+  // A parked origin is answered from the cooldown, not the network. Callers
+  // already check isDirectBlocked before probing, but parking has to be
+  // authoritative here too — otherwise a caller that forgets the check (or a
+  // cache cleared mid-session) pays the doomed request again, which is the
+  // exact cost this cooldown exists to remove.
+  if (isDirectBlocked(url)) return { ok: false, status: 0, reason: "origin parked on relay-only cooldown" };
   if (!probeCache.has(origin)) {
     probeCache.set(
       origin,
       (async () => {
         try {
           const res = await fetch(url, { headers: { range: "bytes=0-0" }, signal });
+          // A 401/403/429 on a bare one-byte probe is a GATE, not a blip: the
+          // origin wants the owning player's referer, or it is throttling us.
+          // Either way a direct browser fetch can never succeed here, so park
+          // the origin on relay-only cooldown NOW instead of re-paying a doomed
+          // probe on every fragment for the next few minutes.
+          //
+          // This is why REFERER_GATED_HOST_SUFFIXES kept needing extending:
+          // VidCore rotates its segment CDN to fresh hosts, and a fresh host
+          // 403s a bare fetch until it is listed. Verified live against
+          // `v1.streamsitegp.workers.dev` (the host vidzen.fun now redirects
+          // to): 403 with NO access-control-allow-origin at all, so the
+          // browser reports an opaque CORS failure and the loader falls
+          // through to the relay having learned nothing. Parking on the
+          // status is general, so the next rotation needs no code change.
+          if (res.status === 401 || res.status === 403 || res.status === 429) {
+            directBlockedUntil.set(origin, Date.now() + DIRECT_BLOCK_MS);
+            logWarn("native", "Direct probe refused — origin parked relay-only for 5 min.", {
+              origin,
+              status: res.status,
+            });
+            return { ok: false, status: res.status, reason: `probe ${res.status}` };
+          }
           const acao = res.headers.get("access-control-allow-origin");
           const allowed =
             acao === "*" || (typeof window !== "undefined" && acao === window.location.origin);
           const match = /bytes\s+0-0\/(\d+)/i.exec(res.headers.get("content-range") || "");
           res.body?.cancel?.().catch?.(() => {});
-          return { ok: Boolean(allowed && match) };
+          return { ok: Boolean(allowed && match), status: res.status };
         } catch (error) {
           // An AbortError means the OWNING load was cancelled (failover, watchdog,
           // seek/title switch). Caching "not direct" would ride the relay for the rest of
@@ -200,11 +228,20 @@ export async function probeSourcePlayable(entryUrl, refUrl, { signal } = {}) {
     //    probe and probe bursts are what trip the WAF. The manifest host may be
     //    gated while the segment host is new (or vice versa) — check both the entry
     //    URL and the sip target.
-    if (!isRefererGated(target) && !isRefererGated(base)) {
+    //
+    // This used to run its OWN inline fetch instead of probeDirectOrigin, which
+    // meant two probe implementations that could disagree: the shared one learned
+    // a segment origin was gated, and this one still paid a doomed probe for it on
+    // every title load. It now shares the cache and the cooldown, and also
+    // honours isDirectBlocked so an origin parked mid-session is skipped outright.
+    if (!isRefererGated(target) && !isRefererGated(base) && !isDirectBlocked(target)) {
       try {
-        const res = await fetch(target, { headers: { range: "bytes=0-0" }, signal });
-        if (res.ok) {
-          res.body?.cancel?.().catch?.(() => {});
+        const sip = await probeDirectOrigin(target, { signal });
+        // A direct pull sends NO range header (see directFragment), so a plain 2xx
+        // is the real "would direct work" answer. The stricter ACAO+content-range
+        // pair in the probe is right for RELAY decisions but would wrongly reject a
+        // host that plays fine directly without supporting range.
+        if (sip.ok || (sip.status >= 200 && sip.status < 300)) {
           return { ok: true, via: "direct" };
         }
       } catch {
