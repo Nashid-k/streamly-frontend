@@ -49,6 +49,7 @@ import {
 } from "../src/utils/downloadQuality.js";
 import { parseMpd, buildMasterPlaylist, buildMediaPlaylist } from "../server/dashToHls.js";
 import { rateLimit, tooManyRequests, clientIp } from "../server/rateLimit.js";
+import { countUsage } from "../server/usage.js";
 import { assertPublicDestination } from "../server/ssrf.js";
 import { logWarn } from "../src/utils/debugLogger.js";
 import {
@@ -416,7 +417,12 @@ async function handleResolveVidcore(body, res) {
         const quality = String(s.quality || "").toLowerCase();
         const height = Number.parseInt(quality.replace(/\D/g, ""), 10) || 0;
         return {
-          uri: s.url,
+          // A source list entry may be relative to the videasy origin even
+          // though every observed entry is absolute; handing the player a
+          // relative "URL" would dead-end every relay call ("Bad ?url=
+          // target"). Absolutize server-side with the same resolver the
+          // manifest parsers use (resolveUrl from downloadQuality).
+          uri: resolveUrl(api.toString(), s.url),
           bandwidth: videasyBandwidth(height),
           width: 0,
           height,
@@ -1353,6 +1359,9 @@ export default async function handler(req, res) {
   // legit title needs hundreds of requests fast — but 1800/min (30/s) still
   // caps a runaway loop while letting the parallel client finish one title.
   const limit = rateLimit({ key: () => `dl:${clientIp(req)}`, limit: 1800, windowMs: 60_000 });
+  // Capacity ledger (PLAN.md P0.3): one in-memory increment per relay call;
+  // batched Mongo flush — never a DB write in the request path.
+  countUsage("dl");
   if (!limit.ok) {
     tooManyRequests(res, limit.retryAfterSec);
     return;

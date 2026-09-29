@@ -103,6 +103,24 @@ function isDirectBlocked(url) {
   // Referer-gated hosts are permanently direct-blocked: a bare browser probe
   // is a guaranteed 403 AND risks tripping the CDN's WAF for the session.
   if (isRefererGated(url)) return true;
+  // Vidzen's segment fleet lives on rotating *.workers.dev subdomains, which
+  // are opaque to the BROWSER on every reply (their 200s carry no ACAO, their
+  // quota-dead 429s are Cloudflare text with no CORS either) — a direct fetch
+  // can never be read, only wasted. The status-based parking below can never
+  // learn this shape (the doomed probe "succeeds" with 200), so this family is
+  // blocked by name. Our own relay is ALSO a workers.dev host, but it is only
+  // ever reached through relayFragment/postDownloadify, never through this
+  // direct path. Verified live 2026-09-29: proxystream2.ms0oww2azhtm (429
+  // "error code: 1027", no ACAO), vidzen1-4.mu9*, odd-hill/steep-glitter/
+  // rapid-feather/odd-salad (200, no ACAO — "CORS error" in console, bytes
+  // unreadable), vidzen.fun master+media (200 via relay with referer).
+  let host = null;
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return true;
+  }
+  if (host === "workers.dev" || host.endsWith(".workers.dev")) return true;
   const origin = originOf(url);
   if (!origin) return true;
   const until = directBlockedUntil.get(origin);
@@ -813,7 +831,29 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath, onC
           { action: "segment", url, refUrl, range: { start } },
           { signal },
         );
-        await throwIfRelayError(response, "Segment request failed");
+        try {
+          await throwIfRelayError(response, "Segment request failed");
+        } catch (error) {
+          // An upstream 429/403/401 passes THROUGH both relays with its real
+          // status (the proxy cannot fabricate CORS onto a body it is
+          // forwarding, and the browser reports the missing header as an
+          // opaque "CORS error"). Name it, so failover logs and the fatal
+          // banner read "provider throttled" instead of a bare code.
+          const directRefusal =
+            response?.status === 429 || response?.status === 403 || response?.status === 401;
+          // The Vercel leg wraps ANY upstream failure into a 502 envelope —
+          // including vidzen's quota 429s, whose status only survives inside
+          // the message text. Unwrap it so both legs name the real cause.
+          const wrapped = /\b(429|403|401)\b/.exec(
+            directRefusal ? "" : error?.code === "segment-fetch-failed" ? error?.message || "" : "",
+          );
+          const status = directRefusal ? response.status : Number(wrapped?.[1]);
+          if (status) {
+            error.message = `upstream ${status} (provider quota or gate) — ${error.message}`;
+            error.upstreamStatus = status;
+          }
+          throw error;
+        }
         const buf = new Uint8Array(await response.arrayBuffer());
         return { buf, more: deriveSliceMore(response, buf.length, slice) };
       };

@@ -164,4 +164,29 @@ describe("api/tmdb proxy", () => {
       else process.env.VITE_TMDB_API_KEY = viteBefore;
     }
   });
+
+  /* Cache TTL split (PLAN.md P1.2): detail-shaped resources are immutable per
+     day (s-maxage 86400) so a POP serves repeat visits without touching the
+     function or the TMDB budget; trending/search stay at 30 minutes. */
+  it.each([
+    ["movie/550", "86400"],
+    ["movie/550/credits", "86400"],
+    ["tv/108978", "86400"],
+    ["tv/108978/season/1", "86400"],
+    ["person/17287", "86400"],
+    ["trending/all/week", "1800"],
+    ["search/multi", "1800"],
+    ["movie/popular", "1800"],
+  ])("%s gets s-maxage=%s", async (path, expectedMaxAge) => {
+    const fetch = vi.fn().mockResolvedValue({
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      text: async () => "{}",
+    });
+    vi.stubGlobal("fetch", fetch);
+    const res = mockRes();
+    await handler({ method: "GET", query: { path, api_key: "K" } }, res);
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["cache-control"]).toContain(`s-maxage=${expectedMaxAge}`);
+  });
 });

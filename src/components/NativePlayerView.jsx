@@ -51,6 +51,7 @@ import NetflixStillWatching from "./NetflixStillWatching";
 import Hls from "hls.js";
 import { variantLabel } from "../utils/downloadQuality";
 import { createStreamlyLoader, probeSourcePlayable } from "../api/nativeHlsLoader";
+import { takeWarmResolve } from "../api/warmResolve";
 import { SKIP_DATA_CREDIT, fetchSkipBoundaries } from "../api/skipBoundarySource";
 import { SubtitleFetcher } from "../api/subtitleFetcher";
 import { logDebug, logWarn } from "../utils/debugLogger";
@@ -2393,6 +2394,13 @@ export default function NativePlayerView({
         list.filter((v) => (v.height || 0) > 0 && (v.height || 0) <= 1080).sort((a, b) => (b.height || 0) - (a.height || 0))[0] ||
         list[0];
 
+      // Set when any source attempt dies on an upstream 429 (see reportFatal).
+      // The final banner reads it: vidzen's 2026-09 delivery fleet quota-dies
+      // with Cloudflare "error code: 1027" — the browser logs an opaque CORS
+      // error while the real story is the provider's daily quota, so the banner
+      // should say THAT instead of a bare "no stream".
+      let anyUpstreamQuota = false;
+
       // One pass at a source: true = settled (caller stops), false = transient (retryable
       // warm-up/empty/flaky), "off" = terminal (the provider doesn't have this title).
       const runSourceOnce = async (defArg) => {
@@ -2403,7 +2411,14 @@ export default function NativePlayerView({
         say(`Trying ${def.label}â€¦`);
         let resolved = null;
         try {
-          resolved = await def.resolve(args, { signal: controller.signal });
+          // Warm-resolve handover (PLAN.md P0.4): the details page may have
+          // pre-minted the default server's token while the viewer read the
+          // synopsis — consume it instead of re-paying the resolve leg. The
+          // handover is one-shot and refuses any non-default server pick (a
+          // manual pick must resolve THAT server, not a VidCore warm token).
+          const warm = takeWarmResolve(args, { sourceKey: requestedServerRef.current });
+          resolved = warm || (await def.resolve(args, { signal: controller.signal }));
+          if (warm) say(`${def.label}: warm token ready — skipping resolve.`);
         } catch (error) {
           say(`${def.label}: resolve failed (${error?.code || error?.message}) â€” next source.`);
           if (error?.code === "no-source") return "off";
@@ -2467,6 +2482,10 @@ export default function NativePlayerView({
           }
           if (stale()) return true;
           if (!probe.ok) {
+            // A provider whose delivery fleet is quota-dead fails HERE (the
+            // probe's relay sip rides the same 429). Flag it for the final
+            // banner so "all sources came up empty" can name the real cause.
+            if (/\b429\b|quota/i.test(probe.reason || "")) anyUpstreamQuota = true;
             say(`${def.label}: segments unreachable (${probe.reason}) â€” next source.`);
             return false;
           }
@@ -2563,6 +2582,7 @@ export default function NativePlayerView({
             // Logs name the PROVIDER, not the generic row: "Server 4" in a
             // console tells you nothing, `zxc-centaurus` tells you which
             // backend to go debug. The viewer-facing `say` keeps the generic name.
+            if (/\b429\b|quota/i.test(lastFatalDetail)) anyUpstreamQuota = true;
             logWarn("native", `${def.provider} (${def.label}) fatal during playback`, {
               sourceKey: def.key,
               details: data?.details,
@@ -2801,10 +2821,15 @@ export default function NativePlayerView({
       }
       if (stale()) return;
       setStatus("error");
+      const quotaHit = anyUpstreamQuota;
       setFatal(
         requestedServerRef.current
-          ? `${sourceLabel(requestedServerRef.current)} had no playable stream â€” try another server (gear â†’ Servers).`
-          : "No native source resolved this title (all sources came up empty).",
+          ? `${sourceLabel(requestedServerRef.current)} had no playable stream${quotaHit ? " (provider hit its daily delivery quota, HTTP 429 — try again later)" : ""} â€” try another server (gear â†’ Servers).`
+          : `No native source resolved this title (all sources came up empty).${
+              quotaHit
+                ? " At least one provider hit a daily delivery quota (HTTP 429) — try again later or pick another server."
+                : ""
+            }`,
       );
       say("All sources exhausted.");
     })();

@@ -38,3 +38,6 @@ streamly-backend/
 api/groq.key.js
 
 cred.txt
+
+# Mongo snapshot output (scripts/snapshot-mongo.mjs)
+var/backups/

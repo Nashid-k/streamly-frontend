@@ -4,6 +4,7 @@ import CastRail from "../components/CastRail";
 import RailArrow from "../components/RailArrow";
 import RatingsTable from "../components/RatingsTable";
 import useRailArrows from "../hooks/useRailArrows";
+import { warmResolve } from "../api/warmResolve";
 import { useQuery } from "@tanstack/react-query";
 import { movieService, classifyTrailer } from "../api/movieService";
 import Loader from "../components/Loader";
@@ -261,8 +262,10 @@ export default function TitleDetails() {
   const { data: rawMovie, isLoading: loading, error: movieError } = useQuery({
     queryKey: ["movie", id],
     queryFn: () => movieService.getMovieDetails(id),
-    staleTime: 1000 * 60 * 5,
-    refetchOnWindowFocus: true,
+    // Details are immutable per day (mirrors the proxy's s-maxage=86400 split,
+    // PLAN.md P1.2): repeat visits must paint from cache, never re-fetch.
+    staleTime: 1000 * 60 * 60 * 24,
+    refetchOnWindowFocus: false,
   });
 
   useEffect(() => {
@@ -425,8 +428,10 @@ export default function TitleDetails() {
     enabled: isTvContent && !!movie,
     retry: 3,
     retryDelay: 1000,
-    staleTime: 1000 * 60,
-    refetchOnWindowFocus: true,
+    // Season lists are as immutable as the details themselves (P1.2); the
+    // 24h cache matches. Aired-state still filters client-side per render.
+    staleTime: 1000 * 60 * 60 * 24,
+    refetchOnWindowFocus: false,
   });
 
   useEffect(() => {
@@ -625,6 +630,40 @@ export default function TitleDetails() {
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [unreleasedModalOpen]);
+
+  /* Warm resolve (PLAN.md P0.4): pre-mint the default server's stream token
+     while the viewer reads the page, so tapping Watch skips the resolve leg
+     (2–5s → probe+manifest only). MUST live above the early returns below —
+     a hook after `if (loading) return` only runs once data lands, flipping
+     this component's hook order between renders (the blank-page bug the
+     probe caught). Debounced 1.2s so a scroll-through never fires it; a
+     failed warm is silently retried by the player's own resolve. */
+  const warmNumericId = movie ? String(movie.id).match(/\d+/)?.[0] || null : null;
+  const warmSavedEpisode = movie
+    ? (continueWatching || []).find(
+        (item) => String(item.id) === String(movie.id)
+          && Number(item.savedSeason) === Number(selectedSeason)
+          && Number(item.savedEpisode) > 0,
+      )?.savedEpisode
+    : null;
+  const warmEpisode = isTvContent ? (playingEpisode || warmSavedEpisode || 1) : undefined;
+  useEffect(() => {
+    if (!movie || !warmNumericId || isPlaying) return undefined;
+    const args = {
+      type: isTvContent ? "tv" : "movie",
+      id: warmNumericId,
+      season: isTvContent ? selectedSeason : undefined,
+      episode: warmEpisode,
+    };
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      warmResolve(args, { signal: controller.signal });
+    }, 1200);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [movie, warmNumericId, isTvContent, selectedSeason, warmEpisode, isPlaying]);
 
   if (loading) {
     return <MovieDetailsSkeleton />;

@@ -44,10 +44,12 @@ afterEach(() => {
 
 describe("direct-probe origin parking", () => {
   it("parks a 403 origin so a later probe costs no request", async () => {
+    // Non-workers.dev host on purpose: *.workers.dev is name-blocked outright
+    // (see the fleet test below), so a status would never even be learned there.
     const mock = refused(403);
     vi.stubGlobal("fetch", mock);
 
-    const first = await probeDirectOrigin("https://fresh.streamsitegp.workers.dev/seg.m4s");
+    const first = await probeDirectOrigin("https://fresh.streamsitegp.example.com/seg.m4s");
     expect(first).toMatchObject({ ok: false, status: 403 });
 
     // Clearing the probe cache alone must not resurrect the request: the origin
@@ -198,5 +200,62 @@ describe("playability probe reuses the shared origin decision", () => {
     const probe = await probeSourcePlayable("https://healthy.example.com/x/index.m3u8", "https://vidcore.io/");
     expect(probe).toMatchObject({ ok: true, via: "direct" });
     expect(directCalls.length).toBeGreaterThan(0);
+  });
+
+  it("never probes a *.workers.dev segment host directly (browser-unreadable family)", async () => {
+    // Verified live 2026-09-29: vidzen's segment fleet now lives on rotating
+    // workers.dev subdomains (proxystream2.ms0oww2azhtm 429 "error code: 1027"
+    // no ACAO; vidzen1-4.mu9*/odd-hill/steep-glitter/rapid-feather/odd-salad
+    // 200 no ACAO). A bare direct fetch "succeeds" (200) but the browser cannot
+    // read a byte, so the status-based parking above can never learn this
+    // family — the block has to be by NAME in isDirectBlocked.
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      body: { cancel: async () => {} },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const probe = await probeDirectOrigin("https://vidzen1.mu9ndxt2f8dr.workers.dev/?url=https%3A%2F%2Fcdn.example.com%2Fseg0.ts");
+    expect(probe.ok).toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
+    // ...and the playability probe skips the direct sip for the whole family.
+    // The playlist's segment URI is ABSOLUTE and points INTO the fleet, the way
+    // vidzen's real media playlists read since the 2026-09 rotation (a relative
+    // URI would resolve against the vidzen.fun manifest host instead).
+    const FLEET_PLAYLIST =
+      "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:6\n#EXTINF:6.0,\n" +
+      "https://vidzen1.mu9ndxt2f8dr.workers.dev/?url=https%3A%2F%2Fcdn.example.com%2Fseg0.ts\n" +
+      "#EXT-X-ENDLIST\n";
+    const directCalls = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        const to = String(url);
+        if (typeof url === "string" && to.includes("downloadify")) {
+          const body = JSON.parse(init.body);
+          if (body.action === "playlist") {
+            return { ok: true, status: 200, headers: { get: () => "text" }, text: async () => FLEET_PLAYLIST };
+          }
+          return {
+            ok: true,
+            status: 200,
+            headers: { get: (n) => (n === "x-streamly-more" ? "0" : "application/octet-stream") },
+            arrayBuffer: async () => new Uint8Array([1, 2]).buffer,
+          };
+        }
+        directCalls.push(to);
+        return { ok: true, status: 200, headers: { get: () => null }, body: { cancel: async () => {} } };
+      }),
+    );
+    clearProbeCache();
+
+    const playable = await probeSourcePlayable(
+      "https://vidzen.fun/api/stream/v1_token",
+      "https://vidcore.io/",
+    );
+    expect(playable).toMatchObject({ ok: true, via: "relay" });
+    expect(directCalls).toEqual([]);
   });
 });

@@ -27,7 +27,12 @@ import { useToast } from "../components/Toast.jsx";
 
 const PlayerPreview = lazy(() => import("../components/PlayerPreview.jsx"));
 import { useConfirmDialog } from "../components/ConfirmDialog.jsx";
-import { logDebug } from "../utils/debugLogger";
+import { logDebug, logWarn } from "../utils/debugLogger";
+import {
+  countDeviceData,
+  downloadDeviceData,
+  importDeviceData,
+} from "../utils/deviceData";
 import { useI18n } from "../i18n";
 import {
   THEMES,
@@ -39,6 +44,7 @@ import {
   TABS,
   SECTION_SEARCH_TERMS,
 } from "../constants/settings";
+import SystemStatusRow from "../components/SystemStatusRow.jsx";
 import LanguageFlag from "../components/settings/LanguageFlag";
 import Toggle from "../components/settings/Toggle";
 import SegmentControl from "../components/settings/SegmentControl";
@@ -134,6 +140,8 @@ export default function SettingsPage() {
   const themeWrapRef = useRef(null);
   const seekWrapRef = useRef(null);
   const langWrapRef = useRef(null);
+  // Hidden file input behind Settings → Account → Restore device data.
+  const importInputRef = useRef(null);
   const themeTriggerRef = useRef(null);
   const seekTriggerRef = useRef(null);
   const langTriggerRef = useRef(null);
@@ -273,6 +281,34 @@ export default function SettingsPage() {
 
   const openShortcuts = () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "?", shiftKey: true }));
+  };
+
+  /* Restore device data: read the chosen file, validate + apply, report the
+     outcome loudly. A wrong file is user input, not a crash — its reason
+     lands in the toast so the viewer is never left guessing. */
+  const handleImportFile = async (event) => {
+    const file = event.target?.files?.[0];
+    event.target.value = ""; // allow re-picking the same file after a fix
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const result = importDeviceData(text);
+      if (result.ok) {
+        toast({
+          type: "success",
+          title: t("settings.account.importDoneTitle"),
+          message: t("settings.account.importDoneMsg", {
+            imported: result.imported,
+            extra: result.skipped ? `, ${result.skipped} skipped` : "",
+          }),
+        });
+      } else {
+        toast({ type: "error", title: t("settings.account.importBadTitle"), message: result.reason || "Unknown file problem" });
+      }
+    } catch (error) {
+      logWarn("export", "Device data import failed.", { message: error?.message });
+      toast({ type: "error", title: t("settings.account.importFailTitle"), message: String(error?.message || error) });
+    }
   };
 
     // Tabs are filters: "All" shows every section, any other tab isolates one. The
@@ -724,6 +760,59 @@ export default function SettingsPage() {
                         <ChevronRight className="w-3.5 h-3.5 text-white/40" />
                       </button>
                     </SettingRow>
+                    {/* Device-data backup (PLAN.md P0.1): a guest's My List /
+                        history / preferences live ONLY in localStorage — one
+                        "Clear site data" erases them. Export gives every
+                        viewer a one-file backup; import restores it here or
+                        on any other device. `streamly_*` (the Google session)
+                        never travels: importing a session would sign the
+                        importer into someone else's account. */}
+                    <SettingRow
+                      title={t("settings.account.exportData")}
+                      description={t("settings.account.exportDataDesc", { count: countDeviceData() })}
+                    >
+                      <button
+                        type="button"
+                        className="settings-hit px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white text-xs font-medium flex items-center gap-1 transition-colors border-none"
+                        onClick={async () => {
+                          try {
+                            const result = await downloadDeviceData();
+                            if (result) {
+                              logDebug("export", "Device data exported.", { count: result.count });
+                              toast({
+                                type: "success",
+                                title: t("settings.account.exportDoneTitle"),
+                                message: `${result.filename} (${result.count} keys)`,
+                              });
+                            }
+                          } catch (error) {
+                            logWarn("export", "Device data export failed.", { message: error?.message });
+                            toast({ type: "error", title: t("settings.account.exportFailTitle"), message: String(error?.message || error) });
+                          }
+                        }}
+                      >
+                        <Bookmark className="w-3.5 h-3.5" />
+                        {t("settings.account.exportAction")}
+                        <ChevronRight className="w-3.5 h-3.5 text-white/40" />
+                      </button>
+                    </SettingRow>
+                    <SettingRow
+                      title={t("settings.account.importData")}
+                      description={t("settings.account.importDataDesc")}
+                    >
+                      <button
+                        type="button"
+                        className="settings-hit px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white text-xs font-medium flex items-center gap-1 transition-colors border-none"
+                        onClick={() => importInputRef.current?.click()}
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        {t("settings.account.importAction")}
+                        <ChevronRight className="w-3.5 h-3.5 text-white/40" />
+                      </button>
+                    </SettingRow>
+                    {/* Capacity dashboard (PLAN.md P1.4): free-tier usage at a
+                        glance — fetched on demand, never polled. */}
+                    <SystemStatusRow />
                   </div>
                 </div>
               </section>
@@ -1356,6 +1445,15 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      <input
+        ref={importInputRef}
+        type="file"
+        accept="application/json,.json"
+        style={{ display: "none" }}
+        onChange={handleImportFile}
+        aria-hidden="true"
+        tabIndex={-1}
+      />
       <ConfirmDialogRenderer />
 
       {/* ── MODALS ── */}

@@ -32,7 +32,19 @@ import {
 import { logError, logInfo, logWarn } from "../utils/debugLogger";
 
 const IDENTITY_KEY = "streamly_watchparty"; // NEW key — not part of the frozen aios_*/setting-* contract
-const POLL_MS = 2000;
+/* Adaptive polling (PLAN.md P1.1): the 2s heartbeat is only needed while the
+   host is PLAYING (guest drift correction targets ≤2.5s). Paused rooms get 5s
+   (chat still flows), a hidden tab gets 15s (nothing on screen is watched
+   live); returning to the tab re-arms immediately so catch-up is instant.
+   Same server contract, ~60% fewer polls for a typical paused-heavy room. */
+const POLL_MS_ACTIVE = 2000;
+const POLL_MS_PAUSED = 5000;
+const POLL_MS_HIDDEN = 15000;
+
+function pollDelayMs(isPlaying) {
+  if (typeof document !== "undefined" && document.hidden) return POLL_MS_HIDDEN;
+  return isPlaying ? POLL_MS_ACTIVE : POLL_MS_PAUSED;
+}
 const MAX_CONSECUTIVE_FAILURES = 3;
 const MAX_CHAT_DISPLAY = 100; // newest N kept in memory for the panel list
 
@@ -285,7 +297,7 @@ export function useWatchParty({ deepLinkCode = "" } = {}) {
             });
           }
         }
-        pollTimerRef.current = setTimeout(tick, POLL_MS);
+        pollTimerRef.current = setTimeout(tick, pollDelayMs(res?.room?.playback?.isPlaying));
       } catch (err) {
         if (cancelled || pollAbortRef.current) return;
         // A 404 means the room is GONE (host left / TTL) — retrying three
@@ -306,11 +318,21 @@ export function useWatchParty({ deepLinkCode = "" } = {}) {
           logError("watchParty", "Party connection lost after repeated poll failures.", err);
           return;
         }
-        pollTimerRef.current = setTimeout(tick, POLL_MS);
+        pollTimerRef.current = setTimeout(tick, pollDelayMs(roomRef.current?.playback?.isPlaying));
       }
     };
 
-    pollTimerRef.current = setTimeout(tick, POLL_MS);
+    pollTimerRef.current = setTimeout(tick, pollDelayMs(roomRef.current?.playback?.isPlaying));
+
+    /* Visibility flips re-arm the loop OUTSIDE the fixed cadence: tab back in
+       → poll immediately (catch-up), tab hidden → the next scheduled tick
+       picks the 15s delay. The `cancelled` flag makes a stale fire harmless. */
+    const onVisibility = () => {
+      if (document.hidden) return;
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = setTimeout(tick, 0);
+    };
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       cancelled = true;
       pollAbortRef.current = true;
@@ -318,6 +340,7 @@ export function useWatchParty({ deepLinkCode = "" } = {}) {
         clearTimeout(pollTimerRef.current);
         pollTimerRef.current = null;
       }
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [status]);
 

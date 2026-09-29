@@ -314,6 +314,68 @@ describe("createStreamlyLoader", () => {
     expect(err.text).toContain("[relay:segment-fetch-failed]");
   });
 
+  it("names an upstream quota refusal (proxy 429 passthrough) in the fragment error", async () => {
+    // Live shape, verified 2026-09-29: vidzen's bypass workers answer 429
+    // "error code: 1027" (Cloudflare daily quota) with NO CORS headers; the
+    // browser logs an opaque CORS error while the relay hands the player the
+    // real 429. The error text must say WHAT the upstream did, not just 429.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        if (init?.headers?.range) {
+          return { ok: true, status: 206, headers: { get: () => null }, body: { cancel: async () => {} } };
+        }
+        return {
+          ok: false,
+          status: 429,
+          headers: { get: () => "text/plain" },
+          text: async () => "error code: 1027",
+        };
+      }),
+    );
+    const Loader = createStreamlyLoader({ getRefUrl: () => "https://vidcore.io/" });
+    const err = await new Promise((resolve) => {
+      new Loader().load(
+        { url: "https://cdn.example.com/seg-1.m4s", frag: { sn: 1 } },
+        {},
+        { onSuccess: () => resolve(null), onError: (e) => resolve(e) },
+      );
+    });
+    expect(err.text).toContain("upstream 429");
+    expect(err.text).toContain("provider quota or gate");
+  });
+
+  it("unwraps the Vercel leg's 502 envelope when the upstream quota refusal rides inside", async () => {
+    // downloadify wraps any segment-fetch failure as 502 segment-fetch-failed;
+    // vidzen's 429 only survives inside the message text. The annotation must
+    // read it out so both relay legs name the quota death identically.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        if (init?.headers?.range) {
+          return { ok: true, status: 206, headers: { get: () => null }, body: { cancel: async () => {} } };
+        }
+        return {
+          ok: false,
+          status: 502,
+          headers: { get: () => "application/json" },
+          text: async () =>
+            JSON.stringify({ ok: false, code: "segment-fetch-failed", error: "Segment fetch failed: Upstream 429" }),
+        };
+      }),
+    );
+    const Loader = createStreamlyLoader({ getRefUrl: () => "https://vidcore.io/" });
+    const err = await new Promise((resolve) => {
+      new Loader().load(
+        { url: "https://cdn.example.com/seg-1.m4s", frag: { sn: 1 } },
+        {},
+        { onSuccess: () => resolve(null), onError: (e) => resolve(e) },
+      );
+    });
+    expect(err.text).toContain("[relay:segment-fetch-failed]");
+    expect(err.text).toContain("upstream 429");
+  });
+
   it("reports each fragment's transport path to the player (direct vs relay)", async () => {
     const bytes = new Uint8Array([1, 2, 3, 4]).buffer;
     const seen = { direct: 0, relay: 0 };

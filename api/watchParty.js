@@ -25,6 +25,7 @@
 import { connectToDatabase } from '../server/db.js';
 import { withLog } from '../server/logger.js';
 import { rateLimit, tooManyRequests, clientIp } from '../server/rateLimit.js';
+import { countUsage } from '../server/usage.js';
 import {
   generatePartyCode,
   refreshHeartbeat,
@@ -101,6 +102,8 @@ export default withLog(async function handler(req, res) {
   // single viewer legitimately generates ~30 hits/min; 120 leaves chat and
   // sync headroom while still capping abuse per IP.
   const limit = rateLimit({ key: () => `party:${clientIp(req)}`, limit: 120, windowMs: 60_000 });
+  // Capacity ledger (PLAN.md P0.3) — see server/usage.js.
+  countUsage("party");
   if (!limit.ok) {
     tooManyRequests(res, limit.retryAfterSec);
     return;

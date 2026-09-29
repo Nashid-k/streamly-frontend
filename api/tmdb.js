@@ -1,6 +1,7 @@
 // api/tmdb.js — same-origin TMDB proxy (Vercel serverless function).
 import { withLog } from '../server/logger.js';
 import { rateLimit, tooManyRequests, clientIp } from '../server/rateLimit.js';
+import { countUsage } from '../server/usage.js';
 //
 // Why this exists: some ISPs (e.g. in India) block api.themoviedb.org outright
 // (DNS/IP level). Browsers calling TMDB directly fail on those networks while
@@ -38,6 +39,8 @@ export default withLog(async function handler(req, res) {
     // Per-IP burst guard: 120 catalog lookups/min is far above any real
     // viewer's browsing rate (rails prefetch + search + details ≈ 20/min).
     const limit = rateLimit({ key: () => `tmdb:${clientIp(req)}`, limit: 120, windowMs: 60_000 });
+    // Capacity ledger (PLAN.md P0.3) — see server/usage.js.
+    countUsage("tmdb");
     if (!limit.ok) {
       tooManyRequests(res, limit.retryAfterSec);
       return;
@@ -119,7 +122,21 @@ export default withLog(async function handler(req, res) {
     // POP's revalidate and refreshes in the background, and trending/catalogue
     // data genuinely does not move faster than that.
     if (upstream.status === 200) {
-      res.setHeader('cache-control', 'public, s-maxage=1800, stale-while-revalidate=86400');
+      // TTL split by mutability (PLAN.md P1.2): details/credits/external_ids
+      // are immutable per day for a released title, so the edge can serve them
+      // for a full day — after the first hit per POP per day, the function and
+      // the TMDB rate budget are never touched. Trending/search/list paths
+      // keep the 30-minute ceiling (they genuinely move faster).
+      const immutablePerDay =
+        /^movie\/\d+/.test(resource) ||
+        /^tv\/\d+/.test(resource) ||
+        /^person\/\d+/.test(resource);
+      res.setHeader(
+        'cache-control',
+        immutablePerDay
+          ? 'public, s-maxage=86400, stale-while-revalidate=86400'
+          : 'public, s-maxage=1800, stale-while-revalidate=86400',
+      );
     } else {
       res.setHeader('cache-control', 'no-store');
     }

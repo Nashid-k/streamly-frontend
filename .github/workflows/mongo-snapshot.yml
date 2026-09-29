@@ -1,0 +1,49 @@
+name: Weekly Mongo snapshot
+
+# PLAN.md P0.2 — the signed-in sync state (users + userData collections) is
+# the one irreplaceable dataset in the product. Atlas replica sets protect it
+# against infra failure; this job protects it against MISTAKES by exporting
+# NDJSON every week and uploading it as a PRIVATE artifact (90-day retention).
+# Restore: `MONGODB_URI=… node scripts/snapshot-mongo.mjs --restore <file>`.
+
+on:
+  schedule:
+    # Sundays 03:07 UTC — an off-peak minute, not on the hour.
+    - cron: "7 3 * * 0"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mongo-snapshot
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    name: Export streamly DB
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Only the driver is needed — install nothing else, keep the job lean.
+      - name: Install mongodb driver
+        run: npm install mongodb@^7 --no-save
+
+      - name: Export collections to NDJSON
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+        run: node scripts/snapshot-mongo.mjs
+
+      - name: Upload snapshot artifact (private, 90-day retention)
+        uses: actions/upload-artifact@v4
+        with:
+          name: streamly-db-snapshot
+          path: var/backups/
+          retention-days: 90
+          if-no-files-found: error
