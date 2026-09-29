@@ -56,6 +56,10 @@ describe("NativePlayerView loading stage", () => {
     const art = stage.querySelector(".np-loading-poster");
     expect(art).toBeTruthy();
     expect(art.getAttribute("src")).toBe("https://image.test/logo.png");
+    // The logo IS the title: no plain-text name next to it (user order).
+    // Scoped to the stage — the player's top bar shows the title elsewhere.
+    const stageText = Array.from(stage.querySelectorAll("div")).find((d) => d.textContent === "Fight Club");
+    expect(stageText).toBeUndefined();
     // Full-screen blurred backdrop behind it.
     const backdrop = stage.querySelector(".np-loading-art");
     expect(backdrop).toBeTruthy();
@@ -74,6 +78,12 @@ describe("NativePlayerView loading stage", () => {
     const stage = screen.getByRole("status", { name: "Loading video" });
     expect(stage.querySelector(".np-loading-poster")).toBeNull();
     expect(stage.querySelector(".np-loading-art")).toBeNull();
+    // No logo art: the text name is the only honest identifier left — it shows
+    // inside the stage (the fallback block with the clamp font size).
+    const fallback = Array.from(stage.querySelectorAll("div")).find(
+      (d) => d.textContent === "Fight Club" && d.style.fontSize.includes("clamp"),
+    );
+    expect(fallback).toBeTruthy();
     // The line still loads — a black stage never looks frozen.
     expect(stage.querySelector(".np-loading-line")).toBeTruthy();
   });

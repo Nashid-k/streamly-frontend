@@ -320,7 +320,7 @@ function LoadingMessage({ title }) {
    those are the same wait wearing different clothes — the artwork is what tells
    the viewer the player did not lose their place, and a bare black rectangle
    with a dot in it does not. */
-function LoadingStage({ title, subtitle, backdropUrl, posterUrl, message }) {
+function LoadingStage({ title, backdropUrl, posterUrl, message }) {
   return (
     <div
       aria-hidden="true"
@@ -399,32 +399,24 @@ function LoadingStage({ title, subtitle, backdropUrl, posterUrl, message }) {
               }}
             />
           ) : null}
-          <div
-            style={{
-              fontSize: "clamp(18px, 3.2vw, 30px)",
-              fontWeight: 700,
-              color: "#fff",
-              letterSpacing: "-0.02em",
-              textAlign: "center",
-              padding: "0 24px",
-              textShadow: "0 2px 18px rgba(0,0,0,0.7)",
-            }}
-          >
-            {title}
-            {subtitle ? (
-              <div
-                style={{
-                  marginTop: 6,
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: "rgba(255,255,255,0.65)",
-                  letterSpacing: "0.01em",
-                }}
-              >
-                {subtitle}
-              </div>
-            ) : null}
-          </div>
+          {/* Title text removed when the logo exists (user order): the image
+              IS the title. Without a logo the text name is the only honest
+              identifier left, so it falls back in. */}
+          {!posterUrl && title ? (
+            <div
+              style={{
+                fontSize: "clamp(18px, 3.2vw, 30px)",
+                fontWeight: 700,
+                color: "#fff",
+                letterSpacing: "-0.02em",
+                textAlign: "center",
+                padding: "0 24px",
+                textShadow: "0 2px 18px rgba(0,0,0,0.7)",
+              }}
+            >
+              {title}
+            </div>
+          ) : null}
           {/* Horizontal loader line under the title: a hairline track with a
               red segment sweeping across it. Purely decorative, so the
               reduced-motion block in player.css freezes it like the ring. */}
@@ -990,7 +982,12 @@ export default function NativePlayerView({
   const [bufferedSecs, setBufferedSecs] = useState(0);
   const [bufferedRanges, setBufferedRanges] = useState([]);
   // Master-mode (multi-variant) sources start on ABR auto; picking a level pins it.
-  const [autoLevel, setAutoLevel] = useState(true);
+  // The state starts NULL, not true: for a fixed-ladder source (single-variant HLS
+  // like NHD/ZXC-milkyway) the source is NOT in ABR auto — Auto just replays the
+  // open rung — and starting true left the quality menu with NO active row until
+  // the viewer touched it (the Server 3/4 bug). The commit block sets it honestly
+  // from the shape of what actually opened.
+  const [autoLevel, setAutoLevel] = useState(null);
   const [manualHeight, setManualHeight] = useState(null);
   // The rendition ABR currently settled on (LEVEL_SWITCHED) â€” shows the real
   // "now playing" resolution in the quality dialog even while on Auto.
@@ -2278,6 +2275,13 @@ export default function NativePlayerView({
     const run = runRef.current + 1;
     runRef.current = run;
     const controller = new AbortController();
+    // EPISODE SWITCH = COLD OPEN. hasStartedRef stays true from the previous
+    // episode, so without dropping it the spinner effect classifies this wait
+    // as a warm stall and shows only the light ring - the viewer never sees
+    // the title-logo stage they get on the first episode (user report).
+    // Dropping it re-arms the full art stage; `stageWhileLoading` is already
+    // true on this path, and the commit block clears it when frames return.
+    hasStartedRef.current = false;
     // The source committed by the PREVIOUS run (null on first mount): a dub
     // pin carried across a SERVER switch must not index into the new
     // server's audioTracks â€” see the publish guard in the commit block.
@@ -2741,6 +2745,11 @@ export default function NativePlayerView({
           }
           // Non-master sources are single-rendition: their current height is fixed.
           if (!isMaster) setCurrentHeight(smoothStart?.height ?? null);
+          // Honest Auto/active state for the quality menu: a master opened on
+          // real ABR; a fixed ladder (single-variant HLS) has no ABR to be auto
+          // WITH — Auto there just replays the open rung. Without this the
+          // menu showed no active row on NHD/ZXC until the viewer picked one.
+          setAutoLevel(isMaster);
           // Netflix resume gate: first real playback for this title/episode.
           maybeOfferResumeRef.current();
           // A fatal error AFTER playback started either refreshes tokens in place (same
@@ -2867,7 +2876,14 @@ export default function NativePlayerView({
     const t = videoRef.current.currentTime || 0;
     const wasPaused = videoRef.current.paused;
     // A manual rung pick leaves Auto; the Auto row stays highlighted as the active mode.
-    if (!opts.auto) setAutoLevel(false);
+    // OPTIMISTIC UI: the menu row and the settings summary flip to the picked
+    // rung NOW, before any probe/playlist round trip - on a relay path that
+    // wait is measured in seconds, and a highlight that stays put reads as
+    // "the pick did nothing". A failed switch rolls both back in the catch.
+    if (!opts.auto) {
+      setAutoLevel(false);
+      if (height != null) setManualHeight(height);
+    }
     // pickDub already said "Audio -> <track>â€¦" â€” don't overwrite it with "?p".
     if (!opts.dubSwitch) say(`Switching to ${height || "?"}pâ€¦`);
     setBuffering(true);
@@ -2887,6 +2903,7 @@ export default function NativePlayerView({
         setManualHeight(hls.levels[best]?.height || height || null);
         setActiveUri(null);
         say(`Level -> ${hls.levels[best]?.height || "?"}p (pinned).`);
+        setBuffering(false);
         return;
       }
       const myId = (switchTokenRef.current += 1);
@@ -2895,7 +2912,12 @@ export default function NativePlayerView({
       // may try; the floor step-down negotiates back down.
       let chosenUri = uri;
       let chosenHeight = height;
-      let warm = transportRelay ? { ok: true, via: "relay" } : null;
+      // Relay transport already proved itself at open, and a dub switch's
+      // pickDub probed this exact URI seconds ago — re-probing both is what
+      // made audio/quality swaps hang for seconds before anything moved
+      // (user report). The real gate below (loadSource + canplay) still fails
+      // honestly if the target is dead.
+      let warm = transportRelay || opts.preProbed ? { ok: true, via: "pre-checked" } : null;
       const refUrl = metaRef.current?.refUrl;
       try {
         if (!warm) warm = await probeSourcePlayable(uri, refUrl);
@@ -2997,6 +3019,10 @@ export default function NativePlayerView({
       setSwitchingNote(null);
     } catch (error) {
       say(`Switch failed: ${error?.message || "unknown"}.`);
+      // Roll the optimistic pick back: the stream is still on the old rung, so
+      // the highlight must say so.
+      setManualHeight(null);
+      setAutoLevel(metaRef.current?.masterLevels ? true : false);
       // A failed switch must never leave the buffering spinner stuck (the runSource
       // ERROR handler's failover re-drives its own spinner).
       setBuffering(false);
@@ -3127,7 +3153,7 @@ export default function NativePlayerView({
     activeDubRef.current = index;
     setActiveDub(index);
     try {
-      await pickQualityRef.current?.(targetUri, null, { dubSwitch: true });
+      await pickQualityRef.current?.(targetUri, null, { dubSwitch: true, preProbed: true });
     } catch {
       // pickQuality never rejects; the catch is future-proofing
     }
@@ -3766,7 +3792,6 @@ export default function NativePlayerView({
             >
               <LoadingStage
                 title={displayTitle}
-                subtitle={displaySubtitle}
                 backdropUrl={backdropUrl}
                 posterUrl={posterUrl}
                 message={stageNote}
@@ -4748,7 +4773,7 @@ export default function NativePlayerView({
                 <DialogRow
                   onClick={() => setPanel("video")}
                   title="Video Quality"
-                  sub={autoLevel ? "Auto" : (qualities.find(q => isMasterMode ? q.height === manualHeight : q.uri === activeUri)?.label || (currentHeight ? currentHeight + "p" : "Auto"))}
+                  sub={autoLevel === false ? (qualities.find(q => q.height === manualHeight)?.label || (currentHeight ? currentHeight + "p" : "Manual")) : "Auto"}
                   icon={<SlidersHorizontal size={20} />}
                   hasChevron
                 />
@@ -4953,11 +4978,18 @@ export default function NativePlayerView({
                     }
                   />
                   {qualities.map((q, i) => {
-                    const selected = isMasterMode
-                      ? autoLevel
+                    // autoLevel === null means "nothing opened yet" — no active row
+                    // is honest there. The legacy per-rendition case keys on the
+                    // ENTRY URI, but a quality pick rewrote activeUri to the picked
+                    // rendition, so a fixed-ladder source keys on manualHeight too
+                    // (set for masters AND for per-rendition picks alike).
+                    const selected = autoLevel === false
+                      ? manualHeight != null
+                        ? q.height === manualHeight
+                        : q.uri === activeUri
+                      : autoLevel === true && isMasterMode
                         ? currentHeight != null && q.height === currentHeight
-                        : manualHeight != null && manualHeight === q.height
-                      : !autoLevel && activeUri === q.uri;
+                        : false;
                     return (
                       <DialogRow
                         key={`${q.uri}::${i}`}

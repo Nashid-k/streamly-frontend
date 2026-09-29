@@ -1,14 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import DownloadModal from "../components/DownloadModal";
-import { ToastProvider } from "../components/Toast.jsx";
-import { DownloadsProvider } from "../context/DownloadsContext";
+import { PreferencesContext } from "../context/preferences";
 import { useDownloads } from "../context/downloads";
 import { downloadService } from "../api/downloadService";
 import { movieService } from "../api/movieService";
-import { PreferencesContext } from "../context/preferences";
+import { renderWithProviders } from "../test/testUtils";
 
 vi.mock("../api/downloadService", () => ({
   downloadService: {
@@ -82,13 +80,8 @@ const VARIANTS = [
 ];
 
 function renderModal(props = {}) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={client}>
-      <ToastProvider>
-        <DownloadModal movie={MOVIE} servers={SERVERS} isTvContent={false} onClose={() => {}} {...props} />
-      </ToastProvider>
-    </QueryClientProvider>,
+  return renderWithProviders(
+    <DownloadModal movie={MOVIE} servers={SERVERS} isTvContent={false} onClose={() => {}} {...props} />,
   );
 }
 
@@ -103,17 +96,11 @@ function StoreProbe({ children, onStore }) {
 }
 
 function renderModalWithStore(props = {}, onStore) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={client}>
-      <ToastProvider>
-        <DownloadsProvider>
-          <StoreProbe onStore={onStore}>
-            <DownloadModal movie={MOVIE} servers={SERVERS} isTvContent={false} onClose={() => {}} {...props} />
-          </StoreProbe>
-        </DownloadsProvider>
-      </ToastProvider>
-    </QueryClientProvider>,
+  return renderWithProviders(
+    <StoreProbe onStore={onStore}>
+      <DownloadModal movie={MOVIE} servers={SERVERS} isTvContent={false} onClose={() => {}} {...props} />
+    </StoreProbe>,
+    { withDownloads: true },
   );
 }
 
@@ -159,19 +146,14 @@ describe("DownloadModal", () => {
 
   it("can switch to browser downloads — skips the save picker and forces mode:'browser'", async () => {
     downloadService.resolveVidsrc.mockResolvedValue({ source: { url: "m" }, variants: VARIANTS });
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <QueryClientProvider client={client}>
-        <ToastProvider>
-          {/* PreferencesProvider's context value is FLAT: { ...preferences,
-             setPreference, resetPreferences } — mirrors src/context/preferences.js. */}
-          <PreferencesContext.Provider
-            value={{ browserDownloads: true, setPreference: vi.fn(), resetPreferences: vi.fn() }}
-          >
-            <DownloadModal movie={MOVIE} servers={SERVERS} isTvContent={false} onClose={() => {}} />
-          </PreferencesContext.Provider>
-        </ToastProvider>
-      </QueryClientProvider>,
+    renderWithProviders(
+      /* PreferencesProvider's context value is FLAT: { ...preferences,
+         setPreference, resetPreferences } — mirrors src/context/preferences.js. */
+      <PreferencesContext.Provider
+        value={{ browserDownloads: true, setPreference: vi.fn(), resetPreferences: vi.fn() }}
+      >
+        <DownloadModal movie={MOVIE} servers={SERVERS} isTvContent={false} onClose={() => {}} />
+      </PreferencesContext.Provider>,
     );
 
     const downloadButtons = await screen.findAllByRole("button", { name: /^Download \d/i });

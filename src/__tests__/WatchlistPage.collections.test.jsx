@@ -1,9 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { screen, fireEvent, cleanup } from "@testing-library/react";
 import WatchlistPage from "../pages/WatchlistPage";
-import { AppContext } from "../context/auth";
-import { ToastProvider } from "../components/Toast.jsx";
+import { renderWithProviders } from "../test/testUtils";
 
 /* Two additions to this page, both verified here because neither had a
    consumer before: the "Best Collections" rail (i18n keys existed, the rail
@@ -31,36 +29,32 @@ const privateCollection = {
 let writeText;
 
 function renderPage() {
-  const value = {
-    user: { googleId: "g-1" },
-    myList: [],
-    collections: [privateCollection, publicCollection],
-    publicCollections: [publicCollection],
-    searchHistory: [],
-    addSearch: vi.fn(),
-    clearSearchHistory: vi.fn(),
-    isInList: () => false,
-    toggleMyList: vi.fn(),
-    addNotification: vi.fn(),
-    removeBatchFromMyList: vi.fn(),
-    createCollection: vi.fn(),
-    createCollectionWithItems: vi.fn(),
-    renameCollection: vi.fn(),
-    deleteCollection: vi.fn(),
-    addToCollection: vi.fn(),
-    removeFromCollection: vi.fn(),
-    toggleInCollection: vi.fn(),
-    setCollectionVisibility: vi.fn(),
-  };
-  return render(
-    <AppContext.Provider value={value}>
-      <MemoryRouter initialEntries={["/watchlist"]}>
-        <ToastProvider>
-          <WatchlistPage />
-        </ToastProvider>
-      </MemoryRouter>
-    </AppContext.Provider>,
-  );
+  return renderWithProviders(<WatchlistPage />, {
+    route: "/watchlist",
+    // A raw context value mounts AppContext.Provider directly — a synthetic
+    // session with NO AuthProvider Google/network side effects.
+    authValue: {
+      user: { googleId: "g-1" },
+      myList: [],
+      collections: [privateCollection, publicCollection],
+      publicCollections: [publicCollection],
+      searchHistory: [],
+      addSearch: vi.fn(),
+      clearSearchHistory: vi.fn(),
+      isInList: () => false,
+      toggleMyList: vi.fn(),
+      addNotification: vi.fn(),
+      removeBatchFromMyList: vi.fn(),
+      createCollection: vi.fn(),
+      createCollectionWithItems: vi.fn(),
+      renameCollection: vi.fn(),
+      deleteCollection: vi.fn(),
+      addToCollection: vi.fn(),
+      removeFromCollection: vi.fn(),
+      toggleInCollection: vi.fn(),
+      setCollectionVisibility: vi.fn(),
+    },
+  });
 }
 
 beforeEach(() => {
@@ -99,28 +93,18 @@ describe("WatchlistPage Best Collections rail", () => {
   });
 
   it("stays hidden when nothing is public", () => {
-    const value = {
-      collections: [privateCollection],
-      publicCollections: [],
-    };
-    render(
-      <AppContext.Provider
-        value={{
-          user: null,
-          myList: [],
-          searchHistory: [],
-          isInList: () => false,
-          toggleMyList: vi.fn(),
-          ...value,
-        }}
-      >
-        <MemoryRouter initialEntries={["/watchlist"]}>
-          <ToastProvider>
-            <WatchlistPage />
-          </ToastProvider>
-        </MemoryRouter>
-      </AppContext.Provider>,
-    );
+    renderWithProviders(<WatchlistPage />, {
+      route: "/watchlist",
+      authValue: {
+        user: null,
+        myList: [],
+        searchHistory: [],
+        isInList: () => false,
+        toggleMyList: vi.fn(),
+        collections: [privateCollection],
+        publicCollections: [],
+      },
+    });
 
     expect(screen.queryByText("Best Collections")).not.toBeInTheDocument();
     // The full list is still there — only the highlight strip is conditional.

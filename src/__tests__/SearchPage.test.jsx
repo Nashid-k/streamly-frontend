@@ -1,10 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { screen, fireEvent, waitFor } from "@testing-library/react";
 import SearchPage from "../pages/SearchPage";
 import { movieService } from "../api/movieService";
-import { ToastProvider } from "../components/Toast.jsx";
+import { renderWithProviders } from "../test/testUtils";
 
 /* Integration contract for the search surface: the request must carry a
    cancellation signal (so a query the viewer already typed past cannot land),
@@ -31,18 +29,7 @@ afterEach(() => {
 });
 
 function renderPage(q = "matrix") {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: 0, staleTime: 0 } },
-  });
-  return render(
-    <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[`/search?q=${encodeURIComponent(q)}`]}>
-        <ToastProvider>
-          <SearchPage />
-        </ToastProvider>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  return renderWithProviders(<SearchPage />, { route: `/search?q=${encodeURIComponent(q)}` });
 }
 
 const queryInput = () => document.querySelector(".search-panel__input");
@@ -72,18 +59,7 @@ describe("SearchPage cancellation", () => {
   });
 
   it("does not call the service for an empty query", async () => {
-    const client = new QueryClient({
-      defaultOptions: { queries: { retry: false, gcTime: 0, staleTime: 0 } },
-    });
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={["/search"]}>
-          <ToastProvider>
-            <SearchPage />
-          </ToastProvider>
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
+    renderPage("");
 
     await waitFor(() => expect(searchSpy).not.toHaveBeenCalled());
   });

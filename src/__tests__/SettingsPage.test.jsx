@@ -1,38 +1,23 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { screen, fireEvent, waitFor } from "@testing-library/react";
 import SettingsPage from "../pages/SettingsPage";
-import { PreferencesProvider } from "../context/PreferencesContext";
-import { ToastProvider } from "../components/Toast.jsx";
+import { renderWithProviders } from "../test/testUtils";
 
 beforeEach(() => {
   localStorage.clear();
   document.documentElement.dataset.theme = "default";
 });
 
+/* Page object for the settings surface: every test mounts the page through
+   here so the provider stack lives in ONE place (src/test/testUtils.jsx,
+   mirroring main.jsx) instead of being re-declared per test. */
 function renderPage(route = "/settings") {
-  return render(
-    <MemoryRouter initialEntries={[route]}>
-      <PreferencesProvider>
-        <ToastProvider>
-          <SettingsPage />
-        </ToastProvider>
-      </PreferencesProvider>
-    </MemoryRouter>
-  );
+  return renderWithProviders(<SettingsPage />, { route });
 }
 
 describe("SettingsPage", () => {
   it("renders all Cinejoy settings sections simultaneously", () => {
-    render(
-      <MemoryRouter initialEntries={["/settings"]}>
-        <PreferencesProvider>
-          <ToastProvider>
-            <SettingsPage />
-          </ToastProvider>
-        </PreferencesProvider>
-      </MemoryRouter>
-    );
+    renderPage();
 
     // All 6 sections are present in the DOM
     expect(screen.getByRole("heading", { name: /^account$/i })).toBeInTheDocument();
@@ -59,15 +44,7 @@ describe("SettingsPage", () => {
   }, 15000);
 
   it("can toggle switches and segmented buttons", () => {
-    render(
-      <MemoryRouter initialEntries={["/settings"]}>
-        <PreferencesProvider>
-          <ToastProvider>
-            <SettingsPage />
-          </ToastProvider>
-        </PreferencesProvider>
-      </MemoryRouter>
-    );
+    renderPage();
 
     const autoSkipSwitch = screen.getByRole("switch", { name: /auto skip intro/i });
     expect(autoSkipSwitch).toHaveAttribute("aria-checked", "false");
@@ -80,15 +57,7 @@ describe("SettingsPage", () => {
   });
 
   it("applies the chosen theme to the document element", () => {
-    render(
-      <MemoryRouter initialEntries={["/settings"]}>
-        <PreferencesProvider>
-          <ToastProvider>
-            <SettingsPage />
-          </ToastProvider>
-        </PreferencesProvider>
-      </MemoryRouter>
-    );
+    renderPage();
 
     // The theme trigger exposes its state via aria-label; the popup lists
     // themes as listbox options.
@@ -117,15 +86,7 @@ describe("SettingsPage", () => {
   });
 
   it("offers an All tab plus every section filter, Notifications included", () => {
-    render(
-      <MemoryRouter initialEntries={["/settings"]}>
-        <PreferencesProvider>
-          <ToastProvider>
-            <SettingsPage />
-          </ToastProvider>
-        </PreferencesProvider>
-      </MemoryRouter>
-    );
+    renderPage();
 
     for (const name of ["All", "Account", "Appearance", "Playback", "Servers", "Subtitles", "Notifications"]) {
       expect(screen.getByRole("button", { name })).toBeInTheDocument();
@@ -139,15 +100,7 @@ describe("SettingsPage", () => {
   });
 
   it("isolates one section per tab and restores everything via All", () => {
-    render(
-      <MemoryRouter initialEntries={["/settings"]}>
-        <PreferencesProvider>
-          <ToastProvider>
-            <SettingsPage />
-          </ToastProvider>
-        </PreferencesProvider>
-      </MemoryRouter>
-    );
+    renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: "Servers" }));
 
@@ -162,15 +115,7 @@ describe("SettingsPage", () => {
   });
 
   it("reorders servers from the keyboard and persists the new priority", () => {
-    render(
-      <MemoryRouter initialEntries={["/settings"]}>
-        <PreferencesProvider>
-          <ToastProvider>
-            <SettingsPage />
-          </ToastProvider>
-        </PreferencesProvider>
-      </MemoryRouter>
-    );
+    renderPage();
 
     // Arrow keys move the focused row (up/down arrow buttons are gone).
     const server1 = screen.getByRole("listitem", { name: /server 1, priority 1/i });

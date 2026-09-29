@@ -111,6 +111,94 @@ describe("POST /api/downloadify", () => {
     expect(payload.ok).toBe(false);
     expect(typeof payload.error).toBe("string");
   });
+
+  describe("resolvevidcore — vidrack aggregate ladder (Server 1 restoration)", () => {
+    const VIDRACK_AGGREGATE = {
+      mode: "hybrid",
+      sseUrl: "https://sse.example.internal/movie",
+      serverSources: [
+        { url: "https://api.dlproxy.com/v1/play/tokenA.m3u8", type: "hls", quality: "Auto", label: "Vidlink", provider: "vidlink" },
+        { url: "https://api.dlproxy.com/v1/vs/tokenB.m3u8", type: "hls", quality: "1080p", label: "Vidlink HD", provider: "vidlink-hd" },
+        // Same encode mirrored on the same host + same height: deduped.
+        { url: "https://api.dlproxy.com/v1/vs/tokenB-copy.m3u8", type: "hls", quality: "1080p", label: "Vidlink HD 2", provider: "vidlink-hd" },
+        // Same height on a DIFFERENT host is a different route — kept.
+        { url: "https://mirror.example.com/pl/x.m3u8", type: "hls", quality: "1080p", label: "Mirror", provider: "mirror" },
+        { url: "https://relay.vidrift.net/proxy?u=1", type: "hls", quality: "HD", label: "Vidrift", provider: "vidrift" },
+        { url: "https://antilogarithm.example/pl/y", type: "mp4", quality: "1080p", label: "Not HLS", provider: "x" },
+      ],
+    };
+    const VIDZEN_FALLBACK = {
+      sources: [{ url: "/api/stream/v1_zen" }],
+    };
+
+    function routeFetch(videasyShape) {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockImplementation(async (url) => {
+          const to = String(url);
+          if (to.includes("vidrack.created.app")) {
+            return { ok: true, status: 200, text: async () => JSON.stringify(VIDRACK_AGGREGATE) };
+          }
+          if (to.includes("vidzen.fun/api/sources")) {
+            return { ok: true, status: 200, text: async () => JSON.stringify(VIDZEN_FALLBACK) };
+          }
+          return videasyShape;
+        }),
+      );
+    }
+
+    it("parses the aggregate into a quality ladder: masters lead, rungs sorted tall-to-short, mirrors deduped, capped at 6", async () => {
+      routeFetch(new Response("upstream unreachable", { status: 502 }));
+      const res = await call({ action: "resolvevidcore", type: "movie", id: "1108427" });
+      expect(res.statusCode).toBe(200);
+      const payload = JSON.parse(res.body);
+      expect(payload.ok).toBe(true);
+      // Masters first (height 0 = real ABR ladder), then explicit rungs tall->short.
+      // Auto + HD are both masters (no numeric rung). The same-host+provider
+      // 1080p mirror dedupes away; the other-host 1080p survives as a route.
+      expect(payload.variants.map((v) => v.height)).toEqual([0, 0, 1080, 1080]);
+      expect(payload.variants[0].uri).toBe("https://api.dlproxy.com/v1/play/tokenA.m3u8");
+      expect(payload.variants[1].uri).toBe("https://relay.vidrift.net/proxy?u=1");
+      expect(payload.variants[2].uri).toBe("https://api.dlproxy.com/v1/vs/tokenB.m3u8");
+      expect(payload.variants[3].uri).toBe("https://mirror.example.com/pl/x.m3u8");
+      // The owning player's referer rides the source so referer-gated CDNs serve us.
+      expect(payload.source.refUrl).toBe("https://vidcore.io/");
+      expect(payload.source.url).toBe(payload.variants[0].uri);
+    });
+
+    it("falls through to vidzen when the aggregate lists nothing usable", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockImplementation(async (url) => {
+          const to = String(url);
+          if (to.includes("vidrack.created.app")) {
+            return { ok: true, status: 200, text: async () => JSON.stringify({ serverSources: [] }) };
+          }
+          if (to.includes("vidzen.fun/api/sources")) {
+            return { ok: true, status: 200, text: async () => JSON.stringify(VIDZEN_FALLBACK) };
+          }
+          // vidzen master playlist
+          return {
+            ok: true,
+            status: 200,
+            text: async () => "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1700000,RESOLUTION=1280x720\nseg.m3u8\n",
+          };
+        }),
+      );
+      const res = await call({ action: "resolvevidcore", type: "movie", id: "1108427" });
+      const payload = JSON.parse(res.body);
+      expect(payload.ok).toBe(true);
+      expect(payload.source.url).toContain("vidzen.fun");
+    });
+
+    it("answers no-source when every stage fails, never a 500", async () => {
+      // beforeEach already refuses every upstream with 502.
+      const res = await call({ action: "resolvevidcore", type: "movie", id: "1108427" });
+      expect(res.statusCode).toBe(200);
+      const payload = JSON.parse(res.body);
+      expect(payload).toMatchObject({ ok: false, code: "no-source" });
+    });
+  });
 });
 
 describe("POST /api/downloadify — resolvezxc", () => {

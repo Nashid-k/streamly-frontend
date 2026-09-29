@@ -1,11 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { render, screen, waitFor, cleanup, fireEvent } from "@testing-library/react";
-import { MemoryRouter, useLocation, Routes, Route } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { screen, waitFor, cleanup, fireEvent } from "@testing-library/react";
+import { useLocation, Routes, Route } from "react-router-dom";
 import useDetailView from "../hooks/useDetailView";
-import { PreferencesProvider } from "../context/PreferencesContext";
-import { ToastProvider } from "../components/Toast";
-import { AuthProvider } from "../context/AuthContext";
+import { renderWithProviders } from "../test/testUtils";
 
 /* Harness: exposes the hook's returns + renders its modal host, exactly
    like a real call site (hero banner, rail card, banner rows) would. */
@@ -34,22 +31,11 @@ function renderHarness({ movie, detailViewType } = {}) {
     localStorage.setItem("setting-detailViewType", JSON.stringify(detailViewType));
   }
   const ref = { current: null, pathname: "/" };
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  render(
-    <MemoryRouter initialEntries={["/"]}>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <ToastProvider>
-            <PreferencesProvider>
-              <LocationProbe onLocation={(p) => (ref.pathname = p)} />
-              <Harness movie={movie} onReady={(d) => (ref.current = d)} />
-            </PreferencesProvider>
-          </ToastProvider>
-        </AuthProvider>
-      </QueryClientProvider>
-    </MemoryRouter>,
+  renderWithProviders(
+    <>
+      <LocationProbe onLocation={(p) => (ref.pathname = p)} />
+      <Harness movie={movie} onReady={(d) => (ref.current = d)} />
+    </>,
   );
   return ref;
 }

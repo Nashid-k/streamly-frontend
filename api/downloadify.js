@@ -88,7 +88,13 @@ const ALLOWED_EMBED_HOSTS = new Set([
 // on moon.quietridge.top and their fMP4 segments on paperorbit.top (open
 // CORS + Range, so the existing manifest/segment relay handles them). Every
 // upstream wants the VidCore player as referer — fetchUpstream supplies it.
-const VIDCORE_SOURCES_API = "https://vidrack.created.app/api/sources/videasy";
+/* Vidrack's aggregate sources API — the query-param endpoint their own player
+   calls (verified from their shipped chunk: `/api/sources?${id}&type[&season
+   &episode]` → { serverSources:[{url,type,quality,label,provider,headers}] }).
+   The old `/api/sources/videasy` subpath died upstream 2026-09 (answers
+   `{"sources":[]}` for every title) and silently dropped Server 1 to vidzen's
+   single 720p fallback. */
+const VIDCORE_SOURCES_API = "https://vidrack.created.app/api/sources";
 const VIDZEN_SOURCES_API = "https://vidzen.fun/api/sources";
 const VIDCORE_PLAYER_REFERER = "https://vidcore.io/";
 
@@ -396,10 +402,23 @@ async function handleResolveVidcore(body, res) {
   const episode = String(body.episode ?? "").trim();
   const referer = VIDCORE_PLAYER_REFERER;
 
-  /* Videasy ladder — each entry is a per-quality MEDIA playlist (a direct
-     m3u8 on moon.quietridge.top), so each source maps 1:1 to a sheet row.
-     Sources come pre-sorted high→low from the API; we sort defensively. */
-  const tryVideasy = async () => {
+  /* VIDRACK AGGREGATE (the restored Server 1 ladder). The old videasy path
+     (`/api/sources/videasy`) died upstream in 2026-09 — it answers
+     `{"sources":[]}` for EVERY title now, which silently dropped Server 1 to
+     vidzen's single 720p fallback (user: "not even has 1080p"). Vidrack's own
+     player (chunks of /embed/movie/:id) calls `/api/sources?id&type[&season
+     &episode]` and receives `{ serverSources: [{url, type, quality, label,
+     provider, headers}], sseUrl, mode }` — a MULTI-PROVIDER aggregate with
+     quality labels (verified live: 1080p / HD / Auto masters; the dlproxy
+     entries are multi-rung HLS masters that answer RAW with no special
+     headers, so the whole existing relay pipeline plays them unchanged).
+     URLs minted by upstream providers are short-lived SIGNED tokens — this
+     function fetches nothing but the source LIST, and the player fetches
+     playlists through the normal manifest/segment actions within the token's
+     life. Each entry becomes its own ladder row; a per-entry HEAD-verify is
+     deliberately skipped (entries 403 transiently and the player's own
+     playability probe does the real gate). */
+  const tryVidrack = async () => {
     const api = new URL(VIDCORE_SOURCES_API);
     api.searchParams.set("id", tmdbId);
     api.searchParams.set("type", type);
@@ -410,36 +429,48 @@ async function handleResolveVidcore(body, res) {
     }
     const text = await fetchUpstream(api.toString(), { referer });
     const data = JSON.parse(text);
-    if (!data || !Array.isArray(data.sources)) return null;
-    const variants = data.sources
-      .filter((s) => s?.url && /\.m3u8/i.test(s.url) && !/cap\.php/i.test(s.url))
-      .map((s) => {
-        const quality = String(s.quality || "").toLowerCase();
-        const height = Number.parseInt(quality.replace(/\D/g, ""), 10) || 0;
-        return {
-          // A source list entry may be relative to the videasy origin even
-          // though every observed entry is absolute; handing the player a
-          // relative "URL" would dead-end every relay call ("Bad ?url=
-          // target"). Absolutize server-side with the same resolver the
-          // manifest parsers use (resolveUrl from downloadQuality).
-          uri: resolveUrl(api.toString(), s.url),
-          bandwidth: videasyBandwidth(height),
-          width: 0,
-          height,
-          framerate: 0,
-          codecs: "",
-          hdr: false,
-        };
-      })
-      .sort((a, b) => b.height - a.height);
+    const entries = Array.isArray(data?.serverSources) ? data.serverSources : [];
+    /* Quality label → height. "Auto"/"HD"/"FHDp" mark masters (an Auto master
+       IS a quality ladder — hls.js ABR walks its rungs), so they keep height 0
+       and ride the master branch of the player; precise labels ("1080p") map
+       to their numeric rung. Deduped: vidrack lists mirror hosts of the same
+       encode as separate rows, which would show the same picture twice. */
+    const seen = new Map();
+    const pickBandwidth = (h) => videasyBandwidth(h);
+    for (const s of entries) {
+      const raw = String(s?.url || "");
+      if (!raw || !/^https?:\/\//i.test(raw)) continue;
+      if (s?.type && s.type !== "hls") continue;
+      if (!/\.m3u8([?#]|$)/i.test(raw) && !s?.quality) continue;
+      const q = String(s?.quality || "Auto").trim();
+      const m = /(\d{3,4})\s*p/i.exec(q);
+      const height = m ? Number(m[1]) : 0;
+      /* Key = rung + host + provider tag: vidrack lists mirror hosts of the
+         same encode as separate rows (same picture twice), but two DIFFERENT
+         providers on one host (or one provider with two rungs) are real
+         choices and must both survive. */
+      const key = `${height}|${new URL(raw).hostname}|${String(s?.provider || s?.label || q)}`;
+      if (seen.has(key)) continue;
+      seen.set(key, {
+        uri: raw,
+        bandwidth: height ? pickBandwidth(height) : 0,
+        width: 0,
+        height,
+        framerate: 0,
+        codecs: "",
+        hdr: false,
+        label: q,
+      });
+    }
+    const variants = Array.from(seen.values())
+      /* Masters (height 0, real ABR ladders) lead; explicit rungs follow tall→short. */
+      .sort((a, b) => (b.height === 0 ? 1 : 0) - (a.height === 0 ? 1 : 0) || b.height - a.height)
+      .slice(0, 6);
     if (variants.length === 0) return null;
-    /* The hidden base-track (`-v1`) altUri derivation lived here ("Audio 2");
-       REMOVED 2024-09: the swap played as muted video in the player, so the
-       alternate-audio toggle was removed with it. Videasy titles stream their
-       listed `-v1-a1` track only. */
+    const best = variants[0];
     return {
       variants,
-      source: { kind: "hls", url: variants[0].uri, refUrl: referer },
+      source: { kind: "hls", url: best.uri, refUrl: referer },
     };
   };
 
@@ -469,9 +500,9 @@ async function handleResolveVidcore(body, res) {
     };
   };
 
-  // Videasy is the primary (4K-ready, segments stream freely); vidzen covers
-  // titles videasy doesn't carry. Either failure is honest — no fake ladder.
-  const primary = await tryVideasy().catch(() => null);
+  // Vidrack aggregate is the primary (multi-provider, quality-labeled); vidzen
+  // covers titles vidrack doesn't carry. Either failure is honest — no fake ladder.
+  const primary = await tryVidrack().catch(() => null);
   if (primary) {
     json(res, 200, { ok: true, source: primary.source, variants: primary.variants });
     return;

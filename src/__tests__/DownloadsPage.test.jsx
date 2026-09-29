@@ -1,10 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { screen, fireEvent, waitFor } from "@testing-library/react";
 import { useEffect, useState } from "react";
-import { DownloadsProvider } from "../context/DownloadsContext";
 import { useDownloads } from "../context/downloads";
 import DownloadsPage from "../pages/DownloadsPage";
+import { renderWithProviders } from "../test/testUtils";
 
 /* A harness that exposes the store mutations for triggering state, mirroring
    how DownloadModal drives the same context in production (register first,
@@ -27,14 +26,11 @@ function StorePump({ children, seed }) {
 }
 
 function renderPage(seed = null) {
-  return render(
-    <MemoryRouter initialEntries={["/downloads"]}>
-      <DownloadsProvider>
-        <StorePump seed={seed}>
-          <DownloadsPage />
-        </StorePump>
-      </DownloadsProvider>
-    </MemoryRouter>,
+  return renderWithProviders(
+    <StorePump seed={seed}>
+      <DownloadsPage />
+    </StorePump>,
+    { route: "/downloads", withDownloads: true },
   );
 }
 
@@ -178,13 +174,7 @@ describe("DownloadsPage", () => {
       );
     }
 
-    render(
-      <MemoryRouter initialEntries={["/downloads"]}>
-        <DownloadsProvider>
-          <Harness />
-        </DownloadsProvider>
-      </MemoryRouter>,
-    );
+    renderWithProviders(<Harness />, { route: "/downloads", withDownloads: true });
 
     fireEvent.click(screen.getByRole("button", { name: /seed/i }));
     const cancel = await screen.findByLabelText(/cancel download of fight club/i);

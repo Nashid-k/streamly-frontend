@@ -1,10 +1,7 @@
-import { render, screen } from "@testing-library/react";
-import { MemoryRouter, Routes, Route } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { AuthProvider } from "../context/AuthContext";
-import { PreferencesProvider } from "../context/PreferencesContext";
-import { ToastProvider } from "../components/Toast.jsx";
+import { screen } from "@testing-library/react";
+import { Routes, Route } from "react-router-dom";
 import TitleDetailsPage from "../pages/TitleDetailsPage";
+import { renderWithProviders } from "../test/testUtils";
 
 /* Regression guard for the TDZ-class crashes that blanked the details page
    behind the ErrorBoundary ("Cannot access 'z' before initialization").
@@ -91,23 +88,13 @@ if (typeof globalThis.IntersectionObserver === "undefined") {
 if (!window.scrollTo) window.scrollTo = () => {};
 
 function renderPage() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: 0 } },
-  });
-  return render(
-    <MemoryRouter initialEntries={["/watch/tv-108978"]}>
-      <QueryClientProvider client={client}>
-        <AuthProvider>
-          <PreferencesProvider>
-            <ToastProvider>
-              <Routes>
-                <Route path="/watch/:id" element={<TitleDetailsPage />} />
-              </Routes>
-            </ToastProvider>
-          </PreferencesProvider>
-        </AuthProvider>
-      </QueryClientProvider>
-    </MemoryRouter>,
+  // The page reads /watch/:id params, so the route table mounts INSIDE the
+  // harness's MemoryRouter (which carries the initial location).
+  return renderWithProviders(
+    <Routes>
+      <Route path="/watch/:id" element={<TitleDetailsPage />} />
+    </Routes>,
+    { route: "/watch/tv-108978" },
   );
 }
 

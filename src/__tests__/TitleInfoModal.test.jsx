@@ -1,12 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { MemoryRouter, useLocation } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { screen, fireEvent, waitFor } from "@testing-library/react";
+import { useLocation } from "react-router-dom";
 import TitleInfoModal from "../components/TitleInfoModal";
 import { buildMetaFacts } from "../utils/metaFacts";
-import { AuthProvider } from "../context/AuthContext";
-import { PreferencesProvider } from "../context/PreferencesContext";
-import { ToastProvider } from "../components/Toast.jsx";
+import { renderWithProviders } from "../test/testUtils";
 
 /* The modal fetches live details via React Query — stub the network layer so
    the summary object the caller already has is what drives assertions. */
@@ -77,22 +74,11 @@ function LocationProbe() {
 }
 
 function renderModal(overrides = {}) {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  return render(
-    <MemoryRouter initialEntries={["/"]}>
-      <QueryClientProvider client={client}>
-        <PreferencesProvider>
-          <AuthProvider>
-            <ToastProvider>
-              <LocationProbe />
-              <TitleInfoModal movie={{ ...TEST_MOVIE, ...overrides }} onClose={() => {}} />
-            </ToastProvider>
-          </AuthProvider>
-        </PreferencesProvider>
-      </QueryClientProvider>
-    </MemoryRouter>
+  return renderWithProviders(
+    <>
+      <LocationProbe />
+      <TitleInfoModal movie={{ ...TEST_MOVIE, ...overrides }} onClose={() => {}} />
+    </>,
   );
 }
 
@@ -135,20 +121,7 @@ describe("TitleInfoModal", () => {
 
   it("Escape closes the modal via onClose", async () => {
     const onClose = vi.fn();
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <MemoryRouter initialEntries={["/"]}>
-        <QueryClientProvider client={client}>
-          <PreferencesProvider>
-            <AuthProvider>
-              <ToastProvider>
-                <TitleInfoModal movie={TEST_MOVIE} onClose={onClose} />
-              </ToastProvider>
-            </AuthProvider>
-          </PreferencesProvider>
-        </QueryClientProvider>
-      </MemoryRouter>
-    );
+    renderWithProviders(<TitleInfoModal movie={TEST_MOVIE} onClose={onClose} />);
     await screen.findByRole("dialog");
     fireEvent.keyDown(document, { key: "Escape" });
     // The exit animation delay (~180ms) precedes onClose.
