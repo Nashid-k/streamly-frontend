@@ -958,3 +958,24 @@
 .np-volume-slider::-webkit-slider-runnable-track {
   background: var(--zxc-line-strong);
 }
+
+
+/* == Sweep polish: episode-card hover lift (their card language) ========= */
+.np-episode-card {
+  transition: transform var(--zxc-t-med) var(--zxc-ease);
+}
+.np-episode-card:hover,
+.np-episode-card:focus-visible {
+  transform: translateY(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .np-episode-card {
+    transition: none !important;
+    -webkit-transition: none !important;
+  }
+  .np-episode-card:hover,
+  .np-episode-card:focus-visible {
+    transform: none !important;
+  }
+}

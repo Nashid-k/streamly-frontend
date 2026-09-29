@@ -566,7 +566,7 @@ function EpisodesRail({ episodes, episode, onSelectEpisode, setPanel, setBufferi
                 width: "100%",
                 aspectRatio: "16/9",
                 flexShrink: 0,
-                backgroundColor: "#1a1a1a",
+                backgroundColor: "#18181b",
                 borderRadius: 8,
                 overflow: "hidden",
                 marginBottom: 10,
@@ -649,7 +649,7 @@ function EpisodesRail({ episodes, episode, onSelectEpisode, setPanel, setBufferi
                 </span>
               )}
               {aired && ep.durationMins ? (
-                <span style={{ position: "absolute", bottom: 6, right: 6, background: "rgba(0,0,0,0.85)", color: "#fff", fontSize: 11, padding: "2px 6px", borderRadius: 4, fontWeight: 600 }}>
+                <span style={{ position: "absolute", bottom: 6, right: 6, background: "rgba(9,9,11,0.85)", color: "#fff", fontSize: 11, padding: "2px 6px", borderRadius: 4, fontWeight: 600 }}>
                   {ep.durationMins}m
                 </span>
               ) : null}
@@ -675,7 +675,7 @@ function EpisodesRail({ episodes, episode, onSelectEpisode, setPanel, setBufferi
                 rail ragged â€” every such card ended higher than the rest. */}
             <div
               style={{
-                color: "rgba(255,255,255,0.5)",
+                color: "#a1a1aa",
                 fontSize: 12,
                 lineHeight: 1.4,
                 marginTop: 4,
@@ -2676,6 +2676,66 @@ export default function NativePlayerView({
               }
             });
           setQualities(Array.from(byLabel.values()));
+          /* VIDRACK ladder upgrade (Server 1): the fast resolve often ships
+             vidzen's short ladder (800p ceiling) while the vidrack aggregate —
+             the 4K-capable multi-provider one — is still walking its upstreams
+             (13-25s server-side). `upgradeable` marks exactly that case, so a
+             background full-pass resolve swaps the quality rows in place when
+             it lands. Playback is NEVER interrupted: rows carry their own
+             absolute URIs, so picking one goes through the normal probe +
+             loadSource switch. Rows are marked `external` so pickQuality
+             skips the in-manifest level shortcut — the upgraded master is a
+             DIFFERENT playlist than the one hls.js currently holds. */
+          if (def.key === "vidcore" && resolved?.upgradeable && !stale()) {
+            def
+              .resolve(args, { signal: controller.signal, phase: "full" })
+              .then((up) => {
+                if (stale() || !up?.variants?.length || !up?.source?.url) return;
+                if (up.source.url === resolved.source?.url) return;
+                const upgradedByLabel = new Map();
+                up.variants
+                  .slice()
+                  .sort((a, b) => (a.height || 0) - (b.height || 0))
+                  .forEach((v) => {
+                    const label = qualityLabelFor(v);
+                    const prev = upgradedByLabel.get(label);
+                    if (
+                      !prev ||
+                      (v.height || 0) > (prev.height || 0) ||
+                      ((v.height || 0) === (prev.height || 0) && (v.bandwidth || 0) > (prev.bandwidth || 0))
+                    ) {
+                      upgradedByLabel.set(label, {
+                        uri: v.uri,
+                        height: v.height || 0,
+                        label,
+                        bandwidth: v.bandwidth || 0,
+                        external: true,
+                      });
+                    }
+                  });
+                // Merge, not replace: the current ladder's rows stay usable
+                // while their tokens live, and the viewer's active row never
+                // vanishes from under the highlight.
+                setQualities((prevRows) => {
+                  const merged = new Map(prevRows.map((q) => [q.label, q]));
+                  for (const q of upgradedByLabel.values()) merged.set(q.label, q);
+                  return Array.from(merged.values());
+                });
+                metaRef.current = {
+                  ...metaRef.current,
+                  refUrl: up.source?.refUrl || metaRef.current?.refUrl,
+                  upgradedVariants: up.variants,
+                };
+                say(
+                  `${def.label}: upgraded ladder available (` +
+                    Array.from(upgradedByLabel.values()).map((q) => q.label).join(", ") +
+                    ").",
+                );
+              })
+              .catch(() => {
+                // No upgrade is a fine outcome — the fast ladder plays on.
+              });
+          }
           // Publish this run's dub list â€” unless a dub pin carried over from
           // a DIFFERENT server (a Servers-menu switch): a stale index must not
           // auto-pin a dub on the new server (its attempt loop would re-open
@@ -2869,7 +2929,10 @@ export default function NativePlayerView({
       // A dub switch on a multi-rung master replaces the whole playlist (the dub
       // is a sibling master URL), so it must NOT be short-circuited into
       // `hls.currentLevel` â€” that would keep the original language playing.
-      if (!opts.dubSwitch && metaRef.current?.masterLevels && Array.isArray(hls.levels) && hls.levels.length > 0) {
+      // An `external` pick carries a URI from a DIFFERENT master (the
+      // vidrack upgrade): pinning a level inside the CURRENT manifest
+      // would silently do nothing, so it must take the full loadSource path.
+      if (!opts.dubSwitch && !opts.external && metaRef.current?.masterLevels && Array.isArray(hls.levels) && hls.levels.length > 0) {
         let best = 0;
         hls.levels.forEach((lvl, i) => {
           if (Math.abs((lvl.height || 0) - (height || 0)) < Math.abs((hls.levels[best].height || 0) - (height || 0))) best = i;
@@ -3694,10 +3757,10 @@ export default function NativePlayerView({
                 alignItems: "center",
                 gap: 8,
                 padding: "10px 20px",
-                background: "rgba(0,0,0,0.7)",
+                background: "rgba(24,24,27,0.72)",
                 color: "#fff",
-                border: "2px solid rgba(255,255,255,0.9)",
-                borderRadius: 4,
+                border: "1px solid rgba(255,255,255,0.24)",
+                borderRadius: 12,
                 fontWeight: 700,
                 fontSize: 16,
                 cursor: "pointer",
@@ -3730,10 +3793,10 @@ export default function NativePlayerView({
                 alignItems: "center",
                 gap: 8,
                 padding: "10px 20px",
-                background: "rgba(0,0,0,0.7)",
+                background: "rgba(24,24,27,0.72)",
                 color: "#fff",
-                border: "2px solid rgba(255,255,255,0.9)",
-                borderRadius: 4,
+                border: "1px solid rgba(255,255,255,0.24)",
+                borderRadius: 12,
                 fontWeight: 700,
                 fontSize: 16,
                 cursor: "pointer",
@@ -3997,8 +4060,10 @@ export default function NativePlayerView({
               width: 84,
               height: 84,
               borderRadius: "50%",
-              border: "2px solid rgba(255,255,255,0.85)",
-              background: "rgba(0,0,0,0.45)",
+              border: "1px solid rgba(255,255,255,0.24)",
+              background: "rgba(24,24,27,0.6)",
+              backdropFilter: "blur(14px)",
+              WebkitBackdropFilter: "blur(14px)",
               color: "#fff",
               cursor: "pointer",
               display: "flex",
@@ -4477,8 +4542,11 @@ export default function NativePlayerView({
                 display: "flex",
                 alignItems: "center",
                 gap: 12,
-                background: "rgba(20,20,20,0.97)",
-                borderRadius: 4,
+                background: "rgba(24,24,27,0.92)",
+                borderRadius: 12,
+                border: "1px solid rgba(255,255,255,0.1)",
+                backdropFilter: "blur(18px) saturate(1.35)",
+                WebkitBackdropFilter: "blur(18px) saturate(1.35)",
                 padding: "12px 16px",
                 zIndex: 6,
                 boxShadow: "0 8px 32px rgba(0,0,0,0.7)",
@@ -4507,7 +4575,7 @@ export default function NativePlayerView({
                 background: "#fff",
                 color: "#000",
                 border: "none",
-                borderRadius: 3,
+                borderRadius: 8,
                 fontWeight: 700,
                 fontSize: 14,
                 cursor: "pointer",
@@ -4526,7 +4594,7 @@ export default function NativePlayerView({
                 background: "transparent",
                 color: "rgba(255,255,255,0.85)",
                 border: "1px solid rgba(255,255,255,0.4)",
-                borderRadius: 3,
+                borderRadius: 8,
                 fontWeight: 600,
                 fontSize: 14,
                 cursor: "pointer",
@@ -4555,8 +4623,11 @@ export default function NativePlayerView({
                 right: 24,
                 bottom: IS_TOUCH ? 120 : 100,
                 width: "min(260px, 55%)",
-                background: "rgba(20,20,20,0.97)",
-                borderRadius: 4,
+                background: "rgba(24,24,27,0.92)",
+                borderRadius: 12,
+                border: "1px solid rgba(255,255,255,0.1)",
+                backdropFilter: "blur(18px) saturate(1.35)",
+                WebkitBackdropFilter: "blur(18px) saturate(1.35)",
                 padding: "14px 16px",
                 zIndex: 6,
                 boxShadow: "0 8px 32px rgba(0,0,0,0.7)",
@@ -4615,7 +4686,7 @@ export default function NativePlayerView({
                   background: "#fff",
                   color: "#000",
                   border: "none",
-                  borderRadius: 3,
+                  borderRadius: 8,
                   fontWeight: 700,
                   fontSize: 14,
                   cursor: "pointer",
@@ -4798,10 +4869,10 @@ export default function NativePlayerView({
               </div>
             ) : panel === "servers" ? (
               <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
-                  <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#a1a1aa", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
                     Servers
                   </p>
-                  <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.5)", margin: "6px 0 8px", lineHeight: 1.45 }}>
+                  <p style={{ fontSize: 12.5, color: "#a1a1aa", margin: "6px 0 8px", lineHeight: 1.45 }}>
                     Same title, different stream providers. Switching reloads the
                     stream from the chosen server.
                   </p>
@@ -4817,7 +4888,7 @@ export default function NativePlayerView({
               </div>
             ) : panel === "subs" ? (
               <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
-                  <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#a1a1aa", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
                     Subtitles
                   </p>
                   <DialogRow
@@ -4827,7 +4898,7 @@ export default function NativePlayerView({
                     title="Off"
                   />
                   {isFetchingSubtitles ? (
-                    <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.5)", margin: "6px 0 2px", lineHeight: 1.45 }}>
+                    <p style={{ fontSize: 12.5, color: "#a1a1aa", margin: "6px 0 2px", lineHeight: 1.45 }}>
                       Searching OpenSubtitlesâ€¦
                     </p>
                   ) : subtitleLanguages.length > 0 ? (
@@ -4844,7 +4915,7 @@ export default function NativePlayerView({
                       />
                     ))
                   ) : (
-                    <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.5)", margin: "6px 0 2px", lineHeight: 1.45 }}>
+                    <p style={{ fontSize: 12.5, color: "#a1a1aa", margin: "6px 0 2px", lineHeight: 1.45 }}>
                       {!imdbId
                         ? "No subtitles found for this title on OpenSubtitles (no IMDb id â€” title search also came up empty)."
                         : "No subtitles found for this title on OpenSubtitles."}
@@ -4858,7 +4929,7 @@ export default function NativePlayerView({
               </div>
             ) : panel === "audio" ? (
               <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
-                  <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#a1a1aa", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
                     Audio
                   </p>
                   {dubTracks.length > 0 ? (
@@ -4939,7 +5010,7 @@ export default function NativePlayerView({
               </div>
             ) : panel === "video" ? (
               <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
-                  <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#a1a1aa", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
                     Video Quality
                   </p>
                   {/* Auto is ALWAYS present â€” the active mode on every source
@@ -4972,7 +5043,7 @@ export default function NativePlayerView({
                       <DialogRow
                         key={`${q.uri}::${i}`}
                         selected={selected}
-                        onClick={() => pickQuality(q.uri, q.height)}
+                        onClick={() => pickQuality(q.uri, q.height, { external: q.external })}
                         title={q.label || `${q.height}p`}
                       />
                     );
@@ -4980,7 +5051,7 @@ export default function NativePlayerView({
               </div>
             ) : panel === "speed" ? (
               <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
-                  <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#a1a1aa", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
                     Playback Speed
                   </p>
                   {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
@@ -5010,7 +5081,7 @@ export default function NativePlayerView({
               </div>
             ) : panel === "aspect" ? (
               <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
-                  <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#a1a1aa", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
                     Aspect Ratio
                   </p>
                   {ASPECT_RATIOS.map((aspect, idx) => (
@@ -5166,7 +5237,7 @@ export default function NativePlayerView({
               background: "#fff",
               color: "#000",
               border: "none",
-              borderRadius: 3,
+              borderRadius: 8,
               fontWeight: 700,
               fontSize: 13,
               cursor: "pointer",
@@ -5191,7 +5262,7 @@ export default function NativePlayerView({
               background: "transparent",
               color: "#fff",
               border: "1px solid rgba(255,255,255,0.4)",
-              borderRadius: 3,
+              borderRadius: 8,
               fontWeight: 600,
               fontSize: 13,
               cursor: "pointer",

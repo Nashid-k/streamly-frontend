@@ -148,12 +148,68 @@ describe("downloadService.resolveVidcore", () => {
     expect(capturedBody.resolverUrl).toBeUndefined();
   });
 
-  it("surfaces an honest no-source result", async () => {
+  it("labels phase + upgrade metadata: a vidzen fast win carries upgradeable", async () => {
+    let capturedBody = null;
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(jsonResponse({ ok: false, error: "No downloadable stream found via VidCore", code: "no-source" })),
+      vi.fn().mockImplementation(async (url, init) => {
+        capturedBody = JSON.parse(init.body);
+        return jsonResponse({
+          ok: true,
+          source: { kind: "hls", url: "https://vidzen.fun/api/stream/v1_zen", refUrl: "https://vidcore.io/" },
+          variants: [{ uri: "https://vidzen.fun/api/stream/v1_zen", bandwidth: 2500000, height: 800 }],
+          ladderSource: "vidzen",
+          upgradeable: true,
+        });
+      }),
     );
-    await expect(downloadService.resolveVidcore({ type: "movie", id: "550" })).rejects.toMatchObject({
+
+    const resolved = await downloadService.resolveVidcore({ type: "movie", id: "603" }, { phase: "fast" });
+    expect(capturedBody.phase).toBe("fast");
+    expect(resolved.upgradeable).toBe(true);
+    expect(resolved.ladderSource).toBe("vidzen");
+  });
+
+  it("re-asks once with phase:full when the fast pass is ladder-pending", async () => {
+    const bodies = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        bodies.push(JSON.parse(init.body));
+        if (bodies.length === 1) {
+          return jsonResponse({ ok: false, error: "VidCore is still aggregating sources", code: "ladder-pending" });
+        }
+        return jsonResponse({
+          ok: true,
+          source: { kind: "hls", url: "https://api.dlproxy.com/v1/play/master.m3u8", refUrl: "https://vidcore.io/" },
+          variants: [
+            { uri: "https://api.dlproxy.com/v1/play/master.m3u8", bandwidth: 0, height: 0 },
+            { uri: "https://api.dlproxy.com/v1/play/1080.m3u8", bandwidth: 6000000, height: 1080 },
+          ],
+          ladderSource: "vidrack",
+        });
+      }),
+    );
+
+    const resolved = await downloadService.resolveVidcore({ type: "movie", id: "603" });
+    expect(bodies[0].phase).toBeUndefined();
+    expect(bodies[1].phase).toBe("full");
+    expect(resolved.variants).toHaveLength(2);
+    expect(resolved.ladderSource).toBe("vidrack");
+  });
+
+  it("maps a failed full retry to no-source so rotation continues", async () => {
+    let n = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async () => {
+        n += 1;
+        if (n === 1) return jsonResponse({ ok: false, code: "ladder-pending", error: "pending" });
+        return jsonResponse({ ok: false, code: "no-upgrade", error: "VidCore full ladder unavailable" });
+      }),
+    );
+
+    await expect(downloadService.resolveVidcore({ type: "movie", id: "603" })).rejects.toMatchObject({
       code: "no-source",
     });
   });

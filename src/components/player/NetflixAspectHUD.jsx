@@ -39,7 +39,8 @@ const NetflixAspectHUD = memo(function NetflixAspectHUD({ aspectRatioIndex, metr
         />
         <span style={{
           color: "#fff", fontSize: metrics.labelFont, fontWeight: 700,
-          background: "rgba(0,0,0,0.88)", borderRadius: 8,
+          background: "rgba(9,9,11,0.82)", borderRadius: 8,
+          backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
           padding: `${Math.max(3, Math.round(metrics.labelFont * 0.35))}px ${Math.max(8, Math.round(metrics.labelFont * 0.9))}px`,
           textShadow: "0 1px 4px rgba(0,0,0,0.8)",
           border: "1px solid rgba(255,255,255,0.1)",

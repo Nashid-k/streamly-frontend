@@ -98,6 +98,43 @@ const VIDCORE_SOURCES_API = "https://vidrack.created.app/api/sources";
 const VIDZEN_SOURCES_API = "https://vidzen.fun/api/sources";
 const VIDCORE_PLAYER_REFERER = "https://vidcore.io/";
 
+/* Vidrack resolve timing + warm cache. The deadlines are chosen around
+   measured reality (2026-09): vidrack's aggregate answers in 13-25s (it walks
+   several upstream providers per call), vidzen's two-step chain in ~2-4s. The
+   full pass must stay inside this function's maxDuration (60s — vercel.json
+   and the export config below agree). The cache is keyed per title/episode
+   and deliberately short-TTL: the cached URLs are short-lived SIGNED tokens,
+   so a stale entry dies at the player's playability probe, not silently;
+   four minutes keeps that window small while still absorbing the client's
+   immediate phase:"full" follow-up and other viewers of the same title. */
+const VIDRACK_TIMEOUT_FAST_MS = 8500;
+const VIDRACK_TIMEOUT_FULL_MS = 28000;
+const VIDRACK_FAST_DEADLINE_MS = 9500;
+const VIDRACK_CACHE_TTL_MS = 4 * 60 * 1000;
+const vidrackCache = new Map(); // "type:id:s:e" -> { source, variants, at }
+
+function vidrackCacheKey(type, id, season, episode) {
+  return `${type}:${id}:${season || ""}:${episode || ""}`;
+}
+
+function readVidrackCache(key) {
+  const hit = vidrackCache.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.at > VIDRACK_CACHE_TTL_MS) {
+    vidrackCache.delete(key);
+    return null;
+  }
+  return hit;
+}
+
+function writeVidrackCache(key, { source, variants }) {
+  vidrackCache.set(key, { source, variants, at: Date.now() });
+  // Bounded working set: drop the oldest entry when the map outgrows itself.
+  while (vidrackCache.size > 32) {
+    vidrackCache.delete(vidrackCache.keys().next().value);
+  }
+}
+
 /* Approximate per-render bitrate for Videasy's qualities. The Videasy API
    does not publish BANDWIDTH, so the sheet's `~size` / `x Mbps` hints are
    derived from a conservative H.264 table — a documented estimate, never a
@@ -418,7 +455,7 @@ async function handleResolveVidcore(body, res) {
      life. Each entry becomes its own ladder row; a per-entry HEAD-verify is
      deliberately skipped (entries 403 transiently and the player's own
      playability probe does the real gate). */
-  const tryVidrack = async () => {
+  const tryVidrack = async ({ timeoutMs = VIDRACK_TIMEOUT_FULL_MS } = {}) => {
     const api = new URL(VIDCORE_SOURCES_API);
     api.searchParams.set("id", tmdbId);
     api.searchParams.set("type", type);
@@ -427,7 +464,7 @@ async function handleResolveVidcore(body, res) {
       api.searchParams.set("season", season);
       api.searchParams.set("episode", episode);
     }
-    const text = await fetchUpstream(api.toString(), { referer });
+    const text = await fetchUpstream(api.toString(), { referer, timeoutMs });
     const data = JSON.parse(text);
     const entries = Array.isArray(data?.serverSources) ? data.serverSources : [];
     /* Quality label → height. "Auto"/"HD"/"FHDp" mark masters (an Auto master
@@ -500,19 +537,93 @@ async function handleResolveVidcore(body, res) {
     };
   };
 
-  // Vidrack aggregate is the primary (multi-provider, quality-labeled); vidzen
-  // covers titles vidrack doesn't carry. Either failure is honest — no fake ladder.
-  const primary = await tryVidrack().catch(() => null);
-  if (primary) {
-    json(res, 200, { ok: true, source: primary.source, variants: primary.variants });
+  /* Vidrack is primary but SLOW: its aggregate answers in 13-25s in the wild.
+     The previous version awaited it under fetchUpstream's 12s default
+     timeout — so EVERY real request aborted into vidzen's 2×800p ladder.
+     That was the whole "Server 1 lost its quality" bug. The resolve is now
+     TWO-PHASED:
+
+     · default (fast): race vidrack against the quick vidzen chain and return
+       whichever lands first — vidzen answers in seconds, flagged
+       `upgradeable` so the client knows a richer ladder exists; vidrack
+       usually wins only from the warm cache (instant, `cached: true`).
+     · phase:"full": wait out vidrack's WHOLE ladder (28s budget, inside this
+       function's maxDuration) and answer with it, or an honest `no-upgrade`.
+     A `ladder-pending` verdict (neither answered in the window) is retryable:
+     the client re-asks with phase:"full" instead of the viewer paying the
+     same wait twice. Either failure mode is still honest — no fake ladder. */
+  const cacheKey = vidrackCacheKey(type, tmdbId, season, episode);
+  const cached = readVidrackCache(cacheKey);
+  if (cached) {
+    json(res, 200, { ok: true, source: cached.source, variants: cached.variants, ladderSource: "vidrack", cached: true });
     return;
   }
-  const fallback = await tryVidzen().catch(() => null);
-  if (fallback) {
-    json(res, 200, { ok: true, source: fallback.source, variants: fallback.variants });
+
+  if (body.phase === "full") {
+    // Only vidrack runs here: the fast phase already put SOMETHING on
+    // screen, so this call exists purely to fetch the richer ladder.
+    try {
+      const full = await tryVidrack({ timeoutMs: VIDRACK_TIMEOUT_FULL_MS });
+      if (full) {
+        writeVidrackCache(cacheKey, full);
+        json(res, 200, { ok: true, source: full.source, variants: full.variants, ladderSource: "vidrack" });
+        return;
+      }
+    } catch {
+      // fall through — "no upgrade" is the honest answer, not a 5xx
+    }
+    json(res, 200, { ok: false, error: "VidCore full ladder unavailable", code: "no-upgrade" });
     return;
   }
-  json(res, 200, { ok: false, error: "No downloadable stream found via VidCore", code: "no-source" });
+
+  const vidrackP = tryVidrack({ timeoutMs: VIDRACK_TIMEOUT_FAST_MS })
+    .then((v) => {
+      // Prime the warm cache even when vidzen wins the race: the client's
+      // background phase:"full" call (or the next viewer) then lands on it.
+      if (v) writeVidrackCache(cacheKey, v);
+      return v;
+    })
+    .catch(() => null);
+  const vidzenP = tryVidzen().catch(() => null);
+  // Only a NON-NULL result may win the race — a null must not resolve it.
+  const firstWin = (p, tag) => p.then((v) => (v ? [tag, v] : new Promise(() => {})));
+  const bothSettled = Promise.all([vidrackP, vidzenP]).then(() => ["both-done", null]);
+  const deadline = new Promise((r) => setTimeout(() => r(["deadline", null]), VIDRACK_FAST_DEADLINE_MS));
+  const [tag, result] = await Promise.race([
+    firstWin(vidrackP, "vidrack"),
+    firstWin(vidzenP, "vidzen"),
+    bothSettled,
+    deadline,
+  ]);
+  if (result) {
+    json(res, 200, {
+      ok: true,
+      source: result.source,
+      variants: result.variants,
+      ladderSource: tag,
+      // vidzen is the 800p ceiling — tell the client the 4K-capable vidrack
+      // ladder may still be fetchable via phase:"full". undefined when
+      // vidrack itself won.
+      upgradeable: tag === "vidzen" || undefined,
+    });
+    return;
+  }
+  if (tag === "both-done") {
+    // Both catalogues DEFINITIVELY answered (any outcome) with nothing
+    // usable - that is an honest no-source, not a wait: fail over now.
+    json(res, 200, { ok: false, error: "No downloadable stream found via VidCore", code: "no-source" });
+    return;
+  }
+  // The deadline fired while at least one catalogue was STILL walking its
+  // upstreams (vidrack takes 13-25s). A retryable verdict beats making the
+  // viewer sit through the same wait twice inside one request - the client
+  // re-asks with phase:"full", which waits out the whole aggregate.
+  json(res, 200, {
+    ok: false,
+    error: "VidCore is still aggregating sources",
+    code: "ladder-pending",
+    upgradeable: true,
+  });
 }
 
 /* NetMirror (net27.cc family) — REMOVED (user order, 2024-09). net27's video

@@ -290,25 +290,69 @@ export const downloadService = {
     return resolved;
   },
 
-  /** Resolve the VidCore provider (Server 5, action "resolvevidcore"); same
-      contract as resolveVidsrc. */
-  async resolveVidcore({ type, id, season, episode }, { signal } = {}) {
+  /** Resolve the VidCore provider (Server 1, action "resolvevidcore"). The
+      server runs a TWO-PHASE protocol because its primary catalogue (the
+      vidrack aggregate, the 4K-capable ladder) answers in 13-25s while the
+      fallback (vidzen) answers in ~2-4s:
+
+      · phase "fast" (default) returns whichever landed first. vidzen wins
+        carry `upgradeable: true` — the caller may ask again for the full
+        ladder without blocking playback.
+      · phase "full" waits out the vidrack aggregate (the server owns the
+        deadline; this side just labels the request).
+
+      A fast phase can also answer "ladder-pending" when NEITHER catalogue
+      made the window. That verdict is retryable, and the retry is cheapest
+      HERE: one automatic phase:"full" pass, so callers keep their plain
+      resolve-or-throw contract and the viewer waits out the aggregation at
+      most once before honest failover. A failed retry maps to "no-source" —
+      the caller's rotation logic treats it like any dead provider. */
+  async resolveVidcore({ type, id, season, episode }, { signal, phase } = {}) {
     const kind = type === "tv" ? "tv" : "movie";
     const body = { action: "resolvevidcore", type: kind, id: String(id || "") };
     if (kind === "tv") {
       if (season != null) body.season = String(season);
       if (episode != null) body.episode = String(episode);
     }
-    const data = await post(body, { signal });
-    const resolved = this.normalizeResolved(data);
-    logInfo("download", `Resolved ${resolved.variants.length} downloadable variant(s) via VidCore.`, {
-      type: kind,
-      id,
-      season: season ?? null,
-      episode: episode ?? null,
-      variants: resolved.variants.map((v) => v.label),
-    });
-    return resolved;
+    if (phase) body.phase = String(phase);
+    const withMeta = (data) => {
+      const resolved = this.normalizeResolved(data);
+      resolved.upgradeable = data.upgradeable === true;
+      resolved.ladderSource = String(data.ladderSource || "");
+      return resolved;
+    };
+    try {
+      const data = await post(body, { signal });
+      const resolved = withMeta(data);
+      logInfo("download", `Resolved ${resolved.variants.length} downloadable variant(s) via VidCore (${resolved.ladderSource || "fast"}).`, {
+        type: kind,
+        id,
+        season: season ?? null,
+        episode: episode ?? null,
+        variants: resolved.variants.map((v) => v.label),
+        upgradeable: resolved.upgradeable,
+      });
+      return resolved;
+    } catch (error) {
+      if (error?.code !== "ladder-pending") throw error;
+      try {
+        const data = await post({ ...body, phase: "full" }, { signal });
+        const resolved = withMeta(data);
+        logInfo("download", `Resolved ${resolved.variants.length} downloadable variant(s) via VidCore full ladder.`, {
+          type: kind,
+          id,
+          season: season ?? null,
+          episode: episode ?? null,
+          variants: resolved.variants.map((v) => v.label),
+        });
+        return resolved;
+      } catch {
+        // The full pass failed too (aggregate dead AND vidzen dead, or the
+        // aggregate listing nothing) — surface as the plain no-source the
+        // rotation ladder already understands.
+        throw new DownloadUnavailableError("VidCore is still aggregating sources", "no-source");
+      }
+    }
   },
 
   /** Resolve the NHD provider (action "resolvenhd"); same contract as

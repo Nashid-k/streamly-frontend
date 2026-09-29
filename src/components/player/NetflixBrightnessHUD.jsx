@@ -24,8 +24,10 @@ const NetflixBrightnessHUD = memo(function NetflixBrightnessHUD({ brightness, me
         gap: metrics.pillGap,
         padding: `${metrics.pillPadY}px ${metrics.pillPadX}px`,
         borderRadius: metrics.pillRadius,
-        background: "rgba(0,0,0,0.88)",
-        border: "1px solid rgba(255,255,255,0.12)",
+        background: "rgba(9,9,11,0.82)",
+        border: "1px solid rgba(255,255,255,0.1)",
+        backdropFilter: "blur(14px) saturate(1.3)",
+        WebkitBackdropFilter: "blur(14px) saturate(1.3)",
         boxShadow: "0 16px 48px rgba(0,0,0,0.7)",
       }}>
         <Sun size={metrics.pillIcon} color={pct >= 100 ? "#ffd166" : "#fff"} strokeWidth={2.4} />

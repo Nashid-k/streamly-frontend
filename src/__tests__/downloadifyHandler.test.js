@@ -149,10 +149,11 @@ describe("POST /api/downloadify", () => {
 
     it("parses the aggregate into a quality ladder: masters lead, rungs sorted tall-to-short, mirrors deduped, capped at 6", async () => {
       routeFetch(new Response("upstream unreachable", { status: 502 }));
-      const res = await call({ action: "resolvevidcore", type: "movie", id: "1108427" });
+      const res = await call({ action: "resolvevidcore", type: "movie", id: "7654320" });
       expect(res.statusCode).toBe(200);
       const payload = JSON.parse(res.body);
       expect(payload.ok).toBe(true);
+      expect(payload.ladderSource).toBe("vidrack");
       // Masters first (height 0 = real ABR ladder), then explicit rungs tall->short.
       // Auto + HD are both masters (no numeric rung). The same-host+provider
       // 1080p mirror dedupes away; the other-host 1080p survives as a route.
@@ -185,18 +186,82 @@ describe("POST /api/downloadify", () => {
           };
         }),
       );
-      const res = await call({ action: "resolvevidcore", type: "movie", id: "1108427" });
+      const res = await call({ action: "resolvevidcore", type: "movie", id: "7654321" });
       const payload = JSON.parse(res.body);
       expect(payload.ok).toBe(true);
       expect(payload.source.url).toContain("vidzen.fun");
+      // vidzen is the 800p ceiling: the client must learn a richer ladder
+      // exists so it can ask for the full pass in the background.
+      expect(payload.upgradeable).toBe(true);
     });
 
     it("answers no-source when every stage fails, never a 500", async () => {
       // beforeEach already refuses every upstream with 502.
-      const res = await call({ action: "resolvevidcore", type: "movie", id: "1108427" });
+      const res = await call({ action: "resolvevidcore", type: "movie", id: "7654322" });
       expect(res.statusCode).toBe(200);
       const payload = JSON.parse(res.body);
       expect(payload).toMatchObject({ ok: false, code: "no-source" });
+    });
+
+    it("serves the whole aggregate on phase:full without touching vidzen", async () => {
+      routeFetch(new Response("upstream unreachable", { status: 502 }));
+      const res = await call({ action: "resolvevidcore", type: "movie", id: "7654323", phase: "full" });
+      const payload = JSON.parse(res.body);
+      expect(payload.ok).toBe(true);
+      expect(payload.ladderSource).toBe("vidrack");
+      expect(payload.variants.map((v) => v.height)).toEqual([0, 0, 1080, 1080]);
+    });
+
+    it("warm cache: a repeat fast call answers the full ladder with cached:true", async () => {
+      routeFetch(new Response("upstream unreachable", { status: 502 }));
+      const first = JSON.parse(
+        (await call({ action: "resolvevidcore", type: "movie", id: "7654324" })).body,
+      );
+      expect(first.ladderSource).toBe("vidrack");
+      const second = JSON.parse(
+        (await call({ action: "resolvevidcore", type: "movie", id: "7654324" })).body,
+      );
+      expect(second.cached).toBe(true);
+      expect(second.source.url).toBe(first.source.url);
+      expect(second.variants.map((v) => v.height)).toEqual(first.variants.map((v) => v.height));
+    });
+
+    it("phase:full answers an honest no-upgrade when the aggregate lists nothing", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockImplementation(async (url) => {
+          const to = String(url);
+          if (to.includes("vidrack.created.app")) {
+            return { ok: true, status: 200, text: async () => JSON.stringify({ serverSources: [] }) };
+          }
+          return new Response("upstream unreachable", { status: 502 });
+        }),
+      );
+      const res = await call({ action: "resolvevidcore", type: "movie", id: "7654325", phase: "full" });
+      expect(res.statusCode).toBe(200);
+      const payload = JSON.parse(res.body);
+      // NOT "no-source": the fast phase already put a stream on screen — this
+      // verdict only means "no richer ladder exists".
+      expect(payload).toMatchObject({ ok: false, code: "no-upgrade" });
+    });
+
+    it("ladder-pending: neither catalogue in the window answers a retryable verdict", async () => {
+      // Fake timers: the fast-phase deadline is ~9.5s real time, far too slow
+      // for CI — advance the clock to just past it instead.
+      vi.useFakeTimers();
+      try {
+        vi.stubGlobal(
+          "fetch",
+          vi.fn().mockImplementation(async () => new Promise(() => {})),
+        );
+        const pending = call({ action: "resolvevidcore", type: "movie", id: "7654326" });
+        await vi.advanceTimersByTimeAsync(9600);
+        const res = await pending;
+        const payload = JSON.parse(res.body);
+        expect(payload).toMatchObject({ ok: false, code: "ladder-pending", upgradeable: true });
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });

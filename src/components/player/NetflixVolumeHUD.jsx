@@ -25,9 +25,11 @@ const NetflixVolumeHUD = memo(function NetflixVolumeHUD({ effVolume, isMuted, me
         gap: metrics.pillGap,
         padding: `${metrics.pillPadY}px ${metrics.pillPadX}px`,
         borderRadius: metrics.pillRadius,
-        background: "rgba(0,0,0,0.88)",
-        border: "1px solid rgba(255,255,255,0.12)",
+        background: "rgba(9,9,11,0.82)",
+        border: "1px solid rgba(255,255,255,0.1)",
         boxShadow: "0 16px 48px rgba(0,0,0,0.7)",
+        backdropFilter: "blur(14px) saturate(1.3)",
+        WebkitBackdropFilter: "blur(14px) saturate(1.3)",
       }}>
         {isZero ? (
           <VolumeX size={metrics.pillIcon} color="#E50914" strokeWidth={2.4} />

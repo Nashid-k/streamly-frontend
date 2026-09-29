@@ -33,7 +33,12 @@ const NetflixStillWatching = memo(function NetflixStillWatching({ onContinue, on
           alignItems: "center",
           gap: 18,
           textAlign: "center",
-          padding: "0 24px",
+          padding: "32px 40px",
+          background: "rgba(24,24,27,0.9)",
+          border: "1px solid rgba(255,255,255,0.1)",
+          borderRadius: 16,
+          backdropFilter: "blur(20px) saturate(1.3)",
+          WebkitBackdropFilter: "blur(20px) saturate(1.3)",
         }}
       >
         <span style={{ color: "#fff", fontSize: 26, fontWeight: 700 }}>Still watching?</span>
