@@ -41,6 +41,7 @@ import {
   motion,
   AnimatePresence,
 } from "framer-motion";
+import { SPRING } from "../constants/motion";
 import { useAppAuth } from "../context/auth";
 import { useToast } from "../components/Toast.jsx";
 import MovieCard from "../components/MovieCard";
@@ -2254,7 +2255,7 @@ export default function TitleDetails() {
               initial={{ opacity: 0, scale: 0.94, y: 12 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
-              transition={{ type: "spring", stiffness: 320, damping: 28 }}
+              transition={SPRING.SHEET}
               className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#0c0c0e]/95 p-6 text-center shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >

@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
-import { SPRING_SNAPPY } from "../../constants/playerUi";
+import { SPRING } from "../../constants/motion";
 
 /* YouTube-style rewind / forward badge: a chevron pointing the seek direction
    beside a "+x"/"-x" seconds label (YouTube's double-tap flash) — no circular
@@ -27,7 +27,7 @@ const NetflixSeekHUD = memo(function NetflixSeekHUD({ direction, metrics, second
       initial={{ opacity: 0, scale: 0.86 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
-      transition={SPRING_SNAPPY}
+      transition={SPRING.SNAPPY}
       aria-hidden="true"
       style={{
         position: "absolute",

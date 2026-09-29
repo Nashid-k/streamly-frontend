@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { Play, Pause } from "lucide-react";
 import { motion } from "framer-motion";
-import { SPRING_SNAPPY } from "../../constants/playerUi";
+import { SPRING } from "../../constants/motion";
 
 const clamp = (lo, value, hi) => (value < lo ? lo : value > hi ? hi : value);
 
@@ -25,7 +25,7 @@ const NetflixPlayPauseHUD = memo(function NetflixPlayPauseHUD({ kind, metrics })
       initial={{ opacity: 0, scale: 0.7 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.85 }}
-      transition={SPRING_SNAPPY}
+      transition={SPRING.SNAPPY}
       aria-hidden="true"
       data-kind={kind === "pause" ? "pause" : "play"}
       style={{
@@ -51,7 +51,7 @@ const NetflixPlayPauseHUD = memo(function NetflixPlayPauseHUD({ kind, metrics })
           initial={{ scale: 0.55, rotate: kind === "play" ? -25 : 0, opacity: 0 }}
           animate={{ scale: 1, rotate: 0, opacity: 1 }}
           exit={{ scale: 0.7, opacity: 0 }}
-          transition={SPRING_SNAPPY}
+          transition={SPRING.SNAPPY}
           style={{ display: "flex", lineHeight: 0 }}
         >
           <Icon

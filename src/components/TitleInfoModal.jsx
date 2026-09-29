@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
+import { SPRING } from "../constants/motion";
 import { Check, ChevronRight, GalleryHorizontal, LayoutGrid, List, Play, Plus, X } from "lucide-react";
 import slugify from "slugify";
 import { movieService } from "../api/movieService";
@@ -25,8 +26,6 @@ import { buildMetaFacts } from "../utils/metaFacts";
    containing block for position:fixed, stretching the backdrop across the
    document, and the initial focus() would scroll the page to reveal the close
    button. */
-
-const SPRING = { type: "spring", stiffness: 380, damping: 30 };
 
 const SIMILAR_MODES = ["carousel", "grid", "list"];
 
@@ -174,7 +173,7 @@ export default function TitleInfoModal({ movie, onClose, onSelectMovie }) {
         className="title-info-card"
         initial={{ opacity: 0, scale: 0.94, y: 24 }}
         animate={isClosing ? { opacity: 0, scale: 0.96, y: 16 } : { opacity: 1, scale: 1, y: 0 }}
-        transition={SPRING}
+        transition={SPRING.LIFT}
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Backdrop header ── */}

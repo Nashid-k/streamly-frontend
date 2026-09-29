@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef, lazy, Suspense } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { SPRING } from "../constants/motion";
 import {
   User,
   ChevronDown,
@@ -1381,7 +1382,7 @@ export default function SettingsPage() {
               initial={{ opacity: 0, y: 24, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 24, scale: 0.97 }}
-              transition={{ type: "spring", stiffness: 380, damping: 32 }}
+              transition={SPRING.LIFT}
               className="login-panel"
               role="dialog"
               aria-modal="true"

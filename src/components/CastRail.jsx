@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useRef, useState, memo } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { SPRING } from "../constants/motion";
 import slugify from "slugify";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import RailArrow from "./RailArrow";
@@ -18,7 +19,7 @@ const castItemVariants = {
     opacity: 1,
     scale: 1,
     y: 0,
-    transition: { type: "spring", stiffness: 350, damping: 28 },
+    transition: SPRING.LIFT,
   },
 };
 

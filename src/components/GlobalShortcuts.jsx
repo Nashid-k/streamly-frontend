@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { SPRING } from "../constants/motion";
 import { Keyboard, X, Search, ArrowLeft, Play } from "lucide-react";
 
 export default function GlobalShortcuts() {
@@ -117,7 +118,7 @@ export default function GlobalShortcuts() {
             initial={{ scale: 0.95, opacity: 0, y: 10 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 10 }}
-            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+            transition={SPRING.SHEET}
             onClick={(e) => e.stopPropagation()}
             style={{
               width: "90%",

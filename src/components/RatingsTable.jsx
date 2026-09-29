@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
+import { SPRING } from "../constants/motion";
 import { X, Star, RefreshCw } from "lucide-react";
 import { movieService } from "../api/movieService";
 import { getScoreColor } from "../utils/ratings";
@@ -105,7 +106,7 @@ const RatingsTable = ({ movie, seasons = [], onClose }) => {
         initial={{ opacity: 0, scale: 0.95, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 8 }}
-        transition={{ type: "spring", stiffness: 320, damping: 28 }}
+        transition={SPRING.SHEET}
         className="w-full max-w-3xl overflow-hidden rounded-2xl border border-white/10 bg-[#0c0c0e]/95 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >

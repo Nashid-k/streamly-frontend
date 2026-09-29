@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { Volume1, Volume2, VolumeX } from "lucide-react";
 import { motion } from "framer-motion";
-import { SPRING_SNAPPY } from "../../constants/playerUi";
+import { SPRING } from "../../constants/motion";
 
 const NetflixVolumeHUD = memo(function NetflixVolumeHUD({ effVolume, isMuted, metrics, volume }) {
   const isZero = isMuted || volume === 0;
@@ -11,7 +11,7 @@ const NetflixVolumeHUD = memo(function NetflixVolumeHUD({ effVolume, isMuted, me
       initial={{ opacity: 0, scale: 0.92 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.94 }}
-      transition={SPRING_SNAPPY}
+      transition={SPRING.SNAPPY}
       style={{
         position: "absolute", inset: 0,
         display: "flex", flexDirection: "column",

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { SPRING } from "../constants/motion";
 import { AlertTriangle } from "lucide-react";
 
 /**
@@ -110,7 +111,7 @@ export function useConfirmDialog() {
               initial={{ opacity: 0, scale: 0.88, y: 24 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 16 }}
-              transition={{ type: "spring", stiffness: 420, damping: 30 }}
+              transition={SPRING.SHEET}
               style={{
                 position: "fixed",
                 top: "50%",

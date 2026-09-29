@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-
-const SPRING = { type: "spring", stiffness: 500, damping: 34, mass: 0.9 };
+import { SPRING } from "../constants/motion";
 
 export default function Popover({
   isOpen,
@@ -45,7 +44,7 @@ export default function Popover({
           initial={{ opacity: 0, y: 15, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 10, scale: 0.95 }}
-          transition={SPRING}
+          transition={SPRING.POPOVER}
           style={{
             right: align === "right" ? 0 : undefined,
             left: align === "left" ? 0 : undefined,

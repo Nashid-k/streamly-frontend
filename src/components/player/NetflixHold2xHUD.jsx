@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { ChevronsRight } from "lucide-react";
 import { motion } from "framer-motion";
-import { SPRING_SNAPPY } from "../../constants/playerUi";
+import { SPRING } from "../../constants/motion";
 
 /* Netflix-mobile hold-to-2x pill: a small badge pinned to the right edge of the
    frame while the hold is active. Decorative only (the video element itself
@@ -15,7 +15,7 @@ const NetflixHold2xHUD = memo(function NetflixHold2xHUD({ metrics }) {
       initial={{ opacity: 0, x: 18 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 12 }}
-      transition={SPRING_SNAPPY}
+      transition={SPRING.SNAPPY}
       aria-hidden="true"
       style={{
         position: "absolute",

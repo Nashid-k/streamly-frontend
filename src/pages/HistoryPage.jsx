@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Clock, X, Search, Check, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { SPRING } from "../constants/motion";
 import { useAppAuth } from "../context/auth";
 import { useToast } from "../components/Toast.jsx";
 import { useConfirmDialog } from "../components/ConfirmDialog.jsx";
@@ -308,11 +309,7 @@ export default function HistoryPage() {
                                 opacity: 1,
                                 scale: 1,
                                 y: 0,
-                                transition: {
-                                  type: "spring",
-                                  stiffness: 350,
-                                  damping: 25,
-                                },
+                                transition: SPRING.LIFT,
                               },
                             }}
                             initial="hidden"

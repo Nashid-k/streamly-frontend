@@ -1,4 +1,5 @@
 import { Reorder, useDragControls } from "framer-motion";
+import { SPRING } from "../../constants/motion";
 import { GripVertical } from "lucide-react";
 
 // Drag-and-drop server priority list. Pointer dragging starts from the grip
@@ -23,7 +24,7 @@ function ServerOrderList({ list, onReorder, onMoveKeyboard }) {
           dragListener={false}
           dragControls={dragControls}
           whileDrag={{ scale: 1.02 }}
-          transition={{ type: "spring", stiffness: 400, damping: 32 }}
+          transition={SPRING.SHEET}
           className="order-item"
           role="listitem"
           aria-posinset={idx + 1}

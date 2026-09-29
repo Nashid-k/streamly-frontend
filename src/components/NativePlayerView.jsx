@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
+import { SPRING, PILL_IN, CHECK_POP } from "../constants/motion";
 import useRailArrows from "../hooks/useRailArrows";
 import RailArrow from "./RailArrow";
 import {
@@ -221,9 +222,9 @@ function DialogRow({ selected, onClick, title, sub, disabled, icon, hasChevron }
           // The check itself pops, so a selection change is felt, not just seen.
           <motion.span
             key={`check-${title}`}
-            initial={{ scale: 0.4, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 520, damping: 24 }}
+            initial={CHECK_POP.initial}
+            animate={CHECK_POP.animate}
+            transition={CHECK_POP.transition}
             style={{ display: "flex" }}
           >
             <Check size={16} color={NETFLIX_RED} />
@@ -322,7 +323,7 @@ function EpisodesRail({ episodes, episode, onSelectEpisode, setPanel, setBufferi
       initial={{ y: "100%", opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       exit={{ y: "100%", opacity: 0 }}
-      transition={{ type: "spring", damping: 25, stiffness: 200 }}
+      transition={SPRING.SHEET}
       onClick={(e) => e.stopPropagation()}
       style={{
         position: "absolute",
@@ -3185,7 +3186,7 @@ export default function NativePlayerView({
             opacity: controlsVisible ? 1 : 0,
             y: controlsVisible ? 0 : -20
           }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          transition={SPRING.SHEET}
           style={{
             position: "absolute",
             top: 0,
@@ -3229,10 +3230,7 @@ export default function NativePlayerView({
               title="Stop the intro, come right back in"
               // Enters from the right edge it lives on, so the eye is pulled
               // away from the picture toward the action.
-              initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 30 }}
-              transition={{ type: "spring", stiffness: 380, damping: 30 }}
+              {...PILL_IN}
               whileTap={{ scale: 0.97 }}
               style={{
                 position: "absolute",
@@ -3268,10 +3266,7 @@ export default function NativePlayerView({
               onClick={doSkipOutro}
               aria-label="Skip the ending credits"
               title="Jump to the end"
-              initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 30 }}
-              transition={{ type: "spring", stiffness: 380, damping: 30 }}
+              {...PILL_IN}
               whileTap={{ scale: 0.97 }}
               style={{
                 position: "absolute",
@@ -3331,7 +3326,7 @@ export default function NativePlayerView({
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.85, opacity: 0 }}
-                transition={{ type: "spring", stiffness: 320, damping: 26 }}
+                transition={SPRING.SHEET}
                 style={{ display: "flex", lineHeight: 0 }}
               >
                 <Loader2 size={56} className="animate-spin" color={NETFLIX_RED} />
@@ -3352,7 +3347,7 @@ export default function NativePlayerView({
           <motion.div
             initial={false}
             animate={{ opacity: controlsVisible ? 1 : 0, scale: controlsVisible ? 1 : 0.9 }}
-            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            transition={SPRING.SHEET}
             style={{
               position: "absolute",
               inset: 0,
@@ -3466,7 +3461,7 @@ export default function NativePlayerView({
               initial={{ opacity: 0, y: 14, scale: 0.94 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.96 }}
-              transition={{ type: "spring", stiffness: 380, damping: 28 }}
+              transition={SPRING.LIFT}
               onClick={(e) => {
                 e.stopPropagation();
                 setAutoMuted(false);
@@ -3513,7 +3508,7 @@ export default function NativePlayerView({
             animate={{ opacity: 1, scale: [0.7, 1.08, 1] }}
             transition={{
               opacity: { duration: 0.2 },
-              scale: { type: "spring", stiffness: 260, damping: 18 },
+              scale: SPRING.PRESS,
             }}
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.95 }}
@@ -3544,7 +3539,7 @@ export default function NativePlayerView({
             opacity: controlsVisible ? 1 : 0,
             y: controlsVisible ? 0 : 20
           }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          transition={SPRING.SHEET}
           style={{
             position: "absolute",
             left: 0,
@@ -3960,7 +3955,7 @@ export default function NativePlayerView({
               initial={{ opacity: 0, x: 28, scale: 0.97 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: 20, scale: 0.98 }}
-              transition={{ type: "spring", stiffness: 320, damping: 30 }}
+              transition={SPRING.SHEET}
               onClick={(e) => e.stopPropagation()}
               style={{
                 position: "absolute",
@@ -4040,7 +4035,7 @@ export default function NativePlayerView({
               initial={{ opacity: 0, x: 28, scale: 0.97 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: 20, scale: 0.98 }}
-              transition={{ type: "spring", stiffness: 320, damping: 30 }}
+              transition={SPRING.SHEET}
               onClick={(e) => e.stopPropagation()}
               style={{
                 position: "absolute",
@@ -4129,7 +4124,7 @@ export default function NativePlayerView({
               initial={IS_TOUCH ? { y: "100%" } : { x: "100%" }}
               animate={IS_TOUCH ? { y: 0 } : { x: 0 }}
               exit={IS_TOUCH ? { y: "100%" } : { x: "100%" }}
-              transition={{ type: "spring", stiffness: 380, damping: 34 }}
+              transition={SPRING.SHEET}
               ref={panelRef}
               role="dialog"
               aria-label={
@@ -4591,7 +4586,7 @@ export default function NativePlayerView({
           key="np-fatal"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ type: "spring", stiffness: 320, damping: 30 }}
+          transition={SPRING.SHEET}
           style={{
             position: "absolute",
             bottom: 80,
