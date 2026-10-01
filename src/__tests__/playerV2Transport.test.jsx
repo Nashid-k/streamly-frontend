@@ -88,8 +88,10 @@ describe("the Tier A control spine", () => {
     // openers. The set is shared because it is a property of the CONTROLS, not of
     // the tier they appear in — `episodes` is a sheet opener whether or not it is
     // currently rendered.
-    // 3.12 appends `volume`. The order is the list's history: Tier A's two, then
-    // 3.9's four, then the volume sheet entry.
+// 3.12 appends `volume`. The order is the list's history: Tier A's two, then
+    // 3.9's four, then the volume sheet entry. R4.1 appends `audio` last rather than
+    // beside `captions`, so the history stays readable and this exact-match
+    // assertion keeps catching a control that was reordered by accident.
     expect(SHEET_OPENERS).toEqual([
       "captions",
       "settings",
@@ -98,6 +100,7 @@ describe("the Tier A control spine", () => {
       "users",
       "server",
       "volume",
+      "audio",
     ]);
     TIER_A_CONTROLS.forEach((id) => {
       // `volume` is the 3.12 exception: a mute toggle at desktop, the sheet entry

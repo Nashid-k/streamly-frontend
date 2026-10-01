@@ -50,6 +50,15 @@ export const SHEET_OPENERS = Object.freeze([
    * reads this through `isSheetOpener` so the two modes cannot disagree about
    * whether the control is an opener. */
   "volume",
+  /* R4.1 appends `audio`. APPENDED, not inserted next to `captions` where it would
+   * sort alphabetically: the order of this list is the history of the control map,
+   * and both transport tests assert it exactly, so a control cannot be quietly
+   * reordered by a well-meaning edit. Registered as an opener so the control is
+   * always honest about what it does — it opens a panel whether or not THIS stream
+   * has a choice to make, and the panel is what explains the difference. Hiding the
+   * control when only one track exists would make the player's capabilities flicker
+   * with every title. */
+  "audio",
 ]);
 
 /**

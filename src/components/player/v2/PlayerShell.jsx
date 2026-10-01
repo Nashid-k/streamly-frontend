@@ -13,6 +13,7 @@ import usePlayerPrefs from "./hooks/usePlayerPrefs";
 import usePlayerSource from "./hooks/usePlayerSource";
 import useSkipBoundaries from "./hooks/useSkipBoundaries";
 import usePlayerSubtitles from "./hooks/usePlayerSubtitles";
+import useAudioTracks from "./hooks/useAudioTracks";
 import useChromeHeight from "./hooks/useChromeHeight";
 import SubtitleOverlay from "./SubtitleOverlay";
 import useTier from "./hooks/useTier";
@@ -143,6 +144,12 @@ const PlayerShell = forwardRef(function PlayerShell(
   );
 
   const videoRef = useRef(null);
+  /* The live hls.js engine (task.md R4.1), owned by `useHlsSource` and read by
+   * `useAudioTracks`. A ref, not state: the engine is replaced on every source
+   * change, and mirroring it into state would re-render the shell — tearing down
+   * the settings sheet a viewer is in the middle of selecting from. */
+  const engineRef = useRef(null);
+  const { audio, selectAudio } = useAudioTracks(engineRef);
   /* The element ALSO as state (task.md 3.9, fixing 3.7).
    *
    * A ref alone cannot be an effect dependency, and the effects that need the
@@ -389,8 +396,9 @@ data-sheet={sheetPanel ?? undefined}
         <PlayerVideo
           key={url}
           src={url}
-          state={state}
+state={state}
           onAction={handleVideoAction}
+          engineRef={engineRef}
           ref={attachVideo}
           autoPlay
           /* Aspect is the one preference that IS declarative (task.md 3.9): the
@@ -531,6 +539,11 @@ data-sheet={sheetPanel ?? undefined}
         panelId={sheetPanel}
         onClose={closeSheet}
         panels={{
+          /* R4.1. The audio model and its selector are passed as a pair because the
+           * panel cannot derive either: the track list lives on the hls.js engine
+           * (see `useAudioTracks`) and selecting one is a write to that same engine. */
+          audio,
+          selectAudio,
           subtitles,
           prefs,
           controls,

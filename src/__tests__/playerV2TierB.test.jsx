@@ -298,8 +298,8 @@ describe("Tier B controls report their own state", () => {
   });
 
   it("keeps SHEET_OPENERS and the aria it produces in step", () => {
-    // 3.12 appends the volume sheet entry; see the note at `SHEET_OPENERS` in
-    // `tiers.js` for why the order is append-only.
+// 3.12 appends the volume sheet entry; see the note at `SHEET_OPENERS` in
+    // `tiers.js` for why the order is append-only. R4.1 appends `audio` last.
     expect(SHEET_OPENERS).toEqual([
       "captions",
       "settings",
@@ -308,6 +308,7 @@ describe("Tier B controls report their own state", () => {
       "users",
       "server",
       "volume",
+      "audio",
     ]);
     SHEET_OPENERS.forEach((id) => expect(isSheetOpener(id)).toBe(true));
     expect(isSheetOpener("play")).toBe(false);

@@ -27,6 +27,10 @@
  */
 export const SHEET_PANELS = Object.freeze([
   { id: "captions", title: "Subtitles" },
+  /* R4.1. Registered even though most sources carry one soundtrack, because the
+   * single-track case still needs somewhere honest to say so — an id with no panel
+   * would log the unknown-panel warning and render nothing at all. */
+  { id: "audio", title: "Audio" },
   { id: "settings", title: "Aspect ratio" },
   { id: "speed", title: "Playback speed" },
   /* 3.12's third volume path. In zones mode the volume control is a sheet entry

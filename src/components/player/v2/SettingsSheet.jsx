@@ -5,6 +5,7 @@ import { isTrapTab, nextFocusIndex, tabbables } from "./focusTrap";
 import { isRadioKey, nextRadioIndex, radioTabIndex, radioTabStopIndex } from "./radioGroup";
 import { sortTracks, trackBadge, trackBadgeLabel, trackKey } from "./subtitleTracks";
 import { formatRate } from "./rate";
+import { audioOptions } from "./audioTracks";
 import { logWarn } from "../../../utils/debugLogger";
 
 const SHEET_SCOPE = "player.v2.sheet";
@@ -221,6 +222,8 @@ function SheetPanel({ id, panels }) {
   switch (id) {
     case "captions":
       return <CaptionsPanel {...panels} />;
+    case "audio":
+      return <AudioPanel {...panels} />;
     case "settings":
       return <AspectPanel {...panels} />;
     case "speed":
@@ -714,6 +717,57 @@ function UsersPanel({ party = null, identity = null }) {
         );
       })}
     </ul>
+  );
+}
+
+/**
+ * Audio / dub (task.md R4.1).
+ *
+ * ── Why the three cases are visually distinct ──────────────────────────────────
+ * `describeAudio` collapses "no audio groups", "one track" and "several tracks"
+ * into a model, and this renders each differently on purpose. All three used to be
+ * one empty sheet, which is indistinguishable from a missing feature:
+ *
+ *   several  → a radiogroup, because there is a real choice to make.
+ *   one      → a read-only label, NOT a radiogroup of one. A single-option radio
+ *              group announces "1 of 1" and invites arrow keys that have nowhere to
+ *              go; it claims a control that cannot do anything.
+ *   none     → a read-only note. In native-HLS mode (Safari) there is no hls.js
+ *              engine at all, so "no tracks" means "nothing to ask", not "broken".
+ *
+ * The static rows use `pv2-sheet__row--static` on a `<div>`, the same treatment the
+ * legacy player got when its fake "Original" audio row was found to be a dead button.
+ */
+function AudioPanel({ audio = null, selectAudio = () => {} }) {
+  const model = audioOptions(audio);
+
+  if (!model) {
+    /* Both non-choice cases land here. `audio.note` is null only if the caller sent
+     * nothing at all, which is a different message than "this source has no
+     * alternates" — so fall back rather than rendering an empty box. */
+    const note = audio?.note || "Audio information is not available for this source.";
+    return (
+      <p className="pv2-sheet__note" data-readonly="true">
+        {note}
+      </p>
+    );
+  }
+
+  return (
+    <SheetRadioGroup
+      label={model.label}
+      options={model.options.map((option) => ({
+        ...option,
+        /* Per-option `onSelect`, matching AspectPanel/SpeedPanel/VolumePanel. The
+         * guard is not defensive noise: `options` is deduplicated while `index` is
+         * engine state, so a stale position must not become `undefined` written
+         * onto the live engine. */
+        onSelect: () => {
+          if (Number.isInteger(option.index)) selectAudio(option.index);
+        },
+      }))}
+      onSelect={(option) => option.onSelect?.()}
+    />
   );
 }
 

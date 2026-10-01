@@ -75,14 +75,43 @@ const HLS_CONFIG = {
  * @param {HTMLVideoElement|null} options.node the element, or null before attach
  * @param {string} options.url
  * @param {(action: object) => void} [options.onAction]
+ * @param {{current: object|null}} [options.engineRef] out-param for the live hls.js
+ *   instance, so callers can read `audioTracks` / `levels` and write
+ *   `audioTrack` / `currentLevel` (task.md R4.1/R4.2).
+ *
+ * ── Why the engine has to be handed OUT, not kept private (R4.1) ─────────────
+ * Audio-track and quality selection are the only two player features that cannot
+ * be expressed as a property of the `<video>` element: both are hls.js state. The
+ * engine is created here and used nowhere else, so while it stayed private the
+ * settings sheet could not ask "what audio does this stream carry?" — and the
+ * answer was not a UI problem, it was unreachable data. A ref rather than a return
+ * value because the instance changes on every source change without being a render
+ * input: re-rendering the whole shell on an engine swap would tear down the sheet
+ * a viewer is selecting inside.
+ *
+ * Written to `.current` as a side effect of the SAME effect that creates it, so the
+ * two can never disagree about whether an engine exists, and cleared on teardown so
+ * a stale engine is never read after the player closes.
  */
-export default function useHlsSource({ node, url, onAction }) {
+export default function useHlsSource({ node, url, onAction, engineRef }) {
   const hlsRef = useRef(null);
   const onActionRef = useRef(onAction);
 
   useEffect(() => {
     onActionRef.current = onAction;
   }, [onAction]);
+
+  /* Mirror the internal ref into whatever ref the caller handed us. Kept separate
+   * from the creation effect above so the caller's ref object may change identity
+   * without that tearing the engine down and rebuilding it — which would restart
+   * playback from zero on every parent render. */
+  useEffect(() => {
+    if (!engineRef) return;
+    engineRef.current = hlsRef.current;
+    return () => {
+      engineRef.current = null;
+    };
+  });
 
   useEffect(() => {
     if (!node || !url) return undefined;
@@ -147,5 +176,8 @@ export default function useHlsSource({ node, url, onAction }) {
       hls.off(Hls.Events.ERROR, onError);
       hls.destroy();
     };
+    /* `engineRef` is deliberately NOT a dependency. The engine's lifetime is
+     * bound to the node and the url; re-creating it because the caller's ref
+     * object changed identity would restart playback from zero mid-view. */
   }, [node, url]);
 }

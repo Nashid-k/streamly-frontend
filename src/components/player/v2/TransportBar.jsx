@@ -441,13 +441,25 @@ export default function TransportBar({
               </IconButton>
             );
 
-          case "captions":
+case "captions":
+          /* R4.1. Shares the captions/settings button shape, but is a separate case
+           * so its label and icon stay independent of captions settings — folding it
+           * in would relabel the subtitles button "Audio" the moment an audio control
+           * appeared. `lucide` has no dubbing glyph, so it borrows the same icon and
+           * is separated by the accessible name rather than by a picture. */
+          case "audio":
           case "settings":
             return (
               <IconButton
                 key={controlId}
                 present={present}
-                label={controlId === "captions" ? "Subtitles" : "Settings"}
+                label={
+                  controlId === "captions"
+                    ? "Subtitles"
+                    : controlId === "audio"
+                      ? "Audio"
+                      : "Settings"
+                }
                 haspopup={isSheetOpener(controlId)}
                 expanded={isPanelOpen(controlId)}
                 controls={panelDomId(controlId)}
