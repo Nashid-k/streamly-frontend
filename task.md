@@ -5403,8 +5403,9 @@ jsdom. On a covered episode (Breaking Bad S1E1) verify:
 - [ ] 8.2 This section is the ordered list of record — keep it current.
 - [x] 8.3 `task.md`'s 3,445 lines of shipped history are PRESERVED. Every
       unchecked item was rehomed, not silently dropped: the browser checklist
-      became 6.8, the loader state machine became Parts 2.6/4, `mobile/` gaps
-      stay deferred with the no-Dart-SDK caveat, and the unresolvable items
+      became 6.8, the loader state machine became Parts 2.6/4, the `mobile/` gaps
+      were closed by deleting the Flutter app outright (`8d2e850` — no Dart gate
+      can exist in a repo with no Dart), and the unresolvable items
       (AutoFlip, videasy base-audio, VidSrc 403) are closed with their evidence
       in the superseded OPEN section above.
 - [ ] 8.4 Open question for the user: should the four folded preferences
@@ -5412,3 +5413,152 @@ jsdom. On a covered episode (Breaking Bad S1E1) verify:
       `SettingsPage`, or does this stay strictly player-side? Folding them into
       `PreferencesContext` fixes storage but leaves them invisible to the viewer
       unless controls are added.
+
+---
+
+# PLAYER V2 — ZERO-LEGACY-RETIREMENT (authoritative order, 2026-10-01)
+
+**User order:** "no remnants from the old player in any corner" — with the
+constraint added in the same breath: simplify, don't make it complex.
+
+**The constraint that shapes this whole section.** A capability audit against
+`NativePlayerView.jsx` found the new player is **not** at parity, so deleting the
+legacy player today would delete *features*, not just old code:
+
+| Capability | v2 | legacy |
+|---|---|---|
+| Audio / dub track selection | **absent** | present |
+| Quality / bitrate selection | **absent** (3.30 not started) | present |
+| Brightness HUD | **absent** | present |
+| Hold-2x | **absent** | present |
+| Watch-party host authority | partial | present |
+| Subtitle variants, aspect, speed, volume, episodes, servers | present | present |
+
+So the order is fixed and non-negotiable: **port the missing capabilities into
+v2 first, delete the legacy player last.** Skipping to the deletion is the one
+move that turns "clean up the old player" into "ship a regression".
+
+## R1 — Committed so the work stops being one `git clean` from death
+- [x] R1.1 `mobile/` removal + desktop-only docs committed (`8d2e850`).
+- [x] R1.2 **Player V2 committed** (`c61b98f`, 102 files). Before this, all 45
+      `player/v2/` files plus ~40 of its tests were **untracked** — a single
+      `git clean` would have destroyed the finished player irrecoverably.
+
+## R2 — Verified-dead legacy code, removed (safe: zero render sites)
+- [x] R2.1 `ArcRing.jsx`, `LoadingArc.jsx`, `NetflixBrightnessHUD.jsx` deleted.
+      **Correction to an earlier claim in this session:** all eight
+      `Netflix*HUD` components were *not* dead. Only these three had zero render
+      sites repo-wide; the other five (Volume, Aspect, Seek, PlayPause, Hold2x)
+      have 7 live render sites inside `NativePlayerView.jsx`. "Unused by v2" is
+      not "unused" — deleting the five would break the legacy rollback path.
+      Guarded both ways by two new tests in `playerV2Structure.test.js`.
+- [x] R2.2 Orphaned `.void-*` family deleted from `src/styles/player.css`
+      (~58 lines). Zero JS/JSX referenced it — a second, dead copy of player
+      chrome sitting behind the live one. The two reduced-motion blocks that
+      merely listed those selectors went too; removing only the definitions
+      would have left four dead selectors behind.
+- [x] R2.3 `playerUi.js` — **investigated and left alone.** Every one of its 14
+      exports has a live consumer, including the three the inventory flagged as
+      deletable (`hudMetrics`, `AR_GLYPH`, the `SPRING` re-export). The inventory
+      was wrong; deleting them would have broken the legacy player and eight
+      unrelated components.
+- [x] R2.4 `playerHud.test.jsx`: the brightness-pill test removed with its
+      component (keeping it would keep a dead component alive for its own sake).
+
+## R3 — Legacy code that was actively lying (kept the file, fixed the defect)
+- [x] R3.1 **`FUN_FACTS` deleted.** The loading surface rotated nine invented
+      lines ("Reticulating splines...", "Grabbing the popcorn...") on a 2.5s
+      timer. Not facts, not progress — they described work the player was not
+      doing, on a fixed clock, whatever the loader was really doing. So a stalled
+      buffer was paired with text claiming it was "Finding the best quality...".
+      The player narrating fiction about its own state. Only the honest
+      `Loading <title>` remains.
+- [x] R3.2 **The fake "Original" audio row is no longer a fake control.** It
+      rendered as a normal `DialogRow` with a hardcoded `selected` and **no
+      `onClick`**: a focusable `<button>` that looked clickable, reported
+      `aria-pressed`, and did nothing. `DialogRow` gained `readOnly`, which
+      renders a plain `<div>` with the same geometry — no role, no tab stop, no
+      `cursor: pointer`.
+- [x] R3.3 **Duplicate `@keyframes upNextCountdown` resolved.** `player.css`
+      declared it `scaleX(1) → scaleX(0)` (drain) while the component injected
+      the same name as `scaleX(0) → scaleX(1)` (fill) into `<head>` at runtime.
+      The injected copy lands later in document order, so **it won** — the Up Next
+      bar filled *up* while its own countdown label counted *down*, for the full
+      15s. Fixed by deleting the injection, not by editing the stylesheet (the
+      drain direction is correct for a countdown). New
+      `playerKeyframeConflicts.test.js` scans for the whole bug class: duplicate
+      names inside one stylesheet, and any runtime injection shadowing a
+      stylesheet name.
+
+## R4 — Port the missing capabilities INTO v2 (the actual blocker)
+- [ ] R4.1 **Audio / dub panel** — highest priority, this is a viewer-facing
+      capability the new player cannot do at all. `NativePlayerView.jsx:3166`
+      (`pickAudio`, sets `hls.audioTrack`) and `:2346` (`hls.audioTracks`) are
+      the reference behaviour. Note the two *different* mechanisms it must cover:
+      in-manifest `#EXT-X-MEDIA AUDIO` groups (hls.js `audioTracks`) **and**
+      NHD sibling-URL dubs where each dub is a separate manifest, so switching
+      means swapping the source with position preservation. New panel +
+      `sheetPanels.js` entry + radio-group semantics + tests.
+- [ ] R4.2 **Quality / bitrate panel** — `hls.levels` + `hls.currentLevel`, with
+      `Auto` as a real option and `variantLabel` from `utils/downloadQuality`
+      for the fps/HDR/SDR tags. The two stray `levels` hits in `SettingsSheet.jsx`
+      are prose comments, not an implementation — treat as greenfield.
+- [ ] R4.3 **Hold-2x** — `rate.js` and `HOLD_SPEED` exist; the gesture that holds
+      playback at 2x does not. Must restore the previous rate on release, and on
+      pause/end/seek, or it strands the viewer at double speed.
+- [ ] R4.4 **Brightness HUD** — v2 has no equivalent. Only add if the legacy's
+      brightness surface is still a wanted capability; note `NetflixBrightnessHUD`
+      was itself dead in the legacy (imported, never rendered), so this may be a
+      dead requirement rather than a parity gap. **Decide before building.**
+- [ ] R4.5 **Watch-party host authority** — reconcile the partial v2 wiring
+      against the legacy host path before declaring parity.
+- [ ] R4.6 Re-run the capability audit (the table above) after R4.1–R4.5 and
+      require every row to read `present` on both sides before R6 is allowed to
+      start. Do not take this on trust.
+
+## R5 — Gates before any deletion
+- [ ] R5.1 `npm run lint` + `npx vitest run` + `npm run build` + `git diff
+      --check`, green, at the R4 tip.
+- [ ] R5.2 Every `playerV2*.test.js` covering an R4 capability exists and fails
+      against the pre-implementation code (mutation-probe the guards, don't just
+      assert they pass).
+
+## R6 — DELETE the legacy player, in ONE commit
+Nothing below may start until R4 and R5 are complete. Splitting this is what
+produces a permanent dual path.
+- [ ] R6.1 `git rm src/components/NativePlayerView.jsx` (5,186 lines).
+- [ ] R6.2 `git rm` the five remaining `player/Netflix*HUD.jsx` + `player/index.js`.
+- [ ] R6.3 Delete `src/styles/player.css` (900 lines, imported only by
+      `main.jsx:17`) and its `main.jsx` import.
+- [ ] R6.4 Delete the flag: `constants/playerFlag.js`, `hooks/usePlayerVariant.js`,
+      the `useLegacy ? NativePlayerView : PlayerShellV2` branch in
+      `TitleDetailsPage.jsx:111`, and `VITE_PLAYER_LEGACY` from `.env.example`.
+      **The flag and the file die together** — a flag without a legacy player is
+      dead config that reads like a live safety net.
+- [ ] R6.5 Delete or rewrite the 8 legacy test files that render
+      `NativePlayerView`. Audit each first: `skipMarkers` / `storedNumber` /
+      `motion` hold reusable logic and should be rehomed, not deleted; the rest
+      test the departing component.
+- [ ] R6.6 Grep for surviving references: `NativePlayerView`, `VITE_PLAYER_LEGACY`,
+      `streamly-player-legacy`, `np-` CSS prefixes, `playerUi`. Zero live hits.
+- [ ] R6.7 Update `prd.md`, `PLAN.md`, `architecture.md`, `vibecoder.md`,
+      `AGENTS.md` and `INVENTORY.md` in the same commit. `INVENTORY.md` is a
+      live KEEP/DELETE contract — leaving it describing a deleted player is the
+      exact stale-pointer failure it was written to prevent.
+
+## R7 — What still cannot be ticked here
+- [ ] R7.1 6.8's browser checklist stays open. It is the human gate, and no
+      amount of jsdom substitutes for it. **R6 must not be described as complete
+      until someone has run it in a browser** — which is the honest reason the
+      legacy player stays recoverable at `6c1d126` until then.
+- [ ] R7.2 Real-device volume sweep at 288px and large-display scrubber scaling.
+- [ ] R7.3 ODbL attribution for SkipDB-derived skip markers; provider
+      `#EXT-X-CUE-OUT` still unconfirmed on any real manifest.
+
+## Process note for this section
+`git checkout -- <file>` is **not** a safe way to undo a mutation probe. It
+discards uncommitted work in that file — including fixes made after the last
+commit. It cost the `.void-*` deletion and all three R3 fixes once already;
+they were re-applied by hand. Probe mutants against a copy in
+`%LOCALAPPDATA%\Temp\opencode`, or commit first and use `git checkout --` only
+on a file with nothing uncommitted in it.

@@ -193,36 +193,36 @@ function IconBtn({ label, onClick, children, active, disabled, expanded }) {
 }
 
 /* One selectable row in the Audio & Subtitles / Episodes panels. */
-function DialogRow({ selected, onClick, title, sub, disabled, icon, hasChevron }) {
+/* `readOnly` exists because of the "Original" audio row, which is the one and
+   only track when a stream carries no #EXT-X-MEDIA AUDIO groups. It was rendered
+   as a normal DialogRow with no `onClick`, which produced a focusable <button>
+   that looked clickable, reported aria-pressed, and did nothing on activation.
+   That is worse than not showing it: it advertises a control that is not one.
+   In readOnly mode the row renders as a plain <div> with the same geometry and
+   the checkmark, and carries no role, no tab stop, and no cursor: pointer. */
+function DialogRow({ selected, onClick, title, sub, disabled, icon, hasChevron, readOnly }) {
   // DialogRow is a module-level component, so it has no access to the player's
   // `M` tokens and must resolve the preference itself — the same value, read
   // from the same hook, so the checkmark still collapses to a cut.
   const M = useMotionTokens(useReducedMotion());
-  return (
-    <button
-      type="button"
-      className="np-dialog-row"
-      onClick={disabled ? undefined : onClick}
-      disabled={disabled}
-      aria-pressed={selected ? true : undefined}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        width: "100%",
-        textAlign: "left",
-        padding: "10px 0",
-        minHeight: 44,
-        borderRadius: 0,
-        border: "none",
-        background: "transparent",
-        color: selected ? "#fff" : "rgba(255,255,255,0.82)",
-        fontWeight: selected ? 700 : 400,
-        opacity: disabled ? 0.45 : 1,
-        cursor: disabled ? "not-allowed" : "pointer",
-        fontSize: 15,
-      }}
-    >
+  const rowStyle = {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    width: "100%",
+    textAlign: "left",
+    padding: "10px 0",
+    minHeight: 44,
+    borderRadius: 0,
+    border: "none",
+    background: "transparent",
+    color: selected ? "#fff" : "rgba(255,255,255,0.82)",
+    fontWeight: selected ? 700 : 400,
+    opacity: disabled ? 0.45 : 1,
+    fontSize: 15,
+  };
+  const body = (
+    <>
       <span style={{ width: 22, display: "flex", alignItems: "center", flexShrink: 0 }}>
         {icon ? (
           icon
@@ -252,6 +252,25 @@ function DialogRow({ selected, onClick, title, sub, disabled, icon, hasChevron }
           <ChevronRight size={18} />
         </span>
       )}
+    </>
+  );
+  if (readOnly) {
+    return (
+      <div className="np-dialog-row" style={rowStyle}>
+        {body}
+      </div>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className="np-dialog-row"
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      aria-pressed={selected ? true : undefined}
+      style={{ ...rowStyle, cursor: disabled ? "not-allowed" : "pointer" }}
+    >
+      {body}
     </button>
   );
 }
@@ -282,34 +301,21 @@ function qualityLabelFor(v) {
   return variantLabel(v);
 }
 
-const FUN_FACTS = [
-  "Reticulating splines...",
-  "Warming up the projector...",
-  "Dimming the lights...",
-  "Grabbing the popcorn...",
-  "Tuning the audio...",
-  "Finding the best quality...",
-  "Rolling film...",
-  "Silencing cellphones...",
-  "Preparing the stream...",
-];
+/* This used to rotate a 9-entry array of invented lines ("Reticulating
+   splines...", "Grabbing the popcorn...") on a 2.5s timer. Those are not facts
+   and not progress: they describe work the player is not doing, so a buffering
+   wait was paired with fake status text that rotated on a fixed clock regardless
+   of what the loader was actually doing. Worse than cosmetic - the surface told
+   the viewer it was "Finding the best quality..." while it was stalled.
 
+   Only the honest part stays: the real title being loaded. The accessible
+   announcement for the load lives on the role="status" region, which is the
+   thing a screen reader actually needs. */
 function LoadingMessage({ title }) {
-  const [index, setIndex] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setIndex((i) => (i + 1) % FUN_FACTS.length);
-    }, 2500);
-    return () => clearInterval(timer);
-  }, []);
-
+  if (!title) return null;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-      {title && <span style={{ fontSize: 20, color: "#fff" }}>Loading {title}</span>}
-      <span style={{ fontSize: 14, color: "rgba(255,255,255,0.7)", fontStyle: "italic", minHeight: "20px" }}>
-        {FUN_FACTS[index]}
-      </span>
+      <span style={{ fontSize: 20, color: "#fff" }}>Loading {title}</span>
     </div>
   );
 }
@@ -1987,17 +1993,17 @@ export default function NativePlayerView({
     [],
   );
 
-  /* One-off keyframes for the "Up Next" countdown bar (the player is fully
-     inline-styled, so the 0%â†’100% sweep is injected into the head). */
-  useEffect(() => {
-    const styleId = "streamly-upnext-keyframes";
-    if (document.getElementById(styleId)) return undefined;
-    const style = document.createElement("style");
-    style.id = styleId;
-    style.textContent = `@keyframes upNextCountdown { from { transform: scaleX(0); } to { transform: scaleX(1); } }`;
-    document.head.appendChild(style);
-    return undefined;
-  }, []);
+/* The "Up Next" countdown bar's keyframes used to be injected into <head> at
+     runtime as scaleX(0) → scaleX(1), while player.css already declared the
+     same @keyframes upNextCountdown as scaleX(1) → scaleX(0). Same name, two
+     definitions: the injected one lands later in document order, so it won, and
+     the bar FILLED UP while the countdown label counted DOWN — the two readouts
+     contradicted each other for the whole 15s.
+
+     The fix is deleting the injection, not editing the stylesheet: the
+     stylesheet's drain direction is the correct one for a countdown (a bar that
+     empties as time runs out), and the inline style only said
+     animation: "upNextCountdown linear both", so it never asked for the fill. */
 
   /* Episodes that have actually aired. Everything that can move the viewer to a
      different episode â€” the transport arrows, the keyboard paging, Up Next â€”
@@ -5020,10 +5026,11 @@ export default function NativePlayerView({
                           {FILM_LANG[originalLanguage] || (originalLanguage || "").toUpperCase() || "Unknown"}
                         </p>
                       ) : null}
-                      <DialogRow
+<DialogRow
                         key="original"
+                        readOnly
                         selected
-                        title={originalLanguage ? `Original â€” ${FILM_LANG[originalLanguage] || (originalLanguage || "").toUpperCase() || "Unknown"}` : "Original"}
+                        title={originalLanguage ? `Original — ${FILM_LANG[originalLanguage] || (originalLanguage || "").toUpperCase() || "Unknown"}` : "Original"}
                         sub="This source's soundtrack"
                       />
                     </>

@@ -71,6 +71,12 @@ describe("player/v2 — structural guards", () => {
   });
 
   it("does not import the retired Netflix-HUD chrome (task.md 1.3)", () => {
+    /* Three of these eight are DELETED, not merely retired: ArcRing,
+       LoadingArc and NetflixBrightnessHUD had zero render sites repo-wide
+       (reachable only through the player/index.js barrel), so they were
+       removed outright. The other five still render inside the legacy player
+       and die with it in Phase 6. Both groups are listed here because the rule
+       is the same: v2 imports none of them. */
     const retired = [
       "ArcRing",
       "LoadingArc",
@@ -91,6 +97,48 @@ describe("player/v2 — structural guards", () => {
       }
     }
     expect(offenders, offenders.join("\n")).toEqual([]);
+  });
+
+  it("has physically deleted the three dead HUD components, not just stopped importing them", () => {
+    /* "v2 does not import it" and "the file is gone" are different claims, and
+       only the second one is what keeps dead chrome from creeping back. These
+       three were verified unreferenced before deletion: no JSX render site in
+       NativePlayerView.jsx or anywhere else in src/. */
+    const deleted = ["ArcRing", "LoadingArc", "NetflixBrightnessHUD"];
+    const stillPresent = deleted.filter((name) => {
+      try {
+        return statSync(resolve(SRC, "components/player", `${name}.jsx`)).isFile();
+      } catch {
+        return false;
+      }
+    });
+    expect(
+      stillPresent,
+      `expected deleted: ${stillPresent.join(", ")}`,
+    ).toEqual([]);
+  });
+
+  it("keeps the five HUDs the legacy player still renders", () => {
+    /* The counterweight to the test above, so a future "tidy up" pass cannot
+       delete these on the reasoning that v2 never imports them. They have live
+       render sites inside NativePlayerView.jsx; the legacy player is still
+       reachable behind VITE_PLAYER_LEGACY, and removing its HUDs would break the
+       rollback path rather than clean it up. */
+    const required = [
+      "NetflixVolumeHUD",
+      "NetflixAspectHUD",
+      "NetflixSeekHUD",
+      "NetflixPlayPauseHUD",
+      "NetflixHold2xHUD",
+    ];
+    const missing = required.filter((name) => {
+      try {
+        return !statSync(resolve(SRC, "components/player", `${name}.jsx`)).isFile();
+      } catch {
+        return true;
+      }
+    });
+    expect(missing, `unexpectedly missing: ${missing.join(", ")}`).toEqual([]);
   });
 
   it("keeps v2 under the components/player/v2 path, never beside the legacy chrome", () => {

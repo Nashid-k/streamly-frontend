@@ -3,7 +3,6 @@ import { render, screen } from "@testing-library/react";
 import { hudMetrics, HUD_REFERENCE_EDGE } from "../constants/playerUi";
 import {
   NetflixVolumeHUD,
-  NetflixBrightnessHUD,
   NetflixAspectHUD,
   NetflixSeekHUD,
   NetflixHold2xHUD,
@@ -171,11 +170,10 @@ describe("HUD pills anchor to the measured frame", () => {
     expect(screen.getByText("40%")).toBeInTheDocument();
   });
 
-  it("brightness pill uses the container top", () => {
-    const { container } = render(<NetflixBrightnessHUD brightness={1.2} metrics={PHONE} />);
-    expect(container.firstElementChild.style.paddingTop).toBe(`${PHONE.top}px`);
-    expect(screen.getByText("120%")).toBeInTheDocument();
-  });
+  /* The brightness-pill test was removed with NetflixBrightnessHUD.jsx: the
+     legacy player imported it but never rendered it (zero JSX render sites), so
+     the component was reachable only through this test and the barrel. Keeping
+     the assertion would mean keeping a dead component alive for its own sake. */
 
   it("aspect pill uses the container top and scales its glyph", () => {
     const { container } = render(<NetflixAspectHUD aspectRatioIndex={3} metrics={TALL} />);

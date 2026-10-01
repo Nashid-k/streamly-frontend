@@ -1,61 +1,8 @@
-/* ═══ Void Player ════════════════════════════════════════ */
-.void-scrubber {
-  transition: width 0.2s ease, height 0.2s ease, box-shadow 0.2s ease, left 0.1s ease;
-}
-.void-scrubber:active {
-  cursor: grabbing;
-  transform: translate(-50%, -50%) scale(1.15) !important;
-}
-.void-volume {
-  -webkit-appearance: none;
-  appearance: none;
-  background: transparent;
-}
-.void-volume::-webkit-slider-runnable-track {
-  height: 3px;
-  background: rgba(255,255,255,0.15);
-  border-radius: 3px;
-}
-.void-volume::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: #E8A838;
-  margin-top: -4px;
-  box-shadow: 0 0 6px rgba(232,168,56,0.4);
-  transition: transform 0.15s, box-shadow 0.15s;
-}
-.void-volume:hover::-webkit-slider-thumb {
-  transform: scale(1.4);
-  box-shadow: 0 0 10px rgba(232,168,56,0.6), 0 0 0 2px rgba(232,168,56,0.3);
-}
-.void-volume::-moz-range-track {
-  height: 3px;
-  background: rgba(255,255,255,0.15);
-  border-radius: 3px;
-  border: none;
-}
-.void-volume::-moz-range-thumb {
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: #E8A838;
-  border: none;
-  box-shadow: 0 0 6px rgba(232,168,56,0.4);
-  transition: transform 0.15s, box-shadow 0.15s;
-}
-.void-volume:hover::-moz-range-thumb {
-  transform: scale(1.4);
-  box-shadow: 0 0 10px rgba(232,168,56,0.6), 0 0 0 2px rgba(232,168,56,0.3);
-}
-.void-hover { transition: background 0.15s ease, transform 0.1s ease, padding-left 0.15s ease; padding-left: 14px; }
-.void-hover:hover { background: rgba(255,255,255,0.08); padding-left: 18px; }
-.void-hover:active { transform: scale(0.98); }
-.void-volume-bar {
-  transition: width 0.15s ease;
-}
+/* The orphaned `.void-*` family (scrubber / volume / volume-bar / hover) was
+   removed here: zero JS/JSX referenced any of it, so it was a second, dead
+   copy of player chrome sitting behind the live one. The two reduced-motion
+   blocks that merely listed these selectors went with it — deleting only the
+   definitions would have left four dead selectors in those lists. */
 
 /* ── Interaction polish ────────────────────────────────────────────────── */
 .hero-rotation-control {
@@ -704,10 +651,6 @@
   .np-mirror-row,
   .np-quality-row,
   .hero-rotation-control,
-  .void-hover,
-  .void-scrubber,
-  .void-volume,
-  .void-volume-bar,
   .search-history__items button {
     transition: none !important;
     -webkit-transition: none !important;
@@ -729,9 +672,6 @@
   .np-volume-slider:hover,
   .np-upnext-card:hover,
   .np-skip-pill:hover,
-  .void-hover:hover,
-  .void-scrubber:hover,
-  .void-volume:hover,
   .search-history__items button:hover,
   .hero-rotation-control:hover {
     transform: none !important;
