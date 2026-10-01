@@ -2,20 +2,19 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SPRING } from "../constants/motion";
 import { ChevronUp } from "lucide-react";
+import { isPlayerOpen } from "../utils/playerOpen";
 
 /**
  * BackToTop button — appears after scrolling 600px down, but stays hidden
- * while the video player is open (matches GlobalShortcuts' player detection)
- * so it never overlaps the player UI.
+ * while the video player is open so it never overlaps the player UI.
+ *
+ * Player detection used to be a provider-IFRAME query, which is always false
+ * for the native HLS player — so this button stayed visible and clickable on
+ * top of playback, scrolling the page behind the player. It now reads the
+ * overlay's explicit attribute; see utils/playerOpen.js.
  */
-const PLAYER_IFRAME_SELECTOR =
-  'iframe[src*="cinesrc"], iframe[src*="vidlink"], iframe[src*="vidsrc"], iframe[src*="vidcore"], iframe[src*="peachify"], iframe[src*="vidup"], iframe[src*="smashystream"]';
 
 const SCROLL_THRESHOLD = 600;
-
-function isPlayerActive() {
-  return !!document.querySelector(PLAYER_IFRAME_SELECTOR);
-}
 
 export default function BackToTop() {
   const [visible, setVisible] = useState(false);
@@ -28,7 +27,7 @@ export default function BackToTop() {
     // (scrolled past threshold), so we never poll the DOM at the top.
     const startPlayerCheck = () => {
       if (window.scrollY > SCROLL_THRESHOLD) {
-        setVisible(!isPlayerActive());
+        setVisible(!isPlayerOpen());
         if (!interval) {
           interval = window.setInterval(() => {
             if (window.scrollY <= SCROLL_THRESHOLD) {
@@ -37,7 +36,7 @@ export default function BackToTop() {
               setVisible(false);
               return;
             }
-            setVisible(!isPlayerActive());
+            setVisible(!isPlayerOpen());
           }, 1500);
         }
       } else {

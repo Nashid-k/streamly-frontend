@@ -240,7 +240,7 @@
 }
 
 @media (orientation: landscape) and (hover: none) {
-  /* Hide external modal header in mobile landscape — CustomVideoPlayer's integrated safe-area top bar takes over */
+  /* Hide external modal header in mobile landscape — the integrated safe-area top bar takes over */
   .video-modal-header {
     display: none !important;
   }

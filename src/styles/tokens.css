@@ -25,6 +25,10 @@
      follow the active theme via rgba(var(--accent-primary-rgb), <alpha>). */
   --accent-primary-rgb: 149, 255, 80;
   --accent-secondary-rgb: 92, 226, 28;
+  /* Same, for the glass surfaces. Player v2 reads this to build its 72%
+     translucent plate — the opaque `var(--bg-surface)` underneath hides the
+     video it is supposed to be floating on, which defeats the point of glass. */
+  --bg-surface-rgb: 18, 18, 23;
   /* Text color that stays legible on top of --accent-gradient. Light
      accents (emerald, ocean, solar) need dark text; saturated ones use white. */
   --on-accent: #ffffff;
@@ -102,6 +106,48 @@
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
+
+  /* ── Player Scrims ──────────────────────────────────────── */
+  /* Alpha-only black gradients. These exist as tokens so PLAYER V2's stylesheet
+     can be STRICTLY token-only and still have a legible scrim — a scrim is not
+     optional when white text sits over arbitrary video frames, but "no colour
+     literals in player/v2/player.css" (task.md 7.17) is only enforceable if the
+     literals live somewhere shared and themed.
+     The alphas are the values the player audit already tuned: the user dislikes
+     heavy black gradients, so these are lighter than the Netflix originals
+     (top bar 0.55 over 44px, bottom chrome 0.85 -> 0.45). Do not raise them
+     without asking. */
+  --scrim-top: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.55) 0%,
+    rgba(0, 0, 0, 0.22) 62%,
+    transparent 100%
+  );
+  --scrim-bottom: linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.85) 0%,
+    rgba(0, 0, 0, 0.45) 55%,
+    transparent 100%
+  );
+  /* A flat wash for a control that must read over any frame (e.g. a subtitle
+     cue sitting over a bright scene) without a full-height gradient. */
+  --scrim-flat: rgba(0, 0, 0, 0.55);
+  /* The outline around caption text, as a `text-shadow` stack. Separate from
+     `--scrim-flat` because the two do different jobs and are tuned separately:
+     the wash is a PLATE behind the block, this is the per-GLYPH outline that
+     carries legibility where the plate does not reach — over a bright face, or
+     across the seam between two plate rows.
+     Six-way rather than a single soft shadow: a soft shadow is invisible at the
+     glyph edge, and an edge that is invisible is an outline that does not
+     outline. The values are the legacy's, unchanged. */
+  --text-outline-cue:
+    0 2px 6px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 0.9),
+    -1px -1px 0 rgba(0, 0, 0, 0.9), 1px -1px 0 rgba(0, 0, 0, 0.9),
+    -1px 1px 0 rgba(0, 0, 0, 0.9), 1px 1px 0 rgba(0, 0, 0, 0.9);
+  /* Height over which each scrim is painted; shared so the subtitle safe-area
+     offset and the gradient extent cannot drift apart. */
+  --scrim-top-h: 44px;
+  --scrim-bottom-h: 132px;
 
   /* ── Z-index Scale ─────────────────────────────────────── */
   --z-dropdown: 200;

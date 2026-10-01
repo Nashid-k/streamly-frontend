@@ -278,6 +278,28 @@ describe("episode rail chrome", () => {
     expect(screen.getByRole("button", { name: /skip the opening credits/i })).toBeInTheDocument();
   });
 
+  it("hides the Skip Intro pill behind an open panel (slow machine)", async () => {
+    // Same assertion as above, with the wait budget STATED instead of left at
+    // waitFor's 1000ms default. AnimatePresence unmounts the pill only after its
+    // exit animation, so this wait is inherently time-based; under the full
+    // suite's parallel load 1s was not always enough and this failed there while
+    // passing alone. A guard that only passes when scheduled favourably trains
+    // people to re-run until green instead of reading the failure.
+    mountTv();
+    const video = document.querySelector("video");
+    Object.defineProperty(video, "currentTime", { configurable: true, writable: true, value: 75 });
+    fireEvent.timeUpdate(video);
+    expect(screen.getByRole("button", { name: /skip the opening credits/i })).toBeInTheDocument();
+
+    openRail();
+    await waitFor(
+      () => {
+        expect(screen.queryByRole("button", { name: /skip the opening credits/i })).toBeNull();
+      },
+      { timeout: 8000 },
+    );
+  }, 15000);
+
   it("keeps room above the cards so the current episode's red ring is not clipped", () => {
     mountTv();
     openRail();

@@ -52,6 +52,19 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   seekTime: 10,
   autoSubtitles: true,
   defaultLanguage: "en",
+    // PLAYER V2 (task.md 3.9). Both were owned by the legacy player under
+    // SEPARATE `streamly-native-*` keys (architecture.md:68-94); these are the
+    // folded-into-PreferencesContext replacements, and `PreferencesContext`
+    // migrates each with a one-time read of its legacy key.
+    //
+    // `aspect` stores the STABLE id ("fit", "cinema"), not a catalogue index —
+    // an index is a position in someone else's array, so inserting a mode would
+    // re-point every viewer who had picked the one after it. See
+    // `player/v2/aspect.js` for the migration and the documented lossy edge.
+  aspect: "fit",
+    // Snapped onto `PLAYER_SPEEDS` on write, so it can only ever hold a rate the
+    // UI is able to select.
+  playbackRate: 1,
     // Downloads — when ON, files land in the browser's own download list (Ctrl+J)
     // instead of the File System Access picker. Built in memory first, so it suits
     // small/medium files.

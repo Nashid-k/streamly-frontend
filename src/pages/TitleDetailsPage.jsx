@@ -56,11 +56,18 @@ import { useWatchParty } from "../hooks/useWatchParty";
 import { formatRuntimeLabel, isUnreleased, voteSplitPct } from "../utils/titleDetails";
 import { buildEpisodeOrder, episodeNumberLabel, isEpAired, formatAirsDate } from "../utils/titleDetails";
 import { getPlatformName } from "../utils/platforms";
-import { logEmptyData, logError, reportQueryError } from "../utils/debugLogger";
+import { playerOpenAttrs } from "../utils/playerOpen";
+import usePlayerVariant from "../hooks/usePlayerVariant";
+import { logEmptyData, logError, logInfo, reportQueryError } from "../utils/debugLogger";
 const DownloadModal = lazy(() => import("../components/DownloadModal"));
-// NativePlayerView is the app's player: direct HLS playback through the
-// serverless + Cloudflare relay, with the Netflix-style chrome.
+// The player is selected ONE place, at task.md 0.4. Both branches stay
+// code-split and both receive the identical prop object, so the new player can
+// never be missing a feature the old one has — a prop added for one branch only
+// would disable a feature with no error anywhere.
 const NativePlayerView = lazy(() => import("../components/NativePlayerView"));
+// PLAYER V2 is the DEFAULT (task.md 0.3). The flag can only force the old player
+// back, so the safety net is live without anyone flipping anything.
+const PlayerShellV2 = lazy(() => import("../components/player/v2/PlayerShell"));
 import ErrorBoundary from "../components/ErrorBoundary";
 
 import { progressPct } from "../utils/resumeProgress";
@@ -93,7 +100,19 @@ export default function TitleDetails() {
     episodeViewStyle = "carousel",
     spoilerFreeMode = false,
     trailers = true,
+    reduceMotion = false,
   } = usePreferences();
+
+  // PLAYER V2 rollout (task.md 0.4). New player is the default; this flag only
+  // forces the legacy one back. `reason` is logged rather than rendered so a
+  // viewer reporting "it looks different" can be answered with which build and
+  // which override they were actually served.
+  const { useLegacy, reason: playerVariantReason } = usePlayerVariant();
+  const PlayerComponent = useLegacy ? NativePlayerView : PlayerShellV2;
+
+  useEffect(() => {
+    logInfo("PlayerFlag", `player variant: ${playerVariantReason}`);
+  }, [playerVariantReason]);
 
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [playingEpisode, setPlayingEpisode] = useState(1);
@@ -1476,6 +1495,11 @@ export default function TitleDetails() {
                     const playEpisode = () => {
                       if (!playable) return;
                       setIsPlaying(true);
+                      // Leave trailer mode or the render gate at :2164 keeps
+                      // mounting the YouTube iframe and the viewer gets the
+                      // trailer again instead of the episode. setPlayMode is
+                      // written here, at :997 (movie) and :1819 (trailer) only.
+                      setPlayMode("movie");
                       setPlayingEpisode(ep.episodeNumber);
                       updateProgress({ ...movie, source: resolvedPlatform, sourceName }, selectedSeason, ep.episodeNumber);
                     };
@@ -2021,6 +2045,7 @@ export default function TitleDetails() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.35, ease: "easeOut" }}
+            {...playerOpenAttrs}
             style={{
               position: "fixed",
               inset: 0,
@@ -2216,13 +2241,14 @@ export default function TitleDetails() {
                         justifyContent: "center",
                       }}
                     >
-                      <NativePlayerView
+                      <PlayerComponent
                         type={isTvContent ? "tv" : "movie"}
                         id={numericId}
                         season={selectedSeason}
                         episode={isTvContent ? playingEpisode : 1}
                         originalLanguage={movie?.originalLanguage}
                         title={movie?.title || movie?.name || "Title"}
+                        reduceMotion={reduceMotion}
                         subtitle={
                           isTvContent
                             ? `S${selectedSeason}:E${playingEpisode}` +

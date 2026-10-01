@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { SubtitleFetcher } from "../api/subtitleFetcher";
+import { trackBadge } from "../components/player/v2/subtitleTracks";
 
 const RELAY = "https://streamly-proxy.nashidk1999.workers.dev";
 const SEARCH = "https://rest.opensubtitles.org/search/imdbid-35538033";
@@ -54,6 +55,86 @@ describe("SubtitleFetcher.searchAvailableSubtitles", () => {
     expect(calls[0]).toBe(`${RELAY}?url=${encodeURIComponent(SEARCH)}`);
     // srt only, sorted by language name
     expect(langs.map((l) => l.language)).toEqual(["Arabic", "English"]);
+  });
+
+  /* 3.29. These are the tests that would have caught the original defect, and they
+   * belong HERE rather than in the panel's suite: the bug was in the fetcher's dedupe,
+   * so a panel test asserting "an SDH badge renders" passes while the real pipeline
+   * still never produces an SDH entry to render. */
+  it("keeps the SDH and forced variants of one language instead of deduping them away", async () => {
+    /* Every English result shares one `SubLanguageID`, so a map keyed on the language
+     * (which is what this did) keeps exactly ONE English track and silently discards
+     * the other two. The viewer was never offered a choice that existed upstream, and
+     * nothing on screen indicated data had been dropped. */
+    vi.stubEnv("VITE_STREAMLY_RELAY_URL", RELAY);
+    stubFetch(async () =>
+      jsonResponse([
+        { SubFormat: "srt", LanguageName: "English", SubLanguageID: "en", SubDownloadLink: "https://x/plain", SubHearingImpaired: "0", SubForced: "0" },
+        { SubFormat: "srt", LanguageName: "English", SubLanguageID: "en", SubDownloadLink: "https://x/sdh", SubHearingImpaired: "1", SubForced: "0" },
+        { SubFormat: "srt", LanguageName: "English", SubLanguageID: "en", SubDownloadLink: "https://x/forced", SubHearingImpaired: "0", SubForced: "1" },
+      ]),
+    );
+
+    const langs = await SubtitleFetcher.searchAvailableSubtitles("tt35538033", "Oppenheimer");
+
+    expect(langs).toHaveLength(3);
+    /* Plain first, SDH second, forced last — and the LINKS differ, which is the part
+     * that matters: two rows pointing at the same file is a broken picker, not a
+     * cosmetic ordering problem. */
+    expect(langs.map((l) => l.downloadLink)).toEqual([
+      "https://x/plain",
+      "https://x/sdh",
+      "https://x/forced",
+    ]);
+  });
+
+  it("still collapses two files of the SAME variant, keeping the first", async () => {
+    /* Upstream returns many candidates per track. Offering them all would fill the
+     * sheet with duplicate rows, and the first is the highest rated — which is the
+     * whole reason this dedupe existed before 3.29. */
+    vi.stubEnv("VITE_STREAMLY_RELAY_URL", RELAY);
+    stubFetch(async () =>
+      jsonResponse([
+        { SubFormat: "srt", LanguageName: "English", SubLanguageID: "en", SubDownloadLink: "https://x/best", SubHearingImpaired: "1", SubForced: "0" },
+        { SubFormat: "srt", LanguageName: "English", SubLanguageID: "en", SubDownloadLink: "https://x/worse", SubHearingImpaired: "1", SubForced: "0" },
+      ]),
+    );
+
+    const langs = await SubtitleFetcher.searchAvailableSubtitles("tt35538033", "Oppenheimer");
+
+    expect(langs).toHaveLength(1);
+    expect(langs[0].downloadLink).toBe("https://x/best");
+  });
+
+  it("carries the hearing-impaired and forced flags through as upstream sent them", async () => {
+    /* Strings, deliberately. The REST API serialises these as "0"/"1" and the reducer
+     * owns the comparison, so this layer must not coerce — `Boolean("0")` is true and
+     * would badge every track. */
+    vi.stubEnv("VITE_STREAMLY_RELAY_URL", RELAY);
+    stubFetch(async () =>
+      jsonResponse([
+        { SubFormat: "srt", LanguageName: "English", SubLanguageID: "en", SubDownloadLink: DOWNLOAD, SubHearingImpaired: "1", SubForced: "0" },
+      ]),
+    );
+
+    const [track] = await SubtitleFetcher.searchAvailableSubtitles("tt35538033", "Oppenheimer");
+
+    expect(track.hearingImpaired).toBe("1");
+    expect(track.forced).toBe("0");
+  });
+
+  it("treats absent flags as plain rather than as SDH", async () => {
+    /* Older API responses and hand-built fixtures omit the fields entirely. `undefined`
+     * must read as "no", or every response from a cached/legacy shape gets a badge. */
+    vi.stubEnv("VITE_STREAMLY_RELAY_URL", RELAY);
+    stubFetch(async () =>
+      jsonResponse([
+        { SubFormat: "srt", LanguageName: "English", SubLanguageID: "en", SubDownloadLink: DOWNLOAD },
+      ]),
+    );
+
+    const [track] = await SubtitleFetcher.searchAvailableSubtitles("tt35538033", "Oppenheimer");
+    expect(trackBadge(track)).toBeNull();
   });
 
   it("falls back to a direct fetch when the relay refuses", async () => {

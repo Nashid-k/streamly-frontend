@@ -1,5 +1,6 @@
 import { logError, logWarn } from "../utils/debugLogger";
 import { relayProxyConfig } from "./relayProxy.js";
+import { captionOptions, trackKey } from "../components/player/v2/subtitleTracks";
 
 /* OpenSubtitles is the one upstream the browser cannot serve on its own: the
    search API intermittently answers without CORS headers (the fetch dies as
@@ -71,21 +72,37 @@ export class SubtitleFetcher {
 
       const srtSubs = data.filter((s) => s.SubFormat === "srt");
 
-      const languageMap = new Map();
+      /* 3.29. Dedupe on the VARIANT, not the language.
+       *
+       * This keyed on `LanguageName` alone, so a title with both a plain English track
+       * and an English SDH track kept exactly one of them: every English result shares
+       * one `SubLanguageID`, so the second was dropped as a "duplicate" and the viewer
+       * was never offered a choice that existed. `SubHearingImpaired` and `SubForced`
+       * were read off the object and then never mapped, so the badge data existed one
+       * line above this and was discarded.
+       *
+       * First result per (language, variant) still wins, which keeps OpenSubtitles'
+       * own rating order inside a variant group. */
+      const seen = new Set();
+      const tracks = [];
       for (const sub of srtSubs) {
-        if (!languageMap.has(sub.LanguageName)) {
-          // Keep the first one we find for each language (which is usually the highest rated by OpenSubtitles sorting)
-          languageMap.set(sub.LanguageName, {
-            language: sub.LanguageName,
-            languageId: sub.SubLanguageID,
-            downloadLink: sub.SubDownloadLink,
-          });
-        }
+        const entry = {
+          language: sub.LanguageName,
+          languageId: sub.SubLanguageID,
+          downloadLink: sub.SubDownloadLink,
+          /* Strings, not booleans: the REST API serialises these as "0"/"1", and
+           * coercing here would turn every `"0"` into a truthy badge. `flagOf` in
+           * `subtitleTracks` owns that comparison. */
+          hearingImpaired: sub.SubHearingImpaired,
+          forced: sub.SubForced,
+        };
+        const key = trackKey(entry);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        tracks.push(entry);
       }
 
-      return Array.from(languageMap.values()).sort((a, b) =>
-        a.language.localeCompare(b.language),
-      );
+      return captionOptions(tracks);
     } catch (err) {
       logError("subtitles", `Subtitle search failed for ${imdbId || title}. Player continues without subtitles.`, err, { imdbId, title });
       return [];

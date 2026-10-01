@@ -2,9 +2,22 @@
    Single source of truth for the fixed Netflix-style player chrome
    (black + #E50914): playback-speed ladder, aspect-ratio catalog +
    glyphs, and shared spring tokens. Leaves under src/components/player/
-   and CustomVideoPlayer all import from here. */
+   and NativePlayerView all import from here.
+
+   Retired in PLAYER V2 Phase 6 (task.md 1.3): the spring tokens, AR_GLYPH and
+   hudMetrics. Only PLAYER_SPEEDS and ASPECT_RATIOS survive, and the accent is
+   var(--accent-primary) — #E50914 above is retired with the rest of this file. */
 
 export const PLAYER_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
+/* The thumb skip interval (task.md 3.11).
+ *
+ * Lived as a private `const SKIP_SECONDS = 10` inside `NativePlayerView.jsx`
+ * until now, which is fine right up until Phase 6 deletes that file: a constant
+ * the surviving player depends on cannot live in a file scheduled for removal.
+ * `NativePlayerView` keeps its own copy on purpose — it is deleted wholesale and
+ * there is no reason to churn it on the way out. */
+export const SKIP_SECONDS = 10;
 
 /* Netflix's press-and-hold trick: holding the right side of the screen (or the
    forward button) plays at 2x, release snaps back to the previous rate. */
@@ -14,6 +27,30 @@ export const HOLD_SPEED = 2;
    many auto-advanced episodes) without any input, pause and ask. */
 export const STILL_WATCHING_IDLE_MS = 2 * 60 * 60 * 1000;
 export const STILL_WATCHING_EPISODES = 3;
+
+/* Snap an arbitrary number onto the playback-speed ladder.
+ *
+ * ONE definition, because two modules kept answering this question differently:
+ * `rate.js` sent an off-ladder value to Normal, and the preferences sanitiser
+ * sent it to the nearest rung. Whichever ran last decided what the viewer got,
+ * which is not a rule — it is a race.
+ *
+ * The rule, matching the aspect-ratio precedent (`readLegacyAspectId` falls back
+ * for an out-of-range index rather than guessing): inside the ladder's span,
+ * nearest rung, so 1.37 becomes 1.25; outside it, the default. A value of 9.99
+ * tells us nothing about intent, and 2x is no more of an answer than 0.5x — but
+ * it is a value the settings sheet can actually show and change, which is the
+ * property that matters: whatever we store, the viewer can reach it and undo it.
+ */
+export const snapPlaybackRate = (value, fallback = 1) => {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  const lo = PLAYER_SPEEDS[0];
+  const hi = PLAYER_SPEEDS[PLAYER_SPEEDS.length - 1];
+  if (n < lo || n > hi) return fallback;
+  return PLAYER_SPEEDS.reduce((best, rate) =>
+    (Math.abs(rate - n) < Math.abs(best - n) ? rate : best), fallback);
+};
 
 export const ASPECT_RATIOS = [
   { id: "fit", name: "Fit (Original 16:9)", scale: 1 },

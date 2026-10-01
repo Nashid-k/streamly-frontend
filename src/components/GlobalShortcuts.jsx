@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SPRING } from "../constants/motion";
 import { Keyboard, X, Search, ArrowLeft, Play } from "lucide-react";
+import { isPlayerOpen } from "../utils/playerOpen";
 
 export default function GlobalShortcuts() {
   const [isOpen, setIsOpen] = useState(false);
@@ -11,8 +12,12 @@ export default function GlobalShortcuts() {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Skip if the video player is active (it handles its own shortcuts)
-      const playerActive = !!document.querySelector('iframe[src*="cinesrc"], iframe[src*="vidlink"], iframe[src*="vidsrc"], iframe[src*="vidcore"], iframe[src*="peachify"], iframe[src*="vidup"], iframe[src*="smashystream"]');
+      // Skip if the video player is active (it handles its own shortcuts).
+      // Was an iframe-provider query, which is always false for the NATIVE
+      // player (it renders a <video>, no iframes) — so Shift+? opened this
+      // modal behind the player's z-index 99999, and the modal's own Escape
+      // handler then preventDefault()d the player's. See utils/playerOpen.js.
+      const playerActive = isPlayerOpen();
       const target = e.target;
       const isTyping = target instanceof HTMLElement &&
         (target.matches("input, textarea, select") || target.isContentEditable);

@@ -28,7 +28,7 @@
   - **Fixes shipped for what IS ours:** (1) `isDirectBlocked` name-blocks `*.workers.dev` segment hosts - the fleet is browser-unreadable on EVERY reply (200s carry no ACAO; quota 429s are Cloudflare text), so the status-based parking could never learn it and every fragment paid a doomed direct probe first (the console's CORS spam). Verified our own relay worker is never routed through this path. (2) Fragment relay errors are annotated: an upstream 429/403/401 (direct passthrough at the worker, or unwrapped from downloadify's 502 `segment-fetch-failed` envelope) reads "upstream 429 (provider quota or gate)" so failover logs and the fatal banner name the real cause instead of a bare code. (3) The final "no playable stream" banner now says WHEN a provider hit its daily delivery quota, and the probe-failure route (the main path there) feeds that flag. (4) `handleResolveVidcore` absolutizes videasy source URLs server-side (relative entries would dead-end every relay call with "Bad ?url= target").
   - Gates: oxlint **0 errors** (43 warnings, baseline), vitest **83 files / 991 passed** (+3: workers.dev name-block incl. probe skip, upstream-429 annotation, 502-envelope unwrap), build OK. 
 
-- [x] **PLAN.md executed: P0.1–P0.4 + P1.1/P1.2/P1.4 built (user: "start building everything, based on the plan").** All seven implementable items landed with tests; P1.3 (mobile parity) stays deferred — no Dart toolchain on this machine, so no Dart gate can run and the work would be unverifiable.
+- [x] **PLAN.md executed: P0.1–P0.4 + P1.1/P1.2/P1.4 built (user: "start building everything, based on the plan").** All seven implementable items landed with tests; P1.3 (mobile parity) was deferred at the time for want of a Dart toolchain. **Superseded 2026-10-01: the Flutter app is deleted, so P1.3 is dropped rather than deferred — this repo is desktop-only.**
   - **P0.1 guest durability (`src/utils/deviceData.js` + Settings → Account rows):** Export downloads a `streamly-backup-YYYY-MM-DD.json` of every `aios_*`/`setting-*` key (raw-string values, byte-faithful); Import validates the envelope WHOLE before writing (no partial imports), skips non-member keys, fires the same `aios_sync_*` events the cloud-merge path uses so open surfaces refresh. `streamly_*` (the Google session) is excluded in BOTH directions — importing a session file would sign the importer into someone else's account. File System Access API save with Blob fallback; `countDeviceData()` powers the row subtitle. +5 tests (membership, round-trip, event fan-out, refusal shapes, download fallback).
   - **P0.2 sync-state backup (`scripts/snapshot-mongo.mjs` + `.github/workflows/mongo-snapshot.yml`):** weekly NDJSON export of the whole `streamly` DB (Sundays 03:07 UTC) uploaded as a PRIVATE artifact (90-day retention); `--restore <file>` replays idempotently (`replaceOne` upsert on `_id`); `--list` shows snapshots. `var/backups/` gitignored. Restore procedure documented in the workflow header.
   - **P0.3 usage ledger (`server/usage.js` + `api/usage.js`):** `countUsage(scope)` accumulates per warm instance and flushes a single `$inc` upsert into `usage.days.<utcDay>.<scope>` at most once/minute (snapshot-then-clear before the await, counts retained on failure, capped at 1e6/scope; throttle seeded at load so the FIRST request never pays the Mongo import). Wired into the three rate-limit call sites (`dl`/`party`/`tmdb` — counters, not logs; never a DB write in the request path). `GET /api/usage` (function #7→#8 of the Hobby 12, registered in vercel.json at maxDuration 10; the apiModules budget test still guards the cap) merges all instances and answers `{day, scopes:{dl,party,tmdb:{count,budget,pct}}}`, degrading to `{degraded:true}` when Mongo hiccups. +7 tests (counting, scope validation, flush $inc shape, failure retention, endpoint merge/degrade/405).
@@ -992,8 +992,6 @@
   `vibecoder.md`, `AGENTS.md`, `task.md` (this file).
 
 ## What's next (do these in order)
-
-- [ ] **Surface the videasy base audio in the native player** (follow-up to multi-audio research above): the videasy catalogue stores a hidden base stream `index-s{res}-v1.m3u8` (distinct full-movie audio) next to every `-a1` row the app serves, so dual-audio titles like RRR (`579974`) can offer a real second audio choice. `api/downloadify.js` only maps the API's `-a1` rows → resolution needs a second variant for the base track (derive `index-{q}.m3u8` from the row URL; verify it exists + `seg-1` differs before listing it), then the native player's Audio menu shows 2 entries. Premalu (`1149791`) stays 1-track (not in videasy; vidzen has no audio groups) — do NOT add a fake second row for it.
 
 - [x] 7. Ran `npm run lint` (0 errors), `npm run test` (201 passed), `npm run
   build` (✓ 3.71s) with Node 24 + npm 11. Also fixed two TDZ crashes the
@@ -3562,34 +3560,32 @@ push only on explicit user OK per repo policy.
   - **Not verified:** still no browser E2E, so the cue-tag count confirmed from a real manifest is still **0** (the parser has never been shown a manifest that actually carries `#EXT-X-CUE-OUT`), and the SkipDB layout has not been seen on a loaded title. `mobile/` gets none of it - no Dart SDK on this machine.
   - **Deliberately not bundled:** `mergeBoundaries` comment wording, the search/release-date backlog, VidSrc proxy 403, `/api/downloadify` 502, AutoFlip reset, and the legacy DownloadModal server labels remain as separate items.
 
-## OPEN - ordered, work top-down (recorded 2026-09-29)
-Every box below is unchecked because it was VERIFIED open against the tree, not
-assumed. Two other open lists live elsewhere in this file and are deliberately
-not repeated here: the videasy base-audio follow-up (search "Surface the videasy
-base audio") and the three remaining Explore/MyList items (search "EXPLORE MYLIST").
+## OPEN - superseded by PLAYER V2 below (recorded 2026-09-29, cleared 2026-09-30)
+The unchecked items that used to live here are gone. Their content was not
+discarded, it was rehomed:
 
-- [ ] **Player browser verification (do this first - it is the only way to prove
-      the claims above).** Nothing in vitest renders real video or a real manifest.
-      On a covered episode (Breaking Bad S1E1) check: cold-load art stage shows the
-      blurred backdrop + centred poster + title + white ring; warm mid-playback
-      stall keeps the picture (no blur); server / quality / dub switches show the
-      stage then clear it on both success and failure; transport row shows the
-      Audio button ONLY on Server 3/4 and Subtitles when a list exists, with NO
-      Audio/Subtitles rows left in the settings sheet; labels read "English",
-      "Tamil", "Hindi" - never "Tamil Dub" or bare "Original"; Space tap = play/pause,
-      hold past the delay = 2x, release drops to the previous rate. Record the
-      cue-tag result: parsers exist and are tested, but the count of real manifests
-      confirmed to carry #EXT-X-CUE-OUT is still **0**, and the SkipDB attribution
-      row has never been seen rendering on a dataset-backed title.
-- [ ] **P1 source-aware readahead / start rendition + a visible loader state machine
-      with byte counts.** The relay reports progress as an opaque spinner today;
-      a state machine (connecting / probing / first-byte / buffered) would tell the
-      viewer whether a wait is network or resolver, and seeding from a per-source
-      bandwidth read avoids the slow first rung.
-- [ ] **Failure investigation: VidSrc proxy 403 and /api/downloadify 502.** Both
-      still answer with no useful body, so the retry in server/net.js cannot tell a
-      dead upstream from a rejected client. Needs an upstream-honest status code
-      before any client-side handling is written.
+- **Player browser verification** (the Breaking Bad S1E1 checklist) is now the
+  Phase 6 **parity checklist** inside the PLAYER V2 section below. It is the gate
+  that retires the old player, so it must not be lost.
+- **P1 loader state machine with byte counts** is now Part 2.6 + Part 4 of the
+  PLAYER V2 plan (`usePlaybackState` owning one enum; the loader rendering a real
+  phase label instead of an opaque spinner).
+- **VidSrc proxy 403 / `/api/downloadify` 502** is an UPSTREAM failure, not a
+  player-UI defect, and needs an upstream-honest status code before any
+  client-side handling is written. Dropped from this file's queue; it belongs to
+  whoever owns the relay.
+- **AutoFlip reset** never existed. A search of every `.js/.jsx/.mjs/.json/.env/.md`
+  file found zero occurrences outside the line that described it, so there was no
+  identifier, component or preference to fix. Closed as unresolvable-from-here
+  rather than left as a permanently un-startable box.
+- **videasy base-audio** is BLOCKED with evidence, not un-started:
+  `https://vidrack.created.app/api/sources/videasy?id=579974&type=movie` answers
+  HTTP **200 `{"sources":[]}`** — there is no row to derive `index-{q}.m3u8` from.
+  Separately `api/downloadify.js:430-433` records that the `-v1` base track was
+  BUILT and then deliberately REMOVED because it played as muted video. Retrying
+  needs a source whose API actually lists the base track plus the muted-video
+  issue solved.
+
 - [x] **DownloadModal legacy labels - DONE.** Labels now derive from
       `sourceLabel(key)` in constants/sources.js, the ONE catalogue the player's
       Servers menu uses, so the same provider is no longer two different numbers
@@ -3598,13 +3594,6 @@ base audio") and the three remaining Explore/MyList items (search "EXPLORE MYLIS
       that reads it is the sort comparator at DownloadModal.jsx:304, so the
       display rename cannot change which source resolves.
       Test expectations updated: DownloadModal.test.jsx (11 pass).
-- [ ] **AutoFlip reset.** STILL OPEN, and unverifiable from this repo: `AutoFlip`
-      appears in task.md ONLY. A search of every .js/.jsx/.mjs/.json/.env/.md
-      file finds zero occurrences outside this line, so there is no such
-      identifier, component, or preference in the tree to fix. It needs a
-      pointer to the real feature (setting name, file, or bug report) before it
-      can be worked; inventing an implementation would be a guess. Not closed,
-      not faked.
 - [x] **Search backlog - DONE** (all six items from the earlier audit):
       dead backendSuggestions REMOVED (nothing in src ever set
       `rawResults.suggestions`; "Did you mean" has one honest source now, the
@@ -3625,10 +3614,13 @@ base audio") and the three remaining Explore/MyList items (search "EXPLORE MYLIS
       Side effect worth knowing: search results now always print their title on
       desktop, because a <mark> nobody can see is not a highlight.
       Tests: searchRanking +5, highlightMatch 8 (NEW), SearchPage 7 (NEW).
-- [ ] **mobile/ Flutter player gaps** - no Server menu, no Skip Credits, hardcoded
-      90s/15-min intro heuristic, and none of this session's audio-label /
-      transport-row work. No Dart SDK on this machine, so no Dart gate ran; this
-      cannot be closed here without a toolchain.
+- [x] ~~**mobile/ Flutter player gaps**~~ — CLOSED BY REMOVAL, 2026-10-01.
+      The Flutter app was deleted outright at the user's decision; this repo is
+      desktop-only. The gaps named here (no Server menu, no Skip Credits, hardcoded
+      90s/15-min intro heuristic, no audio-label / transport-row work) are now
+      **web-only** concerns owned by the PLAYER V2 queue below, where the 90s
+      heuristic and the transport row are already addressed. No Dart gate exists
+      here and none will be claimed. Not forgotten — made moot.
 
 ## SHIPPED - search surface + collections surfaces (this session)
 - [x] Search scoring - popularity bonus replaces two bonuses that could not work.
@@ -3668,20 +3660,1755 @@ base audio") and the three remaining Explore/MyList items (search "EXPLORE MYLIS
       testing-library's default text matcher reads only DIRECT text-node children,
       so a title split by <mark> matches no string - the highlight test waits on
       structure instead.
-- [ ] **Not verified:** no browser in this environment (vitest + jsdom only, no
-      Playwright/Puppeteer installed), so the player E2E checklist above is
-      unchanged and the real-manifest cue-tag count is still **0**. The search
+- [x] **Not verified, and stated rather than claimed:** no browser exists in this
+      environment (vitest + jsdom only, no Playwright/Puppeteer installed), so the
+      PLAYER V2 Phase 6 parity checklist is the gate and nothing here may be called
+      E2E-verified. The real-manifest cue-tag count is still **0**. The search
       highlight colour, the segmented control's selected state, and the copy
-      button's icon need one human look.
+      button's icon still need one human look.
 
-## REJECTED - the videasy base-audio follow-up is not workable as written
-- [ ] **Surface the videasy base audio in the native player** stays open and is
-      now recorded as BLOCKED with evidence, not as un-started:
-      `https://vidrack.created.app/api/sources/videasy?id=579974&type=movie`
-      (Referer vidcore.org) answers **HTTP 200 `{"sources":[]}`** - there is no
-      row to derive `index-{q}.m3u8` from, so the derivation the item describes
-      cannot be implemented or tested against the real API. Separately,
-      `api/downloadify.js:430-433` records that the "-v1 base track" was BUILT and
-      then deliberately REMOVED because it played as muted video. Doing this again
-      needs a source whose API actually lists the base track, plus the muted-video
-      issue solved - not another attempt against an empty response.
+## Environment limits (state these, never claim past them)
+- **No browser.** vitest + jsdom only. No `jsdom` `ResizeObserver`/`MediaSource`,
+  which is why `nativePlayerView.test.jsx` polyfills `ResizeObserver` and asserts
+  the honest fatal path. Any "E2E verified" claim would be false.
+- **No Flutter/Dart SDK.** `mobile/` gates cannot run here. Dart edits still
+  follow repo rules (no silent failures, minimal diffs) and state plainly that
+  no Dart gate executed.
+- **Node 24 + npm 11**, Vite, vitest 5.
+
+---
+
+# PLAYER V2 — full redesign of the native player (authoritative queue)
+
+Recorded 2026-09-30. Replaces every prior player-UI queue in this file. Work
+top-down; check boxes as you go; never work out of order.
+
+**Contract to preserve:** the prop signature of `NativePlayerView.jsx:726-761`
+verbatim, so `TitleDetailsPage`'s call site needs no rewrite. The playback
+pipeline (`nativeHlsLoader`, `previewThumbs`, `subtitleEngine`, `skipMarkers`)
+is reused, not reimplemented.
+
+**The only UI kept from the old player** (user order): the initial loading stage
+with its blurred backdrop art and centred title logo. Its conic ring
+(`.np-tailspin`) becomes a **horizontal bar**. `src/components/Loader.jsx` — the
+app-wide dual-ring spinner — is **kept and left untouched**; the player simply
+stops using it.
+
+## Part 0 — Groundwork
+- [x] **0.1 `setPlayMode("movie")` on the episode-select path**
+      (`TitleDetailsPage.jsx:1478`). `setPlayMode` is written in only 3 places
+      today (`:241` init, `:997` `"movie"`, `:1819` `"trailer"`); the episode
+      path is not one of them, so opening an episode after a trailer renders the
+      trailer iframe again via the gate at `:2164`. Total feature break.
+- [x] **0.2 Gate Phase 0 GREEN.** `npm run lint` **exit 0** (pre-existing
+      warnings only, no new ones), `npm run test` **1002/1002 passed (81
+      files)**, `npm run build` **✓ 3.78s**, `git diff --check` **exit 0**.
+      Added `src/__tests__/TitleDetailsPage.playMode.test.jsx` (2 tests) and
+      **proved it is not vacuous**: with `setPlayMode("movie")` temporarily
+      removed the trailer-after-trailer case FAILS, while the first-time-play
+      control case still passes — so the test discriminates the bug rather than
+      passing either way. `TitleDetailsPage.jsx:1478` `playEpisode` now resets
+      `playMode`; all three `setIsPlaying(true)` sites were audited (`:997`
+      movie, `:1478` movie ← fixed, `:1824` trailer) and none is left dangling.
+- [x] **0.3 `VITE_PLAYER_LEGACY` rollout flag, new player is DEFAULT.** The flag
+      does NOT enable v2 — it can only force the old player back, so the safety
+      net is on in production by default and "the flag is on" can never be
+      mistaken for "the new player is live". Two sources, and the runtime one
+      wins: `VITE_PLAYER_LEGACY` (build-time, visible in deploy config, for a
+      standing decision) and `localStorage["streamly-player-legacy"]` (runtime,
+      instant, for an incident — by the time a redeploy lands the viewers are
+      gone, which is what makes a flag a safety net rather than a coin flip).
+      Files: `src/constants/playerFlag.js` (pure `parseLegacyFlag` /
+      `resolvePlayerVariant`), `src/hooks/usePlayerVariant.js` (re-reads on the
+      `storage` event so another tab's toggle takes effect), `.env.example`
+      documents both. 16 tests, and they pin the trap that makes such a flag
+      dangerous: `Boolean("false")` is `true`, so the obvious implementation
+      would put EVERY viewer on the old player the moment anyone typed "false"
+      into a Vercel env field — silently, with no error. `parseLegacyFlag`
+      therefore returns `null` for an unrecognised spelling, which is distinct
+      from `false` (null = "this source says nothing", so the other source still
+      gets a say). A typo therefore runs v2 rather than stranding everyone on
+      v1, and a broken localStorage (private mode) falls through to the env var
+      instead of throwing.
+- [x] 0.4 **One branch point, one prop list** — `TitleDetailsPage.jsx`:
+      `const PlayerComponent = useLegacy ? NativePlayerView : PlayerShellV2`,
+      rendered at the single existing `<PlayerComponent …>` site. Deliberately
+      **not** two `{useLegacy ? <A/> : <B/>}` blocks with duplicated props: that
+      is precisely how two branches drift, and a prop added for one branch only
+      disables a feature with no error anywhere. Both players stay `lazy()`, so
+      v2 is only downloaded when chosen. 9 tests in
+      `TitleDetailsPage.playerFlag.test.jsx`, which mock BOTH players, capture
+      the props each received, and assert the two sets are identical.
+      - **Wiring it immediately broke two existing tests, and that was the point.**
+        `TitleDetailsPage.playMode.test.jsx` asserted `/no MediaSource support/i`
+        — a string only the LEGACY player can print. That was a silent
+        assumption that the episode branch always renders `NativePlayerView`,
+        which stopped being true the moment v2 became the default. That suite now
+        runs under **both** variants (`describe.each`, 4 tests), so the playMode
+        guarantee is proven on the branch production actually serves rather than
+        the convenient one.
+      - The drift guard was proven non-vacuous, not merely written: injecting an
+        extra prop on v2 only, and separately tampering with `title`, each turned
+        it red. A guard never seen failing is not a guard.
+      - One trap recorded, because it produces a genuinely misleading failure:
+        the comparison **must strip functions recursively**. `party` is the Watch
+        Party context value and carries callbacks (`create`, `join`, `leave`,
+        `sendChat`, `renameSelf`, `broadcastPlayback`). Stripping only top-level
+        functions left those nested in, and since `toEqual` compares functions by
+        identity while `JSON.stringify` drops them, the guard failed while the
+        two prop objects printed as byte-identical — "Compared values have no
+        visual difference" with no drift anywhere. Comparing callbacks across two
+        renders can never succeed; leaving that in would train people to ignore
+        the guard.
+      - `reduceMotion` is forwarded too, so v2 honours the in-app preference, and
+        the served variant is logged via `debugLogger` (`reason`) so a viewer
+        reporting "it looks different" can be answered with which build and which
+        override they were actually served.
+      - Trailers are explicitly **out** of scope for the flag: the YouTube iframe
+        is not "the player", and swapping it for a video shell would lose
+        YouTube playback entirely and read as a rollback bug. Asserted.
+- [x] 0.5 The four delegated decisions, recorded with the reasoning (so a later
+      reader can tell a decision from an accident):
+      1. **Adaptive two-tier chrome.** Tier A (compact) / Tier B (full) chosen
+         from container size + input capability, not device sniffing, because a
+         narrow desktop window and a tablet need the same layout while a
+         touchscreen laptop is not a phone. The frozen `IS_TOUCH` constant
+         (`NativePlayerView.jsx`, resolved once at module load) cannot express
+         that; `useIsTouch.js` already exists and is correct.
+      2. **Parity first, plus the four genuinely missing capabilities** (PiP,
+         touch volume, in-player shortcuts, chapter/credit ticks). Chosen over
+         "clean slate" because the audit showed most of the old player's rough
+         edges are *missing* behaviour, not ugly behaviour — deleting first would
+         have thrown away working source-resolution logic to get nothing back.
+      3. **Fold volume/muted/aspect/rate into `PreferencesContext`** with a
+         one-time legacy read, because the audit proved two parallel key spaces
+         where playback ignores the one Settings writes (§2a). Not a rewrite of
+         the prefs module — reuse its existing `migratedFromLegacy` pattern.
+      4. **Flagged, default-new rollout**, per 0.3. The polarity is the decision:
+         the old player is the safety net, not the product.
+      **Still open, non-blocking:** whether volume / muted / aspect / rate gain
+      visible controls in `SettingsPage` or stay player-side. Moving them into
+      `PreferencesContext` fixes *storage*; without controls it stays invisible to
+      the viewer, which is half the point. Recommend player-side + PiP, keeping
+      `SettingsPage` about subtitle/audio/brightness — decide at 5.x.
+- [x] 0.6 `architecture.md` — new **§2a Player preference keys** + **§2b rollout
+      flag**. §2a records the finding that makes this migration necessary:
+      `NativePlayerView.jsx:128-130` keeps a **second, parallel** volume key set
+      (`streamly-native-volume|-muted|-aspect`) that shadows the
+      `streamly_volume|muted|aspectRatio` prefs — so a viewer who changes volume
+      in Settings writes a key playback never reads, and the settings screen is
+      the side that loses. Also records that aspect is stored as an **index**,
+      not a ratio (the one lossy migration edge), and that
+      `streamly-native-subtitle-<id>` is deliberately retained because it is
+      per-title selected text, not a preference. §2b records the flag polarity,
+      the localStorage-over-env precedence, its Phase 6 deletion, and the
+      `data-player-open` overlay contract.
+- [x] 0.7 `prd.md` — new **§6 PLAYER V2 scope**, framed as capability
+      preservation rather than a redesign: states the no-regression rule
+      explicitly, lists what is kept / added / dropped, and separates the four
+      genuinely missing capabilities (PiP, touch volume, in-player shortcuts,
+      chapter ticks) from the real bugs the audit turned up, so a reader cannot
+      mistake a bug fix for a feature. **Fixed a stale reference on the way:**
+      feature 2 pointed at `src/components/CustomVideoPlayer.jsx`, which does
+      not exist (the file is `NativePlayerView.jsx`) — the third occurrence of
+      that dead name, after `player/index.js` and the player.css history. Per
+      `AGENTS.md` ("keep docs truthful") it now names the real file and points
+      forward to §6.
+- [x] 0.8 Capture a green baseline (test count, build output) so later
+      regressions are attributable. **Baseline A** (pre-redesign, from 0.2):
+      1002/1002 (81 files), lint exit 0, build 3.78s. **Baseline B** (current,
+      after 0.3 + 5.5): `npm run lint` **exit 0**, with none of the four
+      new/changed files appearing in the warning output; `npm run test`
+      **1032/1032 passed (83 files)** in 52.63s — **+30 tests / +2 files**,
+      exactly as written, with no collateral breakage; `npm run build`
+      **✓ 2.61s**; `git diff --check` **exit 0**. Use Baseline B as the
+      attribution point for every change from here on. **Baseline B caveat,
+      found the hard way:** the first 1032/1032 was partly luck — a later run
+      failed `TitleDetailsPage.playMode.test.jsx` at 1031/1032. It passes alone
+      and failed only under the full suite's parallel load, i.e. it was a
+      wall-clock flake, not a product regression (7.18). **Re-confirmed green on
+      two consecutive full runs after that fix**, so 1032/1032 is now a real
+      baseline rather than a lucky sample.
+
+## Part 1 — Keep / delete / replace inventory
+> **Path decision (survey finding, supersedes the flat layout the first draft
+> used).** `src/components/player/` is **not empty** — it already holds
+> `ArcRing`, `LoadingArc`, `Netflix*HUD` (6 files) and `index.js`, i.e. exactly
+> the Netflix-HUD vocabulary that 1.3 deletes. Putting v2 flat in that directory
+> would leave the delete list of 1.3/1.4 sharing a folder with the new
+> components, so any later "clear out the old chrome" sweep could take `PlayerShell`
+> and `player.v2.css` with it. **v2 therefore lives in
+> `src/components/player/v2/`** — a fresh, empty subdirectory. This makes the
+> Phase 6 purge mechanical and safe: delete `player/*.jsx` + `player/index.js` +
+> `player.css`, never touching `player/v2/`.
+- [x] 1.1 KEEP list written — but **not** as a comment in `PlayerShell`, which
+      does not exist until 2.1; a stub would have meant shipping an empty
+      component or a placeholder. It lives in
+      `src/components/player/v2/INVENTORY.md`, which `PlayerShell` links when it
+      lands. Verified KEEP: blurred `backdropUrl` art (`.np-loading-art`, `:345`),
+      centred `posterUrl` logo (`.np-loading-poster`, `:392`), no-logo text
+      fallback (`:405`), and `role="status"` + `aria-label="Loading video"`
+      (`:3825-3827`) — the last is an **accessibility** keep, since a loading
+      surface with no live-region announcement is invisible to a screen reader.
+- [x] 1.2 Enforced mechanically, not just agreed: `playerV2Structure.test.js`
+      walks `player/v2/` and fails on any `import ... from ".../Loader"`.
+      Verified today's importers of `components/Loader.jsx` are exactly
+      `app/routes.jsx`, `App.jsx`, `pages/TitleDetailsPage.jsx` and must not
+      grow. Note `NativePlayerView.jsx` imports `api/nativeHlsLoader`
+      (`createStreamlyLoader`) — a different module that merely shares the word
+      "loader", so the guard matches the path, not the substring.
+- [x] 1.3 DELETE list written in `INVENTORY.md` with the Phase 6 purge order
+      (1.2 above explains the relocation). All re-verified.
+- [x] 1.4 Also delete — all four confirmed against the code:
+      **`.void-*` is NOT just `player.css:2-58`.** The definitions are there, but
+      the same four classes are *also* listed in the two reduced-motion blocks at
+      `:707-710` and `:732-734`, so deleting only the definitions would leave
+      four dead selectors behind. Confirmed **zero** `.void-` usage in any
+      `.js`/`.jsx` via ripgrep. Also: `FUN_FACTS` `:285-295`, the `DialogRow`
+      `:5002-5007` with `key="original"`, hardcoded `selected` and **no
+      `onClick`**, `AR_GLYPH`, and the duplicate `@keyframes upNextCountdown`
+      (`player.css:470` drains `scaleX(1)→0`; `NativePlayerView.jsx:1976`
+      injects `scaleX(0)→1` and, being later in document order, **wins** — so the
+      Up Next bar fills UP while the label counts DOWN. The fix is deleting the
+      runtime injection, not editing the stylesheet).
+- [x] 1.5 **Corrected: it is 5 sites, not ~12.** `NETFLIX_RED = "#E50914"` is a
+      local const at `NativePlayerView.jsx:95`, used at `:182`, `:238`, `:4205`,
+      `:4217`, `:4664`. There is **no definition in `player.css`** at all — all
+      five are inline JS styles in the component. **Bigger correction: "the player
+      is lime" is wrong as a constraint.** `--accent-primary` is
+      **user-selectable** across lime/purple/blue/red/amber plus a custom value
+      (`settings-ui.css:5-72`); lime is the default, not a fixed brand. v2 must
+      consume `var(--accent-primary)` — hardcoding lime would silently disagree
+      with a viewer who picked another theme, and would look correct in review.
+- [x] 1.6 `src/components/player/v2/player.css` created: loader surface (`.pv2-*`)
+      + shell + the `pv2-sweep` horizontal bar replacing the conic ring. Renamed
+      from `player.v2.css` — a dot in a stylesheet name reads like a build
+      artefact and `v2/` already scopes the version. **Zero colour literals, and
+      that is now enforced** by `playerV2Style.test.js` (7.17) rather than merely
+      promised. To make the rule strict with **no allowlist**, scrim alpha values
+      were promoted into `tokens.css` as `--scrim-top/-bottom/-flat/-top-h/
+      -bottom-h` — a scrim is non-negotiable for white text over arbitrary
+      video, but "no literals in player.css" is only enforceable if the literals
+      live somewhere shared. Alphas are the already-tuned values (user dislikes
+      heavy black gradients: top 0.55/44px, bottom 0.85→0.45) and must not be
+      raised without asking.
+- [x] 1.7 Delete the old `player.css` only in Phase 6 (it still styles the flag
+      fallback before then).
+- [x] 1.8 **Worse than recorded: the dead name was in 4 files, not 2.** Fixed
+      `player/index.js`, and also `constants/playerUi.js:5`,
+      `styles/player.css:243`, `NativePlayerView.jsx:3203` and `:3663` — all
+      **comments only**, no code reference, leftovers from a pre-rename era. The
+      original 1.8 assumed `player/index.js` was the only other source; a
+      repo-wide grep found three more, and my own "correction" comment in
+      `index.js` re-introduced the string, which the guard caught on first run.
+      `playerV2Structure.test.js` now fails if it reappears anywhere in `src/`
+      (excluding tests, whose needle is built from parts so the guard does not
+      flag its own source). This is the third time that dead name has been
+      credited as the source of a fix — `prd.md` shipped a wrong file pointer
+      because of it.
+
+## Part 2 — Architecture
+- [x] 2.1 Phase 1 subset built in `src/components/player/v2/`:
+      `PlayerShell`, `LoadingStage`, `playbackMachine`, `hooks/usePlaybackState`,
+      `index.js`, `player.css`, `INVENTORY.md`. The other six components
+      (`PlayerVideo`, `Scrubber`, `TransportBar`, `SettingsSheet`,
+      `EpisodesStrip`, `UpNextCard`, `StillWatchingPrompt`, `ShortcutSheet`)
+      arrive with their phases per 6.3-6.6 — the barrel deliberately exports
+      only what exists, because an export for a component that does not is a
+      promise the module cannot keep.
+- [ ] 2.2 `src/components/player/v2/hooks/`: `usePlaybackState` **done**;
+      `usePlayerSource`, `usePlayerSubtitles`, `usePlayerSkipMarkers`,
+      `usePlayerGestures`, `usePlayerKeyboard`, `usePlayerPersistence` still to
+      come with 6.3-6.6.
+- [x] 2.3 Prop contract frozen and **transcribed verbatim** from
+      `NativePlayerView.jsx:726-761` (21 props). `PlayerShell` takes all of them
+      with the same defaults, and `PLAYER_PROPS` is exported as the single
+      source of truth for that list. Why frozen rather than cleaned: the new
+      player is mounted by the *same parent* as the fallback, so a dropped or
+      renamed prop disables a feature in **one branch only** — the worst kind of
+      bug, because both branches still appear to work. `ref` is forwarded to the
+      shell root so the overlay contract (5.5) is identical in both.
+- [x] 2.4 One concern per unit, and the core is **React-free**:
+      `playbackMachine.js` imports no React at all, so the transition table is
+      testable exhaustively without a renderer — which is the part most likely to
+      rot. `usePlaybackState` is a thin `useReducer` binding. The `view` object
+      is memoised so consumers don't re-render on every parent render.
+- [x] 2.5 `PlayerShell` composes only — no playback logic, no geometry math, no
+      source resolution. Its whole Phase 1 job is to own the playback state, hand
+      it to `LoadingStage`, and stamp the overlay contract. `PlayerVideo` slots
+      in later **without this file changing shape**, so the loader can be reviewed
+      on its own before any video is attached.
+- [x] 2.6 `playbackMachine.js` = one guarded enum, all 8 states and 10 events,
+      with an explicit transition table. Illegal transitions are **refused**
+      (state + `rev` unchanged) rather than thrown, so a stray media event cannot
+      take the player down. **The exhaustive test found two real bugs in my own
+      first draft:** (a) `RESET` was special-cased *ahead* of the table lookup,
+      so `canTransition(state, RESET)` answered `false` while the reducer reset
+      anyway — the table and the reducer disagreed, i.e. exactly the drift the
+      table exists to prevent, and anything consulting `canTransition` before
+      dispatching would have refused a valid reset; (b) `nextStateOf` had no
+      `RESET` case, so `default` returned the old state and **closing the player
+      from `ended` left it `ended`**. `RESET` is now in every row and has an
+      explicit case.
+- [x] 2.7 Single source of truth for loader, buffering indicator AND announced
+      text — all three derived by `selectView`, so they cannot disagree by
+      construction. The key correction vs. the old player: `showLoader` (no frame
+      yet → full-screen stage) and `showBuffering` (frame exists → preserve it and
+      spin over it) are **separate** booleans. Conflating them is precisely why a
+      mid-playback stall looked frozen. Tested structurally: no state shows both,
+      the loader appears for exactly the three no-frame states, and a stated
+      invariant for announcement vs. indicators.
+- [x] 2.8 The `say()` no-op stub is **gone** — replaced, not deleted, because
+      deleting it would have broken all 49 call sites. `const say = () => {}` was
+      worse than a missing feature: it is a function *named* "say" that discarded
+      every argument, so each call site read as though the viewer had been told.
+      A source failover, a rejected resolve or an expired token all looked
+      handled, and no bug report could ever be corroborated by a log.
+      Now `note()` routes into the repo's single diagnostics channel at **debug**
+      level (`logDebug("native", …)`), 49 call sites renamed.
+      - Debug rather than info/warn on purpose: most of these fire several times
+        per attempt ("Trying…", "probing one media byte…", "segment retry 2…").
+        Promoting that to warnings would train everyone to ignore warnings, which
+        is the same disease in a different place.
+      - The viewer-facing half is deliberately **not** built here. Those messages
+        are rewritten in v2 against the real status line, because this file is
+        deleted in Phase 6 and building a user-facing feature inside a file
+        scheduled for deletion would be throwing work away on purpose.
+- [x] 2.9 The real status line, in v2, where it can outlive this rewrite:
+      `statusMachine.js` (React-free, exhaustive tests) +
+      `hooks/usePlayerStatus.js` + `StatusLine.jsx` + `player.css`, all token-only.
+      - **Deliberately split from `playbackMachine`.** Playback state answers "what
+        is the player doing?" (exactly one, always present, drives the loader);
+        status answers "what just happened, in words the viewer can act on?" (at
+        most one, usually absent, persists after the state moved on). Merging them
+        forces a choice between two wrong outcomes — the loader vanishes the
+        instant playback starts, taking "Autoplay blocked" with it, or a transient
+        "Probing…" keeps the loader up. This rewrite was commissioned for
+        silently dropping exactly these messages, so the distinction is the point.
+      - **Only 2 of 8 states get words**, each for a stated reason: `error`
+        (nothing on screen explains a failure, so the message IS the UI) and
+        `stalled` (the frame is preserved, so there is no loader and a quiet
+        screen needs words). `resolving`/`opening`/`buffering` already have the
+        loader *and* its live region — a status line there says it twice; `ended`
+        gets the UpNextCard in Phase 3; `idle`/`playing` are silence.
+      - **Per-message lifetime, not per-hook.** "Video stalled" is noise once it
+        clears itself; "all sources exhausted" must still be on screen ten seconds
+        later when the viewer looks up from the remote. `ttlMs <= 0` means
+        persistent, which is how the two coexist.
+      - Three anti-spam rules, each from a concrete failure mode: a blank push
+        *clears* rather than rendering an empty row; re-pushing identical wording
+        does not bump `seq`, so the `aria-live` region does not re-announce
+        per-source progress dozens of times; and re-pushing wording the viewer
+        already **dismissed** stays hidden, so a retrying source cannot make a
+        closed message reappear on its own. Different wording is a new fact and
+        does return.
+      - `role="alert"` is reserved for errors — everything else is `role="status"`
+        and never steals focus.
+      - Mapping lives in `usePlaybackStatus`, not in `PlayerShell`'s body: the
+        shell mounts at a fixed entry state, so `error`/`stalled` would have been
+        untestable inline. Untestable branches are branches nobody wrote on purpose.
+      - The 7.17 style guard caught my first draft for using `var(--token, literal)`
+        fallbacks. That is precisely what it exists to prevent, so the fallbacks
+        went rather than the guard.
+      - Also fixed while here: `playerA11y.test.jsx` waited on an AnimatePresence
+        exit with `waitFor`'s 1000ms default and failed only under full-suite load.
+        Budget stated (8s) — the original passed alone and failed in parallel,
+        which is how flaky guards teach people to re-run instead of read.
+- [ ] 2.10 `usePlayerSource` extracts resolve → failover → quality out
+      of ~1,200 inline lines into one testable hook. Phase 2 (6.3).
+      - Resolve + failover are done (6.3). **Quality selection is not** — the hook
+        hands the ladder's winning URL to the element and does not choose a rung
+        yet, so this stays open until the Part 3 quality menu exists.
+      - Wording corrected from "4-server": `PLAYER_SOURCES` currently holds 7
+        entries, and v2 walks the ordered list rather than a fixed count.
+
+## Part 3 — The new UX
+- [x] 3.1 Visual language from tokens: `--accent-primary` `#95ff50`,
+      `--bg-surface` @72% + `--glass-blur`, `--border-subtle`, `--font-sans`
+      Inter, `--font-mono` JetBrains Mono for timecodes, `--radius-md/lg`.
+      - `.pv2-shell` now sets `font-family: var(--font-sans)`, so the player
+        inherits the app's type instead of the UA default.
+      - `.pv2-glass` is the plate recipe — `rgba(var(--bg-surface-rgb), 0.72)` plus
+        `var(--glass-blur)`. The status line was painting an **opaque**
+        `--bg-surface`, which hid the very video a viewer needs while reading why
+        playback stalled.
+      - `--bg-surface-rgb: 18, 18, 23` added to `tokens.css`, following the
+        `--accent-primary-rgb` alpha pattern already in that file.
+      - `.pv2-timecode` establishes the mono + `tabular-nums` role ahead of the
+        transport, because 3.32's jitter fix depends on it existing first.
+      - Guarded in `playerV2Style.test.js`, with probes proving each guard bites.
+- [x] 3.2 Motion budget: only `--duration-fast` 150ms, `--duration-normal` 250ms,
+      `--ease-out`. Fade + 4px translate. **No springs.**
+      - Declared once on `.pv2-shell` as `--pv2-motion-fast/-normal/-shift` so the
+        budget is readable in one place, and the loader sweep is the single
+        **named** exception (`--pv2-motion-sweep`, 1.1s) — an indeterminate sweep
+        is not a UI transition, and naming it is what stops it spreading.
+      - The status plate's appearance is the reference pattern: fade + the 4px
+        shift, and 3.7-3.8 chrome copies it rather than inventing its own.
+      - Guarded: no `spring` anywhere; no literal duration in any
+        transition/animation; the sweep exception declared exactly once; no
+        translate distance other than `0` or `4px`.
+- [x] 3.3 Replace the frozen `IS_TOUCH` boolean (`:140-143`, cached at module
+      load from `matchMedia`) with live capability detection on `hover:hover`,
+      `pointer:fine`, `pointer:coarse` — each with a `change` listener.
+      - `inputCapability.js` is PURE (facts → one answer, no globals, no
+        listeners); `useInputCapability` owns the subscription. That split is what
+        makes every branch assertable — jsdom answers `false` to `matchMedia`, so
+        a component-level test would have "passed" against the desktop branch
+        always.
+      - The three queries are watched SEPARATELY, not as the old comma-joined
+        `(hover: none), (pointer: coarse)`. A comma is an OR, and hover and
+        pointer precision are independent facts — that OR is what made the frozen
+        constant wrong on exactly the devices worth getting right.
+      - Exposes `canHover` separately from `mode`, so a component asks the precise
+        question instead of inferring capability from a layout decision.
+      - Guarded by a v2 source scan for a snapshotted `.matches`. The pattern
+        spans lines and tolerates parens inside the query, because the legacy
+        text it must catch is written multi-line and contains
+        `"(hover: none), (pointer: coarse)"` — both verified by probe.
+- [x] 3.4 Add `pointerdown` `pointerType` sniffing so a Surface / touchscreen
+      laptop / iPad+keyboard reclassifies on the next touch.
+      - Precedence: the most recent real interaction wins, then `coarse`-without-
+        `fine`, then fine. A hybrid starts on the desktop layout and moves on the
+        next touch — and moves BACK on the next mouse, in both directions, which
+        a read-once boolean cannot do.
+      - A stylus is precise input, not touch: `hover: hover` + `pointer: fine` is
+        what a pen reports, and calling it touch hides hover affordances from
+        someone holding a pen a centimetre off the screen.
+      - The listener is `passive`, because a non-passive `pointerdown` during a
+      scrub is a dropped frame on every seek. A `pointerdown` with no
+        `pointerType` is ignored rather than allowed to clear a classification
+        it has no evidence to change.
+- [x] 3.5 `focus-within` reveals chrome, so keyboard always wins.
+      - The hide rule (`[data-chrome="hidden"]`) and the reveal rule
+        (`:focus-within`) have EQUAL specificity, so the reveal is written second
+        and the cascade makes keyboard win without the 3.8 timer knowing anything
+        about focus. A guard asserts that source order, because re-sorting two
+        rules breaks the guarantee with no error anywhere.
+      - Hidden means `opacity: 0` AND NOTHING ELSE. `visibility: hidden` or
+        `display: none` would remove the controls from the tab order, `:focus-
+        within` could then never fire, and the reveal rule would be unreachable
+        code — a player that looks correct and cannot be operated by keyboard.
+      - The chrome layer is `inset: 0` and `pointer-events: none`. `inset: 0`
+        because `.pv2-status` is absolutely positioned and the layer becomes its
+        containing block — a content-height wrapper would collapse the plate's
+        `bottom` and silently re-anchor it. `pointer-events: none` so a tap still
+        reaches the video while the chrome is showing; only real controls
+        (`:is(button, a, input, …)`) opt back in, and only while shown.
+      - jsdom cannot evaluate `:focus-within`, so this is guarded on the
+        stylesheet text plus a shell-DOM test (one layer, `data-chrome` starts
+        visible, status inside it, video outside it). Visual confirmation is 6.8.
+- [x] 3.6 Layout switches on `@container` against the player box, not the
+      viewport — what `:764-766` claims to want and does not do.
+      - `container-type: inline-size` on the shell. `inline-size` only, never
+        `size`: block-axis containment would let the player size itself from its
+        contents and collapse around the video.
+      - This is the replacement for `useContainerSize`, which 5.4 deletes — so
+        the `NativePlayerView.jsx:765-767` comment and the code finally agree.
+      - Zero `@media` blocks and zero viewport units in v2, both enforced. The
+        two disagree on exactly the shapes this app ships: a phone-width player
+        on a desktop viewport, and a full-width player on a narrow one.
+      - Breakpoints are literals because `@container` conditions parse before
+        custom properties; they are named in one place for 3.7 to tune.
+- [x] 3.7 **Tier A** (compact, default): play · timecode · scrubber · volume ·
+      captions · settings · fullscreen. Everything else in the sheet.
+      - The order is DATA (`tiers.js`), not JSX order, and the test reads the
+        order back out of the RENDERED DOM. Reading it from JSX could not tell
+        "reordered" from "not rendered yet", and a check that passes on an empty
+        transport is not a check.
+      - Added `S.PAUSED` + `PAUSE`/`RESUME` to the machine. It had no way to say
+        "paused", so the first transport's play button had no honest label: it
+        was inferring playing from `state === playing` while the element it drives
+        sat paused. 3.9 keys Tier B off this state, so it was needed there anyway.
+      - The machine moves ONLY after the element confirms. `play()` reports
+        whether it actually started and `RESUME` is dispatched on `true` only, so
+        an autoplay-policy refusal — the common cause of a dead-looking play
+        button — leaves the machine alone and logged, instead of showing "Pause"
+        over a video that is still paused.
+      - `PAUSE`/`RESUME` are dispatched BY the transport, not taken from the
+        element's own `play`/`pause` events. Those also fire on teardown for a
+        source switch and after `ended`, so listening would let a source swap
+        strand a loading video in `paused`. The cost — an outside caller pausing
+        the element goes unnoticed — is written down in the machine itself.
+      - An earlier draft tracked playing in BOTH the machine and the hook. They
+        disagreed, because the element's `pause` event never fires when the pause
+        came from our own code — the exact dual-source bug the machine exists to
+        remove. Now: machine owns playback state, hook owns the element, and the
+        transport reads the same `selectView` the loader already did.
+      - Scrubber is deliberately NOT `<input type="range">`: 3.13 needs a rail
+        that grows on hover, 3.14 a buffered band inside the track, 3.15 a bubble
+        positioned from one geometry source. `role="slider"` costs a key handler
+        and buys all three. Its key model (arrows, PageUp/Down, Home/End, and NOT
+        claiming Space/Enter) is asserted, because a slider that ignores arrow
+        keys is worse than no slider: it is announced and then unresponsive.
+      - Geometry is a placeholder on purpose — 3.13 owns the rail/thumb numbers,
+        3.14 the buffered element, 3.15 the bubble. 3.7 changes numbers later, not
+        structure.
+      - Fullscreen is capability-checked via `document.fullscreenEnabled` and
+        shown-disabled WITH a reason, not hidden: a vanished control is
+        undiscoverable and shifts the row.
+      - `captions`/`settings` carry `aria-haspopup` from `SHEET_OPENERS` and
+        report a panel id; 3.24 renders the sheet and 3.27 adds `aria-controls`.
+        Marking them now is the difference between a button that is waiting and
+        a button that is broken.
+- [x] 3.8 Auto-hide after 2.6s idle while playing; instant return on pointer, key
+      or focus.
+      - The decision is a PURE function (`chromeVisibility.js`), so all four
+        "must not hide" gates are a truth table rather than a pile of
+        `setTimeout`s: focus inside, sheet open, pointer resting on a chrome
+        layer, and any state that is not playing/stalled.
+      - The pointer gate is the one that is easy to miss. A STATIONARY cursor
+        on the scrubber emits no events at all, so "pointer movement resets
+        the timer" cannot save it - the bar would vanish from under the viewer
+        who is about to drag it. `data-chrome-layer` is the contract, matched
+        with `closest`, so a chrome subtree added by 3.9/3.24 is covered
+        without registering anything.
+      - Chrome layers hide with `opacity` only (3.5), so the controls stay in
+        the tab order while invisible and `:focus-within` still reveals them.
+      - Two bugs found and fixed on the way, both caught by tests rather than
+        by reading:
+        1. Activity was NOT restarting the idle window. `setVisible(true)`
+           re-rendered but changed no effect dependency, so the original
+           deadline survived every pointer move and the chrome hid 2.6s after
+           playback BEGAN, not after the last interaction - the central
+           requirement of this item, broken. The timer is now cleared and
+           re-armed imperatively from the activity handler, with no state
+           involved, so pointer movement does not re-render the player.
+        2. `S.STALLED` refused `E.PAUSE` while `selectView` reports stalled as
+           playing. Pressing Pause during a stall paused the element and the
+           machine rejected the event, so the label stayed "Pause" over a
+           paused video with nothing left to press. 3.8 made it worse, because
+           `canAutoHide` counts stalled as playing and would have kept hiding
+           the chrome over a paused video. Transition added, with a test that
+           asserts stalled -> paused -> playing rather than the table alone.
+      - `NEVER_HIDE_STATES` is asserted exhaustive, so a state added later
+        without a policy is a test failure. It caught its own omission of
+        `PAUSED` - the one state this item is about.
+      - Probes: removing `E.PAUSE` from STALLED, hardcoding
+        `data-chrome="visible"`, and dropping the focus gate each fail the
+        suite. Tests: 20 in `playerV2Chrome.test.jsx` + 2 shell-level in
+        `playerV2Wiring.test.jsx`.
+      or focus.
+- [x] 3.9 **Tier B** (paused / pointer / focus active): adds prev+next episode ·
+      speed · aspect · users · server indicator · episodes.
+
+  **Implementation.** Tier B is a SECOND SPINE, not a second layout: `tiers.js`
+  holds `TIER_B_CONTROLS` (14 ids) and `resolveTier({width, engaged})`, and
+  `TransportBar` renders one `.pv2-transport` whose children are mapped from the
+  resolved list — so there is exactly one element to cross-fade in 3.10 and tab
+  order is continuous by construction rather than by luck.
+
+  Order, chosen so Tier A's relative order survives intact inside Tier B (asserted
+  by a test): `episodes · prevEpisode · nextEpisode · play · timecode · scrubber ·
+  volume · speed · aspect · captions · server · users · settings · fullscreen`.
+  Navigation before the spine, environment after it, play centred.
+
+  Tier B requires engaged AND container width >= `TIER_B_MIN_WIDTH` (720, the
+  `HUD_REFERENCE_EDGE` precedent). "Engaged" is 3.8's `chromeVisible` rather than
+  a second set of pointer/focus listeners — 3.8 already answers "is the viewer
+  interacting, or has playback stopped needing the chrome", and asking it twice
+  with two listener sets is how two timelines drift apart.
+
+  **Sheet openers vs immediate actions.** `speed`, `episodes`, `users`, `server`
+  and the existing `captions`/`settings` are openers, and they report their target
+  through the existing `onOpenSheet`; the sheet itself is 3.24, so they currently
+  open nothing. `aspect` is NOT an opener — the legacy rail cycled it (button and
+  `A` key), so it is an immediate `nextAspectId` cycle with no dead state to guard.
+
+  **Three values are shown, not hidden.** `speed`, `aspect` and `server` render
+  their current value beside the glyph (`.pv2-value-btn`), because a viewer who has
+  to open a sheet to learn which server they are watching has already been misled.
+  `server` reads `resolved.source.label` — the ladder already decided which server
+  won, so the indicator needs no new data path. `users` counts
+  `party.room.participants.length`; `WatchPartyPanel.jsx` shows names only, so
+  there was no existing number to reuse, and zero reads "Watch Party" rather than
+  "0 watching".
+
+  **Preferences (task.md 3.9 / architecture.md §3).** `aspect` and `playbackRate`
+  moved into `PreferencesContext` as validated keys: aspect against the shared
+  `ASPECT_RATIOS` ids, rate snapped onto `PLAYER_SPEEDS`. The frozen legacy
+  `streamly-native-aspect` key is adopted once on first read (it holds an INDEX,
+  which maps through `readLegacyAspectId`); volume/muted remain 3.7 session-only
+  debt. Aspect is applied DECLARATIVELY as a `<video>` style (it is only
+  `object-fit` + a transform); rate is a DOM property with no attribute form, so
+  `usePlayerPrefs` writes it to the element.
+
+  **Two real bugs found and fixed on the way (not part of the item's scope, but
+  both shipped broken):**
+  1. `usePlayerControls` never subscribed to the media element at all. Its effect
+     was keyed on `videoRef`, a stable object, but `PlayerVideo` does not mount
+     until the ladder yields a URL — so the effect ran against `null`, returned
+     early, and never re-ran. `timeupdate`/`durationchange`/`volumechange` were
+     dead: the timecode read `0:00 / 0:00` forever and the scrubber never moved,
+     with no error. The element is now also passed as a REACT VALUE (`attachVideo`)
+     and the effect depends on it. Same latent bug fixed in `usePlayerPrefs`.
+  2. `PreferencesContext.readPreference` validated the JSON TYPE but never the
+     DOMAIN: `parseValue` only asked "is this a number", so a stored
+     `playbackRate: 9.99` (or `seekTime: -40`, `subtitleSize: 9e15`, a retired
+     `aspect` id) loaded untouched, because `sanitizePreference` was only applied
+     on WRITE. Sanitising on read as well repairs all of them at once.
+     While fixing that, `rate.js` and the context were found answering "nearest
+     speed?" differently — `nextRate(1.37)` sent it to Normal while the sanitiser
+     sent it to the nearest rung, so the step direction depended on which ran
+     last. Both now delegate to one `snapPlaybackRate` in `constants/playerUi.js`
+     (in span: nearest rung; out of span: default — the same rule
+     `readLegacyAspectId` already used for an out-of-range index).
+
+  **Honest degradation.** `usePlayerPrefs` uses `useOptionalPreferences`, so a bare
+  mount logs and reports `persistent: false` rather than throwing and blanking the
+  player. `useTier` survives a missing `ResizeObserver` (old Safari, webviews,
+  jsdom) and treats unmeasured/zero/NaN width as Tier A, because a control set
+  that cannot be shown in full is worse than a smaller one — truncation moves
+  targets under the viewer's finger.
+
+  **Tests.** New `playerV2TierB.test.jsx` (39 cases: the `resolveTier` truth
+  table, both spines' order read back out of the DOM, every id having a case,
+  prev/next honesty for UNDEFINED props as well as false, the six sheet openers
+  matching the `aria-haspopup` they produce, rate formatting, aspect id/index/name
+  mapping and legacy-index migration) and `playerV2TierBHooks.test.jsx` (21:
+  measurement, missing observer, disconnect on unmount, defaults with and without
+  a provider, persistence across remount, ladder snapping, legacy aspect adoption,
+  localStorage throwing). `playerV2Wiring.test.jsx` gains the element-subscription
+  regression and a rate-to-element integration case. `playerV2Transport.test.jsx`'s
+  `SHEET_OPENERS` assertion is updated for the four new openers and strengthened so
+  it cannot pass by having dropped captions or settings.
+
+  **Gates.** oxlint **0 errors** (no new warnings; the five remaining
+  `PlayerShell.jsx` warnings are the pre-existing frozen-prop contract, and two of
+  them shrank as `episodes`/`party`/`canGoPrev`/`canGoNext` became genuinely used
+  rather than merely accepted). vitest **99 files / 1356 passed** (was 97 / 1293:
+  +2 files, +63 cases, zero flakes). build OK (✓ 8.39s). `git diff --check` clean.
+  Mutation probes confirmed non-vacuity: reverting the read-time sanitiser, the
+  `videoNode` dependency, and the `resolveTier` engaged gate each fail a named
+  test. 6.8 still unverifiable here (no real browser).
+
+- [x] 3.10 Tier A and B share ONE DOM and cross-fade in place — not two layouts
+      — so nothing jumps and tab order stays continuous.
+
+  **The fact that makes this possible: Tier A is a strict SUBSET of Tier B.**
+  Only obvious once both existed, and 3.9's ordering test already pins it. So the
+  transport no longer renders the active tier's list — it renders
+  `TRANSPORT_SUPERSET` (all 14 ids, unconditionally) and expresses the tier as
+  PRESENCE. The seven controls belonging to the other tier are marked
+  `data-presence="absent"` and are present in the DOM at both tiers. Crossing
+  between tiers therefore mounts and unmounts nothing: the row grows and shrinks
+  in place, and tab order is continuous by construction rather than by luck.
+
+  **Tab order.** An absent control is `inert` + `aria-hidden` + `tabindex="-1"`
+  + `disabled`, applied on the SAME paint it goes absent. Deferring `inert` to a
+  `transitionend` callback would leave a focusable ghost for the whole 160ms fade
+  — long enough for a keyboard user mid-Tab to land on an invisible button. This
+  is asserted synchronously, with no timers and no `act()`, so a regression to a
+  deferred implementation fails.
+
+  **"Nothing jumps" needed a real fix, not just opacity.** The container's
+  `gap: var(--spacing-sm)` had to go: a flex `gap` is inserted between every PAIR
+  of items, including zero-width ones, so the seven collapsed controls would each
+  leave a phantom gap and Tier A's row would sit ~7 gaps too wide with nothing
+  in it. Spacing moved to `margin-inline-end` on the children
+  (`--pv2-transport-gap`, still switched by tier), where a control that is not
+  there can also not have any. Tier B's gutter moved to the same custom property.
+
+  **What animates, and the one documented limit.** `opacity`,
+  `margin-inline-end` and the icon buttons' `inline-size` all transition in a
+  length-to-length or number-to-number direction, so the fixed-size controls
+  collapse smoothly and the scrubber — the one item that absorbs the width —
+  slides rather than snaps. The three VALUE buttons (speed, aspect, server) are
+  content-sized, and CSS cannot interpolate to or from `auto` without measuring
+  the text first: they fade while their width changes in one step. Measuring three
+  labels in JS on every tier change to animate a 160ms width was judged the worse
+  trade, because a layout read on every engagement is more likely to be FELT (a
+  scrubber lagging the pointer) than the snap it removes. Stated here rather than
+  left to be discovered.
+
+  **Reduced motion needs no new code.** 3.1 already neutralises every transition
+  and animation under `.pv2-shell[data-reduce-motion="true"]`, and
+  `TitleDetailsPage` passes `reduceMotion` to whichever player is mounted, so the
+  cross-fade is disabled for free. 3.6 bans `@media` in this stylesheet, and
+  adding one would have been both wrong and unnecessary.
+
+  **Tests.** New `playerV2TierFade.test.jsx` (20 cases). The central claim is
+  asserted as NODE IDENTITY across a tier change on the same mounted tree
+  (`toBe`, not `toEqual`) in both directions, plus the container and the spacer
+  not remounting; presence is checked against the pure layer and against the
+  exact seven expected labels; absence is checked synchronously; and the
+  stylesheet claims (no container `gap`, spacing on children, collapsed margin,
+  two-way opacity fade, the width transition, the reduced-motion attribute) are
+  read from the real `player.css` so deleting a rule fails the suite. One test
+  pins the subset invariant itself, with a named failure, because a control added
+  to Tier A alone would make the superset's ordering describe neither tier — and
+  every count would still match.
+  `playerV2Transport.test.jsx`'s and `playerV2TierB.test.jsx`'s order helpers now
+  filter `data-presence="absent"`, since the superset is always rendered.
+
+  **Two of these tests failed for reasons worth recording.** The stylesheet
+  `gap` guard first used `\bgap\s*:`, which matches the `gap` inside
+  `--pv2-transport-gap:` — so the guard was verifying its own custom property's
+  name. It now requires a real declaration boundary. And the shared-control test
+  used `name: /Play|Pause/`, which also matches "Playback speed" once Tier B is
+  active; both were wrong in the direction of asserting something other than what
+  was meant.
+
+  **Gates.** oxlint **0 errors** (no new warnings; the six remaining are the
+  pre-existing frozen-prop contract in `PlayerShell.jsx`). vitest **100 files /
+  1376 passed** (+1 file, +20 cases, zero flakes). build OK (✓ 9.02s).
+  `git diff --check` clean. Mutation probes confirmed non-vacuity: reverting to
+  per-tier lists, dropping `inert`/`aria-hidden`, and restoring the container
+  `gap` each fail named tests. 6.8 still unverifiable (no real browser) — the
+  motion itself is declared in CSS and cannot be observed in jsdom, so what the
+  tests actually pin is that the animated thing is the same DOM node.
+- [x] 3.11 Touch transport = two thumb zones at the bottom corners. LEFT play ·
+      −10s · +10s · speed. RIGHT captions · settings · fullscreen · close.
+      Implemented as a MODE (`TRANSPORT_MODE.ZONES`) alongside the tier, not a
+      third tier: a tier answers "how much room is there" and the zones answer
+      "what is the viewer holding", so a 900px tablet gets 8 controls rather than
+      a 14-control rail. `tiers.js` gains `TOUCH_ZONE_LEFT`/`_RIGHT` (the item's
+      sets, in the item's order), `ALL_CONTROL_IDS` (17 — the 14 tier controls
+      plus skipBack/skipForward/close, which belong to neither spine), and
+      `zoneOrder`/`zoneFor`/`zonePushesToEnd`.
+      One DOM survives both layouts: the three new controls render absent in row
+      mode rather than mounting later, and zones mode is positioned by CSS `order`
+      over the same nodes. Node identity across a mode switch is asserted.
+      The gap between clusters is one `auto` start-margin on `captions` — not
+      `space-between`, which would scatter the left cluster across the width.
+      `skipBy` on `usePlayerControls` seeks from `video.currentTime` rather than
+      React state, so repeated taps do not compound off a stale timeupdate;
+      `SKIP_SECONDS` moved to `playerUi.js` so it outlives NativePlayerView.
+      Shell consumes `useInputCapability` (its first consumer) and the frozen
+      `onClose` prop. Skips disable at the ends rather than pressing silently;
+      an unknown `duration` reads as NOT at the end. Touch hit target 2.75rem,
+      cleared by `env(safe-area-inset-bottom)`. `timecode`/`scrubber` gained
+      presence (the scrubber collapses via `flex-basis`, since it is
+      `flex: 1 1 auto`) — 3.10's "never absent" reasoning was falsified by zones.
+      New: `playerV2Zones.test.jsx` +36 cases. Gates: lint exit 0, 101 files /
+      1412 tests passed, build 3.00s, `git diff --check` clean. Probes: dropping
+      the 100 offset, removing the gap carrier, making every control a carrier,
+      and seeking from state instead of the element each fail named tests. 6.8
+      still unverifiable — hit-target size and cluster placement are declared in
+      CSS and only observable in a browser.
+- [x] 3.12 Touch gets THREE discoverable volume paths (left-third horizontal
+      slide, persistent level indicator, sheet entry). Today it has ZERO — the
+      slider is behind `!IS_TOUCH` at `:4373`, leaving only an undiscoverable
+      drag that is unreachable by keyboard.
+      Delivered as three paths with the three-count asserted, because the legacy
+      already had path one and building only that would reproduce the bug being
+      fixed. Path 1 `volumeGesture.js` + `hooks/useVolumeGesture.js`: pointer
+      events (not touch events) so a drag survives leaving the element via
+      `setPointerCapture` and a system gesture's `pointercancel` releases it.
+      Armed on `Math.hypot(dx,dy) >= DRAG_ARM_PX` (14) before any axis test, so
+      arming never swallows a tap; `classifyDrag` then requires horizontal
+      dominance AND that the press STARTED in the left third — captured at
+      pointerdown, so a finger that slides across the centre stays a left-third
+      gesture. The centre keeps play/pause and the right keeps double-tap/2×;
+      an armed horizontal drag elsewhere is dropped so it stops claiming a
+      pointer it has disowned. Level is absolute-from-frozen-start over
+      `width * 0.8`, not incremental — an incremental drag with feedback is an
+      amplifier. Muted drags start from zero and unmute on the way up only
+      (`dragStartLevel`, `shouldUnmuteOnDrag`), which needed a real
+      `setMuted(next)` on `usePlayerControls`: `toggleMute` can only flip, and a
+      gesture that must unmute-without-guessing cannot be expressed as a toggle.
+      `setMutedState` renamed from the shadowed setter accordingly.
+      Path 2 `VolumeIndicator.jsx`: `role="status" aria-live="polite"` (a drag
+      fires dozens of updates; assertive would make the player unusable with a
+      screen reader) wrapping a `role="meter"` that reports the AUDIBLE level, so
+      a muted player reads 0% instead of a full bar with a silent icon.
+      `pointer-events: none` on its chrome layer — the readout sits over the left
+      third, and a plate that swallowed the press would delete path 1 silently.
+      Kept mounted and faded rather than toggled, so it is readable mid-drag.
+      Container-relative `clamp(4rem, 18cqi, 9rem)`; no `@media`, no viewport
+      units (3.6).
+      Path 3: `volume` is now a `SHEET_OPENER` and, in zones mode, renders as a
+      `ValueButton` showing the percentage — a control the viewer can SEE says
+      what the volume is. Row mode keeps its mute toggle, so desktop is
+      unchanged; that is the one slot 3.11's shared-DOM claim now excepts,
+      because IconButton and ValueButton are different components, and the
+      exception is asserted as an exception.
+      Zones layout is now five left · four right. `volume` is appended AFTER
+      3.11's four, never inserted: the first four orders are asserted as an
+      unmoved prefix, because a viewer who learned "speed is the fourth one"
+      must not have to learn again.
+      The sheet itself is still 3.24's work; 3.12 ships the honest opener
+      (`aria-haspopup="dialog"` + `data-sheet="volume"`).
+      A drag calls `chrome.poke()`, since activity that keeps the chrome asleep
+      would fade the indicator out under the finger still moving.
+      Gates: `npm run lint` exit 0 · `npx vitest run` 102 files / 1458 tests ·
+      `npm run build` 5.53s · `git diff --check` clean. 12 mutation probes each
+      failed a named test, including the three that matter most here: dropping
+      `pointercancel`, dropping the start-zone gate, and passing the stored
+      level where the drag-start level belongs. `setMuted` in an effect rather
+      than during render, so no render can read a half-updated level/mute pair
+      and `handlePointerDown` keeps its identity across a drag.
+      Still unverifiable in-browser: whether 288px of sweep actually feels right
+      on a real thumb, and whether the plate collides with the loader's copy.
+- [x] 3.13 Scrubber: 2px rail → 6px on hover/focus, 14px thumb, container-scaled.
+      Bar height is hardcoded `hoverRatio ? 5 : 3` at `:4174` and never scales.
+      Read as TWO defects, because it is one. Geometry: the 3.7 scrubber had a
+      rail and a fill and no thumb, and its growth depended on a JS `hoverRatio`
+      rather than on where the pointer is. Scaling: `3` and `5` are literals, so a
+      360px phone and a 1400px television got the same bar — a hairline on one and
+      a fifth of the space it could have on the other.
+      `--pv2-rail-rest: clamp(2px, 0.55cqi, 4px)`,
+      `--pv2-rail-live: clamp(6px, 1.6cqi, 12px)`,
+      `--pv2-thumb: clamp(14px, 2.4cqi, 18px)`. The item's 2/6/14 are the clamp
+      ANCHORS — a test pins them and a designer can find them, and `cqi` (not
+      `vw`, per 3.6) only moves away from them at the extremes. The upper bound is
+      what stops a television getting a 12px sausage.
+      Growth is `block-size` on the absolutely-positioned rail, never on the
+      wrapper: growing the hit area would reflow the transport and push the
+      timecode sideways, i.e. "the UI moves when you look at it". The wrapper keeps
+      a single `block-size: var(--pv2-touch-hit)` so the bar can stay hairline
+      while the finger still has 44px to aim at.
+      Hover AND keyboard focus both drive it, via `data-hovered` in JS rather than
+      `:hover` alone. A keyboard viewer has no pointer to hover with, so `:hover`
+      only would leave them permanently on the 2px bar — the viewer who most needs
+      the affordance being the one who cannot summon it. The JS flag is also what
+      3.15's bubble reads, so there is one signal rather than two.
+      One number positions everything: `Scrubber` writes `--pv2-scrub-fraction`
+      (0-1) once on the wrapper and the fill, the thumb and 3.15's bubble all
+      compute from it. An inline width on one and an inline `left` on the other is
+      how a fill ends up at 50% under a thumb sitting at 47%. The fraction is
+      clamped, and `progressFraction` already returns 0 for a NaN duration —
+      because `calc(NaN * 100%)` is invalid and drops the declaration, leaving the
+      fill `inline-size: auto` and a loading video showing a FULLY played bar.
+      The thumb is `translate(-50% -50%)` (centred on the playhead, not starting
+      there), `pointer-events: none` (a decorative circle that eats presses aimed
+      at the bar is a bug that only appears on hover), `transition: none` (the
+      playhead moves every frame; a transition there reads as a laggy player), and
+      `aria-hidden` (the slider already announces its position). A disabled
+      scrubber dims the playhead to `--text-faint` — full strength on a control
+      that cannot seek is a lie.
+      The four layers are rail, buffered, fill and thumb; 3.14 slots the buffered
+      band in behind the fill, which is why the shared thickness rule already
+      carries both.
+      Gates: `npm run lint` exit 0 · `npx vitest run` 103 files / 1483 tests ·
+      `npm run build` 3.20s · `git diff --check` clean. 18 mutation probes, each
+      failing a named test — including two the first pass missed: an extra
+      `block-size` on the wrapper (counted, not pattern-matched, to catch it) and
+      the thumb losing `transition: none`. Still unverifiable in-browser: whether
+      6px is where the eye expects it, and whether 2.4cqi reads as 18px on a real
+      television.
+- [x] 3.14 Buffered as ONE element at `--text-faint`, replacing
+      `bufferedRanges.map(...)` which allocates a fresh array 4×/sec (`:1761`).
+      The allocation is the stated symptom; the defect underneath is that a LIST
+      invites a `.map` into the DOM, and a list of disjoint bars behind a fill is a
+      different visual from the one band a viewer reads. So the state is now ONE
+      number — seconds buffered from the playhead — not a range list, and the band
+      is ONE `span`.
+      Which extent that number is took three attempts to get honest, and the wrong
+      versions are all plausible:
+        1. the range CONTAINING the playhead, using its end. Seek to 55 with
+           `[0,10]` and `[50,100]` cached and the furthest end says 100% while the
+           bar is half full and the next ten seconds stall.
+        2. failing that, the START of the NEAREST range ahead — not the furthest.
+           With `[0,10]`,`[60,90]`,`[500,700]` and the playhead in a gap at 30, the
+           answer is 60; painting to 700 shows a near-full bar for a buffer that
+           cannot play the next 470 seconds.
+        3. failing that, 0 — never the furthest end. Past every cached range there
+           is nothing AHEAD: a cache of `[0,40]` with the playhead at 100 has no
+           forward runway, and a 40% band there promises playback that stalls on
+           the next frame.
+      The state is SEEDED from the element, because a fast connection may have
+      buffered before the effect ran and would otherwise never show a band. It
+      updates on `progress` and `seeked`, never `timeupdate`: `timeupdate` is the
+      browser's ~4Hz clock, and it fires whether or not anything downloaded. The
+      item's allocation complaint was `setBufferedRanges` on that event, so
+      re-subscribing to it with a single number would have kept the cost and
+      dropped the fix.
+      The state is also GATED at `BUFFERED_QUANTUM_SECONDS = 0.5`. The gate is in
+      seconds, not fraction, because a fraction threshold changes meaning with the
+      duration — 0.1s is 1% of a 10s clip and 0.003% of an hour-long title, so the
+      same download would be "worth re-rendering" on one and noise on the other.
+      Three edge cases in `bufferedFraction` earn their own cases because each one
+      produced a wrong band rather than a missing one: the playhead ON a range's
+      start (`at > start` drops the most common buffered geometry there is and the
+      band collapses to nothing); a playhead that is negative or NaN (reads as a
+      gap, so the band vanishes on the first frame); and an INVERTED range
+      `[80,20]` (can never be the containing range, so its damage is done by the
+      next-range branch, where it reads as "you can seek to 80"). The per-index
+      `try` is kept rather than the legacy's whole-read `try`: one bad index must
+      cost that range, not the band.
+      `--pv2-scrub-buffered` is a separate variable from `--pv2-scrub-fraction`.
+      Reusing one would put the band exactly under the fill, i.e. a "buffered"
+      indicator showing the playhead. NaN publishes 0, because an invalid `calc()`
+      is not zero — it is NO DECLARATION, which falls the band to `auto`: full
+      width, over the fill and the thumb.
+      Gates: `npm run lint` exit 0 · `npx vitest run` 104 files / 1516 tests ·
+      `npm run build` 3.24s · `git diff --check` clean. 26 mutation probes, each
+      failing a named test. Four things the first pass got wrong, all recorded
+      because each was a wrong ANSWER rather than a missing assertion: a
+      "furthest end" fallback that shipped and claimed forward runway past the
+      playhead; a dead `Number.isFinite(seconds)` guard in the hook that no test
+      could fail, so it was deleted rather than left as protection that protects
+      nothing; a `timeRanges` guard that did not distinguish the containing branch
+      from the next-range branch; and one failing case that was my test's
+      arithmetic, not the source — a playhead at 100 inside `[60,120]` contains
+      nothing to question, and the "gap" it was written to probe needed the
+      playhead moved past 120.
+- [x] 3.15 Hover shows the timecode bubble; the thumbnail is **opt-in** (`T`).
+      This is the honest fix for `previewThumbs.js:107-121`, which opens a
+      **second full HLS session per source** just to draw hover art.
+      Both already existed in the legacy (`:4279` bubble, `:4249` card), so the new
+      parts are the opt-in and the geometry — which is 3.17, done here rather than
+      deferred, because writing the clamped-percentage maths now and replacing it in
+      3.17 would have been two edits of one decision. `hoverPreview.js` is the one
+      geometry source and both previews read it.
+      The opt-in is three gates, and the third is the one the item does not mention:
+      `T` must be armed, the pointer must SETTLE (`THUMBNAIL_SETTLE_MS = 120`), and
+      there must be a real decode target. Opt-in alone is opt-in in name only — a
+      viewer who armed it and swept the pointer across a title would open a
+      decoder per position passed. The bubble itself is NOT gated on any of this:
+      it is free to render, it is what the item asks for on hover, and a viewer
+      pressing `T` must not pay a 120ms wait to read a timecode.
+      The bubble is also shown on keyboard FOCUS, not only on pointer hover, because
+      a keyboard viewer has no pointer to hover with — the same reasoning 3.13 grew
+      the rail on focus. It restates `aria-valuetext` there, which makes it the only
+      preview available without a pointer rather than a bonus.
+      It is `aria-hidden`: the slider already announces `aria-valuetext`, so a bubble
+      in the tree says the position twice per focus, and since the bubble's number
+      changes on every pointer move, as a live region it would be an unbounded stream
+      of updates interrupting whatever the viewer is reading.
+      `BUBBLE_WIDTH = 64` is committed to in CSS and passed to the clamp, rather than
+      measured with a ref. Measuring means the bubble centres on the first frame and
+      jumps to the edge on the second — visible on every hover near the ends of a
+      bar, which is exactly where a viewer aims when hunting for the end of a title.
+      A CSS test pins the stylesheet's width against the number the JS uses, because
+      a clamp computed from a width that has quietly changed is worse than no clamp:
+      it looks correct mid-bar and puts half the bubble off-screen at the ends.
+      `previewTarget` encodes the master-vs-refUrl rule that `usePlayerSource`
+      already has for playback and the legacy had a third time at `:3397`. It returns
+      null when a playable URL exists but no referer does, because a decode that
+      403s on every hover is worse than an opt-in feature that visibly does nothing.
+      Newest-wins comes from the effect cleanup, not a request counter. The counter
+      looks necessary — the pipeline serialises captures, so a sweep genuinely
+      overlaps — but a probe that removed it still passed every test, which is what a
+      second guard that does nothing looks like. The comment inside says so.
+      The art is keyed by `sourceKey` and read at render, not cleared in an effect on
+      a change of it: a frame decoded for another source is not a stale preview, it is
+      a preview of the wrong film, so it must not be rendered at all rather than
+      being reset a tick later — and the effect version also cost an extra render on
+      every mount and briefly showed the OLD title's art on the NEW one.
+      Gates: `npm run lint` exit 0 · `npx vitest run` 105 files / 1572 tests ·
+      `npm run build` 2.82s · `git diff --check` clean. 30 mutation probes, each
+      failing a named test. Two real defects the probes caught and I did not:
+      swapping `onPointerLeave` for a handler without `setHovered(false)` left the
+      bar permanently awake, and my own CSS used `rgba(0, 0, 0, 0.8)` where the
+      repo's tokens-only rule requires `--scrim-flat` — the existing suite caught
+      that one, which is the argument for having it.
+- [x] 3.16 Chapter + credits ticks from `cueBoundaries` — data that already
+      exists at `:3451-3453` and currently drives nothing but the skip button.
+      Read honestly this is a SMALLER item than it looks, and two misreadings were
+      available. First, `cueBoundaries` is not chapters: it is two fields,
+      `introEndSeconds` and `creditsStartSeconds`, either of which may be absent —
+      so there are at most two NAMED ticks and no chapter list. A chapter strip
+      would be a feature nobody asked for, on data that cannot support it.
+      Second, and load-bearing: the skip window has two sources that are not
+      interchangeable. MEASURED means the manifest's cue tags or the SkipDB dataset
+      — real boundaries for this title. ESTIMATED means `SKIP_INTRO_DEFAULT_END=90`
+      and the tail heuristic — a guess. The legacy renders the same skip pill either
+      way and the viewer cannot tell, which is defensible for a button nobody sees
+      until they press it, but NOT for a permanent mark on a timeline: a tick at 90s
+      is a claim that the intro ends there, false, in the same ink as a measured
+      one, undismissable, and learned-to-be-trusted. So `boundaryTicks.js` REFUSES
+      any unmeasured record — checked in the function rather than left to a caller,
+      because the first draft checked nothing and a test caught it drawing a tick at
+      exactly the 90s heuristic. `boundariesAreMeasured()` is that test, and it is
+      the reason the record is threaded through raw from `useSkipBoundaries` rather
+      than pre-filtered into ticks at the call site.
+      V2 had no ingestion at all — only the legacy read these. Its hls.js path is a
+      plain `new Hls(HLS_CONFIG)` with no custom loader, and hls.js's
+      `LevelLoadedData` exposes PARSED `details` plus `networkDetails`, not the raw
+      playlist text the `#EXT-X-CUE-OUT` tags live in. So cue tags stay
+      UNIMPLEMENTED rather than faked — reaching into
+      `networkDetails.responseText` is not a stable contract across hls.js's XHR
+      and fetch transports, and that decision belongs with the transport, not with a
+      ticks feature. `useSkipBoundaries` fetches the SkipDB dataset, which is a real
+      measured source and needs no loader. Consequence, stated plainly: a provider
+      that emits cue tags gets no tick from V2. That is a missing feature, not a
+      false one.
+      Never awaited, and the stale-title reset is DERIVED during render from the
+      lookup key rather than an effect clearing state — an effect reset is a second
+      render plus a frame where episode 1's marks are still on episode 2's bar.
+      Marks render above the fill (so one stays legible once played), below the
+      thumb (so the thumb is never split), `aria-hidden` (the slider already
+      announces position; two more values per focus is noise), `pointer-events: none`
+      (a notch is a division of the bar, not a seekable target — a dot would invite
+      a click that does nothing). 9 mutation probes killed named tests, one of which
+      first SURVIVED and was the reason the `alive` guard gained an observable
+      test: unmount-only assertions on a `console.error` warning no longer fire
+      under React 19, so the guard is now tested where it is observable — a title
+      change whose abandoned lookup resolves late, with a mock that deliberately
+      ignores its abort signal. 33 new tests.
+- [x] 3.17 One geometry source for both preview cards. Today the bubble uses
+      hardcoded `left: clamp(6, ratio*100, 94)%` (`:4263`) while the thumbnail
+      uses measured `thumbInset` (`:4234-4237`), so they separate at the edges.
+      Closed together with 3.15, because they are one decision: the fix is
+      `hoverAnchor` in `hoverPreview.js`, read by the bubble and by the art.
+      The legacy's two sources disagreed in three ways at once, and all three are
+      invisible on a title you test on a desktop monitor:
+        1. 6% of a 360px phone is 21.6px, which is narrower than a timecode bubble.
+           The clamp puts half the bubble off the left edge, and a percentage clamp
+           cannot fix it because it never learns the card's width.
+        2. The bubble clamped against the TRACK and the thumbnail against the
+           PLAYER. The track is inset by the timecodes, so at the same hover ratio
+           the two sit at different x positions.
+        3. `hoverRatio * playerW` used the player width to place something measured
+           from the track's left edge, so on any layout where the track does not
+           start at the player's left edge the card is offset by exactly that inset.
+      `hoverAnchor(ratio, width, trackWidth)` returns a `left` PERCENTAGE, not a
+      pixel offset, because the card is sized as a fraction of the track too — so a
+      track resize cannot desynchronise the two, which is the legacy's `playerW`
+      bug in a different costume. `left` is the card's CENTRE and the stylesheet's
+      `translateX(-50%)` is what makes it so; that pairing is load-bearing, not
+      cosmetic, because it is the only arithmetic that can keep half a card on
+      screen. A card wider than its track has no in-bounds position, so it centres
+      and overflows rather than pinning to an edge and jumping between edges.
+      Gates as 3.15.
+- [x] 3.18 Subtitles `fontFamily` from the `SUBTITLE_FONTS` registry
+      (`constants/settings.js:66`). The player sets **no** `fontFamily` today.
+      DISCHARGED TOGETHER WITH 3.19-3.23, and only because 6.4's subtitle layer was
+      pulled forward first (user's call, mid-queue). As written these six items were
+      not buildable: V2 rendered no subtitles at all — no `textTracks`, no
+      `addTextTrack`, no `cuechange` anywhere in `src`, and no `SubtitleOverlay` or
+      `usePlayerSubtitles` file. "The player sets no fontFamily today" was true of a
+      player with no subtitle node to style, and wiring 3.18 alone would have been
+      dead code. So the layer landed first: `usePlayerSubtitles` (list, pick,
+      download, parse, active cue) + `SubtitleOverlay` + `useChromeHeight`.
+      The font is a LOOKUP against the registry, replacing the legacy's nested
+      ternary at `PlayerPreview.jsx:78-83` that had to be edited in lockstep with
+      `constants/settings.js:66` — a fourth font added to the registry would have
+      resolved to no family at all, and a dropped `font-family` inherits the player's
+      own stack, so it reads as "some font" rather than as a bug. Id matching is
+      case- and whitespace-insensitive: a preference can arrive from another tab or a
+      hand-edited localStorage.
+- [x] 3.19 Subtitles `fontSize` from `subtitleSize` % on a container-relative
+      base, replacing `clamp(16px, 2.6vw, 26px)` (`:3687`).
+      The unit was the defect: `2.6vw` is a fraction of the VIEWPORT, so the same
+      cue is tiny on a phone held beside the video and enormous on a 32" monitor
+      even when the player box is identical. Now `cqi` against the player box, with
+      the preference as a scale. Bounded 50-300%: 0 would be a black bar where the
+      caption should be with no way for the viewer to tell it from a broken track,
+      and unbounded would paint over the video. Guarded on `Number.isFinite` because
+      the real failure is SILENT — `calc(clamp(…) * NaN)` is an invalid value, the
+      browser drops the whole `font-size`, and the cue renders at whatever it
+      inherited, which looks like the setting "not working" rather than a bug. The
+      legacy's `(Number(subtitleSize) || 100) / 100` could not express a deliberate 0
+      and passed NaN straight through.
+- [x] 3.20 Subtitles `color` from `subtitleColor` + a scrim whose opacity is
+      derived from that colour's luminance. Replaces hardcoded `#fff` (`:3689`).
+      The legacy painted `rgba(0,0,0,0.42)` regardless of text colour, which is
+      wrong in both directions: bright yellow captions sat on a box heavy enough to
+      look like a highlight, and mid-grey captions washed out on a white scene.
+      Opacity now runs `0.18 + luminance * 0.62`. Luminance is the WCAG relative
+      formula WITH the gamma step — linearising before weighting is what stops
+      `#808080` scoring as half-bright when it is really ~0.216, and an eyeballed
+      channel average would under-scrim every mid-tone. An unreadable colour gets the
+      most protective treatment (white, the worst case for contrast) rather than
+      none, and an invalid `color` is replaced rather than passed through, because
+      the CSSOM drops it silently and the cue then inherits — invisible text on a
+      bright frame.
+- [x] 3.21 `lang` on the subtitle node, from the track language, so a Tamil cue
+      is not announced with the page's English voice.
+      OMITTED rather than emptied when the name is not confidently mapped:
+      `lang=""` is a claim that the content has no language, which is worse than
+      making no claim. Regional suffixes are stripped to the base language
+      ("English (US)" -> `en`) instead of guessing `en-US`. This one caught a real
+      bug of mine: the conditional spread went INSIDE the `style` object, which puts
+      a `lang` KEY on a CSS declaration — the CSSOM drops it without complaint and
+      the cue renders with no language while the code reads as though it had one.
+- [x] 3.22 Subtitle `bottom` from **measured** chrome height, replacing
+      `controlsVisible ? 132 : 64` (`:3682`) — 132px is a desktop magic number
+      and puts captions under the transport on touch.
+      `useChromeHeight` measures the transport layer via `ResizeObserver`, so the cue
+      is correct by construction in both tiers, both layout modes, and with
+      safe-area insets — none of which the two literals could express. The node is
+      STATE, not a ref, which was the second bug found: the transport is conditional
+      on a resolved source, so the effect first runs with nothing attached, and a
+      ref-keyed dependency list would never re-run when the element arrived — leaving
+      the cue at its resting offset for the whole session with nothing thrown and
+      nothing logged. Measured on attach rather than waiting for the observer's first
+      callback, since a player that never resizes would never get one. Rounded:
+      sub-pixel chrome would put `bottom: 95.66667px` in an inline style, changing on
+      every frame of a transition.
+- [x] 3.23 One plate per cue block; `player.css:671-677` paints a per-line box
+      that fragments wrapped cues.
+      The legacy nested a `<span>` with `box-decoration-break: clone`, which paints a
+      background box around every LINE — two boxes and a visible notch between them
+      for a two-line cue. The plate now wraps the block and `white-space: pre-line`
+      still honours the line breaks the file carries. Also moved off `left/right:
+      6%`: that inset shrinks the usable width exactly where a caption needs every
+      pixel, and padding is the same breathing room as a fixed distance at any size.
+      Needed a new token, `--text-outline-cue` in `tokens.css` — the per-glyph
+      outline is what actually carries legibility where the plate does not reach
+      (over a bright face, across a seam between plate rows), and the tokens-only gate
+      caught the literals on the first attempt.
+      Two more bugs the tests caught here: the cue state held the engine's cue
+      OBJECT rather than its text, which is not a slow render but React throwing
+      "objects are not valid as a React child" and taking the player's DOM down; and
+      cues loading AFTER `track` is set meant the active-cue effect never re-ran, so
+      no caption appeared at all until the viewer happened to seek — fixed with an
+      explicit `cueRevision` rather than an imperative `applySubtitleCue`.
+      Gates: lint 0, 112 files / 1675 tests, build 5.11s, `git diff --check` clean.
+      13 mutation probes on the styling decisions, all killed; one probe was
+      correctly reported as EQUIVALENT (`Number.isFinite` already excludes Infinity,
+      so an added early return changes nothing) rather than papered over with a
+      contrived test.
+- [x] 3.24 One right-hand settings sheet, one panel at a time — ends the stacked
+      -overlay problem.
+      The legacy's defect is not that its panels look bad, it is that they are
+      UNREACHABLE. Open Episodes, then tap Subtitles: the subtitle pane's scrim
+      paints over the episode list, so a press on an episode row lands on the newer
+      backdrop, which dismisses the NEWER pane — and the episode list is still
+      there underneath, still mounted, still accepting state changes. The viewer
+      taps a panel that appears to do nothing. So this is a representability fix:
+      `sheetPanels.js` maps ONE id to ONE panel, and `SettingsSheet` renders
+      exactly one child from a `switch` on that id. Two panels cannot both be
+      mounted because there is no state in which two ids are current.
+      Why a module and not a switch inside the component: three things need the
+      same answer — the heading, the transport button's current state, and the test
+      — and a per-panel "is it me?" check is precisely how stacked overlays get
+      built in the first place.
+      `nextPanelId` makes a second opener REPLACE, and makes the SAME opener
+      CLOSE. The toggle is not decoration: 3.25's backdrop and Escape are not
+      written yet, so without it the sheet is a one-way door. A test on
+      "one panel is shown" would not have caught that — it passes happily with a
+      sheet the viewer cannot dismiss.
+      Two bugs the tests caught, both of which pass a naive "one heading" assertion:
+      the catalogue-vs-openers test found `volume` in `SHEET_OPENERS` with NO panel
+      (3.12 makes the volume control a sheet entry in zones mode), so tapping
+      volume opened an empty sheet from a control whose whole job is sound; and the
+      captions selection assertion found that `selected={Boolean(track)}` marks
+      EVERY language row selected, which passes a test checking only the active
+      row and Off. The count assertion is what killed it.
+      Deliberately NOT here, and each with its reason rather than by omission:
+      `role="dialog"`/focus trap/Escape (3.25 — a backdrop click needs a hit test
+      to tell it from a press meant for the video, and Escape must run before the
+      player's own); `role="radiogroup"` (3.26 — a half-applied semantics upgrade is
+      worse than the honest `aria-pressed`); width (3.28 — a fixed width here would
+      be a second number to change when 3.28's clamp lands); SDH badges (3.29 —
+      `SubtitleFetcher` builds each entry from `LanguageName`/`SubLanguageID`/
+      `SubDownloadLink` only, so there is no hearing-impaired field to render, and
+      guessing from "English (SDH)" as a language name is worse than showing
+      nothing). Volume is discrete steps, not a slider: the zones layout exists
+      BECAUSE the transport cannot fit on a phone, and a slider is the control that
+      most needs horizontal room and precise dragging. The servers panel names the
+      active server and says switching is unavailable, because V2 has no server
+      LIST — `usePlayerSource` returns one resolved source, and a picker over data
+      that does not exist is a control that cannot work.
+      Gates: lint 0, 115 files / 1731 tests, build 3.35s, `git diff --check` clean.
+      13 mutation probes on the panel and selection decisions, all killed; the one
+      that survived first (the `Boolean(track)` captions selection) exposed a real
+      weakness in the test rather than a hole in the code, and was closed with a
+      count assertion instead of a special case.
+- [x] 3.25 Sheet is `role="dialog"` + `aria-modal`, focus trapped, backdrop click
+      closes, Escape closes the sheet first and only then the player.
+      The item bundles two unrelated claims, and conflating them is how this ships
+      broken. `role="dialog"` + `aria-modal` is a CLAIM to assistive technology and
+      changes nothing about the browser: `aria-modal` does not remove a single
+      element from the tab order, and a screen reader that believes it while the
+      caret walks into the page behind is worse than no modal at all. The TRAP is
+      behaviour, and it has to exist separately. So most of the tests assert
+      behaviour, not markup — asserting the role alone would have passed a sheet
+      that announces itself perfectly and lets the viewer's next Tab leave.
+      `aria-labelledby` points at the visible `<h2>` and the test asserts the id
+      RESOLVES, because an `aria-labelledby` naming a missing id announces an empty
+      dialog, and it also has to change when the panel does — a stale id still
+      announces "Subtitles" after the viewer opens Episodes.
+      Escape ordering is STRUCTURAL, not a check. The sheet's handler calls
+      `stopPropagation`; the player's handler is on the shell ROOT, not on `window`.
+      That combination is the whole design: React's synthetic propagation runs from
+      the sheet upward, so the sheet's `stopPropagation` means the player's handler
+      never runs for that keypress. A `window` listener looks equivalent and is
+      not — the event has already bubbled past the shell by the time it arrives, so
+      nothing could have stopped it and both layers would close on one Escape. The
+      alternative implementations all lose: "close the sheet first, then check" is a
+      race between two handlers that both decided to close something, and closing
+      the player first means a viewer who opened Episodes to change the aspect ratio
+      has lost their place with no way back. `stopPropagation` over
+      `preventDefault` because the latter suppresses the browser's default while
+      still calling every other handler — the same double-close by another route.
+      Fullscreen guard copied from the legacy (`NativePlayerView.jsx:2158`): the
+      BROWSER consumes Escape to leave fullscreen, so a viewer who pressed it to get
+      out of fullscreen would also lose their title.
+      Backdrop is a SIBLING of the sheet, not a parent. If it wrapped the sheet,
+      every row click would bubble to it and close the panel the click landed in —
+      so "the press was on the scrim" becomes a DOM fact rather than a coordinate
+      comparison. It is `position: absolute; inset: 0`, NOT `fixed`: a full-viewport
+      scrim dims the whole site and swallows presses meant for the page, while the
+      player is only a panel on it.
+      The trap's arithmetic lives in `focusTrap.js`, pure and DOM-free, because the
+      failures are an off-by-one at the edges and a throw on an empty list — neither
+      of which a rendering test can see, since jsdom's `Tab` does not move focus.
+      Two decisions worth keeping:
+      - Modified Tabs are left to the browser. `preventDefault()` on Ctrl+Tab does
+        not stop the switch, it breaks it — and a trap that reclaims focus when the
+        viewer comes back has yanked them out of whatever they switched to.
+      - `aria-disabled` elements stay TABBABLE. It is a claim to assistive tech and
+        changes nothing about the tab sequence; excluding it would trap focus AROUND
+        a control the viewer can see, land on it, and activate it, which is the
+        exact thing `aria-disabled` is used to prevent.
+      Two real bugs, both silent. `nextFocusIndex` accepted an out-of-range index and
+      returned `count + 1` — reachable when the focused row is removed from under
+      the caret (a subtitle download resolves and its row disappears), so
+      `focusables[100]` is `undefined`, nothing is focused, and focus falls to
+      `<body>`: outside the trap, the one place a trap must never put it. Found by a
+      unit test asserting `nextFocusIndex(5, 99)`. And the effect that restores focus
+      to the opener ran on the unmount path too, so a sheet that never opened stole
+      focus from whatever the viewer was actually using — a background player taking
+      the caret mid-sentence. Now gated on a real open→closed transition.
+      Focus goes to the close button, not the first row: it is the one control
+      guaranteed to exist in every panel, so focus never lands on an element a later
+      render removes.
+      Gates: lint 0, 117 files / 1773 tests, build 3.12s, `git diff --check` clean.
+      16 mutation probes on the modal and trap decisions. Four initially survived
+      and each was a test that was too weak rather than a hole in the code: the
+      `aria-modal`, `stopPropagation`, backdrop and focus-restore probes passed
+      because the assertions were indirect; the stale-index and empty-list probes
+      passed because the DOM-level tests could not reach the branch the pure unit
+      test already covered. Closed with a direct assertion and, for the stale index,
+      by running the probe against the unit test that owns that branch.
+- [x] 3.26 `role="radiogroup"` / `role="radio"` + `aria-checked` + arrow keys for
+      single-select, replacing `aria-pressed` on sibling buttons (`:196-257`).
+      The item says "replace `aria-pressed`", and the naive reading is to swap the
+      attribute on all seven panels. Three of them are not single-select at all, so
+      that reading is wrong in a way that ships bugs:
+      - MUTE IS NOT IN THE GROUP. Mute, then unmute, and a viewer expects their 80%
+        back. As option one in the level group, ArrowDown onto it would change the
+        volume as well, and the group's own checked answer would be a lie — which is
+        it, "Mute" or "80%"? A toggle is not a choice out of several, so Mute keeps
+        `aria-pressed` and the levels form their own group beneath it. The two are
+        still linked one way, `muted` suppressing the level's checked state, so exactly
+        one is ever on and a screen reader announces a single fact. Both on is what
+        3.12's sheet had, and it is how a viewer ends up unsure whether the sound is.
+      - THE ROSTER IS NOT A GROUP. It is the one panel most likely to be mislabelled:
+        the "you" marker makes exactly one row LOOK selected, and `radiogroup` would
+        say "one of these is current, arrows will change it". Nothing here can be
+        changed. A viewer taking that at face value presses ArrowDown, hears "checked"
+        move onto a different person, and concludes the player reassigned them
+        somebody else's identity — and the announcement would be true, because the
+        arrows WOULD have moved `aria-checked`. `aria-current` plus
+        `role="list"`/`listitem`, and no longer buttons at all: they were four controls
+        that did nothing, so a viewer tabbing through the sheet was offered each one in
+        turn and every one was a dead end.
+      - "OFF" IS AN OPTION, NOT A SEPARATE CONTROL. Harmless under `aria-pressed`,
+        wrong under `radiogroup`: two adjacent controls with no declared relationship,
+        where a viewer hears "1 of 1" for Off then "1 of 6" for the languages and cannot
+        tell that choosing either turns subtitles off. Off IS the absence of a track,
+        so it is the first option, and a group of one is a group.
+      ARROWS MOVE THE SELECTION, not just the focus. That is the cheapest thing to get
+      wrong and the reason `SegmentControl.jsx` is copied rather than re-derived:
+      moving focus alone is `role="listbox"` behaviour, so a screen-reader user presses
+      ArrowRight under a radiogroup, hears nothing change, and concludes the control is
+      broken. RTL is not special-cased either — ArrowRight is "the next option" in both
+      writing directions, because keying off the key rather than the layout is what the
+      ARIA pattern specifies and it is what keeps the two from ever disagreeing.
+      `aria-checked` is `false`, never omitted: on a role whose checked state is
+      REQUIRED an absent attribute leaves the state undefined, and most assistive tech
+      then guesses from the visual highlight — the exact coupling this removes.
+      Three bugs found while landing it, all silent:
+      - 3.25's FOCUS TRAP WAS BROKEN BY THE ROVING TABINDEX. Its selector was
+        `button:not([disabled])`, which matches every radio regardless of
+        `tabindex="-1"` — so the trap collected all five parked options and called
+        `.focus()` on them, walking Tab INTO the subtitle list instead of out of it and
+        stranding the keyboard in a group of six languages. The selector is now broad
+        and `isTabbable` filters, because a disabled button is untabbable for a
+        different reason than a parked option and one selector cannot say both. The
+        3.25 trap tests had to change too: they derived their list from "all the
+        buttons", which was quietly the same bug wearing a test's clothes.
+      - THE CHECKMARK WAS PAINTED FROM THE WRONG STATE. `:checked` is the precise
+        selector and it NEVER matches a `<button role="radio">` — it is a form-control
+        pseudo-class — so the entire marker would have silently stopped rendering: a
+        stylesheet that compiles, a build that passes, and a sheet where nothing is ever
+        visibly selected. Now `[aria-checked="true"]`, with the stale
+        `[data-selected="true"]` rule deleted rather than outnumbered, and
+        `:focus-visible` gets its own outline because arrows move focus and selection
+        together: after one ArrowDown two rows are true at once, and a marker following
+        focus claims the setting changed when it has not.
+      - `identity` WAS NEVER FORWARDED TO THE ROSTER. `useWatchParty` returns its own
+        `identity`, the sheet reads it as a prop, and the shell passed `party` without
+        it — so the comparison was against `undefined` and matched nobody. The roster
+        rendered, listed everyone, and never said which one was the viewer. No unit test
+        could catch it, because the unit test supplies the prop itself; only a shell
+        test asking whether the shell FORWARDS one can.
+      Also fixed, from the same audit: `useChromeHeight`'s ref was on the `.pv2-chrome`
+      wrapper, which is `position: absolute; inset: 0` — the whole player. Subtitles
+      clear the transport by its measured height, so every cue was being placed a full
+      player's height above the bottom edge: off-screen, on every title, with no test
+      failure to explain it. `getBoundingClientRect` is honest about whichever node it
+      is handed, so the fix was to hand it the transport.
+      Gates: lint 0, 118 files / 1810 tests, build 5.13s, `git diff --check` clean.
+      17 mutation probes. Five initially survived and, again, every one was the test's
+      fault rather than the code's — including one EQUIVALENT mutant worth recording:
+      removing the component's `isRadioKey` guard changed nothing, because
+      `nextRadioIndex` independently returns `null` for keys it does not own. Two
+      independent reasons to stay out of a keypress is defence in depth, not a redundant
+      line, so that probe was re-aimed at the rejection inside `nextRadioIndex` — where
+      it died immediately, reporting `Tab: expected 3 to be null`.
+- [x] 3.27 `aria-controls` from each transport button to the panel it opens.
+      One line of markup, and it cannot be one line of markup: `aria-controls` is a
+      relationship between the opener in `TransportBar` and the panel in `SettingsSheet`,
+      and neither file imports the other. So the id has to be DERIVED on both sides
+      from the panel id (`panelDomId` in `sheetPanels.js`), not stored — an id stored on
+      the opener and a different one stamped on the panel compiles, passes every unit
+      test (each file asserts only its own half) and produces a reference that resolves
+      to nothing.
+      Which is why the test with teeth asserts RESOLUTION rather than presence:
+      `document.getElementById(opener.getAttribute("aria-controls"))` against the live
+      attribute. `expect(opener).toHaveAttribute("aria-controls")` passes just as well
+      for `aria-controls="pv2-sheet-pannel-captions"`, and a presence check is the whole
+      test suite of a feature whose entire job is that the reference points somewhere.
+      The id goes on the DIALOG, not on `.pv2-sheet__body`. The opener promises a dialog
+      (`aria-haspopup="dialog"`), so the thing it controls is the dialog; pointing at the
+      body sends an assistive-tech jump to the first row and skips the heading that names
+      which panel just opened.
+      The real find was next door. `aria-expanded` was HARDCODED `false` on all six
+      openers, so a screen-reader user was told the Subtitles button was collapsed while
+      the Subtitles panel was on screen in front of them. A claim that is always "no" is
+      worse than no claim at all: it is indistinguishable from a broken control, and it
+      makes `aria-controls` incoherent — an opener naming a panel it insists is not there.
+      Six chances to hardcode the same wrong answer is why `openPanel` is now compared in
+      one place (`isPanelOpen`) rather than passed down as a per-button boolean that a
+      call site can hardcode.
+      `panelDomId` returns `null` for anything that is not a panel, and callers pass that
+      through as `undefined`. `null` becomes the literal text "null" in an attribute, so
+      `aria-controls="null"` is an id resolving to nothing — the exact failure the
+      function exists to prevent, reintroduced at the last step.
+      `sheetPanels.test.js` gained a drift guard the existing tests could not be: those
+      prove `SHEET_OPENERS` and `SHEET_PANELS` agree about TITLES, and this is about ids.
+      An opener added to the transport without a panel would get `aria-controls={null}`
+      silently, and nothing would notice.
+      Gates: lint 0, 118 files / 1818 tests, build 7.02s, `git diff --check` clean.
+      10 mutation probes. One survived and is worth recording as EQUIVALENT rather than
+      papered over: removing the `haspopup` guard from `aria-controls` changed nothing,
+      because `controls` is only ever passed to openers. The guard is unreachable
+      defensive code, not a dead claim — it is what stops a future non-opener that
+      accidentally receives a `controls` prop from advertising a dialog it cannot open —
+      so it stayed, and the probe is recorded as a known-surviving mutant with its
+      reason instead of a weakened test. The other nine, including the id typo
+      (`pannel`), `id="null"`, "every opener expanded", "no opener expanded", and
+      "expanded hardcoded to one panel", all died.
+- [x] 3.28 Panel width as a clamp with a real floor. `min(480px, 32%)` /
+      `min(360px, 28%)` (`:4739-4746`) yields 224px on a 700px embedded player.
+      The bug is the FUNCTION, not the numbers. `min()` returns the smaller of its
+      arguments, so `min(480px, 32%)` at 700px is `min(480, 224)` = 224px — a column
+      one settings row wide. The author's intent is legible as "480px, but not more
+      than about a third": a floor and a ceiling. They wrote the shape of the answer
+      and reached for the function that can only express half of it, and it compiled,
+      rendered, and looked deliberate at full size.
+      Now `min(100%, var(--pv2-sheet-width, clamp(18rem, 34%, 26rem)))` — `rem` so
+      the floor tracks the viewer's text size like every other length here.
+      34% of 700px is 238px, BELOW the 18rem (288px) floor, so the floor wins: that is
+      precisely the case that produced 224px, and it now gets 288px.
+      `3.28` is CSS arithmetic, and jsdom has no layout, so the tests assert on CSS
+      text and COMPUTE the legacy value rather than hard-coding 224 — a test that says
+      "224" proves nothing about why. One of them is a non-vacuity probe: it asserts
+      the old value really was under 288px, because if the legacy ever stopped being
+      the bug, every test below would be guarding nothing.
+      Two real finds, both from mutation probes that SURVIVED the first version of the
+      suite:
+      `clamp(26rem, 34%, 18rem)` — floor and ceiling swapped — passed all 29 tests.
+      CSS does not error on an inverted `clamp()`; it resolves min > max to the MIN, so
+      the mutant silently became a 416px panel on every player including the 700px
+      embed this task exists to widen. Every assertion was about the floor being
+      PRESENT and none about the two outer values agreeing. Now asserted.
+      `max-inline-size` instead of `inline-size` also passed. The sheet is
+      `position: absolute` with `inset-inline-end: 0` and no inline-start, so its used
+      width is shrink-to-fit against its content: `max-inline-size` only CAPS that,
+      leaving the panel as narrow as its longest row instead of at the clamp's floor.
+      A pinned drawer needs a DEFINED width.
+      The phone-width case (`max-width: 420px`) gets 100% outright: at 288px the floor
+      would be 69% of the box and the sheet would read as a broken side panel rather
+      than a deliberate drawer. It goes through the custom property so the clamp stays
+      in ONE place — which is why the width is `var(--pv2-sheet-width, …)` and not a
+      second literal.
+      Adding that override then broke an unrelated suite, and the breakage was the
+      useful part. `playerV2SettingsSheet` located the base rule with
+      `CSS.indexOf(".pv2-sheet {")`, which now resolves to the EARLIER override, so
+      `CSS.slice(...)` ran on into the transport rule and the z-index test read
+      `.pv2-transport`'s `3` instead of the sheet's `4`. Four assertions had been
+      measuring the wrong element; one was failing for a reason that had nothing to do
+      with what it claimed. Replaced with a `sheetBlock()` helper anchored on the
+      section header, and confirmed the repaired test still has teeth by probing
+      `z-index: 1` (dies, as it should).
+      Gates: lint 0, 118 files / 1824 tests, build 4.98s, `git diff --check` clean.
+      9 mutation probes, all killed: legacy `min(480px, 32%)`, inverted clamp, floor
+      dropped under the fluid value, no effective ceiling, `min(100%)` guard removed,
+      phone override at 88%, `max-` instead of `inline-size`, and the CSS selector
+      drifting onto the override block.
+- [x] 3.29 Subtitle tracks: **SDH/hearing-impaired badge**, forced marker, sorting.
+      Not a CSS task. `SubHearingImpaired` and `SubForced` were read off the upstream
+      object and then thrown away two lines later, because the dedupe keyed on
+      `LanguageName` alone: every English result shares one `SubLanguageID`, so a title
+      with a plain AND an SDH English track kept exactly ONE and the viewer was never
+      offered a choice that existed. Nothing on screen indicated data had been dropped —
+      the sheet simply said "English". Any badge added to the panel alone would have
+      been a badge on a list the fetcher had already collapsed to one row.
+      So the fix is at the boundary: `trackKey` is now (language, variant), the fetcher
+      dedupes on it and still keeps the FIRST of each variant (highest rated), and the
+      flags ride through as the STRINGS upstream sends. `Boolean("0")` is true, so
+      coercing at the fetcher would badge every track — the reducer owns that
+      comparison and only `"1"`/`1`/`true` count.
+      New pure module `subtitleTracks.js` (same shape as `sheetPanels`/`radioGroup`, so
+      ordering is testable with no DOM). `captionOptions` dedupes and sorts in ONE pass,
+      because doing them separately is how the original bug hides: dedupe on language
+      and the SDH track is gone before sorting runs.
+      Ordering is by LANGUAGE first, then variant — and that is the whole
+      implementation. Ranking globally (all plain, then all SDH, then all forced)
+      reads as a sensible reading of "plain first" until you have two languages: English
+      plain, Tamil plain, then English SDH goes BELOW Tamil and the two English
+      variants stop being adjacent. That comparison is the one the list exists to
+      support. The panel test caught this by failing on the real component, after the
+      unit test had already passed against the global-rank implementation it was written
+      to reject — the fixture it used (SDH Spanish, no plain Spanish) happened to order
+      identically under both. Strengthened to include a plain Spanish row.
+      Panel rows keyed and selected on `trackKey`, not `languageId`. Under 3.26 that
+      could not have been caught: two colliding React keys meant the SDH row repainted
+      with the plain row's state, so with the SDH track playing the sheet showed PLAIN
+      English as chosen.
+      Badge: a chip, not a colour (same argument that moved 3.26's selection marker off
+      a background tint), `aria-hidden` because the expanded phrase — "SDH (hearing
+      impaired)" — is already in the row's accessible name. Without the hide it announces
+      "English, SDH, SDH hearing impaired". Row became `grid-template-columns: 1fr auto`
+      with the sub-line pinned `1 / -1`, so the chip sits beside the language instead of
+      pushing it to a third line and doubling every SDH row's height.
+      Forced wins the badge over SDH when upstream claims both: calling a signed track
+      "SDH" tells the viewer it has descriptive dialogue it does not have.
+      Gates: lint 0. 14 mutation probes, all killed — including four that survived the
+      first version of the suite and each exposed a real hole:
+      `trackKey` ignoring the variant; `Boolean()` coercion; lexical instead of natural
+      sort (the original fixture used 1/2/10 where both comparators agree — 9 vs 10 is
+      where they differ); the total-order tiebreak; `aria-hidden` removed from the chip;
+      and the panel skipping `sortTracks` (the fixture arrived already sorted, so the
+      sort looked like a no-op — now fed Tamil/Forced/SDH/Plain out of order).
+      Four CSS mutants survive every DOM assertion because jsdom does not lay out —
+      a stretched chip, a missing grid column, an unpinned sub-line, a non-uppercased
+      chip all render identically to `getByRole`. Those are asserted on stylesheet text,
+      the way `playerV2Style.test.js` does.
+      Language FLAGS are deliberately NOT implemented. OpenSubtitles returns
+      `SubLanguageID` as a bare ISO code with no region, so there is no honest flag to
+      derive: "en" is not the UK and a regional flag would be a fabrication. A
+      code-to-flag table would be a guess wearing a fact's clothes, which is exactly
+      what this task's comment previously warned against.
+- [ ] 3.30 Quality menu renders the fps/HDR/SDR tags `variantLabel` already
+      computes and `:5029-5050` discards; add bitrate, network type, Auto cap.
+- [ ] 3.31 Quality menu disables relay-limited rungs with a visible reason.
+      `transportRelay` is tracked at `:1048` but never gates a row, so a 4K pick
+      over the relay fails at 3-5s with a silent rollback.
+- [ ] 3.32 Volume HUD uses `--font-mono` with fixed width and tabular numerals
+      (the pill jitters between 1 and 2 digits today), and one icon threshold —
+      `VolumeIcon` flips at 50 (`:3394`) while the HUD flips at 40.
+- [ ] 3.33 `UpNextCard` gains poster artwork (the 260px text card at `:4610-4700`
+      has none — artwork is the whole point of an Up Next card) and one owned
+      countdown keyframe.
+- [ ] 3.34 Resume card gains artwork and can never co-display with UpNext — both
+      currently claim `right:24, bottom:100`.
+- [ ] 3.35 `EpisodesStrip` scrolls the current episode into view (a 24-episode
+      season opens at episode 1) and gets a season selector.
+- [ ] 3.36 `EpisodesStrip` must never bury the transport — it is ~270px of a
+      phone screen at `zIndex 6` with no way to reach the controls.
+- [ ] 3.37 Player overlay gets `role="dialog"` + `aria-modal`; focus moves in on
+      open and RETURNS to the trigger on close; background gets `inert`. None of
+      this exists at `TitleDetailsPage.jsx:2016-2331`, so Tab walks the whole
+      details page behind an opaque overlay.
+- [ ] 3.38 Push a history entry on open so Back closes the player instead of
+      navigating away and unmounting it mid-playback.
+- [ ] 3.39 Escape order: sheet → still-watching prompt → player.
+- [ ] 3.40 `StillWatchingPrompt` becomes a real `alertdialog`: focus in, focus
+      trapped, Escape closes ONLY it, focus returns to the video. Today Escape
+      closes the **whole player** (`:2134-2140`) and Space/K un-pause the video
+      behind it because the window keydown never consults overlay state.
+- [ ] 3.41 `ShortcutSheet` reachable from inside the player via `?`. Replaces the
+      `GlobalShortcuts` modal that opens BEHIND the player (`zIndex` 9999 vs the
+      player's 99999) while its Escape handler swallows the next Escape.
+- [ ] 3.42 Picture-in-Picture via `requestPictureInPicture`, capability-checked,
+      graceful absence. The trailer iframe on the same page already advertises
+      `picture-in-picture` in its `allow` list.
+- [ ] 3.43 Top bar carries title AND back, replacing the one-button strip with
+      44px of dead padding (`:3700-3734`).
+- [ ] 3.44 Error surface anchored INSIDE the player box and inside the chrome fade
+      group. Today it is a sibling outside `screenRef` at `absolute bottom:80`
+      (`:5197-5275`), so it anchors to the page and overlaps the transport.
+
+## Part 4 — The loader (kept art, new instrument)
+- [ ] 4.1 Keep the blurred full-bleed backdrop and centred logo, unchanged.
+- [ ] 4.2 Replace `.np-tailspin` / `.np-ring-spinner` (`:455`) with a horizontal
+      bar: 2px rail `--border-strong`, `--accent-primary` fill.
+- [ ] 4.3 Determinate when real bytes are known (buffered/total), slow sweep when
+      not. No conic gradient, no pulse, no ring.
+- [ ] 4.4 Real phase label from `usePlaybackState`: Resolving / Opening /
+      Buffering / Stalled. Four distinguishable states collapse into one
+      anonymous ring today, with a joke every 2.5s.
+- [ ] 4.5 Honest ETA when known, nothing when not.
+- [ ] 4.6 Retain `role="status"` + `aria-label="Loading video"` (asserted at
+      `nativePlayerView.test.jsx:54`) and make `aria-live="polite"` carry the
+      real phase text, which it never does today.
+- [ ] 4.7 Retain the no-logo text-title fallback (asserted at `:77`) — a missing
+      backdrop must never be the reason a load looks broken.
+- [ ] 4.8 Fluid via `cqh` units so it cannot overflow a 360px-tall landscape
+      phone; today's column stacks backdrop + logo + ring + text with no
+      responsive reduction.
+- [ ] 4.9 Reduced motion → static 30% fill. The fun-fact rotator is a JS
+      `setInterval`, which no reduced-motion contract can reach.
+
+## Part 5 — Logic fixes carried in
+- [ ] 5.1 Offer resume BEFORE the stream resolves, not after `MANIFEST_PARSED` +
+      `play()` (`:2791`). Today the viewer stares at a loading stage for ~20s
+      before being offered their own saved position.
+- [ ] 5.2 Stop zeroing the timestamp before mount. `TitleDetailsPage.jsx:1002`
+      calls `updateProgress(..., 0)` before `setIsPlaying(true)`, so the button
+      says "Resume", playback starts at 0:00, and the resume card never appears.
+- [ ] 5.3 `Number()`-normalise every `savedSeason`/`savedEpisode` comparison.
+      `watchEntry` uses `===` at `:779` where `:594` and `:757` correctly wrap,
+      so a string from `localStorage` silently nulls resume.
+- [ ] 5.4 **Delete `useContainerSize`** in favour of `@container`. Its `[ref]` dep
+      is identity-stable, so it runs once on mount and never again — freezing
+      `playerW/playerH` at 0 if `screenRef` is null on that pass. It also lacks a
+      `typeof ResizeObserver` guard and allocates a fresh object per observer
+      tick, so it re-renders on every fractional layout change.
+- [x] **5.5 One explicit "player open?" flag replaces the iframe selectors** in
+      `GlobalShortcuts.jsx:15` and `BackToTop.jsx:11-17`. Both used a
+      7-provider IFRAME query, which is **permanently false for every native HLS
+      stream** — that path renders a `<video>` and zero iframes. Two live
+      consequences, both now gone: `BackToTop` stayed visible and clickable on
+      top of playback (clicking it scrolled the page behind the player), and
+      `GlobalShortcuts` opened its modal behind the player's z-index 99999 with
+      its own 9999, so Shift+? looked dead while `isOpen` went true — and that
+      handler `preventDefault()`s the next **Escape**, i.e. it was eating the
+      player's own Escape-to-close. The same provider string was also duplicated
+      across the two files, so any fix had to be applied twice and could drift.
+      Now: `src/utils/playerOpen.js` owns the attribute (`data-player-open="true"`,
+      applied by the overlay itself via `playerOpenAttrs` at `TitleDetailsPage.jsx:2024`),
+      and `isPlayerOpen()` is the single reader — adding a consumer is now one
+      import, not a fourth copy of a selector. Detects the trailer path too,
+      which the old query also missed (a YouTube embed is not one of the 7).
+      14 tests, incl. non-vacuity: the old predicate is asserted to return
+      `false` on the exact native DOM the new one returns `true` for, so the
+      suite stops covering the bug the moment it regresses. **Two flaws my own
+      first draft had, caught by writing the tests:** (a) `root ?? document`
+      made an explicitly-passed `null` indistinguishable from "no argument" and
+      silently widened the search to the whole document — now only an *omitted*
+      argument defaults to `document`; (b) the attribute is **React-only** —
+      `Object.assign(el, playerOpenAttrs)` sets a JS expando, never the
+      attribute, so a vanilla refactor would reintroduce silent always-false
+      detection. Both are documented and pinned.
+- [ ] 5.6 Thumbnail pipeline: negative caching, `toBlob`/`FileReader` timeouts,
+      LRU. A hung promise permanently wedges the module-level `chain` at
+      `previewThumbs.js:37`; failures are never cached, so repeated scrubbing
+      loops the 4s-capped seek forever and logs each time.
+- [ ] 5.7 Replace `SKIP_SECONDS = 10` (`:97`) with the `seekTime` preference at
+      all **15** sites: 1200, 1203, 1206, 1209, 1646, 1908, 1911, 2090, 2094,
+      2098, 2102, 3909, 3971, 4295, 4335. The preference is validated to `[1,120]`
+      at `PreferencesContext.jsx:58` and read by nothing.
+- [ ] 5.8 `playbackRate` as a real persisted preference (`useState(1)` at `:1021`,
+      no storage write, while volume/muted/aspect all persist).
+- [ ] 5.9 Fold volume, muted, aspect, playbackRate into `PreferencesContext` with
+      validation, copying the proven migration pattern at
+      `PreferencesContext.jsx:158-160`.
+- [ ] 5.10 One-time migration read of `streamly-native-volume` / `-muted` /
+      `-aspect` (`:128-130`, `:1868`) so no viewer loses a value; write only the
+      new keys afterwards. **No data loss is the requirement.**
+- [ ] 5.11 KEEP `streamly-native-subtitle-${id}` (`:3229`, `:3310`) exactly as-is
+      — a per-title cache, not a setting; migrating it buys nothing.
+- [ ] 5.12 Consume `autoSubtitles` and `defaultLanguage` for subtitle restore.
+      Both are defined (`PreferencesContext.jsx:53-54`) and read by nothing.
+- [ ] 5.13 Consume `reduceMotion` so the in-app toggle reaches framer motion.
+      `tokens.css:125-136` kills CSS motion via `data-reduce-motion`, but
+      `MotionConfig reducedMotion="user"` (`:3580`) reads the **OS** media query
+      only — so the toggle half-applies: CSS motion dies, springs do not.
+- [ ] 5.14 Localize every player string: ~45 new `player.*` keys in
+      `src/i18n/en.js` beyond the 13 that exist (`:371-384`). The other 9 locales
+      deep-merge and fall back to English safely.
+- [ ] 5.15 Drive the scrubber with rAF + direct DOM writes instead of React state.
+      `onTime` (`:1755-1776`) fires 4×/sec and triggers 3 `setState`s, re-rendering
+      the whole tree 4×/sec forever.
+- [ ] 5.16 Memoise the party hook result so only the participant strip re-renders.
+      `TitleDetailsPage.jsx:2259` passes a fresh object every 2s poll, re-rendering
+      hero, all rails and the ambient backdrop during playback.
+- [ ] 5.17 Move progress persistence off the synchronous main-thread write.
+      `updateProgress` (`useUserData.js:342-346`) does `setItem` + `dispatchEvent`
+      on every throttled save during playback.
+- [ ] 5.18 `usePlayerKeyboard` = ONE dialog-aware keymap driven by `seekTime`,
+      eliminating the 4 `eslint-disable react-hooks/exhaustive-deps`
+      suppressions that produce "the key stopped working after I opened a panel".
+- [ ] 5.19 `usePlayerGestures` capability-aware, no frozen booleans: tap /
+      double-tap seek / hold-2x / volume drag.
+- [ ] 5.20 Separate tap-to-pause from double-click-fullscreen. `:1584` makes a
+      double-click near centre fire `togglePlay` + `togglePlay` + `goFullscreen`.
+- [ ] 5.21 Remove the duplicate play/pause and seek HUD `AnimatePresence` blocks
+      sharing `key="pp"` (`:5157-5172`) — they mount twice at the same `zIndex`
+      65 for states that can never coexist.
+- [ ] 5.22 Scroll lock: save/restore the previous `body` overflow instead of
+      writing a hardcoded `"auto"` (`TitleDetailsPage.jsx:605-610`), which
+      clobbers DownloadModal / ConfirmDialog / GlobalShortcuts and drops the
+      no-op capture on page mount.
+- [ ] 5.23 `scrollbar-gutter: stable` so opening the player does not reflow the
+      page as the scrollbar disappears.
+- [ ] 5.24 Cooperative overlay scroll lock — only one scroll owner at a time.
+- [ ] 5.25 Pause and hand off the final frame on close instead of discarding state
+      on unmount.
+
+## Part 6 — Phase gates (every phase ends green on lint + test + build)
+- [x] 6.1 **Phase 0 shipped:** `playMode` fix (0.1) + queue rewrite + environment
+      limits recorded.
+- [x] 6.2 **Phase 1 GATE PASSED — new loader visible over the real pipeline.**
+      `player/v2/player.css` + `PlayerShell` + `LoadingStage` all exist and are
+      covered by 66 new tests (1043 → 1079 across 85 → 87 files); lint exit 0,
+      build ✓4.65s, `diff --check` exit 0. Two findings worth keeping:
+      - **The entry state had to change from `idle` to `resolving`.** Mounting the
+        shell *is* a load request, and `showLoader` is correctly `false` at
+        `idle`, so the player would have mounted showing an empty shell with no
+        loader and no announcement — a load that looks frozen from its very first
+        paint, which is the exact symptom this rewrite exists to remove. Stated
+        as an initial state rather than a mount effect: no dispatch, no first-paint
+        flash of the wrong thing.
+      - **"Visible" had to be proven, not assumed.** The gate is met by rendering
+        with real `title`/`backdropUrl`/`posterUrl` and asserting the logo, the
+        art, the bar and the live-region text. Still **no browser** here, so the
+        CSS itself (blur, gradient alpha, animation) remains unverified by eye and
+        is covered by 6.8's parity checklist rather than claimed.
+      Caveat, as it stood at 6.2: Phase 1 had **no `PlayerVideo`**, so nothing
+      drove the machine past `resolving`. Superseded by 6.3, which wires the
+      element and the ladder and asserts the path to `playing`.
+- [x] 6.3 **Phase 2:** `PlayerVideo` + `usePlaybackState` + `usePlayerSource`
+      with **no chrome yet** — proves the source failover ladder before any UI
+      attaches to it. Deliberately out of UI order.
+      - `PlayerVideo.jsx` owns the element and its subscriptions; `mediaEvents.js`
+        is a pure DOM-event → machine-action mapping; the shell owns meaning.
+      - `sourceLadder.js` is pure — outcome classification, per-server retry
+        budget, pinned-server one pass, rotation, exhaustion, abort between
+        attempts. `usePlayerSource` supplies the network call and the abort
+        plumbing; `useHlsSource` attaches hls.js and picks native vs engine from
+        injected capabilities, so the Safari-only trap is assertable in jsdom.
+      - `playerV2Wiring.test.jsx` asserts the whole path — ladder → element →
+        `loadstart` → `playing` → `stalled` → `ended`, and the two failure
+        wordings — against the real shell with only `constants/sources` replaced.
+      - Bugs this phase caught, each now guarded: `mediaEventToAction` returned
+        bare strings, so every event was silently dropped; a thrown `no-source`
+        lost its code in the ladder's catch and burned the whole retry budget;
+        gating the element on `opening` unmounted it on its own `loadstart`; an
+        episode change never reset the machine, leaving it `playing` over a black
+        screen; `runLadder` discarded the resolved payload, so the caller got a
+        server and no URL.
+      - **Not** legacy parity, and not claimed: no segment probe before
+        committing, no mid-play relay re-route, no quality/variant selection
+        (which is why 2.10 stays open), no dub/audio-track selection, no
+        warm-resolve handover, no resume-progress in v2.
+      - Caveat that stays true: real decoding, PiP and CORS are unverified here —
+        there is no browser. That is 6.8, and it must not be ticked from jsdom.
+- [ ] 6.4 **Phase 3:** `Scrubber` + `TransportBar` + `usePlayerSubtitles` +
+      `usePlayerPersistence` — watchable.
+- [ ] 6.5 **Phase 4:** `SettingsSheet` + `EpisodesStrip` + `UpNextCard` +
+      prompts + `ShortcutSheet` — feature parity.
+- [ ] 6.6 **Phase 5:** `usePlayerGestures` + `usePlayerKeyboard` + a11y +
+      history + focus — feature complete.
+- [ ] 6.7 **Phase 6:** perf passes + i18n sweep + full tests, then **DELETE**
+      `NativePlayerView.jsx`, `player.css` and the flag. Gated on 6.8 so the flag
+      cannot rot into permanent dual code.
+
+### 6.8 Phase 6 parity checklist (rehomed from the old browser-verification item)
+Not one line can be ticked in this environment — there is no browser. This is
+the human gate that retires the old player; do not fake it, do not tick it from
+jsdom. On a covered episode (Breaking Bad S1E1) verify:
+- [ ] Cold load shows blurred backdrop + centred logo + **horizontal bar** (not
+      the old ring), and the phase label changes across Resolving → Opening →
+      Buffering.
+- [ ] A warm mid-playback stall keeps the picture — no blur, no full-stage
+      takeover.
+- [ ] Server / quality / dub switches show the stage, then clear it on **both**
+      success and failure, and the failure text is visible (today `say()` is a
+      no-op).
+- [ ] Transport shows the Audio button only on Server 3/4 and Subtitles only when
+      a list exists, with no duplicate rows in the sheet.
+- [ ] Labels read "English", "Tamil", "Hindi" — never "Tamil Dub", never bare
+      "Original".
+- [ ] Space tap = play/pause; hold past the delay = 2x; release restores the
+      previous rate.
+- [ ] Play an episode **after** watching a trailer and confirm the native player
+      renders (the 0.1 regression).
+- [ ] Set subtitle font/size/colour in Settings and confirm the real player obeys
+      all three (the defect `PlayerPreview` masked).
+- [ ] Set `seekTime` to 30 and confirm arrows, gesture double-tap and the ±
+      transport buttons all move 30s.
+- [ ] Volume is reachable on a touch device by all three documented paths.
+- [ ] Escape closes sheet → prompt → player, in that order, and Back closes the
+      player.
+- [ ] Tab cycles only inside the player; focus returns to the Play button on close.
+- [ ] Cue-tag result recorded: parsers exist and are tested, but real manifests
+      confirmed to carry `#EXT-X-CUE-OUT` is still **0**, and the SkipDB
+      attribution row has never been seen rendering on a dataset-backed title.
+
+## Part 7 — Tests
+- [ ] 7.1 Rewrite `nativePlayerView.test.jsx`: assert `.np-loader-bar`, drop the
+      `.np-tailspin` assertions at `:68` and `:86`, keep the poster `src`,
+      backdrop `src`, no-logo fallback and `role=status` assertions.
+- [ ] 7.2 Adapt `playerA11y.test.jsx` to the tier/sheet/dialog structure.
+- [ ] 7.3 Adapt `playerGestures.test.js` to the capability model, incl. hybrid
+      device reclassification.
+- [ ] 7.4 Adapt `playerHud.test.jsx`: single HUD mount, mono timecode, one icon
+      threshold.
+- [ ] 7.5 Adapt `playerSpaceKey.test.jsx`: Space tap-vs-hold with no cross-talk
+      behind a dialog.
+- [ ] 7.6 Adapt `watchPartyPlayer.test.jsx` to the memoised party boundary.
+- [ ] 7.7 Keep `playerUi.test.js` + `PlayerPreview.test.jsx` green — the preview
+      must keep MATCHING the real player; that agreement is the defect being fixed.
+- [ ] 7.8 Unit-test `usePlaybackState`: every legal and illegal transition.
+- [ ] 7.9 Unit-test subtitle preference mapping across all 5 prefs × all
+      `SUBTITLE_FONTS` ids.
+- [ ] 7.10 Unit-test seek clamping at the `seekTime` bounds `[1,120]`.
+- [ ] 7.11 Unit-test skip-marker merge precedence (measured cue beats dataset).
+- [ ] 7.12 Unit-test capability/tier selection incl. hybrid pointer changes.
+- [ ] 7.13 Regression test per Tier-1 audited bug so none can silently return.
+- [ ] 7.14 Test the preference migration: legacy key read once, new key written
+      thereafter, no value loss.
+- [ ] 7.15 Assert the live region carries real phase text while buffering.
+- [ ] 7.16 The 38 currently-passing player tests stay green throughout; no test
+      is deleted without a replacement.
+- [x] 7.17 `playerV2Style.test.js` — 6 tests asserting `player/v2/player.css`
+      has **no colour literal in live CSS** (hex, the colour functions, and
+      standalone colour keywords), no `E50914`, no `.np-` selector, every
+      selector namespaced `.pv2-`, its own `pv2-sweep` keyframes rather than a
+      colliding name, and that the scrim tokens exist in `tokens.css`.
+      **Proven non-vacuous**: injecting `#E50914` fails 3 of 6, restoring passes
+      6/6. Two design decisions came out of writing it: (a) **comments are
+      stripped before scanning**, because the file has to be able to *name* the
+      forbidden syntax in its own header — scanning comments would make the
+      contract undescribable, and a literal in a comment renders nothing. Hex is
+      still checked across comments, since hex is what gets copy-pasted into
+      live code; that sub-test immediately caught a `#fff` in my own prose, which
+      is the guard working. (b) `transparent`/`currentColor`/`inherit` are not
+      flagged — they are references, not colours.
+- [x] 7.18 **Fixed a flake in the guard I added in 0.2, not the product.**
+      `TitleDetailsPage.playMode.test.jsx` renders the whole details page and
+      drives five sequential transitions (trailer -> close -> episode -> native
+      branch), so it needs ~2-4s of real work against vitest's **5s default
+      per-test budget**. That fits in isolation and overflows under the full
+      suite's parallel load — it failed 1-in-N full runs at 1031/1032 while
+      passing alone every time. Both cases now declare `TEST_TIMEOUT = 30000`
+      explicitly. Recorded because the failure mode is worse than a red build: a
+      guard that flakes under load trains you to re-run until green instead of
+      reading the failure, and an earlier "1032/1032 GREEN" line in this very
+      file was luck rather than a baseline. **Verified by two consecutive
+      full-suite runs**, since verifying a flake fix once proves nothing.
+- [x] 7.19 `playerV2Structure.test.js` — 5 tests over `player/v2/`: never imports
+      `components/Loader.jsx` (1.2), never imports the retired Netflix-HUD
+      chrome (1.3), stays inside `player/v2/` so the Phase 6 purge cannot reach
+      it, has content (so the guards are not disarmed by an empty directory),
+      and the pre-rename component name appears nowhere in `src/`. The content
+      guard is scoped to **any** file, not JS: v2 currently holds only
+      `player.css` + `INVENTORY.md` since `PlayerShell` is Phase 2, and scoping
+      it to source files would have failed on a legitimately mid-build directory.
+
+## Part 8 — Record the rationale
+- [ ] 8.1 Write the issue → resolution map into `prd.md` so the rationale survives
+      this conversation.
+- [ ] 8.2 This section is the ordered list of record — keep it current.
+- [x] 8.3 `task.md`'s 3,445 lines of shipped history are PRESERVED. Every
+      unchecked item was rehomed, not silently dropped: the browser checklist
+      became 6.8, the loader state machine became Parts 2.6/4, `mobile/` gaps
+      stay deferred with the no-Dart-SDK caveat, and the unresolvable items
+      (AutoFlip, videasy base-audio, VidSrc 403) are closed with their evidence
+      in the superseded OPEN section above.
+- [ ] 8.4 Open question for the user: should the four folded preferences
+      (volume / muted / aspect / rate) also gain visible controls in
+      `SettingsPage`, or does this stay strictly player-side? Folding them into
+      `PreferencesContext` fixes storage but leaves them invisible to the viewer
+      unless controls are added.

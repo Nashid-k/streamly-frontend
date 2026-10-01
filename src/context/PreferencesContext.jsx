@@ -5,6 +5,8 @@ import {
   migrateServerOrder,
   PreferencesContext,
 } from "./preferences";
+import { ASPECT_RATIOS, snapPlaybackRate } from "../constants/playerUi";
+import { readLegacyAspectId } from "../components/player/v2/aspect";
 import { logDebug } from "../utils/debugLogger";
 import { queryClient } from "../queryClient";
 const SETTING_PREFIX = "setting-";
@@ -52,6 +54,11 @@ const ALLOWED_THEMES = new Set([
 const ACCENT_HEX_RE = /^#?[0-9a-f]{6}$/i;
 const SERVER_LABEL_RE = /^Server [1-8]$/;
 
+/* PLAYER V2 (task.md 3.9). `aspect` is validated against the shared catalogue's
+   stable ids rather than a hardcoded list, so adding a mode to
+   `constants/playerUi.js` cannot leave this rejecting its own preference. */
+const ALLOWED_ASPECT_IDS = new Set(ASPECT_RATIOS.map((mode) => mode.id));
+
 /* Per-key numeric ranges (clamped out-of-throw values instead of storing
    nonsense like seekTime: -40 or subtitleSize: 9e15). */
 const NUMERIC_RANGES = {
@@ -70,6 +77,17 @@ function sanitizePreference(key, value) {
     return clean.startsWith("#") ? clean : `#${clean}`;
   }
   if (typeof fallback === "boolean") return Boolean(value);
+  if (key === "playbackRate") {
+    // Snapped onto the ladder, NOT clamped, and by the SAME shared function the
+    // player's rate stepping uses — see `snapPlaybackRate`. Two modules
+    // answering "what is the nearest speed?" differently is how a stored 1.37
+    // became 1.25 on one boot and 1 on the next.
+    //
+    // This branch is also load-bearing for a subtle reason: a numeric key with
+    // no `NUMERIC_RANGES` entry clamps to `[fallback, fallback]` below, which
+    // would pin playbackRate to 1 forever and look like it was working.
+    return snapPlaybackRate(value, fallback);
+  }
   if (typeof fallback === "number") {
     const n = typeof value === "number" && Number.isFinite(value) ? value : fallback;
     const [min, max] = NUMERIC_RANGES[key] || [fallback, fallback];
@@ -78,6 +96,11 @@ function sanitizePreference(key, value) {
   if (typeof fallback === "string") {
     if (key === "theme") {
       return typeof value === "string" && ALLOWED_THEMES.has(value) ? value : fallback;
+    }
+    if (key === "aspect") {
+      // An unknown id is a corrupted or retired mode: fall back rather than
+      // store it, so the player can never be handed a ratio it cannot resolve.
+      return typeof value === "string" && ALLOWED_ASPECT_IDS.has(value) ? value : fallback;
     }
     if (key === "subtitleColor") {
       if (typeof value !== "string" || !ACCENT_HEX_RE.test(value.trim())) return fallback;
@@ -151,7 +174,13 @@ function readPreference(key) {
           // In-memory rename still applies for this visit.
         }
       }
-      return value;
+      // Validated on READ as well as on write. `parseValue` only checks the JSON
+      // TYPE, so a stored value that is the right type but out of domain used to
+      // load untouched: `playbackRate: 9.99` (a speed no control in the player can
+      // select, so the viewer could never change it back), `seekTime: -40`,
+      // `subtitleSize: 9e15`, a retired `aspect` id. Sanitising on write only meant
+      // those survived a boot and were handed straight to the UI.
+      return sanitizePreference(key, value);
     }
 
     // The player owned this value before the Settings page existed. Preserve a
@@ -159,6 +188,29 @@ function readPreference(key) {
     if (key === "autoplay") {
       const legacy = localStorage.getItem(LEGACY_AUTOPLAY_KEY);
       if (legacy !== null) return legacy !== "false";
+    }
+
+    // PLAYER V2 (task.md 3.9). The legacy player persisted an aspect INDEX;
+    // this is the documented one-time read of it (architecture.md:84-94).
+    //
+    // Returned without being written back, following the `autoplay` precedent
+    // above rather than the `serverOrder` one, which does write back. This is
+    // one-time in practice because the first change the viewer makes in V2 writes
+    // `setting-aspect`, after which this branch is unreachable.
+    //
+    // CAVEAT, stated rather than hidden: `resetPreferences()` clears
+    // `setting-aspect`, so a viewer who resets Settings gets their LEGACY aspect
+    // back from storage rather than the default. The same is already true of
+    // `autoplay` via `streamly_autoNext`. Fixing it properly means retiring the
+    // key (architecture.md:87-90) or stamping a migration marker, and neither is
+    // a change worth making inside 3.9 — it would alter behaviour for every
+    // preference at once.
+    if (key === "aspect") {
+      const legacy = readLegacyAspectId(localStorage);
+      if (legacy !== null) {
+        logDebug("preferences", "Migrated legacy player aspect preference.", { aspect: legacy });
+        return legacy;
+      }
     }
   } catch {
     // Storage can be unavailable in privacy-restricted browser contexts.

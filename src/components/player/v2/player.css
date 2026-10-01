@@ -1,0 +1,1375 @@
+/* PLAYER V2 stylesheet — Phase 1 skeleton.
+ *
+ * ============================================================================
+ * CONTRACT (enforced by src/__tests__/playerV2Style.test.js)
+ * This file contains ZERO colour literals: no #hex, no rgb()/rgba()/hsl()/hwb(),
+ * no colour keywords. Every colour is a var() reference.
+ *
+ * Why a test enforces this: "tokens-only" is a claim that decays the first time
+ * someone inlines a hex value to hit a deadline, and by then the drift is
+ * invisible — the player is lime by default but the accent token is
+ * USER-SELECTABLE across lime/purple/blue/red/amber plus a custom value
+ * (settings-ui.css:5-72), so a hardcoded literal does not even look wrong in
+ * review; it just stops matching the viewer's chosen theme.
+ *
+ * Scrims live in tokens.css (--scrim-top/-bottom/-flat) precisely so this rule
+ * can be strict with no allowlist. See the tokens.css note for why they are
+ * alpha-only and why the values must not be raised.
+ *
+ * ============================================================================
+ * INVENTORY — see ./INVENTORY.md for the full verified KEEP/DELETE lists and
+ * the Phase 6 purge order. Summary of the delete list this file replaces:
+ *   - player.css (981 lines) and its orphaned `.void-*` family
+ *   - player/ArcRing, LoadingArc, Netflix*HUD x6, index.js
+ *   - constants/playerUi.js spring vocabulary + AR_GLYPH + hudMetrics
+ *   - constants/motion.js springs (v2 uses --ease-out/--duration-* only)
+ * ============================================================================
+ *
+ * Naming: `.pv2-` prefix, namespaced off the old `.np-` so both stylesheets can
+ * coexist during the flagged rollout. Without a distinct prefix the Phase 6
+ * delete of player.css would strip v2's styles along with the old ones.
+ */
+
+/* ── Shell ───────────────────────────────────────────────────────────────
+ * Tier B (full) and Tier A (compact) are chosen by the container, not the
+ * device: a narrow desktop window and a tablet want the same layout, and a
+ * touchscreen laptop is not a phone. See task.md 0.5 decision 1. */
+.pv2-shell {
+  /* ---- The visual language (task.md 3.1-3.2), declared once. ----
+   *
+   * Every rule below this point reads its colour, type, radius and motion from
+   * here or from tokens.css. That is not tidiness for its own sake: the player
+   * reads as part of the app only if it moves and tints like the app, and the
+   * cheapest way to guarantee that is to make the deviations impossible to write
+   * rather than to review for them.
+   */
+  font-family: var(--font-sans);
+
+  /* The motion budget, as local names. Only these two durations and
+   * `--ease-out` may appear in a transition. The sweep below is the single
+   * declared exception and it exists so it can be *named* — an indeterminate
+   * loader sweep is not a UI transition, and pretending otherwise is how a
+   * 1.1s animation ends up animating a button. */
+  --pv2-motion-fast: var(--duration-fast);
+  --pv2-motion-normal: var(--duration-normal);
+  --pv2-motion-sweep: 1.1s;
+  /* The ONLY translate distance in v2. Fade + 4px, or nothing. */
+  --pv2-motion-shift: 4px;
+
+  /* ── Layout container (task.md 3.6) ──────────────────────────────────────
+   *
+   * `container-type: inline-size` makes THIS BOX the query context, so layout
+   * reacts to the player and not to the window. That distinction is not
+   * cosmetic — it is the difference between a correct layout and a broken one in
+   * both directions this app actually hits: a phone-width player on a desktop
+   * viewport, and a full-width player on a narrow one. Media queries answer both
+   * of those wrong.
+   *
+   * This is also what `NativePlayerView.jsx:765-767` CLAIMS to want, in a
+   * comment, while doing the opposite: it measures the box in JS and calls
+   * `vw`/`vh` a bug. `useContainerSize` is the thing 5.4 deletes; this is its
+   * replacement, so the claim and the code finally agree.
+   *
+   * `inline-size` only, not `size`: containment on the block axis would let the
+   * player size itself from its contents and collapse around the video.
+   */
+  container-type: inline-size;
+  container-name: pv2;
+
+  position: relative;
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: hidden;
+  background: var(--bg-color);
+  color: var(--text-primary);
+  /* Own the layer so nothing from the page behind can intercept a gesture. */
+  isolation: isolate;
+  /* Viewers who ask for reduced motion get it from the global
+     `[data-reduce-motion]` attribute; this is the local belt-and-braces for the
+     transitions declared below. */
+  transition: opacity var(--duration-normal) var(--ease-out);
+}
+
+/* ── Chrome visibility (task.md 3.5) ─────────────────────────────────────────
+ *
+ * Two rules, and the ORDER between them is the whole point of 3.5:
+ *
+ *   [data-chrome="hidden"] .pv2-chrome  -> the auto-hide timer (3.8) hides it
+ *   .pv2-shell:focus-within .pv2-chrome -> focus reveals it, whatever the timer
+ *                                         last decided
+ *
+ * Both selectors have the same specificity, so source order decides, and the
+ * reveal is written SECOND. Keyboard therefore wins structurally rather than by
+ * the timer happening to notice: a viewer who tabs back to the player after 30
+ * seconds of idle gets visible, focusable controls — not a Tab ring travelling
+ * through an invisible bar. `playerV2Style.test.js` asserts this ordering,
+ * because re-sorting these two rules silently breaks the guarantee.
+ *
+ * HIDDEN MEANS `opacity: 0` AND NOTHING ELSE. Not `visibility: hidden`, not
+ * `display: none`: both remove the subtree from the tab order, so `:focus-within`
+ * could never fire, so the controls could never be reached, so the reveal rule
+ * would be unreachable code. A hidden-but-focusable layer is the only version of
+ * this that works, and it is why the reveal is a focus rule and not a JS toggle.
+ *
+ * `inset: 0` rather than a content-height strip: `.pv2-status` is absolutely
+ * positioned, so this layer becomes its containing block. A zero-height wrapper
+ * would collapse the status plate's `bottom` and silently re-anchor it to the
+ * top of the player.
+ */
+.pv2-chrome {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--pv2-motion-fast) var(--ease-out);
+}
+
+.pv2-shell[data-chrome="hidden"] .pv2-chrome {
+  opacity: 0;
+}
+
+.pv2-shell[data-chrome="visible"] .pv2-chrome,
+.pv2-shell:focus-within .pv2-chrome {
+  opacity: 1;
+}
+
+/* The LAYER never eats pointer events — a tap has to reach the video underneath
+ * even while the chrome is showing. Only real controls opt back in, and only
+ * while the chrome is actually shown; a clickable-but-invisible button is worse
+ * than a hidden one. */
+.pv2-shell[data-chrome="visible"] .pv2-chrome :is(button, a, input, select, textarea, [role="button"], [role="slider"], [tabindex]),
+.pv2-shell:focus-within .pv2-chrome :is(button, a, input, select, textarea, [role="button"], [role="slider"], [tabindex]) {
+  pointer-events: auto;
+}
+
+.pv2-shell[data-reduce-motion="true"] *,
+.pv2-shell[data-reduce-motion="true"] *::before,
+.pv2-shell[data-reduce-motion="true"] *::after {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* ── Loading stage (Phase 1 deliverable) ─────────────────────────────────
+ * KEEP, per INVENTORY.md 1.1: the blurred `backdropUrl` art and the centred
+ * `posterUrl` logo are the two pieces of the old loader worth keeping.
+ * REPLACE: the conic-gradient ring becomes a horizontal bar (INVENTORY 1.4). */
+.pv2-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.pv2-loading-art {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  filter: blur(28px);
+  transform: scale(1.1);
+  /* The art is decoration; without this it competes with the title text. */
+  opacity: 0.4;
+}
+
+/* Logo-or-title plus the bar, as one centred column. */
+.pv2-loading-stack {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  max-inline-size: 90%;
+}
+
+.pv2-loading-logo {
+  max-inline-size: min(38%, 260px);
+  max-block-size: 42%;
+  object-fit: contain;
+  /* A poster logo is a PNG with unpredictable edges; the drop shadow is what
+     keeps it legible on a bright frame. */
+  filter: drop-shadow(0 4px 18px var(--scrim-flat));
+}
+
+/* No-logo fallback: the title text must still identify what is loading. */
+.pv2-loading-title {
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold, 700);
+  line-height: var(--leading-tight);
+  color: var(--text-primary);
+  text-shadow: 0 2px 12px var(--scrim-flat);
+  text-align: center;
+  padding-inline: var(--spacing-md);
+}
+
+/* Visually hidden but announced. Not `display: none` and not
+   `visibility: hidden` — both remove the node from the accessibility tree and
+   the screen-reader text would never be read. */
+.pv2-loading-status {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The horizontal bar that replaces the conic ring. */
+.pv2-loading-bar {
+  position: relative;
+  inline-size: min(42%, 220px);
+  block-size: 3px;
+  margin-block-start: var(--spacing-md);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  background: var(--border-strong);
+}
+
+.pv2-loading-bar-fill {
+  display: block;
+  block-size: 100%;
+  inline-size: 100%;
+  border-radius: inherit;
+  background: var(--accent-gradient);
+  transform-origin: left center;
+  /* Indeterminate: sweeps in, resets, repeats. The duration is the named
+     exception from the motion budget (`--pv2-motion-sweep`), never a literal —
+     the style guard rejects any other one so this cannot spread. */
+  animation: pv2-sweep var(--pv2-motion-sweep) var(--ease-out) infinite;
+}
+
+@keyframes pv2-sweep {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* The sweep is a decorative motion: kill it for reduced motion, and keep the
+ * bar visible (rather than collapsing it) so the loader still reads as busy. */
+.pv2-shell[data-reduce-motion="true"] .pv2-loading-bar-fill,
+.pv2-loading-bar[data-frozen="true"] .pv2-loading-bar-fill {
+  animation: none;
+  transform: scaleX(0.4);
+}
+
+/* A preserved frame behind a dimmed stage: the frame must stay visible so the
+   viewer can see what they are coming back to. */
+.pv2-loading[data-dimmed="true"] {
+  background: var(--scrim-flat);
+}
+/* ── Container queries (task.md 3.6) ────────────────────────────────────────
+ *
+ * Breakpoints are literals and cannot be variables — `@container` conditions are
+ * parsed before custom properties resolve. They are named here rather than
+ * scattered inline so 3.7 has one place to tune the Tier A/B switch.
+ *
+ * Deliberately no `@media` block anywhere in v2. A media query answers a
+ * question the player is not asking ("how wide is the window?") and the two
+ * disagree on exactly the layouts that matter. `playerV2Style.test.js` rejects
+ * both `@media` and viewport units for this reason.
+ */
+@container pv2 (min-width: 720px) {
+  .pv2-chrome {
+    padding-inline: var(--spacing-xl);
+  }
+
+  .pv2-status {
+    bottom: calc(var(--spacing-2xl) + var(--spacing-lg));
+  }
+}
+
+@container pv2 (max-width: 420px) {
+  /* A phone-width box: the loader bar and the status plate get out of the way
+   * rather than truncating. `min()` with a percentage keeps both bounded, so the
+   * same rule is correct at 320px and at 400px. */
+  .pv2-loading-bar {
+    inline-size: min(58%, 180px);
+  }
+
+  .pv2-loading-logo {
+    max-inline-size: min(52%, 180px);
+  }
+
+  .pv2-status {
+    bottom: calc(var(--spacing-2xl) + var(--spacing-sm));
+  }
+
+  /* 3.28: a sheet on a phone-width box is a full-width drawer, not a side panel.
+   * The floor in the default clamp exists so a 700px embed does not get a 224px
+   * column; here the player itself is 420px, so the floor would be nearly the whole
+   * box and the panel would read as a bug. Overriding the custom property is why
+   * the width is not written inline at the call site. */
+  .pv2-sheet {
+    --pv2-sheet-width: 100%;
+  }
+}
+
+/* ── Tier A transport (task.md 3.7) ─────────────────────────────────────────
+ *
+ * `inset-inline: 0` on the bar itself, NOT `inset: 0`: the bar must be a strip
+ * pinned to the bottom, and a full-bleed bar would sit on top of the picture and
+ * take the tap that 3.11 turns into a gesture. The full-bleed layer above it is
+ * `.pv2-chrome`'s job, and it is already `pointer-events: none`.
+ */
+.pv2-transport {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  /* No `gap` here (task.md 3.10). A flex `gap` is inserted between every PAIR of
+   * items, including zero-width ones, so the seven controls absent in Tier A
+   * would each leave a phantom gap behind and the row would be permanently
+   * ~7 gaps too wide with nothing in it. Spacing therefore lives on the children
+   * (below), where a control that is not there can also not have any. */
+  --pv2-transport-gap: var(--spacing-sm);
+}
+
+.pv2-transport > * {
+  margin-inline-end: var(--pv2-transport-gap);
+}
+
+.pv2-transport--tier-b {
+  --pv2-transport-gap: var(--spacing-md);
+}
+
+/* ── Touch volume (task.md 3.12) ──────────────────────────────────────────────
+ * Three paths, and this block is the two that are not the drag: the persistent
+ * level indicator and the sheet entry (the latter is styled by `.pv2-value-btn`
+ * above, since it IS a value button — the level is its text).
+ *
+ * `pointer-events: none` on the layer is load-bearing. The indicator sits over the
+ * left third, which is also where the volume drag starts. A readout that swallowed
+ * the press would make the first path unreachable — the classic layering bug where
+ * adding a visible element silently deletes a gesture.
+ *
+ * `align-self: flex-start` + the `top` offset rather than centring: the level
+ * belongs where the thumb is, near the edge it was dragged from. A centred HUD is
+ * where the legacy put it, but a centred HUD sits above the CENTRE third, which
+ * is the play/pause zone, so a viewer reading it is looking away from the
+ * controls they are about to use.
+ */
+.pv2-volume-indicator {
+  position: absolute;
+  inset-block-start: calc(var(--spacing-lg) + env(safe-area-inset-top, 0px));
+  inset-inline-start: var(--spacing-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  /* `.pv2-glass` rather than a new colour: the plate has to match the rest of the
+   * player's floating chrome, and inventing a second surface token for one
+   * readout is how two plates end up looking like two products. `--bg-surface-rgb`
+   * and `--border-subtle` are the tokens `.pv2-glass` already composes. */
+  border-radius: var(--radius-lg);
+  background: rgba(var(--bg-surface-rgb), 0.72);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  pointer-events: none;
+  /* Opacity, never unmount: see the component note. The chrome auto-hide owns
+   * visibility, and 3.5's rule that hidden controls stay in the tab order is why
+   * this is `pointer-events`-free rather than interactive. */
+  opacity: 0;
+  transition: opacity var(--pv2-motion-fast) var(--ease-out);
+}
+
+.pv2-volume-indicator[data-visible="true"] {
+  opacity: 1;
+}
+
+.pv2-volume-indicator[data-muted="true"] {
+  color: var(--text-secondary);
+}
+
+.pv2-volume-indicator__track {
+  display: block;
+  inline-size: clamp(4rem, 18cqi, 9rem);
+  block-size: var(--spacing-xs);
+  border-radius: var(--radius-sm);
+  /* `--border-strong`, not a translucent white: the track must read as an EMPTY
+   * well against the glass plate, and a subtle border disappears into it. */
+  background: var(--border-strong);
+  overflow: hidden;
+}
+
+.pv2-volume-indicator__fill {
+  display: block;
+  block-size: 100%;
+  background: var(--text-primary);
+  /* The level changes on every pointermove during a drag, and transitionless is
+   * deliberate: a transition here would LAG the finger and make the bar feel
+   * detached from the gesture driving it. */
+  transition: none;
+}
+
+.pv2-volume-indicator__value {
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  min-inline-size: 3ch;
+}
+
+/* ── Touch zones (task.md 3.11) ───────────────────────────────────────────────
+ * Two thumb clusters at the bottom corners: LEFT play / -10s / +10s / speed,
+ * RIGHT captions / settings / fullscreen / close. This is a MODE, not a tier —
+ * see `TRANSPORT_MODE` in `tiers.js` for why width and input device are kept as
+ * two independent axes.
+ *
+ * Three deliberate choices, each of which is load-bearing:
+ *
+ * 1. `order`, not DOM order. The controls stay in one fixed DOM order, so
+ *    switching between the row and the zones remounts nothing and cannot drop
+ *    focus. `zoneOrder()` computes the integer and hands it to CSS as
+ *    `--pv2-order`.
+ *
+ * 2. An `auto` start margin on the right cluster's first control instead of a
+ *    spacer element or `justify-content: space-between`. `space-between` spreads
+ *    the gap across every adjacent pair, which would scatter the four left
+ *    controls across the width instead of clustering them. A single `auto` margin
+ *    absorbs all the free space in one place, which parks the right cluster
+ *    against the end edge and leaves the left cluster packed at the start.
+ *
+ * 3. `env(safe-area-inset-bottom)`. The row sits in the bottom corners, which on
+ *    a phone is exactly where the home indicator and the gesture bar are. No
+ *    `@media` and no viewport units involved (3.6) — `env()` is neither.
+ */
+.pv2-transport[data-mode="zones"] {
+  align-items: flex-end;
+  padding-block-end: calc(var(--spacing-md) + env(safe-area-inset-bottom, 0px));
+  /* The right cluster hugs the end edge, but a thumb reaching the corner passes
+   * over the padding, so the padding stays. */
+  padding-inline: var(--spacing-md);
+  /* 44px: the WCAG 2.5.5 / iOS floor. The row's 2rem buttons are a correct mouse
+   * target and too small for a thumb at an angle, which is why the zones layout
+   * does not simply reuse the row's sizing. Declared here rather than in JS so
+   * there is a single source of truth for the size the CSS actually applies. */
+  --pv2-touch-hit: 2.75rem;
+}
+
+.pv2-transport[data-mode="zones"] > * {
+  order: var(--pv2-order, 0);
+  /* `margin-inline-end` is now INTRA-cluster spacing. The space BETWEEN the two
+   * clusters is the auto margin below, not this. */
+  margin-inline-end: var(--spacing-sm);
+}
+
+.pv2-transport[data-mode="zones"] > [data-zone-push="true"] {
+  margin-inline-start: auto;
+}
+
+/* Scoped to `[data-presence="present"]` deliberately. These rules come later in
+ * the file than the collapse rules above and would otherwise win on equal
+ * specificity, handing absent controls a 44px box and reintroducing the phantom
+ * gaps 3.10 removed. */
+.pv2-transport[data-mode="zones"] .pv2-icon-btn[data-presence="present"] {
+  inline-size: var(--pv2-touch-hit);
+  block-size: var(--pv2-touch-hit);
+  border-radius: var(--radius-md);
+}
+
+.pv2-transport[data-mode="zones"] .pv2-value-btn[data-presence="present"] {
+  min-block-size: var(--pv2-touch-hit);
+}
+
+/* ── Tier cross-fade (task.md 3.10) ───────────────────────────────────────────
+ * The tier change is expressed as PRESENCE, not as a different set of nodes (see
+ * `TransportBar.jsx`), so these two rules are the animation: a control that is
+ * absent for the active tier collapses to nothing and fades out; one that is
+ * present does the reverse. The row never re-lays-out into a second arrangement.
+ *
+ * `margin-inline-end`, `opacity` and the icon buttons' `inline-size` are all
+ * transitionable because both ends of each transition are lengths or numbers.
+ * That matters: it is what makes the scrubber slide rather than snap, since it is
+ * the one item that absorbs whatever width the controls take.
+ *
+ * Reduced motion needs no rule here. `player.css` already neutralises every
+ * transition and animation under `.pv2-shell[data-reduce-motion="true"]`, so a
+ * viewer who asked for it gets an instant, complete change instead — and the
+ * controls still end up in the right place, because presence is a DOM fact and
+ * not an animation.
+ */
+.pv2-transport [data-presence] {
+  transition:
+    opacity var(--pv2-motion-normal) var(--ease-out),
+    margin-inline-end var(--pv2-motion-normal) var(--ease-out);
+}
+
+.pv2-transport [data-presence="absent"] {
+  opacity: 0;
+  pointer-events: none;
+  /* The margin goes too, for the reason the container's `gap` was removed. */
+  margin-inline-end: 0;
+}
+
+/* The scrubber needs more than the above. It is `flex: 1 1 auto`, so an absent
+ * one that merely faded would keep the entire row's width and squeeze the two
+ * thumb clusters into each other (task.md 3.11). It has to leave the flow, and it
+ * cannot leave the flow by `display: none`, because that would make the
+ * width-to-zero transition — the thing 3.10 relies on — unobservable.
+ *
+ * `flex-basis: 0` with `min-inline-size: 0` is the one combination that collapses
+ * a growing flex item smoothly: `width: 0` alone would still be floored by the
+ * item's automatic minimum content size, and `flex-grow: 1` would re-expand it
+ * the instant it became present again. */
+.pv2-transport .pv2-scrubber[data-presence] {
+  transition:
+    opacity var(--pv2-motion-normal) var(--ease-out),
+    margin-inline-end var(--pv2-motion-normal) var(--ease-out),
+    flex-basis var(--pv2-motion-normal) var(--ease-out);
+}
+
+.pv2-transport .pv2-scrubber[data-presence="absent"] {
+  flex: 0 0 0%;
+  min-inline-size: 0;
+  overflow: hidden;
+}
+
+/* Fixed-size icon buttons can collapse their width smoothly, because 2rem and 0
+ * are both lengths and therefore interpolable. `overflow: hidden` stops the glyph
+ * spilling out of the collapsing box on the way down. */
+.pv2-transport .pv2-icon-btn[data-presence] {
+  transition:
+    opacity var(--pv2-motion-normal) var(--ease-out),
+    margin-inline-end var(--pv2-motion-normal) var(--ease-out),
+    inline-size var(--pv2-motion-normal) var(--ease-out);
+}
+
+.pv2-transport .pv2-icon-btn[data-presence="absent"] {
+  inline-size: 0;
+  min-inline-size: 0;
+  padding: 0;
+  border-radius: 0;
+  overflow: hidden;
+}
+
+/* The three value-bearing buttons (speed, aspect, server) are CONTENT-SIZED, so
+ * their width cannot be interpolated: CSS cannot transition to or from `auto`
+ * without measuring the text first. They therefore fade while their width
+ * changes in one step, and the scrubber absorbs that last instant. This is a
+ * deliberate, documented limitation rather than a bug — the alternative is
+ * measuring three labels in JS on every tier change to animate a 120ms width, and
+ * a layout read on every engagement is more likely to be felt (a lagged scrubber
+ * following the pointer) than the snap it would remove. */
+.pv2-transport .pv2-value-btn[data-presence="absent"] {
+  inline-size: 0;
+  min-inline-size: 0;
+  padding: 0;
+  margin-inline-end: 0;
+  overflow: hidden;
+}
+
+.pv2-transport__time {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  /* `white-space: nowrap` is load-bearing: without it the timecode is the
+   * flex item that gives up its width first, so at 1:59:59 it truncates to
+   * "1:5…" while the scrubber still has room. */
+  white-space: nowrap;
+}
+
+.pv2-transport__time-sep {
+  opacity: 0.6;
+}
+
+/* The scrubber takes the slack. `flex: 1 1 auto` with a `min-inline-size: 0`
+ * floor: without the floor a flex item's automatic minimum size is its content
+ * size, which for an absolutely-filling fill span is "as wide as it wants to be",
+ * and the timecode gets squeezed instead. */
+.pv2-transport__scrubber {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.pv2-icon-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 2rem;
+  block-size: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: color var(--pv2-motion-fast) var(--ease-out);
+}
+
+.pv2-icon-btn:hover:not(:disabled) {
+  color: var(--accent-primary);
+}
+
+.pv2-icon-btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* Not merely dimmed. `opacity` alone leaves a disabled button looking like an
+ * enabled one that is refusing to respond, and the viewer cannot tell a broken
+ * control from an unavailable one. */
+.pv2-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Tier B controls whose VALUE is the point (task.md 3.9) ──────────────────
+ * `speed`, `aspect` and `server` show their current state as text instead of
+ * hiding it behind a panel, because a viewer who has to open a sheet to find out
+ * which server they are watching has already been given the wrong impression.
+ *
+ * Two deliberate departures from `.pv2-icon-btn`:
+ *  - `inline-size` is content-driven, not the fixed 2rem square. A fixed square
+ *    would clip "Server 3" to "Se…", which is worse than useless.
+ *  - `gap` sits between the glyph and the value, and the value is the LAST thing
+ *    allowed to shrink, so the icon never distorts when the row gets tight.
+ */
+.pv2-value-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  /* `min-inline-size: 0` plus `flex-shrink: 0` means the VALUE is what gets
+   * hidden first if the row must shrink — not the glyph, and not the button. */
+  padding: 0 var(--spacing-xs);
+  block-size: 2rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  transition: color var(--pv2-motion-fast) var(--ease-out);
+}
+
+.pv2-value-btn:hover:not(:disabled) {
+  color: var(--accent-primary);
+}
+
+.pv2-value-btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.pv2-value-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pv2-value-btn__icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+.pv2-value-btn__value {
+  white-space: nowrap;
+}
+
+/* Tier B widens the gutter because it carries more controls; Tier A's spacing is
+ * untouched so the compact row keeps the rhythm 3.1 tuned. Applied by TIER, not
+ * by a media query, so the two rows are two named layouts rather than one layout
+ * at a breakpoint. 3.10 moved this from `gap` to the `--pv2-transport-gap` custom
+ * property declared with `.pv2-transport` above, because a `gap` cannot be
+ * switched off per item. */
+
+/* ── Scrubber geometry (task.md 3.13) ────────────────────────────────────────
+ *
+ * 3.13's item: "2px rail → 6px on hover/focus, 14px thumb, container-scaled. Bar
+ * height is hardcoded `hoverRatio ? 5 : 3` and never scales." Two separate
+ * complaints, and the numbers below answer both.
+ *
+ * ── All three dimensions are container-relative, not literal px ───────────────
+ * The legacy bar was `hoverRatio ? 5 : 3`, which is a 3px bar on a 360px phone and
+ * on a 1400px television alike — on the television it is a hairline, on the phone
+ * it is a fifth of the space it could have. `clamp()` with `cqi` bounds both ends
+ * so a narrow box does not get an unusably fat bar and a wide one does not get a
+ * hairline. `cqi` (not `vw`) per 3.6: the player is often not the viewport.
+ *
+ * The values are also the item's own — 2px/6px/14px are the ANCHORS, chosen so a
+ * test can pin them and a designer can find them, and `clamp` only moves away
+ * from them at the extremes.
+ *
+ * ── Why the growth is `block-size` on the wrapper, not on the rail ────────────
+ * The wrapper is a fixed-height hit area and the rail is absolutely positioned
+ * inside it. Growing the WRAPPER would reflow the transport row on hover, pushing
+ * the timecode and the controls sideways — the classic "hovering moves the UI"
+ * bug. Growing the rail alone keeps the row still and still gives the finger a
+ * 44px target to aim at, which is what a 6px bar is really for. */
+.pv2-scrubber {
+  /* Named so the rest of the file can read the geometry rather than repeat it —
+   * 3.14's buffered band and 3.15's bubble both need the rail height. */
+  --pv2-rail-rest: clamp(2px, 0.55cqi, 4px);
+  --pv2-rail-live: clamp(6px, 1.6cqi, 12px);
+  --pv2-thumb: clamp(14px, 2.4cqi, 18px);
+  /* 3.16. The boundary notch. Not container-scaled: at 2px it is already at the
+   * limit of what the eye resolves on a 2px rail, and growing it with the box
+   * would turn it into a second fill. */
+  --pv2-tick-width: 2px;
+  /* 3.15. The bubble's width, committed to in CSS rather than measured with a ref,
+   * because `hoverAnchor`'s clamp needs it BEFORE the bubble renders — otherwise
+   * the bubble centres on the first frame and jumps to the edge on the second, on
+   * every hover near the ends of the bar. `BUBBLE_WIDTH` in `ScrubberBubble.jsx`
+   * is the same number and a test pins the two together. */
+  --pv2-bubble-width: 64px;
+  position: relative;
+  /* The hit area, not the bar. 44px is the 3.11 touch floor and it is the
+   * interaction surface 6.8 would measure; the visible rail inside it is what
+   * changes size. */
+  block-size: var(--pv2-touch-hit, 2.75rem);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  touch-action: none;
+}
+
+/* The 2px → 6px growth. `data-hovered` covers hover AND keyboard focus, because
+ * `:hover` alone would leave a keyboard user with a permanently 2px bar — the
+ * exact viewer who most needs the affordance and cannot summon it.
+ *
+ * Transitioned on the rail, not on the wrapper: see the note above. `--pv2-motion-fast`
+ * because the growth must feel like the bar noticing you, not like a UI animating. */
+.pv2-scrubber[data-hovered="true"] .pv2-scrubber__rail,
+.pv2-scrubber[data-hovered="true"] .pv2-scrubber__fill,
+.pv2-scrubber[data-hovered="true"] .pv2-scrubber__buffered {
+  block-size: var(--pv2-rail-live);
+}
+
+/* Four layers, one geometry: rail, buffered, fill, thumb. All four are absolutely
+ * positioned against the wrapper so the bar can grow without reflowing the row,
+ * and all three share the thickness transition so they cannot drift out of
+ * alignment. 3.14 added `buffered` to this list; leaving it out would have drawn
+ * a 6px fill inside a 2px band. */
+.pv2-scrubber__rail,
+.pv2-scrubber__buffered,
+.pv2-scrubber__fill {
+  position: absolute;
+  inset-inline: 0;
+  border-radius: var(--radius-full);
+  /* Only the thickness animates. Transitioning `inline-size` would animate the
+   * fill's width from a stale value on every seek, lagging the playhead. */
+  transition: block-size var(--pv2-motion-fast) var(--ease-out);
+}
+
+.pv2-scrubber__rail {
+  background: var(--border-strong);
+}
+
+/* The buffered band (task.md 3.14).
+ *
+ * ONE element, as the item asks — the legacy rendered a div per `TimeRanges`
+ * entry, which is both the allocation the item complains about and a different
+ * visual from a single band.
+ *
+ * `--text-faint` rather than a stronger colour, and the reason is contrast, not
+ * taste: this band sits directly UNDER the fill, so the two must be told apart by
+ * brightness alone. Anything brighter and the bar reads as two overlapping bars
+ * rather than one bar with a lighter future.
+ *
+ * `pointer-events: none` for the same reason the thumb has it (3.13): the band
+ * covers most of the rail, so without this it would swallow seeks aimed at it. */
+.pv2-scrubber__buffered {
+  inset-inline-end: auto;
+  inline-size: calc(var(--pv2-scrub-buffered, 0) * 100%);
+  background: var(--text-faint);
+  pointer-events: none;
+}
+
+/* Measured from `--pv2-scrub-fraction`, the number `Scrubber` writes once on the
+ * wrapper. Not an inline width: 3.13 positions the thumb from the same value, and
+ * two inline styles computing the same position is how a fill and a thumb drift
+ * apart. See the note on `fractionStyle`. */
+.pv2-scrubber__fill {
+  inset-inline-end: auto;
+  inline-size: calc(var(--pv2-scrub-fraction, 0) * 100%);
+  background: var(--accent-primary);
+}
+
+/* 3.15. The hover bubble.
+ *
+ * `left` is the bubble's CENTRE, not its leading edge, and `translateX(-50%)` is
+ * what makes it so. That pairing is load-bearing rather than cosmetic: it is what
+ * lets `hoverAnchor` clamp the CENTRE to `[halfWidth, track - halfWidth]`, which is
+ * the only arithmetic that keeps a half-bubble off the edge of a phone. The legacy
+ * clamped a percentage instead, and 6% of a 360px screen is narrower than the
+ * bubble — so its left edge is at the screen edge with half the bubble beyond it.
+ *
+ * `pointer-events: none` for the same reason as the thumb: the bubble sits over the
+ * middle of the bar, and a card that eats the press aimed at the position it is
+ * describing is a preview you cannot seek to.
+ *
+ * `block-end: 100%` plus a gap so it clears the rail without a magic pixel offset.
+ * No transition on `left`: the bubble tracks the pointer, and a transition there
+ * makes it lag behind the thing it is supposed to be annotating. */
+.pv2-scrubber__bubble {
+  position: absolute;
+  inset-inline-start: var(--pv2-bubble-left, 50%);
+  inset-block-end: 100%;
+  margin-block-end: 0.5rem;
+  translate: -50% 0;
+  inline-size: var(--pv2-bubble-width);
+  /* A fixed height with the art stacked above it, so enabling the thumbnail does
+   * not resize the bubble and shift the timecode — the number is the thing a
+   * viewer is actually reading. */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: var(--radius-sm);
+  /* `--scrim-flat`, not a colour literal: the repo's tokens-only rule is right
+   * about this and the token is exactly what is wanted — an opaque-enough backdrop
+   * for white tabular figures over arbitrary video. */
+  background: var(--scrim-flat);
+  color: var(--text-primary);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.pv2-scrubber__bubble-time {
+  /* The transport already uses tabular figures (3.1, 3.32) so the clock does not
+   * change width as it counts. The bubble is no exception: a timecode that jitters
+   * in width while the pointer moves is unreadable. */
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+/* 3.15's opt-in art. `aspect-ratio` rather than a fixed height so the card's own
+ * aspect follows from its width, and `object-fit: cover` so a frame decoded at a
+ * different resolution fills it without stretching. */
+.pv2-scrubber__bubble-art {
+  display: block;
+  inline-size: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--radius-xs);
+}
+
+.pv2-scrubber__bubble-art img {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}
+
+/* The 14px thumb. `translate(-50%)` centres it on the fraction rather than
+ * starting there — without it the thumb's leading edge sits at the playhead and
+ * the bar looks like it stops short of where it is. */
+.pv2-scrubber__thumb {
+  position: absolute;
+  inset-inline-start: calc(var(--pv2-scrub-fraction, 0) * 100%);
+  inset-block-start: 50%;
+  inline-size: var(--pv2-thumb);
+  block-size: var(--pv2-thumb);
+  translate: -50% -50%;
+  border-radius: var(--radius-full);
+  background: var(--accent-primary);
+  /* Sits ABOVE the rail so it is never clipped by it, and carries no transition:
+   * a lagging thumb reads as a laggy player. `pointer-events: none` so the thumb
+   * cannot swallow a seek aimed at it — the wrapper handles the pointer, and a
+   * decorative circle that eats presses is a bug. */
+  transition: none;
+  pointer-events: none;
+}
+
+/* The thumb grows with the rail, because a 14px thumb over a 6px bar is right and
+ * a 14px thumb over a 2px bar looks like a mistake. Same `--pv2-thumb` either
+ * way — the item's 14px — so this only fixes the resting appearance. */
+.pv2-scrubber[data-hovered="false"] .pv2-scrubber__thumb {
+  opacity: 0.65;
+  scale: 0.7;
+  transition:
+    opacity var(--pv2-motion-fast) var(--ease-out),
+    scale var(--pv2-motion-fast) var(--ease-out);
+}
+
+.pv2-scrubber[data-hovered="true"] .pv2-scrubber__thumb {
+  opacity: 1;
+  scale: 1;
+}
+
+.pv2-scrubber:disabled,
+.pv2-scrubber[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+.pv2-scrubber[aria-disabled="true"] .pv2-scrubber__fill,
+.pv2-scrubber[aria-disabled="true"] .pv2-scrubber__thumb {
+  /* A full-strength playhead on a control that cannot seek is a lie. */
+  background: var(--text-faint);
+}
+
+.pv2-scrubber:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* ── Status line (task.md 2.9) ──────────────────────────────────────────────
+   Sits above the bottom chrome, centred, so a failure never collides with the
+   transport controls it is usually talking about. Token-only, like every other
+   rule in this file (7.17): a literal hex here would break the theme and the
+   style guard.
+   The accent bar is the user's chosen colour, so the line reads as part of the
+   app rather than as a system alert bolted on. */
+/* The glass plate (task.md 3.1): `--bg-surface` at 72% over `--glass-blur`.
+ *
+ * The opaque `var(--bg-surface)` this replaced hid the video behind it, which is
+ * exactly what a status plate must not do — the viewer needs to keep watching
+ * while they read why playback stalled.
+ *
+ * `-webkit-` is kept alongside the standard property because Safari 9-17 still
+ * shipped without `backdrop-filter` unprefixed, and this is a progressive
+ * enhancement: without it the plate is slightly more opaque, not broken.
+ */
+.pv2-glass {
+  background: rgba(var(--bg-surface-rgb), 0.72);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+/* Timecodes are monospaced with tabular figures (task.md 3.1, applied in 3.32).
+ *
+ * Proportional digits make a running clock jitter its own width every tick,
+ * which reads as a layout shift in a transport bar where everything else is
+ * still. `tabular-nums` fixes the advance; the mono stack fixes the digit width.
+ */
+.pv2-timecode {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.pv2-status {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--spacing-2xl) + var(--spacing-md));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  max-width: min(90%, 42rem);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-left: 3px solid var(--accent-primary);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  line-height: 1.35;
+  z-index: 3;
+  /* The motion budget in use: fade + the 4px shift, nothing else. This is the
+   * pattern every v2 enter/exit copies — including the chrome in 3.8. */
+  transition:
+    opacity var(--pv2-motion-normal) var(--ease-out),
+    transform var(--pv2-motion-normal) var(--ease-out);
+}
+
+.pv2-status__text {
+  min-width: 0;
+}
+
+.pv2-status__dismiss {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-base);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pv2-status__dismiss:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.pv2-status__dismiss:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* Severity is carried by the accent edge and the text colour, never by colour
+   alone — the wording carries the meaning, these only reinforce it. */
+.pv2-status[data-kind="warn"] {
+  border-left-color: var(--warning-color);
+}
+
+.pv2-status[data-kind="error"] {
+  border-left-color: var(--error-color);
+  color: var(--text-primary);
+}
+
+.pv2-status[data-kind="error"] .pv2-status__text {
+  color: var(--error-color);
+}
+
+/* 3.16 — named boundary marks (intro end, credits start).
+ *
+ * A thin notch cut across the rail rather than a dot on it. A dot reads as a
+ * "playable point" and invites a click that does nothing; a notch reads as a
+ * division of the bar, which is what it is. One element per boundary, drawn above
+ * the fill so it stays legible against the played portion.
+ *
+ * The mark is `--text-primary` rather than a new colour on purpose: it has to
+ * read as the same ink at both ends of the timeline, and inventing a hue for it
+ * would be one more token to justify. `credits` is drawn taller because a
+ * credits start is the boundary people actually scrub back to, and it should be
+ * findable at a glance from across the room.
+ *
+ * `inset-block` is centred by `-50%` so the notch spans the full rail height in
+ * both states — the rail grows on hover (3.13) and a fixed-height mark would
+ * detach from a 2px rail the moment it grew. */
+.pv2-scrubber__tick {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 0;
+  inline-size: var(--pv2-tick-width, 2px);
+  block-size: 100%;
+  translate: -50% -50%;
+  border-radius: var(--radius-full);
+  background: var(--text-primary);
+  pointer-events: none;
+}
+
+.pv2-scrubber__tick[data-kind="credits"] {
+  block-size: 150%;
+}
+/* The subtitle cue (task.md 3.18-3.23).
+ *
+ * Positioned from `inset-block-end`, which the node sets from the MEASURED chrome
+ * height (3.22) — see `useChromeHeight`. The legacy hardcoded
+ * `controlsVisible ? 132 : 64`, two literals describing one desktop layout, and a
+ * cue on a narrow player sat underneath the transport.
+ *
+ * `inset-inline: 0` rather than `left/right: 6%`: the 6% inset shrinks the usable
+ * width on a narrow player, where a caption needs every pixel it can get, and
+ * grows absurdly generous on a wide one. Padding provides the breathing room and
+ * is a fixed distance from the edge on every size.
+ *
+ * `pre-line` honours the line breaks the caption FILE carries while still letting
+ * a long line wrap. */
+.pv2-cue {
+  position: absolute;
+  inset-inline: 0;
+  /* A resolved `inset-block-end` lands here from JS; this is the resting value for
+   * the frame before measurement, and the property must exist for the JS one to
+   * be an override rather than the first value ever seen. */
+  inset-block-end: 44px;
+  padding: 0.15em 0.7em;
+  margin-inline: auto;
+  max-inline-size: 90%;
+  /* 3.23. ONE plate per cue block.
+   *
+   * The legacy put `box-decoration-break: clone` on an inner span, which paints a
+   * background box around every LINE of a wrapped sentence — a two-line cue got
+   * two boxes with a visible notch between them. The plate now wraps the block,
+   * and the line breaks still come from the file. */
+  background: var(--scrim-flat);
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+  white-space: pre-line;
+  /* The outline is what actually carries legibility over a bright scene; the
+   * plate is a floor, not the contrast mechanism. Same six-way spread as the
+   * legacy, and still token-coloured. */
+  text-shadow: var(--text-outline-cue);
+  z-index: 3;
+  /* Decoration, never a target: a press meant for the video underneath must not
+   * be swallowed by a caption. */
+  pointer-events: none;
+}
+/* ── The settings sheet (task.md 3.24) ─────────────────────────────────────────
+ * One panel, right-hand, above the transport and the status line.
+ *
+ * `inset-block: 0` with `inset-inline-end: 0` rather than a fixed width, and the width
+ * itself is a clamp with a floor (see below) rather than a single number.
+ * `inset-block: 0` also means the sheet's own scroll
+ * (`overflow-y` on the body) is bounded by the player, not by the viewport — a
+ * panel taller than a landscape phone would otherwise overflow the player and
+ * push the page around.
+ *
+ * `z-index: 4` sits above `.pv2-chrome` (2), `.pv2-cue` (3) and the volume
+ * indicator, because the sheet is the topmost interactive layer once open.
+ */
+.pv2-sheet {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  /* 3.28. `clamp(floor, fluid, ceiling)`, and the FLOOR is the point.
+   *
+   * The legacy width was `min(480px, 32%)`, which is `min()`, not `clamp()` — and
+   * `min()` picks the SMALLER of the two. On a 700px embedded player that is
+   * `min(480, 224)` = 224px: a panel wide enough for one row of a settings list,
+   * which is what `task.md` 3.28 is about. The intent behind `min(480px, 32%)` is
+   * plainly "480px, but not more than about a third" — a floor and a ceiling, which
+   * is `clamp(480px, 32%, 480px)`'s job and not `min()`'s. Reading it as a minimum is
+   * the bug; the author wrote the shape of the answer and the wrong function.
+   *
+   * `18rem` (288px) rather than a bare `px` value so the floor tracks the viewer's
+   * text size like every other length here, and `26rem` (416px) so a wide panel does
+   * not stretch a short list across a 4K display. The percentage middle is what makes
+   * the panel proportional between them — including at the small end, where 34% of a
+   * 700px box (238px) falls BELOW the floor and the floor wins, which is precisely the
+   * case that produced 224px.
+   *
+   * `min(…, 100%)` is kept as the outermost guard even though the floor cannot exceed
+   * a player narrower than 288px in practice: a floor that outgrows its container
+   * pushes the sheet off the inline-start edge and clips the rows the viewer came to
+   * change. The container query below hands the phone-width case 100% outright. */
+  inline-size: min(100%, var(--pv2-sheet-width, clamp(18rem, 34%, 26rem)));
+  background: var(--scrim-flat);
+  color: var(--text-primary);
+  /* The sheet is a sibling of the chrome layers, which are `pointer-events: none`
+   * so presses reach the video. This one is a real target, so it opts back in. */
+  pointer-events: auto;
+}
+
+.pv2-sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-block-end: 1px solid var(--border-subtle);
+}
+
+/* A heading, not a label. `role="dialog"` and the accessible name are 3.25's, so
+ * this is an `h2` for structure only — a screen reader will read it as the
+ * heading of the sheet once 3.25 wires the dialog role, and until then it is still
+ * navigable by heading, which a `<div>` is not. */
+.pv2-sheet__title {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.pv2-sheet__close {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 2rem;
+  block-size: 2rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-lg);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pv2-sheet__close:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface-hover);
+}
+
+.pv2-sheet__body {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow-y: auto;
+  padding: var(--spacing-xs);
+}
+
+/* One row per option. `text-align: start` rather than the browser default `center`
+ * — a centred label reads as a button with a caption, not as a list option. */
+.pv2-sheet__row {
+  /* 3.29: three columns, because a caption row is `language | badge | detail` and the
+   * badge has to sit BESIDE the language rather than on its own line. As a bare
+   * `display: grid` with one column each span would stack, so the badge would push the
+   * language id to a third line and the row would double in height for the one case
+   * where the viewer is comparing two variants of the same language.
+   *
+   * `1fr auto` on the title means the badge is pinned to the inline-end edge of the
+   * column and every row's chip lines up, so the eye can scan the variant column
+   * instead of hunting for it. */
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 2px var(--spacing-sm);
+  inline-size: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  text-align: start;
+  cursor: pointer;
+}
+
+.pv2-sheet__row:hover:not(:disabled) {
+  background: var(--bg-surface-hover);
+}
+
+.pv2-sheet__row:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* The marker follows the ARIA state, not `:focus-visible` and not `:checked`.
+ *
+ * `:focus-visible` is the tempting choice and it is wrong twice over for a radiogroup.
+ * The arrows move BOTH focus and selection, so after one ArrowDown two rows are true
+ * at once — the newly focused one and the still-current one — and a marker that follows
+ * focus says "you have changed the setting" when nothing has changed yet. And focus
+ * arrives on unselected rows without any choice being made: Tab into a group whose
+ * current value is a later row lands on the first one, which would paint a checkmark on
+ * it.
+ *
+ * `:checked` would be the precise selector if these were real `<input type="radio">`,
+ * and it is worth saying why they are not. `:checked` only matches the pseudo-state of
+ * a form control that actually has one; on a `<button role="radio">` it never matches,
+ * so the entire marker would silently stop rendering — a stylesheet that compiles, a
+ * build that passes, and a sheet where nothing is ever visibly selected. `[role="radio"]`
+ * is the same idea expressed against what the element actually is.
+ *
+ * `[aria-checked="true"]` rather than the `data-selected` attribute this used to style:
+ * the attribute and the ARIA state can now disagree (3.26's `SheetRow` sets one from
+ * the other, but nothing forces them to), and when a selection and its visible marker
+ * drift apart the viewer is looking at a player that has changed something it has not.
+ *
+ * `:focus-visible` rather than `:focus` for the ring, so a click on a row does not
+ * leave a keyboard ring around a control nobody is navigating with. */
+.pv2-sheet__row[role="radio"][aria-checked="true"] {
+  background: var(--bg-surface-hover);
+}
+
+.pv2-sheet__row[role="radio"][aria-checked="true"] .pv2-sheet__row-title::after {
+  content: " \2713";
+  color: var(--accent-primary);
+}
+
+.pv2-sheet__row[role="radio"]:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -2px;
+}
+
+/* A toggle (Volume's Mute) keeps the pressed treatment, because that is what it is: it
+ * is not one option out of a set, so it has no `aria-checked` to hang the marker on
+ * and needs its own state to draw. Deliberately NOT `[aria-pressed]` on the bare row
+ * selector — that would catch any future toggle that forgot `--toggle`, quietly. */
+.pv2-sheet__row--toggle[aria-pressed="true"] {
+  background: var(--bg-surface-hover);
+}
+
+.pv2-sheet__row--toggle[aria-pressed="true"] .pv2-sheet__row-title::after {
+  content: " \2713";
+  color: var(--accent-primary);
+}
+
+/* A roster row. Padding matches the button rows so the sheet's rhythm is unchanged,
+ * but no hover tint and no pointer cursor: these are not controls, and inviting a
+ * press that does nothing is how a list ends up looking broken. */
+.pv2-sheet__row--static {
+  cursor: default;
+}
+
+/* The roster is a `ul` for the count to be announced, so the list markers have to go
+ * back to being none — a bulleted roster reads as a set of unrelated items rather
+ * than as one group of people. */
+.pv2-sheet__roster {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The selection is a background AND a marker, not the background alone: a colour
+ * change is invisible to a viewer with a low-vision filter, and the sheet's own
+ * scrim is already dark enough that a subtle tint is easy to miss. Both rules now
+ * hang off the ARIA state — see the note on `[aria-checked="true"]` below. */
+
+.pv2-sheet__row-title {
+  font-weight: 500;
+  /* The badge takes the second column, so without this the title stretches under it
+   * and the chip overlaps the text at narrow sheet widths. */
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Spans the full width in the second row, under both the language and the badge —
+ * otherwise `grid` would place it in the badge's column and the language id would
+ * render at chip width. */
+.pv2-sheet__row-sub {
+  grid-column: 1 / -1;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+/* ── Caption variant badge (task.md 3.29) ─────────────────────────────────────
+ * A chip, not a colour: "SDH" and "Forced" are the only words that distinguish a
+ * descriptive track from a plain one, and a colour alone would be invisible to a
+ * viewer with a low-vision filter — the same argument that moved 3.26's selection
+ * marker off a background tint.
+ *
+ * Tokens only, like everything else here. `--text-secondary` on a
+ * `--surface-raised`-style chip rather than a saturated hue, because these sit inside
+ * a dark scrim and a bright accent reads as an alert. */
+.pv2-sheet__badge {
+  flex: 0 0 auto;
+  padding-inline: var(--spacing-xs);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  /* No `--surface-raised` exists in tokens.css, and inventing one here would be a
+   * colour literal by another name: the style suite fails anything that is not a
+   * forwarded token. A transparent background over the sheet's own scrim is the
+   * honest choice — the chip needs to read as a chip, and the border plus the
+   * uppercase weight already do that without inventing a surface. */
+  background: transparent;
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold, 700);
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  /* Uppercase in CSS, not in JSX: the string stays "SDH" for the accessible name and
+   * for tests, so the visual transform cannot drift from the spoken one. */
+  text-transform: uppercase;
+}
+
+.pv2-sheet__note {
+  margin: 0;
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.pv2-sheet__note[data-tone="error"] {
+  color: var(--error-color);
+}
+/* ── The sheet's backdrop and modal frame (task.md 3.25) ──────────────────────
+ * The backdrop covers the PLAYER, not the page: `inset: 0` inside the shell
+ * resolves against the shell, which is `position: relative`. A full-viewport
+ * scrim would dim the whole site and imply the rest of the page is unavailable,
+ * while the player is only a panel on it — and it would swallow presses meant for
+ * the page, which is how a "dismiss" scrim becomes a bug report.
+ *
+ * `z-index: 3` sits under the sheet's `4` and over `.pv2-chrome` (2), so a press
+ * on the scrim is a press on visible chrome-free video rather than on a control
+ * the viewer can see but not click.
+ *
+ * `aria-hidden` in the markup because it is decorative and not interactive for
+ * assistive tech: the dialog is the sheet, and a scrim has nothing to announce.
+ */
+.pv2-sheet__backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: var(--scrim-flat);
+}
