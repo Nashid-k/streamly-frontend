@@ -53,6 +53,14 @@ describe("warmResolve", () => {
     expect(result).toBeNull();
     expect(resolveVidcoreMock).not.toHaveBeenCalled();
   });
+
+  it("runs on its own controller, not the caller's signal", () => {
+    const controller = new AbortController();
+    warmResolve(MOVIE_ARGS, { signal: controller.signal });
+    const passed = resolveVidcoreMock.mock.calls[0][1];
+    expect(passed.signal).toBeDefined();
+    expect(passed.signal).not.toBe(controller.signal);
+  });
 });
 
 describe("takeWarmResolve handover", () => {
@@ -83,5 +91,66 @@ describe("takeWarmResolve handover", () => {
     expect(warmResolveKey(TV_ARGS)).toBe("tv|108978|1|1");
     expect(warmResolveKey({ ...TV_ARGS, episode: 2 })).toBe("tv|108978|1|2");
     expect(warmResolveKey(MOVIE_ARGS)).toBe("movie|550|-");
+  });
+});
+
+/* task.md S1.1 — the handover must MOVE ownership, not share it. Before this,
+   the details page armed the warm with its own signal and aborted it on
+   isPlaying; the player had already been handed that same promise, so tapping
+   play rejected the player's await and pushed the ladder to the next provider. */
+describe("warm ownership transfer (S1.1)", () => {
+  it("the arming page's abort cannot reach a promise it already handed over", async () => {
+    let settle;
+    resolveVidcoreMock.mockReturnValue(
+      new Promise((resolve) => {
+        settle = () => resolve({ variants: [{ uri: "u", height: 1080 }] });
+      }),
+    );
+    const controller = new AbortController();
+    warmResolve(MOVIE_ARGS, { signal: controller.signal });
+    const innerSignal = resolveVidcoreMock.mock.calls[0][1].signal;
+
+    const taken = takeWarmResolve(MOVIE_ARGS, { sourceKey: null });
+    expect(taken).not.toBeNull();
+
+    controller.abort(); // isPlaying flips -> details-page effect cleanup
+    expect(innerSignal.aborted).toBe(false);
+
+    settle();
+    await expect(taken).resolves.toMatchObject({ variants: [{ uri: "u" }] });
+  });
+
+  it("refuses to hand over a warm that was aborted before the player arrived", () => {
+    let failInner;
+    resolveVidcoreMock.mockReturnValue(
+      new Promise((_resolve, reject) => {
+        failInner = () => reject(new Error("aborted"));
+      }),
+    );
+    const controller = new AbortController();
+    warmResolve(MOVIE_ARGS, { signal: controller.signal });
+    controller.abort();
+    // Dead promise must not be handed over — the player resolves its own.
+    expect(takeWarmResolve(MOVIE_ARGS, { sourceKey: null })).toBeNull();
+    failInner();
+  });
+
+  it("superseding a warm severs the previous caller's abort link", () => {
+    resolveVidcoreMock.mockReturnValue(new Promise(() => {}));
+    const first = new AbortController();
+    warmResolve(MOVIE_ARGS, { signal: first.signal });
+    const firstInner = resolveVidcoreMock.mock.calls[0][1].signal;
+
+    warmResolve(TV_ARGS, { signal: new AbortController().signal });
+    first.abort();
+    // A stale details page must not be able to cancel work nobody awaits.
+    expect(firstInner.aborted).toBe(false);
+  });
+
+  it("a detached warm is not reused by a second take", () => {
+    resolveVidcoreMock.mockResolvedValue({ variants: [] });
+    warmResolve(MOVIE_ARGS);
+    expect(takeWarmResolve(MOVIE_ARGS, { sourceKey: null })).not.toBeNull();
+    expect(takeWarmResolve(MOVIE_ARGS, { sourceKey: null })).toBeNull();
   });
 });

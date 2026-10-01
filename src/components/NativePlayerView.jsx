@@ -50,7 +50,7 @@ import {
 import NetflixStillWatching from "./NetflixStillWatching";
 import Hls from "hls.js";
 import { variantLabel } from "../utils/downloadQuality";
-import { createStreamlyLoader, probeSourcePlayable } from "../api/nativeHlsLoader";
+import { clearProbeCache, createStreamlyLoader, probeSourcePlayable } from "../api/nativeHlsLoader";
 import { takeWarmResolve } from "../api/warmResolve";
 import { SKIP_DATA_CREDIT, fetchSkipBoundaries } from "../api/skipBoundarySource";
 import { SubtitleFetcher } from "../api/subtitleFetcher";
@@ -2916,6 +2916,16 @@ export default function NativePlayerView({
         // already torn down
       }
       hlsRef.current = null;
+      // S1.5 — this cleanup is keyed on the title, so it runs on a source change
+      // and on unmount. Drop the probe verdict (and the relay streaks) so the
+      // next title is judged by a fresh probe instead of inheriting the previous
+      // CDN's "not direct", which is how one refusal used to pin an origin to
+      // the relay for the rest of the session.
+      //
+      // directBlockedUntil is deliberately NOT cleared: parking a 403'd origin
+      // for 5 min is WAF protection, and scrubbing titles would otherwise re-probe
+      // a throttling CDN on every single switch.
+      clearProbeCache();
       try {
         videoRef.current?.removeAttribute?.("src");
       } catch {

@@ -5491,14 +5491,21 @@ move that turns "clean up the old player" into "ship a regression".
       stylesheet name.
 
 ## R4 — Port the missing capabilities INTO v2 (the actual blocker)
-- [ ] R4.1 **Audio / dub panel** — highest priority, this is a viewer-facing
-      capability the new player cannot do at all. `NativePlayerView.jsx:3166`
-      (`pickAudio`, sets `hls.audioTrack`) and `:2346` (`hls.audioTracks`) are
-      the reference behaviour. Note the two *different* mechanisms it must cover:
-      in-manifest `#EXT-X-MEDIA AUDIO` groups (hls.js `audioTracks`) **and**
-      NHD sibling-URL dubs where each dub is a separate manifest, so switching
-      means swapping the source with position preservation. New panel +
-      `sheetPanels.js` entry + radio-group semantics + tests.
+- [x] R4.1 **Audio / dub panel** — DONE 2026-10-02, first half. `hls.audioTracks` /
+      `hls.audioTrack` (the in-manifest `#EXT-X-MEDIA AUDIO` mechanism) is live.
+      `useHlsSource` now takes an `engineRef` out-param — the engine was created
+      there and used nowhere else, so while it stayed private the panel could not
+      even ASK what audio a stream carried. New `audioTracks.js` (pure model),
+      `hooks/useAudioTracks.js` (event subscription + write), `AudioPanel`,
+      `sheetPanels.js` + `SHEET_OPENERS` + transport control.
+      Three cases render three different things on purpose: several → radiogroup;
+      one → read-only note, NOT a radiogroup of one; no engine → a note blaming
+      native-HLS mode rather than claiming the source has no alternates.
+      **STILL OPEN: the second mechanism.** NHD sibling-URL dubs (separate manifest
+      per dub, switching = source swap + position preservation) are NOT done.
+      `selectionKind` exists to keep the two apart; only `TRACKS` is implemented.
+      No sibling-dub source data is plumbed through `usePlayerSource` yet, and that
+      is the remaining half of R4.1 — do not read the box above as parity.
 - [ ] R4.2 **Quality / bitrate panel** — `hls.levels` + `hls.currentLevel`, with
       `Auto` as a real option and `variantLabel` from `utils/downloadQuality`
       for the fps/HDR/SDR tags. The two stray `levels` hits in `SettingsSheet.jsx`
@@ -5515,10 +5522,45 @@ move that turns "clean up the old player" into "ship a regression".
 - [ ] R4.6 Re-run the capability audit (the table above) after R4.1–R4.5 and
       require every row to read `present` on both sides before R6 is allowed to
       start. Do not take this on trust.
+- [ ] R4.7 **Audio panel engine-swap defect — PROBE FIRST, do not just fix.**
+      Read out of the effect ordering, **not yet proven by a test**:
+      `useHlsSource.js:108-114` (the mirror effect that publishes
+      `hlsRef.current` to the caller's `engineRef`) is declared BEFORE the
+      creation effect at `:116`. React runs effects in declaration order, so on
+      mount the mirror copies `hlsRef.current` while it is still `null` —
+      creation does not set it until `:155`. Nothing re-mirrors until `PlayerVideo`
+      re-renders for some unrelated reason.
+      `useAudioTracks.js:101` depends on `[bump, engineRef?.current]`, which is a
+      **render-time read of a ref that a child mutates inside an effect**. On a
+      `url` swap `PlayerShell.jsx:397` remounts `PlayerVideo` (`key={url}`) but not
+      `PlayerShell`, so the shell computes its deps from the OLD engine, the effect
+      is not scheduled, and the panel can stay bound to a destroyed engine.
+      Same root cause class as S1.1: an out-param ref mutated in an effect and
+      observed during render.
+      First step is a failing probe test that changes `url` and asserts the panel
+      re-subscribes to the NEW engine. `PlayerShell.jsx:148` ("a ref, not state")
+      is the reasoning that makes this unobservable and is what needs revisiting;
+      the likely fix is `useHlsSource` reporting the engine through a state-setting
+      `onEngine` callback, with `useAudioTracks` taking the engine value rather
+      than the ref. **Do not mark this done on a code-reading argument.**
+
+## N1 — Queue hygiene (this is why the plan went missing)
+- [ ] N1.1 **Reconcile the 86 open items in `Part 3`–`Part 8`** (5.1–5.25, 6.4–6.7,
+      7.1–7.16, 3.30–3.44, 4.1–4.9, 8.1/8.2/8.4, 2.2/2.10) against what actually
+      shipped. Only the `R`/`S`/`N` series has been worked this session; the
+      `Part` series is the older phase record and **has not been audited for
+      staleness**, so it cannot currently be trusted as a plan. For each open
+      `Part` item: still needed, already done but unticked, or superseded by an
+      `R` item — and tick, close, or delete accordingly.
+- [ ] N1.2 The authoritative queue is this file. If work starts somewhere that is
+      not on the list, add it here first. A queue nobody trusts is what caused the
+      S1 detour to lose the R6 thread.
 
 ## R5 — Gates before any deletion
 - [ ] R5.1 `npm run lint` + `npx vitest run` + `npm run build` + `git diff
-      --check`, green, at the R4 tip.
+      --check`, green, at the R4 tip. **Not ticked by the 2026-10-02 pre-push
+      run** — that run happened at an intermediate commit with R4.2–R4.7 still
+      open. R5 is a gate on *deletion*, and R4 is not finished, so it stays open.
 - [ ] R5.2 Every `playerV2*.test.js` covering an R4 capability exists and fails
       against the pre-implementation code (mutation-probe the guards, don't just
       assert they pass).
@@ -5545,6 +5587,173 @@ produces a permanent dual path.
       `AGENTS.md` and `INVENTORY.md` in the same commit. `INVENTORY.md` is a
       live KEEP/DELETE contract — leaving it describing a deleted player is the
       exact stale-pointer failure it was written to prevent.
+
+## S1 — STARTUP LATENCY + "resolve while playing" (from live console, 2026-10-02)
+
+Source: one real playthrough of TMDB `299534`, console captured verbatim. Every
+claim below is a line reference, not a guess. **Constraint from the user: do NOT
+add CORS headers anywhere and do not try to make the provider origins public.**
+The upstream segment CDNs do not send `access-control-allow-origin` and are not
+ours to change, so "make direct fetch work" is not an available fix. Every item
+here is app-side only.
+
+### The measured facts in that log
+1. `Resolved 6 downloadable variant(s) via VidCore full ladder.` — the **full**
+   phase, i.e. fast phase already failed and it escalated.
+2. `1 consecutive fragment(s) via Vercel relay - direct path unavailable.`
+   repeated ~12 times with the streak **never exceeding 1**.
+3. `No cue tags in manifest - skip windows stay estimated.` per level playlist.
+
+### S1.1 The warm-resolve handover is self-defeating — THE start-latency bug
+`TitleDetailsPage.jsx:669-685` fires `warmResolve` 1200 ms after the details page
+renders, threading **its own** `AbortController` into the promise. Pressing play
+sets `isPlaying`, the effect cleanup runs `controller.abort()`, and that signal is
+already inside the promise the player was handed at
+`NativePlayerView.jsx:2427-2428` (`resolved = warm || await def.resolve(...)`).
+
+So the common case is: warm resolves slowly → viewer taps play → page aborts the
+warm **through the player's own await** → `takeWarmResolve` has already nulled
+`warm.promise` so nothing can recover → the await rejects → `catch` returns
+`false` → the ladder falls through to the NEXT provider and re-resolves from zero.
+
+The warm is paid for and discarded, and a second full resolve then runs while the
+`<video>` element is already mounted. That is precisely the "first download is
+resolving even while video is playing", and it makes cold start *slower* than not
+warming at all. The one-shot handover (`:63-77`) means the retry is not deduped.
+
+- [x] S1.1a Transfer ownership on handover. `warmResolve` now runs the request on its
+      own internal `AbortController`; the caller's `signal` is a *start* gate only
+      (`if (signal?.aborted) return null`) and is linked to the internal controller
+      through an identity-guarded listener. `takeWarmResolve` **detaches** that link
+      at handover, so the details page's later abort cannot reach the player's
+      await. Superseding a warm for a different title also severs the stale link.
+      The whole record became one replaceable `entry` object so the async catch can
+      identity-check `warm === entry` instead of comparing a promise captured in a
+      TDZ-prone closure.
+- [x] S1.1b `takeWarmResolve` refuses to hand over a warm whose internal signal is
+      already aborted, and returns `null` so the player resolves its own instead of
+      awaiting a corpse and falling through the ladder. Ownership only ever moves
+      once, at take time.
+- [x] S1.1c Added `describe("warm ownership transfer (S1.1)")` — 4 cases plus a
+      controller-identity check in the `warmResolve` block. Mutation-probed both
+      ways on a **temp copy** (never `git checkout`): passing the caller's signal
+      back in fails 3 tests, including
+      *"the arming page's abort cannot reach a promise it already handed over"*;
+      dropping the pre-handover aborted guard fails the refusal case. 13 pass.
+
+### S1.2 `relayStreak` can never exceed 1 — the log flood
+`nativeHlsLoader.js:528` initialised it in the **constructor**, and hls.js builds a
+new loader per fragment, so `finish()` (`:868`) always incremented 0 → 1. The
+`:1` branch at `:869` therefore fired on **every relayed segment**, and
+`RELAY_LOG_EVERY = 25` was dead code. The word "consecutive" in the message was
+also false — the counter structurally could not observe 2.
+This is the "many console logs" report, and it destroys real signal: the one
+warning worth seeing (a relay that is genuinely, repeatedly failing) looked
+identical to the normal case.
+
+**Correction to an existing comment.** The old `:876-877` claimed `onRelayPath`
+lets "the player count a real streak and steer tall renditions". It does not —
+`NativePlayerView.jsx:2553-2558` only calls `setTransportRelay(true/false)`, a
+boolean badge. So the loader's streak was the *only* streak and had to be fixed,
+not deleted as redundant.
+
+- [x] S1.2a Streak moved to module scope in a `relayStreaks` Map keyed by **origin**,
+      bounded at `RELAY_STREAK_MAX = 64`. Keyed by origin because relay-only is a
+      property of the CDN host: switching title must not inherit the previous
+      CDN's count, and a direct success on one origin says nothing about the next.
+      The instance field and the false "loader instance is REUSED across
+      fragments" comment at `:548` are gone; the new comment records why.
+- [x] S1.2b `logWarn` at streak 1 and every `RELAY_LOG_EVERY`, `logDebug` in
+      between; the payload now carries `origin` + `streak` instead of a truncated
+      URL. `clearProbeCache()` also clears the streaks (test isolation).
+- [x] S1.2c New `src/__tests__/nativeHlsLoaderRelayStreak.test.js` — 3 cases,
+      driving a **fresh `Loader` per fragment** exactly as hls.js does: streak
+      climbs (1 warn + 2 debug, was 3 warns), streaks are per-origin, and a direct
+      success clears them. Mutation-probed by forcing `next = 1` (the pre-fix
+      behaviour) — all 3 fail, the first with
+      `expected [...] to have a length of 1 but got 3`, i.e. the console flood
+      reproduced as a failing assertion.
+
+**Reachable-reset note (found while writing S1.2c).** A direct success requires
+`probe.ok`, so `resetRelayStreak` can only ever fire for a **CORS-capable** origin.
+For a probe-negative origin (every `*.workers.dev`, S1.3) the streak therefore
+grows monotonically for the session and the single `logWarn` at 1 is the only one
+ever emitted. That is truthful and cheap, but it means the `logDebug`-only steady
+state does not apply to the providers that actually ship today.
+
+### S1.3 Direct path is unavailable for every segment — expected, but pay it once
+`isDirectBlocked` (`:123`) hard-blocks **all** `*.workers.dev` hosts, and the
+comment at `:161-168` records that VidCore now rotates its segment CDN to
+`v1.streamsitegp.workers.dev`, which answers a bare Range probe with 403 and **no
+`access-control-allow-origin` at all**. So a browser-direct pull can never work
+here and every segment is a Vercel relay round trip. This is not the bug — but it
+means relay latency is the whole startup budget, so S1.4 matters.
+
+- [ ] S1.3a Document in `architecture.md` that relay-only is the expected steady
+      state for these providers, so a future reader does not "fix" the fallback by
+      adding CORS headers the user has explicitly ruled out.
+
+### S1.4 First byte costs TWO serial relay legs
+`relayFragment` (`:882`) fetches **chunk 0 alone** to learn the exact byte count
+and seed the fan-out stride, then fetches the remainder concurrently. For any
+multi-chunk fragment the first byte therefore waits for serial leg 1, then leg 2.
+When every fragment is relayed (S1.3) this is the dominant startup cost.
+
+- [ ] S1.4a Investigate seeding the stride from the playlist/manifest size or a
+      HEAD instead of a serial chunk-0 fetch, so the first byte rides the fan-out.
+      If that is not possible, document the two-leg floor as the relay's real
+      latency shape rather than leaving it as folklore in a comment.
+
+### S1.5 The probe cache never expires — a 5-minute cooldown that never recovers
+`probeCache` is written at `:150` and only ever removed on `AbortError` (`:188`)
+or a manual `clearProbeCache()` (`:198`). `directBlockedUntil` expires its entry
+after `DIRECT_BLOCK_MS` (`:129`), which *implies* the origin is re-probed later —
+but `probeDirectOrigin` short-circuits on `probeCache.has(origin)` and returns the
+stored `{ok:false}` forever. **An origin that 403s once stays relay-only for the
+entire session**, so the cooldown's stated purpose is never achieved.
+
+- [x] S1.5a `probeCache` is now `origin -> { verdict, expiresAt }` instead of a bare
+      promise. `verdict` stays a promise so concurrent fragment loads still share
+      ONE probe; `expiresAt` is `null` until it settles, because the TTL depends on
+      whether it said yes or no, which is only knowable afterwards. TTLs are
+      deliberately **asymmetric**: `PROBE_NEGATIVE_TTL_MS = DIRECT_BLOCK_MS` (a
+      refusal may not outlive the park it caused) and `PROBE_POSITIVE_TTL_MS =
+      30 min` (a yes is CDN config, but bounded so a long tab cannot pin it).
+      An expired entry is deleted on read, and a settled-rejected probe is dropped
+      rather than cached.
+      Also added the **first production call site** for `clearProbeCache()`:
+      `NativePlayerView.jsx:2911`, the effect cleanup keyed on
+      `[type, id, season, episode, title, reloadToken]` — so it fires on a source
+      change and on unmount, and the next title is judged by a fresh probe.
+      `directBlockedUntil` is deliberately **not** cleared there: parking a 403'd
+      origin for 5 min is WAF protection, and clearing it on teardown would
+      re-probe a throttling CDN on every title switch.
+- [x] S1.5b New `src/__tests__/nativeHlsLoaderProbeTtl.test.js` — 5 cases:
+      concurrent callers still share one probe, a fresh verdict is not re-poked, a
+      refusal parks and is answered from memory, the origin re-probes after
+      `DIRECT_BLOCK_MS` and *recovers*, and the two TTLs are asymmetric.
+      Mutation-probed twice: `expiresAt = Infinity` (the pre-fix permanent cache)
+      fails 2, and equalising the two TTLs fails 2 including the asymmetry case.
+      2 of my first drafts asserted the wrong thing and were corrected — the
+      negative verdict is per-origin, so a shared fake clock expires both at once.
+
+**Confirmed empirically, not just by reading.** While writing the S1.2c reset test
+this bug intercepted the first draft: the test flipped a stubbed CDN from
+"probe 403s" to "probe serves CORS" and expected a direct fragment, but the cached
+negative verdict from the earlier phase was returned forever, so the fragment
+relayed instead and the test failed for a reason that had nothing to do with
+streaks. That is the S1.5 defect surfacing as a real, observable consequence.
+
+**`clearProbeCache()` had no production callers.** Its only callers were the three
+test files (`nativeHlsLoader.test.js`, `nativeHlsLoaderStartup.test.js`,
+`vidcoreOriginParking.test.js`), so every origin probed in a session kept its
+verdict until reload. Now fixed by S1.5a, which added the title-change/teardown
+call site as well as the TTL.
+
+### S1.6 "No cue tags" warns once per level playlist
+`:710` uses `logWarn` on a condition that is the norm for these providers, so it
+repeats on every playlist load and reads like a failure. Demote to `logDebug`
+after the first report per origin, or state it as info.
 
 ## R7 — What still cannot be ticked here
 - [ ] R7.1 6.8's browser checklist stays open. It is the human gate, and no

@@ -52,7 +52,48 @@ const DIRECT_BLOCK_MS = 5 * 60 * 1000;
 // observable instead of silent.
 const RELAY_LOG_EVERY = 25;
 
+// S1.2 — the relay streak must be SHARED, not per-loader-instance. hls.js
+// constructs a fresh fragment loader per fragment, so the old instance counter
+// reset in the constructor could only ever read 1: the "consecutive
+// fragment(s)" warning fired once per segment and buried the one log that
+// mattered (a relay that is actually failing). Keyed by ORIGIN because
+// relay-only is a property of the CDN host — switching title must not inherit
+// the previous CDN's count, and a direct success on one origin says nothing
+// about the next one.
+const relayStreaks = new Map();
+// Origins tracked at once. Segments for a title share one CDN, so this is a
+// long-session bound, not a working-set size.
+const RELAY_STREAK_MAX = 64;
+
+function bumpRelayStreak(url) {
+  const origin = originOf(url) || "unknown";
+  const next = (relayStreaks.get(origin) || 0) + 1;
+  if (relayStreaks.size >= RELAY_STREAK_MAX && !relayStreaks.has(origin)) {
+    relayStreaks.delete(relayStreaks.keys().next().value);
+  }
+  relayStreaks.set(origin, next);
+  return next;
+}
+
+function resetRelayStreak(url) {
+  const origin = originOf(url);
+  if (origin) relayStreaks.delete(origin);
+}
+
+/* S1.5 — origin -> { verdict: Promise<{ok,...}>, expiresAt: number|null }.
+   `verdict` is stored as a promise so concurrent fragment loads share ONE probe.
+   `expiresAt` is null until the probe settles, because the TTL depends on whether
+   it said yes or no, which is only knowable afterwards. */
 const probeCache = new Map();
+// A negative verdict must NOT outlive the parking it causes. `directBlockedUntil`
+// expires after DIRECT_BLOCK_MS and the code's own comment calls that the point
+// at which the origin gets another chance — but an unexpiring cached negative
+// meant the retry never happened and the origin stayed relay-only until reload.
+const PROBE_NEGATIVE_TTL_MS = DIRECT_BLOCK_MS;
+// A positive verdict is the CDN's CORS config, which does not flip per fragment,
+// so it is cached far longer than a negative. Bounded anyway so a long-lived tab
+// cannot pin a stale "yes" forever.
+const PROBE_POSITIVE_TTL_MS = 30 * 60 * 1000;
 // origin -> timestamp (ms) until which direct fetches are skipped.
 const directBlockedUntil = new Map();
 
@@ -132,7 +173,8 @@ function isDirectBlocked(url) {
 
 /* Direct-CORS probe per segment origin: Range 0-0 must return a readable
    allow-origin AND a content-range. Cached as a promise so concurrent fragment
-   loads share one probe. */
+   loads share one probe, and TTL'd (S1.5) so the verdict does not outlive the
+   parking it caused. */
 export async function probeDirectOrigin(url, { signal } = {}) {
   let origin = null;
   try {
@@ -146,10 +188,16 @@ export async function probeDirectOrigin(url, { signal } = {}) {
   // cache cleared mid-session) pays the doomed request again, which is the
   // exact cost this cooldown exists to remove.
   if (isDirectBlocked(url)) return { ok: false, status: 0, reason: "origin parked on relay-only cooldown" };
+  // S1.5: an expired entry is dropped so the probe below re-runs. A null
+  // expiresAt means the probe is still in flight — keep it, concurrent callers
+  // must share the one request.
+  const cached = probeCache.get(origin);
+  if (cached && cached.expiresAt !== null && Date.now() >= cached.expiresAt) {
+    probeCache.delete(origin);
+  }
   if (!probeCache.has(origin)) {
-    probeCache.set(
-      origin,
-      (async () => {
+    const envelope = { verdict: null, expiresAt: null };
+    envelope.verdict = (async () => {
         try {
           const res = await fetch(url, { headers: { range: "bytes=0-0" }, signal });
           // A 401/403/429 on a bare one-byte probe is a GATE, not a blip: the
@@ -188,14 +236,27 @@ export async function probeDirectOrigin(url, { signal } = {}) {
           if (error?.name === "AbortError") probeCache.delete(origin);
           return { ok: false };
         }
-      })(),
+    })().then(
+      (verdict) => {
+        // Now the TTL is knowable. A refusal must not be cached longer than the
+        // park it just set, or the origin can never earn the retry it was promised.
+        envelope.expiresAt =
+          Date.now() + (verdict.ok ? PROBE_POSITIVE_TTL_MS : PROBE_NEGATIVE_TTL_MS);
+        return verdict;
+      },
+      (error) => {
+        probeCache.delete(origin);
+        throw error;
+      },
     );
+    probeCache.set(origin, envelope);
   }
-  return probeCache.get(origin);
+  return probeCache.get(origin).verdict;
 }
 
 export function clearProbeCache() {
   probeCache.clear();
+  relayStreaks.clear();
 }
 
 /* Playlist text memo. The playability probe fetches the entry playlist (and, for a
@@ -524,8 +585,9 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath, onC
       // frag.stats = loader.stats), so it must ALWAYS be a full LoadStats-shaped
       // object — never undefined.
       this.stats = finishStats(0, 0);
-      // Consecutive fragments served through the relay. Reset by any direct success.
-      this.relayStreak = 0;
+      // NOTE: the consecutive-relay counter is NOT here. hls.js builds one
+      // loader per fragment, so an instance field can only ever read 1 (S1.2).
+      // It lives in the module-level relayStreaks map, keyed by origin.
     }
 
     destroy() {
@@ -735,7 +797,7 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath, onC
             const data = await this.directFragment(url, signal);
             const origin = originOf(url);
             if (origin) directBlockedUntil.delete(origin);
-            this.relayStreak = 0;
+            resetRelayStreak(url);
             onDirectPath?.();
             return data;
           } catch (error) {
@@ -865,16 +927,18 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath, onC
           out.set(c, off);
           off += c.length;
         }
-        this.relayStreak = (this.relayStreak || 0) + 1;
-        if (this.relayStreak === 1 || this.relayStreak % RELAY_LOG_EVERY === 0) {
-          logWarn("native", `${this.relayStreak} consecutive fragment(s) via Vercel relay — direct path unavailable.`, {
-            url: String(url).slice(0, 80),
+const streak = bumpRelayStreak(url);
+        if (streak === 1 || streak % RELAY_LOG_EVERY === 0) {
+          logWarn("native", `${streak} consecutive fragment(s) via Vercel relay - direct path unavailable.`, {
+            origin: originOf(url),
+            streak,
           });
         } else {
-          logDebug("native", `Relayed fragment (${total} bytes).`, { url: String(url).slice(0, 80) });
+          logDebug("native", `Relayed fragment (${total} bytes).`, { origin: originOf(url), streak });
         }
-        // One relayed FRAGMENT landed (not one chunk): tell the player so it can count
-        // a real streak and steer tall renditions when relay can't keep feeding them.
+        // One relayed FRAGMENT landed (not one chunk): tell the player, which
+        // shows the relay badge. The streak itself is counted above, in module
+        // scope, so it survives the per-fragment loader.
         onRelayPath?.();
         return out.buffer;
       };
