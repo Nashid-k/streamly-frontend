@@ -65,6 +65,62 @@ below), `aios_my_collections` (named folders referencing saved title ids),
 `aios_sync_*` events. (`streamly_autoSkip` was a write-only orphan — removed;
 the real pref is `setting-autoSkipIntro`.)
 
+### 2a. Player preference keys (PLAYER V2 migration)
+
+`NativePlayerView.jsx:128-130` keeps a **second, parallel** set of volume keys
+that shadow the `streamly_volume|muted|aspectRatio` prefs above:
+
+| Key | Written by | Read by real playback? |
+|---|---|---|
+| `streamly-native-volume` | player | **yes** (`NativePlayerView.jsx:996`) |
+| `streamly-native-muted` | player | **yes** (`:1000`) |
+| `streamly-native-aspect` | player | **yes** (`:1014`, an **index** into `ASPECT_RATIOS`, not a ratio) |
+| `streamly-native-subtitle-<id>` | player | **yes** (`:3229`, `:3310`) |
+
+So a viewer who changes volume in Settings writes `streamly_volume`, and
+playback ignores it and restores `streamly-native-volume` instead. Two key
+spaces, one behaviour, and the settings screen is the one that loses.
+
+PLAYER V2 folds volume / muted / aspect / playbackRate into
+`PreferencesContext`, with a **one-time legacy read** of the three native keys
+(`PreferencesContext.jsx`'s existing `migratedFromLegacy` pattern) so no
+viewer's volume resets. After migration `streamly-native-volume|-muted|-aspect`
+are retired; `streamly-native-subtitle-<id>` is **deliberately retained** — it
+is per-title-per-language selected text, not a user preference, so it stays a
+direct read.
+
+Aspect is a genuine value-shape change (`index` -> named ratio) and is the one
+migration with a lossy edge: an out-of-range index falls back to the default
+ratio rather than guessing.
+
+### 2b. PLAYER V2 rollout flag
+
+`VITE_PLAYER_LEGACY` + `localStorage["streamly-player-legacy"]`
+(`src/constants/playerFlag.js`, `usePlayerVariant.js`). **Polarity: the new
+player is the default** — the flag can only force the old player back, so the
+safety net is live in production rather than needing to be switched on. The
+localStorage write exists because a build-time-only flag cannot stop a live
+incident; localStorage wins over the env var. Both are **temporary** and are
+deleted in Phase 6 with the old player — see `task.md` 0.3 and 6.8.
+
+Player-overlay detection is `data-player-open="true"`
+(`src/utils/playerOpen.js`), stamped by the overlay itself. It replaces
+iframe-provider queries that were permanently false for native HLS playback.
+
+**Both switches are temporary and must die with the legacy player.** The flag is
+not a permanent feature toggle: it exists so a viewer reporting "the player looks
+wrong" can be told which build they were actually served. Once
+`NativePlayerView.jsx` is deleted (`task.md` R6.4) the flag goes with it, in the
+same commit — a flag with no legacy player behind it is dead config that reads
+like a live safety net.
+
+**Parity gate on that deletion, recorded 2026-10-01.** The new player does not
+yet implement audio/dub track selection or quality/bitrate selection, both of
+which the legacy player has. Deleting the legacy player before porting them
+removes viewer-facing capability rather than removing old code. See the
+ZERO-LEGACY-RETIREMENT section in `task.md` for the capability audit and the
+required order.
+
 Cloud sync: **guests are local-only** — `loginAsGuest` never calls `/api/auth`
 or `/api/sync` (the old default email `viewer@streamly.io` collapsed every
 anonymous visitor into one shared Mongo document). Only verified Google
