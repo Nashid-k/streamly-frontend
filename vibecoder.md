@@ -34,13 +34,12 @@ Debug: open the browser console — every data failure logs as
 `[Streamly][scope] message + context`. Append `?debug=1` (or set
 `localStorage["streamly:debug"]="1"`) for verbose `console.debug` output.
 
-### Mobile app (`mobile/` — Flutter)
+### Mobile: none (removed 2026-10-01)
 
-`mobile/README.md` owns the toolchain: `flutter pub get`, `flutter analyze`
-(static gate), `flutter test`, `flutter run`, `flutter build apk`. No
-Flutter/Dart SDK is installed on this machine, so Dart gates cannot run here —
-say so explicitly instead of claiming a pass. Never commit `build/`,
-`.dart_tool/`, keys, or APKs (covered by `mobile/.gitignore`).
+The Flutter `mobile/` app was deleted outright. There is no Dart toolchain,
+no APK target, and no Dart gate to run or report. `npm run lint`,
+`npm run test`, and `npm run build` are the only gates. Responsive *web*
+layout is still in scope.
 
 ## 3. Coding rules
 

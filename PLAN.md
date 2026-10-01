@@ -1,9 +1,9 @@
 # Streamly — The Plan
 
 > **Status: P0.1–P0.4, P1.1, P1.2 and P1.4 are SHIPPED** (see `task.md` for
-> the gate record). P1.3 (mobile parity) remains deferred — it needs a
-> machine with the Flutter SDK to run `flutter analyze`/`test` honestly.
-> P2 items stay trigger-gated.
+> the gate record). P1.3 (mobile parity) was DROPPED on 2026-10-01 — the
+> Flutter app is deleted and this repo is desktop-only. P2 items stay
+> trigger-gated.
 
 > **One line:** a read-heavy, near-zero-write, byte-relay product designed for
 > **hundreds of daily viewers (~20–30 concurrent peak)** that must feel
@@ -91,12 +91,11 @@ and the TMDB rate budget entirely (Vercel edge serves it).
 - [x] Details pages: raise React Query `staleTime` for `movie` + `episodes`
   queries to 24 h with focus-refetch off (cache-first repeat visits).
 
-### P1.3 Mobile (Flutter) parity sweep — close the documented deferrals
-From `task.md` history: subtitle styling prefs, still-watching modal, scrub
-preview thumbs, and the `initialServerIndex` server-switch UI. These are the
-last known gaps between web and APK. Same order the web did them (behaviors →
-menus → polish) so the port review is mechanical. **Deferred: needs a machine
-with the Flutter SDK — no Dart gate can run here.**
+### P1.3 ~~Mobile (Flutter) parity sweep~~ — DROPPED 2026-10-01
+The Flutter app was deleted at the user's decision. The parity gaps named here
+(subtitle styling prefs, still-watching modal, scrub-preview thumbs,
+`initialServerIndex` server-switch UI) are now **web-only** work, owned by
+PLAYER V2. No Dart gate exists in this repo.
 
 ### P1.4 Honest-capacity dashboard row — ✅ SHIPPED
 With P0.3's ledger: a quiet Settings → Account row ("System status") showing
@@ -143,7 +142,7 @@ together; every source must be serverless-resolvable), WebSockets for parties
 
 ```
 Now:      P0.1 export/import ✅ · P0.2 Mongo snapshot ✅ · P0.3 usage ledger ✅ · P0.4 warm resolve ✅
-Next:     P1.1 adaptive polls ✅ · P1.2 edge-cache raise ✅ · P1.3 mobile parity (deferred: needs Flutter SDK) · P1.4 dashboard ✅
+Next:     P1.1 adaptive polls ✅ · P1.2 edge-cache raise ✅ · P1.3 mobile parity ❌ DROPPED (desktop-only) · P1.4 dashboard ✅
 Later:    only on a P0.3 trigger — custom domain, cache trims, IndexedDB TMDB cache
 Never:    paid tiers, always-on servers, breaking frozen contracts
 ```

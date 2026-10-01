@@ -16,10 +16,13 @@
 3. Follow `vibecoder.md` workflow 1-2-3-4-5. The short version: read first,
    minimal diffs, never fail silently, verify with
    `npm run lint` + `npm run test` + `npm run build`, record in `task.md`.
-4. `mobile/` is the Flutter replacement app (`mobile/README.md` is its
-   source of truth). No Flutter/Dart SDK on this machine, so run no Dart
-   gates here — state that explicitly instead of claiming them. Dart edits
-   still follow the repo rules: no silent failures, minimal diffs.
+4. **This is a DESKTOP-ONLY repository (user decision, 2026-10-01).** The
+   Flutter `mobile/` app was deleted outright. There is no Dart, no APK, and
+   no mobile target of any kind — do not recreate one, do not add a
+   `.dart`/`.yaml` mobile scaffold, and do not report a Dart gate as
+   passed. `npm run lint` + `npm run test` + `npm run build` are the only
+   gates. Responsive *web* layout is still in scope and is handled with
+   container queries in `src/components/player/v2/player.css`.
 
 ## Git credentials
 
