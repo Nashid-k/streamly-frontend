@@ -5230,7 +5230,7 @@ Audited against what v2 actually does. Verdicts, with the evidence:
 | 5.2 zero timestamp pre-mount | **superseded** | the `updateProgress(..., 0)` at the cited site no longer exists; `:589` writes episode-watched state, not a zeroed timestamp |
 | 5.3 `Number()` on saved season/episode | **LIVE BUG → DONE 2026-10-02** | `TitleDetailsPage.jsx:567,570` used bare `===` while `:613,664,776` wrapped in `Number()`, so a string `savedSeason` nulled `keepTs`/`keepEp` and wiped the saved position |
 | 5.4 delete `useContainerSize` | **moot at R6** | referenced only from `NativePlayerView.jsx`, `playerUi.js`, `index.js` — all legacy; v2 uses `@container` |
-| 5.6 thumbnail pipeline | **LIVE, and shared** | `previewThumbs.js` is imported by v2 `Scrubber.jsx` + `hoverPreview.js`, so the un-cached failures and the wedged `chain` hit v2 too |
+| 5.6 thumbnail pipeline | **LIVE, and shared → DONE 2026-10-02** | `previewThumbs.js` is imported by v2 `Scrubber.jsx` + `hoverPreview.js`, so the un-cached failures and the wedged `chain` hit v2 too. `toBlob`/`FileReader` now time out, failures are negatively cached with a TTL, and eviction is LRU |
 | 5.7 `seekTime` drives skip | **LIVE v2 gap → DONE 2026-10-02** | validated `[1,120]` at `PreferencesContext.jsx:65`, default `10` at `preferences.js:52`, and read by **nothing** in v2 — only legacy `NativePlayerView.jsx:1942`. `usePlayerControls.js:274` mentioned it *in a comment only*. Now read and clamped, and `TransportBar` takes `skipSeconds` as a prop |
 | 5.8 `playbackRate` persisted | **DONE** | real pref, `snapPlaybackRate`-validated (`PreferencesContext.jsx:80-89`), read by v2 `usePlayerPrefs.js:45` |
 | 5.9 fold player prefs into context | **half done** | `aspect` + `playbackRate` are in; **`volume`/`muted` are not in the context at all** |
@@ -5301,10 +5301,18 @@ deletion. 12 are genuinely live, 4 of them **real bugs shipping today** (5.3, 5.
       `Object.assign(el, playerOpenAttrs)` sets a JS expando, never the
       attribute, so a vanilla refactor would reintroduce silent always-false
       detection. Both are documented and pinned.
-- [ ] 5.6 Thumbnail pipeline: negative caching, `toBlob`/`FileReader` timeouts,
-      LRU. A hung promise permanently wedges the module-level `chain` at
-      `previewThumbs.js:37`; failures are never cached, so repeated scrubbing
-      loops the 4s-capped seek forever and logs each time.
+- [x] 5.6 Thumbnail pipeline: negative caching, `toBlob`/`FileReader` timeouts,
+      LRU. **DONE 2026-10-02.** The wedge was real: `canvas.toBlob` and
+      `FileReader` were the only capture steps with no deadline, so a callback
+      that never fired left the module-level `chain` pending forever and every
+      later capture queued behind it. Both now ride a 4s `ENCODE_TIMEOUT_MS`
+      (and `canvas.toBlob` is wrapped in try/catch so a missing implementation
+      rejects instead of throwing out of the promise). Failed positions are
+      remembered in a TTL'd negative cache (30s / 120 entries) and a read moves
+      entries to the end so eviction is true LRU, not insertion-order. New
+      `previewThumbs.test.js` (+4) pins cache hit, negative cache, the hung
+      `toBlob` unwedging, and `clearPreviewCache` dropping failures for a new
+      source. Gates: 135 files / 2025 tests, build 4.80s.
 - [x] 5.7 **DONE for the transport path, 2026-10-02.** `TransportBar` imported
       `SKIP_SECONDS = 10` and had no way to learn the viewer's choice, so a
       preference validated to `[1,120]` and editable in Settings did **nothing** —

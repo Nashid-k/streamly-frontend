@@ -22,7 +22,18 @@ import { logWarn } from "../utils/debugLogger.js";
 const CACHE_STEP_SECONDS = 8;
 const SEEK_SETTLE_MS = 220;
 const MOUNT_TIMEOUT_MS = 8000;
+const SEEK_TIMEOUT_MS = 4000;
+/* `canvas.toBlob` and `FileReader` are the last two steps of a capture and the
+ * only ones without a deadline of their own (task.md 5.6). A `toBlob` that
+ * never calls back used to wedge the module-level `chain` FOREVER — every
+ * later capture queued behind it and previews died for the session. */
+const ENCODE_TIMEOUT_MS = 4000;
 const MAX_CACHE_ENTRIES = 240;
+/* Failed positions are remembered for a short TTL so re-sweeping the scrubber
+ * over a dead step does not re-mount and re-seek (and re-log) on every pass,
+ * while a transient failure still heals after the TTL. */
+const MAX_FAILED_ENTRIES = 120;
+const NEGATIVE_TTL_MS = 30_000;
 
 let hls = null;
 let video = null;
@@ -31,6 +42,7 @@ let ctx = null;
 let currentKey = null;
 let currentRefUrl = null;
 let captures = new Map();
+let failures = new Map();
 // Captures are serialized on this chain (one <video> can only seek to one
 // place), and a newer request supersedes queued ones — a scrub drag must not
 // replay every hover position it passed through.
@@ -38,6 +50,37 @@ let chain = Promise.resolve();
 let latestReq = 0;
 
 const cacheKeyOf = (key, t) => `${key}@${Math.max(0, Math.round(t / CACHE_STEP_SECONDS))}`;
+
+/* True LRU for successful captures: a hit moves the entry to the end, so the
+ * eviction at MAX_CACHE_ENTRIES drops the least-recently-USED, not the oldest
+ * inserted. */
+function readCapture(key) {
+  if (!captures.has(key)) return null;
+  const value = captures.get(key);
+  captures.delete(key);
+  captures.set(key, value);
+  return value;
+}
+
+function rememberFailure(key) {
+  failures.delete(key);
+  failures.set(key, Date.now());
+  if (failures.size > MAX_FAILED_ENTRIES) failures.delete(failures.keys().next().value);
+}
+
+/* A failure younger than the TTL short-circuits the whole pipeline: no mount,
+ * no seek, no log. Anything older is dropped so the position can recover. */
+function isKnownFailure(key) {
+  const at = failures.get(key);
+  if (at == null) return false;
+  if (Date.now() - at >= NEGATIVE_TTL_MS) {
+    failures.delete(key);
+    return false;
+  }
+  failures.delete(key);
+  failures.set(key, at);
+  return true;
+}
 
 function teardown() {
   if (hls) {
@@ -65,14 +108,20 @@ function teardown() {
   currentRefUrl = null;
 }
 
-/* Drop cached thumbs — with a sourceKey only that source's entries, else all. */
+/* Drop cached thumbs — with a sourceKey only that source's entries, else all.
+ * Failures for the same entries are dropped too, so a deliberate cache clear
+ * (quality/source switch) also allows a retry on the new one. */
 export function clearPreviewCache(sourceKey) {
   if (sourceKey == null) {
     captures.clear();
+    failures.clear();
     return;
   }
   for (const k of captures.keys()) {
     if (k.startsWith(`${sourceKey}@`)) captures.delete(k);
+  }
+  for (const k of failures.keys()) {
+    if (k.startsWith(`${sourceKey}@`)) failures.delete(k);
   }
 }
 
@@ -80,6 +129,7 @@ export function clearPreviewCache(sourceKey) {
 export function resetPreviewPipeline() {
   teardown();
   captures = new Map();
+  failures = new Map();
 }
 
 async function ensureMounted({ url, refUrl, sourceKey }) {
@@ -151,7 +201,7 @@ async function captureAt(seconds) {
     const timer = setTimeout(() => {
       cleanup();
       reject(new Error("preview-seek-timeout"));
-    }, 4000);
+    }, SEEK_TIMEOUT_MS);
     const cleanup = () => {
       v.removeEventListener("seeked", onSeeked);
       clearTimeout(timer);
@@ -162,12 +212,41 @@ async function captureAt(seconds) {
   // Let the decoder paint the frame before grabbing it.
   await new Promise((r) => setTimeout(r, SEEK_SETTLE_MS));
   ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
-  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.72));
+  const blob = await new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (error, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (error) reject(error);
+      else resolve(value);
+    };
+    const timer = setTimeout(
+      () => finish(new Error("preview-encode-timeout")),
+      ENCODE_TIMEOUT_MS,
+    );
+    try {
+      canvas.toBlob((b) => finish(null, b), "image/jpeg", 0.72);
+    } catch (error) {
+      finish(error);
+    }
+  });
   if (!blob) return null;
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(new Error("preview-encode-failed"));
+    let settled = false;
+    const finish = (fn, arg) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn(arg);
+    };
+    const timer = setTimeout(
+      () => finish(reject, new Error("preview-encode-timeout")),
+      ENCODE_TIMEOUT_MS,
+    );
+    reader.onload = () => finish(resolve, String(reader.result || ""));
+    reader.onerror = () => finish(reject, new Error("preview-encode-failed"));
     reader.readAsDataURL(blob);
   });
 }
@@ -177,22 +256,25 @@ async function captureAt(seconds) {
    newer one exists (a drag supersedes the positions it passed through). */
 export async function getPreviewThumb({ url, refUrl, sourceKey, seconds }) {
   const key = cacheKeyOf(sourceKey, seconds);
-  const hit = captures.get(key);
+  const hit = readCapture(key);
   if (hit) return hit;
+  if (isKnownFailure(key)) return null;
   const mine = ++latestReq;
   const job = chain.then(async () => {
-    if (mine !== latestReq) return captures.get(key) || null;
+    if (mine !== latestReq) return readCapture(key);
     try {
       await ensureMounted({ url, refUrl, sourceKey });
-      if (mine !== latestReq) return captures.get(key) || null;
+      if (mine !== latestReq) return readCapture(key);
       const dataUrl = await captureAt(seconds);
       if (!dataUrl) return null;
       if (captures.size >= MAX_CACHE_ENTRIES) captures.delete(captures.keys().next().value);
       captures.set(key, dataUrl);
+      failures.delete(key);
       return dataUrl;
     } catch (error) {
       logWarn("native", "Scrubber preview unavailable", { message: error?.message });
       if (/fatal|timeout|missing|unavailable/.test(String(error?.message || ""))) teardown();
+      rememberFailure(key);
       return null;
     }
   });
