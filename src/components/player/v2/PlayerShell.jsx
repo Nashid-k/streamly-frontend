@@ -15,6 +15,7 @@ import usePlaybackState from "./hooks/usePlaybackState";
 import usePlaybackStatus from "./hooks/usePlaybackStatus";
 import useChromeAutoHide from "./hooks/useChromeAutoHide";
 import usePlayerControls from "./hooks/usePlayerControls";
+import usePlayerProgress from "./hooks/usePlayerProgress";
 import usePlayerPrefs from "./hooks/usePlayerPrefs";
 import usePlayerSource from "./hooks/usePlayerSource";
 import useSkipBoundaries from "./hooks/useSkipBoundaries";
@@ -177,6 +178,23 @@ const PlayerShell = forwardRef(function PlayerShell(
   const controls = usePlayerControls(videoRef, shellRef, videoNode);
   const prefs = usePlayerPrefs({ videoNode });
 
+  /* Progress persistence (task.md 5.25). The parent hands us `onProgressChange`
+   * and v2 used to drop it on the floor, so closing the player threw the
+   * playhead away and the title was offered from the start next time. The hook
+   * flushes the last frame-rate value on unmount — the one path every close
+   * takes — and `requestClose` below adds the pause for the paths the shell
+   * itself controls, so audio dies immediately instead of at detach. */
+  const { subscribePlayhead, pause: pausePlayback } = controls;
+  const { flush: flushProgress } = usePlayerProgress({
+    subscribePlayhead,
+    onProgressChange,
+  });
+  const requestClose = useCallback(() => {
+    pausePlayback();
+    flushProgress();
+    onClose?.();
+  }, [pausePlayback, flushProgress, onClose]);
+
   /** Which settings panel is open, if any. 3.24 renders the sheet from this;
    *  until then the transport's sheet openers have a real target to report and
    *  nothing draws, which is honest rather than a dead button. */
@@ -216,15 +234,15 @@ const [sheetPanel, setSheetPanel] = useState(null);
     (event) => {
       if (event.key !== "Escape") return;
       if (typeof document !== "undefined" && document.fullscreenElement) return;
-      onClose?.();
+      requestClose();
     },
-    [onClose],
+    [requestClose],
   );
 
   /* Back closes the player too (task.md 3.38). Placed beside Escape because it is
    * the same intent — leave the player, not the page — reached by a different
    * control. */
-  useHistoryBack({ onBack: onClose });
+  useHistoryBack({ onBack: requestClose });
 
   /* Idle auto-hide (task.md 3.8). The timer only ever runs while the machine
    * says we are actually playing, so this cannot hide the controls off a paused,
@@ -520,7 +538,7 @@ data-sheet={sheetPanel ?? undefined}
             /* `onClose` was a frozen prop with no consumer until now; the zones
              * layout is its intended user, since a fullscreen video with no
              * visible way out is a trap. */
-            onClose={onClose}
+            onClose={onClose ? requestClose : undefined}
             /* ── Tier B (task.md 3.9) ───────────────────────────────────── */
             tier={tier}
             /* Episode navigation is the PARENT's call — it owns season

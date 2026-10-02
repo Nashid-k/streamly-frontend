@@ -5249,7 +5249,7 @@ Audited against what v2 actually does. Verdicts, with the evidence:
 | 5.22 restore previous `body` overflow | **LIVE BUG → DONE 2026-10-02** | `TitleDetailsPage.jsx:625,627` hardcoded `"auto"` in both directions, clobbering every other overlay on mount *and* unlocking the page under an open modal on close |
 | 5.23 `scrollbar-gutter: stable` | **LIVE, absent → DONE 2026-10-02** | was in **no** file under `src/styles/`; now on `html` in `tokens.css` |
 | 5.24 cooperative scroll lock | **unverified** | needs a look at the overlay stack, not the legacy line cited |
-| 5.25 final frame on close | **LIVE gap** | `PlayerShell.jsx:215` calls `onClose?.()` with no pause or frame hand-off |
+| 5.25 final frame on close | **LIVE gap → DONE 2026-10-02** | the cited line moved, but the gap was real and larger: v2 read **neither** `watchedEntry` nor `onProgressChange`, so every close discarded the playhead. New `usePlayerProgress` flushes the last 5.15 playhead on the one path every close takes (unmount), and `requestClose` pauses first on the shell's own exits |
 
 **Consequence for the plan:** 9 items are moot-at-R6 legacy internals and should not
 be "fixed" in v2 — doing so would be building for a file that is scheduled for
@@ -5422,8 +5422,17 @@ deletion. 12 are genuinely live, 4 of them **real bugs shipping today** (5.3, 5.
       `stable` reserves the gutter whether or not a scrollbar is showing, so
       locking scroll no longer moves the layout.
 - [ ] 5.24 Cooperative overlay scroll lock — only one scroll owner at a time.
-- [ ] 5.25 Pause and hand off the final frame on close instead of discarding state
-      on unmount.
+- [x] 5.25 Pause and hand off the final frame on close instead of discarding state
+      on unmount. **DONE 2026-10-02.** `watchedEntry`/`onProgressChange` were
+      declared props with no consumer, so v2 never saved a position. New
+      `usePlayerProgress({ subscribePlayhead, onProgressChange })` retains the
+      last frame-rate second in a ref (not an element read — the ref survives
+      detach) and flushes it from an unmount cleanup, which is the only hook
+      that runs on every close path. `requestClose` pauses and flushes before
+      `onClose()` on Escape/Back/the zones close button; it is passed as
+      `undefined` when the parent gives no `onClose`, so the disabled-with-a-
+      reason close button is unchanged. Pinned by `playerV2Progress.test.jsx`
+      (+5) and `playerV2ProgressWiring.test.jsx` (+1).
 
 ## Part 6 — Phase gates (every phase ends green on lint + test + build)
 - [x] 6.1 **Phase 0 shipped:** `playMode` fix (0.1) + queue rewrite + environment
