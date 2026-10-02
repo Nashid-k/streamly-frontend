@@ -27,6 +27,11 @@ import useHlsSource from "./hooks/useHlsSource";
 const PlayerVideo = forwardRef(function PlayerVideo(
   {
     src = "",
+    /** The resolver's own `source.kind` ("hls" | "file"), forwarded to
+     *  `useHlsSource` so the HLS-vs-native decision does not have to guess from
+     *  the URL's suffix — the live VidCore master (`.../v1/play/<token>`) has
+     *  none, and guessing made a playable stream look like a web page. */
+    mediaKind = "",
     /** Applied imperatively by `useHlsSource`, never as a `src` attribute: whether
      *  a plain `src` works depends on the browser, and handing an HLS playlist to
      *  a browser that cannot play one produces a silent black rectangle. */
@@ -61,7 +66,7 @@ const PlayerVideo = forwardRef(function PlayerVideo(
    * happen at all. */
   const [node, setNode] = useState(null);
 
-  useHlsSource({ node, url: src, onAction, onEngine });
+  useHlsSource({ node, url: src, kind: mediaKind, onAction, onEngine });
 
   // Keep the latest callback without re-subscribing. Re-attaching listeners each
   // render would drop events fired between a commit and the next effect — and

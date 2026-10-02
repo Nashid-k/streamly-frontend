@@ -75,12 +75,19 @@ export function canPlayNativeHls(video) {
  * a black rectangle for everyone else.
  */
 export function choosePlaybackMode(url, caps = {}) {
-  const isHls = caps.isHls ?? isHlsUrl(url);
   if (!url) return MODE.NONE;
+  /* The resolver's `kind` ("hls" | "file") is authoritative when supplied: the
+   * live VidCore master is `.../v1/play/<token>` with no suffix, so an
+   * extension-only decision called it NATIVE (the element then got an HLS
+   * playlist as a plain `src`) and the media gate refused it outright. Only fall
+   * back to the URL shape for a payload that carries no kind. */
+  const kind = caps.mediaKind;
+  const kindIsMedia = kind === "hls" || kind === "file";
   // Not media. Returning NATIVE here is what put a provider homepage into
   // `<video src>`, so the refusal comes BEFORE the progressive branch below:
   // an mp4 is still played natively, but a page URL is never played at all.
-  if (!isPlayableMediaUrl(url)) return MODE.NONE;
+  if (!kindIsMedia && !isPlayableMediaUrl(url)) return MODE.NONE;
+  const isHls = kind ? kind === "hls" : (caps.isHls ?? isHlsUrl(url));
   if (!isHls) return MODE.NATIVE;
   if (caps.canPlayNative ?? false) return MODE.NATIVE;
   if (caps.hlsSupported ?? true) return MODE.HLSJS;
@@ -108,6 +115,10 @@ const HLS_CONFIG = {
  * @param {object} options
  * @param {HTMLVideoElement|null} options.node the element, or null before attach
  * @param {string} options.url
+ * @param {string} [options.kind] the resolver's own `source.kind` ("hls" | "file"),
+ *   passed straight through to `choosePlaybackMode`. Without it the mode is
+ *   guessed from the URL's extension, which is wrong for every extension-less CDN
+ *   path (see the `extractPlayableUrl` note).
  * @param {(action: object) => void} [options.onAction]
  * @param {(engine: object|null) => void} [options.onEngine] reports the live hls.js
  *   instance (or null), so a caller can hold it and read `audioTracks` / `levels`
@@ -130,7 +141,7 @@ const HLS_CONFIG = {
  * Reported from the SAME effect that creates it, and nulled on teardown, so the
  * caller can never hold an engine that was already destroyed.
  */
-export default function useHlsSource({ node, url, onAction, onEngine }) {
+export default function useHlsSource({ node, url, kind, onAction, onEngine }) {
   const onActionRef = useRef(onAction);
   const onEngineRef = useRef(onEngine);
 
@@ -146,6 +157,7 @@ export default function useHlsSource({ node, url, onAction, onEngine }) {
     if (!node || !url) return undefined;
 
     const mode = choosePlaybackMode(url, {
+      mediaKind: kind,
       canPlayNative: canPlayNativeHls(node),
       hlsSupported: Hls.isSupported(),
     });

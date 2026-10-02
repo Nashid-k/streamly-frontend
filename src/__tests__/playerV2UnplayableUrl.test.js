@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { extractPlayableUrl } from "../components/player/v2/hooks/usePlayerSource";
+import { classifyResolve, extractPlayableUrl } from "../components/player/v2/hooks/usePlayerSource";
 import { MODE, choosePlaybackMode, isPlayableMediaUrl } from "../components/player/v2/hooks/useHlsSource";
+import { OUTCOME } from "../components/player/v2/sourceLadder";
 
 /**
  * A provider page used to reach `<video src>`.
@@ -97,6 +98,70 @@ describe("choosePlaybackMode refuses a page URL", () => {
   it("still plays progressive media natively", () => {
     expect(choosePlaybackMode("https://cdn.example.com/movie.mp4", { canPlayNative: false })).toBe(
       MODE.NATIVE,
+    );
+  });
+});
+
+/**
+ * The extension-less resolver URL (live regression, 2026-10).
+ *
+ * Reported as: after the v2 player UI landed, "playback failed and no server has
+ * this title now" on titles that had played a few commits earlier. Probing the
+ * deployed `/api/downloadify` directly returned, for VidCore:
+ *
+ *   source.kind  = "hls"
+ *   source.url   = "https://api.dlproxy.com/v1/play/AQZ..."   <- NO extension
+ *   source.refUrl= "https://vidcore.io/"
+ *   variants     = 6, v0.uri === source.url
+ *
+ * The fix in this batch had gated every candidate on `isPlayableMediaUrl`, i.e.
+ * a `\.(m3u8|mp4)$` test. A CDN that streams under an opaque token path has no
+ * such suffix, so the real master was rejected, every server classified RETRY,
+ * and the ladder exhausted into that message. The resolver already tells us
+ * `source.kind`; the extension is only a fallback for payloads that lack it.
+ *
+ * VidCore is Server 1, so this rejected the primary source for most titles.
+ */
+describe("extension-less resolver URLs use source.kind, not the suffix", () => {
+  const vidcore = {
+    source: {
+      kind: "hls",
+      url: "https://api.dlproxy.com/v1/play/AQZtR9kX2mN8pQ1vW4yB6cD0eF3gH5jL7sU",
+      refUrl: "https://vidcore.io/",
+      multiLevelMaster: "",
+    },
+    variants: [{ uri: "https://api.dlproxy.com/v1/play/AQZtR9kX2mN8pQ1vW4yB6cD0eF3gH5jL7sU" }],
+  };
+
+  it("extractPlayableUrl returns the extension-less master when kind is hls", () => {
+    expect(extractPlayableUrl(vidcore)).toBe(vidcore.source.url);
+    // The premise: the suffix test alone cannot see that this is media.
+    expect(isPlayableMediaUrl(vidcore.source.url)).toBe(false);
+  });
+
+  it("extractPlayableUrl trusts an extension-less kind=file payload too", () => {
+    const payload = { source: { kind: "file", url: "https://cdn.example.com/download?id=42" } };
+    expect(extractPlayableUrl(payload)).toBe("https://cdn.example.com/download?id=42");
+  });
+
+  it("classifyResolve settles instead of retrying, so the ladder stops at Server 1", () => {
+    expect(classifyResolve(vidcore)).toBe(OUTCOME.SETTLED);
+  });
+
+  it("choosePlaybackMode routes an extension-less hls master to hls.js, not native", () => {
+    expect(
+      choosePlaybackMode(vidcore.source.url, { mediaKind: "hls", hlsSupported: true, canPlayNative: false }),
+    ).toBe(MODE.HLSJS);
+    // On a browser with native HLS (Safari) the same master goes native.
+    expect(
+      choosePlaybackMode(vidcore.source.url, { mediaKind: "hls", hlsSupported: false, canPlayNative: true }),
+    ).toBe(MODE.NATIVE);
+  });
+
+  it("choosePlaybackMode still refuses a page when no kind is supplied", () => {
+    // The kind does not become a blanket bypass: an untagged page stays refused.
+    expect(choosePlaybackMode("https://vidcore.io/", { canPlayNative: true, hlsSupported: true })).toBe(
+      MODE.NONE,
     );
   });
 });

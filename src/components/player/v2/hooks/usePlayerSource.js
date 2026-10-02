@@ -20,11 +20,21 @@ const SOURCE_SCOPE = "PlayerSource";
  * media". `source.url` leads (a master must open from it), `refUrl` is only used
  * when it is itself a real file, and a payload with no media candidate returns
  * "" so the ladder moves to the next server instead of playing a web page.
+ *
+ * ── The `kind` field is the real signal, not the extension ──────────────────
+ * The resolver labels every payload `source.kind`: "hls" or "file". That label
+ * is ground truth. Judging by extension rejected real streams whose CDN path has
+ * no suffix — the live VidCore master is `https://api.dlproxy.com/v1/play/<token>`
+ * — so the ladder treated every server as "no source" and reported "No server has
+ * this title right now" on titles that play fine. `kind` is trusted when present;
+ * the extension is only a fallback for a payload that predates it.
  */
 export function extractPlayableUrl(payload) {
   const src = payload?.source || {};
-  const candidates = [src.url, src.refUrl].filter(Boolean);
-  return candidates.find(isPlayableMediaUrl) || "";
+  const knownMedia = src.kind === "hls" || src.kind === "file";
+  if (src.url && (knownMedia || isPlayableMediaUrl(src.url))) return src.url;
+  if (src.refUrl && isPlayableMediaUrl(src.refUrl)) return src.refUrl;
+  return "";
 }
 
 /**
@@ -186,7 +196,14 @@ export default function usePlayerSource({
           return;
         }
         const payload = result?.payload;
-        setResolved({ source: winner, payload, url: extractPlayableUrl(payload) });
+        setResolved({
+          source: winner,
+          payload,
+          url: extractPlayableUrl(payload),
+          // Carried to the element so the HLS-vs-native decision uses the
+          // resolver's own label rather than guessing from the URL's suffix.
+          kind: payload?.source?.kind || "",
+        });
         send(E.SOURCE_READY);
       })
       .catch((error) => {
@@ -203,5 +220,5 @@ export default function usePlayerSource({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, argsKey, pinnedKey, retries, send]);
 
-  return { resolved, url: resolved?.url || "", ladder: ladderState };
+  return { resolved, url: resolved?.url || "", kind: resolved?.kind || "", ladder: ladderState };
 }

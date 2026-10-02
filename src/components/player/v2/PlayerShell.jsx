@@ -301,7 +301,7 @@ const [sheetPanel, setSheetPanel] = useState(null);
    * display name. Reading the label off the catalogue rather than echoing the
    * key is what lets the viewer recognise "Server 3" as something they picked
    * in the settings order. */
-  const { url, resolved } = usePlayerSource({
+  const { url, resolved, kind } = usePlayerSource({
     args: { type, id, season, episode, originalLanguage },
     send,
     enabled: id != null && id !== "",
@@ -411,7 +411,8 @@ data-sheet={sheetPanel ?? undefined}
         <PlayerVideo
           key={url}
           src={url}
-state={state}
+          mediaKind={kind}
+          state={state}
           onAction={handleVideoAction}
           onEngine={setEngine}
           ref={attachVideo}

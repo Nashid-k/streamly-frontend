@@ -5809,6 +5809,31 @@ move that turns "clean up the old player" into "ship a regression".
          plays natively. An unplayable URL now emits `logWarn` + `E.FAIL` rather
          than returning silently behind a spinner. Extensions are judged on the
          path only, so `https://vidcore.io/?next=master.m3u8` is a page, not HLS.
+- [x] **N1.0b Extension-less resolver URL rejected as "not media" - the N1.0
+      regression, fixed 2026-10-02.** Reported after the v2 UI/UX batch: "playback
+      failed and no server has this title now" on titles that had played a few
+      commits earlier. A read-only probe of the LIVE `/api/downloadify` returned,
+      for VidCore (Server 1), `source.kind = "hls"`, `source.url =
+      "https://api.dlproxy.com/v1/play/<token>"` with **no file extension**,
+      `refUrl = "https://vidcore.io/"`, `variants = 6`, `v0.uri === source.url`.
+      N1.0's fix gated every candidate on `isPlayableMediaUrl` - a `\.(m3u8|mp4)$`
+      test - so the real master was rejected, `extractPlayableUrl` returned `""`,
+      `classifyResolve` returned RETRY for every server, and the ladder exhausted
+      into the "no server" message. `choosePlaybackMode` had the mirror bug: with
+      no `.m3u8` suffix it would have answered NATIVE and set an HLS playlist as a
+      plain `<video src>`.
+      **Fix:** the resolver's own `source.kind` is now the authoritative signal.
+      `extractPlayableUrl` trusts `source.url` when `kind` is `"hls"`/`"file"`
+      (extension only as the fallback for untagged payloads, and for the `refUrl`
+      candidate); `kind` rides the resolved envelope through `PlayerShell` ->
+      `PlayerVideo` (`mediaKind`) -> `useHlsSource` -> `choosePlaybackMode`, which
+      uses it for the HLS-vs-native decision. The page-URL refusal is unchanged
+      when no `kind` is present. Tests (+5, `playerV2UnplayableUrl.test.js`): a
+      real-shape VidCore payload extracts, `classifyResolve` stays SETTLED, an
+      extension-less hls master routes to hls.js (native when the browser has
+      native HLS), a `kind:"file"` URL extracts, and an untagged page is still
+      MODE.NONE. Gates green: oxlint 0 errors, **131 files / 1991 tests**, build
+      2.37s, `git diff --check` clean.
 - [ ] N1.3 **Safari cannot play remote HLS — `media-src` CSP, user deferred
       2026-10-02.** `vercel.json` sets `media-src 'self' blob:` while
       `frame-src`/`Permissions-Policy` list eight provider origins, so the
