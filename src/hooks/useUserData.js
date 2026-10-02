@@ -42,6 +42,55 @@ function dispatch(name) {
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(name));
 }
 
+/* ── Coalesced playhead writes (task.md 5.17) ──────────────────────────────
+ * `updateProgress` is called about once a second while a title plays (legacy
+ * `NativePlayerView.jsx:1352`), and every call used to run a synchronous
+ * `JSON.stringify` + `localStorage.setItem` + `window.dispatchEvent` on the
+ * main thread — right as the video is decoding. `setItem` is inherently
+ * synchronous, but it does not have to happen INSIDE that call: keep the last
+ * payload per key and drain it when the browser is idle
+ * (`requestIdleCallback`, capped so a busy thread cannot starve the save), or
+ * on the next macrotask when idle callbacks do not exist. A burst therefore
+ * costs ONE write, not one per tick. A hidden or unloading document drains
+ * immediately, because an idle callback may never arrive there.
+ */
+const PROGRESS_WRITE_TIMEOUT_MS = 5000;
+const pendingWrites = new Map(); // storage key -> { key, value, event }
+let cancelPendingFlush = null;
+
+function drainWrites() {
+  cancelPendingFlush = null;
+  const batch = [...pendingWrites.values()];
+  pendingWrites.clear();
+  for (const { key, value, event } of batch) {
+    writeStorage(key, value);
+    if (event) dispatch(event);
+  }
+}
+
+/* Used by the visibility/unload listeners — and by the cloud-sync reader,
+ * which must see a just-saved playhead rather than the previous idle window's
+ * value — so a delayed save is never read stale or clobbered by a merge. */
+export function flushUserDataWrites() {
+  if (cancelPendingFlush) {
+    cancelPendingFlush();
+    cancelPendingFlush = null;
+  }
+  drainWrites();
+}
+
+function scheduleWrite(key, value, event) {
+  pendingWrites.set(key, { key, value, event });
+  if (cancelPendingFlush) return;
+  if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+    const id = window.requestIdleCallback(drainWrites, { timeout: PROGRESS_WRITE_TIMEOUT_MS });
+    cancelPendingFlush = () => window.cancelIdleCallback && window.cancelIdleCallback(id);
+  } else {
+    const id = setTimeout(drainWrites, PROGRESS_WRITE_TIMEOUT_MS);
+    cancelPendingFlush = () => clearTimeout(id);
+  }
+}
+
 /* Legacy payloads can carry string timestamps; coerce before any comparison
    (raw strings otherwise outrank every number in a JS compare). */
 function toMillis(value) {
@@ -330,6 +379,18 @@ export function useContinueWatching() {
     return () => { window.removeEventListener('aios_sync_cw', sync); window.removeEventListener('storage', sync); };
   }, [sortByLastWatched]);
 
+  /* A deferred playhead write must not be lost to a hidden tab or a close:
+   * idle callbacks can be dropped on unload, so drain synchronously first. */
+  useEffect(() => {
+    const flush = () => flushUserDataWrites();
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', flush);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', flush);
+    };
+  }, []);
+
   const cwRef = useRef(cwState);
   cwRef.current = cwState;
 
@@ -341,8 +402,9 @@ export function useContinueWatching() {
 
   const commitCw = useCallback((nextRaw) => {
     setCwState(nextRaw);
-    writeStorage('aios_continue_watching', nextRaw);
-    dispatch('aios_sync_cw');
+    // Deferred + coalesced: the UI updates on `setCwState` immediately, the
+    // synchronous storage write and cross-tab event ride the idle window.
+    scheduleWrite('aios_continue_watching', nextRaw, 'aios_sync_cw');
   }, []);
 
   const updateProgress = useCallback((movie, season = null, episode = null, timestamp = null) => {

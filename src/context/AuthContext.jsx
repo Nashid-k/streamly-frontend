@@ -1,7 +1,7 @@
 // src/context/AuthContext.jsx — Unified Authentication & MongoDB Cloud Synchronization Provider
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { AppContext, SyncStatusContext } from "./auth";
-import { useMyList, useContinueWatching, useSearchHistory, useMyCollections } from "../hooks/useUserData";
+import { useMyList, useContinueWatching, useSearchHistory, useMyCollections, flushUserDataWrites } from "../hooks/useUserData";
 import { mergeListsById } from "../utils/mergeRemote";
 import { logDebug, logError, logWarn } from "../utils/debugLogger";
 import { morphCollections } from "../hooks/collectionMorph";
@@ -82,6 +82,10 @@ export function AuthProvider({ children }) {
       let currentCw = [];
       let currentCollections = [];
       try {
+        /* Drain any coalesced playhead write before reading, or the upload
+         * would miss the last few seconds and a later idle flush could then
+         * clobber the merged cloud result (task.md 5.17). */
+        flushUserDataWrites();
         currentList = JSON.parse(localStorage.getItem("aios_my_list") || "[]");
         currentCw = JSON.parse(localStorage.getItem("aios_continue_watching") || "[]");
                 // Upload the MORPHED shape (visibility/publicId normalized), not the raw
@@ -173,6 +177,7 @@ export function AuthProvider({ children }) {
                 // tombstone-safe and newest-first, so delete markers are never sliced away.
         if (Array.isArray(watchHistory) && watchHistory.length > 0) {
           try {
+            flushUserDataWrites();
             const localCw = JSON.parse(localStorage.getItem("aios_continue_watching") || "[]");
             const mergedCw = mergeListsById(localCw, watchHistory, {
               limit: 20,

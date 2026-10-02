@@ -5241,7 +5241,7 @@ Audited against what v2 actually does. Verdicts, with the evidence:
 | 5.14 localize player strings | **LIVE, large** | only **2** `player.*` keys exist in `en.js`, not the ~45 claimed |
 | 5.15 scrubber off React state | **DONE 2026-10-02** | resolved differently from the note: v2 keeps `currentTime` state (4Hz, correct for the timecode/cue) and ADDS a separate optional `subscribePlayhead` rAF channel that writes the scrubber's fill/ARIA straight to the DOM. No state or tree churn on the smooth path |
 | 5.16 memoise party hook | **unverified** | `PlayerShell.jsx:104,560` consumes it; the fresh-object-per-poll claim still needs checking at the call site |
-| 5.17 async progress write | **LIVE, shared** | `useUserData.js:28` still does a synchronous `localStorage.setItem` |
+| 5.17 async progress write | **LIVE, shared → DONE 2026-10-02** | `updateProgress` ran a synchronous `JSON.stringify` + `setItem` + `dispatchEvent` ~1×/s while playing (legacy `NativePlayerView.jsx:1352`). Now coalesced and drained in one idle window (`requestIdleCallback` with a 5s timeout, `setTimeout` fallback); hidden/unload and the cloud-sync reader flush synchronously |
 | 5.18 one dialog-aware keymap | **re-target** | v2 has `useInputCapability` + `usePlayerControls`; the 4 eslint suppressions cited are legacy |
 | 5.19 capability-aware gestures | **re-target** | v2 has `useVolumeGesture`; claim is about legacy `usePlayerGestures` |
 | 5.20 tap vs double-click | **re-target** | v2 has no equivalent of legacy `:1584`; needs a v2 gesture audit |
@@ -5402,9 +5402,18 @@ deletion. 12 are genuinely live, 4 of them **real bugs shipping today** (5.3, 5.
 - [ ] 5.16 Memoise the party hook result so only the participant strip re-renders.
       `TitleDetailsPage.jsx:2259` passes a fresh object every 2s poll, re-rendering
       hero, all rails and the ambient backdrop during playback.
-- [ ] 5.17 Move progress persistence off the synchronous main-thread write.
-      `updateProgress` (`useUserData.js:342-346`) does `setItem` + `dispatchEvent`
-      on every throttled save during playback.
+- [x] 5.17 Move progress persistence off the synchronous main-thread write.
+      `updateProgress` (`useUserData.js`) did `setItem` + `dispatchEvent` on
+      **every** throttled save during playback (the legacy player calls it ~1×/s
+      at `NativePlayerView.jsx:1352`), i.e. a synchronous `JSON.stringify` + a
+      main-thread storage write while the video decodes. **DONE 2026-10-02.**
+      `commitCw` now keeps the React state synchronous (the UI never waits) and
+      hands the payload to a coalescing writer that drains the LAST value per
+      key in one idle window (`requestIdleCallback` with a 5s starvation cap,
+      `setTimeout(5000)` fallback). `pagehide`/`visibilitychange` drain at once,
+      and `flushUserDataWrites()` is called by `AuthContext` before it reads the
+      key, so a cloud merge can neither read a stale playhead nor be clobbered
+      by a late flush. Pinned by `useUserDataProgress.test.jsx` (+5).
 - [ ] 5.18 `usePlayerKeyboard` = ONE dialog-aware keymap driven by `seekTime`,
       eliminating the 4 `eslint-disable react-hooks/exhaustive-deps`
       suppressions that produce "the key stopped working after I opened a panel".
