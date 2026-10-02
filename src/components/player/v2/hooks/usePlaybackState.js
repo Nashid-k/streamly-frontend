@@ -39,9 +39,12 @@ export default function usePlaybackState(initial = initialPlayback) {
     dispatch({ type: event, error });
   }, []);
 
-  // Memoised so the view object is referentially stable across renders when
-  // nothing changed. Without this every consumer re-renders on every parent
-  // render, which is the sort of thing that quietly reintroduces jank.
+  // Memoised so `selectView` is not recomputed (it allocates) on every render.
+  // Note what this does and does NOT buy: the returned object below is a fresh
+  // spread every render, so this hook's *return value* is never referentially
+  // stable. That is fine because the only consumer destructures primitives
+  // (`PlayerShell.jsx:129`) — but do not read this memo as a guarantee for a
+  // future consumer that wants to pass the whole view to a memoised child.
   const view = useMemo(() => selectView(playback), [playback]);
 
   return { ...view, error: playback.error, rev: playback.rev, send };

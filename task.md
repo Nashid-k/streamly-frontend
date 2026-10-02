@@ -5544,7 +5544,23 @@ work. Verdicts only; the checkboxes stay authoritative.
 - [ ] 7.6 Adapt `watchPartyPlayer.test.jsx` to the memoised party boundary.
 - [ ] 7.7 Keep `playerUi.test.js` + `PlayerPreview.test.jsx` green — the preview
       must keep MATCHING the real player; that agreement is the defect being fixed.
-- [ ] 7.8 Unit-test `usePlaybackState`: every legal and illegal transition.
+- [x] 7.8 **DONE 2026-10-02.** `playbackMachine.test.js` already walked every
+      state x event pair, so the *table* was covered and the real gap was the 48
+      lines of React above it. `playerV2PlaybackState.test.js` (17 tests) pins the
+      three things only that layer can promise: `send` keeps one identity across
+      every render (PlayerShell passes it into effect callbacks, so churn would
+      resubscribe them all), a refused event never clears the `error` explaining
+      why the error card is up, and `rev` — the signal `usePlaybackStatus` speaks
+      on — moves only for accepted transitions.
+      Two things this found rather than confirmed. `renderHook` in RTL v16 has no
+      `result.all`, and a refused event **does** re-render the component once
+      (React re-renders before bailing out of children), so the earlier framing of
+      "a refused event costs nothing" was too strong. The real guarantee is that a
+      `rev`-keyed effect does not re-fire, and that is what the test now asserts.
+      Also corrected `usePlaybackState.js:41-44`, which claimed the memoised view
+      kept the hook's return referentially stable; it does not, the spread
+      discards it. Harmless today because `PlayerShell.jsx:129` destructures
+      primitives, but the comment was inviting the next consumer to get it wrong.
 - [ ] 7.9 Unit-test subtitle preference mapping across all 5 prefs × all
       `SUBTITLE_FONTS` ids.
 - [ ] 7.10 Unit-test seek clamping at the `seekTime` bounds `[1,120]`.
