@@ -109,43 +109,38 @@ const HLS_CONFIG = {
  * @param {HTMLVideoElement|null} options.node the element, or null before attach
  * @param {string} options.url
  * @param {(action: object) => void} [options.onAction]
- * @param {{current: object|null}} [options.engineRef] out-param for the live hls.js
- *   instance, so callers can read `audioTracks` / `levels` and write
- *   `audioTrack` / `currentLevel` (task.md R4.1/R4.2).
+ * @param {(engine: object|null) => void} [options.onEngine] reports the live hls.js
+ *   instance (or null), so a caller can hold it and read `audioTracks` / `levels`
+ *   and write `audioTrack` / `currentLevel` (task.md R4.1/R4.2, R4.7).
  *
- * ── Why the engine has to be handed OUT, not kept private (R4.1) ─────────────
+ * ── Why the engine is reported by CALLBACK, not written to a ref (R4.1/R4.7) ──
  * Audio-track and quality selection are the only two player features that cannot
  * be expressed as a property of the `<video>` element: both are hls.js state. The
  * engine is created here and used nowhere else, so while it stayed private the
- * settings sheet could not ask "what audio does this stream carry?" — and the
- * answer was not a UI problem, it was unreachable data. A ref rather than a return
- * value because the instance changes on every source change without being a render
- * input: re-rendering the whole shell on an engine swap would tear down the sheet
- * a viewer is selecting inside.
+ * settings sheet could not ask "what audio does this stream carry?".
  *
- * Written to `.current` as a side effect of the SAME effect that creates it, so the
- * two can never disagree about whether an engine exists, and cleared on teardown so
- * a stale engine is never read after the player closes.
+ * The first attempt published it through an out-param ref that a consumer read
+ * during render. That cannot work: this effect runs AFTER render, so the read
+ * always saw the previous value — on mount, null — and R4.7's probe caught the
+ * panel binding to nothing on every source. A callback lets the caller put the
+ * engine in state, which IS a render input, so the panel re-renders when it
+ * arrives. The earlier fear that this "tears down the settings sheet" was not
+ * true: the sheet is ordinary `useState` in the shell and survives a re-render.
+ *
+ * Reported from the SAME effect that creates it, and nulled on teardown, so the
+ * caller can never hold an engine that was already destroyed.
  */
-export default function useHlsSource({ node, url, onAction, engineRef }) {
-  const hlsRef = useRef(null);
+export default function useHlsSource({ node, url, onAction, onEngine }) {
   const onActionRef = useRef(onAction);
+  const onEngineRef = useRef(onEngine);
 
   useEffect(() => {
     onActionRef.current = onAction;
   }, [onAction]);
 
-  /* Mirror the internal ref into whatever ref the caller handed us. Kept separate
-   * from the creation effect above so the caller's ref object may change identity
-   * without that tearing the engine down and rebuilding it — which would restart
-   * playback from zero on every parent render. */
   useEffect(() => {
-    if (!engineRef) return;
-    engineRef.current = hlsRef.current;
-    return () => {
-      engineRef.current = null;
-    };
-  });
+    onEngineRef.current = onEngine;
+  }, [onEngine]);
 
   useEffect(() => {
     if (!node || !url) return undefined;
@@ -154,8 +149,6 @@ export default function useHlsSource({ node, url, onAction, engineRef }) {
       canPlayNative: canPlayNativeHls(node),
       hlsSupported: Hls.isSupported(),
     });
-
-    if (mode === MODE.NONE) return undefined;
 
     if (mode === MODE.UNSUPPORTED) {
       const error = new Error(
@@ -196,7 +189,11 @@ export default function useHlsSource({ node, url, onAction, engineRef }) {
       return undefined;
     }
 
-    hlsRef.current = hls;
+    // Hand the engine to the caller before wiring it up. This is the render
+    // input the panel needs (R4.7), and doing it here — not in a separate mirror
+    // effect declared earlier — is what makes the value the panel observes the
+    // same instance this effect is about to load.
+    onEngineRef.current?.(hls);
 
     // Only FATAL errors are actionable. hls.js recovers from transient ones on
     // its own, and surfacing every retry as a failure would show an error banner
@@ -216,12 +213,15 @@ export default function useHlsSource({ node, url, onAction, engineRef }) {
     hls.attachMedia(node);
 
     return () => {
-      hlsRef.current = null;
       hls.off(Hls.Events.ERROR, onError);
       hls.destroy();
+      // Nulled only AFTER the engine can no longer emit, so a caller that reads
+      // on the way out never touches a half-destroyed instance.
+      onEngineRef.current?.(null);
     };
-    /* `engineRef` is deliberately NOT a dependency. The engine's lifetime is
-     * bound to the node and the url; re-creating it because the caller's ref
-     * object changed identity would restart playback from zero mid-view. */
+    /* `onEngine` is deliberately NOT a dependency (it is kept in a ref). The
+     * engine's lifetime is bound to the node and the url; re-creating it because
+     * the caller's callback changed identity would restart playback from zero
+     * mid-view. */
   }, [node, url]);
 }

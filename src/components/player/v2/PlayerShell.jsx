@@ -150,12 +150,15 @@ const PlayerShell = forwardRef(function PlayerShell(
   );
 
   const videoRef = useRef(null);
-  /* The live hls.js engine (task.md R4.1), owned by `useHlsSource` and read by
-   * `useAudioTracks`. A ref, not state: the engine is replaced on every source
-   * change, and mirroring it into state would re-render the shell — tearing down
-   * the settings sheet a viewer is in the middle of selecting from. */
-  const engineRef = useRef(null);
-  const { audio, selectAudio } = useAudioTracks(engineRef);
+  /* The live hls.js engine (task.md R4.1/R4.7), reported by `useHlsSource` and
+   * read by `useAudioTracks`. Deliberately STATE, not a ref: the panel reads it
+   * to build its track model, so it has to be a render input. The earlier ref was
+   * written by a child effect and read during render, which meant the panel always
+   * saw the previous value — null on every source — and bound to nothing (R4.7).
+   * The cost is one extra re-render per source change, and the settings sheet is
+   * plain state that survives it; the reasoning that said otherwise was wrong. */
+  const [engine, setEngine] = useState(null);
+  const { audio, selectAudio } = useAudioTracks(engine);
   /* The element ALSO as state (task.md 3.9, fixing 3.7).
    *
    * A ref alone cannot be an effect dependency, and the effects that need the
@@ -404,7 +407,7 @@ data-sheet={sheetPanel ?? undefined}
           src={url}
 state={state}
           onAction={handleVideoAction}
-          engineRef={engineRef}
+          onEngine={setEngine}
           ref={attachVideo}
           autoPlay
           /* Aspect is the one preference that IS declarative (task.md 3.9): the

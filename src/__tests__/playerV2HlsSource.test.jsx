@@ -164,6 +164,22 @@ describe("useHlsSource", () => {
     expect(onAction.mock.calls[0][0].type).toBe(E.FAIL);
   });
 
+  it("reports a URL that is not media, rather than returning silently", async () => {
+    /* `choosePlaybackMode` correctly answers MODE.NONE for a provider PAGE, and
+     * `playerV2UnplayableUrl.test.js` pins that. But the hook returned on that
+     * answer BEFORE reaching the branch that reports it, so in the component the
+     * guard produced silence: spinner over blackness, no error. The pure test
+     * could not see it because it never renders the hook. */
+    hlsMock.supported = true;
+    const onAction = vi.fn();
+    render(<PlayerVideo src="https://vidcore.io/" state="opening" onAction={onAction} />);
+    await waitFor(() => expect(onAction).toHaveBeenCalled());
+    expect(onAction.mock.calls[0][0].type).toBe(E.FAIL);
+    expect(onAction.mock.calls[0][0].error.message).toMatch(/playable video file/i);
+    // And no engine was built for a page.
+    expect(hlsMock.instances.some((h) => h.loaded.includes("https://vidcore.io/"))).toBe(false);
+  });
+
   it("surfaces only fatal engine errors", () => {
     hlsMock.supported = true;
     const onAction = vi.fn();

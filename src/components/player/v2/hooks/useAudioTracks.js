@@ -58,10 +58,14 @@ function readCurrentIndex(engine) {
 }
 
 /**
- * @param {{current: object|null}} engineRef live hls.js instance, or null
+ * @param {object|null} engine live hls.js instance, or null (native HLS, or not
+ *   created yet). A VALUE, not a ref: `useHlsSource` reports the engine through
+ *   a callback into shell state (R4.7), so it is a render input the hook can
+ *   depend on honestly. Reading a ref written by an effect during render is what
+ *   let the panel bind to nothing on every source.
  * @returns {{audio: object, selectAudio: (index: number) => void}}
  */
-export default function useAudioTracks(engineRef) {
+export default function useAudioTracks(engine) {
   const [version, setVersion] = useState(0);
 
   /* `version` is the only state, deliberately. The track list itself is NOT
@@ -71,7 +75,6 @@ export default function useAudioTracks(engineRef) {
   const bump = useCallback(() => setVersion((v) => v + 1), []);
 
   useEffect(() => {
-    const engine = engineRef?.current;
     /* Native-HLS mode (Safari) has no hls.js at all, so there is nothing to
      * subscribe to and nothing to write to. Returning a stable empty model is
      * correct: the browser is playing whatever is in the stream and there is no
@@ -98,9 +101,8 @@ export default function useAudioTracks(engineRef) {
      * with how long the player is left open, while the live listener count stays flat
      * and hides it. The engine's identity is the only real dependency. */
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bump, engineRef?.current]);
+  }, [bump, engine]);
 
-  const engine = engineRef?.current;
   const audio = useMemo(
     () =>
       describeAudio(readTracks(engine), {
@@ -124,12 +126,11 @@ export default function useAudioTracks(engineRef) {
 
   const selectAudio = useCallback(
     (index) => {
-      const live = engineRef?.current;
       /* No engine (native HLS, or already closed) is not an error the viewer can
        * act on, so this is a no-op rather than a thrown failure. */
-      if (!live) return;
+      if (!engine) return;
       try {
-        live.audioTrack = index;
+        engine.audioTrack = index;
       } catch (error) {
         logWarn(SCOPE, "audio selection refused", error);
       }
@@ -139,7 +140,7 @@ export default function useAudioTracks(engineRef) {
        * not at all. */
       bump();
     },
-    [bump, engineRef],
+    [bump, engine],
   );
 
   // `version` is consumed by the `useMemo` above; this comment marks that the

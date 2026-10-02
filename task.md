@@ -5747,27 +5747,33 @@ move that turns "clean up the old player" into "ship a regression".
 - [ ] R4.6 Re-run the capability audit (the table above) after R4.1–R4.5 and
       require every row to read `present` on both sides before R6 is allowed to
       start. Do not take this on trust.
-- [ ] R4.7 **Audio panel engine-swap defect — PROBE FIRST, do not just fix.**
-      Read out of the effect ordering, **not yet proven by a test**:
-      `useHlsSource.js:108-114` (the mirror effect that publishes
-      `hlsRef.current` to the caller's `engineRef`) is declared BEFORE the
-      creation effect at `:116`. React runs effects in declaration order, so on
-      mount the mirror copies `hlsRef.current` while it is still `null` —
-      creation does not set it until `:155`. Nothing re-mirrors until `PlayerVideo`
-      re-renders for some unrelated reason.
-      `useAudioTracks.js:101` depends on `[bump, engineRef?.current]`, which is a
-      **render-time read of a ref that a child mutates inside an effect**. On a
-      `url` swap `PlayerShell.jsx:397` remounts `PlayerVideo` (`key={url}`) but not
-      `PlayerShell`, so the shell computes its deps from the OLD engine, the effect
-      is not scheduled, and the panel can stay bound to a destroyed engine.
-      Same root cause class as S1.1: an out-param ref mutated in an effect and
-      observed during render.
-      First step is a failing probe test that changes `url` and asserts the panel
-      re-subscribes to the NEW engine. `PlayerShell.jsx:148` ("a ref, not state")
-      is the reasoning that makes this unobservable and is what needs revisiting;
-      the likely fix is `useHlsSource` reporting the engine through a state-setting
-      `onEngine` callback, with `useAudioTracks` taking the engine value rather
-      than the ref. **Do not mark this done on a code-reading argument.**
+- [x] R4.7 **Audio panel engine-swap defect — FIXED 2026-10-02, probe-first.**
+      The code-reading argument was right, and the probe confirmed it was WORSE
+      than stated: the panel bound to nothing on **first mount too**, not just on
+      a `url` swap. `playerV2AudioEngineSwap.test.jsx` composes `useHlsSource` +
+      `useAudioTracks` exactly as the shell does and asserted `kind: "tracks"`;
+      before the fix it got `kind: "single"` with zero tracks on every source.
+      Mutation-probed: commenting out the engine hand-out fails both tests.
+      **Fix:** `useHlsSource` reports the engine through an `onEngine` callback
+      fired from the SAME effect that creates it (and `null` on teardown);
+      `PlayerShell` holds it in `useState` and `useAudioTracks(engine)` takes the
+      value. The out-param ref — an effect-written ref read during render, same
+      root class as S1.1 — is gone.
+      Two claims in the old comments were false and are corrected: the hook said
+      it published "in the SAME effect that creates it" while a separate earlier
+      mirror effect did the publishing; and `PlayerShell` said state would "tear
+      down the settings sheet a viewer is selecting inside" — the sheet is plain
+      `sheetPanel` state and survives a re-render.
+      The existing `playerV2AudioHook` "engine swap" test had not caught this
+      because it force-mutated `ref.current` and called `rerender()` by hand —
+      proving the hook re-reads *when told to*, never that production publishes
+      the value or triggers the render. Rewritten to drive the value prop.
+      **Adjacent defect fixed in the same file:** the `MODE.NONE` error branch in
+      `useHlsSource` was unreachable behind an earlier `if (mode === MODE.NONE)
+      return undefined;`, so N1.0's "say so instead of returning silently" was
+      itself silent for a resolved-but-unplayable URL. The pure chooser test could
+      not see it because it never renders the hook; `playerV2HlsSource.test.jsx`
+      now asserts the `E.FAIL` actually leaves the hook for a page URL.
 
 ## N1 — Queue hygiene (this is why the plan went missing)
 - [x] N1.0 **Player rendered unstyled and refused to play — fixed 2026-10-02.**

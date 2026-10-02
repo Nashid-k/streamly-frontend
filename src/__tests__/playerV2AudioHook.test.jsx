@@ -68,14 +68,14 @@ const eng = (over = {}) => ({
 describe("useAudioTracks — no engine", () => {
   it("returns a single-track model when the ref is empty", () => {
     /* Native-HLS mode before a source resolves, and Safari in general. */
-    const { result } = renderHook(() => useAudioTracks({ current: null }));
+    const { result } = renderHook(() => useAudioTracks(null));
     expect(result.current.audio.kind).toBe("single");
     expect(result.current.audio.selectable).toBe(false);
   });
 
   it("selectAudio is a safe no-op with no engine, not a throw", () => {
     /* The panel can still be mounted; a press must not crash the player. */
-    const { result } = renderHook(() => useAudioTracks({ current: null }));
+    const { result } = renderHook(() => useAudioTracks(null));
     expect(() => act(() => result.current.selectAudio(1))).not.toThrow();
   });
 });
@@ -86,7 +86,7 @@ describe("useAudioTracks — with an engine", () => {
      * events have already fired. Reading only on the events would report "one
      * soundtrack" for every title — the exact wrong answer. */
     const engine = fakeEngine([eng({ name: "English" }), eng({ index: 1, name: "Tamil" })], 0);
-    const { result } = renderHook(() => useAudioTracks({ current: engine }));
+    const { result } = renderHook(() => useAudioTracks(engine));
     expect(result.current.audio.kind).toBe("tracks");
     expect(result.current.audio.selectable).toBe(true);
     expect(result.current.audio.selectedIndex).toBe(0);
@@ -94,7 +94,7 @@ describe("useAudioTracks — with an engine", () => {
 
   it("picks up tracks that arrive AFTER mount", () => {
     const engine = fakeEngine([], -1);
-    const { result } = renderHook(() => useAudioTracks({ current: engine }));
+    const { result } = renderHook(() => useAudioTracks(engine));
     expect(result.current.audio.selectable).toBe(false);
 
     engine.audioTracks = [eng({ name: "English" }), eng({ index: 1, name: "Tamil" })];
@@ -109,7 +109,7 @@ describe("useAudioTracks — with an engine", () => {
      * itself when a rendition fails. The panel must not keep showing a stale
      * checkmark. */
     const engine = fakeEngine([eng({ name: "English" }), eng({ index: 1, name: "Tamil" })], 0);
-    const { result } = renderHook(() => useAudioTracks({ current: engine }));
+    const { result } = renderHook(() => useAudioTracks(engine));
     expect(result.current.audio.selectedIndex).toBe(0);
 
     engine.audioTrack = 1;
@@ -120,7 +120,7 @@ describe("useAudioTracks — with an engine", () => {
 
   it("writes the index back to the engine on select", () => {
     const engine = fakeEngine([eng({ name: "English" }), eng({ index: 1, name: "Tamil" })], 0);
-    const { result } = renderHook(() => useAudioTracks({ current: engine }));
+    const { result } = renderHook(() => useAudioTracks(engine));
     act(() => result.current.selectAudio(1));
     expect(engine.audioTrack).toBe(1);
   });
@@ -129,7 +129,7 @@ describe("useAudioTracks — with an engine", () => {
     /* The engine is destroyed on every source change. A listener left behind would
      * fire into a torn-down instance — and keep the whole engine alive. */
     const engine = fakeEngine([eng({ name: "English" }), eng({ index: 1, name: "Tamil" })]);
-    const { unmount } = renderHook(() => useAudioTracks({ current: engine }));
+    const { unmount } = renderHook(() => useAudioTracks(engine));
     expect(engine.listenerCount()).toBeGreaterThan(0);
     unmount();
     expect(engine.listenerCount()).toBe(0);
@@ -144,7 +144,7 @@ describe("useAudioTracks — with an engine", () => {
         throw new Error("engine destroyed");
       },
     });
-    const { result } = renderHook(() => useAudioTracks({ current: engine }));
+    const { result } = renderHook(() => useAudioTracks(engine));
     expect(result.current.audio.kind).toBe("single");
   });
 
@@ -157,7 +157,7 @@ describe("useAudioTracks — with an engine", () => {
      * rebuilds both subscriptions, which is work that grows with player duration. So
      * this asserts on the number of REGISTRATIONS, not the number of live listeners. */
     const engine = fakeEngine([eng({ name: "English" }), eng({ index: 1, name: "Tamil" })]);
-    const { result } = renderHook(() => useAudioTracks({ current: engine }));
+    const { result } = renderHook(() => useAudioTracks(engine));
     const baseline = engine.stats.registered;
 
     for (let i = 0; i < 5; i += 1) {
@@ -182,15 +182,17 @@ describe("useAudioTracks — engine swap", () => {
   });
 
   it("re-reads from the new engine when the source changes", () => {
-    /* The old engine is destroyed and a new one built. Reading a stale ref would
-     * show the previous title's languages. */
-    const ref = { current: engine };
-    const { result, rerender } = renderHook(() => useAudioTracks(ref));
+    /* The old engine is destroyed and a new one built. The engine arrives as a
+     * render input now (R4.7), so a new value is enough to move the panel off the
+     * previous title's languages — no manual poke of a ref, which is what this
+     * test used to do and what let the production bug hide behind it. */
+    const { result, rerender } = renderHook(({ engine: e }) => useAudioTracks(e), {
+      initialProps: { engine },
+    });
     expect(result.current.audio.selectedIndex).toBe(0);
 
     const next = fakeEngine([eng({ name: "Hindi" }), eng({ index: 1, name: "Marathi" })], 1);
-    ref.current = next;
-    rerender();
+    rerender({ engine: next });
 
     expect(result.current.audio.tracks.map((t) => t.label)).toEqual(["Hindi", "Marathi"]);
     expect(result.current.audio.selectedIndex).toBe(1);
@@ -199,11 +201,11 @@ describe("useAudioTracks — engine swap", () => {
   });
 
   it("writes to the NEW engine after a swap", () => {
-    const ref = { current: engine };
-    const { result, rerender } = renderHook(() => useAudioTracks(ref));
+    const { result, rerender } = renderHook(({ engine: e }) => useAudioTracks(e), {
+      initialProps: { engine },
+    });
     const next = fakeEngine([eng({ name: "Hindi" }), eng({ index: 1, name: "Marathi" })], 0);
-    ref.current = next;
-    rerender();
+    rerender({ engine: next });
 
     act(() => result.current.selectAudio(1));
     expect(next.audioTrack).toBe(1);
@@ -211,15 +213,20 @@ describe("useAudioTracks — engine swap", () => {
   });
 });
 
-describe("useAudioTracks — a ref that is never stable", () => {
-  it("does not tear down the engine when the ref object changes identity", () => {
-    /* Documented contract on `useHlsSource`: the engine's lifetime is bound to the
-     * node and url, never to the caller's ref object. A fresh ref each render must
-     * not restart playback from zero mid-view. */
+describe("useAudioTracks — a stable engine", () => {
+  it("does not re-subscribe when re-rendered with the same engine", () => {
+    /* The engine is a VALUE now, so its identity is the dependency. Re-rendering
+     * the parent with the SAME engine must not tear the subscriptions down and
+     * rebuild them — that churn grows with every render while the live listener
+     * count stays flat and would hide it. */
     const engine = fakeEngine([eng({ name: "English" }), eng({ index: 1, name: "Tamil" })]);
-    const { result, rerender } = renderHook(() => useAudioTracks({ current: engine }));
-    rerender();
-    rerender();
+    const { result, rerender } = renderHook(({ engine: e }) => useAudioTracks(e), {
+      initialProps: { engine },
+    });
+    const registered = engine.stats.registered;
+    rerender({ engine });
+    rerender({ engine });
+    expect(engine.stats.registered).toBe(registered);
     expect(result.current.audio.tracks).toHaveLength(2);
   });
 });
@@ -233,7 +240,7 @@ describe("useAudioTracks — selection failure", () => {
         throw new Error("manifest has no such group");
       },
     });
-    const { result } = renderHook(() => useAudioTracks({ current: engine }));
+    const { result } = renderHook(() => useAudioTracks(engine));
     expect(() => act(() => result.current.selectAudio(1))).not.toThrow();
   });
 
@@ -248,7 +255,7 @@ describe("useAudioTracks — selection failure", () => {
       },
     });
     const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const { result } = renderHook(() => useAudioTracks({ current: engine }));
+    const { result } = renderHook(() => useAudioTracks(engine));
     act(() => result.current.selectAudio(1));
     expect(spy).toHaveBeenCalled();
     expect(String(spy.mock.calls[0]?.[0] ?? "")).toMatch(/PlayerSource:audio/);

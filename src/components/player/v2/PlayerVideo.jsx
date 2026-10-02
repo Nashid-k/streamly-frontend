@@ -40,13 +40,13 @@ const PlayerVideo = forwardRef(function PlayerVideo(
     state = null,
     onAction,
     className = "pv2-video",
-    /* Out-param for the live hls.js engine, owned by `useHlsSource` and passed
-     * straight through. Exists because audio tracks and quality are the only two
-     * player settings that are NOT properties of the <video> element — they are
-     * hls.js state — so anything that renders a control for them has to reach the
-     * engine somehow. A ref rather than state so swapping engines on a source
-     * change does not re-render the shell. See `useHlsSource`. */
-    engineRef,
+    /* Reports the live hls.js engine, owned by `useHlsSource`, straight through.
+     * Exists because audio tracks and quality are the only two player settings
+     * that are NOT properties of the <video> element — they are hls.js state — so
+     * anything that renders a control for them has to reach the engine somehow.
+     * A callback into shell state (R4.7): the consumer reads it during render, so
+     * it has to arrive as a render input, not a ref an effect writes. */
+    onEngine,
     ...rest
   },
   forwardedRef,
@@ -61,7 +61,7 @@ const PlayerVideo = forwardRef(function PlayerVideo(
    * happen at all. */
   const [node, setNode] = useState(null);
 
-  useHlsSource({ node, url: src, onAction, engineRef });
+  useHlsSource({ node, url: src, onAction, onEngine });
 
   // Keep the latest callback without re-subscribing. Re-attaching listeners each
   // render would drop events fired between a commit and the next effect — and
