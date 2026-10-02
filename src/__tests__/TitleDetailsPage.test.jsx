@@ -137,3 +137,36 @@ describe("TitleDetailsPage TDZ regression guard", () => {
     expect(await screen.findByText("E1")).toBeInTheDocument();
   });
 });
+
+/**
+ * 5.22. The scroll lock used to write a hardcoded `"auto"` in BOTH directions on
+ * mount and on cleanup, so simply loading a details page overwrote whatever an
+ * already-open overlay (DownloadModal, ConfirmDialog, GlobalShortcuts) had set,
+ * and closing the player unlocked the page underneath a modal that was still
+ * open.
+ *
+ * The mount half is asserted here because it needs no interaction: it is the half
+ * that fires on every single page view. The close half needs the player open,
+ * which means driving the resolve ladder, and stays unasserted - flagged in
+ * task.md rather than given a test that would be slow and flaky.
+ */
+describe("TitleDetailsPage body scroll lock", () => {
+  afterEach(() => {
+    document.body.style.overflow = "";
+  });
+
+  it("leaves another overlay's scroll lock alone on mount", async () => {
+    // Stand in for a modal that has locked the page.
+    document.body.style.overflow = "hidden";
+    renderPage();
+    await screen.findByText("Reacher");
+    expect(document.body.style.overflow).toBe("hidden");
+  });
+
+  it("leaves the page scroll alone on mount when nothing else locked it", async () => {
+    document.body.style.overflow = "";
+    renderPage();
+    await screen.findByText("Reacher");
+    expect(document.body.style.overflow).toBe("");
+  });
+});

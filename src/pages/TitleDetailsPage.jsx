@@ -564,12 +564,16 @@ export default function TitleDetails() {
     if (allWatched) {
       const watchedEpisodes = { ...((continueEntryForMovie?.watchedEpisodes) || {}) };
       delete watchedEpisodes[selectedSeason];
-      const keepTs = continueEntryForMovie?.savedSeason === selectedSeason
-        ? continueEntryForMovie?.timestamp ?? null
-        : null;
-      const keepEp = continueEntryForMovie?.savedSeason === selectedSeason
-        ? continueEntryForMovie?.savedEpisode ?? null
-        : null;
+      /* 5.3. `Number()` on BOTH sides, like `:613`, `:664` and `:776` already do
+       * for this same comparison. These two were bare `===`, so an entry whose
+       * `savedSeason` arrived as the string `"1"` from localStorage or a sync
+       * payload never matched the numeric `selectedSeason`, and both `keepTs`
+       * and `keepEp` silently became `null` - marking a season unwatched then
+       * WIPED the viewer's saved position. `Number(null)` is 0, which cannot
+       * collide with a season number, so the null case stays correct. */
+      const savedSeasonMatches = Number(continueEntryForMovie?.savedSeason) === Number(selectedSeason);
+      const keepTs = savedSeasonMatches ? continueEntryForMovie?.timestamp ?? null : null;
+      const keepEp = savedSeasonMatches ? continueEntryForMovie?.savedEpisode ?? null : null;
       updateProgress(
         { ...movie, source: resolvedPlatform, sourceName, watchedEpisodes },
         keepEp != null ? selectedSeason : null,
@@ -621,10 +625,28 @@ export default function TitleDetails() {
 
   // Scroll handled by useScrollRestoration in Layout
 
-  useEffect(() => {
-    document.body.style.overflow = isPlaying ? "hidden" : "auto";
+  /* 5.22. Save and RESTORE the previous value instead of writing a hardcoded
+   * "auto" in both directions.
+   *
+   * Several overlays lock the page independently - DownloadModal,
+   * ConfirmDialog, GlobalShortcuts - and the old version fought all of them: the
+   * cleanup fired `overflow = "auto"` on every close, so closing the player
+   * unlocked the page underneath a modal that was still open, and the effect
+   * body forced "auto" on mount even when the player never opened.
+   *
+   * Restoring what was captured on open is what makes this compose: if another
+   * overlay had already locked the page, its "hidden" is put back. Not touching
+   * the body at all when the player is closed is the other half - a closed
+   * player has no business owning page scroll.
+   *
+   * 5.24 (one cooperative scroll owner at a time) is the fuller fix and is still
+   * open; this stops the active data-loss case without waiting for it. */
+useEffect(() => {
+    if (!isPlaying) return undefined;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = "auto";
+      document.body.style.overflow = previous;
     };
   }, [isPlaying]);
 

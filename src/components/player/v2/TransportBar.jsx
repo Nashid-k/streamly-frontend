@@ -242,8 +242,14 @@ export default function TransportBar({
    * ignored entirely â€” a tablet held in two hands has plenty of width and no use
    * for a 14-control rail.
    */
-  mode = TRANSPORT_MODE.ROW,
+mode = TRANSPORT_MODE.ROW,
   onSkip,
+  /** 5.7. How many seconds `onSkip` moves, from the `seekTime` preference.
+   * A PROP rather than an import of the `SKIP_SECONDS` constant, because that
+   * constant was why the preference did nothing: the bar had no way to learn
+   * the viewer's choice. Defaults to 10 so a parent that forgets it still gets
+   * the old behaviour instead of `NaN` seconds in an aria-label. */
+  skipSeconds = SKIP_SECONDS,
   /** Closes the player. The zones layout's only way out; when the parent passes
    *  nothing the button is disabled and says why rather than disappearing. */
   onClose,
@@ -516,15 +522,15 @@ case "captions":
               const atStart = currentTime <= 0;
               const atEnd = Number.isFinite(duration) && duration > 0 && currentTime >= duration;
               const reached = isBack ? atStart : atEnd;
-              const label = `${isBack ? "Back" : "Forward"} ${SKIP_SECONDS} seconds`;
-              return (
-                <IconButton
-                  key={controlId}
-                  present={present}
-                  label={label}
-                  disabled={reached}
-                  title={reached ? undefined : label}
-                  onClick={onSkip ? () => onSkip(isBack ? -SKIP_SECONDS : SKIP_SECONDS) : undefined}
+const label = `${isBack ? "Back" : "Forward"} ${skipSeconds} seconds`;
+               return (
+                 <IconButton
+                   key={controlId}
+                   present={present}
+                   label={label}
+                   disabled={reached}
+                   title={reached ? undefined : label}
+                   onClick={onSkip ? () => onSkip(isBack ? -skipSeconds : skipSeconds) : undefined}
                   order={order}
                   zone={zone}
                   pushes={pushes}

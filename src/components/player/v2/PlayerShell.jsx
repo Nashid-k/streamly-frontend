@@ -502,6 +502,7 @@ state={state}
             /* Relative to where the media element actually is, so repeated
              * taps do not compound off a stale timeupdate. */
             onSkip={controls.skipBy}
+        skipSeconds={controls.skipSeconds}
             /* `onClose` was a frozen prop with no consumer until now; the zones
              * layout is its intended user, since a fullscreen video with no
              * visible way out is a trap. */

@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { logWarn } from "../../../../utils/debugLogger";
 import { bufferedFraction, bufferedMoved } from "../timecode";
+import { useOptionalPreferences } from "../../../../context/preferences";
+import { SKIP_SECONDS } from "../../../../constants/playerUi";
+
+/** The bounds `PreferencesContext.jsx:65` validates `seekTime` to. Re-declared
+ *  rather than imported so this hook stays testable without the context, and
+ *  clamped again on read because a preference can arrive from another tab or a
+ *  hand-edited localStorage (the same reasoning as `usePlayerPrefs`). */
+const SEEK_TIME_MIN = 1;
+const SEEK_TIME_MAX = 120;
 
 /**
  * Imperative control of the media element (task.md 3.7).
@@ -44,6 +53,20 @@ export default function usePlayerControls(videoRef, containerRef, videoNode) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
+
+  /* 5.7. How far the skip buttons move. This preference was validated to
+   * `[1,120]`, editable in Settings, and read by NOTHING - so a viewer who set
+   * 30s watched the player still jump 10s every time. It lives here rather than
+   * in `usePlayerPrefs` because a skip is a TRANSPORT action; `usePlayerPrefs`
+   * owns element-level persisted state (aspect, rate) precisely so transport
+   * code can be tested without a preferences provider. `useOptionalPreferences`
+   * means a bare-render player falls back to the 10s default instead of
+   * throwing. */
+  const preferences = useOptionalPreferences();
+  const seekTime = Number(preferences?.seekTime);
+  const skipSeconds = Number.isFinite(seekTime)
+    ? Math.min(Math.max(seekTime, SEEK_TIME_MIN), SEEK_TIME_MAX)
+    : SKIP_SECONDS;
   /* 3.14. Seconds of video buffered PAST the playhead — a single number, not the
    * range list the legacy kept. See `bufferedFraction` for why one number is the
    * honest answer and a list is not. */
@@ -369,6 +392,7 @@ export default function usePlayerControls(videoRef, containerRef, videoNode) {
     pause,
     seekTo,
     skipBy,
+    skipSeconds,
     setVolume,
     setMuted,
     toggleMute,

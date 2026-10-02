@@ -5225,10 +5225,10 @@ Audited against what v2 actually does. Verdicts, with the evidence:
 |---|---|---|
 | 5.1 resume before resolve | **LIVE v2 gap** | no resume card exists anywhere in `v2/`; resume UX is absent from `LoadingStage` |
 | 5.2 zero timestamp pre-mount | **superseded** | the `updateProgress(..., 0)` at the cited site no longer exists; `:589` writes episode-watched state, not a zeroed timestamp |
-| 5.3 `Number()` on saved season/episode | **LIVE BUG** | `TitleDetailsPage.jsx:567,570` still use bare `===` while `:613-619,664,776` wrap in `Number()` |
+| 5.3 `Number()` on saved season/episode | **LIVE BUG → DONE 2026-10-02** | `TitleDetailsPage.jsx:567,570` used bare `===` while `:613,664,776` wrapped in `Number()`, so a string `savedSeason` nulled `keepTs`/`keepEp` and wiped the saved position |
 | 5.4 delete `useContainerSize` | **moot at R6** | referenced only from `NativePlayerView.jsx`, `playerUi.js`, `index.js` — all legacy; v2 uses `@container` |
 | 5.6 thumbnail pipeline | **LIVE, and shared** | `previewThumbs.js` is imported by v2 `Scrubber.jsx` + `hoverPreview.js`, so the un-cached failures and the wedged `chain` hit v2 too |
-| 5.7 `seekTime` drives skip | **LIVE v2 gap** | validated `[1,120]` at `PreferencesContext.jsx:65`, default `10` at `preferences.js:52`, and read by **nothing** in v2 — only legacy `NativePlayerView.jsx:1942`. `usePlayerControls.js:274` mentions it *in a comment only* |
+| 5.7 `seekTime` drives skip | **LIVE v2 gap → DONE 2026-10-02** | validated `[1,120]` at `PreferencesContext.jsx:65`, default `10` at `preferences.js:52`, and read by **nothing** in v2 — only legacy `NativePlayerView.jsx:1942`. `usePlayerControls.js:274` mentioned it *in a comment only*. Now read and clamped, and `TransportBar` takes `skipSeconds` as a prop |
 | 5.8 `playbackRate` persisted | **DONE** | real pref, `snapPlaybackRate`-validated (`PreferencesContext.jsx:80-89`), read by v2 `usePlayerPrefs.js:45` |
 | 5.9 fold player prefs into context | **half done** | `aspect` + `playbackRate` are in; **`volume`/`muted` are not in the context at all** |
 | 5.10 legacy key migration | **half done** | `aspect` is migrated (`:211` "Migrated legacy player aspect preference"); **`streamly-native-volume`/`-muted` are never read** |
@@ -5243,8 +5243,8 @@ Audited against what v2 actually does. Verdicts, with the evidence:
 | 5.19 capability-aware gestures | **re-target** | v2 has `useVolumeGesture`; claim is about legacy `usePlayerGestures` |
 | 5.20 tap vs double-click | **re-target** | v2 has no equivalent of legacy `:1584`; needs a v2 gesture audit |
 | 5.21 duplicate `key="pp"` blocks | **moot at R6** | legacy HUD internals, inside the file R6 deletes |
-| 5.22 restore previous `body` overflow | **LIVE BUG** | `TitleDetailsPage.jsx:625,627` still hardcode `"auto"` and clobber every other overlay |
-| 5.23 `scrollbar-gutter: stable` | **LIVE, absent** | the string appears in **no** file under `src/styles/` |
+| 5.22 restore previous `body` overflow | **LIVE BUG → DONE 2026-10-02** | `TitleDetailsPage.jsx:625,627` hardcoded `"auto"` in both directions, clobbering every other overlay on mount *and* unlocking the page under an open modal on close |
+| 5.23 `scrollbar-gutter: stable` | **LIVE, absent → DONE 2026-10-02** | was in **no** file under `src/styles/`; now on `html` in `tokens.css` |
 | 5.24 cooperative scroll lock | **unverified** | needs a look at the overlay stack, not the legacy line cited |
 | 5.25 final frame on close | **LIVE gap** | `PlayerShell.jsx:215` calls `onClose?.()` with no pause or frame hand-off |
 
@@ -5259,9 +5259,14 @@ deletion. 12 are genuinely live, 4 of them **real bugs shipping today** (5.3, 5.
 - [ ] 5.2 Stop zeroing the timestamp before mount. `TitleDetailsPage.jsx:1002`
       calls `updateProgress(..., 0)` before `setIsPlaying(true)`, so the button
       says "Resume", playback starts at 0:00, and the resume card never appears.
-- [ ] 5.3 `Number()`-normalise every `savedSeason`/`savedEpisode` comparison.
-      `watchEntry` uses `===` at `:779` where `:594` and `:757` correctly wrap,
-      so a string from `localStorage` silently nulls resume.
+- [x] 5.3 **DONE 2026-10-02.** `TitleDetailsPage.jsx:567,570` used bare `===`
+      while `:613`, `:664` and `:776` already wrapped the same comparison in
+      `Number()`. An entry whose `savedSeason` arrived as the string `"1"` never
+      matched the numeric `selectedSeason`, so `keepTs` and `keepEp` both became
+      `null` — **marking a season unwatched wiped the viewer's saved position.**
+      Now a single `savedSeasonMatches` comparison, `Number()` on both sides;
+      `Number(null)` is 0 and cannot collide with a season number, so the
+      no-entry case stays correct.
 - [ ] 5.4 **Delete `useContainerSize`** in favour of `@container`. Its `[ref]` dep
       is identity-stable, so it runs once on mount and never again — freezing
       `playerW/playerH` at 0 if `screenRef` is null on that pass. It also lacks a
@@ -5297,10 +5302,21 @@ deletion. 12 are genuinely live, 4 of them **real bugs shipping today** (5.3, 5.
       LRU. A hung promise permanently wedges the module-level `chain` at
       `previewThumbs.js:37`; failures are never cached, so repeated scrubbing
       loops the 4s-capped seek forever and logs each time.
-- [ ] 5.7 Replace `SKIP_SECONDS = 10` (`:97`) with the `seekTime` preference at
-      all **15** sites: 1200, 1203, 1206, 1209, 1646, 1908, 1911, 2090, 2094,
-      2098, 2102, 3909, 3971, 4295, 4335. The preference is validated to `[1,120]`
-      at `PreferencesContext.jsx:58` and read by nothing.
+- [x] 5.7 **DONE for the transport path, 2026-10-02.** `TransportBar` imported
+      `SKIP_SECONDS = 10` and had no way to learn the viewer's choice, so a
+      preference validated to `[1,120]` and editable in Settings did **nothing** —
+      set 30s, get 10s. Now `usePlayerControls` reads it through
+      `useOptionalPreferences` (so a bare-render player still works) and clamps on
+      read as well as on write, and `skipSeconds` is a **prop** the bar uses for
+      both the aria-label and the click. The prop is the load-bearing part:
+      `usePlayerPrefs` stays element-only (aspect, rate) per its own documented
+      boundary, so the skip amount belongs to the transport hook.
+      Two deliberate non-changes: `Scrubber`'s `KEY_STEP_SECONDS` arrows are the
+      scrubber's own a11y stepping, not transport skip; and v2 has **no global
+      arrow-key seek at all**, so the 6.8 line "arrows move 30s" is still not
+      satisfiable. That is 5.18 work, not 5.7.
+      9 tests, incl. the half that was broken (the click, not the label) and the
+      clamp against a hand-edited `100000`.
 - [x] 5.8 `playbackRate` as a real persisted preference — **DONE (audited
       2026-10-02).** Not `useState(1)` any more: it is a validated preference
       (`snapPlaybackRate`, `PreferencesContext.jsx:80-89`, so an out-of-catalogue
@@ -5346,12 +5362,20 @@ deletion. 12 are genuinely live, 4 of them **real bugs shipping today** (5.3, 5.
 - [ ] 5.21 Remove the duplicate play/pause and seek HUD `AnimatePresence` blocks
       sharing `key="pp"` (`:5157-5172`) — they mount twice at the same `zIndex`
       65 for states that can never coexist.
-- [ ] 5.22 Scroll lock: save/restore the previous `body` overflow instead of
-      writing a hardcoded `"auto"` (`TitleDetailsPage.jsx:605-610`), which
-      clobbers DownloadModal / ConfirmDialog / GlobalShortcuts and drops the
-      no-op capture on page mount.
-- [ ] 5.23 `scrollbar-gutter: stable` so opening the player does not reflow the
-      page as the scrollbar disappears.
+- [x] 5.22 **DONE 2026-10-02 (mount half), 5.24 still open.** The effect wrote a
+      hardcoded `"auto"` in *both* directions, so loading a details page
+      overwrote an already-open overlay's lock, and closing the player unlocked
+      the page underneath a modal that was still open. It now saves the value on
+      open, restores exactly that on close, and **does not touch the body at all
+      when the player is closed** — a closed player has no business owning page
+      scroll. The mount half is asserted in `TitleDetailsPage.test.jsx`; the
+      close half needs the resolve ladder driven, so it stays unasserted here and
+      is better solved by 5.24's cooperative lock than by a slow test.
+- [x] 5.23 **DONE 2026-10-02.** `scrollbar-gutter: stable` on `html` in
+      `tokens.css`. `body { overflow: hidden }` while the player is open removed
+      the scrollbar and reflowed every centred column sideways by its width.
+      `stable` reserves the gutter whether or not a scrollbar is showing, so
+      locking scroll no longer moves the layout.
 - [ ] 5.24 Cooperative overlay scroll lock — only one scroll owner at a time.
 - [ ] 5.25 Pause and hand off the final frame on close instead of discarding state
       on unmount.
@@ -5490,8 +5514,9 @@ work. Verdicts only; the checkboxes stay authoritative.
   `usePlaybackState` is imported by **no test file at all** (grepped across
   `src/__tests__`). It drives playback state and every transition is unasserted.
 * **7.9: covered** by `playerV2SubtitleTracks` / `SubtitleStyle` / `SubtitleHook`.
-* **7.10: LIVE but BLOCKED by 5.7** — cannot test clamping at the `seekTime`
-  bounds while v2 reads no `seekTime` preference.
+* **7.10: DONE 2026-10-02** — was blocked by 5.7. `playerV2SkipSeconds.test.jsx`
+  asserts both `[1,120]` bounds, the 10s default, and a clamp against a
+  hand-edited `100000`/`-40`.
 * **7.11: covered** by `skipMarkers.test.js` + `playerV2BoundaryTicks.test.js`.
 * **7.12: covered** by `playerV2InputCapability` + `playerV2TierBHooks`.
 * **7.13: LIVE, and un-tickable as written.** "One regression test per Tier-1

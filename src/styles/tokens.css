@@ -163,6 +163,13 @@ html {
      disables `position: sticky` everywhere (the settings nav never docked). */
   overflow-x: hidden;
   overflow-x: clip;
+  /* 5.23. Reserve the scrollbar gutter permanently. Opening the player sets
+     `body { overflow: hidden }` (TitleDetailsPage), which removes the
+     scrollbar and reflows every centred column on the page sideways by its
+     width for as long as the player is open - the rails and hero visibly jump.
+     `stable` keeps the gutter reserved whether or not a scrollbar is showing,
+     so locking scroll changes nothing about the layout. */
+  scrollbar-gutter: stable;
 }
 
 /* Respect Streamly's in-app motion preference as well as Framer Motion's
