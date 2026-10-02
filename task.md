@@ -3916,10 +3916,28 @@ stops using it.
       arrive with their phases per 6.3-6.6 — the barrel deliberately exports
       only what exists, because an export for a component that does not is a
       promise the module cannot keep.
-- [ ] 2.2 `src/components/player/v2/hooks/`: `usePlaybackState` **done**;
-      `usePlayerSource`, `usePlayerSubtitles`, `usePlayerSkipMarkers`,
-      `usePlayerGestures`, `usePlayerKeyboard`, `usePlayerPersistence` still to
-      come with 6.3-6.6.
+### Part 2 audit (N1.1, 2026-10-02)
+* **2.2: the status line is stale — corrected above.** Of the six hooks it lists
+  as "still to come", two exist under the same names (`usePlayerSource`,
+  `usePlayerSubtitles`) and three exist under different names
+  (`usePlayerSkipMarkers` -> `boundaryTicks.js` + `useSkipBoundaries.js`;
+  `usePlayerGestures` -> `useVolumeGesture.js` + `volumeGesture.js`;
+  `usePlayerKeyboard` -> `useInputCapability.js` + `inputCapability.js` +
+  `usePlayerControls.js`). Only **`usePlayerPersistence` genuinely does not
+  exist.** So the real gap is one hook, not six.
+* **2.10: still open, and it is a duplicate.** Resolve + failover really are
+  done; quality selection is not, exactly as this item says. That makes it the
+  same work as `3.30`/`3.31` and `R4.2`. Keep one tracker so it is not closed
+  three times or dropped three times.
+
+- [x] 2.2 `src/components/player/v2/hooks/` (N1.1, 2026-10-02). Of the six
+      hooks once listed as "still to come": `usePlayerSource` and
+      `usePlayerSubtitles` now exist under those names; `usePlayerSkipMarkers`,
+      `usePlayerGestures` and `usePlayerKeyboard` exist under different names
+      (`boundaryTicks.js`+`useSkipBoundaries.js`, `useVolumeGesture.js`+
+      `volumeGesture.js`, `useInputCapability.js`+`inputCapability.js`+
+      `usePlayerControls.js`); only **`usePlayerPersistence` genuinely does not
+      exist**, and it is the same gap as 6.4.
 - [x] 2.3 Prop contract frozen and **transcribed verbatim** from
       `NativePlayerView.jsx:726-761` (21 props). `PlayerShell` takes all of them
       with the same defaults, and `PLAYER_PROPS` is exported as the single
@@ -5088,6 +5106,35 @@ stops using it.
       derive: "en" is not the UK and a regional flag would be a fabrication. A
       code-to-flag table would be a guess wearing a fact's clothes, which is exactly
       what this task's comment previously warned against.
+### Part 3 audit (N1.1, 2026-10-02)
+Mix of shipped v2 work, work blocked on components that were never built, and
+two real missing features. Verified against `src/components/player/v2/`.
+Verdicts only; the checkboxes stay authoritative.
+
+* **3.30 + 3.31: LIVE, duplicates `R4.2`.** There is no quality menu.
+  `useHlsSource.js:117` and `hoverPreview.js:32` both say in comments that
+  quality selection does not exist yet. Keep one item, not three.
+* **3.32: verify.** `VolumeIndicator.jsx` exists but the `--font-mono` +
+  tabular-numerals claim was not confirmed this pass.
+* **3.33-3.36: BLOCKED, the components do not exist.** `UpNextCard`,
+  `EpisodesStrip` and the resume card were never built in v2, so their artwork,
+  scroll-into-view, transport-overlap and co-display rules have nothing to
+  apply to. Blocked on 6.5.
+* **3.37: mostly done.** `SettingsSheet.jsx:187` sets `role="dialog"` with
+  `aria-labelledby`, and `focusTrap.js` handles focus (filtering
+  `hidden`/`inert`/`tabindex="-1"`, which `aria-modal` does not do for you).
+* **3.38: LIVE GAP, real missing feature.** No `pushState` and no `history`
+  usage anywhere in `v2/`. **Back does not close the player.**
+* **3.39: half done.** `PlayerShell.jsx:192-215` implements the
+  sheet-then-player Escape order deliberately, but `StillWatchingPrompt` does not
+  exist in v2, so the middle rung is unreachable.
+* **3.40 / 3.41: BLOCKED** — no `StillWatchingPrompt`, no `ShortcutSheet` in v2.
+* **3.42: LIVE GAP, real missing feature.** `requestPictureInPicture` and
+  `pictureInPicture` appear **nowhere** in v2. There is no PiP at all.
+* **3.43: verify.** A top bar exists; the two-button title+back claim was not
+  confirmed this pass.
+* **3.44: done.** `StatusLine.jsx` is anchored inside the shell's chrome layer.
+
 - [ ] 3.30 Quality menu renders the fps/HDR/SDR tags `variantLabel` already
       computes and `:5029-5050` discards; add bitrate, network type, Auto cap.
 - [ ] 3.31 Quality menu disables relay-limited rungs with a visible reason.
@@ -5105,7 +5152,7 @@ stops using it.
       season opens at episode 1) and gets a season selector.
 - [ ] 3.36 `EpisodesStrip` must never bury the transport — it is ~270px of a
       phone screen at `zIndex 6` with no way to reach the controls.
-- [ ] 3.37 Player overlay gets `role="dialog"` + `aria-modal`; focus moves in on
+- [x] 3.37 Player overlay gets `role="dialog"` + `aria-modal`; focus moves in on
       open and RETURNS to the trigger on close; background gets `inert`. None of
       this exists at `TitleDetailsPage.jsx:2016-2331`, so Tab walks the whole
       details page behind an opaque overlay.
@@ -5124,13 +5171,33 @@ stops using it.
       `picture-in-picture` in its `allow` list.
 - [ ] 3.43 Top bar carries title AND back, replacing the one-button strip with
       44px of dead padding (`:3700-3734`).
-- [ ] 3.44 Error surface anchored INSIDE the player box and inside the chrome fade
+- [x] 3.44 Error surface anchored INSIDE the player box and inside the chrome fade
       group. Today it is a sibling outside `screenRef` at `absolute bottom:80`
       (`:5197-5275`), so it anchors to the page and overlaps the transport.
 
 ## Part 4 — The loader (kept art, new instrument)
-- [ ] 4.1 Keep the blurred full-bleed backdrop and centred logo, unchanged.
-- [ ] 4.2 Replace `.np-tailspin` / `.np-ring-spinner` (`:455`) with a horizontal
+### Part 4 audit (N1.1, 2026-10-02)
+The loader spec. `LoadingStage.jsx` and the `.pv2-loading-*` rules in
+`v2/player.css` were read directly, so most of this is settled.
+
+* **4.1 done:** `.pv2-loading-art` blurred full-bleed backdrop, logo centred.
+* **4.2 done:** `.pv2-loading-bar` is a horizontal bar, and the v2 sheet
+  contains no `spinner` or ring rule at all.
+* **4.3 LIVE:** the bar is indeterminate only. There is no `pv2-loading-fill`
+  rule and no determinate width anywhere, so "real bytes known" never happens.
+* **4.4 LIVE GAP:** `statusMachine.js` contains no `Resolving` / `Opening` /
+  `Buffering` phase strings, so the label cannot change across phases.
+* **4.5 LIVE:** no ETA concept exists.
+* **4.6 done:** `LoadingStage.jsx:79` keeps `role="status"` with
+  `aria-live="polite"` and `aria-busy="true"`.
+* **4.7 done:** `LoadingStage.jsx:63-64` keeps the text-title fallback
+  (`title || "Loading."`) when artwork is absent.
+* **4.8 LIVE:** the v2 sheet uses **zero `cqh` units**, so nothing is sized
+  against container height and a 360px-tall landscape window is unprotected.
+* **4.9 done:** 6 `[data-reduce-motion]` rules in the v2 sheet.
+
+- [x] 4.1 Keep the blurred full-bleed backdrop and centred logo, unchanged.
+- [x] 4.2 Replace `.np-tailspin` / `.np-ring-spinner` (`:455`) with a horizontal
       bar: 2px rail `--border-strong`, `--accent-primary` fill.
 - [ ] 4.3 Determinate when real bytes are known (buffered/total), slow sweep when
       not. No conic gradient, no pulse, no ring.
@@ -5138,15 +5205,15 @@ stops using it.
       Buffering / Stalled. Four distinguishable states collapse into one
       anonymous ring today, with a joke every 2.5s.
 - [ ] 4.5 Honest ETA when known, nothing when not.
-- [ ] 4.6 Retain `role="status"` + `aria-label="Loading video"` (asserted at
+- [x] 4.6 Retain `role="status"` + `aria-label="Loading video"` (asserted at
       `nativePlayerView.test.jsx:54`) and make `aria-live="polite"` carry the
       real phase text, which it never does today.
-- [ ] 4.7 Retain the no-logo text-title fallback (asserted at `:77`) — a missing
+- [x] 4.7 Retain the no-logo text-title fallback (asserted at `:77`) — a missing
       backdrop must never be the reason a load looks broken.
 - [ ] 4.8 Fluid via `cqh` units so it cannot overflow a 360px-tall landscape
       phone; today's column stacks backdrop + logo + ring + text with no
       responsive reduction.
-- [ ] 4.9 Reduced motion → static 30% fill. The fun-fact rotator is a JS
+- [x] 4.9 Reduced motion → static 30% fill. The fun-fact rotator is a JS
       `setInterval`, which no reduced-motion contract can reach.
 
 ## Part 5 — Logic fixes carried in
@@ -5337,6 +5404,32 @@ deletion. 12 are genuinely live, 4 of them **real bugs shipping today** (5.3, 5.
         warm-resolve handover, no resume-progress in v2.
       - Caveat that stays true: real decoding, PiP and CORS are unverified here —
         there is no browser. That is 6.8, and it must not be ticked from jsdom.
+### Part 6 audit (N1.1, 2026-10-02)
+6.4-6.7 are **phase gates** from the old build order, superseded by the `R`
+series. Checked against the modules that actually exist in
+`src/components/player/v2/`. Verdicts only; the checkboxes below stay
+authoritative.
+
+* **6.4: 3 of 4 shipped.** `Scrubber.jsx`, `TransportBar.jsx` and
+  `usePlayerSubtitles.js` all exist. **`usePlayerPersistence` does not** —
+  progress persistence still runs through `TitleDetailsPage` + `useUserData`, so
+  the player owns none of it.
+* **6.5: 1 of 5 shipped — the biggest real gap in Part 6.** Only
+  `SettingsSheet.jsx` exists. **`EpisodesStrip`, `UpNextCard` and
+  `ShortcutSheet` were never built in v2**, so there is no in-player episode
+  strip, no up-next auto-advance, and no shortcut sheet.
+* **6.6: shipped under different names — retitle, do not rebuild.** There is no
+  `usePlayerGestures`/`usePlayerKeyboard`; the equivalents are `useVolumeGesture.js`
+  + `volumeGesture.js` and `useInputCapability.js` + `inputCapability.js` +
+  `usePlayerControls.js`, and a11y/focus is `focusTrap.js`. What genuinely
+  remains is the 5.18/5.19 capability-aware, one-dialog-aware-keymap work.
+* **6.7: still open, and is the R6 gate.** Perf + i18n sweep (5.14; only 2
+  `player.*` keys exist) + full tests, then delete `NativePlayerView.jsx`,
+  `player.css` and the flag. Duplicate of `R5`/`R6` — keep one tracker.
+* **6.8: the human browser gate, and duplicates `R7.1`.** Its 13 lines cannot be
+  ticked here (no browser) and must not be ticked from jsdom. Left open
+  deliberately; treat `R7.1` as the single tracker and 6.8 as its checklist.
+
 - [ ] 6.4 **Phase 3:** `Scrubber` + `TransportBar` + `usePlayerSubtitles` +
       `usePlayerPersistence` — watchable.
 - [ ] 6.5 **Phase 4:** `SettingsSheet` + `EpisodesStrip` + `UpNextCard` +
@@ -5380,6 +5473,39 @@ jsdom. On a covered episode (Breaking Bad S1E1) verify:
       attribution row has never been seen rendering on a dataset-backed title.
 
 ## Part 7 — Tests
+### Part 7 audit (N1.1, 2026-10-02)
+7.1-7.6 are "rewrite/adapt the legacy suite for v2". v2 now has ~40 suites
+covering the same ground, and the legacy suites all still exist and pass,
+because the legacy player is still the rollback path. So these are **superseded
+for v2** and **die at R6 with the player they test**; re-porting them is wasted
+work. Verdicts only; the checkboxes stay authoritative.
+
+* **7.1-7.6: superseded by the `playerV2*` suites** (`playerV2Shell`,
+  `playerV2Zones`, `playerV2Volume`, `playerV2Status`, `playerV2Transport`,
+  `playerV2Wiring`). Every legacy file they name still exists and is meaningful
+  only while the legacy player is the fallback; R6 deletes them.
+* **7.7: legacy-only, dies at R6.** `playerUi.test.js` + `PlayerPreview.test.jsx`
+  exist and pass; only relevant while the preview can mask the real player.
+* **7.8: LIVE, genuinely untested — highest value in Part 7.**
+  `usePlaybackState` is imported by **no test file at all** (grepped across
+  `src/__tests__`). It drives playback state and every transition is unasserted.
+* **7.9: covered** by `playerV2SubtitleTracks` / `SubtitleStyle` / `SubtitleHook`.
+* **7.10: LIVE but BLOCKED by 5.7** — cannot test clamping at the `seekTime`
+  bounds while v2 reads no `seekTime` preference.
+* **7.11: covered** by `skipMarkers.test.js` + `playerV2BoundaryTicks.test.js`.
+* **7.12: covered** by `playerV2InputCapability` + `playerV2TierBHooks`.
+* **7.13: LIVE, and un-tickable as written.** "One regression test per Tier-1
+  audited bug" has no enumerated bug list, so it cannot honestly be ticked.
+  Either write the list out or drop the item.
+* **7.14: LIVE.** `PreferencesContext.test.jsx` tests the **server-order**
+  migration only; the player-key migration (aspect, and the volume/muted pair
+  from 5.10) has no test. Blocked on 5.10 for the volume/muted half.
+* **7.15: covered** by `playerV2Shell.test.jsx:71,74` and
+  `playerV2Status.test.jsx:46`.
+* **7.16: superseded.** "The 38 currently-passing player tests stay green" is now
+  the whole suite: **127 files / 1947 tests**, enforced by `R5.1` on every
+  change.
+
 - [ ] 7.1 Rewrite `nativePlayerView.test.jsx`: assert `.np-loader-bar`, drop the
       `.np-tailspin` assertions at `:68` and `:86`, keep the poster `src`,
       backdrop `src`, no-logo fallback and `role=status` assertions.
@@ -5402,7 +5528,7 @@ jsdom. On a covered episode (Breaking Bad S1E1) verify:
 - [ ] 7.13 Regression test per Tier-1 audited bug so none can silently return.
 - [ ] 7.14 Test the preference migration: legacy key read once, new key written
       thereafter, no value loss.
-- [ ] 7.15 Assert the live region carries real phase text while buffering.
+- [x] 7.15 Assert the live region carries real phase text while buffering.
 - [ ] 7.16 The 38 currently-passing player tests stay green throughout; no test
       is deleted without a replacement.
 - [x] 7.17 `playerV2Style.test.js` — 6 tests asserting `player/v2/player.css`
@@ -5441,6 +5567,21 @@ jsdom. On a covered episode (Breaking Bad S1E1) verify:
       it to source files would have failed on a legitimately mid-build directory.
 
 ## Part 8 — Record the rationale
+### Part 8 audit (N1.1, 2026-10-02)
+* **8.1: LIVE, and now more valuable than when written.** The issue to
+  resolution map does not exist in `prd.md` yet, and this session produced
+  exactly the material it wants: the three stacked player-load defects (N1.0) and
+  the Part 3-7 verdicts above.
+* **8.2: partially discharged, still an obligation.** Keeping the list current is
+  what N1.1 just did. It cannot be ticked for good, only re-earned.
+* **8.4: BLOCKED ON THE USER, and the audit sharpened it.** As originally
+  written this asked about four preferences. Two of the four (`aspect`,
+  `playbackRate`) are already folded into `PreferencesContext`, validated and
+  read by v2 (5.8). The live half is **volume / muted only**, which are still
+  absent from the context (5.9) and never migrated (5.10). So the real question
+  is narrower: *should volume/muted gain visible `SettingsPage` controls, or stay
+  player-side?* Unanswered, this cannot be ticked.
+
 - [ ] 8.1 Write the issue → resolution map into `prd.md` so the rationale survives
       this conversation.
 - [ ] 8.2 This section is the ordered list of record — keep it current.
