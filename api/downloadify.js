@@ -456,60 +456,70 @@ async function handleResolveVidcore(body, res) {
      deliberately skipped (entries 403 transiently and the player's own
      playability probe does the real gate). */
   const tryVidrack = async ({ timeoutMs = VIDRACK_TIMEOUT_FULL_MS } = {}) => {
-    const api = new URL(VIDCORE_SOURCES_API);
-    api.searchParams.set("id", tmdbId);
-    api.searchParams.set("type", type);
-    if (type === "tv") {
-      if (!season || !episode) throw new Error("tv needs season/episode");
-      api.searchParams.set("season", season);
-      api.searchParams.set("episode", episode);
-    }
-    const text = await fetchUpstream(api.toString(), { referer, timeoutMs });
-    const data = JSON.parse(text);
-    const entries = Array.isArray(data?.serverSources) ? data.serverSources : [];
-    /* Quality label → height. "Auto"/"HD"/"FHDp" mark masters (an Auto master
-       IS a quality ladder — hls.js ABR walks its rungs), so they keep height 0
-       and ride the master branch of the player; precise labels ("1080p") map
-       to their numeric rung. Deduped: vidrack lists mirror hosts of the same
-       encode as separate rows, which would show the same picture twice. */
-    const seen = new Map();
-    const pickBandwidth = (h) => videasyBandwidth(h);
-    for (const s of entries) {
-      const raw = String(s?.url || "");
-      if (!raw || !/^https?:\/\//i.test(raw)) continue;
-      if (s?.type && s.type !== "hls") continue;
-      if (!/\.m3u8([?#]|$)/i.test(raw) && !s?.quality) continue;
-      const q = String(s?.quality || "Auto").trim();
-      const m = /(\d{3,4})\s*p/i.exec(q);
-      const height = m ? Number(m[1]) : 0;
-      /* Key = rung + host + provider tag: vidrack lists mirror hosts of the
-         same encode as separate rows (same picture twice), but two DIFFERENT
-         providers on one host (or one provider with two rungs) are real
-         choices and must both survive. */
-      const key = `${height}|${new URL(raw).hostname}|${String(s?.provider || s?.label || q)}`;
-      if (seen.has(key)) continue;
-      seen.set(key, {
-        uri: raw,
-        bandwidth: height ? pickBandwidth(height) : 0,
-        width: 0,
-        height,
-        framerate: 0,
-        codecs: "",
-        hdr: false,
-        label: q,
-      });
-    }
-    const variants = Array.from(seen.values())
-      /* Masters (height 0, real ABR ladders) lead; explicit rungs follow tall→short. */
-      .sort((a, b) => (b.height === 0 ? 1 : 0) - (a.height === 0 ? 1 : 0) || b.height - a.height)
-      .slice(0, 6);
-    if (variants.length === 0) return null;
-    const best = variants[0];
-    return {
-      variants,
-      source: { kind: "hls", url: best.uri, refUrl: referer },
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const url = type === 'tv' ? `https://vidcore.io/tv/${tmdbId}/${season}/${episode}` : `https://vidcore.io/movie/${tmdbId}`;
+        const pageRes = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }, signal: controller.signal });
+        if (!pageRes.ok) throw new Error(`pageRes ${pageRes.status}`);
+        const html = await pageRes.text();
+        const match = /\\"en\\":\\"([^\\"]+)\\"/.exec(html) || /"en":"([^"]+)"/.exec(html);
+        if (!match) throw new Error('No en match');
+        const enToken = match[1];
+
+        const encRes = await fetch('https://enc-dec.app/api/enc-vidcore?text=' + encodeURIComponent(enToken), { signal: controller.signal }).then(r => r.json());
+        if (encRes.status !== 200 || !encRes.result) throw new Error('encRes failed');
+        const { servers, stream, token } = encRes.result;
+
+        const headers = {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Referer': 'https://vidcore.io/',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRF-Token': token
+        };
+
+        const sRes = await fetch(servers, { method: 'POST', headers, signal: controller.signal });
+        if (!sRes.ok) throw new Error(`sRes ${sRes.status}`);
+        const decServers = await fetch('https://enc-dec.app/api/dec-vidcore', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: await sRes.text() }),
+          signal: controller.signal
+        }).then(r => r.json());
+
+        if (!decServers.result) throw new Error('decServers failed');
+        
+        let masterUrl = null;
+        for (const chosenServer of decServers.result) {
+          if (!chosenServer.data) continue;
+          const streamUrl = stream.endsWith('/') ? stream + chosenServer.data : stream + '/' + chosenServer.data;
+          const stRes = await fetch(streamUrl, { method: 'POST', headers, signal: controller.signal });
+          if (!stRes.ok) continue;
+          const decStream = await fetch('https://enc-dec.app/api/dec-vidcore', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: await stRes.text() }),
+            signal: controller.signal
+          }).then(r => r.json());
+
+          if (decStream.result && decStream.result.url) {
+            masterUrl = decStream.result.url;
+            break;
+          }
+        }
+        if (!masterUrl) throw new Error('All vidcore.io servers failed');
+
+        const masterText = await fetchUpstream(masterUrl, { referer, timeoutMs: 5000 });
+        const variants = parseMasterPlaylist(masterText, masterUrl).filter((v) => v?.uri);
+        if (variants.length === 0 || !variants[0].uri) return null;
+        return {
+          variants,
+          source: { kind: "hls", url: masterUrl, refUrl: referer },
+        };
+      } finally {
+        clearTimeout(timeoutId);
+      }
     };
-  };
 
   /* vidzen.fun fallback — the same catalogue the page polls alongside
      videasy. Its stream token may be a single-rendition media playlist or a
