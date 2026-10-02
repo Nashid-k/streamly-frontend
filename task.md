@@ -5123,8 +5123,11 @@ Verdicts only; the checkboxes stay authoritative.
 * **3.37: mostly done.** `SettingsSheet.jsx:187` sets `role="dialog"` with
   `aria-labelledby`, and `focusTrap.js` handles focus (filtering
   `hidden`/`inert`/`tabindex="-1"`, which `aria-modal` does not do for you).
-* **3.38: LIVE GAP, real missing feature.** No `pushState` and no `history`
-  usage anywhere in `v2/`. **Back does not close the player.**
+* **3.38: fixed this pass.** `useHistoryBack` pushes one marked entry while the
+  v2 player is mounted and turns `popstate` into the same close as the button and
+  Escape (`PlayerShell.jsx`). `playerV2HistoryBack.test.jsx` (7) covers the push,
+  the Back-close, the peel-on-close and the no-double-step edge;
+  `playerV2Shell.test.jsx` pins the wiring.
 * **3.39: half done.** `PlayerShell.jsx:192-215` implements the
   sheet-then-player Escape order deliberately, but `StillWatchingPrompt` does not
   exist in v2, so the middle rung is unreachable.
@@ -5156,7 +5159,7 @@ Verdicts only; the checkboxes stay authoritative.
       open and RETURNS to the trigger on close; background gets `inert`. None of
       this exists at `TitleDetailsPage.jsx:2016-2331`, so Tab walks the whole
       details page behind an opaque overlay.
-- [ ] 3.38 Push a history entry on open so Back closes the player instead of
+- [x] 3.38 Push a history entry on open so Back closes the player instead of
       navigating away and unmounting it mid-playback.
 - [ ] 3.39 Escape order: sheet → still-watching prompt → player.
 - [ ] 3.40 `StillWatchingPrompt` becomes a real `alertdialog`: focus in, focus

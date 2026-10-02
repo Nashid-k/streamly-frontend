@@ -20,6 +20,7 @@ import usePlayerSource from "./hooks/usePlayerSource";
 import useSkipBoundaries from "./hooks/useSkipBoundaries";
 import usePlayerSubtitles from "./hooks/usePlayerSubtitles";
 import useAudioTracks from "./hooks/useAudioTracks";
+import useHistoryBack from "./hooks/useHistoryBack";
 import useChromeHeight from "./hooks/useChromeHeight";
 import SubtitleOverlay from "./SubtitleOverlay";
 import useTier from "./hooks/useTier";
@@ -219,6 +220,11 @@ const [sheetPanel, setSheetPanel] = useState(null);
     },
     [onClose],
   );
+
+  /* Back closes the player too (task.md 3.38). Placed beside Escape because it is
+   * the same intent — leave the player, not the page — reached by a different
+   * control. */
+  useHistoryBack({ onBack: onClose });
 
   /* Idle auto-hide (task.md 3.8). The timer only ever runs while the machine
    * says we are actually playing, so this cannot hide the controls off a paused,

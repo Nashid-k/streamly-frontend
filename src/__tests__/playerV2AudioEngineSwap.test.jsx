@@ -1,5 +1,5 @@
-import { render, screen, act } from "@testing-library/react";
-import { useRef, useState } from "react";
+import { render, screen } from "@testing-library/react";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 /* R4.7 — PROBE. This file is expected to FAIL against the current code.

@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import PlayerShell, { PLAYER_PROPS } from "../components/player/v2/PlayerShell";
 import LoadingStage from "../components/player/v2/LoadingStage";
 import { S, selectView } from "../components/player/v2/playbackMachine";
@@ -128,6 +128,23 @@ describe("PlayerShell", () => {
     const { container } = render(<PlayerShell title="Reacher" />);
     // components/Loader.jsx is app-wide; v2 uses its own .pv2-* surface.
     expect(container.querySelector('[class*="loader"]')).toBeNull();
+  });
+
+  it("pushes the history entry that lets Back close the player (task.md 3.38)", () => {
+    const push = vi.spyOn(window.history, "pushState");
+    const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+    const { unmount } = render(<PlayerShell title="Reacher" onClose={() => {}} />);
+
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(push.mock.calls[0][0]).toMatchObject({ __pv2Back: true });
+
+    unmount();
+    // Closing by the player's own means must peel the entry, or leaving the page
+    // later costs two Backs.
+    expect(back).toHaveBeenCalledTimes(1);
+
+    push.mockRestore();
+    back.mockRestore();
   });
 });
 
