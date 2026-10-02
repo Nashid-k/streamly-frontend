@@ -5226,7 +5226,7 @@ Audited against what v2 actually does. Verdicts, with the evidence:
 
 | Item | Verdict | Evidence |
 |---|---|---|
-| 5.1 resume before resolve | **LIVE v2 gap** | no resume card exists anywhere in `v2/`; resume UX is absent from `LoadingStage` |
+| 5.1 resume before resolve | **LIVE v2 gap → DONE 2026-10-02** | `watchedEntry` was an unused prop and no resume UX existed. New `useResumeOffer` raises the card on MOUNT (before the ladder resolves) and applies the seek at `HAVE_METADATA`; `ResumeOffer` overlays the loading stage. Also fixed `watchEntry`'s bare `===` season/episode match at `TitleDetailsPage.jsx:817`, which would have made the whole feature miss string-typed entries |
 | 5.2 zero timestamp pre-mount | **superseded** | the `updateProgress(..., 0)` at the cited site no longer exists; `:589` writes episode-watched state, not a zeroed timestamp |
 | 5.3 `Number()` on saved season/episode | **LIVE BUG → DONE 2026-10-02** | `TitleDetailsPage.jsx:567,570` used bare `===` while `:613,664,776` wrapped in `Number()`, so a string `savedSeason` nulled `keepTs`/`keepEp` and wiped the saved position |
 | 5.4 delete `useContainerSize` | **moot at R6** | referenced only from `NativePlayerView.jsx`, `playerUi.js`, `index.js` — all legacy; v2 uses `@container` |
@@ -5256,9 +5256,24 @@ be "fixed" in v2 — doing so would be building for a file that is scheduled for
 deletion. 12 are genuinely live, 4 of them **real bugs shipping today** (5.3, 5.22,
 5.23, 5.7). Only those live ones belong on the critical path.
 
-- [ ] 5.1 Offer resume BEFORE the stream resolves, not after `MANIFEST_PARSED` +
-      `play()` (`:2791`). Today the viewer stares at a loading stage for ~20s
-      before being offered their own saved position.
+- [x] 5.1 Offer resume BEFORE the stream resolves, not after `MANIFEST_PARSED` +
+      `play()` (`:2791`). **DONE 2026-10-02.** `watchedEntry` was declared on
+      `PlayerShell` and read by nothing, and v2 had no resume UX at all. New
+      `hooks/useResumeOffer.js` raises the offer on mount — before the source
+      ladder resolves — and holds the chosen second as a pending seek it applies
+      when the element reaches `HAVE_METADATA` (assigning `currentTime` earlier
+      throws in some engines and is silently ignored in others). New
+      `ResumeOffer.jsx` overlays the loading stage with Resume / Start over and
+      the legacy 8s auto-resume; it is a sibling of the loader at `z-index: 3`,
+      not a `.pv2-chrome` layer, so its buttons are live while the loader owns
+      the screen. Party guests get no card (the host owns the playhead), and an
+      entry past 92% of the runtime is treated as finished rather than resumed
+      into the credits. While wiring it, `TitleDetailsPage.jsx:817` was doing a
+      bare `===` on `savedSeason`/`savedEpisode`, the same string-vs-number trap
+      as 5.3 — a string entry would have selected no `watchEntry` and made the
+      whole feature miss. Now `Number()` on both sides. Pinned by
+      `playerV2ResumeOffer.test.jsx` (+13, card + hook) and
+      `playerV2ResumeWiring.test.jsx` (+3, the shell seam).
 - [ ] 5.2 Stop zeroing the timestamp before mount. `TitleDetailsPage.jsx:1002`
       calls `updateProgress(..., 0)` before `setIsPlaying(true)`, so the button
       says "Resume", playback starts at 0:00, and the resume card never appears.

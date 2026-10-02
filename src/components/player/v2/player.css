@@ -1373,3 +1373,75 @@
   z-index: 3;
   background: var(--scrim-flat);
 }
+
+/* ── Resume offer (task.md 5.1) ───────────────────────────────────────────────
+ * Sits over the loading stage so the choice is available BEFORE the source
+ * ladder resolves. z-index 3 matches `.pv2-status` and `.pv2-sheet__backdrop`:
+ * above the chrome (2), below the settings sheet (4), so opening settings while
+ * the card is up puts the sheet on top rather than under it. `pointer-events`
+ * is left at `auto` — the card's whole purpose is to be clickable while the
+ * loader owns the screen, unlike the `.pv2-chrome` layer it deliberately is
+ * not part of. */
+.pv2-resume {
+  position: absolute;
+  inset-inline-end: var(--spacing-xl);
+  inset-block-end: calc(var(--spacing-2xl) + var(--spacing-md));
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+  max-inline-size: min(90%, 34rem);
+  padding: var(--spacing-md);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+  z-index: 3;
+  transition:
+    opacity var(--pv2-motion-normal) var(--ease-out),
+    transform var(--pv2-motion-normal) var(--ease-out);
+}
+
+.pv2-resume-copy {
+  min-inline-size: 0;
+}
+
+.pv2-resume-title {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold, 700);
+}
+
+.pv2-resume-count {
+  margin: var(--spacing-xs) 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.pv2-resume-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold, 700);
+  cursor: pointer;
+  transition: opacity var(--pv2-motion-fast) var(--ease-out);
+}
+
+/* The chosen action. On-accent text so it stays legible against the light lime
+ * default and the other user-selectable accents — the token exists for exactly
+ * this (tokens.css:34). */
+.pv2-resume-btn-primary {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: var(--on-accent);
+}
+
+.pv2-resume-btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}

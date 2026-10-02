@@ -814,7 +814,9 @@ useEffect(() => {
     const found = continueWatching?.find(
       (m) =>
         String(m.id) === String(movie.id) &&
-        (!isTvContent || (m.savedSeason === selectedSeason && m.savedEpisode === viewEpisode())),
+        (!isTvContent ||
+          (Number(m.savedSeason) === Number(selectedSeason) &&
+            Number(m.savedEpisode) === Number(viewEpisode()))),
     );
     if (!found || !(Number(found.timestamp) > 0)) return null;
     return found;

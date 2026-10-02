@@ -7,6 +7,7 @@ import { forwardRef, useCallback, useMemo, useRef, useState } from "react";
 import "./player.css";
 import LoadingStage from "./LoadingStage";
 import PlayerVideo from "./PlayerVideo";
+import ResumeOffer from "./ResumeOffer";
 import StatusLine from "./StatusLine";
 import TransportBar from "./TransportBar";
 import VolumeIndicator from "./VolumeIndicator";
@@ -17,6 +18,7 @@ import useChromeAutoHide from "./hooks/useChromeAutoHide";
 import usePlayerControls from "./hooks/usePlayerControls";
 import usePlayerProgress from "./hooks/usePlayerProgress";
 import usePlayerPrefs from "./hooks/usePlayerPrefs";
+import useResumeOffer from "./hooks/useResumeOffer";
 import usePlayerSource from "./hooks/usePlayerSource";
 import useSkipBoundaries from "./hooks/useSkipBoundaries";
 import usePlayerSubtitles from "./hooks/usePlayerSubtitles";
@@ -177,6 +179,21 @@ const PlayerShell = forwardRef(function PlayerShell(
 
   const controls = usePlayerControls(videoRef, shellRef, videoNode);
   const prefs = usePlayerPrefs({ videoNode });
+
+  /* Resume offer (task.md 5.1). Raised on MOUNT — before the source ladder
+   * resolves — so the viewer is not made to wait out the whole load to learn
+   * their saved position is available. A party GUEST follows the host's
+   * playhead, so the offer is solo/host only; the hook derives that gate rather
+   * than an effect here. The seek is applied when the element reaches metadata,
+   * which is why the hook owns it (2.5 compose-only). */
+  const { offer: resumeOffer, chooseResume, chooseRestart } = useResumeOffer({
+    watchedEntry,
+    videoNode,
+    mediaKey: `${type}:${id}:${season}:${episode}`,
+    enabled: !party || Boolean(party.isHost),
+    duration: controls.duration,
+    seekTo: controls.seekTo,
+  });
 
   /* Progress persistence (task.md 5.25). The parent hands us `onProgressChange`
    * and v2 used to drop it on the floor, so closing the player threw the
@@ -416,6 +433,18 @@ data-sheet={sheetPanel ?? undefined}
           posterUrl={posterUrl}
           announcement={announcement}
           state={state}
+        />
+      ) : null}
+      {/* Resume offer (task.md 5.1). A sibling of the loader with z-index 3, so
+       * it paints over the loading stage and its buttons are live from the first
+       * frame — which is the whole point of raising it before the stream
+       * resolves. Dismissed by either choice or the countdown. */}
+      {resumeOffer ? (
+        <ResumeOffer
+          at={resumeOffer.at}
+          remaining={resumeOffer.left}
+          onResume={chooseResume}
+          onRestart={chooseRestart}
         />
       ) : null}
       {/* The element mounts ONCE the ladder produced a URL, and STAYS mounted for
