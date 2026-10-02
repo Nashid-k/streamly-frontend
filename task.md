@@ -5248,7 +5248,7 @@ Audited against what v2 actually does. Verdicts, with the evidence:
 | 5.21 duplicate `key="pp"` blocks | **moot at R6** | legacy HUD internals, inside the file R6 deletes |
 | 5.22 restore previous `body` overflow | **LIVE BUG → DONE 2026-10-02** | `TitleDetailsPage.jsx:625,627` hardcoded `"auto"` in both directions, clobbering every other overlay on mount *and* unlocking the page under an open modal on close |
 | 5.23 `scrollbar-gutter: stable` | **LIVE, absent → DONE 2026-10-02** | was in **no** file under `src/styles/`; now on `html` in `tokens.css` |
-| 5.24 cooperative scroll lock | **unverified** | needs a look at the overlay stack, not the legacy line cited |
+| 5.24 cooperative scroll lock | **DONE 2026-10-02** | not the legacy line cited: **six** overlays each saved/restored `body.style.overflow` independently (ConfirmDialog, GlobalShortcuts, DownloadModal, TitleInfoModal, SettingsPage, TitleDetailsPage), so a later close unlocked the page under a still-open overlay. New `utils/scrollLock.js` reference-counts owners; all six migrated |
 | 5.25 final frame on close | **LIVE gap → DONE 2026-10-02** | the cited line moved, but the gap was real and larger: v2 read **neither** `watchedEntry` nor `onProgressChange`, so every close discarded the playhead. New `usePlayerProgress` flushes the last 5.15 playhead on the one path every close takes (unmount), and `requestClose` pauses first on the shell's own exits |
 
 **Consequence for the plan:** 9 items are moot-at-R6 legacy internals and should not
@@ -5438,7 +5438,17 @@ deletion. 12 are genuinely live, 4 of them **real bugs shipping today** (5.3, 5.
       the scrollbar and reflowed every centred column sideways by its width.
       `stable` reserves the gutter whether or not a scrollbar is showing, so
       locking scroll no longer moves the layout.
-- [ ] 5.24 Cooperative overlay scroll lock — only one scroll owner at a time.
+- [x] 5.24 Cooperative overlay scroll lock — only one scroll owner at a time.
+      **DONE 2026-10-02.** The audit line was the legacy player, but the real
+      gap was the overlay stack: **six** components locked `body` independently
+      (`ConfirmDialog`, `GlobalShortcuts`, `DownloadModal`, `TitleInfoModal`,
+      `SettingsPage`, `TitleDetailsPage`), each capturing and restoring its own
+      last-seen value. Close them out of order and the last close restored a
+      stale value, unlocking the page under a still-open overlay. New
+      `src/utils/scrollLock.js` reference-counts owners: `lockScroll()` returns
+      its own idempotent release, the page is `hidden` while any owner holds a
+      lock, and the original inline value returns only when the last releases.
+      All six call sites migrated. Pinned by `scrollLock.test.js` (+3).
 - [x] 5.25 Pause and hand off the final frame on close instead of discarding state
       on unmount. **DONE 2026-10-02.** `watchedEntry`/`onProgressChange` were
       declared props with no consumer, so v2 never saved a position. New

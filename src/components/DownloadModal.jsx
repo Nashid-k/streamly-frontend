@@ -28,6 +28,7 @@ import {
 } from "../utils/downloadQuality";
 import { logDebug, logError, logWarn } from "../utils/debugLogger";
 import { sourceLabel } from "../constants/sources";
+import { lockScroll } from "../utils/scrollLock";
 
 /* ── DownloadModal — browser-only offline downloads ────────────────────
    Vercel has no storage and the app has no backend, so "download" means either
@@ -256,9 +257,8 @@ export default function DownloadModal({
 
   /* Scroll lock + focus management (see SettingsPage sign-in modal). */
   useEffect(() => {
-    const prevOverflow = document.body.style.overflow;
+    const releaseScrollLock = lockScroll();
     const prevActive = document.activeElement;
-    document.body.style.overflow = "hidden";
     const focusables = () =>
       [...(panelRef.current?.querySelectorAll("button, [href], input, select, [tabindex]:not([tabindex='-1'])") || [])]
         .filter((el) => !el.disabled && !el.hidden);
@@ -288,7 +288,7 @@ export default function DownloadModal({
     };
     document.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = prevOverflow;
+      releaseScrollLock();
       document.removeEventListener("keydown", onKey);
       prevActive?.focus?.({ preventScroll: true });
     };

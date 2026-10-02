@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { SPRING } from "../constants/motion";
 import { Keyboard, X, Search, ArrowLeft, Play } from "lucide-react";
 import { isPlayerOpen } from "../utils/playerOpen";
+import { lockScroll } from "../utils/scrollLock";
 
 export default function GlobalShortcuts() {
   const [isOpen, setIsOpen] = useState(false);
@@ -67,8 +68,7 @@ export default function GlobalShortcuts() {
   useEffect(() => {
     if (!isOpen || !modalRef.current) return;
     previouslyFocusedRef.current = document.activeElement;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const releaseScrollLock = lockScroll();
     const focusable = modalRef.current.querySelector('button, [tabindex]:not([tabindex="-1"])');
     if (focusable) focusable.focus();
 
@@ -89,7 +89,7 @@ export default function GlobalShortcuts() {
     window.addEventListener("keydown", trapFocus);
     return () => {
       window.removeEventListener("keydown", trapFocus);
-      document.body.style.overflow = previousOverflow;
+      releaseScrollLock();
       if (previouslyFocusedRef.current instanceof HTMLElement && previouslyFocusedRef.current.isConnected) {
         previouslyFocusedRef.current.focus();
       }

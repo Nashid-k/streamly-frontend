@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { SPRING } from "../constants/motion";
 import { AlertTriangle } from "lucide-react";
+import { lockScroll } from "../utils/scrollLock";
 
 /**
  * Reusable confirm dialog — replaces window.confirm().
@@ -45,8 +46,7 @@ export function useConfirmDialog() {
     if (!dialog) return;
 
     const previouslyFocused = document.activeElement;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const releaseScrollLock = lockScroll();
 
     const focusInitialControl = () => {
       panelRef.current?.querySelector("[data-dialog-initial]")?.focus();
@@ -78,7 +78,7 @@ export function useConfirmDialog() {
     return () => {
       window.clearTimeout(focusTimer);
       window.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
+      releaseScrollLock();
       if (previouslyFocused instanceof HTMLElement && previouslyFocused.isConnected) {
         previouslyFocused.focus();
       }

@@ -12,6 +12,7 @@ import { useAppAuth } from "../context/auth";
 import { useOptionalPreferences } from "../context/preferences";
 import { useToast } from "./Toast";
 import { buildMetaFacts } from "../utils/metaFacts";
+import { lockScroll } from "../utils/scrollLock";
 
 /* ── TitleInfoModal — Netflix-style quick info ──────────────────────
    One shared modal for every "more info" affordance: the hero banner Info button
@@ -76,8 +77,7 @@ export default function TitleInfoModal({ movie, onClose, onSelectMovie }) {
   /* Scroll lock + Escape + initial focus. handleClose is stable enough via
      the isClosing guard that it must not rebind the key listener. */
   useEffect(() => {
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const releaseScrollLock = lockScroll();
     // preventScroll: never let focus reposition the page under the modal.
     closeButtonRef.current?.focus?.({ preventScroll: true });
     const onKey = (e) => {
@@ -85,7 +85,7 @@ export default function TitleInfoModal({ movie, onClose, onSelectMovie }) {
     };
     document.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = prevOverflow;
+      releaseScrollLock();
       document.removeEventListener("keydown", onKey);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above

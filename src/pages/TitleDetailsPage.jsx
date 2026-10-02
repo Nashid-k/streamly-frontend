@@ -57,6 +57,7 @@ import { formatRuntimeLabel, isUnreleased, voteSplitPct } from "../utils/titleDe
 import { buildEpisodeOrder, episodeNumberLabel, isEpAired, formatAirsDate } from "../utils/titleDetails";
 import { getPlatformName } from "../utils/platforms";
 import { playerOpenAttrs } from "../utils/playerOpen";
+import { lockScroll } from "../utils/scrollLock";
 import usePlayerVariant from "../hooks/usePlayerVariant";
 import { logEmptyData, logError, logInfo, reportQueryError } from "../utils/debugLogger";
 const DownloadModal = lazy(() => import("../components/DownloadModal"));
@@ -643,11 +644,7 @@ export default function TitleDetails() {
    * open; this stops the active data-loss case without waiting for it. */
 useEffect(() => {
     if (!isPlaying) return undefined;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
-    };
+    return lockScroll();
   }, [isPlaying]);
 
     // Close the TRAILER on Escape. NativePlayerView owns Escape itself

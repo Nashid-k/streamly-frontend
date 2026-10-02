@@ -28,6 +28,7 @@ import { useToast } from "../components/Toast.jsx";
 const PlayerPreview = lazy(() => import("../components/PlayerPreview.jsx"));
 import { useConfirmDialog } from "../components/ConfirmDialog.jsx";
 import { logDebug, logWarn } from "../utils/debugLogger";
+import { lockScroll } from "../utils/scrollLock";
 import {
   countDeviceData,
   downloadDeviceData,
@@ -228,9 +229,8 @@ export default function SettingsPage() {
   const anyModalOpen = showSignInModal;
   useEffect(() => {
     if (!anyModalOpen) return undefined;
-    const prevOverflow = document.body.style.overflow;
+    const releaseScrollLock = lockScroll();
     const prevActive = document.activeElement;
-    document.body.style.overflow = "hidden";
 
     const focusables = () => {
       const panel = loginPanelRef.current;
@@ -273,7 +273,7 @@ export default function SettingsPage() {
     };
     document.addEventListener("keydown", handleKey);
     return () => {
-      document.body.style.overflow = prevOverflow;
+      releaseScrollLock();
       document.removeEventListener("keydown", handleKey);
       if (prevActive instanceof HTMLElement) prevActive.focus();
     };
