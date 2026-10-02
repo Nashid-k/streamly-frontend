@@ -100,6 +100,12 @@ export default function Scrubber({
    *  remove it from the tab order here, in addition to the collapse rule in
    *  `player.css`. Always present in the row — it belongs to both tier spines. */
   present = true,
+  /** 5.15. Optional frame-rate playhead channel, `(callback) => unsubscribe`,
+   *  from `usePlayerControls`. When supplied, the fill and the ARIA position are
+   *  written straight to the DOM each frame instead of once per `timeupdate`.
+   *  Absent in every unit test, which is why the React path below is kept whole:
+   *  the smooth channel is an enhancement, not the control's only input. */
+  subscribePlayhead,
   className = "",
 }) {
   const trackRef = useRef(null);
@@ -149,6 +155,28 @@ export default function Scrubber({
   /* One flag: absent means not focusable, not announced and not operable, and it
    * must read as "no range exists" rather than "a range you cannot move". */
   const inert = disabled || !present;
+
+  /* 5.15. With a playhead channel wired, the four frame-varying values move out
+   * of React's control (see the JSX below) and are written here at the display's
+   * rate instead of at `timeupdate`'s ~4Hz. React stops emitting them for this
+   * render, so its occasional 4Hz render cannot overwrite a frame-rate write —
+   * the two writers would otherwise alternate and make the bar stutter. */
+  const externallyDriven = typeof subscribePlayhead === "function";
+  useEffect(() => {
+    if (!externallyDriven) return undefined;
+    return subscribePlayhead((time) => {
+      const track = trackRef.current;
+      if (!track) return;
+      const fill = progressFraction(time, duration);
+      track.style.setProperty("--pv2-scrub-fraction", String(fill));
+      track.setAttribute("data-fraction", fill.toFixed(4));
+      track.setAttribute("aria-valuenow", String(clampSeek(time, duration)));
+      track.setAttribute(
+        "aria-valuetext",
+        `${formatTimecode(time)} of ${formatTimecode(duration)}`,
+      );
+    });
+  }, [externallyDriven, subscribePlayhead, duration]);
 
   /** Pointer position -> seconds, measured against the TRACK not the window.
    *  Same reasoning as 3.6: the player is often not the viewport. */
@@ -419,14 +447,27 @@ export default function Scrubber({
       /* `aria-valuemax` must be a NUMBER. Passing `duration` while it is NaN
        * makes assistive tech announce "NaN", and passing Infinity is worse. */
       aria-valuemax={known ? duration : 0}
-      aria-valuenow={clampSeek(currentTime, duration)}
-      aria-valuetext={`${formatTimecode(currentTime)} of ${formatTimecode(duration)}`}
+      /* 5.15. When a playhead channel is wired these four are owned by the
+       * subscription effect (frame rate); React must NOT also emit them, or the
+       * `timeupdate`-driven render would fight the frame-rate write. */
+      aria-valuenow={externallyDriven ? undefined : clampSeek(currentTime, duration)}
+      aria-valuetext={
+        externallyDriven
+          ? undefined
+          : `${formatTimecode(currentTime)} of ${formatTimecode(duration)}`
+      }
       aria-disabled={inert ? "true" : undefined}
-      data-fraction={fraction.toFixed(4)}
+      data-fraction={externallyDriven ? undefined : fraction.toFixed(4)}
       /* The fraction reaches CSS as a NUMBER, not as a percentage string, so the
        * rail, fill, thumb and 3.15's bubble can all compute from it. See
-       * `fractionStyle`. */
-      style={fractionStyle(fraction, bufferedWidth(buffered, duration))}
+       * `fractionStyle`. The buffered band stays on React in both modes — it is
+       * already gated to visible movement (3.14) and never trades with the
+       * playhead. */
+      style={
+        externallyDriven
+          ? { "--pv2-scrub-buffered": bufferedWidth(buffered, duration) }
+          : fractionStyle(fraction, bufferedWidth(buffered, duration))
+      }
       /* The rail's hover/focus growth needs to know the pointer is over it, and
        * `:hover` alone is not enough: the rail is a child, so hovering the dead
        * space between rail and thumb would leave the bar looking asleep. The

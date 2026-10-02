@@ -323,7 +323,11 @@ describe("usePlayerSubtitles", () => {
       SubtitleFetcher.downloadAndDecompress.mockResolvedValue(SRT);
       const { container } = withPrefs({ imdbId: "tt1", currentTime: 1.5, pick: null });
       await waitFor(() => expect(text(container, "track")).toBe("English"));
-      expect(text(container, "cue")).toBe("First cue");
+      // The cue is resolved by a SEPARATE effect keyed on the selected track, so
+      // it can land a render after the track label. Waiting on the label and then
+      // reading the cue bare is a race that passes only when the load happens to
+      // resolve within the same flush — seen failing under a loaded full run.
+      await waitFor(() => expect(text(container, "cue")).toBe("First cue"));
     });
 
     it("honours defaultLanguage over the list order", async () => {

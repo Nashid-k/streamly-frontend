@@ -153,10 +153,50 @@ export default function usePlayerControls(videoRef, containerRef, videoNode) {
     [setPreference],
   );
 
+  /* ── 5.15. The playhead, readable at FRAME rate ─────────────────────────────
+   *
+   * `timeupdate` is the browser's own ~4Hz cadence, which is right for a
+   * timecode and wrong for a scrubber fill: a 250ms step reads as the bar
+   * stuttering rather than sliding. So the smooth path is separated from the
+   * React path instead of fought over.
+   *
+   * `currentTime` state STAYS exactly as it was — it is what the timecode and
+   * the subtitle cue resolve from, and 4Hz is honest for both. What is added is
+   * a subscription a consumer can use to write the scrubber's fill directly to
+   * the DOM each animation frame, without a re-render and without the state.
+   *
+   * This is additive on purpose: a caller that passes no subscription (every
+   * test that renders `Scrubber` with a `currentTime` prop) is unchanged, so the
+   * smooth channel cannot become the only channel and cannot take playback down
+   * with it if an engine refuses `requestAnimationFrame`.
+   */
+  const playheadSubsRef = useRef(new Set());
+  const lastPlayheadRef = useRef(null);
+
+  const getCurrentTime = useCallback(() => {
+    const video = videoRef?.current;
+    const seconds = video ? Number(video.currentTime) : NaN;
+    return Number.isFinite(seconds) ? seconds : 0;
+  }, [videoRef]);
+
+  const subscribePlayhead = useCallback(
+    (callback) => {
+      if (typeof callback !== "function") return () => {};
+      playheadSubsRef.current.add(callback);
+      /* Deliver the position immediately so a subscriber is not left at 0 until
+       * the next frame, which for a paused video is never. */
+      callback(getCurrentTime());
+      return () => {
+        playheadSubsRef.current.delete(callback);
+      };
+    },
+    [getCurrentTime],
+  );
+
   /* Element-level facts. `timeupdate` is the browser's own ~4Hz cadence, which
-   * is right for a timecode and wrong for a scrubber fill — 3.14/5.15 replace
-   * the scrubber's update path with rAF and direct DOM writes. Noting the
-   * boundary here so nobody later reads this as the finished design.
+   * is right for the timecode React renders from it — but wrong for a scrubber
+   * fill, which is why the frame-rate channel above exists and writes the fill
+   * itself. Both run; only the fill takes the smooth path.
    *
    * NOTE WHAT IS ABSENT: no `play`/`pause` listener, and no isPlaying state.
    * An earlier draft tracked both here AND in the machine, and they disagreed —
@@ -182,7 +222,27 @@ export default function usePlayerControls(videoRef, containerRef, videoNode) {
     const video = videoNode;
     if (!video) return undefined;
 
-    const onTimeUpdate = () => setCurrentTime(video.currentTime || 0);
+    /* One notify path for both the 4Hz timeupdate and the frame loop, gated on
+     * an actual change so a paused element (the rAF loop still ticks) writes
+     * nothing and notifies nobody. A throwing subscriber must not take the loop
+     * — and every other subscriber — down with it. */
+    const notifyPlayhead = (time) => {
+      if (time === lastPlayheadRef.current) return;
+      lastPlayheadRef.current = time;
+      for (const callback of playheadSubsRef.current) {
+        try {
+          callback(time);
+        } catch (error) {
+          logWarn("player-controls", "playhead subscriber threw", { error: error?.message });
+        }
+      }
+    };
+
+    const onTimeUpdate = () => {
+      const now = video.currentTime || 0;
+      notifyPlayhead(now);
+      setCurrentTime(now);
+    };
     const onDuration = () => setDuration(Number.isFinite(video.duration) ? video.duration : 0);
     const onVolume = () => {
       setMutedState(Boolean(video.muted));
@@ -234,6 +294,25 @@ export default function usePlayerControls(videoRef, containerRef, videoNode) {
     onVolume();
     readBuffered();
 
+    /* The frame loop. It reads the element's own `currentTime` rather than
+     * interpolating, so a seek, a rate change and a stall are all reflected
+     * without a fourth owner of time. It runs while the element is attached but
+     * only notifies when the value moved, so a paused video costs a property
+     * read and a comparison per frame and touches no DOM.
+     *
+     * Guarded rather than assumed: `requestAnimationFrame` is absent under SSR
+     * and some embedded webviews, and the 4Hz `timeupdate` above still drives
+     * the React timecode there, so a missing frame API degrades to pre-5.15
+     * behaviour instead of throwing. */
+    let playheadFrame = 0;
+    const canFrame =
+      typeof requestAnimationFrame === "function" && typeof cancelAnimationFrame === "function";
+    const tickPlayhead = () => {
+      notifyPlayhead(video.currentTime || 0);
+      playheadFrame = requestAnimationFrame(tickPlayhead);
+    };
+    if (canFrame) playheadFrame = requestAnimationFrame(tickPlayhead);
+
     video.addEventListener("timeupdate", onTimeUpdate);
     video.addEventListener("durationchange", onDuration);
     video.addEventListener("loadedmetadata", onDuration);
@@ -251,6 +330,7 @@ export default function usePlayerControls(videoRef, containerRef, videoNode) {
     video.addEventListener("seeked", readBuffered);
 
     return () => {
+      if (playheadFrame) cancelAnimationFrame(playheadFrame);
       video.removeEventListener("timeupdate", onTimeUpdate);
       video.removeEventListener("durationchange", onDuration);
       video.removeEventListener("loadedmetadata", onDuration);
@@ -468,6 +548,12 @@ export default function usePlayerControls(videoRef, containerRef, videoNode) {
     volume,
     currentTime,
     duration,
+    /* 5.15. The frame-rate playhead channel. `getCurrentTime` answers "where is
+     * the element NOW" (never the 4Hz state), and `subscribePlayhead` delivers
+     * that value each frame for direct DOM writes. Additive: the React state
+     * above is still the timecode's and the cue's source. */
+    getCurrentTime,
+    subscribePlayhead,
     /* 3.14. Seconds, not a fraction: `duration` can change (a live stream, a
      * source swap) and a fraction captured against the old duration would be
      * quietly wrong afterwards. The scrubber does the division, against the

@@ -192,6 +192,10 @@ export default function TransportBar({
   isPlaying = false,
   isPaused = false,
   currentTime = 0,
+  /** 5.15. Optional frame-rate playhead channel, forwarded to the scrubber and
+   *  used by nothing else here: the elapsed timecode is a whole-second readout
+   *  where `timeupdate`'s cadence is already the right one. */
+  subscribePlayhead,
   duration = 0,
   /** Seconds of video buffered past the playhead (3.14). Read only by the
    *  scrubber; every other control here is about intent, not state. */
@@ -394,6 +398,10 @@ mode = TRANSPORT_MODE.ROW,
                 /* 3.16. Measured boundaries, passed raw so the estimated-vs-measured
                  * decision stays in `boundaryTicks.js` where the rule lives. */
                 boundaries={boundaries}
+                /* 5.15. Passed through untouched: the transport is where the shell
+                 * and the scrubber meet, and the smooth channel belongs to the
+                 * scrubber, not to this layout. */
+                subscribePlayhead={subscribePlayhead}
                 onSeek={onSeek}
                 present={present}
               />

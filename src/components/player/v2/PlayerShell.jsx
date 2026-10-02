@@ -477,6 +477,10 @@ data-sheet={sheetPanel ?? undefined}
             isPlaying={view.isPlaying}
             isPaused={view.isPaused}
             currentTime={controls.currentTime}
+            /* 5.15. The frame-rate playhead, for the scrubber fill only. The
+             * `currentTime` above stays the timecode's and the cue's source; this
+             * is the smooth channel that removes the ~4Hz step. */
+            subscribePlayhead={controls.subscribePlayhead}
             duration={controls.duration}
             buffered={controls.buffered}
             muted={controls.muted}

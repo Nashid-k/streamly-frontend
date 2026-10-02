@@ -5239,7 +5239,7 @@ Audited against what v2 actually does. Verdicts, with the evidence:
 | 5.12 `autoSubtitles`/`defaultLanguage` | **LIVE gap → DONE 2026-10-02** | `autoSubtitles` was read nowhere outside `i18n/`, `SettingsPage` and the default map. `usePlayerSubtitles` now auto-selects the preferred language once per title; while doing this it surfaced a latent bug where the language-list fetch was invalidated by the title-change effect's `tokenRef` bump, so the pane never populated |
 | 5.13 `reduceMotion` → springs | **DONE 2026-10-02** | stale: `App.jsx:12` already wraps the whole app in `<MotionConfig reducedMotion={reduceMotion ? "always" : "user"}>`, so the in-app toggle reaches framer motion (CSS `data-reduce-motion` covers the rest) |
 | 5.14 localize player strings | **LIVE, large** | only **2** `player.*` keys exist in `en.js`, not the ~45 claimed |
-| 5.15 scrubber off React state | **re-target** | v2 `Scrubber.jsx` has no `requestAnimationFrame` and no `onTime`; time arrives via `usePlayerControls`/`mediaEvents`. Needs a v2 throttle audit, not this text |
+| 5.15 scrubber off React state | **DONE 2026-10-02** | resolved differently from the note: v2 keeps `currentTime` state (4Hz, correct for the timecode/cue) and ADDS a separate optional `subscribePlayhead` rAF channel that writes the scrubber's fill/ARIA straight to the DOM. No state or tree churn on the smooth path |
 | 5.16 memoise party hook | **unverified** | `PlayerShell.jsx:104,560` consumes it; the fresh-object-per-poll claim still needs checking at the call site |
 | 5.17 async progress write | **LIVE, shared** | `useUserData.js:28` still does a synchronous `localStorage.setItem` |
 | 5.18 one dialog-aware keymap | **re-target** | v2 has `useInputCapability` + `usePlayerControls`; the 4 eslint suppressions cited are legacy |
@@ -5373,9 +5373,24 @@ deletion. 12 are genuinely live, 4 of them **real bugs shipping today** (5.3, 5.
 - [ ] 5.14 Localize every player string: ~45 new `player.*` keys in
       `src/i18n/en.js` beyond the 13 that exist (`:371-384`). The other 9 locales
       deep-merge and fall back to English safely.
-- [ ] 5.15 Drive the scrubber with rAF + direct DOM writes instead of React state.
-      `onTime` (`:1755-1776`) fires 4×/sec and triggers 3 `setState`s, re-rendering
-      the whole tree 4×/sec forever.
+- [x] 5.15 **DONE 2026-10-02.** Drive the scrubber fill with rAF + direct DOM
+      writes instead of the 4Hz `timeupdate` tick. `usePlayerControls` now exposes
+      `getCurrentTime()` ("where is the element NOW") and `subscribePlayhead(cb)`,
+      backed by a `requestAnimationFrame` loop that reads the element's own
+      `currentTime` and notifies only when it moved (a paused video costs a read
+      and a comparison, no DOM). `Scrubber` subscribes and writes
+      `--pv2-scrub-fraction`, `data-fraction`, `aria-valuenow` and `aria-valuetext`
+      straight to the node each frame; when that channel is wired React emits none
+      of those four, so a later 4Hz render cannot overwrite a frame-rate write.
+      The React `currentTime` state is deliberately KEPT for the timecode and the
+      subtitle cue, which is what the original `timeupdate` comment called
+      "right". The channel is additive/optional, so every test that renders
+      `Scrubber` with a `currentTime` prop is unchanged and a missing
+      `requestAnimationFrame` degrades to pre-5.15 behaviour instead of throwing.
+      Tests: +6 in `playerV2Playhead.test.jsx` (immediate delivery,
+      `timeupdate` delivery, unsubscribe, React-omits-the-four in wired mode,
+      React path intact unwired). Also hardened a flaky 5.12 assertion on the way
+      (the cue resolves a render after the track label under load).
 - [ ] 5.16 Memoise the party hook result so only the participant strip re-renders.
       `TitleDetailsPage.jsx:2259` passes a fresh object every 2s poll, re-rendering
       hero, all rails and the ambient backdrop during playback.
