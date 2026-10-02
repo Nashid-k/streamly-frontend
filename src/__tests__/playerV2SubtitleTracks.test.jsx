@@ -6,6 +6,7 @@ import SettingsSheet from "../components/player/v2/SettingsSheet";
 import {
   captionOptions,
   flagOf,
+  preferredTrack,
   sortTracks,
   trackBadge,
   trackBadgeLabel,
@@ -356,5 +357,46 @@ describe("subtitleTracks.captionOptions", () => {
     expect(captionOptions(undefined)).toEqual([]);
     expect(captionOptions(null)).toEqual([]);
     expect(captionOptions([null, undefined])).toEqual([]);
+  });
+});
+
+describe("subtitleTracks.preferredTrack (5.12)", () => {
+  it("matches the upstream ISO-639-2 id and the display name alike", () => {
+    /* `defaultLanguage` is an ISO-639-1 code; OpenSubtitles speaks ISO-639-2/B in
+     * `SubLanguageID` and full English names in `LanguageName`. Comparing the two
+     * vocabularies directly is how a preference silently never matches. */
+    expect(preferredTrack([{ language: "English", languageId: "eng" }], "en")).toMatchObject({
+      languageId: "eng",
+    });
+    expect(
+      preferredTrack([{ language: "English (US)", languageId: "en" }], "en"),
+    ).toMatchObject({ language: "English (US)" });
+    /* The deprecated B form and the suffix variant both have to reach Spanish. */
+    expect(preferredTrack([{ language: "Spanish (LA)", languageId: "spa" }], "es")).toBeTruthy();
+  });
+
+  it("prefers the plain variant over SDH and forced", () => {
+    /* Auto-selection must never turn on a descriptive or signage track by accident,
+     * whatever order the list happens to arrive in. */
+    const list = [
+      { language: "English", languageId: "en", forced: "1" },
+      { language: "English", languageId: "en", hearingImpaired: "1" },
+      { language: "English", languageId: "en" },
+    ];
+    expect(preferredTrack(list, "en")).toBe(list[2]);
+  });
+
+  it("returns null when the language is absent or the code is unknown", () => {
+    /* Null is the correct answer, not a fallback: the caller leaves subtitles off
+     * rather than selecting a language the viewer did not ask for. */
+    expect(preferredTrack([{ language: "English", languageId: "eng" }], "de")).toBeNull();
+    expect(preferredTrack([{ language: "English", languageId: "eng" }], "xx")).toBeNull();
+    expect(preferredTrack([{ language: "Tamil", languageId: "tam" }], "en")).toBeNull();
+  });
+
+  it("tolerates junk and non-arrays", () => {
+    expect(preferredTrack(undefined, "en")).toBeNull();
+    expect(preferredTrack([null, undefined], "en")).toBeNull();
+    expect(preferredTrack([{ language: "English" }], "")).toBeNull();
   });
 });

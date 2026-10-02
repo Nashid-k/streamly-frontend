@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SubtitleFetcher } from "../../../../api/subtitleFetcher";
 import { SubtitleEngine } from "../../../../utils/subtitleEngine";
+import { useOptionalPreferences } from "../../../../context/preferences";
 import { logInfo, logWarn } from "../../../../utils/debugLogger";
+import { preferredTrack } from "../subtitleTracks";
 
 const SUB_SCOPE = "player.v2.subtitles";
+
+/* The identity a language list and an auto-selection decision attach to. A
+ * string, so two titles with the same imdbId but a refined title do not churn. */
+const titleKeyOf = (imdbId, title) => `${imdbId || ""}|${title || ""}`;
 
 /**
  * Subtitle track selection and the active cue (task.md 6.4's subtitle half, pulled
@@ -53,6 +59,23 @@ export default function usePlayerSubtitles({ imdbId, title, currentTime } = {}) 
   const engineRef = useRef(null);
   const tokenRef = useRef(0);
 
+  /* 5.12. The subtitle restore preferences. Read optionally so the hook keeps
+   * working (and its tests keep passing) with no PreferencesProvider mounted. */
+  const preferences = useOptionalPreferences();
+  const autoSubtitles = preferences?.autoSubtitles;
+  const defaultLanguage = preferences?.defaultLanguage;
+
+  /* The title a fetched list belongs to, and the title auto-selection has
+   * already been decided for. Both are refs: neither is an input to rendering,
+   * and the `languages`/`track` state that changes alongside them is what
+   * re-runs the selection effect. The former guards against selecting from a
+   * previous title's still-mounted list; the latter against fighting a viewer
+   * who has since chosen "Off". */
+  const languagesKeyRef = useRef(null);
+  const autoKeyRef = useRef(null);
+
+  const titleKey = titleKeyOf(imdbId, title);
+
   const engine = () => {
     if (!engineRef.current) engineRef.current = new SubtitleEngine();
     return engineRef.current;
@@ -62,20 +85,33 @@ export default function usePlayerSubtitles({ imdbId, title, currentTime } = {}) 
    * No `imdbId` gate: the fetcher falls back to a title search on its own, so a
    * title whose `external_ids` lookup failed still gets a list instead of a
    * silently empty pane. A miss is an empty array, which is a real state the pane
-   * can render — not an error. */
+   * can render — not an error.
+   *
+   * Guarded by `cancelled` ALONE, deliberately. This used to also compare a
+   * `tokenRef` snapshot, but the title-change effect bumps that same ref — both
+   * effects run in one commit, in order — so the fetch's own token was stale by
+   * the time it resolved and `setLanguages` was NEVER called. The list stayed
+   * empty on every title, which is why the caption pane offered nothing and
+   * 5.12's restore had nothing to restore. `cancelled` (set by the cleanup) is
+   * sufficient: it is true exactly when a newer title's fetch has superseded
+   * this one or the hook unmounted. */
   useEffect(() => {
     let cancelled = false;
-    tokenRef.current += 1;
-    const token = tokenRef.current;
+    const key = titleKeyOf(imdbId, title);
 
     SubtitleFetcher.searchAvailableSubtitles(imdbId, title)
       .then((list) => {
-        if (cancelled || token !== tokenRef.current) return;
+        if (cancelled) return;
+        /* The list is tagged with the title it was fetched for, so the
+         * auto-selection effect can tell this title's list from the previous
+         * one's still in state on the commit a title change lands. */
+        languagesKeyRef.current = key;
         setLanguages(Array.isArray(list) ? list : []);
       })
       .catch((err) => {
-        if (cancelled || token !== tokenRef.current) return;
+        if (cancelled) return;
         logWarn(SUB_SCOPE, "subtitle language list failed", err);
+        languagesKeyRef.current = key;
         setLanguages([]);
       });
 
@@ -157,16 +193,50 @@ export default function usePlayerSubtitles({ imdbId, title, currentTime } = {}) 
 
   /* Drop the active cue when the title changes. Without this, closing one title
    * and opening the next shows the previous title's last line over the new
-   * video until its own cues load. */
-  const titleKey = `${imdbId || ""}|${title || ""}`;
+   * video until its own cues load. The language list is cleared here too: it is
+   * the OTHER title's list, and leaving it on screen until the refetch lands is
+   * both wrong to look at and, for 5.12, a list auto-selection must not read
+   * from. `languagesKeyRef` is nulled for the same reason — the auto-selection
+   * effect runs after this one in the title-change commit and would otherwise
+   * match against the outgoing list. */
   useEffect(() => {
     tokenRef.current += 1;
     engineRef.current?.setCues([]);
+    languagesKeyRef.current = null;
+    setLanguages([]);
     setTrack(null);
     setCue(null);
     setError(null);
     setLoading(false);
   }, [titleKey]);
+
+  /* ── 5.12. Auto-select the preferred subtitle language ──────────────────────
+   * Fires once per title, after its language list arrives. The guards are the
+   * feature:
+   *
+   * - `languagesKeyRef === titleKey` skips the outgoing title's list on the
+   *   commit a title change starts.
+   * - `autoKeyRef === titleKey` makes the decision once. It is what stops a
+   *   viewer who picks "Off" — or switches to another language — from having
+   *   the preference snap straight back on the next render.
+   * - `track` already set means something (a manual pick, or this effect on an
+   *   earlier render) owns the selection, so it is left alone.
+   *
+   * A preferred language that is absent is NOT approximated: no `preferredTrack`
+   * match leaves subtitles Off, because turning on a language the viewer did not
+   * ask for is worse than showing nothing. */
+  useEffect(() => {
+    if (!autoSubtitles || !languages.length) return;
+    if (languagesKeyRef.current !== titleKey) return;
+    if (autoKeyRef.current === titleKey) return;
+    if (track) {
+      autoKeyRef.current = titleKey;
+      return;
+    }
+    autoKeyRef.current = titleKey;
+    const match = preferredTrack(languages, defaultLanguage);
+    if (match) select(match);
+  }, [autoSubtitles, defaultLanguage, languages, track, titleKey, select]);
 
   /* ── The active cue, resolved from `currentTime` ────────────────────────────
    * Driven by the shell's existing `currentTime` rather than a `timeupdate`

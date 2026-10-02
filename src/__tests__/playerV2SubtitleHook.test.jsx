@@ -25,6 +25,7 @@ vi.mock("../api/subtitleFetcher", () => ({
 }));
 
 import { SubtitleFetcher } from "../api/subtitleFetcher";
+import { PreferencesContext } from "../context/preferences";
 import usePlayerSubtitles from "../components/player/v2/hooks/usePlayerSubtitles";
 
 const SRT = [
@@ -38,6 +39,7 @@ const SRT = [
 ].join("\n");
 
 const ENGLISH = { language: "English", languageId: "en", downloadLink: "/en" };
+const SPANISH = { language: "Spanish", languageId: "es", downloadLink: "/es" };
 const TAMIL = { language: "Tamil", languageId: "ta", downloadLink: "/ta" };
 
 function Probe(props) {
@@ -78,6 +80,17 @@ describe("usePlayerSubtitles", () => {
       renderHook({ imdbId: "tt1", title: "A" });
       await waitFor(() => expect(SubtitleFetcher.searchAvailableSubtitles).toHaveBeenCalledTimes(1));
       expect(SubtitleFetcher.searchAvailableSubtitles).toHaveBeenCalledWith("tt1", "A");
+    });
+
+    it("populates a non-empty list instead of dropping it to a stale token", async () => {
+      /* REGRESSION (found while building 5.12). The title-change effect bumps the
+       * same `tokenRef` the list fetch snapshotted, and both effects run in one
+       * commit — so by the time the promise resolved its token was stale and
+       * `setLanguages` never ran. The pane was always empty, which is also why
+       * the restore preference had nothing to restore. */
+      SubtitleFetcher.searchAvailableSubtitles.mockResolvedValue([ENGLISH, TAMIL]);
+      const { container } = renderHook({ imdbId: "tt1" });
+      await waitFor(() => expect(text(container, "langs")).toBe("English,Tamil"));
     });
 
     it("falls back to a title search when there is no imdbId", async () => {
@@ -287,6 +300,100 @@ describe("usePlayerSubtitles", () => {
       rerender(<Probe imdbId="tt2" title="B" currentTime={1.5} pick={ENGLISH} />);
       await waitFor(() => expect(text(container, "cue")).toBe(""));
       expect(text(container, "track")).toBe("");
+    });
+  });
+
+  describe("5.12 auto-subtitle restore", () => {
+    const PREFS = { autoSubtitles: true, defaultLanguage: "en" };
+    const withPrefs = (props = {}, prefs = {}) =>
+      render(
+        <PreferencesContext.Provider value={{ ...PREFS, ...prefs }}>
+          <Probe {...props} />
+        </PreferencesContext.Provider>,
+      );
+    const rerenderWithPrefs = (utils, props = {}, prefs = {}) =>
+      utils.rerender(
+        <PreferencesContext.Provider value={{ ...PREFS, ...prefs }}>
+          <Probe {...props} />
+        </PreferencesContext.Provider>,
+      );
+
+    it("auto-selects the preferred language when the list arrives", async () => {
+      SubtitleFetcher.searchAvailableSubtitles.mockResolvedValue([SPANISH, ENGLISH]);
+      SubtitleFetcher.downloadAndDecompress.mockResolvedValue(SRT);
+      const { container } = withPrefs({ imdbId: "tt1", currentTime: 1.5, pick: null });
+      await waitFor(() => expect(text(container, "track")).toBe("English"));
+      expect(text(container, "cue")).toBe("First cue");
+    });
+
+    it("honours defaultLanguage over the list order", async () => {
+      SubtitleFetcher.searchAvailableSubtitles.mockResolvedValue([ENGLISH, SPANISH]);
+      SubtitleFetcher.downloadAndDecompress.mockResolvedValue(SRT);
+      const { container } = withPrefs(
+        { imdbId: "tt1", currentTime: 1.5, pick: null },
+        { defaultLanguage: "es" },
+      );
+      await waitFor(() => expect(text(container, "track")).toBe("Spanish"));
+    });
+
+    it("does nothing when autoSubtitles is off", async () => {
+      SubtitleFetcher.searchAvailableSubtitles.mockResolvedValue([ENGLISH]);
+      SubtitleFetcher.downloadAndDecompress.mockResolvedValue(SRT);
+      const { container } = withPrefs(
+        { imdbId: "tt1", pick: null },
+        { autoSubtitles: false },
+      );
+      await waitFor(() => expect(text(container, "langs")).toBe("English"));
+      expect(text(container, "track")).toBe("");
+      expect(SubtitleFetcher.downloadAndDecompress).not.toHaveBeenCalled();
+    });
+
+    it("leaves subtitles off when the preferred language is absent", async () => {
+      /* Not approximated to the first available track: a viewer who chose German
+       * should not silently get Spanish. */
+      SubtitleFetcher.searchAvailableSubtitles.mockResolvedValue([ENGLISH, SPANISH]);
+      SubtitleFetcher.downloadAndDecompress.mockResolvedValue(SRT);
+      const { container } = withPrefs(
+        { imdbId: "tt1", pick: null },
+        { defaultLanguage: "de" },
+      );
+      await waitFor(() => expect(text(container, "langs")).toBe("English,Spanish"));
+      expect(text(container, "track")).toBe("");
+      expect(SubtitleFetcher.downloadAndDecompress).not.toHaveBeenCalled();
+    });
+
+    it("does not fight a viewer who turns the restored track off", async () => {
+      SubtitleFetcher.searchAvailableSubtitles.mockResolvedValue([ENGLISH]);
+      SubtitleFetcher.downloadAndDecompress.mockResolvedValue(SRT);
+      const utils = withPrefs({ imdbId: "tt1", currentTime: 1.5, pick: null });
+      const { container } = utils;
+      await waitFor(() => expect(text(container, "track")).toBe("English"));
+
+      rerenderWithPrefs(utils, { imdbId: "tt1", currentTime: 1.5, pick: null });
+      await act(async () => { container.querySelector("button").click(); });
+      await waitFor(() => expect(text(container, "track")).toBe(""));
+
+      /* A later render — a seek, say — must not run the preference again and
+       * snap the track back on. */
+      rerenderWithPrefs(utils, { imdbId: "tt1", currentTime: 5.5, pick: null });
+      expect(text(container, "track")).toBe("");
+    });
+
+    it("restores again for a new title", async () => {
+      SubtitleFetcher.searchAvailableSubtitles.mockResolvedValue([ENGLISH]);
+      SubtitleFetcher.downloadAndDecompress.mockResolvedValue(SRT);
+      const utils = withPrefs({ imdbId: "tt1", title: "A", pick: null });
+      const { container } = utils;
+      await waitFor(() => expect(text(container, "track")).toBe("English"));
+
+      /* Turn it off on title A… */
+      rerenderWithPrefs(utils, { imdbId: "tt1", title: "A", pick: null });
+      await act(async () => { container.querySelector("button").click(); });
+      await waitFor(() => expect(text(container, "track")).toBe(""));
+
+      /* …then open title B: B's own list must restore the preference. */
+      rerenderWithPrefs(utils, { imdbId: "tt2", title: "B", pick: null });
+      await waitFor(() => expect(text(container, "track")).toBe("English"));
     });
   });
 });

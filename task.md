@@ -5236,7 +5236,7 @@ Audited against what v2 actually does. Verdicts, with the evidence:
 | 5.9 fold player prefs into context | **half done** | `aspect` + `playbackRate` are in; **`volume`/`muted` are not in the context at all** |
 | 5.10 legacy key migration | **half done** | `aspect` is migrated (`:211` "Migrated legacy player aspect preference"); **`streamly-native-volume`/`-muted` are never read** |
 | 5.11 keep per-title subtitle cache | **no work** | an instruction to *not* change a per-title cache, not a task |
-| 5.12 `autoSubtitles`/`defaultLanguage` | **LIVE gap** | `autoSubtitles` is read nowhere outside `i18n/`, `SettingsPage` and the default map |
+| 5.12 `autoSubtitles`/`defaultLanguage` | **LIVE gap → DONE 2026-10-02** | `autoSubtitles` was read nowhere outside `i18n/`, `SettingsPage` and the default map. `usePlayerSubtitles` now auto-selects the preferred language once per title; while doing this it surfaced a latent bug where the language-list fetch was invalidated by the title-change effect's `tokenRef` bump, so the pane never populated |
 | 5.13 `reduceMotion` → springs | **moot for v2** | v2 has **no `MotionConfig`** anywhere; `tokens.css` `data-reduce-motion` covers v2. Legacy framer-motion only |
 | 5.14 localize player strings | **LIVE, large** | only **2** `player.*` keys exist in `en.js`, not the ~45 claimed |
 | 5.15 scrubber off React state | **re-target** | v2 `Scrubber.jsx` has no `requestAnimationFrame` and no `onTime`; time arrives via `usePlayerControls`/`mediaEvents`. Needs a v2 throttle audit, not this text |
@@ -5346,8 +5346,24 @@ deletion. 12 are genuinely live, 4 of them **real bugs shipping today** (5.3, 5.
       A folded `setting-volume`/`setting-muted` wins over the legacy key.
 - [ ] 5.11 KEEP `streamly-native-subtitle-${id}` (`:3229`, `:3310`) exactly as-is
       — a per-title cache, not a setting; migrating it buys nothing.
-- [ ] 5.12 Consume `autoSubtitles` and `defaultLanguage` for subtitle restore.
-      Both are defined (`PreferencesContext.jsx:53-54`) and read by nothing.
+- [x] 5.12 Consume `autoSubtitles` and `defaultLanguage` for subtitle restore.
+      Both are defined (`preferences.js:85-86`) and were read by nothing.
+      **DONE 2026-10-02.** `usePlayerSubtitles` reads `autoSubtitles` +
+      `defaultLanguage` via `useOptionalPreferences`, and once per title, when
+      its language list arrives, auto-selects the preferred language.
+      `preferredTrack` (`subtitleTracks.js`) maps the ISO-639-1 code to
+      OpenSubtitles' ISO-639-2/B id AND display name, ranks plain > SDH > forced,
+      and returns null when the language is absent (no approximation — turning on
+      a language the viewer did not ask for is worse than Off). Guards: a
+      `languagesKeyRef`/`autoKeyRef` pair stops it reading the outgoing title's
+      list on a title change and stops it fighting a manual "Off" or later pick.
+      **Latent bug found and fixed on the way:** the language-list fetch
+      snapshotted `tokenRef`, which the title-change effect bumps in the SAME
+      commit, so the fetch's token was always stale and `setLanguages` never ran —
+      the caption pane's language list was empty on every title. Now guarded by
+      the `cancelled` flag alone. Tests: +1 list-populates regression and +6
+      restore cases in `playerV2SubtitleHook.test.jsx`, +4 `preferredTrack` units
+      in `playerV2SubtitleTracks.test.jsx`.
 - [ ] 5.13 Consume `reduceMotion` so the in-app toggle reaches framer motion.
       `tokens.css:125-136` kills CSS motion via `data-reduce-motion`, but
       `MotionConfig reducedMotion="user"` (`:3580`) reads the **OS** media query

@@ -155,3 +155,63 @@ export function captionOptions(tracks) {
   }
   return sortTracks(unique);
 }
+
+/**
+ * The interface languages the Settings picker can name (task.md 5.12).
+ *
+ * `defaultLanguage` is an ISO-639-1 code ("en"); OpenSubtitles returns its own
+ * pair — `SubLanguageID` as ISO-639-2/B ("eng") and `LanguageName` in English
+ * ("English"). Both the code and its variants are accepted per language, because
+ * a hardcoded interface id and an upstream id are different vocabularies and
+ * comparing them directly is how a preference silently never matches.
+ *
+ * The deprecated ISO-639-2/B forms (`fre`, `ger`) are listed alongside the
+ * current `fra`/`deu`: the REST API still emits the older ones for some titles,
+ * and both spell the same language.
+ */
+export const LANGUAGE_ALIASES = Object.freeze({
+  en: { names: ["english"], ids: ["en", "eng"] },
+  es: { names: ["spanish"], ids: ["es", "spa", "esp"] },
+  fr: { names: ["french"], ids: ["fr", "fre", "fra"] },
+  de: { names: ["german"], ids: ["de", "ger", "deu"] },
+  it: { names: ["italian"], ids: ["it", "ita"] },
+  pt: { names: ["portuguese"], ids: ["pt", "por"] },
+  ja: { names: ["japanese"], ids: ["ja", "jpn"] },
+  ko: { names: ["korean"], ids: ["ko", "kor"] },
+  hi: { names: ["hindi"], ids: ["hi", "hin"] },
+  ar: { names: ["arabic"], ids: ["ar", "ara"] },
+});
+
+function matchesLanguage(track, aliases) {
+  const id = String(track?.languageId || "").toLowerCase();
+  if (id && aliases.ids.includes(id)) return true;
+  /* `startsWith`, not equality: OpenSubtitles distinguishes "Portuguese" from
+   * "Portuguese (BR)" and "Spanish" from "Spanish (LA)" by a suffix, and a
+   * viewer who chose Portuguese wants either. None of the ten names is a prefix
+   * of another, so this cannot cross-match a different language. */
+  const name = String(track?.language || "").trim().toLowerCase();
+  return Boolean(name) && aliases.names.some((alias) => name.startsWith(alias));
+}
+
+/**
+ * The best track for a preferred interface language, or null.
+ *
+ * When a language offers several variants the PLAIN track wins over SDH, and SDH
+ * over forced, so auto-selection never turns on a descriptive or signage track
+ * by accident. Ranking is done here rather than relying on the caller's order,
+ * because this is also called with raw fixtures.
+ *
+ * Null is a real answer, not a failure: the preferred language is simply absent,
+ * and the caller leaves subtitles Off rather than switching the viewer to a
+ * language they did not ask for.
+ */
+export function preferredTrack(tracks, code) {
+  const aliases = LANGUAGE_ALIASES[String(code || "").toLowerCase()];
+  if (!aliases) return null;
+  const matches = (Array.isArray(tracks) ? tracks : []).filter(
+    (track) => track && matchesLanguage(track, aliases),
+  );
+  if (!matches.length) return null;
+  const rank = (track) => (flagOf(track.forced) ? 2 : flagOf(track.hearingImpaired) ? 1 : 0);
+  return matches.reduce((best, track) => (rank(track) < rank(best) ? track : best), matches[0]);
+}
