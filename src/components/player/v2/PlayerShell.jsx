@@ -1,4 +1,10 @@
 import { forwardRef, useCallback, useMemo, useRef, useState } from "react";
+/* v2's own stylesheet. This import is load-bearing and was missing, which is why
+ * the player rendered unstyled: every v2 CSS test read this file off DISK and
+ * happily asserted its rules while the browser never received a byte of it.
+ * `styles/player.css` in main.jsx is the LEGACY sheet and does not style a
+ * `.pv2-shell`. Pinned by playerV2StylesheetWiring.test.js so it cannot go again. */
+import "./player.css";
 import LoadingStage from "./LoadingStage";
 import PlayerVideo from "./PlayerVideo";
 import StatusLine from "./StatusLine";

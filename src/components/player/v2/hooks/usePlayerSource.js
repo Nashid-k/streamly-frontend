@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { PLAYER_SOURCES } from "../../../../constants/sources";
 import { E } from "../playbackMachine";
 import { OUTCOME, initialLadder, runLadder } from "../sourceLadder";
+import { isPlayableMediaUrl } from "./useHlsSource";
 import { logInfo, logWarn } from "../../../../utils/debugLogger";
 
 const SOURCE_SCOPE = "PlayerSource";
@@ -9,15 +10,21 @@ const SOURCE_SCOPE = "PlayerSource";
 /**
  * The playable URL out of a resolve payload.
  *
- * Mirrors the legacy rule at `NativePlayerView.jsx:2291`: a multi-level master
- * must be opened from `source.url`, while a single rendition prefers `refUrl`.
- * Getting this backwards produces a manifest that 404s on the first segment, so
- * it is spelled out rather than collapsed into `url || refUrl`.
+ * `refUrl` is the REFERRER - the page a stream must be opened *from* - and for
+ * several providers that page is the provider's homepage. The old rule returned
+ * `refUrl` first for a single rendition, so `https://vidcore.io/` was handed to
+ * `<video src>`: the browser tried to decode HTML as media, the `media-src
+ * 'self' blob:` CSP blocked it, and the viewer got a black player with no error.
+ *
+ * So the order is not "which field wins" but "which candidate is actually
+ * media". `source.url` leads (a master must open from it), `refUrl` is only used
+ * when it is itself a real file, and a payload with no media candidate returns
+ * "" so the ladder moves to the next server instead of playing a web page.
  */
 export function extractPlayableUrl(payload) {
   const src = payload?.source || {};
-  if (src.multiLevelMaster) return src.url || "";
-  return src.refUrl || src.url || "";
+  const candidates = [src.url, src.refUrl].filter(Boolean);
+  return candidates.find(isPlayableMediaUrl) || "";
 }
 
 /**

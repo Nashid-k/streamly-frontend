@@ -5545,6 +5545,47 @@ move that turns "clean up the old player" into "ship a regression".
       than the ref. **Do not mark this done on a code-reading argument.**
 
 ## N1 — Queue hygiene (this is why the plan went missing)
+- [x] N1.0 **Player rendered unstyled and refused to play — fixed 2026-10-02.**
+      Reported in the field as `native playback {url: 'https://vidcore.io/'}` plus
+      `Loading media from 'https://vidcore.io/' violates ... media-src 'self'
+      blob:`. Three independent defects stacked; each is pinned by a test that
+      fails if the fix is reverted.
+      1. **The v2 stylesheet was never shipped.** `src/components/player/v2/
+         player.css` (57 kB) was imported by **nothing**. `main.jsx` imports only
+         the legacy `src/styles/player.css`, which has no `.pv2-` rules, so the
+         whole player rendered unstyled. Every v2 CSS test read that file off
+         disk with `readFileSync` and asserted its rules — testing *declarations*
+         while never testing *delivery*. `PlayerShell.jsx` now does
+         `import "./player.css"`, and `playerV2StylesheetWiring.test.js` asserts
+         the sheet is imported by the module that renders the shell and is NOT
+         in `main.jsx` (it must ride the lazy chunk). Verified in the build:
+         `dist/assets/PlayerShell-*.css` now contains `.pv2-shell`.
+      2. **`extractPlayableUrl` returned the REFERRER as the stream**
+         (`usePlayerSource.js`). For a single rendition the old rule returned
+         `refUrl` first, but `refUrl` is the page a stream must be opened *from*
+         — for several providers the provider homepage. So `https://vidcore.io/`
+         became the media URL. Now candidates are filtered by
+         `isPlayableMediaUrl` (`source.url` first, `refUrl` only if it is itself
+         a real file), and a payload with no media candidate returns `""` so the
+         ladder advances instead of playing a web page.
+      3. **`choosePlaybackMode` answered MODE.NATIVE for anything not `.m3u8`**
+         (`useHlsSource.js`), so a provider *page* was accepted as "progressive
+         media" and handed to `<video src>` — the black rectangle. It now
+         refuses non-media URLs **before** the progressive branch; an mp4 still
+         plays natively. An unplayable URL now emits `logWarn` + `E.FAIL` rather
+         than returning silently behind a spinner. Extensions are judged on the
+         path only, so `https://vidcore.io/?next=master.m3u8` is a page, not HLS.
+- [ ] N1.3 **Safari cannot play remote HLS — `media-src` CSP, user deferred
+      2026-10-02.** `vercel.json` sets `media-src 'self' blob:` while
+      `frame-src`/`Permissions-Policy` list eight provider origins, so the
+      omission looks accidental. Chrome/Firefox are unaffected (hls.js fetches
+      via `connect-src https:`, buffers are `blob:`), but Safari's native path
+      sets `video.src` to a remote manifest and is blocked. Fixing it means
+      widening a security header, so it is **not** done without an explicit
+      order: either enumerate provider hosts (strict, but likely whack-a-mole
+      because manifests/segments come from rotating provider CDNs) or add
+      `https:`. Note this is deploy-only — localhost dev has no CSP, so it
+      cannot be reproduced in `npm run dev`.
 - [ ] N1.1 **Reconcile the 86 open items in `Part 3`–`Part 8`** (5.1–5.25, 6.4–6.7,
       7.1–7.16, 3.30–3.44, 4.1–4.9, 8.1/8.2/8.4, 2.2/2.10) against what actually
       shipped. Only the `R`/`S`/`N` series has been worked this session; the
@@ -5552,6 +5593,14 @@ move that turns "clean up the old player" into "ship a regression".
       staleness**, so it cannot currently be trusted as a plan. For each open
       `Part` item: still needed, already done but unticked, or superseded by an
       `R` item — and tick, close, or delete accordingly.
+      Audit notes so far: 5.4 (`useContainerSize`) is referenced only from
+      `NativePlayerView.jsx`, `playerUi.js` and `index.js` — all legacy, so it
+      dies with R6; v2 uses container queries in `v2/player.css`. 5.7 (`seekTime`)
+      is still exposed through `preferences.js`, `PreferencesContext.jsx` and
+      `SettingsPage.jsx`, but its only *playback* consumer is legacy
+      `NativePlayerView.jsx:1942-1944`; `usePlayerControls.js:274` mentions
+      `seekTime` **in a comment only** — so v2 does not read the preference and
+      the skip amount is not preference-driven. 5.7 is a real v2 gap.
 - [ ] N1.2 The authoritative queue is this file. If work starts somewhere that is
       not on the list, add it here first. A queue nobody trusts is what caused the
       S1 detour to lose the R6 thread.

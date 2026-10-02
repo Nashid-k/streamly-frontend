@@ -77,8 +77,23 @@ describe("extractPlayableUrl", () => {
     expect(extractPlayableUrl(MULTI)).toBe("https://cdn.test/master.m3u8");
   });
 
-  it("prefers refUrl for a single rendition", () => {
-    expect(extractPlayableUrl({ source: { url: "u", refUrl: "r" }, variants: [{}] })).toBe("r");
+  it("uses refUrl for a single rendition when refUrl is itself media", () => {
+    // Some providers carry the manifest in refUrl, so it stays usable - but it
+    // has to BE media. The old rule returned refUrl unconditionally, which put a
+    // provider homepage into <video src> and produced a black player.
+    expect(
+      extractPlayableUrl({
+        source: { url: "https://vidcore.io/", refUrl: "https://cdn.test/single.m3u8" },
+        variants: [{}],
+      }),
+    ).toBe("https://cdn.test/single.m3u8");
+  });
+
+  it("never returns a page-shaped refUrl for a single rendition", () => {
+    // The reported regression: `native playback {url: 'https://vidcore.io/'}`.
+    expect(extractPlayableUrl({ source: { url: "u", refUrl: "https://vidcore.io/" }, variants: [{}] })).toBe(
+      "",
+    );
   });
 
   it("returns empty rather than undefined for an empty payload", () => {

@@ -19,9 +19,39 @@ export const MODE = {
 
 const NATIVE_HLS_MIME = "application/vnd.apple.mpegurl";
 
+/**
+ * The path of a URL, with any query string and fragment removed.
+ *
+ * Extensions have to be judged on the path. `https://vidcore.io/?next=master.m3u8`
+ * is a provider PAGE, not a playlist, and a regex that ignores the `?` happily
+ * calls it HLS - which is the same mistake as handing it to `<video src>`.
+ */
+function urlPath(url) {
+  return String(url || "").split(/[?#]/)[0];
+}
+
 /** Is this URL an HLS playlist? */
 export function isHlsUrl(url) {
-  return /\.m3u8(\?|#|$)/i.test(String(url || ""));
+  return /\.m3u8$/i.test(urlPath(url));
+}
+
+/* Progressive containers a <video> can play from a plain src. Kept deliberately
+ * narrow: a file whose path ends in a real media extension. */
+const MEDIA_FILE_RE = /\.(m3u8|mp4|m4v|mov|webm|mkv|ts|ism)$/i;
+
+/**
+ * Is this URL something a <video> element could possibly load?
+ *
+ * This exists because `choosePlaybackMode` used to answer MODE.NATIVE for
+ * *everything* that was not `.m3u8`, and a provider page URL is not `.m3u8`.
+ * `refUrl` is the REFERRER, so `https://vidcore.io/` reached `<video src>`, the
+ * browser tried to decode an HTML page as media, and the `media-src 'self' blob:`
+ * CSP blocked the request - which surfaced as a black rectangle with a spinner
+ * and no error anywhere. A URL that is not media must be rejected here rather
+ * than handed to the element.
+ */
+export function isPlayableMediaUrl(url) {
+  return MEDIA_FILE_RE.test(urlPath(url));
 }
 
 /** Does this browser play HLS with a plain `src`? */
@@ -47,6 +77,10 @@ export function canPlayNativeHls(video) {
 export function choosePlaybackMode(url, caps = {}) {
   const isHls = caps.isHls ?? isHlsUrl(url);
   if (!url) return MODE.NONE;
+  // Not media. Returning NATIVE here is what put a provider homepage into
+  // `<video src>`, so the refusal comes BEFORE the progressive branch below:
+  // an mp4 is still played natively, but a page URL is never played at all.
+  if (!isPlayableMediaUrl(url)) return MODE.NONE;
   if (!isHls) return MODE.NATIVE;
   if (caps.canPlayNative ?? false) return MODE.NATIVE;
   if (caps.hlsSupported ?? true) return MODE.HLSJS;
@@ -128,6 +162,16 @@ export default function useHlsSource({ node, url, onAction, engineRef }) {
         "This browser cannot play HLS, and the streaming engine could not load.",
       );
       logWarn(HLS_SCOPE, "no playback path for this source", error);
+      onActionRef.current?.({ type: E.FAIL, error });
+      return undefined;
+    }
+
+    if (mode === MODE.NONE) {
+      // `url` is truthy here, so NONE means the URL is not media at all - a
+      // provider page handed over as the stream. Say so instead of returning
+      // silently, which left the viewer staring at a spinner forever.
+      const error = new Error("This source did not resolve to a playable video file.");
+      logWarn(HLS_SCOPE, "resolved URL is not a media file", { url });
       onActionRef.current?.({ type: E.FAIL, error });
       return undefined;
     }
