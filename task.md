@@ -5150,6 +5150,42 @@ stops using it.
       `setInterval`, which no reduced-motion contract can reach.
 
 ## Part 5 — Logic fixes carried in
+### Part 5 audit — N1.1, 2026-10-02
+Every item below is written against `NativePlayerView.jsx`, which **dies at R6**.
+Audited against what v2 actually does. Verdicts, with the evidence:
+
+| Item | Verdict | Evidence |
+|---|---|---|
+| 5.1 resume before resolve | **LIVE v2 gap** | no resume card exists anywhere in `v2/`; resume UX is absent from `LoadingStage` |
+| 5.2 zero timestamp pre-mount | **superseded** | the `updateProgress(..., 0)` at the cited site no longer exists; `:589` writes episode-watched state, not a zeroed timestamp |
+| 5.3 `Number()` on saved season/episode | **LIVE BUG** | `TitleDetailsPage.jsx:567,570` still use bare `===` while `:613-619,664,776` wrap in `Number()` |
+| 5.4 delete `useContainerSize` | **moot at R6** | referenced only from `NativePlayerView.jsx`, `playerUi.js`, `index.js` — all legacy; v2 uses `@container` |
+| 5.6 thumbnail pipeline | **LIVE, and shared** | `previewThumbs.js` is imported by v2 `Scrubber.jsx` + `hoverPreview.js`, so the un-cached failures and the wedged `chain` hit v2 too |
+| 5.7 `seekTime` drives skip | **LIVE v2 gap** | validated `[1,120]` at `PreferencesContext.jsx:65`, default `10` at `preferences.js:52`, and read by **nothing** in v2 — only legacy `NativePlayerView.jsx:1942`. `usePlayerControls.js:274` mentions it *in a comment only* |
+| 5.8 `playbackRate` persisted | **DONE** | real pref, `snapPlaybackRate`-validated (`PreferencesContext.jsx:80-89`), read by v2 `usePlayerPrefs.js:45` |
+| 5.9 fold player prefs into context | **half done** | `aspect` + `playbackRate` are in; **`volume`/`muted` are not in the context at all** |
+| 5.10 legacy key migration | **half done** | `aspect` is migrated (`:211` "Migrated legacy player aspect preference"); **`streamly-native-volume`/`-muted` are never read** |
+| 5.11 keep per-title subtitle cache | **no work** | an instruction to *not* change a per-title cache, not a task |
+| 5.12 `autoSubtitles`/`defaultLanguage` | **LIVE gap** | `autoSubtitles` is read nowhere outside `i18n/`, `SettingsPage` and the default map |
+| 5.13 `reduceMotion` → springs | **moot for v2** | v2 has **no `MotionConfig`** anywhere; `tokens.css` `data-reduce-motion` covers v2. Legacy framer-motion only |
+| 5.14 localize player strings | **LIVE, large** | only **2** `player.*` keys exist in `en.js`, not the ~45 claimed |
+| 5.15 scrubber off React state | **re-target** | v2 `Scrubber.jsx` has no `requestAnimationFrame` and no `onTime`; time arrives via `usePlayerControls`/`mediaEvents`. Needs a v2 throttle audit, not this text |
+| 5.16 memoise party hook | **unverified** | `PlayerShell.jsx:104,560` consumes it; the fresh-object-per-poll claim still needs checking at the call site |
+| 5.17 async progress write | **LIVE, shared** | `useUserData.js:28` still does a synchronous `localStorage.setItem` |
+| 5.18 one dialog-aware keymap | **re-target** | v2 has `useInputCapability` + `usePlayerControls`; the 4 eslint suppressions cited are legacy |
+| 5.19 capability-aware gestures | **re-target** | v2 has `useVolumeGesture`; claim is about legacy `usePlayerGestures` |
+| 5.20 tap vs double-click | **re-target** | v2 has no equivalent of legacy `:1584`; needs a v2 gesture audit |
+| 5.21 duplicate `key="pp"` blocks | **moot at R6** | legacy HUD internals, inside the file R6 deletes |
+| 5.22 restore previous `body` overflow | **LIVE BUG** | `TitleDetailsPage.jsx:625,627` still hardcode `"auto"` and clobber every other overlay |
+| 5.23 `scrollbar-gutter: stable` | **LIVE, absent** | the string appears in **no** file under `src/styles/` |
+| 5.24 cooperative scroll lock | **unverified** | needs a look at the overlay stack, not the legacy line cited |
+| 5.25 final frame on close | **LIVE gap** | `PlayerShell.jsx:215` calls `onClose?.()` with no pause or frame hand-off |
+
+**Consequence for the plan:** 9 items are moot-at-R6 legacy internals and should not
+be "fixed" in v2 — doing so would be building for a file that is scheduled for
+deletion. 12 are genuinely live, 4 of them **real bugs shipping today** (5.3, 5.22,
+5.23, 5.7). Only those live ones belong on the critical path.
+
 - [ ] 5.1 Offer resume BEFORE the stream resolves, not after `MANIFEST_PARSED` +
       `play()` (`:2791`). Today the viewer stares at a loading stage for ~20s
       before being offered their own saved position.
@@ -5198,14 +5234,21 @@ stops using it.
       all **15** sites: 1200, 1203, 1206, 1209, 1646, 1908, 1911, 2090, 2094,
       2098, 2102, 3909, 3971, 4295, 4335. The preference is validated to `[1,120]`
       at `PreferencesContext.jsx:58` and read by nothing.
-- [ ] 5.8 `playbackRate` as a real persisted preference (`useState(1)` at `:1021`,
-      no storage write, while volume/muted/aspect all persist).
-- [ ] 5.9 Fold volume, muted, aspect, playbackRate into `PreferencesContext` with
-      validation, copying the proven migration pattern at
+- [x] 5.8 `playbackRate` as a real persisted preference — **DONE (audited
+      2026-10-02).** Not `useState(1)` any more: it is a validated preference
+      (`snapPlaybackRate`, `PreferencesContext.jsx:80-89`, so an out-of-catalogue
+      speed cannot pin the viewer at a rate no control can select) and v2 reads it
+      at `usePlayerPrefs.js:45`.
+- [ ] 5.9 **HALF DONE — `aspect` + `playbackRate` are in, `volume`/`muted` are
+      not.** Only the volume/muted half remains. Both are absent from
+      `PreferencesContext` entirely, so v2 has nowhere to persist them yet; fold
+      them in with validation, copying the migration pattern at
       `PreferencesContext.jsx:158-160`.
-- [ ] 5.10 One-time migration read of `streamly-native-volume` / `-muted` /
-      `-aspect` (`:128-130`, `:1868`) so no viewer loses a value; write only the
-      new keys afterwards. **No data loss is the requirement.**
+- [ ] 5.10 **HALF DONE — `aspect` migrates, `volume`/`muted` do not.**
+      `PreferencesContext.jsx:211` already logs "Migrated legacy player aspect
+      preference" off `setting-aspect`. `streamly-native-volume` / `-muted` are
+      **never read**, so those two values are still silently lost. **No data loss
+      is the requirement.**
 - [ ] 5.11 KEEP `streamly-native-subtitle-${id}` (`:3229`, `:3310`) exactly as-is
       — a per-title cache, not a setting; migrating it buys nothing.
 - [ ] 5.12 Consume `autoSubtitles` and `defaultLanguage` for subtitle restore.
