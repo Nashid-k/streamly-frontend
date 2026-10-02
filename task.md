@@ -5240,7 +5240,7 @@ Audited against what v2 actually does. Verdicts, with the evidence:
 | 5.13 `reduceMotion` → springs | **DONE 2026-10-02** | stale: `App.jsx:12` already wraps the whole app in `<MotionConfig reducedMotion={reduceMotion ? "always" : "user"}>`, so the in-app toggle reaches framer motion (CSS `data-reduce-motion` covers the rest) |
 | 5.14 localize player strings | **LIVE, large** | only **2** `player.*` keys exist in `en.js`, not the ~45 claimed |
 | 5.15 scrubber off React state | **DONE 2026-10-02** | resolved differently from the note: v2 keeps `currentTime` state (4Hz, correct for the timecode/cue) and ADDS a separate optional `subscribePlayhead` rAF channel that writes the scrubber's fill/ARIA straight to the DOM. No state or tree churn on the smooth path |
-| 5.16 memoise party hook | **unverified** | `PlayerShell.jsx:104,560` consumes it; the fresh-object-per-poll claim still needs checking at the call site |
+| 5.16 memoise party hook | **LIVE → DONE 2026-10-02** | the 2s poll (`useWatchParty.js`) called `setRoom(res.room)` unconditionally, so a fresh room object landed on every heartbeat even when nothing moved; `TitleDetailsPage` re-rendered (hero, rails, ambient backdrop) and passed a new `party` prop to the player. Poll now compares renderable fields (title/participants/playback) and skips the setter on an unchanged tick, and the hook returns a `useMemo`'d object so a memoised consumer holds identity |
 | 5.17 async progress write | **LIVE, shared → DONE 2026-10-02** | `updateProgress` ran a synchronous `JSON.stringify` + `setItem` + `dispatchEvent` ~1×/s while playing (legacy `NativePlayerView.jsx:1352`). Now coalesced and drained in one idle window (`requestIdleCallback` with a 5s timeout, `setTimeout` fallback); hidden/unload and the cloud-sync reader flush synchronously |
 | 5.18 one dialog-aware keymap | **re-target** | v2 has `useInputCapability` + `usePlayerControls`; the 4 eslint suppressions cited are legacy |
 | 5.19 capability-aware gestures | **re-target** | v2 has `useVolumeGesture`; claim is about legacy `usePlayerGestures` |
@@ -5414,9 +5414,13 @@ deletion. 12 are genuinely live, 4 of them **real bugs shipping today** (5.3, 5.
       `timeupdate` delivery, unsubscribe, React-omits-the-four in wired mode,
       React path intact unwired). Also hardened a flaky 5.12 assertion on the way
       (the cue resolves a render after the track label under load).
-- [ ] 5.16 Memoise the party hook result so only the participant strip re-renders.
-      `TitleDetailsPage.jsx:2259` passes a fresh object every 2s poll, re-rendering
-      hero, all rails and the ambient backdrop during playback.
+- [x] 5.16 **DONE 2026-10-02.** The 2s poll (`useWatchParty.js`) called
+      `setRoom(res.room)` unconditionally, so the details page re-rendered (hero,
+      rails, ambient backdrop) and handed the player a fresh `party` prop on
+      every heartbeat even when nothing moved. The poll now compares only the
+      rendered fields and skips the setter on an unchanged tick (a ref guard —
+      an updater bail-out still costs one render), chat still rides its own
+      cursor, and the hook result is `useMemo`'d for memoised consumers.
 - [x] 5.17 Move progress persistence off the synchronous main-thread write.
       `updateProgress` (`useUserData.js`) did `setItem` + `dispatchEvent` on
       **every** throttled save during playback (the legacy player calls it ~1×/s

@@ -257,4 +257,52 @@ describe("useWatchParty", () => {
       Object.defineProperty(document, "hidden", { value: visibility, configurable: true });
     }
   });
+
+  /* 5.16. The server hands back a fresh room object on every heartbeat, so the
+     poll used to re-render the whole details page (and the player) on an
+     unchanged tick. An identical room is now a no-op, and the result identity
+     is stable for memoised consumers. */
+  it("a poll that changes nothing does not re-render the consumer (5.16)", async () => {
+    let renders = 0;
+    const { result } = renderHook(() => {
+      renders += 1;
+      return useWatchParty({});
+    });
+    await joinConnected(result);
+    const settled = renders;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5100); // one paused tick, identical ROOM()
+    });
+    expect(renders).toBe(settled);
+  });
+
+  it("a poll that changes the room still updates the consumer (5.16)", async () => {
+    const { result } = renderHook(() => useWatchParty({}));
+    await joinConnected(result);
+    vi.mocked(fetch).mockImplementation((url, init) => {
+      const body = JSON.parse(init.body);
+      if (body.action === "state") {
+        return Promise.resolve(
+          jsonResponse({
+            success: true,
+            room: ROOM({ playback: { isPlaying: true, positionSec: 9, updatedAt: 2, rev: 1 } }),
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({ success: true }));
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5100);
+    });
+    expect(result.current.room.playback.isPlaying).toBe(true);
+    expect(result.current.room.playback.positionSec).toBe(9);
+  });
+
+  it("keeps a stable result identity across an unrelated re-render (5.16)", async () => {
+    const { result, rerender } = renderHook(() => useWatchParty({}));
+    await joinConnected(result);
+    const before = result.current;
+    rerender();
+    expect(result.current).toBe(before);
+  });
 });

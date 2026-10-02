@@ -45,6 +45,61 @@ function pollDelayMs(isPlaying) {
   if (typeof document !== "undefined" && document.hidden) return POLL_MS_HIDDEN;
   return isPlaying ? POLL_MS_ACTIVE : POLL_MS_PAUSED;
 }
+
+/* 5.16. The poll returns a FRESH room object every tick even when nothing in it
+ * moved, and `setRoom(res.room)` re-rendered the whole details page — hero,
+ * rails, ambient backdrop — plus the player, which takes the party result as a
+ * prop, twice a second. These compare only the fields any consumer renders, so
+ * an unchanged tick bails out of the update. Chat rides its own cursor and is
+ * not part of the room identity. */
+function sameTitle(a, b) {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.titleId === b.titleId &&
+    a.title === b.title &&
+    a.kind === b.kind &&
+    a.season === b.season &&
+    a.episode === b.episode
+  );
+}
+
+function samePlayback(a, b) {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.isPlaying === b.isPlaying &&
+    a.positionSec === b.positionSec &&
+    a.rev === b.rev &&
+    a.updatedAt === b.updatedAt
+  );
+}
+
+function sameParticipants(a, b) {
+  const left = Array.isArray(a) ? a : [];
+  const right = Array.isArray(b) ? b : [];
+  if (left === right) return true;
+  if (left.length !== right.length) return false;
+  return left.every((p, i) => {
+    const q = right[i] || {};
+    const r = p || {};
+    // Heartbeat fields (joinedAt/lastSeenAt) change every poll and are not
+    // rendered, so they are deliberately excluded.
+    return r.participantId === q.participantId && r.name === q.name && r.isHost === q.isHost;
+  });
+}
+
+function sameRoom(a, b) {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.code === b.code &&
+    a.hostId === b.hostId &&
+    sameTitle(a.title, b.title) &&
+    sameParticipants(a.participants, b.participants) &&
+    samePlayback(a.playback, b.playback)
+  );
+}
 const MAX_CONSECUTIVE_FAILURES = 3;
 const MAX_CHAT_DISPLAY = 100; // newest N kept in memory for the panel list
 
@@ -100,6 +155,8 @@ export function useWatchParty({ deepLinkCode = "" } = {}) {
   identityRef.current = identity;
   const roomRef = useRef(room);
   roomRef.current = room;
+  const remotePlaybackRef = useRef(remotePlayback);
+  remotePlaybackRef.current = remotePlayback;
   const lastMsgIdRef = useRef(0);
   const pollAbortRef = useRef(false);
   const pollTimerRef = useRef(null);
@@ -283,8 +340,19 @@ export function useWatchParty({ deepLinkCode = "" } = {}) {
         if (cancelled || pollAbortRef.current) return;
         failureCountRef.current = 0;
         if (res?.room) {
-          setRoom(res.room);
-          setRemotePlayback(res.room.playback || null);
+          // Skip the setters entirely when the tick carried no renderable
+          // change (5.16). Calling a setter with an equal value still costs a
+          // render, so a ref-guard — not just an updater bail-out — is what
+          // keeps an unchanged 2s heartbeat from re-rendering the page.
+          if (!sameRoom(roomRef.current, res.room)) {
+            roomRef.current = res.room;
+            setRoom(res.room);
+          }
+          const nextPlayback = res.room.playback || null;
+          if (!samePlayback(remotePlaybackRef.current, nextPlayback)) {
+            remotePlaybackRef.current = nextPlayback;
+            setRemotePlayback(nextPlayback);
+          }
           const fresh = Array.isArray(res.room.messages) ? res.room.messages : [];
           if (fresh.length > 0) {
             const last = fresh[fresh.length - 1];
@@ -396,23 +464,43 @@ export function useWatchParty({ deepLinkCode = "" } = {}) {
     [room],
   );
 
-  return {
-    // state
-    identity,
-    room: roomSummary,
-    isHost,
-    status, // idle|creating|joining|connected|lost|left|error
-    error,
-    chat,
-    remotePlayback,
-    // actions
-    create,
-    join,
-    leave,
-    sendChat,
-    renameSelf,
-    broadcastPlayback,
-  };
+  // 5.16. A stable return identity lets a memoised consumer (and the player,
+  // which receives this as a prop) skip re-rendering when an unrelated parent
+  // render re-runs the hook but none of the party state actually changed.
+  return useMemo(
+    () => ({
+      // state
+      identity,
+      room: roomSummary,
+      isHost,
+      status, // idle|creating|joining|connected|lost|left|error
+      error,
+      chat,
+      remotePlayback,
+      // actions
+      create,
+      join,
+      leave,
+      sendChat,
+      renameSelf,
+      broadcastPlayback,
+    }),
+    [
+      identity,
+      roomSummary,
+      isHost,
+      status,
+      error,
+      chat,
+      remotePlayback,
+      create,
+      join,
+      leave,
+      sendChat,
+      renameSelf,
+      broadcastPlayback,
+    ],
+  );
 }
 
 export default useWatchParty;
