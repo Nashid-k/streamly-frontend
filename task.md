@@ -5237,7 +5237,7 @@ Audited against what v2 actually does. Verdicts, with the evidence:
 | 5.10 legacy key migration | **half done** | `aspect` is migrated (`:211` "Migrated legacy player aspect preference"); **`streamly-native-volume`/`-muted` are never read** |
 | 5.11 keep per-title subtitle cache | **no work** | an instruction to *not* change a per-title cache, not a task |
 | 5.12 `autoSubtitles`/`defaultLanguage` | **LIVE gap → DONE 2026-10-02** | `autoSubtitles` was read nowhere outside `i18n/`, `SettingsPage` and the default map. `usePlayerSubtitles` now auto-selects the preferred language once per title; while doing this it surfaced a latent bug where the language-list fetch was invalidated by the title-change effect's `tokenRef` bump, so the pane never populated |
-| 5.13 `reduceMotion` → springs | **moot for v2** | v2 has **no `MotionConfig`** anywhere; `tokens.css` `data-reduce-motion` covers v2. Legacy framer-motion only |
+| 5.13 `reduceMotion` → springs | **DONE 2026-10-02** | stale: `App.jsx:12` already wraps the whole app in `<MotionConfig reducedMotion={reduceMotion ? "always" : "user"}>`, so the in-app toggle reaches framer motion (CSS `data-reduce-motion` covers the rest) |
 | 5.14 localize player strings | **LIVE, large** | only **2** `player.*` keys exist in `en.js`, not the ~45 claimed |
 | 5.15 scrubber off React state | **re-target** | v2 `Scrubber.jsx` has no `requestAnimationFrame` and no `onTime`; time arrives via `usePlayerControls`/`mediaEvents`. Needs a v2 throttle audit, not this text |
 | 5.16 memoise party hook | **unverified** | `PlayerShell.jsx:104,560` consumes it; the fresh-object-per-poll claim still needs checking at the call site |
@@ -5364,10 +5364,12 @@ deletion. 12 are genuinely live, 4 of them **real bugs shipping today** (5.3, 5.
       the `cancelled` flag alone. Tests: +1 list-populates regression and +6
       restore cases in `playerV2SubtitleHook.test.jsx`, +4 `preferredTrack` units
       in `playerV2SubtitleTracks.test.jsx`.
-- [ ] 5.13 Consume `reduceMotion` so the in-app toggle reaches framer motion.
-      `tokens.css:125-136` kills CSS motion via `data-reduce-motion`, but
-      `MotionConfig reducedMotion="user"` (`:3580`) reads the **OS** media query
-      only — so the toggle half-applies: CSS motion dies, springs do not.
+- [x] 5.13 Consume `reduceMotion` so the in-app toggle reaches framer motion.
+      **DONE 2026-10-02 (already shipped; item was stale).** `App.jsx:12` wraps the
+      entire app in `<MotionConfig reducedMotion={reduceMotion ? "always" : "user"}>`,
+      so the in-app toggle forces reduced motion globally and, when off, follows the
+      OS query. `PreferencesContext.jsx:314` also writes the `data-reduce-motion`
+      attribute that `tokens.css` keys CSS motion off, so both halves are covered.
 - [ ] 5.14 Localize every player string: ~45 new `player.*` keys in
       `src/i18n/en.js` beyond the 13 that exist (`:371-384`). The other 9 locales
       deep-merge and fall back to English safely.
