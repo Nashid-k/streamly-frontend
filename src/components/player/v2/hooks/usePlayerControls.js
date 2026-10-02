@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { logWarn } from "../../../../utils/debugLogger";
 import { bufferedFraction, bufferedMoved } from "../timecode";
 import { useOptionalPreferences } from "../../../../context/preferences";
@@ -10,6 +10,21 @@ import { SKIP_SECONDS } from "../../../../constants/playerUi";
  *  hand-edited localStorage (the same reasoning as `usePlayerPrefs`). */
 const SEEK_TIME_MIN = 1;
 const SEEK_TIME_MAX = 120;
+
+/* The persisted level is clamped on read as well as write (a hand-edited
+ * `setting-volume` or a legacy value must not reach the element out of range).
+ * Anything non-finite falls back to the default full level. */
+function clampVolume(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 1;
+}
+
+/* Volume changes arrive once per pointermove during the touch drag (3.12), and
+ * each one would otherwise re-render the whole PreferencesProvider tree and hit
+ * localStorage. Persisting on a short trailing edge keeps the element immediate
+ * while making the saved write proportional to the gesture, not to its frames.
+ * Mute is a discrete press and is saved at once. */
+const VOLUME_PERSIST_MS = 200;
 
 /**
  * Imperative control of the media element (task.md 3.7).
@@ -48,8 +63,15 @@ const SEEK_TIME_MAX = 120;
  *                   load-bearing, not a convenience.
  */
 export default function usePlayerControls(videoRef, containerRef, videoNode) {
-  const [muted, setMutedState] = useState(false);
-  const [volume, setVolumeState] = useState(1);
+  /* Preferences are read BEFORE the state that seeds from them: the initial
+   * mute/volume are persisted values (5.9/5.10), not literals. */
+  const preferences = useOptionalPreferences();
+  const setPreference = preferences?.setPreference;
+  const persistedVolume = clampVolume(preferences?.volume);
+  const persistedMuted = Boolean(preferences?.muted);
+
+  const [muted, setMutedState] = useState(persistedMuted);
+  const [volume, setVolumeState] = useState(persistedVolume);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
@@ -62,7 +84,6 @@ export default function usePlayerControls(videoRef, containerRef, videoNode) {
    * code can be tested without a preferences provider. `useOptionalPreferences`
    * means a bare-render player falls back to the 10s default instead of
    * throwing. */
-  const preferences = useOptionalPreferences();
   const seekTime = Number(preferences?.seekTime);
   const skipSeconds = Number.isFinite(seekTime)
     ? Math.min(Math.max(seekTime, SEEK_TIME_MIN), SEEK_TIME_MAX)
@@ -71,6 +92,66 @@ export default function usePlayerControls(videoRef, containerRef, videoNode) {
    * range list the legacy kept. See `bufferedFraction` for why one number is the
    * honest answer and a list is not. */
   const [buffered, setBuffered] = useState(0);
+
+  /* 5.9/5.10. Apply the persisted level once the element exists, mirroring
+   * `usePlayerPrefs`'s rate effect and for the same reason: `volume` has no JSX
+   * attribute, so no declaration can set it, and the element does not exist on
+   * the first render. Keyed on the persisted values so a change from another tab
+   * (the provider's storage sync) reaches the element too.
+   *
+   * The `immutability` suppression is the same one the setters below use: a
+   * ref'd `<video>` node is what this hook exists to operate, so writing its
+   * `volume`/`muted` is the operation, not a mutation of a foreign prop. */
+  /* oxlint-disable react/immutability */
+  useEffect(() => {
+    if (!videoNode) return;
+    try {
+      videoNode.volume = persistedVolume;
+      videoNode.muted = persistedMuted;
+    } catch (error) {
+      logWarn("player-controls", "engine refused persisted volume/mute", {
+        error: error?.message,
+      });
+    }
+  }, [videoNode, persistedVolume, persistedMuted]);
+  /* oxlint-enable react/immutability */
+
+  /* Trailing-edge persistence for the level (see VOLUME_PERSIST_MS). The pending
+   * value is held in a ref and flushed on unmount, so the last frame of a drag is
+   * not lost when the player closes mid-gesture. Mute is discrete and saved at
+   * once. Both are no-ops without a provider, so a bare-render player still works. */
+  const volumeTimerRef = useRef(null);
+  const pendingVolumeRef = useRef(null);
+  const persistVolume = useCallback(
+    (value) => {
+      if (!setPreference) return;
+      pendingVolumeRef.current = value;
+      if (volumeTimerRef.current) clearTimeout(volumeTimerRef.current);
+      volumeTimerRef.current = setTimeout(() => {
+        volumeTimerRef.current = null;
+        const pending = pendingVolumeRef.current;
+        pendingVolumeRef.current = null;
+        if (pending !== null) setPreference("volume", pending);
+      }, VOLUME_PERSIST_MS);
+    },
+    [setPreference],
+  );
+  const persistMuted = useCallback(
+    (value) => {
+      setPreference?.("muted", value);
+    },
+    [setPreference],
+  );
+  useEffect(
+    () => () => {
+      if (volumeTimerRef.current) clearTimeout(volumeTimerRef.current);
+      volumeTimerRef.current = null;
+      const pending = pendingVolumeRef.current;
+      pendingVolumeRef.current = null;
+      if (pending !== null) setPreference?.("volume", pending);
+    },
+    [setPreference],
+  );
 
   /* Element-level facts. `timeupdate` is the browser's own ~4Hz cadence, which
    * is right for a timecode and wrong for a scrubber fill — 3.14/5.15 replace
@@ -335,14 +416,18 @@ export default function usePlayerControls(videoRef, containerRef, videoNode) {
       if (!video) return;
       const value = Number(next);
       if (!Number.isFinite(value)) return;
-      const clamped = Math.min(1, Math.max(0, value));
+      const clamped = clampVolume(value);
       video.volume = clamped;
       // Setting the volume while muted changes nothing audible, which reads as a
       // broken slider. Unmuting here is the behaviour every native player has.
-      if (clamped > 0 && video.muted) video.muted = false;
+      if (clamped > 0 && video.muted) {
+        video.muted = false;
+        persistMuted(false);
+      }
       setVolumeState(clamped);
+      persistVolume(clamped);
     },
-    [videoRef],
+    [videoRef, persistMuted, persistVolume],
   );
 
   const toggleMute = useCallback(() => {
@@ -350,7 +435,8 @@ export default function usePlayerControls(videoRef, containerRef, videoNode) {
     if (!video) return;
     video.muted = !video.muted;
     setMutedState(video.muted);
-  }, [videoRef]);
+    persistMuted(video.muted);
+  }, [videoRef, persistMuted]);
 
   /**
    * Set the mute state EXPLICITLY (task.md 3.12).
@@ -371,8 +457,9 @@ export default function usePlayerControls(videoRef, containerRef, videoNode) {
       if (!video) return;
       video.muted = Boolean(next);
       setMutedState(video.muted);
+      persistMuted(video.muted);
     },
-    [videoRef],
+    [videoRef, persistMuted],
   );
   /* oxlint-enable react/immutability */
 

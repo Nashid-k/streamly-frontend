@@ -33,6 +33,38 @@ export function migrateServerOrder(order) {
   );
 }
 
+/* ── Legacy player volume / mute migration (task.md 5.10) ──────────────
+   The legacy player persisted the audible level as a bare number string
+   (`"0.65"`) and mute as `"1"`/`"0"` under its own keys, and wrote them on
+   every `volumechange` (`NativePlayerView.jsx:128-129`, `:1868-1869`). Folded
+   into `setting-volume`/`setting-muted` here; these readers preserve a viewer's
+   established level on the one-time read. Null means "not set", which is
+   distinct from a valid `0` volume, so the fallback is never confused with a
+   muting. */
+export const LEGACY_VOLUME_KEY = "streamly-native-volume";
+export const LEGACY_MUTED_KEY = "streamly-native-muted";
+
+export function readLegacyVolume(storage) {
+  try {
+    const raw = storage.getItem(LEGACY_VOLUME_KEY);
+    if (raw === null || raw === "") return null;
+    const value = Number(raw);
+    if (!Number.isFinite(value)) return null;
+    return Math.min(1, Math.max(0, value));
+  } catch {
+    return null;
+  }
+}
+
+export function readLegacyMuted(storage) {
+  try {
+    const raw = storage.getItem(LEGACY_MUTED_KEY);
+    return raw === null ? null : raw === "1";
+  } catch {
+    return null;
+  }
+}
+
 export const DEFAULT_PREFERENCES = Object.freeze({
   autoplay: true,
   muteTrailers: false,
@@ -65,6 +97,12 @@ export const DEFAULT_PREFERENCES = Object.freeze({
     // Snapped onto `PLAYER_SPEEDS` on write, so it can only ever hold a rate the
     // UI is able to select.
   playbackRate: 1,
+    // 5.9/5.10. The legacy player owned volume/muted under its own
+    // `streamly-native-*` keys; folded in here and migrated once on boot.
+    // `volume` is the audible level 0..1, `muted` the separate silence toggle,
+    // so unmuting restores the level instead of resetting it.
+  volume: 1,
+  muted: false,
     // Downloads — when ON, files land in the browser's own download list (Ctrl+J)
     // instead of the File System Access picker. Built in memory first, so it suits
     // small/medium files.

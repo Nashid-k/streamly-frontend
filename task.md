@@ -5325,16 +5325,25 @@ deletion. 12 are genuinely live, 4 of them **real bugs shipping today** (5.3, 5.
       (`snapPlaybackRate`, `PreferencesContext.jsx:80-89`, so an out-of-catalogue
       speed cannot pin the viewer at a rate no control can select) and v2 reads it
       at `usePlayerPrefs.js:45`.
-- [ ] 5.9 **HALF DONE — `aspect` + `playbackRate` are in, `volume`/`muted` are
-      not.** Only the volume/muted half remains. Both are absent from
-      `PreferencesContext` entirely, so v2 has nowhere to persist them yet; fold
-      them in with validation, copying the migration pattern at
-      `PreferencesContext.jsx:158-160`.
-- [ ] 5.10 **HALF DONE — `aspect` migrates, `volume`/`muted` do not.**
-      `PreferencesContext.jsx:211` already logs "Migrated legacy player aspect
-      preference" off `setting-aspect`. `streamly-native-volume` / `-muted` are
-      **never read**, so those two values are still silently lost. **No data loss
-      is the requirement.**
+- [x] 5.9 **DONE 2026-10-02.** `volume` (0..1) and `muted` (boolean) are now
+      real `DEFAULT_PREFERENCES` entries with per-key validation: `volume` joined
+      `NUMERIC_RANGES` (`PreferencesContext.jsx`) so a hand-edited
+      `setting-volume` clamps to `[0,1]` instead of reaching the element, and
+      `muted` rides the existing boolean branch. The player reads them:
+      `usePlayerControls` seeds its initial state from the preference, applies
+      both to the element on attach (mirroring `usePlayerPrefs`'s rate effect),
+      and writes them back through `setPreference` - level on a 200ms trailing
+      edge so a touch drag does not re-render the provider or hit localStorage
+      once per frame, mute immediately. No provider means no persistence, so a
+      bare-render player still works. (8.4: player-side only - no new
+      SettingsPage controls.)
+- [x] 5.10 **DONE 2026-10-02 - no data loss.** `readLegacyVolume` /
+      `readLegacyMuted` (`preferences.js`) read the legacy player's
+      `streamly-native-volume` (`"0.65"`) and `streamly-native-muted`
+      (`"1"`/`"0"`) keys, clamped on read; `PreferencesContext.readPreference`
+      migrates each on first boot exactly like `aspect`, with a null return
+      meaning "unset" so a legitimate `0` volume is never mistaken for missing.
+      A folded `setting-volume`/`setting-muted` wins over the legacy key.
 - [ ] 5.11 KEEP `streamly-native-subtitle-${id}` (`:3229`, `:3310`) exactly as-is
       — a per-title cache, not a setting; migrating it buys nothing.
 - [ ] 5.12 Consume `autoSubtitles` and `defaultLanguage` for subtitle restore.
@@ -5525,9 +5534,13 @@ work. Verdicts only; the checkboxes stay authoritative.
 * **7.13: LIVE, and un-tickable as written.** "One regression test per Tier-1
   audited bug" has no enumerated bug list, so it cannot honestly be ticked.
   Either write the list out or drop the item.
-* **7.14: LIVE.** `PreferencesContext.test.jsx` tests the **server-order**
-  migration only; the player-key migration (aspect, and the volume/muted pair
-  from 5.10) has no test. Blocked on 5.10 for the volume/muted half.
+* **7.14: DONE 2026-10-02** - `PreferencesContext.test.jsx` now covers the
+  player-key migration it was missing. The new cases assert the legacy
+  volume/mute pair (`0.3` / `"1"`), that a legacy `0` is preserved as zero
+  rather than treated as unset, that a folded `setting-volume` wins over the
+  legacy key, that a corrupt `9.5` is clamped to `1`, and that `setPreference`
+  persists both keys; plus unit tests for `readLegacyVolume` / `readLegacyMuted`
+  (clamping and the null-when-absent contract).
 * **7.15: covered** by `playerV2Shell.test.jsx:71,74` and
   `playerV2Status.test.jsx:46`.
 * **7.16: superseded.** "The 38 currently-passing player tests stay green" is now

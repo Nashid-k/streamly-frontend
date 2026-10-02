@@ -3,6 +3,8 @@ import {
   DEFAULT_PREFERENCES,
   LEGACY_SERVER_NAME_MAP,
   migrateServerOrder,
+  readLegacyMuted,
+  readLegacyVolume,
   PreferencesContext,
 } from "./preferences";
 import { ASPECT_RATIOS, snapPlaybackRate } from "../constants/playerUi";
@@ -63,6 +65,7 @@ const ALLOWED_ASPECT_IDS = new Set(ASPECT_RATIOS.map((mode) => mode.id));
    nonsense like seekTime: -40 or subtitleSize: 9e15). */
 const NUMERIC_RANGES = {
   seekTime: [1, 120],
+  volume: [0, 1],
   subtitleSize: [20, 300],
 };
 
@@ -209,6 +212,25 @@ function readPreference(key) {
       const legacy = readLegacyAspectId(localStorage);
       if (legacy !== null) {
         logDebug("preferences", "Migrated legacy player aspect preference.", { aspect: legacy });
+        return legacy;
+      }
+    }
+
+    // 5.10. Same one-time read, for the legacy player's volume/mute pair. The
+    // requirement is explicitly "no data loss": without this a viewer's chosen
+    // level and silence are dropped the moment the V2 player takes over. Returns
+    // without writing back, following the aspect/autoplay precedent.
+    if (key === "volume") {
+      const legacy = readLegacyVolume(localStorage);
+      if (legacy !== null) {
+        logDebug("preferences", "Migrated legacy player volume preference.", { volume: legacy });
+        return legacy;
+      }
+    }
+    if (key === "muted") {
+      const legacy = readLegacyMuted(localStorage);
+      if (legacy !== null) {
+        logDebug("preferences", "Migrated legacy player mute preference.", { muted: legacy });
         return legacy;
       }
     }
