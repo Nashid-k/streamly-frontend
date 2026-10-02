@@ -5847,7 +5847,7 @@ move that turns "clean up the old player" into "ship a regression".
       native HLS), a `kind:"file"` URL extracts, and an untagged page is still
       MODE.NONE. Gates green: oxlint 0 errors, **131 files / 1991 tests**, build
       2.37s, `git diff --check` clean.
-- [ ] N1.3 **Safari cannot play remote HLS — `media-src` CSP, user deferred
+- [x] N1.3 **Safari cannot play remote HLS — `media-src` CSP, user deferred
       2026-10-02.** `vercel.json` sets `media-src 'self' blob:` while
       `frame-src`/`Permissions-Policy` list eight provider origins, so the
       omission looks accidental. Chrome/Firefox are unaffected (hls.js fetches
@@ -5858,6 +5858,13 @@ move that turns "clean up the old player" into "ship a regression".
       because manifests/segments come from rotating provider CDNs) or add
       `https:`. Note this is deploy-only — localhost dev has no CSP, so it
       cannot be reproduced in `npm run dev`.
+      **RESOLVED 2026-10-02** on explicit user order ("allow cors all"). Live
+      browser log showed Server 1 settled, `PlayerSource:hls` chose native
+      playback, then Safari blocked the remote manifest with
+      `media-src 'self' blob:`. `vercel.json` now sets
+      `media-src 'self' blob: https:` (the documented option), so Safari may
+      load manifests and segments from any HTTPS origin. Deploy-only; verified
+      by JSON validity plus `npm run build` (localhost has no CSP).
 - [ ] N1.1 **Reconcile the 86 open items in `Part 3`–`Part 8`** (5.1–5.25, 6.4–6.7,
       7.1–7.16, 3.30–3.44, 4.1–4.9, 8.1/8.2/8.4, 2.2/2.10) against what actually
       shipped. Only the `R`/`S`/`N` series has been worked this session; the
