@@ -44,9 +44,15 @@ import { downloadService } from "../api/downloadService";
                          single variant declares NO resolution, so no ceiling
                          is claimed for it
      zxc milkyway   DEAD dropped — retired upstream, manifest 403s
-     vidrack agg    OK  6/6 rows fetchable — 800p movie, 1080p tv
-     vidsrc         DEAD no-source (its play/race legs 502)
-     nhd            DEAD no-source (origins 522)
+     vidrack agg    OK  measured row-by-row before publishing — every row in
+                         the menu now proven to serve real media bytes, because
+                         a listed row that cannot deliver its AES key plays a
+                         running timer and no picture
+     vidsrc         GONE removed 2026-10-03 — re-verified DEAD first
+                         (movie 27205 and tv 1399 s1e1 both answer
+                         HTTP 200 {ok:false, code:"no-source"})
+     nhd            GONE removed 2026-10-03 — re-verified DEAD first
+                         (same two titles, same honest no-source verdict)
 
    Every ZXC row was dead for ONE reason: the token mint had been RENAMED
    upstream from `POST /backend/meow` to `POST /backend/fuckyou` ("meow" is now a
@@ -103,27 +109,16 @@ export const PLAYER_SOURCES = [
     provider: "VidRack",
     resolve: (a, o) => downloadService.resolveVidcore(a, o),
   },
-  {
-    key: "vidsrc",
-    label: "Server 6",
-    tag: "Original audio · up to 1080p",
-    provider: "VidSrc",
-    resolve: (a, o) => downloadService.resolveVidsrc(a, o),
-  },
-  /* NHD carries the fewest titles, but it is a native source with real
-     alternate audio (sibling-URL audioTracks) — last of the originals, so
-     dubbed titles still land somewhere without costing Server 1 its default
-     seat. */
-  {
-    key: "nhd",
-    label: "Server 7",
-    tag: "Multi audio · one quality",
-    provider: "NHD",
-    resolve: (a, o) => downloadService.resolveNhd(a, o),
-  },
-];
+  ];
 
 export const DEFAULT_SOURCE_KEY = "zxc-centaurus";
+
+/* Every live server label, in menu order. A saved `serverOrder` from before a
+   retirement can still name a row that no longer exists (Server 6/7 = VidSrc,
+   NHD), so the preferences sanitizer validates against THIS list instead of a
+   hardcoded 1..8: a retired row is dropped on boot rather than lingering in the
+   Settings drag list as something the player will never resolve. */
+export const PLAYER_SOURCE_LABELS = Object.freeze(PLAYER_SOURCES.map((s) => s.label));
 
 /* Look a server up by key. Returns null for an unknown key so callers can
    decide their own fallback instead of silently resolving to Server 1. */

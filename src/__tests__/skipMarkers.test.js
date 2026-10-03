@@ -5,7 +5,7 @@
 // the ZXC decryption, and the manifest parsers). These tests therefore pin
 // the two things that matter when an estimate is involved:
 //   1. the boundaries are where we say they are, and
-//   2. a wrong estimate is CONTAINED — it costs a button, never a jump.
+//   2. a wrong estimate is CONTAINED â€” it costs a button, never a jump.
 import { afterEach, describe, expect, it } from "vitest";
 import {
   getSkipIntroEnd,
@@ -33,7 +33,7 @@ const tv = { type: "tv", id: "93405", duration: LONG_EPISODE };
 describe("skip intro", () => {
   it("offers a boundary for a long episode, but never for a movie", () => {
     expect(getSkipIntroEnd(tv)).toBe(SKIP_INTRO_DEFAULT_END);
-    // A movie's cold open is a scene — skipping 90s of it cuts story.
+    // A movie's cold open is a scene â€” skipping 90s of it cuts story.
     expect(getSkipIntroEnd({ type: "movie", id: "550", duration: 2 * 3600 })).toBe(0);
   });
 
@@ -42,7 +42,7 @@ describe("skip intro", () => {
   });
 
   it("still offers the button when the duration is unknown", () => {
-    // Before metadata arrives, an intro is the only thing playing — refusing
+    // Before metadata arrives, an intro is the only thing playing â€” refusing
     // here would hide the pill during the exact window it is useful. Safe,
     // because the button requires a tap.
     expect(getSkipIntroEnd({ type: "tv", id: "1", duration: 0 })).toBe(SKIP_INTRO_DEFAULT_END);
@@ -87,7 +87,7 @@ describe("skip intro", () => {
     expect(getSkipIntroTarget({ type: "tv", id: "1", duration: 96 })).toBe(0);
 
     // The duration-5 clamp is only reachable through the override seam, and
-    // only with a boundary later than the asset itself — i.e. bad data. That is
+    // only with a boundary later than the asset itself â€” i.e. bad data. That is
     // exactly what it is for: refuse to seek to `duration`, which some players
     // treat as unseekable and which would fire the end state immediately.
     SKIP_INTRO_OVERRIDES["__test-bogus"] = { endSeconds: 1400 };
@@ -109,7 +109,7 @@ describe("skip intro", () => {
   });
 });
 
-// ── Per-episode dataset keying ─────────────────────────────────────────────
+// â”€â”€ Per-episode dataset keying â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // TV overrides used to be keyed by SHOW id, which meant every episode of a series
 // shared one cold-open length. A dataset cannot work that way, so episodes are
 // keyed "SxxExx" and the episode entry wins over a series-wide one.
@@ -225,7 +225,7 @@ describe("skip credits", () => {
   });
 });
 
-// ── Measured cue boundaries ────────────────────────────────────────────────
+// â”€â”€ Measured cue boundaries â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // When a manifest states its own #EXT-X-CUE-OUT/#EXT-X-CUE-IN window, that fact
 // outranks every guess below. These pin the precedence, because getting it wrong
 // is how a real boundary would get ignored in favour of a blind 90s seek.
@@ -282,7 +282,7 @@ describe("mergeSkipBoundaries", () => {
   it("keeps a cue tag when the dataset lands afterwards", () => {
     // The regression this function exists for. The two fetches race, and without
     // ranking a slow SkipDB response would replace a boundary the provider
-    // embedded in the actual stream — silently, with both values looking valid.
+    // embedded in the actual stream â€” silently, with both values looking valid.
     const afterCues = mergeSkipBoundaries({ ...CUES, source: "cues" }, DATASET, "dataset");
     expect(afterCues.source).toBe("cues");
     expect(afterCues.introEndSeconds).toBe(246.5);
@@ -294,7 +294,7 @@ describe("mergeSkipBoundaries", () => {
     expect(afterDataset.introEndSeconds).toBe(246.5);
   });
 
-  it("is order-independent — both arrival orders converge", () => {
+  it("is order-independent â€” both arrival orders converge", () => {
     const a = mergeSkipBoundaries({ ...CUES, source: "cues" }, DATASET, "dataset");
     const b = mergeSkipBoundaries({ ...DATASET, source: "dataset" }, CUES, "cues");
     expect(a).toEqual(b);
@@ -318,7 +318,7 @@ describe("mergeSkipBoundaries", () => {
   });
 
   it("replaces dataset with dataset on a title change", () => {
-    // Same trust level, so the newer value is kept — the player resets on title
+    // Same trust level, so the newer value is kept â€” the player resets on title
     // change, but a late response for the PREVIOUS title must not stick.
     const out = mergeSkipBoundaries({ ...DATASET, source: "dataset" }, CUES, "cues");
     expect(out.introEndSeconds).toBe(246.5);
@@ -329,31 +329,31 @@ describe("rescopeBoundaries", () => {
   const cues = { introEndSeconds: 246.5, creditsStartSeconds: 3434, source: "cues" };
   const dataset = { introEndSeconds: 132, creditsStartSeconds: 3400, source: "dataset" };
   const VIDCORE = "vidcore|0"; // server|dub
-  const NHD_DUB1 = "nhd|1";
+  const DUB1 = "zxc-centaurus|1";
 
   it("drops cue tags when a different server starts playing", () => {
     // A cue describes one encode. Server 2's video is not Server 1's, so
     // Server 1's measured boundary is a claim we never made about it.
-    expect(rescopeBoundaries(cues, VIDCORE, "vidsrc|0")).toBeNull();
+    expect(rescopeBoundaries(cues, VIDCORE, "zxc-centaurus|0")).toBeNull();
   });
 
   it("drops cue tags when a dub switch swaps to another manifest", () => {
-    // NHD dubs are separate full-stream manifests, not in-manifest groups.
-    expect(rescopeBoundaries(cues, VIDCORE, NHD_DUB1)).toBeNull();
+    // Dub switches are separate full-stream manifests, not in-manifest groups.
+    expect(rescopeBoundaries(cues, VIDCORE, DUB1)).toBeNull();
   });
 
   it("keeps dataset boundaries across a server switch", () => {
     // Keyed by IMDb id: the data describes the TITLE, so it stays true for every
     // server. This is the reason the dataset beats a hardcoded table.
-    expect(rescopeBoundaries(dataset, VIDCORE, "vidsrc|0")).toBe(dataset);
+    expect(rescopeBoundaries(dataset, VIDCORE, "zxc-centaurus|0")).toBe(dataset);
   });
 
   it("keeps dataset boundaries across a dub switch", () => {
-    expect(rescopeBoundaries(dataset, VIDCORE, NHD_DUB1)).toBe(dataset);
+    expect(rescopeBoundaries(dataset, VIDCORE, DUB1)).toBe(dataset);
   });
 
   it("keeps everything when the manifest did not change", () => {
-    // pickAudio only sets hls.audioTrack — same manifest, so the tags still
+    // pickAudio only sets hls.audioTrack â€” same manifest, so the tags still
     // describe what is on screen and must survive.
     expect(rescopeBoundaries(cues, VIDCORE, VIDCORE)).toBe(cues);
     expect(rescopeBoundaries(dataset, VIDCORE, VIDCORE)).toBe(dataset);
@@ -362,11 +362,11 @@ describe("rescopeBoundaries", () => {
   it("treats the dub index as part of the manifest identity", () => {
     // Same server, different manifest. A scope key of just the server key would
     // read as "unchanged" and carry the old dub's tags onto the new one.
-    expect(rescopeBoundaries(cues, "nhd|0", "nhd|1")).toBeNull();
+    expect(rescopeBoundaries(cues, "zxc-centaurus|0", "zxc-centaurus|1")).toBeNull();
   });
 
   it("passes null through untouched", () => {
-    expect(rescopeBoundaries(null, VIDCORE, "vidsrc|0")).toBeNull();
+    expect(rescopeBoundaries(null, VIDCORE, "zxc-centaurus|0")).toBeNull();
   });
 
   it("is safe to call before anything has been measured", () => {

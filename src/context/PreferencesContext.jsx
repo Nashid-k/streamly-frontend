@@ -3,9 +3,11 @@ import {
   DEFAULT_PREFERENCES,
   LEGACY_SERVER_NAME_MAP,
   migrateServerOrder,
+  pruneRetiredServers,
   PreferencesContext,
 } from "./preferences";
-import { logDebug } from "../utils/debugLogger";
+import { logDebug, logInfo } from "../utils/debugLogger";
+import { PLAYER_SOURCE_LABELS } from "../constants/sources";
 import { queryClient } from "../queryClient";
 const SETTING_PREFIX = "setting-";
 const LEGACY_AUTOPLAY_KEY = "streamly_autoNext";
@@ -16,7 +18,7 @@ function isPlainObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/* Convert "#rrggbb" → "r, g, b" triplet for rgba() surfaces, or null. */
+/* Convert "#rrggbb" â†’ "r, g, b" triplet for rgba() surfaces, or null. */
 function hexToRgbTriplet(hex) {
   const match = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
   if (!match) return null;
@@ -62,7 +64,7 @@ const NUMERIC_RANGES = {
 function sanitizePreference(key, value) {
   const fallback = DEFAULT_PREFERENCES[key];
   if (key === "accentSeed") {
-    // Nullable string — a valid hex seed enables the custom accent, anything
+    // Nullable string â€” a valid hex seed enables the custom accent, anything
     // else (including null) disables it. Never store a garbage string.
     if (value === null || value === undefined || value === "") return null;
     if (typeof value !== "string" || !ACCENT_HEX_RE.test(value.trim())) return null;
@@ -93,6 +95,10 @@ function sanitizePreference(key, value) {
       const cleaned = [];
       for (const name of value) {
         if (typeof name !== "string" || !SERVER_LABEL_RE.test(name)) continue;
+        // Shape-valid but possibly retired: VidSrc (Server 6) and NHD (Server 7)
+        // were removed 2026-10-03 after both answered no-source on every title,
+        // so a saved order naming them must not survive into the menu.
+        if (!PLAYER_SOURCE_LABELS.includes(name)) continue;
         if (seen.has(name)) continue;
         seen.add(name);
         cleaned.push(name);
@@ -139,12 +145,18 @@ function readPreference(key) {
       let value = parseValue(stored, fallback);
       if (key === "serverOrder") {
         const migrated = migrateServerOrder(value);
+        // Retirement is separate from renaming: a migrated order can still name
+        // a server that no longer exists, and that row must not reach the menu.
+        const pruned = pruneRetiredServers(migrated, fallback);
         if (JSON.stringify(migrated) !== JSON.stringify(value)) {
-          logDebug("preferences", "Migrated saved server order to the restored Server 1–8 labels.", { order: migrated });
+          logDebug("preferences", "Migrated saved server order to the restored Server 1â€“5 labels.", { order: migrated });
         }
-        value = migrated;
+        if (JSON.stringify(pruned) !== JSON.stringify(migrated)) {
+          logInfo("preferences", "Dropped retired servers from the saved order.", { dropped: migrated.filter((n) => !pruned.includes(n)) });
+        }
+        value = pruned;
         // Persist the renamed order so the stored key matches the current
-        // labels (idempotent — subsequent boots see no legacy names).
+        // labels (idempotent â€” subsequent boots see no legacy names).
         try {
           localStorage.setItem(`${SETTING_PREFIX}serverOrder`, JSON.stringify(value));
         } catch {
@@ -178,7 +190,7 @@ export function PreferencesProvider({ children }) {
   const setPreference = useCallback((key, value) => {
     if (!Object.hasOwn(DEFAULT_PREFERENCES, key)) return;
         // Sanitize against each key's contract: type checks, allowed theme ids,
-        // numeric clamps, valid hex accents, deduped Server 1–8 order names — so a
+        // numeric clamps, valid hex accents, deduped Server 1â€“8 order names â€” so a
         // garbage value never reaches state/localStorage (it used to surface as NaN%).
     const nextValue = sanitizePreference(key, value);
     setPreferences((current) =>

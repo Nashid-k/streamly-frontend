@@ -64,8 +64,8 @@ async function post(body, { signal } = {}) {
 export const downloadService = {
   /** Normalize a resolver `{ ok, source, variants }` payload into the shape
       the player consumes (labeled variants, per-variant index). Sibling-URL
-      dub tracks (NHD `audioTracks`) ride through untouched — the native
-      player's Audio menu consumes them. */
+      dub tracks (ZXC Centaurus `audioTracks`) ride through untouched — the
+      native player's Audio menu consumes them. */
   normalizeResolved(data) {
     const variants = (data.variants || [])
       .filter((v) => !!v.uri)
@@ -81,28 +81,7 @@ export const downloadService = {
     return { source: data.source, variants, audioTracks };
   },
 
-  /** Resolve the VidSrc (Alt) provider (action "resolvevidsrc"). `season`/
-      `episode` only matter for TV and default to whatever VidSrc serves. */
-  async resolveVidsrc({ type, id, season, episode }, { signal } = {}) {
-    const kind = type === "tv" ? "tv" : "movie";
-    const body = { action: "resolvevidsrc", type: kind, id: String(id || "") };
-    if (kind === "tv") {
-      if (season != null) body.season = String(season);
-      if (episode != null) body.episode = String(episode);
-    }
-    const data = await post(body, { signal });
-    const resolved = this.normalizeResolved(data);
-    logInfo("download", `Resolved ${resolved.variants.length} variant(s) via VidSrc (Alt).`, {
-      type: kind,
-      id,
-      season: season ?? null,
-      episode: episode ?? null,
-      variants: resolved.variants.map((v) => v.label),
-    });
-    return resolved;
-  },
-
-  /** Resolve the VidCore provider (Server 1, action "resolvevidcore"). The
+  /** Resolve the VidCore provider (Server 5, action "resolvevidcore"). The
       server runs a TWO-PHASE protocol because its primary catalogue (the
       vidrack aggregate, the 4K-capable ladder) answers in 13-25s while the
       fallback (vidzen) answers in ~2-4s:
@@ -165,34 +144,6 @@ export const downloadService = {
         throw new DownloadUnavailableError("VidCore is still aggregating sources", "no-source");
       }
     }
-  },
-
-  /** Resolve the NHD provider (action "resolvenhd"); same contract as
-      resolveVidsrc, plus sibling-URL `audioTracks` (dub labels) when the
-      winning extraction carries more than one language. */
-  async resolveNhd({ type, id, season, episode }, { signal } = {}) {
-    const kind = type === "tv" ? "tv" : "movie";
-    const body = { action: "resolvenhd", type: kind, id: String(id || "") };
-    if (kind === "tv") {
-      if (season != null) body.season = String(season);
-      if (episode != null) body.episode = String(episode);
-    }
-    const data = await post(body, { signal });
-    const resolved = this.normalizeResolved(data);
-    logInfo(
-      "download",
-      `Resolved ${resolved.variants.length} variant(s) via NHD` +
-        (resolved.audioTracks.length > 1 ? ` with ${resolved.audioTracks.length} dubbed audio track(s).` : "."),
-      {
-        type: kind,
-        id,
-        season: season ?? null,
-        episode: episode ?? null,
-        variants: resolved.variants.map((v) => v.label),
-        audioTracks: resolved.audioTracks.map((t) => t.label),
-      },
-    );
-    return resolved;
   },
 
   /** Resolve one of the four ZXC/VIDSTUCK servers (action "resolvezxc"). The

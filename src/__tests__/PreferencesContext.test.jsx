@@ -129,7 +129,7 @@ describe("PreferencesProvider", () => {
   it("migrates a saved suffixed server order to the plain labels, position preserved", () => {
     localStorage.setItem(
       "setting-serverOrder",
-      JSON.stringify(["Server 8 (Smashy)", "Server 1"]),
+      JSON.stringify(["Server 5 (VidCore)", "Server 1"]),
     );
 
     render(
@@ -139,10 +139,49 @@ describe("PreferencesProvider", () => {
     );
 
     expect(screen.getByTestId("server-order")).toHaveTextContent(
-      "Server 8 | Server 1",
+      "Server 5 | Server 1",
     );
     expect(localStorage.getItem("setting-serverOrder")).toBe(
-      JSON.stringify(["Server 8", "Server 1"]),
+      JSON.stringify(["Server 5", "Server 1"]),
+    );
+  });
+
+  /* VidSrc (Server 6) and NHD (Server 7) were removed 2026-10-03: both answer
+     {ok:false, code:"no-source"} on every title, so a returning visitor's saved
+     order must lose those rows instead of keeping dead entries in the menu. */
+  it("drops retired servers from a saved order instead of listing dead rows", () => {
+    localStorage.setItem(
+      "setting-serverOrder",
+      JSON.stringify(["Server 7", "Server 1", "Server 6", "Server 5"]),
+    );
+
+    render(
+      <PreferencesProvider>
+        <PreferenceProbe />
+      </PreferencesProvider>,
+    );
+
+    expect(screen.getByTestId("server-order")).toHaveTextContent(
+      "Server 1 | Server 5",
+    );
+    expect(screen.getByTestId("server-order")).not.toHaveTextContent("Server 6");
+    expect(screen.getByTestId("server-order")).not.toHaveTextContent("Server 7");
+  });
+
+  it("falls back to the live default order when every saved row is retired", () => {
+    localStorage.setItem(
+      "setting-serverOrder",
+      JSON.stringify(["Server 6", "Server 7"]),
+    );
+
+    render(
+      <PreferencesProvider>
+        <PreferenceProbe />
+      </PreferencesProvider>,
+    );
+
+    expect(screen.getByTestId("server-order")).toHaveTextContent(
+      "Server 1 | Server 2 | Server 3 | Server 4 | Server 5",
     );
   });
 

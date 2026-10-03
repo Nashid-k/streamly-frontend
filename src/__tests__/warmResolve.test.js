@@ -90,7 +90,7 @@ describe("takeWarmResolve handover", () => {
   it("refuses a manual non-default server pick (it must resolve ITS server)", () => {
     resolveZxcMock.mockResolvedValue({ variants: [{ uri: "u", height: 1080 }] });
     warmResolve(MOVIE_ARGS);
-    expect(takeWarmResolve(MOVIE_ARGS, { sourceKey: "vidsrc" })).toBeNull();
+    expect(takeWarmResolve(MOVIE_ARGS, { sourceKey: "zxc-andromeda" })).toBeNull();
     // The warm entry survives for the default path.
     expect(takeWarmResolve(MOVIE_ARGS, { sourceKey: null })).not.toBeNull();
   });

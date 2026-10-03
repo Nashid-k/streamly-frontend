@@ -1,4 +1,4 @@
-// api/downloadify.js — browser-only download resolver (Vercel serverless).
+// api/downloadify.js â€” browser-only download resolver (Vercel serverless).
 //
 // The web app has no backend and no direct media URLs: every server is a
 // third-party iframe. To let viewers download a title "like a browser
@@ -9,35 +9,33 @@
 //
 // Actions (POST JSON):
 //   resolve        { embedUrl }                         -> { source, variants }
-//   resolvevidsrc  { type, id, season?, episode? }      -> { source, variants }
 //   resolvevidcore { type, id, season?, episode? }      -> { source, variants }
-//   resolvenhd     { type, id, season?, episode? }      -> { source, variants, audioTracks }
 //   resolvezxc     { type, id, season?, episode?, server? } -> { source, variants, audioTracks }
 //   manifest       { playlistUrl, refUrl }              -> { kind, initUrl, segments, duration }
 //   playlist       { playlistUrl, refUrl }              -> raw m3u8 text (referer-supplied)
 //   segment        { url, refUrl?, range: {start,max} } -> bytes (octet-stream)
 //
 // Byte transport notes (the reason this is different from the old version):
-//   · Vercel caps a function's request/response body at 4.5MB. The previous
-//     `segment` took a batch of 6 URLs and concatenated them — one 1080p
+//   Â· Vercel caps a function's request/response body at 4.5MB. The previous
+//     `segment` took a batch of 6 URLs and concatenated them â€” one 1080p
 //     movie blew that cap instantly (413 FUNCTION_PAYLOAD_TOO_LARGE) and
 //     nothing ever downloaded. Segments are now fetched ONE URL AT A TIME in
-//     bounded Range chunks (≤ ~3.5MB each); the client loops until the
+//     bounded Range chunks (â‰¤ ~3.5MB each); the client loops until the
 //     server's `x-streamly-more` header says the file ended.
-//   · CDN segments that are served with open CORS can be pulled straight from
+//   Â· CDN segments that are served with open CORS can be pulled straight from
 //     the browser (zero serverless bandwidth); those that aren't go through
 //     this range relay.
 //
 // Security:
-//   · resolve accepts only allow-listed embed hosts (SSRF guard).
-//   · EVERY upstream request — redirects included — is DNS-resolved and every
+//   Â· resolve accepts only allow-listed embed hosts (SSRF guard).
+//   Â· EVERY upstream request â€” redirects included â€” is DNS-resolved and every
 //     resolved address must be public (this closes the decimal/hex-IP literal
 //     bypass like "http://2130706433/" that a string-based hostname blocklist
 //     never sees).
-//   · Response size caps bound bandwidth (a runaway "playlist" can't pull the
+//   Â· Response size caps bound bandwidth (a runaway "playlist" can't pull the
 //     whole internet through us).
-//   · Nothing is persisted; the function is a stateless pipe.
-//   · Quality/HDR labels reflect what the host actually serves — we never
+//   Â· Nothing is persisted; the function is a stateless pipe.
+//   Â· Quality/HDR labels reflect what the host actually serves â€” we never
 //     upscale or transcode, and DRM-protected renditions cannot be saved.
 
 import crypto from "node:crypto";
@@ -68,8 +66,6 @@ const ALLOWED_EMBED_HOSTS = new Set([
   "www.vidlink.pro",
   "2embed.cc",
   "www.2embed.cc",
-  "vidsrcme.ru",
-  "www.vidsrcme.ru",
   "vidcore.io",
   "www.vidcore.io",
   "peachify.top",
@@ -97,7 +93,7 @@ const VIDCORE_PLAYER_REFERER = "https://vidcore.io/";
    1. `vidcore.io` is the only 4K source anywhere in this catalogue. Its page
       token -> enc-dec -> servers/stream exchange yields a real ladder up to
       `2160p` (Horizon -> i-arch-400.jerso441ceg.com, plus Supreme/Prime/Orbit/
-      Premiere 4K). It works from a normal IP — but it refuses Vercel's egress
+      Premiere 4K). It works from a normal IP â€” but it refuses Vercel's egress
       outright: `vidcore.io/movie/27205` answers 403 from BOTH `iad1` and `bom1`,
       while enc-dec.app, vidsrc.buzz, vidstuck.xyz and example.com answer 200
       from the same function. Replaying `server/net.js` `baseHeaders()` verbatim
@@ -111,15 +107,15 @@ const VIDCORE_PLAYER_REFERER = "https://vidcore.io/";
       swapped this call for direct `vidcore.io` extraction, which is what broke
       Server 1; restoring it is what this constant is for.
 
-   MEASURED CEILING — read before trusting a quality label here: this aggregate
+   MEASURED CEILING â€” read before trusting a quality label here: this aggregate
    does NOT do 4K. Audited 2026-10-03 by fetching every master it lists, for both
-   shapes — movie 27205 tops out at **800p** (its whole ladder is 800/536/534/
+   shapes â€” movie 27205 tops out at **800p** (its whole ladder is 800/536/534/
    532/356/266) and TV 1399 S1E1 reaches **1080p** on a later probe. Nothing
    anywhere answered 2160. Rows the aggregate LABELS "1080p" are frequently 800p
    in fact, so heights are only ever taken from the playlist text, never from the
    label. Its `/api/servers` advertises 10 backends (ipcloud, vidapi, moviebox,
    fsonline, videasy, vidrift1/2, xpass, tcloud, vidnest) but `server=` is
-   ignored — all ten return the identical 28 sources — and `quality=2160p`,
+   ignored â€” all ten return the identical 28 sources â€” and `quality=2160p`,
    `maxQuality=4k` and `hls=4k` are ignored too. `src/constants/sources.js`
    advertises the observed 1080p ceiling, not 4K. */
 const VIDRACK_SOURCES_API = "https://vidrack.created.app/api/sources";
@@ -127,7 +123,7 @@ const VIDRACK_SOURCES_API = "https://vidrack.created.app/api/sources";
 /* Vidrack resolve timing + warm cache. The deadlines are chosen around
    measured reality (2026-09): vidrack's aggregate answers in 13-25s (it walks
    several upstream providers per call), vidzen's two-step chain in ~2-4s. The
-   full pass must stay inside this function's maxDuration (60s — vercel.json
+   full pass must stay inside this function's maxDuration (60s â€” vercel.json
    and the export config below agree). The cache is keyed per title/episode
    and deliberately short-TTL: the cached URLs are short-lived SIGNED tokens,
    so a stale entry dies at the player's playability probe, not silently;
@@ -136,6 +132,10 @@ const VIDRACK_SOURCES_API = "https://vidrack.created.app/api/sources";
 const VIDRACK_TIMEOUT_FAST_MS = 8500;
 const VIDRACK_TIMEOUT_FULL_MS = 28000;
 const VIDRACK_FAST_DEADLINE_MS = 9500;
+/* Per-row playability gate (playlist + AES key). Short on purpose: it runs on
+   up to 6 rows in parallel and must not eat the fast phase's window; the warm
+   cache means a repeat viewer pays it zero times. */
+const VIDRACK_ROW_VERIFY_MS = 4000;
 const VIDRACK_CACHE_TTL_MS = 4 * 60 * 1000;
 const vidrackCache = new Map(); // "type:id:s:e" -> { source, variants, at }
 
@@ -143,7 +143,7 @@ const vidrackCache = new Map(); // "type:id:s:e" -> { source, variants, at }
    rather than from a real master playlist. hls.js uses this only to order/seed
    its own ABR when no BANDWIDTH attribute exists; it is never a claim about what
    the host serves. Heights come from the label, which the VIDRACK_SOURCES_API
-   comment shows is marketing — but since these rows are label-only by
+   comment shows is marketing â€” but since these rows are label-only by
    construction, the hint follows the label and the UI label is what it is.
    Real masters parse their own BANDWIDTH via parseMasterPlaylist instead. */
 function vidrackLabelBandwidth(height) {
@@ -228,7 +228,7 @@ async function resolveFromEmbed(embedUrl, depth = 0) {
         const nested = await resolveFromEmbed(src, depth + 1);
         if (nested.playlists.length > 0 || nested.files.length > 0) return nested;
       } catch {
-        // dead iframe — try the next one
+        // dead iframe â€” try the next one
       }
     }
   }
@@ -317,152 +317,10 @@ async function handleResolve(body, res) {
   });
 }
 
-/* ── VidSrc third-party provider ────────────────────────────────────────
-   VidSrc exposes a REAL, parseable HLS ladder: its embed page carries a JSON
-   `var Q = {...}` with a signed token; /pl/api.php?a=sources turns that into
-   concrete servers, and `a=race&refs=...` returns the winning server's direct
-   stream URL (/_stream?id=...) without the fingerprint-gated `a=play`. The
-   master's highest ladder rows are crypto-wrapped (cap.php → 403 "unavailable"
-   for scripts) so only the plain _stream renditions are served. Media segments
-   ride VidSrc's opaque relay (pchrelay.videm.xyz), which gates on the owning
-   player's origin — the segment fetcher picks that origin up from the 403's
-   access-control-allow-origin header and retries from there, so real bytes
-   come back. Still offer Copy/Open as the hand-off to the user's own tools:
-   the source is real and useful regardless of byte-save availability. */
-
-function extractVarObject(html, varName) {
-  const re = new RegExp(`(?:var|const)\\s+${varName}\\s*=\\s*\\{`, "i");
-  const idx = String(html || "").search(re);
-  if (idx < 0) return null;
-  const open = String(html).indexOf("{", idx);
-  if (open < 0) return null;
-  let depth = 0;
-  for (let i = open; i < html.length; i += 1) {
-    const ch = html[i];
-    if (ch === "{") depth += 1;
-    else if (ch === "}") {
-      depth -= 1;
-      if (depth === 0) return html.slice(open, i + 1);
-    }
-  }
-  return null;
-}
-
-function sanitizeJsonish(raw) {
-  return String(raw || "").replace(/,\s*([}\]])/g, "$1").replace(/:\s*undefined(?=[,}\]])/g, ":null");
-}
-
-async function handleResolveVidsrc(body, res) {
-  const type = body.type === "tv" ? "tv" : "movie";
-  const tmdbId = String(body.id || "").trim();
-  if (!/^\d{1,12}$/.test(tmdbId)) {
-    json(res, 400, { ok: false, error: "Invalid TMDB id", code: "bad-id" });
-    return;
-  }
-  const season = String(body.season ?? "").trim();
-  const episode = String(body.episode ?? "").trim();
-
-  const embedUrl =
-    `https://vidsrc.buzz/embed/${type}/${tmdbId}` +
-    (type === "tv" && season
-      ? `?autoPlay=true&s=${encodeURIComponent(season)}&e=${encodeURIComponent(episode)}`
-      : "?autoPlay=true");
-
-  // VidSrc's WAF throttles in bursts (403 "unavailable" for a stretch, then
-  // open again). Retry with a FRESH embed token and a short backoff per round
-  // instead of hammering the same signed request — the burst clears faster
-  // when we give it breathing room.
-  const apiBase = "https://vidsrc.buzz/pl/api.php";
-  let servers = [];
-  for (let attempt = 0; attempt < 4 && servers.length === 0; attempt += 1) {
-    if (attempt > 0) await new Promise((r) => setTimeout(r, 1500 * attempt));
-
-    let Q = null;
-    try {
-      const html = await fetchUpstream(embedUrl, { referer: embedUrl });
-      const rawQ = extractVarObject(html, "Q");
-      if (rawQ) {
-        try {
-          Q = JSON.parse(sanitizeJsonish(rawQ));
-        } catch {
-          Q = null;
-        }
-      }
-    } catch {
-      // next round
-    }
-    const token = Q?.t;
-    if (!token) continue;
-    const qType = String(Q.type || type);
-    const qId = String(Q.id || tmdbId);
-    const qS = Q.s ? String(Q.s) : season;
-    const qE = Q.e ? String(Q.e) : episode;
-
-    try {
-      const sourcesUrl =
-        `${apiBase}?a=sources&type=${encodeURIComponent(qType)}` +
-        `&id=${encodeURIComponent(qId)}&s=${encodeURIComponent(qS)}` +
-        `&e=${encodeURIComponent(qE)}&t=${encodeURIComponent(token)}`;
-      const raw = await fetchUpstream(sourcesUrl, { referer: embedUrl });
-      const data = JSON.parse(raw);
-      if (Array.isArray(data?.servers)) servers = data.servers;
-    } catch {
-      // next round — WAF burst
-    }
-  }
-
-  if (servers.length === 0) {
-    json(res, 200, { ok: false, error: "VidSrc source list unavailable", code: "no-source" });
-    return;
-  }
-
-  // Race the first few refs through `a=race` — the server answers with the
-  // winning server's DIRECT stream URL, avoiding the fingerprint-gated
-  // `a=play` endpoint ("unavailable" for scripted calls).
-  const RACE_W = 6;
-  const refs = servers.filter((s) => s?.ref).slice(0, RACE_W).map((s) => s.ref);
-  if (refs.length === 0) {
-    json(res, 200, { ok: false, error: "VidSrc returned no sources", code: "no-source" });
-    return;
-  }
-
-  try {
-    const raceUrl = `${apiBase}?a=race&refs=${encodeURIComponent(refs.join(","))}`;
-    const raceRaw = await fetchUpstream(raceUrl, { referer: embedUrl });
-    const race = JSON.parse(raceRaw);
-    const candidate = (race?.cands || []).find((c) => c?.url);
-    if (!candidate) {
-      json(res, 200, { ok: false, error: "VidSrc race produced no stream", code: "no-source" });
-      return;
-    }
-    // candidate.url is relative ("/_stream?id=...") unless absolute — resolve.
-    const masterUrl = resolveUrl("https://vidsrc.buzz/", candidate.url);
-    const masterText = await fetchUpstream(masterUrl, { referer: embedUrl });
-    // Highest ladder rows are crypto-wrapped (cap.php) and 403 for scripts —
-    // serve only the plain _stream renditions so the client never points at a
-    // URL that cannot produce bytes.
-    const variants = parseMasterPlaylist(masterText, masterUrl).filter(
-      (v) => v?.uri && !/cap\.php/i.test(v.uri),
-    );
-    if (variants.length > 0) {
-      json(res, 200, {
-        ok: true,
-        source: { kind: "hls", url: masterUrl, refUrl: embedUrl },
-        variants,
-      });
-      return;
-    }
-  } catch {
-    // fall through to no-source
-  }
-
-  json(res, 200, { ok: false, error: "No downloadable stream found via VidSrc", code: "no-source" });
-}
-
 /* VidCore (Server 5). No browser mint: vidcore.org/embed
    resolves from a static sources catalogue whose "videasy" API lists the
    title's whole quality ladder as direct HLS URLs (Videasy mirrors, incl. 4K).
-   Fallback — a title the videasy API doesn't carry is asked of the vidzen.fun
+   Fallback â€” a title the videasy API doesn't carry is asked of the vidzen.fun
    catalogue (same page queries it), whose stream tokens are host-relative
    /api/stream/{token} masters. Both want the VidCore player's referer; the
    m3u8/segment relay then works unchanged (segments are open-CORS fMP4). */
@@ -478,25 +336,68 @@ async function handleResolveVidcore(body, res) {
   const referer = VIDCORE_PLAYER_REFERER;
 
   /* VIDRACK AGGREGATE (the restored Server 1 ladder). The old videasy path
-     (`/api/sources/videasy`) died upstream in 2026-09 — it answers
+     (`/api/sources/videasy`) died upstream in 2026-09 â€” it answers
      `{"sources":[]}` for EVERY title now, which silently dropped Server 1 to
      vidzen's single 720p fallback (user: "not even has 1080p"). Vidrack's own
      player (chunks of /embed/movie/:id) calls `/api/sources?id&type[&season
      &episode]` and receives `{ serverSources: [{url, type, quality, label,
-     provider, headers}], sseUrl, mode }` — a MULTI-PROVIDER aggregate.
-     URLs minted by upstream providers are short-lived SIGNED tokens — this
+     provider, headers}], sseUrl, mode }` â€” a MULTI-PROVIDER aggregate.
+     URLs minted by upstream providers are short-lived SIGNED tokens â€” this
      function fetches nothing but the source LIST, and the player fetches
      playlists through the normal manifest/segment actions within the token's
-     life. Each entry becomes its own ladder row; a per-entry HEAD-verify is
-     deliberately skipped (entries 403 transiently and the player's own
-     playability probe does the real gate).
+life. Each entry becomes its own ladder row, but "listed" is NOT "playable"
+      and that distinction is load-bearing: a row whose playlist we can parse but
+      whose AES-128 `#EXT-X-KEY` we CANNOT fetch hangs the player with a live
+      timer and no picture (the manifest parsed, so duration/position are real,
+      but not one fragment or key ever lands). That was the reported "timer shows,
+      video does not" failure on this row, and it happened because this gate did
+      not exist â€” the old note here claimed "the player's own playability probe
+      does the real gate", which is false: hls.js treats a key failure as fatal
+      and the viewer just sees a dead player. So every row we are about to
+      PUBLISH is now measured: playlist readable, and when it is encrypted, the
+      key actually fetchable. Unplayable rows are dropped before they can reach
+      the menu; if nothing survives, the resolver returns null and the rotation
+      ladder moves on honestly instead of dead-ending.
 
-     CEILING: up to 800p, NOT 4K — see the VIDRACK_SOURCES_API comment for the
+     CEILING: up to 800p, NOT 4K â€” see the VIDRACK_SOURCES_API comment for the
      audit behind that. Rows are built from upstream LABELS because most entries
      are label-only stubs rather than real masters, so the label is carried
      through verbatim and never upgraded; `sources.js` states the honest
      ceiling so nothing here over-promises. */
-  const tryVidrack = async ({ timeoutMs = VIDRACK_TIMEOUT_FULL_MS } = {}) => {
+  /* Per-row playability, measured before a row is published. Playlist must
+      read, and an AES-128 playlist must have a key we can actually fetch â€” the
+      dlproxy family mints `/v1/key/...` URLs that our own egress can be refused
+      on, and an unfetchable key is a dead player with a running timer. */
+   const rowIsPlayable = async (row) => {
+     let text = "";
+     try {
+       text = await fetchUpstream(row.uri, { referer, timeoutMs: VIDRACK_ROW_VERIFY_MS });
+     } catch {
+       return false;
+     }
+     /* `fetchUpstream` surfaces a non-2xx body instead of throwing on it, so the
+        status alone cannot be trusted here: a 403 body would otherwise read as a
+        perfectly good keyless playlist. A real HLS playlist always opens with
+        #EXTM3U â€” an error page, a challenge, or a JSON blob never does. */
+     if (!/#EXTM3U/i.test(text)) return false;
+     const keyTag = /#EXT-X-KEY:([^\r\n]*)/i.exec(text);
+     if (!keyTag) return true;
+     if (/METHOD\s*=\s*NONE/i.test(keyTag[1])) return true;
+     const keyUri = /URI\s*=\s*"([^"]+)"/i.exec(keyTag[1]);
+     if (!keyUri) return false;
+     try {
+       await fetchRangeChunk(new URL(keyUri[1], row.uri).toString(), {
+         start: 0,
+         max: 64,
+         referer,
+       });
+       return true;
+     } catch {
+       return false;
+     }
+   };
+
+   const tryVidrack = async ({ timeoutMs = VIDRACK_TIMEOUT_FULL_MS } = {}) => {
     const api = new URL(VIDRACK_SOURCES_API);
     api.searchParams.set("id", tmdbId);
     api.searchParams.set("type", type);
@@ -508,8 +409,8 @@ async function handleResolveVidcore(body, res) {
     const text = await fetchUpstream(api.toString(), { referer, timeoutMs });
     const data = JSON.parse(text);
     const entries = Array.isArray(data?.serverSources) ? data.serverSources : [];
-    /* Quality label → height. "Auto"/"HD"/"FHDp" mark masters (an Auto master
-       IS a quality ladder — hls.js ABR walks its rungs), so they keep height 0
+    /* Quality label â†’ height. "Auto"/"HD"/"FHDp" mark masters (an Auto master
+       IS a quality ladder â€” hls.js ABR walks its rungs), so they keep height 0
        and ride the master branch of the player; precise labels ("1080p") map
        to their numeric rung. Deduped: vidrack lists mirror hosts of the same
        encode as separate rows, which would show the same picture twice. */
@@ -541,7 +442,7 @@ async function handleResolveVidcore(body, res) {
     }
     const rows = Array.from(seen.values());
     const masters = rows.filter((r) => r.height === 0);
-    /* One row per DISTINCT rung height — the aggregate lists several encodes of
+    /* One row per DISTINCT rung height â€” the aggregate lists several encodes of
        the same rung, and the player already collapses rows by label, so extra
        rows of one height would only crowd out a different rung. */
     const byHeight = new Map();
@@ -554,17 +455,24 @@ async function handleResolveVidcore(body, res) {
        aggregate returns ~20 "Auto" masters for a typical title, so a plain
        "masters first, then slice(6)" filled every slot with height-0 rows and
        the viewer's quality menu collapsed to a single "Auto" entry with no
-       manual choice — which is not what "multiple qualities" claims. */
-    const variants = [...masters.slice(0, 1), ...rungs, ...masters.slice(1)].slice(0, 6);
-    if (variants.length === 0) return null;
-    const best = variants[0];
+       manual choice â€” which is not what "multiple qualities" claims. */
+const candidates = [...masters.slice(0, 1), ...rungs, ...masters.slice(1)].slice(0, 6);
+     if (candidates.length === 0) return null;
+     /* Gate the rows we are about to publish, in parallel: one playlist fetch
+        each, plus one 64-byte key fetch for any encrypted row. Unplayable rows
+        are dropped, so the viewer's menu only ever lists something that plays.
+        `null` when nothing survives hands the title to the rotation ladder. */
+     const gated = await Promise.all(candidates.map((row) => rowIsPlayable(row)));
+     const variants = candidates.filter((_row, i) => gated[i]);
+     if (variants.length === 0) return null;
+     const best = variants[0];
     return {
       variants,
       source: { kind: "hls", url: best.uri, refUrl: referer },
     };
   };
 
-  /* vidzen.fun fallback — the same catalogue the page polls alongside
+  /* vidzen.fun fallback â€” the same catalogue the page polls alongside
      videasy. Its stream token may be a single-rendition media playlist or a
      real master ladder; parseMasterPlaylist handles both. */
   const tryVidzen = async () => {
@@ -592,19 +500,19 @@ async function handleResolveVidcore(body, res) {
 
   /* Vidrack is primary but SLOW: its aggregate answers in 13-25s in the wild.
      The previous version awaited it under fetchUpstream's 12s default
-     timeout — so EVERY real request aborted into vidzen's 2×800p ladder.
+     timeout â€” so EVERY real request aborted into vidzen's 2Ã—800p ladder.
      That was the whole "Server 1 lost its quality" bug. The resolve is now
      TWO-PHASED:
 
-     · default (fast): race vidrack against the quick vidzen chain and return
-       whichever lands first — vidzen answers in seconds, flagged
+     Â· default (fast): race vidrack against the quick vidzen chain and return
+       whichever lands first â€” vidzen answers in seconds, flagged
        `upgradeable` so the client knows a richer ladder exists; vidrack
        usually wins only from the warm cache (instant, `cached: true`).
-     · phase:"full": wait out vidrack's WHOLE ladder (28s budget, inside this
+     Â· phase:"full": wait out vidrack's WHOLE ladder (28s budget, inside this
        function's maxDuration) and answer with it, or an honest `no-upgrade`.
      A `ladder-pending` verdict (neither answered in the window) is retryable:
      the client re-asks with phase:"full" instead of the viewer paying the
-     same wait twice. Either failure mode is still honest — no fake ladder. */
+     same wait twice. Either failure mode is still honest â€” no fake ladder. */
   const cacheKey = vidrackCacheKey(type, tmdbId, season, episode);
   const cached = readVidrackCache(cacheKey);
   if (cached) {
@@ -623,7 +531,7 @@ async function handleResolveVidcore(body, res) {
         return;
       }
     } catch {
-      // fall through — "no upgrade" is the honest answer, not a 5xx
+      // fall through â€” "no upgrade" is the honest answer, not a 5xx
     }
     json(res, 200, { ok: false, error: "VidCore full ladder unavailable", code: "no-upgrade" });
     return;
@@ -638,7 +546,7 @@ async function handleResolveVidcore(body, res) {
     })
     .catch(() => null);
   const vidzenP = tryVidzen().catch(() => null);
-  // Only a NON-NULL result may win the race — a null must not resolve it.
+  // Only a NON-NULL result may win the race â€” a null must not resolve it.
   const firstWin = (p, tag) => p.then((v) => (v ? [tag, v] : new Promise(() => {})));
   const bothSettled = Promise.all([vidrackP, vidzenP]).then(() => ["both-done", null]);
   const deadline = new Promise((r) => setTimeout(() => r(["deadline", null]), VIDRACK_FAST_DEADLINE_MS));
@@ -654,7 +562,7 @@ async function handleResolveVidcore(body, res) {
       source: result.source,
       variants: result.variants,
       ladderSource: tag,
-      // vidzen is the 800p ceiling — tell the client the 4K-capable vidrack
+      // vidzen is the 800p ceiling â€” tell the client the 4K-capable vidrack
       // ladder may still be fetchable via phase:"full". undefined when
       // vidrack itself won.
       upgradeable: tag === "vidzen" || undefined,
@@ -679,7 +587,7 @@ async function handleResolveVidcore(body, res) {
   });
 }
 
-/* NetMirror (net27.cc family) — REMOVED (user order, 2024-09). net27's video
+/* NetMirror (net27.cc family) â€” REMOVED (user order, 2024-09). net27's video
    layer is per-IP 429-gated (bcdnxw CDN) and its auth is a Cloudflare
    challenge; the canonical-mirror family (net52/net51) mint real video URLs
    only for a per-session token issued behind an interactive challenge. No
@@ -687,177 +595,22 @@ async function handleResolveVidcore(body, res) {
    entries and player branches were removed; CineSrc (iframe sources) |
    VidCore | Videasy | VidVid remain the playback paths. */
 
-/* ── NHD Embed third-party provider ─────────────────────────────────────
-   NHD (https://nhdapi.com) aggregates 8 upstream providers behind one JW
-   Player embed (`/movie/{tmdbId}`, `/tv/{tmdbId}/{s}/{e}`) with a Server
-   switcher and — for dubbed titles — a real Audio language switcher.
-   Scraped server-side exactly like VidCore so our own player serves the
-   bytes instead of their iframe:
-
-   1. GET the embed page (no key needed, plays with ads in a browser) and
-      read its per-title `var API_PATH` + `var API_KEY` (the /api/* JSON
-      answers `invalid or missing API key` without it; the key differs per
-      title, verified live: 579974 vs 299534).
-   2. GET `{API_PATH}?_ts=…&key=…[&provider=…|&exclude=…]` with the embed
-      page as referer. The answer is `{ success, playUrl, kind, provider,
-      audioTracks }` where `playUrl` is a tokenized
-      `nhdapi.streamfinder.st/api/hls?t=…` URL and `audioTracks` — when
-      present — is a list of SIBLING full-stream URLs
-      (`[{ label, playUrl }]`, one HLS manifest per dub), never
-      `#EXT-X-MEDIA` renditions inside one manifest.
-   3. Every minted token is VERIFIED before it is served (one cheap GET of
-      the manifest must answer a real m3u8): a mint is NOT guaranteed
-      playable — meowtvru (nxsha.space) extractions come out born-403 some
-      of the time (their own player survives that only through its
-      exclude-and-retry recovery ladder, read off their embed source), and
-      `fresh=1` re-mints can land non-HLS kinds or poison the upstream's
-      cached extraction, so `fresh` is never sent by us. The ladder mirrors
-      theirs: meowtvru first (the only provider whose extractions carry
-      `audioTracks` — per their player source "every other provider serves
-      exactly one"), then the all-provider race, then the race with
-      meowtvru excluded. Dub siblings are verified individually too — a
-      healthy main mint can still ship dead dub tokens.
-
-   Only `kind === "hls"` extractions are served: `kind === "mp4"` titles
-   have no HLS ladder for the native pipeline (its NetMirror mp4 branch
-   was removed) or the manifest→segment downloader, so they answer an
-   honest `no-source` instead of a URL nothing can play. Tokens are
-   time-scoped (a captured `t=…` 502s minutes later) but NOT single-use —
-   the verify GET and the player's first fetch of the same token both
-   answer — so resolve fresh per playback; the player's token-refresh
-   re-resolve already does this. The streamfinder host answers CORS *
-   headerless (verified live), so no referer rides on playback. */
-const NHD_EMBED_BASE = "https://nhdapi.com";
-const NHD_MULTI_AUDIO_PROVIDER = "meowtvru";
-
-function extractNhdPageKey(html) {
-  const text = String(html || "");
-  const pathMatch = /var\s+API_PATH\s*=\s*"([^"]+)"/.exec(text);
-  const keyMatch = /var\s+API_KEY\s*=\s*"([^"]+)"/.exec(text);
-  const apiPath = pathMatch?.[1] || null;
-  const apiKey = keyMatch?.[1] || null;
-  if (!apiPath || !apiKey || !apiPath.startsWith("/api/")) return null;
-  return { apiPath, apiKey };
-}
-
-async function fetchNhdExtraction(key, embedUrl, { provider, exclude } = {}) {
-  const api = new URL(NHD_EMBED_BASE + key.apiPath);
-  api.searchParams.set("_ts", String(Date.now()));
-  if (provider) api.searchParams.set("provider", provider);
-  if (exclude) api.searchParams.set("exclude", exclude);
-  api.searchParams.set("key", key.apiKey);
-  const text = await fetchUpstream(api.toString(), { referer: embedUrl });
-  const data = JSON.parse(text);
-  if (!data || data.success !== true || !data.playUrl) return null;
-  return data;
-}
-
-/* The verify gate: a minted NHD token must answer a real m3u8 before we
-   offer it to the player — a born-403 token would otherwise surface as a
-   black-screen source instead of a clean failover to the next attempt. */
-async function verifyNhdPlaylist(url) {
-  try {
-    const text = await fetchUpstream(url);
-    return text.startsWith("#EXTM3U");
-  } catch {
-    return false;
-  }
-}
-
-async function handleResolveNhd(body, res) {
-  const type = body.type === "tv" ? "tv" : "movie";
-  const tmdbId = String(body.id || "").trim();
-  if (!/^\d{1,12}$/.test(tmdbId)) {
-    json(res, 400, { ok: false, error: "Invalid TMDB id", code: "bad-id" });
-    return;
-  }
-  const season = String(body.season ?? "").trim();
-  const episode = String(body.episode ?? "").trim();
-
-  const embedUrl =
-    type === "tv"
-      ? `${NHD_EMBED_BASE}/tv/${tmdbId}/${season || "1"}/${episode || "1"}`
-      : `${NHD_EMBED_BASE}/movie/${tmdbId}`;
-
-  let page;
-  try {
-    page = await fetchUpstream(embedUrl, { referer: embedUrl });
-  } catch {
-    page = null;
-  }
-  const key = page ? extractNhdPageKey(page) : null;
-  if (!key) {
-    json(res, 200, { ok: false, error: "No downloadable stream found via NHD", code: "no-source" });
-    return;
-  }
-
-  // Their own ladder, with the verify gate on every rung: meowtvru (multi-
-  // audio), the all-provider race, then their recovery move — the race with
-  // meowtvru excluded. A rung whose mint fails verification is skipped, not
-  // served; running the ladder dry is an honest no-source.
-  const attempts = [
-    { provider: NHD_MULTI_AUDIO_PROVIDER },
-    {},
-    { exclude: NHD_MULTI_AUDIO_PROVIDER },
-  ];
-  for (const params of attempts) {
-    let data = null;
-    try {
-      data = await fetchNhdExtraction(key, embedUrl, params);
-    } catch {
-      data = null;
-    }
-    if (!data || data.kind !== "hls") continue;
-    if (!(await verifyNhdPlaylist(data.playUrl))) continue;
-    // Dub siblings are verified one by one: a healthy main mint can still
-    // carry dead dub tokens, and an unplayable dub must never reach the
-    // Audio menu (the player probes again before switching, but the menu
-    // should only ever list tracks that can actually play).
-    const audioTracks = [];
-    for (const t of Array.isArray(data.audioTracks) ? data.audioTracks : []) {
-      if (!t?.playUrl || !t?.label) continue;
-      if (await verifyNhdPlaylist(t.playUrl)) {
-        audioTracks.push({ label: String(t.label), uri: String(t.playUrl) });
-      }
-    }
-    json(res, 200, {
-      ok: true,
-      source: { kind: "hls", url: data.playUrl, refUrl: "" },
-      variants: [
-        {
-          uri: data.playUrl,
-          bandwidth: 0,
-          width: 0,
-          height: 0,
-          framerate: 0,
-          codecs: "",
-          hdr: false,
-        },
-      ],
-      provider: data.provider || params.provider || "",
-      audioTracks,
-    });
-    return;
-  }
-  json(res, 200, { ok: false, error: "No downloadable stream found via NHD", code: "no-source" });
-}
-
-/* ── ZXC / vidstuck third-party provider ────────────────────────────────
+/* â”€â”€ ZXC / vidstuck third-party provider â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    zxcstream.icu is a thin shell around a vidstuck.xyz JW Player embed; every
    real stream is behind vidstuck's own two-step backend, so we mint and read
-   it server-side exactly like VidCore/NHD and serve the bytes ourselves.
+   it server-side exactly like VidCore and serve the bytes ourselves.
 
    The contract, read off the shipped client chunk (vidstuck's `queryFn`):
 
    1. `POST /backend/fuckyou` with `{tmdbId, media_type, path[, season, episode]}`
       -> `{ token, ts }`. This endpoint is SELF-ORIGIN ONLY: a correct body with
       any other (or missing) `Origin` header answers 500 "Internal Server
-      Error" — verified across a header matrix, where only
+      Error" â€” verified across a header matrix, where only
       `Origin: https://vidstuck.xyz` returned 200. So the origin we send is not
       cosmetic; it is the whole gate.
 
       PATH RENAMED UPSTREAM 2026-10-03 (why every ZXC row was dead): this used to
-      be `POST /backend/meow`, which now answers 404 — "meow" is no longer an
+      be `POST /backend/meow`, which now answers 404 â€” "meow" is no longer an
       endpoint, it is one of their SERVER names ("Ursa", `path=meow`). Re-scraping
       the shipped embed chunk (`ext/static/chunks/1jckevlg2_ail.js`) shows the
       mint moved to `/backend/fuckyou` with the identical body and the identical
@@ -866,34 +619,34 @@ new path 200 `{token, ts}`, and centaurus/andromeda/atlas/meow then resolve
        `success=true` on `/backend/servers/{path}`. (`milkyway` still answers
        `success=true` there too, but its manifest 403s, so it is retired.)
 
-   2. `GET /backend/servers/{path}?…` with a dozen OBFUSCATED query names
+   2. `GET /backend/servers/{path}?â€¦` with a dozen OBFUSCATED query names
       (hex strings, mapped below) plus the token/ts from step 1, and optionally
       `dubCode`/`dubType` to pick an audio language. Answers
       `{ success, links: [{ type: "hls"|"dash", link, resolution }], dubs: [...] }`.
       Every `link` is AES-256-CBC encrypted with a hardcoded passphrase using
       CryptoJS's OpenSSL envelope (`Salted__` + 8-byte salt, key/IV derived by
       EVP_BytesToKey with MD5 and ONE round). `decryptZxcLink` below is that
-      derivation, and it is the only reason this works — the ciphertext is
+      derivation, and it is the only reason this works â€” the ciphertext is
       opaque without it.
 
    The four servers, and why they need different handling:
-     · andromeda / centaurus -> `type: "dash"`. MPD, not HLS. Transcoded to an
-       fMP4 HLS ladder by server/dashToHls.js (manifest only — no media bytes
+     Â· andromeda / centaurus -> `type: "dash"`. MPD, not HLS. Transcoded to an
+       fMP4 HLS ladder by server/dashToHls.js (manifest only â€” no media bytes
        are re-encoded, the segments are already CMAF).
-     · atlas  -> `type: "hls"` behind vidstuck's own `/backend/servers/atlas/edge`
+     Â· atlas  -> `type: "hls"` behind vidstuck's own `/backend/servers/atlas/edge`
        relay, so its relative `link` must be resolved against the origin.
-     · meow    -> `type: "hls"` direct off a Cloudflare worker. This row is
+     Â· meow    -> `type: "hls"` direct off a Cloudflare worker. This row is
        "Ursa" upstream and REPLACES the retired `milkyway`, whose manifest answers
        403 through this function and so could never play.
 
    MULTI-AUDIO is centaurus-only (`dubSupport`), and it is per-MANIFEST, not
    per-adaptation-set: `dubCode`/`dubType` swap which language the returned MPD's
    single audio AdaptationSet carries. That is why dubs ship as SIBLING master
-   URLs (`audioTracks: [{label, uri}]`, the NHD convention the player already
+   URLs (`audioTracks: [{label, uri}]`, the sibling-stream convention the player already
    implements) instead of `#EXT-X-MEDIA` rows in one master.
 
-   Honesty gates, in the same spirit as the NHD ladder: the advertised `dubs`
-   list overstates reality. Verified live against tmdb 1101383 — `hi` and `ta`
+   Honesty gates: the advertised `dubs`
+   list overstates reality. Verified live against tmdb 1101383 â€” `hi` and `ta`
    are listed but their MPDs answer HTTP 427 ("Fetch failed"), and the one
    subtitle row (`es`, `dubType=1`) answers "No sources found". So every dub is
    individually minted and its manifest fetched before it may reach the Audio
@@ -903,7 +656,7 @@ const ZXC_ORIGIN = "https://vidstuck.xyz";
 /* Upstream's own server list, read off the shipped client chunk
    (`gN.SERVERS`): Andromeda "Smooth Playback & HD", Centaurus "Multi Audio
    Support" (the only one with `dubSupport`), Atlas "Alternative", and Ursa
-   "Alternative" — whose PATH is literally `meow`. `milkyway` is GONE: it is no
+   "Alternative" â€” whose PATH is literally `meow`. `milkyway` is GONE: it is no
    longer in their list and its manifest answers 403 through our function
    ("manifest unreadable: Upstream 403"), so it was dropped rather than left as
    a row that can never play. */
@@ -913,7 +666,7 @@ const ZXC_DASH_SERVERS = new Set(["andromeda", "centaurus"]);
 const ZXC_DUB_SERVER = "centaurus";
 
 /* The obfuscated parameter names the client sends. Read straight off the
-   shipped bundle's `uo/up/ug/uf/uh/ul/uu/ud/uc/um` constants — renaming any of
+   shipped bundle's `uo/up/ug/uf/uh/ul/uu/ud/uc/um` constants â€” renaming any of
    them makes the request fail closed. */
 const ZXC_PARAM = {
   tmdbId: "a7f39c821d604e5b9c71f36e1547b",
@@ -943,7 +696,7 @@ const ZXC_VIEW_MEDIA = "media";
 
 // How many provider links we will probe per plain-HLS server. atlas/meow
 // hand back 2-3 links that are alternate encodes or mirrors of ONE runtime, not
-// a quality ladder, so we pick a single one — the bound only stops a
+// a quality ladder, so we pick a single one â€” the bound only stops a
 // pathological payload from fanning out without limit.
 const ZXC_MAX_HLS_LINKS = 4;
 
@@ -962,7 +715,7 @@ function zxcHeaders(refererPath, { json: asJson = false } = {}) {
   return headers;
 }
 
-/* CryptoJS.AES.decrypt(ciphertext, passphrase).toString(enc.Utf8) — the
+/* CryptoJS.AES.decrypt(ciphertext, passphrase).toString(enc.Utf8) â€” the
    OpenSSL envelope: "Salted__" + 8-byte salt, then AES-256-CBC with key and IV
    derived from passphrase+salt by iterated MD5 (EVP_BytesToKey, 1 round).
    Node has no OpenSSL-format EVP_BytesToKey, so it is spelled out here; a raw
@@ -989,8 +742,8 @@ function decryptZxcLink(ciphertext, passphrase) {
   return Buffer.concat([decipher.update(body), decipher.final()]).toString("utf8");
 }
 
-/* Title/year/date/imdbId are advisory — the servers endpoint resolves with
-   blanks, verified — but they are sent when their detail lookup succeeds so the
+/* Title/year/date/imdbId are advisory â€” the servers endpoint resolves with
+   blanks, verified â€” but they are sent when their detail lookup succeeds so the
    provider sees the same request the browser makes. Never fatal. */
 async function zxcTitleMeta({ type, tmdbId, refererPath }) {
   try {
@@ -1009,7 +762,7 @@ async function zxcTitleMeta({ type, tmdbId, refererPath }) {
       imdbId: String(data?.imdb_id || ""),
     };
   } catch (error) {
-    // The ZXC params are advisory upstream — a blank title/year still resolves,
+    // The ZXC params are advisory upstream â€” a blank title/year still resolves,
     // so this degrades instead of failing the whole resolve.
     logWarn("zxc", "title metadata lookup failed, continuing with blank params", {
       message: error?.message,
@@ -1165,7 +918,7 @@ function parseZxcPlaylistUrl(rawUrl) {
 }
 
 /* MPD in, transcoded ladder out. One mint + one servers call + one manifest
-   fetch — the cost a single generated playlist request costs, which is why the
+   fetch â€” the cost a single generated playlist request costs, which is why the
    marker URL replays instead of caching. */
 async function zxcDashManifest(target) {
   const { meta, dubCode, dubType } = target;
@@ -1253,11 +1006,11 @@ async function handleResolveZxc(body, res) {
   const refUrl = `${ZXC_ORIGIN}${refererPath}`;
   // Plain-HLS servers hand back MORE THAN ONE link, and they are not a quality
   // ladder: atlas ships two media playlists for the SAME runtime (identical
-  // #EXTINF total, different segment granularity and bitrate — measured at
+  // #EXTINF total, different segment granularity and bitrate â€” measured at
   // ~1.4 Mbps vs ~0.5 Mbps on Reacher S1E1) and meow ships several masters
   // that are byte-identical mirrors of one 640x360 encode. Publishing all of
   // them as "variants" would show the user the same picture three times, so we
-  // pick ONE — but we probe them in order and fall through, because a dead
+  // pick ONE â€” but we probe them in order and fall through, because a dead
   // first link must not kill a title that has a working mirror behind it.
   const hlsLinks = data.links.filter((l) => l.kind === "hls").slice(0, ZXC_MAX_HLS_LINKS);
 
@@ -1351,10 +1104,10 @@ async function handleResolveZxc(body, res) {
     // Filter to type-0 (audio). Drop the "original" row if present (it's the
     // native soundtrack already served by the master) to avoid duplicate labels,
     // and also dedupe by (lanCode/type) when the provider lists the same pair
-    // twice. DO NOT hard-cap to 8: some titles carry 11+ type-0 dubs — the cap
+    // twice. DO NOT hard-cap to 8: some titles carry 11+ type-0 dubs â€” the cap
     // silently truncated Telugu/ptbr/esla etc.
     // Only an explicitly provider-flagged row is the original. If the payload
-    // carries no flag (older provider responses) we must NOT guess a winner —
+    // carries no flag (older provider responses) we must NOT guess a winner â€”
     // dropping an arbitrary first row would silently hide a real dub.
     const originalKey = data.dubs.find((d) => d?.original && d?.lanCode) || null;
     const originalKeyStr = originalKey ? `${originalKey.lanCode}/${String(originalKey.type ?? "0")}` : null;
@@ -1419,13 +1172,13 @@ async function handleManifest(body, res) {
   // A ZXC marker URL is transcoded from the provider's MPD rather than fetched.
   const zxcTarget = parseZxcPlaylistUrl(playlistUrl);
   if (zxcTarget) {
-    // A master has no segments of its own — the download sheet always asks for a
+    // A master has no segments of its own â€” the download sheet always asks for a
     // concrete rendition, so asking for the master is a client bug and gets a
     // clear answer instead of a silent empty segment list.
     if (zxcTarget.view === ZXC_VIEW_MASTER) {
       json(res, 400, {
         ok: false,
-        error: "Master playlist has no segments — resolve a rendition first",
+        error: "Master playlist has no segments â€” resolve a rendition first",
         code: "bad-url",
       });
       return;
@@ -1552,7 +1305,7 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   // The relay contract reads x-streamly-more ("does a slice continue past what
   // we just got?") and content-range (slice derivation when the header is
-  // absent). Default CORS exposes neither, so every JS read was null — that
+  // absent). Default CORS exposes neither, so every JS read was null â€” that
   // mattered for any cross-origin caller slicing over simple requests.
   res.setHeader(
     "Access-Control-Expose-Headers",
@@ -1570,11 +1323,11 @@ export default async function handler(req, res) {
 
   // Segment downloads are bandwidth-heavy. The client now fetches up to 4
   // segments concurrently and each segment costs 1-3 Range requests, so a
-  // legit title needs hundreds of requests fast — but 1800/min (30/s) still
+  // legit title needs hundreds of requests fast â€” but 1800/min (30/s) still
   // caps a runaway loop while letting the parallel client finish one title.
   const limit = rateLimit({ key: () => `dl:${clientIp(req)}`, limit: 1800, windowMs: 60_000 });
   // Capacity ledger (PLAN.md P0.3): one in-memory increment per relay call;
-  // batched Mongo flush — never a DB write in the request path.
+  // batched Mongo flush â€” never a DB write in the request path.
   countUsage("dl");
   if (!limit.ok) {
     tooManyRequests(res, limit.retryAfterSec);
@@ -1596,14 +1349,8 @@ export default async function handler(req, res) {
       case "resolve":
         await handleResolve(body, res);
         return;
-      case "resolvevidsrc":
-        await handleResolveVidsrc(body, res);
-        return;
       case "resolvevidcore":
         await handleResolveVidcore(body, res);
-        return;
-      case "resolvenhd":
-        await handleResolveNhd(body, res);
         return;
       case "resolvezxc":
         await handleResolveZxc(body, res);

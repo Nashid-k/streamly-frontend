@@ -85,6 +85,17 @@ describe("POST /api/downloadify", () => {
     expect(JSON.parse(res.body)).toMatchObject({ ok: false, code: "bad-action" });
   });
 
+  /* VidSrc and NHD were deleted on 2026-10-03. Their actions have no handler
+     left, so a stale client (or a cached bundle in a service worker) must get a
+     clean 400 envelope naming the problem — never a 500, and never a silent
+     empty success that the player would show as a playable-but-black server. */
+  it.each(["resolvevidsrc", "resolvenhd"])("answers %s with an honest 400 after its retirement", async (action) => {
+    const res = await call({ action, type: "movie", id: "27205" });
+    expect(res.statusCode).toBe(400);
+    expect(res.statusCode).not.toBe(500);
+    expect(JSON.parse(res.body)).toMatchObject({ ok: false, code: "bad-action" });
+  });
+
   it("tolerates a malformed JSON body instead of crashing", async () => {
     const res = await call("{not json");
     expect(res.statusCode).toBe(400);
@@ -93,10 +104,8 @@ describe("POST /api/downloadify", () => {
 
   it.each([
     "resolve",
-    "resolvevidsrc",
-    "resolvevidcore",
-    "resolvenhd",
-    "resolvezxc",
+     "resolvevidcore",
+     "resolvezxc",
     "manifest",
     "playlist",
     "segment",
@@ -112,7 +121,7 @@ describe("POST /api/downloadify", () => {
     expect(typeof payload.error).toBe("string");
   });
 
-  describe("resolvevidcore — vidrack aggregate (Server 1)", () => {
+  describe("resolvevidcore â€” vidrack aggregate (Server 1)", () => {
     /* Server 1 resolves through vidrack's OWN multi-provider aggregate, NOT
        vidcore.io. That is not a preference: vidcore.io refuses Vercel's egress
        with a 403 from both iad1 and bom1, which is exactly what killed Server 1
@@ -162,7 +171,7 @@ describe("POST /api/downloadify", () => {
       routeVidrack();
       const res = await call({ action: "resolvevidcore", type: "movie", id: "7654320" });
       const payload = JSON.parse(res.body);
-      // Auto master leads (height 0 = a real ABR ladder), then rungs tall→short.
+      // Auto master leads (height 0 = a real ABR ladder), then rungs tallâ†’short.
       expect(payload.variants.map((v) => v.height)).toEqual([0, 1080, 720]);
       expect(payload.variants[0].label).toBe("Auto");
       expect(payload.variants.map((v) => v.uri)).toEqual([
@@ -172,6 +181,77 @@ describe("POST /api/downloadify", () => {
       ]);
       // The owning player's referer rides the source for referer-gated CDNs.
       expect(payload.source.refUrl).toBe("https://vidcore.io/");
+    });
+
+    /* The reported production failure: a row whose playlist parses but whose
+       AES-128 key we cannot fetch leaves the player with a RUNNING TIMER and no
+       picture â€” the manifest is real, so duration/position render, but not one
+       key or fragment ever lands. Every row we publish is therefore measured
+       first. These tests are the only coverage of that gate. */
+    describe("vidrack per-row playability gate", () => {
+      const ENCRYPTED = (keyUrl) =>
+        `#EXTM3U\n#EXT-X-VERSION:4\n#EXT-X-TARGETDURATION:4\n` +
+        `#EXT-X-KEY:METHOD=AES-128,URI="${keyUrl}"\n` +
+        `#EXTINF:4.0,\nseg0.m4s\n`;
+
+      it("drops a row whose AES key we cannot fetch, keeping the playable ones", async () => {
+        vi.stubGlobal(
+          "fetch",
+          vi.fn().mockImplementation(async (url) => {
+            const to = String(url);
+            if (to.startsWith(VIDRACK_API)) return textBody(JSON.stringify(AGGREGATE));
+            if (to.includes("vidzen.fun/api/sources")) return textBody(JSON.stringify(VIDZEN_FALLBACK));
+            // The 1080p row is AES-encrypted and its key endpoint 403s us.
+            if (to.includes("93.184.216.35/a.m3u8")) {
+              return textBody(ENCRYPTED("https://93.184.216.35/v1/key/deadbeef"));
+            }
+            if (to.includes("/v1/key/")) return new Response("no", { status: 403 });
+            return textBody("#EXTM3U\n#EXTINF:4.0,\nseg0.m4s\n");
+          }),
+        );
+        const res = await call({ action: "resolvevidcore", type: "movie", id: "7654340" });
+        const payload = JSON.parse(res.body);
+        const uris = payload.variants.map((v) => v.uri);
+        // The unplayable row is gone; the plain ones survive.
+        expect(uris).not.toContain("https://93.184.216.35/a.m3u8");
+        expect(uris).toContain("https://93.184.216.34/auto.m3u8");
+        expect(uris).toContain("https://93.184.216.36/b.m3u8");
+      });
+
+      it("keeps an encrypted row when the key IS fetchable", async () => {
+        vi.stubGlobal(
+          "fetch",
+          vi.fn().mockImplementation(async (url) => {
+            const to = String(url);
+            if (to.startsWith(VIDRACK_API)) return textBody(JSON.stringify(AGGREGATE));
+            if (to.includes("vidzen.fun/api/sources")) return textBody(JSON.stringify(VIDZEN_FALLBACK));
+            if (to.includes("93.184.216.35/a.m3u8")) {
+              return textBody(ENCRYPTED("https://93.184.216.35/v1/key/livebeef"));
+            }
+            if (to.includes("/v1/key/")) return new Response(new Uint8Array(16), { status: 200 });
+            return textBody("#EXTM3U\n#EXTINF:4.0,\nseg0.m4s\n");
+          }),
+        );
+        const res = await call({ action: "resolvevidcore", type: "movie", id: "7654341" });
+        const payload = JSON.parse(res.body);
+        expect(payload.variants.map((v) => v.uri)).toContain("https://93.184.216.35/a.m3u8");
+      });
+
+      it("drops a row whose playlist itself is unreadable", async () => {
+        vi.stubGlobal(
+          "fetch",
+          vi.fn().mockImplementation(async (url) => {
+            const to = String(url);
+            if (to.startsWith(VIDRACK_API)) return textBody(JSON.stringify(AGGREGATE));
+            if (to.includes("vidzen.fun/api/sources")) return textBody(JSON.stringify(VIDZEN_FALLBACK));
+            if (to.includes("93.184.216.35/a.m3u8")) return new Response("gone", { status: 403 });
+            return textBody("#EXTM3U\n#EXTINF:4.0,\nseg0.m4s\n");
+          }),
+        );
+        const res = await call({ action: "resolvevidcore", type: "movie", id: "7654342" });
+        const payload = JSON.parse(res.body);
+        expect(payload.variants.map((v) => v.uri)).not.toContain("https://93.184.216.35/a.m3u8");
+      });
     });
 
     it("passes season/episode to the aggregate for tv and omits them for movie", async () => {
@@ -279,14 +359,14 @@ describe("POST /api/downloadify", () => {
       const res = await call({ action: "resolvevidcore", type: "movie", id: "7654325", phase: "full" });
       expect(res.statusCode).toBe(200);
       const payload = JSON.parse(res.body);
-      // NOT "no-source": the fast phase already put a stream on screen — this
+      // NOT "no-source": the fast phase already put a stream on screen â€” this
       // verdict only means "no richer ladder exists".
       expect(payload).toMatchObject({ ok: false, code: "no-upgrade" });
     });
 
     it("ladder-pending: neither catalogue in the window answers a retryable verdict", async () => {
       // Fake timers: the fast-phase deadline is ~9.5s real time, far too slow
-      // for CI — advance the clock to just past it instead.
+      // for CI â€” advance the clock to just past it instead.
       vi.useFakeTimers();
       try {
         vi.stubGlobal(
@@ -305,7 +385,7 @@ describe("POST /api/downloadify", () => {
   });
 });
 
-describe("POST /api/downloadify — resolvezxc", () => {
+describe("POST /api/downloadify â€” resolvezxc", () => {
   const callZxc = (body) => call({ action: "resolvezxc", type: "movie", id: "1101383", ...body });
 
   it("rejects an unknown server before any provider request", async () => {
@@ -316,7 +396,7 @@ describe("POST /api/downloadify — resolvezxc", () => {
     const payload = JSON.parse(res.body);
     expect(payload.ok).toBe(false);
     expect(payload.error).toMatch(/server/i);
-    // A bad server key is a client bug — it must not spend an upstream call.
+    // A bad server key is a client bug â€” it must not spend an upstream call.
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

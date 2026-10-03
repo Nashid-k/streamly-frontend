@@ -77,7 +77,7 @@ export const SUBTITLE_COLORS = [
   { name: "Emerald", value: "#95ff50" },
 ];
 
-/* Mirrors DEFAULT_PREFERENCES.serverOrder (plain Server 1 … Server 8) so the
+/* Mirrors DEFAULT_PREFERENCES.serverOrder (plain Server 1 … Server 5) so the
    Settings page renders before the provider resolves; the adapter owns the list. */
 export const DEFAULT_SERVER_ORDER = [
   "Server 1",
@@ -85,9 +85,6 @@ export const DEFAULT_SERVER_ORDER = [
   "Server 3",
   "Server 4",
   "Server 5",
-  "Server 6",
-  "Server 7",
-  "Server 8",
 ];
 
 export const TABS = [
@@ -136,8 +133,8 @@ export const SECTION_SEARCH_TERMS = {
   ].join(" "),
   servers: [
     "server order drag handle sources tried first title loads priority stream",
-    "reset server 1 server 2 fast server 3 hd server 4 backup",
-    "server 5 vidcore server 6 peachify server 7 vidup server 8 smashy",
+    "reset server 1 centaurus server 2 andromeda server 3 atlas server 4 ursa",
+    "server 5 vidrack",
   ].join(" "),
   subtitles: [
     "subtitles readability customization font cinejoy netflix montserrat",

@@ -17,75 +17,6 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe("downloadService.resolveVidsrc", () => {
-  it("labels the qualities the VidSrc (Alt) ladder reports", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(
-        jsonResponse({
-          ok: true,
-          source: { kind: "hls", url: "https://vidsrc.buzz/stream/xyz" },
-          variants: [
-            { uri: "https://cdn/4k.m3u8", bandwidth: 16000000, width: 3840, height: 2160, hdr: true },
-            { uri: "https://cdn/1080.m3u8", bandwidth: 8000000, width: 1920, height: 1080, hdr: false },
-          ],
-        }),
-      ),
-    );
-
-    const { variants } = await downloadService.resolveVidsrc(
-      { type: "movie", id: "550" },
-    );
-    expect(variants.map((v) => v.label)).toEqual(["4K HDR", "1080p"]);
-  });
-
-  it("passes season+episode through for TV titles", async () => {
-    let capturedBody = null;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockImplementation(async (url, init) => {
-        capturedBody = JSON.parse(init.body);
-        return jsonResponse({
-          ok: true,
-          source: { kind: "hls", url: "https://vidsrc.buzz/stream/tv-xyz" },
-          variants: [
-            { uri: "https://cdn/720.m3u8", bandwidth: 2800000, width: 1280, height: 720, hdr: false },
-          ],
-        });
-      }),
-    );
-
-    await downloadService.resolveVidsrc({ type: "tv", id: "1399", season: 2, episode: 3 });
-
-    expect(capturedBody).toMatchObject({ action: "resolvevidsrc", type: "tv", id: "1399", season: "2", episode: "3" });
-  });
-
-  it("throws a clear error when the serverless function is not deployed", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        headers: { get: () => "text/html" },
-        json: async () => ({}),
-      }),
-    );
-    await expect(downloadService.resolveVidsrc({ type: "movie", id: "550" })).rejects.toMatchObject({
-      code: "offline",
-    });
-  });
-
-  it("surfaces the resolver's no-source result", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(jsonResponse({ ok: false, error: "No stream found via VidSrc", code: "no-source" })),
-    );
-    await expect(downloadService.resolveVidsrc({ type: "movie", id: "550" })).rejects.toMatchObject({
-      code: "no-source",
-    });
-  });
-});
-
 describe("downloadService.resolveVidcore", () => {
   it("labels the quality ladder VidCore's sources serve (incl. 4K)", async () => {
     vi.stubGlobal(
@@ -197,67 +128,53 @@ describe("downloadService.resolveVidcore", () => {
   });
 });
 
-describe("downloadService.resolveNhd", () => {
+describe("downloadService.resolveZxc", () => {
+  /* Sibling-URL dub tracks are NOT an NHD-only convenience: ZXC Centaurus is the
+     one LIVE multi-audio server, and it ships its dubs the same way — a list of
+     full sibling masters rather than #EXT-X-MEDIA rows. This coverage moved here
+     when NHD was retired on 2026-10-03. */
   it("carries the sibling-URL dub audioTracks through to the player", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
         jsonResponse({
           ok: true,
-          source: { kind: "hls", url: "https://nhdapi.streamfinder.st/api/hls?t=abc", refUrl: "" },
-          variants: [{ uri: "https://nhdapi.streamfinder.st/api/hls?t=abc", bandwidth: 0, height: 0 }],
-          provider: "meowtvru",
+          source: { kind: "hls", url: "https://vidstuck.xyz/zxc/centaurus/master.m3u8" },
+          variants: [{ uri: "https://vidstuck.xyz/zxc/centaurus/master.m3u8", bandwidth: 0, height: 0 }],
           audioTracks: [
-            { label: "Original", uri: "https://nhdapi.streamfinder.st/api/hls?t=abc" },
-            { label: "Hindi", uri: "https://nhdapi.streamfinder.st/api/hls?t=def" },
-            { label: "Telugu", uri: "https://nhdapi.streamfinder.st/api/hls?t=ghi" },
+            { label: "Original", uri: "https://vidstuck.xyz/zxc/centaurus/master.m3u8" },
+            { label: "Hindi", uri: "https://vidstuck.xyz/zxc/centaurus/hi.m3u8" },
+            { label: "Telugu", uri: "https://vidstuck.xyz/zxc/centaurus/te.m3u8" },
           ],
         }),
       ),
     );
 
-    const resolved = await downloadService.resolveNhd({ type: "movie", id: "579974" });
-    // NHD serves ONE unlabeled rung (height 0 -> the honest "Auto" label), so the
-    // ladder is not the interesting part — the dub list is.
+    const resolved = await downloadService.resolveZxc({ type: "movie", id: "579974", server: "centaurus" });
+    // Centaurus ships ONE unlabeled rung (height 0 -> the honest "Auto" label),
+    // so the ladder is not the interesting part — the dub list is.
     expect(resolved.variants.map((v) => v.label)).toEqual(["Auto"]);
     expect(resolved.audioTracks.map((t) => t.label)).toEqual(["Original", "Hindi", "Telugu"]);
     expect(resolved.audioTracks[1]).toEqual({
       label: "Hindi",
-      uri: "https://nhdapi.streamfinder.st/api/hls?t=def",
+      uri: "https://vidstuck.xyz/zxc/centaurus/hi.m3u8",
     });
   });
 
-  it("passes season+episode through for TV and drops dub-less extractions to an empty list", async () => {
-    let capturedBody = null;
+  it("throws a clear error when the serverless function is not deployed", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockImplementation(async (url, init) => {
-        capturedBody = JSON.parse(init.body);
-        return jsonResponse({
-          ok: true,
-          source: { kind: "hls", url: "https://nhdapi.streamfinder.st/api/hls?t=tv", refUrl: "" },
-          variants: [{ uri: "https://nhdapi.streamfinder.st/api/hls?t=tv", bandwidth: 0 }],
-        });
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: { get: () => "text/html" },
+        json: async () => ({}),
       }),
     );
-
-    const resolved = await downloadService.resolveNhd({ type: "tv", id: "1399", season: 2, episode: 3 });
-    expect(capturedBody).toMatchObject({ action: "resolvenhd", type: "tv", id: "1399", season: "2", episode: "3" });
-    expect(resolved.audioTracks).toEqual([]);
-  });
-
-  it("surfaces an honest no-source result", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(jsonResponse({ ok: false, error: "No stream found via NHD", code: "no-source" })),
-    );
-    await expect(downloadService.resolveNhd({ type: "movie", id: "550" })).rejects.toMatchObject({
-      code: "no-source",
+    await expect(downloadService.resolveZxc({ type: "movie", id: "550", server: "centaurus" })).rejects.toMatchObject({
+      code: "offline",
     });
   });
-});
-
-describe("downloadService.resolveZxc", () => {
   it("sends the chosen server so each ZXC row targets its own backend", async () => {
     let capturedBody = null;
     vi.stubGlobal(

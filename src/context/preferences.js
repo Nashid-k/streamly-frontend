@@ -1,5 +1,7 @@
 import { createContext, useContext } from "react";
 
+import { PLAYER_SOURCE_LABELS } from "../constants/sources";
+
 /* ── Server naming migration ──────────────────────────────────────────
    The player dropdown shipped as "Server 1 … Server 7", was renamed to
    Lisbon/Nebula/Solara/Athens/Joy/Castle/Sakura, then Canaias/SmashyStream
@@ -23,6 +25,18 @@ export const LEGACY_SERVER_NAME_MAP = Object.freeze({
   "Server 7 (VidUp)": "Server 7",
   "Server 8 (Smashy)": "Server 8",
 });
+
+/* Drop rows whose server has been RETIRED. VidSrc (Server 6) and NHD (Server 7)
+   were removed on 2026-10-03 after both answered `{ok:false, code:"no-source"}`
+   for movie 27205 AND tv 1399 s1e1 — a returning visitor's saved order can
+   still name them, and a dead row in the Servers drag list is a promise the
+   player will never keep. Order and duplicates of the surviving rows are
+   preserved; an order that was entirely retired falls back to the defaults. */
+export function pruneRetiredServers(order, fallback) {
+  if (!Array.isArray(order)) return fallback;
+  const live = order.filter((name) => PLAYER_SOURCE_LABELS.includes(name));
+  return live.length > 0 ? live : fallback;
+}
 
 export function migrateServerOrder(order) {
   if (!Array.isArray(order)) return order;
@@ -52,17 +66,16 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   seekTime: 10,
   autoSubtitles: true,
   defaultLanguage: "en",
-    // Servers — plain labels (Server 1 … Server 8). Orders saved under the interim
-    // Lisbon/Nebula/… or "Server N (suffix)" names are migrated on boot.
+    // Servers — plain labels (Server 1 … Server 5). Orders saved under the interim
+    // Lisbon/Nebula/… or "Server N (suffix)" names are migrated on boot, and a
+    // saved order naming a retired row (Server 6/7/8 = VidSrc/NHD) is filtered
+    // out at render time rather than silently offering a dead server.
   serverOrder: [
     "Server 1",
     "Server 2",
     "Server 3",
     "Server 4",
     "Server 5",
-    "Server 6",
-    "Server 7",
-    "Server 8",
   ],
   // Subtitles
   subtitleFont: "cinejoy",
