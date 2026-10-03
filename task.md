@@ -4148,3 +4148,74 @@ VERDICT: bom1 also refused
          `frame-ancestors`) and it is already in our CSP `frame-src`, so this
          needs no proxy and works today, at the cost of our own player and
          quality selection on Server 1.
+
+## FIX: vidrack iframe fallback for Server 1
+
+Region pinning failed (vidrack blocks Vercel's AWS ranges as a whole), and
+Cloudflare is refused by a `Cf-Worker` header check that stripping would only
+circumvent. That left one path that is both permitted and proxy-free: letting
+the viewer's own browser load vidrack, which is exactly what vidrack serves
+normally.
+
+- [x] Confirmed vidrack **permits framing**: no `X-Frame-Options`, no
+      `frame-ancestors`, on `/`, `/movie/*` and `/tv/*`.
+- [x] Confirmed the **deployed CSP already allows it** - `https://vidcore.io`
+      is in `frame-src`, and in the `Permissions-Policy` allowlist. No header
+      change needed.
+- [x] Added `src/api/vidcoreEmbed.js`:
+      - `vidcoreEmbedUrl({type,id,season,episode})` builds the embed URL with
+        our accent (`theme=0A84FF`) and `autoPlay=true`. TMDB ids only, so a
+        title cannot resolve natively and fall back to a different film. Returns
+        `null` for anything non-numeric, so a bad id can never produce a
+        traversal or query-injection URL.
+      - `shouldOfferVidcoreEmbed({requestedServerKey, embedAttempted})` refuses
+        to override an explicit non-vidcore pick, mirroring the native
+        rotation's rule that it will not silently switch providers.
+- [x] Wired into `NativePlayerView.jsx` at the point every source has already
+      failed: the resolve loop now sets an `embedUrl` instead of raising the
+      fatal "no native source" error. It is a **fallback only** - a native
+      resolve that succeeds never reaches it - and any new resolve (another
+      server, another episode) clears it and restores the native player.
+- [x] Player UI handled, since the <video> is covered:
+      - iframe sits at `z-index: 2`, below the overlays at 3-7, so the close
+        button and panels stay clickable;
+      - the bottom chrome (scrubber + transport) is hidden and made
+        `pointer-events: none` during the embed, because those controls drive
+        our hidden video element and would otherwise do nothing;
+      - the top bar stays, so close/back is never stranded.
+- [x] Verified the exact emitted URLs against the live site - all `200`, all
+      framable, all carrying the `en` token:
+
+      ```
+      https://vidcore.io/movie/27205?theme=0A84FF&autoPlay=true   200 token
+      https://vidcore.io/tv/1399/1/1?theme=0A84FF&autoPlay=true   200 token
+      ```
+
+- [x] Tests: `src/__tests__/vidcoreEmbed.test.js`, 11 cases covering movie/TV
+      URLs, string ids, the TV-without-season degradation, theme/autoplay
+      overrides, bad and injection-shaped ids, and every branch of the
+      fallback gate.
+- [x] Gates: lint **0 errors**, tests **945/945** across **76** files
+      (+11/+1 from the previous 934/75), build **ok in 1.51s**.
+- [ ] Not verifiable from here: actual video playback inside the iframe needs
+      a real browser. Everything short of that (URL shape, framability, CSP,
+      Permissions-Policy, fallback gating, layout stacking) is verified.
+- [ ] Trade-off, stated plainly: the embed brings vidrack's player, so our
+      quality ladder, dub menu and subtitle UI do not apply to it. If a native
+      source ever resolves again, the native player is used and this never
+      shows.
+
+### Still provider-side, not fixable in code
+
+- ZXC: `/backend/meow` token mint withdrawn; `/backend/servers/{path}` alive
+  but unobtainable without a token.
+- NHD: `nhdapi.com` TCP-dead, `nhdapi.streamfinder.st` 522.
+- VidSrc: `a=sources`/`a=subs` authorised, both stream-URL actions 502.
+
+### Not shipping without sign-off
+
+`docs/relay-worker.js` remains in the tree as documentation of the diagnosed
+relay bug, but it works by stripping the `Cf-Worker` header that vidrack
+explicitly checks to reject Cloudflare Workers. That is circumventing an access
+control rather than fixing anything, so it is deliberately NOT wired into the
+playback path. Recommend deleting it unless the user decides otherwise.
