@@ -7,6 +7,21 @@
 
  ## Done (in order)
 
+- [x] **Server 5 played the timer with no video - FIXED; and VidSrc, NHD + the dead iframe adapter REMOVED (user: "in server1 the timer loads in the player but after that player loads video not playing, but show timer showing", then "before completing the todo, fix these first", then "remove other servers not working", then "delete it" for the adapter).** Committed `9e6e02b`, pushed to `main`.
+  - **The timer was never the bug.** The manifest parsed, so duration and position were real and the timer was honest - what never arrived were MEDIA bytes: `keyLoadError`, then `403` from the Worker relay and `502` from the Vercel relay on an `api.dlproxy.com/v1/key/...` AES key. An AES-128 key we cannot fetch is fatal to hls.js, so the viewer got a live-looking player and no picture.
+  - **Root cause: the vidrack aggregate published rows it had never proved playable.** The old note claimed "a per-entry HEAD-verify is deliberately skipped... the player's own playability probe does the real gate". Wrong in both halves - the aggregate is a LIST of upstream rows, and hls.js does not gate them. **Listed is not playable.**
+  - **Fix - measure every row before publishing it.** `rowIsPlayable()` runs in parallel on the <=6 rows about to be published: the playlist must read, and if it carries `#EXT-X-KEY` the key must actually be fetchable (64-byte range). Unplayable rows are dropped, so the quality menu can only list something that plays; if nothing survives, `tryVidrack` returns null and the rotation ladder continues honestly.
+  - **A 403 body is not a playlist.** `fetchUpstream` surfaces a non-2xx body instead of throwing on it, so a refused row would have read as a perfectly good keyless playlist. The gate therefore requires `#EXTM3U` - a real HLS playlist always opens with it, an error page / WAF challenge / JSON never does. Caught by a test, not by inspection.
+  - **Verified live on the exact reported title**, walking it the way the player walks it (playlist, down through `EXT-X-STREAM-INF`, then a real byte sip): tv 108978 s1e2 -> `ok=true ladderSource=vidrack`, 2 rows published, **318 and 819 media segments, 40000 real bytes each**, the 1080p row included. The previously-fatal encrypted row is gone.
+  - **+3 handler tests** (unplayable AES key drops the row, a FETCHABLE key keeps it, an unreadable playlist drops it). Each needs its own TMDB id: `vidrackCache` is keyed `type:id:s:e` with a 4-minute TTL, so a reused id silently serves the previous test's ladder and the gate never runs - the same trap already recorded for the warm cache, which bit the first attempt at these tests.
+  - **VidSrc + NHD retired after re-verification** (no source is removed on a stale verdict): movie 27205 AND tv 1399 s1e1, both providers, every call answering **HTTP 200 `{ok:false, code:"no-source"}`**. Removed `handleResolveVidsrc` (~140 lines), the whole NHD block (`NHD_EMBED_BASE`, `NHD_MULTI_AUDIO_PROVIDER`, `extractNhdPageKey`, `fetchNhdExtraction`, `verifyNhdPlaylist`, `handleResolveNhd`, ~154 lines), both dispatch cases, both `downloadService` methods, both `PLAYER_SOURCES` rows, and the dead `vidsrcme.ru` embed hosts from `ALLOWED_EMBED_HOSTS`. **The catalogue is now five servers: Centaurus, Andromeda, Atlas, Ursa, VidRack.**
+  - **A retired server must not survive in a saved preference.** The old sanitizer accepted any `Server [1-8]` string, so a returning visitor's `serverOrder` would have kept dead rows in the Settings drag list as rows the player can never resolve. New `pruneRetiredServers()` validates against `PLAYER_SOURCE_LABELS` (derived from `PLAYER_SOURCES`, so it self-maintains on the next retirement) and runs on the **boot** path in `readPreference`, not just the write path. The retired actions now answer a clean **400 `bad-action`** instead of a silent empty success the player would show as a playable-but-black server.
+  - **Kept deliberately:** the shared sibling-URL `audioTracks` plumbing (Centaurus is the one LIVE multi-audio server and uses the same shape - its dub coverage was MOVED into `resolveZxc` rather than deleted with NHD), `SERVER_LABEL_RE` as a shape guard, and `LEGACY_SERVER_NAME_MAP` history (still needed to read existing saved orders).
+  - **`src/api/videoSourceAdapter.js` deleted** (user: "delete it"): an 8-row iframe barrel - cinesrc.st, vidlink.pro, 2embed.cc, vidsrcme.ru, vidcore.io, peachify.top, vidup.to, smashystream - every host long out of the product, imported by nothing at runtime. Its `index.js` re-export was also broken: `BASE_SERVERS` was never exported from the module it was re-exported from. `barrels.test.js` now asserts `downloadService` so the barrel keeps a real member under test.
+  - **Left alone on purpose:** the inert legacy `iframe[src*=...]` guards in `GlobalShortcuts.jsx` / `BackToTop.jsx` (no iframe player ships any more, but they are zero-cost and behaviour-adjacent).
+  - Gates at the final state: oxlint **0 errors**, vitest **74 files / 928 passed** (one file fewer - the adapter's own test), build OK.
+  - **STILL OPEN (needs eyes on the deployment):** the failing log said `VidRack (Server 5)` while the report said Server 1. The gate makes Server 5 honest, but *why* that session reached Server 5 is still unexplained - auto-failover from Centaurus, or a saved Server 5 preference. If it recurs with Centaurus healthy, that is a separate failover bug.
+  - **STILL OPEN:** official `vidcore.io` genuine 4K remains unreachable from Vercel (`403` from both `iad1` and `bom1`). No 4K row is offered rather than claiming one. No circumvention was attempted.
 - [x] **Removal residue swept + the whole removal landed (user: "remove watch party and related codes, also downloads and related codes but don't touch player/playing (nativeplayer and related things)").** Second pass over the entry below: the excision itself was already complete and green, so this pass only removed what it left behind, then committed everything as one change.
   - **Swept (dead, unreferenced, zero runtime effect):** the 94-line Watch Party host/guest block in `NativePlayerView` - the excision had left an 8-line comment stub still narrating broadcast/drift semantics, now deleted outright (`rg -i party` on the file returns nothing). The `.nav-badge` rule in `header.css` and `.bottom-nav-badge` in `responsive.css` - both existed only for the downloads nav badge, orphaned once `Header.jsx`/`MobileBottomNav.jsx` dropped it. The `details.download` / `downloadTitle` / `downloaded` i18n keys across all 10 locales (`en.js`, `latin.js` es/fr/de/it/pt, `script.js` ja/ko/hi/ar) - unreferenced even before the removal (the old `DownloadModal` hardcoded English; `DownloadsPage` read the separate `downloads.*` block).
   - **Deliberately KEPT:** `player.downloadFailed` + `player.emptyFile` (subtitle-fetch failures, not offline downloads), `api/downloadify.js` (all 8 remaining actions - `resolve`/`resolvevidsrc`/`resolvevidcore`/`resolvenhd`/`resolvezxc`/`manifest`/`playlist`/`segment` - are playback), `nativeHlsLoader.js` (incl. `probeDirectOrigin`, the direct-CORS streaming probe), `relayProxy.js`, `downloadQuality.js`, `warmResolve.js`, and every player surface (Servers sheet, quality/audio/dub menus, skip intro/credits, resume/up-next, fatal banner, PiP, `reloadToken` rotation).
@@ -3600,10 +3615,17 @@ base audio") and the three remaining Explore/MyList items (search "EXPLORE MYLIS
       a state machine (connecting / probing / first-byte / buffered) would tell the
       viewer whether a wait is network or resolver, and seeding from a per-source
       bandwidth read avoids the slow first rung.
-- [ ] **Failure investigation: VidSrc proxy 403 and /api/downloadify 502.** Both
-      still answer with no useful body, so the retry in server/net.js cannot tell a
-      dead upstream from a rejected client. Needs an upstream-honest status code
-      before any client-side handling is written.
+- [x] **Failure investigation: VidSrc proxy 403 and /api/downloadify 502 — RESOLVED
+      2026-10-03** (see the Server 5 entry at the top of this list). The 502 was
+      never opaque: it wraps `segment-fetch-failed` carrying the upstream's own
+      status, so the retry CAN tell a dead upstream from a rejected client, and the
+      relayer annotates it in the log and the fatal banner. The specific production
+      failure behind this note is now understood and fixed — an unplayable AES row
+      that the aggregate had published without proving it, which is why a 502 with
+      `Upstream 403` reached the player. VidSrc itself was retired the same day.
+- [x] ~~Failure investigation (original note): VidSrc proxy 403 and
+      /api/downloadify 502 both answer with no useful body, so the retry in
+      server/net.js cannot tell a dead upstream from a rejected client.~~
 - [x] **DownloadModal legacy labels - DONE.** Labels now derive from
       `sourceLabel(key)` in constants/sources.js, the ONE catalogue the player's
       Servers menu uses, so the same provider is no longer two different numbers
@@ -3639,10 +3661,16 @@ base audio") and the three remaining Explore/MyList items (search "EXPLORE MYLIS
       Side effect worth knowing: search results now always print their title on
       desktop, because a <mark> nobody can see is not a highlight.
       Tests: searchRanking +5, highlightMatch 8 (NEW), SearchPage 7 (NEW).
-- [ ] **mobile/ Flutter player gaps** - no Server menu, no Skip Credits, hardcoded
+- [x] ~~**mobile/ Flutter player gaps** - no Server menu, no Skip Credits, hardcoded
       90s/15-min intro heuristic, and none of this session's audio-label /
-      transport-row work. No Dart SDK on this machine, so no Dart gate ran; this
-      cannot be closed here without a toolchain.
+      transport-row work.~~ **CANCELLED 2026-10-01 by user decision (recorded here
+      2026-10-03 so it stops misleading a future agent): this is a DESKTOP-ONLY
+      repository.** The Flutter `mobile/` app was deleted outright. There is no Dart,
+      no APK and no mobile target — do not recreate a scaffold, and do not report a
+      Dart gate as passed. Responsive *web* layout is still in scope and is handled
+      with container queries in `src/components/player/v2/player.css`. The gate for
+      any future work here is `npm run lint` + `npm run test` + `npm run build`, and
+      nothing else. See `AGENTS.md` §1.4.
 
 ## SHIPPED - search surface + collections surfaces (this session)
 - [x] Search scoring - popularity bonus replaces two bonuses that could not work.
@@ -3841,17 +3869,21 @@ Result: **1 of 7 servers works. 6 fail for upstream reasons, not code reasons.**
       handlers would have been guesswork. `api/downloadify.js` is untouched.
 - [x] Gates re-confirmed unchanged: `npm run lint` 0 errors / 35 warnings,
       `npm run test` 934/934 (75 files), `npm run build` passing.
-- [ ] **Follow-up for the user:** redeploy to Vercel - this is the ONLY
-      actionable fix available. Server 1 works locally but production returns
-      `no-upgrade`, so all 7 rows are broken in prod until it is redeployed.
-      No `vercel` CLI is installed and there is no `.vercel/` link, and a
-      production deploy should not be pushed unprompted, so this is left to the
-      user (redeploy `c756b35` from the Vercel dashboard).
-      Servers 2-7 are **not** recoverable from this repo - they need provider
-      action: VidSrc must un-gate `a=race`/`a=play` (or issue a server-to-server
-      key), NHD must bring `nhdapi.com` back up, and ZXC must restore a token
-      mint. Until then those rows keep failing, which is the honest state to
-      show the user rather than hiding them.
+- [x] **Follow-up for the user: redeploy to Vercel — DONE 2026-10-03.** Everything
+      is committed and pushed to `main` (`59ac781` ZXC mint fix, then `9e6e02b`
+      playability gate + server retirement), so Vercel builds it from the branch —
+      no dashboard redeploy of a stale SHA is needed.
+      The three blockers named below were each resolved, and none of them by
+      waiting on a provider: **ZXC** did restore its token mint, but under a new
+      path (`/backend/fuckyou`, not `/backend/meow`) — that one rename was the whole
+      outage, and Centaurus is now Server 1. **VidSrc and NHD** never came back;
+      both were re-verified `no-source` on every title and were REMOVED from the
+      catalogue rather than left failing in front of the user, so the "all 7 rows
+      broken in prod" state this note described no longer exists.
+- [x] ~~Servers 2-7 were not recoverable from this repo - they needed provider
+      action (VidSrc un-gating `a=race`/`a=play`, NHD bringing `nhdapi.com` back
+      up, ZXC restoring a token mint).~~ Superseded: 3 of those 4 servers are gone
+      from the catalogue, and the 4th (ZXC Centaurus) works.
 
 ## Deep provider scrape (2026-10-03, follow-up)
 
@@ -4021,10 +4053,12 @@ same set + Cf-Worker                               http=403   27ms len=4547
       and `stream` endpoints) need POST support, which the current
       GET-only relay and the reference Worker above do **not** provide - that
       is a separate, larger change and must not be conflated with this fix.
-- [ ] Server 1 in production stays broken until either the Worker is fixed and
-      POST-capable, or we fall back to the iframe embed (vidrack has no
-      `X-Frame-Options` and no `frame-ancestors`, and is already in our CSP
-      `frame-src`).
+- [x] ~~Server 1 in production stays broken until either the Worker is fixed and
+      POST-capable, or we fall back to the iframe embed.~~ **Superseded
+      2026-10-03:** Server 1 is no longer the vidrack row. It is now ZXC Centaurus,
+      which resolves and streams from a plain POST to `vidstuck.xyz`'s own backend
+      (verified live, real fMP4 bytes) — so this constraint no longer binds Server 1
+      at all. The vidrack row survives as Server 5 and is honestly labelled.
 
 ### Verified: the corrected relay completes the whole vidrack chain
 
@@ -4203,116 +4237,3 @@ meow/Ursa movie ok=true variants=1 h=800    playlist 200 entries=1778  segment 4
 
 Recorded so it is not re-dug: the ZXC outage was ONE renamed endpoint behind FOUR
 dead rows, and `milkyway` -> `meow` was an upstream server-list change, not our bug.
-
-## Fix: vidrack row played the timer with no video (2026-10-03)
-
-User: *"in server1 the timer loads in the player but after that player loads
-video not playing, but show timer showing"*, with the console showing
-`Resolved 3 variant(s) via VidCore (vidrack)` for tv 108978 s1e2.
-
-- [x] **Symptom, not a timer bug.** The manifest parsed, so duration and position
-      are real and the timer runs. What never arrived were MEDIA bytes. The log
-      is unambiguous: `keyLoadError` -> `HTTP Error 0 loading key
-      [relay:segment-fetch-fail... Upstream 403]` on a `api.dlproxy.com/v1/key/...`
-      URI, after the Cloudflare Worker relay answered **403** and the Vercel relay
-      answered **502**. An AES-128 key we cannot fetch is fatal to hls.js, so the
-      viewer got a live-looking player and no picture.
-- [x] **Root cause:** the vidrack aggregate published rows it had never proved
-      playable. The old note in `tryVidrack` claimed "a per-entry HEAD-verify is
-      deliberately skipped... the player's own playability probe does the real
-      gate". That was wrong in both halves: the aggregate is a LIST of upstream
-      rows, and hls.js does not gate them - a key failure is fatal and the attempt
-      ladder dead-ends. **Listed is not playable.**
-- [x] **Fix - measure every row before publishing it.** `rowIsPlayable()` now runs
-      on the <=6 rows about to be published, in parallel: the playlist must read,
-      and when it carries `#EXT-X-KEY` the key must actually be fetchable
-      (64-byte range). Unplayable rows are dropped, so the quality menu can only
-      ever list something that plays; if nothing survives, `tryVidrack` returns
-      null and the rotation ladder takes over honestly.
-- [x] **A 403 body is not a playlist.** `fetchUpstream` surfaces a non-2xx body
-      instead of throwing on it, so a refused row would have read as a perfectly
-      good keyless playlist. The gate therefore requires `#EXTM3U` - a real HLS
-      playlist always opens with it, an error page / WAF challenge / JSON never
-      does. (This exact hole was caught by the new test, not by inspection.)
-- [x] **Verified live on the exact reported title**, walking it the way the player
-      walks it (playlist, then down through `EXT-X-STREAM-INF`, then a real byte
-      sip):
-
-```
-tv 108978 s1e2  resolve ok=true ladderSource=vidrack
-  row0 Auto  h=0    playlist=200  318 media segments  segment=200 bytes=40000
-  row1 1080p h=1080 playlist=200  819 media segments  segment=200 bytes=40000
-```
-
-      The previously-fatal encrypted row is gone and every surviving row serves
-      40000 real bytes.
-- [x] **Tests:** 3 new cases in `downloadifyHandler.test.js` - unplayable AES key
-      drops the row, a FETCHABLE key keeps it, an unreadable playlist drops it.
-      Each needs its own TMDB id: `vidrackCache` is keyed `type:id:s:e` with a
-      4-minute TTL, so reusing an id silently serves the previous test's ladder
-      and the gate never runs (this bit the first attempt at these tests - the
-      same trap `task.md` already recorded for the warm cache).
-- [x] Gates: oxlint **0 errors**, vitest **75 files / 940 passed**, build OK.
-
-## Removal: VidSrc and NHD retired — the catalogue is now five servers (2026-10-03)
-
-User: *"remove other servers not working"*. Both rows were re-verified dead
-immediately before touching anything — no source is removed on a stale verdict:
-
-- [x] **Re-verified, not assumed.** movie 27205 and tv 1399 s1e1 through the
-      handler for both providers: every call answered **HTTP 200 with
-      `{ok:false, code:"no-source"}`**. Honest refusal, no playable row.
-- [x] `api/downloadify.js`: deleted `handleResolveVidsrc` (~140 lines) and the
-      whole NHD block (`NHD_EMBED_BASE`, `NHD_MULTI_AUDIO_PROVIDER`,
-      `extractNhdPageKey`, `fetchNhdExtraction`, `verifyNhdPlaylist`,
-      `handleResolveNhd`, ~154 lines), both dispatch cases, and the dead
-      `vidsrcme.ru` embed hosts from `ALLOWED_EMBED_HOSTS`.
-- [x] `src/api/downloadService.js`: removed `resolveVidsrc` and `resolveNhd`.
-- [x] `src/constants/sources.js`: the two rows are gone, so the menu is now
-      Server 1 Centaurus / 2 Andromeda / 3 Atlas / 4 Ursa / 5 VidRack.
-- [x] **A retired server must not survive in a saved preference.** A returning
-      visitor's `serverOrder` can still name Server 6/7, and the old sanitizer
-      accepted any `Server [1-8]` string — so dead rows would have kept sitting
-      in the Settings drag list as rows the player can never resolve. New
-      `pruneRetiredServers()` in `src/context/preferences.js` validates against
-      `PLAYER_SOURCE_LABELS` (derived from `PLAYER_SOURCES`, so it self-maintains
-      on the next retirement) and is applied on the **boot** path in
-      `readPreference`, not just the write path. Order and duplicates of
-      surviving rows are preserved; an entirely-retired order falls back to the
-      live defaults.
-- [x] Kept deliberately: the shared sibling-URL `audioTracks` plumbing (Centaurus
-      is the one LIVE multi-audio server and uses the same shape), `SERVER_LABEL_RE`
-      (a cheap shape guard), and the legacy `LEGACY_SERVER_NAME_MAP` (history).
-- [x] Tests: retired actions now answer a clean **400 `bad-action`**, never a 500
-      and never a silent empty success; the dub-passthrough coverage moved from
-      the NHD describe to `resolveZxc` (where it is still live code) instead of
-      being deleted with the provider; new preferences cases prove a saved
-      order loses retired rows and that an all-retired order falls back.
-- [x] Gates: oxlint **0 errors**, vitest **75 files / 937 passed**, build OK.
-- [ ] **Known-dead module, deliberately NOT removed (needs a decision):
-      `src/api/videoSourceAdapter.js` still declares an 8-row iframe-embed
-      barrel (cinesrc.st, vidlink.pro, 2embed.cc, vidsrcme.ru, vidcore.io,
-      peachify.top, vidup.to, smashystream) — every one of those hosts is long
-      gone from the product. Nothing at runtime imports it; only its own test
-      and the `index.js` re-export do. Deleting it is a separate cleanup, not a
-      server removal, so it is flagged rather than folded in here.
-
-## Removal: the dead iframe-embed adapter is gone (2026-10-03)
-
-- [x] Deleted `src/api/videoSourceAdapter.js` and its test. The module declared an
-      8-row iframe barrel — cinesrc.st, vidlink.pro, 2embed.cc, vidsrcme.ru,
-      vidcore.io, peachify.top, vidup.to, smashystream — and every one of those
-      hosts has been out of the product for a long time. The live player is the
-      native hls.js path driven by `PLAYER_SOURCES` + `downloadService`; nothing
-      at runtime imported the adapter.
-- [x] Removed the `VideoSourceAdapter` / `BASE_SERVERS` re-export from
-      `src/api/index.js`. That re-export was also broken: `BASE_SERVERS` was never
-      exported from the module it was re-exported from.
-- [x] `barrels.test.js` now asserts `downloadService` instead of the deleted
-      adapter, so the barrel keeps a real member under test.
-- [x] Left alone on purpose: the legacy `iframe[src*=...]` selectors in
-      `GlobalShortcuts.jsx` / `BackToTop.jsx` (inert guards for an iframe player
-      this app no longer ships) and the `LEGACY_SERVER_NAME_MAP` history in
-      `preferences.js` (still needed to read existing saved orders).
-- [x] Gates after the deletion: oxlint **0 errors**, vitest **74 files / 928
-      passed** (one file fewer — the adapter's own test), build OK.
