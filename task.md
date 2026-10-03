@@ -3968,3 +3968,60 @@ staleness theory was wrong. Proved the real cause with a reachability matrix.
       Server 1's 4K ladder is intact and verified working from an unblocked
       network (4 variants, 2160p, movie + TV). The failure is network
       reachability to one host, not our logic.
+
+## BREAKTHROW: the Cloudflare relay 403 is caused by its own `Cf-Worker` header
+
+### Follow-up probe result
+
+Injected the headers the relay demonstrably forwards, one at a time, against
+`vidcore.io/movie/27205` from an IP that otherwise receives **200**:
+
+| injected header | result |
+|---|---|
+| baseline (Chrome UA only) | **200** |
+| `Cf-Worker: nashidk1999.workers.dev` | **403** in 28ms |
+| `Cdn-Loop: cloudflare; loops=1` | 200 |
+| `Cf-Visitor: {"scheme":"https"}` | 200 |
+| `Cf-Ew-Via: 15` | 200 |
+| all four together | **403** |
+| `X-Forwarded-For` datacenter IP | 200 |
+| `X-Forwarded-For` residential IP | 200 |
+
+`Cf-Worker` on its own is sufficient to trigger the block, and the response is
+an instant ~28ms rejection. The 403 body is **nginx** (`server: cloudflare`,
+`<center>nginx</center>`, ~548 bytes), not a Cloudflare challenge interstitial
+- so vidrack is not rate-limiting us, it is rejecting Cloudflare Workers
+outright by inspecting the header Cloudflare attaches to Worker subrequests.
+
+### This makes the relay fixable without touching the resolver
+
+The relay Worker builds its upstream request by forwarding headers, and that
+forwarded set includes Cloudflare's own `Cf-Worker`/`Cf-Ew-Via`/`Cf-Visitor`/
+`Cdn-Loop`. Stripping them is sufficient - no token, cookie or JA3 change
+needed. Verified end to end by replaying the exact header set a corrected
+Worker would send:
+
+```
+docs/relay-worker.js header set (no Cf-Worker)   http=200  591ms len=49501
+same set + Cf-Worker                               http=403   27ms len=4547
+=> PASS
+```
+
+- [x] Added `docs/relay-worker.js` - a complete drop-in Worker replacement that
+      builds the upstream header set **explicitly** instead of spreading the
+      inbound request's headers, which is what leaks `Cf-Worker` in the first
+      place. It keeps the existing `?url=` / `?referer=` contract, adds
+      `/health`, passes `Range` through for segment seeking, and returns
+      `Access-Control-Allow-Origin: *`.
+- [ ] **Deploy it.** The live Worker is not in this repo, so this needs whoever
+      owns `streamly-proxy.nashidk1999.workers.dev`. Once deployed, re-probe
+      the relay against `vidcore.io/movie/27205`; it should flip 403 -> 200.
+- [ ] Only after that, consider routing `resolveVidcore`'s first hop through
+      the relay. Note the resolver's later POSTs to `vidcore.io` (the `servers`
+      and `stream` endpoints) need POST support, which the current
+      GET-only relay and the reference Worker above do **not** provide - that
+      is a separate, larger change and must not be conflated with this fix.
+- [ ] Server 1 in production stays broken until either the Worker is fixed and
+      POST-capable, or we fall back to the iframe embed (vidrack has no
+      `X-Frame-Options` and no `frame-ancestors`, and is already in our CSP
+      `frame-src`).
