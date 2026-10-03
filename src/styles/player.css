@@ -1,164 +1,8 @@
 /* ═══ Void Player ════════════════════════════════════════ */
-.void-scrubber {
-  transition: width 0.2s ease, height 0.2s ease, box-shadow 0.2s ease, left 0.1s ease;
-}
-.void-scrubber:active {
-  cursor: grabbing;
-  transform: translate(-50%, -50%) scale(1.15) !important;
-}
-.void-volume {
-  -webkit-appearance: none;
-  appearance: none;
-  background: transparent;
-}
-.void-volume::-webkit-slider-runnable-track {
-  height: 3px;
-  background: rgba(255,255,255,0.15);
-  border-radius: 3px;
-}
-.void-volume::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: #E8A838;
-  margin-top: -4px;
-  box-shadow: 0 0 6px rgba(232,168,56,0.4);
-  transition: transform 0.15s, box-shadow 0.15s;
-}
-.void-volume:hover::-webkit-slider-thumb {
-  transform: scale(1.4);
-  box-shadow: 0 0 10px rgba(232,168,56,0.6), 0 0 0 2px rgba(232,168,56,0.3);
-}
-.void-volume::-moz-range-track {
-  height: 3px;
-  background: rgba(255,255,255,0.15);
-  border-radius: 3px;
-  border: none;
-}
-.void-volume::-moz-range-thumb {
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: #E8A838;
-  border: none;
-  box-shadow: 0 0 6px rgba(232,168,56,0.4);
-  transition: transform 0.15s, box-shadow 0.15s;
-}
-.void-volume:hover::-moz-range-thumb {
-  transform: scale(1.4);
-  box-shadow: 0 0 10px rgba(232,168,56,0.6), 0 0 0 2px rgba(232,168,56,0.3);
-}
-.void-hover { transition: background 0.15s ease, transform 0.1s ease, padding-left 0.15s ease; padding-left: 14px; }
-.void-hover:hover { background: rgba(255,255,255,0.08); padding-left: 18px; }
-.void-hover:active { transform: scale(0.98); }
-.void-volume-bar {
-  transition: width 0.15s ease;
-}
 
 /* ── Interaction polish ────────────────────────────────────────────────── */
-.hero-rotation-control {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 999px;
-  background: rgba(8, 8, 10, 0.45);
-  color: #fff;
-  cursor: pointer;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  transition: transform 180ms var(--ease-out), background 180ms ease, border-color 180ms ease;
-}
-
-.hero-rotation-control:hover {
-  transform: translateY(-1px);
-  border-color: rgba(255, 255, 255, 0.34);
-  background: rgba(255, 255, 255, 0.14);
-}
-
-.hero-rotation-control:focus-visible,
-.search-history button:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
-
-.search-history {
-  width: min(100%, 34rem);
-  margin: 0 auto 0.9rem;
-  text-align: left;
-}
-
-.search-history__heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 0.55rem;
-  color: rgba(255, 255, 255, 0.54);
-  font-size: 0.76rem;
-  font-weight: 700;
-}
-
-.search-history__heading button {
-  border: 0;
-  padding: 0.25rem;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.64);
-  font: inherit;
-  cursor: pointer;
-}
-
-.search-history__heading button:hover {
-  color: #fff;
-}
-
-.search-history__items {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-}
-
-.search-history__items button {
-  max-width: 15rem;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.11);
-  border-radius: 999px;
-  padding: 0.45rem 0.72rem;
-  background: rgba(255, 255, 255, 0.055);
-  color: rgba(255, 255, 255, 0.8);
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.8rem;
-  line-height: 1;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition: transform 180ms var(--ease-out), background 180ms ease, border-color 180ms ease;
-}
-
-.search-history__items button:hover {
-  transform: translateY(-1px);
-  border-color: rgba(var(--accent-secondary-rgb), 0.42);
-  background: rgba(var(--accent-primary-rgb), 0.12);
-  color: #fff;
-}
 
 @media (max-width: 768px) {
-  .hero-rotation-control {
-    width: 2.25rem;
-    height: 2.25rem;
-  }
-
-  .search-history {
-    width: 100%;
-  }
-
-  .search-history__items button {
-    max-width: 100%;
-  }
 }
 
 /* ── Watch player: compact touch layout ─────────────────────────────────── */
@@ -177,13 +21,6 @@
 
 /* Full-bleed display on touch devices and phones */
 @media (hover: none), (max-width: 768px) {
-  .streamly-player,
-  .streamly-player--touch {
-    width: 100% !important;
-    height: 100% !important;
-    max-height: 100dvh !important;
-    border-radius: 0 !important;
-  }
 }
 
 @media (max-width: 1024px) {
@@ -223,19 +60,11 @@
     gap: 0.45rem !important;
   }
 
-  .video-modal-episode-nav {
-    display: none !important;
-  }
-
   .video-modal-back-button {
     width: 2.35rem;
     height: 2.35rem;
     justify-content: center !important;
     padding: 0 !important;
-  }
-
-  .video-modal-back-label {
-    display: none;
   }
 }
 
@@ -308,7 +137,6 @@
   }
 
   .hero-cta-play,
-  .hero-cta-circle,
   .hero-action-pill {
     height: clamp(34px, 2.8vw, 40px) !important;
   }
@@ -383,17 +211,6 @@
 
 /* Search history pills & heading buttons touch targets on mobile */
 @media (max-width: 768px) {
-  .search-history__items button {
-    min-height: 38px;
-    padding: 0.5rem 0.85rem !important;
-    font-size: 0.85rem !important;
-  }
-  .search-history__items button:active {
-    transform: scale(0.95);
-  }
-  .search-history__heading button {
-    min-height: 36px;
-  }
 }
 
 /* History timeline gap on mobile */
@@ -626,11 +443,6 @@
 }
 
 /* Panel inner scroll scrollbar */
-.np-panel-scroll::-webkit-scrollbar { width: 4px; }
-.np-panel-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 4px;
-}
 
 /* Panel sheet: the slide-in is framer-motion's, but the surface itself gets a
    hairline lift + inner shadow so the pane reads as a layer over the picture. */
@@ -689,26 +501,8 @@
   .np-dialog-row,
   .np-episode-card,
   .np-subtitle,
-  /* Added by the audit below. Every rule in this file that declares a
-     `transition` or `animation` is listed here, because a selector missing
-     from this block keeps animating for a viewer who asked the OS to stop it —
-     and the miss is silent: nothing looks broken, the page just moves when it
-     should not. `-webkit-` prefixes are kept where the base rule has them, since
-     an unprefixed `transition: none` does not cancel a prefixed one. */
   .np-volume-slider,
-  .np-panel-surface,
-  .np-skip-credits,
-  .np-toast,
-  .np-skip-pill,
-  .np-upnext-card,
-  .np-mirror-row,
-  .np-quality-row,
-  .hero-rotation-control,
-  .void-hover,
-  .void-scrubber,
-  .void-volume,
-  .void-volume-bar,
-  .search-history__items button {
+  .np-panel-surface {
     transition: none !important;
     -webkit-transition: none !important;
     animation: none !important;
@@ -719,21 +513,10 @@
   .np-scrub:hover,
   .np-skip-intro:hover,
   .np-episode-card:hover,
-  /* The hover/active transforms of the controls added by the audit: without
-     these the `transition: none` above still leaves the element SNAPPING to
-     its hovered position, which is a transform animation with no tween. */
-  .np-skip-credits:hover,
   .np-resume-btn:hover,
   .np-restart-btn:hover,
   .np-dialog-row:hover,
-  .np-volume-slider:hover,
-  .np-upnext-card:hover,
-  .np-skip-pill:hover,
-  .void-hover:hover,
-  .void-scrubber:hover,
-  .void-volume:hover,
-  .search-history__items button:hover,
-  .hero-rotation-control:hover {
+  .np-volume-slider:hover {
     transform: none !important;
   }
   .np-icon-btn:hover:not(:disabled)::before {
@@ -749,8 +532,7 @@
      its blur (that is legibility, not movement) but loses the slow scale. */
   .np-ring-spinner,
   .np-ring-spinner > span,
-  .np-loading-art,
-  .np-loading-line > span {
+  .np-loading-art {
     animation: none !important;
     -webkit-animation: none !important;
   }
@@ -759,9 +541,6 @@
   }
   /* The sweeping segment parks mid-track instead of animating: a frozen full
      bar would read as progress, a parked partial bar reads as "loading". */
-  .np-loading-line > span {
-    width: 32%;
-  }
 }
 
 @keyframes npLoadingLine {
@@ -838,12 +617,6 @@
 }
 
 /* ── Glass surfaces: their dark zinc chrome ─────────────────────────────── */
-.np-glass {
-  background: color-mix(in srgb, var(--zxc-surface) 88%, transparent);
-  backdrop-filter: blur(18px) saturate(1.4);
-  -webkit-backdrop-filter: blur(18px) saturate(1.4);
-  border: 1px solid var(--zxc-line);
-}
 
 /* Menu / panel rows: their zinc hover + selected state */
 .np-dialog-row {
@@ -889,8 +662,7 @@
 }
 
 /* Skip pills: their rounded-lg chrome-on-glass */
-.np-skip-intro,
-.np-skip-credits {
+.np-skip-intro {
   border-radius: var(--zxc-radius-lg) !important;
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -899,8 +671,7 @@
     transform var(--zxc-t-med) var(--zxc-ease),
     box-shadow var(--zxc-t-med) var(--zxc-ease) !important;
 }
-.np-skip-intro:hover,
-.np-skip-credits:hover {
+.np-skip-intro:hover {
   background: rgba(39, 39, 42, 0.92) !important;
   border-color: var(--zxc-line-strong) !important;
   transform: translateY(-2px);
@@ -909,17 +680,8 @@
 
 /* Loading stage: centered column, logo + tailspin ring; the hairline sweep
    line is retired in favour of their ring-under-art composition. */
-.np-loading-line {
-  display: none !important;
-}
 
 /* Up Next card: glass */
-.np-upnext-card {
-  backdrop-filter: blur(18px) saturate(1.35);
-  -webkit-backdrop-filter: blur(18px) saturate(1.35);
-  border: 1px solid var(--zxc-line) !important;
-  border-radius: var(--zxc-radius-lg) !important;
-}
 
 /* Reduced motion: the Tailspin ring stops (frozen ring reads as "paused load"
    no better than a spinner mid-spin, so we also fade it to 40% to signal
@@ -931,15 +693,12 @@
     opacity: 0.4;
   }
   .np-dialog-row,
-  .np-skip-intro,
-  .np-skip-credits,
-  .np-upnext-card {
+  .np-skip-intro {
     transition: none !important;
     -webkit-transition: none !important;
   }
   .np-dialog-row:hover:not(:disabled),
-  .np-skip-intro:hover,
-  .np-skip-credits:hover {
+  .np-skip-intro:hover {
     transform: none !important;
     padding-left: 0 !important;
   }

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { screen, fireEvent, waitFor } from "@testing-library/react";
+import { fireEvent, waitFor } from "@testing-library/react";
 import SearchPage from "../pages/SearchPage";
 import { movieService } from "../api/movieService";
 import { renderWithProviders } from "../test/testUtils";

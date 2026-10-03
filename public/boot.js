@@ -16,7 +16,7 @@ document.addEventListener('contextmenu', function (event) {
 (function () {
   var V = 'v19.7';
   var prev = null;
-  try { prev = localStorage.getItem('_sv'); } catch (nothing) {}
+  try { prev = localStorage.getItem('_sv'); } catch {}
   if (prev !== V) {
     // A first-ever visit (no stored version) has nothing stale to recover from:
     // no prior shell, no caches, no service worker yet. Reloading there made the
@@ -47,7 +47,7 @@ document.addEventListener('contextmenu', function (event) {
       Promise.all(tasks).then(function () {
         if (isUpgrade) window.location.reload();
       });
-    } catch (nothing) {}
+    } catch {}
   }
 })();
 

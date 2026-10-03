@@ -130,8 +130,7 @@ export const ja = {
   },
   player: {
     buffering: "読み込み中…", auto: "自動", off: "オフ", subtitleError: "字幕を読み込めませんでした",
-    emptyFile: "字幕ファイルが空です", downloadFailed: "ダウンロードに失敗しました",
-    subtitlesLoaded: "{lang}を読み込みました！", speed: "再生速度", quality: "画質", volume: "音量",
+    emptyFile: "字幕ファイルが空です", subtitlesLoaded: "{lang}を読み込みました！", speed: "再生速度", quality: "画質", volume: "音量",
     expand: "拡大", collapse: "縮小",
   },
   collections: { dialogTitleCreate: "新しいコレクション", dialogTitleRename: "コレクション名を変更", namePlaceholder: "コレクション名" },
@@ -266,8 +265,7 @@ export const ko = {
   },
   player: {
     buffering: "불러오는 중…", auto: "자동", off: "끄기", subtitleError: "자막을 불러오지 못했습니다",
-    emptyFile: "자막 파일이 비어 있습니다", downloadFailed: "다운로드 실패",
-    subtitlesLoaded: "{lang}을(를) 불러왔습니다!", speed: "재생 속도", quality: "화질", volume: "음량",
+    emptyFile: "자막 파일이 비어 있습니다", subtitlesLoaded: "{lang}을(를) 불러왔습니다!", speed: "재생 속도", quality: "화질", volume: "음량",
     expand: "확대", collapse: "축소",
   },
   collections: { dialogTitleCreate: "새 컬렉션", dialogTitleRename: "컬렉션 이름 변경", namePlaceholder: "컬렉션 이름" },
@@ -402,8 +400,7 @@ export const hi = {
   },
   player: {
     buffering: "बफ़रिंग…", auto: "ऑटो", off: "बंद", subtitleError: "सबटाइटल लोड नहीं हो सके",
-    emptyFile: "खाली सबटाइटल फ़ाइल", downloadFailed: "डाउनलोड विफल",
-    subtitlesLoaded: "{lang} लोड हो गया!", speed: "प्लेबैक गति", quality: "गुणवत्ता", volume: "वॉल्यूम",
+    emptyFile: "खाली सबटाइटल फ़ाइल", subtitlesLoaded: "{lang} लोड हो गया!", speed: "प्लेबैक गति", quality: "गुणवत्ता", volume: "वॉल्यूम",
     expand: "बड़ा करें", collapse: "छोटा करें",
   },
   collections: { dialogTitleCreate: "नया संग्रह", dialogTitleRename: "संग्रह का नाम बदलें", namePlaceholder: "संग्रह का नाम" },
@@ -538,8 +535,7 @@ export const ar = {
   },
   player: {
     buffering: "جارٍ التحميل…", auto: "تلقائي", off: "إيقاف", subtitleError: "تعذّر تحميل الترجمة",
-    emptyFile: "ملف الترجمة فارغ", downloadFailed: "فشل التنزيل",
-    subtitlesLoaded: "تم تحميل {lang}!", speed: "سرعة التشغيل", quality: "الجودة", volume: "الصوت",
+    emptyFile: "ملف الترجمة فارغ", subtitlesLoaded: "تم تحميل {lang}!", speed: "سرعة التشغيل", quality: "الجودة", volume: "الصوت",
     expand: "توسيع", collapse: "طي",
   },
   collections: { dialogTitleCreate: "مجموعة جديدة", dialogTitleRename: "إعادة تسمية المجموعة", namePlaceholder: "اسم المجموعة" },

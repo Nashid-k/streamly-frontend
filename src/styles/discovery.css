@@ -252,20 +252,6 @@
 /* Settings cards: translucent glass is set in the main settings block above. */
 
 /* Accent-tinted translucent glass utility (Cinejoy .theme-glass-tint). */
-.theme-glass-tint {
-  background: rgba(20, 20, 20, 0.35);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-html[data-theme]:not([data-theme=default]) .theme-glass-tint {
-  background: color-mix(
-    in srgb,
-    var(--theme-global-accentA, var(--accent-primary)) 15%,
-    rgba(20, 20, 20, 0.6)
-  );
-}
 
 /* ── Glassy buttons (account row, panel actions) ─────────────────────── */
 .glassy-button {
@@ -453,7 +439,6 @@ html[data-theme]:not([data-theme=default]) .theme-glass-tint {
   .settings-dropdown,
   .glass-popover,
   .login-panel,
-  .theme-glass-tint,
   .glassy-button {
     background: rgba(14, 14, 16, 0.92);
   }

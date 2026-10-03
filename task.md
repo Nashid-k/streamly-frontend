@@ -3699,3 +3699,62 @@ base audio") and the three remaining Explore/MyList items (search "EXPLORE MYLIS
       then deliberately REMOVED because it played as muted video. Doing this again
       needs a source whose API actually lists the base track, plus the muted-video
       issue solved - not another attempt against an empty response.
+
+## SHIPPED - whole-app cleanup after the Watch Party / download removal
+- [x] Repo hygiene: deleted the untracked investigation debris that had piled up
+      in the root - 40 `scratch_*` files (API dumps, scraped HTML, PNG captures),
+      `test_tv.cjs`, `test_tv_full.cjs`, `STITCH_PROMPT.md`, `embed_vidcore.html`,
+      the `vidcore-io-stream-resolver/` RE project (~950 files, ~77 MB), and three
+      dead-scan JSON dumps. Verified first that **no tracked file referenced any of
+      it**, then deleted. `.gitignore` now covers `scratch_*`,
+      `.deadcode_analysis*.json`, `.import_usage.json` and `embed_vidcore.html` so
+      it cannot silently come back.
+- [x] Deleted tracked `commit_msg.txt` - a stale commit-message draft for an old
+      "Servers switcher" change that had been committed by accident.
+- [x] Dead code, each verified as genuinely unreferenced before removing:
+      `relaySegmentBlob` in `src/api/nativeHlsLoader.js` (superseded when the scrub
+      preview moved onto the shared `createStreamlyLoader`), `VIDCORE_SOURCES_API`
+      and `videasyBandwidth` in `api/downloadify.js` (both belong to the dead
+      videasy/vidrack aggregate path), and the unused `MAX_TEXT_BYTES` import. The
+      reverse-engineering notes that explain WHY those paths died were kept.
+- [x] Every `no-unused-vars` warning in the repo is gone (was 7): dead
+      `isFiniteNum` in `audioLabels.js`, an unused `screen` import and two unused
+      `container` bindings in tests, and three `catch (nothing)` bindings in the
+      `public/` boot shims rewritten to optional catch binding (same behaviour).
+      **Lint: 48 warnings -> 35, 0 errors.**
+- [x] Fixed the 3 failing `downloadifyHandler` tests. They were not a regression:
+      they still mocked `vidrack.created.app/api/sources`, an endpoint the handler
+      stopped calling in favour of the `vidcore.io` page + `enc-dec.app` token
+      exchange. Rewrote them against the chain that actually runs. The mocked
+      masters/stream hosts are **public IP literals** so `fetchUpstream`'s SSRF
+      guard skips DNS - the file went from 24.9s to 1.4s because it no longer
+      resolves real hostnames. **The handler itself was not modified.**
+- [x] Removed 979 lines of dead CSS across 12 stylesheets (155 whole rules + 35
+      dead selectors pruned from mixed lists). The bulk was left behind by the
+      Tailwind migration: the whole `.cw-*` family (`ContinueWatchingRail` is now
+      pure Tailwind), `.platform-tile*`, `.search-history*`, `.video-controls`,
+      `.streamly-player`, and pre-ZXC `.np-*` player classes.
+- [x] Deleted `player.downloadFailed` from all 10 locales - a leftover of the
+      removed download feature with zero references.
+- [x] Struck `PLAN.md` P1.1 (watch-party polling), which planned work on a
+      feature that no longer exists, matching how P1.3 was already marked.
+- [x] **Two false leads caught before they caused damage, worth remembering:**
+      (1) An automated i18n scan reported ~122 "unused" keys, but `Header.jsx:183`,
+      `SearchPage.jsx:378/395/407` and `SettingsPage.jsx:523` build keys
+      dynamically - `t(\`nav.${item.id}\`)`, `t(\`search.chips.${...}\`)` - so most
+      of that list was live and bulk-pruning would have printed raw key strings
+      into the UI. (2) `Button.jsx:19` builds `btn-${variant}` at runtime, so the
+      `btn-*` family had to be pinned as live before any CSS could be judged dead.
+- [x] Gates: `npm run lint` **0 errors / 35 warnings**, `npm run test`
+      **934/934 passed (75 files)**, `npm run build` **built in 1.50s**.
+- [ ] **Deliberately not done:** the remaining 35 lint warnings are React Compiler /
+      `react-hooks` advisories (`set-state-in-effect`, `exhaustive-deps`) that need
+      component restructuring, not dead-code removal - 3 of them are inside
+      `NativePlayerView`, which is off-limits. A whole-app i18n rewrite is also
+      out of scope: the catalog is only lightly wired (29 `useI18n` call sites,
+      nav labels are hardcoded English in `constants/navigation.js`), so the
+      "unused" keys are unwired features, not leftovers.
+- [ ] **Not verified:** still no browser here (vitest + jsdom only). The CSS
+      deletion is proven safe by reference-counting (0 live class lost a rule) and
+      by the build, but it deserves one human look at the player, home rails and
+      settings before it is trusted visually.

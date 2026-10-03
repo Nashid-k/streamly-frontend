@@ -30,31 +30,6 @@
   margin-top: 1.75rem;
 }
 
-.collection-empty__hint {
-  max-width: 38ch;
-  margin-top: 1.15rem;
-  color: rgba(255, 255, 255, 0.38);
-  font-size: 0.84rem;
-  line-height: 1.65;
-}
-
-.collection-empty__hint p {
-  margin: 0;
-}
-
-.collection-empty__key {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.45rem;
-  padding: 0.05rem 0.28rem;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 0.35rem;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.88);
-  font-size: 0.78rem;
-}
-
 .history-groups {
   display: flex;
   flex-direction: column;
@@ -196,10 +171,6 @@
   margin: 0 0 1.4rem;
   color: rgba(255, 255, 255, 0.5);
   font-size: 0.85rem;
-}
-
-.collections-rail {
-  margin: 0 0 1.6rem;
 }
 
 .collections-rail__grid {

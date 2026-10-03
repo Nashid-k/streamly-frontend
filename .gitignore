@@ -41,3 +41,10 @@ cred.txt
 
 # Mongo snapshot output (scripts/snapshot-mongo.mjs)
 var/backups/
+
+# Ad-hoc reverse-engineering scratch (API dumps, scraped HTML, screenshots).
+# These are investigation byproducts, never app inputs.
+scratch_*
+.deadcode_analysis*.json
+.import_usage.json
+embed_vidcore.html

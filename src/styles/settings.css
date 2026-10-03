@@ -83,13 +83,11 @@
   padding: 0.7rem 0.2rem 1.1rem;
 }
 
-.section-header-row,
 .movie-rail-wrapper > div:first-child {
   margin-bottom: 0.25rem;
 }
 
 .section-title,
-.section-title--cw,
 .movie-rail-wrapper > div:first-child h3 {
   font-weight: 740;
   letter-spacing: -0.025em;

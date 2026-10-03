@@ -129,8 +129,7 @@ export const es = {
   },
   player: {
     buffering: "Cargando…", auto: "Auto", off: "Apagado", subtitleError: "No se pudieron cargar los subtítulos",
-    emptyFile: "Archivo de subtítulos vacío", downloadFailed: "Descarga fallida",
-    subtitlesLoaded: "¡{lang} cargado!", speed: "Velocidad", quality: "Calidad", volume: "Volumen",
+    emptyFile: "Archivo de subtítulos vacío", subtitlesLoaded: "¡{lang} cargado!", speed: "Velocidad", quality: "Calidad", volume: "Volumen",
     expand: "Expandir", collapse: "Contraer",
   },
   collections: { dialogTitleCreate: "Nueva Colección", dialogTitleRename: "Renombrar Colección", namePlaceholder: "Nombre de la colección" },
@@ -264,8 +263,7 @@ export const fr = {
   },
   player: {
     buffering: "Chargement…", auto: "Auto", off: "Désactivé", subtitleError: "Impossible de charger les sous-titres",
-    emptyFile: "Fichier de sous-titres vide", downloadFailed: "Échec du téléchargement",
-    subtitlesLoaded: "{lang} chargé !", speed: "Vitesse", quality: "Qualité", volume: "Volume",
+    emptyFile: "Fichier de sous-titres vide", subtitlesLoaded: "{lang} chargé !", speed: "Vitesse", quality: "Qualité", volume: "Volume",
     expand: "Agrandir", collapse: "Réduire",
   },
   collections: { dialogTitleCreate: "Nouvelle Collection", dialogTitleRename: "Renommer la Collection", namePlaceholder: "Nom de la collection" },
@@ -401,8 +399,7 @@ export const de = {
   },
   player: {
     buffering: "Lädt…", auto: "Auto", off: "Aus", subtitleError: "Untertitel konnten nicht geladen werden",
-    emptyFile: "Leere Untertiteldatei", downloadFailed: "Download fehlgeschlagen",
-    subtitlesLoaded: "{lang} geladen!", speed: "Wiedergabegeschwindigkeit", quality: "Qualität", volume: "Lautstärke",
+    emptyFile: "Leere Untertiteldatei", subtitlesLoaded: "{lang} geladen!", speed: "Wiedergabegeschwindigkeit", quality: "Qualität", volume: "Lautstärke",
     expand: "Vergrößern", collapse: "Verkleinern",
   },
   collections: { dialogTitleCreate: "Neue Sammlung", dialogTitleRename: "Sammlung umbenennen", namePlaceholder: "Name der Sammlung" },
@@ -537,8 +534,7 @@ export const it = {
   },
   player: {
     buffering: "Caricamento…", auto: "Auto", off: "Off", subtitleError: "Impossibile caricare i sottotitoli",
-    emptyFile: "File sottotitoli vuoto", downloadFailed: "Download non riuscito",
-    subtitlesLoaded: "{lang} caricato!", speed: "Velocità", quality: "Qualità", volume: "Volume",
+    emptyFile: "File sottotitoli vuoto", subtitlesLoaded: "{lang} caricato!", speed: "Velocità", quality: "Qualità", volume: "Volume",
     expand: "Espandi", collapse: "Comprimi",
   },
   collections: { dialogTitleCreate: "Nuova Raccolta", dialogTitleRename: "Rinomina Raccolta", namePlaceholder: "Nome della raccolta" },
@@ -673,8 +669,7 @@ export const pt = {
   },
   player: {
     buffering: "Carregando…", auto: "Auto", off: "Desativado", subtitleError: "Não foi possível carregar as legendas",
-    emptyFile: "Arquivo de legendas vazio", downloadFailed: "Falha no download",
-    subtitlesLoaded: "{lang} carregado!", speed: "Velocidade", quality: "Qualidade", volume: "Volume",
+    emptyFile: "Arquivo de legendas vazio", subtitlesLoaded: "{lang} carregado!", speed: "Velocidade", quality: "Qualidade", volume: "Volume",
     expand: "Expandir", collapse: "Recolher",
   },
   collections: { dialogTitleCreate: "Nova Coleção", dialogTitleRename: "Renomear Coleção", namePlaceholder: "Nome da coleção" },

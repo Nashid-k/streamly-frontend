@@ -41,7 +41,7 @@ describe("NativePlayerView (smoke)", () => {
    which leaves the stage mounted — exactly the pass whose DOM we assert. */
 describe("NativePlayerView loading stage", () => {
   it("renders the title image and the horizontal loader line under the title", () => {
-    const { container } = render(
+    render(
       <NativePlayerView
         type="movie"
         id="550"
@@ -70,7 +70,7 @@ describe("NativePlayerView loading stage", () => {
   });
 
   it("keeps the title-only layout honest when no art is available", () => {
-    const { container } = render(
+    render(
       <NativePlayerView type="movie" id="550" title="Fight Club" onClose={() => {}} />,
     );
     const stage = screen.getByRole("status", { name: "Loading video" });

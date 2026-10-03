@@ -116,42 +116,6 @@
 }
 
 /* Shared menu item row (used by user menu, dropdown options). */
-.menu-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-  cursor: pointer;
-  border: none;
-  background: transparent;
-  width: 100%;
-  text-align: left;
-  font-family: inherit;
-  transition: background 0.2s ease, color 0.2s ease;
-}
-.menu-item:hover,
-.menu-item:focus-visible {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-primary);
-  outline: none;
-}
-.menu-item--danger {
-  color: var(--error-color);
-}
-.menu-item--danger:hover,
-.menu-item--danger:focus-visible {
-  background: rgba(239, 68, 68, 0.08);
-  color: #fca5a5;
-}
-
-.menu-divider {
-  height: 1px;
-  background: rgba(255, 255, 255, 0.08);
-  margin: 4px 0;
-  border: none;
-}
 
 /* Shared filter/pill chip — one source of truth for active state. */
 .chip {
@@ -210,13 +174,6 @@
 }
 
 /* Small uppercase meta label used in dropdown headers. */
-.label-eyebrow {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
 
 /* Main Content */
 .main-content {

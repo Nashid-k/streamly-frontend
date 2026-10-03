@@ -1,7 +1,4 @@
 /* Global Display Utilities */
-.mobile-only {
-  display: none !important;
-}
 
 /* Restored Global UI Elements (Desktop + Mobile) */
 .hero-dots {
@@ -44,27 +41,6 @@
 }
 
 /* Genre filter horizontal scroll with fade edges */
-.genre-filter-scroll {
-  position: relative;
-}
-.genre-filter-scroll::before,
-.genre-filter-scroll::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 40px;
-  z-index: 2;
-  pointer-events: none;
-}
-.genre-filter-scroll::before {
-  left: 0;
-  background: linear-gradient(to right, #050505, transparent);
-}
-.genre-filter-scroll::after {
-  right: 0;
-  background: linear-gradient(to left, #050505, transparent);
-}
 
 .cast-rail__scroll {
   -webkit-overflow-scrolling: touch;
@@ -268,14 +244,6 @@ body::after {
 
 .content-page--genre .content-page-header h1 {
   text-transform: capitalize;
-}
-
-.page-title-quote {
-  background: var(--accent-gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
 }
 
 .content-page-header__description {

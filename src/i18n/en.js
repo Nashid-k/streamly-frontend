@@ -356,7 +356,6 @@ export const en = {
     off: "Off",
     subtitleError: "Couldn’t load subtitles",
     emptyFile: "Empty subtitle file",
-    downloadFailed: "Download failed",
     subtitlesLoaded: "{lang} loaded!",
     speed: "Playback Speed",
     quality: "Quality",

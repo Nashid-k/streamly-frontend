@@ -73,9 +73,10 @@ The resolve → probe → manifest chain is 2–5s of honest waiting. One free w
 
 ## P1 — Next (this month, each ≤ 2 days)
 
-### P1.1 Watch-party polling: adaptive heartbeat — ✅ SHIPPED
-2s polls × 25 seats is the single biggest Vercel-function consumer. Keep the
-contract (≤ 2.5s drift correction) while cutting idle cost:
+### P1.1 ~~Watch-party polling: adaptive heartbeat~~ — DROPPED 2026-10
+Watch Party (and its room polling) was removed from the app, so there is no
+polling left to tune. Kept as a record of the work that shipped before the
+removal; nothing here is actionable.
 - [x] Poll at **2s while the room's playback is "playing"**, back off to **5s
   when paused/idle**, **15s when the tab is hidden** (instant re-arm on
   return). Drift correction ages with poll age already (`useWatchParty`

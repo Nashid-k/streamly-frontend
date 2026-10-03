@@ -57,7 +57,6 @@ import {
   fetchUpstream,
   fetchRangeChunk,
   RANGE_CHUNK_BYTES,
-  MAX_TEXT_BYTES,
 } from "../server/net.js";
 
 export const config = { maxDuration: 60 };
@@ -88,13 +87,10 @@ const ALLOWED_EMBED_HOSTS = new Set([
 // on moon.quietridge.top and their fMP4 segments on paperorbit.top (open
 // CORS + Range, so the existing manifest/segment relay handles them). Every
 // upstream wants the VidCore player as referer — fetchUpstream supplies it.
-/* Vidrack's aggregate sources API — the query-param endpoint their own player
-   calls (verified from their shipped chunk: `/api/sources?${id}&type[&season
-   &episode]` → { serverSources:[{url,type,quality,label,provider,headers}] }).
-   The old `/api/sources/videasy` subpath died upstream 2026-09 (answers
+/* Vidrack's old `/api/sources/videasy` subpath died upstream 2026-09 (answers
    `{"sources":[]}` for every title) and silently dropped Server 1 to vidzen's
-   single 720p fallback. */
-const VIDCORE_SOURCES_API = "https://vidrack.created.app/api/sources";
+   single 720p fallback. VidCore itself now resolves through the VidCore page +
+   enc-dec token exchange (see resolveVidcore), and vidzen remains a fallback. */
 const VIDZEN_SOURCES_API = "https://vidzen.fun/api/sources";
 const VIDCORE_PLAYER_REFERER = "https://vidcore.io/";
 
@@ -135,14 +131,6 @@ function writeVidrackCache(key, { source, variants }) {
   }
 }
 
-/* Approximate per-render bitrate for Videasy's qualities. The Videasy API
-   does not publish BANDWIDTH, so the sheet's `~size` / `x Mbps` hints are
-   derived from a conservative H.264 table — a documented estimate, never a
-   claim about the actual encoding. */
-function videasyBandwidth(height) {
-  const table = { 2160: 16000000, 1440: 9000000, 1080: 6000000, 720: 2500000, 480: 1200000, 360: 800000, 240: 500000 };
-  return table[height] || 0;
-}
 // Pull playlist URLs out of embed HTML/JS, including JSON- and URL-escaped
 // forms hosts like to use to defeat naive scrapers.
 function extractPlaylistUrls(html, baseUrl) {

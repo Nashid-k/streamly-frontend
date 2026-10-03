@@ -39,8 +39,6 @@ const FILM_LANG = {
    inside "Tamil", and "Original Audio" is the row this whole file exists for. */
 const NOISE = /\b(dubbed?|dub|audio|track|version|audio\s*track|soundtrack)\b/gi;
 
-const isFiniteNum = (n) => typeof n === "number" && Number.isFinite(n);
-
 /** "Tamil Dub" / "TAMIL_AUDIO" / "tamil" -> "Tamil". Empty input -> "". */
 export function normalizeAudioLabel(raw) {
   if (raw == null) return "";

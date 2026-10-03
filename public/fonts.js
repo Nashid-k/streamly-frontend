@@ -10,7 +10,7 @@
     link.rel = 'stylesheet';
     link.href = HREF;
     document.head.appendChild(link);
-  } catch (nothing) {
+  } catch {
     // Non-DOM or blocked storage env — Inter falls back to system-ui.
   }
 })();

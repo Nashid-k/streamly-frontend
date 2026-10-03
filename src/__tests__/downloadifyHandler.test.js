@@ -112,78 +112,96 @@ describe("POST /api/downloadify", () => {
     expect(typeof payload.error).toBe("string");
   });
 
-  describe("resolvevidcore — vidrack aggregate ladder (Server 1 restoration)", () => {
-    const VIDRACK_AGGREGATE = {
-      mode: "hybrid",
-      sseUrl: "https://sse.example.internal/movie",
-      serverSources: [
-        { url: "https://api.dlproxy.com/v1/play/tokenA.m3u8", type: "hls", quality: "Auto", label: "Vidlink", provider: "vidlink" },
-        { url: "https://api.dlproxy.com/v1/vs/tokenB.m3u8", type: "hls", quality: "1080p", label: "Vidlink HD", provider: "vidlink-hd" },
-        // Same encode mirrored on the same host + same height: deduped.
-        { url: "https://api.dlproxy.com/v1/vs/tokenB-copy.m3u8", type: "hls", quality: "1080p", label: "Vidlink HD 2", provider: "vidlink-hd" },
-        // Same height on a DIFFERENT host is a different route — kept.
-        { url: "https://mirror.example.com/pl/x.m3u8", type: "hls", quality: "1080p", label: "Mirror", provider: "mirror" },
-        { url: "https://relay.vidrift.net/proxy?u=1", type: "hls", quality: "HD", label: "Vidrift", provider: "vidrift" },
-        { url: "https://antilogarithm.example/pl/y", type: "mp4", quality: "1080p", label: "Not HLS", provider: "x" },
-      ],
-    };
+  describe("resolvevidcore — vidcore.io + enc-dec token exchange (Server 1)", () => {
+    /* Server 1 is resolved by scraping the "en" token out of the VidCore page
+       and exchanging it through enc-dec.app; the old vidrack `/api/sources`
+       aggregate is gone upstream. These tests drive the chain that actually
+       runs. The master/stream hosts are PUBLIC IP LITERALS on purpose:
+       fetchUpstream's SSRF guard skips DNS for an IP host, which keeps the
+       whole suite hermetic (no resolver, no network). */
+    const MASTER_URL = "https://93.184.216.34/master.m3u8";
+    const SERVERS_URL = "https://93.184.216.35/servers";
+    const STREAM_URL = "https://93.184.216.35/stream";
+    const MASTER_PLAYLIST = [
+      "#EXTM3U",
+      "#EXT-X-STREAM-INF:BANDWIDTH=8000000,RESOLUTION=3840x2160",
+      "2160/index.m3u8",
+      "#EXT-X-STREAM-INF:BANDWIDTH=3000000,RESOLUTION=1920x1080",
+      "1080/index.m3u8",
+      "#EXT-X-STREAM-INF:BANDWIDTH=1400000,RESOLUTION=1280x720",
+      "720/index.m3u8",
+    ].join("\n");
     const VIDZEN_FALLBACK = {
       sources: [{ url: "/api/stream/v1_zen" }],
     };
 
-    function routeFetch(videasyShape) {
+    function textBody(value) {
+      return { ok: true, status: 200, text: async () => value };
+    }
+    function jsonBody(value) {
+      return { ok: true, status: 200, text: async () => JSON.stringify(value), json: async () => value };
+    }
+
+    function routeVidcore({ masterPlaylist = MASTER_PLAYLIST } = {}) {
       vi.stubGlobal(
         "fetch",
-        vi.fn().mockImplementation(async (url) => {
+        vi.fn().mockImplementation(async (url, init) => {
           const to = String(url);
-          if (to.includes("vidrack.created.app")) {
-            return { ok: true, status: 200, text: async () => JSON.stringify(VIDRACK_AGGREGATE) };
+          // 1. the VidCore page carries the encrypted "en" token
+          if (to.startsWith("https://vidcore.io/")) {
+            return textBody('<script>{"en":"EN_TOKEN_123"}</script>');
           }
-          if (to.includes("vidzen.fun/api/sources")) {
-            return { ok: true, status: 200, text: async () => JSON.stringify(VIDZEN_FALLBACK) };
+          // 2. token -> { servers, stream, csrf }
+          if (to.includes("enc-dec.app/api/enc-vidcore")) {
+            return jsonBody({
+              status: 200,
+              result: { servers: SERVERS_URL, stream: STREAM_URL, token: "csrf-token" },
+            });
           }
-          return videasyShape;
+          // 3/5. the server list and the chosen server's stream, both POSTed
+          if (to === SERVERS_URL) return textBody("SERVERS_BLOB");
+          if (to === `${STREAM_URL}/srv1`) return textBody("STREAM_BLOB");
+          // 4/6. dec-vidcore — the request body says which blob is being decoded
+          if (to.includes("enc-dec.app/api/dec-vidcore")) {
+            const body = JSON.parse(init?.body || "{}");
+            if (body.text === "SERVERS_BLOB") return jsonBody({ result: [{ data: "srv1" }] });
+            return jsonBody({ result: { url: MASTER_URL } });
+          }
+          // 7. the resolved master playlist
+          if (to === MASTER_URL) return textBody(masterPlaylist);
+          if (to.includes("vidzen.fun/api/sources")) return textBody(JSON.stringify(VIDZEN_FALLBACK));
+          return new Response("upstream unreachable", { status: 502 });
         }),
       );
     }
 
-    it("parses the aggregate into a quality ladder: masters lead, rungs sorted tall-to-short, mirrors deduped, capped at 6", async () => {
-      routeFetch(new Response("upstream unreachable", { status: 502 }));
+    it("walks the vidcore + enc-dec chain and returns the master's real ladder", async () => {
+      routeVidcore();
       const res = await call({ action: "resolvevidcore", type: "movie", id: "7654320" });
       expect(res.statusCode).toBe(200);
       const payload = JSON.parse(res.body);
       expect(payload.ok).toBe(true);
       expect(payload.ladderSource).toBe("vidrack");
-      // Masters first (height 0 = real ABR ladder), then explicit rungs tall->short.
-      // Auto + HD are both masters (no numeric rung). The same-host+provider
-      // 1080p mirror dedupes away; the other-host 1080p survives as a route.
-      expect(payload.variants.map((v) => v.height)).toEqual([0, 0, 1080, 1080]);
-      expect(payload.variants[0].uri).toBe("https://api.dlproxy.com/v1/play/tokenA.m3u8");
-      expect(payload.variants[1].uri).toBe("https://relay.vidrift.net/proxy?u=1");
-      expect(payload.variants[2].uri).toBe("https://api.dlproxy.com/v1/vs/tokenB.m3u8");
-      expect(payload.variants[3].uri).toBe("https://mirror.example.com/pl/x.m3u8");
+      // The ladder is the master's own published order, tallest first.
+      expect(payload.variants.map((v) => v.height)).toEqual([2160, 1080, 720]);
+      expect(payload.variants[0].uri).toBe("https://93.184.216.34/2160/index.m3u8");
+      expect(payload.variants[2].uri).toBe("https://93.184.216.34/720/index.m3u8");
       // The owning player's referer rides the source so referer-gated CDNs serve us.
       expect(payload.source.refUrl).toBe("https://vidcore.io/");
-      expect(payload.source.url).toBe(payload.variants[0].uri);
+      expect(payload.source.url).toBe(MASTER_URL);
     });
 
-    it("falls through to vidzen when the aggregate lists nothing usable", async () => {
+    it("falls through to vidzen when the vidcore chain yields no stream", async () => {
       vi.stubGlobal(
         "fetch",
         vi.fn().mockImplementation(async (url) => {
           const to = String(url);
-          if (to.includes("vidrack.created.app")) {
-            return { ok: true, status: 200, text: async () => JSON.stringify({ serverSources: [] }) };
-          }
-          if (to.includes("vidzen.fun/api/sources")) {
-            return { ok: true, status: 200, text: async () => JSON.stringify(VIDZEN_FALLBACK) };
-          }
+          // A VidCore page carrying no "en" token: the primary chain cannot
+          // resolve, which is exactly when the vidzen fallback must carry it.
+          if (to.startsWith("https://vidcore.io/")) return textBody("<html><body>no token</body></html>");
+          if (to.includes("vidzen.fun/api/sources")) return textBody(JSON.stringify(VIDZEN_FALLBACK));
           // vidzen master playlist
-          return {
-            ok: true,
-            status: 200,
-            text: async () => "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1700000,RESOLUTION=1280x720\nseg.m3u8\n",
-          };
+          return textBody("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1700000,RESOLUTION=1280x720\nseg.m3u8\n");
         }),
       );
       const res = await call({ action: "resolvevidcore", type: "movie", id: "7654321" });
@@ -203,17 +221,17 @@ describe("POST /api/downloadify", () => {
       expect(payload).toMatchObject({ ok: false, code: "no-source" });
     });
 
-    it("serves the whole aggregate on phase:full without touching vidzen", async () => {
-      routeFetch(new Response("upstream unreachable", { status: 502 }));
+    it("serves the whole ladder on phase:full without falling back to vidzen", async () => {
+      routeVidcore();
       const res = await call({ action: "resolvevidcore", type: "movie", id: "7654323", phase: "full" });
       const payload = JSON.parse(res.body);
       expect(payload.ok).toBe(true);
       expect(payload.ladderSource).toBe("vidrack");
-      expect(payload.variants.map((v) => v.height)).toEqual([0, 0, 1080, 1080]);
+      expect(payload.variants.map((v) => v.height)).toEqual([2160, 1080, 720]);
     });
 
     it("warm cache: a repeat fast call answers the full ladder with cached:true", async () => {
-      routeFetch(new Response("upstream unreachable", { status: 502 }));
+      routeVidcore();
       const first = JSON.parse(
         (await call({ action: "resolvevidcore", type: "movie", id: "7654324" })).body,
       );
@@ -226,17 +244,8 @@ describe("POST /api/downloadify", () => {
       expect(second.variants.map((v) => v.height)).toEqual(first.variants.map((v) => v.height));
     });
 
-    it("phase:full answers an honest no-upgrade when the aggregate lists nothing", async () => {
-      vi.stubGlobal(
-        "fetch",
-        vi.fn().mockImplementation(async (url) => {
-          const to = String(url);
-          if (to.includes("vidrack.created.app")) {
-            return { ok: true, status: 200, text: async () => JSON.stringify({ serverSources: [] }) };
-          }
-          return new Response("upstream unreachable", { status: 502 });
-        }),
-      );
+    it("phase:full answers an honest no-upgrade when the chain fails", async () => {
+      // beforeEach already refuses every upstream with 502.
       const res = await call({ action: "resolvevidcore", type: "movie", id: "7654325", phase: "full" });
       expect(res.statusCode).toBe(200);
       const payload = JSON.parse(res.body);

@@ -84,24 +84,9 @@
 .toast-success {
   border-left: 3px solid #4ade80 !important;
 }
-.toast-error {
-  border-left: 3px solid #f87171 !important;
-}
-.toast-info {
-  border-left: 3px solid #60a5fa !important;
-}
-.toast-warning {
-  border-left: 3px solid #fbbf24 !important;
-}
 
 @media (max-width: 768px) {
   /* True Mobile Phone Adjustments */
-  .desktop-only {
-    display: none !important;
-  }
-  .mobile-only {
-    display: block !important;
-  }
 
   .main-content,
   .main-content[style] {
@@ -136,9 +121,6 @@
   }
   .nav-icon-btn:active {
     transform: scale(0.92);
-  }
-  .user-menu-container {
-    right: -10px !important;
   }
 
   /* Mobile Bottom Nav — floating frosted glass pill */
@@ -240,7 +222,6 @@
     align-items: flex-end !important;
     padding: 0 !important;
   }
-  .modal-content,
   .modal-container {
     border-radius: 24px 24px 0 0 !important;
     margin: 0 !important;
@@ -292,19 +273,16 @@
 
   /* Movie Rails */
   .movie-rail-wrapper > button,
-  .discovery-rail > button,
-  .cw-rail > button {
+  .discovery-rail > button {
     display: none !important;
   }
-  .movie-rail,
-  .cast-rail {
+  .movie-rail {
     scroll-snap-type: x mandatory;
     scroll-padding-left: 1rem;
     padding-top: 0.5rem !important;
     -webkit-overflow-scrolling: touch;
   }
-  .movie-rail > *,
-  .cast-rail > * {
+  .movie-rail > * {
     scroll-snap-align: start;
     scroll-snap-stop: always;
   }
@@ -330,27 +308,12 @@
     padding-bottom: 5rem !important;
     background: linear-gradient(to bottom, transparent, rgba(5,5,5,0.7) 12%, rgba(5,5,5,0.85));
   }
-  .details-backdrop {
-    height: 50vh !important;
-    position: absolute !important;
-    mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
-  }
   .details-text h1 {
     font-size: 2.2rem !important;
     margin-bottom: 0.5rem !important;
   }
-  .details-meta {
-    justify-content: flex-start !important;
-    margin-bottom: 1.5rem !important;
-  }
   .details-text {
     text-align: left !important;
-  }
-  .hero-actions {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr !important;
-    gap: 0.75rem !important;
   }
   .video-modal-header {
     background: transparent !important;
@@ -361,16 +324,6 @@
   }
   .episode-grid {
     grid-template-columns: 1fr !important;
-  }
-  .video-scaler {
-    border-radius: 0;
-    max-width: 100%;
-  }
-  .video-controls {
-    padding: 8px !important;
-  }
-  .video-timeline {
-    height: 4px !important;
   }
 
   /* Misc */
