@@ -3758,3 +3758,153 @@ base audio") and the three remaining Explore/MyList items (search "EXPLORE MYLIS
       deletion is proven safe by reference-counting (0 live class lost a rule) and
       by the build, but it deserves one human look at the player, home rails and
       settings before it is trusted visually.
+
+## Live server matrix probe (2026-10-03)
+
+Real-network probe of all 7 player servers through the LOCAL handler via
+`scripts/probe-servers.mjs`, movie TMDB `27205` (Inception) and series TMDB
+`1399` S1E1 (Game of Thrones). VidCore retried with `phase:"full"` after a
+`ladder-pending` verdict, mirroring the client.
+
+Result: **1 of 7 servers works. 6 fail for upstream reasons, not code reasons.**
+
+- [x] **Server 1 VidCore - WORKS.** Both titles return 4 variants at a 2160p
+      ceiling (movie ~2.3s cold / ~3.1s in the matrix run, tv ~1.8s; repeat
+      calls 0ms from the in-process cache). No changes were needed.
+- [x] **Server 2 VidSrc - UPSTREAM GATED, not fixable in our code.** Traced the
+      full chain: the embed page returns 200, `var Q` yields a live `t` token,
+      and `/pl/api.php?a=sources` returns **4 servers**. The failure is strictly
+      downstream: both URL-returning actions are fingerprint-gated -
+      `a=race` -> `502 {"error":"unavailable"}` and `a=play` -> `502`, while
+      `a=stream`/`a=url`/`/_stream?id=` correctly answer "unknown action"/404.
+      Enumerating 29 `a=` values shows the provider only recognises
+      `sources`, `race`, `play`, `subs`, and of those only `sources` and `subs`
+      answer a server-side call. Getting a URL would mean spoofing a browser
+      fingerprint to defeat their WAF, which is deliberately NOT done.
+- [x] **Server 3 NHD - ORIGIN DOWN.** `nhdapi.com` resolves to `193.37.41.71`,
+      but TCP **443 and 80 both fail** (`Test-NetConnection` false), Node
+      reports `UND_ERR_CONNECT_TIMEOUT`, and the deployed function shows the
+      same `no-source` after ~10.7s. Not a Node/undici quirk - the host is
+      unreachable.
+- [x] **Servers 4-7 ZXC - ENDPOINTS REMOVED.** `vidstuck.xyz` is alive and
+`/backend/tmdb/details/...` still returns real JSON, but `POST
+      /backend/meow` (the token mint at `api/downloadify.js:958`) returns 404.
+      **Refined finding - the stream route is still ALIVE, only the token
+      issuer is gone.** `GET /backend/servers/{path}` (built at
+      `api/downloadify.js:994`) answers correctly and speaks the same contract:
+      bare -> `400 {"success":false,"error":"missing params"}`; with the full
+      param set plus a dummy token -> `401 {"success":false,"error":"Invalid
+      token"}`. So the ZXC streams themselves are reachable and our request
+      shape is right - only the token cannot be obtained. Exactly three backend
+      routes survive: `servers/{path}`, `subtitle`, `tmdb/details/*`. Enumerated
+      94 `/backend/*` names x both methods plus the `/api`, `/api/v1`,
+      `/backend/v1`, `/v1/api`, `/b` and bare prefixes (187 requests): the only
+      extra hit is `/backend/subtitle` (`400 "id is required"`). There is no
+      buildId or build manifest, every route except `/` 404s, and neither
+      vidstuck.xyz's 14 chunks nor zxcstream.icu's 21 contain the token param
+      keys or any `/backend` call - the frontend never minted it client-side, so
+      the mint was always server-side and is now simply withdrawn.
+      **Recovering it would mean forging a token against their key**
+      (`ZXC_LINK_KEY`, `api/downloadify.js:856`), which is circumventing an
+      access control the provider deliberately removed - deliberately NOT done.
+- [x] **The deployed function is running a STALE BUILD - the one real defect.**
+      HEAD == `origin/main` == `c756b35`, yet local and deployed disagree
+      sharply and repeatably on the same request (`resolvevidcore`,
+      `phase:"full"`, 3 rounds each):
+
+      | round | LOCAL | DEPLOYED |
+      |---|---|---|
+      | movie 27205 | ok, 4 variants, 2160p, 2270ms | FAIL `no-upgrade`, 0.0ms-equivalent, 419ms |
+      | tv 1399 S1E1 | ok, 4 variants, 2160p, 1851ms | FAIL `no-upgrade`, 254ms |
+
+      Deployed answers `no-upgrade` in ~250-420ms every single time - far too
+      fast to have contacted `vidcore.io`/`enc-dec.app`, whereas local needs
+      ~1.8-2.3s on a cold call. `no-upgrade` is emitted by
+      `api/downloadify.js:573`, but the deployed build clearly does not run the
+      current ladder path. Production therefore cannot play Server 1 at all
+      even though it works locally. **This needs a Vercel redeploy from
+      `c756b35`; it cannot be fixed from the repo.**
+- [x] **Checked against the commits where these servers last worked - our code
+      never changed, so there is nothing to revert.** The premise that a recent
+      commit broke them does not survive a diff:
+      - ZXC request-shaping code (`ZXC_ORIGIN`, `ZXC_PARAM`, `ZXC_LINK_KEY`,
+        `zxcHeaders`, `zxcMint`, `zxcServerLinks` and the URL build) is
+        **byte-identical** between `c6dbde1` (the commit that ADDED ZXC) and
+        `HEAD`.
+      - VidSrc is **byte-identical** between `d521845` ("VidSrc resolves via
+        a=race (play is fingerprint-gated) - live-verified real bytes") and
+        `HEAD`.
+      - NHD has only ever used `nhdapi.com` in every commit that mentions it.
+      Same requests, different answers - because the providers changed, not us.
+- [x] **No code was changed.** Every failure was proven to originate upstream
+      (direct endpoint probes + a local-vs-deployed A/B), so editing the
+      handlers would have been guesswork. `api/downloadify.js` is untouched.
+- [x] Gates re-confirmed unchanged: `npm run lint` 0 errors / 35 warnings,
+      `npm run test` 934/934 (75 files), `npm run build` passing.
+- [ ] **Follow-up for the user:** redeploy to Vercel - this is the ONLY
+      actionable fix available. Server 1 works locally but production returns
+      `no-upgrade`, so all 7 rows are broken in prod until it is redeployed.
+      No `vercel` CLI is installed and there is no `.vercel/` link, and a
+      production deploy should not be pushed unprompted, so this is left to the
+      user (redeploy `c756b35` from the Vercel dashboard).
+      Servers 2-7 are **not** recoverable from this repo - they need provider
+      action: VidSrc must un-gate `a=race`/`a=play` (or issue a server-to-server
+      key), NHD must bring `nhdapi.com` back up, and ZXC must restore a token
+      mint. Until then those rows keep failing, which is the honest state to
+      show the user rather than hiding them.
+
+## Deep provider scrape (2026-10-03, follow-up)
+
+Went past "is it up" and mapped each provider's actual contract. One of my own
+earlier leads turned out to be wrong, and correcting it matters.
+
+- [x] **VidCore Server 1 is genuinely healthy and genuinely 4K - and the
+      `audio=0` in the matrix is CORRECT, not a bug.** I suspected missing
+      multi-audio because the probe reported `audio=0` and commit `e6bf1c6` had
+      added a dual-audio toggle via videasy's hidden `-v1` base. Scraping the
+      real ladder says otherwise:
+      - `https://vidcore.io/movie/{id}` -> `"en":"<token>"` ->
+        `enc-dec.app/api/enc-vidcore` -> `{servers, stream, token}` -> POST
+        `servers` -> `dec-vidcore` -> **5 provider servers**, each with a
+        `name`/`description`: **Supreme** ("Original audio"), **Prime**,
+        **Orbit**, **Premiere 4K** ("Original audio, 4K"), **Horizon**. Movie
+        and TV both resolve 3-4 of them.
+      - The 4K master is a 4-row HLS ladder: `index-s2160p-v1-a1.m3u8` +
+        1080p / 720p / 480p, all `-v1-a1`.
+      - The master lists **only `-a1`**. Probing siblings shows `-a1..-a4` all
+        return 200, but `-a2`/`-a3`/`-a4` are byte-identical to the unsuffixed
+        base, and the init boxes settle it: **`-a1` init has a `SoundHandler`
+        (video+audio, 1212 B) while the base init has no sound handler at all
+        (video-only, 733 B)**.
+      - So the "second audio" I thought I had found is the **video-only**
+        track. Exposing it as an audio option would have shipped SILENT video
+        as "Audio 2" - caught before any code was written. There are no
+        audio-only renditions either (`audio/...`, `-au1`, `-a0` naming all
+        miss; `audio/index-...-a1` answering 200 is the CDN ignoring the
+        prefix, not a real rendition).
+      - **Net: VidCore = one muxed audio track + a 4K ladder. Correct as-is.**
+- [x] **VidSrc: the gate is deliberate and narrow - now proven, not inferred.**
+      With a live embed token, `a=sources` returns 4 servers AND `a=subs`
+      returns `{"subs":[{"label":"English",...}]}`. Both stream-URL routes
+      (`a=play`, `a=race`) return `502 {"error":"unavailable"}` under every
+      header combination. Enumerating the action set shows only
+      `sources|race|play|subs` exist. `/_stream` is not an alternative - it is a
+      guarded **playlist proxy** that demands an absolute `.m3u8`:
+      `/_stream?url=<non-m3u8>` -> `400 "Bad scheme"`, and
+      `/_stream?url=https://vidsrc.buzz/_stream?id=...` -> `403 "Only .m3u8
+      files are proxied here. Segments load directly from CDN."`
+      So VidSrc authorises metadata for server-side callers and refuses the
+      stream URL itself. There is no legitimate route left to the bytes.
+- [x] **Multi-audio has no surviving provider - stated plainly rather than
+      faked.** The app only ever built `audioTracks` for NHD
+      (`api/downloadify.js:761-783`); ZXC got dubs via centaurus `dubCode`.
+      NHD is dead on BOTH hosts - `nhdapi.com` TCP-dead on 443 and 80, and the
+      real stream host `nhdapi.streamfinder.st` answers **522** (Cloudflare,
+      origin down) - and no alternate NHD domain resolves. ZXC centaurus dubs
+      need the withdrawn token. VidCore, verified above, carries one audio
+      track. **So multi-audio cannot be delivered today by any provider in the
+      list, and I did not fabricate it by relabelling video-only as a dub.**
+- [x] `vidzen.fun` (the Server 1 fallback) is **522** and
+      `nhdapi.streamfinder.st` is **522** - both Cloudflare origin-down, while
+      `vidcore.io` and `enc-dec.app` answer 200. That is why Server 1 depends
+      entirely on the vidrack aggregate path.
