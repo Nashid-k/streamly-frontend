@@ -141,6 +141,100 @@ describe("isRefererGated", () => {
   });
 });
 
+// Regression 2026-10-03 (Reacher tv 108978 s1e1): every ZXC playlist load hit
+// the Cloudflare worker FIRST. A marker URL is not an upstream URL — only
+// handlePlaylist can mint the token the provider requires — so the worker
+// forwarded it unsigned and vidstuck.xyz answered 400 on the master, the
+// media playlist and every reload. The loud 400s were survivable (the loader
+// cascaded to /api/downloadify and got real bytes), but the wasted leg still
+// cost a second upstream request per playlist against a rate-limited provider,
+// so it accelerated the 429 that actually killed the session.
+describe("ZXC replay-marker playlists", () => {
+  const MARKER_MASTER =
+    "https://vidstuck.xyz/backend/servers/centaurus?title=Reacher&year=2022&season=1&episode=1&zx=streamly&zv=master";
+  const MARKER_MEDIA =
+    "https://vidstuck.xyz/backend/servers/centaurus?title=Reacher&year=2022&season=1&episode=1&zx=streamly&zv=master&zi=1080";
+
+  async function loadOk(loader, url) {
+    return new Promise((resolve, reject) => {
+      loader.load(
+        { url },
+        {},
+        {
+          onSuccess: (resp) => resolve(resp),
+          onError: (err) => reject(new Error(err.text)),
+        },
+      );
+    });
+  }
+
+  it("never sends a ZXC marker playlist to the Cloudflare worker", async () => {
+    vi.stubEnv("VITE_STREAMLY_RELAY_URL", "https://streamly-proxy.nashidk1999.workers.dev");
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: () => "application/vnd.apple.mpegurl" },
+      text: async () => "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\n1080.m3u8\n",
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const Loader = createStreamlyLoader({ getRefUrl: () => "https://vidstuck.xyz/embed/tv/108978-1-1" });
+    await loadOk(new Loader(), MARKER_MASTER);
+    // Exactly one leg, and it is our handler.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [calledUrl, init] = fetchMock.mock.calls[0];
+    expect(String(calledUrl)).not.toContain("workers.dev");
+    expect(String(calledUrl)).toContain("/api/downloadify");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(init.body)).toEqual({
+      action: "playlist",
+      playlistUrl: MARKER_MASTER,
+      refUrl: "https://vidstuck.xyz/embed/tv/108978-1-1",
+    });
+  });
+
+  it("still routes a ZXC media rendition straight to the handler", async () => {
+    vi.stubEnv("VITE_STREAMLY_RELAY_URL", "https://streamly-proxy.nashidk1999.workers.dev");
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: () => "application/vnd.apple.mpegurl" },
+      text: async () => "#EXTM3U\n#EXTINF:4,\nseg1.m4s\n",
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const Loader = createStreamlyLoader({ getRefUrl: () => "https://vidstuck.xyz/embed/tv/108978-1-1" });
+    await loadOk(new Loader(), MARKER_MEDIA);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0][0])).not.toContain("workers.dev");
+  });
+
+  it("keeps the worker as the first leg for ordinary (non-marker) playlists", async () => {
+    vi.stubEnv("VITE_STREAMLY_RELAY_URL", "https://streamly-proxy.nashidk1999.workers.dev");
+    const seen = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        const to = String(url);
+        seen.push(to);
+        if (to.includes("workers.dev")) {
+          return {
+            ok: true,
+            status: 200,
+            headers: { get: () => "application/vnd.apple.mpegurl" },
+            text: async () => "#EXTM3U\n#EXTINF:4,\nseg1.m4s\n",
+          };
+        }
+        return { ok: false, status: 500, headers: { get: () => null } };
+      }),
+    );
+    const Loader = createStreamlyLoader({ getRefUrl: () => "https://vidcore.io/" });
+    await loadOk(new Loader(), "https://vidcore.xyz/hls/master.m3u8");
+    // One call, and it is the worker — the marker rule must not narrow the
+    // normal path (VidCore and friends still get their off-Vercel leg).
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toContain("workers.dev");
+  });
+});
+
 describe("createStreamlyLoader", () => {
   it("loads playlists through the relay and answers with the original URL", async () => {
     vi.stubGlobal(

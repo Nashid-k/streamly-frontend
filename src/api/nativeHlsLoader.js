@@ -324,17 +324,46 @@ export async function probeSourcePlayable(entryUrl, refUrl, { signal } = {}) {
   }
 }
 
+/* ZXC replay-marker URLs, minted server-side by zxcPlaylistUrl() in
+   api/downloadify.js, look like
+     https://vidstuck.xyz/backend/servers/<server>?...&zx=streamly&zv=master
+   They are NOT upstream URLs — the marker only means "ask our handler", and
+   handlePlaylist is the only thing that can turn one into a real provider
+   request (it mints the fresh signed token the provider demands). Forwarded
+   verbatim to the Cloudflare worker the marker reaches vidstuck.xyz unsigned
+   and the provider answers 400, every single time. That wasted leg was also
+   costing a second upstream request per playlist against a provider that
+   rate-limits us (429), so the "noisy" bug actively made playback worse.
+   Segments are never markers (the handler rewrites them absolute), so this
+   only ever gates the playlist leg. */
+const ZXC_MARKER_HOSTS = new Set(["vidstuck.xyz"]);
+const ZXC_MARKER_VALUE = "streamly";
+
+function isZxcMarkerUrl(url) {
+  try {
+    const parsed = new URL(url);
+    if (!ZXC_MARKER_HOSTS.has(parsed.hostname.toLowerCase())) return false;
+    return parsed.searchParams.get("zx") === ZXC_MARKER_VALUE;
+  } catch {
+    return false;
+  }
+}
+
 async function postDownloadify(body, { signal } = {}) {
   const { base, slice, mode } = relayConfig();
   // A proxy whole-fragment call that falls back to the Vercel function MUST
   // re-slice at FRAG_CHUNK_MAX or the 4.5MB body cap breaks mid-flight.
+  const isSegmentAction = body.action === "segment";
   const candidates =
     mode === "json"
       ? [{ base, slice, mode }]
-      : [
-          { base, slice, mode: "proxy" },
-          { base: ENDPOINT, slice: FRAG_CHUNK_MAX, mode: "json" },
-        ];
+      : !isSegmentAction && isZxcMarkerUrl(body.playlistUrl)
+        ? // Marker playlists can ONLY be served by the handler — skip the proxy.
+          [{ base: ENDPOINT, slice: FRAG_CHUNK_MAX, mode: "json" }]
+        : [
+            { base, slice, mode: "proxy" },
+            { base: ENDPOINT, slice: FRAG_CHUNK_MAX, mode: "json" },
+          ];
   const isTransport = body.action === "segment" || body.action === "playlist";
   // A transport call without a URL would hit the worker as ?url=undefined — a
   // guaranteed 500 + CORS noise. Fail HERE with a real error so the caller's
@@ -343,7 +372,7 @@ async function postDownloadify(body, { signal } = {}) {
     throw new Error("relay: missing target URL (source had no playable URL)");
   }
   // Only fragment pulls send a Range slice; playlists are small full-text GETs.
-  const isSegment = body.action === "segment";
+  const isSegment = isSegmentAction;
   // The last refused PLAYLIST leg is preserved (status + body) so the caller can
   // surface the relay's real error envelope after every candidate fails.
   let lastPlaylist = null;
