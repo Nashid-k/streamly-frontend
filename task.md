@@ -4117,3 +4117,34 @@ control. All negative; recorded so this is not re-litigated later.
    `frame-ancestors`, so it explicitly permits framing, and it is already in
    our CSP `frame-src`. Needs no proxy at all and works today; the cost is
    losing our own player and quality selection on Server 1.
+
+## Region-pin experiment: FAILED (reverted)
+
+Approved by the user as a measurement, since changing the Vercel egress IP was
+the only clean lever left. Result:
+
+```
+probe 1  region=iad1  err=VidCore full ladder unavailable
+probe 2  region=bom1  err=VidCore full ladder unavailable
+manifest vidcore.io  http=502 region=bom1 577ms -> Playlist fetch failed: Upstream 403
+resolvevidcore movie 27205  region=bom1 311ms  -> full ladder unavailable
+resolvevidcore tv 1399 s1e1 region=bom1 321ms  -> full ladder unavailable
+VERDICT: bom1 also refused
+```
+
+- [x] The `regions: ["bom1"]` pin deployed and did take effect - `x-vercel-id`
+      switched from `iad1` to `bom1` - but vidcore.io still answers **403**, so
+      the block is not region specific.
+- [x] Conclusion: the block is almost certainly ASN-wide over Vercel's AWS
+      ranges (`iad1` is us-east, `bom1` is ap-south - different AWS regions,
+      same provider), so **no Vercel region can reach vidcore.io**. Reverting
+      the pin rather than leaving a pointless config change behind.
+- [ ] Remaining, both requiring a human decision:
+      1. Deploy the corrected relay Worker - but that defeats the specific
+         access control vidrack set with `Cf-Worker`, so it is circumvention
+         and I will not ship it as the default path without explicit sign-off.
+         Also needs whoever owns `streamly-proxy.nashidk1999.workers.dev`.
+      2. Iframe embed - vidrack permits framing (no `X-Frame-Options`, no
+         `frame-ancestors`) and it is already in our CSP `frame-src`, so this
+         needs no proxy and works today, at the cost of our own player and
+         quality selection on Server 1.
