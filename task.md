@@ -4025,3 +4025,37 @@ same set + Cf-Worker                               http=403   27ms len=4547
       POST-capable, or we fall back to the iframe embed (vidrack has no
       `X-Frame-Options` and no `frame-ancestors`, and is already in our CSP
       `frame-src`).
+
+### Verified: the corrected relay completes the whole vidrack chain
+
+Replayed every hop through a local simulation of `docs/relay-worker.js`
+(explicit upstream header set, no inbound-header spread, GET/HEAD/POST):
+
+```
+movie 27205: hop1 GET  page 200 + en token
+             hop2 GET  enc-vidcore 200
+             hop3 POST vidcore.io servers 200      <- needs POST support
+             hop4 POST dec-vidcore 200            -> 5 servers
+             hop5 POST vidcore.io stream 200      <- needs POST support
+             RESULT  4 servers, 4 variants (Supreme/Prime/Orbit/Horizon)
+tv 1399 s1e1: identical, RESULT 4 variants
+```
+
+`Horizon` yields the 4-variant 2160p ladder, matching what `resolveVidcore`
+already produces. `Supreme`/`Prime`/`Orbit` return a master with 0 variants and
+`Premiere 4K` 404s, which is the same filtering the handler already does.
+
+Two bugs found and fixed while building this, both caught by the gates:
+
+- Defaulting `Content-Type: application/json` on **bodiless** POSTs made
+  vidcore.io's `servers` endpoint answer **400**. The reference Worker now only
+  sets a default `Content-Type` when a body is actually present.
+- `docs/relay-worker.js` declared `body` twice; caught by `npm run lint` and
+  renamed to `requestBody`.
+
+- [x] Gates after the change: lint **0 errors** (35 pre-existing warnings),
+      tests **934/934** across 75 files, build **ok in 1.68s**.
+- [ ] Still outstanding and unchanged: deploying `docs/relay-worker.js` to
+      `streamly-proxy.nashidk1999.workers.dev`, then wiring
+      `resolveVidcore`'s two vidcore.io POSTs through it. Both need the Worker
+      deployed first, and neither is in this repo.

@@ -35,9 +35,32 @@ export default {
     const range = request.headers.get("Range");
     if (range) upstreamHeaders.Range = range;
 
+    // The vidrack chain POSTs to vidcore.io (the `servers` and `stream`
+    // endpoints), so a GET-only relay cannot complete a resolve. Header
+    // names are taken from an allowlist - never spread request.headers,
+    // which is what leaks Cloudflare's own Cf-Worker upstream.
+    const allowed = new Set(["content-type", "x-requested-with", "x-csrf-token"]);
+    for (const [key, value] of request.headers) {
+      if (allowed.has(key.toLowerCase())) upstreamHeaders[key] = value;
+    }
+
+    const method = ["GET", "HEAD", "POST"].includes(request.method)
+      ? request.method
+      : "GET";
+    const requestBody = method === "POST" ? await request.arrayBuffer() : undefined;
+    if (
+      method === "POST" &&
+      requestBody &&
+      requestBody.byteLength &&
+      !upstreamHeaders["Content-Type"]
+    ) {
+      upstreamHeaders["Content-Type"] = "application/json";
+    }
+
     const upstream = await fetch(parsed.toString(), {
-      method: request.method === "HEAD" ? "HEAD" : "GET",
+      method,
       headers: upstreamHeaders,
+      body: requestBody,
       redirect: "follow",
     });
 
