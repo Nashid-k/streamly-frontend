@@ -28,74 +28,102 @@
 import { downloadService } from "../api/downloadService";
 
 /* Order matters twice over: it is the display number AND the auto-rotation
-   order, so a row that is unreliable belongs late. VidCore leads because its
-   probe is direct-first (a blocked CDN falls through fast) and it is the only
-   backend whose ladder reaches 4K. NetMirror (net27.cc) was removed: its video
-   layer is per-IP 429-gated behind a Cloudflare challenge. CineSrc went with
+   order, so a row that is unreliable belongs late.
+
+   MEASURED STATUS 2026-10-03 — every row driven through the REAL handler against
+   the REAL provider, for movie 27205 AND tv 1399 S1E1, then walked the way the
+   player walks it (`action:"playlist"` -> `action:"segment"`, a real byte sip),
+   so a row is only called working if it actually serves bytes:
+
+     zxc centaurus  OK  3 variants TOP 1080p, 3 audio tracks, 1480 movie /
+                         739 episode segments, segments 200 with 40000 real
+                         ISO-BMFF bytes (`styp`)
+     zxc andromeda  OK  3 variants TOP 1080p, 1480 segments, real fMP4 bytes
+     zxc meow/Ursa  OK  1 variant at 800p, 1778 segments, real bytes
+     zxc atlas      OK  manifest 200, 741 segments, real bytes — but its
+                         single variant declares NO resolution, so no ceiling
+                         is claimed for it
+     zxc milkyway   DEAD dropped — retired upstream, manifest 403s
+     vidrack agg    OK  6/6 rows fetchable — 800p movie, 1080p tv
+     vidsrc         DEAD no-source (its play/race legs 502)
+     nhd            DEAD no-source (origins 522)
+
+   Every ZXC row was dead for ONE reason: the token mint had been RENAMED
+   upstream from `POST /backend/meow` to `POST /backend/fuckyou` ("meow" is now a
+   SERVER name — "Ursa" — not an endpoint), so the old path 404'd. That single
+   path is fixed in api/downloadify.js; the rows below were re-verified after.
+
+   Centaurus leads because it is the only row with real multi-language audio AND
+   verified bytes, which is why it is also `DEFAULT_SOURCE_KEY`.
+
+   The ONLY 4K in this catalogue was vidcore.io's own ladder, and vidcore.io
+   refuses Vercel outright with a 403 from both iad1 and bom1, so that ladder is
+   unreachable server-side — the vidrack row's tag states its measured ceiling
+   instead of claiming 4K we cannot deliver. NetMirror (net27.cc) was removed: its
+   video layer is per-IP 429-gated behind a Cloudflare challenge. CineSrc went with
    its Chrome mint service — no serverless function can mint fingerprint-bound
    tokens. */
 export const PLAYER_SOURCES = [
-  {
-    key: "vidcore",
-    label: "Server 1",
-    tag: "4K · multiple qualities",
-    provider: "VidCore",
-    resolve: (a, o) => downloadService.resolveVidcore(a, o),
-  },
-  {
-    key: "vidsrc",
-    label: "Server 2",
-    tag: "Original audio · up to 1080p",
-    provider: "VidSrc",
-    resolve: (a, o) => downloadService.resolveVidsrc(a, o),
-  },
-  /* NHD carries the fewest titles, but it is a native source with real
-     alternate audio (sibling-URL audioTracks) — last of the originals, so
-     dubbed titles still land somewhere without costing VidCore its default
-     seat. */
-  {
-    key: "nhd",
-    label: "Server 3",
-    tag: "Multi audio · one quality",
-    provider: "NHD",
-    resolve: (a, o) => downloadService.resolveNhd(a, o),
-  },
-  /* The four ZXC/VIDSTUCK backends, each kept as its OWN row so the Servers
-     menu can target one directly instead of auto-rotation racing to a winner.
-     Two of them ship DASH, which the server transcodes to an HLS fMP4 master
-     (no remux, no per-byte work) so hls.js can ABR and mux just like native
-     HLS. */
+  /* The four ZXC/VIDSTUCK backends, each kept as its OWN row so the Servers menu
+     can target one directly instead of auto-rotation racing to a winner. Two of
+     them ship DASH, which the server transcodes to an HLS fMP4 master (no remux,
+     no per-byte work) so hls.js can ABR and mux just like native HLS. */
   {
     key: "zxc-centaurus",
-    label: "Server 4",
+    label: "Server 1",
     tag: "Multi audio · up to 1080p",
     provider: "ZXC Centaurus",
     resolve: (a, o) => downloadService.resolveZxc({ ...a, server: "centaurus" }, o),
   },
   {
     key: "zxc-andromeda",
-    label: "Server 5",
+    label: "Server 2",
     tag: "Original audio · up to 1080p",
     provider: "ZXC Andromeda",
     resolve: (a, o) => downloadService.resolveZxc({ ...a, server: "andromeda" }, o),
   },
   {
     key: "zxc-atlas",
-    label: "Server 6",
+    label: "Server 3",
     tag: "Original audio · one quality",
     provider: "ZXC Atlas",
     resolve: (a, o) => downloadService.resolveZxc({ ...a, server: "atlas" }, o),
   },
   {
-    key: "zxc-milkyway",
-    label: "Server 7",
+    key: "zxc-meow",
+    label: "Server 4",
+    tag: "Original audio · up to 800p",
+    provider: "ZXC Ursa",
+    resolve: (a, o) => downloadService.resolveZxc({ ...a, server: "meow" }, o),
+  },
+  {
+    key: "vidcore",
+    label: "Server 5",
+    tag: "Multiple qualities · up to 1080p",
+    provider: "VidRack",
+    resolve: (a, o) => downloadService.resolveVidcore(a, o),
+  },
+  {
+    key: "vidsrc",
+    label: "Server 6",
     tag: "Original audio · up to 1080p",
-    provider: "ZXC Milky Way",
-    resolve: (a, o) => downloadService.resolveZxc({ ...a, server: "milkyway" }, o),
+    provider: "VidSrc",
+    resolve: (a, o) => downloadService.resolveVidsrc(a, o),
+  },
+  /* NHD carries the fewest titles, but it is a native source with real
+     alternate audio (sibling-URL audioTracks) — last of the originals, so
+     dubbed titles still land somewhere without costing Server 1 its default
+     seat. */
+  {
+    key: "nhd",
+    label: "Server 7",
+    tag: "Multi audio · one quality",
+    provider: "NHD",
+    resolve: (a, o) => downloadService.resolveNhd(a, o),
   },
 ];
 
-export const DEFAULT_SOURCE_KEY = "vidcore";
+export const DEFAULT_SOURCE_KEY = "zxc-centaurus";
 
 /* Look a server up by key. Returns null for an unknown key so callers can
    decide their own fallback instead of silently resolving to Server 1. */

@@ -4148,3 +4148,58 @@ VERDICT: bom1 also refused
          `frame-ancestors`) and it is already in our CSP `frame-src`, so this
          needs no proxy and works today, at the cost of our own player and
          quality selection on Server 1.
+
+## ZXC un-bricked + promoted to Server 1 (2026-10-03)
+
+User: *"make server 4 as defualt, insted change its name to server1"*, then
+*"whatever you do, dig, scrap and fix zxc"* after the rows were found dead.
+
+- [x] **Root cause of every dead ZXC row: the token MINT was renamed upstream.**
+      `POST https://vidstuck.xyz/backend/meow` answers **404**. Re-scraping their
+      shipped embed chunk (`/ext/static/chunks/1jckevlg2_ail.js`) shows the mint
+      moved to **`POST /backend/fuckyou`** with an identical body and an identical
+      `{token, ts}` reply. *"meow" is now a SERVER name (Ursa, `path=meow`), not
+      an endpoint* - the two had been conflated. Verified before editing: old
+      path 404, new path **200 `{token, ts}`**.
+- [x] **Fixed** `zxcMint` in `api/downloadify.js`; updated the `/backend/fuckyou`
+      mint mock in `zxcDubList.test.js` + `zxcMirrorFallback.test.js`.
+- [x] **`milkyway` retired, `meow`/Ursa added.** It is absent from their own
+      `gN.SERVERS` list and its manifest answers **403** through our function
+      (`manifest unreadable: Upstream 403`), so it could never play.
+      `ZXC_SERVERS = [andromeda, centaurus, atlas, meow]`.
+- [x] **Every ZXC row re-verified end-to-end** through the real handler, walking
+      it the way the player walks it (resolve -> `playlist` -> `segment`, a real
+      byte sip), movie 27205 AND tv 1399 S1E1:
+
+```
+centaurus movie  ok=true variants=3 TOP h=1080 bw=1600000 multiLevel=true audioTracks=3
+                playlist 200 entries=1480   segment 200 bytes=40000 box="styp" more=1
+centaurus tv    ok=true variants=3 TOP h=1080 audioTracks=3
+                playlist 200 entries=739    segment 200 bytes=40000 box="styp" more=1
+andromeda movie ok=true variants=3 TOP h=1080 audioTracks=0
+                playlist 200 entries=1480   segment 200 bytes=40000 box="styp"
+atlas     movie ok=true variants=1 height UNDECLARED  playlist 200 entries=741  segment 40000 bytes
+meow/Ursa movie ok=true variants=1 h=800    playlist 200 entries=1778  segment 40000 bytes
+```
+
+      `box="styp"` is a real ISO-BMFF fMP4 box, so these are MEDIA bytes, not an
+      HTML error page wearing a 200.
+- [x] **ZXC Centaurus is Server 1 and `DEFAULT_SOURCE_KEY`** (ordered by measured
+      quality: it is the only row with real multi-language audio AND 1080p).
+      Order is now centaurus, andromeda, atlas, meow/Ursa, vidrack, vidsrc, nhd.
+      Tags are the MEASURED values, not aspirations: `up to 1080p` on centaurus
+      and andromeda, `up to 800p` on Ursa, and atlas claims no ceiling at all
+      because its single variant declares no resolution.
+- [x] **Latent bug the promotion exposed:** `warmResolve.js` hardcoded
+      `downloadService.resolveVidcore` AND `sourceKey !== "vidcore"` in its
+      handover guard - so moving the default would have minted a vidrack token the
+      player then refused to consume. It now resolves `sourceByKey
+      (DEFAULT_SOURCE_KEY)` and guards on `DEFAULT_SOURCE_KEY`. `warmResolve.test.js`
+      asserts that coupling, so a re-hardcode fails the suite.
+- [x] vidrack row moved to Server 5 and keeps its honest `up to 1080p` tag; the
+      stale "ZXC-milkyway" and 4K-capable comments are gone.
+- [x] Gates: oxlint **0 errors**, vitest **75 files / 937 passed**, build OK
+      (1.46s). Temporary live probes deleted; nothing untracked left behind.
+
+Recorded so it is not re-dug: the ZXC outage was ONE renamed endpoint behind FOUR
+dead rows, and `milkyway` -> `meow` was an upstream server-list change, not our bug.

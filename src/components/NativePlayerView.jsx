@@ -954,7 +954,7 @@ export default function NativePlayerView({
   const [bufferedRanges, setBufferedRanges] = useState([]);
   // Master-mode (multi-variant) sources start on ABR auto; picking a level pins it.
   // The state starts NULL, not true: for a fixed-ladder source (single-variant HLS
-  // like NHD/ZXC-milkyway) the source is NOT in ABR auto — Auto just replays the
+  // like NHD/ZXC-atlas) the source is NOT in ABR auto — Auto just replays the
   // open rung — and starting true left the quality menu with NO active row until
   // the viewer touched it (the Server 3/4 bug). The commit block sets it honestly
   // from the shape of what actually opened.

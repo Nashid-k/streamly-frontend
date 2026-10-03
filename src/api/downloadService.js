@@ -196,7 +196,7 @@ export const downloadService = {
   },
 
   /** Resolve one of the four ZXC/VIDSTUCK servers (action "resolvezxc"). The
-      `server` arg picks the row (andromeda | centaurus | atlas | milkyway), so
+      `server` arg picks the row (andromeda | centaurus | atlas | meow), so
       every server stays individually selectable instead of racing to a winner.
       DASH servers come back as a transcoded multi-level master plus sibling-URL
       `audioTracks` (Centaurus dubs); HLS servers pass their own ladder through. */

@@ -81,18 +81,48 @@ const ALLOWED_EMBED_HOSTS = new Set([
 ]);
 
 
-// Server 5 (VidCore) sources catalogue. vidcore.org/embed resolves entirely
-// server-side — no browser involved. The "videasy" API lists a
-// title's whole quality ladder (incl. 4K) as DIRECT HLS URLs; the m3u8s sit
-// on moon.quietridge.top and their fMP4 segments on paperorbit.top (open
-// CORS + Range, so the existing manifest/segment relay handles them). Every
-// upstream wants the VidCore player as referer — fetchUpstream supplies it.
-/* Vidrack's old `/api/sources/videasy` subpath died upstream 2026-09 (answers
-   `{"sources":[]}` for every title) and silently dropped Server 1 to vidzen's
-   single 720p fallback. VidCore itself now resolves through the VidCore page +
-   enc-dec token exchange (see resolveVidcore), and vidzen remains a fallback. */
+/* Server 1's source catalogue. Vidrack's old `/api/sources/videasy` subpath died
+   upstream 2026-09 (answers `{"sources":[]}` for every title) and silently
+   dropped Server 1 to vidzen's single 720p fallback. Server 1 now resolves
+   through vidrack's multi-provider aggregate API (see VIDRACK_SOURCES_API
+   below) and vidzen remains a fallback. The old header note claiming an
+   "incl. 4K" videasy ladder on moon.quietridge.top was stale: that subpath is
+   gone, quietridge 403s at the root, and no 4K survives in this catalogue. */
 const VIDZEN_SOURCES_API = "https://vidzen.fun/api/sources";
 const VIDCORE_PLAYER_REFERER = "https://vidcore.io/";
+
+/* Server 1 resolves through VIDRACK'S OWN aggregate API, deliberately NOT
+   `vidcore.io`. Two separate things are in play and they must not be conflated:
+
+   1. `vidcore.io` is the only 4K source anywhere in this catalogue. Its page
+      token -> enc-dec -> servers/stream exchange yields a real ladder up to
+      `2160p` (Horizon -> i-arch-400.jerso441ceg.com, plus Supreme/Prime/Orbit/
+      Premiere 4K). It works from a normal IP — but it refuses Vercel's egress
+      outright: `vidcore.io/movie/27205` answers 403 from BOTH `iad1` and `bom1`,
+      while enc-dec.app, vidsrc.buzz, vidstuck.xyz and example.com answer 200
+      from the same function. Replaying `server/net.js` `baseHeaders()` verbatim
+      returns 200 for every pooled UA and every single-header-drop combination,
+      so our header set is not the cause: the block covers Vercel's AWS ranges as
+      a whole and no region pin avoids it. Hence Server 1 was dead in production.
+
+   2. `vidrack.created.app` is a DIFFERENT host and not behind that block. It
+      answers the same `{ serverSources: [...] }` aggregate its embedded player
+      calls from `/embed/movie/:id` chunks, and sends `ACAO: *`. Commit da5bd23
+      swapped this call for direct `vidcore.io` extraction, which is what broke
+      Server 1; restoring it is what this constant is for.
+
+   MEASURED CEILING — read before trusting a quality label here: this aggregate
+   does NOT do 4K. Audited 2026-10-03 by fetching every master it lists, for both
+   shapes — movie 27205 tops out at **800p** (its whole ladder is 800/536/534/
+   532/356/266) and TV 1399 S1E1 reaches **1080p** on a later probe. Nothing
+   anywhere answered 2160. Rows the aggregate LABELS "1080p" are frequently 800p
+   in fact, so heights are only ever taken from the playlist text, never from the
+   label. Its `/api/servers` advertises 10 backends (ipcloud, vidapi, moviebox,
+   fsonline, videasy, vidrift1/2, xpass, tcloud, vidnest) but `server=` is
+   ignored — all ten return the identical 28 sources — and `quality=2160p`,
+   `maxQuality=4k` and `hls=4k` are ignored too. `src/constants/sources.js`
+   advertises the observed 1080p ceiling, not 4K. */
+const VIDRACK_SOURCES_API = "https://vidrack.created.app/api/sources";
 
 /* Vidrack resolve timing + warm cache. The deadlines are chosen around
    measured reality (2026-09): vidrack's aggregate answers in 13-25s (it walks
@@ -108,6 +138,26 @@ const VIDRACK_TIMEOUT_FULL_MS = 28000;
 const VIDRACK_FAST_DEADLINE_MS = 9500;
 const VIDRACK_CACHE_TTL_MS = 4 * 60 * 1000;
 const vidrackCache = new Map(); // "type:id:s:e" -> { source, variants, at }
+
+/* Bandwidth hint for a ladder row we synthesise from an upstream QUALITY LABEL
+   rather than from a real master playlist. hls.js uses this only to order/seed
+   its own ABR when no BANDWIDTH attribute exists; it is never a claim about what
+   the host serves. Heights come from the label, which the VIDRACK_SOURCES_API
+   comment shows is marketing — but since these rows are label-only by
+   construction, the hint follows the label and the UI label is what it is.
+   Real masters parse their own BANDWIDTH via parseMasterPlaylist instead. */
+function vidrackLabelBandwidth(height) {
+  const table = {
+    2160: 16000000,
+    1440: 9000000,
+    1080: 6000000,
+    720: 2500000,
+    480: 1200000,
+    360: 800000,
+    240: 500000,
+  };
+  return table[height] || 0;
+}
 
 function vidrackCacheKey(type, id, season, episode) {
   return `${type}:${id}:${season || ""}:${episode || ""}`;
@@ -433,81 +483,86 @@ async function handleResolveVidcore(body, res) {
      vidzen's single 720p fallback (user: "not even has 1080p"). Vidrack's own
      player (chunks of /embed/movie/:id) calls `/api/sources?id&type[&season
      &episode]` and receives `{ serverSources: [{url, type, quality, label,
-     provider, headers}], sseUrl, mode }` — a MULTI-PROVIDER aggregate with
-     quality labels (verified live: 1080p / HD / Auto masters; the dlproxy
-     entries are multi-rung HLS masters that answer RAW with no special
-     headers, so the whole existing relay pipeline plays them unchanged).
+     provider, headers}], sseUrl, mode }` — a MULTI-PROVIDER aggregate.
      URLs minted by upstream providers are short-lived SIGNED tokens — this
      function fetches nothing but the source LIST, and the player fetches
      playlists through the normal manifest/segment actions within the token's
      life. Each entry becomes its own ladder row; a per-entry HEAD-verify is
      deliberately skipped (entries 403 transiently and the player's own
-     playability probe does the real gate). */
+     playability probe does the real gate).
+
+     CEILING: up to 800p, NOT 4K — see the VIDRACK_SOURCES_API comment for the
+     audit behind that. Rows are built from upstream LABELS because most entries
+     are label-only stubs rather than real masters, so the label is carried
+     through verbatim and never upgraded; `sources.js` states the honest
+     ceiling so nothing here over-promises. */
   const tryVidrack = async ({ timeoutMs = VIDRACK_TIMEOUT_FULL_MS } = {}) => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-      try {
-        const url = type === 'tv' ? `https://vidcore.io/tv/${tmdbId}/${season}/${episode}` : `https://vidcore.io/movie/${tmdbId}`;
-        const pageRes = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }, signal: controller.signal });
-        if (!pageRes.ok) throw new Error(`pageRes ${pageRes.status}`);
-        const html = await pageRes.text();
-        const match = /\\"en\\":\\"([^\\"]+)\\"/.exec(html) || /"en":"([^"]+)"/.exec(html);
-        if (!match) throw new Error('No en match');
-        const enToken = match[1];
-
-        const encRes = await fetch('https://enc-dec.app/api/enc-vidcore?text=' + encodeURIComponent(enToken), { signal: controller.signal }).then(r => r.json());
-        if (encRes.status !== 200 || !encRes.result) throw new Error('encRes failed');
-        const { servers, stream, token } = encRes.result;
-
-        const headers = {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Referer': 'https://vidcore.io/',
-          'X-Requested-With': 'XMLHttpRequest',
-          'X-CSRF-Token': token
-        };
-
-        const sRes = await fetch(servers, { method: 'POST', headers, signal: controller.signal });
-        if (!sRes.ok) throw new Error(`sRes ${sRes.status}`);
-        const decServers = await fetch('https://enc-dec.app/api/dec-vidcore', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: await sRes.text() }),
-          signal: controller.signal
-        }).then(r => r.json());
-
-        if (!decServers.result) throw new Error('decServers failed');
-        
-        let masterUrl = null;
-        for (const chosenServer of decServers.result) {
-          if (!chosenServer.data) continue;
-          const streamUrl = stream.endsWith('/') ? stream + chosenServer.data : stream + '/' + chosenServer.data;
-          const stRes = await fetch(streamUrl, { method: 'POST', headers, signal: controller.signal });
-          if (!stRes.ok) continue;
-          const decStream = await fetch('https://enc-dec.app/api/dec-vidcore', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: await stRes.text() }),
-            signal: controller.signal
-          }).then(r => r.json());
-
-          if (decStream.result && decStream.result.url) {
-            masterUrl = decStream.result.url;
-            break;
-          }
-        }
-        if (!masterUrl) throw new Error('All vidcore.io servers failed');
-
-        const masterText = await fetchUpstream(masterUrl, { referer, timeoutMs: 5000 });
-        const variants = parseMasterPlaylist(masterText, masterUrl).filter((v) => v?.uri);
-        if (variants.length === 0 || !variants[0].uri) return null;
-        return {
-          variants,
-          source: { kind: "hls", url: masterUrl, refUrl: referer },
-        };
-      } finally {
-        clearTimeout(timeoutId);
-      }
+    const api = new URL(VIDRACK_SOURCES_API);
+    api.searchParams.set("id", tmdbId);
+    api.searchParams.set("type", type);
+    if (type === "tv") {
+      if (!season || !episode) throw new Error("tv needs season/episode");
+      api.searchParams.set("season", season);
+      api.searchParams.set("episode", episode);
+    }
+    const text = await fetchUpstream(api.toString(), { referer, timeoutMs });
+    const data = JSON.parse(text);
+    const entries = Array.isArray(data?.serverSources) ? data.serverSources : [];
+    /* Quality label → height. "Auto"/"HD"/"FHDp" mark masters (an Auto master
+       IS a quality ladder — hls.js ABR walks its rungs), so they keep height 0
+       and ride the master branch of the player; precise labels ("1080p") map
+       to their numeric rung. Deduped: vidrack lists mirror hosts of the same
+       encode as separate rows, which would show the same picture twice. */
+    const seen = new Map();
+    for (const s of entries) {
+      const raw = String(s?.url || "");
+      if (!raw || !/^https?:\/\//i.test(raw)) continue;
+      if (s?.type && s.type !== "hls") continue;
+      if (!/\.m3u8([?#]|$)/i.test(raw) && !s?.quality) continue;
+      const q = String(s?.quality || "Auto").trim();
+      const m = /(\d{3,4})\s*p/i.exec(q);
+      const height = m ? Number(m[1]) : 0;
+      /* Key = rung + host + provider tag: vidrack lists mirror hosts of the
+         same encode as separate rows (same picture twice), but two DIFFERENT
+         providers on one host (or one provider with two rungs) are real
+         choices and must both survive. */
+      const key = `${height}|${new URL(raw).hostname}|${String(s?.provider || s?.label || q)}`;
+      if (seen.has(key)) continue;
+      seen.set(key, {
+        uri: raw,
+        bandwidth: height ? vidrackLabelBandwidth(height) : 0,
+        width: 0,
+        height,
+        framerate: 0,
+        codecs: "",
+        hdr: false,
+        label: q,
+      });
+    }
+    const rows = Array.from(seen.values());
+    const masters = rows.filter((r) => r.height === 0);
+    /* One row per DISTINCT rung height — the aggregate lists several encodes of
+       the same rung, and the player already collapses rows by label, so extra
+       rows of one height would only crowd out a different rung. */
+    const byHeight = new Map();
+    for (const r of rows) {
+      if (r.height > 0 && !byHeight.has(r.height)) byHeight.set(r.height, r);
+    }
+    const rungs = [...byHeight.values()].sort((a, b) => b.height - a.height);
+    /* A master (a real ABR ladder) takes index 0 so the default is the best
+       encode, but the labelled rungs are guaranteed a slot BEHIND it. The live
+       aggregate returns ~20 "Auto" masters for a typical title, so a plain
+       "masters first, then slice(6)" filled every slot with height-0 rows and
+       the viewer's quality menu collapsed to a single "Auto" entry with no
+       manual choice — which is not what "multiple qualities" claims. */
+    const variants = [...masters.slice(0, 1), ...rungs, ...masters.slice(1)].slice(0, 6);
+    if (variants.length === 0) return null;
+    const best = variants[0];
+    return {
+      variants,
+      source: { kind: "hls", url: best.uri, refUrl: referer },
     };
+  };
 
   /* vidzen.fun fallback — the same catalogue the page polls alongside
      videasy. Its stream token may be a single-rendition media playlist or a
@@ -794,12 +849,22 @@ async function handleResolveNhd(body, res) {
 
    The contract, read off the shipped client chunk (vidstuck's `queryFn`):
 
-   1. `POST /backend/meow` with `{tmdbId, media_type, path[, season, episode]}`
+   1. `POST /backend/fuckyou` with `{tmdbId, media_type, path[, season, episode]}`
       -> `{ token, ts }`. This endpoint is SELF-ORIGIN ONLY: a correct body with
       any other (or missing) `Origin` header answers 500 "Internal Server
       Error" — verified across a header matrix, where only
       `Origin: https://vidstuck.xyz` returned 200. So the origin we send is not
       cosmetic; it is the whole gate.
+
+      PATH RENAMED UPSTREAM 2026-10-03 (why every ZXC row was dead): this used to
+      be `POST /backend/meow`, which now answers 404 — "meow" is no longer an
+      endpoint, it is one of their SERVER names ("Ursa", `path=meow`). Re-scraping
+      the shipped embed chunk (`ext/static/chunks/1jckevlg2_ail.js`) shows the
+      mint moved to `/backend/fuckyou` with the identical body and the identical
+      `{token, ts}` reply. Verified live before changing this line: old path 404,
+new path 200 `{token, ts}`, and centaurus/andromeda/atlas/meow then resolve
+       `success=true` on `/backend/servers/{path}`. (`milkyway` still answers
+       `success=true` there too, but its manifest 403s, so it is retired.)
 
    2. `GET /backend/servers/{path}?…` with a dozen OBFUSCATED query names
       (hex strings, mapped below) plus the token/ts from step 1, and optionally
@@ -817,7 +882,9 @@ async function handleResolveNhd(body, res) {
        are re-encoded, the segments are already CMAF).
      · atlas  -> `type: "hls"` behind vidstuck's own `/backend/servers/atlas/edge`
        relay, so its relative `link` must be resolved against the origin.
-     · milkyway -> `type: "hls"` direct off a Cloudflare worker.
+     · meow    -> `type: "hls"` direct off a Cloudflare worker. This row is
+       "Ursa" upstream and REPLACES the retired `milkyway`, whose manifest answers
+       403 through this function and so could never play.
 
    MULTI-AUDIO is centaurus-only (`dubSupport`), and it is per-MANIFEST, not
    per-adaptation-set: `dubCode`/`dubType` swap which language the returned MPD's
@@ -833,7 +900,14 @@ async function handleResolveNhd(body, res) {
    menu; a dub that cannot produce an MPD is dropped, never listed. */
 
 const ZXC_ORIGIN = "https://vidstuck.xyz";
-const ZXC_SERVERS = ["andromeda", "centaurus", "atlas", "milkyway"];
+/* Upstream's own server list, read off the shipped client chunk
+   (`gN.SERVERS`): Andromeda "Smooth Playback & HD", Centaurus "Multi Audio
+   Support" (the only one with `dubSupport`), Atlas "Alternative", and Ursa
+   "Alternative" — whose PATH is literally `meow`. `milkyway` is GONE: it is no
+   longer in their list and its manifest answers 403 through our function
+   ("manifest unreadable: Upstream 403"), so it was dropped rather than left as
+   a row that can never play. */
+const ZXC_SERVERS = ["andromeda", "centaurus", "atlas", "meow"];
 // The servers that answer with a DASH manifest, and the one that carries dubs.
 const ZXC_DASH_SERVERS = new Set(["andromeda", "centaurus"]);
 const ZXC_DUB_SERVER = "centaurus";
@@ -867,7 +941,7 @@ const ZXC_MARKER = { marker: "zx", value: "streamly", view: "zv", rep: "zr" };
 const ZXC_VIEW_MASTER = "master";
 const ZXC_VIEW_MEDIA = "media";
 
-// How many provider links we will probe per plain-HLS server. atlas/milkyway
+// How many provider links we will probe per plain-HLS server. atlas/meow
 // hand back 2-3 links that are alternate encodes or mirrors of ONE runtime, not
 // a quality ladder, so we pick a single one — the bound only stops a
 // pathological payload from fanning out without limit.
@@ -955,7 +1029,7 @@ async function zxcMint({ type, tmdbId, server, season, episode, refererPath }) {
     payload[ZXC_PARAM.season] = String(season || "");
     payload[ZXC_PARAM.episode] = String(episode || "");
   }
-  const text = await fetchUpstream(`${ZXC_ORIGIN}/backend/meow`, {
+  const text = await fetchUpstream(`${ZXC_ORIGIN}/backend/fuckyou`, {
     method: "POST",
     body: JSON.stringify(payload),
     referer: `${ZXC_ORIGIN}${refererPath}`,
@@ -1180,7 +1254,7 @@ async function handleResolveZxc(body, res) {
   // Plain-HLS servers hand back MORE THAN ONE link, and they are not a quality
   // ladder: atlas ships two media playlists for the SAME runtime (identical
   // #EXTINF total, different segment granularity and bitrate — measured at
-  // ~1.4 Mbps vs ~0.5 Mbps on Reacher S1E1) and milkyway ships three masters
+  // ~1.4 Mbps vs ~0.5 Mbps on Reacher S1E1) and meow ships several masters
   // that are byte-identical mirrors of one 640x360 encode. Publishing all of
   // them as "variants" would show the user the same picture three times, so we
   // pick ONE — but we probe them in order and fall through, because a dead

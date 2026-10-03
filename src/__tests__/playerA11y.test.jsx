@@ -355,17 +355,20 @@ describe("player Servers menu", () => {
     expect(dialog).toBeInTheDocument();
     // Row order = auto-rotation priority. The visible name is deliberately the
     // generic "Server N" (a viewer picks on capability, not on brand), and the
-    // grey sub-line states the capability: a 4K ceiling, multi-audio, etc.
+    // grey sub-line states the capability: a resolution ceiling, multi-audio, etc.
+    // Server 1 is ZXC Centaurus — the only row with real multi-language audio —
+    // so "Multi audio" belongs on row 1 now, and the old Server 1 (vidrack) sits
+    // at 5 carrying its measured "up to 1080p" ceiling instead of a 4K claim.
     const rows = [...dialog.querySelectorAll(".np-dialog-row")];
     expect(rows.length).toBe(7);
     const expected = [
-      ["Server 1", "4K"],
+      ["Server 1", "Multi audio"],
       ["Server 2", "Original audio"],
-      ["Server 3", "Multi audio"],
-      ["Server 4", "Multi audio"],
-      ["Server 5", "Original audio"],
+      ["Server 3", "Original audio"],
+      ["Server 4", "Original audio"],
+      ["Server 5", "up to 1080p"],
       ["Server 6", "Original audio"],
-      ["Server 7", "Original audio"],
+      ["Server 7", "Multi audio"],
     ];
     expected.forEach(([label, cap], i) => {
       expect(rows[i].textContent).toContain(label);
@@ -379,7 +382,7 @@ describe("player Servers menu", () => {
     mount();
     fireEvent.click(screen.getByRole("button", { name: "Servers" }));
     const dialog = screen.getByRole("dialog", { name: "Servers" });
-    for (const leak of ["VidCore", "VidSrc", "NHD", "ZXC", "Centaurus", "Andromeda", "Atlas", "Milky"]) {
+    for (const leak of ["VidCore", "VidRack", "VidSrc", "NHD", "ZXC", "Centaurus", "Andromeda", "Atlas", "Ursa", "Meow"]) {
       expect(dialog.textContent).not.toContain(leak);
     }
   });

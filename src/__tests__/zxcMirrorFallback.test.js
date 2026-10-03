@@ -1,7 +1,7 @@
-// ZXC plain-HLS servers (atlas, milkyway) return SEVERAL links, and they are
+// ZXC plain-HLS servers (atlas, meow) return SEVERAL links, and they are
 // NOT a quality ladder: atlas ships two media playlists for the same runtime
 // (measured: identical #EXTINF total, different segment granularity/bitrate)
-// and milkyway ships three byte-identical mirrors of one encode. So the resolver
+// and meow ships byte-identical mirrors of one encode. So the resolver
 // must publish exactly ONE rendition, and must not die when the first link is
 // dead while a mirror behind it still works.
 import { describe, expect, it, beforeEach, vi } from "vitest";
@@ -50,7 +50,7 @@ beforeEach(() => {
     "fetch",
     vi.fn(async (input) => {
       const url = String(typeof input === "string" ? input : input?.url || input);
-      if (url.includes("/backend/meow")) return json({ token: "tok", ts: "1700000000" });
+      if (url.includes("/backend/fuckyou")) return json({ token: "tok", ts: "1700000000" });
       if (url.includes("/backend/tmdb/details/")) return json({ title: "Stub", release_date: "2024-01-01", imdb_id: "" });
       if (url.includes("/backend/servers/")) {
         return json({
@@ -135,7 +135,7 @@ describe("ZXC plain-HLS servers publish one rendition, with mirror fallback", ()
         { bw: 3000000, w: 1920, h: 1080, uri: "https://93.184.216.34/mw-1080.m3u8" },
       ]) },
     ];
-    const r = await resolve("milkyway");
+    const r = await resolve("meow");
     expect(r.ok).toBe(true);
     // The ladder wins over a single-rung mirror regardless of provider order.
     expect(r.variants).toHaveLength(3);

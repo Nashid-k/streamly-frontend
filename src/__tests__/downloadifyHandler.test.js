@@ -112,25 +112,15 @@ describe("POST /api/downloadify", () => {
     expect(typeof payload.error).toBe("string");
   });
 
-  describe("resolvevidcore — vidcore.io + enc-dec token exchange (Server 1)", () => {
-    /* Server 1 is resolved by scraping the "en" token out of the VidCore page
-       and exchanging it through enc-dec.app; the old vidrack `/api/sources`
-       aggregate is gone upstream. These tests drive the chain that actually
-       runs. The master/stream hosts are PUBLIC IP LITERALS on purpose:
-       fetchUpstream's SSRF guard skips DNS for an IP host, which keeps the
-       whole suite hermetic (no resolver, no network). */
-    const MASTER_URL = "https://93.184.216.34/master.m3u8";
-    const SERVERS_URL = "https://93.184.216.35/servers";
-    const STREAM_URL = "https://93.184.216.35/stream";
-    const MASTER_PLAYLIST = [
-      "#EXTM3U",
-      "#EXT-X-STREAM-INF:BANDWIDTH=8000000,RESOLUTION=3840x2160",
-      "2160/index.m3u8",
-      "#EXT-X-STREAM-INF:BANDWIDTH=3000000,RESOLUTION=1920x1080",
-      "1080/index.m3u8",
-      "#EXT-X-STREAM-INF:BANDWIDTH=1400000,RESOLUTION=1280x720",
-      "720/index.m3u8",
-    ].join("\n");
+  describe("resolvevidcore — vidrack aggregate (Server 1)", () => {
+    /* Server 1 resolves through vidrack's OWN multi-provider aggregate, NOT
+       vidcore.io. That is not a preference: vidcore.io refuses Vercel's egress
+       with a 403 from both iad1 and bom1, which is exactly what killed Server 1
+       (da5bd23 swapped the aggregate for direct extraction). The aggregate needs
+       no token exchange and answers `{ serverSources: [...] }` directly.
+       The source URLs below are PUBLIC IP LITERALS on purpose: fetchUpstream's
+       SSRF guard skips DNS for an IP host, which keeps the suite hermetic. */
+    const VIDRACK_API = "https://vidrack.created.app/api/sources";
     const VIDZEN_FALLBACK = {
       sources: [{ url: "/api/stream/v1_zen" }],
     };
@@ -138,72 +128,80 @@ describe("POST /api/downloadify", () => {
     function textBody(value) {
       return { ok: true, status: 200, text: async () => value };
     }
-    function jsonBody(value) {
-      return { ok: true, status: 200, text: async () => JSON.stringify(value), json: async () => value };
-    }
 
-    function routeVidcore({ masterPlaylist = MASTER_PLAYLIST } = {}) {
-      vi.stubGlobal(
-        "fetch",
-        vi.fn().mockImplementation(async (url, init) => {
-          const to = String(url);
-          // 1. the VidCore page carries the encrypted "en" token
-          if (to.startsWith("https://vidcore.io/")) {
-            return textBody('<script>{"en":"EN_TOKEN_123"}</script>');
-          }
-          // 2. token -> { servers, stream, csrf }
-          if (to.includes("enc-dec.app/api/enc-vidcore")) {
-            return jsonBody({
-              status: 200,
-              result: { servers: SERVERS_URL, stream: STREAM_URL, token: "csrf-token" },
-            });
-          }
-          // 3/5. the server list and the chosen server's stream, both POSTed
-          if (to === SERVERS_URL) return textBody("SERVERS_BLOB");
-          if (to === `${STREAM_URL}/srv1`) return textBody("STREAM_BLOB");
-          // 4/6. dec-vidcore — the request body says which blob is being decoded
-          if (to.includes("enc-dec.app/api/dec-vidcore")) {
-            const body = JSON.parse(init?.body || "{}");
-            if (body.text === "SERVERS_BLOB") return jsonBody({ result: [{ data: "srv1" }] });
-            return jsonBody({ result: { url: MASTER_URL } });
-          }
-          // 7. the resolved master playlist
-          if (to === MASTER_URL) return textBody(masterPlaylist);
-          if (to.includes("vidzen.fun/api/sources")) return textBody(JSON.stringify(VIDZEN_FALLBACK));
-          return new Response("upstream unreachable", { status: 502 });
-        }),
-      );
-    }
+    /* The real shape of the live response: an Auto master, two labelled rungs, a
+       mirror-host duplicate of one of them, and a non-HLS row. */
+    const AGGREGATE = {
+      serverSources: [
+        { url: "https://93.184.216.34/auto.m3u8", type: "hls", quality: "Auto", provider: "movish-lyra-1" },
+        { url: "https://93.184.216.35/a.m3u8", type: "hls", quality: "1080p", provider: "viduki-leon" },
+        { url: "https://93.184.216.35/mirror.m3u8", type: "hls", quality: "1080p", provider: "viduki-leon" },
+        { url: "https://93.184.216.36/b.m3u8", type: "hls", quality: "720p", provider: "viduki-ethan" },
+        { url: "https://93.184.216.37/c.mp4", type: "mp4", quality: "1080p", provider: "viduki-sherry" },
+      ],
+      sseUrl: null,
+      mode: "auto",
+    };
 
-    it("walks the vidcore + enc-dec chain and returns the master's real ladder", async () => {
-      routeVidcore();
-      const res = await call({ action: "resolvevidcore", type: "movie", id: "7654320" });
-      expect(res.statusCode).toBe(200);
-      const payload = JSON.parse(res.body);
-      expect(payload.ok).toBe(true);
-      expect(payload.ladderSource).toBe("vidrack");
-      // The ladder is the master's own published order, tallest first.
-      expect(payload.variants.map((v) => v.height)).toEqual([2160, 1080, 720]);
-      expect(payload.variants[0].uri).toBe("https://93.184.216.34/2160/index.m3u8");
-      expect(payload.variants[2].uri).toBe("https://93.184.216.34/720/index.m3u8");
-      // The owning player's referer rides the source so referer-gated CDNs serve us.
-      expect(payload.source.refUrl).toBe("https://vidcore.io/");
-      expect(payload.source.url).toBe(MASTER_URL);
-    });
+    const VIDZEN_MASTER = "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1700000,RESOLUTION=1280x720\nseg.m3u8\n";
 
-    it("falls through to vidzen when the vidcore chain yields no stream", async () => {
+    function routeVidrack({ payload = AGGREGATE } = {}) {
       vi.stubGlobal(
         "fetch",
         vi.fn().mockImplementation(async (url) => {
           const to = String(url);
-          // A VidCore page carrying no "en" token: the primary chain cannot
-          // resolve, which is exactly when the vidzen fallback must carry it.
-          if (to.startsWith("https://vidcore.io/")) return textBody("<html><body>no token</body></html>");
+          if (to.startsWith(VIDRACK_API)) return textBody(JSON.stringify(payload));
           if (to.includes("vidzen.fun/api/sources")) return textBody(JSON.stringify(VIDZEN_FALLBACK));
-          // vidzen master playlist
-          return textBody("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1700000,RESOLUTION=1280x720\nseg.m3u8\n");
+          // vidzen's media playlist is the last leg of the fallback chain.
+          return textBody(VIDZEN_MASTER);
         }),
       );
+    }
+
+    it("orders masters first, maps labels to heights, dedupes mirrors, drops non-HLS", async () => {
+      routeVidrack();
+      const res = await call({ action: "resolvevidcore", type: "movie", id: "7654320" });
+      const payload = JSON.parse(res.body);
+      // Auto master leads (height 0 = a real ABR ladder), then rungs tall→short.
+      expect(payload.variants.map((v) => v.height)).toEqual([0, 1080, 720]);
+      expect(payload.variants[0].label).toBe("Auto");
+      expect(payload.variants.map((v) => v.uri)).toEqual([
+        "https://93.184.216.34/auto.m3u8",
+        "https://93.184.216.35/a.m3u8",
+        "https://93.184.216.36/b.m3u8",
+      ]);
+      // The owning player's referer rides the source for referer-gated CDNs.
+      expect(payload.source.refUrl).toBe("https://vidcore.io/");
+    });
+
+    it("passes season/episode to the aggregate for tv and omits them for movie", async () => {
+      const seen = [];
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockImplementation(async (url) => {
+          const to = String(url);
+          if (to.startsWith(VIDRACK_API)) {
+            seen.push(to);
+            return textBody(JSON.stringify(AGGREGATE));
+          }
+          return new Response("upstream unreachable", { status: 502 });
+        }),
+      );
+      await call({ action: "resolvevidcore", type: "tv", id: "1399", season: "1", episode: "1" });
+      expect(seen[0]).toContain("id=1399");
+      expect(seen[0]).toContain("type=tv");
+      expect(seen[0]).toContain("season=1");
+      expect(seen[0]).toContain("episode=1");
+
+      seen.length = 0;
+      await call({ action: "resolvevidcore", type: "movie", id: "27205" });
+      expect(seen[0]).toContain("id=27205");
+      expect(seen[0]).toContain("type=movie");
+      expect(seen[0]).not.toContain("season=");
+    });
+
+    it("falls through to vidzen when the aggregate carries no playable row", async () => {
+      routeVidrack({ payload: { serverSources: [] } });
       const res = await call({ action: "resolvevidcore", type: "movie", id: "7654321" });
       const payload = JSON.parse(res.body);
       expect(payload.ok).toBe(true);
@@ -211,6 +209,38 @@ describe("POST /api/downloadify", () => {
       // vidzen is the 800p ceiling: the client must learn a richer ladder
       // exists so it can ask for the full pass in the background.
       expect(payload.upgradeable).toBe(true);
+    });
+
+    it("keeps a labelled rung when ~20 Auto masters would otherwise fill every slot", async () => {
+      // The live aggregate returns ~20 "Auto" masters for a typical title. A
+      // plain "masters first, then slice(6)" filled all six slots with height-0
+      // rows, and the player's by-label dedupe collapsed the quality menu to a
+      // single "Auto" entry with no manual choice at all.
+      const manyMasters = Array.from({ length: 20 }, (_, i) => ({
+        url: `https://93.184.216.${40 + i}/auto.m3u8`,
+        type: "hls",
+        quality: "Auto",
+        provider: `movish-${i}`,
+      }));
+      routeVidrack({
+        payload: {
+          serverSources: [
+            ...manyMasters,
+            { url: "https://93.184.216.10/r1080.m3u8", type: "hls", quality: "1080p", provider: "viduki-leon" },
+            { url: "https://93.184.216.11/r720.m3u8", type: "hls", quality: "720p", provider: "viduki-ethan" },
+            { url: "https://93.184.216.12/r1080b.m3u8", type: "hls", quality: "1080p", provider: "viduki-claire" },
+          ],
+        },
+      });
+      const res = await call({ action: "resolvevidcore", type: "movie", id: "7654330" });
+      const payload = JSON.parse(res.body);
+      // Master still leads (best default), and BOTH distinct rungs survive.
+      expect(payload.variants.length).toBe(6);
+      expect(payload.variants[0].height).toBe(0);
+      expect(payload.variants.map((v) => v.height)).toContain(1080);
+      expect(payload.variants.map((v) => v.height)).toContain(720);
+      // The duplicate 1080p row loses to the first one of that height.
+      expect(payload.variants.filter((v) => v.height === 1080)).toHaveLength(1);
     });
 
     it("answers no-source when every stage fails, never a 500", async () => {
@@ -222,16 +252,16 @@ describe("POST /api/downloadify", () => {
     });
 
     it("serves the whole ladder on phase:full without falling back to vidzen", async () => {
-      routeVidcore();
+      routeVidrack();
       const res = await call({ action: "resolvevidcore", type: "movie", id: "7654323", phase: "full" });
       const payload = JSON.parse(res.body);
       expect(payload.ok).toBe(true);
       expect(payload.ladderSource).toBe("vidrack");
-      expect(payload.variants.map((v) => v.height)).toEqual([2160, 1080, 720]);
+      expect(payload.variants.map((v) => v.height)).toEqual([0, 1080, 720]);
     });
 
     it("warm cache: a repeat fast call answers the full ladder with cached:true", async () => {
-      routeVidcore();
+      routeVidrack();
       const first = JSON.parse(
         (await call({ action: "resolvevidcore", type: "movie", id: "7654324" })).body,
       );
