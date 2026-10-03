@@ -149,6 +149,109 @@ describe("isRefererGated", () => {
 // cascaded to /api/downloadify and got real bytes), but the wasted leg still
 // cost a second upstream request per playlist against a rate-limited provider,
 // so it accelerated the 429 that actually killed the session.
+// A 429/503 is a throttle, not a dead source. hls.js re-requests the manifest,
+// the level playlist and every audio rendition on a rolling basis, so a single
+// refused refresh used to end an otherwise healthy session (and a refused probe
+// abandoned the source outright) over a limit that clears on its own.
+describe("throttled playlist loads", () => {
+  const throttleBody = JSON.stringify({
+    ok: false,
+    error: "Playlist fetch failed: Upstream 429",
+    code: "manifest-fetch-failed",
+  });
+  const okBody = "#EXTM3U\n#EXTINF:4,\nseg1.m4s\n";
+
+  function throttleThenOk(okStatus = 200) {
+    let calls = 0;
+    const mock = vi.fn().mockImplementation(async () => {
+      calls += 1;
+      if (calls === 1) {
+        return {
+          ok: false,
+          status: 502,
+          headers: { get: () => "application/json" },
+          text: async () => throttleBody,
+        };
+      }
+      return {
+        ok: true,
+        status: okStatus,
+        headers: { get: () => "application/vnd.apple.mpegurl" },
+        text: async () => okBody,
+      };
+    });
+    return mock;
+  }
+
+  it("waits, then retries a throttled playlist instead of failing the load", async () => {
+    const fetchMock = throttleThenOk();
+    vi.stubGlobal("fetch", fetchMock);
+    const Loader = createStreamlyLoader({ getRefUrl: () => "https://vidcore.io/" });
+    const response = await new Promise((resolve, reject) => {
+      new Loader().load(
+        { url: "https://vidcore.xyz/hls/master.m3u8" },
+        {},
+        { onSuccess: (r) => resolve(r), onError: (e) => reject(new Error(e.text)) },
+      );
+    });
+    expect(response.data).toBe(okBody);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("still surfaces the error when the retry is throttled too", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 502,
+      headers: { get: () => "application/json" },
+      text: async () => throttleBody,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const Loader = createStreamlyLoader({ getRefUrl: () => "https://vidcore.io/" });
+    await expect(
+      new Promise((resolve, reject) => {
+        new Loader().load(
+          { url: "https://vidcore.xyz/hls/master.m3u8" },
+          {},
+          { onSuccess: (r) => resolve(r), onError: (e) => reject(new Error(e.text)) },
+        );
+      }),
+    ).rejects.toThrow(/Upstream 429/);
+    // Exactly one retry - never a spin.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry a dead-CDN refusal", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 502,
+      headers: { get: () => "application/json" },
+      text: async () =>
+        JSON.stringify({ ok: false, error: "Playlist fetch failed: Upstream 404", code: "manifest-fetch-failed" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const Loader = createStreamlyLoader({ getRefUrl: () => "https://vidcore.io/" });
+    await expect(
+      new Promise((resolve, reject) => {
+        new Loader().load(
+          { url: "https://vidcore.xyz/hls/master.m3u8" },
+          {},
+          { onSuccess: (r) => resolve(r), onError: (e) => reject(new Error(e.text)) },
+        );
+      }),
+    ).rejects.toThrow(/Upstream 404/);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("rides out a throttled playability probe instead of dropping the source", async () => {
+    const fetchMock = throttleThenOk();
+    vi.stubGlobal("fetch", fetchMock);
+    // The probe follows master -> media, so a 200 master means the segment sip
+    // decides the verdict; the throttle must be spent on the FIRST leg.
+    const probe = await probeSourcePlayable("https://vidcore.xyz/hls/master.m3u8", "https://vidcore.io/");
+    expect(probe.ok).toBe(true);
+  });
+});
+
 describe("ZXC replay-marker playlists", () => {
   const MARKER_MASTER =
     "https://vidstuck.xyz/backend/servers/centaurus?title=Reacher&year=2022&season=1&episode=1&zx=streamly&zv=master";

@@ -252,17 +252,70 @@ export function clearDirectBlocks() {
   directBlockedUntil.clear();
 }
 
+/* An upstream 429/503 is a THROTTLE, not a dead source. hls.js re-requests the
+   manifest, the current level playlist and every audio rendition on a rolling
+   basis for as long as the tab is open, so a single refused request used to be
+   able to kill an otherwise healthy session (or abandon a source at the
+   playability probe) over a limit that clears on its own in seconds. The handler
+   reports the real status inside the message ("Playlist fetch failed: Upstream
+   429"), so we can tell a throttle from a dead CDN and wait it out once. After
+   this single retry hls.js still owns the budget - we never spin. */
+const THROTTLE_STATUS_RE = /\b(429|503)\b/;
+const THROTTLE_RETRY_DELAY_MS = 2500;
+
+function isThrottleError(error) {
+  if (error?.name === "AbortError") return false;
+  return THROTTLE_STATUS_RE.test(error?.message || "");
+}
+
+/* Abortable sleep: a source switch mid-backoff must not keep the old session's
+   timer alive waiting to retry into an abandoned run. */
+function sleepAbortable(ms, signal) {
+  return new Promise((resolve) => {
+    if (signal?.aborted) return resolve();
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener?.(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      { once: true },
+    );
+  });
+}
+
+async function withThrottleRetry(signal, run) {
+  try {
+    return await run();
+  } catch (error) {
+    if (!isThrottleError(error) || signal?.aborted) throw error;
+    logWarn("native", "Upstream throttled - holding off before one retry.", {
+      message: error?.message,
+      waitMs: THROTTLE_RETRY_DELAY_MS,
+    });
+    await sleepAbortable(THROTTLE_RETRY_DELAY_MS, signal);
+    if (signal?.aborted) throw error;
+    return run();
+  }
+}
+
 /* Playability probe: confirm ONE real media byte flows before the player commits
    a screen. A resolver can return a perfect-looking ladder whose segments never
    arrive (vidzen: playlist 200 + duration, segments 429 forever), which plays
    as a black screen with a known duration and no error. Returns {ok, via,
    reason}; follows the entry URL through a master playlist when needed. */
 async function relayPlaylistText(url, refUrl, signal) {
-  const response = await postDownloadify({ action: "playlist", playlistUrl: url, refUrl }, { signal });
-  await throwIfRelayError(response, "Playlist request failed");
-  const text = await response.text();
-  memoPlaylist(url, refUrl, text);
-  return text;
+  return withThrottleRetry(signal, async () => {
+    const response = await postDownloadify(
+      { action: "playlist", playlistUrl: url, refUrl },
+      { signal },
+    );
+    await throwIfRelayError(response, "Playlist request failed");
+    const text = await response.text();
+    memoPlaylist(url, refUrl, text);
+    return text;
+  });
 }
 
 export async function probeSourcePlayable(entryUrl, refUrl, { signal } = {}) {
@@ -688,18 +741,20 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath, onC
         this.reportCues(memoized, url);
         return memoized;
       }
+const text = await withThrottleRetry(this.signal(), async () => {
       const response = await postDownloadify(
         { action: "playlist", playlistUrl: url, refUrl },
         { signal: this.signal() },
       );
       await throwIfRelayError(response, "Playlist request failed");
-      const text = await response.text();
-      if (!text || !text.includes("#EXTM3U")) {
-        throw new Error("Upstream did not return a playlist");
-      }
-      memoPlaylist(url, refUrl, text);
-      this.reportCues(text, url);
-      return text;
+      return response.text();
+    });
+    if (!text || !text.includes("#EXTM3U")) {
+      throw new Error("Upstream did not return a playlist");
+    }
+    memoPlaylist(url, refUrl, text);
+    this.reportCues(text, url);
+    return text;
     }
 
     /* A manifest that states its own cue boundaries beats the player's 90s intro

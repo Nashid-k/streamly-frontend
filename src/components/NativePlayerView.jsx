@@ -90,6 +90,13 @@ import { getPreviewThumb, clearPreviewCache, resetPreviewPipeline } from "../api
 // vidzen: playlist 200, segments 429 on repeat) â€” so fail over ourselves.
 const MAX_CONSECUTIVE_FRAG_FAILURES = 4;
 
+// How long to hold a source after an upstream 429 before re-resolving it. A
+// provider rate limit clears in seconds, so retrying straight away just spends
+// another request on an origin that is already refusing us; every wasted request
+// keeps the window open. Sized to ride out a momentary burst without the viewer
+// noticing a stall (the player shows a switching note for the duration).
+const THROTTLE_BACKOFF_MS = 6000;
+
 const NETFLIX_RED = "#E50914";
 const HIDE_DELAY_MS = 3000;
 const SKIP_SECONDS = 10;
@@ -2702,7 +2709,24 @@ export default function NativePlayerView({
           }
           if (attempt === 0 && isAuthFatal(lastFatalDetail) && !stale()) {
             const savedT = videoRef.current?.currentTime || 0;
-            say(`${def.label}: token may have expired â€” re-resolvingâ€¦`);
+            // A quota/429 is a THROTTLE, not an expired token: re-resolving the
+            // instant it fires spends another request on an origin that is
+            // already refusing us, which is how one momentary limit turned into a
+            // cascade through every server (and 1-4 are the same provider, so the
+            // failover could not have helped). Hold off long enough for the limit
+            // to clear, then re-resolve on this same source. Switching note so the
+            // wait reads as intent rather than a hung player.
+            const throttled = /\b429\b/.test(lastFatalDetail || "");
+            if (throttled) {
+              say(
+                `${def.label}: provider is rate-limiting us - holding for ${THROTTLE_BACKOFF_MS / 1000}s, then retrying...`,
+              );
+              setSwitchingNote(`${def.label}: provider rate-limited, retrying shortly...`);
+              await sleep(THROTTLE_BACKOFF_MS);
+              if (stale()) return true;
+            } else {
+              say(`${def.label}: token may have expired - re-resolving...`);
+            }
             let fresh = null;
             try {
               fresh = await def.resolve(args, { signal: controller.signal });
