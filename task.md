@@ -3908,3 +3908,63 @@ earlier leads turned out to be wrong, and correcting it matters.
       `nhdapi.streamfinder.st` is **522** - both Cloudflare origin-down, while
       `vidcore.io` and `enc-dec.app` answer 200. That is why Server 1 depends
       entirely on the vidrack aggregate path.
+
+## ROOT CAUSE of the production failure (2026-10-03, third pass)
+
+The user reported Server 1 still dead in production after the redeploy, so the
+staleness theory was wrong. Proved the real cause with a reachability matrix.
+
+- [x] **`vidcore.io` serves 403 to every datacentre IP and 200 to consumer IPs.**
+      Probed through the deployed function's own `manifest` action (an existing
+      caller-URL fetch), so these are genuinely Vercel's results:
+
+      | target | from Vercel (`iad1`) | from this machine |
+      |---|---|---|
+      | `vidcore.io/movie/27205` | **403** | **200** |
+      | `vidcore.io/` | 403 | 200 |
+      | `enc-dec.app` | 200 | 200 |
+      | `vidsrc.buzz` | 200 | - |
+      | `vidstuck.xyz/backend/tmdb/...` | 200 | 200 |
+      | `example.com` (control) | 200 | - |
+
+      Only `vidcore.io` fails, so it is host-specific blocking, not a generic
+      Vercel outage. Confirmed the deployed function really executes
+      (`x-vercel-id=bom1::iad1`, `x-vercel-cache: MISS`), and the fast phase
+      burns `9973ms` before giving up, so it is genuinely trying.
+- [x] **Cloudflare is blocked too - but the relay's failure mode is different
+      and worth fixing.** `streamly-proxy.nashidk1999.workers.dev` returns
+      **200 for `vidcore.io/`** and **403 for `/movie/27205`**. An httpbin echo
+      through the relay shows it DOES send a full Chrome `User-Agent`, so this
+      is not the missing-UA case. It also forwards Cloudflare-identifying
+      request headers (`Cf-Worker: nashidk1999.workers.dev`, `Cdn-Loop`), which
+      is the most likely reason vidcore.io refuses it. **If the Worker is ours
+      to edit, stripping `Cf-Worker`/`Cdn-Loop`/`Cf-Ew-Via`/`Cf-Visitor` from
+      the forwarded request is the single highest-value experiment left.** The
+      Worker source is NOT in this repo, so this needs whoever owns it.
+- [x] **A browser cannot take over either - vidcore.io sends no CORS.**
+      `vidcore.io/movie/27205` returns **no `Access-Control-Allow-Origin`**;
+      the POST preflight answers 204 with `Access-Control-Allow-Methods` and
+      `-Headers` but still **no ACAO**. So the response is unreadable from
+      `streamlyvercelin.vercel.app`. That rules out the obvious workaround of
+      resolving VidCore in the client. (`enc-dec.app` by contrast sends
+      `ACAO: *` and is reachable from everywhere.)
+- [x] **Two facts that make the next move cheap if a proxy does get through:**
+      - `vidcore.io` sends **no `X-Frame-Options` and no `frame-ancestors`**,
+        so its pages **can be iframed** - and `vidcore.io` is already in this
+        app's CSP `frame-src`. That is a working Server 1 with no proxy at all,
+        at the cost of our own player/quality control on that server.
+      - The resolved CDN (`moon.zenoak.top`, segments on `stormhive.top`)
+        serves **`ACAO: *` on master, rendition and segment** (verified on a
+        real 11.8 MB segment), so the existing hls.js + relay pipeline plays
+        VidCore unchanged **once a master URL exists**. Only the first hop is
+        blocked.
+- [x] Earlier findings re-confirmed in this pass and unchanged: ZXC's
+      `/backend/meow` token mint is withdrawn (`/backend/servers/{path}` is
+      alive and answers `400 missing params` / `401 Invalid token`, so only the
+      token is unobtainable); NHD is dead on `nhdapi.com` (TCP) and
+      `nhdapi.streamfinder.st` (522); VidSrc authorises `a=sources` and
+      `a=subs` but 502s both stream-URL actions.
+- [x] **Nothing was "fixed" by editing the handler, and nothing should be.**
+      Server 1's 4K ladder is intact and verified working from an unblocked
+      network (4 variants, 2160p, movie + TV). The failure is network
+      reachability to one host, not our logic.
