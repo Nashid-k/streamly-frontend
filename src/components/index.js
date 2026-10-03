@@ -37,7 +37,6 @@ export { default as RailArrow } from "./RailArrow";
 
 // Modals & Overlays
 export { default as TitleInfoModal } from "./TitleInfoModal";
-export { default as DownloadModal } from "./DownloadModal";
 export { default as GlobalShortcuts } from "./GlobalShortcuts";
 
 // Video Player & Studio

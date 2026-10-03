@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef, useCallback, useLayoutEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Search, Settings, ChevronLeft, Download } from "lucide-react";
+import { Search, Settings, ChevronLeft } from "lucide-react";
 import { NAV_ITEMS } from "../constants/navigation";
 import { useI18n } from "../i18n/index.jsx";
 import { useAppAuth } from "../context/auth";
-import { useDownloads } from "../context/downloads";
 import AccountMenu from "./AccountMenu";
 
 /* ── Primary navigation ────────────────────────────────────────────────────
@@ -16,7 +15,6 @@ function Header() {
   const navigate = useNavigate();
   const { user } = useAppAuth();
   const { t } = useI18n();
-  const { downloads, activeCount } = useDownloads();
 
     /* ── Settings dropdown (Cinejoy .head-menu) ──────────────────────────────
        Clicking the settings icon drops a menu with Login / Settings / Watch
@@ -121,7 +119,7 @@ function Header() {
     // (the header grows/shrinks) or async icon mounts. Never on every render.
   useLayoutEffect(() => {
     measurePill();
-  }, [measurePill, location.pathname, isScrolled, downloads.length]);
+  }, [measurePill, location.pathname, isScrolled]);
 
   useEffect(() => {
     window.addEventListener("resize", scheduleMeasure);
@@ -206,20 +204,6 @@ function Header() {
               movies, shows, my list, search icon, settings icon — no
               watch-history icon; history lives in the settings dropdown) */}
           <div className="nav-right">
-            {/* Downloads — appears once any download exists in this session */}
-            {downloads.length > 0 && (
-              <Link
-                to="/downloads"
-                data-nav-active={location.pathname === "/downloads" ? "true" : undefined}
-                className={`nav-icon-btn${location.pathname === "/downloads" ? " nav-icon-btn--active" : ""}`}
-                aria-label={t("nav.downloads")}
-                title={t("nav.downloads")}
-              >
-                <Download size={18} strokeWidth={2} />
-                {activeCount > 0 && <span className="nav-badge">{activeCount}</span>}
-              </Link>
-            )}
-
             {/* Search */}
             <Link
               to="/search"

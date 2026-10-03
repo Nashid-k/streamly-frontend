@@ -11,7 +11,7 @@ import Loader from "../components/Loader";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import { createPortal } from "react-dom";
 import { useState, useEffect, useRef, useMemo, useLayoutEffect, lazy, Suspense } from "react";
-import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   Play,
   Star,
@@ -30,7 +30,6 @@ import {
   ChevronDown as ChevronDownIcon,
   ArrowUp,
   ArrowDown,
-  Download,
   Eye,
   EyeOff,
   Clock,
@@ -52,12 +51,10 @@ import ProductionCompaniesBlock from "../components/detail/ProductionCompaniesBl
 
 import { buildMovieAddedNotification } from "../utils/notificationEngine";
 import { formatTMDBDate, getTMDBWeekday } from "../utils/timezone";
-import { useWatchParty } from "../hooks/useWatchParty";
 import { formatRuntimeLabel, isUnreleased, voteSplitPct } from "../utils/titleDetails";
 import { buildEpisodeOrder, episodeNumberLabel, isEpAired, formatAirsDate } from "../utils/titleDetails";
 import { getPlatformName } from "../utils/platforms";
 import { logEmptyData, logError, reportQueryError } from "../utils/debugLogger";
-const DownloadModal = lazy(() => import("../components/DownloadModal"));
 // NativePlayerView is the app's player: direct HLS playback through the
 // serverless + Cloudflare relay, with the Netflix-style chrome.
 const NativePlayerView = lazy(() => import("../components/NativePlayerView"));
@@ -83,10 +80,6 @@ function formatEndsAt(durationMins) {
 export default function TitleDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
-  // ?party=CODE deep link: a joiner opening a share link lands mid-party with
-  // no extra navigation (the hook consumes it once, on mount).
-  const [searchParams] = useSearchParams();
-  const partyDeepLink = (searchParams.get("party") || "").toUpperCase();
   const {
     muteTrailers,
     useImageLogos = true,
@@ -168,10 +161,6 @@ export default function TitleDetails() {
       (m) => String(m.id) === String(movieId) && (m.timestamp || 0) > 0,
     ) || false;
 
-  // Browser-only offline download: resolve the server's HLS ladder and save
-  // the chosen quality to disk through the /api/downloadify function.
-  const [downloadOpen, setDownloadOpen] = useState(false);
-  const handleDownloadOpen = () => setDownloadOpen(true);
   const [collectionPickerOpen, setCollectionPickerOpen] = useState(false);
 
   // Mark watched / unwatched — records a full run in watch history (or
@@ -204,10 +193,6 @@ export default function TitleDetails() {
 
 
   const [isPlaying, setIsPlaying] = useState(false);
-  // Watch Party room controller — created once per mount, handed to the player.
-  // Polling and heartbeat only run while connected; solo viewers never hit the
-  // endpoint. useSearchParams above supplies the ?party= deep link.
-  const party = useWatchParty({ deepLinkCode: partyDeepLink });
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [unreleasedModalOpen, setUnreleasedModalOpen] = useState(false);
   const [iframeLoading, setIframeLoading] = useState(false);
@@ -282,26 +267,6 @@ export default function TitleDetails() {
 
   const movie = rawMovie;
 
-  /* Watch Party: guests follow the host's TITLE. When the host picks another
-     episode (or the room's title changes to another show/movie entirely), a
-     connected guest navigates to match — local selection wins while solo or
-     hosting. The hook supplies the room; navigation goes through the same
-     state the local episode picker writes, so player + page stay in step. */
-  const followedTitleRef = useRef(null);
-  useEffect(() => {
-    if (!party?.room || party.isHost) return;
-    const t = party.room.title;
-    if (!t?.titleId) return;
-    const key = `${t.titleId}:${t.kind === "tv" ? `${t.season}:${t.episode}` : ""}`;
-    if (followedTitleRef.current === key) return;
-    const first = followedTitleRef.current === null;
-    followedTitleRef.current = key;
-    if (first) return; // mid-party joiner: adopt silently, never rewind
-    if (t.kind !== "tv") return;
-    if (typeof t.season === "number" && t.season !== selectedSeason) setSelectedSeason(t.season);
-    if (typeof t.episode === "number" && t.episode !== playingEpisode) setPlayingEpisode(t.episode);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- follow only these room changes
-  }, [party?.room?.title, party?.isHost]);
   const movieId = movie?.id;
 
   // Member of at least one collection → tiny folder badge on the List button.
@@ -760,8 +725,8 @@ export default function TitleDetails() {
   const episodeToPlay = savedEpisodeForSelectedSeason?.savedEpisode
     || (airedEpisodeNumbers.length > 0 ? airedEpisodeNumbers[0] : 1);
 
-  // Numeric TMDB id for the native player and the download sheet (movie.id
-  // can carry a "movie-"/"tv-" prefix).
+  // Numeric TMDB id for the native player (movie.id can carry a
+  // "movie-"/"tv-" prefix).
   const numericId = (() => {
     const m = String(movie?.id || "").match(/\d+/);
     return m ? m[0] : null;
@@ -1007,7 +972,7 @@ export default function TitleDetails() {
                 <Play className="w-5 h-5 mr-1.5 fill-current" /> {hasResume ? "Resume" : "Play"}
               </button>
 
-              {/* Cinejoy-style circular actions: Add to List | Download | Mark watched */}
+              {/* Cinejoy-style circular actions: Add to List | Mark watched */}
               <div className="flex items-center gap-2.5 shrink-0">
                 <div style={{ position: "relative" }} className="flex">
                   {inAnyCollection && (
@@ -1032,16 +997,6 @@ export default function TitleDetails() {
                     )}
                   </button>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={handleDownloadOpen}
-                  className="hero-circle-btn"
-                  aria-label="Download"
-                  title="Download to your device"
-                >
-                  <Download size={20} />
-                </button>
 
                 <button
                   type="button"
@@ -2256,7 +2211,6 @@ export default function TitleDetails() {
                         onGoPrev={goToPrevEpisode}
                         onGoNext={goToNextEpisode}
                         onClose={() => setIsPlaying(false)}
-                        party={party}
                         imdbId={movie?.imdbId || ""}
                         backdropUrl={movie?.backdropUrl || ""}
                         posterUrl={movie?.logoUrl || movie?.posterUrl || movie?.backdropUrl || ""}
@@ -2330,18 +2284,6 @@ export default function TitleDetails() {
         )}
       </AnimatePresence>,
       document.body
-      )}
-
-      {downloadOpen && movie && (
-        <Suspense fallback={null}>
-          <DownloadModal
-            movie={movie}
-            isTvContent={isTvContent}
-            initialSeason={selectedSeason}
-            initialEpisode={isTvContent ? (episodeToPlay ?? playingEpisode ?? 1) : 1}
-            onClose={() => setDownloadOpen(false)}
-          />
-        </Suspense>
       )}
 
       <CollectionPickerDialog

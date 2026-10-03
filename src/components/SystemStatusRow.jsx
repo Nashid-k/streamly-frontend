@@ -11,7 +11,6 @@ import { logDebug } from "../utils/debugLogger";
 
 const SCOPE_LABELS = {
   dl: "Relay",
-  party: "Party",
   tmdb: "Catalog",
 };
 

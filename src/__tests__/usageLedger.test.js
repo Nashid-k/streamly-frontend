@@ -34,11 +34,9 @@ describe("server/usage ledger", () => {
   it("counts per scope and exposes today's local counts", () => {
     countUsage("dl");
     countUsage("dl");
-    countUsage("party");
     const { day, local } = todayCounts();
     expect(day).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(local.dl).toBe(2);
-    expect(local.party).toBe(1);
   });
 
   it("ignores invalid scopes (never trusts request-shaped data)", () => {
@@ -69,16 +67,16 @@ describe("server/usage ledger", () => {
   });
 
   it("retains counts when the flush fails and retries them next time", async () => {
-    countUsage("party");
+    countUsage("dl");
     const updateOne = vi.fn().mockRejectedValueOnce(new Error("mongo down"));
     vi.doMock("../../server/db.js", () => ({
       connectToDatabase: async () => ({ db: { collection: () => ({ updateOne }) } }),
     }));
     await flushUsage(true);
-    expect(todayCounts().local.party).toBe(1); // given back, not lost
+    expect(todayCounts().local.dl).toBe(1); // given back, not lost
     await flushUsage(true);
     expect(updateOne).toHaveBeenCalledTimes(2);
-    expect(todayCounts().local.party).toBeUndefined();
+    expect(todayCounts().local.dl).toBeUndefined();
   });
 });
 
@@ -90,7 +88,7 @@ describe("GET /api/usage", () => {
           collection: () => ({
             findOne: async () => {
               const day = new Date().toISOString().slice(0, 10);
-              return { _id: "daily", days: { [day]: { dl: 34000, party: 5000 } } };
+              return { _id: "daily", days: { [day]: { dl: 34000 } } };
             },
           }),
         },
@@ -104,7 +102,6 @@ describe("GET /api/usage", () => {
     expect(res.body.ok).toBe(true);
     expect(res.body.scopes.dl.count).toBe(34000);
     expect(res.body.scopes.dl.pct).toBe(34);
-    expect(res.body.scopes.party.pct).toBe(25);
     expect(res.body.scopes.tmdb.count).toBe(0);
   });
 

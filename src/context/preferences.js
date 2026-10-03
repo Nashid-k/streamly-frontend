@@ -52,10 +52,6 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   seekTime: 10,
   autoSubtitles: true,
   defaultLanguage: "en",
-    // Downloads — when ON, files land in the browser's own download list (Ctrl+J)
-    // instead of the File System Access picker. Built in memory first, so it suits
-    // small/medium files.
-  browserDownloads: false,
     // Servers — plain labels (Server 1 … Server 8). Orders saved under the interim
     // Lisbon/Nebula/… or "Server N (suffix)" names are migrated on boot.
   serverOrder: [

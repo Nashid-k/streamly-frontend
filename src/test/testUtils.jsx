@@ -4,7 +4,6 @@ import { MemoryRouter } from "react-router-dom";
 import { AuthProvider } from "../context/AuthContext.jsx";
 import { AppContext } from "../context/auth";
 import { PreferencesProvider } from "../context/PreferencesContext";
-import { DownloadsProvider } from "../context/DownloadsContext";
 import { ToastProvider } from "../components/Toast.jsx";
 
 /* Page Object-style test harness for this suite.
@@ -39,17 +38,14 @@ export function createTestQueryClient() {
 }
 
 /* Provider stack copied from main.jsx (QueryClient > Auth > Preferences >
-   I18n > Toast > Downloads), wrapped in a MemoryRouter. Every provider is
+   I18n > Toast), wrapped in a MemoryRouter. Every provider is
    react-query-independent, so the order is a faithful mirror, not a guess.
 
    - route: initial MemoryRouter entry (default "/").
    - authValue: raw context value — renders AppContext.Provider directly for
      tests that need a synthetic session WITHOUT AuthProvider's Google/network
-     side effects (watchlist, account rows). Omit for the real provider.
-   - withDownloads: mounts DownloadsProvider (only surfaces that need it —
-     it owns an IndexedDB-backed store whose open races with assertions
-     otherwise). */
-export function createAppProviderWrapper({ route = "/", authValue, withDownloads = false } = {}) {
+     side effects (watchlist, account rows). Omit for the real provider. */
+export function createAppProviderWrapper({ route = "/", authValue } = {}) {
   const queryClient = createTestQueryClient();
   const AuthLayer = authValue
     ? ({ children }) => <AppContext.Provider value={authValue}>{children}</AppContext.Provider>
@@ -60,9 +56,7 @@ export function createAppProviderWrapper({ route = "/", authValue, withDownloads
         <QueryClientProvider client={queryClient}>
           <AuthLayer>
             <PreferencesProvider>
-              <ToastProvider>
-                {withDownloads ? <DownloadsProvider>{children}</DownloadsProvider> : children}
-              </ToastProvider>
+              <ToastProvider>{children}</ToastProvider>
             </PreferencesProvider>
           </AuthLayer>
         </QueryClientProvider>
@@ -79,13 +73,13 @@ export function createAppProviderWrapper({ route = "/", authValue, withDownloads
    result plus the query client (a test asserting cache behaviour, refetch
    windows or invalidation needs the same client the tree is mounted with).
    A caller-supplied `wrapper` wins and no query client is reported. */
-export function renderWithProviders(ui, { route, authValue, withDownloads, wrapper, ...renderOptions } = {}) {
+export function renderWithProviders(ui, { route, authValue, wrapper, ...renderOptions } = {}) {
   const options = { ...renderOptions };
   let queryClient;
   if (wrapper) {
     options.wrapper = wrapper;
   } else {
-    const Wrapper = createAppProviderWrapper({ route, authValue, withDownloads });
+    const Wrapper = createAppProviderWrapper({ route, authValue });
     queryClient = Wrapper.queryClient;
     options.wrapper = Wrapper;
   }

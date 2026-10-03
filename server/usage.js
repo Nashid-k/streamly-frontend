@@ -34,8 +34,8 @@ function utcDay() {
   return new Date().toISOString().slice(0, 10);
 }
 
-/* Count one unit for a scope. Scopes are short fixed tokens — `dl`, `party`,
-   `tmdb` — matching the rate-limit call sites, never raw request data. */
+/* Count one unit for a scope. Scopes are short fixed tokens — `dl`, `tmdb` —
+   matching the rate-limit call sites, never raw request data. */
 export function countUsage(scope) {
   if (typeof scope !== "string" || scope.length === 0 || scope.length > 24) return;
   const today = utcDay();

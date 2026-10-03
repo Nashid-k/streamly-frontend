@@ -312,27 +312,6 @@
   color: #000000;
 }
 
-/* Notification badge */
-.nav-badge {
-  position: absolute;
-  top: -3px;
-  right: -3px;
-  min-width: 17px;
-  height: 17px;
-  padding: 0 4px;
-  background: var(--accent-gradient, linear-gradient(135deg, #95ff50, #4bc915));
-  border-radius: 999px;
-  border: 2px solid rgba(10, 10, 12, 0.9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.58rem;
-  font-weight: 700;
-  color: #fff;
-  line-height: 1;
-  box-shadow: 0 2px 8px var(--accent-glow, rgba(225, 29, 72, 0.4));
-}
-
 /* Avatar initial circle */
 .nav-avatar {
   width: 25px;

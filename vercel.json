@@ -21,9 +21,6 @@
     "api/downloadify.js": {
       "maxDuration": 60
     },
-    "api/watchParty.js": {
-      "maxDuration": 10
-    },
     "api/usage.js": {
       "maxDuration": 10
     }

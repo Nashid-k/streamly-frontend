@@ -9,11 +9,10 @@
    rendered.
 
    This list is deliberately the single source of truth for BOTH the number and
-   the capability line. It used to be inline in NativePlayerView, which is how
-   DownloadModal ended up labelling VidCore "Server 5" from an older, unrelated
-   scraper rotation while the player had long since renumbered — the same
-   provider was two different numbers in two sheets. Add or remove a server
-   HERE and every surface renumbers itself.
+   the capability line. It used to be inline in NativePlayerView, and a second
+   sheet once labelled the same provider with a different number from an older
+   scraper rotation — the same provider was two different numbers in two
+   surfaces. Add or remove a server HERE and every surface renumbers itself.
 
    `tag` is the small grey capability line under each row (12px, 50% white):
    what the viewer actually gets from this server — the quality ceiling and the

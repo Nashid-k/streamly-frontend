@@ -46,11 +46,6 @@ The web build reads from the deployed serverless functions under the shared
    retention loop.
 5. **Real ratings (TMDB + IMDb + RT)** — `ratingService` + `omdbClient` +
    `RatingsCluster`, cached 24h in localStorage (OMDb quota: 1,000 req/day).
-6. **Watch Party (web)** — in-player invite-by-code rooms with synced playback
-   (host-controlled) and room chat. Polls the same-origin `/api/watchParty`
-   function every 2s; rooms live 24h-idle in the existing MongoDB. Guests
-   follow the host within ~2s with drift correction; a `?party=CODE` share
-   link joins mid-party with the full transcript caught up.
 
 ## 4. ~~Mobile app (`mobile/` — Flutter)~~ REMOVED 2026-10-01
 
@@ -63,9 +58,8 @@ audio picker) are superseded by PLAYER V2, which is web-only.
 
 - ❌ Any backend, auth server, or database (Firebase/backend references in
   `README.md` are **stale docs** — the web code uses localStorage).
-- ❌ Uploads, user accounts, social, comments, or payments. (Watch Party chat
-   is the one deliberate exception: ephemeral, room-scoped text only, no
-   profiles, no history beyond the 24h room TTL.)
+- ❌ Uploads, user accounts, social, comments, or payments. (Watch Party, which
+   included room chat, was removed 2026-10.)
 - ❌ New stream extraction / proxy infrastructure (`src/api/env.js` is a stub;
   stream-service calls intentionally resolve to `''`). The app reuses the
   existing Cloudflare worker and the deployed resolver — it adds no new
@@ -94,8 +88,7 @@ one component's internal structure.
 **Kept:** every source/server option, resume, prev/next episode across seasons,
 subtitle language + font/size/colour, audio/dub + delay sync, quality, PiP,
 hold-2x, Playwright-free volume/brightness HUDs, seek/buffer/preview scrubbing,
-watch-party host authority, and the blurred-art loader (centre logo, horizontal
-bar).
+and the blurred-art loader (centre logo, horizontal bar).
 
 **Added** — the four gaps the audit confirmed were missing, not just clumsy:
 - **Picture-in-Picture** for native streams.

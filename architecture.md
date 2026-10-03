@@ -41,12 +41,10 @@ Firebase SDK in the bundle.
 | Genre | `/genre/:genre` | `genre-search:<genre>` → `searchMovies` + `selectGenreResults` | network only |
 | Collection | `/category/:name` | `categories` (exact→fuzzy→token match) or `location.state.movies` | network / nav state |
 | Watch title | `/watch/:id/:slug?` (`movie-<n>` / `tv-<n>`) | `movie:<id>` → `getMovieDetails` (credits+videos+images, external_ids best-effort); `similar:<id>`; `episodes:<id>:<season>` → `getSeasonEpisodes` | + `aios_continue_watching` (resume) |
-| Download title | `/watch/:id/:slug?` (in-page `DownloadModal`) | `DownloadModal` → `downloadService` → Vercel `api/downloadify.js` (`resolve`|`resolvevidsrc`|`resolvevidcore`|`resolvenhd` → `manifest` → single-URL Range-chunked `segment`); episodes via `getSeasonEpisodes` | file saved to device (File System Access API, Blob fallback); nothing persisted |
 | Person | `/person/:id/:slug?` | `person:<id>` → `getPersonDetails` (`/person`, `/combined_credits`, top-40) | network only |
 | My List | `/watchlist` (`/mylist` redirects) | local only | `aios_my_list`, `aios_my_collections` (local) |
 | History | `/history` | local only | `aios_continue_watching` (local) |
 | Settings | `/settings` (+ optional `?tab=<section>`) | local only | `setting-*` keys (local) |
-| Watch Party | `/watch/:id/:slug?` in-player panel (`Users` button) + `?party=CODE` deep link | `POST /api/watchParty` actions (`create`/`join`/`state`/`sync`/`chat`/`leave`) via `src/api/watchParty.js` → `useWatchParty` (2s poll loop) | `watchParties` collection (MongoDB, 24h TTL) |
 
 The `?tab=` query param on `/settings` is a navigation affordance only: it
 selects the section filter (see `SECTION_SEARCH_TERMS` in `SettingsPage.jsx`),
@@ -115,8 +113,6 @@ the backend fails (`ExploreError`) instead of a lying empty list, and the
 shared-collection page resolves items through the React Query cache with
 capped concurrency (≤ 300 items, 6 parallel).
 
-Watch Party (`api/watchParty.js` + `server/watchParty.js`): an ephemeral, invite-by-code room layered over native playback. Vercel Hobby functions cannot hold WebSockets, so realtime is a **2s poll loop** (`state` action doubles as heartbeat) against the existing MongoDB (`watchParties` collection). The **host is the single playback authority** — only their `sync` writes `playback { isPlaying, positionSec, updatedAt, rev }` (the endpoint 403s everyone else), and guests apply it client-side with >2.5s drift correction plus latency aging. Identity is self-claimed (nickname + random `participantId`, persisted in the NEW `streamly_watchparty` localStorage key — the frozen `aios_*`/`setting-*` keys are untouched). Rooms are sanitized server-side (names ≤24, messages ≤280, ≤25 participants, ≤200 messages, 6-char unambiguous codes over `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`) and expire after **24h idle** (read-path GC + a MongoDB TTL index); the host leaving deletes the room for everyone. Chat rides the same poll with a monotonic `sinceMsgId` cursor, so no transcript is re-downloaded. Rate limit: 120/min per IP (a state poll is ~30/min). Registered in `vercel.json` at `maxDuration: 10` — 7 functions of the Hobby 12.
-
 External services: `api.themoviedb.org/3` (catalog, 10s timeout in
 `tmdbClient.js`), `image.tmdb.org` (artwork, `cdnImageAdapter` sizes
 w92→w1280), `omdbapi.com` (IMDb/RT, env-key `VITE_OMDB_API_KEY`, 24h cache),
@@ -132,8 +128,7 @@ the vidcore.org/embed sources catalogue is fully serverless — the "videasy" AP
 and the m3u8s/segments are relayed with `Referer: https://vidcore.io/`
 (`source.refUrl` drives the manifest/segment actions; the fMP4 segments on
 `paperorbit.top` also allow browser-direct CORS). A fourth third-party
-provider, NHD (`resolvenhd`), serves the native PLAYER only (not the download
-sheet): a two-step server-side scrape of the nhdapi.com embed — the per-title
+provider, NHD (`resolvenhd`), serves the native PLAYER: a two-step server-side scrape of the nhdapi.com embed — the per-title
 `var API_PATH`/`var API_KEY` pair read off the embed page, then the
 `{API_PATH}?key=…` extraction JSON with the embed page as referer — walking
 the provider ladder their own player uses (`meowtvru` first — the only one
@@ -212,18 +207,12 @@ is now retired — along with it went the `resolvecinesrc` action, the
 `CINESRC_RESOLVER_*` env plumbing, and the fMP4 A/V muxer. The embed host
 `cinesrc.st` stays allow-listed (Server 1 iframe URL builder).
 The `segment` action is single-URL + `{ range: { start, max } }` in ≤3.5MB
-chunks with an `x-streamly-more` "more bytes?" header — the old 6-URL-per-POST
-batch blew Vercel's 4.5MB response cap with `FUNCTION_PAYLOAD_TOO_LARGE`, which
-is why downloads never saved. Where a CDN honestly allows CORS (`*` or our
-origin) `saveStream` probes it and pulls segments straight from the browser
-before falling back to the relay. Embed-host allowlist + DNS-resolved private-IP
-SSRF guard (every redirect hop re-validated; decimal/hex IP literals included).
-Downloads are video-only, and they are written exactly as the manifest
-lists them: the two features that made CineSrc special — muxing a separate
-`EXT-X-MEDIA AUDIO` rendition into the file (dependency-free
-`src/utils/fmp4Muxer.js`, since deleted) and the mid-file `refresh()` re-mint
-that recovered a time-scoped playlist token — both went away with that
-provider.
+chunks with an `x-streamly-more` "more bytes?" header — saved from the old
+6-URL-per-POST batch that blew Vercel's 4.5MB response cap with
+`FUNCTION_PAYLOAD_TOO_LARGE`. The native player's loader pulls segments through
+this relay (and/or the Cloudflare worker) for providers a browser cannot read
+directly. Embed-host allowlist + DNS-resolved private-IP SSRF guard (every
+redirect hop re-validated; decimal/hex IP literals included).
 Stream-service/NetMirror calling code was deleted (`src/api/env.js` removed);
 the client no longer makes those HTTP calls. Every function is wrapped in a request
 logger (`server/logger.js`); `vercel.json` sets `maxDuration` per function
@@ -242,7 +231,7 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
   exposes `movieService`, `EDITORIAL_RAILS`, `classifyTrailer`,
   `certificationFromDetail`, `normalizeResult`, `isBrowsableTitle`), `omdbClient.js`,
   `ratingService.js`, `videoSourceAdapter.js`, `subtitleFetcher.js`,
-  `downloadService.js` (resolve/manifest/segment driver + disk save),
+  `downloadService.js` (native-player resolve driver — one method per server),
   `prefetchAdapter.js`, `cdnImageAdapter.js`, `virtualRenderAdapter.js` (re-export of hook),
   `publicCollections.js` (same-origin anonymous public-collection fetch; throws
   typed errors on failure so the Explore page can render a retry state — never
@@ -260,7 +249,7 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
   `ProductionCompaniesBlock`; `rails/` — `FadeInSection`, `MovieRail`, `Top10Rail`,
   `EditorialRails`; `overlays/` — `CollectionNameDialog`, `AddTitlesDialog`;
   `settings/` — `LanguageFlag`, `Toggle`, `SegmentControl`, `SettingRow`,
-  `ServerOrderList`), modals (`TitleInfoModal`, `DownloadModal`, `GlobalShortcuts`), and
+  `ServerOrderList`), modals (`TitleInfoModal`, `GlobalShortcuts`), and
   primitives (`Button`, `Chip`, `Toast`, `ConfirmDialog`, `Loader`, `EmptyState`,
   `SEO`, `ErrorBoundary`).
 
@@ -322,10 +311,10 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
   proxy. If Fluid Compute is enabled for the project (it is the default for new
   projects) Vercel places the function near the incoming request instead and the
   pin is inert — which is acceptable, because the edge cache is doing the work.
-  `api/downloadify.js` resolves embed-host + VidSrc HLS ladders and proxies
-  media segments so the browser can save downloads (single-URL Range chunks
-  under Vercel's 4.5MB cap; allowlisted embed hosts + DNS-resolved SSRF guard;
-  stateless, nothing persisted). It owns only routing and the provider walks;
+  `api/downloadify.js` resolves the native servers' HLS ladders and proxies
+  media segments for playback (single-URL Range chunks under Vercel's 4.5MB
+  cap; allowlisted embed hosts + DNS-resolved SSRF guard; stateless, nothing
+  persisted). It owns only routing and the provider walks;
   the two cross-cutting concerns it used to inline now live beside it:
   - `server/ssrf.js` — the only sanctioned way to name an outbound host.
     `assertPublicDestination` is called for the first hop *and* every redirect
@@ -344,7 +333,7 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
   `src/__tests__/downloadifyHandler.test.js` drives the handler itself (preflight,
   method rejection, unknown action, malformed body, and every action without a URL
   answering a structured `{ok:false}` envelope) so a function that fails to load
-  can never again present as a per-title "no downloadable stream".
+  can never again present as a per-title "no stream".
   Root: `index.html` (fonts/CDN preconnect, SW cache-buster), `vite.config.js`
   (vendor chunk split + a dedicated lazy `hls-vendor` chunk so the player is not
   on the critical path, `@/` path alias, `/api/tmdb` dev proxy), `vercel.json`
@@ -371,8 +360,8 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
    `tmdbClient` falls back to `api.themoviedb.org` directly if the proxy 404s
    or gateway-errors. The same tiny serverless surface hosts Google auth
    (`api/auth.js`, local JWKS verify), cloud sync (`api/sync.js`, HMAC +
-   MongoDB), public collections (`api/publicCollections.js`) and offline
-   downloads (`api/downloadify.js`, allowlisted hosts + SSRF guard). Everything
+   MongoDB), public collections (`api/publicCollections.js`) and native stream
+   resolution + relay (`api/downloadify.js`, allowlisted hosts + SSRF guard). Everything
    else stays client-side.
 2. **React Query as the data cache with per-key logging** — `staleTime` 5–10
    min, 1 retry (0 for quota-sensitive OMDb/ratings), `QueryCache.onError`

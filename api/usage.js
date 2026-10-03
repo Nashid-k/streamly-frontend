@@ -15,7 +15,6 @@ const SCOPE_BUDGETS = {
   // Daily capacity ceilings the dashboard row compares against. These mirror
   // the free-tier math in PLAN.md, not exact provider numbers.
   dl: 100_000,     // Cloudflare worker relay fragments (100k/day shared)
-  party: 20_000,   // watch-party function calls (polling amplifier)
   tmdb: 50_000,    // TMDB proxy function hits
 };
 

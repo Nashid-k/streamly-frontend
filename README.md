@@ -11,7 +11,7 @@
 
 **React 19 SPA — TMDB streaming UI with a thin same-origin backend**
 (same-origin `/api/*` Vercel functions, local-first state, optional Google
-cloud sync + offline downloads)
+cloud sync)
 
 </div>
 
@@ -127,21 +127,6 @@ VITE_SITE_URL=https://your-project.vercel.app
    syncs through `/api/sync` (MongoDB) behind per-account expiring HMAC
    tokens; deletes propagate via 30-day tombstones. Deleted collections are
    hidden locally immediately and purged from storage on later merges.
-7. **Offline downloads:** TitleDetailsPage → `DownloadModal` →
-   `downloadService` → Vercel `api/downloadify.js` (`resolve` / VidSrc
-   `resolvevidsrc` / VidCore `resolvevidcore` / NHD `resolvenhd` → `manifest` → single-URL
-   Range-chunked `segment`, ≤3.5MB chunks with an `x-streamly-more` header —
-   the old 6-URL batch POSTs 413'd on Vercel's 4.5MB cap). VidCore (Server 5)
-   is fully serverless: the vidcore.org/embed "videasy" sources catalogue lists
-   direct HLS ladders incl. 4K, and the m3u8s/segments are relayed behind
-   `Referer: https://vidcore.io/` (supplied as `source.refUrl`). Where a CDN
-   allows CORS the browser downloads segments directly, falling back to the
-   proxy. Fetching is embed-host allowlisted + SSRF-guarded (DNS-resolved,
-   redirect hops re-validated), and files save via the File System Access API
-   (Blob `<a download>` fallback). A former third source, CineSrc, was removed
-   — its tokens were browser-fingerprint-bound and needed an always-on
-   self-hosted Chrome mint service, so downloads are now video-only and written
-   exactly as the manifest lists them.
 
 ---
 
@@ -153,7 +138,7 @@ api/
 │                           (CORS, OPTIONS, server-side key injection)
 ├── auth.js              ← Google sign-in (ID-token verify via local JWKS)
 ├── sync.js              ← cloud sync (HMAC-signed, MongoDB, merge policy)
-├── downloadify.js       ← offline-download resolver (embed hosts + VidSrc +
+├── downloadify.js       ← native-stream resolver + relay (VidSrc + VidCore +
 │                           NHD + VIDSTUCK, single-URL Range-chunked segment
 │                           proxy, SSRF guard, DASH→HLS fMP4 transcoding)
 ├── publicCollections.js ← publish / read public collections
@@ -223,7 +208,6 @@ src/
 │   ├── DiscoveryRails.jsx           ← Trend/Airing/Popular banner rails
 │   ├── CastRail.jsx                 ← Cast / directors rail
 │   ├── PlayerPreview.jsx            ← Live subtitle preview (lazy, Subtitles tab)
-│   ├── DownloadModal.jsx            ← Offline download manager (lazy in TitleDetails)
 │   ├── RailArrow.jsx                ← Canonical scroll arrow (coarse-pointer aware)
 │   ├── TitleInfoModal.jsx           ← Quick View modal
 │   ├── Popover.jsx / ConfirmDialog.jsx / Toast.jsx / Chip.jsx / Button.jsx
@@ -234,7 +218,7 @@ src/
 │       RatingsTable.jsx / CountdownBadge.jsx / LeavingSoonBanner.jsx / SEO.jsx
 └── pages/
     ├── HomePage.jsx                 ← Landing: hero, category rails, Top 10
-    ├── TitleDetailsPage.jsx         ← Player + metadata, downloads, season/episode picker
+    ├── TitleDetailsPage.jsx         ← Player + metadata, season/episode picker
     ├── DiscoveryPage.jsx            ← /movies & /series browsing (hero + rails)
     ├── SearchPage.jsx               ← Search results with filters
     ├── GenrePage.jsx                ← Genre-filtered catalog
@@ -259,7 +243,7 @@ src/
 | `/search?q=` | SearchPage | Search with `?q=` query param |
 | `/genre/:genre` | GenrePage | Genre-filtered catalog |
 | `/category/:name` | CategoryPage | Single category drill-down |
-| `/watch/:id/:slug?` | TitleDetailsPage | Player + metadata + downloads (`movie-<n>` / `tv-<n>`) |
+| `/watch/:id/:slug?` | TitleDetailsPage | Player + metadata (`movie-<n>` / `tv-<n>`) |
 | `/person/:id/:slug?` | PersonDetailsPage | Actor/director page |
 | `/watchlist` | WatchlistPage | Saved titles |
 | `/history` | HistoryPage | Continue watching / history |
@@ -287,15 +271,6 @@ src/
 ### `MovieCard`
 - Cinematic curtain hover effect (Framer Motion `whileHover`)
 - Quick View modal (`detailViewType: "modal"`) with Play Now / Full Details
-
-### `DownloadModal`
-- Offline downloader (TitleDetailsPage): source pick (player rotation +
-   "VidSrc (Alt)" and "VidCore" third-party providers), quality ladder with HDR
-  badges + estimated sizes, TV season/episode batch, progress + cancel
-- Streams via `api/downloadify.js` resolve/resolvevidsrc/resolvevidcore/
-  resolvenhd → manifest → segment (single-URL Range chunks, direct-CORS when
-  the CDN allows) and saves through the File System Access API (Blob
-  `<a download>` fallback)
 
 ### `RailArrow`
 - Canonical ghost scroll arrow for every rail/hero/back button; always visible
