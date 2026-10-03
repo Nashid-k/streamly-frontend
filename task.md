@@ -4059,3 +4059,61 @@ Two bugs found and fixed while building this, both caught by the gates:
       `streamly-proxy.nashidk1999.workers.dev`, then wiring
       `resolveVidcore`'s two vidcore.io POSTs through it. Both need the Worker
       deployed first, and neither is in this repo.
+
+## Exhaustive reachability audit — Server 1 has no untried egress left
+
+Ran down every remaining avenue for reaching vidcore.io from infrastructure we
+control. All negative; recorded so this is not re-litigated later.
+
+- [x] **Our own header set is innocent.** Replayed `server/net.js`
+      `baseHeaders()` verbatim against `vidcore.io/movie/27205` from an
+      unblocked IP: all 4 UAs in the pool return 200, dropping any single
+      header still returns 200, and `sec-ch-ua` v124 vs Chrome/131 UA mismatch,
+      `sec-fetch-site: same-origin` and cross-origin `Referer` are all 200.
+      So the Vercel 403 is genuinely IP-based, not a fingerprint we can fix in
+      code. (Did briefly suspect the `sec-ch-ua` v124/UA v131 inconsistency.)
+- [x] **Every chain hop needs vidcore.io.** Enumerated the hosts for movie
+      27205 and tv 1399 s1e1:
+
+      | hop | host |
+      |---|---|
+      | page GET | vidcore.io |
+      | `servers` POST | vidcore.io |
+      | `stream` POST (all 5 servers) | vidcore.io |
+      | master/rendition (Supreme, Prime, Orbit) | moon.zenoak.top |
+      | master/rendition (Horizon) | i-arch-400.jerso441ceg.com |
+
+      The CDNs are reachable from Vercel. Only the token exchange is blocked,
+      and there is no alternate host for it.
+- [x] **No alternate vidcore hostname.** `vidcore.net` and `www.vidcore.io`
+      both 301 to the blocked `vidcore.io`. `vidcore.xyz` answers 200 but is a
+      114-byte non-Next.js stub with no `en` token (dead/parked).
+      `api.vidcore.io`, `vidcore.to`, `vidcore.me`, `vidcore.app` are NXDOMAIN.
+- [x] **The Cloudflare block is path-specific, not a blanket IP ban.**
+      Through the relay: `/` -> 200, `/robots.txt` -> 200, but
+      `/movie/27205` and `/tv/1399/1/1` -> 403. Combined with the `Cf-Worker`
+      injection test, this is vidrack's nginx rejecting Cloudflare Workers on
+      the content paths. Cloudflare egress itself is fine.
+- [x] **Public CORS relays all fail** and are not a viable production
+      dependency anyway: allorigins 522, codetabs 522, corsproxy.io 403.
+- [x] **Production baseline re-measured** with corrected request shape
+      (`id`, and `playlistUrl` for `manifest`):
+      `manifest` -> 502 `Playlist fetch failed: Upstream 403` in `iad1`;
+      `resolvevidcore` auto -> 9848ms `VidCore is still aggregating sources`;
+      `resolvevidcore` full -> 366ms `VidCore full ladder unavailable`.
+
+### Remaining options (all need a decision, none can be verified without a deploy)
+
+1. **Pin `api/downloadify.js` to a Vercel region** (`bom1`, which
+   `api/tmdb.js` already uses). It has no `regions` pin today, so it lands in
+   `iad1`. This changes the egress IP with no evasion involved. Cheap and
+   revertible, but the *result* is unknowable pre-deploy, so it is a
+   measurement rather than a verified fix.
+2. **Deploy the corrected relay** (`docs/relay-worker.js`). Caveat to weigh:
+   stripping `Cf-Worker` means deliberately defeating the access control
+   vidrack set with that header, so this is circumvention rather than a fix.
+   Needs the live Worker's owner anyway - it is not in this repo.
+3. **Iframe embed.** vidcore.io sets no `X-Frame-Options` and no
+   `frame-ancestors`, so it explicitly permits framing, and it is already in
+   our CSP `frame-src`. Needs no proxy at all and works today; the cost is
+   losing our own player and quality selection on Server 1.
