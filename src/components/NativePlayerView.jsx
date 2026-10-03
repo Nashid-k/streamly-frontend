@@ -51,7 +51,6 @@ import Hls from "hls.js";
 import { variantLabel } from "../utils/downloadQuality";
 import { createStreamlyLoader, probeSourcePlayable } from "../api/nativeHlsLoader";
 import { takeWarmResolve } from "../api/warmResolve";
-import { vidcoreEmbedUrl, shouldOfferVidcoreEmbed } from "../api/vidcoreEmbed";
 import { SKIP_DATA_CREDIT, fetchSkipBoundaries } from "../api/skipBoundarySource";
 import { SubtitleFetcher } from "../api/subtitleFetcher";
 import { logDebug, logWarn } from "../utils/debugLogger";
@@ -847,11 +846,6 @@ export default function NativePlayerView({
   const subtitleTokenRef = useRef(0); // download race guard (last pick wins)
   const hasStartedRef = useRef(false); // true once any frame played this session
   const [status, setStatus] = useState("idle");
-  /* Vidrack's own player in an iframe, used only when every native source came
-     up empty. vidrack refuses Vercel's egress, so the embed is currently the
-     only route that can play Server 1 in production; see src/api/vidcoreEmbed.js
-     for the reachability evidence and the trade-off. Null = native player. */
-  const [embedUrl, setEmbedUrl] = useState(null);
   const [qualities, setQualities] = useState([]);
   const [activeUri, setActiveUri] = useState(null);
   const [isMasterMode, setIsMasterMode] = useState(false);
@@ -2227,9 +2221,6 @@ export default function NativePlayerView({
     (async () => {
       setStatus("resolving");
       setFatal(null);
-      /* A new resolve attempt leaves the vidrack embed behind — picking another
-         server or another episode must get the native player back. */
-      setEmbedUrl(null);
       setQualities([]);
       setAudioTracks([]);
       setAudioIndex(0);
@@ -2765,26 +2756,6 @@ export default function NativePlayerView({
         }
       }
       if (stale()) return;
-
-      /* Every native source came up empty. Before declaring the title unplayable,
-         hand off to vidrack's own player in an iframe: the resolver needs
-         Vercel egress to vidcore.io, which vidrack refuses, so the embed is the
-         one path that still plays Server 1. It is a fallback — a native resolve
-         that succeeds never reaches here. */
-      const embed = vidcoreEmbedUrl({
-        type,
-        id,
-        season,
-        episode,
-      });
-      if (embed && shouldOfferVidcoreEmbed({ requestedServerKey: requestedServerRef.current })) {
-        logDebug("playback", "no native source resolved; falling back to the vidrack embed", { embed });
-        setEmbedUrl(embed);
-        setStatus("playing via Server 1");
-        say("No native source resolved — using the provider's own player.");
-        return;
-      }
-
       setStatus("error");
       const quotaHit = anyUpstreamQuota;
       setFatal(
@@ -3523,36 +3494,9 @@ export default function NativePlayerView({
           touchAction: "manipulation",
         }}
       >
-        {/*
-          Vidrack's own player, shown only when every native source came up
-          empty (see src/api/vidcoreEmbed.js). It is absolutely positioned over
-          the <video> rather than replacing it, so the rest of this tree - the
-          overlay, HUDs and close affordances - keeps working untouched. The
-          embed brings its own transport controls.
-        */}
-        {embedUrl && (
-          <iframe
-            key={embedUrl}
-            src={embedUrl}
-            title={`${title || "Title"} - Server 1`}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-            allowFullScreen
-            referrerPolicy="origin"
-            style={{
-              position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
-              border: "none",
-              background: "#000",
-              zIndex: 2,
-            }}
-          />
-        )}
         <video
           ref={videoRef}
           playsInline
-          style={{ visibility: embedUrl ? "hidden" : "visible" }}
           onClick={(e) => {
             // The synthetic click after a touch must not toggle play on top of the gesture.
             if (suppressClickRef.current) {
@@ -4022,15 +3966,11 @@ export default function NativePlayerView({
           </motion.button>
         )}
         {/* Bottom chrome: title, scrubber, transport row. */}
-        {/* Hidden while the vidrack embed is up: the scrubber and transport row
-            drive OUR video element, which the embed covers, so leaving them
-            visible would give the viewer controls that do nothing. The top bar
-            stays, so the close/back button is never stranded. */}
         <motion.div
           initial={false}
           animate={{
-            opacity: !embedUrl && controlsVisible ? 1 : 0,
-            y: !embedUrl && controlsVisible ? 0 : 20
+            opacity: controlsVisible ? 1 : 0,
+            y: controlsVisible ? 0 : 20
           }}
           transition={M.SPRING.SHEET}
           style={{
@@ -4045,7 +3985,7 @@ export default function NativePlayerView({
             // Softer than the 0.95/0.7 it replaced: the controls already carry
             // their own shadows, so a full-strength scrim only hid the picture.
             background: "linear-gradient(0deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.45) 55%, rgba(0,0,0,0) 100%)",
-            pointerEvents: !embedUrl && controlsVisible ? "auto" : "none",
+            pointerEvents: controlsVisible ? "auto" : "none",
             zIndex: 4,
           }}
         >
