@@ -241,6 +241,8 @@
   /* Title art cap, shared with the aside's optical offset below so the two can
      never disagree about how tall the identity block is. */
   --details-hero-logo-h: 5rem;
+  /* Strength of .details-hero__shade (the dark gradients over the art). */
+  --details-hero-shade: 1;
 }
 
 /* One horizontal gutter for the whole watch page: the hero column and every
@@ -267,6 +269,48 @@
 .details-hero--fit .details-hero__art img {
   object-fit: contain;
   object-position: center 20%;
+}
+
+/* Watch-only shading over the banner art (the home banner keeps its own single
+   overlay). Home's `.hero-overlay--apple` is bottom-weighted, but this page's
+   title column starts just under the header, so the type needs a bed at the TOP
+   as well. Four stacked gradients, all in the app's #050505: a bottom fade for the
+   content, a top fade that carries the header island, soft left/right vignettes so
+   the logo and the meta row always have something to sit on, and a corner anchor.
+   Stops are percentages, so it follows the box at any width; `--details-hero-shade`
+   is the single knob for how dark the whole thing gets. */
+.details-hero__shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      to top,
+      rgba(5, 5, 5, 0.92) 0%,
+      rgba(5, 5, 5, 0.5) 20%,
+      rgba(5, 5, 5, 0.15) 45%,
+      transparent 66%
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(5, 5, 5, 0.66) 0%,
+      rgba(5, 5, 5, 0.24) 14%,
+      transparent 32%
+    ),
+    radial-gradient(
+      120% 95% at 0% 50%,
+      rgba(5, 5, 5, 0.55) 0%,
+      rgba(5, 5, 5, 0.18) 38%,
+      transparent 62%
+    ),
+    radial-gradient(
+      90% 95% at 100% 50%,
+      rgba(5, 5, 5, 0.42) 0%,
+      transparent 52%
+    );
+  /* The single knob for how dark the banner art gets (1 = as authored, 0.6 =
+   lighter). Layer opacity, so the four gradients below never drift apart. */
+  opacity: var(--details-hero-shade, 1);
 }
 
 .details-hero__body {

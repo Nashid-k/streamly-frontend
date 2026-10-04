@@ -4484,5 +4484,18 @@ dead rows, and `milkyway` -> `meow` was an upstream server-list change, not our 
     a raw URL the image never asked for.
   - Tests: the `getBackdropUrl` assertion moved to w1280 and two new cases cover
     the backdrop ladder reaching 1920 and the `100vw` sizes. 74 files / 919 passed.
+- [x] **Dark gradients added over the WATCH page banner art** (user: "also add some
+      dark gradients in watch page background image"). New `.details-hero__shade`
+      layer between the image and the content, watch page only — home's
+      `.hero-overlay--apple` is untouched, so the two banners still share one
+      image treatment but the watch page gets its own bed. Home's overlay is
+      bottom-weighted; this page's title column starts just under the header, so
+      the type needs cover at the TOP too. Four stacked `#050505` gradients:
+      bottom fade (0.92 → 0.5 20% → 0.15 45% → clear 66%), top fade carrying the
+      header island (0.66 → 0.24 14% → clear 32%), a left vignette (0.55 → clear
+      62%) and a right one (0.42 → clear 52%) so the logo and meta row always sit
+      on something. All stops are percentages, so it follows the box at any width,
+      and `--details-hero-shade` (default `1`) is the single knob for how dark it
+      gets — drop it to `0.6` for a lighter wash without editing four gradients.
 - [x] Gates: oxlint **0 errors** (2 baseline `NativePlayerView.jsx` unused-catch
       warnings), vitest **74 files / 919 passed**, build OK. No contract touched.

@@ -862,6 +862,11 @@ export default function TitleDetails() {
               decoding="async"
             />
           <div className="hero-overlay hero-overlay--apple" />
+          {/* Extra shading, watch page only: home's overlay is untouched. The
+              title column sits high on this banner (header-anchored), so it needs
+              a bed under the type that the bottom-weighted home gradient doesn't
+              provide — see .details-hero__shade. */}
+          <div className="details-hero__shade" aria-hidden="true" />
         </div>
 
         {/* Content Overlap — the lift + header clearance live in CSS (.details-hero__body) */}
