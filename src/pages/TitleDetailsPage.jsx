@@ -879,7 +879,7 @@ export default function TitleDetails() {
             )}
 
             {movie.genres?.length > 0 && (
-              <div className="mt-3 lg:mt-4 flex flex-wrap items-center gap-2 text-sm lg:text-lg text-white/90 font-medium">
+              <div className="details-hero__gap flex flex-wrap items-center gap-2 text-sm lg:text-lg text-white/90 font-medium">
                 {movie.genres.map((genre, idx) => (
                   <span key={genre} className="flex items-center gap-2">
                     <span>{genre}</span>
@@ -890,7 +890,7 @@ export default function TitleDetails() {
             )}
 
             {seriesIsAiring && (
-              <div className="mt-4 lg:mt-5 flex flex-wrap items-center justify-center lg:justify-start gap-x-4 gap-y-2">
+              <div className="details-hero__gap flex flex-wrap items-center justify-center lg:justify-start gap-x-4 gap-y-2">
                 <span
                   aria-label={
                     airingSeasonNumber > 1
@@ -935,7 +935,7 @@ export default function TitleDetails() {
 
             {/* Banner-style resume progress for continue-watching entries */}
             {hasResume && resumePct > 0 && (
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18 }}>
+              <div className="details-hero__gap flex items-center gap-2.5">
                 <div style={{ width: "min(200px, 30vw)", height: 4, borderRadius: 999, background: "rgba(255,255,255,0.22)", overflow: "hidden" }}>
                   <div style={{ width: `${resumePct}%`, height: "100%", background: "#E50914" }} />
                 </div>
@@ -946,7 +946,7 @@ export default function TitleDetails() {
             )}
 
             {/* Actions */}
-            <div className="mt-5 lg:mt-6 flex items-center gap-3 flex-wrap justify-center lg:justify-start">
+            <div className="details-hero__gap flex items-center gap-3 flex-wrap justify-center lg:justify-start">
               <button
                 onClick={() => {
                   if (unreleased) { setUnreleasedModalOpen(true); return; }
@@ -1002,7 +1002,7 @@ export default function TitleDetails() {
             </div>
 
             {unreleased && (
-              <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] backdrop-blur-md px-3.5 py-1.5">
+              <div className="details-hero__gap inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] backdrop-blur-md px-3.5 py-1.5">
                 <Clock className="w-3.5 h-3.5 text-white/45" aria-hidden="true" />
                 <span className="text-[13px] font-semibold text-white">Not released yet</span>
                 <span className="text-white/25">·</span>
@@ -1013,7 +1013,7 @@ export default function TitleDetails() {
             )}
 
             {/* Meta: Year · Runtime · Certification · Votes */}
-            <div className="mt-5 lg:mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm lg:text-base text-white/80 font-medium">
+            <div className="details-hero__gap flex flex-wrap items-center gap-x-3 gap-y-1 text-sm lg:text-base text-white/80 font-medium">
               {movie.releaseDate && <span>{new Date(movie.releaseDate).getFullYear()}</span>}
               {runtimeLabel && <span>{runtimeLabel}</span>}
               {movie.certification && (
@@ -1039,7 +1039,7 @@ export default function TitleDetails() {
             </div>
 
             {movie.director && (
-              <div className="mt-1.5 text-sm lg:text-base text-white/60">
+              <div className="details-hero__gap-tight text-sm lg:text-base text-white/60">
                 <span className="text-white/40">Director:</span>{" "}
                 {movie.directorId ? (
                   <Link
@@ -1056,16 +1056,17 @@ export default function TitleDetails() {
 
             {/* Overview / Description */}
             {(movie.description || movie.longDescription || movie.overview) && (
-              <div className="mt-4 lg:mt-5">
-                <p className={`text-sm lg:text-base text-white/70 leading-relaxed ${showFullDescription ? "" : "line-clamp-3"}`}>
-                  {movie.description || movie.longDescription || movie.overview}
-                </p>
-                {(movie.description || movie.longDescription || movie.overview).length > 220 && (
-                  <button
-                    type="button"
-                    onClick={() => setShowFullDescription((v) => !v)}
-                    className="mt-1.5 text-sm font-semibold text-white/80 hover:text-white transition-colors"
-                  >
+<div className="details-hero__gap">
+              <p className={`text-sm lg:text-base text-white/70 leading-relaxed ${showFullDescription ? "" : "line-clamp-3"}`}>
+                {movie.description || movie.longDescription || movie.overview}
+              </p>
+              {(movie.description || movie.longDescription || movie.overview).length > 220 && (
+                <button
+                  type="button"
+                  onClick={() => setShowFullDescription((v) => !v)}
+                  className="details-hero__gap-tight block text-sm font-semibold text-white/80 hover:text-white transition-colors"
+                >
+
                     {showFullDescription ? "Show less" : "Show more"}
                   </button>
                 )}
@@ -1073,7 +1074,7 @@ export default function TitleDetails() {
             )}
 
             {/* Mobile details block */}
-            <div className="mt-6 w-full lg:hidden">
+            <div className="details-hero__gap w-full lg:hidden">
               <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] overflow-hidden backdrop-blur-sm">
                 <div className="divide-y divide-white/[0.06]">
                   {infoRows.map((row) => (

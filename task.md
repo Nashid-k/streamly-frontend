@@ -4421,5 +4421,22 @@ dead rows, and `milkyway` -> `meow` was an upstream server-list change, not our 
       `.head-menu-avatar--initial`, `Loader`/spinner rings, and the emerald/
       amethyst/ocean/crimson/solar/custom theme accents — say the word if any of
       those should follow the buttons to white.
+- [x] **Lift lowered again AND the column's vertical rhythm collapsed to one number
+      (user: "reduce it even more, update the ratio as now we have too much vertical
+      gap in the watch page the btns and things starts, fix it by reducing the
+      gaps").** Both halves of the complaint, one source of truth each:
+  - `--details-hero-lift` **0.34 → 0.28** of the art height — the buttons now start
+    a little over a quarter of the way down the picture instead of a third.
+  - `--details-hero-gap: clamp(0.5rem, 0.45rem + 0.55vw, 0.9rem)` (+ a
+    `--details-hero-gap-tight` at half of it) lives on `.details-hero__body` and is
+    applied by the classes `.details-hero__gap` / `.details-hero__gap-tight`. The
+    column carried **seven hand-tuned margins** — `mt-3 lg:mt-4`, `mt-4 lg:mt-5`, an
+    inline `marginTop: 18`, `mt-5 lg:mt-6` ×2, `mt-4`, `mt-1.5` ×2, `mt-6` — i.e.
+    6/12/16/18/20/24px with `lg:` twins, which is exactly why the rows drifted apart
+    and the buttons started too far down. Now one fluid step: **~9px on a phone,
+    ~14px on a laptop** (was 12→24). The Tailwind twins are gone, so there is no
+    per-breakpoint value left to drift.
+  - Artwork, fit, mask and overlay untouched; the clearance floor still keeps the
+    title off the back button (verified down to a 0.19 ratio).
 - [x] Gates: oxlint **0 errors** (2 baseline `NativePlayerView.jsx` unused-catch
       warnings), vitest **74 files / 917 passed**, build OK. No contract touched.

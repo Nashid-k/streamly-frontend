@@ -229,11 +229,13 @@
    instead of drifting with the viewport. The ratio is the only knob: lower it and
    the whole content column (title art, meta, actions, and the info aside, which
    hangs off the same lift) rides up, while the artwork itself — box height, fit,
-   mask, overlay — is never touched. Legibility past ~0.35 is carried by the shared
-   banner's own left vignette (`.hero-overlay--apple`, up to 0.8 at the left edge),
-   which covers the title column at any height. */
+   mask, overlay — is never touched. 0.28 starts the buttons a little over a
+   quarter of the way down the picture; legibility above it is carried by the
+   shared banner's own left vignette (`.hero-overlay--apple`, up to 0.8 at the left
+   edge), and the clearance floor in `.details-hero__body` still keeps the title
+   clear of the back button at any ratio down to ~0.19. */
 .details-hero {
-  --details-hero-lift: calc(var(--details-hero-h) * 0.34);
+  --details-hero-lift: calc(var(--details-hero-h) * 0.28);
 }
 
 /* One horizontal gutter for the whole watch page: the hero column and every
@@ -270,6 +272,20 @@
     var(--header-gap),
     calc(var(--header-clearance) + var(--details-hero-lift) - var(--details-hero-h))
   );
+  /* Vertical rhythm of the content column: ONE fluid step, applied by class.
+     The column used to carry seven hand-tuned margins (6/12/16/18/20/24px, plus a
+     `lg:` twin of most of them), which is why the rows drifted apart and the
+     buttons started too far down. Tighten or loosen the stack from this number. */
+  --details-hero-gap: clamp(0.5rem, 0.45rem + 0.55vw, 0.9rem);
+  --details-hero-gap-tight: calc(var(--details-hero-gap) * 0.5);
+}
+
+.details-hero__gap {
+  margin-top: var(--details-hero-gap);
+}
+
+.details-hero__gap-tight {
+  margin-top: var(--details-hero-gap-tight);
 }
 
 /* Title art is the page's identity — it is deliberately NOT fluid: these are
