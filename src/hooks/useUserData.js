@@ -7,6 +7,11 @@ import { makePublicId, morphCollections } from './collectionMorph';
 // days so every synced device sees the delete, then dropped on merge.
 const TOMBSTONE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
+// Coalescing window for high-frequency continue-watching writes (the player
+// ticks once per second). Long enough to collapse a minute of playback into a
+// dozen writes, short enough that a closed tab loses at most a few seconds.
+const CW_PERSIST_INTERVAL_MS = 5000;
+
 function safeJsonParse(str, fallback = []) {
   try { return JSON.parse(str) ?? fallback; } catch (error) {
     if (str !== null && str !== undefined) {
@@ -117,7 +122,13 @@ export function useMyList() {
     [myList],
   );
 
-  return { myList, toggleMyList, removeBatchFromMyList, isInList };
+  // Identity-stable on purpose: AuthContext spreads this object into the
+  // AppContext value, so a fresh literal here would defeat that memo and
+  // re-render every useAppAuth() consumer (every MovieCard) on every tick.
+  return useMemo(
+    () => ({ myList, toggleMyList, removeBatchFromMyList, isInList }),
+    [myList, toggleMyList, removeBatchFromMyList, isInList],
+  );
 }
 
 /* User-created collections — named folders grouping saved titles. Persisted under
@@ -293,19 +304,34 @@ export function useMyCollections() {
     ) || null;
   }, []);
 
-  return {
-    collections: liveCollections,
-    createCollection,
-    createCollectionWithItems,
-    renameCollection,
-    deleteCollection,
-    addToCollection,
-    removeFromCollection,
-    toggleInCollection,
-    setCollectionVisibility,
-    publicCollections,
-    getPublicCollection,
-  };
+  return useMemo(
+    () => ({
+      collections: liveCollections,
+      createCollection,
+      createCollectionWithItems,
+      renameCollection,
+      deleteCollection,
+      addToCollection,
+      removeFromCollection,
+      toggleInCollection,
+      setCollectionVisibility,
+      publicCollections,
+      getPublicCollection,
+    }),
+    [
+      liveCollections,
+      createCollection,
+      createCollectionWithItems,
+      renameCollection,
+      deleteCollection,
+      addToCollection,
+      removeFromCollection,
+      toggleInCollection,
+      setCollectionVisibility,
+      publicCollections,
+      getPublicCollection,
+    ],
+  );
 }
 
 export function useContinueWatching() {
@@ -339,11 +365,47 @@ export function useContinueWatching() {
     [cwState, sortByLastWatched],
   );
 
-  const commitCw = useCallback((nextRaw) => {
-    setCwState(nextRaw);
-    writeStorage('aios_continue_watching', nextRaw);
+  // The player calls updateProgress once per second. Committing straight
+  // through meant two synchronous JSON cycles per second on the main thread
+  // (stringify the whole list, then the self-dispatch read+parse it back) plus a
+  // full-app re-render. State still updates every tick so the resume bar is
+  // live; only the storage write + cross-tab event are coalesced. Structural
+  // edits (remove/clear) always persist immediately, and a trailing flush on
+  // timer / unmount / pagehide guarantees nothing is lost.
+  const persistRef = useRef({ lastAt: 0, timer: null, pending: null });
+
+  const flushCw = useCallback(() => {
+    const { timer, pending } = persistRef.current;
+    if (timer !== null) { clearTimeout(timer); persistRef.current.timer = null; }
+    if (pending === null) return;
+    persistRef.current.pending = null;
+    persistRef.current.lastAt = Date.now();
+    writeStorage('aios_continue_watching', pending);
     dispatch('aios_sync_cw');
   }, []);
+
+  useEffect(() => {
+    window.addEventListener('pagehide', flushCw);
+    return () => {
+      window.removeEventListener('pagehide', flushCw);
+      flushCw();
+    };
+  }, [flushCw]);
+
+  const commitCw = useCallback((nextRaw, { throttle = false } = {}) => {
+    setCwState(nextRaw);
+    if (!throttle) {
+      persistRef.current.pending = null;
+      flushCw();
+      persistRef.current.lastAt = Date.now();
+      return;
+    }
+    persistRef.current.pending = nextRaw;
+    if (persistRef.current.timer !== null) return;
+    const wait = Math.max(0, CW_PERSIST_INTERVAL_MS - (Date.now() - persistRef.current.lastAt));
+    if (wait === 0) { flushCw(); return; }
+    persistRef.current.timer = setTimeout(flushCw, wait);
+  }, [flushCw]);
 
   const updateProgress = useCallback((movie, season = null, episode = null, timestamp = null) => {
     if (!movie?.id) return;
@@ -369,7 +431,7 @@ export function useContinueWatching() {
     const liveUpdated = [...withoutOld, newItem]
       .sort((a, b) => toMillis(b.lastWatched) - toMillis(a.lastWatched))
       .slice(0, 20);
-    commitCw([...liveUpdated, ...tombstones.filter(t => t.id !== movie.id)]);
+    commitCw([...liveUpdated, ...tombstones.filter(t => t.id !== movie.id)], { throttle: true });
   }, [commitCw]);
 
   const removeFromContinueWatching = useCallback((movieId) => {
@@ -400,13 +462,22 @@ export function useContinueWatching() {
     ));
   }, [commitCw]);
 
-  return {
-    continueWatching,
-    updateProgress,
-    removeFromContinueWatching,
-    removeBatchFromContinueWatching,
-    clearContinueWatching,
-  };
+  return useMemo(
+    () => ({
+      continueWatching,
+      updateProgress,
+      removeFromContinueWatching,
+      removeBatchFromContinueWatching,
+      clearContinueWatching,
+    }),
+    [
+      continueWatching,
+      updateProgress,
+      removeFromContinueWatching,
+      removeBatchFromContinueWatching,
+      clearContinueWatching,
+    ],
+  );
 }
 
 export function useSearchHistory() {
@@ -447,5 +518,8 @@ export function useSearchHistory() {
     dispatch('aios_sync_sh');
   }, []);
 
-  return { searchHistory, addSearch, removeSearch, clearSearchHistory };
+  return useMemo(
+    () => ({ searchHistory, addSearch, removeSearch, clearSearchHistory }),
+    [searchHistory, addSearch, removeSearch, clearSearchHistory],
+  );
 }

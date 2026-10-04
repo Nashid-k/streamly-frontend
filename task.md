@@ -4499,3 +4499,64 @@ dead rows, and `milkyway` -> `meow` was an upstream server-list change, not our 
       gets — drop it to `0.6` for a lighter wash without editing four gradients.
 - [x] Gates: oxlint **0 errors** (2 baseline `NativePlayerView.jsx` unused-catch
       warnings), vitest **74 files / 919 passed**, build OK. No contract touched.
+
+- [ ] **STAGE 1 - render storms (no visual change)** - three read-only audits
+  (scroll/hover jank, perceived response, motion language) produced one ranked
+  list; this is the order. The audits found the app's worst cost is not layout,
+  it is re-renders: `AuthContext`'s `useMemo` never hit because all four
+  `useUserData` hooks returned fresh object literals, so every 1 Hz progress tick
+  re-rendered the whole tree (Header, every MovieCard, the page itself).
+  - [x] `useUserData.js`: memoize the return of `useMyList`, `useCollections`,
+        `useContinueWatching`, `useSearchHistory` so `AuthContext`'s context
+        `useMemo` can actually hit.
+  - [x] `useContinueWatching`: coalesce the 1 Hz `JSON.stringify` +
+        `aios_sync_cw` self-dispatch into one write per 5 s
+        (`CW_PERSIST_INTERVAL_MS`). State still updates every tick so the resume
+        bar stays live; structural edits (remove/clear) write immediately; a
+        trailing flush on timer, unmount and `pagehide` guarantees nothing is lost.
+  - [x] `useRailArrows`: coalesce scroll/resize/ResizeObserver ticks into one
+        rAF and bail out of `setState` unless a boolean flips (a new object on
+        every tick re-rendered the rail and its cards on every scroll event).
+        `refresh` is now a synchronous re-measure.
+  - [x] `HomePage.jsx`: hoist `detectLeavingSoon(...)` into a `useMemo` keyed
+        on `categories` instead of re-flattening/parsing/sorting every render.
+  - [x] `useVirtualRenderAdapter`: one shared `IntersectionObserver` per
+        `rootMargin` instead of one per card, stable callback ref, plus an
+        in-viewport fast path so the first screenful of cards no longer renders
+        as empty boxes for a frame. Tests rewritten (4 pass) for the new contract.
+  - [x] Gates: oxlint 0 errors, vitest 74 files / 921 passed, build OK.
+- [ ] **STAGE 2 - scroll and hover layout work**
+  - [ ] `ContinueWatchingRail.jsx`: hover animates `max-height`, which reflows
+        the row on every frame. Swap for a transform/opacity reveal.
+  - [ ] `header.css`: the scrolled state transitions `background-color` /
+        `box-shadow` while `backdrop-filter` is live, so the browser re-blurs the
+        whole header every frame of the scroll. Drop those two properties from
+        the transition.
+  - [ ] `grids.css`: `.movie-card` keeps `translateZ(0)` permanently, promoting
+        ~180 cards to their own GPU layers. Rely on `will-change` during hover
+        instead, or drop it.
+- [ ] **STAGE 3 - perceived latency**
+  - [ ] `Layout.jsx`: `AnimatePresence mode="wait"` holds a 180 ms exit before
+        the next route mounts, then the `<Loader />` fallback paints a
+        full-viewport spinner. Blank on every tab click.
+  - [ ] Add `placeholderData: (prev) => prev` to the genre/search/discovery/season
+        queries so a filter change stops flashing a skeleton over cached data.
+  - [ ] `TitleInfoModal.jsx`: reads `['infoModal', id]` but `prefetchAdapter`
+        warms `['movie', id]` / `['externalIds', ...]`, so quick-info always
+        refetches. Point the modal at the keys the hover prefetch writes.
+  - [ ] `index.html`: drop `crossorigin` from the wsrv.nl preconnect; the poster
+        requests are no-CORS, so the preconnected socket is never reused.
+  - [ ] Right-size images: `ContinueWatchingRail` requests `w780` for 240-288 px
+        cards, `LeavingSoonBanner` requests `w1280` for a short decorative strip.
+- [ ] **STAGE 4 - motion language**
+  - [ ] `NativePlayerView.jsx`: nested `<MotionConfig reducedMotion="user">`
+        overrides the app-level setting, so Reduce Motion is a no-op on the
+        heaviest screen. Remove it or read the preference.
+  - [ ] Route the six player HUDs through the existing-but-unused `HUD_POP`
+        token (five hand-rolled variants today) and give the modal family one
+        `DURATION.SCRIM` + single panel shape (four scrim speeds: 0.18/0.2/0.25/0.3s).
+  - [ ] `responsive.css`: `.modal-container { transform: none !important }` kills
+        the sheet motion on mobile and `animation: slideUp 0.3s` names a keyframe
+        that exists nowhere in the repo.
+  - [ ] Collapse the three competing duration scales (`motion.js` 180/280/450,
+        `tokens.css` 150/250/400, `player.css --zxc-t-*` 150/300/500) onto one.

@@ -506,6 +506,14 @@ export default function Home({
   // excluded (they live in the Airing rail). Rows are anchored to the current date
   // (TODAY/TOMORROW/weekday chips), sorted soonest-first, 365-day window, and NEVER
   // padded with trending/airing titles — released films are not "coming soon".
+  // detectLeavingSoon() flattens every category, parses date strings and sorts
+  // the result. Calling it inline meant all of that ran again on every render —
+  // including the 1 Hz progress ticks while a title plays in the background.
+  const leavingSoonItems = useMemo(
+    () => detectLeavingSoon(categories.flatMap((c) => (Array.isArray(c.movies) ? c.movies : [])), 14),
+    [categories],
+  );
+
   const upcomingReleases = useMemo(() => {
     const pool = [
       ...asArray(airingData),
@@ -1196,9 +1204,7 @@ export default function Home({
 
       {/* Leaving Soon — home page only */}
       {!loading && filter === 'all' && activeGenre === 'All' && (
-<LeavingSoonBanner items={detectLeavingSoon(
-            categories.flatMap(c => (Array.isArray(c.movies) ? c.movies : [])), 14
-          )} />
+<LeavingSoonBanner items={leavingSoonItems} />
       )}
 
       {/* Upcoming — standard rail UI on every tab; tab-filtered (all on Home,
