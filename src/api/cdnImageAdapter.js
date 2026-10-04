@@ -2,8 +2,9 @@
  * CdnImageAdapter — optimized TMDB image URLs.
  *
  * Sizes: w92 blur-up placeholder, w154 search/compact thumbnails, w185 cast
- * avatars, w342 card posters, w500 medium detail views, w780 backdrop heroes,
- * w1280 only when explicitly needed.
+ * avatars, w342 card posters, w500 medium detail views, w780/w1280/w1920 for the
+ * full-width banner art (both banners are 100vw, so they pick from a ladder
+ * instead of a single frame — see getSrcSet/getSizes "backdrop").
  */
 export class CdnImageAdapter {
   // Use wsrv.nl for extreme image optimization (WebP/AVIF, global CDN cache)
@@ -62,31 +63,41 @@ export class CdnImageAdapter {
     return this.getUrl(path, "w185");
   }
 
-    /** Large URL for detail-page hero backdrops; w780 covers all but 4K. */
+/** Large URL for detail-page hero backdrops. The hero art box is the FULL
+      viewport width (its height is derived from it — see `.details-hero--fit`),
+      so the old w780 was upscaled on every laptop: w1280 is the floor here, and
+      `getSrcSet(path, "backdrop")` lets wide windows go higher still. */
   static getBackdropUrl(path) {
-    return this.getUrl(path, "w780");
+    return this.getUrl(path, "w1280");
   }
 
-    /** srcSet string so the browser can pick the best size for the viewport. */
-  static getSrcSet(path) {
+  /** srcSet string so the browser can pick the best size for the viewport.
+      `backdrop` is the full-width banner ladder and has to reach past 1280 —
+      capped at 780, a 1440p window upscales a 780px frame and the artwork goes
+      soft, which is exactly what the watch hero was doing. */
+  static getSrcSet(path, context = "card") {
     if (!path) return undefined;
-    return [
-      `${this.getUrl(path, "w154")} 154w`,
-      `${this.getUrl(path, "w342")} 342w`,
-      `${this.getUrl(path, "w500")} 500w`,
-      `${this.getUrl(path, "w780")} 780w`,
-    ].join(", ");
+    const ladder =
+      context === "backdrop"
+        ? ["w500", "w780", "w1280", "w1920"]
+        : ["w154", "w342", "w500", "w780"];
+    return ladder
+      .map((size) => `${this.getUrl(path, size)} ${Number.parseInt(size.slice(1), 10)}w`)
+      .join(", ");
   }
 
-    /** `sizes` attribute for <img> so the browser can pick a srcSet entry before
-        layout is known. @param {'card'|'backdrop'|'avatar'} context */
+  /** `sizes` attribute for <img> so the browser can pick a srcSet entry before
+      layout is known. @param {'card'|'backdrop'|'avatar'} context */
   static getSizes(context = "card") {
     const map = {
-      card:     "(max-width: 520px) 50vw, (max-width: 768px) 33vw, 200px",
-      backdrop: "(max-width: 768px) 100vw, 780px",
-      avatar:   "80px",
+      card: "(max-width: 520px) 50vw, (max-width: 768px) 33vw, 200px",
+      // The banner art box is 100vw at EVERY breakpoint, so this must be 100vw:
+      // the old "780px" ceiling told the browser a 780px frame was enough.
+      backdrop: "100vw",
+      avatar: "80px",
     };
     return map[context] ?? map.card;
   }
 }
+
 

@@ -854,6 +854,8 @@ export default function TitleDetails() {
           <img
               className="hero-bg"
               src={backdropOptimized || movie.posterUrl}
+              srcSet={CdnImageAdapter.getSrcSet(backdropSrc || movie.posterUrl, "backdrop")}
+              sizes={CdnImageAdapter.getSizes("backdrop")}
               alt={movie.title}
               fetchPriority="high"
               loading="eager"

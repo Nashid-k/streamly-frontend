@@ -29,6 +29,7 @@ import { asArray, EMPTY_ARRAY } from "../utils";
 import { useI18n } from "../i18n/index.jsx";
 import { logEmptyData, logError, reportQueryError } from "../utils/debugLogger";
 import FadeInSection from "../components/rails/FadeInSection";
+import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import MovieRail from "../components/rails/MovieRail";
 import Top10Rail from "../components/rails/Top10Rail";
 import EditorialRails from "../components/rails/EditorialRails";
@@ -799,16 +800,27 @@ export default function Home({
     if (totalFeatured <= 1) return;
     const nextMovie = finalPool[(featuredIndex + 1) % totalFeatured];
     if (!nextMovie) return;
-    const preloadUrl =
-      nextMovie.backdropUrl || nextMovie.posterUrl || nextMovie.poster;
+    const preloadUrl = nextMovie.backdropUrl || nextMovie.posterUrl || nextMovie.poster;
     if (preloadUrl) {
+      // Preload the SAME URL the banner will request (the proxied w1280), or the
+      // warm-up lands in the HTTP cache under a key the <img> never asks for.
       const img = new window.Image();
-      img.src = preloadUrl;
+      img.src = CdnImageAdapter.getBackdropUrl(preloadUrl);
     }
   }, [featuredIndex, totalFeatured, finalPool]);
 
   const heroTouchStartRef = useRef({ x: 0, y: 0 });
   const heroTouchPauseTimeoutRef = useRef(null);
+
+  /* Banner art quality — the hero art box is 100vw at every breakpoint, so the
+     browser picks from the same ladder the watch hero uses instead of taking one
+     fixed frame (see CdnImageAdapter.getSrcSet "backdrop"). */
+  const heroArtSrc =
+    activeFeaturedMovie?.backdropUrl ||
+    activeFeaturedMovie?.posterUrl ||
+    activeFeaturedMovie?.poster ||
+    null;
+  const heroArtUrl = heroArtSrc ? CdnImageAdapter.getBackdropUrl(heroArtSrc) : null;
 
   useEffect(() => {
     return () => {
@@ -960,7 +972,9 @@ export default function Home({
             <AnimatePresence>
               <motion.img
                 key={activeFeaturedMovie.id}
-                src={activeFeaturedMovie.backdropUrl || activeFeaturedMovie.posterUrl || activeFeaturedMovie.poster}
+                src={heroArtUrl}
+                srcSet={CdnImageAdapter.getSrcSet(heroArtSrc, "backdrop")}
+                sizes={CdnImageAdapter.getSizes("backdrop")}
                 alt={activeFeaturedMovie.title}
                 className="hero-bg"
                 fetchpriority="high"

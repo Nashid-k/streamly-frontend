@@ -4464,5 +4464,25 @@ dead rows, and `milkyway` -> `meow` was an upstream server-list change, not our 
     never disagree about the identity block's height.
   - Artwork untouched throughout: box height, device-width fit, `.hero-bg` mask,
     `.hero-overlay--apple`, the vertical rhythm tokens and every button.
+- [x] **Banner art renders at real quality now (user: "try to render quality images
+      than current").** The softness was a resolution ceiling, not compression: the
+      watch hero asked for a single **w780** frame and then displayed it across the
+      full viewport width, so every laptop was upscaling ~1.85× (and `getSizes`
+      actively told the browser "780px is enough").
+  - `CdnImageAdapter.getBackdropUrl` → **w1280** (the art box is 100vw at every
+    breakpoint, so 780 was never a real ceiling).
+  - `getSrcSet(path, "backdrop")` → a full-width ladder **500 / 780 / 1280 / 1920**,
+    wired into both banners with `sizes="100vw"`; `getSizes("backdrop")` returns
+    `100vw` instead of the old `(max-width: 768px) 100vw, 780px`. A 390px phone
+    still fetches the 500w frame — it picks from the ladder, so nobody pays for
+    pixels they cannot see. The `card` ladder is unchanged (and a new test asserts
+    it stays small).
+  - Both banners now share one path: the watch hero (`TitleDetailsPage.jsx`) and the
+    home banner (`HomePage.jsx`) pass the same `srcSet`/`sizes`, so "same style as
+    home" now includes the same image quality. The home banner's slide preload
+    warms the **proxied** w1280 URL the `<img>` actually requests — it was warming
+    a raw URL the image never asked for.
+  - Tests: the `getBackdropUrl` assertion moved to w1280 and two new cases cover
+    the backdrop ladder reaching 1920 and the `100vw` sizes. 74 files / 919 passed.
 - [x] Gates: oxlint **0 errors** (2 baseline `NativePlayerView.jsx` unused-catch
-      warnings), vitest **74 files / 917 passed**, build OK. No contract touched.
+      warnings), vitest **74 files / 919 passed**, build OK. No contract touched.

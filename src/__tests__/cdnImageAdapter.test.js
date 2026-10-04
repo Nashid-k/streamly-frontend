@@ -61,9 +61,10 @@ describe('CdnImageAdapter', () => {
   });
 
   describe('getBackdropUrl', () => {
-    it('returns w780 size', () => {
+    // The banner art box is 100vw, so w780 was upscaled on every laptop.
+    it('returns w1280 size', () => {
       const url = CdnImageAdapter.getBackdropUrl('/abc.jpg');
-      expect(url).toContain('/w780/');
+      expect(url).toContain('/w1280/');
     });
   });
 
@@ -77,6 +78,20 @@ describe('CdnImageAdapter', () => {
       expect(srcSet).toContain('342w');
       expect(srcSet).toContain('500w');
       expect(srcSet).toContain('780w');
+    });
+
+    it('ladder reaches past 1280 for the full-width backdrop context', () => {
+      const srcSet = CdnImageAdapter.getSrcSet('/abc.jpg', 'backdrop');
+      expect(srcSet).toContain('1280w');
+      expect(srcSet).toContain('1920w');
+      // Card ladders stay small — a card must never fetch a banner frame.
+      expect(CdnImageAdapter.getSrcSet('/abc.jpg')).not.toContain('1920w');
+    });
+  });
+
+  describe('getSizes', () => {
+    it('tells the browser the banner art is full width', () => {
+      expect(CdnImageAdapter.getSizes('backdrop')).toBe('100vw');
     });
   });
 });
