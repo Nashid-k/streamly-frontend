@@ -856,14 +856,8 @@ export default function TitleDetails() {
       {/* Back is handled globally by the header .back-btn beside the logo */}
 
       <div className="relative w-full details-hero">
-        {/* Hero Image Mask */}
-        <div
-          className="details-hero__art"
-          style={{
-            maskImage: "linear-gradient(to bottom, black 40%, transparent 98%)",
-            WebkitMaskImage: "linear-gradient(to bottom, black 40%, transparent 98%)"
-          }}
-        >
+        {/* Hero artwork + its fade live in CSS (.details-hero__art/__scrim) */}
+        <div className="details-hero__art">
           <img
               className="h-full w-full object-cover object-top"
               src={backdropOptimized || movie.posterUrl}
@@ -872,8 +866,8 @@ export default function TitleDetails() {
               loading="eager"
               decoding="async"
             />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/40 to-transparent pointer-events-none"></div>
-          <div className="absolute inset-0 bg-gradient-to-r from-[#050505] via-transparent to-transparent pointer-events-none hidden lg:block"></div>
+          <div className="details-hero__scrim"></div>
+          <div className="details-hero__scrim details-hero__scrim--side hidden lg:block"></div>
         </div>
 
         {/* Content Overlap — the lift + header clearance live in CSS (.details-hero__body) */}

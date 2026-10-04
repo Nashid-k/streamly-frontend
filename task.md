@@ -4314,5 +4314,15 @@ dead rows, and `milkyway` -> `meow` was an upstream server-list change, not our 
       title up into the back button on phones.
 - [x] Skeleton kept truthful: `.details-content-wrapper` (and its `15vh` mobile
       override) now floors its top margin at `--header-clearance`.
+- [x] **Follow-up: the artwork was being cut off, not just spaced badly.** The
+      old inline mask (`black 40% → transparent 98%`) plus
+      `from-[#050505] via-[#050505]/40` dissolved the picture before the title
+      even arrived, and the phone clamp `66vh/34rem` capped the hero *shorter*
+      than the `65vh` it replaced on tall handsets. Now: the mask holds opaque to
+      `--details-hero-visible: 74%` before dissolving, the two scrims are real
+      classes (`.details-hero__scrim`, `--side`) whose dark bed ramps only over
+      the lower half (0.78 @20% → 0.18 @62% → clear @80%), and the hero is
+      `clamp(22rem, 72vh, 46rem)` on phones / `clamp(34rem, 78vh, 60rem)` on
+      desktop — more picture, same legible text bed.
 - [x] Gates: oxlint **0 errors**, vitest **74 files / 917 passed**, build OK.
       No contract touched (`normalizeResult`, query keys, localStorage, routes).

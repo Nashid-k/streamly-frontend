@@ -208,8 +208,12 @@
                   end up sitting on the title, at any viewport, with no
                   hardcoded pixel offset anywhere. */
 .details-hero {
-  --details-hero-h: clamp(20rem, 66vh, 34rem);
+  --details-hero-h: clamp(22rem, 72vh, 46rem);
   --details-hero-lift: clamp(5rem, 22vh, 8rem);
+  /* How much of the artwork stays fully opaque before it dissolves into the
+     page. Three quarters: the old 40% cut the picture off long before the
+     title area, so the hero read as a sliver of backdrop. */
+  --details-hero-visible: 74%;
 }
 
 /* One horizontal gutter for the whole watch page: the hero column and every
@@ -224,6 +228,40 @@
   width: 100%;
   height: var(--details-hero-h);
   overflow: hidden;
+  mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 var(--details-hero-visible),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 var(--details-hero-visible),
+    transparent 100%
+  );
+}
+
+/* Bottom scrim: a dark bed for the title/actions, ramped so it only bites over
+   the lower half. The upper half of the artwork stays clean, which is what
+   makes the hero read as a picture instead of a fading sliver. */
+.details-hero__scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    #050505 0%,
+    rgba(5, 5, 5, 0.78) 20%,
+    rgba(5, 5, 5, 0.5) 42%,
+    rgba(5, 5, 5, 0.18) 62%,
+    transparent 80%
+  );
+}
+
+/* Desktop: left-weighted wash so the title column never fights the art. */
+.details-hero__scrim--side {
+  background: linear-gradient(to right, #050505 0%, rgba(5, 5, 5, 0.35) 32%, transparent 62%);
 }
 
 .details-hero__body {
@@ -259,7 +297,7 @@
 
 @media (min-width: 1024px) {
   .details-hero {
-    --details-hero-h: clamp(34rem, 76vh, 56rem);
+    --details-hero-h: clamp(34rem, 78vh, 60rem);
     --details-hero-lift: clamp(12rem, 39vh, 22rem);
   }
   .details-hero__body {
