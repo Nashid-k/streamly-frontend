@@ -226,12 +226,14 @@
 }
 
 /* Lift = a share of the actual art height, so the overlap scales with the picture
-   instead of drifting with the viewport. 0.40 puts the title's cap just under the
-   40% line — the last point where the shared home-banner overlay still washes the
-   artwork behind white type (any higher and the logo/meta sit on bare art; the
-   banner itself is never touched to achieve this, only where the content hangs). */
+   instead of drifting with the viewport. The ratio is the only knob: lower it and
+   the whole content column (title art, meta, actions, and the info aside, which
+   hangs off the same lift) rides up, while the artwork itself — box height, fit,
+   mask, overlay — is never touched. Legibility past ~0.35 is carried by the shared
+   banner's own left vignette (`.hero-overlay--apple`, up to 0.8 at the left edge),
+   which covers the title column at any height. */
 .details-hero {
-  --details-hero-lift: calc(var(--details-hero-h) * 0.4);
+  --details-hero-lift: calc(var(--details-hero-h) * 0.34);
 }
 
 /* One horizontal gutter for the whole watch page: the hero column and every

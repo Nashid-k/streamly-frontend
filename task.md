@@ -4383,5 +4383,13 @@ dead rows, and `milkyway` -> `meow` was an upstream server-list change, not our 
       art behind white type. The clearance guarantee is untouched — `padding-top`
       still floors at `max(--header-gap, --header-clearance + lift − --details-hero-h)`,
       so the back button can never land on the title (checked at 0.35: still clear).
+- [x] **Ratio lowered again (user: "reduce it even more update the ratio").**
+      `--details-hero-lift` **0.4 → 0.34** of the art height — still one ratio, still
+      no px: the column rides up another 6% of the picture (~49px at 1440×810,
+      ~13px on a 390 phone). Banner, fit, mask and overlay untouched; the aside
+      follows via `lift * 0.45`. Legibility above the old 40% mark is carried by the
+      shared banner's own left vignette (`.hero-overlay--apple`, `ellipse 70% 100% at
+      0% 50%`, 0.8 → 0.32 at 42%), which darkens the title column's side of the frame
+      at any height, so no extra scrim was added and the image was not altered.
 - [x] Gates: oxlint **0 errors** (2 baseline `NativePlayerView.jsx` unused-catch
       warnings), vitest **74 files / 917 passed**, build OK. No contract touched.
