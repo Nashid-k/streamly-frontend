@@ -62,10 +62,18 @@ import { downloadService } from "../api/downloadService";
    Centaurus leads because it is the only row with real multi-language audio AND
    verified bytes, which is why it is also `DEFAULT_SOURCE_KEY`.
 
+   Server 5 (VidRack) was removed on 2026-10-04 after being measured dead: every
+   ladder it published was AES-128 and the key host (`api.dlproxy.com`) answers
+   403 to us, so the honesty gate dropped every row and the source could only
+   ever report "no playable source". It also cost a 13-25s aggregate resolve and a
+   28s full-ladder budget on every failover, which is the stall this cut removes.
+   Its 4K claim came from `vidcore.io`, a DIFFERENT host that refuses Vercel
+   outright with a 403 from both iad1 and bom1 — unreachable server-side, so it
+   was never deliverable through this row either.
+
    The ONLY 4K in this catalogue was vidcore.io's own ladder, and vidcore.io
    refuses Vercel outright with a 403 from both iad1 and bom1, so that ladder is
-   unreachable server-side — the vidrack row's tag states its measured ceiling
-   instead of claiming 4K we cannot deliver. NetMirror (net27.cc) was removed: its
+   unreachable server-side. NetMirror (net27.cc) was removed: its
    video layer is per-IP 429-gated behind a Cloudflare challenge. CineSrc went with
    its Chrome mint service — no serverless function can mint fingerprint-bound
    tokens. */
@@ -98,18 +106,11 @@ export const PLAYER_SOURCES = [
   {
     key: "zxc-meow",
     label: "Server 4",
-    tag: "Original audio · up to 800p",
+    tag: "Original audio · up to 1080p",
     provider: "ZXC Ursa",
-    resolve: (a, o) => downloadService.resolveZxc({ ...a, server: "meow" }, o),
+resolve: (a, o) => downloadService.resolveZxc({ ...a, server: "meow" }, o),
   },
-  {
-    key: "vidcore",
-    label: "Server 5",
-    tag: "Multiple qualities · up to 1080p",
-    provider: "VidRack",
-    resolve: (a, o) => downloadService.resolveVidcore(a, o),
-  },
-  ];
+];
 
 export const DEFAULT_SOURCE_KEY = "zxc-centaurus";
 

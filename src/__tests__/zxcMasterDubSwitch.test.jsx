@@ -107,8 +107,7 @@ vi.mock("../api/downloadService", async (orig) => {
     downloadService: {
       ...actual.downloadService,
       resolve: zxc,
-resolveZxc: zxc,
-    resolveVidcore: zxc,
+      resolveZxc: zxc,
     },
   };
 });

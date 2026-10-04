@@ -118,18 +118,18 @@ describe("PreferencesProvider", () => {
     );
 
     expect(screen.getByTestId("server-order")).toHaveTextContent(
-      "Server 2 | Server 1 | Server 5",
+      "Server 2 | Server 1",
     );
     // The stored key is rewritten in place so the migration is idempotent.
     expect(localStorage.getItem("setting-serverOrder")).toBe(
-      JSON.stringify(["Server 2", "Server 1", "Server 5"]),
+      JSON.stringify(["Server 2", "Server 1"]),
     );
   });
 
   it("migrates a saved suffixed server order to the plain labels, position preserved", () => {
     localStorage.setItem(
       "setting-serverOrder",
-      JSON.stringify(["Server 5 (VidCore)", "Server 1"]),
+      JSON.stringify(["Server 2 (Fast)", "Server 1"]),
     );
 
     render(
@@ -139,16 +139,17 @@ describe("PreferencesProvider", () => {
     );
 
     expect(screen.getByTestId("server-order")).toHaveTextContent(
-      "Server 5 | Server 1",
+      "Server 2 | Server 1",
     );
     expect(localStorage.getItem("setting-serverOrder")).toBe(
-      JSON.stringify(["Server 5", "Server 1"]),
+      JSON.stringify(["Server 2", "Server 1"]),
     );
   });
 
-  /* VidSrc (Server 6) and NHD (Server 7) were removed 2026-10-03: both answer
-     {ok:false, code:"no-source"} on every title, so a returning visitor's saved
-     order must lose those rows instead of keeping dead entries in the menu. */
+  /* VidSrc (Server 6) and NHD (Server 7) were removed 2026-10-03, and VidRack
+     (Server 5) on 2026-10-04 (every ladder AES-128 behind a 403ing key host):
+     all answer nothing playable, so a returning visitor's saved order must lose
+     those rows instead of keeping dead entries in the menu. */
   it("drops retired servers from a saved order instead of listing dead rows", () => {
     localStorage.setItem(
       "setting-serverOrder",
@@ -161,9 +162,8 @@ describe("PreferencesProvider", () => {
       </PreferencesProvider>,
     );
 
-    expect(screen.getByTestId("server-order")).toHaveTextContent(
-      "Server 1 | Server 5",
-    );
+    expect(screen.getByTestId("server-order")).toHaveTextContent("Server 1");
+    expect(screen.getByTestId("server-order")).not.toHaveTextContent("Server 5");
     expect(screen.getByTestId("server-order")).not.toHaveTextContent("Server 6");
     expect(screen.getByTestId("server-order")).not.toHaveTextContent("Server 7");
   });
@@ -171,7 +171,7 @@ describe("PreferencesProvider", () => {
   it("falls back to the live default order when every saved row is retired", () => {
     localStorage.setItem(
       "setting-serverOrder",
-      JSON.stringify(["Server 6", "Server 7"]),
+      JSON.stringify(["Server 6", "Server 7", "Server 5"]),
     );
 
     render(
@@ -181,7 +181,7 @@ describe("PreferencesProvider", () => {
     );
 
     expect(screen.getByTestId("server-order")).toHaveTextContent(
-      "Server 1 | Server 2 | Server 3 | Server 4 | Server 5",
+      "Server 1 | Server 2 | Server 3 | Server 4",
     );
   });
 

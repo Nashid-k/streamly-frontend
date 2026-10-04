@@ -357,17 +357,17 @@ describe("player Servers menu", () => {
     // generic "Server N" (a viewer picks on capability, not on brand), and the
     // grey sub-line states the capability: a resolution ceiling, multi-audio, etc.
     // Server 1 is ZXC Centaurus — the only row with real multi-language audio —
-    // so "Multi audio" belongs on row 1 now, and the vidrack row sits at 5
-    // carrying its measured "up to 1080p" ceiling instead of a 4K claim.
-    // Five rows: VidSrc (6) and NHD (7) were removed 2026-10-03 as no-source.
+    // so "Multi audio" belongs on row 1. Four rows: VidSrc (6) and NHD (7) were
+    // removed 2026-10-03 as no-source, and VidRack (5) on 2026-10-04 as AES-128
+    // behind a key host that 403s us. All four survivors were re-measured live:
+    // Servers 1/2 serve fMP4 ladders, 3/4 serve single-rung MPEG-TS.
     const rows = [...dialog.querySelectorAll(".np-dialog-row")];
-    expect(rows.length).toBe(5);
+    expect(rows.length).toBe(4);
     const expected = [
       ["Server 1", "Multi audio"],
       ["Server 2", "Original audio"],
       ["Server 3", "Original audio"],
       ["Server 4", "Original audio"],
-      ["Server 5", "up to 1080p"],
     ];
     expected.forEach(([label, cap], i) => {
       expect(rows[i].textContent).toContain(label);

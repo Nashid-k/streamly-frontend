@@ -2573,66 +2573,6 @@ export default function NativePlayerView({
               }
             });
           setQualities(Array.from(byLabel.values()));
-          /* VIDRACK ladder upgrade (Server 1): the fast resolve often ships
-             vidzen's short ladder (800p ceiling) while the vidrack aggregate —
-             the 4K-capable multi-provider one — is still walking its upstreams
-             (13-25s server-side). `upgradeable` marks exactly that case, so a
-             background full-pass resolve swaps the quality rows in place when
-             it lands. Playback is NEVER interrupted: rows carry their own
-             absolute URIs, so picking one goes through the normal probe +
-             loadSource switch. Rows are marked `external` so pickQuality
-             skips the in-manifest level shortcut — the upgraded master is a
-             DIFFERENT playlist than the one hls.js currently holds. */
-          if (def.key === "vidcore" && resolved?.upgradeable && !stale()) {
-            def
-              .resolve(args, { signal: controller.signal, phase: "full" })
-              .then((up) => {
-                if (stale() || !up?.variants?.length || !up?.source?.url) return;
-                if (up.source.url === resolved.source?.url) return;
-                const upgradedByLabel = new Map();
-                up.variants
-                  .slice()
-                  .sort((a, b) => (a.height || 0) - (b.height || 0))
-                  .forEach((v) => {
-                    const label = qualityLabelFor(v);
-                    const prev = upgradedByLabel.get(label);
-                    if (
-                      !prev ||
-                      (v.height || 0) > (prev.height || 0) ||
-                      ((v.height || 0) === (prev.height || 0) && (v.bandwidth || 0) > (prev.bandwidth || 0))
-                    ) {
-                      upgradedByLabel.set(label, {
-                        uri: v.uri,
-                        height: v.height || 0,
-                        label,
-                        bandwidth: v.bandwidth || 0,
-                        external: true,
-                      });
-                    }
-                  });
-                // Merge, not replace: the current ladder's rows stay usable
-                // while their tokens live, and the viewer's active row never
-                // vanishes from under the highlight.
-                setQualities((prevRows) => {
-                  const merged = new Map(prevRows.map((q) => [q.label, q]));
-                  for (const q of upgradedByLabel.values()) merged.set(q.label, q);
-                  return Array.from(merged.values());
-                });
-                metaRef.current = {
-                  ...metaRef.current,
-                  refUrl: up.source?.refUrl || metaRef.current?.refUrl,
-                  upgradedVariants: up.variants,
-                };
-                say(
-                  `${def.label}: upgraded ladder available (` +
-                    Array.from(upgradedByLabel.values()).map((q) => q.label).join(", ") +
-                    ").",
-                );
-              })
-              .catch(() => {
-                // No upgrade is a fine outcome — the fast ladder plays on.
-              });
-          }
           // Publish this run's dub list â€” unless a dub pin carried over from
           // a DIFFERENT server (a Servers-menu switch): a stale index must not
           // auto-pin a dub on the new server (its attempt loop would re-open

@@ -8,18 +8,17 @@ import {
 import { DEFAULT_SOURCE_KEY } from "../constants/sources";
 
 /* The warm token is minted for whatever `DEFAULT_SOURCE_KEY` points at, which is
-   now `zxc-centaurus` (Server 1). The mock therefore has to answer resolveZxc —
+   now `zxc-centaurus` (Server 1). The mock therefore has to answer resolveZxc -
    and this suite asserts that coupling on purpose: the default used to be
-   hardcoded to "vidcore" in both warmResolve.js and its test, so moving the
+   hardcoded to a different key in both warmResolve.js and its test, so moving the
    default silently warmed a server the player would refuse. These tests fail if
    either side hardcodes a key again. */
-const { resolveZxcMock, resolveVidcoreMock } = vi.hoisted(() => ({
+const { resolveZxcMock } = vi.hoisted(() => ({
   resolveZxcMock: vi.fn(),
-  resolveVidcoreMock: vi.fn(),
 }));
 
 vi.mock("../api/downloadService", () => ({
-  downloadService: { resolveZxc: resolveZxcMock, resolveVidcore: resolveVidcoreMock },
+  downloadService: { resolveZxc: resolveZxcMock },
 }));
 
 const MOVIE_ARGS = { type: "movie", id: "550" };
@@ -41,7 +40,6 @@ describe("warmResolve", () => {
     );
     // And it is Server 1 that we actually warmed.
     expect(DEFAULT_SOURCE_KEY).toBe("zxc-centaurus");
-    expect(resolveVidcoreMock).not.toHaveBeenCalled();
   });
 
   it("resolves once and coalesces duplicate calls for the same title", () => {
