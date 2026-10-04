@@ -148,10 +148,12 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
             const pct = progressPct(item);
             const label = episodeLabel(item);
             const remaining = remainingLabel(item);
-            const art = CdnImageAdapter.getUrl(
-              item.backdropUrl || item.posterUrl || item.poster,
-              "w780",
-            );
+            const artPath = item.backdropUrl || item.posterUrl || item.poster;
+            // These cards are 240px (mobile) / 288px (md) wide, so the old flat
+            // w780 frame was ~3x the pixels the row actually shows. w500 plus a
+            // srcSet lets a retina window pick w780 and everyone else stop
+            // paying for it.
+            const art = CdnImageAdapter.getUrl(artPath, "w500");
             const watchTo = `/watch/${item.id}/${slugify(item.title || "watch", {
               lower: true,
               strict: true,
@@ -174,8 +176,11 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
                     <img
                       className="block w-full h-full object-cover transition-transform duration-500 group-hover/card:scale-105"
                       src={art}
+                      srcSet={CdnImageAdapter.getSrcSet(artPath, "card")}
+                      sizes="(max-width: 768px) 240px, 288px"
                       alt={item.title}
                       loading="lazy"
+                      decoding="async"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-zinc-900 text-zinc-600">

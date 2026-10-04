@@ -4537,19 +4537,30 @@ dead rows, and `milkyway` -> `meow` was an upstream server-list change, not our 
   - [x] `grids.css`: `.movie-card` kept `translateZ(0)` permanently, promoting
         ~180 cards to their own GPU layers. Rely on `will-change` during hover
         instead, or drop it.
-- [ ] **STAGE 3 - perceived latency**
-  - [ ] `Layout.jsx`: `AnimatePresence mode="wait"` holds a 180 ms exit before
-        the next route mounts, then the `<Loader />` fallback paints a
-        full-viewport spinner. Blank on every tab click.
-  - [ ] Add `placeholderData: (prev) => prev` to the genre/search/discovery/season
-        queries so a filter change stops flashing a skeleton over cached data.
-  - [ ] `TitleInfoModal.jsx`: reads `['infoModal', id]` but `prefetchAdapter`
-        warms `['movie', id]` / `['externalIds', ...]`, so quick-info always
-        refetches. Point the modal at the keys the hover prefetch writes.
-  - [ ] `index.html`: drop `crossorigin` from the wsrv.nl preconnect; the poster
-        requests are no-CORS, so the preconnected socket is never reused.
-  - [ ] Right-size images: `ContinueWatchingRail` requests `w780` for 240-288 px
-        cards, `LeavingSoonBanner` requests `w1280` for a short decorative strip.
+- [x] **STAGE 3 - perceived latency**
+  - [x] `Layout.jsx`: `AnimatePresence mode="wait"` held a 180 ms exit before
+        the next route mounted, so every tab click opened with a dead 180 ms
+        hold on the old page. Now the default sync mode — the new page mounts
+        immediately and the old one cross-fades out under it. The route
+        `Suspense` fallback also stopped being a `100dvh` box (it blanked the
+        content area and shoved the footer a screen down); the page variant of
+        `Loader` is 55dvh now.
+  - [x] `TitleInfoModal.jsx`: reads `["movie", id]` / `["similar", id]` — the
+        keys `prefetchAdapter` actually warms on hover — instead of its own
+        `["infoModal", …]`, which could never be reused. Quick-info opens from
+        cache now, and the full page is warm if it is opened next.
+  - [x] `placeholderData: (previous) => previous` on the four re-keying queries
+        (`genre-search`, `search`, `discover`, `episodes`): a genre switch, a
+        keystroke, a filter pill or a season change no longer replaces a
+        settled list with a skeleton.
+  - [x] `index.html`: dropped `crossorigin` from the wsrv.nl preconnect. It
+        opened a CORS-enabled socket that no-CORS `<img>` requests could never
+        reuse, so every image paid an extra TCP+TLS handshake.
+  - [x] Right-sized two over-fetching images: `ContinueWatchingRail` 240/288 px
+        cards were served a flat `w780` (now `w500` + a card `srcSet`), and
+        `LeavingSoonBanner` pushed a 1280 px banner frame into a 56x32 box
+        (now `w154`, through `CdnImageAdapter`).
+  - [x] Gates: oxlint 0 errors, vitest 74 files / 921 passed, build OK.
 - [ ] **STAGE 4 - motion language**
   - [ ] `NativePlayerView.jsx`: nested `<MotionConfig reducedMotion="user">`
         overrides the app-level setting, so Reduce Motion is a no-op on the

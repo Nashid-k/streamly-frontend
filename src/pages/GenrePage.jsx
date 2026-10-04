@@ -22,6 +22,10 @@ export default function GenrePage() {
     queryKey: ["genre-search", genre],
     queryFn: () => movieService.searchMovies(genre),
     enabled: !!genre,
+    // Keep the previous genre's grid on screen while the next one resolves;
+    // without this every genre switch threw the list away for a skeleton even
+    // when the new key was already cached.
+    placeholderData: (previous) => previous,
   });
 
   useEffect(() => {

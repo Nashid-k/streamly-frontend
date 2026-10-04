@@ -2,6 +2,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import { AlertTriangle, Clock } from "lucide-react";
 import useDetailView from "../hooks/useDetailView";
+import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import { useI18n } from "../i18n/index.jsx";
 
 
@@ -65,21 +66,27 @@ export default function LeavingSoonBanner({ items = [], maxDisplay = 3 }) {
               cursor: "pointer", transition: "background 0.2s",
             }}
           >
-            {/* Thumbnail */}
-            {(item.backdropUrl || item.posterUrl) && (
-              <div style={{
-                width: "56px", height: "32px", borderRadius: "4px", flexShrink: 0,
-                overflow: "hidden", background: "#18181b",
-              }}>
-                <img
-                  src={item.backdropUrl || item.posterUrl}
-                  alt=""
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                  loading="lazy"
-                  onError={e => { e.target.style.display = "none"; }}
-                />
-              </div>
-            )}
+            {/* Thumbnail. The raw backdropUrl is a full w1280 banner frame for a
+                56x32 box, and it competed with the hero image for bandwidth on
+                first paint — w154 is the smallest rung that still covers 2x. */}
+            {(() => {
+              const thumbPath = item.backdropUrl || item.posterUrl;
+              return thumbPath ? (
+                <div style={{
+                  width: "56px", height: "32px", borderRadius: "4px", flexShrink: 0,
+                  overflow: "hidden", background: "#18181b",
+                }}>
+                  <img
+                    src={CdnImageAdapter.getUrl(thumbPath, "w154")}
+                    alt=""
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    loading="lazy"
+                    decoding="async"
+                    onError={e => { e.target.style.display = "none"; }}
+                  />
+                </div>
+              ) : null;
+            })()}
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{
                 fontSize: "0.82rem", fontWeight: 600, color: "#e4e4e7",

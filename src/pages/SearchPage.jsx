@@ -85,6 +85,9 @@ export default function SearchPage() {
     queryKey: ["search", query],
     queryFn: ({ signal }) => movieService.searchMovies(query, { signal }),
     enabled: !!query.trim(),
+    // Typing a new term keeps the last results visible until the new ones land
+    // instead of flashing a skeleton between keystrokes.
+    placeholderData: (previous) => previous,
   });
 
   useEffect(() => {

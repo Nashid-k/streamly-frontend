@@ -398,6 +398,9 @@ export default function TitleDetails() {
     // 24h cache matches. Aired-state still filters client-side per render.
     staleTime: 1000 * 60 * 60 * 24,
     refetchOnWindowFocus: false,
+    // Switching seasons keeps the current episode grid on screen instead of
+    // collapsing it to a spinner for the length of the request.
+    placeholderData: (previous) => previous,
   });
 
   useEffect(() => {

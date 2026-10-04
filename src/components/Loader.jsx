@@ -171,7 +171,12 @@ export default function Loader({ variant = "page", size, color }) {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        minHeight: variant === "page" ? "100dvh" : "auto",
+        // Content-area height, not 100dvh: as a route Suspense fallback this
+        // sits inside .app-main, where a full-viewport box blanks the page,
+        // drops the footer a screen down and reads as a reload. 55dvh keeps the
+        // spinner centred in the content well while the header/footer hold
+        // their place.
+        minHeight: variant === "page" ? "55dvh" : "auto",
         width: "100%",
         padding: variant === "inline" ? "2rem" : "0",
         gap: "1.25rem",

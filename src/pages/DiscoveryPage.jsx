@@ -298,6 +298,10 @@ export default function DiscoveryPage({ mode = "movies" }) {
     staleTime: 1000 * 60 * 5,
     retry: false,
     refetchOnWindowFocus: false,
+    // Changing a filter pill re-keys the whole grid. Without this the results
+    // were thrown away for a full-page skeleton on every tap; now the previous
+    // page stays up until the new filter's first response arrives.
+    placeholderData: (previous) => previous,
   });
 
     // ── Top editorial rail — movies: upcoming; series: new seasons airing ───

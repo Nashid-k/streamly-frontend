@@ -55,9 +55,13 @@ export default function TitleInfoModal({ movie, onClose, onSelectMovie }) {
   );
 
   /* Live details (tagline, runtime, seasons, genres, cast) — the summary
-     object from the card/banner renders instantly, then this enriches it. */
+     object from the card/banner renders instantly, then this enriches it.
+     Deliberately the SAME query keys the details page and the hover prefetcher
+     use (prefetchAdapter warms ["movie", id] / ["similar", id]). The modal used
+     to read its own ["infoModal", …] keys, so a hovered card's prefetch could
+     never be reused and every quick-info open paid a full network round trip. */
   const { data: detail, isError } = useQuery({
-    queryKey: ["infoModal", movie?.id],
+    queryKey: ["movie", movie?.id],
     queryFn: () => movieService.getMovieDetails(movie.id),
     enabled: Boolean(movie?.id),
     staleTime: 1000 * 60 * 10,
@@ -65,7 +69,7 @@ export default function TitleInfoModal({ movie, onClose, onSelectMovie }) {
   });
 
   const { data: similarData } = useQuery({
-    queryKey: ["infoModalSimilar", movie?.id],
+    queryKey: ["similar", movie?.id],
     queryFn: () => movieService.getSimilarMovies(movie.id),
     enabled: Boolean(movie?.id),
     staleTime: 1000 * 60 * 10,
