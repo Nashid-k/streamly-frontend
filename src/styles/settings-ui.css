@@ -357,14 +357,16 @@ html:not([data-theme]) .segment-btn.segment-active {
   inset: -10px;
 }
 
+/* The switch is a <button>, so it wears the app's white button surface: ON is a
+   solid white track with a dark knob (a white knob on white would vanish). It used
+   to be green — and theme-driven, so every accent theme re-tinted it. */
 .toggle.toggle-on {
-  background: #3f8a1d;
-  border-color: #3f8a1d;
+  background: var(--btn-bg-hover, #ffffff);
+  border-color: transparent;
 }
 
-html[data-theme]:not([data-theme=default]) .toggle.toggle-on {
-  background: var(--theme-global-accentA, var(--accent-primary));
-  border-color: var(--theme-global-accentA, var(--accent-primary));
+.toggle.toggle-on .toggle-dot {
+  background: #050505;
 }
 
 .toggle-dot {
@@ -382,7 +384,7 @@ html[data-theme]:not([data-theme=default]) .toggle.toggle-on {
 
 .toggle.toggle-on .toggle-dot {
   transform: translate(20px);
-  background: #fff;
+  background: #050505;
 }
 
 /* ── Theme Swatches ── */

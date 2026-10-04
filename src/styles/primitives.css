@@ -152,17 +152,20 @@
 .chip:active {
   transform: scale(0.97);
 }
+/* Selected chip = the same white button surface as every other CTA (tokens in
+   tokens.css). It used to be the accent gradient, which left the filter rows as
+   the app's last green buttons. */
 .chip--active {
-  background: var(--accent-gradient);
+  background: var(--btn-bg, rgba(242, 242, 242, 0.96));
   border-color: transparent;
-  color: var(--on-accent, #fff);
+  color: var(--btn-ink, #000000);
   font-weight: 600;
-  box-shadow: 0 4px 18px var(--accent-glow, rgba(149, 255, 80, 0.35)), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 .chip--active:hover,
 .chip--active:focus-visible {
-  background: var(--accent-gradient);
-  color: var(--on-accent, #fff);
+  background: var(--btn-bg-hover, #ffffff);
+  color: var(--btn-ink, #000000);
 }
 
 /* Ratings refresh — ghost icon button beside the badges */

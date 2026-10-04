@@ -122,8 +122,8 @@ export default class ErrorBoundary extends React.Component {
                 window.location.href = "/";
               }}
               style={{
-                background: "var(--accent-gradient, #e50914)",
-                color: "var(--on-accent, white)",
+                background: "var(--btn-bg, rgba(242,242,242,0.96))",
+                color: "var(--btn-ink, #000000)",
                 border: "none",
                 padding: "0.8rem 1.5rem",
                 borderRadius: "8px",

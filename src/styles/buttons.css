@@ -43,16 +43,17 @@
 .btn:hover::after { opacity: 1; }
 
 /* ── Primary Button (Play, Watch Trailer) ── */
-/* Cinejoy `.theme-btn-primary`: solid white pill, black text */
+/* Cinejoy `.theme-btn-primary`: solid white pill, black text — the app-wide
+   button surface (--btn-*), never the accent gradient. */
 .btn-primary {
-  background: rgba(242, 242, 242, 0.96);
-  color: #000000;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  background: var(--btn-bg, rgba(242, 242, 242, 0.96));
+  color: var(--btn-ink, #000000);
+  box-shadow: var(--btn-shadow, 0 8px 24px rgba(0, 0, 0, 0.4));
 }
 .btn-primary:hover {
   transform: translateY(-3px) scale(1.03);
-  background: #ffffff;
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.5);
+  background: var(--btn-bg-hover, #ffffff);
+  box-shadow: var(--btn-shadow-hover, 0 14px 36px rgba(0, 0, 0, 0.5));
 }
 .btn-primary:active {
   transform: translateY(1px) scale(0.97);
@@ -131,14 +132,15 @@
 /* ── CTA Pulse Animation ──
    box-shadow keyframes are per-frame paint; moved to a compositor-only
    opacity/scale ring. (Legacy .btn-cta-pulse class kept for API stability,
-   now a static drop-shadow so nothing loops paint.) */
+   now a static drop-shadow so nothing loops paint.) The ring is neutral, not
+   accent — a green halo around a white button read as a leftover brand chip. */
 .btn-cta-pulse {
-  box-shadow: 0 8px 24px var(--accent-glow, rgba(225, 29, 72, 0.3)),
-    0 0 0 0 rgba(var(--accent-primary-rgb), 0);
+  box-shadow: 0 8px 24px rgba(255, 255, 255, 0.12),
+    0 0 0 0 rgba(255, 255, 255, 0);
 }
 .btn-cta-pulse:hover {
-  box-shadow: 0 12px 32px var(--accent-glow, rgba(225, 29, 72, 0.45)),
-    0 0 0 8px rgba(var(--accent-primary-rgb), 0);
+  box-shadow: 0 12px 32px rgba(255, 255, 255, 0.2),
+    0 0 0 8px rgba(255, 255, 255, 0);
 }
 
 /* ── Countdown badge "imminent" pulse ring ── */

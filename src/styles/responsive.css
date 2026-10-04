@@ -242,8 +242,10 @@
     margin-bottom: 0.5rem;
   }
   .btn-primary {
-    background: var(--accent-gradient, linear-gradient(135deg, #95ff50, #4bc915, #2f9908)) !important;
-    box-shadow: 0 6px 20px var(--accent-glow, rgba(225, 29, 72, 0.45)) !important;
+    /* Full-width on mobile, but still the white surface — this override used to
+       repaint it with the accent gradient, which was the last green button. */
+    background: var(--btn-bg, rgba(242, 242, 242, 0.96)) !important;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4) !important;
     border: none !important;
   }
   .btn-primary:hover {

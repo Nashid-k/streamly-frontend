@@ -82,7 +82,7 @@ export default function BackToTop() {
             background: "rgba(255,255,255,0.10)",
             backdropFilter: "blur(20px) saturate(150%)",
             WebkitBackdropFilter: "blur(20px) saturate(150%)",
-            border: "2px solid #95ff50",
+            border: "1px solid rgba(255,255,255,0.2)",
             color: "#fff",
             display: "flex",
             alignItems: "center",

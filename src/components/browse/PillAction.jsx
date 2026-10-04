@@ -1,8 +1,11 @@
 /* ── Pill chrome shared across the browse-style actions ─────────────────── */
 export const GHOST_PILL =
   "inline-flex items-center gap-2 px-4 md:px-5 py-2 md:py-2.5 rounded-full border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition-all duration-300 text-sm font-medium backdrop-blur-md whitespace-nowrap";
+/* Accent/active pills are the same white glass as the ghost pill (Cinejoy
+   `.theme-btn-secondary`) — they used to be a green-tinted pill, the last green
+   button in the browse toolbars. Weight alone now separates active from idle. */
 export const ACCENT_PILL =
-  "inline-flex items-center gap-2 px-4 md:px-5 py-2 md:py-2.5 rounded-full border border-[#95ff50]/40 bg-[#95ff50]/10 text-[#95ff50] hover:bg-[#95ff50]/20 transition-all duration-300 text-sm font-semibold backdrop-blur-md whitespace-nowrap";
+  "inline-flex items-center gap-2 px-4 md:px-5 py-2 md:py-2.5 rounded-full border border-white/20 bg-white/10 text-white hover:bg-white/20 transition-all duration-300 text-sm font-semibold backdrop-blur-md whitespace-nowrap";
 
 /* ── Action button styled as a discovery pill ───────────────────────────── */
 function PillAction({ accent, onClick, children, ariaLabel, active }) {

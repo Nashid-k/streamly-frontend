@@ -4391,5 +4391,35 @@ dead rows, and `milkyway` -> `meow` was an upstream server-list change, not our 
       shared banner's own left vignette (`.hero-overlay--apple`, `ellipse 70% 100% at
       0% 50%`, 0.8 → 0.32 at 42%), which darkens the title column's side of the frame
       at any height, so no extra scrim was added and the image was not altered.
+- [x] **Every button is WHITE now, not green (user: "change the btns from green to
+      white in everywhere").** The accent stayed for what it is good at — text,
+      section ticks, hero/search dot fillers, progress bars, focus rings, badges,
+      loaders, the theme system — but every *filled button* now wears ONE shared
+      surface, tokenised in `src/styles/tokens.css` as `--btn-bg` /
+      `--btn-bg-hover` / `--btn-ink` / `--btn-shadow` / `--btn-shadow-hover`
+      (the home banner Play pill's `rgba(242,242,242,.96)` + black text):
+      - `.btn-primary` (`buttons.css`) re-pointed at the tokens; its **mobile
+        override in `responsive.css` was repainting it with the accent gradient**
+        — that was the last green CTA on phones, now white.
+      - `.chip--active` (`primitives.css`) and `.filter-group .chip--active`
+        (`search.css`) — the filter rows were solid green pills, now the same white
+        chip; `.search-panel__clear:hover` and `.search-chippill:hover` lost their
+        green tints.
+      - `.btn-cta-pulse` no longer paints an accent glow/ring (a green halo around
+        a white button read as a leftover brand chip).
+      - `.title-info-play` (`modals.css`) and the details page's inline buttons —
+        Play/Resume, the not-found "Go Home", and the in-list `Check` glyph — plus
+        `ErrorBoundary`'s "Return to Home".
+      - The settings `Toggle` is a `<button>`, so ON is now a solid white track
+        with a **dark** knob (a white knob on a white track would vanish); its
+        theme-driven green override is gone.
+      - `PillAction`'s `ACCENT_PILL` (green hairline + green text) is now the same
+        white glass as its ghost sibling — weight alone marks it active.
+      - `BackToTop`'s hardcoded `2px solid #95ff50` ring is a white hairline.
+      Not touched (not buttons): accent text/eyebrows, `.section-title` ticks,
+      `.dot-filler` progress, watch-progress bars, the "Playing" badge, the
+      `.head-menu-avatar--initial`, `Loader`/spinner rings, and the emerald/
+      amethyst/ocean/crimson/solar/custom theme accents — say the word if any of
+      those should follow the buttons to white.
 - [x] Gates: oxlint **0 errors** (2 baseline `NativePlayerView.jsx` unused-catch
       warnings), vitest **74 files / 917 passed**, build OK. No contract touched.

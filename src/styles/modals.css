@@ -612,12 +612,12 @@
   font-weight: 800;
   font-size: 0.92rem;
   font-family: inherit;
-  background: var(--accent-gradient, linear-gradient(135deg, #95ff50, #5ce21c));
-  color: var(--on-accent, #ffffff);
-  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.4), 0 3px 14px var(--accent-glow, rgba(0, 0, 0, 0.2));
-  transition: filter 0.2s ease, transform 0.2s ease;
+  background: var(--btn-bg, rgba(242, 242, 242, 0.96));
+  color: var(--btn-ink, #000000);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.4), 0 3px 14px rgba(0, 0, 0, 0.2);
+  transition: background 0.2s ease, transform 0.2s ease;
 }
-.title-info-play:hover { filter: brightness(1.08) saturate(1.05); transform: translateY(-1px); }
+.title-info-play:hover { background: var(--btn-bg-hover, #ffffff); transform: translateY(-1px); }
 .title-info-play:active { transform: translateY(0); }
 .title-info-list {
   display: inline-flex;

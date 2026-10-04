@@ -694,9 +694,9 @@ export default function TitleDetails() {
             whileTap={{ scale: 0.95 }}
             onClick={() => navigate("/")}
             style={{
-              background: "var(--accent-gradient)",
+              background: "var(--btn-bg, rgba(242,242,242,0.96))",
               border: "none",
-              color: "#fff",
+              color: "var(--btn-ink, #000000)",
               padding: "10px 24px",
               borderRadius: "10px",
               fontSize: "0.9rem",
@@ -958,7 +958,7 @@ export default function TitleDetails() {
                   updateProgress(movie, isTvContent ? selectedSeason : null, isTvContent ? episodeToPlay : null, 0);
                 }}
                 className="relative rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 font-bold tracking-wide h-[44px] px-6 py-3 text-base min-w-[120px] border-none hover:scale-105 shadow-xl shadow-black/10"
-                style={{ background: "var(--accent-gradient)", color: "var(--on-accent, #fff)", boxShadow: "0 8px 24px var(--accent-glow, rgba(149,255,80,0.5))" }}
+                style={{ background: "var(--btn-bg, rgba(242,242,242,0.96))", color: "var(--btn-ink, #000000)", boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
               >
                 <Play className="w-5 h-5 mr-1.5 fill-current" /> {hasResume ? "Resume" : "Play"}
               </button>
@@ -982,7 +982,7 @@ export default function TitleDetails() {
                     title={isInList(movie.id) ? "Remove from My List" : "Add to My List"}
                   >
                     {isInList(movie.id) ? (
-                      <Check size={20} color="#95ff50" />
+                      <Check size={20} />
                     ) : (
                       <Plus size={20} />
                     )}
