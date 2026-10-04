@@ -195,22 +195,22 @@
    The fixed header island (back button + brand mark) floats over the top of
    every page, and this hero deliberately runs its artwork behind it.
 
-   Two rules do the work:
+   Two rules do the work, and NEITHER of them is a ratio of the image any more:
 
-   1. `--details-hero-h` is the REAL height of the art box, and the content
-      column's lift is a RATIO of it — so the title always lands at the same
-      spot in the picture (~56% down) whatever the window does.
-   2. The content column is then re-padded by exactly as much as the lift would
-      otherwise eat into the header band:
+   1. `--details-hero-h` is the REAL height of the art box.
+   2. `--details-hero-lift: --details-hero-h − --header-clearance`, so the column
+      is pulled up by everything the artwork has BELOW the header line. Combined
+      with `padding-top: --details-hero-drop` (= `--header-gap`) the top of the
+      title lands on `clearance + gap` at every viewport and art height:
 
-      padding-top = max(--header-gap,
-                        --header-clearance + lift - hero-height)
+        art_h − (art_h − clearance) + drop = clearance + drop
 
-      Tall window  → the second term goes negative, so the title keeps a plain
-                     `--header-gap` of air under the island (unchanged look).
-      Short window → the term stays positive and pushes the title back BELOW the
-                     island. The back button can never end up sitting on the
-                     title, at any viewport, with no hardcoded pixel offset. */
+      That is the whole point — the gap between the back button and the title is
+      a HEADER measurement, so it is identical on a 390px phone and a 2560px
+      monitor. When the lift was a share of the image the title fell to 75% of
+      the picture on a wide screen (a ~540px empty band under the back button),
+      and lowering that share only pushed it further down. Nothing about the
+      artwork — box height, fit, mask, overlay — depends on this any more. */
 .details-hero {
   /* Poster fallback (no landscape art to fit): a plain viewport-tall band. */
   --details-hero-h: clamp(22rem, 72vh, 46rem);
@@ -225,17 +225,22 @@
   --details-hero-h: calc(100vw / var(--details-hero-aspect));
 }
 
-/* Lift = a share of the actual art height, so the overlap scales with the picture
-   instead of drifting with the viewport. The ratio is the only knob: lower it and
-   the whole content column (title art, meta, actions, and the info aside, which
-   hangs off the same lift) rides up, while the artwork itself — box height, fit,
-   mask, overlay — is never touched. 0.28 starts the buttons a little over a
-   quarter of the way down the picture; legibility above it is carried by the
-   shared banner's own left vignette (`.hero-overlay--apple`, up to 0.8 at the left
-   edge), and the clearance floor in `.details-hero__body` still keeps the title
-   clear of the back button at any ratio down to ~0.19. */
+/* Where the content column starts is a HEADER question, not an artwork one.
+   The lift used to be a ratio of the image, which put the top of the title at 75%
+   of the picture on a wide screen — a ~540px empty band between the back button
+   and the title ("the whole banner shows, the content is at the bottom"). So the
+   lift is now derived from the header clearance: the column starts exactly one
+   `--header-gap` below the clearance line at EVERY viewport and art height, and
+   the artwork itself (box height, fit, mask, overlay) is never touched. Algebra
+   in `.details-hero__body`: art_h − (art_h − clearance) + drop = clearance + drop.
+   Self-correcting: if an art box were ever shorter than the clearance, the lift
+   simply goes negative and the padding-top floor keeps the title clear. */
 .details-hero {
-  --details-hero-lift: calc(var(--details-hero-h) * 0.28);
+  --details-hero-drop: var(--header-gap);
+  --details-hero-lift: calc(var(--details-hero-h) - var(--header-clearance));
+  /* Title art cap, shared with the aside's optical offset below so the two can
+     never disagree about how tall the identity block is. */
+  --details-hero-logo-h: 5rem;
 }
 
 /* One horizontal gutter for the whole watch page: the hero column and every
@@ -268,10 +273,9 @@
   position: relative;
   z-index: 20;
   margin-top: calc(-1 * var(--details-hero-lift));
-  padding-top: max(
-    var(--header-gap),
-    calc(var(--header-clearance) + var(--details-hero-lift) - var(--details-hero-h))
-  );
+  /* The clearance is already inside the lift; this is the visible breathing gap
+     between the header island and the top of the title. */
+  padding-top: max(var(--header-gap), var(--details-hero-drop));
   /* Vertical rhythm of the content column: ONE fluid step, applied by class.
      The column used to carry seven hand-tuned margins (6/12/16/18/20/24px, plus a
      `lg:` twin of most of them), which is why the rows drifted apart and the
@@ -292,7 +296,7 @@
    the same caps the old `max-h-20 lg:max-h-36 max-w-[75%] lg:max-w-[500px]`
    declared, so nothing about it shrinks on a short window. */
 .details-hero__logo {
-  max-height: 5rem;
+  max-height: var(--details-hero-logo-h);
   max-width: min(75%, 31.25rem);
   width: auto;
   object-fit: contain;
@@ -303,15 +307,20 @@
   line-height: 1.1;
 }
 
-/* Desktop info column: it hangs off the same lift as the title block, so the
-   two stay optically level on a tall window AND on a short one. */
+/* Desktop info column: it starts level with the title block and drops by half the
+   title art's cap, so the two stay optically aligned at any logo size (it used to
+   hang off a share of the image-height lift, which is now a header-derived number
+   and would have thrown the card hundreds of pixels down the page). */
 .details-hero__aside {
-  margin-top: calc(var(--details-hero-lift) * 0.45);
+  margin-top: calc(var(--details-hero-logo-h) * 0.5);
 }
 
 @media (min-width: 1024px) {
   .details-hero:not(.details-hero--fit) {
     --details-hero-h: clamp(34rem, 78vh, 60rem);
+  }
+  .details-hero {
+    --details-hero-logo-h: 9rem;
   }
   .details-hero__body {
     display: flex;
@@ -320,7 +329,6 @@
     gap: var(--spacing-xl);
   }
   .details-hero__logo {
-    max-height: 9rem;
     max-width: min(100%, 31.25rem);
   }
 }

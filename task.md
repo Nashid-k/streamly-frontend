@@ -4438,5 +4438,31 @@ dead rows, and `milkyway` -> `meow` was an upstream server-list change, not our 
     per-breakpoint value left to drift.
   - Artwork, fit, mask and overlay untouched; the clearance floor still keeps the
     title off the back button (verified down to a 0.19 ratio).
+- [x] **Root cause of "too much gap from the navbar/back btn, the contents are at the
+      bottom" — the lift ratio was the wrong knob, and it was pointing the wrong
+      way.** The column's top is `art_h − lift + padding_top`, so a lift expressed
+      as a *share of the image* put the title at `1 − ratio` of the picture:
+      0.45 → 55% down, then 0.4 → 60%, 0.34 → 66%, 0.28 → **75%**. Every
+      "reduce the ratio" request therefore pushed the title FURTHER from the header
+      — on a 1440×810 art box that is a ~540px empty band between the back button
+      and the title, which is exactly the reported symptom.
+  - The gap between the header island and the content is a **header** measurement,
+    so it is now derived from the header tokens alone:
+    `--details-hero-lift: calc(var(--details-hero-h) - var(--header-clearance))`
+    with `padding-top: max(--header-gap, --details-hero-drop)` and
+    `--details-hero-drop: var(--header-gap)`. Algebra:
+    `art_h − (art_h − clearance) + drop = clearance + drop` → the title starts at
+    `--header-clearance + --header-gap` (~88px: one gap under the 56px island) at
+    EVERY viewport and art height, 390px phone to 2560px monitor, both the fit and
+    the poster path. No ratio, no hardcoded offset, and the guarantee is now
+    structural (it also self-corrects: an art box shorter than the clearance makes
+    the lift negative and the padding floor takes over).
+  - `.details-hero__aside` hung off `lift * 0.45` and would have been thrown
+    hundreds of pixels down the page by the new lift, so it now takes its optical
+    offset from a shared `--details-hero-logo-h` token (`5rem`, `9rem` ≥1024px) —
+    the same token that caps `.details-hero__logo`, so the aside and the title can
+    never disagree about the identity block's height.
+  - Artwork untouched throughout: box height, device-width fit, `.hero-bg` mask,
+    `.hero-overlay--apple`, the vertical rhythm tokens and every button.
 - [x] Gates: oxlint **0 errors** (2 baseline `NativePlayerView.jsx` unused-catch
       warnings), vitest **74 files / 917 passed**, build OK. No contract touched.
