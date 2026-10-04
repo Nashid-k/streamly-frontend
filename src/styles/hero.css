@@ -23,9 +23,9 @@
   height: 100%;
   object-fit: cover;
   object-position: center 20%;
-  /* Exact same mask as the watch/details page hero: image fully fades to
-     transparent well before the bottom, so the banner's bottom edge is
-     completely gone and only the ambient gradient shows through. */
+  /* The watch/details page banner uses THIS class (not a copy of it), so both
+     banners fade identically: the image is fully gone well before the bottom
+     and only the ambient gradient shows through. */
   -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 98%);
   mask-image: linear-gradient(to bottom, black 40%, transparent 98%);
 }
@@ -141,11 +141,10 @@
   }
 }
 
-/* ── Apple-variant overlay — exactly the watch/details page gradient ──
-   Reuses the identical watch-hero-gradient stack (opaque #050505 bottom,
-   same left/right vignettes). Paired with the hero image mask, this makes
-   the banner melt seamlessly into the AmbientBackground below — the exact
-   approach the movie details/watch page uses. */
+/* ── Apple-variant overlay — the single banner gradient stack ──
+    The watch/details page renders this same class, so both banners melt
+    seamlessly into the AmbientBackground below — identical approach, one
+    definition. */
 .hero-overlay--apple {
   position: absolute;
   inset: 0;
@@ -154,10 +153,9 @@
     radial-gradient(ellipse 70% 100% at 0% 50%, rgba(5,5,5,0.8) 0%, rgba(5,5,5,0.32) 42%, transparent 72%),
     radial-gradient(ellipse 38% 100% at 100% 50%, rgba(5,5,5,0.42) 0%, transparent 62%);
   /* Fade the overlay out with the image (same mask as .hero-bg, exactly like
-     the watch/details page where the mask wraps image + gradient together).
-     This removes the opaque bottom band that was creating the visible
-     "banner image bottom" line — image and gradient now melt into the
-     ambient together. */
+     the watch/details banner, which reuses both classes). This removes the
+     opaque bottom band that was creating the visible "banner image bottom"
+     line — image and gradient melt into the ambient together. */
   -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 98%);
   mask-image: linear-gradient(to bottom, black 40%, transparent 98%);
 }

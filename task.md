@@ -4343,5 +4343,30 @@ dead rows, and `milkyway` -> `meow` was an upstream server-list change, not our 
       global `.app-container::after` top scrim is shallower — 92px at 0.55
       instead of 110px at 0.75 — because it only has to carry the ~56px header
       island, and it was dimming the top of every hero artwork.
-- [x] Gates: oxlint **0 errors**, vitest **74 files / 917 passed**, build OK.
-      No contract touched (`normalizeResult`, query keys, localStorage, routes).
+- [x] **Follow-up: the watch banner now wears the HOME banner's treatment verbatim
+      (user: "instead this show the same blurrness and style as that of banner
+      image in home which will make our app more consistant").** The watch page had
+      forked the look into its own parts, so the two banners could never actually
+      match. Now there is ONE definition of each, reused by both pages:
+      - the blurred backdrop layer is the shared `AmbientBackground` component
+        (`src/components/AmbientBackground.jsx`) instead of a hand-rolled copy in
+        `TitleDetailsPage.jsx` — identical `blur-[80px] scale-[1.2] opacity-50`
+        wash, the screen-blended top glow, the `.ambient-liquid` blobs and
+        `.ambient-sky` (all of which the local copy was MISSING), plus it loads
+        the `w342` rendition instead of a full-4K frame under an 80px blur;
+      - the artwork is home's own `.hero-bg` (fit + `black 40% → transparent 98%`
+        mask) and the wash is home's own `.hero-overlay.hero-overlay--apple`
+        gradient/vignette stack, so image and gradient melt into the ambient
+        together, exactly like the home banner;
+      - the bespoke `.details-hero__scrim` / `--side` rules and the `--fit`
+        mask override are GONE, along with the now-unused
+        `--details-hero-visible` token, and `hero.css` comments were corrected
+        (they claimed the watch page copied the mask; it now renders the class).
+      Fit mode still holds: the box is sized from the artwork's own shape at
+      device width (`calc(100vw / 1.778)`), so home's `cover` is an *exact* fit —
+      whole frame, full width, no zoom, no crop, no bars — and the
+      `contain`/`object-position` rule is only the odd-aspect fallback. The
+      home `<=768px` `.hero-bg` rule (`cover`, `center top`, brightness .88)
+      now applies to both banners, so mobile framing matches too.
+- [x] Gates: oxlint **0 errors** (2 baseline `NativePlayerView.jsx` unused-catch
+      warnings), vitest **74 files / 917 passed**, build OK. No contract touched.

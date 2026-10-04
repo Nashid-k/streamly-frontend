@@ -1,4 +1,5 @@
 import SEO from "../components/SEO";
+import AmbientBackground from "../components/AmbientBackground";
 import MovieDetailsSkeleton from "../components/MovieDetailsSkeleton";
 import CastRail from "../components/CastRail";
 import RailArrow from "../components/RailArrow";
@@ -832,26 +833,12 @@ export default function TitleDetails() {
         type="video.movie"
       />
 
-      {/* ── Ambient Background ─────────────────────────────────────────────── */}
-      <div className="fixed inset-0 w-full h-full z-0 pointer-events-none bg-[#050505]" style={{ contain: "strict", willChange: "transform" }}>
-        <div className="absolute inset-0 w-full h-full">
-          <img
-            className="w-full h-full object-cover scale-[1.2] blur-[80px] saturate-100 opacity-50"
-            alt=""
-            src={backdropOptimized || movie.posterUrl}
-          />
-          <div className="absolute top-0 left-0 w-full h-[40vh] mix-blend-screen opacity-20 hidden lg:block">
-            <img
-              className="w-full h-full object-cover scale-[1.2] blur-[50px] saturate-100"
-              alt=""
-              loading="lazy"
-              decoding="async"
-              style={{ maskImage: "linear-gradient(to bottom, black 0%, transparent 100%)", WebkitMaskImage: "linear-gradient(to bottom, black 0%, transparent 100%)" }}
-              src={backdropOptimized || movie.posterUrl}
-            />
-          </div>
-        </div>
-      </div>
+      {/* ── Ambient Background ───────────────────────────────────────────────
+          The SAME component the home banner uses — one definition of the
+          blurred backdrop + gradient wash, so the watch page can never drift
+          from the home page's look. It also renders the liquid blobs and the
+          ambient sky, which the previous hand-rolled copy here was missing. */}
+      <AmbientBackground src={movie.backdropUrl || movie.posterUrl} alt="" />
 
       {/* Back is handled globally by the header .back-btn beside the logo */}
 
@@ -860,18 +847,19 @@ export default function TitleDetails() {
             and the content lift follows from that height. The poster fallback
             has no landscape art to fit and keeps the plain viewport band. */}
       <div className={`relative w-full details-hero${backdropOptimized ? " details-hero--fit" : ""}`}>
-        {/* Hero artwork + its fade live in CSS (.details-hero__art/__scrim) */}
+        {/* Artwork treatment is the home banner's, verbatim: .hero-bg (fit +
+            mask) and .hero-overlay--apple (the gradient/vignette stack). One
+            style for both banners — do not fork the values here. */}
         <div className="details-hero__art">
           <img
-              className="h-full w-full object-cover object-top"
+              className="hero-bg"
               src={backdropOptimized || movie.posterUrl}
               alt={movie.title}
               fetchPriority="high"
               loading="eager"
               decoding="async"
             />
-          <div className="details-hero__scrim"></div>
-          <div className="details-hero__scrim details-hero__scrim--side hidden lg:block"></div>
+          <div className="hero-overlay hero-overlay--apple" />
         </div>
 
         {/* Content Overlap — the lift + header clearance live in CSS (.details-hero__body) */}

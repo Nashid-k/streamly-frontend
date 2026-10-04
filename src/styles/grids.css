@@ -216,10 +216,6 @@
   --details-hero-h: clamp(22rem, 72vh, 46rem);
   /* TMDB backdrop shape (16:9). */
   --details-hero-aspect: 1.778;
-  /* How much of the artwork stays fully opaque before it dissolves into the
-     page — the blend is a short tail at the very bottom edge, not a curtain
-     over the picture. */
-  --details-hero-visible: 93%;
 }
 
 /* A title WITH a real backdrop: the box is sized from the artwork's own shape at
@@ -247,52 +243,18 @@
   width: 100%;
   height: var(--details-hero-h);
   overflow: hidden;
-  /* No background: any letterbox slack (odd-aspect art) shows the page's
-     blurred ambient wash, so a whole-image fit never reads as black bars. */
-  mask-image: linear-gradient(
-    to bottom,
-    #000 0%,
-    #000 var(--details-hero-visible),
-    transparent 100%
-  );
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    #000 0%,
-    #000 var(--details-hero-visible),
-    transparent 100%
-  );
+  /* No background: any slack (odd-aspect art) shows the page's blurred ambient
+     wash, so a whole-image fit never reads as black bars. The picture's own
+     fade is the home banner's `.hero-bg` mask — deliberately NOT restated here. */
 }
 
-/* The whole image, unzoomed. `cover` was scaling a 16:9 still past the frame —
-   ~15% zoom and ~110px of height cropped on a laptop, ~36% of the width cropped
-   on a phone. `contain` fits all of it; top-anchored so any slack from an
-   odd-aspect still falls BELOW the picture, into the dark bed the title sits
-   on, never as a band across the artwork. */
+/* Fit mode sizes the box from the artwork's own shape (see --details-hero-h), so
+   home's `object-fit: cover` is an exact fit: full device width, whole frame,
+   nothing cropped and nothing zoomed. The plain `contain` fallback below only
+   bites if a backdrop ever arrives with a different aspect than 16:9. */
 .details-hero--fit .details-hero__art img {
   object-fit: contain;
-  object-position: top center;
-}
-
-/* Bottom scrim: the ONLY wash over the picture. It stays fully clear across the
-   upper half and darkens over the lower part, so the title keeps a bed without
-   the artwork being dimmed from the middle up. */
-.details-hero__scrim {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(
-    to top,
-    #050505 0%,
-    rgba(5, 5, 5, 0.55) 14%,
-    rgba(5, 5, 5, 0.26) 32%,
-    transparent 52%
-  );
-}
-
-/* Desktop: a short left-weighted wash so the title column never fights the art.
-   It stops well before mid-frame — the picture keeps the rest of the width. */
-.details-hero__scrim--side {
-  background: linear-gradient(to right, rgba(5, 5, 5, 0.55) 0%, rgba(5, 5, 5, 0.12) 22%, transparent 42%);
+  object-position: center 20%;
 }
 
 .details-hero__body {
