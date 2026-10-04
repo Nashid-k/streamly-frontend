@@ -818,8 +818,13 @@ export default function TitleDetails() {
   const voteSplit = voteSplitPct(movie.imdbRating);
   const unreleased = isUnreleased(movie.releaseDate);
 
+  /* No top offset on the page root: .app-main adds none, so the hero artwork
+   starts flush at the top of the viewport (behind the floating header island)
+   exactly like the home hero. The former `max-md:-mt-[56px]` was a hardcoded
+   guess at the header height that cropped the artwork and shoved the title up
+   into the back button. */
   return (
-    <div ref={pageRef} className="relative min-h-screen font-sans overflow-x-hidden pb-24 bg-[#050505] w-[100vw] ml-[calc(50%-50vw)] max-md:-mt-[56px]">
+    <div ref={pageRef} className="relative min-h-screen font-sans overflow-x-hidden pb-24 bg-[#050505] w-[100vw] ml-[calc(50%-50vw)]">
       <SEO
         title={movie.title}
         description={movie.description}
@@ -850,10 +855,10 @@ export default function TitleDetails() {
 
       {/* Back is handled globally by the header .back-btn beside the logo */}
 
-      <div className="relative w-full">
+      <div className="relative w-full details-hero">
         {/* Hero Image Mask */}
         <div
-          className="relative w-full h-[65vh] lg:h-[75vh] overflow-hidden"
+          className="details-hero__art"
           style={{
             maskImage: "linear-gradient(to bottom, black 40%, transparent 98%)",
             WebkitMaskImage: "linear-gradient(to bottom, black 40%, transparent 98%)"
@@ -871,18 +876,18 @@ export default function TitleDetails() {
           <div className="absolute inset-0 bg-gradient-to-r from-[#050505] via-transparent to-transparent pointer-events-none hidden lg:block"></div>
         </div>
 
-        {/* Content Overlap */}
-        <div className="relative z-20 -mt-44 lg:-mt-[22rem] lg:flex lg:items-start lg:justify-between lg:gap-10 px-6 lg:px-16">
+        {/* Content Overlap — the lift + header clearance live in CSS (.details-hero__body) */}
+        <div className="details-hero__body details-gutter">
           {/* Left Column */}
           <div className="w-full max-w-[700px] lg:max-w-[650px] lg:min-w-0 flex flex-col items-center lg:items-start">
             {useImageLogos && movie.logoUrl ? (
               <img
-                className="max-h-20 lg:max-h-36 max-w-[75%] lg:max-w-[500px] w-auto object-contain drop-shadow-2xl"
+                className="details-hero__logo drop-shadow-2xl"
                 src={movie.logoUrl}
                 alt={movie.title}
               />
             ) : (
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-white drop-shadow-2xl text-center lg:text-left">
+              <h1 className="details-hero__title font-bold text-white drop-shadow-2xl text-center lg:text-left">
                 {movie.title}
               </h1>
             )}
@@ -1101,7 +1106,7 @@ export default function TitleDetails() {
           </div>
 
           {/* Right Column (Desktop) */}
-          <div className="hidden lg:block w-[280px] shrink-0 mt-40">
+          <div className="hidden lg:block w-[280px] shrink-0 details-hero__aside">
             <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] overflow-hidden backdrop-blur-sm">
               <div className="divide-y divide-white/[0.06]">
                 {infoRows.map((row) => (
@@ -1121,7 +1126,7 @@ export default function TitleDetails() {
       </div>
 
       {/* ── Cast & Rest ─────────────────────────────────────────────────────────────── */}
-      <div id="title-details-more" className="relative z-20 mt-10 lg:mt-14 px-6 lg:px-16 space-y-10 lg:space-y-14 pb-20">
+      <div id="title-details-more" className="relative z-20 mt-10 lg:mt-14 details-gutter space-y-10 lg:space-y-14 pb-20">
       {/* ── Episodes ─────────────────────────────────────────────────────────── */}
       {isTvContent && hasSeriesEpisodes && (
         <motion.section
@@ -1843,7 +1848,7 @@ export default function TitleDetails() {
           ) : (
             <ErrorBoundary>
             <motion.div
-              className="flex gap-4 overflow-x-auto overflow-y-clip pb-10 pt-4 px-6 lg:px-16 hide-scrollbar items-start isolate min-h-[310px] lg:min-h-[356px]"
+              className="flex gap-4 overflow-x-auto overflow-y-clip pb-10 pt-4 details-gutter hide-scrollbar items-start isolate min-h-[310px] lg:min-h-[356px]"
               style={{
                 maskImage: "linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%)",
                 WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%)",

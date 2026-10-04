@@ -11,7 +11,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 2rem;
-  padding: calc(env(safe-area-inset-top, 0px) + 12px) clamp(0.75rem, 2vw, 1.25rem) 0;
+  padding: var(--header-inset) clamp(0.75rem, 2vw, 1.25rem) 0;
   pointer-events: none;
 }
 .header-row:hover,
@@ -48,21 +48,23 @@
     drop-shadow(0 0 3px rgba(0, 0, 0, 0.35)) drop-shadow(0 2px 12px rgba(255, 255, 255, 0.16));
 }
 
-/* Cinejoy-style back arrow — glass circle docked beside the brand logo. */
+/* Cinejoy-style back arrow — glass circle docked beside the brand logo.
+   Both it and the mark feed `--header-h`, so the island's footprint is
+   declared once (tokens.css) and never drifts from what a page clears. */
 .back-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
+  width: var(--back-btn-h);
+  height: var(--back-btn-h);
   border-radius: 999px;
   background: transparent;
   border: none;
   color: rgba(255, 255, 255, 0.8);
   cursor: pointer;
   pointer-events: auto;
-  margin-right: 10px;
+  margin-right: var(--spacing-sm);
   transition: background-color 0.25s ease, color 0.25s ease, transform 0.2s ease;
 }
 .back-btn:hover {

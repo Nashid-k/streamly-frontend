@@ -36,6 +36,22 @@
   --border-medium: rgba(255, 255, 255, 0.1);
   --border-strong: rgba(255, 255, 255, 0.15);
 
+  /* ── Header island geometry ─────────────────────────────
+     .header-row is fixed: the back button + brand mark form one island
+     at the left, the nav pill floats at the right. Its height is derived
+     ONCE here so a page top clears it with a token instead of guessing a
+     pixel count (the watch page used to hardcode 56px). */
+  --header-mark-h: 44px;
+  --back-btn-h: 40px;
+  --header-inset: calc(env(safe-area-inset-top, 0px) + 12px);
+  --header-h: calc(var(--header-inset) + max(var(--header-mark-h), var(--back-btn-h)));
+  /* Breathing room between the island and the first content row below it. */
+  --header-gap: clamp(0.75rem, 1.8vh, 1.5rem);
+  /* The one number a page top needs: island height + breathing room. */
+  --header-clearance: calc(var(--header-h) + var(--header-gap));
+  /* Legacy alias — .brand-mark still sizes itself from this. */
+  --brand-h: var(--header-mark-h);
+
   /* ── Nav (official Cinejoy tokens) ──────────────────────── */
   --nav-pad: 6px;
   --dock-top: calc(74px + var(--sat, 0px));
@@ -108,6 +124,15 @@
   --z-sticky: 1000;
   --z-modal: 9999;
   --z-toast: 99999;
+}
+
+/* Compact island on phones: the brand mark shrinks and the top inset tightens,
+   so `--header-h` (and therefore `--header-clearance`) follows on its own. */
+@media (max-width: 768px) {
+  :root {
+    --header-mark-h: 36px;
+    --header-inset: calc(env(safe-area-inset-top, 0px) + 8px);
+  }
 }
 
 html {

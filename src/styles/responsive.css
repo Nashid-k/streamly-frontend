@@ -56,7 +56,7 @@
   }
 
   .details-content-wrapper {
-    margin-top: 15vh;
+    margin-top: max(var(--header-clearance), 15vh);
   }
 
   /* Responsive grid across mobile and tablet */
@@ -103,16 +103,11 @@
   }
 
   /* Mobile: bottom bar is primary — the desktop nav pill hides, brand floats
-     alone top-left exactly like the real mobile header */
-  .header-row {
-    padding: calc(env(safe-area-inset-top, 0px) + 8px) 0.75rem 0;
-  }
+     alone top-left exactly like the real mobile header. The island's compact
+     padding/mark size now come from --header-inset / --header-mark-h in
+     tokens.css, so nothing here repeats them. */
   .header-row .navbar {
     display: none;
-  }
-  .header-row .brand-mark {
-    --brand-h: 36px;
-    height: var(--brand-h);
   }
   .nav-icon-btn {
     width: 36px;

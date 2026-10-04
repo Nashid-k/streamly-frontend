@@ -4283,3 +4283,33 @@ meow/Ursa movie ok=true variants=1 h=800    playlist 200 entries=1778  segment 4
 
 Recorded so it is not re-dug: the ZXC outage was ONE renamed endpoint behind FOUR
 dead rows, and `milkyway` -> `meow` was an upstream server-list change, not our bug.
+
+## Watch page: hero/title no longer crowds the back button (2026-10-04)
+
+- [x] **One source of truth for the fixed header island.** `tokens.css` now owns
+      `--header-mark-h`, `--back-btn-h`, `--header-inset`, `--header-h`,
+      `--header-gap` and `--header-clearance` (island height + breathing room),
+      with a `max-width: 768px` override for the compact phone island.
+      `.header-row` padding, `.back-btn` size/gap and the mobile overrides in
+      `responsive.css` all read those tokens — the duplicated `12px` / `40px` /
+      `36px` / `8px` literals are gone.
+- [x] **Hero geometry is fluid, not hardcoded.** `h-[65vh] lg:h-[75vh]`,
+      `-mt-44 lg:-mt-[22rem]`, `px-6 lg:px-16`, the logo `max-h-20 lg:max-h-36`,
+      the `text-2xl…xl:text-5xl` ramp and the aside's `mt-40` are replaced by
+      `.details-hero__art / __body / __logo / __title / __aside` in `grids.css`,
+      driven by `--details-hero-h` + `--details-hero-lift` clamps (with a
+      landscape/short-window rule). One `--content-gutter` (`.details-gutter`)
+      aligns the hero column with every section below it.
+- [x] **Clearance is guaranteed, not eyeballed.** `.details-hero__body` lifts the
+      content column by `--details-hero-lift` and re-pads by
+      `max(--header-gap, --header-clearance + lift - hero-height)`. Tall window:
+      the title keeps a plain gap under the island. Short window / landscape
+      phone: the term stays positive and pushes the title back BELOW the island,
+      so the back button can never sit on the title at any viewport.
+- [x] **Removed `max-md:-mt-[56px]`** from the watch-page root. `.app-main` adds
+      no top padding, so it only cropped 56px of hero artwork and shoved the
+      title up into the back button on phones.
+- [x] Skeleton kept truthful: `.details-content-wrapper` (and its `15vh` mobile
+      override) now floors its top margin at `--header-clearance`.
+- [x] Gates: oxlint **0 errors**, vitest **74 files / 917 passed**, build OK.
+      No contract touched (`normalizeResult`, query keys, localStorage, routes).

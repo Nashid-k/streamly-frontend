@@ -191,12 +191,102 @@
 
 /* Detail Page specific */
 
+/* ── Watch page hero (/watch/:id) ────────────────────────────────────────
+   The fixed header island (back button + brand mark) floats over the top of
+   every page, and this hero deliberately runs its artwork behind it. The
+   content column is then lifted up out of that artwork by
+   `--details-hero-lift` and re-padded by exactly as much as the lift would
+   otherwise eat into the header band:
+
+     padding-top = max(--header-gap,
+                       --header-clearance + lift - hero-height)
+
+   Tall window  → the second term goes negative, so the title keeps a plain
+                  `--header-gap` of air under the island (unchanged look).
+   Short window → the lift is capped, so the term stays positive and pushes
+                  the title back below the island. The back button can never
+                  end up sitting on the title, at any viewport, with no
+                  hardcoded pixel offset anywhere. */
+.details-hero {
+  --details-hero-h: clamp(20rem, 66vh, 34rem);
+  --details-hero-lift: clamp(5rem, 22vh, 8rem);
+}
+
+/* One horizontal gutter for the whole watch page: the hero column and every
+   section below it share it, so nothing drifts out of alignment. */
+.details-gutter {
+  padding-left: var(--content-gutter);
+  padding-right: var(--content-gutter);
+}
+
+.details-hero__art {
+  position: relative;
+  width: 100%;
+  height: var(--details-hero-h);
+  overflow: hidden;
+}
+
+.details-hero__body {
+  position: relative;
+  z-index: 20;
+  margin-top: calc(-1 * var(--details-hero-lift));
+  padding-top: max(
+    var(--header-gap),
+    calc(var(--header-clearance) + var(--details-hero-lift) - var(--details-hero-h))
+  );
+}
+
+.details-hero__logo {
+  max-height: clamp(4rem, 12vh, 9rem);
+  max-width: min(75%, 34rem);
+  width: auto;
+  object-fit: contain;
+}
+
+.details-hero__title {
+  font-size: clamp(1.5rem, 1rem + 2.4vw, 3rem);
+  line-height: 1.1;
+}
+
+/* Desktop info column: it hangs off the same lift as the title block, so the
+   two stay optically level on a tall window AND on a short one. */
+.details-hero__aside {
+  margin-top: calc(var(--details-hero-lift) * 0.45);
+}
+
+@media (min-width: 1024px) {
+  .details-hero {
+    --details-hero-h: clamp(34rem, 76vh, 56rem);
+    --details-hero-lift: clamp(12rem, 39vh, 22rem);
+  }
+  .details-hero__body {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-xl);
+  }
+  .details-hero__logo {
+    max-width: min(100%, 34rem);
+  }
+}
+
+/* Landscape phones / very short windows: there is almost no artwork height to
+   give away, so the hero shrinks and the lift with it. */
+@media (orientation: landscape) and (max-height: 560px) {
+  .details-hero {
+    --details-hero-h: clamp(13rem, 88vh, 20rem);
+    --details-hero-lift: clamp(2.5rem, 24vh, 5rem);
+  }
+}
+
 .details-content-wrapper {
   position: relative;
   z-index: 1;
   display: flex;
   gap: clamp(1rem, 2vw, 2rem);
-  margin-top: min(22vh, 240px);
+  /* Never less than the header island + its breathing room (see
+     .details-hero__body) — the skeleton mirrors the real page top. */
+  margin-top: max(var(--header-clearance), min(22vh, 240px));
   margin-bottom: var(--spacing-3xl);
   padding-left: clamp(0.5rem, 1.5vw, 1.5rem);
   padding-right: clamp(0.5rem, 1.5vw, 1.5rem);
