@@ -447,7 +447,7 @@ function LoadingStage({ title, backdropUrl, posterUrl, message }) {
 }
 
 /* A white ring with a gap that travels around it. Purely decorative, so it is
-   aria-hidden and the real state is announced by the `say` line instead. The
+   aria-hidden and the real state is carried by the visible status line instead. The
    reduced-motion block in player.css stops it entirely for viewers who asked for
    that — an endlessly spinning ring is the textbook case of motion that causes
    discomfort, and it is exactly what that media query exists for. */
@@ -978,11 +978,10 @@ export default function NativePlayerView({
   const [activeSubtitle, setActiveSubtitle] = useState(null); // current cue line or null
   const [currentSubtitle, setCurrentSubtitle] = useState(null); // the selected track object
   const [isFetchingSubtitles, setIsFetchingSubtitles] = useState(false);
-  // Persistent subtitle failure line for the subs pane. The `say()` announcer
-  // is a no-op stub, so without this a refused download (Cloudflare relay
-  // without the UA injection) or an unreadable file fails SILENTLY: the pick
-  // flips back to Off with no visible reason. This state keeps the reason on
-  // screen until the next pick or title change.
+  // Persistent subtitle failure line for the subs pane. Without this a refused
+  // download (Cloudflare relay without the UA injection) or an unreadable file
+  // fails SILENTLY: the pick flips back to Off with no visible reason. This state
+  // keeps the reason on screen until the next pick or title change.
   const [subtitleError, setSubtitleError] = useState(null);
   // Netflix chrome state.
   const [controlsVisible, setControlsVisible] = useState(true);
@@ -1062,7 +1061,6 @@ export default function NativePlayerView({
     [dubTracks, originalLanguage],
   );
 
-  const say = () => {};
 
   const togglePlay = async () => {
     const video = videoRef.current;
@@ -1267,7 +1265,6 @@ export default function NativePlayerView({
     if (at <= 0 || (dur > 0 && at >= dur * 0.92)) return; // finished / barely started
     resumeHandledKeyRef.current = key;
     setResumeOffer({ at, left: RESUME_WAIT_SECONDS });
-    say(`Resume point ${fmtTime(at)} available.`);
   };
   maybeOfferResumeRef.current = maybeOfferResume;
 
@@ -1286,7 +1283,6 @@ export default function NativePlayerView({
         // autoplay policy â€” the big custom play button stays available
       });
     }
-    say(`Resumed from ${fmtTime(at)}.`);
   };
   commitResumeRef.current = commitResume;
 
@@ -1304,7 +1300,6 @@ export default function NativePlayerView({
         // autoplay policy â€” the big custom play button stays available
       });
     }
-    say("Playing from the beginning.");
   };
 
   // Progress sink: report every ~5s while playing (>10s in, so a 3s peek never writes).
@@ -2286,7 +2281,6 @@ export default function NativePlayerView({
         // it for one pass (stale().guards everything as usual).
         const def = defArg || PLAYER_SOURCES.find((s) => s.key === requestedServerRef.current) || null;
         if (!def) return false;
-        say(`Trying ${def.label}â€¦`);
         let resolved = null;
         try {
           // Warm-resolve handover (PLAN.md P0.4): the details page may have
@@ -2296,16 +2290,13 @@ export default function NativePlayerView({
           // manual pick must resolve THAT server, not a VidCore warm token).
           const warm = takeWarmResolve(args, { sourceKey: requestedServerRef.current });
           resolved = warm || (await def.resolve(args, { signal: controller.signal }));
-          if (warm) say(`${def.label}: warm token ready — skipping resolve.`);
         } catch (error) {
-          say(`${def.label}: resolve failed (${error?.code || error?.message}) â€” next source.`);
           if (error?.code === "no-source") return "off";
           return false;
         }
         let variants = resolved?.variants || [];
         if (variants.length === 0) {
           // Empty is not terminal: the catalogue returns empty lists when rate-flaky.
-          say(`${def.label}: no variants (maybe rate-flaky) â€” retrying/moving on.`);
           return false;
         }
         // Sibling-URL dubs ride OUTSIDE the ladder (resolved.audioTracks); variants
@@ -2313,7 +2304,6 @@ export default function NativePlayerView({
         // FIRST resolution's â€” sibling URLs never refresh tokens anyway.
         const dubTracks = Array.isArray(resolved?.audioTracks) ? resolved.audioTracks : [];
         if (dubTracks.length > 1) {
-          say(`${def.label}: ${dubTracks.length} dub audio track(s) available.`);
         }
         let liveSource = resolved.source;
         let liveRefUrl = resolved.source?.refUrl || resolved.source?.url;
@@ -2341,16 +2331,10 @@ export default function NativePlayerView({
           }
           let entryUrl = entryUrlFor(def, { source: liveSource }, smoothStart);
           if (!entryUrl) {
-            say(`${def.label}: no playable URL â€” next source.`);
             return false;
           }
-          say(
-            `${def.label}: ${variants.length} variant(s), loading ` +
-              (isMaster ? "master (ABR auto)â€¦" : `${smoothStart?.height || "?"}p (smooth start)â€¦`),
-          );
           // Playability gate: prove one real media byte flows before hls.js sees the
           // source, or a perfect ladder over dead segments plays as a black screen.
-          say(`${def.label}: probing one media byteâ€¦`);
           let probe = { ok: false, reason: "probe error" };
           try {
             probe = await probeSourcePlayable(entryUrl, liveRefUrl, { signal: controller.signal });
@@ -2364,10 +2348,8 @@ export default function NativePlayerView({
             // probe's relay sip rides the same 429). Flag it for the final
             // banner so "all sources came up empty" can name the real cause.
             if (/\b429\b|quota/i.test(probe.reason || "")) anyUpstreamQuota = true;
-            say(`${def.label}: segments unreachable (${probe.reason}) â€” next source.`);
             return false;
           }
-          say(`${def.label}: segments flow via ${probe.via}.`);
           setTransportRelay(probe?.via === "relay");
           // Relay delivery is latency-bound (fresh serverless round trip per chunk), so
           // a relay start reopens at the tallest â‰¤720p; the direct path keeps â‰¤1080p.
@@ -2376,14 +2358,12 @@ export default function NativePlayerView({
               .filter((v) => (v.height || 0) > 0 && (v.height || 0) <= 720)
               .sort((a, b) => (b.height || 0) - (a.height || 0))[0];
             if (relayFriendly && relayFriendly.uri !== smoothStart?.uri) {
-              say(`${def.label}: relay path â€” smooth-starting at ${relayFriendly.height || "?"}p (â‰¤720p)â€¦`);
               smoothStart = relayFriendly;
               entryUrl = entryUrlFor(def, { source: liveSource }, smoothStart);
               // A per-quality source whose variant lacks a uri must not reach
               // hls.loadSource(undefined) â€” that surfaced as ?url=undefined at
               // the worker (500 + CORS noise) instead of a clean failover.
               if (!entryUrl) {
-                say(`${def.label}: no playable URL after relay re-route â€” next source.`);
                 return false;
               }
             }
@@ -2400,7 +2380,6 @@ export default function NativePlayerView({
             Math.max(MIN_BUFFER_SIZE, Math.ceil((topBps / 8) * BUFFER_DEPTH_SECONDS)),
           );
           const bufferDepthSecs = Math.round(Math.floor(maxBufferSize / Math.max(1, topBps / 8)));
-          say(`Buffer: up to ~${bufferDepthSecs}s (~${Math.round(maxBufferSize / 1024 / 1024)}MB) ahead.`);
           // ABR seed. A fixed 10Mbps is a blind guess: too low on a fast TV, far
           // too high on a phone (an over-optimistic first rung shows a rebuffer
           // before hls.js corrects itself). navigator.connection already knows
@@ -2456,10 +2435,9 @@ export default function NativePlayerView({
               `${data?.details || "error"}` +
               (data?.error?.message ? ` (${data.error.message})` : "") +
               (frag ? ` [sn ${frag.sn ?? "?"} ${String(frag.url || "").slice(0, 90)}]` : "");
-            say(`${def.label}: fatal ${lastFatalDetail} â€” next source.`);
             // Logs name the PROVIDER, not the generic row: "Server 4" in a
             // console tells you nothing, `zxc-centaurus` tells you which
-            // backend to go debug. The viewer-facing `say` keeps the generic name.
+            // backend to go debug. The viewer-facing status line keeps the generic name.
             if (/\b429\b|quota/i.test(lastFatalDetail)) anyUpstreamQuota = true;
             logWarn("native", `${def.provider} (${def.label}) fatal during playback`, {
               sourceKey: def.key,
@@ -2510,12 +2488,10 @@ export default function NativePlayerView({
                 if (consecFragFails >= 2 && canStepDown) {
                   hls.currentLevel = autoRung - 1;
                   consecFragFails = 0;
-                  say(`${def.label}: downshifting to level ${autoRung - 1} (${data.details})â€¦`);
                                   } else if (consecFragFails >= MAX_CONSECUTIVE_FRAG_FAILURES) {
                   reportFatal({ ...data, fatal: true, details: `${data.details} (Ã—${consecFragFails} consecutive â€” giving up)` });
                   failOver();
                 } else {
-                  say(`${def.label}: segment retry ${consecFragFails} (${data.details})â€¦`);
                 }
               }
               return;
@@ -2528,7 +2504,6 @@ export default function NativePlayerView({
             hls.attachMedia(videoRef.current);
             await waitParsed(hls);
           } catch (error) {
-            say(`${def.label}: ${error?.message || "load failed"} â€” next source.`);
             try {
               hls.destroy();
             } catch {
@@ -2596,7 +2571,6 @@ export default function NativePlayerView({
           // must use the light overlay, not hide the picture behind art.
           setStageWhileLoading(false);
           setSwitchingNote(null);
-          say(`${def.label}: PLAYING (${isMaster ? "ABR auto" : `${smoothStart?.height || "?"}p`}).`);
           if (resumeTime != null) {
             try {
               videoRef.current.currentTime = resumeTime;
@@ -2614,7 +2588,6 @@ export default function NativePlayerView({
               setAutoMuted(true);
               await videoRef.current.play();
             } catch {
-              say("Autoplay blocked â€” tap the custom play button.");
             }
           }
           // Non-master sources are single-rendition: their current height is fixed.
@@ -2643,7 +2616,6 @@ export default function NativePlayerView({
           // sibling URL is fixed â€” so drop back to the original track and let the
           // token-refresh re-resolve below mint a fresh ladder for it.
           if (activeDubRef.current > 0 && isAuthFatal(lastFatalDetail) && !stale()) {
-            say(`${def.label}: dubbed audio token expired â€” falling back to the original track.`);
             activeDubRef.current = 0;
             setActiveDub(0);
           }
@@ -2658,14 +2630,10 @@ export default function NativePlayerView({
             // wait reads as intent rather than a hung player.
             const throttled = /\b429\b/.test(lastFatalDetail || "");
             if (throttled) {
-              say(
-                `${def.label}: provider is rate-limiting us - holding for ${THROTTLE_BACKOFF_MS / 1000}s, then retrying...`,
-              );
               setSwitchingNote(`${def.label}: provider rate-limited, retrying shortly...`);
               await sleep(THROTTLE_BACKOFF_MS);
               if (stale()) return true;
             } else {
-              say(`${def.label}: token may have expired - re-resolving...`);
             }
             let fresh = null;
             try {
@@ -2682,10 +2650,8 @@ export default function NativePlayerView({
               variants = freshVariants;
               liveSource = fresh.source;
               liveRefUrl = fresh.source?.refUrl || fresh.source?.url;
-              say(`${def.label}: fresh tokens minted â€” resumingâ€¦`);
               continue;
             }
-            say(`${def.label}: re-resolve failed â€” next source.`);
           }
           return false;
         }
@@ -2697,7 +2663,6 @@ export default function NativePlayerView({
           if (stale()) return true;
           if (retry > 0) {
             if (retry > SOURCE_RETRIES) return false;
-            say(`${def.label}: transient failure â€” auto-retry ${retry}/${SOURCE_RETRIES}â€¦`);
             await sleep(SOURCE_RETRY_BACKOFF_MS[retry - 1] ?? 1200);
             if (stale()) return true;
           }
@@ -2731,7 +2696,6 @@ export default function NativePlayerView({
                 : ""
             }`,
       );
-      say("All sources exhausted.");
     })();
 
     return () => {
@@ -2760,7 +2724,6 @@ export default function NativePlayerView({
     // (Dub switches pass dubSwitch â€” pickDub commits the ref only after its own
     // probe passed, and picking "Original" clears the ref first.)
     if (activeDubRef.current > 0 && !opts.dubSwitch) {
-      say("Quality is fixed while dubbed audio plays (this source serves one rung per dub).");
       setBuffering(false);
       return;
     }
@@ -2776,7 +2739,6 @@ export default function NativePlayerView({
       if (height != null) setManualHeight(height);
     }
     // pickDub already said "Audio -> <track>â€¦" â€” don't overwrite it with "?p".
-    if (!opts.dubSwitch) say(`Switching to ${height || "?"}pâ€¦`);
     setBuffering(true);
     poke();
     try {
@@ -2796,7 +2758,6 @@ export default function NativePlayerView({
         // Pin the dialog highlight to the level ACTUALLY selected (row height can differ a few px).
         setManualHeight(hls.levels[best]?.height || height || null);
         setActiveUri(null);
-        say(`Level -> ${hls.levels[best]?.height || "?"}p (pinned).`);
         setBuffering(false);
         return;
       }
@@ -2818,7 +2779,6 @@ export default function NativePlayerView({
         if (switchTokenRef.current !== myId) return;
         if (!warm.ok) {
           const what = opts.dubSwitch ? "That audio track" : `Quality ${height || "?"}p`;
-          say(`${what}: target unreachable (${warm.reason || "probe failed"}) â€” keeping current.`);
           setBuffering(false);
           setControlsVisible(true);
           return;
@@ -2829,13 +2789,11 @@ export default function NativePlayerView({
       // A probe hiccup with no requested uri would reach loadSource(undefined)
       // â†’ the worker's ?url=undefined 500. Bail to the current quality instead.
       if (!chosenUri) {
-        say(`${opts.dubSwitch ? "That audio track" : `Quality ${height || "?"}p`}: no URL â€” keeping current.`);
         setBuffering(false);
         setControlsVisible(true);
         return;
       }
       if (chosenUri === activeUri) {
-        if (!opts.dubSwitch) say(`Already playing ${chosenHeight || "?"}p â€” no reload.`);
         setBuffering(false);
         setControlsVisible(true);
         return;
@@ -2905,14 +2863,12 @@ export default function NativePlayerView({
       setActiveUri(chosenUri);
       // A dub switch has no quality to report â€” pickDub already announced the
       // track it is moving to, so don't overwrite it with "?p".
-      if (!opts.dubSwitch) say(`Switched to ${chosenHeight || "?"}p.`);
       // Real frames again. The loader's own success path clears this too, but a
       // direct hls.loadSource() swap (quality/dub) never goes through that path,
       // so without this the art stage would sit on top of working video.
       setStageWhileLoading(false);
       setSwitchingNote(null);
     } catch (error) {
-      say(`Switch failed: ${error?.message || "unknown"}.`);
       // Roll the optimistic pick back: the stream is still on the old rung, so
       // the highlight must say so.
       setManualHeight(null);
@@ -2943,7 +2899,6 @@ export default function NativePlayerView({
     setPanel(null);
     poke();
     const def = sourceByKey(key);
-    say(`Switching to ${def?.label || "that"} serverâ€¦`);
     setReloadToken((t) => t + 1);
     // A server switch leaves no valid frame behind, so the wait is a cold one
     // and gets the art stage rather than the light overlay.
@@ -2980,7 +2935,6 @@ export default function NativePlayerView({
       // viewer back to the original-language track, so leave the dub alone.
       if (activeDubRef.current > 0) return;
       if (!target || activeUri === target.uri) return;
-      say(`Buffer holds <${BUFFER_FLOOR_SECONDS}s â€” stepping down to ${target.height || "?"}p so it refills (keeps playing).`);
             st.prev = bufferedSecs;
       pickQualityRef.current?.(target.uri, target.height)?.catch?.(() => {});
       return;
@@ -2995,7 +2949,6 @@ export default function NativePlayerView({
     hls.audioTrack = index;
     setAudioIndex(index);
     poke();
-    say(`Audio -> ${audioTracks[index]?.name || index}.`);
   };
 
   /* Dub switch: each dub is a SEPARATE HLS manifest (a sibling full-stream
@@ -3026,18 +2979,12 @@ export default function NativePlayerView({
       index === 0 ? meta?.variants?.[0]?.uri || meta?.entryUrl : target.uri;
     if (!targetUri) return;
     poke();
-    say(index === 0 ? `Audio -> ${spokenLabel}…` : `Audio -> ${spokenLabel}…`);
     // Prove the target manifest flows BEFORE committing the pick â€” NHD tokens are
     // time-scoped, and a dead dub must not end up highlighted with the previous
     // audio still playing. (The same gate pickQuality applies to quality rungs.)
     try {
       const probe = await probeSourcePlayable(targetUri, meta?.refUrl);
       if (!probe.ok) {
-        say(
-          index === 0
-            ? `Original audio is unreachable right now (${probe.reason}) â€” keeping current audio.`
-            : `${spokenLabel}: unreachable right now (${probe.reason}) â€” keeping current audio.`,
-        );
         setControlsVisible(true);
         return;
       }
@@ -3095,11 +3042,10 @@ export default function NativePlayerView({
           setSubtitleEnabled(false);
           setCurrentSubtitle(null);
           // The fetcher logs the precise leg/status to the console; the pane
-          // keeps the actionable half on screen (say() is a no-op stub).
+          // keeps the actionable half on screen.
           setSubtitleError(
             "Subtitle download failed â€” try another language. If every language fails, the Cloudflare relay is serving without the OpenSubtitles update (redeploy the worker snippet from .env.example).",
           );
-          say("Subtitle download failed â€” try another language.");
         }
         return;
       }
@@ -3116,7 +3062,6 @@ export default function NativePlayerView({
           subtitleEngineRef.current?.setCues([]);
           applySubtitleCue(null);
           setSubtitleError("This subtitle file had no readable lines â€” pick another language.");
-          say("This subtitle file had no readable lines â€” pick another language.");
         }
         return;
       }
@@ -3126,7 +3071,6 @@ export default function NativePlayerView({
         const cue = engine.getActiveCue(videoRef.current?.currentTime || 0);
         applySubtitleCue(cue?.text || null);
         setSubtitleError(null);
-        say(`Subtitles -> ${entry.language} (${cues.length} lines).`);
       }
     } catch {
       if (token === subtitleTokenRef.current) {
@@ -3134,7 +3078,6 @@ export default function NativePlayerView({
         setSubtitleEnabled(false);
         setCurrentSubtitle(null);
         setSubtitleError("Subtitle download failed â€” try another language.");
-        say("Subtitle download failed â€” try another language.");
       }
     }
   };
@@ -3201,7 +3144,6 @@ export default function NativePlayerView({
     setAutoLevel(true);
     setManualHeight(null);
     poke();
-    say("Quality -> Auto (adjusts with your connection).");
   };
 
   // Render-time derivations for the scrubber.
