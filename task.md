@@ -4299,7 +4299,10 @@ dead rows, and `milkyway` -> `meow` was an upstream server-list change, not our 
       `.details-hero__art / __body / __logo / __title / __aside` in `grids.css`,
       driven by `--details-hero-h` + `--details-hero-lift` clamps (with a
       landscape/short-window rule). One `--content-gutter` (`.details-gutter`)
-      aligns the hero column with every section below it.
+      aligns the hero column with every section below it. The title ART is
+      deliberately not fluid: `.details-hero__logo` keeps the exact caps the old
+      `max-h-20 lg:max-h-36 max-w-[75%] lg:max-w-[500px]` had (5rem / 9rem /
+      75% / 31.25rem), because shrinking the title logo was not the ask.
 - [x] **Clearance is guaranteed, not eyeballed.** `.details-hero__body` lifts the
       content column by `--details-hero-lift` and re-pads by
       `max(--header-gap, --header-clearance + lift - hero-height)`. Tall window:

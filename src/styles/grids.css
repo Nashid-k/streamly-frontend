@@ -236,9 +236,12 @@
   );
 }
 
+/* Title art is the page's identity — it is deliberately NOT fluid: these are
+   the same caps the old `max-h-20 lg:max-h-36 max-w-[75%] lg:max-w-[500px]`
+   declared, so nothing about it shrinks on a short window. */
 .details-hero__logo {
-  max-height: clamp(4rem, 12vh, 9rem);
-  max-width: min(75%, 34rem);
+  max-height: 5rem;
+  max-width: min(75%, 31.25rem);
   width: auto;
   object-fit: contain;
 }
@@ -266,7 +269,8 @@
     gap: var(--spacing-xl);
   }
   .details-hero__logo {
-    max-width: min(100%, 34rem);
+    max-height: 9rem;
+    max-width: min(100%, 31.25rem);
   }
 }
 
