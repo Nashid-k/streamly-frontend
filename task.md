@@ -4368,5 +4368,20 @@ dead rows, and `milkyway` -> `meow` was an upstream server-list change, not our 
       `contain`/`object-position` rule is only the odd-aspect fallback. The
       home `<=768px` `.hero-bg` rule (`cover`, `center top`, brightness .88)
       now applies to both banners, so mobile framing matches too.
+- [x] **Title + content lifted a little higher, banner untouched, nothing hardcoded
+      (user: "use the title images to little upp and other contents without
+      affecting the blurrness or image, keeping as it is, but dont hardcode").**
+      One number changed: `--details-hero-lift` 0.45 → **0.4** of the art height
+      (`src/styles/grids.css`), still a RATIO of `--details-hero-h`, so the title
+      rides up ~5% of the picture on every viewport (≈40px at 1440×810, ≈11px on a
+      390 phone) with no px offset anywhere. The artwork is not touched at all:
+      `--details-hero-h`, `.details-hero--fit`, `.hero-bg`, the mask and
+      `.hero-overlay--apple` are unchanged, and `.details-hero__aside` hangs off the
+      same lift (`lift * 0.45`) so the info column rises with the title and stays
+      optically level. 0.4 is the ceiling: it keeps the title cap just under the 40%
+      mark, the last height at which the shared home-banner overlay still washes the
+      art behind white type. The clearance guarantee is untouched — `padding-top`
+      still floors at `max(--header-gap, --header-clearance + lift − --details-hero-h)`,
+      so the back button can never land on the title (checked at 0.35: still clear).
 - [x] Gates: oxlint **0 errors** (2 baseline `NativePlayerView.jsx` unused-catch
       warnings), vitest **74 files / 917 passed**, build OK. No contract touched.

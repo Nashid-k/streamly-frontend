@@ -225,10 +225,13 @@
   --details-hero-h: calc(100vw / var(--details-hero-aspect));
 }
 
-/* Lift = 45% of the actual art height, so the overlap scales with the picture
-   instead of drifting with the viewport. */
+/* Lift = a share of the actual art height, so the overlap scales with the picture
+   instead of drifting with the viewport. 0.40 puts the title's cap just under the
+   40% line — the last point where the shared home-banner overlay still washes the
+   artwork behind white type (any higher and the logo/meta sit on bare art; the
+   banner itself is never touched to achieve this, only where the content hangs). */
 .details-hero {
-  --details-hero-lift: calc(var(--details-hero-h) * 0.45);
+  --details-hero-lift: calc(var(--details-hero-h) * 0.4);
 }
 
 /* One horizontal gutter for the whole watch page: the hero column and every
