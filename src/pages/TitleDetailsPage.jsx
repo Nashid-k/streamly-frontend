@@ -855,11 +855,13 @@ export default function TitleDetails() {
 
       {/* Back is handled globally by the header .back-btn beside the logo */}
 
-      <div className="relative w-full details-hero">
-        {/* Hero artwork + its fade live in CSS (.details-hero__art/__scrim).
-            A real backdrop is shown WHOLE (`object-contain`, no crop/zoom); the
-            poster fallback has no landscape art to fit, so it keeps `cover`. */}
-        <div className={`details-hero__art${backdropOptimized ? " details-hero__art--fit" : ""}`}>
+      {/* A title WITH a backdrop gets .details-hero--fit: the art box becomes the
+            picture's own height at device width (whole image, no zoom/crop),
+            and the content lift follows from that height. The poster fallback
+            has no landscape art to fit and keeps the plain viewport band. */}
+      <div className={`relative w-full details-hero${backdropOptimized ? " details-hero--fit" : ""}`}>
+        {/* Hero artwork + its fade live in CSS (.details-hero__art/__scrim) */}
+        <div className="details-hero__art">
           <img
               className="h-full w-full object-cover object-top"
               src={backdropOptimized || movie.posterUrl}

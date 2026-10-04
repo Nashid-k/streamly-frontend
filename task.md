@@ -4321,15 +4321,27 @@ dead rows, and `milkyway` -> `meow` was an upstream server-list change, not our 
       before dissolving, and the two scrims are real classes
       (`.details-hero__scrim`, `--side`) whose dark bed ramps only over the lower
       half (0.58 @16% → 0.12 @58% → clear @76%).
-- [x] **Follow-up: fit the image, never zoom it.** `object-cover` on a 16:9
-      backdrop was scaling the still past the frame — ~15% zoom and ~110px of
-      height cropped on a laptop, ~36% of the width cropped on a phone. A title
-      WITH a real backdrop now gets `.details-hero__art--fit`: `object-fit:
-      contain`, `object-position: top center`, and a box sized from the artwork's
-      own shape (`min(--details-hero-h, max(100vw / --details-hero-aspect,
-      --details-hero-fit-floor))`) so there is no slack to letterbox into and no
-      black bars — the art box has no background, so any slack falls through to
-      the page's blurred ambient wash. The poster fallback (no landscape art to
-      fit) deliberately keeps `cover`, unchanged.
+- [x] **Follow-up: fit the image at device width, never zoom it.** `object-cover` on
+      a 16:9 backdrop was scaling the still past the frame — ~15% zoom and ~110px
+      of height cropped on a laptop, ~36% of the width cropped on a phone. A title
+      WITH a real backdrop now gets `.details-hero--fit` on the hero WRAPPER:
+      `--details-hero-h: calc(100vw / var(--details-hero-aspect))`, i.e. the art
+      box IS the picture's own height at device width, so `object-fit: contain`
+      (top-anchored) shows the whole image at full width with zero bars and zero
+      zoom — the box carries no background, so slack from an odd-aspect still
+      falls through to the page's blurred ambient wash. The poster fallback (no
+      landscape art) keeps the plain viewport band via
+      `.details-hero:not(.details-hero--fit)`.
+- [x] **The content lift is now a RATIO of the real art height**
+      (`--details-hero-lift: calc(var(--details-hero-h) * 0.45)`), so the title
+      lands at the same spot in the picture (~56% down) on a 700px laptop, a
+      1080p monitor and an ultrawide alike, instead of drifting with `vh`.
+- [x] **The wash starts at the bottom, not from the middle.** Only
+      `.details-hero__scrim` covers the picture now: fully clear across the top
+      48%, then 0.26 @32% → 0.55 @14% → solid at the bottom edge.
+      `.details-hero__scrim--side` stops at 42% of the width (was 58%), and the
+      global `.app-container::after` top scrim is shallower — 92px at 0.55
+      instead of 110px at 0.75 — because it only has to carry the ~56px header
+      island, and it was dimming the top of every hero artwork.
 - [x] Gates: oxlint **0 errors**, vitest **74 files / 917 passed**, build OK.
       No contract touched (`normalizeResult`, query keys, localStorage, routes).

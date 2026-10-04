@@ -193,31 +193,46 @@
 
 /* ── Watch page hero (/watch/:id) ────────────────────────────────────────
    The fixed header island (back button + brand mark) floats over the top of
-   every page, and this hero deliberately runs its artwork behind it. The
-   content column is then lifted up out of that artwork by
-   `--details-hero-lift` and re-padded by exactly as much as the lift would
-   otherwise eat into the header band:
+   every page, and this hero deliberately runs its artwork behind it.
 
-     padding-top = max(--header-gap,
-                       --header-clearance + lift - hero-height)
+   Two rules do the work:
 
-   Tall window  → the second term goes negative, so the title keeps a plain
-                  `--header-gap` of air under the island (unchanged look).
-   Short window → the lift is capped, so the term stays positive and pushes
-                  the title back below the island. The back button can never
-                  end up sitting on the title, at any viewport, with no
-                  hardcoded pixel offset anywhere. */
+   1. `--details-hero-h` is the REAL height of the art box, and the content
+      column's lift is a RATIO of it — so the title always lands at the same
+      spot in the picture (~56% down) whatever the window does.
+   2. The content column is then re-padded by exactly as much as the lift would
+      otherwise eat into the header band:
+
+      padding-top = max(--header-gap,
+                        --header-clearance + lift - hero-height)
+
+      Tall window  → the second term goes negative, so the title keeps a plain
+                     `--header-gap` of air under the island (unchanged look).
+      Short window → the term stays positive and pushes the title back BELOW the
+                     island. The back button can never end up sitting on the
+                     title, at any viewport, with no hardcoded pixel offset. */
 .details-hero {
+  /* Poster fallback (no landscape art to fit): a plain viewport-tall band. */
   --details-hero-h: clamp(22rem, 72vh, 46rem);
-  --details-hero-lift: clamp(5rem, 22vh, 8rem);
-  /* TMDB backdrop shape (16:9). Used to size the art box to the picture so a
-     whole-image fit has no slack to letterbox into. */
+  /* TMDB backdrop shape (16:9). */
   --details-hero-aspect: 1.778;
-  --details-hero-fit-floor: 15rem;
   /* How much of the artwork stays fully opaque before it dissolves into the
-     page. Almost all of it: the hero should read as a picture, with the fade
-     reduced to a short blend at the very bottom edge. */
-  --details-hero-visible: 88%;
+     page — the blend is a short tail at the very bottom edge, not a curtain
+     over the picture. */
+  --details-hero-visible: 93%;
+}
+
+/* A title WITH a real backdrop: the box is sized from the artwork's own shape at
+   the DEVICE width, so the picture is shown whole, at full width, with no zoom
+   and no crop — and no slack to letterbox into. */
+.details-hero--fit {
+  --details-hero-h: calc(100vw / var(--details-hero-aspect));
+}
+
+/* Lift = 45% of the actual art height, so the overlap scales with the picture
+   instead of drifting with the viewport. */
+.details-hero {
+  --details-hero-lift: calc(var(--details-hero-h) * 0.45);
 }
 
 /* One horizontal gutter for the whole watch page: the hero column and every
@@ -232,8 +247,8 @@
   width: 100%;
   height: var(--details-hero-h);
   overflow: hidden;
-  /* No background: any letterbox slack shows the page's blurred ambient wash,
-     so a whole-image fit never reads as hard black bars. */
+  /* No background: any letterbox slack (odd-aspect art) shows the page's
+     blurred ambient wash, so a whole-image fit never reads as black bars. */
   mask-image: linear-gradient(
     to bottom,
     #000 0%,
@@ -248,28 +263,19 @@
   );
 }
 
-/* Real landscape backdrop: show ALL of it, never zoomed. `cover` was scaling a
-   16:9 still past the frame — 15% zoom and ~110px of height cropped on a
-   laptop, ~36% of the width cropped on a phone. `contain` fits the whole image,
-   and the box is sized from the artwork's own shape (capped by the viewport
-   rhythm above) so there is no slack to letterbox into. */
-.details-hero__art--fit {
-  height: min(
-    var(--details-hero-h),
-    max(calc(100vw / var(--details-hero-aspect)), var(--details-hero-fit-floor))
-  );
-}
-
-.details-hero__art--fit img {
+/* The whole image, unzoomed. `cover` was scaling a 16:9 still past the frame —
+   ~15% zoom and ~110px of height cropped on a laptop, ~36% of the width cropped
+   on a phone. `contain` fits all of it; top-anchored so any slack from an
+   odd-aspect still falls BELOW the picture, into the dark bed the title sits
+   on, never as a band across the artwork. */
+.details-hero--fit .details-hero__art img {
   object-fit: contain;
-  /* Top-anchored: any slack falls BELOW the picture, into the dark bed the
-     title sits on — never a visible band across the artwork. */
   object-position: top center;
 }
 
-/* Bottom scrim: just enough of a dark bed for the title/actions, kept off the
-   picture for as long as possible. The darkening starts under the title block
-   and reaches full strength only at the very bottom edge. */
+/* Bottom scrim: the ONLY wash over the picture. It stays fully clear across the
+   upper half and darkens over the lower part, so the title keeps a bed without
+   the artwork being dimmed from the middle up. */
 .details-hero__scrim {
   position: absolute;
   inset: 0;
@@ -277,17 +283,16 @@
   background: linear-gradient(
     to top,
     #050505 0%,
-    rgba(5, 5, 5, 0.58) 16%,
-    rgba(5, 5, 5, 0.4) 38%,
-    rgba(5, 5, 5, 0.12) 58%,
-    transparent 76%
+    rgba(5, 5, 5, 0.55) 14%,
+    rgba(5, 5, 5, 0.26) 32%,
+    transparent 52%
   );
 }
 
-/* Desktop: left-weighted wash so the title column never fights the art —
-   light enough that the artwork still carries the left third. */
+/* Desktop: a short left-weighted wash so the title column never fights the art.
+   It stops well before mid-frame — the picture keeps the rest of the width. */
 .details-hero__scrim--side {
-  background: linear-gradient(to right, rgba(5, 5, 5, 0.72) 0%, rgba(5, 5, 5, 0.2) 30%, transparent 58%);
+  background: linear-gradient(to right, rgba(5, 5, 5, 0.55) 0%, rgba(5, 5, 5, 0.12) 22%, transparent 42%);
 }
 
 .details-hero__body {
@@ -322,9 +327,8 @@
 }
 
 @media (min-width: 1024px) {
-  .details-hero {
+  .details-hero:not(.details-hero--fit) {
     --details-hero-h: clamp(34rem, 78vh, 60rem);
-    --details-hero-lift: clamp(12rem, 39vh, 22rem);
   }
   .details-hero__body {
     display: flex;
@@ -338,12 +342,12 @@
   }
 }
 
-/* Landscape phones / very short windows: there is almost no artwork height to
-   give away, so the hero shrinks and the lift with it. */
+/* Landscape phones / very short windows on the POSTER path: there is almost no
+   artwork height to give away, so the band shrinks. The fit path is width-driven
+   and needs no override — its box is already the picture's own height. */
 @media (orientation: landscape) and (max-height: 560px) {
-  .details-hero {
+  .details-hero:not(.details-hero--fit) {
     --details-hero-h: clamp(13rem, 88vh, 20rem);
-    --details-hero-lift: clamp(2.5rem, 24vh, 5rem);
   }
 }
 
