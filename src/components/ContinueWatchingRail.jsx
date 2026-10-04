@@ -213,9 +213,9 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
                       over the thumbnail: gradient scrim, title, episode +
                       remaining + pct, and a solid-white Resume pill. */}
                   {!editMode && (
-                    <div className="absolute inset-x-0 bottom-0 z-10 max-h-0 overflow-hidden opacity-0 transition-all duration-300 ease-out group-hover/card:max-h-28 group-hover/card:opacity-100">
+                    <div className="absolute inset-x-0 bottom-0 z-10 translate-y-2 opacity-0 pointer-events-none transition-[transform,opacity] duration-300 ease-out group-hover/card:translate-y-0 group-hover/card:opacity-100 group-hover/card:pointer-events-auto">
                       <div
-                        className="absolute inset-0 pointer-events-none"
+                        className="absolute inset-x-0 bottom-0 h-28 pointer-events-none"
                         style={{
                           background:
                             "linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.45) 55%, transparent)",

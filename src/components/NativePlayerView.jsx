@@ -99,6 +99,11 @@ const THROTTLE_BACKOFF_MS = 6000;
 
 const NETFLIX_RED = "#E50914";
 const HIDE_DELAY_MS = 3000;
+
+// Minimum gap between two autohide / still-watching timer re-arms. The player
+// surface pokes on every pointer move, so this caps timer churn at ~4/s while
+// staying far below the 3s hide delay.
+const POKE_REARM_MIN_MS = 250;
 const SKIP_SECONDS = 10;
 // Netflix "Up Next" auto-play countdown for a TV episode's next installment.
 const UP_NEXT_MS = 15000;
@@ -1125,6 +1130,42 @@ export default function NativePlayerView({
     return Math.min(1, Math.max(0, (clientX - r.left) / r.width));
   };
 
+  /* pointermove fires faster than the display can paint (120Hz+ pointers, and
+     far faster on some digitisers). Every setScrubHover re-renders this whole
+     5k-line player and re-runs the preview-thumbnail effect further down, so the
+     latest position is stashed in a ref and applied once per animation frame.
+     scrubHoverLatest always mirrors the true pointer position, so a release
+     seeks to exactly where the pointer was, not to whichever frame last painted. */
+  const scrubHoverLatest = useRef(null);
+  const scrubHoverFrame = useRef(0);
+
+  const applyScrubHover = (ratio) => {
+    scrubHoverLatest.current = ratio;
+    if (scrubHoverFrame.current) return;
+    scrubHoverFrame.current = requestAnimationFrame(() => {
+      scrubHoverFrame.current = 0;
+      const next = scrubHoverLatest.current;
+      if (next !== null) setScrubHover(next);
+    });
+  };
+
+  const flushScrubHover = () => {
+    if (scrubHoverFrame.current) {
+      cancelAnimationFrame(scrubHoverFrame.current);
+      scrubHoverFrame.current = 0;
+    }
+    if (scrubHoverLatest.current !== null) setScrubHover(scrubHoverLatest.current);
+  };
+
+  const clearScrubHover = () => {
+    if (scrubHoverFrame.current) {
+      cancelAnimationFrame(scrubHoverFrame.current);
+      scrubHoverFrame.current = 0;
+    }
+    scrubHoverLatest.current = null;
+    setScrubHover(null);
+  };
+
   const onScrubDown = (e) => {
     e.stopPropagation();
     poke();
@@ -1138,16 +1179,15 @@ export default function NativePlayerView({
     } catch {
       // pointer capture unsupported â€” drag still works while over the bar
     }
-    setScrubDragging(true);
+setScrubDragging(true);
     const ratio = scrubRatioOf(e.clientX);
-    setScrubHover(ratio);
+    applyScrubHover(ratio);
     // No seek per pointermove: the bar tracks the drag and the seek commits once on
-    // release â€” seeking on every move makes hls.js cancel in-flight fragments.
+    // release — seeking on every move makes hls.js cancel in-flight fragments.
   };
 
   const onScrubMove = (e) => {
-    const ratio = scrubRatioOf(e.clientX);
-    setScrubHover(ratio);
+    applyScrubHover(scrubRatioOf(e.clientX));
     if (scrubDragging) {
       poke(); // a long drag must not let the controls autohide mid-drag
     }
@@ -1155,20 +1195,23 @@ export default function NativePlayerView({
 
   const onScrubUp = () => {
     poke();
+    // Commit the true final pointer position, not the last painted frame.
+    const released = scrubHoverLatest.current ?? scrubHover;
+    flushScrubHover();
     if (scrubDragging) {
       const dur = Number(videoRef.current?.duration);
-      const target = (scrubHover ?? 0) * (Number.isFinite(dur) && dur > 0 ? dur : 0);
+      const target = (released ?? 0) * (Number.isFinite(dur) && dur > 0 ? dur : 0);
       seekTo(target);
     }
     setScrubDragging(false);
     // Let the red bar settle on the seek target before dropping the hover overlay.
-    scrubHoverTimer.current = window.setTimeout(() => setScrubHover(null), 250);
+    scrubHoverTimer.current = window.setTimeout(clearScrubHover, 250);
   };
 
   // A cancelled gesture (Esc, scroll steal, pointer leaving) must not strand the scrubber.
   const onScrubCancel = () => {
     setScrubDragging(false);
-    setScrubHover(null);
+    clearScrubHover();
     if (scrubHoverTimer.current) {
       clearTimeout(scrubHoverTimer.current);
       scrubHoverTimer.current = null;
@@ -1176,7 +1219,7 @@ export default function NativePlayerView({
   };
 
   const onScrubLeave = () => {
-    if (!scrubDragging) setScrubHover(null);
+    if (!scrubDragging) clearScrubHover();
     setPreviewUrl(null);
   };
 
@@ -1434,23 +1477,30 @@ export default function NativePlayerView({
     poke();
   };
 
-  // Controls autohide: activity shows them, 3s idle while playing hides them. Paused always shows.
+  /* Controls autohide: activity shows them, 3s idle while playing hides them. Paused always shows.
+     Bound to the full-surface onMouseMove, so it can fire 100+ times a second.
+     Showing/hiding is cheap (React bails out on an unchanged value), but
+     re-arming two timers on every event is not, so the timer section is rate
+     limited. Visible result is unchanged: the hide deadline still lands ~3s
+     after the viewer stops moving. */
+  const lastPokeArm = useRef(0);
   const poke = useCallback(() => {
     setControlsVisible(true);
-    if (idleTimer.current) {
-      clearTimeout(idleTimer.current);
-      idleTimer.current = null;
-    }
-    if (videoRef.current && !videoRef.current.paused) {
-      idleTimer.current = setTimeout(() => setControlsVisible(false), HIDE_DELAY_MS);
-    }
     // Any interaction also resets the "Still watching?" idle window.
     if (swIdleRef.current) clearTimeout(swIdleRef.current);
     if (stillWatchingRef.current) {
       stillWatchingRef.current = false;
       setStillWatching(false);
     }
+    const now = Date.now();
+    if (now - lastPokeArm.current < POKE_REARM_MIN_MS) return;
+    lastPokeArm.current = now;
+    if (idleTimer.current) {
+      clearTimeout(idleTimer.current);
+      idleTimer.current = null;
+    }
     if (videoRef.current && !videoRef.current.paused) {
+      idleTimer.current = setTimeout(() => setControlsVisible(false), HIDE_DELAY_MS);
       swIdleRef.current = setTimeout(() => {
         swIdleRef.current = null;
         offerStillWatching("idle");

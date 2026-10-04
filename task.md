@@ -4525,14 +4525,16 @@ dead rows, and `milkyway` -> `meow` was an upstream server-list change, not our 
         in-viewport fast path so the first screenful of cards no longer renders
         as empty boxes for a frame. Tests rewritten (4 pass) for the new contract.
   - [x] Gates: oxlint 0 errors, vitest 74 files / 921 passed, build OK.
-- [ ] **STAGE 2 - scroll and hover layout work**
-  - [ ] `ContinueWatchingRail.jsx`: hover animates `max-height`, which reflows
-        the row on every frame. Swap for a transform/opacity reveal.
-  - [ ] `header.css`: the scrolled state transitions `background-color` /
+- [x] **STAGE 2 - scroll and hover layout work**
+  - [x] `ContinueWatchingRail.jsx`: hover animated `max-height`, reflowing
+        the row on every frame. Now a `translate-y`/`opacity` reveal over a
+        fixed `h-28` scrim — same pixels, no layout. Also drops `transition-all`
+        for an explicit `transition-[transform,opacity]`.
+  - [x] `header.css`: the scrolled state was transitioning `background-color` /
         `box-shadow` while `backdrop-filter` is live, so the browser re-blurs the
         whole header every frame of the scroll. Drop those two properties from
         the transition.
-  - [ ] `grids.css`: `.movie-card` keeps `translateZ(0)` permanently, promoting
+  - [x] `grids.css`: `.movie-card` kept `translateZ(0)` permanently, promoting
         ~180 cards to their own GPU layers. Rely on `will-change` during hover
         instead, or drop it.
 - [ ] **STAGE 3 - perceived latency**

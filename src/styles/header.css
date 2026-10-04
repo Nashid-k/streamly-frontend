@@ -103,10 +103,14 @@
   -webkit-backdrop-filter: blur(20px) saturate(160%);
   border: 1px solid rgba(255, 255, 255, 0.07);
   box-shadow: inset 0 1px rgba(255, 255, 255, 0.12), 0 8px 30px rgba(0, 0, 0, 0.3);
-  /* Condense is transform-only (translateY), so the padded pill and its
-     backdrop-filter never re-blur on scroll. */
-  transition: transform 0.32s var(--condense-ease), background-color 0.3s ease, border-color 0.3s ease,
-    box-shadow 0.3s ease;
+  /* Condense is transform-only (translateY) so the padded pill glides without
+     ever re-blurring its backdrop-filter. background-color and box-shadow are
+     deliberately NOT transitioned: both sit under/inside the live
+     backdrop-filter, so animating them forces the browser to re-blur the whole
+     header on every frame of every scroll. The scrolled state therefore snaps
+     its tint and shadow (a single, invisible-at-speed change) while the pill
+     still moves smoothly. */
+  transition: transform 0.32s var(--condense-ease), border-color 0.3s ease;
 }
 .navbar.scrolled {
   transform: translateY(-3px);

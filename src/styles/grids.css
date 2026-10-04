@@ -59,7 +59,10 @@
 }
 
 .movie-card {
-  transform: translateZ(0);
+  /* No permanent translateZ(0)/will-change here: a rail of 20 cards times
+     every rail on the page meant 180+ always-on compositor layers eating GPU
+     memory. framer-motion writes an inline transform for the hover lift, which
+     promotes the card for exactly as long as it animates. */
   backface-visibility: hidden;
   display: flex;
   flex-direction: column;
