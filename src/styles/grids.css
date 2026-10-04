@@ -210,10 +210,14 @@
 .details-hero {
   --details-hero-h: clamp(22rem, 72vh, 46rem);
   --details-hero-lift: clamp(5rem, 22vh, 8rem);
+  /* TMDB backdrop shape (16:9). Used to size the art box to the picture so a
+     whole-image fit has no slack to letterbox into. */
+  --details-hero-aspect: 1.778;
+  --details-hero-fit-floor: 15rem;
   /* How much of the artwork stays fully opaque before it dissolves into the
-     page. Three quarters: the old 40% cut the picture off long before the
-     title area, so the hero read as a sliver of backdrop. */
-  --details-hero-visible: 74%;
+     page. Almost all of it: the hero should read as a picture, with the fade
+     reduced to a short blend at the very bottom edge. */
+  --details-hero-visible: 88%;
 }
 
 /* One horizontal gutter for the whole watch page: the hero column and every
@@ -228,6 +232,8 @@
   width: 100%;
   height: var(--details-hero-h);
   overflow: hidden;
+  /* No background: any letterbox slack shows the page's blurred ambient wash,
+     so a whole-image fit never reads as hard black bars. */
   mask-image: linear-gradient(
     to bottom,
     #000 0%,
@@ -242,9 +248,28 @@
   );
 }
 
-/* Bottom scrim: a dark bed for the title/actions, ramped so it only bites over
-   the lower half. The upper half of the artwork stays clean, which is what
-   makes the hero read as a picture instead of a fading sliver. */
+/* Real landscape backdrop: show ALL of it, never zoomed. `cover` was scaling a
+   16:9 still past the frame — 15% zoom and ~110px of height cropped on a
+   laptop, ~36% of the width cropped on a phone. `contain` fits the whole image,
+   and the box is sized from the artwork's own shape (capped by the viewport
+   rhythm above) so there is no slack to letterbox into. */
+.details-hero__art--fit {
+  height: min(
+    var(--details-hero-h),
+    max(calc(100vw / var(--details-hero-aspect)), var(--details-hero-fit-floor))
+  );
+}
+
+.details-hero__art--fit img {
+  object-fit: contain;
+  /* Top-anchored: any slack falls BELOW the picture, into the dark bed the
+     title sits on — never a visible band across the artwork. */
+  object-position: top center;
+}
+
+/* Bottom scrim: just enough of a dark bed for the title/actions, kept off the
+   picture for as long as possible. The darkening starts under the title block
+   and reaches full strength only at the very bottom edge. */
 .details-hero__scrim {
   position: absolute;
   inset: 0;
@@ -252,16 +277,17 @@
   background: linear-gradient(
     to top,
     #050505 0%,
-    rgba(5, 5, 5, 0.78) 20%,
-    rgba(5, 5, 5, 0.5) 42%,
-    rgba(5, 5, 5, 0.18) 62%,
-    transparent 80%
+    rgba(5, 5, 5, 0.58) 16%,
+    rgba(5, 5, 5, 0.4) 38%,
+    rgba(5, 5, 5, 0.12) 58%,
+    transparent 76%
   );
 }
 
-/* Desktop: left-weighted wash so the title column never fights the art. */
+/* Desktop: left-weighted wash so the title column never fights the art —
+   light enough that the artwork still carries the left third. */
 .details-hero__scrim--side {
-  background: linear-gradient(to right, #050505 0%, rgba(5, 5, 5, 0.35) 32%, transparent 62%);
+  background: linear-gradient(to right, rgba(5, 5, 5, 0.72) 0%, rgba(5, 5, 5, 0.2) 30%, transparent 58%);
 }
 
 .details-hero__body {

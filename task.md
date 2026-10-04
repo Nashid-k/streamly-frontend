@@ -4317,12 +4317,19 @@ dead rows, and `milkyway` -> `meow` was an upstream server-list change, not our 
 - [x] **Follow-up: the artwork was being cut off, not just spaced badly.** The
       old inline mask (`black 40% → transparent 98%`) plus
       `from-[#050505] via-[#050505]/40` dissolved the picture before the title
-      even arrived, and the phone clamp `66vh/34rem` capped the hero *shorter*
-      than the `65vh` it replaced on tall handsets. Now: the mask holds opaque to
-      `--details-hero-visible: 74%` before dissolving, the two scrims are real
-      classes (`.details-hero__scrim`, `--side`) whose dark bed ramps only over
-      the lower half (0.78 @20% → 0.18 @62% → clear @80%), and the hero is
-      `clamp(22rem, 72vh, 46rem)` on phones / `clamp(34rem, 78vh, 60rem)` on
-      desktop — more picture, same legible text bed.
+      even arrived. Now: the mask holds opaque to `--details-hero-visible: 88%`
+      before dissolving, and the two scrims are real classes
+      (`.details-hero__scrim`, `--side`) whose dark bed ramps only over the lower
+      half (0.58 @16% → 0.12 @58% → clear @76%).
+- [x] **Follow-up: fit the image, never zoom it.** `object-cover` on a 16:9
+      backdrop was scaling the still past the frame — ~15% zoom and ~110px of
+      height cropped on a laptop, ~36% of the width cropped on a phone. A title
+      WITH a real backdrop now gets `.details-hero__art--fit`: `object-fit:
+      contain`, `object-position: top center`, and a box sized from the artwork's
+      own shape (`min(--details-hero-h, max(100vw / --details-hero-aspect,
+      --details-hero-fit-floor))`) so there is no slack to letterbox into and no
+      black bars — the art box has no background, so any slack falls through to
+      the page's blurred ambient wash. The poster fallback (no landscape art to
+      fit) deliberately keeps `cover`, unchanged.
 - [x] Gates: oxlint **0 errors**, vitest **74 files / 917 passed**, build OK.
       No contract touched (`normalizeResult`, query keys, localStorage, routes).
