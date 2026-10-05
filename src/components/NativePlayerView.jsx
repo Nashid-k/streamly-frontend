@@ -3653,10 +3653,11 @@ setScrubDragging(true);
                   style={{
                     position: "absolute",
                     left: 0,
-                    bottom: 0,
-                    height: 4,
-                    background: "#f97316",
-                    width: `${skipIntroProgress * 100}%`,
+                    top: 0,
+                      bottom: 0,
+                      background: "rgba(255, 255, 255, 0.2)",
+                      width: `${skipIntroProgress * 100}%`,
+                      zIndex: -1,
                   }}
                 />
                 <SkipForward size={16} />
@@ -3700,10 +3701,11 @@ setScrubDragging(true);
                   style={{
                     position: "absolute",
                     left: 0,
-                    bottom: 0,
-                    height: 4,
-                    background: "#f97316",
-                    width: `${skipOutroProgress * 100}%`,
+                    top: 0,
+                      bottom: 0,
+                      background: "rgba(255, 255, 255, 0.2)",
+                      width: `${skipOutroProgress * 100}%`,
+                      zIndex: -1,
                   }}
                 />
                 <SkipForward size={16} />
@@ -4121,8 +4123,8 @@ setScrubDragging(true);
                     position: "absolute",
                     top: 0,
                     bottom: 0,
-                    left: `${((cueBoundaries?.introStartSeconds ?? 0) / safeDuration) * 100}%`,
-                    width: `${((cueIntroEnd - (cueBoundaries?.introStartSeconds ?? 0)) / safeDuration) * 100}%`,
+                    left: `${((cueBoundaries?.introStartSeconds ?? Math.max(0, cueIntroEnd - 90)) / safeDuration) * 100}%`,
+                    width: `${((cueIntroEnd - (cueBoundaries?.introStartSeconds ?? Math.max(0, cueIntroEnd - 90))) / safeDuration) * 100}%`,
                     background: "#f97316",
                     pointerEvents: "none",
                   }}
