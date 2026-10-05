@@ -5,7 +5,7 @@
 // appears twice (once original, once "English dub") — same audio twice.
 //
 // This test drives the REAL handler over a stubbed global fetch (same approach
-// as downloadifyHandler.test.js) so the production dedup path is what runs.
+// as streamHandler.test.js) so the production dedup path is what runs.
 import { describe, expect, it, beforeEach, vi } from "vitest";
 
 let dubs = [];
@@ -44,7 +44,7 @@ beforeEach(() => {
     "fetch",
     vi.fn(async (input) => {
       const url = String(typeof input === "string" ? input : input?.url || input);
-      if (url.includes("/backend/fuckyou")) return json({ token: "tok", ts: "1700000000" });
+      if (url.includes("/backend/fuckoffniggawtf")) return json({ token: "tok", ts: "1700000000" });
       if (url.includes("/backend/tmdb/details/")) return json({ title: "Stub", release_date: "2024-01-01", imdb_id: "" });
       if (url.includes("/backend/servers/")) return json({ success: true, links, dubs });
       if (url.endsWith(".mpd") || url.includes("stub")) {
@@ -55,7 +55,7 @@ beforeEach(() => {
   );
 });
 
-const { default: handler } = await import("../../api/downloadify.js");
+const { default: handler } = await import("../../api/stream.js");
 
 function makeRes() {
   const res = {

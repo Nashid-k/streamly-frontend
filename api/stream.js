@@ -1,4 +1,4 @@
-// api/downloadify.js â€” browser-only download resolver (Vercel serverless).
+// api/stream.js â€” browser-only download resolver (Vercel serverless).
 //
 // The web app has no backend and no direct media URLs: every server is a
 // third-party iframe. To let viewers download a title "like a browser
@@ -10,6 +10,7 @@
 // Actions (POST JSON):
 //   resolve        { embedUrl }                         -> { source, variants }
 //   resolvezxc     { type, id, season?, episode?, server? } -> { source, variants, audioTracks }
+//   zxcintro       { imdbId, tmdbId, season?, episode? } -> { ok, introEndSeconds|null, creditsStartSeconds|null, confidence|null }
 //
 // "resolvevidcore" (Server 5, VidRack) was removed 2026-10-04: every ladder row
 // was AES-128 behind an api.dlproxy.com key host that 403s us, which is fatal to
@@ -230,22 +231,36 @@ async function handleResolve(body, res) {
 
    The contract, read off the shipped client chunk (vidstuck's `queryFn`):
 
-   1. `POST /backend/fuckyou` with `{tmdbId, media_type, path[, season, episode]}`
-      -> `{ token, ts }`. This endpoint is SELF-ORIGIN ONLY: a correct body with
-      any other (or missing) `Origin` header answers 500 "Internal Server
-      Error" â€” verified across a header matrix, where only
-      `Origin: https://vidstuck.xyz` returned 200. So the origin we send is not
-      cosmetic; it is the whole gate.
+1. `POST /backend/fuckoffniggawtf` with
+      `{tmdbId, media_type, path[, season, episode]}` -> `{ token, ts }`. This
+      endpoint is SELF-ORIGIN ONLY: a correct body with any other (or missing)
+      `Origin` header answers 500 "Internal Server Error" â€” verified across a
+      header matrix, where only `Origin: https://vidstuck.xyz` returned 200. So
+      the origin we send is not cosmetic; it is the whole gate.
 
-      PATH RENAMED UPSTREAM 2026-10-03 (why every ZXC row was dead): this used to
-      be `POST /backend/meow`, which now answers 404 â€” "meow" is no longer an
-      endpoint, it is one of their SERVER names ("Ursa", `path=meow`). Re-scraping
-      the shipped embed chunk (`ext/static/chunks/1jckevlg2_ail.js`) shows the
-      mint moved to `/backend/fuckyou` with the identical body and the identical
-      `{token, ts}` reply. Verified live before changing this line: old path 404,
-new path 200 `{token, ts}`, and centaurus/andromeda/atlas/meow then resolve
-       `success=true` on `/backend/servers/{path}`. (`milkyway` still answers
-       `success=true` there too, but its manifest 403s, so it is retired.)
+      THE PATH IS NOT STABLE, and each rename killed every row at once (they all
+      share this one mint), so it lives in a named constant and the discover
+      method is recorded below:
+
+        2026-10-03  `/backend/meow`  -> `/backend/fuckyou`
+        2026-10-05  `/backend/fuckyou` -> `/backend/fuckoffniggawtf`
+
+      `meow` was never an endpoint at all: it is one of their SERVER names
+      ("Ursa", `path=meow`). A 404 here fails the mint, so all four servers
+      report "no playable source" simultaneously â€” which reads like a network
+      outage but is one renamed string.
+
+      HOW TO RE-DISCOVER after the next rename (no guessing): both dead paths
+      answer the Next.js HTML 404 page, and `/backend/servers/{path}` stays
+      400 "missing params", so neither is a usable signal. Fetch the embed page
+      for the title and read the current path off the shipped client chunk:
+        GET /embed/movie/<tmdbId>  ->  extract src=".../_next/static/chunks/*.js"
+        grep those chunks for "/backend/" -> the mint is the single POST
+      Candidate found 2026-10-05: `/backend/fuckoffniggawtf`. Verified live
+      before changing this line: old path 404 (HTML page), new path 200
+      `{token, ts}`, and centaurus/andromeda/atlas/meow all answer
+      `success=true` with a 200 manifest. (`milkyway` still answers
+      `success=true` there too, but its manifest 403s, so it is retired.)
 
    2. `GET /backend/servers/{path}?â€¦` with a dozen OBFUSCATED query names
       (hex strings, mapped below) plus the token/ts from step 1, and optionally
@@ -281,17 +296,30 @@ new path 200 `{token, ts}`, and centaurus/andromeda/atlas/meow then resolve
    menu; a dub that cannot produce an MPD is dropped, never listed. */
 
 const ZXC_ORIGIN = "https://vidstuck.xyz";
-/* Upstream's own server list, read off the shipped client chunk
-   (`gN.SERVERS`): Andromeda "Smooth Playback & HD", Centaurus "Multi Audio
-   Support" (the only one with `dubSupport`), Atlas "Alternative", and Ursa
-   "Alternative" â€” whose PATH is literally `meow`. `milkyway` is GONE: it is no
-   longer in their list and its manifest answers 403 through our function
-   ("manifest unreadable: Upstream 403"), so it was dropped rather than left as
-   a row that can never play. */
-const ZXC_SERVERS = ["andromeda", "centaurus", "atlas", "meow"];
-// The servers that answer with a DASH manifest, and the one that carries dubs.
+/* THE MINT PATH. Read off the shipped embed chunk, NOT guessed, and upstream
+   renames it periodically (see the contract note above for the rename history
+   and for the re-discovery procedure). Every row shares this one call, so when
+   it 404s all four servers fail together and the player reports "no playable
+   source" for every option at once. That is the signature to recognise: a
+   simultaneous four-row failure is almost always this constant, never four
+   coincidental provider outages. */
+const ZXC_MINT_PATH = "/backend/fuckoffniggawtf";
+/* Upstream's own server list, read off the CURRENT shipped embed chunk
+   (module 53557 `gN.SERVERS`, re-verified 2026-10-05): Orion "Multi Audio
+   Support" (`dubSupport`), Andromeda "Smooth Playback & HD", Centaurus
+   "Multi Audio Support" (`dubSupport`), Atlas "Alternative", and Ursa
+   "Alternative" — whose PATH is literally `meow`. `milkyway` is GONE: it is
+   no longer in their list and its manifest answers 403 through our function
+   ("manifest unreadable: Upstream 403"), so it was dropped rather than left
+   as a row that can never play. An older chunk variant listed only
+   andromeda/centaurus/atlas/milkyway (no orion) — the roster ROTATES, so a
+   simultaneous all-row failure is the mint path, but a single-row failure
+   can be a rotated server name: re-read `gN.SERVERS` first. */
+const ZXC_SERVERS = ["andromeda", "centaurus", "atlas", "meow", "orion"];
+// The servers that answer with a DASH manifest, and the ones that carry dubs
+// (both `dubSupport` rows in the current chunk).
 const ZXC_DASH_SERVERS = new Set(["andromeda", "centaurus"]);
-const ZXC_DUB_SERVER = "centaurus";
+const ZXC_DUB_SERVERS = new Set(["centaurus", "orion"]);
 
 /* The obfuscated parameter names the client sends. Read straight off the
    shipped bundle's `uo/up/ug/uf/uh/ul/uu/ud/uc/um` constants â€” renaming any of
@@ -370,33 +398,45 @@ function decryptZxcLink(ciphertext, passphrase) {
   return Buffer.concat([decipher.update(body), decipher.final()]).toString("utf8");
 }
 
-/* Title/year/date/imdbId are advisory â€” the servers endpoint resolves with
-   blanks, verified â€” but they are sent when their detail lookup succeeds so the
-   provider sees the same request the browser makes. Never fatal. */
+/* Title/year/date/imdbId are MANDATORY upstream, not advisory. Measured across
+   a field matrix on movie 27205 (2026-10-05): `/backend/servers/{path}` answers
+   400 "missing params" unless title AND year AND date are all present. Dropping
+   any ONE of the three fails centaurus, atlas and meow; `title+date` without
+   `year` still passes centaurus but fails atlas/meow, so the only safe reading
+   is that all three are required.
+
+   That inverts the old behaviour, which swallowed a failed lookup and returned
+   blanks on the belief that blanks were harmless. They were not: a blank title
+   is an instant 400, so a single flaky TMDB call turned into "no playable
+   source" on every server, with the real cause nowhere in the message. The
+   lookup now propagates, and `imdbId` stays optional (an absent imdb_id changes
+   nothing upstream). `title` is read for BOTH types on purpose â€” this endpoint
+   normalises a series' `name` into `title`, so the old movie-only concern does
+   not apply here. For TV, `last_air_date` is also carried as `latestDate`
+   because the shipped client sends it and episode freshness depends on it. */
 async function zxcTitleMeta({ type, tmdbId, refererPath }) {
-  try {
-    const text = await fetchUpstream(`${ZXC_ORIGIN}/backend/tmdb/details/${type}/${tmdbId}?language=en-US`, {
-      referer: `${ZXC_ORIGIN}${refererPath}`,
-      extraHeaders: zxcHeaders(refererPath, { json: true }),
-    });
-    const data = JSON.parse(text);
-    return {
-      title: String(data?.title || ""),
-      date: String(data?.release_date || data?.last_air_date || ""),
-      year: (() => {
-        const d = String(data?.release_date || data?.last_air_date || "");
-        return /^\d{4}/.test(d) ? d.slice(0, 4) : "";
-      })(),
-      imdbId: String(data?.imdb_id || ""),
-    };
-  } catch (error) {
-    // The ZXC params are advisory upstream â€” a blank title/year still resolves,
-    // so this degrades instead of failing the whole resolve.
-    logWarn("zxc", "title metadata lookup failed, continuing with blank params", {
-      message: error?.message,
-    });
-    return { title: "", date: "", year: "", imdbId: "" };
+  const text = await fetchUpstream(`${ZXC_ORIGIN}/backend/tmdb/details/${type}/${tmdbId}?language=en-US`, {
+    referer: `${ZXC_ORIGIN}${refererPath}`,
+    extraHeaders: zxcHeaders(refererPath, { json: true }),
+  });
+  const data = JSON.parse(text);
+  const date = String(data?.release_date || data?.last_air_date || "");
+  const meta = {
+    title: String(data?.title || ""),
+    date,
+    year: /^\d{4}/.test(date) ? date.slice(0, 4) : "",
+    imdbId: String(data?.imdb_id || ""),
+  };
+  if (type === "tv") meta.latestDate = String(data?.last_air_date || "");
+  // Fail here, loudly, rather than at the servers endpoint 400 lines below with a
+  // message that names neither the cause nor the fix. A blank field is a hard
+  // upstream rejection, so "no metadata" and "no playable source" must not be
+  // the same error the player sees.
+  const missing = ["title", "year", "date"].filter((k) => !meta[k]);
+  if (missing.length > 0) {
+    throw new Error(`title metadata incomplete (missing ${missing.join(", ")}) for tmdb ${tmdbId}`);
   }
+  return meta;
 }
 
 /* Step 1: mint a token. Fails closed on anything but a 200 with a token. */
@@ -410,7 +450,7 @@ async function zxcMint({ type, tmdbId, server, season, episode, refererPath }) {
     payload[ZXC_PARAM.season] = String(season || "");
     payload[ZXC_PARAM.episode] = String(episode || "");
   }
-  const text = await fetchUpstream(`${ZXC_ORIGIN}/backend/fuckyou`, {
+  const text = await fetchUpstream(`${ZXC_ORIGIN}${ZXC_MINT_PATH}`, {
     method: "POST",
     body: JSON.stringify(payload),
     referer: `${ZXC_ORIGIN}${refererPath}`,
@@ -491,6 +531,9 @@ function zxcPlaylistUrl(meta, { server, dubCode, dubType, view, representationId
   if (meta.type === "tv") {
     query.set(ZXC_PARAM.season, String(meta.season || ""));
     query.set(ZXC_PARAM.episode, String(meta.episode || ""));
+    // Carried so a REPLAYED playlist asks for the same episode freshness the
+    // original resolve did, instead of silently resolving the newest one.
+    if (meta.latestDate) query.set(ZXC_LATEST_DATE_PARAM, String(meta.latestDate));
   }
   if (dubCode) {
     query.set("dubCode", String(dubCode));
@@ -531,6 +574,7 @@ function parseZxcPlaylistUrl(rawUrl) {
       imdbId: "",
       season: url.searchParams.get(ZXC_PARAM.season) || "",
       episode: url.searchParams.get(ZXC_PARAM.episode) || "",
+      latestDate: url.searchParams.get(ZXC_LATEST_DATE_PARAM) || "",
       refererPath: zxcEmbedPath({
         type,
         tmdbId,
@@ -587,6 +631,61 @@ async function handleZxcPlaylist(rawUrl) {
   return build(rep);
 }
 
+/* Dubs: sibling masters, each verified by actually minting + transcoding it.
+   Shared by BOTH resolve branches: a dub-support server (orion, centaurus)
+   can hand back HLS links on one title and DASH on the next, and taking the
+   HLS early-return without checking dubs would silently drop Hindi/Tamil
+   tracks the provider does carry. Filter to type-0 (audio). Drop the
+   "original" row if present (it's the native soundtrack already served by
+   the master) to avoid duplicate labels, and also dedupe by (lanCode/type)
+   when the provider lists the same pair twice. DO NOT hard-cap to 8: some
+   titles carry 11+ type-0 dubs — the cap silently truncated Telugu/ptbr/esla
+   etc. Only an explicitly provider-flagged row is the original. If the
+   payload carries no flag (older provider responses) we must NOT guess a
+   winner — dropping an arbitrary first row would silently hide a real dub. */
+async function verifyZxcDubs(meta, server, dubs) {
+  const audioTracks = [];
+  if (!ZXC_DUB_SERVERS.has(server) || !Array.isArray(dubs)) return audioTracks;
+  const seen = new Set();
+  const originalKey = dubs.find((d) => d?.original && d?.lanCode) || null;
+  const originalKeyStr = originalKey ? `${originalKey.lanCode}/${String(originalKey.type ?? "0")}` : null;
+  const candidates = dubs
+    .filter((d) => d?.lanCode && String(d.type ?? "0") === "0")
+    .filter((d) => {
+      const key = `${d.lanCode}/${String(d.type ?? "0")}`;
+      if (originalKeyStr && key === originalKeyStr) return false;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  const verified = await Promise.all(
+    candidates.map(async (dub) => {
+      const uri = zxcPlaylistUrl(meta, {
+        server,
+        dubCode: String(dub.lanCode),
+        dubType: String(dub.type ?? "0"),
+        view: ZXC_VIEW_MASTER,
+      });
+      try {
+        await zxcDashManifest({
+          meta: { ...meta, server },
+          dubCode: String(dub.lanCode),
+          dubType: String(dub.type ?? "0"),
+        });
+        return { label: String(dub.lanName || dub.lanCode), uri };
+      } catch (error) {
+        // Advertised but dead upstream (the 427 rows). Never listed.
+        logWarn("zxc", `dropping dead ${server} dub ${dub.lanCode}/${dub.type}`, {
+          message: error?.message,
+        });
+        return null;
+      }
+    }),
+  );
+  for (const track of verified) if (track) audioTracks.push(track);
+  return audioTracks;
+}
+
 async function handleResolveZxc(body, res) {
   const type = body.type === "tv" ? "tv" : "movie";
   const tmdbId = String(body.id || "").trim();
@@ -606,7 +705,22 @@ async function handleResolveZxc(body, res) {
   const server = requested || "centaurus";
 
   const refererPath = zxcEmbedPath({ type, tmdbId, season, episode });
-  const titleMeta = await zxcTitleMeta({ type, tmdbId, refererPath });
+
+  let titleMeta;
+  try {
+    titleMeta = await zxcTitleMeta({ type, tmdbId, refererPath });
+  } catch (error) {
+    // A failed TMDB lookup is OUR upstream failing, not the title being
+    // unstreamable. `upstream` (not `no-source`) so the player can say so
+    // instead of telling the viewer every server has no source for this title.
+    logWarn("zxc", "title metadata lookup failed before resolve", { message: error?.message });
+    json(res, 200, {
+      ok: false,
+      error: `Could not load title details for tmdb ${tmdbId}: ${error?.message || "unknown"}`,
+      code: "upstream",
+    });
+    return;
+  }
   const meta = {
     type,
     tmdbId,
@@ -617,6 +731,7 @@ async function handleResolveZxc(body, res) {
     year: titleMeta.year,
     date: titleMeta.date,
     imdbId: titleMeta.imdbId,
+    latestDate: titleMeta.latestDate,
   };
 
   let data;
@@ -667,6 +782,10 @@ async function handleResolveZxc(body, res) {
     }
     if (playable) {
       const { link, levels } = playable;
+      // A dub-support server can serve HLS links on a title that ALSO has
+      // dubs (orion does both across titles) — verify and attach them here
+      // too, or the HLS early-return below would drop real Hindi/Tamil tracks.
+      const audioTracks = await verifyZxcDubs(meta, server, data.dubs);
       json(res, 200, {
         ok: true,
         source: {
@@ -690,7 +809,7 @@ async function handleResolveZxc(body, res) {
                 },
               ],
         server,
-        audioTracks: [],
+        audioTracks,
       });
       return;
     }
@@ -725,55 +844,9 @@ async function handleResolveZxc(body, res) {
     hdr: false,
   }));
 
-  // Dubs: sibling masters, each verified by actually minting + transcoding it.
-  const audioTracks = [];
-  if (server === ZXC_DUB_SERVER && Array.isArray(data.dubs)) {
-    const seen = new Set();
-    // Filter to type-0 (audio). Drop the "original" row if present (it's the
-    // native soundtrack already served by the master) to avoid duplicate labels,
-    // and also dedupe by (lanCode/type) when the provider lists the same pair
-    // twice. DO NOT hard-cap to 8: some titles carry 11+ type-0 dubs â€” the cap
-    // silently truncated Telugu/ptbr/esla etc.
-    // Only an explicitly provider-flagged row is the original. If the payload
-    // carries no flag (older provider responses) we must NOT guess a winner â€”
-    // dropping an arbitrary first row would silently hide a real dub.
-    const originalKey = data.dubs.find((d) => d?.original && d?.lanCode) || null;
-    const originalKeyStr = originalKey ? `${originalKey.lanCode}/${String(originalKey.type ?? "0")}` : null;
-    const candidates = data.dubs
-      .filter((d) => d?.lanCode && String(d.type ?? "0") === "0")
-      .filter((d) => {
-        const key = `${d.lanCode}/${String(d.type ?? "0")}`;
-        if (originalKeyStr && key === originalKeyStr) return false;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-    const verified = await Promise.all(
-      candidates.map(async (dub) => {
-        const uri = zxcPlaylistUrl(meta, {
-          server,
-          dubCode: String(dub.lanCode),
-          dubType: String(dub.type ?? "0"),
-          view: ZXC_VIEW_MASTER,
-        });
-        try {
-          await zxcDashManifest({
-            meta: { ...meta, server },
-            dubCode: String(dub.lanCode),
-            dubType: String(dub.type ?? "0"),
-          });
-          return { label: String(dub.lanName || dub.lanCode), uri };
-        } catch (error) {
-          // Advertised but dead upstream (the 427 rows). Never listed.
-          logWarn("zxc", `dropping dead ${server} dub ${dub.lanCode}/${dub.type}`, {
-            message: error?.message,
-          });
-          return null;
-        }
-      }),
-    );
-    for (const track of verified) if (track) audioTracks.push(track);
-  }
+  // Dubs: sibling masters, each verified by actually minting + transcoding it
+  // (shared helper — same rules as the HLS branch above).
+  const audioTracks = await verifyZxcDubs(meta, server, data.dubs);
 
   json(res, 200, {
     ok: true,
@@ -783,6 +856,58 @@ async function handleResolveZxc(body, res) {
     variants,
     server,
     audioTracks,
+  });
+}
+
+/* ZXC intro/outro boundaries (`zxcintro`). Upstream's own per-title skip data:
+   `GET /backend/intro?imdbId=&season=&episode=&tmdbId=` — NO mint, just the
+   vidstuck `Origin` (verified live: GoT S1E1 intro 437→531s, outro
+   3631.5→3699.5s; Breaking Bad S1E1 outro 3431→3500s). Shape:
+   `{intro:{start_sec,end_sec,…}|null, recap, outro:{…}|null, post_credits}`.
+   TV-only in practice: without season+episode upstream answers "Missing
+   params", and movie queries come back all-null — so movies short-circuit
+   to a miss without spending the call. A miss is `{ok:true}` with null
+   bounds (same honesty rule as SkipDB's 200-full-of-nulls): a missing
+   record is not a failure and must never fail playback or the skip UI —
+   the player falls back to its other sources. */
+async function handleZxcIntro(body, res) {
+  const imdbId = String(body.imdbId || "").trim();
+  const tmdbId = String(body.tmdbId || "").trim();
+  const season = String(body.season ?? "").trim();
+  const episode = String(body.episode ?? "").trim();
+  if (!/^tt\d{4,12}$/.test(imdbId) || !/^\d{1,12}$/.test(tmdbId)) {
+    json(res, 400, { ok: false, error: "Invalid IMDb/TMDB id", code: "bad-id" });
+    return;
+  }
+  const miss = { ok: true, introEndSeconds: null, creditsStartSeconds: null, confidence: null };
+  // Movies have no season/episode and upstream has no movie records — a call
+  // would only burn a request to learn that. TV carries S/E.
+  if (!season || !episode) {
+    json(res, 200, miss);
+    return;
+  }
+  const url =
+    `${ZXC_ORIGIN}/backend/intro?imdbId=${encodeURIComponent(imdbId)}` +
+    `&season=${encodeURIComponent(season)}&episode=${encodeURIComponent(episode)}` +
+    `&tmdbId=${encodeURIComponent(tmdbId)}`;
+  let data;
+  try {
+    const text = await fetchUpstream(url, {
+      referer: `${ZXC_ORIGIN}/embed/tv/${tmdbId}/${encodeURIComponent(season)}/${encodeURIComponent(episode)}`,
+      extraHeaders: zxcHeaders(`/embed/tv/${tmdbId}/${season}/${episode}`),
+    });
+    data = JSON.parse(text);
+  } catch {
+    json(res, 200, miss);
+    return;
+  }
+  const introEnd = Number(data?.intro?.end_sec);
+  const creditsStart = Number(data?.outro?.start_sec);
+  json(res, 200, {
+    ok: true,
+    introEndSeconds: Number.isFinite(introEnd) && introEnd > 0 ? introEnd : null,
+    creditsStartSeconds: Number.isFinite(creditsStart) && creditsStart >= 0 ? creditsStart : null,
+    confidence: Number.isFinite(Number(data?.intro?.confidence)) ? Number(data.intro.confidence) : null,
   });
 }
 
@@ -980,6 +1105,9 @@ export default async function handler(req, res) {
       case "resolvezxc":
         await handleResolveZxc(body, res);
         return;
+      case "zxcintro":
+        await handleZxcIntro(body, res);
+        return;
       case "manifest":
         await handleManifest(body, res);
         return;
@@ -995,7 +1123,7 @@ export default async function handler(req, res) {
   } catch (error) {
     json(res, 500, {
       ok: false,
-      error: `downloadify failed: ${error?.message || "unknown"}`,
+      error: `stream failed: ${error?.message || "unknown"}`,
       code: "internal",
     });
   }

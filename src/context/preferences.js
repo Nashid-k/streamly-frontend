@@ -6,8 +6,10 @@ import { PLAYER_SOURCE_LABELS } from "../constants/sources";
    The player dropdown shipped as "Server 1 … Server 7", was renamed to
    Lisbon/Nebula/Solara/Athens/Joy/Castle/Sakura, then Canaias/SmashyStream
    joined as an 8th, then the "Server N (suffix)" style came back. Today the
-   labels are plain Server 1 … 8; this map carries ANY legacy spelling across so
-   existing visitors keep their exact priority. Same position, new label. */
+   labels are plain Server N; this map carries ANY legacy spelling across so
+   existing visitors keep their exact priority. Same position, new label. Entries
+   that point at a now-retired number are dropped by `pruneRetiredServers`, not
+   renumbered here — a saved priority must never be silently rewritten. */
 export const LEGACY_SERVER_NAME_MAP = Object.freeze({
   "Lisbon": "Server 1",
   "Nebula": "Server 2",
@@ -70,16 +72,13 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   seekTime: 10,
   autoSubtitles: true,
   defaultLanguage: "en",
-    // Servers — plain labels (Server 1 … Server 4). Orders saved under the interim
-    // Lisbon/Nebula/… or "Server N (suffix)" names are migrated on boot, and a
-    // saved order naming a retired row (Server 5/6/7 = VidRack/VidSrc/NHD) is
-    // filtered out at render time rather than silently offering a dead server.
-  serverOrder: [
-    "Server 1",
-    "Server 2",
-    "Server 3",
-    "Server 4",
-  ],
+    // Servers — plain labels, DERIVED from the live catalogue so a roster change
+    // can never leave the default missing a row (it did: Server 5 stayed absent
+    // after Orion came back live). Orders saved under the interim Lisbon/Nebula/…
+    // or "Server N (suffix)" names are migrated on boot, and a saved order naming
+    // a retired row (Server 6/7/8 = VidSrc/NHD/…) is filtered out at render time
+    // rather than silently offering a dead server.
+  serverOrder: [...PLAYER_SOURCE_LABELS],
   // Subtitles
   subtitleFont: "cinejoy",
   subtitleSize: 100,

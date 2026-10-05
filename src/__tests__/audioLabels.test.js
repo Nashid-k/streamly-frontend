@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildAudioTrackList, normalizeAudioLabel, originalTrackLabel } from "../utils/audioLabels";
 
 // The provider strings that motivated this file, copied verbatim from the
-// shapes api/downloadify.js passes through (ZXC `lanName`, NHD `label`).
+// shapes api/stream.js passes through (ZXC `lanName`, NHD `label`).
 const ZXC_ROWS = [
   { label: "Tamil Dub" },
   { label: "Hindi Dub" },

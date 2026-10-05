@@ -52,6 +52,7 @@ import { variantLabel } from "../utils/downloadQuality";
 import { createStreamlyLoader, probeSourcePlayable } from "../api/nativeHlsLoader";
 import { takeWarmResolve } from "../api/warmResolve";
 import { SKIP_DATA_CREDIT, fetchSkipBoundaries } from "../api/skipBoundarySource";
+import { fetchZxcIntroBounds } from "../api/skipProviderSource";
 import { SubtitleFetcher } from "../api/subtitleFetcher";
 import { logDebug, logWarn } from "../utils/debugLogger";
 import { SubtitleEngine } from "../utils/subtitleEngine";
@@ -3354,6 +3355,31 @@ setScrubDragging(true);
     };
   }, [imdbId, type, season, episode, mergeBoundaries]);
 
+  /* Provider boundaries (ZXC/vidstuck `/backend/intro`, TV-only), fetched in
+     parallel with SkipDB through our own function (the endpoint has no CORS
+     headers, so the browser cannot call it directly). Same merge path: a
+     measured provider record outranks the community dataset but never a cue
+     tag embedded in the manifest itself. An absent imdbId simply means no
+     lookup, exactly like SkipDB. */
+  useEffect(() => {
+    if (!imdbId || type !== "tv") return undefined;
+    const controller = new AbortController();
+    let alive = true;
+    fetchZxcIntroBounds({
+      imdbId,
+      tmdbId: id,
+      season,
+      episode,
+      signal: controller.signal,
+    }).then((bounds) => {
+      if (alive && bounds) mergeBoundaries(bounds, "provider");
+    });
+    return () => {
+      alive = false;
+      controller.abort();
+    };
+  }, [imdbId, id, type, season, episode, mergeBoundaries]);
+
   const skipIntroTarget = getSkipIntroTarget({
     type,
     id,
@@ -4053,6 +4079,41 @@ setScrubDragging(true);
                   borderRadius: 999,
                 }}
               />
+              {/* Measured skip windows, drawn the way the provider draws them:
+                  a tick where the intro ends, a shaded tail where the credits
+                  run. Estimates never paint here — only cue/provider/dataset
+                  boundaries (cueBoundaries carries its source stamp), so a
+                  90s guess cannot masquerade as measured data. */}
+              {safeDuration > 0 && cueBoundaries?.source && cueIntroEnd > 0 && (
+                <div
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    top: -2,
+                    bottom: -2,
+                    left: `calc(${(cueIntroEnd / safeDuration) * 100}% - 1px)`,
+                    width: 2,
+                    background: "rgba(255,255,255,0.85)",
+                    borderRadius: 2,
+                    pointerEvents: "none",
+                  }}
+                />
+              )}
+              {safeDuration > 0 && cueBoundaries?.source && cueCreditsStart != null && cueCreditsStart >= 0 && (
+                <div
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    bottom: 0,
+                    left: `${(cueCreditsStart / safeDuration) * 100}%`,
+                    right: 0,
+                    background: "rgba(255,255,255,0.14)",
+                    borderRadius: 999,
+                    pointerEvents: "none",
+                  }}
+                />
+              )}
               <div
                 style={{
                   position: "absolute",

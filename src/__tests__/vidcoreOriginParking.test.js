@@ -112,7 +112,7 @@ describe("playability probe reuses the shared origin decision", () => {
       "fetch",
       vi.fn().mockImplementation(async (url, init) => {
         const to = String(url);
-        if (typeof url === "string" && to.includes("downloadify")) {
+        if (typeof url === "string" && to.includes("/api/stream")) {
           const body = JSON.parse(init.body);
           if (body.action === "playlist") {
             return { ok: true, status: 200, headers: { get: () => "text" }, text: async () => MEDIA_PLAYLIST };
@@ -144,7 +144,7 @@ describe("playability probe reuses the shared origin decision", () => {
       "fetch",
       vi.fn().mockImplementation(async (url, init) => {
         const to = String(url);
-        if (typeof url === "string" && to.includes("downloadify")) {
+        if (typeof url === "string" && to.includes("/api/stream")) {
           const body = JSON.parse(init.body);
           if (body.action === "playlist") {
             return { ok: true, status: 200, headers: { get: () => "text" }, text: async () => MEDIA_PLAYLIST };
@@ -175,7 +175,7 @@ describe("playability probe reuses the shared origin decision", () => {
       "fetch",
       vi.fn().mockImplementation(async (url, init) => {
         const to = String(url);
-        if (typeof url === "string" && to.includes("downloadify")) {
+        if (typeof url === "string" && to.includes("/api/stream")) {
           const body = JSON.parse(init.body);
           if (body.action === "playlist") {
             return { ok: true, status: 200, headers: { get: () => "text" }, text: async () => MEDIA_PLAYLIST };
@@ -233,7 +233,7 @@ describe("playability probe reuses the shared origin decision", () => {
       "fetch",
       vi.fn().mockImplementation(async (url, init) => {
         const to = String(url);
-        if (typeof url === "string" && to.includes("downloadify")) {
+        if (typeof url === "string" && to.includes("/api/stream")) {
           const body = JSON.parse(init.body);
           if (body.action === "playlist") {
             return { ok: true, status: 200, headers: { get: () => "text" }, text: async () => FLEET_PLAYLIST };

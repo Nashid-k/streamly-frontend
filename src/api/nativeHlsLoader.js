@@ -22,7 +22,7 @@ import { parseMasterPlaylist, parseMediaPlaylist } from "../utils/downloadQualit
 import { getCueBoundaries } from "../utils/hlsCueTags.js";
 import { deriveSliceMore, relayProxyConfig } from "./relayProxy.js";
 
-const ENDPOINT = "/api/downloadify";
+const ENDPOINT = "/api/stream";
 // Every relay chunk is a fresh serverless round trip, so latency is weighed
 // once per chunk. 3.5MB balances latency against the 4.5MB Vercel response
 // cap, and the parallel range fan-out below collapses a fragment to ~one relay
@@ -33,7 +33,7 @@ const FRAG_CHUNK_MAX = Math.floor(3.5 * 1024 * 1024);
 
 /* Active relay endpoint + slice + protocol, read lazily so tests can stub the
    env. mode "proxy" = the Cloudflare worker (GET ?url= + Range, whole-fragment
-   60MB slices). mode "json" = Vercel /api/downloadify (POST {action,...},
+   60MB slices). mode "json" = Vercel /api/stream (POST {action,...},
    slices capped at FRAG_CHUNK_MAX by its 4.5MB body cap). */
 function relayConfig() {
   const proxy = relayProxyConfig();
@@ -109,7 +109,7 @@ function isDirectBlocked(url) {
   // can never be read, only wasted. The status-based parking below can never
   // learn this shape (the doomed probe "succeeds" with 200), so this family is
   // blocked by name. Our own relay is ALSO a workers.dev host, but it is only
-  // ever reached through relayFragment/postDownloadify, never through this
+  // ever reached through relayFragment/postStream, never through this
   // direct path. Verified live 2026-09-29: proxystream2.ms0oww2azhtm (429
   // "error code: 1027", no ACAO), vidzen1-4.mu9*, odd-hill/steep-glitter/
   // rapid-feather/odd-salad (200, no ACAO — "CORS error" in console, bytes
@@ -307,7 +307,7 @@ async function withThrottleRetry(signal, run) {
    reason}; follows the entry URL through a master playlist when needed. */
 async function relayPlaylistText(url, refUrl, signal) {
   return withThrottleRetry(signal, async () => {
-    const response = await postDownloadify(
+    const response = await postStream(
       { action: "playlist", playlistUrl: url, refUrl },
       { signal },
     );
@@ -359,9 +359,9 @@ export async function probeSourcePlayable(entryUrl, refUrl, { signal } = {}) {
       }
       if (signal?.aborted) throw new Error("Aborted");
     }
-    // 2) relay byte sip (4KB through downloadify — server IP + referer).
+    // 2) relay byte sip (4KB through stream — server IP + referer).
     try {
-      const res = await postDownloadify(
+      const res = await postStream(
         { action: "segment", url: target, refUrl, range: { start: 0, max: 4095 } },
         { signal },
       );
@@ -378,7 +378,7 @@ export async function probeSourcePlayable(entryUrl, refUrl, { signal } = {}) {
 }
 
 /* ZXC replay-marker URLs, minted server-side by zxcPlaylistUrl() in
-   api/downloadify.js, look like
+   api/stream.js, look like
      https://vidstuck.xyz/backend/servers/<server>?...&zx=streamly&zv=master
    They are NOT upstream URLs — the marker only means "ask our handler", and
    handlePlaylist is the only thing that can turn one into a real provider
@@ -402,7 +402,7 @@ function isZxcMarkerUrl(url) {
   }
 }
 
-async function postDownloadify(body, { signal } = {}) {
+async function postStream(body, { signal } = {}) {
   const { base, slice, mode } = relayConfig();
   // A proxy whole-fragment call that falls back to the Vercel function MUST
   // re-slice at FRAG_CHUNK_MAX or the 4.5MB body cap breaks mid-flight.
@@ -742,7 +742,7 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath, onC
         return memoized;
       }
 const text = await withThrottleRetry(this.signal(), async () => {
-      const response = await postDownloadify(
+      const response = await postStream(
         { action: "playlist", playlistUrl: url, refUrl },
         { signal: this.signal() },
       );
@@ -897,7 +897,7 @@ const text = await withThrottleRetry(this.signal(), async () => {
       const refUrl = getRefUrl?.();
       const { slice } = relayConfig();
       const relayChunk = async (start) => {
-        const response = await postDownloadify(
+        const response = await postStream(
           { action: "segment", url, refUrl, range: { start } },
           { signal },
         );

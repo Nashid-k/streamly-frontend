@@ -1,5 +1,5 @@
 /* Confirms the resolver 400 for prefixed ids: same title, the app-shaped id vs the web's digit-only id. */
-const API = "https://streamlyvercelin.vercel.app/api/downloadify";
+const API = "https://streamlyvercelin.vercel.app/api/stream";
 
 async function post(body) {
   const t0 = Date.now();

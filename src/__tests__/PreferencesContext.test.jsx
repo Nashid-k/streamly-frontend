@@ -105,7 +105,7 @@ describe("PreferencesProvider", () => {
     expect(document.documentElement.dataset.adsEnabled).toBeUndefined();
   });
 
-  it("migrates a saved Lisbon-era server order to the restored Server 1–8 labels, position preserved", () => {
+  it("migrates a saved Lisbon-era server order to the restored Server N labels, position preserved", () => {
     localStorage.setItem(
       "setting-serverOrder",
       JSON.stringify(["Nebula", "Lisbon", "Joy"]),
@@ -117,12 +117,14 @@ describe("PreferencesProvider", () => {
       </PreferencesProvider>,
     );
 
+    // Nebula -> Server 2, Lisbon -> Server 1, Joy -> Server 5 (live again as
+    // Orion), so all three survive the migration + retirement filter.
     expect(screen.getByTestId("server-order")).toHaveTextContent(
-      "Server 2 | Server 1",
+      "Server 2 | Server 1 | Server 5",
     );
     // The stored key is rewritten in place so the migration is idempotent.
     expect(localStorage.getItem("setting-serverOrder")).toBe(
-      JSON.stringify(["Server 2", "Server 1"]),
+      JSON.stringify(["Server 2", "Server 1", "Server 5"]),
     );
   });
 
@@ -146,14 +148,15 @@ describe("PreferencesProvider", () => {
     );
   });
 
-  /* VidSrc (Server 6) and NHD (Server 7) were removed 2026-10-03, and VidRack
-     (Server 5) on 2026-10-04 (every ladder AES-128 behind a 403ing key host):
-     all answer nothing playable, so a returning visitor's saved order must lose
-     those rows instead of keeping dead entries in the menu. */
+  /* VidSrc (Server 6), NHD (Server 7) and the old VidRack (previously Server 5,
+     now the live Orion) were removed after re-measuring dead, so a returning
+     visitor's saved order must lose those rows instead of keeping dead entries
+     in the menu. Server 5 is deliberately NOT in this list any more: it is live
+     again (Orion), so testing that it is dropped would pin the wrong contract. */
   it("drops retired servers from a saved order instead of listing dead rows", () => {
     localStorage.setItem(
       "setting-serverOrder",
-      JSON.stringify(["Server 7", "Server 1", "Server 6", "Server 5"]),
+      JSON.stringify(["Server 8", "Server 1", "Server 6", "Server 7"]),
     );
 
     render(
@@ -163,15 +166,15 @@ describe("PreferencesProvider", () => {
     );
 
     expect(screen.getByTestId("server-order")).toHaveTextContent("Server 1");
-    expect(screen.getByTestId("server-order")).not.toHaveTextContent("Server 5");
     expect(screen.getByTestId("server-order")).not.toHaveTextContent("Server 6");
     expect(screen.getByTestId("server-order")).not.toHaveTextContent("Server 7");
+    expect(screen.getByTestId("server-order")).not.toHaveTextContent("Server 8");
   });
 
   it("falls back to the live default order when every saved row is retired", () => {
     localStorage.setItem(
       "setting-serverOrder",
-      JSON.stringify(["Server 6", "Server 7", "Server 5"]),
+      JSON.stringify(["Server 6", "Server 7", "Server 8"]),
     );
 
     render(
@@ -180,8 +183,11 @@ describe("PreferencesProvider", () => {
       </PreferencesProvider>,
     );
 
+    // The default is DERIVED from PLAYER_SOURCE_LABELS, so it grows with the
+    // catalogue: asserting the whole live roster keeps this honest when a server
+    // is added or retired.
     expect(screen.getByTestId("server-order")).toHaveTextContent(
-      "Server 1 | Server 2 | Server 3 | Server 4",
+      "Server 1 | Server 2 | Server 3 | Server 4 | Server 5",
     );
   });
 

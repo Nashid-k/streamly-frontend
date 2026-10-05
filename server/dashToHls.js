@@ -2,7 +2,7 @@
 //
 // WHY THIS EXISTS: the ZXC/vidstuck family serves two of its four servers as
 // MPEG-DASH manifests, not HLS. This app is HLS-only by construction — hls.js
-// is the sole player and the whole relay (api/downloadify.js `manifest`,
+// is the sole player and the whole relay (api/stream.js `manifest`,
 // `playlist`, `segment`, plus src/api/nativeHlsLoader.js) is shaped around
 // m3u8 text. Rather than add a second player (dash.js) and a second byte path,
 // we rewrite the MANIFEST and touch no media bytes at all: every DASH

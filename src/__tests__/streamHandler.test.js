@@ -1,9 +1,9 @@
 // End-to-end guard for the reported production failure:
 //
-//   POST /api/downloadify -> 500 (Internal Server Error)
+//   POST /api/stream -> 500 (Internal Server Error)
 //   [Streamly][download] <provider> has no downloadable stream
 //
-// The 500 was not a provider failure: api/downloadify.js imported `resolveUrl`
+// The 500 was not a provider failure: api/stream.js imported `resolveUrl`
 // from src/utils/downloadQuality.js, which never exported it, so the ESM module
 // failed to LINK and every action threw before the handler ever ran. The client
 // then reported the 500 as "no downloadable stream", which is why the real cause
@@ -13,7 +13,7 @@
 // dispatch regression shows up here instead of on someone's title page.
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-const { default: handler } = await import("../../api/downloadify.js");
+const { default: handler } = await import("../../api/stream.js");
 
 function makeRes() {
   const res = {
@@ -64,7 +64,7 @@ beforeEach(() => {
   );
 });
 
-describe("POST /api/downloadify", () => {
+describe("POST /api/stream", () => {
   it("answers a preflight without touching the network", async () => {
     const res = await call(null, { method: "OPTIONS" });
     expect(res.statusCode).toBe(204);
@@ -122,7 +122,7 @@ describe("POST /api/downloadify", () => {
 
 });
 
-describe("POST /api/downloadify â€” resolvezxc", () => {
+describe("POST /api/stream â€” resolvezxc", () => {
   const callZxc = (body) => call({ action: "resolvezxc", type: "movie", id: "1101383", ...body });
 
   it("rejects an unknown server before any provider request", async () => {
@@ -160,7 +160,13 @@ describe("POST /api/downloadify â€” resolvezxc", () => {
   it("carries season/episode into the TV provider request", async () => {
     // TV identity has to reach the provider's mint call, or every episode
     // would resolve to the same stream.
-    const fetchMock = vi.fn(async () => new Response("nope", { status: 502 }));
+    // Title metadata is mandatory upstream, so the details lookup gets a
+    // canned success while everything else stays refused.
+    const fetchMock = vi.fn(async (url) =>
+      String(url).includes("/backend/tmdb/details/")
+        ? new Response(JSON.stringify({ title: "T", release_date: "2020-01-01", imdb_id: "tt0000001" }), { status: 200 })
+        : new Response("nope", { status: 502 }),
+    );
     vi.stubGlobal("fetch", fetchMock);
     await callZxc({ type: "tv", season: 2, episode: 7, server: "atlas" });
     const bodies = fetchMock.mock.calls
@@ -174,7 +180,13 @@ describe("POST /api/downloadify â€” resolvezxc", () => {
   });
 
   it("omits season/episode for a movie", async () => {
-    const fetchMock = vi.fn(async () => new Response("nope", { status: 502 }));
+    // Same canned-metadata arrangement as the TV case above: metadata is
+    // mandatory, so only the details lookup succeeds.
+    const fetchMock = vi.fn(async (url) =>
+      String(url).includes("/backend/tmdb/details/")
+        ? new Response(JSON.stringify({ title: "T", release_date: "2020-01-01", imdb_id: "tt0000001" }), { status: 200 })
+        : new Response("nope", { status: 502 }),
+    );
     vi.stubGlobal("fetch", fetchMock);
     await callZxc({ type: "movie", season: 2, episode: 7, server: "atlas" });
     const bodies = fetchMock.mock.calls

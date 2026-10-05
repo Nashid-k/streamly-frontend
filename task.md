@@ -4743,7 +4743,137 @@ serverless verify path and its already-synced data are gone.
 - [x] Gates: oxlint 0 errors (44 baseline warnings, none in the new files),
       vitest **79 files / 1007 passed**, build OK.
 - [ ] **NOT verified**: no browser here, so the dialog and /verify-email page
-      have never been seen rendered, and no live SMTP/Mongo round-trip has run
-      (local `.env` has the mail credentials; `MONGODB_URI` is assumed from the
-      deployment). Before shipping, set SMTP_* / SITE_URL / VERIFY_SECRET /
-      SYNC_SECRET in Vercel and walk the whole flow once by hand.
+have never been seen rendered, and no live SMTP/Mongo round-trip has run
+(local `.env` has the mail credentials; `MONGODB_URI` is assumed from the
+deployment). Before shipping, set SMTP_* / SITE_URL / VERIFY_SECRET /
+SYNC_SECRET in Vercel and walk the whole flow once by hand.
+
+## Rename `api/downloadify.js` -> `api/stream.js` (2026-10-05)
+
+- [x] **Why the file existed under a lie.** Downloading is gone
+(DownloadModal/DownloadsPage/downloads context/`/downloads` route/save
+machinery all deleted), but `api/downloadify.js` was still the live stream
+backend: `resolvezxc` + `manifest`/`playlist`/`segment` relay for native
+hls.js playback. Renamed to `api/stream.js` (`git mv`, history preserved)
+and the endpoint to `/api/stream`: `vercel.json` function key,
+`ENDPOINT` in `downloadService.js` + `nativeHlsLoader.js`,
+`postDownloadify` -> `postStream`, all test imports/URLs/describes
+(`downloadifyHandler.test.js` -> `streamHandler.test.js`), scripts, sw.js
+comment, and current-state docs (`.env.example`, `README.md`,
+`architecture.md`). `task.md` history entries above intentionally keep the
+old name (record of work done). `downloadService.js` keeps its name: its
+header already describes the resolve-only role truthfully.
+- [x] **Three fallout fixes, all mine.** The blind rename left
+`includes("stream")` filters matching upstream URLs too
+(`nativeHlsLoader.test.js`, `vidcoreOriginParking.test.js` — rescoped to
+`"/api/stream"`); two `streamHandler` season/episode tests stubbed every
+fetch to 502, which now (correctly, per the mandatory-metadata rule) aborts
+before the mint — they serve canned tmdb-details instead; `zxcMintPath`
+asserted `%20` where `URLSearchParams` emits `+`.
+- [x] Gates: oxlint 0 errors (warnings-only baseline), vitest **80 files /
+1013 passed**, build OK (3.01s).
+
+## ZXC deep scrape: 6 servers, preview, skip (2026-10-05, research only)
+
+- [x] **Server roster, read off the shipped player chunk**
+(`player.zxcprime.xyz/_next/static/chunks/0lcg.~uvc23n0.js`), not guessed.
+`?server=N` is a numeric index: 0 `orion` (Multi Audio), 1 `valstrax` (HD),
+2 `atlas` (Fast), 3 `ursa` (Alternative), 4 `alatreon` (Library),
+5 `daedalus` (Alternative); `resshin` (Download + Multi Audio) joins as
+index 0 only with `?resshin=true`. No `andromeda` in this bundle (0 hits);
+`icarus` appears only as a legacy fallback branch. (Upstream API names in
+`api/stream.js` differ: centaurus/andromeda/atlas/meow — display names vs
+API paths are not 1:1.)
+- [x] **Scrape recipe.** `POST {player-host}/imalwaywatching/noscrapingpls`
+with hashed `FIELD_MAP` keys (id/mediaType/path/season/episode) ->
+`{ts, token}`; then
+`GET {player-host}/backend_/sources/{server}?{mapped id/path/mediaType/ts/token/title/year/date/...dependent,
+`_blank`); link objects carry `{link (AES-encrypted, key
+`7f4c9e2a…b832c` in-bundle), type ("hls" = stream, else direct file),
+resolution, format, size}`; settings menu model is Quality / Source
+quality / Audio Dub (`dubs[{name,lang,type}]`) / Audio track (hls.js
+tracks) / Download (non-hls links with size labels) / subtitles / speed /
+aspect / PiP. Live mint from bare curl is bot-gated (500) — server-side
+scraping needs a real browser session; the committed `resolvezxc` path
+handles this via `Origin: https://vidstuck.xyz`.
+- [x] **Netflix-style preview: they do not have it.** No storyboard/sprite
+code in the bundle — scrub hover shows a time tooltip only, plus
+intro/outro range markers on the bar. There is nothing to scrape; true
+thumbnail previews would need sprite generation (new infra, not $0-free).
+- [x] **Intro/outro skip: real per-title data.** `GET /backend/intro?
+imdbId=&season=&episode=&tmdbId=` -> `{intro:{start_sec,end_sec},
+outro:{start_sec,end_sec}}`, drawn on the scrub bar and driving "Skip
+Intro ->" / "Skip Outro ->" buttons that seek to `end_sec`. Ours already
+covers this via SkipDB (`src/api/skipBoundarySource.js`, direct browser
+call, 2.5s cap, estimate fallback) + manifest cue tags + Auto Skip Intro
+setting — no ZXC dependency needed; wiring their endpoint instead would
+cost serverless calls for data we already get free.## ZXC integration completed from the deep-scrape research (2026-10-05)
+
+- [x] **Authoritative roster re-pulled from the LIVE embed chunk, not from
+      memory.** The embed page (`vidstuck.xyz/embed/movie/579974`) now ships
+      `gN.SERVERS` in `_next/static/chunks/1_dnzdtbwwkan.js`:
+      `Orion(orion, dub) → Andromeda(andromeda) → Centaurus(centaurus, dub) →
+      Atlas(atlas) → Ursa(meow)`. That is FIVE rows and it matches
+      `ZXC_SERVERS = ["andromeda","centaurus","atlas","meow","orion"]` in
+      `api/stream.js` one-for-one, and `ZXC_DUB_SERVERS = {centaurus, orion}`
+      matches the chunk's `dubSupport` flags. The earlier "6 servers /
+      valstrax / alatreon / daedalus" reading was a DIFFERENT bundle: the
+      roster rotates, which is exactly why it is re-read from the chunk rather
+      than trusted from a note.
+- [x] **Preview/thumbnail: there is nothing to scrape, proven at the manifest
+      level (not assumed).** The chunk's only thumbnail code is dash.js's own
+      `ThumbnailTracks`/`ThumbnailController` (`dashjs` library, not app code),
+      which activates only when a DASH MPD declares an `AdaptationSet` with
+      `schemeIdUri="http://dashif.org/thumbnail_tile"`. A fetch-interceptor
+      probe drove every server through the real handler and read the RAW
+      upstream payloads: centaurus (`application/dash+xml`, 9201 B) and
+      orion's `andromeda` MPD (8081 B) both answer `thumb_tile=false`; atlas
+      (485 KB / 1.36 MB) and meow HLS playlists answer
+      `EXT-X-IMAGE-STREAM-INF=false`. No tiles, no sprite, no storyboard, no
+      `preview` field anywhere in the resolver payloads. The provider simply
+      does not publish scrub previews, so there is no integration to make (the
+      `sprite` string in the chunk is a domain-suffix word list, not code).
+- [x] **Intro/outro path confirmed live and already wired — no new dependency.**
+      `GET vidstuck.xyz/backend/intro?imdbId=&season=&episode=&tmdbId=` is a
+      plain GET (no mint, only the vidstuck `Origin`) and answers real
+      per-encode boundaries (GoT `tt0944947` S1E1: intro 437→531s, outro
+      3631.5→3699.5s, confidence 1). It is reachable through
+      `api/stream.js` `zxcintro` → `src/api/skipProviderSource.js` →
+      `NativePlayerView` (`fetchZxcIntroBounds`), TV-only with a null miss
+      contract, sitting alongside SkipDB (`skipBoundarySource.js`) in the
+      ranking `measured cue > provider (ZXC) > dataset (SkipDB) > override >
+      guess`. No serverless call is spent on a movie (upstream has no movie
+      records). This is the "usable from our backend" path the task asked for.
+- [x] **Integration gap FOUND and fixed: the default server order still
+      stopped at Server 4.** `DEFAULT_PREFERENCES.serverOrder` in
+      `src/context/preferences.js` and `DEFAULT_SERVER_ORDER` in
+      `src/constants/settings.js` were hand-listed `Server 1 … Server 4`, so
+      Server 5 (Orion) was MISSING from the Settings drag list and from the
+      fallback order — the new row was playable but not fully integrated. Both
+      now DERIVE from the single source of truth:
+      `[...PLAYER_SOURCE_LABELS]` (from `PLAYER_SOURCES`), so the next roster
+      change renumbers the defaults automatically. This is the same class of
+      bug the catalogue single-source rule exists to prevent.
+- [x] **Tests rebased where Server 5 is no longer the retired VidRack.**
+      `playerA11y` now asserts 5 rows with Server 5 as a `Multi audio` row;
+      the Lisbon-era migration test now keeps `Joy → Server 5` (live again);
+      the retirement test uses the genuinely retired labels (Server 6/7/8) and
+      the all-retired fallback asserts the full derived 5-row default. These
+      were stale expectations, not weakened assertions — the contract they pin
+      genuinely changed when Orion came back.
+- [x] **`scripts/probe-servers.mjs` made truthful.** It still probed
+      vidcore/vidsrc/nhd/milkyway with actions that no longer exist, so it
+      could only ever report guaranteed failures. Rewritten to the five live
+      ZXC rows (and the dead `phase:"full"` vidcore retry branch removed).
+- [x] **Live verification.** `scripts/probe-orion.mjs` (movie 579974):
+      `resolvezxc` orion → HTTP 200, 3 variants (1080/720/480), first variant
+      a 1.64 MB `#EXTM3U` VOD playlist carrying real fMP4
+      (`chunk-stream0-*.m4s`) with no `IMAGE-STREAM-INF`. A per-server handler
+      probe (intercepting outbound fetches) showed all five rows answering
+      HTTP 200 with real upstream media (centaurus MPD, atlas/meow HLS, orion
+      MPD). A later full-sweep re-probe hit Upstream 429 across the board —
+      the SELF-INFLICTED throttling already recorded for this provider after
+      repeated probing, not a regression; the rows had all resolved cleanly
+      minutes earlier.
+- [x] **Gates.** `npm run lint` 0 errors (44 warnings, pre-existing baseline);
+      `npm run test` **80 files / 1013 passed**; `npm run build` OK (2.29s).

@@ -4,6 +4,8 @@
 
 import { LayoutGrid, User, Palette, Play, Server, Captions, Bell } from "lucide-react";
 
+import { PLAYER_SOURCE_LABELS } from "./sources";
+
 export const THEMES = [
   {
     id: "default",
@@ -77,14 +79,12 @@ export const SUBTITLE_COLORS = [
   { name: "Emerald", value: "#95ff50" },
 ];
 
-/* Mirrors DEFAULT_PREFERENCES.serverOrder (plain Server 1 … Server 4) so the
-   Settings page renders before the provider resolves; the adapter owns the list. */
-export const DEFAULT_SERVER_ORDER = [
-  "Server 1",
-  "Server 2",
-  "Server 3",
-  "Server 4",
-];
+/* DERIVED from the live catalogue, never hand-listed, so adding or retiring a
+   server renumbers this automatically. It used to be a hardcoded Server 1–4 and
+   drifted the moment Server 5 came back live: the Settings drag list silently
+   dropped the fifth row. The Settings page renders this before the provider
+   resolves; the adapter owns the persisted list. */
+export const DEFAULT_SERVER_ORDER = [...PLAYER_SOURCE_LABELS];
 
 export const TABS = [
   { id: "all", label: "All", icon: LayoutGrid },

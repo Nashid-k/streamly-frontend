@@ -159,7 +159,7 @@ api/
 ├── verifyEmail.js       ← POST: create the account from a valid token
 ├── login.js             ← POST: email + password → session + sync token
 ├── sync.js              ← cloud sync (HMAC-signed, MongoDB, merge policy)
-├── downloadify.js       ← native-stream resolver + relay (VidSrc + VidCore +
+├── stream.js       ← native-stream resolver + relay (VidSrc + VidCore +
 │                           NHD + VIDSTUCK, single-URL Range-chunked segment
 │                           proxy, SSRF guard, DASH→HLS fMP4 transcoding)
 ├── publicCollections.js ← publish / read public collections

@@ -24,7 +24,7 @@
     "api/publicCollections.js": {
       "maxDuration": 15
     },
-    "api/downloadify.js": {
+    "api/stream.js": {
       "maxDuration": 60,
       "regions": [
         "bom1"

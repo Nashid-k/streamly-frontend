@@ -146,7 +146,7 @@ describe("isRefererGated", () => {
 // handlePlaylist can mint the token the provider requires — so the worker
 // forwarded it unsigned and vidstuck.xyz answered 400 on the master, the
 // media playlist and every reload. The loud 400s were survivable (the loader
-// cascaded to /api/downloadify and got real bytes), but the wasted leg still
+// cascaded to /api/stream and got real bytes), but the wasted leg still
 // cost a second upstream request per playlist against a rate-limited provider,
 // so it accelerated the 429 that actually killed the session.
 // A 429/503 is a throttle, not a dead source. hls.js re-requests the manifest,
@@ -286,7 +286,7 @@ describe("ZXC replay-marker playlists", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [calledUrl, init] = fetchMock.mock.calls[0];
     expect(String(calledUrl)).not.toContain("workers.dev");
-    expect(String(calledUrl)).toContain("/api/downloadify");
+    expect(String(calledUrl)).toContain("/api/stream");
     expect(init?.method).toBe("POST");
     expect(JSON.parse(init.body)).toEqual({
       action: "playlist",
@@ -412,7 +412,7 @@ describe("createStreamlyLoader", () => {
         if (init?.headers?.range) {
           return { ok: true, status: 206, headers: { get: () => null }, body: { cancel: async () => {} } };
         }
-        if (typeof url === "string" && url.includes("downloadify")) {
+        if (typeof url === "string" && url.includes("/api/stream")) {
           return {
             ok: true,
             status: 200,
@@ -543,7 +543,7 @@ describe("createStreamlyLoader", () => {
   });
 
   it("unwraps the Vercel leg's 502 envelope when the upstream quota refusal rides inside", async () => {
-    // downloadify wraps any segment-fetch failure as 502 segment-fetch-failed;
+    // stream wraps any segment-fetch failure as 502 segment-fetch-failed;
     // vidzen's 429 only survives inside the message text. The annotation must
     // read it out so both relay legs name the quota death identically.
     vi.stubGlobal(
@@ -583,7 +583,7 @@ describe("createStreamlyLoader", () => {
         if (typeof url === "string" && url.startsWith("https://direct.example.com")) {
           return { ok: true, status: 200, headers: { get: () => null }, arrayBuffer: async () => bytes };
         }
-        if (typeof url === "string" && url.includes("downloadify")) {
+        if (typeof url === "string" && url.includes("/api/stream")) {
           return {
             ok: true,
             status: 200,
@@ -624,7 +624,7 @@ describe("createStreamlyLoader", () => {
       "fetch",
       vi.fn().mockImplementation(async (url, init) => {
         if (init?.headers?.range) return rangeOkResponse();
-        if (typeof url === "string" && !url.includes("downloadify")) {
+        if (typeof url === "string" && !url.includes("/api/stream")) {
           return { ok: false, status: 403, headers: { get: () => null } };
         }
         const body = JSON.parse(init?.body || "{}");
@@ -786,7 +786,7 @@ describe("createStreamlyLoader", () => {
       });
     });
     expect(calls.some((to) => to.includes("workers.dev"))).toBe(true);
-    expect(calls.some((to) => to.includes("downloadify"))).toBe(true);
+    expect(calls.some((to) => to.includes("/api/stream"))).toBe(true);
     expect(response.data).toContain("#EXTM3U");
   });
 
@@ -829,7 +829,7 @@ describe("createStreamlyLoader", () => {
       });
     });
     // The refusal must NOT kill the source: the Vercel leg answered instead.
-    expect(calls.filter((to) => to.includes("downloadify")).length).toBe(1);
+    expect(calls.filter((to) => to.includes("/api/stream")).length).toBe(1);
     expect(response.data).toContain("#EXTM3U");
   });
 
@@ -970,7 +970,7 @@ describe("createStreamlyLoader", () => {
       "fetch",
       vi.fn().mockImplementation(async (url, init) => {
         if (init?.headers?.range) return rangeOkResponse();
-        if (typeof url === "string" && !url.includes("downloadify")) {
+        if (typeof url === "string" && !url.includes("/api/stream")) {
           return { ok: false, status: 403, headers: { get: () => null } };
         }
         const body = JSON.parse(init?.body || "{}");
@@ -1012,7 +1012,7 @@ describe("createStreamlyLoader", () => {
   it("parks a throttled origin on relay-only cooldown (no repeated direct pokes)", async () => {
     const fetchMock = vi.fn().mockImplementation(async (url, init) => {
       if (init?.headers?.range) return rangeOkResponse();
-      if (typeof url === "string" && url.includes("downloadify")) {
+      if (typeof url === "string" && url.includes("/api/stream")) {
         return {
           ok: true,
           status: 200,
@@ -1061,7 +1061,7 @@ describe("createStreamlyLoader", () => {
     let directThrottled = true;
     const fetchMock = vi.fn().mockImplementation(async (url, init) => {
       if (init?.headers?.range) return rangeOkResponse();
-      if (typeof url === "string" && url.includes("downloadify")) {
+      if (typeof url === "string" && url.includes("/api/stream")) {
         return {
           ok: true,
           status: 200,
@@ -1191,7 +1191,7 @@ describe("probeSourcePlayable", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation(async (url) => {
-        if (typeof url === "string" && url.includes("downloadify")) {
+        if (typeof url === "string" && url.includes("/api/stream")) {
           return { ok: true, status: 200, headers: { get: () => "text" }, text: async () => MEDIA_PLAYLIST };
         }
         return { ok: true, status: 206, headers: { get: () => null } };
@@ -1205,7 +1205,7 @@ describe("probeSourcePlayable", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation(async (url, init) => {
-        if (typeof url === "string" && url.includes("downloadify")) {
+        if (typeof url === "string" && url.includes("/api/stream")) {
           const body = JSON.parse(init.body);
           const text = String(body.playlistUrl || "").endsWith("master.m3u8") ? MASTER_PLAYLIST : MEDIA_PLAYLIST;
           return { ok: true, status: 200, headers: { get: () => "text" }, text: async () => text };
@@ -1223,11 +1223,11 @@ describe("probeSourcePlayable", () => {
       "fetch",
       vi.fn().mockImplementation(async (url, init) => {
         const to = String(url);
-        if (to.startsWith("https://palehive.top") && !to.includes("downloadify")) {
+        if (to.startsWith("https://palehive.top") && !to.includes("/api/stream")) {
           directCalls.push(to);
           return { ok: false, status: 403, headers: { get: () => null } };
         }
-        if (typeof to === "string" && to.includes("downloadify")) {
+        if (typeof to === "string" && to.includes("/api/stream")) {
           const body = JSON.parse(init.body);
           if (body.action === "playlist") {
             return { ok: true, status: 200, headers: { get: () => "text" }, text: async () => MEDIA_PLAYLIST };
@@ -1252,7 +1252,7 @@ describe("probeSourcePlayable", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation(async (url, init) => {
-        if (typeof url === "string" && url.includes("downloadify")) {
+        if (typeof url === "string" && url.includes("/api/stream")) {
           const body = JSON.parse(init.body);
           if (body.action === "playlist") {
             return { ok: true, status: 200, headers: { get: () => "text" }, text: async () => MEDIA_PLAYLIST };
@@ -1275,7 +1275,7 @@ describe("probeSourcePlayable", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation(async (url, init) => {
-        if (typeof url === "string" && url.includes("downloadify")) {
+        if (typeof url === "string" && url.includes("/api/stream")) {
           const body = JSON.parse(init.body);
           if (body.action === "playlist") {
             return { ok: true, status: 200, headers: { get: () => "text" }, text: async () => MEDIA_PLAYLIST };

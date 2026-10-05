@@ -6,7 +6,7 @@
 // content-range/content-length. Raw transport pointed at it first takes bytes
 // OFF Vercel Hobby (no 4.5MB body cap, no egress charge) — one request can pull
 // a whole fMP4 fragment instead of a fan-out of 3.5MB slices.
-// /api/downloadify stays the automatic fallback.
+// /api/stream stays the automatic fallback.
 //
 // Referer-gated CDNs (VidCore's moon/palehive) 403 a bare fetch, so the client
 // passes the owning player's referer as ?referer= and a worker deployed with the
@@ -26,7 +26,7 @@ export function relayProxyConfig() {
 }
 
 /* "Does a slice continue past what we just got?" — the proxy adds no
-   x-streamly-more (downloadify does), so derive it from content-range when
+   x-streamly-more (stream does), so derive it from content-range when
    that header is absent: a served offset + bytes < total means more data. */
 export function deriveSliceMore(response, bufLength, slice) {
   const header = response.headers.get("x-streamly-more");

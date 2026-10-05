@@ -1,7 +1,7 @@
 // src/api/downloadService.js — client half of the native playback resolvers.
 //
 // The native player resolves each server's stream through the same-origin
-// Vercel function api/downloadify.js (media bytes ride that function and the
+// Vercel function api/stream.js (media bytes ride that function and the
 // optional Cloudflare relay, wired in nativeHlsLoader.js). This module owns
 // the RESOLVE contract: one method per server, every one normalizing to
 // `{ source, variants, audioTracks }` so the player treats providers uniformly.
@@ -13,7 +13,7 @@
 import { estimateBytes, variantLabel } from "../utils/downloadQuality.js";
 import { logError, logInfo } from "../utils/debugLogger.js";
 
-const ENDPOINT = "/api/downloadify";
+const ENDPOINT = "/api/stream";
 
 export class DownloadUnavailableError extends Error {
   constructor(message, code) {
@@ -36,7 +36,7 @@ async function post(body, { signal } = {}) {
     });
   } catch (error) {
     if (error?.name === "AbortError") throw error;
-    logError("download", "downloadify request failed (is the function deployed?)", error, {
+    logError("download", "stream request failed (is the function deployed?)", error, {
       action: body?.action,
     });
     throw new DownloadUnavailableError(
@@ -81,11 +81,12 @@ export const downloadService = {
     return { source: data.source, variants, audioTracks };
   },
 
-  /** Resolve one of the four ZXC/VIDSTUCK servers (action "resolvezxc"). The
-      `server` arg picks the row (andromeda | centaurus | atlas | meow), so
-      every server stays individually selectable instead of racing to a winner.
-      DASH servers come back as a transcoded multi-level master plus sibling-URL
-      `audioTracks` (Centaurus dubs); HLS servers pass their own ladder through. */
+  /** Resolve one of the ZXC/VIDSTUCK servers (action "resolvezxc"). The
+      `server` arg picks the row (andromeda | centaurus | atlas | meow |
+      orion), so every server stays individually selectable instead of racing
+      to a winner. DASH servers come back as a transcoded multi-level master
+      plus sibling-URL `audioTracks` (centaurus/orion dubs); HLS servers pass
+      their own ladder through. */
   async resolveZxc({ type, id, season, episode, server }, { signal } = {}) {
     const kind = type === "tv" ? "tv" : "movie";
     const body = { action: "resolvezxc", type: kind, id: String(id || ""), server: String(server || "") };

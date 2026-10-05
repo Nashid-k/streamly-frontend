@@ -1,6 +1,6 @@
 // Drives the real public/sw.js fetch handler with stubbed Cache/self globals.
 //
-// This exists because of a production error: every /api/downloadify resolve/save
+// This exists because of a production error: every /api/stream resolve/save
 // POST produced
 //   Uncaught (in promise) TypeError: Failed to execute 'put' on 'Cache':
 //   Request method 'POST' is unsupported
@@ -85,7 +85,7 @@ beforeEach(async () => {
 describe("service worker fetch routing", () => {
   it("never intercepts a POST, so Cache.put can never be handed one", async () => {
     for (const path of [
-      "/api/downloadify",
+      "/api/stream",
       "/api/sync",
       "/api/login",
       "/api/tmdb/movie/550",
@@ -101,7 +101,7 @@ describe("service worker fetch routing", () => {
 
   it("never intercepts PUT/DELETE/PATCH/HEAD either", async () => {
     for (const method of ["PUT", "DELETE", "PATCH", "HEAD"]) {
-      await run(makeRequest("/api/downloadify", { method }));
+      await run(makeRequest("/api/stream", { method }));
     }
     expect(respondWithCalls).toEqual([]);
     expect(puts).toEqual([]);

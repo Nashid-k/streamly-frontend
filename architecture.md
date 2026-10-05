@@ -89,7 +89,7 @@ All endpoints are rate-limited per IP (`server/rateLimit.js`, fixed window:
 register 5/10min per IP + 3/hour per address, verify 20/15min, login 20/15min
 per IP + 10/15min per address, sync 60/min, public collections 60/min, tmdb
 120/min, groq
-20/min per IP + a 240/min global budget + 1MB payload cap (413 over), downloadify
+20/min per IP + a 240/min global budget + 1MB payload cap (413 over), stream
 600/min — a movie is hundreds of three-megabyte chunk fetches).
 
 Auth trust path — **email + password, verified by link** (the Google ID-token
@@ -161,7 +161,7 @@ Email: SMTP over `server/mailer.js` (Nodemailer transport, Gmail), driven by
 VidSrc is a
 third-party provider via the `resolvevidsrc` action, whose embed `var Q` token is walked
 server-side so CORS no longer blocks resolution) and proxy media segments
-through the same-origin Vercel function `api/downloadify.js`. VidCore (Server 5)
+through the same-origin Vercel function `api/stream.js`. VidCore (Server 5)
 is a second third-party provider via `resolvevidcore`: unlike its iframe host,
 the vidcore.org/embed sources catalogue is fully serverless — the "videasy" API
 (`vidrack.created.app/api/sources/videasy`) lists direct HLS ladders incl. 4K,
@@ -182,11 +182,17 @@ full-stream URLs (one manifest per dub, each individually verified) in
 `audioTracks`, which the player's Audio menu surfaces as a position-preserving
 manifest swap rather than hls.js audio groups.
 
-**VIDSTUCK / ZXC (`resolvezxc`) is a FIFTH provider that contributes FOUR
-separate Servers-menu rows** — `zxc-andromeda`, `zxc-centaurus`, `zxc-atlas`,
-`zxc-milkyway` — because it fronts four independent backends with different
-capabilities, not one source with four quality rungs. Minting is a single
-`POST https://vidstuck.xyz/backend/meow` with a same-origin
+**VIDSTUCK / ZXC (`resolvezxc`) is a FIFTH provider that contributes FIVE
+separate Servers-menu rows** — `zxc-centaurus`, `zxc-andromeda`, `zxc-atlas`,
+`zxc-meow` (Ursa), `zxc-orion` — because it fronts independent backends with
+different capabilities, not one source with quality rungs. **The roster ROTATES
+upstream**, so it is re-read from the live embed chunk's `gN.SERVERS`
+(`vidstuck.xyz/embed/...`, verified 2026-10-05: Orion, Andromeda, Centaurus,
+Atlas, Ursa; `ZXC_SERVERS` in `api/stream.js` mirrors it) rather than trusted
+from a stale note — `milkyway` was in an older bundle and 403s today. Minting is
+a single `POST https://vidstuck.xyz` + the provider's current obfuscated mint
+path (`ZXC_MINT_PATH` in `api/stream.js`; upstream renames it, so it is read
+from the constant and never repeated here) with a same-origin
 `Origin: https://vidstuck.xyz` and an obfuscated body (`mediaType`, `server`,
 `season`, `episode`); the answer is AES-256-CBC encrypted with the session's
 `secretKey`, so the whole exchange runs server-side. The decrypted
@@ -195,10 +201,11 @@ maps each backend to a host:
 
 | row | backend | wire format | dubs |
 | --- | --- | --- | --- |
-| Andromeda | `andromeda` | DASH MPD | no |
-| Centaurus | `centaurus` | DASH MPD (3 rungs) | yes |
-| Atlas | `atlas` | single HLS media playlist | no |
-| Milky Way | `milkyway` | HLS master (3 rungs) | no |
+| Server 1 Centaurus | `centaurus` | DASH MPD (3 rungs) | yes |
+| Server 2 Andromeda | `andromeda` | DASH MPD | no |
+| Server 3 Atlas | `atlas` | single HLS media playlist | no |
+| Server 4 Ursa | `meow` | HLS master | no |
+| Server 5 Orion | `orion` | HLS master | yes |
 
 **DASH is transcoded to HLS fMP4 server-side** (`server/dashToHls.js`) rather
 than played with `dash.js`: the MPD's `SegmentTemplate` is substituted per
@@ -211,7 +218,7 @@ parser, the existing relay). Real upstream captures confirm 997 fMP4 segments
 per 1080p Centaurus/Andromeda rendition with `ftyp` init + `styp` segments and
 no unsubstituted `$Number$`/`$RepresentationID$` left behind. Generated masters
 set `source.multiLevelMaster: true` so the player loads the master and keeps the
-ladder in one document; native HLS masters (Milky Way) and single-rung media
+ladder in one document; native HLS masters (Orion, Ursa) and single-rung media
 playlists (Atlas) are parsed as-is.
 
 Centaurus dubs are SIBLING masters, not `#EXT-X-MEDIA` groups: `en/0`→`eng`,
@@ -352,7 +359,7 @@ into each function through the import graph instead of deploying them as
   proxy. If Fluid Compute is enabled for the project (it is the default for new
   projects) Vercel places the function near the incoming request instead and the
   pin is inert — which is acceptable, because the edge cache is doing the work.
-  `api/downloadify.js` resolves the native servers' HLS ladders and proxies
+  `api/stream.js` resolves the native servers' HLS ladders and proxies
   media segments for playback (single-URL Range chunks under Vercel's 4.5MB
   cap; allowlisted embed hosts + DNS-resolved SSRF guard; stateless, nothing
   persisted). It owns only routing and the provider walks;
@@ -371,7 +378,7 @@ into each function through the import graph instead of deploying them as
   inline versions never were. `src/__tests__/apiModules.test.js` imports every
   `api/` endpoint and every `server/` module so a broken import graph fails CI
   instead of production, and
-  `src/__tests__/downloadifyHandler.test.js` drives the handler itself (preflight,
+  `src/__tests__/streamHandler.test.js` drives the handler itself (preflight,
   method rejection, unknown action, malformed body, and every action without a URL
   answering a structured `{ok:false}` envelope) so a function that fails to load
   can never again present as a per-title "no stream".
@@ -383,7 +390,7 @@ into each function through the import graph instead of deploying them as
   Its fetch handler's first rule is that **a non-GET request is never intercepted**:
   `Cache.put()` accepts GET only, so letting a POST reach any caching branch throws
   `Request method 'POST' is unsupported` as an unhandled rejection (this actually
-  happened for every `/api/downloadify` POST). Ordering after that: cross-origin
+  happened for every `/api/stream` POST). Ordering after that: cross-origin
   passes through, `/api/` passes through (the client owns its failover and timeouts),
   navigations are network-first with a cached shell, content-hashed `/assets/*` are
   cache-first (immutable, so a hit can never be stale), and everything else
@@ -402,7 +409,7 @@ into each function through the import graph instead of deploying them as
    or gateway-errors. The same tiny serverless surface hosts email auth`r
    (`api/register.js` + `api/verifyEmail.js` + `api/login.js`), cloud sync (`api/sync.js`, HMAC +
    MongoDB), public collections (`api/publicCollections.js`) and native stream
-   resolution + relay (`api/downloadify.js`, allowlisted hosts + SSRF guard). Everything
+   resolution + relay (`api/stream.js`, allowlisted hosts + SSRF guard). Everything
    else stays client-side.
 2. **React Query as the data cache with per-key logging** — `staleTime` 5–10
    min, 1 retry (0 for quota-sensitive OMDb/ratings), `QueryCache.onError`

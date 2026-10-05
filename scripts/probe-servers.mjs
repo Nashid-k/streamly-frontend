@@ -5,28 +5,28 @@
    Usage:
      node scripts/probe-servers.mjs                 # 1 movie + 1 tv, all servers
      node scripts/probe-servers.mjs 27205 1399 1 1  # tmdbIdMovie tmdbIdTv season episode
-     node scripts/probe-servers.mjs --quick         # skip the slow phase:"full" retry
 
    Every request is a real network call to a real provider. Nothing is mocked. */
 import { pathToFileURL } from "node:url";
 
 const { default: handler } = await import(
-  pathToFileURL(new URL("../api/downloadify.js", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1")).href
+  pathToFileURL(new URL("../api/stream.js", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1")).href
 );
 
 const argv = process.argv.slice(2);
-const QUICK = argv.includes("--quick");
 const nums = argv.filter((a) => /^\d+$/.test(a));
 const [movieId, tvId, season = "1", episode = "1"] = nums.length ? nums : ["27205", "1399", "1", "1"];
 
+/* The five live rows in menu order, matching `PLAYER_SOURCES`
+   (`src/constants/sources.js`) and `ZXC_SERVERS` in `api/stream.js`. The old
+   vidcore/vidsrc/nhd/milkyway rows were removed after this script was written,
+   so listing them here only produced guaranteed no-source failures. */
 const SERVERS = [
-  { key: "vidcore", label: "Server 1", action: "resolvevidcore", extra: {} },
-  { key: "vidsrc", label: "Server 2", action: "resolvevidsrc", extra: {} },
-  { key: "nhd", label: "Server 3", action: "resolvenhd", extra: {} },
-  { key: "zxc-centaurus", label: "Server 4", action: "resolvezxc", extra: { server: "centaurus" } },
-  { key: "zxc-andromeda", label: "Server 5", action: "resolvezxc", extra: { server: "andromeda" } },
-  { key: "zxc-atlas", label: "Server 6", action: "resolvezxc", extra: { server: "atlas" } },
-  { key: "zxc-milkyway", label: "Server 7", action: "resolvezxc", extra: { server: "milkyway" } },
+  { key: "zxc-centaurus", label: "Server 1", action: "resolvezxc", extra: { server: "centaurus" } },
+  { key: "zxc-andromeda", label: "Server 2", action: "resolvezxc", extra: { server: "andromeda" } },
+  { key: "zxc-atlas", label: "Server 3", action: "resolvezxc", extra: { server: "atlas" } },
+  { key: "zxc-meow", label: "Server 4", action: "resolvezxc", extra: { server: "meow" } },
+  { key: "zxc-orion", label: "Server 5", action: "resolvezxc", extra: { server: "orion" } },
 ];
 
 function makeRes() {
@@ -74,14 +74,6 @@ for (const s of SERVERS) {
 
     let r = await call(base);
     let sum = summarize(r);
-
-    // Mirror the client: a retryable/upgradeable verdict earns one phase:"full".
-    const retryable = r.payload?.code === "ladder-pending" || r.payload?.upgradeable === true;
-    if (retryable && !QUICK && s.action === "resolvevidcore") {
-      const full = await call({ ...base, phase: "full" });
-      const fs = summarize(full);
-      if (fs.ok) { r = { ...full, ms: r.ms + full.ms }; sum = { ...fs, note: `${fs.note} (after full)`.trim() }; }
-    }
 
     results.push({ server: s, kind, ...sum, ms: r.ms, status: r.status });
     const tag = `${s.label} ${s.key}`.padEnd(26);

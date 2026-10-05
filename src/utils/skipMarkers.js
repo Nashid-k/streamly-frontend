@@ -2,40 +2,37 @@
    Extracted from NativePlayerView so the windows are unit-testable instead of
    being computed inline in a render body.
 
-   ── The honest caveat, stated once here because it governs everything ───────
-   Netflix knows where an intro ends and where credits start because studios
-   supply that metadata. NONE of our providers do. Checked directly:
-     - every resolver's payload carries only stream URLs, quality attributes
-       and language rows (`source`, `variants`, `audioTracks`, `dubs`, …);
-     - the ZXC per-server payload decrypts to a bare URL string, nothing more;
-     - no manifest parser in the repo reads #EXT-X-CUE-OUT / #EXT-X-CUE-IN /
-       #EXT-X-ASSET / SCTE-35, and the DASH→HLS transcoder emits none;
-     - `server/net.js` discards upstream response headers.
+    ── The honest caveat, stated once here because it governs everything ───────
+    Netflix knows where an intro ends and where credits start because studios
+    supply that metadata. Of our providers, only ZXC does: its
+    `/backend/intro` endpoint publishes measured per-encode intro/outro
+    windows (fetched as the "provider" source below). Everything else here —
+    dataset, overrides, guesses — exists for what that endpoint does not
+    cover, and the UI must still behave as though a boundary might be wrong:
+    an opt-in button, never an automatic jump except where the viewer
+    explicitly asked for that. `SKIP_INTRO_OVERRIDES` is the seam for real
+    boundaries — drop confirmed ones in and they win over the guess.
 
-   So these boundaries are ESTIMATES, not facts, and the UI must behave as
-   though they might be wrong: an opt-in button, never an automatic jump except
-   where the viewer explicitly asked for that. `SKIP_INTRO_OVERRIDES` is the
-   seam for real boundaries — drop confirmed ones in and they win over the
-   guess.
+    ── Measured boundaries, when a manifest carries them ─────────────────────
+    A manifest that states its own cue tags beats every guess here. `hlsCueTags.js`
+    reads `#EXT-X-CUE-OUT` / `#EXT-X-CUE-IN` and hands the result in as
+    `cueIntroEnd` / `cueCreditsStart`. Precedence is therefore:
 
-   ── Measured boundaries, when a manifest carries them ─────────────────────
-   A manifest that states its own cue tags beats every guess here. `hlsCueTags.js`
-   reads `#EXT-X-CUE-OUT` / `#EXT-X-CUE-IN` and hands the result in as
-   `cueIntroEnd` / `cueCreditsStart`. Precedence is therefore:
+      measured cue > provider (ZXC) > dataset (SkipDB) > hand-verified override > duration guess
 
-     measured cue > dataset (SkipDB) > hand-verified override > duration guess
+    Measured wins because it describes the exact asset being played; the
+    provider record describes the provider's own encode (identical bytes on
+    every server row); the dataset is real crowd data but keyed by IMDb id, so
+    it describes the TITLE, not necessarily the provider's cut; an override is
+    keyed by tmdbId and so is only as good as whoever entered it. A cue is
+    also the only source allowed to offer a movie skip — the "TV only" rule
+    below exists to stop a 90s GUESS from eating a cold open, and a measured
+    boundary cannot do that.
 
-   Measured wins because it describes the exact asset being played; the dataset is
-   real crowd data but keyed by IMDb id, so it describes the TITLE, not
-   necessarily the provider's cut; an override is keyed by tmdbId and so is only
-   as good as whoever entered it. A cue is also the only source allowed to offer a
-   movie skip — the "TV only" rule below exists to stop a 90s GUESS from eating a
-   cold open, and a measured boundary cannot do that.
-
-   The two measured sources are fetched in parallel and RACE, so their order of
-   arrival says nothing about which is more trustworthy. `mergeSkipBoundaries`
-   below enforces this ranking explicitly: a slow dataset response must not
-   overwrite a cue tag the provider actually embedded in the stream. */
+    The measured sources are fetched in parallel and RACE, so their order of
+    arrival says nothing about which is more trustworthy. `mergeSkipBoundaries`
+    below enforces this ranking explicitly: a slow dataset response must not
+    overwrite a cue tag the provider actually embedded in the stream. */
 
 import { getCueBoundaries } from "./hlsCueTags.js";
 
@@ -76,10 +73,12 @@ export const SKIP_OUTRO_END_MARGIN = 4;
 
 const isFiniteNum = (n) => typeof n === "number" && Number.isFinite(n);
 
-/* Trust ranking of the two measured sources. A cue tag is embedded in the exact
-   asset being played; the dataset describes the title, keyed by IMDb id, and may
-   have been contributed against a different provider's cut. Higher wins. */
-const BOUNDARY_SOURCE_RANK = { cues: 2, dataset: 1 };
+/* Trust ranking of the measured sources. A cue tag is embedded in the exact
+   asset being played; the provider record is measured against the provider's
+   own encode (the same bytes we play on every server row); the dataset
+   describes the title, keyed by IMDb id, and may have been contributed
+   against a different provider's cut. Higher wins. */
+const BOUNDARY_SOURCE_RANK = { cues: 3, provider: 2, dataset: 1 };
 const SOURCE_OF = (s) => BOUNDARY_SOURCE_RANK[s] || 0;
 
 /**

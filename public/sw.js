@@ -78,7 +78,7 @@ self.addEventListener('fetch', (event) => {
   // 0a. A non-GET request is never intercepted. Cache.put() accepts GET only, so
   //     a POST that reached any caching branch threw "Request method 'POST' is
   //     unsupported" as an unhandled promise rejection — which is what every
-  //     /api/downloadify resolve/save POST did. Nothing below may assume more
+  //     /api/stream resolve/save POST did. Nothing below may assume more
   //     than a GET from here on.
   if (request.method !== 'GET') return;
 

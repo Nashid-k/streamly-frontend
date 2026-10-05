@@ -57,7 +57,7 @@ import { downloadService } from "../api/downloadService";
    Every ZXC row was dead for ONE reason: the token mint had been RENAMED
    upstream from `POST /backend/meow` to `POST /backend/fuckyou` ("meow" is now a
    SERVER name — "Ursa" — not an endpoint), so the old path 404'd. That single
-   path is fixed in api/downloadify.js; the rows below were re-verified after.
+   path is fixed in api/stream.js; the rows below were re-verified after.
 
    Centaurus leads because it is the only row with real multi-language audio AND
    verified bytes, which is why it is also `DEFAULT_SOURCE_KEY`.
@@ -78,10 +78,12 @@ import { downloadService } from "../api/downloadService";
    its Chrome mint service — no serverless function can mint fingerprint-bound
    tokens. */
 export const PLAYER_SOURCES = [
-  /* The four ZXC/VIDSTUCK backends, each kept as its OWN row so the Servers menu
+  /* The five ZXC/VIDSTUCK backends, each kept as its OWN row so the Servers menu
      can target one directly instead of auto-rotation racing to a winner. Two of
      them ship DASH, which the server transcodes to an HLS fMP4 master (no remux,
-     no per-byte work) so hls.js can ABR and mux just like native HLS. */
+     no per-byte work) so hls.js can ABR and mux just like native HLS. Orion
+     (multi-audio, like centaurus) was read off the CURRENT embed chunk
+     (`gN.SERVERS`) — the older chunk only listed four, the roster rotates. */
   {
     key: "zxc-centaurus",
     label: "Server 1",
@@ -109,6 +111,13 @@ export const PLAYER_SOURCES = [
     tag: "Original audio · up to 1080p",
     provider: "ZXC Ursa",
 resolve: (a, o) => downloadService.resolveZxc({ ...a, server: "meow" }, o),
+  },
+  {
+    key: "zxc-orion",
+    label: "Server 5",
+    tag: "Multi audio · up to 1080p",
+    provider: "ZXC Orion",
+    resolve: (a, o) => downloadService.resolveZxc({ ...a, server: "orion" }, o),
   },
 ];
 
