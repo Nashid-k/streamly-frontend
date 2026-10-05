@@ -3604,14 +3604,20 @@ setScrubDragging(true);
           }}
         >
           <IconBtn
-            label="Back"
-            onClick={() => {
-              if (onCloseRef.current) onCloseRef.current();
-              else window.history.back();
-            }}
-          >
-            <ArrowLeft size={24} />
-          </IconBtn>
+              label="Back"
+              onClick={() => {
+                if (onCloseRef.current) onCloseRef.current();
+                else window.history.back();
+              }}
+            >
+              <ArrowLeft size={24} />
+            </IconBtn>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2, paddingLeft: 12, paddingRight: 24, minWidth: 0, overflow: "hidden" }}>
+              <div style={{ color: "#fff", fontWeight: 700, fontSize: "clamp(16px, 2vw, 20px)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {displayTitle}
+              </div>
+              {displaySubtitle ? <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{displaySubtitle}</div> : null}
+            </div>
         </motion.div>
         {/* Netflix-style Skip Intro pill: bottom-right, above the transport row,
             present only inside the intro window, seeks just past the credits.
@@ -4004,46 +4010,6 @@ setScrubDragging(true);
             zIndex: 4,
           }}
         >
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: IS_TOUCH ? 4 : 10, minWidth: 0 }}>
-            <div style={{ minWidth: 0 }}>
-              <div
-                style={{
-                  color: "#fff",
-                  fontWeight: 800,
-                  fontSize: "clamp(16px, 2vw, 22px)",
-                  letterSpacing: "-0.01em",
-                  lineHeight: 1.1,
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}
-              >
-                {displayTitle}
-              </div>
-              {displaySubtitle ? (
-                <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 14, fontWeight: 500, marginTop: 4 }}>
-                  {displaySubtitle}
-                </div>
-              ) : null}
-            </div>
-            {/* On touch the transport row stays one line â€” the clock lives in
-                the title row instead. */}
-            {IS_TOUCH && (
-              <span
-                style={{
-                  fontSize: 13,
-                  color: "rgba(255,255,255,0.9)",
-                  fontVariantNumeric: "tabular-nums",
-                  whiteSpace: "nowrap",
-                  alignSelf: "center",
-                  marginTop: 1,
-                  flexShrink: 0,
-                }}
-              >
-                {fmtTime(currentTime)} / {fmtTime(duration)}
-              </span>
-            )}
-          </div>
           {/* Scrubber: red played Â· gray buffered Â· hover knob + time bubble. */}
           <div
             ref={scrubRef}
@@ -4333,19 +4299,17 @@ setScrubDragging(true);
                   />
                 )}
               </span>
-              {!IS_TOUCH && (
-                <span
-                  style={{
-                    fontSize: 14,
-                    color: "rgba(255,255,255,0.9)",
-                    fontVariantNumeric: "tabular-nums",
-                    marginLeft: 12,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {fmtTime(currentTime)} / {fmtTime(duration)}
-                </span>
-              )}
+              <span
+                    style={{
+                      fontSize: 14,
+                      color: "rgba(255,255,255,0.9)",
+                      fontVariantNumeric: "tabular-nums",
+                      marginLeft: 12,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {fmtTime(currentTime)} / {fmtTime(duration)}
+                  </span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               {showEpisodeNav && (
