@@ -112,7 +112,9 @@ export async function fetchSkipBoundaries({ imdbId, season, episode, signal } = 
       }
       const data = await res.json();
       const intro = introEndSeconds(data?.segments?.intro);
+      const introStart = msToSeconds(data?.segments?.intro?.start_ms) || 0;
       const credits = creditsStartSeconds(data?.segments?.outro) || null;
+      const creditsEnd = msToSeconds(data?.segments?.outro?.end_ms) || null;
       if (!intro && !credits) {
         // A 200 full of nulls is a miss, not an error. Cache it so the next
         // playback of this title does not ask again.
@@ -120,7 +122,9 @@ export async function fetchSkipBoundaries({ imdbId, season, episode, signal } = 
         return null;
       }
       const bounds = {
+        introStartSeconds: introStart,
         introEndSeconds: intro,
+        creditsEndSeconds: creditsEnd,
         creditsStartSeconds: credits,
         confidence: isFiniteNum(data?.segments?.intro?.confidence)
           ? data.segments.intro.confidence

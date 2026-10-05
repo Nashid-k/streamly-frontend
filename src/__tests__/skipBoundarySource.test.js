@@ -59,7 +59,7 @@ describe("fetchSkipBoundaries", () => {
   it("converts a real TV response into seconds", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonOk(TV_OK)));
     const bounds = await fetchSkipBoundaries({ imdbId: "tt0903747", season: 1, episode: 1 });
-    expect(bounds).toEqual({ introEndSeconds: 246.5, creditsStartSeconds: 3434, confidence: 0.75 });
+    expect(bounds).toEqual({ introStartSeconds: 229.5, introEndSeconds: 246.5, creditsStartSeconds: 3434, creditsEndSeconds: 3500, confidence: 0.75 });
   });
 
   it("handles a movie with an outro but no intro", async () => {
@@ -192,8 +192,10 @@ describe("getCachedSkipBoundaries", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonOk(TV_OK)));
     await fetchSkipBoundaries({ imdbId: "tt0903747", season: 1, episode: 1 });
     expect(getCachedSkipBoundaries({ imdbId: "tt0903747", season: 1, episode: 1 })).toEqual({
+      introStartSeconds: 229.5,
       introEndSeconds: 246.5,
       creditsStartSeconds: 3434,
+      creditsEndSeconds: 3500,
       confidence: 0.75,
     });
   });

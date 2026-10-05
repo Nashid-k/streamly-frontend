@@ -76,6 +76,9 @@ import {
 } from "../constants/sources";
 import {
   getSkipIntroTarget,
+  getSkipIntroEnd,
+  SKIP_INTRO_LEAD_SECONDS,
+  getSkipOutroWindow,
   shouldShowSkipIntro,
   getSkipOutroTarget,
   shouldShowSkipOutro,
@@ -2084,7 +2087,6 @@ setScrubDragging(true);
       }
       togglePlayRef.current?.();
     };
-    window.addEventListener("keyup", onKeyUp);
     const onKey = (e) => {
       if (e.defaultPrevented) return;
       const tag = String(e.target?.tagName || "").toLowerCase();
@@ -2354,8 +2356,7 @@ setScrubDragging(true);
         // above is rewritten by the token-refresh path, so the dub list keeps the
         // FIRST resolution's â€” sibling URLs never refresh tokens anyway.
         const dubTracks = Array.isArray(resolved?.audioTracks) ? resolved.audioTracks : [];
-        if (dubTracks.length > 1) {
-        }
+
         let liveSource = resolved.source;
         let liveRefUrl = resolved.source?.refUrl || resolved.source?.url;
         // Master sources ship levels + audio groups in ONE url; others are per-rendition.
@@ -2430,7 +2431,6 @@ setScrubDragging(true);
             MAX_BUFFER_SIZE,
             Math.max(MIN_BUFFER_SIZE, Math.ceil((topBps / 8) * BUFFER_DEPTH_SECONDS)),
           );
-          const bufferDepthSecs = Math.round(Math.floor(maxBufferSize / Math.max(1, topBps / 8)));
           // ABR seed. A fixed 10Mbps is a blind guess: too low on a fast TV, far
           // too high on a phone (an over-optimistic first rung shows a rebuffer
           // before hls.js corrects itself). navigator.connection already knows
@@ -2542,7 +2542,6 @@ setScrubDragging(true);
                                   } else if (consecFragFails >= MAX_CONSECUTIVE_FRAG_FAILURES) {
                   reportFatal({ ...data, fatal: true, details: `${data.details} (Ã—${consecFragFails} consecutive â€” giving up)` });
                   failOver();
-                } else {
                 }
               }
               return;
@@ -2554,7 +2553,7 @@ setScrubDragging(true);
             hls.loadSource(entryUrl);
             hls.attachMedia(videoRef.current);
             await waitParsed(hls);
-          } catch (error) {
+          } catch {
             try {
               hls.destroy();
             } catch {
@@ -2684,8 +2683,7 @@ setScrubDragging(true);
               setSwitchingNote(`${def.label}: provider rate-limited, retrying shortly...`);
               await sleep(THROTTLE_BACKOFF_MS);
               if (stale()) return true;
-            } else {
-            }
+                }
             let fresh = null;
             try {
               fresh = await def.resolve(args, { signal: controller.signal });
@@ -2829,7 +2827,6 @@ setScrubDragging(true);
         if (!warm) warm = await probeSourcePlayable(uri, refUrl);
         if (switchTokenRef.current !== myId) return;
         if (!warm.ok) {
-          const what = opts.dubSwitch ? "That audio track" : `Quality ${height || "?"}p`;
           setBuffering(false);
           setControlsVisible(true);
           return;
@@ -2919,7 +2916,7 @@ setScrubDragging(true);
       // so without this the art stage would sit on top of working video.
       setStageWhileLoading(false);
       setSwitchingNote(null);
-    } catch (error) {
+    } catch {
       // Roll the optimistic pick back: the stream is still on the old rung, so
       // the highlight must say so.
       setManualHeight(null);
@@ -3388,6 +3385,10 @@ setScrubDragging(true);
     duration: safeDuration,
     cueIntroEnd,
   });
+  const skipIntroEnd = getSkipIntroEnd({ type, id, season, episode, duration: safeDuration, cueIntroEnd });
+  const skipIntroButtonStart = Math.max(0, skipIntroEnd - SKIP_INTRO_LEAD_SECONDS);
+  const skipIntroProgress = skipIntroEnd > skipIntroButtonStart ? Math.max(0, Math.min(1, (currentTime - skipIntroButtonStart) / (skipIntroEnd - skipIntroButtonStart))) : 0;
+
   const showSkipIntro = shouldShowSkipIntro({
     type,
     id,
@@ -3399,7 +3400,13 @@ setScrubDragging(true);
     autoSkip: autoSkipIntro,
     cueIntroEnd,
   });
+
   const skipOutroTarget = getSkipOutroTarget({ type, duration: safeDuration, cueCreditsStart });
+  const wOutro = getSkipOutroWindow({ type, duration: safeDuration, cueCreditsStart });
+  const skipOutroButtonStart = wOutro ? wOutro.start : 0;
+  const skipOutroEnd = wOutro ? wOutro.end : 0;
+  const skipOutroProgress = skipOutroEnd > skipOutroButtonStart ? Math.max(0, Math.min(1, (currentTime - skipOutroButtonStart) / (skipOutroEnd - skipOutroButtonStart))) : 0;
+
   const showSkipOutro = shouldShowSkipOutro({
     type,
     duration: safeDuration,
@@ -3407,6 +3414,7 @@ setScrubDragging(true);
     ended,
     cueCreditsStart,
   });
+
 
   // Auto-skip fires once per playback, and only while the head is still inside
   // the intro, so the viewer is never yanked before the opening has played.
@@ -3638,10 +3646,21 @@ setScrubDragging(true);
                 fontSize: 16,
                 cursor: "pointer",
                 zIndex: 5,
-              }}
-            >
-              <SkipForward size={16} />
-              Skip Intro
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    bottom: 0,
+                    height: 4,
+                    background: "#f97316",
+                    width: `${skipIntroProgress * 100}%`,
+                  }}
+                />
+                <SkipForward size={16} />
+                Skip Intro
             </motion.button>
           )}
         </AnimatePresence>
@@ -3674,10 +3693,21 @@ setScrubDragging(true);
                 fontSize: 16,
                 cursor: "pointer",
                 zIndex: 5,
-              }}
-            >
-              <SkipForward size={16} />
-              Skip Credits
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    bottom: 0,
+                    height: 4,
+                    background: "#f97316",
+                    width: `${skipOutroProgress * 100}%`,
+                  }}
+                />
+                <SkipForward size={16} />
+                Skip Credits
             </motion.button>
           )}
         </AnimatePresence>
@@ -4044,7 +4074,7 @@ setScrubDragging(true);
             <div
               style={{
                 position: "relative",
-                height: hoverRatio != null ? 5 : 3,
+                height: hoverRatio != null ? 8 : 5,
                 width: "100%",
                 background: "rgba(255,255,255,0.3)",
                 borderRadius: 999,
@@ -4089,12 +4119,11 @@ setScrubDragging(true);
                   aria-hidden="true"
                   style={{
                     position: "absolute",
-                    top: -2,
-                    bottom: -2,
-                    left: `calc(${(cueIntroEnd / safeDuration) * 100}% - 1px)`,
-                    width: 2,
-                    background: "rgba(255,255,255,0.85)",
-                    borderRadius: 2,
+                    top: 0,
+                    bottom: 0,
+                    left: `${((cueBoundaries?.introStartSeconds ?? 0) / safeDuration) * 100}%`,
+                    width: `${((cueIntroEnd - (cueBoundaries?.introStartSeconds ?? 0)) / safeDuration) * 100}%`,
+                    background: "#f97316",
                     pointerEvents: "none",
                   }}
                 />
@@ -4107,9 +4136,8 @@ setScrubDragging(true);
                     top: 0,
                     bottom: 0,
                     left: `${(cueCreditsStart / safeDuration) * 100}%`,
-                    right: 0,
-                    background: "rgba(255,255,255,0.14)",
-                    borderRadius: 999,
+                    right: cueBoundaries?.creditsEndSeconds ? `${100 - (cueBoundaries.creditsEndSeconds / safeDuration) * 100}%` : 0,
+                    background: "#f97316",
                     pointerEvents: "none",
                   }}
                 />
@@ -4118,9 +4146,9 @@ setScrubDragging(true);
                 style={{
                   position: "absolute",
                   top: "50%",
-                  left: `calc(${effectiveRatio * 100}% - ${(hoverRatio != null ? 17 : 13) / 2}px)`,
-                  width: hoverRatio != null ? 17 : 13,
-                  height: hoverRatio != null ? 17 : 13,
+                  left: `calc(${effectiveRatio * 100}% - ${(hoverRatio != null ? 20 : 16) / 2}px)`,
+                  width: hoverRatio != null ? 20 : 16,
+                  height: hoverRatio != null ? 20 : 16,
                   borderRadius: "50%",
                   background: NETFLIX_RED,
                   transform: "translateY(-50%)",
@@ -4240,6 +4268,10 @@ setScrubDragging(true);
                     onPointerCancel={desktopHoldRelease}
                     onClick={(e) => {
                       e.stopPropagation();
+                      if (desktopHoldFiredRef.current) {
+                        desktopHoldFiredRef.current = false;
+                        return;
+                      }
                       seekRelative(SKIP_SECONDS);
                     }}
                     style={{

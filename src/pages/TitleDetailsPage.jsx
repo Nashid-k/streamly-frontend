@@ -1133,7 +1133,7 @@ export default function TitleDetails() {
       </div>
 
       {/* ── Cast & Rest ─────────────────────────────────────────────────────────────── */}
-      <div id="title-details-more" className="relative z-20 mt-10 lg:mt-14 details-gutter space-y-10 lg:space-y-14 pb-20">
+      <div id="title-details-more" className="relative z-20 mt-10 lg:mt-14 details-gutter space-y-10 lg:space-y-14 pb-20 details-more">
       {/* ── Episodes ─────────────────────────────────────────────────────────── */}
       {isTvContent && hasSeriesEpisodes && (
         <motion.section

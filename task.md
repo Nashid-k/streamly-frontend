@@ -4900,3 +4900,27 @@ cost serverless calls for data we already get free.## ZXC integration completed 
       - **Verification:** all 5 servers pass `probe-servers.mjs` (10/10: both
         movie and TV on each row); `npm run lint` 0 errors; `npm run test`
         **80 files / 1017 passed** (+4 new cache tests); `npm run build` OK.
+
+- [x] **Watch page: hard horizontal seam line below backdrop hero fixed (2026-10-05).**
+  - **Root cause pinpointed.** `AmbientBackground` is `position: fixed; inset: 0` — it permanently shows a 50%-opacity, 80px-blurred copy of the backdrop through the *entire page*, including the cast-rail / episodes sections. `details-hero__shade` floors at opaque `#050505` for the bottom 0–6% of the art box, but that floor ends exactly at the art-box boundary. Below it, the `#title-details-more` div (cast + episodes) has no background — it is fully transparent — so the ambient blurred image shows through at uniform 50% opacity. The browser composites: opaque `#050505` (hero floor) → 40–56px gap (no overlay at all, `mt-10/lg:mt-14`) → semi-transparent sections. That pixel-level step from opaque to semi-transparent is the hard horizontal line visible behind the cast rail and episodes.
+  - **Fix: `.details-more` class + `::before` gradient** added to `src/styles/grids.css`. The pseudo-element:
+    - `position: absolute; inset-inline: 0` — full width.
+    - `top: clamp(-4rem, -8vh, -3.5rem)` — pulled UP into the margin gap, so the gradient starts before the visible line, not at or below it.
+    - `height: clamp(22rem, 44vh, 38rem)` — tall enough to cover the gap + the first cast/episode card rows so the ambient image fades in gently.
+    - 9-stop `linear-gradient(to bottom, #050505 → transparent)` — matches the hero floor colour exactly at 0%, then eases through 0.97 / 0.91 / 0.80 / 0.62 / 0.40 / 0.18 / 0.06 / transparent, eliminating any perceptible edge.
+    - `pointer-events: none; z-index: 0` — invisible to interaction, behind all child content.
+  - **Applied** via `details-more` class on `#title-details-more` in `TitleDetailsPage.jsx` (line 1136). No other files touched.
+  - **Gates.** `npm run lint` 0 errors (44 pre-existing warnings); `npm run build` ✓ 2.48s.
+
+
+- [x] **Native player (`NativePlayerView.jsx`): identified and fixed multiple structural bugs (2026-10-05).**
+  - **Duplicate `keyup` listener memory leak (line 2179):** The `keydown/keyup` `useEffect` registered `window.addEventListener("keyup", onKeyUp)` TWICE (once at 2087 and again at 2179 inside the same effect block). The cleanup block only removed it once. Because the effect was keyed on `[panel]`, every time a dialog panel opened or closed, it left behind another stranded `keyup` listener, firing Space/Enter multiple times and leaking memory. Fixed by removing the duplicate registration.
+  - **`desktopHoldFiredRef` ignored in custom transport (line ~4238):** The desktop forward button `onPointerDown` arms a hold-to-2x state and sets `desktopHoldFiredRef.current = true` if held >420ms. But the `onClick` handler of the same button (which fires when the hold is released) never checked the ref, meaning a long-press would speed up playback *and* seek 10 seconds simultaneously. Fixed by early-returning from `onClick` if the hold ref fired, mirroring the keyboard `Space` logic.
+  - **Unused `error` variables in `catch` blocks (lint warnings):** Replaced `catch (error) {` with `catch {` in `runSourceOnce` and `pickQuality` where the error object was entirely unused by the fallback branches.
+  - **Dead code removal:** Removed a dangling `if (dubTracks.length > 1) { }` empty block and an empty `} else { }` block inside the consecutive-fragment-failure fallback ladder. Removed unused `what`, `spokenLabel`, and `bufferDepthSecs` variables that tripped `eslint(no-unused-vars)`.
+  - **Gates passed:** `npm run lint` 0 errors (down to 42 warnings from 44, clearing the unused `error` warnings); `npm run test` **80 files / 1017 passed**; `npm run build` OK (2.54s).
+
+- [x] **Player UI improvements (2026-10-05):**
+  - **Progress bar thickness:** Increased the height of the main progress bar track (`.np-scrub`) from 3px (5px on hover) to 4px (7px on hover) to make it easier to see and interact with. Thumb size slightly increased to match.
+  - **Accurate Intro/Outro track markers:** Replaced the 2px white tick marks for the intro/outro boundaries with full-width orange blocks (`#f97316`) that span the actual length of the intro or outro, utilizing `introStartSeconds` from SkipDB to properly dimension the intro block instead of just an ending boundary.
+  - **Animated Skip Button progress bars:** Added a 4px orange progress bar to the bottom of the "Skip Intro" and "Skip Credits" pills. It fills up linearly based on how much of the respective boundary's time window has elapsed (e.g. from the moment the button appears until the intro ends).

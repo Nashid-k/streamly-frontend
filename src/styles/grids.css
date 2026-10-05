@@ -422,6 +422,50 @@
   }
 }
 
+/* ── Below-hero seam fix ─────────────────────────────────────────────────
+   The cast rail / episodes section sits directly over the fixed ambient
+   background (a 50%-opacity, 80px-blurred copy of the backdrop image).
+   The hero's `details-hero__shade` floors at opaque #050505 through the
+   bottom 0–6% of the art box, but that floor ENDS at the box boundary —
+   below it the ambient blurred image shows through the transparent sections
+   at a uniform 50%, creating a visible hard horizontal line at the exact
+   pixel where the opaque floor stops.
+
+   The ::before gradient bridges this seam: it starts at #050505 (identical
+   to the hero floor), fades through several semi-opaque stops over ~28vh,
+   and ends at transparent — so the ambient image blends in smoothly with
+   no perceptible edge. `pointer-events: none` ensures no content is blocked.
+   z-index: -1 keeps it behind the section's own content. */
+.details-more {
+  position: relative;
+}
+.details-more::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  /* Pull the gradient UP by enough to cover the mt-10/mt-14 gap (40–56px)
+     so the ambient image is blanketed across the margin gap between the
+     hero floor and the first content row — the visible hard line lives
+     precisely in that gap. Use a generous value to cover all breakpoints. */
+  top: clamp(-4rem, -8vh, -3.5rem);
+  /* Tall enough to blanket the gap + the first few cast/episode rows */
+  height: clamp(22rem, 44vh, 38rem);
+  pointer-events: none;
+  z-index: 0;
+  background: linear-gradient(
+    to bottom,
+    #050505 0%,
+    rgba(5, 5, 5, 0.97) 6%,
+    rgba(5, 5, 5, 0.91) 12%,
+    rgba(5, 5, 5, 0.80) 20%,
+    rgba(5, 5, 5, 0.62) 30%,
+    rgba(5, 5, 5, 0.40) 44%,
+    rgba(5, 5, 5, 0.18) 60%,
+    rgba(5, 5, 5, 0.06) 76%,
+    transparent 100%
+  );
+}
+
 .details-content-wrapper {
   position: relative;
   z-index: 1;
