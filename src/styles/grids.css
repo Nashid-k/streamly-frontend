@@ -277,42 +277,64 @@
 /* Watch-only shading over the banner art (the home banner keeps its own single
    overlay). Home's `.hero-overlay--apple` is bottom-weighted, but this page's
    title column starts just under the header, so the type needs a bed at the TOP
-   as well. Four stacked gradients, all in the app's #050505: a bottom fade for the
-   content, a top fade that carries the header island, soft left/right vignettes so
-   the logo and the meta row always have something to sit on, and a corner anchor.
-   Stops are percentages, so it follows the box at any width; `--details-hero-shade`
-   is the single knob for how dark the whole thing gets. */
+   as well. Five stacked gradients, all in the app's #050505: a FLOOR that reaches
+   fully opaque before the art box ends, a bottom fade for the content, a top fade
+   that carries the header island, soft left/right vignettes so the logo and the
+   meta row always have something to sit on, and a corner anchor. Stops are
+   percentages, so it follows the box at any width; `--details-hero-shade` is the
+   single knob for how dark the whole thing gets.
+
+   The FLOOR layer is the fix for the banner's bottom edge reading as a still
+   picture. The art is masked to transparent by 98% (`.hero-bg`) but the page
+   behind it is NOT — it is the ambient layer's own 80px-blurred copy of the same
+   backdrop at 50% opacity. Translucent shade over an already-masked image
+   therefore composited as "sharp art, then murky blur, then page", and at the
+   seam you could still make out the picture. An OPAQUE floor means the bottom
+   13% of the box resolves to flat #050505, which is the page colour underneath,
+   so the art now ends on its own colour instead of on another picture. */
 .details-hero__shade {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background:
+    /* Floor — fully opaque through the bottom 13% of the box (stops run bottom-up
+       from 0%), tapering to transparent by 30%, so none of the blurred ambient
+       backdrop can read through the bottom of the art. */
     linear-gradient(
       to top,
-      rgba(5, 5, 5, 0.92) 0%,
-      rgba(5, 5, 5, 0.5) 20%,
-      rgba(5, 5, 5, 0.15) 45%,
+      #050505 0%,
+      #050505 7%,
+      rgba(5, 5, 5, 0.82) 13%,
+      rgba(5, 5, 5, 0.34) 20%,
+      transparent 30%
+    ),
+    /* Content fade — the softer shoulder above the floor. */
+    linear-gradient(
+      to top,
+      rgba(5, 5, 5, 0.95) 0%,
+      rgba(5, 5, 5, 0.62) 20%,
+      rgba(5, 5, 5, 0.22) 45%,
       transparent 66%
     ),
     linear-gradient(
       to bottom,
-      rgba(5, 5, 5, 0.66) 0%,
-      rgba(5, 5, 5, 0.24) 14%,
+      rgba(5, 5, 5, 0.72) 0%,
+      rgba(5, 5, 5, 0.3) 14%,
       transparent 32%
     ),
     radial-gradient(
       120% 95% at 0% 50%,
-      rgba(5, 5, 5, 0.55) 0%,
-      rgba(5, 5, 5, 0.18) 38%,
+      rgba(5, 5, 5, 0.58) 0%,
+      rgba(5, 5, 5, 0.2) 38%,
       transparent 62%
     ),
     radial-gradient(
       90% 95% at 100% 50%,
-      rgba(5, 5, 5, 0.42) 0%,
+      rgba(5, 5, 5, 0.45) 0%,
       transparent 52%
     );
   /* The single knob for how dark the banner art gets (1 = as authored, 0.6 =
-   lighter). Layer opacity, so the four gradients below never drift apart. */
+   lighter). Layer opacity, so the five gradients below never drift apart. */
   opacity: var(--details-hero-shade, 1);
 }
 
