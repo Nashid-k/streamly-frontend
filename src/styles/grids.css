@@ -297,16 +297,20 @@
   inset: 0;
   pointer-events: none;
   background:
-    /* Floor — fully opaque through the bottom 13% of the box (stops run bottom-up
+    /* Floor — opaque through the bottom 13% of the box (stops run bottom-up
        from 0%), tapering to transparent by 30%, so none of the blurred ambient
-       backdrop can read through the bottom of the art. */
+       backdrop can read through the bottom of the art. Softened stops + a 1px
+       backdrop blur blend the seam so the image edge has no hard horizontal
+       line for any background image. */
     linear-gradient(
       to top,
       #050505 0%,
-      #050505 7%,
-      rgba(5, 5, 5, 0.82) 13%,
-      rgba(5, 5, 5, 0.34) 20%,
-      transparent 30%
+      #050505 5%,
+      rgba(5, 5, 5, 0.88) 10%,
+      rgba(5, 5, 5, 0.72) 15%,
+      rgba(5, 5, 5, 0.42) 21%,
+      rgba(5, 5, 5, 0.18) 27%,
+      transparent 32%
     ),
     /* Content fade — the softer shoulder above the floor. */
     linear-gradient(
@@ -336,6 +340,10 @@
   /* The single knob for how dark the banner art gets (1 = as authored, 0.6 =
    lighter). Layer opacity, so the five gradients below never drift apart. */
   opacity: var(--details-hero-shade, 1);
+  /* Soft-blend the bottom edge so the image seam has no hard horizontal line
+     for any background. Only 1px — enough to melt the floor gradient's tail. */
+  backdrop-filter: blur(1px);
+  -webkit-backdrop-filter: blur(1px);
 }
 
 .details-hero__body {
