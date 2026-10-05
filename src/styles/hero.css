@@ -25,13 +25,15 @@
   object-position: center 20%;
   /* The watch/details page banner uses THIS class (not a copy of it), so both
      banners fade identically: the image is fully gone well before the bottom
-     and only the ambient gradient shows through. */
-  -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 98%);
-  mask-image: linear-gradient(to bottom, black 40%, transparent 98%);
-  /* Melt the bottom seam into the ambient backdrop so the image edge
-     has no hard horizontal line. */
-  backdrop-filter: blur(1px);
-  -webkit-backdrop-filter: blur(1px);
+     and only the ambient gradient shows through. The mask fades over the
+     last 60% of the height so there is no hard edge at the bottom — the
+     .details-hero__shade FLOOR below resolves the seam on flat #050505.
+     backdrop-filter is NOT used here: on a masked <img> it creates a
+     compositor-layer boundary at the mask edge that renders as a visible
+     horizontal line regardless of blur radius. The shade overlay's own
+     blur below handles edge-melting instead. */
+  -webkit-mask-image: linear-gradient(to bottom, black 38%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 38%, transparent 100%);
 }
 
 .hero-overlay {
@@ -153,25 +155,21 @@
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(0deg, rgba(5,5,5,0.98) 0%, rgba(5,5,5,0.94) 4%, rgba(5,5,5,0.88) 8%, rgba(5,5,5,0.72) 14%, rgba(5,5,5,0.55) 20%, rgba(5,5,5,0.34) 32%, rgba(5,5,5,0.22) 44%, transparent 64%),
+    linear-gradient(0deg, rgba(5,5,5,0.98) 0%, rgba(5,5,5,0.95) 3%, rgba(5,5,5,0.9) 7%, rgba(5,5,5,0.82) 12%, rgba(5,5,5,0.68) 18%, rgba(5,5,5,0.5) 25%, rgba(5,5,5,0.32) 34%, rgba(5,5,5,0.18) 44%, rgba(5,5,5,0.08) 54%, transparent 68%),
     radial-gradient(ellipse 70% 100% at 0% 50%, rgba(5,5,5,0.8) 0%, rgba(5,5,5,0.32) 42%, transparent 72%),
     radial-gradient(ellipse 38% 100% at 100% 50%, rgba(5,5,5,0.42) 0%, transparent 62%);
-  /* Fade the overlay out with the image (same mask as .hero-bg, exactly like
-     the watch/details banner, which reuses both classes). This removes the
-     opaque bottom band that was creating the visible "banner image bottom"
-     line — image and gradient melt into the ambient together. */
-  -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 98%);
-  mask-image: linear-gradient(to bottom, black 40%, transparent 98%);
-  /* Melt the bottom seam into the ambient backdrop so the image edge
-     has no hard horizontal line. */
-  backdrop-filter: blur(1px);
-  -webkit-backdrop-filter: blur(1px);
+  /* Same mask as .hero-bg — fade over the last 62% so the bottom edge has
+     no hard boundary. backdrop-filter is not applied here for the same
+     reason as .hero-bg: the mask boundary + compositor layer creates a
+     visible line. The shade overlay's blur handles edge-melting. */
+  -webkit-mask-image: linear-gradient(to bottom, black 38%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 38%, transparent 100%);
 }
 
 /* ── Watch/details page — reuse the exact hero banner gradient stack ── */
 .watch-hero-gradient {
   background:
-    linear-gradient(0deg, rgba(5,5,5,0.98) 0%, rgba(5,5,5,0.94) 4%, rgba(5,5,5,0.88) 8%, rgba(5,5,5,0.72) 14%, rgba(5,5,5,0.55) 20%, rgba(5,5,5,0.34) 32%, rgba(5,5,5,0.22) 44%, transparent 64%),
+    linear-gradient(0deg, rgba(5,5,5,0.98) 0%, rgba(5,5,5,0.95) 3%, rgba(5,5,5,0.9) 7%, rgba(5,5,5,0.82) 12%, rgba(5,5,5,0.68) 18%, rgba(5,5,5,0.5) 25%, rgba(5,5,5,0.32) 34%, rgba(5,5,5,0.18) 44%, rgba(5,5,5,0.08) 54%, transparent 68%),
     radial-gradient(ellipse 70% 100% at 0% 50%, rgba(5,5,5,0.8) 0%, rgba(5,5,5,0.32) 42%, transparent 72%),
     radial-gradient(ellipse 38% 100% at 100% 50%, rgba(5,5,5,0.42) 0%, transparent 62%);
 }

@@ -297,20 +297,21 @@
   inset: 0;
   pointer-events: none;
   background:
-    /* Floor — opaque through the bottom 13% of the box (stops run bottom-up
-       from 0%), tapering to transparent by 30%, so none of the blurred ambient
-       backdrop can read through the bottom of the art. Softened stops + a 1px
-       backdrop blur blend the seam so the image edge has no hard horizontal
-       line for any background image. */
+    /* Floor — opaque through the bottom 18% of the box (stops run bottom-up
+       from 0%), tapering to transparent by 40%, so none of the blurred ambient
+       backdrop can read through the bottom of the art. The 8px backdrop blur on
+       this layer melts the seam so the image edge has no hard horizontal line
+       for any background image. */
     linear-gradient(
       to top,
       #050505 0%,
-      #050505 5%,
-      rgba(5, 5, 5, 0.88) 10%,
-      rgba(5, 5, 5, 0.72) 15%,
-      rgba(5, 5, 5, 0.42) 21%,
-      rgba(5, 5, 5, 0.18) 27%,
-      transparent 32%
+      #050505 6%,
+      rgba(5, 5, 5, 0.9) 12%,
+      rgba(5, 5, 5, 0.78) 18%,
+      rgba(5, 5, 5, 0.55) 25%,
+      rgba(5, 5, 5, 0.3) 33%,
+      rgba(5, 5, 5, 0.12) 40%,
+      transparent 48%
     ),
     /* Content fade — the softer shoulder above the floor. */
     linear-gradient(
@@ -341,9 +342,11 @@
    lighter). Layer opacity, so the five gradients below never drift apart. */
   opacity: var(--details-hero-shade, 1);
   /* Soft-blend the bottom edge so the image seam has no hard horizontal line
-     for any background. Only 1px — enough to melt the floor gradient's tail. */
-  backdrop-filter: blur(1px);
-  -webkit-backdrop-filter: blur(1px);
+     for any background. This unmasked overlay is the right place for a stronger
+     blur — it melts the seam without the compositor-boundary artifact that
+     backdrop-filter causes on the masked hero-bg/hero-overlay elements. */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .details-hero__body {
