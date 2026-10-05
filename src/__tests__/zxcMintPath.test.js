@@ -21,7 +21,7 @@
 // Hermetic: fetch is stubbed, no test may reach a provider.
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-const { default: handler } = await import("../../api/stream.js");
+const { default: handler, clearZxcMpdCache, clearZxcTitleMetaCache } = await import("../../api/stream.js");
 
 /* The current mint path. If upstream renames it again, the failure is a 404 HTML
    page on every row; update this constant and ZXC_MINT_PATH together. */
@@ -36,6 +36,8 @@ let serversResponse = { success: true, links: [] };
 
 beforeEach(() => {
   requests = [];
+  clearZxcMpdCache();
+  clearZxcTitleMetaCache();
   details = { title: "Inception", release_date: "2010-07-15", imdb_id: "tt1375666" };
   serversResponse = {
     success: true,
@@ -150,5 +152,112 @@ describe("ZXC metadata is mandatory, not advisory", () => {
     // carried value in its on-the-wire form.
     expect(url).toContain("Game+of+Thrones");
     expect(url).toContain("2019-05-19");
+  });
+});
+
+describe("ZXC MPD cache", () => {
+  // A minimal valid MPD that parseMpd accepts â€” one video representation with
+  // two 5-second segments.
+  const MPD_XML = "<MPD mediaPresentationDuration=\"PT10S\">"
+    + "<Period duration=\"PT10S\">"
+    + "<AdaptationSet contentType=\"video\" mimeType=\"video/mp4\">"
+    + "<SegmentTemplate duration=\"5\" startNumber=\"1\" media=\"seg-$Number$.m4s\" initialization=\"init.m4s\"/>"
+    + "<Representation id=\"1\" bandwidth=\"1000000\" width=\"1280\" height=\"720\" codecs=\"avc1.640028\"/>"
+    + "</AdaptationSet></Period></MPD>";
+
+  const DASH_URL = "https://93.184.216.34/a.mpd";
+
+  beforeEach(() => {
+    // Switch the servers response to a single DASH link.
+    serversResponse = {
+      success: true,
+      links: [
+        { link: Buffer.from(DASH_URL).toString("base64"), type: "dash", resolution: 720 },
+      ],
+    };
+    vi.stubGlobal("fetch", vi.fn(async (input) => {
+      const url = String(typeof input === "string" ? input : input?.url || input);
+      requests.push(url);
+      if (url.includes("/backend/tmdb/details/")) return json(details);
+      if (url.includes(MINT_PATH)) return json({ token: "tok", ts: "1700000000" });
+      if (url.includes("/backend/servers/")) return json(serversResponse);
+      if (url.includes(DASH_URL)) return new Response(MPD_XML, { status: 200 });
+      return new Response("upstream unreachable", { status: 502 });
+    }));
+  });
+
+  it("caches the MPD so a second resolve skips the redundant mint+servers+MPD", async () => {
+    // First resolve: zxcServerLinks (1 mint) + zxcDashManifest (1 mint + 1 MPD) = 2 mints.
+    const r1 = await resolve({ server: "centaurus" });
+    expect(r1.ok).toBe(true);
+    const mintsAfterFirst = requests.filter((u) => u.includes(MINT_PATH)).length;
+    expect(mintsAfterFirst).toBe(2);
+
+    // Reset request tracker but NOT the cache â€” the second resolve should reuse
+    // the cached MPD.
+    requests = [];
+
+    // Second resolve of the SAME title: zxcDashManifest hits the cache.
+    const r2 = await resolve({ server: "centaurus" });
+    expect(r2.ok).toBe(true);
+    const mintsAfterSecond = requests.filter((u) => u.includes(MINT_PATH)).length;
+    // Only the servers-lookup mint ran; the zxcDashManifest mint was cached.
+    expect(mintsAfterSecond).toBe(1);
+    // No redundant MPD fetch.
+    expect(requests.filter((u) => u.includes(DASH_URL)).length).toBe(0);
+  });
+
+  it("re-fetches after the cache is cleared (TTL expiry path)", async () => {
+    clearZxcMpdCache();
+    await resolve({ server: "centaurus" });
+    expect(requests.filter((u) => u.includes(MINT_PATH)).length).toBe(2);
+
+    requests = [];
+    clearZxcMpdCache();
+    await resolve({ server: "centaurus" });
+    // Cache was cleared â€” both mints should be fresh again.
+    expect(requests.filter((u) => u.includes(MINT_PATH)).length).toBe(2);
+  });
+
+  it("keeps separate cache entries per dub", async () => {
+    serversResponse = {
+      success: true,
+      links: [
+        { link: Buffer.from(DASH_URL).toString("base64"), type: "dash", resolution: 720 },
+      ],
+      dubs: [
+        { lanCode: "hi", lanName: "Hindi", type: 0 },
+        { lanCode: "ta", lanName: "Tamil", type: 0 },
+      ],
+    };
+    const r1 = await resolve({ server: "centaurus" });
+    expect(r1.ok).toBe(true);
+    expect(r1.audioTracks.length).toBe(2);
+    const mintsAfterFirst = requests
+      .filter((u) => u.includes(MINT_PATH) && !u.includes("/backend/servers/"))
+      .length;
+    // 1 servers-lookup mint + 1 main-manifest dub + 2 dub manifests = 4 mints.
+    expect(mintsAfterFirst).toBe(4);
+
+    requests = [];
+    const r2 = await resolve({ server: "centaurus" });
+    expect(r2.ok).toBe(true);
+    // All 3 zxcDashManifest calls hit the cache; only the servers-lookup mint runs.
+    expect(requests.filter((u) => u.includes(MINT_PATH)).length).toBe(1);
+  });
+
+  it("title metadata is cached across servers with same tmdbId", async () => {
+    /* Same tmdbId, different servers - the /backend/tmdb/details/ endpoint
+       should be hit only once across all rows, not once per server. */
+    requests = [];
+    const r1 = await resolve({ server: "centaurus", type: "movie", tmdbId: "27205" });
+    expect(r1.ok).toBe(true);
+    expect(requests.filter((u) => u.includes("/backend/tmdb/details/")).length).toBe(1);
+
+    requests = [];
+    const r2 = await resolve({ server: "andromeda", type: "movie", tmdbId: "27205" });
+    expect(r2.ok).toBe(true);
+    // Cached: no second metadata fetch for the same tmdbId.
+    expect(requests.filter((u) => u.includes("/backend/tmdb/details/")).length).toBe(0);
   });
 });

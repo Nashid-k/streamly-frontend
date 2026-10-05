@@ -13,7 +13,7 @@
 // dispatch regression shows up here instead of on someone's title page.
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-const { default: handler } = await import("../../api/stream.js");
+const { default: handler, clearZxcMpdCache, clearZxcTitleMetaCache } = await import("../../api/stream.js");
 
 function makeRes() {
   const res = {
@@ -56,6 +56,8 @@ async function call(body, { method = "POST" } = {}) {
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  clearZxcMpdCache();
+  clearZxcTitleMetaCache();
   // Hermetic: no test may reach a real provider. A refused upstream is itself a
   // legitimate structured failure, so the assertions below still hold.
   vi.stubGlobal(

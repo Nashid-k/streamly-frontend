@@ -350,6 +350,48 @@ const ZXC_MARKER = { marker: "zx", value: "streamly", view: "zv", rep: "zr" };
 const ZXC_VIEW_MASTER = "master";
 const ZXC_VIEW_MEDIA = "media";
 
+/* MPD cache: dedupe upstream burst during playlist load */
+const MPD_CACHE_TTL_MS = 30_000;
+const MPD_CACHE_MAX = 60;
+const mpdCache = new Map();
+
+function zxcMpdCacheKey(meta, dubCode, dubType) {
+  return [meta.type, meta.tmdbId, meta.server, dubCode || "", dubType || ""].join("|");
+}
+
+function takeMpdCache(key) {
+  const hit = mpdCache.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.at > MPD_CACHE_TTL_MS) {
+    mpdCache.delete(key); return null;
+  }
+  return hit.result;
+}
+
+function setMpdCache(key, result) {
+  mpdCache.set(key, { at: Date.now(), result });
+  while (mpdCache.size > MPD_CACHE_MAX) {
+    const oldest = mpdCache.keys().next().value;
+    mpdCache.delete(oldest);
+  }
+}
+
+export function clearZxcMpdCache() { mpdCache.clear(); }
+
+/* Title metadata cache: /backend/tmdb/details is the same for every server
+   row (same tmdb ID), so resolvezxc calls for the other four servers after the
+   first all re-fetch identical data. A 30s TTL mirrors the MPD cache: enough to
+   ride a playlist-load burst, short enough to pick up a re-release date. */
+const ZXC_TITLE_TTL_MS = 30_000;
+const ZXC_TITLE_CACHE_MAX = 60;
+const titleMetaCache = new Map();
+
+export function clearZxcTitleMetaCache() { titleMetaCache.clear(); }
+
+function zxcTitleMetaKey({ type, tmdbId }) {
+  return `${type}|${tmdbId}`;
+}
+
 // How many provider links we will probe per plain-HLS server. atlas/meow
 // hand back 2-3 links that are alternate encodes or mirrors of ONE runtime, not
 // a quality ladder, so we pick a single one â€” the bound only stops a
@@ -415,6 +457,9 @@ function decryptZxcLink(ciphertext, passphrase) {
    not apply here. For TV, `last_air_date` is also carried as `latestDate`
    because the shipped client sends it and episode freshness depends on it. */
 async function zxcTitleMeta({ type, tmdbId, refererPath }) {
+  const cacheKey = zxcTitleMetaKey({ type, tmdbId });
+  const cached = titleMetaCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < ZXC_TITLE_TTL_MS) return cached.meta;
   const text = await fetchUpstream(`${ZXC_ORIGIN}/backend/tmdb/details/${type}/${tmdbId}?language=en-US`, {
     referer: `${ZXC_ORIGIN}${refererPath}`,
     extraHeaders: zxcHeaders(refererPath, { json: true }),
@@ -435,6 +480,11 @@ async function zxcTitleMeta({ type, tmdbId, refererPath }) {
   const missing = ["title", "year", "date"].filter((k) => !meta[k]);
   if (missing.length > 0) {
     throw new Error(`title metadata incomplete (missing ${missing.join(", ")}) for tmdb ${tmdbId}`);
+  }
+  titleMetaCache.set(cacheKey, { at: Date.now(), meta });
+  while (titleMetaCache.size > ZXC_TITLE_CACHE_MAX) {
+    const oldest = titleMetaCache.keys().next().value;
+    titleMetaCache.delete(oldest);
   }
   return meta;
 }
@@ -591,9 +641,15 @@ function parseZxcPlaylistUrl(rawUrl) {
 
 /* MPD in, transcoded ladder out. One mint + one servers call + one manifest
    fetch â€” the cost a single generated playlist request costs, which is why the
-   marker URL replays instead of caching. */
+   marker URL replays instead of caching. NOW also caches the parsed MPD
+   (see mpdCache above) so rapid parallel playlist loads collapse to one
+   upstream trip instead of triggering a provider 429 burst. */
 async function zxcDashManifest(target) {
   const { meta, dubCode, dubType } = target;
+  const key = zxcMpdCacheKey(meta, dubCode, dubType);
+  const cached = takeMpdCache(key);
+  if (cached) return cached;
+
   const { links } = await zxcServerLinks(meta, { server: meta.server, dubCode, dubType });
   const dash = links.find((l) => l.kind === "dash") || links[0];
   if (!dash?.url) throw new Error("no dash manifest for this server");
@@ -603,7 +659,9 @@ async function zxcDashManifest(target) {
   });
   const manifest = parseMpd(xml);
   if (!manifest) throw new Error("manifest is not a transcodable MPD");
-  return { manifest, refUrl: `${ZXC_ORIGIN}${meta.refererPath}` };
+  const result = { manifest, refUrl: `${ZXC_ORIGIN}${meta.refererPath}` };
+  setMpdCache(key, result);
+  return result;
 }
 
 function zxcGeneratedPlaylist(target) {

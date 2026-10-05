@@ -67,6 +67,9 @@ function summarize(r) {
 }
 
 const results = [];
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 for (const s of SERVERS) {
   for (const kind of ["movie", "tv"]) {
     const base = { action: s.action, type: kind, id: kind === "movie" ? movieId : tvId, ...s.extra };
@@ -78,6 +81,11 @@ for (const s of SERVERS) {
     results.push({ server: s, kind, ...sum, ms: r.ms, status: r.status });
     const tag = `${s.label} ${s.key}`.padEnd(26);
     const kindTag = kind.padEnd(5);
+
+    /* Space out server probes so the provider's burst rate-limit (429)
+       doesn't cascade into false negatives on later servers. */
+    await sleep(2000);
+
     if (sum.ok) {
       console.log(`  PASS  ${tag} ${kindTag} ${String(sum.n).padStart(2)} var  max=${String(sum.max).padStart(4)}p  audio=${sum.audio}  ${String(r.ms).padStart(6)}ms  ${sum.ladder} ${sum.note}`);
     } else {
