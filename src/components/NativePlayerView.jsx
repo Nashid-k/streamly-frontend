@@ -3653,6 +3653,7 @@ setScrubDragging(true);
                 cursor: "pointer",
                 zIndex: 5,
                   overflow: "hidden",
+                  pointerEvents: "auto",
                 }}
               >
                 <div
@@ -3663,7 +3664,7 @@ setScrubDragging(true);
                       bottom: 0,
                       background: "rgba(255, 255, 255, 0.2)",
                       width: `${skipIntroProgress * 100}%`,
-                      zIndex: -1,
+                      zIndex: 0,
                   }}
                 />
                 <SkipForward size={16} />
@@ -3701,6 +3702,7 @@ setScrubDragging(true);
                 cursor: "pointer",
                 zIndex: 5,
                   overflow: "hidden",
+                  pointerEvents: "auto",
                 }}
               >
                 <div
@@ -3711,7 +3713,7 @@ setScrubDragging(true);
                       bottom: 0,
                       background: "rgba(255, 255, 255, 0.2)",
                       width: `${skipOutroProgress * 100}%`,
-                      zIndex: -1,
+                      zIndex: 0,
                   }}
                 />
                 <SkipForward size={16} />
@@ -4544,6 +4546,7 @@ setScrubDragging(true);
                   borderRadius: 999,
                   background: "rgba(255,255,255,0.18)",
                   overflow: "hidden",
+                  pointerEvents: "auto",
                 }}
               >
                 <div
