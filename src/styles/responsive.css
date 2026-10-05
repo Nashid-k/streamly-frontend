@@ -227,11 +227,18 @@
     top: auto !important;
     bottom: 0 !important;
     left: 0 !important;
+    /* Cancels the translate(-50%,-50%) these panels carry to centre themselves
+       on desktop, which would shove the bottom-anchored sheet up and left on a
+       phone. It has to stay `!important` — that also beats framer's inline
+       transform, so the sheet arrives without motion on mobile (see task.md
+       STAGE 4: the real fix is moving centring off the animated node). */
     transform: none !important;
     border-left: none !important;
     border-right: none !important;
     border-bottom: none !important;
-    animation: slideUp 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    /* No `animation` here: the sheet's motion is framer's (ConfirmDialog /
+       GlobalShortcuts), and the `slideUp` keyframe this used to name is not
+       defined anywhere in the project, so the line never did anything. */
   }
 
   /* Buttons */

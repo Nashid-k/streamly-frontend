@@ -7,7 +7,7 @@
 // touch devices get a stacked settings sheet instead of the desktop chrome.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useMotionTokens } from "../constants/motion";
 import { buildAudioTrackList, originalTrackLabel } from "../utils/audioLabels";
 import useRailArrows from "../hooks/useRailArrows";
@@ -3419,11 +3419,12 @@ setScrubDragging(true);
   const doSkipOutro = () => doSeekPast(skipOutroTarget);
 
   return (
-    // reducedMotion="user" makes every framer-motion transition in this tree
-    // (HUD pops, sheet slide, spinner fade, resume/up-next cards) collapse to an
-    // instant cut when the OS asks for less motion. The player.css media query
-    // covers the pure-CSS half of the same animations.
-    <MotionConfig reducedMotion="user">
+    // No local <MotionConfig>: this tree inherits the app-level one
+    // (App.jsx: reducedMotion = in-app preference ? "always" : "user"). A nested
+    // config overrode it, so a viewer who turned Reduce Motion on in Settings
+    // still got every HUD pop, sheet slide and spinner fade in the player — the
+    // one screen where the setting mattered most was the one ignoring it.
+    // player.css covers the pure-CSS half of the same animations.
     <div
       style={{
         width: "100%",
@@ -5090,6 +5091,5 @@ setScrubDragging(true);
         </motion.div>
       )}
     </div>
-    </MotionConfig>
   );
 }

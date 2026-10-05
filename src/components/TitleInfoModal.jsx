@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { SPRING } from "../constants/motion";
+import { FADE, MODAL_PANEL } from "../constants/motion";
 import { Check, ChevronRight, GalleryHorizontal, LayoutGrid, List, Play, Plus, X } from "lucide-react";
 import slugify from "slugify";
 import { movieService } from "../api/movieService";
@@ -163,9 +163,9 @@ export default function TitleInfoModal({ movie, onClose, onSelectMovie }) {
   return createPortal(
     <motion.div
       className="title-info-backdrop"
-      initial={{ opacity: 0 }}
+      initial={FADE.initial}
       animate={{ opacity: isClosing ? 0 : 1 }}
-      transition={{ duration: 0.18 }}
+      transition={FADE.transition}
       onClick={handleClose}
       role="dialog"
       aria-modal="true"
@@ -175,9 +175,9 @@ export default function TitleInfoModal({ movie, onClose, onSelectMovie }) {
       <motion.div
         ref={cardRef}
         className="title-info-card"
-        initial={{ opacity: 0, scale: 0.94, y: 24 }}
-        animate={isClosing ? { opacity: 0, scale: 0.96, y: 16 } : { opacity: 1, scale: 1, y: 0 }}
-        transition={SPRING.LIFT}
+        initial={MODAL_PANEL.initial}
+        animate={isClosing ? MODAL_PANEL.exit : MODAL_PANEL.animate}
+        transition={MODAL_PANEL.transition}
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Backdrop header ── */}

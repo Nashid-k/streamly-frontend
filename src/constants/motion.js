@@ -50,7 +50,11 @@ export const SPRING = {
 };
 
 /* Non-spring timings. Springs cover anything with weight or gesture; these
-   cover fades and opacity-only work, where a spring would overshoot past 1. */
+   cover fades and opacity-only work, where a spring would overshoot past 1.
+   FAST/NORMAL/SLOW here are the same scale CSS publishes as --duration-fast /
+   --duration-normal / --duration-slow in tokens.css (fast is 0.18s in JS and
+   200ms in CSS — the stylesheets author their micro-interactions at 0.2s, and
+   the two must not drift further). Retune one and retune the other. */
 export const DURATION = { FAST: 0.18, MED: 0.28, SLOW: 0.45 };
 
 /* `useMotionTokens` is a hook, so it needs the import. Kept at the top of the
@@ -95,6 +99,17 @@ export const FADE = {
   animate: { opacity: 1 },
   exit: { opacity: 0 },
   transition: { duration: DURATION.MED, ease: EASE_OUT },
+};
+
+/** A dialog or sheet panel. Six surfaces that all dim the page were arriving
+    with four different travels (y 10/12/24, scale 0.88/0.94/0.97) on two
+    different springs, so two dialogs in a row read as two products. One shape:
+    a short 12px rise into a 6% scale-down, SHEET spring both ways. */
+export const MODAL_PANEL = {
+  initial: { opacity: 0, scale: 0.94, y: 12 },
+  animate: { opacity: 1, scale: 1, y: 0 },
+  exit: { opacity: 0, scale: 0.97, y: 8 },
+  transition: SPRING.SHEET,
 };
 
 /**

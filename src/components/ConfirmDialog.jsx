@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { SPRING } from "../constants/motion";
+import { FADE, MODAL_PANEL } from "../constants/motion";
 import { AlertTriangle } from "lucide-react";
 
 /**
@@ -94,9 +94,10 @@ export function useConfirmDialog() {
             <motion.div
               className="modal-overlay"
               aria-hidden="true"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={FADE.initial}
+              animate={FADE.animate}
+              exit={FADE.exit}
+              transition={FADE.transition}
               onClick={handleCancel}
               style={{
                 position: "fixed",
@@ -108,10 +109,10 @@ export function useConfirmDialog() {
             />
             {/* Modal */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.88, y: 24 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 16 }}
-              transition={SPRING.SHEET}
+              initial={MODAL_PANEL.initial}
+              animate={MODAL_PANEL.animate}
+              exit={MODAL_PANEL.exit}
+              transition={MODAL_PANEL.transition}
               style={{
                 position: "fixed",
                 top: "50%",

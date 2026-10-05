@@ -5,7 +5,10 @@ import { SPRING } from "../../constants/motion";
 
 /* Netflix-mobile hold-to-2x pill: a small badge pinned to the right edge of the
    frame while the hold is active. Decorative only (the video element itself
-   runs at 2x); self-fades with the HUD timer when the hold releases. */
+   runs at 2x); self-fades with the HUD timer when the hold releases.
+   Deliberately NOT HUD_POP: the four value HUDs (volume/brightness/aspect/seek)
+   share one pop because they are the same gesture repeated, but this one slides
+   in from the edge it is pinned to, which is what tells you a hold is active. */
 const NetflixHold2xHUD = memo(function NetflixHold2xHUD({ metrics }) {
   const scale = metrics?.scale || 1;
   const font = Math.max(13, Math.round(20 * scale));

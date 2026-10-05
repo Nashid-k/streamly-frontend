@@ -1,16 +1,16 @@
 import { memo } from "react";
 import { Sun } from "lucide-react";
 import { motion } from "framer-motion";
-import { SPRING } from "../../constants/motion";
+import { HUD_POP } from "../../constants/motion";
 
 const NetflixBrightnessHUD = memo(function NetflixBrightnessHUD({ brightness, metrics }) {
   const pct = Math.round(brightness * 100);
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.92 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.94 }}
-      transition={SPRING.SNAPPY}
+      initial={HUD_POP.initial}
+      animate={HUD_POP.animate}
+      exit={HUD_POP.exit}
+      transition={HUD_POP.transition}
       style={{
         position: "absolute", inset: 0,
         display: "flex", flexDirection: "column",

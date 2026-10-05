@@ -14,7 +14,11 @@ const clamp = (lo, value, hi) => (value < lo ? lo : value > hi ? hi : value);
    drew a 55%-black squircle, which read as a grey smear over the frame and
    fought bright scenes) — legibility comes from a soft text shadow instead.
    Size derives from the measured frame like every other HUD, so a phone and a
-   4K window both read right. */
+   4K window both read right.
+   Deliberately NOT HUD_POP: this badge marks a one-shot state change and needs
+   the larger 0.7 pop to read as an event, where the value HUDs (volume,
+   brightness, aspect, seek) are one gesture repeated and therefore share a
+   single pop shape. */
 const NetflixPlayPauseHUD = memo(function NetflixPlayPauseHUD({ kind, metrics }) {
   const scale = metrics?.scale || 1;
   const box = Math.round(clamp(72, 96 * scale, 148));

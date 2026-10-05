@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { SPRING } from "../constants/motion";
+import { MODAL_PANEL } from "../constants/motion";
 import { Keyboard, X, Search, ArrowLeft, Play } from "lucide-react";
 
 export default function GlobalShortcuts() {
@@ -115,10 +115,10 @@ export default function GlobalShortcuts() {
           onClick={() => setIsOpen(false)}
         >
           <motion.div
-            initial={{ scale: 0.95, opacity: 0, y: 10 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.95, opacity: 0, y: 10 }}
-            transition={SPRING.SHEET}
+initial={MODAL_PANEL.initial}
+          animate={MODAL_PANEL.animate}
+          exit={MODAL_PANEL.exit}
+          transition={MODAL_PANEL.transition}
             onClick={(e) => e.stopPropagation()}
             style={{
               width: "90%",

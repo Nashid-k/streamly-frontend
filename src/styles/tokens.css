@@ -119,9 +119,15 @@
   /* ── Transitions ───────────────────────────────────────── */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
-  --duration-fast: 150ms;
-  --duration-normal: 250ms;
-  --duration-slow: 400ms;
+  /* The app's one duration scale. These mirror DURATION in
+     src/constants/motion.js (normal/slow are identical); `fast` is 200ms
+     rather than 180ms because the CSS micro-interactions it covers (hover,
+     focus, colour shifts) are authored at 0.2s throughout the stylesheets, and
+     the token has to match the code it names. player.css's --zxc-t-* alias
+     these instead of redeclaring a third scale. */
+  --duration-fast: 200ms;
+  --duration-normal: 280ms;
+  --duration-slow: 450ms;
 
   /* ── Safe Area Insets ───────────────────────────────────── */
   --sat: env(safe-area-inset-top, 0px);

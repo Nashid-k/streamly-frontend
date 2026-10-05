@@ -42,7 +42,7 @@ import {
   motion,
   AnimatePresence,
 } from "framer-motion";
-import { SPRING } from "../constants/motion";
+import { SPRING, FADE, MODAL_PANEL } from "../constants/motion";
 import { useAppAuth } from "../context/auth";
 import { useToast } from "../components/Toast.jsx";
 import MovieCard from "../components/MovieCard";
@@ -2238,10 +2238,10 @@ export default function TitleDetails() {
         {unreleasedModalOpen && createPortal(
           <motion.div
             key="unreleased"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
+            initial={FADE.initial}
+            animate={FADE.animate}
+            exit={FADE.exit}
+            transition={FADE.transition}
             className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-md px-6"
             onClick={() => setUnreleasedModalOpen(false)}
             role="dialog"
@@ -2249,10 +2249,10 @@ export default function TitleDetails() {
             aria-labelledby="unreleased-title"
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.94, y: 12 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 8 }}
-              transition={SPRING.SHEET}
+              initial={MODAL_PANEL.initial}
+              animate={MODAL_PANEL.animate}
+              exit={MODAL_PANEL.exit}
+              transition={MODAL_PANEL.transition}
               className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#0c0c0e]/95 p-6 text-center shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >

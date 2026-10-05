@@ -4500,7 +4500,7 @@ dead rows, and `milkyway` -> `meow` was an upstream server-list change, not our 
 - [x] Gates: oxlint **0 errors** (2 baseline `NativePlayerView.jsx` unused-catch
       warnings), vitest **74 files / 919 passed**, build OK. No contract touched.
 
-- [ ] **STAGE 1 - render storms (no visual change)** - three read-only audits
+- [x] **STAGE 1 - render storms (no visual change)** - three read-only audits
   (scroll/hover jank, perceived response, motion language) produced one ranked
   list; this is the order. The audits found the app's worst cost is not layout,
   it is re-renders: `AuthContext`'s `useMemo` never hit because all four
@@ -4561,15 +4561,58 @@ dead rows, and `milkyway` -> `meow` was an upstream server-list change, not our 
         `LeavingSoonBanner` pushed a 1280 px banner frame into a 56x32 box
         (now `w154`, through `CdnImageAdapter`).
   - [x] Gates: oxlint 0 errors, vitest 74 files / 921 passed, build OK.
-- [ ] **STAGE 4 - motion language**
-  - [ ] `NativePlayerView.jsx`: nested `<MotionConfig reducedMotion="user">`
-        overrides the app-level setting, so Reduce Motion is a no-op on the
-        heaviest screen. Remove it or read the preference.
-  - [ ] Route the six player HUDs through the existing-but-unused `HUD_POP`
-        token (five hand-rolled variants today) and give the modal family one
-        `DURATION.SCRIM` + single panel shape (four scrim speeds: 0.18/0.2/0.25/0.3s).
-  - [ ] `responsive.css`: `.modal-container { transform: none !important }` kills
-        the sheet motion on mobile and `animation: slideUp 0.3s` names a keyframe
-        that exists nowhere in the repo.
-  - [ ] Collapse the three competing duration scales (`motion.js` 180/280/450,
-        `tokens.css` 150/250/400, `player.css --zxc-t-*` 150/300/500) onto one.
+- [x] **STAGE 4 - motion language**
+  - [x] `NativePlayerView.jsx`: the nested `<MotionConfig reducedMotion="user">`
+        is gone, so the player inherits the app-level config. A viewer who
+        turned Reduce Motion on in Settings still got every HUD pop, sheet
+        slide and spinner fade — the one screen where the setting matters most
+        was the one overriding it.
+  - [x] One dialog motion for all six surfaces. Added `MODAL_PANEL` to
+        `constants/motion.js` (y 12 / scale 0.94 in, y 8 / 0.97 out, SHEET
+        spring) and pointed `ConfirmDialog`, `GlobalShortcuts`,
+        `RatingsTable`, `TitleInfoModal`, the unreleased-title sheet and the
+        sign-in panel at it, with their scrims on the existing `FADE` token.
+        Before: four travels (10/12/24px), three scales (0.88/0.94/0.97) and
+        two springs for one interaction.
+  - [x] `HUD_POP` is now used. The four value HUDs (seek, volume, brightness,
+        aspect) shared the token's intent but each shipped its own numbers, so
+        repeating an adjustment made the badge re-land from a different size.
+        `PlayPause` (a one-shot event that needs its bigger pop) and `Hold2x`
+        (slides in from the edge it is pinned to) keep their own shapes, now
+        with the reasoning in a comment.
+  - [x] `responsive.css`: dropped `animation: slideUp 0.3s`, which named a
+        keyframe that does not exist anywhere in the repo and so never ran.
+        `transform: none !important` has to STAY (see below) — noted in place.
+  - [x] One duration scale. `tokens.css` `--duration-normal/slow` now match
+        `DURATION.MED/SLOW` in `motion.js`, and `player.css`'s `--zxc-t-*` alias
+        those tokens instead of declaring 150/300/500ms next to tokens' 150/250/400
+        and JS's 180/280/450. `--duration-fast` is 200ms because the CSS
+        micro-interactions it names are authored at 0.2s app-wide.
+  - [x] Tests: 5 new cases in `motion.test.js` pin the modal shape, police
+        hand-rolled dialog timings, assert the value HUDs use `HUD_POP` (and
+        that play/pause + hold-2x do not), and read the stylesheets to keep
+        the CSS scale from drifting from `DURATION` again.
+  - [x] Gates: oxlint 0 errors, vitest 74 files / 927 passed, build OK.
+- [ ] **STAGE 5 - deliberately left open**
+  - [ ] Mobile sheets still arrive without motion. `responsive.css` needs
+        `transform: none !important` on `.modal-container` to cancel the
+        `translate(-50%,-50%)` those panels use to centre themselves on
+        desktop — which would otherwise shove a bottom-anchored sheet up and left
+        on a phone — but `!important` also beats framer's inline transform, so the
+        enter animation is cancelled with it. The real fix is moving the
+        centring onto a wrapper element so the animated node never needs a
+        static transform. Deliberately NOT done blind: it changes dialog
+        geometry on every phone and there is no browser/screenshot tooling here
+        to verify it.
+  - [ ] The ~50 hand-written `0.2s` CSS declarations should migrate to
+        `var(--duration-fast)` over time, and the 23 framer tweens with no
+        `ease` should take `EASE_OUT`. Mechanical, but a wide sweep — not
+        worth doing in the same pass as the tokens.
+  - [ ] Break the home hero waterfall (`featured.js` waits for trending before
+        the detail/logo requests start) and let the hero paint from list data
+        with the text title as the logo fallback.
+  - [ ] Opt the four motionless surfaces into motion (`CollectionPickerDialog`,
+        `AddTitlesDialog`, `CollectionNameDialog`, `AccountMenu`) — they mount
+        with no framer, no CSS transition and no `AnimatePresence`.
+  - [ ] Publish PRESS scale tokens and reconcile the eight different hover/press
+        scales (buttons.css, Button.jsx, Chip.jsx, grids.css, hero.css).

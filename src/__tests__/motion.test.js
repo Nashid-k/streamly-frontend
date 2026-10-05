@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { SPRING, DURATION, EASE_OUT, HUD_POP, PILL_IN, CHECK_POP, FADE, motionSafe } from "../constants/motion";
+import { SPRING, DURATION, EASE_OUT, HUD_POP, PILL_IN, CHECK_POP, FADE, MODAL_PANEL, motionSafe } from "../constants/motion";
 import { SPRING as REEXPORTED } from "../constants/playerUi";
 
 /* Walks a directory for source files, so the contract tests below cover every
@@ -68,6 +68,23 @@ describe("motion tokens", () => {
     expect(EASE_OUT[0]).toBeLessThan(EASE_OUT[3]);
   });
 
+  it("publishes one duration scale in CSS, aliased by the player", () => {
+    // Three scales used to coexist (motion.js 180/280/450, tokens.css
+    // 150/250/400, player.css 150/300/500), so retuning motion.js changed
+    // almost nothing on screen. CSS is the one the whole app reads, so it is
+    // the one that has to agree with DURATION.
+    const tokens = readFileSync(join(process.cwd(), "src", "styles", "tokens.css"), "utf8");
+    const player = readFileSync(join(process.cwd(), "src", "styles", "player.css"), "utf8");
+    const ms = (src, name) => Number(src.match(new RegExp(`${name}:\\s*(\\d+)ms`))?.[1]);
+
+    expect(ms(tokens, "--duration-normal")).toBe(DURATION.MED * 1000);
+    expect(ms(tokens, "--duration-slow")).toBe(DURATION.SLOW * 1000);
+    // player.css must alias the scale, never redeclare it.
+    expect(player).toMatch(/--zxc-t-med:\s*var\(--duration-normal\)/);
+    expect(player).toMatch(/--zxc-t-slow:\s*var\(--duration-slow\)/);
+    expect(player).not.toMatch(/--zxc-t-\w+:\s*\d+ms/);
+  });
+
   describe("shared enter/exit shapes", () => {
     it("makes a HUD scale up from below and never travel sideways", () => {
       expect(HUD_POP.initial.scale).toBeLessThan(1);
@@ -92,6 +109,71 @@ describe("motion tokens", () => {
     it("fades without moving anything", () => {
       for (const key of ["initial", "animate", "exit"]) {
         expect(Object.keys(FADE[key])).toEqual(["opacity"]);
+      }
+    });
+
+    it("gives every dialog one panel shape and one scrim speed", () => {
+      // The audit that produced this token found the same interaction arriving
+      // with four travels and two springs across six surfaces.
+      expect(MODAL_PANEL.transition).toBe(SPRING.SHEET);
+      expect(MODAL_PANEL.animate).toEqual({ opacity: 1, scale: 1, y: 0 });
+      expect(FADE.transition).toEqual({ duration: DURATION.MED, ease: EASE_OUT });
+    });
+  });
+
+  describe("the shared shapes are actually adopted", () => {
+    // Small dialogs: every motion node in these files IS the dialog, so any
+    // hand-written panel timing is a regression.
+    const SMALL_DIALOGS = [
+      join(process.cwd(), "src", "components", "ConfirmDialog.jsx"),
+      join(process.cwd(), "src", "components", "GlobalShortcuts.jsx"),
+      join(process.cwd(), "src", "components", "RatingsTable.jsx"),
+      join(process.cwd(), "src", "components", "TitleInfoModal.jsx"),
+    ];
+    // Big pages: one dialog among many rails and rows, so only the import and
+    // the token usage are policed here.
+    const PAGE_DIALOGS = [
+      join(process.cwd(), "src", "pages", "TitleDetailsPage.jsx"),
+      join(process.cwd(), "src", "pages", "SettingsPage.jsx"),
+    ];
+    const HUD_SOURCES = [
+      "NetflixSeekHUD.jsx",
+      "NetflixVolumeHUD.jsx",
+      "NetflixBrightnessHUD.jsx",
+      "NetflixAspectHUD.jsx",
+    ].map((f) => join(process.cwd(), "src", "components", "player", f));
+
+    it("keeps hand-rolled scrim and panel timings out of the dialogs", () => {
+      for (const file of SMALL_DIALOGS) {
+        const src = readFileSync(file, "utf8");
+        expect(src).not.toMatch(/transition=\{\{\s*duration:/);
+        expect(src).not.toMatch(/initial=\{\{[^}]*scale:/);
+      }
+    });
+
+    it("takes the dialog on the two big pages from the same tokens", () => {
+      for (const file of PAGE_DIALOGS) {
+        const src = readFileSync(file, "utf8");
+        expect(src).toMatch(/import \{[^}]*MODAL_PANEL[^}]*\} from "\.\.\/constants\/motion"/);
+        expect(src).toMatch(/transition=\{MODAL_PANEL\.transition\}/);
+        expect(src).toMatch(/transition=\{FADE\.transition\}/);
+      }
+    });
+
+    it("routes the value HUDs through one pop shape", () => {
+      for (const file of HUD_SOURCES) {
+        const src = readFileSync(file, "utf8");
+        expect(src).toMatch(/initial=\{HUD_POP\.initial\}/);
+        expect(src).toMatch(/transition=\{HUD_POP\.transition\}/);
+      }
+    });
+
+    it("leaves the two HUDs that answer a different question on their own shape", () => {
+      // play/pause is a one-shot event (bigger pop) and hold-2x slides in from
+      // the edge it is pinned to. Neither should be dragged onto HUD_POP.
+      for (const f of ["NetflixPlayPauseHUD.jsx", "NetflixHold2xHUD.jsx"]) {
+        const src = readFileSync(join(process.cwd(), "src", "components", "player", f), "utf8");
+        expect(src).not.toMatch(/HUD_POP\./);
       }
     });
   });

@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef, lazy, Suspense } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { SPRING } from "../constants/motion";
+import { FADE, MODAL_PANEL } from "../constants/motion";
 import {
   User,
   ChevronDown,
@@ -1467,20 +1467,20 @@ export default function SettingsPage() {
             <motion.div
               key="login-backdrop"
               className="login-backdrop"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
+              initial={FADE.initial}
+              animate={FADE.animate}
+              exit={FADE.exit}
+              transition={FADE.transition}
               onMouseDown={(e) => {
                 if (e.target === e.currentTarget) setShowSignInModal(false);
               }}
             >
             <motion.div
               ref={loginPanelRef}
-              initial={{ opacity: 0, y: 24, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 24, scale: 0.97 }}
-              transition={SPRING.LIFT}
+              initial={MODAL_PANEL.initial}
+              animate={MODAL_PANEL.animate}
+              exit={MODAL_PANEL.exit}
+              transition={MODAL_PANEL.transition}
               className="login-panel"
               role="dialog"
               aria-modal="true"

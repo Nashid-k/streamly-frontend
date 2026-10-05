@@ -580,9 +580,13 @@
   --zxc-radius: 0.45rem;
   --zxc-radius-lg: 0.75rem;
   --zxc-ease: cubic-bezier(0.16, 1, 0.3, 1);
-  --zxc-t-fast: 150ms;
-  --zxc-t-med: 300ms;
-  --zxc-t-slow: 500ms;
+  /* Aliases, not a scale of their own: the player used to declare
+     150/300/500ms next to tokens.css's 150/250/400 and motion.js's
+     180/280/450, so "fast" meant three different things. These now resolve to
+     the single scale in tokens.css. */
+  --zxc-t-fast: var(--duration-fast);
+  --zxc-t-med: var(--duration-normal);
+  --zxc-t-slow: var(--duration-slow);
 }
 
 /* ── Tailspin loader (their exact construction) ────────────────────────────

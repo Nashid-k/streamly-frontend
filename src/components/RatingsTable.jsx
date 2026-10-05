@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { SPRING } from "../constants/motion";
+import { FADE, MODAL_PANEL } from "../constants/motion";
 import { X, Star, RefreshCw } from "lucide-react";
 import { movieService } from "../api/movieService";
 import { getScoreColor } from "../utils/ratings";
@@ -92,10 +92,10 @@ const RatingsTable = ({ movie, seasons = [], onClose }) => {
   return (
     <motion.div
       key="ratings"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.2 }}
+      initial={FADE.initial}
+      animate={FADE.animate}
+      exit={FADE.exit}
+      transition={FADE.transition}
       className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-md px-4 sm:px-6"
       onClick={onClose}
       role="dialog"
@@ -103,10 +103,10 @@ const RatingsTable = ({ movie, seasons = [], onClose }) => {
       aria-labelledby="ratings-title"
     >
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 12 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96, y: 8 }}
-        transition={SPRING.SHEET}
+        initial={MODAL_PANEL.initial}
+        animate={MODAL_PANEL.animate}
+        exit={MODAL_PANEL.exit}
+        transition={MODAL_PANEL.transition}
         className="w-full max-w-3xl overflow-hidden rounded-2xl border border-white/10 bg-[#0c0c0e]/95 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >

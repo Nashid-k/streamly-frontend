@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { motion } from "framer-motion";
 import { ASPECT_RATIOS, AR_GLYPH } from "../../constants/playerUi";
-import { SPRING } from "../../constants/motion";
+import { HUD_POP, SPRING } from "../../constants/motion";
 
 const NetflixAspectHUD = memo(function NetflixAspectHUD({ aspectRatioIndex, metrics }) {
   const ar = ASPECT_RATIOS[aspectRatioIndex] || ASPECT_RATIOS[0];
@@ -13,10 +13,10 @@ const NetflixAspectHUD = memo(function NetflixAspectHUD({ aspectRatioIndex, metr
   const height = Math.max(8, Math.round(gh * metrics.glyphScale));
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.9, y: -10 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.92, y: -6 }}
-      transition={SPRING.SNAPPY}
+      initial={HUD_POP.initial}
+      animate={HUD_POP.animate}
+      exit={HUD_POP.exit}
+      transition={HUD_POP.transition}
       style={{
         position: "absolute", inset: 0,
         display: "flex", flexDirection: "column",

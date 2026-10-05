@@ -1,17 +1,17 @@
 import { memo } from "react";
 import { Volume1, Volume2, VolumeX } from "lucide-react";
 import { motion } from "framer-motion";
-import { SPRING } from "../../constants/motion";
+import { HUD_POP } from "../../constants/motion";
 
 const NetflixVolumeHUD = memo(function NetflixVolumeHUD({ effVolume, isMuted, metrics, volume }) {
   const isZero = isMuted || volume === 0;
   const pct = isZero ? 0 : Math.round(effVolume * 100);
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.92 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.94 }}
-      transition={SPRING.SNAPPY}
+      initial={HUD_POP.initial}
+      animate={HUD_POP.animate}
+      exit={HUD_POP.exit}
+      transition={HUD_POP.transition}
       style={{
         position: "absolute", inset: 0,
         display: "flex", flexDirection: "column",
