@@ -4877,3 +4877,26 @@ cost serverless calls for data we already get free.## ZXC integration completed 
       minutes earlier.
 - [x] **Gates.** `npm run lint` 0 errors (44 warnings, pre-existing baseline);
       `npm run test` **80 files / 1013 passed**; `npm run build` OK (2.29s).
+
+- [x] **502 on POST /api/stream after resolvezxc succeeds — FIXED.** Root cause:
+      hls.js fires playlist loads for the master + each media rendition in rapid
+      succession, and each load re-entered `zxcDashManifest` (mint POST +
+      servers GET + MPD fetch), producing ~15 upstream calls in <1s.
+      The provider's burst limit answered 429s, which Vercel's serverless
+      envelope wrapped as 502, surfacing in the console as
+      `POST /api/stream 502 (Bad Gateway)` immediately after the resolve log
+      (`Resolved 3 variant(s) via ZXC orion with 3 audio track(s)...`).
+      Two in-process caches, 30s TTL each, collapse the burst:
+      - **MPD cache** — dedupes `zxcDashManifest` for the same
+        `type|tmdbId|server|dubCode|dubType`. Only the first parallel load
+        trips upstream; the rest are served from memory.
+      - **Title metadata cache** — dedupes the
+        `/backend/tmdb/details/` fetch across server rows (same tmdb ID,
+        different server), eliminating a second source of 429s during the
+        resolve burst. This was the orion-TV `Upstream 429` failure.
+      Both caches export `clear*` helpers for test isolation. The probe script
+      also gained a 2s spacing slot so its own burst can't self-trigger the
+      provider's limit.
+      - **Verification:** all 5 servers pass `probe-servers.mjs` (10/10: both
+        movie and TV on each row); `npm run lint` 0 errors; `npm run test`
+        **80 files / 1017 passed** (+4 new cache tests); `npm run build` OK.
