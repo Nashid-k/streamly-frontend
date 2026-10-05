@@ -124,9 +124,9 @@ const RESUME_WAIT_SECONDS = 8;
 // buffer is the viewer's MSE, not our function's RAM, and the total relayed
 // bytes per title are unchanged. Failfast is separate: the frag-failure
 // counter/step-down fire on LOAD events, independent of depth.
-const BUFFER_DEPTH_SECONDS = 120;
+const BUFFER_DEPTH_SECONDS = 600;
 const MIN_BUFFER_SIZE = 60 * 1000 * 1000; // hls.js default floor
-const MAX_BUFFER_SIZE = 240 * 1000 * 1000; // hard ceiling: ~2min of 4K@16Mbps, ~10min of 1080p
+const MAX_BUFFER_SIZE = 800 * 1000 * 1000; // hard ceiling: ~2min of 4K@16Mbps, ~10min of 1080p
 // Underflow guard: you cannot "buffer more" when a rendition outruns the pipe.
 // YouTube's answer is to step quality DOWN; we drop one rung after a sustained
 // shortfall so the buffer refills faster than it drains.
@@ -2463,7 +2463,14 @@ setScrubDragging(true);
             // still arriving. The back buffer stays small so device RAM stays bounded.
             abrEnabled: true,
             progressive: true,
+              fragLoadingTimeOut: 30000,
+              fragLoadingMaxRetry: 8,
+              manifestLoadingTimeOut: 20000,
+              manifestLoadingMaxRetry: 4,
+              levelLoadingTimeOut: 20000,
+              levelLoadingMaxRetry: 4,
             maxBufferLength: BUFFER_DEPTH_SECONDS,
+              maxMaxBufferLength: BUFFER_DEPTH_SECONDS * 2,
             maxBufferSize,
             backBufferLength: BACK_BUFFER_SECONDS,
             // Auto starts mid-ladder (INITIAL_BW_BITS) so quality doesn't climb rung-by-rung.
