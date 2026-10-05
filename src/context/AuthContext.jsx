@@ -1,19 +1,33 @@
-// src/context/AuthContext.jsx — Unified Authentication & MongoDB Cloud Synchronization Provider
+// src/context/AuthContext.jsx — Authentication & MongoDB cloud-sync provider.
+//
+// Sign-in is email + password, and the account does not exist until the emailed
+// link is opened (see server/verifyToken.js). The three entry points are:
+//
+//   registerAccount()          → POST /api/register       → mails a link, saves nothing
+//   completeEmailVerification()→ POST /api/verifyEmail   → CREATES the account, signs in
+//   loginWithEmail()           → POST /api/login          → signs in an existing account
+//
+// All three return a `{ success, ... }` envelope and never throw, so call sites
+// can render `message` straight into an error slot.
+//
+// The bearer token issued by verify/login is what /api/sync checks, so cloud
+// sync needed no rework — only the subject key changed from the old provider id to
+// `accountId` (the account's Mongo _id).
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { AnimatePresence } from "framer-motion";
 import { AppContext, SyncStatusContext } from "./auth";
 import { useMyList, useContinueWatching, useSearchHistory, useMyCollections } from "../hooks/useUserData";
 import { mergeListsById } from "../utils/mergeRemote";
 import { logDebug, logError, logWarn } from "../utils/debugLogger";
 import { morphCollections } from "../hooks/collectionMorph";
 import { readPreferencesSnapshot, applyRemotePreferences } from "../utils/preferencesSnapshot";
+import SignInDialog from "../components/auth/SignInDialog";
 
 const SYNC_TOKEN_KEY = "streamly_sync_token";
+const USER_KEY = "streamly_user";
 // Tombstone GC: same 30-day window as useUserData.
 const TOMBSTONE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
-// Per-account HMAC sync token issued by /api/auth for verified Google users.
-// Kept apart from the profile so logout cannot wipe it before /api/sync finishes
-// and so guests never hold one.
 function readSyncToken() {
   if (typeof window === "undefined") return "";
   try {
@@ -26,13 +40,161 @@ function readSyncToken() {
 function safeUserParse() {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem("streamly_user");
+    const raw = localStorage.getItem(USER_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch (error) {
     logWarn("auth", "Corrupt streamly_user in localStorage — resetting to null.", { message: error?.message });
     return null;
   }
 }
+
+/**
+ * The key /api/sync is scoped to.
+ *
+ * `accountId` is canonical; `id` is the same value under the name the server
+ * sends in its public user shape, kept for anything that predates the rename.
+ *
+ * There is deliberately NO `googleId` fallback any more. It used to be tolerated
+ * so a profile written by the retired Google path would keep syncing, but the
+ * user chose to drop that provider and its synced data: a leftover Google
+ * profile would otherwise look signed-in, pass the gate, and then fail every
+ * sync because no sync token matches it. Treating it as "no account" is honest —
+ * the viewer is prompted to sign in, and the next sign-in adopts the session
+ * cleanly.
+ */
+function accountIdOf(user) {
+  return user?.accountId || user?.id || "";
+}
+
+/** True only for an account the server vouched for. */
+function hasCloudAccount(user) {
+  return Boolean(accountIdOf(user));
+}
+
+function writeJson(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function readJson(key, fallback) {
+  try {
+    return JSON.parse(localStorage.getItem(key) || "null") ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * Fold a cloud library payload into localStorage and notify the hooks.
+ *
+ * Merges are timestamp-aware unions rather than replacements so a device that
+ * has been offline does not clobber edits made elsewhere, and deletions ride as
+ * tombstones. Every branch compares before writing: rewriting identical JSON
+ * would fire the cross-tab events and re-render every rail for nothing.
+ */
+function applyCloudLibrary(userData) {
+  if (!userData) return;
+
+  if (Array.isArray(userData.watchlist) && userData.watchlist.length > 0) {
+    const localList = readJson("aios_my_list", []);
+    const merged = mergeListsById(localList, userData.watchlist, {
+      pruneTombstonesMs: TOMBSTONE_TTL_MS,
+    });
+    if (writeJson("aios_my_list", merged) && JSON.stringify(merged) !== JSON.stringify(localList)) {
+      window.dispatchEvent(new Event("aios_sync_mylist"));
+    }
+  }
+
+  // History merges capped to 20 like local writes; the cap is tombstone-safe and
+  // newest-first, so delete markers are never sliced away.
+  if (Array.isArray(userData.watchHistory) && userData.watchHistory.length > 0) {
+    const localCw = readJson("aios_continue_watching", []);
+    const mergedCw = mergeListsById(localCw, userData.watchHistory, {
+      limit: 20,
+      pruneTombstonesMs: TOMBSTONE_TTL_MS,
+      sortBy: (a, b) => Number(b.lastWatched || 0) - Number(a.lastWatched || 0),
+    });
+    if (writeJson("aios_continue_watching", mergedCw) && JSON.stringify(mergedCw) !== JSON.stringify(localCw)) {
+      window.dispatchEvent(new Event("aios_sync_cw"));
+    }
+  }
+
+  if (Array.isArray(userData.collections)) {
+    const localCols = morphCollections(readJson("aios_my_collections", []));
+    const mergedCols = mergeListsById(localCols, morphCollections(userData.collections), {
+      pruneTombstonesMs: TOMBSTONE_TTL_MS,
+    });
+    if (writeJson("aios_my_collections", mergedCols) && JSON.stringify(mergedCols) !== JSON.stringify(localCols)) {
+      window.dispatchEvent(new Event("aios_sync_collections"));
+    }
+  }
+
+  // Apply cloud preferences for keys the device has not set locally — local
+  // choices always win, this only fills in never-touched keys.
+  if (userData.preferences && typeof userData.preferences === "object") {
+    applyRemotePreferences(userData.preferences);
+  }
+}
+
+/** POST/GET helper that always yields `{ success, ... }` and never throws. */
+async function postJson(path, body) {
+  try {
+    const res = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body ?? {}),
+    });
+    let data = {};
+    try {
+      data = await res.json();
+    } catch {
+      // A proxy/HTML error page reaches here; fall through to the status text.
+    }
+    if (!res.ok || data?.success === false) {
+      return { success: false, message: data?.message || `Request failed (${res.status}).`, status: res.status };
+    }
+    return { ...data, status: res.status };
+  } catch (error) {
+    logError("auth", `Network failure calling ${path}.`, error);
+    return { success: false, message: "Could not reach the server. Check your connection and try again." };
+  }
+}
+
+/**
+ * Which actions demand an account, and the copy shown when they are refused.
+ *
+ * Deliberately NOT in this list:
+ *   • updateProgress when the player reports playback position. That is not a
+ *     deliberate data action — it fires every few seconds from onProgressChange,
+ *     and gating it would mean an anonymous viewer loses their place in a film
+ *     the moment they close the tab. Guests still save progress locally; it just
+ *     never reaches the cloud.
+ *   • addSearch, which fires from an effect on every search.
+ *
+ * The explicit "mark as watched" controls DO need an account even though they
+ * call updateProgress, because the data layer cannot tell that call apart from
+ * a progress tick. TitleDetailsPage calls requireAuth() at the top of those
+ * handlers instead of relying on this map.
+ */
+const GATED_MUTATIONS = {
+  toggleMyList: "gateReason",
+  removeBatchFromMyList: "gateReason",
+  createCollection: "gateCollections",
+  createCollectionWithItems: "gateCollections",
+  renameCollection: "gateCollections",
+  deleteCollection: "gateCollections",
+  addToCollection: "gateCollections",
+  removeFromCollection: "gateCollections",
+  toggleInCollection: "gateCollections",
+  setCollectionVisibility: "gateCollections",
+  removeFromContinueWatching: "gateHistory",
+  removeBatchFromContinueWatching: "gateHistory",
+  clearContinueWatching: "gateHistory",
+};
 
 export function AuthProvider({ children }) {
   const myListData = useMyList();
@@ -43,7 +205,20 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(safeUserParse);
   const [syncStatus, setSyncStatus] = useState("idle"); // 'idle' | 'syncing' | 'synced' | 'error'
   const [lastSyncedAt, setLastSyncedAt] = useState(null);
+  const [signIn, setSignIn] = useState({ open: false, mode: "signin", reason: "" });
   const syncTimeoutRef = useRef(null);
+  // requireAuth is called from event handlers built before the latest render (a
+  // card in a rail, a memoised callback), so it must read the CURRENT user rather
+  // than close over whatever it saw when it was built.
+  //
+  // Synced in an effect rather than by assigning during render: a render-phase
+  // write means a thrown-away concurrent render can leave the ref pointing at a
+  // user that never committed. One commit of lag is irrelevant here because the
+  // only readers are click handlers, which always run long after commit.
+  const userRef = useRef(user);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   // Sync across browser tabs or windows
   useEffect(() => {
@@ -56,13 +231,73 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
+/**
+ * Drop the local library so a fresh account does not inherit a guest's data.
+ *
+ * Only the three synced collections go. Search history is deliberately kept — it
+ * never leaves the device, so it cannot leak, and throwing it away would punish
+ * someone for tapping a gate. Device preferences are kept too: wiping them would
+ * flash the wrong theme on adopt, and a theme following its owner is desirable.
+ *
+ * The aios_sync_* events are dispatched because every rail is subscribed to them;
+ * without this the UI would keep showing the wiped rows until the next write.
+ */
+function discardLocalLibrary() {
+  const targets = [
+    ["aios_my_list", "aios_sync_mylist"],
+    ["aios_continue_watching", "aios_sync_cw"],
+    ["aios_my_collections", "aios_sync_collections"],
+  ];
+  for (const [key, event] of targets) {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      /* Private-mode storage refusal must not block the sign-in. */
+    }
+    window.dispatchEvent(new Event(event));
+  }
+  logDebug("auth", "Local library discarded — adopting a new account.");
+}
+
+  /**
+   * Persist the profile + token and announce the change to other tabs.
+   *
+   * Also enforces the start-clean rule. The library lives in one set of
+   * localStorage keys shared by everyone on the device, so "whose data is this?"
+   * is answered by the account that was signed in a moment ago:
+   *
+   *   • same account as before → the local rows already belong to it, merge.
+   *   • different account, or none (a guest, or after sign-out) → the rows are
+   *     not ours. They are discarded, and the incoming account's own cloud
+   *     library replaces them.
+   *
+   * Without the discard, the scheduled sync that fires moments after `setUser`
+   * would upload a stranger's watchlist under the new accountId — and that leak
+   * is invisible from the UI, because the merge looks exactly like a sync.
+   */
+  const adoptSession = useCallback((nextUser, syncToken) => {
+    const previousAccountId = accountIdOf(safeUserParse());
+    const nextAccountId = accountIdOf(nextUser);
+    if (previousAccountId !== nextAccountId) discardLocalLibrary();
+
+    setUser(nextUser);
+    writeJson(USER_KEY, nextUser);
+    if (syncToken) {
+      try {
+        localStorage.setItem(SYNC_TOKEN_KEY, syncToken);
+      } catch {}
+    }
+    window.dispatchEvent(new Event("aios_user_sync"));
+  }, []);
+
   const syncToCloud = useCallback(async (customPayload = null) => {
     const currentUser = user || safeUserParse();
-    // Verified Google users only. Guests and legacy email profiles stay
-    // local — see loginAsGuest notes. /api/sync also rejects anything without
-    // a matching bearer token, so a missing token here is a client bug.
-    if (!currentUser || !currentUser.googleId) {
-      logDebug("auth", "Cloud sync skipped — only verified Google accounts sync.", {
+    const accountId = accountIdOf(currentUser);
+    // Anonymous visitors keep everything in localStorage and never reach the
+    // network. /api/sync also rejects anything without a matching bearer token,
+    // so a missing token here is a client bug, not a guest.
+    if (!currentUser || !accountId) {
+      logDebug("auth", "Cloud sync skipped — no verified account on this device.", {
         provider: currentUser?.provider,
       });
       return;
@@ -71,30 +306,21 @@ export function AuthProvider({ children }) {
     const token = readSyncToken();
     if (!token) {
       setSyncStatus("error");
-      logWarn("auth", "No sync token — please sign in again (re-issue token via Google Sign-In).");
+      logWarn("auth", "No sync token — please sign in again.");
       return;
     }
 
     try {
       setSyncStatus("syncing");
 
-      let currentList = [];
-      let currentCw = [];
-      let currentCollections = [];
-      try {
-        currentList = JSON.parse(localStorage.getItem("aios_my_list") || "[]");
-        currentCw = JSON.parse(localStorage.getItem("aios_continue_watching") || "[]");
-                // Upload the MORPHED shape (visibility/publicId normalized), not the raw
-                // legacy localStorage — unmorphed rows synced as private, so the collection
-                // never became public for anyone else.
-        currentCollections = morphCollections(JSON.parse(localStorage.getItem("aios_my_collections") || "[]"));
-      } catch {}
-
+      // Upload the MORPHED collection shape (visibility/publicId normalized), not
+      // the raw legacy localStorage — unmorphed rows synced as private, so the
+      // collection never became public for anyone else.
       const payload = customPayload || {
-        googleId: currentUser.googleId,
-        watchlist: currentList,
-        watchHistory: currentCw,
-        collections: currentCollections,
+        accountId,
+        watchlist: readJson("aios_my_list", []),
+        watchHistory: readJson("aios_continue_watching", []),
+        collections: morphCollections(readJson("aios_my_collections", [])),
         // Settings sync both ways now — the pull path applies them below.
         preferences: readPreferencesSnapshot(),
       };
@@ -125,8 +351,9 @@ export function AuthProvider({ children }) {
   }, [user]);
 
   useEffect(() => {
-    // Only verified Google identities pull cloud data; guests stay local.
-    if (!user || !user.googleId) return;
+    // Only verified identities pull cloud data; guests stay local.
+    const accountId = accountIdOf(user);
+    if (!user || !accountId) return;
 
     const token = readSyncToken();
     if (!token) {
@@ -137,7 +364,7 @@ export function AuthProvider({ children }) {
     let isMounted = true;
     async function pullCloudData() {
       try {
-        const res = await fetch(`/api/sync?googleId=${encodeURIComponent(user.googleId)}`, {
+        const res = await fetch(`/api/sync?accountId=${encodeURIComponent(accountId)}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.status === 401) {
@@ -149,66 +376,7 @@ export function AuthProvider({ children }) {
         const data = await res.json();
         if (!isMounted || !data?.userData) return;
 
-        const { watchlist = [], watchHistory = [], collections = [], preferences = {} } = data.userData;
-
-                // Timestamp-aware union merge: newer remote replaces stale local. Legacy
-                // local items without updatedAt lose to any remote data, and watchlist
-                // removals ride as tombstones so a delete on another device is not
-                // resurrected by this device's staler copy.
-        if (Array.isArray(watchlist) && watchlist.length > 0) {
-          try {
-            const localList = JSON.parse(localStorage.getItem("aios_my_list") || "[]");
-            const merged = mergeListsById(localList, watchlist, {
-              pruneTombstonesMs: TOMBSTONE_TTL_MS,
-            });
-
-            if (JSON.stringify(merged) !== JSON.stringify(localList)) {
-              localStorage.setItem("aios_my_list", JSON.stringify(merged));
-              window.dispatchEvent(new Event("aios_sync_mylist"));
-            }
-          } catch {}
-        }
-
-                // Watch history merges capped to 20 like local writes; the cap is
-                // tombstone-safe and newest-first, so delete markers are never sliced away.
-        if (Array.isArray(watchHistory) && watchHistory.length > 0) {
-          try {
-            const localCw = JSON.parse(localStorage.getItem("aios_continue_watching") || "[]");
-            const mergedCw = mergeListsById(localCw, watchHistory, {
-              limit: 20,
-              pruneTombstonesMs: TOMBSTONE_TTL_MS,
-              sortBy: (a, b) => Number(b.lastWatched || 0) - Number(a.lastWatched || 0),
-            });
-
-            if (JSON.stringify(mergedCw) !== JSON.stringify(localCw)) {
-              localStorage.setItem("aios_continue_watching", JSON.stringify(mergedCw));
-              window.dispatchEvent(new Event("aios_sync_cw"));
-            }
-          } catch {}
-        }
-
-        // Merge user collections (named folders) — tombstone-aware so a
-        // delete on any device propagates; tombstones GC after 30 days.
-        if (Array.isArray(collections)) {
-          try {
-            const localCols = morphCollections(JSON.parse(localStorage.getItem("aios_my_collections") || "[]"));
-            const mergedCols = mergeListsById(localCols, morphCollections(collections), {
-              pruneTombstonesMs: TOMBSTONE_TTL_MS,
-            });
-
-            if (JSON.stringify(mergedCols) !== JSON.stringify(localCols)) {
-              localStorage.setItem("aios_my_collections", JSON.stringify(mergedCols));
-              window.dispatchEvent(new Event("aios_sync_collections"));
-            }
-          } catch {}
-        }
-
-        // Apply cloud preferences for keys the device has not set locally —
-        // local choices always win, this only fills in never-touched keys.
-        if (preferences && typeof preferences === "object") {
-          applyRemotePreferences(preferences);
-        }
-
+        applyCloudLibrary(data.userData);
         setSyncStatus("synced");
         setLastSyncedAt(new Date());
       } catch (error) {
@@ -239,7 +407,7 @@ export function AuthProvider({ children }) {
   const deleteCloudData = useCallback(async () => {
     const currentUser = user || safeUserParse();
     const token = readSyncToken();
-    if (!currentUser?.googleId || !token) {
+    if (!hasCloudAccount(currentUser) || !token) {
       logWarn("auth", "Cloud delete skipped — no verified account/token.");
       return { success: false, message: "No verified account to delete." };
     }
@@ -259,110 +427,64 @@ export function AuthProvider({ children }) {
     }
   }, [user]);
 
-  const loginWithGoogle = useCallback(async (credential) => {
-    if (!credential) {
-      logWarn("auth", "loginWithGoogle called without credential.");
-      return { success: false, message: "Missing Google credential." };
+  /**
+   * Start a signup. Nothing is written to the database — this hashes the
+   * password and mails a link. The UI must move to a "check your inbox" state
+   * on success rather than treating the user as signed in.
+   */
+  const registerAccount = useCallback(async ({ name, email, password }) => {
+    const result = await postJson("/api/register", { name, email, password });
+    if (result.success) {
+      logDebug("auth", `Verification link sent to ${result.email || email}.`);
     }
+    return result;
+  }, []);
 
-    try {
-      setSyncStatus("syncing");
-      const res = await fetch("/api/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ credential }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || "Failed to authenticate with Google.");
-      }
-
-      const authenticatedUser = data.user;
-      setUser(authenticatedUser);
-      localStorage.setItem("streamly_user", JSON.stringify(authenticatedUser));
-      if (data.syncToken) {
-        localStorage.setItem(SYNC_TOKEN_KEY, data.syncToken);
-      }
-      window.dispatchEvent(new Event("aios_user_sync"));
-
-      // Merge returned cloud watchlist immediately (timestamp-aware union).
-      if (Array.isArray(data.userData?.watchlist)) {
-        try {
-          const localList = JSON.parse(localStorage.getItem("aios_my_list") || "[]");
-          const merged = mergeListsById(localList, data.userData.watchlist, {
-            pruneTombstonesMs: TOMBSTONE_TTL_MS,
-          });
-          if (JSON.stringify(merged) !== JSON.stringify(localList)) {
-            localStorage.setItem("aios_my_list", JSON.stringify(merged));
-            window.dispatchEvent(new Event("aios_sync_mylist"));
-          }
-        } catch {}
-      }
-
-      // Merge returned cloud collections immediately (tombstone-aware).
-      if (Array.isArray(data.userData?.collections)) {
-        try {
-          const localCols = morphCollections(JSON.parse(localStorage.getItem("aios_my_collections") || "[]"));
-          const mergedCols = mergeListsById(localCols, morphCollections(data.userData.collections), {
-            pruneTombstonesMs: TOMBSTONE_TTL_MS,
-          });
-          if (JSON.stringify(mergedCols) !== JSON.stringify(localCols)) {
-            localStorage.setItem("aios_my_collections", JSON.stringify(mergedCols));
-            window.dispatchEvent(new Event("aios_sync_collections"));
-          }
-        } catch {}
-      }
-
-      setSyncStatus("synced");
-      setLastSyncedAt(new Date());
-      logDebug("auth", `User signed in with Google: ${authenticatedUser.email}`);
-
-      return { success: true, user: authenticatedUser };
-    } catch (err) {
+  /** Exchange the emailed token for a session. This is where the row is created. */
+  const completeEmailVerification = useCallback(async (token) => {
+    if (!token) {
+      return { success: false, message: "This verification link is missing its token." };
+    }
+    setSyncStatus("syncing");
+    const result = await postJson("/api/verifyEmail", { token });
+    if (!result.success || !result.user) {
       setSyncStatus("error");
-      logError("auth", "Google authentication failed.", err);
-      return { success: false, message: err?.message || "Google sign-in failed." };
+      return result;
     }
-  }, []);
 
-    // Guests are LOCAL-ONLY by design. Signing in as guest must never write to
-    // MongoDB: the former default email ("viewer@streamly.io") collapsed every
-    // anonymous visitor into ONE shared cloud document, so any viewer's watchlist
-    // and history leaked into everyone else's. Cloud sync is reserved for verified
-    // Google identities, and even those need a per-account sync token.
-  const loginAsGuest = useCallback(async (name, email) => {
-    const guestUser = {
-      name: name || "Streamly Viewer",
-      email: email || "viewer@streamly.io",
-      picture: "",
-      provider: "guest",
-    };
+    adoptSession(result.user, result.syncToken);
+    // A brand-new account has an empty library, so this merge is usually a
+    // no-op — but it is what keeps a device that had local edits honest instead
+    // of silently overwriting them a moment later.
+    applyCloudLibrary(result.userData);
+    setSyncStatus("synced");
+    setLastSyncedAt(new Date());
+    logDebug("auth", `Email verified for ${result.user.email}.`);
+    return { success: true, user: result.user };
+  }, [adoptSession]);
 
-    setUser(guestUser);
-    localStorage.setItem("streamly_user", JSON.stringify(guestUser));
-    window.dispatchEvent(new Event("aios_user_sync"));
+  const loginWithEmail = useCallback(async ({ email, password }) => {
+    setSyncStatus("syncing");
+    const result = await postJson("/api/login", { email, password });
+    if (!result.success || !result.user) {
+      setSyncStatus("error");
+      return result;
+    }
 
-    logDebug("auth", "Guest login — local-only (no cloud sync).", {
-      email: guestUser.email,
-    });
-
-    return { success: true, user: guestUser };
-  }, []);
+    adoptSession(result.user, result.syncToken);
+    applyCloudLibrary(result.userData);
+    setSyncStatus("synced");
+    setLastSyncedAt(new Date());
+    logDebug("auth", `User signed in: ${result.user.email}`);
+    return { success: true, user: result.user };
+  }, [adoptSession]);
 
   const logout = useCallback(() => {
     setUser(null);
     try {
-      localStorage.removeItem("streamly_user");
+      localStorage.removeItem(USER_KEY);
       localStorage.removeItem(SYNC_TOKEN_KEY);
     } catch {}
-
-    // Disable Google auto-select
-    if (window.google?.accounts?.id?.disableAutoSelect) {
-      try {
-        window.google.accounts.id.disableAutoSelect();
-      } catch {}
-    }
 
     setSyncStatus("idle");
     setLastSyncedAt(null);
@@ -370,9 +492,56 @@ export function AuthProvider({ children }) {
     logDebug("auth", "User signed out.");
   }, []);
 
-    // syncStatus/lastSyncedAt churn on EVERY cloud sync. Riding them on the shared
-    // AppContext value re-rendered every auth consumer (every MovieCard, every
-    // rail) twice per sync, so they live on their own SyncStatusContext.
+  // ── Login gate ─────────────────────────────────────────────────────────────
+  // `requireAuth(reasonKey)` returns true when the action may proceed, and
+  // otherwise opens the sign-in dialog and returns false. Call sites use it as
+  // `if (!requireAuth("gateCollections")) return;` — the action simply does not
+  // happen, rather than half-applying and then prompting.
+  const openSignIn = useCallback((mode = "signin", reason = "") => {
+    setSignIn({ open: true, mode, reason });
+  }, []);
+
+  const closeSignIn = useCallback(() => {
+    setSignIn((prev) => (prev.open ? { ...prev, open: false, reason: "" } : prev));
+  }, []);
+
+  const requireAuth = useCallback((reason = "") => {
+    if (hasCloudAccount(userRef.current)) return true;
+    openSignIn("signin", reason);
+    return false;
+  }, [openSignIn]);
+
+  /**
+   * Wrap a mutator so an anonymous caller is stopped at the door.
+   *
+   * A refused call returns `false` — not `undefined`, which is what the hooks
+   * themselves return — so a caller can tell "the gate said no" from "the hook
+   * ran and had nothing to do". Without it, every caller that reports success
+   * (a toast, a haptic) has no way to avoid announcing a save that never
+   * happened.
+   */
+  const gate = useCallback(
+    (fn, reason) =>
+      (...args) => {
+        if (!hasCloudAccount(userRef.current)) {
+          openSignIn("signin", reason);
+          return false;
+        }
+        return fn(...args);
+      },
+    [openSignIn],
+  );
+
+  // One gated copy of each protected mutator, shared by every consumer.
+  const gated = useMemo(() => {
+    const source = { ...myListData, ...cwData, ...collectionsData };
+    const out = {};
+    for (const [name, reason] of Object.entries(GATED_MUTATIONS)) {
+      if (typeof source[name] === "function") out[name] = gate(source[name], reason);
+    }
+    return out;
+  }, [myListData, cwData, collectionsData, gate]);
+
   const syncValue = useMemo(
     () => ({ syncStatus, lastSyncedAt }),
     [syncStatus, lastSyncedAt],
@@ -381,23 +550,52 @@ export function AuthProvider({ children }) {
   const value = useMemo(
     () => ({
       user,
+      // "Signed in" is not the same question as "has an account the server
+      // vouched for". isAuthenticated drives chrome (avatar, sign-out row);
+      // hasAccount drives whether a write may reach the cloud.
       isAuthenticated: Boolean(user),
+      hasAccount: hasCloudAccount(user),
+      requireAuth,
+      openSignIn,
+      closeSignIn,
       syncToCloud,
-      loginWithGoogle,
-      loginAsGuest,
+      registerAccount,
+      completeEmailVerification,
+      loginWithEmail,
       logout,
       deleteCloudData,
       ...myListData,
       ...cwData,
       ...shData,
       ...collectionsData,
+      // Protected mutations must win over the raw hooks, so they are spread
+      // last. Everything else (reads, progress, search history) is unchanged.
+      ...gated,
     }),
-    [user, syncToCloud, loginWithGoogle, loginAsGuest, logout, deleteCloudData, myListData, cwData, shData, collectionsData]
+    [user, requireAuth, openSignIn, closeSignIn, syncToCloud, registerAccount, completeEmailVerification, loginWithEmail, logout, deleteCloudData, myListData, cwData, shData, collectionsData, gated]
   );
 
   return (
     <AppContext.Provider value={value}>
-      <SyncStatusContext.Provider value={syncValue}>{children}</SyncStatusContext.Provider>
+      <SyncStatusContext.Provider value={syncValue}>
+        {children}
+        {/* Mounted only while open, and keyed by mode+reason. Remounting is how
+            the dialog guarantees a blank form: no half-typed password, no stale
+            error, no leftover "check your inbox" panel from last time.
+            AnimatePresence is kept around it so the dismiss still fades out
+            instead of vanishing — the rest of the app cross-fades every route
+            change, and a modal that blinks out is felt. */}
+        <AnimatePresence>
+          {signIn.open && (
+            <SignInDialog
+              key={`${signIn.mode}:${signIn.reason}`}
+              initialMode={signIn.mode}
+              reason={signIn.reason}
+              onClose={closeSignIn}
+            />
+          )}
+        </AnimatePresence>
+      </SyncStatusContext.Provider>
     </AppContext.Provider>
   );
 }

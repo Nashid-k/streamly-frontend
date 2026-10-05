@@ -160,7 +160,9 @@ const MovieCard = memo(function MovieCard({
       e.preventDefault();
       e.stopPropagation();
       const wasInList = isInList(movie.id);
-      toggleMyList(movie);
+      // Gated: a refusal means the sign-in dialog opened instead, so no toast and
+      // no "added to your list" notification for a save that never happened.
+      if (toggleMyList(movie) === false) return;
       toast({
         title: wasInList ? "Removed from List" : "Added to My List",
         message: wasInList

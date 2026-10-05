@@ -72,7 +72,7 @@ export default function HistoryPage() {
     });
     if (!confirmed) return;
 
-    clearContinueWatching();
+    if (clearContinueWatching() === false) return;
     toast({
       title: "History Cleared",
       message: "Your watch history has been removed.",
@@ -83,7 +83,7 @@ export default function HistoryPage() {
   const handleRemove = (e, movie) => {
     e.preventDefault();
     e.stopPropagation();
-    removeFromContinueWatching(movie.id);
+    if (removeFromContinueWatching(movie.id) === false) return;
     toast({
       title: "Removed",
       message: `"${movie.title}" removed from history.`,
@@ -112,11 +112,15 @@ export default function HistoryPage() {
   const handleBatchDelete = () => {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
+    // Gated: a refusal opens sign-in instead, so check the result before claiming
+    // anything was removed (and before leaving select mode for nothing).
+    let removed = true;
     if (removeBatchFromContinueWatching) {
-      removeBatchFromContinueWatching(ids);
+      removed = removeBatchFromContinueWatching(ids) !== false;
     } else {
-      ids.forEach((id) => removeFromContinueWatching(id));
+      removed = ids.every((id) => removeFromContinueWatching(id) !== false);
     }
+    if (!removed) return;
     toast({
       title: "Items Removed",
       message: `Removed ${ids.length} item${ids.length > 1 ? "s" : ""} from watch history.`,

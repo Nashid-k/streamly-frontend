@@ -132,9 +132,12 @@ describe("motion tokens", () => {
     ];
     // Big pages: one dialog among many rails and rows, so only the import and
     // the token usage are policed here.
+    // SignInDialog replaces SettingsPage as the app's only sign-in surface, so
+    // it belongs here: a gate can now summon it from any card on any page, and
+    // it must not be the one modal that arrives with its own easing.
     const PAGE_DIALOGS = [
       join(process.cwd(), "src", "pages", "TitleDetailsPage.jsx"),
-      join(process.cwd(), "src", "pages", "SettingsPage.jsx"),
+      join(process.cwd(), "src", "components", "auth", "SignInDialog.jsx"),
     ];
     const HUD_SOURCES = [
       "NetflixSeekHUD.jsx",
@@ -154,7 +157,8 @@ describe("motion tokens", () => {
     it("takes the dialog on the two big pages from the same tokens", () => {
       for (const file of PAGE_DIALOGS) {
         const src = readFileSync(file, "utf8");
-        expect(src).toMatch(/import \{[^}]*MODAL_PANEL[^}]*\} from "\.\.\/constants\/motion"/);
+        // Depth-agnostic: PAGE_DIALOGS spans src/pages and src/components/auth.
+        expect(src).toMatch(/import \{[^}]*MODAL_PANEL[^}]*\} from "(?:\.\.\/)+constants\/motion"/);
         expect(src).toMatch(/transition=\{MODAL_PANEL\.transition\}/);
         expect(src).toMatch(/transition=\{FADE\.transition\}/);
       }

@@ -13,10 +13,13 @@
   ratings enriched via OMDb, images via TMDB CDN, playback through the
   native player over third-party stream sources.
 - **Personal state** (My List, Continue Watching, history, preferences)
-  lives in **localStorage**.
+  lives in **localStorage**, and is mirrored to MongoDB for accounts that exist.
+- **Accounts:** email + password, created only after a verified link
+  (`api/register.js` → `api/verifyEmail.js`). No third-party identity provider.
 
 The web build reads from the deployed serverless functions under the shared
-`normalizeResult` domain contract; it owns no database.
+`normalizeResult` domain contract. It owns no database of its own: the only
+persistence is MongoDB (Atlas) reached exclusively from those functions.
 
 ## 2. For whom
 
@@ -41,9 +44,13 @@ The web build reads from the deployed serverless functions under the shared
 3. **Search + genre/category browsing** — `SearchPage`, `GenrePage`,
    `CategoryPage`, `DiscoveryRails`. Debounced live search, relevance ranking,
    did-you-mean, filters/sorts.
-4. **My List + Continue Watching (local)** — `src/hooks/useUserData.js`,
-   `AuthContext`. Instant, offline-capable, cross-tab synced. This is the
-   retention loop.
+4. **My List + Continue Watching** — `src/hooks/useUserData.js`,
+   `AuthContext`. Local-first, instant, offline-capable, cross-tab synced. This
+   is the retention loop. Anonymous visitors read and play freely and their
+   playback progress is saved on the device; **saving to My List, creating
+   collections, editing history and marking things as watched require an email
+   account** and open the shared sign-in dialog when attempted. With an account,
+   the same state syncs to MongoDB via `/api/sync`.
 5. **Real ratings (TMDB + IMDb + RT)** — `ratingService` + `omdbClient` +
    `RatingsCluster`, cached 24h in localStorage (OMDb quota: 1,000 req/day).
 
@@ -56,10 +63,16 @@ audio picker) are superseded by PLAYER V2, which is web-only.
 
 ## 5. Explicitly NOT building
 
-- ❌ Any backend, auth server, or database (Firebase/backend references in
-  `README.md` are **stale docs** — the web code uses localStorage).
-- ❌ Uploads, user accounts, social, comments, or payments. (Watch Party, which
-   included room chat, was removed 2026-10.)
+- ❌ **Google sign-in.** Removed 2026-10-05 along with its ID-token verify path
+  (`api/auth.js`, `server/googleVerify.js`) and every UI affordance for it.
+  Sign-up, sign-in and account identity are **email + password only**, with a
+  verified-link step. Existing Google cloud-sync documents are not migrated; a
+  leftover `googleId` profile is deliberately treated as *no account* so the
+  gate still applies.
+- ❌ Uploads, social, comments, or payments. (Watch Party, which included room
+   chat, was removed 2026-10.)
+- ❌ Password reset, email change, or account deletion-from-the-client. Only
+  cloud-data deletion exists (Settings → Account).
 - ❌ New stream extraction / proxy infrastructure (`src/api/env.js` is a stub;
   stream-service calls intentionally resolve to `''`). The app reuses the
   existing Cloudflare worker and the deployed resolver — it adds no new

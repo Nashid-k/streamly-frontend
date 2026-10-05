@@ -13,7 +13,6 @@ export const es = {
       "Streamly es una plataforma todo-en-uno que reúne películas y series de las principales plataformas en un solo lugar. No alojamos, transmitimos ni almacenamos contenido propio: todos los títulos, carteles y metadatos provienen de TMDB y se usan solo con fines ilustrativos, y cada título sigue siendo propiedad de sus respectivos dueños.",
   },
   home: {
-    welcome: "Bienvenido a Streamly",
     loadError: "No se pudo cargar Streamly",
     heroError: "Comprueba tu conexión e inténtalo de nuevo. Tu lista e historial siguen disponibles.",
     heroEmpty: "Descubre películas y series de todas tus plataformas favoritas.",
@@ -77,9 +76,8 @@ export const es = {
     },
     account: {
       signIn: "Iniciar Sesión", signInDesc: "Sincroniza tus preferencias e historial.",
-      continueAsGuest: "Continuar como Invitado", name: "Tu Nombre", email: "Correo Electrónico",
       signedOut: "No has iniciado sesión", signedInAs: "Sesión iniciada como {name}", signOut: "Cerrar Sesión",
-      welcomeBack: "Bienvenido {name}", signedInToast: "¡Hola de nuevo, {name}!",
+      welcomeBack: "Bienvenido {name}",
     },
     appearance: {
       theme: "Tema", themeDesc: "Elige el aspecto de la aplicación.",
@@ -147,7 +145,6 @@ export const fr = {
       "Streamly est une plateforme tout-en-un qui regroupe films et séries des principales plateformes au même endroit. Nous n'hébergeons, ne diffusons ni ne stockons aucun contenu : tous les titres, visuels et métadonnées proviennent de TMDB, sont uniquement utilisés à titre illustratif, et chaque titre demeure la propriété de ses ayants droit respectifs.",
   },
   home: {
-    welcome: "Bienvenue sur Streamly",
     loadError: "Impossible de charger Streamly",
     heroError: "Vérifiez votre connexion et réessayez. Votre liste et votre historique restent disponibles.",
     heroEmpty: "Découvrez films et séries sur toutes vos plateformes préférées.",
@@ -211,9 +208,8 @@ export const fr = {
     },
     account: {
       signIn: "Se Connecter", signInDesc: "Synchronisez vos préférences et votre historique.",
-      continueAsGuest: "Continuer en Invité", name: "Votre Nom", email: "Adresse E-mail",
       signedOut: "Non connecté", signedInAs: "Connecté en tant que {name}", signOut: "Se Déconnecter",
-      welcomeBack: "Bon retour {name}", signedInToast: "Bon retour, {name} !",
+      welcomeBack: "Bon retour {name}",
     },
     appearance: {
       theme: "Thème", themeDesc: "Choisissez l'apparence de l'application.",
@@ -281,7 +277,6 @@ export const de = {
       "Streamly ist eine All-in-One-Streaming-Plattform, die Filme und Serien von den großen Plattformen an einem Ort vereint. Wir hosten, streamen oder speichern selbst keine Inhalte – alle Titel, Artworks und Metadaten stammen von TMDB, dienen nur der Veranschaulichung und bleiben Eigentum ihrer jeweiligen Rechteinhaber.",
   },
   home: {
-    welcome: "Willkommen bei Streamly",
     loadError: "Streamly konnte nicht geladen werden",
     heroError: "Prüfe deine Verbindung und versuche es erneut. Deine Liste und dein Verlauf bleiben erhalten.",
     heroEmpty: "Entdecke Filme und Serien auf all deinen Lieblingsplattformen.",
@@ -347,9 +342,8 @@ export const de = {
     },
     account: {
       signIn: "Anmelden", signInDesc: "Synchronisiere deine Einstellungen und deinen Verlauf.",
-      continueAsGuest: "Als Gast fortfahren", name: "Dein Name", email: "E-Mail-Adresse",
       signedOut: "Nicht angemeldet", signedInAs: "Angemeldet als {name}", signOut: "Abmelden",
-      welcomeBack: "Willkommen zurück {name}", signedInToast: "Willkommen zurück, {name}!",
+      welcomeBack: "Willkommen zurück {name}",
     },
     appearance: {
       theme: "Design", themeDesc: "Wähle das Aussehen der App.",
@@ -417,7 +411,6 @@ export const it = {
       "Streamly è una piattaforma streaming all-in-one che riunisce film e serie TV delle principali piattaforme in un unico posto. Non ospitiamo, trasmettiamo né immagazziniamo contenuti: tutti i titoli, le grafiche e i metadati provengono da TMDB, sono usati solo a scopo illustrativo e ogni titolo resta di proprietà dei rispettivi titolari.",
   },
   home: {
-    welcome: "Benvenuto su Streamly",
     loadError: "Impossibile caricare Streamly",
     heroError: "Controlla la connessione e riprova. Lista e cronologia restano disponibili.",
     heroEmpty: "Scopri film e serie sulle tue piattaforme preferite.",
@@ -482,9 +475,8 @@ export const it = {
     },
     account: {
       signIn: "Accedi", signInDesc: "Sincronizza preferenze e cronologia.",
-      continueAsGuest: "Continua come Ospite", name: "Il Tuo Nome", email: "Indirizzo E-mail",
       signedOut: "Non autenticato", signedInAs: "Connesso come {name}", signOut: "Esci",
-      welcomeBack: "Bentornato {name}", signedInToast: "Bentornato, {name}!",
+      welcomeBack: "Bentornato {name}",
     },
     appearance: {
       theme: "Tema", themeDesc: "Scegli l'aspetto dell'app.",
@@ -552,7 +544,6 @@ export const pt = {
       "Streamly é uma plataforma all-in-one que reúne filmes e séries das principais plataformas em um só lugar. Não hospedamos, transmitimos ou armazenamos nenhum conteúdo: todos os títulos, artes e metadados vêm da TMDB, são usados apenas para fins ilustrativos e cada título permanece de propriedade de seus respectivos donos.",
   },
   home: {
-    welcome: "Bem-vindo ao Streamly",
     loadError: "Não foi possível carregar o Streamly",
     heroError: "Verifique sua conexão e tente novamente. Sua lista e histórico continuam disponíveis.",
     heroEmpty: "Descubra filmes e séries em todas as suas plataformas favoritas.",
@@ -617,9 +608,8 @@ export const pt = {
     },
     account: {
       signIn: "Entrar", signInDesc: "Sincronize suas preferências e histórico.",
-      continueAsGuest: "Continuar como Convidado", name: "Seu Nome", email: "Endereço de E-mail",
       signedOut: "Não conectado", signedInAs: "Conectado como {name}", signOut: "Sair",
-      welcomeBack: "Bem-vindo de volta {name}", signedInToast: "Bem-vindo de volta, {name}!",
+      welcomeBack: "Bem-vindo de volta {name}",
     },
     appearance: {
       theme: "Tema", themeDesc: "Escolha a aparência do aplicativo.",

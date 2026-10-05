@@ -1,0 +1,364 @@
+/* src/styles/auth.css — email sign-in dialog + /verify-email page.
+   Visual language is borrowed from collections.css (.collection-dialog) on
+   purpose: two dialogs in one product that look like two products is the exact
+   problem the motion-language pass fixed, and skin is the same argument.
+
+   The password reveal button is an absolutely-positioned sibling INSIDE the
+   input wrapper rather than an overlay on the input, because a transparent
+   button layered on top of a text field swallows the caret clicks and breaks
+   iOS text selection. */
+
+.auth-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10010;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.auth-dialog {
+  width: min(92vw, 420px);
+  max-height: min(90vh, 620px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.4rem;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.035)),
+    rgba(20, 20, 26, 0.62);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  box-shadow: 0 32px 64px -12px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.auth-dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.auth-dialog__title {
+  margin: 0;
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.auth-dialog__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: background 180ms ease, color 180ms ease;
+}
+
+.auth-dialog__close:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.auth-dialog__close:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Two-tab pill switcher, same geometry as the retired Google/guest switch so
+   the dialog is a drop-in replacement in SettingsPage. */
+.auth-dialog__tabs {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.auth-dialog__tab {
+  flex: 1;
+  padding: 0.55rem 0.75rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 180ms ease, color 180ms ease;
+}
+
+.auth-dialog__tab[aria-selected="true"] {
+  background: #fff;
+  color: #0d0d10;
+}
+
+.auth-dialog__blurb {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.auth-dialog__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.auth-dialog__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.auth-dialog__label {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.auth-dialog__input-wrap {
+  position: relative;
+  display: block;
+}
+
+.auth-dialog__input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+
+.auth-dialog__input:focus {
+  border-color: rgba(var(--accent-primary-rgb), 0.5);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Inside the wrapper the reveal button supplies the right padding. */
+.auth-dialog__input--bare {
+  padding-right: 3rem;
+}
+
+.auth-dialog__reveal {
+  position: absolute;
+  top: 50%;
+  right: 0.35rem;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  transition: color 180ms ease, background 180ms ease;
+}
+
+.auth-dialog__reveal:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.auth-dialog__hint {
+  margin: -0.35rem 0 0;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.auth-dialog__error {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 107, 107, 0.35);
+  background: rgba(255, 107, 107, 0.12);
+  color: #ffb3b3;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.auth-dialog__submit {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  border: none;
+  border-radius: 14px;
+  background: #fff;
+  color: #0d0d10;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.auth-dialog__submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.auth-dialog__submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.auth-dialog__ghost {
+  align-self: center;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 180ms ease, color 180ms ease;
+}
+
+.auth-dialog__ghost:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+/* "Check your inbox" panel — replaces the form after a successful /api/register. */
+.auth-dialog__pending {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0 0.25rem;
+  text-align: center;
+}
+
+.auth-dialog__pending-icon {
+  color: var(--accent-primary);
+}
+
+.auth-dialog__pending-title {
+  margin: 0;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.auth-dialog__pending-body {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.87rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.auth-dialog__pending-note {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.77rem;
+  line-height: 1.5;
+}
+
+/* ── /verify-email page ────────────────────────────────────────────────────
+   Rendered inside the app shell (Layout), so it inherits the header, ambient
+   background and footer — a cold link load should still look like the product.
+   The background is therefore transparent and the height is modest: an opaque
+   100dvh panel here would hide the ambient art and outgrow the page slot. */
+.verify-page {
+  min-height: 60dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+  color: #fff;
+}
+
+.verify-card {
+  width: min(92vw, 420px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2rem 1.5rem;
+  text-align: center;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.035)),
+    rgba(20, 20, 26, 0.62);
+  box-shadow: 0 32px 64px -12px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.verify-card__icon {
+  color: var(--accent-primary);
+}
+
+.verify-card__icon--bad {
+  color: #ffb3b3;
+}
+
+.verify-card__title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.verify-card__body {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.verify-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-top: 0.4rem;
+}
+
+.verify-card__action {
+  padding: 0.7rem 1.2rem;
+  border: none;
+  border-radius: 999px;
+  background: #fff;
+  color: #0d0d10;
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-decoration: none;
+  text-align: center;
+  cursor: pointer;
+}
+
+/* The confirm button is the page's only action while it waits; make the press
+   legible without a 200ms of doubt before the POST replaces the card. */
+.verify-card__action:active {
+  transform: translateY(1px) scale(0.97);
+}
+
+.verify-card__action:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.verify-card__action--ghost {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+}
+

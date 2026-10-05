@@ -28,7 +28,7 @@ vi.mock("../../server/db.js", () => ({
     }),
 }));
 
-const SECRET = process.env.SYNC_SECRET || process.env.GOOGLE_CLIENT_SECRET || "";
+const SECRET = process.env.SYNC_SECRET || "";
 
 function mockRes() {
   const res = {};
@@ -54,11 +54,11 @@ function mockRes() {
   return res;
 }
 
-function makeToken(googleId) {
+function makeToken(accountId) {
   // Reimplement the signature so tests don't depend on module import order.
   const expiryMs = Date.now() + 60_000;
-  const digest = createHmac("sha256", "test-secret").update(`${googleId}.${expiryMs}`).digest("base64url");
-  return `${googleId}.${expiryMs}.${digest}`;
+  const digest = createHmac("sha256", "test-secret").update(`${accountId}.${expiryMs}`).digest("base64url");
+  return `${accountId}.${expiryMs}.${digest}`;
 }
 
 beforeEach(() => {
@@ -75,7 +75,6 @@ afterEach(() => {
     process.env.SYNC_SECRET = SECRET;
   } else {
     delete process.env.SYNC_SECRET;
-    delete process.env.GOOGLE_CLIENT_SECRET;
   }
 });
 
@@ -87,7 +86,7 @@ describe("api/sync sanitization", () => {
         method: "POST",
         headers: { authorization: `Bearer ${makeToken("user-1")}` },
         body: {
-          googleId: "user-1",
+          accountId: "user-1",
           collections: [
             {
               id: "col-1",
@@ -124,7 +123,7 @@ describe("api/sync sanitization", () => {
         method: "POST",
         headers: { authorization: `Bearer ${makeToken("user-2")}` },
         body: {
-          googleId: "user-2",
+          accountId: "user-2",
           collections: [{ id: "c", name: "X", visibility: "private", publicId: "pub-leak", itemIds: [] }],
         },
         query: {},
@@ -142,7 +141,7 @@ describe("api/sync sanitization", () => {
         method: "POST",
         headers: { authorization: `Bearer ${makeToken("user-3")}` },
         body: {
-          googleId: "user-3",
+          accountId: "user-3",
           preferences: {
             theme: "emerald",
             nested: { nope: true },
@@ -165,7 +164,7 @@ describe("api/sync sanitization", () => {
       {
         method: "POST",
         headers: { authorization: `Bearer ${makeToken("user-4")}` },
-        body: { googleId: "user-4", watchlist: "not-an-array" },
+        body: { accountId: "user-4", watchlist: "not-an-array" },
         query: {},
       },
       res,
@@ -179,13 +178,13 @@ describe("api/sync sanitization", () => {
       {
         method: "DELETE",
         headers: { authorization: `Bearer ${makeToken("user-5")}` },
-        query: { googleId: "user-5" },
+        query: { accountId: "user-5" },
       },
       res,
     );
     expect(res.statusCode).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(state.deleted).toEqual({ googleId: "user-5" });
+    expect(state.deleted).toEqual({ accountId: "user-5" });
   });
 
   it("rejects a request without a valid token (401)", async () => {
@@ -194,7 +193,7 @@ describe("api/sync sanitization", () => {
       {
         method: "POST",
         headers: { authorization: "Bearer garbage" },
-        body: { googleId: "user-6", collections: [] },
+        body: { accountId: "user-6", collections: [] },
         query: {},
       },
       res,

@@ -104,7 +104,7 @@ export const TABS = [
 export const SECTION_SEARCH_TERMS = {
   account: [
     "account sign in signed out sync settings watch progress across devices",
-    "profile library synchronized google continue with google",
+    "profile library synchronized email account verified confirmation link",
     "cloud sync cloud database connected syncing sync now last synced",
     "my watchlist saved movies television series view list",
     "watch history recently watched movies shows progress view history",

@@ -9,7 +9,7 @@
 // Read-only + anonymous by contract:
 //   • GET /api/publicCollections            → { name, publicId, itemCount }[]
 //   • GET /api/publicCollections?publicId=X → { name, publicId, itemIds }
-// Never returns googleId/email/profile. No auth, no owner identity anywhere.
+// Never returns accountId/email/profile. No auth, no owner identity anywhere.
 //
 // Public collections live inside per-user userData documents, so a direct
 // Mongo query on `collections.publicId` can't work as-is. We therefore query

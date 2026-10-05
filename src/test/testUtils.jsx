@@ -43,7 +43,7 @@ export function createTestQueryClient() {
 
    - route: initial MemoryRouter entry (default "/").
    - authValue: raw context value — renders AppContext.Provider directly for
-     tests that need a synthetic session WITHOUT AuthProvider's Google/network
+     tests that need a synthetic session WITHOUT AuthProvider's sync/network
      side effects (watchlist, account rows). Omit for the real provider. */
 export function createAppProviderWrapper({ route = "/", authValue } = {}) {
   const queryClient = createTestQueryClient();

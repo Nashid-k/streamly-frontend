@@ -15,6 +15,10 @@ const ExploreCollectionsPage = lazy(() => import("../pages/ExploreCollectionsPag
 const PublicCollectionPage = lazy(() => import("../pages/PublicCollectionPage"));
 const HistoryPage = lazy(() => import("../pages/HistoryPage"));
 const SettingsPage = lazy(() => import("../pages/SettingsPage"));
+// Not lazy, unlike its neighbours: this page is the first paint after clicking a
+// link in an email, and a second Suspense flash before "Confirm my email" is
+// pure latency on the one screen that has to land.
+import VerifyEmailPage from "../pages/VerifyEmailPage";
 
 /* Routes wrapped in a route-keyed ErrorBoundary + Suspense so a page that
    crashes shows the fallback once but recovers automatically the moment the
@@ -58,6 +62,11 @@ function AppRoutes() {
               <Route path="/history" element={<HistoryPage />} />
               <Route path="/continue-watching" element={<Navigate to="/history" replace />} />
           <Route path="/settings" element={<SettingsPage />} />
+          {/* Lands from the emailed link, usually in a cold tab. Deliberately
+              NOT lazy: it is a bare confirm button with no page data behind it,
+              and a second Suspense flash before the user can click "Verify" is
+              pure latency. */}
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
         </Routes>
       </Suspense>
     </ErrorBoundary>

@@ -12,7 +12,7 @@
 //   if (!limit.ok) { res.status(429).json(...); return; }
 //
 // The `keyFor` callback decides identity. Order of preference:
-//   1. an authenticated subject (googleId / verified token)
+//   1. an authenticated subject (accountId / verified token)
 //   2. the x-forwarded-for client IP Vercel injects (first hop)
 //   3. "anon" (shared bucket — intentionally generous)
 

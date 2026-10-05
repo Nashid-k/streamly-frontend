@@ -144,6 +144,15 @@ describe("SettingsPage", () => {
     // instead of pointing at a card whose text cannot be seen.
     fireEvent.change(input, { target: { value: "mongodb" } });
     expect(screen.getByText(/no settings match/i)).toBeInTheDocument();
+
+    // Google is gone from the product, so its old search term must not keep
+    // matching the account section (or read as a live feature in the haystack).
+    fireEvent.change(input, { target: { value: "google" } });
+    expect(screen.getByText(/no settings match/i)).toBeInTheDocument();
+
+    // ...while the replacement wording still finds it.
+    fireEvent.change(input, { target: { value: "verified" } });
+    expect(screen.getByRole("heading", { name: /account/i })).toBeInTheDocument();
   });
 
   it("keeps only one popup open at a time", async () => {

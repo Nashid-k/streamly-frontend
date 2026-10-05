@@ -12,6 +12,7 @@ import "./styles/rails.css";
 import "./styles/responsive.css";
 import "./styles/search.css";
 import "./styles/collections.css";
+import "./styles/auth.css";
 import "./styles/settings.css";
 import "./styles/ui-kit.css";
 import "./styles/player.css";

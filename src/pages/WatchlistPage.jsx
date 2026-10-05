@@ -189,7 +189,6 @@ export default function WatchlistPage() {
     removeBatchFromMyList,
     collections,
     publicCollections,
-    user,
     createCollection,
     createCollectionWithItems,
     renameCollection,
@@ -288,34 +287,22 @@ export default function WatchlistPage() {
     [t, toast],
   );
 
-  /* Shared by both rails so the publish/flip behaviour (and the honest guest
-     warning) cannot drift between them. */
+  /* Shared by both rails so the publish/flip behaviour cannot drift between
+     them. setCollectionVisibility is gated by <AuthProvider> and answers false
+     when it refused, so that return value — not the mere fact we called it — is
+     what decides whether to claim the flip happened. */
   const handleToggleVisibility = useCallback(
     (c) => {
       const nextVisibility = c.visibility === "public" ? "private" : "public";
-      setCollectionVisibility(c.id, nextVisibility);
-      if (nextVisibility === "public") {
-        if (!user?.googleId) {
-          // Honest UX: guests never reach the cloud, so "public" can only
-          // ever be shared device-locally. The old hint promised "anyone via
-          // its public link" — a silent lie for guests.
-          toast({
-            title: t("collections.visibilityPublic"),
-            message: t("collections.guestPublishWarning"),
-            type: "warning",
-            duration: 6000,
-          });
-        } else {
-          toast({
-            title: t("collections.visibilityPublic"),
-            message: t("collections.publishSuccess"),
-            type: "success",
-            duration: 4000,
-          });
-        }
-      }
+      if (setCollectionVisibility(c.id, nextVisibility) === false) return;
+      toast({
+        title: t("collections.visibilityPublic"),
+        message: t("collections.publishSuccess"),
+        type: "success",
+        duration: 4000,
+      });
     },
-    [setCollectionVisibility, user?.googleId, toast, t],
+    [setCollectionVisibility, toast, t],
   );
 
   const filteredAndSortedList = useMemo(() => {
@@ -372,7 +359,7 @@ export default function WatchlistPage() {
   const handleRemove = (e, movie) => {
     e.preventDefault();
     e.stopPropagation();
-    toggleMyList(movie);
+    if (toggleMyList(movie) === false) return;
     toast({
       title: "Removed from List",
       message: `"${movie.title}" was removed.`,
@@ -392,8 +379,11 @@ export default function WatchlistPage() {
   };
 
   /* Per-card picker: toggle membership of one title across any collection. */
+  /* Every handler below checks the gated mutator's return before announcing
+     success: a refusal means the gate opened the sign-in dialog instead. */
   const confirmPickerCreate = (name, movieId, visibility) => {
     const id = createCollectionWithItems(name, [movieId], { visibility });
+    if (id === false) return null;
     toast({
       title: "Collection Created",
       message: `"${name}" created with 1 title.`,
@@ -405,7 +395,7 @@ export default function WatchlistPage() {
 
   const handleRename = (name) => {
     if (!nameDialog?.collection) return;
-    renameCollection(nameDialog.collection.id, name);
+    if (renameCollection(nameDialog.collection.id, name) === false) return;
     setNameDialog(null);
     toast({ title: "Collection Renamed", message: `Now "${name}".`, type: "info", duration: 2500 });
   };
@@ -418,14 +408,14 @@ export default function WatchlistPage() {
       cancelLabel: "Cancel",
     });
     if (!ok) return;
-    deleteCollection(collection.id);
+    if (deleteCollection(collection.id) === false) return;
     if (activeCollectionId === collection.id) setActiveCollectionId(null);
     toast({ title: "Collection Deleted", message: `"${collection.name}" was removed.`, type: "info", duration: 2500 });
   };
 
   const confirmAdd = (ids) => {
     if (!activeCollection) return;
-    addToCollection(activeCollection.id, ids);
+    if (addToCollection(activeCollection.id, ids) === false) return;
     setAddTitlesOpen(false);
     toast({
       title: "Added to Collection",
@@ -439,7 +429,7 @@ export default function WatchlistPage() {
     if (!activeCollection) return;
     e.preventDefault();
     e.stopPropagation();
-    removeFromCollection(activeCollection.id, movie.id);
+    if (removeFromCollection(activeCollection.id, movie.id) === false) return;
     toast({
       title: "Removed from Collection",
       message: `"${movie.title}" left "${activeCollection.name}".`,
@@ -468,14 +458,16 @@ export default function WatchlistPage() {
   const handleBatchDelete = () => {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
+    let removed = true;
     if (removeBatchFromMyList) {
-      removeBatchFromMyList(ids);
+      removed = removeBatchFromMyList(ids) !== false;
     } else {
-      ids.forEach((id) => {
+      removed = ids.every((id) => {
         const item = myList.find((m) => m.id === id);
-        if (item) toggleMyList(item);
+        return !item || toggleMyList(item) !== false;
       });
     }
+    if (!removed) return;
     toast({
       title: "Items Removed",
       message: `Removed ${ids.length} item${ids.length > 1 ? "s" : ""} from your list.`,

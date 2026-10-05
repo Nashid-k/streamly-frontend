@@ -66,7 +66,7 @@ function mockRes() {
 }
 
 const OTHER = {
-  googleId: "g-other",
+  accountId: "g-other",
   collections: [
     { id: "col-1", name: "My Watchlist", visibility: "public", publicId: "pub-aaa", itemIds: ["movie-1", "movie-2", "tv-3"], updatedAt: 1000 },
     { id: "col-2", name: "Private Stash", visibility: "private", itemIds: ["movie-9"], updatedAt: 2000 },
@@ -74,7 +74,7 @@ const OTHER = {
 };
 
 const SECOND = {
-  googleId: "g-second",
+  accountId: "g-second",
   collections: [
     { id: "col-3", name: "Tamil Gems", visibility: "public", publicId: "pub-bbb", itemIds: ["movie-7"], updatedAt: 1500 },
   ],
@@ -86,7 +86,7 @@ describe("server/publicCollections helpers", () => {
       OTHER,
       SECOND,
       {
-        googleId: "g-dup",
+        accountId: "g-dup",
         collections: [
           { id: "x", name: "My Watchlist", visibility: "public", publicId: "pub-aaa", itemIds: [], updatedAt: 999 },
         ],
@@ -108,14 +108,14 @@ describe("server/publicCollections helpers", () => {
     });
     // No owner identity ever leaks.
     for (const c of result) {
-      expect(c.googleId).toBeUndefined();
+      expect(c.accountId).toBeUndefined();
       expect(c.itemIds).toBeUndefined();
     }
   });
 
   it("skips public collections without a stable publicId and private ones", () => {
     const result = extractPublicCollections([
-      { googleId: "g", collections: [
+      { accountId: "g", collections: [
         { id: "a", name: "No PublicId", visibility: "public", itemIds: ["movie-1"], updatedAt: 5 },
         { id: "b", name: "Locked", visibility: "private", publicId: "pub-x", itemIds: ["movie-2"], updatedAt: 1 },
       ]},
@@ -125,7 +125,7 @@ describe("server/publicCollections helpers", () => {
 
   it("skips tombstoned (deleted) collections so un-publishing propagates", () => {
     const result = extractPublicCollections([
-      { googleId: "g", collections: [
+      { accountId: "g", collections: [
         { id: "a", name: "Gone", visibility: "public", publicId: "pub-gone", itemIds: ["movie-1"], updatedAt: 10, deletedAt: 20 },
         { id: "b", name: "Alive", visibility: "public", publicId: "pub-alive", itemIds: ["movie-2"], updatedAt: 5 },
       ]},
@@ -151,7 +151,7 @@ describe("server/publicCollections helpers", () => {
     expect(findPublicCollection([OTHER, SECOND], "")).toBeNull();
     expect(
       findPublicCollection(
-        [{ googleId: "g", collections: [{ id: "a", name: "Gone", visibility: "public", publicId: "pub-g", itemIds: [], updatedAt: 1, deletedAt: 2 }] }],
+        [{ accountId: "g", collections: [{ id: "a", name: "Gone", visibility: "public", publicId: "pub-g", itemIds: [], updatedAt: 1, deletedAt: 2 }] }],
         "pub-g",
       ),
     ).toBeNull();
@@ -178,7 +178,7 @@ describe("api/publicCollections endpoint", () => {
     expect(body.collections).toHaveLength(2);
     expect(body.collections[0].name).toBe("Tamil Gems");
     expect(body.collections[0].publicId).toBe("pub-bbb");
-    expect(body.collections[0].googleId).toBeUndefined();
+    expect(body.collections[0].accountId).toBeUndefined();
     expect(body.collections[0].itemIds).toBeUndefined();
   });
 
@@ -197,7 +197,7 @@ describe("api/publicCollections endpoint", () => {
       itemIds: ["movie-7"],
       updatedAt: 1500,
     });
-    expect(body.collection.googleId).toBeUndefined();
+    expect(body.collection.accountId).toBeUndefined();
   });
 
   it("returns collection:null for an unknown publicId", async () => {

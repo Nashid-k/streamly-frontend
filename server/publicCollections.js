@@ -4,7 +4,7 @@
 // `visibility: 'public'`, a stable `publicId`, and NO `deletedAt` tombstone.
 // By recorded contract the surface is ANONYMOUS: callers receive ONLY
 // name/publicId/count (list mode) or name/publicId/itemIds (single lookup) —
-// never a googleId, email, profile, or any other owner identity.
+// never an accountId, email, profile, or any other owner identity.
 
 export const MAX_PUBLIC_COLLECTIONS = 250;
 

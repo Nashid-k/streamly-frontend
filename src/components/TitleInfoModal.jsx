@@ -151,7 +151,10 @@ export default function TitleInfoModal({ movie, onClose, onSelectMovie }) {
   const toggleList = (e) => {
     e?.stopPropagation?.();
     const wasInList = inList;
-    toggleMyList(movie);
+    // `false` means the gate refused and opened the sign-in dialog. Announcing
+    // "Added to My List" anyway is how this app used to tell people a title was
+    // saved when nothing was written at all.
+    if (toggleMyList(movie) === false) return;
     toast({
       title: wasInList ? "Removed from List" : "Added to My List",
       message: wasInList ? `"${movie.title}" was removed.` : `"${movie.title}" saved to your list.`,

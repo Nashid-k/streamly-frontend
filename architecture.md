@@ -58,17 +58,16 @@ below), `aios_my_collections` (named folders referencing saved title ids),
 (24h), `setting-autoplay|muteTrailers|hdThumbs|reduceMotion|notifications`,
 `streamly_volume|muted|aspectRatio`, `streamly_user`
 (current profile), `streamly_sync_token` (per-account HMAC token for
-`/api/sync`, issued only to verified Google identities by `/api/auth`), `_sv`,
-`vite_reload`, `chunk_reload_time`. Cross-tab sync via `storage` +
-`aios_sync_*` events. (`streamly_autoSkip` was a write-only orphan — removed;
-the real pref is `setting-autoSkipIntro`.)
+`/api/sync`, issued only to a verified email identity by `/api/verifyEmail` or
+`/api/login`), `_sv`, `vite_reload`, `chunk_reload_time`. Cross-tab sync via
+`storage` + `aios_sync_*` events. (`streamly_autoSkip` was a write-only orphan —
+removed; the real pref is `setting-autoSkipIntro`.)
 
-Cloud sync: **guests are local-only** — `loginAsGuest` never calls `/api/auth`
-or `/api/sync` (the old default email `viewer@streamly.io` collapsed every
-anonymous visitor into one shared Mongo document). Only verified Google
-accounts (`googleId`) sync, and `/api/sync` additionally requires
-`Authorization: Bearer <syncToken>` (HMAC over SYNC_SECRET/GOOGLE_CLIENT_SECRET,
-30-day expiry enforced at verification — `/api/auth` re-issues on every
+Cloud sync: **anonymous visitors are local-only** — they can browse and play,
+but never write to the cloud. Only a verified email account (`accountId`, the
+Mongo `_id`) syncs, and `/api/sync` additionally requires
+`Authorization: Bearer <syncToken>` (HMAC over `SYNC_SECRET`, 30-day expiry
+enforced at verification — `/api/login` and `/api/verifyEmail` re-issue on every
 sign-in); without a configured secret the endpoint refuses with 503. Payloads
 are capped AND sanitized server-side (watchlist ≤ 500, history ≤ 500,
 collections ≤ 100 with ≤ 300 itemIds each and whitelisted string/number
@@ -87,16 +86,55 @@ are always the morphed v2 shape (`visibility`/`publicId` normalized,
 carries every locally-set `setting-*` value; pulls apply remote values ONLY
 for keys the device has never touched (`src/utils/preferencesSnapshot.js`).
 All endpoints are rate-limited per IP (`server/rateLimit.js`, fixed window:
-auth 20/min, sync 60/min, public collections 60/min, tmdb 120/min, groq
+register 5/10min per IP + 3/hour per address, verify 20/15min, login 20/15min
+per IP + 10/15min per address, sync 60/min, public collections 60/min, tmdb
+120/min, groq
 20/min per IP + a 240/min global budget + 1MB payload cap (413 over), downloadify
 600/min — a movie is hundreds of three-megabyte chunk fetches).
 
-Auth trust path (`api/auth.js` + `server/googleVerify.js`): the Google ID
-token is verified **locally** with `node:crypto` against Google's public JWKS
-(cached ~6h per warm container; 8s timeout) checking signature (RS256), `iss`,
-`aud`, `exp` — no `tokeninfo` round-trip (dev-only, throttle-prone). `/api/auth`
-is POST-only (credential in `credential`); the old unauthenticated GET profile
-lookup and the backend guest upsert were removed.
+Auth trust path — **email + password, verified by link** (the Google ID-token
+path, `api/auth.js` + `server/googleVerify.js`, was removed outright):
+
+- `POST /api/register` writes **nothing**. It validates the address and the
+  password, checks that the address is unused, and emails a signed token
+  (`server/verifyToken.js`: HMAC-SHA256, domain-separated, 24h expiry) whose
+  payload carries `{ email, name, passwordHash }`. Passwords are scrypt-hashed
+  (`server/passwords.js`, `N=16384, r=8, p=1`, per-password 16-byte salt, plus
+  a peppered HMAC so a leaked database alone cannot be checked offline).
+- `GET/POST /api/verifyEmail` — **POST-only**: a mail client or corporate link
+  scanner that merely prefetches the URL must not consume the single-use token.
+  It is also why `/verify-email` is a page with a Confirm button rather than a
+  bare redirect. On success it inserts the user (unique index on normalized
+  `email` ⇒ a token is single-use and the loser of a race gets 409), creates the
+  empty `userData` shell, and sends a welcome mail fire-and-forget.
+- `POST /api/login` returns the same session shape. Both failures (unknown
+  address, wrong password) answer 401 with one identical message, and a miss
+  still burns a password comparison so timing does not leak account existence.
+- `accountId` is the identity for `/api/sync`: it is the Mongo `_id`, not an
+  email address. There is no provider field any more.
+
+**Start-clean rule** (`adoptSession` in `src/context/AuthContext.jsx`): the
+library lives in one set of localStorage keys shared by everyone on the device,
+so adopting a session compares the account that was signed in a moment ago with
+the incoming one. Same account ⇒ keep local and merge the cloud library.
+Different account, or none (a first-time signup, or after sign-out) ⇒ discard
+`aios_my_list`, `aios_continue_watching` and `aios_my_collections` before the
+cloud library is applied. Without this the sync scheduled right after `setUser`
+would upload a stranger's watchlist under the new `accountId`, and from the UI
+that leak is indistinguishable from a normal sync. Search history is kept (it
+never leaves the device) and so are device preferences.
+
+**The login gate.** `requireAuth(reason)` and a `GATED_MUTATIONS` map in
+`AuthContext` stop deliberate library writes at the door and open
+`SignInDialog` instead. Gated: my-list toggle/removal, all collection
+mutations, history removal/clear, and the explicit "mark as watched" controls.
+Not gated, on purpose: `updateProgress` from the player's `onProgressChange`
+(gating it would cost an anonymous viewer their place in a film every time they
+closed the tab) and `addSearch`. Because a progress tick and a "mark as watched"
+click both arrive at `updateProgress`, the two explicit controls
+(`handleMarkWatched`, `setEpisodeWatched`, `markSeasonWatched` in
+`TitleDetailsPage`) call `requireAuth` themselves. A refused gated mutator
+returns `false` so callers can avoid announcing a save that never happened.
 
 Anonymous public collections: `/api/publicCollections` is a **read-only,
 no-auth** endpoint (GET list → `{ name, publicId, itemCount }[]`, capped 250;
@@ -105,7 +143,7 @@ GET `?publicId=X` → `{ name, publicId, itemIds }` (≤ 300 items) or
 `userData` document — queried with a `collections.visibility: 'public'`
 `$elemMatch` filter (plus a best-effort index) instead of scanning the whole
 collection, and tombstoned (deleted) collections are skipped so un-publishing
-propagates. Frozen contract: it never emits a googleId, email, or username —
+propagates. Frozen contract: it never emits an accountId, email, or username —
 the Explore surface is anonymous by design (`server/publicCollections.js`
 pure helpers: PUBLIC + stable `publicId` only, deduped, newest-updated
 first). Client-side the Explore page shows a real error + retry state when
@@ -116,8 +154,10 @@ capped concurrency (≤ 300 items, 6 parallel).
 External services: `api.themoviedb.org/3` (catalog, 10s timeout in
 `tmdbClient.js`), `image.tmdb.org` (artwork, `cdnImageAdapter` sizes
 w92→w1280), `omdbapi.com` (IMDb/RT, env-key `VITE_OMDB_API_KEY`, 24h cache),
-`www.googleapis.com/oauth2/v3/certs` (ID-token JWKS), `youtube iframe API`
+`youtube iframe API`
 (hover trailers), 8 third-party iframe stream hosts (`videoSourceAdapter.js`).
+Email: SMTP over `server/mailer.js` (Nodemailer transport, Gmail), driven by
+`SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASS` + `SITE_URL` for the link.
 VidSrc is a
 third-party provider via the `resolvevidsrc` action, whose embed `var Q` token is walked
 server-side so CORS no longer blocks resolution) and proxy media segments
@@ -216,7 +256,7 @@ redirect hop re-validated; decimal/hex IP literals included).
 Stream-service/NetMirror calling code was deleted (`src/api/env.js` removed);
 the client no longer makes those HTTP calls. Every function is wrapped in a request
 logger (`server/logger.js`); `vercel.json` sets `maxDuration` per function
-(15s tmdb / 30s auth+sync) to stay inside the Hobby ceiling.
+(15s tmdb / 30s register+verify+login+sync) to stay inside the Hobby ceiling.
 
 ## 3. Folders — where things go
 
@@ -296,9 +336,10 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
   `src/__tests__/apiModules.test.js` enforces both halves of that rule (count ≤ 12,
   no nested modules), so a stray helper fails CI instead of failing the build.
 - `server/` — shared server-side modules, outside `api/` so Vercel bundles them
-  into each function through the import graph instead of deploying them as
-  endpoints: `db` (Mongo pool), `logger` (`withLog`), `rateLimit`, `syncToken`,
-  `googleVerify`, `publicCollections`, `ssrf`, `net`.
+into each function through the import graph instead of deploying them as
+   endpoints: `db` (Mongo pool), `logger` (`withLog`), `rateLimit`, `syncToken`,
+   `passwords`, `verifyToken`, `mailer`, `users`, `publicCollections`, `ssrf`,
+   `net`.
   `api/tmdb.js` is the TMDB passthrough proxy — the reason
   visitors on ISPs that block `api.themoviedb.org` still get data. Its edge
   cache is `s-maxage=1800, stale-while-revalidate=86400`: rails are identical
@@ -358,16 +399,17 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
    the old NestJS/Render hop (latency, cold starts, proxy stalls). `/api/tmdb`
    injects the server-side key and stays off the quota path via edge caching;
    `tmdbClient` falls back to `api.themoviedb.org` directly if the proxy 404s
-   or gateway-errors. The same tiny serverless surface hosts Google auth
-   (`api/auth.js`, local JWKS verify), cloud sync (`api/sync.js`, HMAC +
+   or gateway-errors. The same tiny serverless surface hosts email auth`r
+   (`api/register.js` + `api/verifyEmail.js` + `api/login.js`), cloud sync (`api/sync.js`, HMAC +
    MongoDB), public collections (`api/publicCollections.js`) and native stream
    resolution + relay (`api/downloadify.js`, allowlisted hosts + SSRF guard). Everything
    else stays client-side.
 2. **React Query as the data cache with per-key logging** — `staleTime` 5–10
    min, 1 retry (0 for quota-sensitive OMDb/ratings), `QueryCache.onError`
    global log. Every failed/empty query is console-traceable to its key.
-3. **localStorage instead of Firebase for personal state** — zero backend to
-   operate; guest-first; syncs across tabs. Trade-off: per-device only.
+3. **localStorage instead of Firebase for personal state** — no backend to
+   operate; anonymous-first; syncs across tabs. Trade-off: per-device only until
+   an email account exists.
 4. **`normalizeResult` as the single domain contract** (`id: movie-<n>/tv-<n>`,
    `posterUrl/backdropUrl`, `imdbRating`, `isSeries/type/mediaType`) — every
    page/rail assumes this shape; `asArray`/`EMPTY_ARRAY` guards the rest.

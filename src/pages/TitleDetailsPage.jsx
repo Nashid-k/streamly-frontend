@@ -101,6 +101,11 @@ export default function TitleDetails() {
     updateProgress,
     removeFromContinueWatching,
     addNotification,
+    // "Mark as watched" is a deliberate data action, but it arrives at
+    // updateProgress() looking identical to a progress tick from the player. The
+    // gate cannot tell them apart, so these three handlers ask for an account
+    // themselves instead of relying on the wrapped mutators.
+    requireAuth,
   } = useAppAuth();
   const { toast } = useToast();
   const cwRef = useRef(continueWatching);
@@ -168,6 +173,7 @@ export default function TitleDetails() {
   // removes it), mirroring Cinejoy's "Mark As Watched" circular action.
   const handleMarkWatched = (movieObj) => {
     if (!movieObj) return;
+    if (!requireAuth("gateWatched")) return;
     if (isMarkedWatched(movieObj.id)) {
       removeFromContinueWatching(movieObj.id);
       toast({
@@ -480,8 +486,10 @@ export default function TitleDetails() {
     return (item.watchedEpisodes?.[selectedSeason] || []).includes(ep.episodeNumber);
   };
 
+  /** Returns false when the gate refused, so callers skip their own toast. */
   const setEpisodeWatched = (ep, watched) => {
-    if (!movie) return;
+    if (!movie) return false;
+    if (!requireAuth("gateWatched")) return false;
     const watchedEpisodes = { ...((continueEntryForMovie?.watchedEpisodes) || {}) };
     const list = new Set(watchedEpisodes[selectedSeason] || []);
     if (watched) list.add(ep.episodeNumber);
@@ -493,11 +501,12 @@ export default function TitleDetails() {
       ep.episodeNumber,
       watched ? (ep.durationMins || 60) * 60 : 0,
     );
+    return true;
   };
 
   const toggleEpisodeWatched = (ep) => {
     const watched = isEpisodeWatched(ep);
-    setEpisodeWatched(ep, !watched);
+    if (!setEpisodeWatched(ep, !watched)) return;
     toast({
       title: watched ? "Marked as not watched" : "Marked as watched",
       message: `${episodeNumberLabel(ep.episodeNumber)} · ${ep.title}`,
@@ -510,6 +519,7 @@ export default function TitleDetails() {
     if (!movie || episodesForLayout.length === 0) return;
     const aired = episodesForLayout.filter((ep) => isEpAired(ep));
     if (aired.length === 0) return;
+    if (!requireAuth("gateWatched")) return;
     const allWatched = aired.every((ep) => isEpisodeWatched(ep));
     if (allWatched) {
       const watchedEpisodes = { ...((continueEntryForMovie?.watchedEpisodes) || {}) };

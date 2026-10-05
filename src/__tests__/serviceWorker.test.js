@@ -87,7 +87,7 @@ describe("service worker fetch routing", () => {
     for (const path of [
       "/api/downloadify",
       "/api/sync",
-      "/api/auth",
+      "/api/login",
       "/api/tmdb/movie/550",
       "/anything-else",
       "/some/path.js",

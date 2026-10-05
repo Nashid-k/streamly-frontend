@@ -1,8 +1,6 @@
 import { useState, useMemo, useEffect, useRef, lazy, Suspense } from "react";
-import { createPortal } from "react-dom";
 import { Link, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { FADE, MODAL_PANEL } from "../constants/motion";
 import {
   User,
   ChevronDown,
@@ -22,7 +20,6 @@ import SEO from "../components/SEO";
 import AmbientBackground from "../components/AmbientBackground";
 import { usePreferences } from "../context/preferences";
 import { useAppAuth, useSyncStatus } from "../context/auth";
-import GoogleSignInButton, { GoogleLogoIcon } from "../components/GoogleSignInButton.jsx";
 import { useToast } from "../components/Toast.jsx";
 
 const PlayerPreview = lazy(() => import("../components/PlayerPreview.jsx"));
@@ -71,8 +68,6 @@ export default function SettingsPage() {
   const [query, setQuery] = useState("");
   // Only one menu may be open at a time: null | "theme" | "seek" | "lang".
   const [openDropdown, setOpenDropdown] = useState(null);
-  const [showSignInModal, setShowSignInModal] = useState(false);
-  const [signInTab, setSignInTab] = useState("signin");
 
     // Auth state comes from the context as the SINGLE source of truth. This page
     // used to keep a shadow `localUser` in useState and double-write
@@ -80,6 +75,11 @@ export default function SettingsPage() {
     // until reload.
   const auth = useAppAuth();
   const user = auth?.user;
+  // Not `user`: a leftover pre-email profile (a Google sign-in from before the
+  // migration) is stored in localStorage with no accountId, so it has no cloud
+  // account and nothing to sync or delete. Keying the account row off it would
+  // show "signed in" with only a Sign out button and no way to sign in.
+  const hasAccount = auth?.hasAccount ?? Boolean(auth?.user);
   const { syncStatus, lastSyncedAt } = useSyncStatus();
 
   const {
@@ -145,7 +145,6 @@ export default function SettingsPage() {
   const themeTriggerRef = useRef(null);
   const seekTriggerRef = useRef(null);
   const langTriggerRef = useRef(null);
-  const loginPanelRef = useRef(null);
   const dropdownWrapRefs = { theme: themeWrapRef, seek: seekWrapRef, lang: langWrapRef };
   const dropdownTriggerRefs = {
     theme: themeTriggerRef,
@@ -222,62 +221,6 @@ export default function SettingsPage() {
     else next = options.length - 1;
     options[next]?.focus();
   };
-
-    // Sign-in modal: lock body scroll, move focus into the panel, trap Tab inside
-    // it, allow Escape to dismiss, and return focus to the opener on close.
-  const anyModalOpen = showSignInModal;
-  useEffect(() => {
-    if (!anyModalOpen) return undefined;
-    const prevOverflow = document.body.style.overflow;
-    const prevActive = document.activeElement;
-    document.body.style.overflow = "hidden";
-
-    const focusables = () => {
-      const panel = loginPanelRef.current;
-      if (!panel) return [];
-      return [
-        ...panel.querySelectorAll(
-          "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
-        ),
-      ].filter((el) => !el.disabled && !el.hidden);
-    };
-
-    const items = focusables();
-    (items[0] || loginPanelRef.current)?.focus?.();
-
-    const handleKey = (e) => {
-      if (e.key === "Escape") {
-        setShowSignInModal(false);
-        return;
-      }
-      if (e.key !== "Tab") return;
-      const panel = loginPanelRef.current;
-      const items = focusables();
-      if (!panel || items.length === 0) {
-        e.preventDefault();
-        panel?.focus?.();
-        return;
-      }
-      const first = items[0];
-      const last = items[items.length - 1];
-      if (!panel.contains(document.activeElement)) {
-        e.preventDefault();
-        first.focus();
-      } else if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener("keydown", handleKey);
-    return () => {
-      document.body.style.overflow = prevOverflow;
-      document.removeEventListener("keydown", handleKey);
-      if (prevActive instanceof HTMLElement) prevActive.focus();
-    };
-  }, [anyModalOpen]);
 
   const openShortcuts = () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "?", shiftKey: true }));
@@ -384,18 +327,11 @@ export default function SettingsPage() {
     });
   };
 
-  // Modal Sign-in actions
-  const handleSignIn = (name, email) => {
-    auth?.loginAsGuest(name, email);
-    setShowSignInModal(false);
-    toast({
-      type: "success",
-      title: t("settings.toasts.signedIn"),
-      message: t("settings.account.signedInToast", {
-        name: name || t("settings.account.defaultName"),
-      }),
-    });
-  };
+  // Sign-in and sign-up are owned by <SignInDialog> inside <AuthProvider>; this
+  // page only asks it to open. The old private modal here is what let the app
+  // offer "continue as guest" while every gated action silently required an
+  // account.
+  const handleOpenSignIn = () => auth?.openSignIn?.("signin");
 
   const handleSignOut = () => {
     auth?.logout();
@@ -581,7 +517,7 @@ export default function SettingsPage() {
                   {/* Sign In / User Status */}
                   <div className="setting-row">
                     <div className="setting-meta flex items-center gap-3">
-                      {user?.picture ? (
+                      {hasAccount ? (
                         <img
                           src={user.picture}
                           alt={user.name || "User"}
@@ -596,23 +532,18 @@ export default function SettingsPage() {
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="setting-title">
-                            {user ? user.name || user.email : t("settings.account.signedOut")}
+                            {hasAccount ? user.name || user.email : t("settings.account.signedOut")}
                           </span>
-                          {user?.provider === "google" && (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center gap-1">
-                              <GoogleLogoIcon size={11} /> Google
-                            </span>
-                          )}
                         </div>
                         <span className="setting-desc">
                           {user
                             ? user.email || t("settings.account.syncActive")
-                            : t("settings.account.signInGoogleHint")}
+                            : t("settings.account.signInEmailHint")}
                         </span>
                       </div>
                     </div>
                     <div className="setting-control flex items-center gap-2">
-                      {user ? (
+                      {hasAccount ? (
                         <button
                           onClick={handleSignOut}
                           className="glassy-button"
@@ -623,7 +554,7 @@ export default function SettingsPage() {
                       ) : (
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => setShowSignInModal(true)}
+                            onClick={handleOpenSignIn}
                             className="glassy-button glassy-button--primary px-5 py-2.5 text-[14px]"
                           >
                             <User className="w-4 h-4" />
@@ -653,10 +584,10 @@ export default function SettingsPage() {
                                 time: new Date(lastSyncedAt).toLocaleTimeString(),
                               })
                             : t("settings.account.synced")
-                          : t("settings.account.signInGoogleHint")}
+                          : t("settings.account.signInEmailHint")}
                       </span>
                     </div>
-                    {user && (
+                    {hasAccount && (
                       <div className="setting-control">
                         <button
                           onClick={async () => {
@@ -686,8 +617,8 @@ export default function SettingsPage() {
                     )}
                   </div>
 
-                  {/* Cloud Data Deletion (Google users only) */}
-                  {user?.provider === "google" && (
+                  {/* Cloud Data Deletion — any account that has cloud data. */}
+                  {hasAccount && (
                     <div className="setting-row mt-2 pt-2 border-t border-white/[0.06]">
                       <div className="setting-meta">
                         <span className="setting-title">{t("settings.account.deleteCloudData")}</span>
@@ -1457,149 +1388,11 @@ export default function SettingsPage() {
       <ConfirmDialogRenderer />
 
       {/* ── MODALS ── */}
-
-      {/* Sign-In Modal — Cinejoy glass login panel. AnimatePresence lives
-              inside the portal so the exit animation actually plays (the old
-              conditional form unmounted immediately). */}
-      {createPortal(
-        <AnimatePresence>
-          {showSignInModal && (
-            <motion.div
-              key="login-backdrop"
-              className="login-backdrop"
-              initial={FADE.initial}
-              animate={FADE.animate}
-              exit={FADE.exit}
-              transition={FADE.transition}
-              onMouseDown={(e) => {
-                if (e.target === e.currentTarget) setShowSignInModal(false);
-              }}
-            >
-            <motion.div
-              ref={loginPanelRef}
-              initial={MODAL_PANEL.initial}
-              animate={MODAL_PANEL.animate}
-              exit={MODAL_PANEL.exit}
-              transition={MODAL_PANEL.transition}
-              className="login-panel"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="login-panel-title"
-              tabIndex={-1}
-            >
-              <button
-                onClick={() => setShowSignInModal(false)}
-                aria-label={t("settings.account.closeSignIn")}
-                className="absolute right-5 top-5 p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-white">
-                  <User className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 id="login-panel-title" className="text-lg font-bold text-white">
-                    {t("settings.account.welcome")}
-                  </h3>
-                  <p className="text-xs text-white/50">{t("settings.account.welcomeDesc")}</p>
-                </div>
-              </div>
-
-              {/* Sign In / Guest tabs with a sliding white pill */}
-              <div className="login-tabs mb-4" role="tablist" aria-label={t("settings.account.signInMethod")}>
-                <span
-                  className={`login-tab-pill${signInTab === "guest" ? " is-right" : ""}`}
-                  aria-hidden="true"
-                />
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={signInTab === "signin"}
-                  className={`login-tab${signInTab === "signin" ? " is-active" : ""}`}
-                  onClick={() => setSignInTab("signin")}
-                >
-                  {t("settings.account.signIn")}
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={signInTab === "guest"}
-                  className={`login-tab${signInTab === "guest" ? " is-active" : ""}`}
-                  onClick={() => setSignInTab("guest")}
-                >
-                  {t("settings.account.guest")}
-                </button>
-              </div>
-
-              {signInTab === "signin" ? (
-                <div className="space-y-3">
-                  <GoogleSignInButton
-                    onSuccess={() => setShowSignInModal(false)}
-                    shape="pill"
-                    text={t("settings.account.continueGoogle")}
-                  />
-                  <p className="text-center text-xs text-white/40 leading-relaxed">
-                    {t("settings.account.googleHint")}
-                  </p>
-                </div>
-              ) : (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    // NOTE: form.name would resolve to the form's own `name`
-                    // attribute (a string), never the input — read via FormData.
-                    const data = new FormData(e.target);
-                    handleSignIn(data.get("name"), data.get("email"));
-                  }}
-                  className="space-y-3"
-                >
-                  <div>
-                    <label htmlFor="login-name" className="block text-xs font-semibold text-white/70 mb-1.5">
-                      {t("settings.account.name")}
-                    </label>
-                    <input
-                      id="login-name"
-                      name="name"
-                      type="text"
-                      required
-                      defaultValue={t("settings.account.defaultName")}
-                      className="login-field"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="login-email" className="block text-xs font-semibold text-white/70 mb-1.5">
-                      {t("settings.account.email")}
-                    </label>
-                    <input
-                      id="login-email"
-                      name="email"
-                      type="email"
-                      required
-                      defaultValue="viewer@streamly.io"
-                      className="login-field"
-                    />
-                  </div>
-
-                  <button type="submit" className="login-cta mt-1">
-                    {t("settings.account.continueAsGuest")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowSignInModal(false)}
-                    className="w-full py-2.5 rounded-full bg-white/5 hover:bg-white/10 text-white/70 text-sm font-semibold transition-colors border-none"
-                  >
-                    {t("common.cancel")}
-                  </button>
-                </form>
-              )}
-            </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>,
-        document.body
-      )}
+      {/* Sign-in lives in <SignInDialog>, mounted once by <AuthProvider> and
+          opened through auth.openSignIn(). SettingsPage is just another caller —
+          it is not the only place an account is needed, and a private copy of
+          this panel was the reason Google and guest sign-in used to drift apart
+          from what the rest of the app allowed. */}
 
       </div>
   );

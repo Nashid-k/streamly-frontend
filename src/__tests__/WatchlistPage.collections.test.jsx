@@ -32,9 +32,9 @@ function renderPage() {
   return renderWithProviders(<WatchlistPage />, {
     route: "/watchlist",
     // A raw context value mounts AppContext.Provider directly — a synthetic
-    // session with NO AuthProvider Google/network side effects.
+    // session with NO AuthProvider sync/network side effects.
     authValue: {
-      user: { googleId: "g-1" },
+      user: { accountId: "acc-1", email: "watcher@test.com" },
       myList: [],
       collections: [privateCollection, publicCollection],
       publicCollections: [publicCollection],

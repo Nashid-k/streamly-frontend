@@ -39,8 +39,16 @@ const DEFAULT_AUTH_FALLBACK = {
   addSearch: () => {},
   removeSearch: () => {},
   clearSearchHistory: () => {},
-  loginWithGoogle: async () => ({ success: false }),
-  loginAsGuest: () => {},
+  registerAccount: async () => ({ success: false }),
+  completeEmailVerification: async () => ({ success: false }),
+  loginWithEmail: async () => ({ success: false }),
+  hasAccount: false,
+  // Outside a provider there is nothing to gate against and nobody to prompt, so
+  // the fallback reports "allowed". Denying here would make every component
+  // rendered outside <AuthProvider> silently inert instead of merely local.
+  requireAuth: () => true,
+  openSignIn: () => {},
+  closeSignIn: () => {},
   logout: () => {},
   syncStatus: "idle",
   lastSyncedAt: null,

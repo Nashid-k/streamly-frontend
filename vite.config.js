@@ -7,16 +7,24 @@ import { fileURLToPath, URL } from 'node:url'
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8'))
 
 function apiDevServerPlugin() {
+  // Path -> module. Any api/ function missing here silently falls through to the
+  // SPA fallback in dev (and 404s in production), which looks exactly like a
+  // broken backend. Keep this list in sync with vercel.json's `functions`.
+  const handlers = {
+    '/api/register': './api/register.js',
+    '/api/verifyEmail': './api/verifyEmail.js',
+    '/api/login': './api/login.js',
+    '/api/sync': './api/sync.js',
+    '/api/publicCollections': './api/publicCollections.js',
+  };
   return {
     name: 'api-dev-server',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url, 'http://localhost');
-        if (url.pathname === '/api/auth' || url.pathname === '/api/sync' || url.pathname === '/api/publicCollections') {
+        const endpoint = handlers[url.pathname];
+        if (endpoint) {
           try {
-            const endpoint = url.pathname === '/api/auth' ? './api/auth.js'
-              : url.pathname === '/api/sync' ? './api/sync.js'
-              : './api/publicCollections.js';
             const { default: handler } = await import(endpoint);
             let body = {};
             if (req.method === 'POST') {

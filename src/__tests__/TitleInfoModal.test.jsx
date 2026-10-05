@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { screen, fireEvent, waitFor } from "@testing-library/react";
+import { screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { useLocation } from "react-router-dom";
 import TitleInfoModal from "../components/TitleInfoModal";
 import { buildMetaFacts } from "../utils/metaFacts";
@@ -87,6 +87,16 @@ beforeEach(() => {
   document.body.style.overflow = "";
 });
 
+/* A verified session, for the cases that need the write to be allowed. Only
+   accountId matters: that is what the provider asks when it decides whether a
+   gated mutation may proceed. */
+function signIn() {
+  localStorage.setItem(
+    "streamly_user",
+    JSON.stringify({ id: "acc-test", accountId: "acc-test", name: "Tester", email: "t@streamly.io" }),
+  );
+}
+
 describe("TitleInfoModal", () => {
   it("renders the Netflix-style anatomy: title, meta facts, overview, actions", async () => {
     renderModal();
@@ -137,6 +147,7 @@ describe("TitleInfoModal", () => {
   });
 
   it("My List toggle adds the movie and reflects the in-list state", async () => {
+    signIn();
     renderModal();
     const listBtn = await screen.findByRole("button", { name: /add to my list/i });
     fireEvent.click(listBtn);
@@ -147,6 +158,20 @@ describe("TitleInfoModal", () => {
     const stored = JSON.parse(localStorage.getItem("aios_my_list") || "[]");
     expect(stored).toHaveLength(1);
     expect(stored[0].id).toBe("movie-550");
+  });
+
+  it("refuses the My List toggle while signed out and asks for an account", async () => {
+    renderModal();
+    const listBtn = await screen.findByRole("button", { name: /add to my list/i });
+    fireEvent.click(listBtn);
+
+    // Nothing was written, and the shared dialog opened with the gate's reason.
+    expect(JSON.parse(localStorage.getItem("aios_my_list") || "[]")).toEqual([]);
+    const dialog = await screen.findByRole("dialog", { name: /sign in to streamly/i });
+    expect(dialog).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/sign in to save your watchlist, collections and watch history/i)
+    ).toBeInTheDocument();
   });
 
   it("renders the You May Also Like carousel by default with similar titles", async () => {

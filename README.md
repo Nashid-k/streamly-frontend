@@ -10,8 +10,8 @@
 [![Vercel](https://img.shields.io/badge/Deployed_on-Vercel-000?logo=vercel)](https://vercel.com)
 
 **React 19 SPA — TMDB streaming UI with a thin same-origin backend**
-(same-origin `/api/*` Vercel functions, local-first state, optional Google
-cloud sync)
+(same-origin `/api/*` Vercel functions, local-first state, email accounts
+with optional cloud sync)
 
 </div>
 
@@ -69,34 +69,50 @@ VITE_TMDB_API_KEY=your_tmdb_api_key_here
 # Extra IMDb/RT ratings over TMDB. If unset, app degrades to TMDB ratings.
 VITE_OMDB_API_KEY=your_omdb_api_key_here
 
-# ─── MongoDB (optional — only needed for Google cloud sync) ─────────────
+# ─── MongoDB (required for accounts — users + userData) ──────────────────
 MONGODB_URI=mongodb+srv://<user>:<pass>@cluster0.xxxxx.mongodb.net/streamly?retryWrites=true&w=majority
 
-# ─── Google OAuth (optional — powers cloud sync + public collections) ───
-GOOGLE_CLIENT_ID=your_google_client_id_here
-GOOGLE_CLIENT_SECRET=your_google_client_secret_here
-VITE_GOOGLE_CLIENT_ID=your_google_client_id_here
+# ─── Email sign-in / sign-up (required for cloud sync) ───────────────────
+# Gmail: an App Password (not your account password), 16 chars, no spaces.
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=you@gmail.com
+SMTP_PASS=your_app_password_here
+# Where the emailed /verify-email link points. Must be the deployed origin.
+SITE_URL=https://your-project.vercel.app
+
+# ─── Token signing (required; generate with `openssl rand -hex 32`) ───────
+# Signs 24h verification links and 30-day sync tokens. Keep VERIFY_SECRET
+# stable or every outstanding verification link dies.
+VERIFY_SECRET=replace_with_64_random_hex_chars
+SYNC_SECRET=replace_with_64_random_hex_chars
 
 # ─── App / URLs ──────────────────────────────────────────────────────────
 # Canonical site origin used for SEO/OpenGraph links
 VITE_SITE_URL=https://your-project.vercel.app
 ```
 
-> ℹ️ **Catalog = TMDB; personal state = this device, unless you sign in.**
-> All catalog data comes straight from the TMDB REST API; all personal state
-> (My List, Continue Watching, search history, Settings) lives in
-> `localStorage` on the viewer's device. Signing in with Google additionally
+> ℹ️ **Catalog = TMDB; personal state = this device, unless you create an
+> account.** All catalog data comes straight from the TMDB REST API; all
+> personal state (My List, Continue Watching, search history, Settings) lives
+> in `localStorage` on the viewer's device. An email account additionally
 > syncs that state to the app's MongoDB backend (`api/sync.js`), powers the
 > public-collections Explore page, and enables cloud-data deletion in
-> Settings → Account. **Guests are local-only by design** — they never call
-> the sync backend, so publishing a collection as a guest only affects the
-> current device (the UI says so when you flip the toggle).
+> Settings → Account.
+>
+> **Anonymous visitors are local-only by design** — they never call the sync
+> backend. They can browse, search and watch (playback progress is saved on
+> the device and never uploaded), but saving to My List, creating collections,
+> editing history and marking things as watched all require an account, and
+> the shared sign-in dialog opens when one of those is attempted. Signing up
+> **starts clean**: the local library is discarded rather than uploaded under
+> the new account.
 >
 > ⚠️ The API key is never hard-coded in the bundle. Deploys set
 > `VITE_TMDB_API_KEY`; the same-origin `/api/tmdb` proxy injects its own
 > server-side key (`api/tmdb.js`, Vercel env `TMDB_API_KEY`/`VITE_TMDB_API_KEY`).
-> Cloud features require `MONGODB_URI`, `SYNC_SECRET` (or
-> `GOOGLE_CLIENT_SECRET`) and `GOOGLE_CLIENT_ID` in the deployment env.
+> Cloud features require `MONGODB_URI`, `SMTP_*`, `SITE_URL` and
+> `VERIFY_SECRET`/`SYNC_SECRET` in the deployment env.
 
 ---
 
@@ -123,10 +139,13 @@ VITE_SITE_URL=https://your-project.vercel.app
    `aios_my_collections` (named folders), `aios_continue_watching`,
    `aios_search_history`, `setting-*` preference
    keys. Cross-tab sync via `storage` events.
-6. **Cloud sync (Google sign-in only):** the same state (plus preferences)
+6. **Cloud sync (email account only):** the same state (plus preferences)
    syncs through `/api/sync` (MongoDB) behind per-account expiring HMAC
    tokens; deletes propagate via 30-day tombstones. Deleted collections are
    hidden locally immediately and purged from storage on later merges.
+7. **Account creation:** `/api/register` sends a signed 24-hour link and writes
+   nothing; the account is created only when `/api/verifyEmail` is POSTed from
+   the `/verify-email` page (so email link scanners cannot consume it).
 
 ---
 
@@ -136,14 +155,17 @@ VITE_SITE_URL=https://your-project.vercel.app
 api/
 ├── tmdb.js              ← Vercel serverless: same-origin /api/tmdb TMDB proxy
 │                           (CORS, OPTIONS, server-side key injection)
-├── auth.js              ← Google sign-in (ID-token verify via local JWKS)
+├── register.js          ← POST: validate + send the verification link (writes nothing)
+├── verifyEmail.js       ← POST: create the account from a valid token
+├── login.js             ← POST: email + password → session + sync token
 ├── sync.js              ← cloud sync (HMAC-signed, MongoDB, merge policy)
 ├── downloadify.js       ← native-stream resolver + relay (VidSrc + VidCore +
 │                           NHD + VIDSTUCK, single-URL Range-chunked segment
 │                           proxy, SSRF guard, DASH→HLS fMP4 transcoding)
 ├── publicCollections.js ← publish / read public collections
 ├── groq.js              ← optional AI helper endpoint
-└── lib/                 ← db.js, googleVerify.js, syncToken.js (HMAC)
+└── lib/                 ← db.js, passwords.js, verifyToken.js, mailer.js, users.js,
+                            syncToken.js (HMAC)
 server/
 ├── net.js               ← guarded outbound fetch (redirect re-validation, retries,
 │                           optional POST method/body for provider token mints)
@@ -211,7 +233,7 @@ src/
 │   ├── RailArrow.jsx                ← Canonical scroll arrow (coarse-pointer aware)
 │   ├── TitleInfoModal.jsx           ← Quick View modal
 │   ├── Popover.jsx / ConfirmDialog.jsx / Toast.jsx / Chip.jsx / Button.jsx
-│   ├── GoogleSignInButton.jsx       ← Google one-tap / button (cloud sync sign-in)
+│   ├── auth/SignInDialog.jsx        ← Shared email sign-in / sign-up + login gate prompt
 │   ├── ContentPageHeader.jsx / GenreShowcase.jsx / Footer.jsx
 │   ├── GlobalShortcuts.jsx / Loader.jsx / BackToTop.jsx / ErrorBoundary.jsx
 │   └── EmptyState.jsx / SectionHeader.jsx / HeroTitleLogo.jsx / RatingsCluster.jsx /
@@ -360,9 +382,11 @@ Deployed on **Vercel** with automatic preview deployments for every pull request
 | `TMDB_API_KEY` | same key, read by `api/tmdb.js` (server-side, never bundled) |
 | `VITE_OMDB_API_KEY` | optional — extra ratings lookup |
 | `VITE_SITE_URL` | `https://your-project.vercel.app` |
-| `MONGODB_URI` | optional — cloud sync backend (MongoDB Atlas) |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | optional — Google sign-in + token signing |
-| `SYNC_SECRET` | optional — if set, overrides `GOOGLE_CLIENT_SECRET` for sync HMAC |
+| `MONGODB_URI` | accounts + cloud sync backend (MongoDB Atlas) |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | email delivery for sign-up verification |
+| `SITE_URL` | origin the emailed verification link points at |
+| `VERIFY_SECRET` | signs the 24h verification link (HMAC) |
+| `SYNC_SECRET` | signs the 30-day `/api/sync` bearer token (HMAC) |
 
 ### `vercel.json`
 

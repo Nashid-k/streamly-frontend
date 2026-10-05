@@ -187,24 +187,14 @@ export const en = {
     account: {
       signIn: "Sign In",
       signInDesc: "Sign in to sync your settings and watch progress across devices.",
-      continueAsGuest: "Continue as Guest",
       name: "Your Name",
       email: "Email Address",
       signedOut: "Not signed in",
       signedInAs: "Signed in as {name}",
       signOut: "Sign Out",
       welcomeBack: "Welcome {name}",
-      signedInToast: `Welcome back, {name}!`,
-      defaultName: "Streamly Viewer",
-      closeSignIn: "Close sign in",
-      welcome: "Welcome to Streamly",
-      welcomeDesc: "Sync preferences and watchlist across devices.",
-      signInMethod: "Sign in method",
-      guest: "Guest",
-      continueGoogle: "Continue with Google",
-      googleHint: `Use your Google account to sync your library across devices. Prefer to stay local? Switch to the Guest tab.`,
       syncActive: "Your profile and library are actively synchronized.",
-      signInGoogleHint: "Sign in with Google to sync your watchlist and settings across devices.",
+      signInEmailHint: "Sign in with your email to sync your watchlist, collections and history across devices.",
       cloudSync: "Cloud Sync",
       connected: "Connected",
       syncingMsg: "Synchronizing your watchlist and history...",
@@ -224,7 +214,7 @@ export const en = {
       exportDataDesc: "My List, history, collections & settings on this device ({count} keys) — saved as a file you can restore anytime",
       exportAction: "Export",
       importData: "Restore device data",
-      importDataDesc: "Pick a Streamly backup file — replaces matching keys on this device. Your Google session is never touched.",
+      importDataDesc: "Pick a Streamly backup file — replaces matching keys on this device. Your account session is never touched.",
       importAction: "Import",
       exportDoneTitle: "Backup saved",
       importDoneTitle: "Backup restored",
@@ -383,7 +373,7 @@ export const en = {
     /* Honest publishing feedback: guests never reach the cloud, so "public"
        cannot mean "anyone" for them. The old silent lie made this bug look
        like the sync pipeline was broken. */
-    guestPublishWarning: "Signed-out visitors can't publish to Explore — your collection stays on this device. Sign in with Google to share it with everyone.",
+
     publishSuccess: "Published! It now appears on the Explore Collections page.",
     bestCollectionsTitle: "Best Collections",
     bestCollectionsHint: "Your most-loved lists, surfaced without any username",
@@ -410,5 +400,62 @@ export const en = {
     deleteCloudDataConfirmLabel: "Delete cloud data",
     deleteCloudDataOk: "Cloud data deleted",
     deleteCloudDataFailed: "Cloud data deletion failed — try again later.",
+  },
+  authEmail: {
+    /* Email sign-in / verification. Only `en` defines these; the latin and
+       script catalogs fall back through the deep-merge in index.jsx. */
+    signInTitle: "Sign in to Streamly",
+    createTitle: "Create your account",
+    signInTab: "Sign in",
+    createTab: "Create account",
+    signInBlurb:
+      "Sign in to save your watchlist, collections and watch history across every device.",
+    signupBlurb:
+      "Create an account and we'll email you a verification link. Your account is created once you open it.",
+    signInAction: "Sign in",
+    createAction: "Send verification link",
+    name: "Name",
+    namePlaceholder: "What should we call you?",
+    nameRequired: "Please enter a name.",
+    email: "Email",
+    password: "Password",
+    passwordPlaceholderSignup: "At least {min} characters",
+    passwordHint: "At least {min} characters. A short phrase beats a scrambled word.",
+    weakPassword: "Your password must be at least {min} characters.",
+    invalidEmail: "Enter a valid email address.",
+    showPassword: "Show password",
+    hidePassword: "Hide password",
+    checkInboxTitle: "Check your inbox",
+    checkInboxBody: "We sent a verification link to {email}.",
+    checkInboxNote:
+      "Open it to finish creating your account. The link works once and expires in 24 hours — nothing has been saved yet.",
+    backToSignIn: "Back to sign in",
+    genericError: "Something went wrong. Please try again.",
+    /* Shown by requireAuth() before the dialog opens. */
+    gateReason:
+      "Sign in to save your watchlist, collections and watch history — and to keep them on every device you use.",
+    gateCollections: "Sign in to create and manage collections.",
+    gateWatched: "Sign in to mark things as watched.",
+    gateHistory: "Sign in to manage your watch history.",
+    verifyTitle: "Verifying your email",
+    verifyWorking: "Confirming your address…",
+    verifySuccessTitle: "Email verified",
+    verifySuccessBody: "You're signed in. Your account is ready.",
+    verifyExpiredTitle: "That link has expired",
+    verifyExpiredBody:
+      "Verification links last 24 hours. Sign up again and we'll send a fresh one.",
+    verifyInvalidTitle: "That link isn't valid",
+    verifyInvalidBody:
+      "The link may have been cut short or altered in transit. Sign up again and we'll send a fresh one.",
+    verifyAlreadyTitle: "Already verified",
+    verifyAlreadyBody: "This email already has an account. Sign in instead.",
+    verifyGoToSignIn: "Go to sign in",
+    verifyNoTokenTitle: "This link has no verification token",
+    verifyNoTokenBody:
+      "Open the page from the link in your email, or sign up again and we'll send a fresh one.",
+    verifyConfirmTitle: "Confirm your email",
+    verifyConfirmBody:
+      "Click below to finish creating your account. Nothing is created until you do.",
+    verifyConfirmButton: "Confirm my email",
   },
 };

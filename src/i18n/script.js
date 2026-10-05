@@ -13,7 +13,6 @@ export const ja = {
       "Streamlyは、主要プラットフォームの映画やドラマを1か所にまとめたオールインワンのストリーミングプラットフォームです。当サービスはコンテンツを一切ホスト・配信・保存しません。すべての作品、アートワーク、メタデータはTMDBから提供され、あくまで説明用に使用しており、各作品はそれぞれの権利者に帰属します。",
   },
   home: {
-    welcome: "Streamlyへようこそ",
     loadError: "Streamlyを読み込めませんでした",
     heroError: "接続を確認してもう一度お試しください。リストと履歴はそのまま利用できます。",
     heroEmpty: "お気に入りのストリーミングサービスで映画やドラマを探しましょう。",
@@ -78,9 +77,8 @@ export const ja = {
     },
     account: {
       signIn: "サインイン", signInDesc: "設定と視聴履歴を同期します。",
-      continueAsGuest: "ゲストとして続行", name: "お名前", email: "メールアドレス",
       signedOut: "未サインイン", signedInAs: "{name}としてサインイン中", signOut: "サインアウト",
-      welcomeBack: "おかえりなさい、{name}", signedInToast: "おかえりなさい、{name}！",
+      welcomeBack: "おかえりなさい、{name}",
     },
     appearance: {
       theme: "テーマ", themeDesc: "アプリの見た目を選択します。",
@@ -148,7 +146,6 @@ export const ko = {
       "Streamly는 주요 플랫폼의 영화와 시리즈를 한곳에 모은 올인원 스트리밍 서비스입니다. 당사는 콘텐츠를 직접 호스팅·스트리밍·저장하지 않으며, 모든 작품·아트워크·메타데이터는 TMDB에서 제공되어 예시용으로만 사용되고 각 작품은 해당 권리자에게 귀속됩니다.",
   },
   home: {
-    welcome: "Streamly에 오신 것을 환영합니다",
     loadError: "Streamly를 불러오지 못했습니다",
     heroError: "연결을 확인하고 다시 시도하세요. 목록과 기록은 그대로 유지됩니다.",
     heroEmpty: "좋아하는 스트리밍 플랫폼에서 영화와 시리즈를 발견하세요.",
@@ -213,9 +210,8 @@ export const ko = {
     },
     account: {
       signIn: "로그인", signInDesc: "설정과 시청 기록을 동기화합니다.",
-      continueAsGuest: "게스트로 계속", name: "이름", email: "이메일 주소",
       signedOut: "로그인하지 않음", signedInAs: "{name}(으)로 로그인됨", signOut: "로그아웃",
-      welcomeBack: "다시 오셨네요, {name}", signedInToast: "다시 오셨네요, {name}님!",
+      welcomeBack: "다시 오셨네요, {name}",
     },
     appearance: {
       theme: "테마", themeDesc: "앱의 모습을 선택하세요.",
@@ -283,7 +279,6 @@ export const hi = {
       "Streamly एक ऑल-इन-वन स्ट्रीमिंग प्लेटफ़ॉर्म है जो प्रमुख प्लेटफ़ॉर्म की फ़िल्मों और सीरीज़ को एक ही जगह लाता है। हम स्वयं कोई कंटेंट होस्ट, स्ट्रीम या स्टोर नहीं करते — सभी शीर्षक, कलाकृतियाँ और मेटाडेटा TMDB से आते हैं, केवल चित्रण हेतु उपयोग होते हैं, और हर शीर्षक अपने संबंधित स्वामियों की संपत्ति है।",
   },
   home: {
-    welcome: "Streamly में आपका स्वागत है",
     loadError: "Streamly लोड नहीं हो सका",
     heroError: "अपना कनेक्शन जाँचें और पुनः प्रयास करें। आपकी सूची और इतिहास उपलब्ध रहेंगे।",
     heroEmpty: "अपने सभी पसंदीदा प्लेटफ़ॉर्म पर फ़िल्में और सीरीज़ खोजें।",
@@ -348,9 +343,8 @@ export const hi = {
     },
     account: {
       signIn: "साइन इन करें", signInDesc: "अपनी प्राथमिकताएँ और इतिहास सिंक करें।",
-      continueAsGuest: "अतिथि के रूप में जारी रखें", name: "आपका नाम", email: "ईमेल पता",
       signedOut: "साइन इन नहीं", signedInAs: "{name} के रूप में साइन इन", signOut: "साइन आउट",
-      welcomeBack: "वापसी पर स्वागत है {name}", signedInToast: "वापसी पर स्वागत है, {name}!",
+      welcomeBack: "वापसी पर स्वागत है {name}",
     },
     appearance: {
       theme: "थीम", themeDesc: "ऐप का रूप चुनें।",
@@ -418,7 +412,6 @@ export const ar = {
       "Streamly منصة بث شاملة تضم الأفلام والمسلسلات من المنصات الرئيسية في مكان واحد. نحن لا نستضيف أو نبث أو نخزّن أي محتوى بأنفسنا — جميع العناوين والأعمال الفنية والبيانات الوصفية مصدرها TMDB وتُستخدم للتوضيح فقط، وكل عنوان يظل ملكًا لأصحابه المعنيين.",
   },
   home: {
-    welcome: "مرحبًا بك في Streamly",
     loadError: "تعذّر تحميل Streamly",
     heroError: "تحقق من اتصالك وحاول مرة أخرى. تظل قائمتك وسجلك متاحين.",
     heroEmpty: "اكتشف الأفلام والمسلسلات على كل منصاتك المفضلة.",
@@ -483,9 +476,8 @@ export const ar = {
     },
     account: {
       signIn: "تسجيل الدخول", signInDesc: "مزامنة تفضيلاتك وسجل مشاهدتك.",
-      continueAsGuest: "المتابعة كضيف", name: "اسمك", email: "البريد الإلكتروني",
       signedOut: "غير مسجّل الدخول", signedInAs: "مسجّل الدخول باسم {name}", signOut: "تسجيل الخروج",
-      welcomeBack: "مرحبًا بعودتك {name}", signedInToast: "مرحبًا بعودتك، {name}!",
+      welcomeBack: "مرحبًا بعودتك {name}",
     },
     appearance: {
       theme: "السمة", themeDesc: "اختر مظهر التطبيق.",

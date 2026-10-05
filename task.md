@@ -4616,3 +4616,134 @@ dead rows, and `milkyway` -> `meow` was an upstream server-list change, not our 
         with no framer, no CSS transition and no `AnimatePresence`.
   - [ ] Publish PRESS scale tokens and reconcile the eight different hover/press
         scales (buttons.css, Button.jsx, Chip.jsx, grids.css, hero.css).
+
+
+## EMAIL AUTH — verified email sign-up replaces Google (2026-10-05)
+
+A product decision, not a refactor: sign-up, sign-in and account identity are
+now **email + password only**, with a verified link. Google sign-in, its UI, its
+serverless verify path and its already-synced data are gone.
+
+- [x] **Server primitives**
+  - [x] `server/passwords.js` — scrypt (N=16384, r=8, p=1, 16-byte salt) plus a
+        peppered HMAC, so a leaked database alone cannot be checked offline;
+        length policy; malformed-hash hardening that still burns a comparison so
+        timing does not report which hash it got.
+  - [x] `server/verifyToken.js` — HMAC-SHA256, domain-separated, 24h expiry. The
+        token carries email + name + passwordHash, which is why the unique email
+        index makes it single-use for free.
+  - [x] `server/mailer.js` — lazy Nodemailer transport, Gmail App-Password
+        whitespace handling, verification + welcome senders.
+  - [x] `server/templates.js` — responsive inline-CSS verification and welcome
+        emails; every interpolated URL passes a safeUrl allowlist.
+  - [x] `server/users.js` — normalized email, unique index, `toPublicUser`,
+        `toPublicLibrary` (the only shape of a userData doc that leaves the
+        server), `ensureUserDataDoc`.
+- [x] **Endpoints**: `api/register.js` (writes NOTHING — validates, checks the
+      address is unused, mails the link), `api/verifyEmail.js` (**POST-only**),
+      `api/login.js` (identical 401 for unknown address and wrong password, and
+      a burned comparison either way).
+- [x] **Identity rename**: googleId -> accountId (= the Mongo _id) across
+      `api/sync.js`, `server/syncToken.js` (no more Google-secret fallback) and
+      every client request. `server/syncToken.js` now requires `SYNC_SECRET`.
+- [x] **GET must not verify.** Email clients and corporate scanners prefetch
+      URLs; a GET that completed verification would burn the token before the
+      person saw it. Hence the button page, and the CORS preflight no longer
+      advertises GET.
+- [x] **Env**: gitignored `.env` with the supplied Gmail credentials and
+      generated secrets; `.env.example` documents SMTP_*, SITE_URL, VERIFY_SECRET
+      and SYNC_SECRET, and drops the Google vars.
+- [x] **`src/context/AuthContext.jsx`** rewritten around `registerAccount`,
+      `completeEmailVerification`, `loginWithEmail`, `signOut`, `accountId`.
+- [x] **START-CLEAN rule** — the real bug in this feature, and the one worth
+      having caught. The library lives in one set of localStorage keys shared by
+      everyone on the device, so `adoptSession` compares the account that was
+      signed in a moment ago with the incoming one: same account => keep local
+      and merge the cloud; different account or none => **discard**
+      `aios_my_list` / `aios_continue_watching` / `aios_my_collections` first.
+      Without the discard, the sync scheduled right after `setUser` uploads a
+      stranger's watchlist under the new accountId — and from the UI that leak is
+      indistinguishable from a normal sync. Search history survives (it never
+      leaves the device); device preferences survive (a theme that followed its
+      owner is a feature).
+- [x] **The gate** — `requireAuth(reason)` plus a `GATED_MUTATIONS` map in
+      `AuthProvider`, wrapped once and spread LAST so it wins over the raw
+      hooks. Gated: `toggleMyList`, `removeBatchFromMyList`, all ten collection
+      mutations, `removeFromContinueWatching`, `removeBatchFromContinueWatching`,
+      `clearContinueWatching`.
+  - [x] **Not gated, on purpose:** `updateProgress` from the player's
+        `onProgressChange` — gating it costs an anonymous viewer their place in a
+        film every time they close the tab — and `addSearch`, which fires from an
+        effect on every search.
+  - [x] `handleMarkWatched` / `setEpisodeWatched` / `markSeasonWatched` in
+        `TitleDetailsPage` call `requireAuth("gateWatched")` themselves, because a
+        deliberate "mark as watched" arrives at `updateProgress` looking exactly
+        like a progress tick and the data layer cannot tell them apart.
+  - [x] A refused gated mutator returns `false` (not the hooks' `undefined`),
+        and **every caller checks it.** `false` only helps if the caller acts on
+        it, so the audit ran past the one surface already fixed: `MovieCard` (the
+        most-reached gated action in the product — it toasted AND fired its
+        "added to your list" notification for a save that never happened),
+        `WatchlistPage`'s six collection handlers and both batch deletions, and
+        `HistoryPage`'s clear/remove/batch-remove. A refused batch delete also no
+        longer exits select mode as if it had worked.
+- [x] **`src/components/auth/SignInDialog.jsx`** — one dialog, mounted by
+      `AuthProvider` behind `AnimatePresence` and keyed by mode+reason so every
+      open starts from a blank form. Carries the modal hygiene that used to live
+      in SettingsPage (scroll lock, focus in, Tab trap, Escape, focus back) —
+      and releases scroll lock and restores focus in `requestClose`, not in the
+      unmount cleanup, because AnimatePresence keeps the panel mounted through
+      its exit fade. Backdrop dismisses on `onMouseDown` so a drag starting
+      inside the panel cannot close it.
+- [x] **`src/pages/VerifyEmailPage.jsx`** + `/verify-email` route, deliberately
+      NOT lazy (a second Suspense flash before "Confirm my email" is pure
+      latency). States: idle / working / success / expired (410) / already (409) /
+      invalid / no token, each with a way forward.
+  - [x] **The page must not verify itself.** The first cut had no button at all
+        and fired the POST from a mount effect — precisely the failure the design
+        exists to prevent: a scanner that executes JS spends the token and the
+        recipient is left holding a dead link. `idle` now renders a Confirm
+        button and `verify()` is reachable only from that click (plus a
+        `startedRef` guard, so even a triple-click cannot double-spend).
+- [x] **Google removed outright**: `api/auth.js`, `server/googleVerify.js`,
+      `src/utils/googleAuth.js`, `GoogleSignInButton.jsx` and its test deleted;
+      SettingsPage's private login modal (tabs, guest form, Google button)
+      deleted in favour of `openSignIn()`; `vercel.json` + `vite.config.js` route
+      lists and the CSP (accounts.google.com, oauth2.googleapis.com) cleaned;
+      googleId fixtures across tests renamed to accountId.
+  - [x] **A stale googleId profile is treated as NO ACCOUNT**, not as a
+        session. Honoured, it would pass the gate and then fail every sync (no
+        matching token) while looking signed in. Legacy Google cloud documents
+        are not migrated — the user accepted that loss.
+- [x] SettingsPage's account row now keys off `hasAccount`, not `user`, for the
+        same reason: a leftover profile must still offer a way to SIGN IN. The
+        delete-cloud-data row was gated on `provider === "google"` — a value no
+        account can have any more — so it was unreachable for every real user.
+  - [x] `src/constants/settings.js` had `"...continue with google"` in the
+        account search haystack: a Settings filter pointing at a feature that no
+        longer exists. Replaced with the email wording, pinned both ways
+        (google => no match, verified => finds Account) in
+        `SettingsPage.test.jsx`.
+- [x] **Docs kept truthful in the same change**: `architecture.md` (auth trust
+      path, start-clean rule, gate scope, rate limits, SERVER/ module list),
+      `prd.md` (accounts exist; the "no backend / no user accounts" non-goals
+      were false), `README.md` (env vars, structure, data flow).
+- [x] Tests: `auth.test.jsx` rewritten (8 cases, including both halves of the
+      start-clean rule and the stale-Google profile), `TitleInfoModal.test.jsx`
+      gains a signed-out refusal case, `motion.test.js` now polices
+      `SignInDialog` instead of the deleted SettingsPage panel, server suites
+      (passwords 13, verifyToken 11, emailTemplates 15, emailAuthHandlers 27).
+  - [x] **New: `VerifyEmailPage.test.jsx` (7 cases).** Every one restates the
+        same invariant — no POST without a click — plus the 410/409/other mapping
+        and the double-spend guard. Without it the auto-verify regression above
+        would have shipped silently.
+  - [x] **New: `MovieCard.gate.test.jsx` (2 cases).** Pins that a refused toggle
+        produces neither a toast nor a notification, and that a real session
+        still writes and announces.
+- [x] Gates: oxlint 0 errors (44 baseline warnings, none in the new files),
+      vitest **79 files / 1007 passed**, build OK.
+- [ ] **NOT verified**: no browser here, so the dialog and /verify-email page
+      have never been seen rendered, and no live SMTP/Mongo round-trip has run
+      (local `.env` has the mail credentials; `MONGODB_URI` is assumed from the
+      deployment). Before shipping, set SMTP_* / SITE_URL / VERIFY_SECRET /
+      SYNC_SECRET in Vercel and walk the whole flow once by hand.

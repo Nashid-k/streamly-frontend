@@ -2,14 +2,13 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createHmac } from "node:crypto";
 import { signSyncToken, verifySyncToken, SYNC_TOKEN_TTL_MS } from "../../server/syncToken.js";
 
-const ORIGINAL_SECRET = process.env.SYNC_SECRET || process.env.GOOGLE_CLIENT_SECRET || "";
+const ORIGINAL_SECRET = process.env.SYNC_SECRET || "";
 
 afterEach(() => {
   if (ORIGINAL_SECRET) {
     process.env.SYNC_SECRET = ORIGINAL_SECRET;
   } else {
     delete process.env.SYNC_SECRET;
-    delete process.env.GOOGLE_CLIENT_SECRET;
   }
 });
 
@@ -33,7 +32,7 @@ describe("syncToken expiry", () => {
     expect(verifySyncToken("user-9", expired)).toBe(false);
   });
 
-  it("rejects tokens whose subject doesn't match the accessed googleId", () => {
+  it("rejects tokens whose subject doesn't match the accessed accountId", () => {
     process.env.SYNC_SECRET = "k";
     const token = signSyncToken("user-A");
     expect(verifySyncToken("user-B", token)).toBe(false);
@@ -47,7 +46,6 @@ describe("syncToken expiry", () => {
 
   it("returns null token and false verification when no secret is configured", () => {
     delete process.env.SYNC_SECRET;
-    delete process.env.GOOGLE_CLIENT_SECRET;
     expect(signSyncToken("user-1")).toBeNull();
     expect(verifySyncToken("user-1", "x.1.y")).toBe(false);
   });

@@ -1,14 +1,18 @@
 // api/sync.js — Cloud synchronization endpoint for user library and preferences to MongoDB.
 //
 // Only verified identities may read/write: every request must present an
-// `Authorization: Bearer <token>` issued by /api/auth for the googleId being
-// accessed (see server/syncToken.js). Guests never call this endpoint — the
+// `Authorization: Bearer <token>` issued by /api/verifyEmail or /api/login for
+// the accountId being accessed (see server/syncToken.js). Guests never call
+// this endpoint — the
 // client keeps guest state in localStorage only. Payloads are capped so a
 // bad actor can't bloat the shared 'streamly' collection.
 //
 // DELETE supports the account-deletion flow: it wipes the caller's own
 // userData document (library + preferences + collections) and the profile
 // row in `users`. Requires the same bearer token as GET/POST.
+//
+// The subject key is `accountId` (the Mongo `_id` of the verified account),
+// not a provider-specific id: email accounts are the only kind that exist now.
 //
 // Collections are SANITIZED server-side: the public Explore surface renders
 // `name` for every visitor, so a hostile payload (`name: {...}`) would crash
@@ -63,7 +67,7 @@ function asVisibility(value) {
 }
 
 // Flatten any incoming collection record to the whitelisted storage shape.
-// Unknown fields (googleId injections, functions, nested objects) are dropped.
+// Unknown fields (accountId injections, functions, nested objects) are dropped.
 // Records that survive still count toward MAX_COLLECTIONS; garbage entries
 // become empty-but-valid collections rather than crashing the public surface.
 function sanitizeCollections(raw) {
@@ -131,7 +135,7 @@ export default withLog(async function handler(req, res) {
     if (!isSyncEnabled()) {
       res
         .status(503)
-        .json({ success: false, message: 'Cloud sync is not configured (SYNC_SECRET or GOOGLE_CLIENT_SECRET missing).' });
+        .json({ success: false, message: 'Cloud sync is not configured (SYNC_SECRET missing).' });
       return;
     }
 
@@ -143,22 +147,22 @@ export default withLog(async function handler(req, res) {
         body = {};
       }
     }
-    const { googleId } = req.method === 'POST' ? body : (req.query || {});
+    const accountId = req.method === 'POST' ? body.accountId : (req.query || {}).accountId;
 
-    if (!googleId || typeof googleId !== 'string' || googleId.length > 128) {
-      res.status(400).json({ success: false, message: 'googleId is required.' });
+    if (!accountId || typeof accountId !== 'string' || accountId.length > 128) {
+      res.status(400).json({ success: false, message: 'accountId is required.' });
       return;
     }
 
     const token = bearerToken(req);
-    if (!verifySyncToken(googleId, token)) {
-      res.status(401).json({ success: false, message: 'Missing or invalid sync token for this googleId.' });
+    if (!verifySyncToken(accountId, token)) {
+      res.status(401).json({ success: false, message: 'Missing or invalid sync token for this account.' });
       return;
     }
 
     const { db } = await connectToDatabase();
     const userDataCol = db.collection('userData');
-    const filter = { googleId };
+    const filter = { accountId };
 
     if (req.method === 'POST') {
       if (typeof req.body === 'string' && req.body.length > MAX_BODY_BYTES) {
@@ -167,7 +171,7 @@ export default withLog(async function handler(req, res) {
       }
 
       const { watchlist, watchHistory, preferences, collections } = body;
-      const updateDoc = { $set: { googleId, updatedAt: new Date() } };
+      const updateDoc = { $set: { accountId, updatedAt: new Date() } };
 
       const cleanWatchlist = sanitizeList(watchlist, MAX_WATCHLIST);
       if (cleanWatchlist !== null) updateDoc.$set.watchlist = cleanWatchlist;
@@ -221,7 +225,7 @@ export default withLog(async function handler(req, res) {
       // Wipe the caller's own cloud data: library doc first, profile row after.
       await userDataCol.deleteOne(filter);
       try {
-        await db.collection('users').deleteOne({ googleId });
+        await db.collection('users').deleteOne({ _id: accountId });
       } catch {
         // The profile row is secondary — library wipe is the privacy-critical part.
       }
