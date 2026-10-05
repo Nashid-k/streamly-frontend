@@ -838,7 +838,7 @@ export default function TitleDetails() {
    guess at the header height that cropped the artwork and shoved the title up
    into the back button. */
   return (
-    <div ref={pageRef} className="relative min-h-screen font-sans overflow-x-hidden pb-24 bg-[#050505] w-[100vw] ml-[calc(50%-50vw)]">
+    <div ref={pageRef} className="relative min-h-screen font-sans overflow-x-hidden pb-24 bg-[#050505] w-[100vw] ml-[calc(50%-50vw)] page-fade-bottom">
       <SEO
         title={movie.title}
         description={movie.description}

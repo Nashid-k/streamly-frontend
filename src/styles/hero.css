@@ -263,6 +263,38 @@
   }
 }
 
+/* ── Bottom-edge seam hider ──────────────────────────────────────────────
+   Applies to the page root (.page-fade-bottom): a tall blurred gradient that
+   stretches below the content floor, so whichever background image the ambient
+   layer is showing can never read through as a hard horizontal line at the
+   bottom of the watch/details page. Works for any backdrop — the gradient is
+   always #050505 at the seam. */
+.page-fade-bottom {
+  position: relative;
+}
+.page-fade-bottom::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 16vh;
+  pointer-events: none;
+  z-index: 2;
+  background: linear-gradient(
+    to top,
+    rgba(5, 5, 5, 0.98) 0%,
+    rgba(5, 5, 5, 0.92) 12%,
+    rgba(5, 5, 5, 0.76) 26%,
+    rgba(5, 5, 5, 0.52) 42%,
+    rgba(5, 5, 5, 0.22) 58%,
+    transparent 76%
+  );
+  /* No backdrop-filter on this masked element: the page root itself is not
+     masked, but a strong blur on a full-width pseudo-element at the viewport
+     edge still risks a compositor-boundary artifact. The gradual gradient
+     stops alone melt the seam for any background image. */
+}
+
 /* ── Apple-variant content panel ── */
 .hero-content--apple {
   padding-bottom: 3.5rem !important;
