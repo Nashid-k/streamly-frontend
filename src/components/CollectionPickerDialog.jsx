@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { AnimatePresence, motion } from "framer-motion";
+import { FADE, MODAL_PANEL } from "../constants/motion";
 import { Check, Globe, Lock, Plus, X } from "lucide-react";
 import { useI18n } from "../i18n";
 
@@ -26,8 +28,6 @@ function CollectionPickerDialog({ open, movie, collections, onToggle, onCreateWi
     }
   }, [open]);
 
-  if (!open || !movie) return null;
-
   const submitCreate = (e) => {
     e.preventDefault();
     if (!createName.trim()) return;
@@ -40,15 +40,36 @@ function CollectionPickerDialog({ open, movie, collections, onToggle, onCreateWi
   // Portaled to <body>: the app wraps every page in a motion.div that keeps a
   // transform on it, which would otherwise break `position: fixed` and push the
   // centered dialog down into the page (forced scrolling to reach it).
+  //
+  // AnimatePresence sits INSIDE the portal and keys off `open`, so the dialog
+  // plays its exit before leaving the tree. The old `return null` on close
+  // removed the node outright and the dialog popped in and out with no motion.
+  // The backdrop centres with flexbox, so MODAL_PANEL's scale/y is free to
+  // animate without fighting a translate() the way the desktop modal-container
+  // would.
   return createPortal(
-    <div className="collection-dialog-backdrop" role="presentation" onClick={onClose}>
-      <div
-        className="collection-dialog collection-dialog--wide"
-        role="dialog"
-        aria-modal="true"
-        aria-label={`Add "${movie.title}" to a collection`}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <AnimatePresence>
+      {open && movie && (
+        <motion.div
+          className="collection-dialog-backdrop"
+          role="presentation"
+          onClick={onClose}
+          initial={FADE.initial}
+          animate={FADE.animate}
+          exit={FADE.exit}
+          transition={FADE.transition}
+        >
+          <motion.div
+            className="collection-dialog collection-dialog--wide"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Add "${movie.title}" to a collection`}
+            onClick={(e) => e.stopPropagation()}
+            initial={MODAL_PANEL.initial}
+            animate={MODAL_PANEL.animate}
+            exit={MODAL_PANEL.exit}
+            transition={MODAL_PANEL.transition}
+          >
         <div className="collection-dialog__header">
           <h2 className="collection-dialog__title">Add to collection</h2>
           <button
@@ -150,8 +171,10 @@ function CollectionPickerDialog({ open, movie, collections, onToggle, onCreateWi
             </button>
           )}
         </form>
-      </div>
-    </div>,
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>,
     document.body
   );
 }

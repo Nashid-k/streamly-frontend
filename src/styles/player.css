@@ -206,7 +206,7 @@
   inset: -8px;
 }
 .search-panel__clear:active {
-  transform: translateY(-50%) scale(0.92);
+  transform: translateY(-50%) scale(var(--press-scale-icon));
 }
 
 /* Search history pills & heading buttons touch targets on mobile */
@@ -268,8 +268,8 @@
     width: 2.65rem !important;
     height: 2.65rem !important;
   }
-  .video-modal-back-button:active {
-    transform: scale(0.92);
+.video-modal-back-button:active {
+  transform: scale(var(--press-scale-icon));
   }
 }
 
@@ -309,7 +309,7 @@
   border-radius: 50%;
   background: #fff;
   margin-top: -4.5px;
-  transition: transform 0.15s;
+  transition: transform var(--zxc-t-instant) var(--zxc-ease);
 }
 .np-volume-slider:hover::-webkit-slider-thumb {
   transform: scale(1.25);
@@ -331,7 +331,8 @@
 /* Transport icon buttons — subtle scale on active */
 .np-icon-btn {
   position: relative;
-  transition: transform 0.1s ease, color 0.15s ease;
+  transition: transform var(--zxc-t-instant) var(--zxc-ease),
+    color var(--zxc-t-fast) var(--zxc-ease);
 }
 /* Material backdrop: a soft disc that blooms under the glyph on hover/focus.
    The player chrome sits on live video, so an unbacked white glyph disappears
@@ -344,7 +345,8 @@
   background: rgba(255, 255, 255, 0.14);
   opacity: 0;
   transform: scale(0.72);
-  transition: opacity 0.18s var(--ease-out), transform 0.18s var(--ease-out);
+  transition: opacity var(--zxc-t-fast) var(--zxc-ease),
+    transform var(--zxc-t-fast) var(--zxc-ease);
   pointer-events: none;
 }
 .np-icon-btn:hover:not(:disabled)::before,
@@ -356,11 +358,11 @@
   transform: scale(1.1);
 }
 .np-icon-btn:active:not(:disabled) {
-  transform: scale(0.95);
+  transform: scale(var(--press-scale-icon));
 }
 .np-icon-btn > svg {
   position: relative;
-  transition: transform 0.18s var(--ease-out);
+  transition: transform var(--zxc-t-fast) var(--zxc-ease);
 }
 .np-icon-btn:hover:not(:disabled) > svg {
   transform: scale(1.06);
@@ -384,7 +386,7 @@
 /* Scrubber: the bar grows a hair and the knob ring blooms on hover/focus/drag. */
 .np-scrub {
   border-radius: 999px;
-  transition: transform 0.18s var(--ease-out);
+  transition: transform var(--zxc-t-fast) var(--zxc-ease);
 }
 .np-scrub:hover,
 .np-scrub:focus-visible {
@@ -393,8 +395,9 @@
 
 /* Skip Intro pill hover */
 .np-skip-intro {
-  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s var(--ease-out),
-    box-shadow 0.18s ease;
+  transition: background var(--zxc-t-fast) var(--zxc-ease),
+    border-color var(--zxc-t-fast) var(--zxc-ease), transform var(--zxc-t-fast) var(--zxc-ease),
+    box-shadow var(--zxc-t-fast) var(--zxc-ease);
 }
 .np-skip-intro:hover {
   background: rgba(0, 0, 0, 0.9) !important;
@@ -403,12 +406,13 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
 }
 .np-skip-intro:active {
-  transform: translateY(0) scale(0.97);
+  transform: translateY(0) scale(var(--press-scale));
 }
 
 /* Resume / restart button hover */
 .np-resume-btn {
-  transition: transform 0.18s var(--ease-out), box-shadow 0.18s ease, filter 0.18s ease;
+  transition: transform var(--zxc-t-fast) var(--zxc-ease), box-shadow var(--zxc-t-fast) var(--zxc-ease),
+    filter var(--zxc-t-fast) var(--zxc-ease);
 }
 .np-resume-btn:hover {
   filter: brightness(0.92);
@@ -416,10 +420,11 @@
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
 }
 .np-resume-btn:active {
-  transform: translateY(0) scale(0.98);
+  transform: translateY(0) scale(var(--press-scale));
 }
 .np-restart-btn {
-  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+  transition: background var(--zxc-t-fast) var(--zxc-ease),
+    border-color var(--zxc-t-fast) var(--zxc-ease), color var(--zxc-t-fast) var(--zxc-ease);
 }
 .np-restart-btn:hover {
   background: rgba(255, 255, 255, 0.1) !important;
@@ -427,19 +432,24 @@
   color: #fff !important;
 }
 .np-restart-btn:active {
-  transform: scale(0.97);
+  transform: scale(var(--press-scale));
 }
 
-/* Panel dialog rows — CSS hover for clean interaction */
+/* Panel dialog rows — CSS hover for clean interaction.
+   NOTE: the `:active` scale below is superseded further down by the zinc-glass
+   block (same selector, later in the file), which uses --press-scale-row. Both
+   are kept for now: deleting either changes rendered geometry and there is no
+   browser here to verify the result. Recorded in task.md as a follow-up. */
 .np-dialog-row {
-  transition: background 0.12s ease, color 0.12s ease, padding 0.18s var(--ease-out);
+  transition: background var(--zxc-t-instant) var(--zxc-ease), color var(--zxc-t-instant) var(--zxc-ease),
+    padding var(--zxc-t-fast) var(--zxc-ease);
 }
 .np-dialog-row:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.07) !important;
 }
 .np-dialog-row:active:not(:disabled) {
   background: rgba(255, 255, 255, 0.04) !important;
-  transform: scale(0.995);
+  transform: scale(var(--press-scale-row));
 }
 
 /* Panel inner scroll scrollbar */
@@ -457,7 +467,8 @@
 
 /* Episode card in the rail — lift + ring on hover/focus. */
 .np-episode-card {
-  transition: transform 0.2s var(--ease-out), box-shadow 0.2s ease, outline-color 0.2s ease;
+  transition: transform var(--zxc-t-fast) var(--zxc-ease),
+    box-shadow var(--zxc-t-fast) var(--zxc-ease), outline-color var(--zxc-t-fast) var(--zxc-ease);
 }
 .np-episode-card:hover,
 .np-episode-card:focus-visible {
@@ -478,7 +489,8 @@
 .np-subtitle {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transition: opacity 0.14s ease, transform 0.14s var(--ease-out);
+  transition: opacity var(--zxc-t-instant) var(--zxc-ease),
+    transform var(--zxc-t-instant) var(--zxc-ease);
 }
 .np-subtitle span {
   background: rgba(0, 0, 0, 0.42);
@@ -584,6 +596,7 @@
      150/300/500ms next to tokens.css's 150/250/400 and motion.js's
      180/280/450, so "fast" meant three different things. These now resolve to
      the single scale in tokens.css. */
+  --zxc-t-instant: var(--duration-instant);
   --zxc-t-fast: var(--duration-fast);
   --zxc-t-med: var(--duration-normal);
   --zxc-t-slow: var(--duration-slow);
@@ -637,7 +650,7 @@
   background: var(--zxc-surface-2);
 }
 .np-dialog-row:active:not(:disabled) {
-  transform: scale(0.99);
+  transform: scale(var(--press-scale-row));
 }
 
 /* Panel surface: zinc glass sheet, hairline left border */

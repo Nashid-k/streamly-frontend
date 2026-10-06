@@ -56,9 +56,9 @@
   box-shadow: var(--btn-shadow-hover, 0 14px 36px rgba(0, 0, 0, 0.5));
 }
 .btn-primary:active {
-  transform: translateY(1px) scale(0.97);
+  transform: translateY(1px) scale(var(--press-scale));
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-  transition-duration: 0.1s;
+  transition-duration: var(--duration-instant);
 }
 
 /* ── Secondary Button — Cinejoy `.theme-btn-secondary` white/10 glass ── */

@@ -119,15 +119,35 @@
   /* ── Transitions ───────────────────────────────────────── */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
-  /* The app's one duration scale. These mirror DURATION in
-     src/constants/motion.js (normal/slow are identical); `fast` is 200ms
-     rather than 180ms because the CSS micro-interactions it covers (hover,
-     focus, colour shifts) are authored at 0.2s throughout the stylesheets, and
-     the token has to match the code it names. player.css's --zxc-t-* alias
-     these instead of redeclaring a third scale. */
+  /* The app's one duration scale. `instant` sits below `fast` for the snappier
+     rung: press feedback and colour shifts on an already-animating control,
+     where the standard hover duration reads as lag on the first frame. It is
+     CSS-only (nothing in motion.js tweens this fast) because it exists to give
+     the ~150ms literals in player.css a name instead of a magic number.
+     `fast` is 200ms rather than motion.js's FAST=0.18s because the CSS
+     micro-interactions it covers (hover, focus, colour shifts) are authored at
+     0.2s throughout the stylesheets, and the token has to match the code it
+     names. player.css's --zxc-t-* alias these instead of redeclaring a scale. */
+  --duration-instant: 120ms;
   --duration-fast: 200ms;
   --duration-normal: 280ms;
   --duration-slow: 450ms;
+
+  /* Press feedback: how far a surface sinks while held. Three tiers, because
+     the depth has to match the target's size — an icon button reads as a
+     button because it moves, while a full-width menu row that shrank as hard
+     as an icon would make its own label jitter. The tiers reconcile six
+     literals that disagreed: --press-scale-icon is unchanged for .np-icon-btn
+     (0.95) and lifts the two stray icon buttons from 0.92 (.search-panel__clear,
+     .video-modal-back-button); --press-scale-row is unchanged (0.99); and
+     --press-scale drops .np-resume-btn from 0.98 to the 0.97 its sibling pills
+     (.np-skip-intro, .np-restart-btn, .btn-primary) already used, so all four
+     buttons now sink by the same amount. .card-quick-list and
+     .hero-circle-btn keep their own 0.92: there the whole card collapses, which
+     is a different affordance from a button press. */
+  --press-scale-icon: 0.95;
+  --press-scale: 0.97;
+  --press-scale-row: 0.99;
 
   /* ── Safe Area Insets ───────────────────────────────────── */
   --sat: env(safe-area-inset-top, 0px);

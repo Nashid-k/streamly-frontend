@@ -1,6 +1,17 @@
 import { memo } from "react";
+import { useReducedMotion } from "framer-motion";
+
+/* The progress ring eases its dash offset between values. That transition used
+   to be a hardcoded inline string, which means a CSS
+   `@media (prefers-reduced-motion: reduce)` block could never reach it — an
+   inline style beats any stylesheet rule — so this ring animated for viewers
+   who asked for stillness. It is now resolved through the viewer's preference
+   instead, the same way the rest of the player honours it. */
+const DASH_TRANSITION = "stroke-dashoffset 0.25s cubic-bezier(0.4, 0, 0.2, 1)";
 
 const ArcRing = memo(({ progress = 0, size = 48, strokeWidth = 3, color = "#fff", bgColor = "rgba(255,255,255,0.08)", glowColor, children, className, responsive }) => {
+  const reduced = useReducedMotion();
+  const dash = reduced ? undefined : DASH_TRANSITION;
   const r = (size - strokeWidth) / 2;
   const circ = 2 * Math.PI * r;
   const offset = circ * (1 - Math.max(0, Math.min(progress, 1)));
@@ -14,7 +25,7 @@ const ArcRing = memo(({ progress = 0, size = 48, strokeWidth = 3, color = "#fff"
           strokeLinecap="round"
           strokeDasharray={circ}
           strokeDashoffset={offset}
-          style={{ stroke: color, transition: "stroke-dashoffset 0.25s cubic-bezier(0.4, 0, 0.2, 1)" }}
+          style={{ stroke: color, transition: dash }}
         />
       </svg>
       {glowColor && (
@@ -26,7 +37,7 @@ const ArcRing = memo(({ progress = 0, size = 48, strokeWidth = 3, color = "#fff"
             strokeLinecap="round"
             strokeDasharray={circ}
             strokeDashoffset={offset}
-            style={{ stroke: glowColor, transition: "stroke-dashoffset 0.25s cubic-bezier(0.4, 0, 0.2, 1)" }}
+            style={{ stroke: glowColor, transition: dash }}
           />
         </svg>
       )}

@@ -1,7 +1,15 @@
 import { memo } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
+
+/* See ArcRing: this dash transition was an inline string, so no
+   `prefers-reduced-motion` block could ever reach it. */
+const DASH_TRANSITION = "stroke-dashoffset 1s cubic-bezier(0.16, 1, 0.3, 1)";
+/* One full turn of the sweep. A rotation period, not an interaction duration,
+   so it stays a local constant rather than borrowing the --duration-* scale. */
+const SPIN_PERIOD_S = 1.1;
 
 const LoadingArc = memo(({ size = 56, strokeWidth = 2.5, progress = 0 }) => {
+  const reduced = useReducedMotion();
   const r = (size - strokeWidth) / 2;
   const circ = 2 * Math.PI * r;
   return (
@@ -12,11 +20,14 @@ const LoadingArc = memo(({ size = 56, strokeWidth = 2.5, progress = 0 }) => {
           fill="none" stroke="rgba(229,9,20,0.18)" strokeWidth={strokeWidth}
         />
       </svg>
+      {/* Under reduced motion the sweep freezes instead of spinning forever,
+          and dims to 40% so a still ring reads as "loading, held" rather than
+          as a paused player. Same treatment the CSS gives .np-tailspin. */}
       <motion.svg
         width={size} height={size}
-        style={{ position: "absolute", inset: 0 }}
-        animate={{ rotate: 360 }}
-        transition={{ repeat: Infinity, duration: 1.1, ease: "linear" }}
+        style={{ position: "absolute", inset: 0, opacity: reduced ? 0.4 : 1 }}
+        animate={reduced ? undefined : { rotate: 360 }}
+        transition={{ repeat: Infinity, duration: SPIN_PERIOD_S, ease: "linear" }}
       >
         <defs>
           <linearGradient id="loadArcGrad" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -46,7 +57,7 @@ const LoadingArc = memo(({ size = 56, strokeWidth = 2.5, progress = 0 }) => {
             strokeDasharray={2 * Math.PI * (r - strokeWidth * 2)}
             strokeDashoffset={2 * Math.PI * (r - strokeWidth * 2) * (1 - progress)}
             strokeLinecap="round"
-            style={{ transition: "stroke-dashoffset 1s cubic-bezier(0.16, 1, 0.3, 1)" }}
+            style={{ transition: reduced ? undefined : DASH_TRANSITION }}
             transform={`rotate(-90 ${size/2} ${size/2})`}
           />
         </svg>

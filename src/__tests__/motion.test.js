@@ -242,3 +242,146 @@ describe("motion contract is actually enforced", () => {
     expect(reduced).toMatch(/\.np-upnext-countdown\s*\{\s*animation:\s*none\s*!important/);
   });
 });
+
+describe("player stylesheet speaks the token scale", () => {
+  const playerCss = readFileSync(join(process.cwd(), "src", "styles", "player.css"), "utf8");
+  const tokensCss = readFileSync(join(process.cwd(), "src", "styles", "tokens.css"), "utf8");
+  // Declarations only: a duration mentioned inside a comment is documentation,
+  // not a fourth scale, and flagging those would just teach people to stop
+  // writing explanatory comments.
+  const declarations = playerCss
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|\s)(\/\/[^\n]*)/g, "$1");
+
+  it("keeps the player interactions off hardcoded durations", () => {
+    // The sweep replaced every interaction literal with the shared scale. What
+    // is left is the Tailspin loader's own period, which is a rotation speed
+    // passed in as --uib-speed rather than a transition duration, so it is
+    // allowed to keep its own default.
+    const survivors = [
+      ...declarations.matchAll(/transition(?:-duration)?:[^;]*?\b(\d*\.?\d+)s\b/g),
+      ...declarations.matchAll(/animation:[^;]*?\b(\d*\.?\d+)s\b/g),
+    ]
+      .map((m) => m[0])
+      .filter((line) => !line.includes("--uib-speed"));
+    expect(survivors, `Untokenised durations left in player.css:\n${survivors.join("\n")}`).toEqual([]);
+  });
+
+  it("uses no bare `ease` keyword, only the shared easing", () => {
+    // `ease` is cubic-bezier(0.25, 0.1, 0.25, 1) and --ease-out is
+    // cubic-bezier(0.16, 1, 0.3, 1): same intent, different curve, and a
+    // player whose button hovers decelerate differently from its scrub bar is
+    // exactly the inconsistency the tokens exist to prevent.
+    const bare = [...declarations.matchAll(/(?<![\w-])ease(?![\w-])/g)].filter((m) => {
+      const line = declarations.slice(0, m.index).split("\n").pop();
+      return /transition|animation/.test(line);
+    });
+    expect(bare.length, "Bare `ease` in a player transition; use var(--zxc-ease)").toBe(0);
+  });
+
+  it("publishes a press scale per target size and uses them in the player", () => {
+    // Three tiers, because press depth has to match the target: an icon button
+    // reads as a button because it moves, a full-width row must barely move.
+    expect(tokensCss).toMatch(/--press-scale-icon:\s*0\.9\d+/);
+    expect(tokensCss).toMatch(/--press-scale:\s*0\.9\d+/);
+    expect(tokensCss).toMatch(/--press-scale-row:\s*0\.9\d+/);
+    expect(playerCss).toMatch(/var\(--press-scale-icon\)/);
+    expect(playerCss).toMatch(/var\(--press-scale\)/);
+    expect(playerCss).toMatch(/var\(--press-scale-row\)/);
+    // No bare press scale may survive: every `:active` scale in the player is a
+    // tier now. (0.92 does still appear elsewhere in the file, on the two
+    // whole-card collapses in grids.css / hero.css, which are not press tiers.)
+    const remaining = [...playerCss.matchAll(/:active[^{]*\{[^}]*scale\((\d*\.?\d+)\)/g)]
+      .map((m) => m[1])
+      .filter((v) => v !== "var");
+    expect(remaining, `Un-tokenised press scales: ${remaining.join(", ")}`).toEqual([]);
+  });
+});
+
+describe("every modal takes the shared shapes", () => {
+  /* These three mounted and unmounted instantly: each returned null the moment
+     its `open` prop went false, so there was no node left for AnimatePresence
+     to animate out. AccountMenu is deliberately NOT in this list — it looks
+     motionless in a grep because its framer usage lives one file away, in
+     Popover, which already animates on SPRING.POPOVER. */
+  const COLLECTION_DIALOGS = [
+    join(process.cwd(), "src", "components", "CollectionPickerDialog.jsx"),
+    join(process.cwd(), "src", "components", "overlays", "AddTitlesDialog.jsx"),
+    join(process.cwd(), "src", "components", "overlays", "CollectionNameDialog.jsx"),
+  ];
+
+  it("finds all three collection dialogs", () => {
+    expect(COLLECTION_DIALOGS.length).toBe(3);
+    for (const f of COLLECTION_DIALOGS) expect(readFileSync(f, "utf8")).toBeTruthy();
+  });
+
+  it("takes MODAL_PANEL and FADE from the token file", () => {
+    for (const file of COLLECTION_DIALOGS) {
+      const src = readFileSync(file, "utf8");
+      expect(src, file).toMatch(/import \{[^}]*MODAL_PANEL[^}]*\} from "(?:\.\.\/)+constants\/motion"/);
+      expect(src, file).toMatch(/transition=\{MODAL_PANEL\.transition\}/);
+      expect(src, file).toMatch(/transition=\{FADE\.transition\}/);
+      expect(src, file).toMatch(/<AnimatePresence>/);
+    }
+  });
+
+  it("stays mounted while closing so the exit can actually play", () => {
+    // The subtle half of the fix: wrapping in AnimatePresence is worthless if
+    // the component still returns null first. Each of these used to.
+    for (const file of COLLECTION_DIALOGS) {
+      const src = readFileSync(file, "utf8");
+      expect(src, `${file} still bails out before AnimatePresence`).not.toMatch(
+        /if \(!open[^)]*\) return null;/
+      );
+      // The guarded branch inside AnimatePresence: `{open && (` for the two
+      // plain dialogs, `{open && movie &&` for the picker, which also needs the
+      // movie before it can render a title.
+      expect(src, file).toMatch(/<AnimatePresence>[\s\S]{0,160}?\{open &&/);
+    }
+  });
+
+  it("does not animate a panel that CSS centres with a translate transform", () => {
+    // The trap STAGE 5 documents: framer writes `transform` inline, so a
+    // panel centred by `translate(-50%,-50%)` gets shoved off-axis while it
+    // animates. These three centre with flexbox, so MODAL_PANEL is safe here;
+    // assert that so a future switch to transform centring is caught.
+    const css = readFileSync(join(process.cwd(), "src", "styles", "collections.css"), "utf8");
+    const backdrop = css.slice(css.indexOf(".collection-dialog-backdrop"));
+    const block = backdrop.slice(0, backdrop.indexOf("}"));
+    expect(block).toMatch(/display:\s*flex/);
+    expect(block).not.toMatch(/transform:\s*translate\(-50%/);
+  });
+});
+
+describe("the SVG arcs honour prefers-reduced-motion", () => {
+  /* These set `transition` on the STYLE attribute, which outranks every
+     stylesheet rule — so the `prefers-reduced-motion` blocks in player.css
+     could never reach them. A viewer who asked for stillness still got a
+     sweeping ring and a forever-spinning loader. */
+  const ARCS = ["ArcRing.jsx", "LoadingArc.jsx"].map((f) =>
+    join(process.cwd(), "src", "components", "player", f)
+  );
+
+  it("reads the viewer's preference in both arcs", () => {
+    for (const file of ARCS) {
+      const src = readFileSync(file, "utf8");
+      expect(src, file).toMatch(/useReducedMotion/);
+    }
+  });
+
+  it("never writes a bare dash-offset transition that reduced motion cannot reach", () => {
+    for (const file of ARCS) {
+      const src = readFileSync(file, "utf8");
+      const unguarded = [...src.matchAll(/style=\{\{[^}]*transition:\s*"stroke-dashoffset[^"]*"/g)];
+      expect(
+        unguarded.map((m) => m[0]),
+        `${file} sets an inline dash transition with no reduced-motion guard`
+      ).toEqual([]);
+    }
+  });
+
+  it("stops the loader's endless spin when motion is reduced", () => {
+    const src = readFileSync(join(process.cwd(), "src", "components", "player", "LoadingArc.jsx"), "utf8");
+    expect(src).toMatch(/animate=\{reduced \? undefined : \{ rotate: 360 \}\}/);
+  });
+});

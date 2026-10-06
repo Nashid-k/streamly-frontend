@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { FADE, MODAL_PANEL } from "../../constants/motion";
 import { X } from "lucide-react";
 
 /* ── Create / Rename dialog ─────────────────────────────────────────────── */
@@ -13,23 +15,43 @@ function CollectionNameDialog({ open, title, initial = "", submitLabel, onSubmit
     }
   }, [open, initial]);
 
-  if (!open) return null;
-
   const submit = (e) => {
     e.preventDefault();
     if (!value.trim()) return;
     onSubmit(value.trim());
   };
 
+  /* Motion: this dialog used to be torn out of the tree the instant `open`
+     went false, so it appeared and vanished with no transition while every
+     other modal in the product (ConfirmDialog, the auth sheets) arrived on the
+     shared shapes. It now takes MODAL_PANEL + FADE from constants/motion, so
+     the collections dialogs speak the same motion language as the rest of the
+     app and collapse to a cut under prefers-reduced-motion for free.
+     The backdrop centres with flexbox (collections.css), never a translate
+     transform, so the panel's scale/y animation cannot fight its position. */
   return (
-    <div className="collection-dialog-backdrop" role="presentation" onClick={onClose}>
-      <div
-        className="collection-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className="collection-dialog-backdrop"
+          role="presentation"
+          onClick={onClose}
+          initial={FADE.initial}
+          animate={FADE.animate}
+          exit={FADE.exit}
+          transition={FADE.transition}
+        >
+          <motion.div
+            className="collection-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label={title}
+            onClick={(e) => e.stopPropagation()}
+            initial={MODAL_PANEL.initial}
+            animate={MODAL_PANEL.animate}
+            exit={MODAL_PANEL.exit}
+            transition={MODAL_PANEL.transition}
+          >
         <div className="collection-dialog__header">
           <h2 className="collection-dialog__title">{title}</h2>
           <button
@@ -61,8 +83,10 @@ function CollectionNameDialog({ open, title, initial = "", submitLabel, onSubmit
             </button>
           </div>
         </form>
-      </div>
-    </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
