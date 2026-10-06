@@ -5133,3 +5133,54 @@ baseline). `npm run test` **80 files / 1027 passed** (+10 new). `npm run
   - **Gates:** `npm run lint` 0 errors. `npm run test` **80 files / 1047 passed**
     (+20: `skipMarkers.test.js` 45 → 65). `npm run build` green in 1.99s.
     `skipMarkers.js` test count: 65 passing.
+
+## Player chrome redesign — Apple TV+ (2026-10-06, in progress)
+
+Scope: restyle the player chrome to match Apple TV+ (full chrome re-layout +
+motion pass). **Playback engine untouched.** User decision: reference Apple TV+,
+chrome only, full re-layout, verified in-browser; commit only after every phase
+is complete and green.
+
+- **Phase 0 — chrome extraction (done, verified, uncommitted).** Lifted the
+  chrome out of `NativePlayerView.jsx` into `src/components/player/chrome/`
+  with no visual/behaviour change: `constants.js`, `theme.js`, `index.js`,
+  `IconBtn`, `SkipPill`, `SubtitleOverlay`, `ChromeTopBar`, `primitives`
+  (`LoadingStage`/`RingSpinner`/`LoadingMessage`), `CenterStack`,
+  `TapToUnmutePill`, `BottomChrome`, `ResumeCard`, `UpNextCard`, `PlayerPanel`,
+  `FatalBanner`, `DialogRow`, `EpisodesRail`. Components take explicit
+  props/callbacks; the settings-panel shell takes per-panel content as
+  `children`. Safe-area policy published once as `--np-safe-*` CSS vars.
+  `NativePlayerView.jsx` 5186 -> 3602 lines; dead imports removed.
+- **Fixed (from the skip commit):** lone Windows-1252 byte `0x97` in
+  `skipMarkers.test.js` had broken ESLint's UTF-8 reader (`stream did not
+  contain valid UTF-8`); replaced with a UTF-8 em dash.
+- **Phase 1 — Apple TV+ visual language (done, uncommitted).** New
+  `chrome/theme.js` tokens (`ACCENT` white, `TRACK`/`BUFFERED`, `SKIP_BAND`,
+  glass `GLASS_BG`/`GLASS_BG_STRONG`/`GLASS_BORDER`/`GLASS_BLUR`, `RADIUS`,
+  `SHADOW`). Accent moved from brand red to a neutral white across the chrome
+  (scrubber played + knob, skip bands, checkmarks, active buttons, Up Next
+  countdown, episode "Now Playing" ring/badge, tap-to-unmute glyph). `NETFLIX_RED`
+  removed from `chrome/constants.js`. Glass material applied to the skip pill,
+  panel surface, resume / Up Next cards, replay button and fatal banner.
+  `IconBtn` active state now a translucent white disc (was red).
+- **Gates after Phase 0 + Phase 1:** `npm run lint` 0 errors / 40 warnings
+  (baseline). `npm run test` **80 files / 1047 passed**. `npm run build` green
+  (~3.5s).
+- **Phase 2 — motion pass (done, uncommitted).** Collapsed the last raw tweens
+  into the token vocabulary: the cold-stage / warm-stall cross-fades in
+  `CenterStack` and the subtitle cue cross-fade now use `M.FADE.transition`
+  instead of hand-typed durations. `SubtitleOverlay` now resolves
+  `useReducedMotion` itself, so a cue cross-fade collapses to a cut like every
+  other player surface. No spring values changed (`motion.test.js` untouched).
+- **Phase 3 — a11y polish (done, uncommitted).** Added a dark halo
+  (`box-shadow: 0 0 0 4px rgba(0,0,0,0.55)`) under the white focus ring for the
+  chrome controls that carry no elevation of their own (`np-icon-btn`,
+  `np-scrub`, `np-skip-intro`, `np-dialog-row`, `np-episode-card`) — a bare
+  white outline is invisible on a bright frame, and the white accent made that
+  worse than the old red. Buttons that already have an elevation shadow keep
+  just the ring so the halo does not flatten them.
+- **Final gates (all phases):** `npm run lint` 0 errors / 40 warnings (baseline).
+  `npm run test` **80 files / 1047 passed**. `npm run build` green (~3.6s).
+  Single commit made once all phases were complete and green.
+- **Note:** visual quality of the restyle and the mobile sheet could not be
+  verified here (no browser/screenshot tooling); user reviews in-browser.

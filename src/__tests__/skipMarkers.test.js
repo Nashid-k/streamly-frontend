@@ -502,7 +502,7 @@ describe("mergeSkipBoundaries keeps fields a partial record never measured", () 
 
   it("does not let a credits-only provider record erase a real measured intro", () => {
     // The whole-object swap this replaces threw the intro away and silently
-    // demoted it to the 90s guess — the "skip intro is inaccurate" half of the bug.
+    // demoted it to the 90s guess â€” the "skip intro is inaccurate" half of the bug.
     const out = mergeSkipBoundaries({ ...DATASET, source: "dataset" }, PROVIDER, "provider");
     expect(out.introEndSeconds).toBe(132);
     expect(out.creditsStartSeconds).toBe(3400);

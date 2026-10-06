@@ -383,6 +383,19 @@
   outline-offset: 2px;
 }
 
+/* Chrome that has no persistent shadow of its own gets a dark halo under the
+   white ring. A bare white outline vanishes on a bright frame, and a player
+   that hides focus is a player a keyboard user cannot use (Apple TV+ white
+   accent makes this worse than the old red). Buttons that already carry an
+   elevation shadow keep just the ring so the halo does not flatten them. */
+.np-icon-btn:focus-visible,
+.np-scrub:focus-visible,
+.np-skip-intro:focus-visible,
+.np-dialog-row:focus-visible,
+.np-episode-card:focus-visible {
+  box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.55);
+}
+
 /* Scrubber: the bar grows a hair and the knob ring blooms on hover/focus/drag. */
 .np-scrub {
   border-radius: 999px;

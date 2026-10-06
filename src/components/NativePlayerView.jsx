@@ -7,37 +7,13 @@
 // touch devices get a stacked settings sheet instead of the desktop chrome.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { useMotionTokens } from "../constants/motion";
+import { AnimatePresence } from "framer-motion";
 import { buildAudioTrackList, originalTrackLabel } from "../utils/audioLabels";
-import useRailArrows from "../hooks/useRailArrows";
-import RailArrow from "./RailArrow";
 import {
-  ArrowLeft,
-  AudioLines,
-  Calendar,
-  Captions,
-  Check,
-  ChevronLeft,
-  ChevronRight,
   Gauge,
-  ListVideo,
   SlidersHorizontal,
-  Maximize,
-  Minimize,
-  Pause,
-  Play,
   Proportions,
-  RotateCcw,
-  Server,
   ServerCog,
-  Settings,
-  SkipBack,
-  SkipForward,
-  Volume1,
-  Volume2,
-  VolumeX,
-  X,
 } from "lucide-react";
 import {
   NetflixVolumeHUD,
@@ -57,7 +33,7 @@ import { SubtitleFetcher } from "../api/subtitleFetcher";
 import { logDebug, logWarn } from "../utils/debugLogger";
 import { SubtitleEngine } from "../utils/subtitleEngine";
 import { readStoredNumber } from "../utils/storedNumber";
-import { isEpAired, formatAirsDate } from "../utils/titleDetails";
+import { isEpAired } from "../utils/titleDetails";
 import useContainerSize from "../hooks/useContainerSize";
 import {
   hudMetrics,
@@ -91,6 +67,23 @@ import {
 import { pickInitialBandwidthBits } from "../utils/streamTuning";
 import { useOptionalPreferences } from "../context/preferences";
 import { getPreviewThumb, clearPreviewCache, resetPreviewPipeline } from "../api/previewThumbs";
+import {
+  ChromeTopBar,
+  SkipPill,
+  SubtitleOverlay,
+  CenterStack,
+  TapToUnmutePill,
+  BottomChrome,
+  ResumeCard,
+  UpNextCard,
+  PlayerPanel,
+  FatalBanner,
+  DialogRow,
+  EpisodesRail,
+  IS_TOUCH,
+  SAFE_TOP,
+  SAFE_BOTTOM,
+} from "./player/chrome";
 
 // A source can fail fragments forever without ever going fatal (VidCore's
 // vidzen: playlist 200, segments 429 on repeat) â€” so fail over ourselves.
@@ -103,17 +96,6 @@ const MAX_CONSECUTIVE_FRAG_FAILURES = 4;
 // noticing a stall (the player shows a switching note for the duration).
 const THROTTLE_BACKOFF_MS = 6000;
 
-const NETFLIX_RED = "#E50914";
-/* Shared frame for the two measured skip bands on the scrubber. Hoisted so the
-   inline `style` objects in JSX are never re-created per render, and so the band
-   colour has exactly one definition — it used to be repeated as a literal twice. */
-const SCRUBBER_BAND_STYLE = {
-  position: "absolute",
-  top: 0,
-  bottom: 0,
-  background: "#f97316",
-  pointerEvents: "none",
-};
 const HIDE_DELAY_MS = 3000;
 
 // Minimum gap between two autohide / still-watching timer re-arms. The player
@@ -160,127 +142,17 @@ const ASPECT_STORAGE_KEY = "streamly-native-aspect";
    The old localStorage keys are simply no longer read. */
 const HUD_MS = 1100;
 
-// Touch-first devices (hover-less, coarse pointer) get bigger tap targets,
-// double-tap seek zones, safe-area padding, a centered play glyph and a stacked
-// settings panel; mouse/trackpad keeps the desktop chrome.
-const IS_TOUCH =
-  typeof window !== "undefined" &&
-  !!window.matchMedia &&
-  window.matchMedia("(hover: none), (pointer: coarse)").matches;
-const BTN_SIZE = IS_TOUCH ? 44 : 40;
-// Centre-screen rewind/forward chevrons sit directly on the picture with no
-// plate behind them, so a light shadow is the only thing keeping them readable
-// over a white frame. (A dark box here is exactly what we removed from the
-// play/pause HUD â€” same problem, same answer: shadow, not a scrim.)
-const CENTER_GLYPH_SHADOW = { filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.8))" };
-// Netflix top bar: 16px on desktop; safe-area inset on touch devices.
-const SAFE_TOP = IS_TOUCH ? "calc(16px + env(safe-area-inset-top, 0px))" : "16px";
-// Netflix bottom chrome: 24px on desktop; safe-area inset on touch devices.
-const SAFE_BOTTOM = IS_TOUCH ? "calc(20px + env(safe-area-inset-bottom, 0px))" : "24px";
-
-// Skip Intro / Skip Outro live in src/utils/skipMarkers.js â€” the boundaries are
+// Touch-first devices get bigger tap targets and a stacked settings panel;
+// mouse/trackpad keeps the desktop chrome. IS_TOUCH/BTN_SIZE/SAFE_* now live in
+// player/chrome/constants.js, shared with every extracted chrome component.
+// Skip Intro / Skip Outro live in src/utils/skipMarkers.js — the boundaries are
 // estimates (no provider supplies markers) and the module documents that, plus
 // the SKIP_INTRO_OVERRIDES seam for confirmed boundaries. Everything below is
 // presentation only.
 
-/* Plain white circular icon button (Netflix transport glyphs). */
-function IconBtn({ label, onClick, children, active, disabled, expanded }) {
-  return (
-    <button
-      type="button"
-      className="np-icon-btn"
-      aria-label={label}
-      title={label}
-      disabled={disabled}
-      aria-pressed={expanded ? undefined : active ? true : undefined}
-      aria-expanded={expanded === undefined ? undefined : Boolean(expanded)}
-      onClick={(e) => {
-        e.stopPropagation();
-        if (disabled) return;
-        onClick?.(e);
-      }}
-      style={{
-        width: BTN_SIZE,
-        height: BTN_SIZE,
-        borderRadius: "50%",
-        border: "none",
-        background: "transparent",
-        color: disabled ? "rgba(255,255,255,0.35)" : active ? NETFLIX_RED : "#fff",
-        cursor: disabled ? "not-allowed" : "pointer",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-      }}
-    >
-      {children}
-    </button>
-  );
-}
+/* IconBtn now lives in player/chrome/IconBtn.jsx, shared with the extracted
+   chrome. */
 
-/* One selectable row in the Audio & Subtitles / Episodes panels. */
-function DialogRow({ selected, onClick, title, sub, disabled, icon, hasChevron }) {
-  // DialogRow is a module-level component, so it has no access to the player's
-  // `M` tokens and must resolve the preference itself — the same value, read
-  // from the same hook, so the checkmark still collapses to a cut.
-  const M = useMotionTokens(useReducedMotion());
-  return (
-    <button
-      type="button"
-      className="np-dialog-row"
-      onClick={disabled ? undefined : onClick}
-      disabled={disabled}
-      aria-pressed={selected ? true : undefined}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        width: "100%",
-        textAlign: "left",
-        padding: "10px 0",
-        minHeight: 44,
-        borderRadius: 0,
-        border: "none",
-        background: "transparent",
-        color: selected ? "#fff" : "rgba(255,255,255,0.82)",
-        fontWeight: selected ? 700 : 400,
-        opacity: disabled ? 0.45 : 1,
-        cursor: disabled ? "not-allowed" : "pointer",
-        fontSize: 15,
-      }}
-    >
-      <span style={{ width: 22, display: "flex", alignItems: "center", flexShrink: 0 }}>
-        {icon ? (
-          icon
-        ) : selected ? (
-          // The check itself pops, so a selection change is felt, not just seen.
-          <motion.span
-            key={`check-${title}`}
-            initial={M.CHECK_POP.initial}
-            animate={M.CHECK_POP.animate}
-            transition={M.CHECK_POP.transition}
-            style={{ display: "flex" }}
-          >
-            <Check size={16} color={NETFLIX_RED} />
-          </motion.span>
-        ) : null}
-      </span>
-      <span style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {title}
-        </span>
-        {sub ? (
-          <span style={{ display: "block", fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 2 }}>{sub}</span>
-        ) : null}
-      </span>
-      {hasChevron && (
-        <span style={{ display: "flex", alignItems: "center", color: "rgba(255,255,255,0.5)" }}>
-          <ChevronRight size={18} />
-        </span>
-      )}
-    </button>
-  );
-}
 
 // One auto-retry per source: a fresh open often fails on the FIRST attempt
 // (cold function, warm-up 429s, a rate-flaky catalogue returning nothing) and
@@ -308,445 +180,6 @@ function qualityLabelFor(v) {
   return variantLabel(v);
 }
 
-const FUN_FACTS = [
-  "Reticulating splines...",
-  "Warming up the projector...",
-  "Dimming the lights...",
-  "Grabbing the popcorn...",
-  "Tuning the audio...",
-  "Finding the best quality...",
-  "Rolling film...",
-  "Silencing cellphones...",
-  "Preparing the stream...",
-];
-
-function LoadingMessage({ title }) {
-  const [index, setIndex] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setIndex((i) => (i + 1) % FUN_FACTS.length);
-    }, 2500);
-    return () => clearInterval(timer);
-  }, []);
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-      {title && <span style={{ fontSize: 20, color: "#fff" }}>Loading {title}</span>}
-      <span style={{ fontSize: 14, color: "rgba(255,255,255,0.7)", fontStyle: "italic", minHeight: "20px" }}>
-        {FUN_FACTS[index]}
-      </span>
-    </div>
-  );
-}
-
-/* The stage a viewer stares at while a stream resolves: the title's own art,
-   blurred and dimmed as a backdrop, with the name and a spinner over it.
-   Reused for the first load AND for every server / quality / dub switch, because
-   those are the same wait wearing different clothes — the artwork is what tells
-   the viewer the player did not lose their place, and a bare black rectangle
-   with a dot in it does not. */
-function LoadingStage({ title, backdropUrl, posterUrl, message }) {
-  return (
-    <div
-      aria-hidden="true"
-      style={{
-        position: "absolute",
-        inset: 0,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 18,
-        overflow: "hidden",
-        background: "#000",
-        zIndex: 3,
-      }}
-    >
-      {backdropUrl ? (
-        <img
-          src={backdropUrl}
-          alt=""
-          aria-hidden="true"
-          className="np-loading-art"
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            // Heavily blurred so it reads as COLOUR, not as a photo the viewer
-            // might mistake for the frame that is about to appear. The dim layer
-            // under it keeps the white text and spinner legible over a bright
-            // still — a light backdrop would otherwise eat both.
-            filter: "blur(28px) saturate(1.2) brightness(0.5)",
-            transform: "scale(1.15)", // blur samples the edge; scale hides it
-          }}
-        />
-      ) : null}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: "radial-gradient(circle at 50% 45%, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.78) 70%)",
-        }}
-      />
-      {/* The title art itself, big and centred. The blurred backdrop behind is
-          only ambient colour; without this the stage looks like a black screen
-          someone slapped a label on. Contained rather than cover: cropping the
-          poster's top and bottom during a load makes an unrecognisable
-          fragment, which defeats the entire point of showing it. */}
-      {title ? (
-        <div
-          style={{
-            position: "relative",
-            zIndex: 1,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 14,
-            maxWidth: "min(88vw, 620px)",
-          }}
-        >
-          {/* The title ART is the centrepiece: the logo-style still TMDB
-              serves, contained so nothing crops it. */}
-          {posterUrl ? (
-            <img
-              src={posterUrl}
-              alt=""
-              aria-hidden="true"
-              className="np-loading-poster"
-              style={{
-                width: "auto",
-                height: "auto",
-                maxWidth: "min(72vw, 520px)",
-                maxHeight: "min(30vh, 220px)",
-                objectFit: "contain",
-              }}
-            />
-          ) : null}
-          {/* Title text removed when the logo exists (user order): the image
-              IS the title. Without a logo the text name is the only honest
-              identifier left, so it falls back in. */}
-          {!posterUrl && title ? (
-            <div
-              style={{
-                fontSize: "clamp(18px, 3.2vw, 30px)",
-                fontWeight: 700,
-                color: "#fff",
-                letterSpacing: "-0.02em",
-                textAlign: "center",
-                padding: "0 24px",
-                textShadow: "0 2px 18px rgba(0,0,0,0.7)",
-              }}
-            >
-              {title}
-            </div>
-          ) : null}
-          {/* The Tailspin ring sits under the art (their composition: centred
-              column, logo, ring below). Purely decorative — the reduced-motion
-              block stops and dims it. */}
-          <div style={{ marginTop: 10, display: "flex", justifyContent: "center" }}>
-            <RingSpinner size={44} />
-          </div>
-        </div>
-      ) : null}
-      {message ? (
-        <div
-          style={{
-            position: "relative",
-            fontSize: 12.5,
-            color: "rgba(255,255,255,0.6)",
-            letterSpacing: "0.01em",
-          }}
-        >
-          {message}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-/* A white ring with a gap that travels around it. Purely decorative, so it is
-   aria-hidden and the real state is carried by the visible status line instead. The
-   reduced-motion block in player.css stops it entirely for viewers who asked for
-   that — an endlessly spinning ring is the textbook case of motion that causes
-   discomfort, and it is exactly what that media query exists for. */
-/* Tailspin: the conic-gradient ring player.zxcprime.xyz uses (scraped from
-   their shipped CSS module). The comet-tail sweep reads lighter than a
-   border-arc spinner at the same size; rendered white over video. */
-function RingSpinner({ size = 34 }) {
-  return (
-    <span
-      className="np-tailspin np-ring-spinner"
-      aria-hidden="true"
-      style={{ "--uib-size": `${size}px`, "--uib-color": "#fff", "--uib-speed": "0.9s", "--uib-stroke": "4px" }}
-    >
-      <span />
-    </span>
-  );
-}
-
-function EpisodesRail({ episodes, episode, onSelectEpisode, setPanel, setBuffering, setResumeOffer, IS_TOUCH }) {
-  const railRef = useRef(null);
-  const { canScrollLeft, canScrollRight, refresh } = useRailArrows(railRef);
-  // Module-level component, so it resolves the preference itself (see DialogRow).
-  const M = useMotionTokens(useReducedMotion());
-
-  const scroll = useCallback((dir) => {
-    const el = railRef.current;
-    if (!el) return;
-    const amount = el.clientWidth > 800 ? el.clientWidth * 0.8 : el.clientWidth * 0.9;
-    el.scrollBy({ left: dir === "left" ? -amount : amount, behavior: "smooth" });
-    refresh();
-  }, [refresh]);
-
-  return (
-    <motion.div
-      initial={{ y: "100%", opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      exit={{ y: "100%", opacity: 0 }}
-      transition={M.SPRING.SHEET}
-      onClick={(e) => e.stopPropagation()}
-      style={{
-        position: "absolute",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.5) 55%, transparent 100%)",
-        zIndex: 6,
-        padding: `40px 24px calc(30px + env(safe-area-inset-bottom, 0px))`,
-        display: "flex",
-        alignItems: "center",
-      }}
-    >
-      {canScrollLeft && <RailArrow dir="left" onClick={() => scroll("left")} />}
-      {canScrollRight && <RailArrow dir="right" onClick={() => scroll("right")} />}
-      
-      <div 
-        ref={railRef}
-        style={{ 
-          display: "flex", 
-          // Explicit: the cards must share one height, and `stretch` is what
-          // guarantees that when a card's own content is shorter than its
-          // neighbour's (an unreleased episode has no synopsis).
-          alignItems: "stretch",
-          overflowX: "auto", 
-          gap: 16, 
-          // Top padding as well as bottom, and it is load-bearing: `overflow-x`
-          // forces the block axis to `auto` too, so this element CLIPS its
-          // children vertically. With no top padding the current episode's red
-          // ring â€” which is an outer box-shadow â€” had its top edge sliced off.
-          // It also gives the hover lift somewhere to go.
-          padding: "8px 0",
-          scrollbarWidth: "none",
-          width: "100%",
-          WebkitOverflowScrolling: "touch"
-        }}
-      >
-        {episodes.map((ep) => {
-          const isCurrent = ep.number === episode;
-          // Same "is it aired yet" rule the details page uses. An episode that
-          // has not aired carries no still, no runtime and no synopsis, and
-          // clicking it used to send the player off to resolve a source that
-          // does not exist and land on the fatal banner.
-          const aired = isEpAired(ep);
-          return (
-          <button
-            key={ep.number}
-            type="button"
-            // The selected episode was only marked by a red outline; assistive
-            // tech had no idea which one was playing.
-            aria-current={isCurrent ? "true" : undefined}
-            // Deliberately not `disabled`: a disabled button is unfocusable, so
-            // a keyboard or screen-reader user could never discover the card or
-            // find out why it will not play. Same call as the details page.
-            aria-disabled={aired ? undefined : "true"}
-            className="np-episode-card"
-            onClick={() => {
-              if (!aired) return;
-              setResumeOffer(null);
-              setPanel(null);
-              setBuffering(true);
-              onSelectEpisode?.(ep.number);
-            }}
-            style={{
-              flex: "0 0 auto",
-              width: IS_TOUCH ? 220 : 260,
-              display: "flex",
-              flexDirection: "column",
-              textAlign: "left",
-              background: "transparent",
-              border: "none",
-              padding: 0,
-              cursor: aired ? "pointer" : "default",
-              // Dimming is CSS-driven (`.np-episode-card` + :hover/:focus-visible);
-              // this used to be flipped by writing style.opacity straight from
-              // onMouseOver/onMouseOut, which fought React's own style updates.
-              opacity: isCurrent ? 1 : aired ? 0.62 : 0.4,
-            }}
-          >
-            <div
-              style={{
-                position: "relative",
-                width: "100%",
-                aspectRatio: "16/9",
-                flexShrink: 0,
-                backgroundColor: "#18181b",
-                borderRadius: 8,
-                overflow: "hidden",
-                marginBottom: 10,
-                boxShadow: isCurrent ? "0 0 0 2px #E50914" : "none",
-              }}
-            >
-              {ep.thumbnailUrl ? (
-                <img
-                  src={ep.thumbnailUrl}
-                  alt=""
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    // An unaired episode's still is a placeholder anyway; the
-                    // greyscale is what makes the state readable at a glance.
-                    filter: aired ? "none" : "grayscale(0.85) brightness(0.6)",
-                  }}
-                />
-              ) : (
-                /* No still yet: a bare Play glyph advertised an action the card
-                   can't take. Numbered plate instead, like the details page. */
-                <div
-                  aria-hidden="true"
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 4,
-                    width: "100%",
-                    height: "100%",
-                    color: "rgba(255,255,255,0.28)",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: 26,
-                      fontWeight: 800,
-                      lineHeight: 1,
-                      color: "rgba(255,255,255,0.5)",
-                      fontFamily: "monospace",
-                    }}
-                  >
-                    {String(ep.number).padStart(2, "0")}
-                  </span>
-                  <Play size={16} />
-                </div>
-              )}
-              {isCurrent && (
-                <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <span style={{ color: "#fff", fontWeight: 700, fontSize: 13, background: "#E50914", padding: "4px 8px", borderRadius: 4 }}>
-                    Now Playing
-                  </span>
-                </div>
-              )}
-              {!aired && (
-                /* "Airs Thu, Sep 9" where the details page shows its green chip,
-                   so an unaired episode looks the same on both surfaces. */
-                <span
-                  style={{
-                    position: "absolute",
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 5,
-                    background: "#3c8217",
-                    color: "#fff",
-                    fontSize: 11,
-                    fontWeight: 600,
-                    lineHeight: 1.45,
-                    padding: "4px 8px",
-                  }}
-                >
-                  <Calendar size={11} strokeWidth={2} aria-hidden="true" />
-                  {formatAirsDate(ep.airDate)}
-                </span>
-              )}
-              {aired && ep.durationMins ? (
-                <span style={{ position: "absolute", bottom: 6, right: 6, background: "rgba(9,9,11,0.85)", color: "#fff", fontSize: 11, padding: "2px 6px", borderRadius: 4, fontWeight: 600 }}>
-                  {ep.durationMins}m
-                </span>
-              ) : null}
-            </div>
-            <div
-              style={{
-                color: "#fff",
-                fontSize: 14,
-                fontWeight: 700,
-                // Pinned so a two-line title can never push the block below it
-                // out of alignment with its neighbours.
-                lineHeight: "20px",
-                height: 20,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              {ep.number}. {ep.title || `Episode ${ep.number}`}
-            </div>
-            {/* Fixed two-line slot. An unaired episode has no synopsis, and
-                leaving this block at its natural 0px height is what made the
-                rail ragged â€” every such card ended higher than the rest. */}
-            <div
-              style={{
-                color: "#a1a1aa",
-                fontSize: 12,
-                lineHeight: 1.4,
-                marginTop: 4,
-                minHeight: 34,
-                display: "-webkit-box",
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: "vertical",
-                overflow: "hidden",
-                fontStyle: aired ? "normal" : "italic",
-              }}
-            >
-              {ep.description || (aired ? "No synopsis available" : `Airs ${formatAirsDate(ep.airDate)}`)}
-            </div>
-          </button>
-          );
-        })}
-      </div>
-      
-      <button
-        type="button"
-        className="np-icon-btn"
-        aria-label="Close episodes"
-        onClick={() => setPanel(null)}
-        style={{
-          position: "absolute",
-          top: 8,
-          right: 24,
-          background: "rgba(0,0,0,0.5)",
-          border: "none",
-          borderRadius: "50%",
-          width: 32,
-          height: 32,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "#fff",
-          cursor: "pointer",
-          zIndex: 7
-        }}
-      >
-        <X size={18} />
-      </button>
-    </motion.div>
-  );
-}
 
 
 export default function NativePlayerView({
@@ -814,11 +247,6 @@ export default function NativePlayerView({
   // engage 2x (so the keyup must NOT also toggle play).
   const spaceHoldRef = useRef(false);
   const spaceFiredRef = useRef(false);
-  /* The motion vocabulary, already checked against the viewer's OS preference.
-     Every `SPRING.*` / `PILL_IN` / `CHECK_POP` below reads `M`, not the raw
-     constants, so the reduced-motion contract in constants/motion.js is enforced
-     here rather than merely documented. */
-  const M = useMotionTokens(useReducedMotion());
   // Still-watching bookkeeping.
   const swIdleRef = useRef(null); // rolling play-with-no-input timer
   const swAutoAdvRef = useRef(0); // consecutive auto-advanced episodes
@@ -3254,7 +2682,6 @@ setScrubDragging(true);
     };
   }, [hoverRatio, safeDuration]);
 
-  const VolumeIcon = muted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
   const showEpisodesButton = Array.isArray(episodes) && episodes.length > 0;
 
   // Episode paging (TV only): the parent's canGo*/onGo* cross seasons; we fall back to walking `episodes`.
@@ -3532,6 +2959,11 @@ const showSkipOutro = shouldShowSkipOutro({
           userSelect: "none",
           WebkitUserSelect: "none",
           touchAction: "manipulation",
+          // The safe-area policy is published once here; extracted chrome
+          // components consume it as CSS vars instead of each knowing whether
+          // they are on touch.
+          "--np-safe-top": SAFE_TOP,
+          "--np-safe-bottom": SAFE_BOTTOM,
         }}
       >
         <video
@@ -3591,183 +3023,43 @@ const showSkipOutro = shouldShowSkipOutro({
         )}
         {/* Subtitle overlay â€” active OpenSubtitles line, bottom-anchored above
             the control chrome like CustomVideoPlayer. */}
-        <AnimatePresence mode="wait">
-          {activeSubtitle ? (
-            <motion.div
-              // Keyed on the cue text so a new line cross-fades in instead of
-              // the old one vanishing mid-read.
-              key={activeSubtitle}
-              className="np-subtitle"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.14, ease: "easeOut" }}
-              style={{
-                position: "absolute",
-                left: "6%",
-                right: "6%",
-                // Clears the visible bottom chrome (~140px on desktop) so a cue
-                // never sits under the transport row; when the chrome is hidden
-                // the caption drops back to a cinematic offset.
-                bottom: controlsVisible ? 132 : 64,
-                textAlign: "center",
-                zIndex: 3,
-                pointerEvents: "none",
-                lineHeight: 1.4,
-                fontSize: "clamp(16px, 2.6vw, 26px)",
-                fontWeight: 700,
-                color: "#fff",
-                whiteSpace: "pre-line",
-                textShadow: "0 2px 6px rgba(0,0,0,0.95), 0 0 2px rgba(0,0,0,0.9)",
-                WebkitTextStroke: "0 0 transparent",
-              }}
-            >
-              <span>{activeSubtitle}</span>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
-        {/* Top bar: back + debug toggle. */}
-        <motion.div
-          initial={false}
-          animate={{
-            opacity: controlsVisible ? 1 : 0,
-            y: controlsVisible ? 0 : -20
+        <SubtitleOverlay text={activeSubtitle} controlsVisible={controlsVisible} />
+{/* Top bar: back + title. */}
+        <ChromeTopBar
+          visible={controlsVisible}
+          title={displayTitle}
+          subtitle={displaySubtitle}
+          onBack={() => {
+            if (onCloseRef.current) onCloseRef.current();
+            else window.history.back();
           }}
-          transition={M.SPRING.SHEET}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: `${SAFE_TOP} 24px 44px`,
-            // The top bar holds a back button and a title only. The old scrim
-            // (0.80 â†’ 0 over 52px of dead space) read as a heavy black band over
-            // the frame; 0.55 fading out faster keeps the text legible without
-            // painting the top third of the picture.
-            background: "linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.22) 45%, rgba(0,0,0,0) 100%)",
-            pointerEvents: controlsVisible ? "auto" : "none",
-            zIndex: 4,
-          }}
-        >
-          <IconBtn
-              label="Back"
-              onClick={() => {
-                if (onCloseRef.current) onCloseRef.current();
-                else window.history.back();
-              }}
-            >
-              <ArrowLeft size={24} />
-            </IconBtn>
-            <div style={{ display: "flex", flexDirection: "column", gap: 2, paddingLeft: 12, paddingRight: 24, minWidth: 0, overflow: "hidden" }}>
-              <div style={{ color: "#fff", fontWeight: 700, fontSize: "clamp(16px, 2vw, 20px)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {displayTitle}
-              </div>
-              {displaySubtitle ? <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{displaySubtitle}</div> : null}
-            </div>
-        </motion.div>
+        />
         {/* Netflix-style Skip Intro pill: bottom-right, above the transport row,
             present only inside the intro window, seeks just past the credits.
             Stays tappable even with the chrome hidden (Netflix keeps it while
             the intro plays) â€” but yields to any open panel. */}
-        <AnimatePresence>
+<AnimatePresence>
           {showSkipIntro && !sheetOpen && (
-            <motion.button
+            <SkipPill
               key="np-skip"
-              type="button"
-              className="np-skip-intro"
-              onClick={doSkipIntro}
-              aria-label="Skip the opening credits"
+              label="Skip Intro"
+              ariaLabel="Skip the opening credits"
               title="Stop the intro, come right back in"
-              // Enters from the right edge it lives on, so the eye is pulled
-              // away from the picture toward the action.
-              {...M.PILL_IN}
-              whileTap={{ scale: 0.97 }}
-              style={{
-                position: "absolute",
-                bottom: `calc(${SAFE_BOTTOM} + 96px)`,
-                right: 24,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "10px 20px",
-                background: "rgba(24,24,27,0.72)",
-                color: "#fff",
-                border: "1px solid rgba(255,255,255,0.24)",
-                borderRadius: 12,
-                fontWeight: 700,
-                fontSize: 16,
-                cursor: "pointer",
-                zIndex: 5,
-                  overflow: "hidden",
-                  pointerEvents: "auto",
-                }}
-              >
-                <div
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    top: 0,
-                      bottom: 0,
-                      background: "rgba(255, 255, 255, 0.2)",
-                      width: `${skipIntroProgress * 100}%`,
-                      zIndex: 0,
-                  }}
-                />
-                <SkipForward size={16} />
-                Skip Intro
-            </motion.button>
+              onClick={doSkipIntro}
+              progress={skipIntroProgress}
+            />
           )}
         </AnimatePresence>
-        {/* Skip Credits. Only ever a button â€” a wrong tail guess must never
-            auto-jump the viewer, so `shouldShowSkipOutro` has no auto path. */}
         <AnimatePresence>
           {showSkipOutro && !sheetOpen && !showSkipIntro && (
-            <motion.button
+            <SkipPill
               key="np-skip-outro"
-              type="button"
-              className="np-skip-intro"
-              onClick={doSkipOutro}
-              aria-label="Skip the ending credits"
+              label="Skip Credits"
+              ariaLabel="Skip the ending credits"
               title="Jump to the end"
-              {...M.PILL_IN}
-              whileTap={{ scale: 0.97 }}
-              style={{
-                position: "absolute",
-                bottom: `calc(${SAFE_BOTTOM} + 96px)`,
-                right: 24,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "10px 20px",
-                background: "rgba(24,24,27,0.72)",
-                color: "#fff",
-                border: "1px solid rgba(255,255,255,0.24)",
-                borderRadius: 12,
-                fontWeight: 700,
-                fontSize: 16,
-                cursor: "pointer",
-                zIndex: 5,
-                  overflow: "hidden",
-                  pointerEvents: "auto",
-                }}
-              >
-                <div
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    top: 0,
-                      bottom: 0,
-                      background: "rgba(255, 255, 255, 0.2)",
-                      width: `${skipOutroProgress * 100}%`,
-                      zIndex: 0,
-                  }}
-                />
-                <SkipForward size={16} />
-                Skip Credits
-            </motion.button>
+              onClick={doSkipOutro}
+              progress={skipOutroProgress}
+            />
           )}
         </AnimatePresence>
         {/* Center stack, in z-order: the buffering spinner; on touch, a big play
@@ -3780,946 +3072,144 @@ const showSkipOutro = shouldShowSkipOutro({
             AnimatePresence â€” a `transition` on a conditionally mounted node never
             plays, which is why it looked frozen. */}
         {/* Cold wait: no frame to preserve, so the stage is the picture. */}
-        <AnimatePresence>
-          {showStage && (
-            <motion.div
-              key="np-stage"
-              role="status"
-              aria-label="Loading video"
-              aria-live="polite"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.22 }}
-              style={{ position: "absolute", inset: 0, zIndex: 3 }}
-            >
-              <LoadingStage
-                title={displayTitle}
-                backdropUrl={backdropUrl}
-                posterUrl={posterUrl}
-                message={stageNote}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-        {/* Warm stall: the picture stays, only a ring appears. */}
-        <AnimatePresence>
-          {spinner && !showStage && (
-            <motion.div
-              key="np-spinner"
-              role="status"
-              aria-label="Loading video"
-              aria-live="polite"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.18 }}
-              style={{
-                position: "absolute",
-                inset: 0,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                pointerEvents: "none",
-                zIndex: 3,
-              }}
-            >
-              <motion.span
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.85, opacity: 0 }}
-                transition={M.SPRING.SHEET}
-                style={{ display: "flex", lineHeight: 0 }}
-              >
-              <RingSpinner size={56} />
-              </motion.span>
-              <div
-                style={{
-                  marginTop: 32,
-                  textAlign: "center",
-                  textShadow: "0 2px 8px rgba(0,0,0,0.9)",
-                }}
-              >
-                <LoadingMessage title={displayTitle} />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        {!buffering && !ended && !playing && status === "playing" && (
-          <motion.div
-            initial={false}
-            animate={{ opacity: controlsVisible ? 1 : 0, scale: controlsVisible ? 1 : 0.9 }}
-            transition={M.SPRING.SHEET}
-            style={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: IS_TOUCH ? 20 : 28,
-              zIndex: 3,
-              pointerEvents: "none",
-            }}
-          >
-            <button
-              type="button"
-              className="np-icon-btn np-center-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                poke();
-                seekRelative(-SKIP_SECONDS);
-              }}
-              aria-label="Rewind 10 seconds"
-              title="Rewind 10 seconds"
-              style={{
-                position: "relative",
-                width: IS_TOUCH ? 66 : 62,
-                height: IS_TOUCH ? 66 : 62,
-                borderRadius: "50%",
-                border: "none",
-                background: "transparent",
-                color: "#fff",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                pointerEvents: "auto",
-              }}
-            >
-              <ChevronLeft size={34} strokeWidth={1.5} style={CENTER_GLYPH_SHADOW} />
-            </button>
-            <button
-              type="button"
-              className="np-icon-btn np-center-btn"
-              onClick={() => {
-                poke();
-                togglePlayRef.current();
-              }}
-              aria-label="Play"
-              title="Play"
-              style={{
-                width: 92,
-                height: 92,
-                borderRadius: "50%",
-                border: "none",
-                background: "#fff",
-                color: "#000",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                pointerEvents: "auto",
-                boxShadow: "0 10px 30px rgba(0,0,0,0.6)",
-                transition: "transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1)",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "scale(1.06)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "scale(1)";
-              }}
-            >
-              {/* Bias the triangle optically: a centred Play glyph reads as
-                  slightly left-heavy against the circle. */}
-              <Play size={40} fill="currentColor" style={{ transform: "translateX(2px)" }} />
-            </button>
-            <button
-              type="button"
-              className="np-icon-btn np-center-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                poke();
-                seekRelative(SKIP_SECONDS);
-              }}
-              aria-label="Fast forward 10 seconds"
-              title="Fast forward 10 seconds"
-              style={{
-                position: "relative",
-                width: IS_TOUCH ? 66 : 62,
-                height: IS_TOUCH ? 66 : 62,
-                borderRadius: "50%",
-                border: "none",
-                background: "transparent",
-                color: "#fff",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                pointerEvents: "auto",
-              }}
-            >
-              <ChevronRight size={34} strokeWidth={1.5} style={CENTER_GLYPH_SHADOW} />
-            </button>
-          </motion.div>
-        )}
-        {/* Transient "Tap to unmute" pill (Netflix web) â€” only when playback
-            had to start muted because the autoplay-policy blocked sound. Yields
-            to an open panel for the same reason the skip pill does. */}
-        <AnimatePresence>
-          {autoMuted && playing && !sheetOpen && (
-            <motion.button
-              key="np-automute"
-              type="button"
-              initial={{ opacity: 0, y: 14, scale: 0.94 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 10, scale: 0.96 }}
-              transition={M.SPRING.LIFT}
-              onClick={(e) => {
-                e.stopPropagation();
-                setAutoMuted(false);
-                setMuted(false);
-                poke();
-              }}
-              aria-label="Play with sound"
-              title="Unmute"
-              style={{
-                position: "absolute",
-                bottom: `calc(${SAFE_BOTTOM} + 140px)`,
-                left: 24,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "8px 14px",
-                background: "rgba(0,0,0,0.65)",
-                color: "#fff",
-                border: "1px solid rgba(255,255,255,0.55)",
-                borderRadius: 999,
-                fontWeight: 700,
-                fontSize: 13,
-                cursor: "pointer",
-                zIndex: 6,
-              }}
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.97 }}
-            >
-              <VolumeX size={16} color="#E50914" />
-              Tap to unmute
-            </motion.button>
-          )}
-        </AnimatePresence>
-        {!buffering && ended && (
-          <motion.button
-            type="button"
-            className="np-replay"
-            onClick={replay}
-            aria-label="Watch again"
-            title="Watch again"
-            // Netflix draws a hairline ring that blooms out once when the end
-            // card lands, so the eye is pulled to the only action on screen.
-            initial={{ opacity: 0, scale: 0.7 }}
-            animate={{ opacity: 1, scale: [0.7, 1.08, 1] }}
-            transition={{
-              opacity: { duration: 0.2 },
-              scale: M.SPRING.PRESS,
-            }}
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.95 }}
-            style={{
-              position: "absolute",
-              inset: 0,
-              margin: "auto",
-              width: 84,
-              height: 84,
-              borderRadius: "50%",
-              border: "1px solid rgba(255,255,255,0.24)",
-              background: "rgba(24,24,27,0.6)",
-              backdropFilter: "blur(14px)",
-              WebkitBackdropFilter: "blur(14px)",
-              color: "#fff",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 3,
-            }}
-          >
-            <RotateCcw size={38} />
-          </motion.button>
-        )}
-        {/* Bottom chrome: title, scrubber, transport row. */}
-        <motion.div
-          initial={false}
-          animate={{
-            opacity: controlsVisible ? 1 : 0,
-            y: controlsVisible ? 0 : 20
+        <CenterStack
+          showStage={showStage}
+          stageNote={stageNote}
+          displayTitle={displayTitle}
+          backdropUrl={backdropUrl}
+          posterUrl={posterUrl}
+          spinner={spinner}
+          buffering={buffering}
+          ended={ended}
+          playing={playing}
+          status={status}
+          controlsVisible={controlsVisible}
+          onRewind={() => {
+            poke();
+            seekRelative(-SKIP_SECONDS);
           }}
-          transition={M.SPRING.SHEET}
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: 0,
-            paddingTop: IS_TOUCH ? 4 : 8,
-            paddingLeft: IS_TOUCH ? 12 : 24,
-            paddingRight: IS_TOUCH ? 12 : 24,
-            paddingBottom: SAFE_BOTTOM,
-            // Softer than the 0.95/0.7 it replaced: the controls already carry
-            // their own shadows, so a full-strength scrim only hid the picture.
-            background: "linear-gradient(0deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.45) 55%, rgba(0,0,0,0) 100%)",
-            pointerEvents: controlsVisible ? "auto" : "none",
-            zIndex: 4,
+          onTogglePlay={() => {
+            poke();
+            togglePlayRef.current();
+          }}
+          onForward={() => {
+            poke();
+            seekRelative(SKIP_SECONDS);
+          }}
+          onReplay={replay}
+        />
+        <TapToUnmutePill
+          visible={autoMuted && playing && !sheetOpen}
+          onUnmute={() => {
+            setAutoMuted(false);
+            setMuted(false);
+            poke();
+          }}
+        />
+{/* Bottom chrome: scrubber + transport row. */}
+        <BottomChrome
+          visible={controlsVisible}
+          scrubRef={scrubRef}
+          duration={safeDuration}
+          currentTime={currentTime}
+          effectiveRatio={effectiveRatio}
+          bufferedRanges={bufferedRanges}
+          hoverRatio={hoverRatio}
+          previewUrl={previewUrl}
+          previewBox={previewBox}
+          playerW={playerW}
+          scrubberBands={scrubberBands}
+          fmtTime={fmtTime}
+          onScrubKeyDown={onScrubKeyDown}
+          onScrubDown={onScrubDown}
+          onScrubMove={onScrubMove}
+          onScrubUp={onScrubUp}
+          onScrubCancel={onScrubCancel}
+          onScrubLeave={onScrubLeave}
+          onScrubFocus={poke}
+          playing={playing}
+          onTogglePlay={togglePlay}
+          onBack10={() => seekRelative(-SKIP_SECONDS)}
+          onForward10={() => {
+            if (desktopHoldFiredRef.current) {
+              desktopHoldFiredRef.current = false;
+              return;
+            }
+            seekRelative(SKIP_SECONDS);
+          }}
+          onForwardHoldStart={() => {
+            // Arm 2x on a sustained press; the click still fires on a quick
+            // press, so a hold both seeks AND speeds up (YouTube).
+            desktopHoldTimerRef.current = setTimeout(() => {
+              desktopHoldTimerRef.current = null;
+              desktopHoldFiredRef.current = true;
+              engageHold2x();
+            }, HOLD_2X_DELAY_MS);
+          }}
+          onForwardHoldRelease={desktopHoldRelease}
+          muted={muted}
+          volume={volume}
+          onToggleMute={toggleMute}
+          volHover={volHover}
+          onVolHoverChange={setVolHover}
+          onVolumeChange={(nv) => {
+            setMuted(false);
+            setAutoMuted(false);
+            setVolume(nv);
+            showHud("volume", nv);
+            poke();
+          }}
+          showEpisodeNav={showEpisodeNav}
+          prevDisabled={prevDisabled}
+          nextDisabled={nextDisabled}
+          onEpPrev={goEpPrev}
+          onEpNext={goEpNext}
+          showEpisodesButton={showEpisodesButton}
+          panel={panel}
+          onTogglePanel={(key) => {
+            setPanel((p) => (p === key ? null : key));
+            poke();
+          }}
+          onToggleSettings={() => {
+            // If clicking Settings while any settings panel is open, close it.
+            // Otherwise open root settings.
+            setPanel((p) =>
+              ["settings", "audio", "subs", "video", "speed", "aspect"].includes(p)
+                ? null
+                : "settings",
+            );
+            poke();
+          }}
+          showAudioButton={audioTrackList.length > 1}
+          showSubsButton={subtitleLanguages.length > 0 || isFetchingSubtitles || subtitleError}
+          isFullscreen={isFullscreen}
+          onFullscreen={goFullscreen}
+        />
+{/* Netflix "Left off at …" resume card — auto-resumes after a short wait. */}
+        <ResumeCard
+          offer={resumeOffer && !ended && !sheetOpen ? resumeOffer : null}
+          fmtTime={fmtTime}
+          onResume={(at) => commitResumeRef.current?.(at)}
+          onRestart={restartFromStart}
+        />
+        {/* Netflix "Up Next" post-roll card (TV only). */}
+        <UpNextCard
+          upNext={ended ? upNext : null}
+          upNextMs={UP_NEXT_MS}
+          onPlayNow={(n) => onSelectEpisodeRef.current?.(n)}
+          onCancel={() => setUpNext(null)}
+        />
+
+{/* The settings / audio / subs / servers / quality panel shell. */}
+        <PlayerPanel
+          panel={panel}
+          panelRef={panelRef}
+          onClose={() => setPanel(null)}
+          onBackToSettings={() => {
+            setPanel("settings");
+            poke();
           }}
         >
-          {/* Scrubber: red played Â· gray buffered Â· hover knob + time bubble. */}
-          <div
-            ref={scrubRef}
-            className="np-scrub"
-            role="slider"
-            tabIndex={0}
-            aria-label="Seek"
-            aria-valuemin={0}
-            aria-valuemax={Math.floor(safeDuration)}
-            aria-valuenow={Math.floor(currentTime)}
-            aria-valuetext={`${fmtTime(currentTime)} of ${fmtTime(safeDuration)}`}
-            onKeyDown={onScrubKeyDown}
-            onFocus={() => poke()}
-            onPointerDown={onScrubDown}
-            onPointerMove={onScrubMove}
-            onPointerUp={onScrubUp}
-            onPointerCancel={onScrubCancel}
-            onPointerLeave={onScrubLeave}
-            style={{
-              position: "relative",
-              // 44px hit target on touch (Apple HIG minimum) â€” the visual bar
-              // stays thin, only the touchable band grows.
-              height: IS_TOUCH ? 44 : 36,
-              display: "flex",
-              alignItems: "center",
-              cursor: "pointer",
-              touchAction: "none",
-            }}
-          >
-            <div
-              style={{
-                position: "relative",
-                height: hoverRatio != null ? 8 : 5,
-                width: "100%",
-                background: "rgba(255,255,255,0.3)",
-                borderRadius: 999,
-                transition: "height 0.15s",
-              }}
-            >
-              {safeDuration > 0 &&
-                bufferedRanges.map(([s, e], i) =>
-                  e > s ? (
-                    <div
-                      key={i}
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        bottom: 0,
-                        left: `${(s / safeDuration) * 100}%`,
-                        width: `${((e - s) / safeDuration) * 100}%`,
-                        background: "rgba(255,255,255,0.5)",
-                        borderRadius: 999,
-                      }}
-                    />
-                  ) : null,
-                )}
-              <div
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  bottom: 0,
-                  left: 0,
-                  width: `${effectiveRatio * 100}%`,
-                  background: NETFLIX_RED,
-                  borderRadius: 999,
-                }}
-              />
-{/* Measured skip windows, drawn the way the provider draws them: a band over the
-                  intro, a band over the credits. Estimates never paint here — only
-                  cue/provider/dataset boundaries (cueBounds carries its source
-                  stamp), so a 90s guess cannot masquerade as measured data. The
-                  geometry lives in `scrubberBands`, which is built from markers
-                  that have already survived normalizeSkipBoundaries and returns
-                  null for any band it cannot place inside the track. */}
-              {scrubberBands?.intro && (
-                <div aria-hidden="true" style={{ ...SCRUBBER_BAND_STYLE, ...scrubberBands.intro }} />
-              )}
-              {scrubberBands?.credits && (
-                <div aria-hidden="true" style={{ ...SCRUBBER_BAND_STYLE, ...scrubberBands.credits }} />
-              )}
-              <div
-                style={{
-                  position: "absolute",
-                  top: "50%",
-                  left: `calc(${effectiveRatio * 100}% - ${(hoverRatio != null ? 20 : 16) / 2}px)`,
-                  width: hoverRatio != null ? 20 : 16,
-                  height: hoverRatio != null ? 20 : 16,
-                  borderRadius: "50%",
-                  background: NETFLIX_RED,
-                  transform: "translateY(-50%)",
-                  transition: "width 0.15s, height 0.15s",
-                  boxShadow: "0 1px 6px rgba(0,0,0,0.6)",
-                }}
-              />
-            </div>
-            {/* Hover/drag thumbnail (Netflix/YouTube scrub preview): the latest
-                captured frame at the hover position, clamped so it never leaves
-                the frame. Hidden until a capture lands; scrubbing never waits
-                on it. */}
-            {hoverRatio != null && previewUrl && (
-              <div
-                style={{
-                  position: "absolute",
-                  bottom: previewBox.lift,
-                  // Centre on the pointer, clamped so the card never leaves the frame.
-                  left: Math.min(
-                    Math.max(hoverRatio * playerW, previewBox.thumbInset),
-                    Math.max(previewBox.thumbInset, playerW - previewBox.thumbInset),
-                  ),
-                  transform: "translateX(-50%)",
-                  width: previewBox.thumbW,
-                  height: previewBox.thumbH,
-                  borderRadius: 6,
-                  border: "1px solid rgba(255,255,255,0.35)",
-                  boxShadow: "0 10px 30px rgba(0,0,0,0.65)",
-                  overflow: "hidden",
-                  pointerEvents: "none",
-                  zIndex: 4,
-                  background: "#000",
-                }}
-              >
-                <img
-                  src={previewUrl}
-                  alt=""
-                  aria-hidden="true"
-                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                />
-              </div>
-            )}
-            {hoverRatio != null && safeDuration > 0 && (
-              <div
-                style={{
-                  position: "absolute",
-                  bottom: 28,
-                  left: `${Math.min(94, Math.max(6, hoverRatio * 100))}%`,
-                  transform: "translateX(-50%)",
-                  background: "rgba(0,0,0,0.8)",
-                  color: "#fff",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  fontVariantNumeric: "tabular-nums",
-                  padding: "4px 8px",
-                  borderRadius: 4,
-                  pointerEvents: "none",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {fmtTime(hoverRatio * safeDuration)}
-              </div>
-            )}
-          </div>
-          {/* Transport row. */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 6 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
-              <IconBtn label={playing ? "Pause" : "Play"} onClick={togglePlay}>
-                {playing ? <Pause size={28} fill="currentColor" /> : <Play size={28} fill="currentColor" />}
-              </IconBtn>
-              {!IS_TOUCH && (
-                <>
-                  <button
-                    type="button"
-                    className="np-icon-btn"
-                    aria-label="Back 10 seconds"
-                    title="Back 10 seconds"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      seekRelative(-SKIP_SECONDS);
-                    }}
-                    style={{
-                      position: "relative",
-                      width: BTN_SIZE,
-                      height: BTN_SIZE,
-                      borderRadius: "50%",
-                      border: "none",
-                      background: "transparent",
-                      color: "#fff",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <ChevronLeft size={24} strokeWidth={1.5} />
-                  </button>
-                  <button
-                    type="button"
-                    className="np-icon-btn"
-                    aria-label="Forward 10 seconds (hold for 2x)"
-                    title="Forward 10 seconds (hold for 2x)"
-                    onPointerDown={(e) => {
-                      e.stopPropagation();
-                      if (e.pointerType === "touch") return; // touch holds the SCREEN, not the button
-                      // Arm 2x on a sustained press; the click still fires on a
-                      // quick press, so a hold both seeks AND speeds up (YouTube).
-                      desktopHoldTimerRef.current = setTimeout(() => {
-                        desktopHoldTimerRef.current = null;
-                        desktopHoldFiredRef.current = true;
-                        engageHold2x();
-                      }, HOLD_2X_DELAY_MS);
-                    }}
-                    onPointerUp={desktopHoldRelease}
-                    onPointerLeave={desktopHoldRelease}
-                    onPointerCancel={desktopHoldRelease}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (desktopHoldFiredRef.current) {
-                        desktopHoldFiredRef.current = false;
-                        return;
-                      }
-                      seekRelative(SKIP_SECONDS);
-                    }}
-                    style={{
-                      position: "relative",
-                      width: BTN_SIZE,
-                      height: BTN_SIZE,
-                      borderRadius: "50%",
-                      border: "none",
-                      background: "transparent",
-                      color: "#fff",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <ChevronRight size={24} strokeWidth={1.5} />
-                  </button>
-                </>
-              )}
-              {/* Volume cluster. The slider used to open on hover alone, which
-                  made it unreachable by keyboard and a no-show on touch â€”
-                  `volHover` now also tracks focus, and the blur handler ignores
-                  focus moving from the mute button into the slider itself. */}
-              <span
-                onMouseEnter={() => setVolHover(true)}
-                onMouseLeave={() => setVolHover(false)}
-                onFocus={() => setVolHover(true)}
-                onBlur={(e) => {
-                  if (e.currentTarget.contains(e.relatedTarget)) return;
-                  setVolHover(false);
-                }}
-                style={{ display: "flex", alignItems: "center" }}
-              >
-                <IconBtn label={muted ? "Unmute" : "Mute"} onClick={toggleMute}>
-                  <VolumeIcon size={24} />
-                </IconBtn>
-                {!IS_TOUCH && volHover && (
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={muted ? 0 : volume}
-                    onChange={(e) => {
-                      const nv = Number(e.target.value);
-                      setMuted(false);
-                      setAutoMuted(false);
-                      setVolume(nv);
-                      showHud("volume", nv);
-                      poke();
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                    aria-label="Volume"
-                    className="np-volume-slider" style={{ width: 72, cursor: "pointer", marginLeft: 4 }}
-                  />
-                )}
-              </span>
-              <span
-                    style={{
-                      fontSize: 14,
-                      color: "rgba(255,255,255,0.9)",
-                      fontVariantNumeric: "tabular-nums",
-                      marginLeft: 12,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {fmtTime(currentTime)} / {fmtTime(duration)}
-                  </span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              {showEpisodeNav && (
-                <>
-                  <IconBtn label="Previous episode" disabled={prevDisabled} onClick={goEpPrev}>
-                    <SkipBack size={24} />
-                  </IconBtn>
-                  <IconBtn label="Next episode" disabled={nextDisabled} onClick={goEpNext}>
-                    <SkipForward size={24} />
-                  </IconBtn>
-                </>
-              )}
-              {showEpisodesButton && (
-                <IconBtn
-                  label="Episodes"
-                  active={panel === "episodes"}
-                  expanded={panel === "episodes"}
-                  onClick={() => {
-                    setPanel((p) => (p === "episodes" ? null : "episodes"));
-                    poke();
-                  }}
-                >
-                  <ListVideo size={24} />
-                </IconBtn>
-              )}
-              {/* Audio + Subtitles live HERE, not only in the gear sheet. A
-                  viewer who wants the Tamil track should not have to guess which
-                  submenu of Settings holds it — these are the two controls every
-                  streaming player puts in the transport row, and burying them was
-                  the thing this change exists to fix.
-                  Each button appears only when it has something to do: no dub on
-                  a single-audio server means no Audio button, and an empty or
-                  still-searching subtitle list means no Subtitles button. A
-                  button that opens an empty list is worse than no button. */}
-              {audioTrackList.length > 1 ? (
-                <IconBtn
-                  label="Audio"
-                  active={panel === "audio"}
-                  expanded={panel === "audio"}
-                  onClick={() => {
-                    setPanel((p) => (p === "audio" ? null : "audio"));
-                    poke();
-                  }}
-                >
-                  <AudioLines size={22} />
-                </IconBtn>
-              ) : null}
-              {subtitleLanguages.length > 0 || isFetchingSubtitles || subtitleError ? (
-                <IconBtn
-                  label="Subtitles"
-                  active={panel === "subs"}
-                  expanded={panel === "subs"}
-                  onClick={() => {
-                    setPanel((p) => (p === "subs" ? null : "subs"));
-                    poke();
-                  }}
-                >
-                  <Captions size={22} />
-                </IconBtn>
-              ) : null}
-              {/* Server switcher: always available â€” VidCore (4K default),
-                  VidSrc and NHD (dubs) are pickable mid-playback. */}
-              <IconBtn
-                label="Servers"
-                active={panel === "servers"}
-                expanded={panel === "servers"}
-                onClick={() => {
-                  setPanel((p) => (p === "servers" ? null : "servers"));
-                  poke();
-                }}
-              >
-                <Server size={22} />
-              </IconBtn>
-              <IconBtn
-                label="Settings"
-                // "subs" was missing here, so opening Subtitles left the gear
-                // unlit while every other panel lit it.
-                active={
-                  panel === "settings" ||
-                  panel === "audio" ||
-                  panel === "subs" ||
-                  panel === "video" ||
-                  panel === "speed" ||
-                  panel === "aspect"
-                }
-                expanded={Boolean(panel && panel !== "episodes" && panel !== "servers")}
-                onClick={() => {
-                  // If clicking Settings while any settings panel is open, close it. Otherwise open root settings.
-                  setPanel((p) =>
-                    ["settings", "audio", "subs", "video", "speed", "aspect"].includes(p)
-                      ? null
-                      : "settings",
-                  );
-                  poke();
-                }}
-              >
-                <Settings size={24} />
-              </IconBtn>
-              <IconBtn label={isFullscreen ? "Exit fullscreen" : "Fullscreen"} onClick={goFullscreen}>
-                {isFullscreen ? <Minimize size={22} /> : <Maximize size={22} />}
-              </IconBtn>
-            </div>
-          </div>
-        </motion.div>
-        {/* Netflix "Left off at â€¦" resume card â€” auto-resumes after a short wait.
-            Same bottom-right corner as the episodes rail, whose gradient is
-            transparent at the top, so it showed through an open panel too. */}
-        <AnimatePresence>
-          {resumeOffer && !ended && !sheetOpen && (
-            <motion.div
-              key="np-resume"
-              role="complementary"
-              aria-label={`Resume from ${fmtTime(resumeOffer.at)}`}
-              initial={{ opacity: 0, x: 28, scale: 0.97 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 20, scale: 0.98 }}
-              transition={M.SPRING.SHEET}
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                position: "absolute",
-                right: 24,
-                bottom: IS_TOUCH ? 120 : 100,
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                background: "rgba(24,24,27,0.92)",
-                borderRadius: 12,
-                border: "1px solid rgba(255,255,255,0.1)",
-                backdropFilter: "blur(18px) saturate(1.35)",
-                WebkitBackdropFilter: "blur(18px) saturate(1.35)",
-                padding: "12px 16px",
-                zIndex: 6,
-                boxShadow: "0 8px 32px rgba(0,0,0,0.7)",
-              }}
-            >
-            <div style={{ minWidth: 0 }}>
-              <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>
-                You left off at {fmtTime(resumeOffer.at)}
-              </div>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginTop: 3 }}>
-                {resumeOffer.left > 1
-                  ? `Auto-resuming in ${resumeOffer.left}s`
-                  : "Resumingâ€¦"}
-              </div>
-            </div>
-            <button
-              type="button"
-              className="np-resume-btn"
-              onClick={() => commitResumeRef.current?.(resumeOffer.at)}
-              aria-label={`Resume from ${fmtTime(resumeOffer.at)}`}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "8px 18px",
-                background: "#fff",
-                color: "#000",
-                border: "none",
-                borderRadius: 8,
-                fontWeight: 700,
-                fontSize: 14,
-                cursor: "pointer",
-              }}
-            >
-              <Play size={16} />
-              Resume
-            </button>
-            <button
-              type="button"
-              className="np-restart-btn"
-              onClick={restartFromStart}
-              aria-label="Restart from the beginning"
-              style={{
-                padding: "8px 14px",
-                background: "transparent",
-                color: "rgba(255,255,255,0.85)",
-                border: "1px solid rgba(255,255,255,0.4)",
-                borderRadius: 8,
-                fontWeight: 600,
-                fontSize: 14,
-                cursor: "pointer",
-              }}
-            >
-              Restart
-            </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Netflix "Up Next" post-roll card (TV only). */}
-        <AnimatePresence>
-          {upNext && ended && (
-            <motion.div
-              key="np-upnext"
-              role="complementary"
-              aria-label={`Up Next: playing in ${Math.round(UP_NEXT_MS / 1000)} seconds`}
-              initial={{ opacity: 0, x: 28, scale: 0.97 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 20, scale: 0.98 }}
-              transition={M.SPRING.SHEET}
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                position: "absolute",
-                right: 24,
-                bottom: IS_TOUCH ? 120 : 100,
-                width: "min(260px, 55%)",
-                background: "rgba(24,24,27,0.92)",
-                borderRadius: 12,
-                border: "1px solid rgba(255,255,255,0.1)",
-                backdropFilter: "blur(18px) saturate(1.35)",
-                WebkitBackdropFilter: "blur(18px) saturate(1.35)",
-                padding: "14px 16px",
-                zIndex: 6,
-                boxShadow: "0 8px 32px rgba(0,0,0,0.7)",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.18em", color: "rgba(255,255,255,0.55)" }}>
-                  Up Next
-                </span>
-                <IconBtn label="Cancel up next" onClick={() => setUpNext(null)}>
-                  <X size={16} />
-                </IconBtn>
-              </div>
-              <div style={{ marginTop: 6, color: "#fff", fontWeight: 700, fontSize: 15, lineHeight: 1.3 }}>
-                {upNext.title ? `E${upNext.number} Â· ${upNext.title}` : `Episode ${upNext.number}`}
-              </div>
-              <div
-                style={{
-                  marginTop: 8,
-                  height: 3,
-                  borderRadius: 999,
-                  background: "rgba(255,255,255,0.18)",
-                  overflow: "hidden",
-                  pointerEvents: "auto",
-                }}
-              >
-                <div
-                  // Full width, drained by the keyframe â€” the old `width:
-                  // "15000ms"` was not a length CSS understands, so the bar
-                  // rendered at the track's natural 0% and never counted down.
-                  className="np-upnext-countdown"
-                  style={{
-                    height: "100%",
-                    width: "100%",
-                    background: NETFLIX_RED,
-                    transformOrigin: "left",
-                    animation: "upNextCountdown linear both",
-                    animationDuration: `${UP_NEXT_MS}ms`,
-                  }}
-                />
-              </div>
-              <div style={{ marginTop: 6, fontSize: 12.5, color: "rgba(255,255,255,0.6)" }}>
-                Playing in {Math.round(UP_NEXT_MS / 1000)} seconds
-              </div>
-              <button
-                type="button"
-                className="np-resume-btn"
-                onClick={() => onSelectEpisodeRef.current?.(upNext.number)}
-                style={{
-                  marginTop: 10,
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  padding: "9px 16px",
-                  background: "#fff",
-                  color: "#000",
-                  border: "none",
-                  borderRadius: 8,
-                  fontWeight: 700,
-                  fontSize: 14,
-                  cursor: "pointer",
-                }}
-              >
-                <Play size={18} />
-                Play now
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Audio & Subtitles panel. */}
-        <AnimatePresence>
-          {panel && panel !== "episodes" && (
-            <motion.aside
-              // Slides from the edge it lives on: right on desktop, up from the
-              // bottom on touch (where it is a sheet, not a side pane).
-              initial={IS_TOUCH ? { y: "100%" } : { x: "100%" }}
-              animate={IS_TOUCH ? { y: 0 } : { x: 0 }}
-              exit={IS_TOUCH ? { y: "100%" } : { x: "100%" }}
-              transition={M.SPRING.SHEET}
-              ref={panelRef}
-              role="dialog"
-              aria-label={
-                panel === "settings"
-                  ? "Settings"
-                  : panel === "subs"
-                    ? "Subtitles"
-                    : panel === "audio"
-                      ? "Audio"
-                      : panel === "video"
-                        ? "Video quality"
-                        :                panel === "speed"
-                  ? "Playback speed"
-                    : panel === "servers"
-                      ? "Servers"
-                      : "Aspect ratio"
-              }
-              tabIndex={-1}
-              onClick={(e) => e.stopPropagation()}
-              className="np-panel-surface"
-              style={{
-                position: "absolute",
-                right: 0,
-                top: IS_TOUCH ? undefined : 0,
-                bottom: 0,
-                width:
-                  ["settings", "subs", "audio", "video", "speed", "aspect"].includes(panel)
-                    ? IS_TOUCH
-                      ? "min(480px, 100%)"
-                      : "min(480px, 32%)"
-                    : IS_TOUCH
-                      ? "min(360px, 100%)"
-                      : "min(360px, 28%)",
-                maxHeight: IS_TOUCH ? "85%" : "100%",
-                height: IS_TOUCH ? undefined : "100%",
-                display: "flex",
-                flexDirection: "column",
-                overflow: "hidden",
-                background: "rgba(0,0,0,0.97)",
-                borderLeft: IS_TOUCH ? "none" : "1px solid rgba(255,255,255,0.08)",
-                borderTop: IS_TOUCH ? "1px solid rgba(255,255,255,0.1)" : "none",
-                borderRadius: IS_TOUCH ? "16px 16px 0 0" : 0,
-                // Bottom inset keeps rows clear of the Android/iOS gesture bar.
-                padding: `16px 0 calc(12px + env(safe-area-inset-bottom, 0px))`,
-                zIndex: 6,
-                // The sheet is a side pane, not a modal: the transport row stays
-                // visible and operable, so it takes focus (not a focus outline)
-                // rather than a ring when focused programmatically.
-                outline: "none",
-              }}
-            >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, padding: "0 16px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                {panel !== "settings" && (
-                  <button
-                    type="button"
-                    className="np-icon-btn"
-                    aria-label="Back to settings"
-                    onClick={() => {
-                      setPanel("settings");
-                      poke();
-                    }}
-                    style={{
-                      background: "transparent",
-                      border: "none",
-                      color: "#fff",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      padding: 0
-                    }}
-                  >
-                    <ArrowLeft size={20} />
-                  </button>
-                )}
-                <span style={{ color: "#fff", fontWeight: 700, fontSize: 16, letterSpacing: "-0.01em" }}>
-                  {panel === "settings" ? "Settings" : panel === "subs" ? "Subtitles" : panel === "audio" ? "Audio" : panel === "video" ? "Video Quality" : panel === "speed" ? "Playback Speed" : panel === "aspect" ? "Aspect Ratio" : panel === "servers" ? "Servers" : ""}
-                </span>
-              </div>
-              <IconBtn label="Close panel" onClick={() => setPanel(null)}>
-                <X size={18} />
-              </IconBtn>
-            </div>
-            {/* One panel per control (Netflix): Subtitles / Audio / Video
-                Quality each get their own sheet and their own scroll. */}
             {panel === "settings" ? (
               <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
                 {/* Audio and Subtitles were REMOVED from this list, not just
@@ -5026,9 +3516,7 @@ const showSkipOutro = shouldShowSkipOutro({
                   ))}
               </div>
             ) : null}
-            </motion.aside>
-          )}
-        </AnimatePresence>
+        </PlayerPanel>
 
         {/* YouTube-style Bottom Sheet for Episodes */}
         <AnimatePresence>
@@ -5040,7 +3528,6 @@ const showSkipOutro = shouldShowSkipOutro({
               setPanel={setPanel}
               setBuffering={setBuffering}
               setResumeOffer={setResumeOffer}
-              IS_TOUCH={IS_TOUCH}
             />
           )}
         </AnimatePresence>
@@ -5102,85 +3589,14 @@ const showSkipOutro = shouldShowSkipOutro({
           )}
         </AnimatePresence>
       </div>
-      {fatal && (
-        /* The old banner was a bare <p> with no role and no exit: a screen
-           reader never announced the failure, and a viewer whose source failed
-           had no way forward but the browser Back button. role="alert" goes on
-           the MESSAGE only â€” putting it on the wrapper would make a live region
-           announce "â€¦cannot run here.Try againBack" as one string. Try again
-           re-runs the load effect via `reloadToken`. */
-        <motion.div
-          key="np-fatal"
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={M.SPRING.SHEET}
-          className="np-fatal"
-          style={{
-            position: "absolute",
-            bottom: 80,
-            left: 16,
-            right: 16,
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            padding: "12px 16px",
-            borderRadius: 12,
-            background: "rgba(24,24,27,0.94)",
-            border: "1px solid rgba(255,255,255,0.16)",
-            fontSize: 14,
-            zIndex: 7,
-            color: "#fff",
-            boxShadow: "0 10px 34px rgba(0,0,0,0.6)",
-          }}
-        >
-          <span role="alert" style={{ flex: 1, minWidth: 0 }}>
-            {fatal}
-          </span>
-          <button
-            type="button"
-            className="np-fatal-btn"
-            onClick={retryLoad}
-            style={{
-              padding: "7px 14px",
-              background: "#fff",
-              color: "#000",
-              border: "none",
-              borderRadius: 8,
-              fontWeight: 700,
-              fontSize: 13,
-              cursor: "pointer",
-              flexShrink: 0,
-            }}
-          >
-            Try again
-          </button>
-          <button
-            type="button"
-            className="np-fatal-btn"
-            // Not "Back": the top bar already owns a Back button, and two
-            // controls with the same accessible name in one view is ambiguous
-            // to get by voice or screen-reader rotor.
-            aria-label="Back to browse"
-            onClick={() => {
-              if (onCloseRef.current) onCloseRef.current();
-              else window.history.back();
-            }}
-            style={{
-              padding: "7px 14px",
-              background: "transparent",
-              color: "#fff",
-              border: "1px solid rgba(255,255,255,0.4)",
-              borderRadius: 8,
-              fontWeight: 600,
-              fontSize: 13,
-              cursor: "pointer",
-              flexShrink: 0,
-            }}
-          >
-            Back
-          </button>
-        </motion.div>
-      )}
+<FatalBanner
+        message={fatal}
+        onRetry={retryLoad}
+        onBack={() => {
+          if (onCloseRef.current) onCloseRef.current();
+          else window.history.back();
+        }}
+      />
     </div>
   );
 }
