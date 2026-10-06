@@ -7,8 +7,9 @@ import {
   GLASS_BORDER,
   RADIUS,
   SHADOW,
-  FONT,
 } from "./player/chrome/theme";
+
+const FONT = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif";
 
 /* "Still watching?" — a full-frame dim + centered prompt when playback has run
    unattended (2h idle or 3 auto-advanced episodes). Pausing + asking is the

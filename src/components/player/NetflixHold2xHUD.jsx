@@ -2,7 +2,7 @@ import { memo } from "react";
 import { motion } from "framer-motion";
 import { SPRING } from "../../constants/motion";
 import { IconChevronsRight } from "./chrome/icons";
-import { HUD_GLASS, FONT } from "./chrome/theme";
+import { HUD_GLASS } from "./chrome/theme";
 
 /* Netflix-mobile hold-to-2x pill: a small badge pinned to the right edge of the
    frame while the hold is active. Decorative only (the video element itself
@@ -36,7 +36,7 @@ const NetflixHold2xHUD = memo(function NetflixHold2xHUD({ metrics }) {
         zIndex: 65,
       }}
     >
-      <span style={{ fontSize: font, fontWeight: 800, letterSpacing: 0.5, whiteSpace: "nowrap", fontFamily: FONT }}>2x</span>
+      <span style={{ fontSize: font, fontWeight: 800, letterSpacing: 0.5, whiteSpace: "nowrap", fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif" }}>2x</span>
       <IconChevronsRight size={icon} color="#fff" strokeWidth={2.2} />
     </motion.div>
   );

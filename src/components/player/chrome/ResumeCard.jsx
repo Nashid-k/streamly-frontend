@@ -8,7 +8,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useMotionTokens } from "../../../constants/motion";
 import { IconPlay } from "./icons";
 import { IS_TOUCH } from "./constants";
-import { GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER, RADIUS, FONT } from "./theme";
+import { GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER, RADIUS } from "./theme";
 
 export default function ResumeCard({ offer, fmtTime, onResume, onRestart }) {
   const M = useMotionTokens();
@@ -36,7 +36,6 @@ export default function ResumeCard({ offer, fmtTime, onResume, onRestart }) {
             border: `1px solid ${GLASS_BORDER}`,
             backdropFilter: GLASS_BLUR,
             WebkitBackdropFilter: GLASS_BLUR,
-            fontFamily: FONT,
             padding: "12px 16px",
             zIndex: 6,
             boxShadow: "0 8px 32px rgba(0,0,0,0.7)",

@@ -14,14 +14,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useMotionTokens } from "../../../constants/motion";
 import { IS_TOUCH, CENTER_GLYPH_SHADOW } from "./constants";
-import {
-  GLASS_BG_STRONG,
-  GLASS_BLUR,
-  GLASS_BORDER,
-  CONTROL_BG,
-  CONTROL_BLUR,
-  CONTROL_BORDER,
-} from "./theme";
+import { GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER } from "./theme";
 import { IconSkipBack10, IconSkipForward10, IconPlay, IconReplay } from "./icons";
 import { LoadingMessage, LoadingStage, RingSpinner } from "./primitives";
 
@@ -142,10 +135,8 @@ export default function CenterStack({
               width: IS_TOUCH ? 66 : 62,
               height: IS_TOUCH ? 66 : 62,
               borderRadius: "50%",
-              border: `1px solid ${CONTROL_BORDER}`,
-              background: CONTROL_BG,
-              backdropFilter: CONTROL_BLUR,
-              WebkitBackdropFilter: CONTROL_BLUR,
+              border: "none",
+              background: "transparent",
               color: "#fff",
               cursor: "pointer",
               display: "flex",
@@ -204,10 +195,8 @@ export default function CenterStack({
               width: IS_TOUCH ? 66 : 62,
               height: IS_TOUCH ? 66 : 62,
               borderRadius: "50%",
-              border: `1px solid ${CONTROL_BORDER}`,
-              background: CONTROL_BG,
-              backdropFilter: CONTROL_BLUR,
-              WebkitBackdropFilter: CONTROL_BLUR,
+              border: "none",
+              background: "transparent",
               color: "#fff",
               cursor: "pointer",
               display: "flex",

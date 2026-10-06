@@ -14,7 +14,7 @@
 import { motion } from "framer-motion";
 import { useMotionTokens } from "../../../constants/motion";
 import { IconSkipForward10 } from "./icons";
-import { GLASS_BG, GLASS_BLUR, GLASS_BORDER, RADIUS, FONT } from "./theme";
+import { GLASS_BG, GLASS_BLUR, GLASS_BORDER, RADIUS } from "./theme";
 
 export default function SkipPill({ label, ariaLabel, title, onClick, progress = 0 }) {
   const M = useMotionTokens();
@@ -44,10 +44,8 @@ export default function SkipPill({ label, ariaLabel, title, onClick, progress = 
         color: "#fff",
         border: `1px solid ${GLASS_BORDER}`,
         borderRadius: RADIUS.card,
-        fontFamily: FONT,
         fontWeight: 700,
         fontSize: 16,
-        letterSpacing: "-0.01em",
         cursor: "pointer",
         zIndex: 5,
         overflow: "hidden",

@@ -2,7 +2,6 @@ import { memo } from "react";
 import { motion } from "framer-motion";
 import { HUD_POP } from "../../constants/motion";
 import { IconChevronLeft, IconChevronRight } from "./chrome/icons";
-import { FONT } from "./chrome/theme";
 
 /* Rewind / forward badge: a chevron pointing the seek direction beside a
    "+x"/"-x" seconds label, riding on the picture. Anchored to its own edge of
@@ -45,7 +44,7 @@ const NetflixSeekHUD = memo(function NetflixSeekHUD({ direction, metrics, second
           fontWeight: 700,
           whiteSpace: "nowrap",
           textShadow: "0 1px 4px rgba(0,0,0,0.8), 0 0 14px rgba(0,0,0,0.6)",
-          fontFamily: FONT,
+          fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
         }}
       >
         {label}

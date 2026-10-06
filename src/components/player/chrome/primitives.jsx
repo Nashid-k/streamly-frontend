@@ -5,7 +5,6 @@
 // presentation-only; the stage's data comes in as props so the engine keeps
 // owning the resolve state.
 import { useEffect, useState } from "react";
-import { FONT } from "./theme";
 
 const FUN_FACTS = [
   "Reticulating splines...",
@@ -30,8 +29,8 @@ export function LoadingMessage({ title }) {
   }, []);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontFamily: FONT }}>
-      {title && <span style={{ fontSize: 20, color: "#fff", fontWeight: 600, letterSpacing: "-0.01em" }}>Loading {title}</span>}
+    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+      {title && <span style={{ fontSize: 20, color: "#fff" }}>Loading {title}</span>}
       <span style={{ fontSize: 14, color: "rgba(255,255,255,0.7)", fontStyle: "italic", minHeight: "20px" }}>
         {FUN_FACTS[index]}
       </span>
@@ -59,7 +58,6 @@ export function LoadingStage({ title, backdropUrl, posterUrl, message }) {
         gap: 18,
         overflow: "hidden",
         background: "#000",
-        fontFamily: FONT,
         zIndex: 3,
       }}
     >

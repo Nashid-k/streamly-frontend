@@ -5236,28 +5236,3 @@ skin**. This pass finishes the sweep so no player surface reads Netflix:
   and the accessible titles kept for the existing tests.
 - **Gates:** lint 0 errors / 40 warnings. `npm run test` **80 files / 1047
   passed**. `npm run build` green (~1.6s). Changes local (not committed).
-
-### Revision 3 — SF Pro + frosted system-fill controls (2026-10-06, follow-up)
-
-User feedback after Revision 2: "changed but still not Apple TV+." Root cause:
-the shapes/icons were Apple-ish but the material and type still read generic.
-This pass changes the two highest-signal Apple details:
-
-- **`chrome/theme.js`**: added `FONT` (SF Pro / system-UI stack) and the
-  `CONTROL_*` material — a persistent frosted system-fill disc
-  (`rgba(120,120,128,0.32)` + `blur(16px) saturate(1.6)` + hairline) with an
-  inverted white disc / dark glyph for the ACTIVE state.
-- **`IconBtn`**: every control glyph now sits on that frosted disc at all times
-  (Apple tvOS), not just on hover; active controls invert to a solid white disc.
-- **`BottomChrome`**: thicker scrubber (6px, 9px on hover) with a 16/22px knob,
-  Apple-sized transport/utility gaps (30 / 10px), larger centre play (64/68px),
-  and SF Pro tabular time labels (15px).
-- **`ChromeTopBar`**: title moved to the LEFT beside the back button
-  (`justify-content: flex-start`), larger (`clamp(20-28px)`, `-0.02em`).
-- **`CenterStack`**: paused skip-back/forward buttons get the same frosted disc.
-- **SF Pro rolled through** `PlayerPanel`, `DialogRow`, `SkipPill`, `ResumeCard`,
-  `UpNextCard`, `TapToUnmutePill`, `SubtitleOverlay`, `EpisodesRail`,
-  `primitives`, all six HUDs, `NetflixStillWatching` (local FONT const removed).
-- **`player.css`**: hover/focus bloom re-tuned over the persistent disc.
-- **Gates:** lint 0 errors / 40 warnings. `npm run test` **80 files / 1047
-  passed**. `npm run build` green (~2.8s).

@@ -5,14 +5,7 @@
 // `aria-pressed` behaviour is load-bearing: the a11y tests assert the settings
 // gear lights up while a sheet is open and reports `aria-expanded`.
 import { BTN_SIZE } from "./constants";
-import {
-  ACCENT,
-  CONTROL_ACTIVE_BG,
-  CONTROL_ACTIVE_FG,
-  CONTROL_BG,
-  CONTROL_BLUR,
-  CONTROL_BORDER,
-} from "./theme";
+import { ACCENT } from "./theme";
 
 export default function IconBtn({ label, onClick, children, active, disabled, expanded, size = BTN_SIZE, ...rest }) {
   return (
@@ -33,11 +26,9 @@ export default function IconBtn({ label, onClick, children, active, disabled, ex
         width: size,
         height: size,
         borderRadius: "50%",
-        border: active ? "none" : `1px solid ${CONTROL_BORDER}`,
-        background: active ? CONTROL_ACTIVE_BG : CONTROL_BG,
-        backdropFilter: CONTROL_BLUR,
-        WebkitBackdropFilter: CONTROL_BLUR,
-        color: disabled ? "rgba(255,255,255,0.35)" : active ? CONTROL_ACTIVE_FG : ACCENT,
+        border: "none",
+        background: active ? "rgba(255,255,255,0.16)" : "transparent",
+        color: disabled ? "rgba(255,255,255,0.35)" : ACCENT,
         cursor: disabled ? "not-allowed" : "pointer",
         display: "flex",
         alignItems: "center",

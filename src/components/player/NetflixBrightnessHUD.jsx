@@ -2,7 +2,7 @@ import { memo } from "react";
 import { motion } from "framer-motion";
 import { HUD_POP } from "../../constants/motion";
 import { IconSun } from "./chrome/icons";
-import { ACCENT, HUD_GLASS, FONT } from "./chrome/theme";
+import { ACCENT, HUD_GLASS } from "./chrome/theme";
 
 const NetflixBrightnessHUD = memo(function NetflixBrightnessHUD({ brightness, metrics }) {
   const pct = Math.round(brightness * 100);
@@ -39,7 +39,7 @@ const NetflixBrightnessHUD = memo(function NetflixBrightnessHUD({ brightness, me
           color: "#fff", fontSize: metrics.valueFont, fontWeight: 700,
           minWidth: metrics.valueMinWidth, textAlign: "right",
           fontVariantNumeric: "tabular-nums",
-          fontFamily: FONT,
+          fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
         }}>{pct}%</span>
       </div>
     </motion.div>

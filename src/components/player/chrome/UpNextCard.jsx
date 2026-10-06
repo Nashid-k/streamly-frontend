@@ -8,7 +8,7 @@ import { useMotionTokens } from "../../../constants/motion";
 import IconBtn from "./IconBtn";
 import { IconClose, IconPlay } from "./icons";
 import { IS_TOUCH } from "./constants";
-import { ACCENT, GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER, RADIUS, FONT } from "./theme";
+import { ACCENT, GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER, RADIUS } from "./theme";
 
 export default function UpNextCard({ upNext, upNextMs, onPlayNow, onCancel }) {
   const M = useMotionTokens();
@@ -34,7 +34,6 @@ export default function UpNextCard({ upNext, upNextMs, onPlayNow, onCancel }) {
             border: `1px solid ${GLASS_BORDER}`,
             backdropFilter: GLASS_BLUR,
             WebkitBackdropFilter: GLASS_BLUR,
-            fontFamily: FONT,
             padding: "14px 16px",
             zIndex: 6,
             boxShadow: "0 8px 32px rgba(0,0,0,0.7)",
