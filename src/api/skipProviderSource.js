@@ -62,7 +62,12 @@ export async function fetchZxcIntroBounds({ imdbId, tmdbId, season, episode, sig
     const intro = Number(data?.introEndSeconds);
     const credits = Number(data?.creditsStartSeconds);
     const hasIntro = isFiniteNum(intro) && intro > 0;
-    const hasCredits = isFiniteNum(credits) && credits >= 0;
+    /* Strictly greater than zero. Upstream reports "no outro" as 0, and 0 means
+       "the credits start at the first second of the episode" to every consumer
+       that checks `>= 0` — which paints the whole scrubber orange and holds the
+       Skip Credits button on screen from t=0. Omit the field instead of
+       restating the sentinel; normalizeSkipBoundaries treats absent as unknown. */
+    const hasCredits = isFiniteNum(credits) && credits > 0;
     if (!hasIntro && !hasCredits) return null;
     const bounds = {
       introEndSeconds: hasIntro ? intro : 0,

@@ -58,12 +58,20 @@ function msToSeconds(value) {
    over — which is exactly when it stops being useful. */
 function introEndSeconds(segment) {
   if (!segment || typeof segment !== "object") return 0;
+  /* A start with no end still tells us roughly where the intro finishes, so this
+     one may fall back. */
   return msToSeconds(segment.end_ms) || msToSeconds(segment.start_ms);
 }
 
 function creditsStartSeconds(segment) {
   if (!segment || typeof segment !== "object") return 0;
-  return msToSeconds(segment.start_ms) || msToSeconds(segment.end_ms);
+  /* No `end_ms` fallback, deliberately — and this is the opposite of the intro
+     accessor above. The comment above says using end_ms for credits "would hide
+     the button until the credits were already over"; falling back to it when
+     start_ms is missing did exactly that, so a half-populated outro silently
+     moved the Skip Credits pill to the END of the credits. Absent start_ms means
+     this segment says nothing useful about where the credits begin. */
+  return msToSeconds(segment.start_ms);
 }
 
 function keyFor({ imdbId, season, episode }) {

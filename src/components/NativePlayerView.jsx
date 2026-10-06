@@ -84,6 +84,8 @@ import {
   shouldShowSkipOutro,
   shouldAutoSkipIntroOnce,
   mergeSkipBoundaries,
+  getScrubberBands,
+  normalizeSkipBoundaries,
   rescopeBoundaries,
 } from "../utils/skipMarkers";
 import { pickInitialBandwidthBits } from "../utils/streamTuning";
@@ -102,6 +104,16 @@ const MAX_CONSECUTIVE_FRAG_FAILURES = 4;
 const THROTTLE_BACKOFF_MS = 6000;
 
 const NETFLIX_RED = "#E50914";
+/* Shared frame for the two measured skip bands on the scrubber. Hoisted so the
+   inline `style` objects in JSX are never re-created per render, and so the band
+   colour has exactly one definition — it used to be repeated as a literal twice. */
+const SCRUBBER_BAND_STYLE = {
+  position: "absolute",
+  top: 0,
+  bottom: 0,
+  background: "#f97316",
+  pointerEvents: "none",
+};
 const HIDE_DELAY_MS = 3000;
 
 // Minimum gap between two autohide / still-watching timer re-arms. The player
@@ -3300,8 +3312,17 @@ setScrubDragging(true);
      emits any. Null keeps the 90s/150s estimates in skipMarkers.js. Reset on
      every title change so one episode's credits window can't leak into the next. */
   const [cueBoundaries, setCueBoundaries] = useState(null);
-  const cueIntroEnd = cueBoundaries?.introEndSeconds ?? 0;
-  const cueCreditsStart = cueBoundaries?.creditsStartSeconds ?? null;
+  /* Every measured boundary passes through normalizeSkipBoundaries before
+     anything acts on it or draws it, with the real duration in hand: a 0 credits
+     start ("no outro" in every source's dialect), a marker past the end of this
+     particular cut, or an inverted intro range all arrive as ordinary finite
+     numbers and would otherwise become an orange scrubber instead of an error.
+     Duration is deliberately NOT a fetch dependency — a boundary that is
+     temporarily out of range while `duration` settles normalises again the
+     moment the real length arrives, without spending another request. */
+  const cueBounds = useMemo(() => normalizeSkipBoundaries(cueBoundaries, safeDuration), [cueBoundaries, safeDuration]);
+  const cueIntroEnd = cueBounds?.introEndSeconds ?? 0;
+  const cueCreditsStart = cueBounds?.creditsStartSeconds ?? null;
   /* Boundaries arrive from two independent places: cue tags in the manifest
      itself, and the SkipDB dataset, fetched in parallel. Whichever finishes
      first is luck, so the ranking (measured cue > dataset) lives in
@@ -3314,7 +3335,12 @@ setScrubDragging(true);
     // A new title has no playing source yet. Left set, it would name the PREVIOUS
     // title's server in the Servers menu during the first resolve.
     setActiveSourceKey(null);
-  }, [type, id]);
+    /* season/episode are part of this identity, not optional extras. `id` is the
+       SHOW id for a series, so it stays constant across S1E1 → S1E2 and this
+       effect simply never fired: the previous episode's measured boundaries were
+       then drawn on the next episode's scrubber and aimed its skip pills at the
+       wrong moments until that episode's own lookup landed. */
+  }, [type, id, season, episode]);
 
   /* Cue tags are scoped to ONE MANIFEST; dataset boundaries are scoped to the
      TITLE. That difference decides what survives a source switch:
@@ -3414,7 +3440,7 @@ setScrubDragging(true);
   const skipOutroEnd = wOutro ? wOutro.end : 0;
   const skipOutroProgress = skipOutroEnd > skipOutroButtonStart ? Math.max(0, Math.min(1, (currentTime - skipOutroButtonStart) / (skipOutroEnd - skipOutroButtonStart))) : 0;
 
-  const showSkipOutro = shouldShowSkipOutro({
+const showSkipOutro = shouldShowSkipOutro({
     type,
     duration: safeDuration,
     currentTime,
@@ -3422,10 +3448,26 @@ setScrubDragging(true);
     cueCreditsStart,
   });
 
+  /* The two measured bands drawn on the scrubber. The GEOMETRY lives in
+     skipMarkers.js, not here: computed inline, `right: 0` came to mean "orange
+     from the credits to the end of the bar" for every record without a credits
+     finish time, and "the whole episode" for any source reporting 0. */
+  const scrubberBands = useMemo(
+    () => getScrubberBands(cueBounds, safeDuration),
+    [cueBounds, safeDuration]
+  );
+
 
   // Auto-skip fires once per playback, and only while the head is still inside
   // the intro, so the viewer is never yanked before the opening has played.
   const autoSkipFiredRef = useRef(false);
+  /* "One-shot per playback" has to mean per PLAYBACK, not per mount. This
+     component outlives an episode and a whole binge, so without this reset the
+     ref stayed latched after S1E1 and auto-skip silently never fired again for
+     the rest of the session — every later episode simply played its intro. */
+  useEffect(() => {
+    autoSkipFiredRef.current = false;
+  }, [type, id, season, episode]);
   useEffect(() => {
     if (!autoSkipIntro) {
       autoSkipFiredRef.current = false;
@@ -4086,38 +4128,18 @@ setScrubDragging(true);
                   borderRadius: 999,
                 }}
               />
-              {/* Measured skip windows, drawn the way the provider draws them:
-                  a tick where the intro ends, a shaded tail where the credits
-                  run. Estimates never paint here — only cue/provider/dataset
-                  boundaries (cueBoundaries carries its source stamp), so a
-                  90s guess cannot masquerade as measured data. */}
-              {safeDuration > 0 && cueBoundaries?.source && cueIntroEnd > 0 && (
-                <div
-                  aria-hidden="true"
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    bottom: 0,
-                    left: `${((cueBoundaries?.introStartSeconds ?? Math.max(0, cueIntroEnd - 90)) / safeDuration) * 100}%`,
-                    width: `${((cueIntroEnd - (cueBoundaries?.introStartSeconds ?? Math.max(0, cueIntroEnd - 90))) / safeDuration) * 100}%`,
-                    background: "#f97316",
-                    pointerEvents: "none",
-                  }}
-                />
+{/* Measured skip windows, drawn the way the provider draws them: a band over the
+                  intro, a band over the credits. Estimates never paint here — only
+                  cue/provider/dataset boundaries (cueBounds carries its source
+                  stamp), so a 90s guess cannot masquerade as measured data. The
+                  geometry lives in `scrubberBands`, which is built from markers
+                  that have already survived normalizeSkipBoundaries and returns
+                  null for any band it cannot place inside the track. */}
+              {scrubberBands?.intro && (
+                <div aria-hidden="true" style={{ ...SCRUBBER_BAND_STYLE, ...scrubberBands.intro }} />
               )}
-              {safeDuration > 0 && cueBoundaries?.source && cueCreditsStart != null && cueCreditsStart >= 0 && (
-                <div
-                  aria-hidden="true"
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    bottom: 0,
-                    left: `${(cueCreditsStart / safeDuration) * 100}%`,
-                    right: cueBoundaries?.creditsEndSeconds ? `${100 - (cueBoundaries.creditsEndSeconds / safeDuration) * 100}%` : 0,
-                    background: "#f97316",
-                    pointerEvents: "none",
-                  }}
-                />
+              {scrubberBands?.credits && (
+                <div aria-hidden="true" style={{ ...SCRUBBER_BAND_STYLE, ...scrubberBands.credits }} />
               )}
               <div
                 style={{

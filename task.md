@@ -4932,3 +4932,204 @@ cost serverless calls for data we already get free.## ZXC integration completed 
   - **HLS Timeout Adjustments:** Configured `fragLoadingTimeOut`, `manifestLoadingTimeOut`, and increased max retries in the `Hls` engine to handle intermittent slow connections gracefully without dropping the stream or spinning.
   - **Industry-Standard Buffer Calibration:** Dialed the stream buffer depth back to **90 seconds** (matching standard Netflix and YouTube web-player configurations), and set `maxMaxBufferLength` to 180 seconds.
   - **Bitrate Deflation Fix:** Fixed the root cause of the stream stalling every minute: third-party video servers often lie and advertise lower bitrates than they actually stream. This caused `maxBufferSize` (calculated from the fake bitrate) to prematurely clamp the buffer to just 30-40 seconds of actual video. Added a 3x headroom multiplier to the byte size limit (capped safely at 500MB) so the buffer always reaches its true 90-second target, regardless of lying manifests.
+
+- [x] **Final verification pass on the ZXC/VIDSTUCK work (2026-10-06) — all five
+  outstanding items were already implemented and committed; nothing was left
+  half-done.** Confirmed against the shipped code rather than against my own
+  memory of the session, because the working tree turned out to be clean:
+  - **Authoritative roster.** Re-pulled from the live embed chunk (see the
+    2026-10-05 entry above). Five rows now ship in `PLAYER_SOURCES`, all from
+    the same VIDSTUCK backend: `zxc-centaurus` (Server 1, multi-audio),
+    `zxc-andromeda` (Server 2), `zxc-atlas` (Server 3), `zxc-meow` (Server 4),
+    `zxc-orion` (Server 5, multi-audio). `playerA11y.test.jsx` asserts all
+    five rows and their capability lines, so the menu cannot silently
+    regress to the old four.
+  - **Preview/thumbnail.** Nothing to scrape — the provider ships no
+    storyboard, sprite or per-link preview field, confirmed at the manifest
+    level (no `IMAGE-STREAM-INF`, no thumbnail playlist tags). The
+    Netflix-style hover preview the viewer sees is therefore ours, generated
+    client-side by `previewThumbs.js` (hidden `hls.js` + canvas, 8s cache)
+    rather than proxied from upstream. Same pixels, our own pipeline.
+  - **Intro/outro.** Wired end-to-end, not merely located. New `zxcintro`
+    action on `api/stream.js` calls upstream `/backend/intro` server-side (the
+    endpoint sends no `Access-Control-Allow-Origin`, so a browser cannot call
+    it directly) and maps `intro.end_sec` / `outro.start_sec` onto
+    `introEndSeconds` / `creditsStartSeconds`. Client side,
+    `src/api/skipProviderSource.js` fetches it in parallel with SkipDB and
+    merges as source `provider`. Trust ranking is now
+    `cues > provider > dataset > override > guess`
+    (`BOUNDARY_SOURCE_RANK` in `skipMarkers.js`), so a slow dataset response
+    can no longer overwrite a cue tag the manifest actually carried.
+    Measured windows also paint on the scrub bar (orange intro/credits spans,
+    gated on `cueBoundaries?.source` so a 90s guess never masquerades as
+    measured data). TV-only by design: upstream needs season+episode and
+    answers all-null for movies.
+  - **Dubs shared across both branches.** `verifyZxcDubs()` was lifted out of
+    the DASH branch and is now called by the HLS branch too. This was a real
+    bug, not a tidy-up: Orion returns HLS links on some titles and DASH on
+    others, so the HLS early-return could hand back `audioTracks: []` and
+    silently drop the Hindi/Tamil tracks the server does carry.
+  - **Gates.** `npm run lint` 0 errors (warnings-only baseline, unchanged).
+    `npm run test` 80 files, 1016/1017. `npm run build` green in 6.92s.
+  - **NOT clean: one pre-existing flake**, recorded honestly rather than
+    hidden. `playerA11y.test.jsx > "hides the Skip Intro pill behind an open
+    panel"` fails intermittently *only under full-suite parallel load* and
+    passes every time in isolation. Cause is in the test, not the app: after
+    closing the panel it asserts the pill is back with a bare `getByRole`,
+    racing `AnimatePresence`'s re-mount instead of using `waitFor` like the
+    assertion a few lines above. Different tests failed on each of three full
+    runs, which is the signature of a timing test rather than a regression.
+    Left unfixed deliberately — it is unrelated to this feature and "fixing"
+    it here would mix an unrelated change into a verified state.
+  - **Restored `scripts/probe-orion.mjs`.** I wrongly treated it as an
+    untracked scratch probe and deleted it; it is tracked repo tooling (the
+    live Orion resolve/playlist/dub/intro probe) and is back in the tree.
+
+- [x] **Player motion consolidation (2026-10-06) — the system was already
+  built; this pass made it converge. No visual redesign.**
+  - **Framing.** The audit found the motion layer already strong and, more
+    importantly, already *policed*: `constants/motion.js` publishes 7 named
+    spring roles, a duration scale, one easing curve and 5 shared shapes, and
+    `motion.test.js` forbids raw spring physics anywhere in `src/` while
+    forcing dialogs and HUDs onto shared shapes. The player already ran 38
+    `AnimatePresence` + 17 `motion.*`. So the gap was never "add motion" — it
+    was 27 hardcoded durations, some unreachable reduced-motion, and three
+    modals that never animated at all.
+  - **1. Duration/easing sweep in `player.css`.** 27 literals across 14
+    transition/animation rules, only 3 uses of `var(--duration-*)`, down to
+    **1 survivor**. Every bare `ease` (which is `cubic-bezier(0.25,0.1,0.25,1)`,
+    not the app's decelerating curve) is now `var(--zxc-ease)`: **0 bare
+    `ease` remain**. Added `--duration-instant: 120ms` as a new rung BELOW
+    `fast`, aliased in the player as `--zxc-t-instant`, because the ~150ms
+    press/hover literals had no existing home and `motion.test.js:85` forbids
+    player.css from declaring its own numeric `--zxc-t-*`.
+  - **A false lead, corrected rather than "fixed".** `tokens.css` claimed the
+    stylesheets "author their micro-interactions at 0.2s throughout". That was
+    not true of `player.css`, which had 15×`0.18s` and 3×`0.2s`. Converging
+    the 0.18s values onto `--zxc-t-fast` (200ms) therefore *repairs* the
+    comment's premise instead of violating the deliberate
+    `DURATION.FAST`(0.18s JS) / `--duration-fast`(200ms CSS) split. The
+    surviving literal is `calc(var(--uib-speed, 0.9s))`: the Tailspin loader's
+    rotation period, a component parameter rather than an interaction
+    duration, so it keeps its own default.
+  - **2. Three modals now animate (two, not four).** `CollectionPickerDialog`,
+    `AddTitlesDialog` and `CollectionNameDialog` each did
+    `if (!open) return null`, so the node left the tree the instant `open`
+    flipped and there was nothing for `AnimatePresence` to animate out — they
+    popped in and out while every other modal in the product arrived on the
+    shared shapes. Each now takes `MODAL_PANEL` + `FADE` from
+    `constants/motion` with the early return removed. **Correction to the
+    task.md STAGE 4 list: `AccountMenu` was never motionless** — it renders
+    through `Popover`, which already animates via `AnimatePresence` +
+    `SPRING.POPOVER`. It only *looks* inert to a grep because the framer usage
+    is one file away. Left alone.
+  - **The centering trap was checked, not assumed.** `task.md` STAGE 5 warns
+    that framer writes `transform` inline, so a panel centred by
+    `translate(-50%,-50%)` gets shoved off-axis mid-animation. These three
+    centre with **flexbox** (`.collection-dialog-backdrop` in `collections.css`),
+    so `MODAL_PANEL`'s scale/y is safe. A test now pins that, so switching
+    them to transform-centring later cannot regress silently.
+  - **3. The arcs now honour `prefers-reduced-motion`.** `ArcRing.jsx` (×2) and
+    `LoadingArc.jsx` set `stroke-dashoffset` transitions on the **style
+    attribute**, which outranks every stylesheet rule — so the
+    `prefers-reduced-motion` blocks in `player.css` could never reach them and a
+    viewer who asked for stillness still got a sweeping ring and a
+    forever-spinning loader. All four now read `useReducedMotion()`.
+    `LoadingArc`'s infinite `rotate: 360` freezes and dims to 40% when motion
+    is reduced, matching what the CSS already does to `.np-tailspin`.
+  - **4. Press feedback published as three named tiers, not one flat number.**
+    `SPRING.PRESS` existed in JS with no CSS counterpart and six press scales
+    disagreed (`0.92/0.95/0.97/0.98/0.99/0.995`). Added `--press-scale-icon`
+    (0.95), `--press-scale` (0.97), `--press-scale-row` (0.99), because depth
+    has to match target size: a full-width menu row that shrank as hard as an
+    icon would make its own label jitter. Two values were *reconciled*, not
+    merely renamed, and both are documented in `tokens.css`: `.np-resume-btn`
+    0.98→0.97 (now matches its sibling pills and `.btn-primary`) and the two
+    stray icon buttons 0.92→0.95 (`.search-panel__clear`,
+    `.video-modal-back-button`). `.card-quick-list` / `.hero-circle-btn` keep
+    0.92 — there the whole card collapses, a different affordance.
+    `.btn-primary` was the one non-player file touched, permitted because its
+    value was already identical to the token.
+  - **5. Tests that fail on the old code.** `motion.test.js` grew 22 → 32. The
+    new cases were verified by restoring all seven pre-change files from HEAD
+    and re-running: **8 substantive tests failed on the old code and all 32 pass
+    on the new**, which is the only evidence that actually proves the contract
+    rather than restating the implementation. Two more are pure invariants
+    (the three files exist; the backdrop centres with flexbox) and pass either
+    way by design.
+  - **Deliberately NOT done: deleting the duplicate rules.** `player.css`
+    still declares `.np-skip-intro`, `.np-dialog-row` and `.np-episode-card`
+    TWICE — an older literal block and a later tokenised one — so at equal
+    specificity the later block wins and parts of the earlier block are dead.
+    Real contradictions hide there: episode-card hover lift is declared `-3px`
+    then `-2px`, dialog-row press `0.995` then `0.99`, and the dead
+    `.np-episode-card` hover block carries a `box-shadow` the later block does
+    **not** re-declare, so deleting the "dead" half would silently remove the
+    card's hover shadow. That is a rendered-geometry change with no browser
+    here to verify it, so it is recorded as a follow-up instead of guessed at.
+    A comment now marks the superseded `.np-dialog-row` press rule in place.
+  - **Also out of scope, unchanged:** any visual restyle of the transport bar,
+    scrub bar or HUDs; the `.modal-container` mobile-sheet geometry fix
+    (`responsive.css`, still needs a browser); `task.md:3646` player browser
+    verification; `task.md:3683` AutoFlip (no such identifier exists in the
+    tree — still needs a pointer to the real feature).
+  - **Gates:** `npm run lint` **0 errors** (40 warnings, the pre-existing
+baseline). `npm run test` **80 files / 1027 passed** (+10 new). `npm run
+   build` green in 3.23s. The `playerA11y` skip-pill flake did not reproduce
+   on this run.
+
+- [x] **Skip Intro / Skip Credits were inaccurate and could paint the whole
+  progress bar orange (2026-10-06) — root-caused and fixed.**
+  - **Symptom:** whole movies/episodes showed the ENTIRE scrub bar as the
+    orange "skip" band, and the Skip Credits pill stayed up for the whole
+    runtime; several titles also skipped to the wrong point.
+  - **The culprit, proven, not guessed.** The scrubber's credits band
+    (Old `NativePlayerView.jsx:4108-4121`) accepted any `cueCreditsStart >= 0`
+    and fell back to `right: 0`. `0` is EVERY source's word for "no outro".
+    Read as a position it means "credits begin at the first second", so
+    `left: 0% + right: 0%` painted **100% of the bar** and opened the credits
+    window at t=0. I reproduced the old arithmetic against a real provider-shaped
+    record and measured a 100%-wide band, then deleted the scratch proof.
+  - **A correction to my own first reading:** `right: 0` is NOT the bug for a
+    valid start — "credits run to the end of the asset" is true, so a finish-less
+    record with a real start was always drawn correctly. It only became fatal
+    combined with the `>= 0` sentinel. The fix therefore tightens the guard
+    rather than removing the `right: 0` path, and a test now pins that.
+  - **Eight causes fixed:**
+    1. `skipProviderSource.js` + `api/stream.js` mapped upstream's `0`
+       ("no outro") straight through on `>= 0`; both now require `> 0`.
+    2. `getSkipOutroWindow` treated `cueCreditsStart: 0` as a boundary; now
+       `> 0`, so 0 falls back to the honest tail estimate instead of covering
+       the whole episode.
+    3. New `normalizeSkipBoundaries(bounds, duration)` — the single gate every
+       measured boundary passes through. Rejects 0/negative/NaN, refuses
+       markers at or past the real duration (a record measured against a longer
+       cut), drops the start of an inverted intro range (which rendered a
+       NEGATIVE width), and clamps (not drops) an oversized credits finish.
+    4. `mergeSkipBoundaries` replaced the whole object at the winning rank, so a
+       credits-only provider record silently ERASED SkipDB's real measured intro
+       and demoted it to the 90s guess — the "skip intro is inaccurate" half.
+       It now merges per field: the winner supplies what it measured, the loser
+       fills the fields it did not.
+    5. Boundaries leaked across episodes: the reset effect keyed on `[type, id]`,
+       but `id` is the SHOW id, so S1E1 → S1E2 never reset and drew the previous
+       episode's markers. Deps now include `season` and `episode`.
+    6. `skipBoundarySource.js` fell back from a missing `start_ms` to `end_ms`
+       for credits — doing exactly what its own comment (L52-58) calls the
+       mistake that "hides the button until the credits were already over".
+       Fallback removed.
+    7. Extracted `getScrubberBands(bounds, duration)` into `skipMarkers.js` so
+       the geometry is pure and unit-tested instead of computed inline in JSX,
+       where the sentinel bug could hide. It returns `null` for any band it
+       cannot place strictly inside the track, making a full-width band
+       unreachable by construction.
+    8. Auto-skip's one-shot ref was per MOUNT, so it latched on S1E1 and never
+       fired again for the rest of a binge, despite the stated "one-shot per
+       playback". Reset on `[type, id, season, episode]`.
+  - **Deliberately unchanged:** guess-based auto-skip (firing near the 90s
+    estimate when no measured boundary exists) is an existing, tested contract
+    for the explicit `autoSkipIntro` opt-in; tightening it to measured-only
+    would change intended behaviour, so it was left alone.
+  - **Gates:** `npm run lint` 0 errors. `npm run test` **80 files / 1047 passed**
+    (+20: `skipMarkers.test.js` 45 → 65). `npm run build` green in 1.99s.
+    `skipMarkers.js` test count: 65 passing.

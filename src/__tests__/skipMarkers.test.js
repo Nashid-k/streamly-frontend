@@ -1,11 +1,19 @@
 // Skip Intro / Skip Credits windows.
 //
-// The rule under test is deliberately an ESTIMATE: no provider in this app
-// supplies intro/credit boundaries (verified against every resolver payload,
-// the ZXC decryption, and the manifest parsers). These tests therefore pin
-// the two things that matter when an estimate is involved:
-//   1. the boundaries are where we say they are, and
-//   2. a wrong estimate is CONTAINED â€” it costs a button, never a jump.
+// Two kinds of boundary meet in this file and they must not be confused:
+//   1. MEASURED boundaries, which now exist. The provider endpoint (ZXC/vidstuck
+//      `/backend/intro`) publishes per-encode intro/outro windows, and SkipDB
+//      publishes community ones; both arrive as untrusted numbers and pass
+//      through normalizeSkipBoundaries before anything acts on them.
+//   2. ESTIMATES, for what neither source covers. These are pinned by the tests
+//      below for the two things that matter when an estimate is involved: the
+//      windows are where we say they are, and a wrong estimate is CONTAINED — it
+//      costs a button, never a jump.
+//
+// The `normalize*`/`getScrubberBands`/field-merge blocks at the bottom are
+// regressions for real, viewer-reported bugs: a source reporting 0 for "no
+// credits" painted the ENTIRE progress bar orange and pinned the Skip Credits
+// pill on screen for whole episodes.
 import { afterEach, describe, expect, it } from "vitest";
 import {
   getSkipIntroEnd,
@@ -19,6 +27,8 @@ import {
   episodeKey,
   lookupSkipIntro,
   mergeSkipBoundaries,
+  normalizeSkipBoundaries,
+  getScrubberBands,
   rescopeBoundaries,
   SKIP_INTRO_DEFAULT_END,
   SKIP_INTRO_GRACE,
@@ -371,5 +381,167 @@ describe("rescopeBoundaries", () => {
 
   it("is safe to call before anything has been measured", () => {
     expect(rescopeBoundaries(undefined, null, VIDCORE)).toBeUndefined();
+  });
+});
+
+// -- Regressions: real viewer reports that the whole progress bar went orange --
+//
+// Every case below is a number that arrived from a network response or a manifest
+// and was individually well-formed. None of them throw, which is why they reached
+// the scrubber at all.
+describe("normalizeSkipBoundaries refuses the values that painted the whole bar", () => {
+  const source = "provider";
+
+  it("treats a credits start of 0 as unknown, not as the first second", () => {
+    // THE bug. Every source spells "no outro" as 0, and `>= 0` read that as a
+    // position: the band covered 0%?100% (entire progress bar orange) and the
+    // Skip Credits pill stayed up for the whole episode.
+    expect(normalizeSkipBoundaries({ source, creditsStartSeconds: 0 }, 2700)).toBeNull();
+    expect(normalizeSkipBoundaries({ source, creditsStartSeconds: -5 }, 2700)).toBeNull();
+    expect(normalizeSkipBoundaries({ source, creditsStartSeconds: null }, 2700)).toBeNull();
+  });
+
+  it("keeps a real credits marker", () => {
+    const out = normalizeSkipBoundaries({ source, introEndSeconds: 531, creditsStartSeconds: 3431 }, 3500);
+    expect(out.creditsStartSeconds).toBe(3431);
+    expect(out.introEndSeconds).toBe(531);
+  });
+
+  it("refuses a marker at or past the end of what is actually playing", () => {
+    // Measured against a longer cut of the same title. Kept, it placed the band
+    // off the right-hand edge and aimed the pill at the last 4s of every episode.
+    expect(normalizeSkipBoundaries({ source, creditsStartSeconds: 3631 }, 2700)).toBeNull();
+    expect(normalizeSkipBoundaries({ source, creditsStartSeconds: 2700 }, 2700)).toBeNull();
+    expect(normalizeSkipBoundaries({ source, introEndSeconds: 5300 }, 2700)).toBeNull();
+  });
+
+  it("waits for the duration instead of judging while it is still unknown", () => {
+    // duration settles after the metadata does; a marker is not wrong just
+    // because the runtime has not arrived yet.
+    expect(normalizeSkipBoundaries({ source, creditsStartSeconds: 3631 }, 0).creditsStartSeconds).toBe(3631);
+    expect(normalizeSkipBoundaries({ source, creditsStartSeconds: 3631 }, undefined).creditsStartSeconds).toBe(3631);
+  });
+
+  it("drops an inverted intro range but keeps the measured end", () => {
+    // introStart >= introEnd renders a NEGATIVE width, i.e. an invisible band.
+    const out = normalizeSkipBoundaries({ source, introStartSeconds: 600, introEndSeconds: 531 }, 3500);
+    expect(out.introEndSeconds).toBe(531);
+    expect(out.introStartSeconds).toBeUndefined();
+  });
+
+  it("clamps a credits finish beyond the asset instead of dropping it", () => {
+    const out = normalizeSkipBoundaries({ source, creditsStartSeconds: 3400, creditsEndSeconds: 9999 }, 3500);
+    expect(out.creditsEndSeconds).toBe(3500);
+  });
+
+  it("keeps the source stamp so measured data stays distinguishable from a guess", () => {
+    expect(normalizeSkipBoundaries({ source, introEndSeconds: 90 }, 2700).source).toBe("provider");
+  });
+
+  it("passes null through and survives an empty set", () => {
+    expect(normalizeSkipBoundaries(null, 2700)).toBeNull();
+    expect(normalizeSkipBoundaries(undefined, 2700)).toBeNull();
+  });
+});
+
+describe("getScrubberBands cannot produce a full-width band", () => {
+  const source = "provider";
+  const EPISODE = 3500;
+
+  it("paints the credits tail, bounded by the track when the finish is unknown", () => {
+    const bounds = normalizeSkipBoundaries({ source, creditsStartSeconds: 3431 }, EPISODE);
+    const bands = getScrubberBands(bounds, EPISODE);
+    expect(bands.credits.left).toBe(`${(3431 / EPISODE) * 100}%`);
+    // "The credits run to the end of the asset" is TRUE, so right:0 is correct here
+    // and is the only path to it.
+    expect(bands.credits.right).toBe("0%");
+  });
+
+  it("emits no credits band at all for a 0 credits start", () => {
+    // The full-orange bar, asserted at the geometry layer rather than the source.
+    const bounds = normalizeSkipBoundaries({ source, creditsStartSeconds: 0 }, EPISODE);
+    expect(bounds).toBeNull();
+    expect(getScrubberBands(bounds, EPISODE)).toBeNull();
+  });
+
+  it("never emits a band that starts at 0% or runs off the track", () => {
+    for (const creditsStartSeconds of [0, -1, EPISODE, EPISODE + 500]) {
+      const bounds = normalizeSkipBoundaries({ source, creditsStartSeconds }, EPISODE);
+      const bands = getScrubberBands(bounds, EPISODE);
+      expect(bands === null || bands.credits === null).toBe(true);
+    }
+  });
+
+  it("draws the intro band from the measured start when there is one", () => {
+    const bounds = normalizeSkipBoundaries({ source, introStartSeconds: 437, introEndSeconds: 531 }, EPISODE);
+    expect(getScrubberBands(bounds, EPISODE).intro).toEqual({
+      left: `${(437 / EPISODE) * 100}%`,
+      width: `${(94 / EPISODE) * 100}%`,
+    });
+  });
+
+  it("falls back to one default-length intro band when only the end was measured", () => {
+    // Provider records carry an intro END and no start; the band still has to show,
+    // and its width must come from the shared constant rather than a second literal.
+    const bounds = normalizeSkipBoundaries({ source, introEndSeconds: 531 }, EPISODE);
+    expect(getScrubberBands(bounds, EPISODE).intro.width).toBe(`${(SKIP_INTRO_DEFAULT_END / EPISODE) * 100}%`);
+  });
+
+  it("draws nothing without a duration or without a measured source", () => {
+    const bounds = normalizeSkipBoundaries({ source, creditsStartSeconds: 3431 }, EPISODE);
+    expect(getScrubberBands(bounds, 0)).toBeNull();
+    expect(getScrubberBands(null, EPISODE)).toBeNull();
+    // A set with no source stamp is an estimate, and estimates never paint.
+    expect(getScrubberBands({ introEndSeconds: 90, creditsStartSeconds: 3000 }, EPISODE)).toBeNull();
+  });
+});
+
+describe("mergeSkipBoundaries keeps fields a partial record never measured", () => {
+  const PROVIDER = { introEndSeconds: 0, creditsStartSeconds: 3400 };
+  const DATASET = { introEndSeconds: 132, creditsStartSeconds: 3390 };
+
+  it("does not let a credits-only provider record erase a real measured intro", () => {
+    // The whole-object swap this replaces threw the intro away and silently
+    // demoted it to the 90s guess � the "skip intro is inaccurate" half of the bug.
+    const out = mergeSkipBoundaries({ ...DATASET, source: "dataset" }, PROVIDER, "provider");
+    expect(out.introEndSeconds).toBe(132);
+    expect(out.creditsStartSeconds).toBe(3400);
+    expect(out.source).toBe("provider");
+  });
+
+  it("stays order-independent when the sources are partial", () => {
+    const a = mergeSkipBoundaries({ ...DATASET, source: "dataset" }, PROVIDER, "provider");
+    const b = mergeSkipBoundaries({ ...PROVIDER, source: "provider" }, DATASET, "dataset");
+    expect(a).toEqual(b);
+  });
+
+  it("still lets a higher-ranked source overwrite a field it did measure", () => {
+    const out = mergeSkipBoundaries(
+      { ...DATASET, source: "dataset" },
+      { introEndSeconds: 531, creditsStartSeconds: 3400 },
+      "provider"
+    );
+    expect(out.introEndSeconds).toBe(531);
+  });
+});
+
+describe("a 0 credits start falls back to the tail estimate instead of the whole episode", () => {
+  it("does not open the credits window at the first second", () => {
+    const w = getSkipOutroWindow({ type: "tv", duration: 2700, cueCreditsStart: 0 });
+    // Falls through to the length-based tail heuristic, which is the honest
+    // "credits live at the tail" answer, rather than covering 0?2700.
+    expect(w.start).toBe(2700 - SKIP_OUTRO_TAIL_SECONDS);
+    expect(shouldShowSkipOutro({ type: "tv", duration: 2700, currentTime: 30, cueCreditsStart: 0 })).toBe(false);
+    expect(shouldShowSkipOutro({ type: "tv", duration: 2700, currentTime: 2600, cueCreditsStart: 0 })).toBe(true);
+  });
+
+  it("refuses a credits start past the end of this playback", () => {
+    const w = getSkipOutroWindow({ type: "tv", duration: 1000, cueCreditsStart: 99999 });
+    expect(w.start).toBeLessThanOrEqual(1000);
+    expect(w.end).toBeGreaterThanOrEqual(w.start);
+  });
+
+  it("ignores a stale measured intro that points into the credits", () => {
+    expect(getSkipIntroEnd({ type: "tv", duration: 2700, cueIntroEnd: 5300 })).toBe(SKIP_INTRO_DEFAULT_END);
   });
 });

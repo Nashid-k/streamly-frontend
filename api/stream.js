@@ -964,7 +964,10 @@ async function handleZxcIntro(body, res) {
   json(res, 200, {
     ok: true,
     introEndSeconds: Number.isFinite(introEnd) && introEnd > 0 ? introEnd : null,
-    creditsStartSeconds: Number.isFinite(creditsStart) && creditsStart >= 0 ? creditsStart : null,
+    /* `> 0`, never `>= 0`: upstream's "no outro" sentinel is 0, and forwarding it
+       verbatim hands every client a credits boundary at the first second of the
+       episode — an orange scrubber and a permanently-visible Skip Credits pill. */
+    creditsStartSeconds: Number.isFinite(creditsStart) && creditsStart > 0 ? creditsStart : null,
     confidence: Number.isFinite(Number(data?.intro?.confidence)) ? Number(data.intro.confidence) : null,
   });
 }
