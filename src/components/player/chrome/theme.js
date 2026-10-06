@@ -33,3 +33,13 @@ export const SHADOW = {
   pill: "0 8px 24px rgba(0,0,0,0.45)",
   card: "0 12px 40px rgba(0,0,0,0.55)",
 };
+
+// The translucent pill the transient HUDs (volume / brightness / aspect / hold)
+// float in. Shared so a value HUD and a status HUD read as the same material.
+export const HUD_GLASS = {
+  background: GLASS_BG_STRONG,
+  border: `1px solid ${GLASS_BORDER}`,
+  backdropFilter: GLASS_BLUR,
+  WebkitBackdropFilter: GLASS_BLUR,
+  boxShadow: "0 16px 48px rgba(0,0,0,0.6)",
+};

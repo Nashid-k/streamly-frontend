@@ -1,25 +1,21 @@
 import { memo } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { HUD_POP } from "../../constants/motion";
+import { IconChevronLeft, IconChevronRight } from "./chrome/icons";
 
-/* YouTube-style rewind / forward badge: a chevron pointing the seek direction
-   beside a "+x"/"-x" seconds label (YouTube's double-tap flash) — no circular
-   dial, no pill background, just the glyph + text riding on the picture.
-   Anchored to its own edge of the frame - left for rewind, right for forward -
-   at the vertical position the measured container reports, so it tracks the
-   video rather than a fixed offset. Presentational only (pointer-events
-   none); it rides above the player chrome and self-fades with the other HUDs. */
+/* Rewind / forward badge: a chevron pointing the seek direction beside a
+   "+x"/"-x" seconds label, riding on the picture. Anchored to its own edge of
+   the frame — left for rewind, right for forward — at the vertical position the
+   measured container reports. Presentational only (pointer-events none); it
+   rides above the player chrome and self-fades with the other HUDs. */
 const NetflixSeekHUD = memo(function NetflixSeekHUD({ direction, metrics, seconds }) {
   const m = metrics;
   const back = direction === "back";
-  // The user-supplied glyph is lucide ChevronRight exactly (40x40, stroke 1.5,
-  // round caps/joins); ChevronLeft is its mirror for the rewind side.
-  const Icon = back ? ChevronLeft : ChevronRight;
+  const Icon = back ? IconChevronLeft : IconChevronRight;
   // Centre the badge with `top` rather than a translate: framer-motion owns
   // `transform` for the scale spring and would clobber a CSS translate.
   const top = Math.round(m.seekCenter - m.seekDiameter / 2);
-  // YouTube's layout: forward reads "+10 ›", rewind reads "‹ -10".
+  // Forward reads "+10 ›", rewind reads "‹ -10".
   const label = `${back ? "-" : "+"}${seconds}s`;
   const font = Math.max(15, Math.round(m.seekIcon * 0.72));
   return (
@@ -40,7 +36,7 @@ const NetflixSeekHUD = memo(function NetflixSeekHUD({ direction, metrics, second
         zIndex: 65,
       }}
     >
-      {back && <Icon size={m.seekIcon} color="#fff" strokeWidth={1.5} />}
+      {back && <Icon size={m.seekIcon} color="#fff" strokeWidth={2} />}
       <span
         style={{
           color: "#fff",
@@ -53,7 +49,7 @@ const NetflixSeekHUD = memo(function NetflixSeekHUD({ direction, metrics, second
       >
         {label}
       </span>
-      {!back && <Icon size={m.seekIcon} color="#fff" strokeWidth={1.5} />}
+      {!back && <Icon size={m.seekIcon} color="#fff" strokeWidth={2} />}
     </motion.div>
   );
 });

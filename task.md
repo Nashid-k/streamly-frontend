@@ -5208,3 +5208,31 @@ glassed the existing Netflix arrangement. This pass rebuilds the chrome:
   (hold-to-2x preserved).
 - **Gates:** lint 0 errors / 40 warnings. `npm run test` **80 files / 1047
   passed**. `npm run build` green (~3.5s). Committed and pushed.
+
+### Revision 2 — the remaining red surfaces (2026-10-06, follow-up)
+
+The first revision fixed the chrome but the **transient HUDs, the "Still
+watching?" prompt and the settings PlayerPreview still ran the old red/lucide
+skin**. This pass finishes the sweep so no player surface reads Netflix:
+
+- **All six `player/Netflix*HUD.jsx`** now consume `chrome/theme` +
+  `chrome/icons` instead of `lucide-react` + inline red:
+  - `NetflixVolumeHUD` / `NetflixBrightnessHUD`: white `ACCENT` bars, `HUD_GLASS`
+    pill, hand-drawn speaker / sun glyphs. (The brightness sun warms to
+    `#ffd166` only at 100%.)
+  - `NetflixAspectHUD`: white glyph border + white glow; label sits in `HUD_GLASS`.
+  - `NetflixSeekHUD` / `NetflixPlayPauseHUD`: custom chevrons + filled play/pause.
+  - `NetflixHold2xHUD`: `HUD_GLASS` and the custom double-chevron.
+  - `HUD_GLASS` added to `chrome/theme.js` so every pill is one material.
+- **`NetflixStillWatching`**: glass card on the shared tokens, white filled
+  primary button (black label) + hairline pill secondary — Apple's two-button
+  dialog. Local `NETFLIX_RED` deleted.
+- **Settings-panel row icons** (`NativePlayerView`): the last four `lucide-react`
+  imports (`Gauge`, `SlidersHorizontal`, `Proportions`, `ServerCog`) swapped for
+  `IconGauge`/`IconSliders`/`IconAspect`/`IconServers`; `lucide-react` is now
+  gone from the player entrypoint entirely.
+- **`PlayerPreview`** (appearance-settings mock) and **`LoadingArc`**: red
+  progress/play/arc → white, lucide glyphs → the chrome set; `data-player-skin`
+  and the accessible titles kept for the existing tests.
+- **Gates:** lint 0 errors / 40 warnings. `npm run test` **80 files / 1047
+  passed**. `npm run build` green (~1.6s). Changes local (not committed).

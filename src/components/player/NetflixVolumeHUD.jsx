@@ -1,11 +1,13 @@
 import { memo } from "react";
-import { Volume1, Volume2, VolumeX } from "lucide-react";
 import { motion } from "framer-motion";
 import { HUD_POP } from "../../constants/motion";
+import { IconVolumeHigh, IconVolumeLow, IconVolumeMute } from "./chrome/icons";
+import { ACCENT, HUD_GLASS } from "./chrome/theme";
 
 const NetflixVolumeHUD = memo(function NetflixVolumeHUD({ effVolume, isMuted, metrics, volume }) {
   const isZero = isMuted || volume === 0;
   const pct = isZero ? 0 : Math.round(effVolume * 100);
+  const VolumeIcon = isZero ? IconVolumeMute : pct < 40 ? IconVolumeLow : IconVolumeHigh;
   return (
     <motion.div
       initial={HUD_POP.initial}
@@ -25,25 +27,15 @@ const NetflixVolumeHUD = memo(function NetflixVolumeHUD({ effVolume, isMuted, me
         gap: metrics.pillGap,
         padding: `${metrics.pillPadY}px ${metrics.pillPadX}px`,
         borderRadius: metrics.pillRadius,
-        background: "rgba(9,9,11,0.82)",
-        border: "1px solid rgba(255,255,255,0.1)",
-        boxShadow: "0 16px 48px rgba(0,0,0,0.7)",
-        backdropFilter: "blur(14px) saturate(1.3)",
-        WebkitBackdropFilter: "blur(14px) saturate(1.3)",
+        ...HUD_GLASS,
       }}>
-        {isZero ? (
-          <VolumeX size={metrics.pillIcon} color="#E50914" strokeWidth={2.4} />
-        ) : pct < 40 ? (
-          <Volume1 size={metrics.pillIcon} color="#fff" strokeWidth={2.4} />
-        ) : (
-          <Volume2 size={metrics.pillIcon} color="#fff" strokeWidth={2.4} />
-        )}
+        <VolumeIcon size={metrics.pillIcon} color="#fff" />
         <div style={{
           position: "relative",
           width: metrics.barWidth, height: metrics.barHeight,
-          background: "rgba(255,255,255,0.2)", borderRadius: 1, overflow: "hidden",
+          background: "rgba(255,255,255,0.22)", borderRadius: 999, overflow: "hidden",
         }}>
-          <div style={{ position: "absolute", inset: 0, width: `${pct}%`, background: "#E50914", borderRadius: 1 }} />
+          <div style={{ position: "absolute", inset: 0, width: `${pct}%`, background: ACCENT, borderRadius: 999 }} />
         </div>
         <span style={{
           color: "#fff", fontSize: metrics.valueFont, fontWeight: 700,

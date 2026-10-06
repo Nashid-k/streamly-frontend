@@ -17,7 +17,7 @@ const LoadingArc = memo(({ size = 56, strokeWidth = 2.5, progress = 0 }) => {
       <svg width={size} height={size} style={{ position: "absolute", inset: 0 }}>
         <circle
           cx={size/2} cy={size/2} r={r}
-          fill="none" stroke="rgba(229,9,20,0.18)" strokeWidth={strokeWidth}
+          fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth={strokeWidth}
         />
       </svg>
       {/* Under reduced motion the sweep freezes instead of spinning forever,
@@ -31,9 +31,9 @@ const LoadingArc = memo(({ size = 56, strokeWidth = 2.5, progress = 0 }) => {
       >
         <defs>
           <linearGradient id="loadArcGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="rgba(229,9,20,0)" />
-            <stop offset="55%" stopColor="rgba(229,9,20,0.55)" />
-            <stop offset="100%" stopColor="#E50914" />
+            <stop offset="0%" stopColor="rgba(255,255,255,0)" />
+            <stop offset="55%" stopColor="rgba(255,255,255,0.55)" />
+            <stop offset="100%" stopColor="#ffffff" />
           </linearGradient>
         </defs>
         <circle
@@ -47,8 +47,8 @@ const LoadingArc = memo(({ size = 56, strokeWidth = 2.5, progress = 0 }) => {
         <svg width={size} height={size} style={{ position: "absolute", inset: 0 }}>
           <defs>
             <linearGradient id="loadInnerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="rgba(229,9,20,0.15)" />
-              <stop offset="100%" stopColor="rgba(229,9,20,0.45)" />
+              <stop offset="0%" stopColor="rgba(255,255,255,0.15)" />
+              <stop offset="100%" stopColor="rgba(255,255,255,0.45)" />
             </linearGradient>
           </defs>
           <circle

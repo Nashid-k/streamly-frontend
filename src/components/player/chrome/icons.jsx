@@ -265,3 +265,61 @@ export function IconCalendar({ size = 24, ...rest }) {
     </Base>
   );
 }
+
+/* Settings sub-panel glyphs ------------------------------------------------ */
+
+export function IconSliders({ size = 24, ...rest }) {
+  return (
+    <Base size={size} {...rest}>
+      <path d="M4 8h9M18.4 8H20M4 16h5M14.4 16H20" />
+      <circle cx="15.2" cy="8" r="2.4" />
+      <circle cx="11.2" cy="16" r="2.4" />
+    </Base>
+  );
+}
+
+export function IconGauge({ size = 24, ...rest }) {
+  return (
+    <Base size={size} {...rest}>
+      <path d="M12 13.4l3.6-3.6" />
+      <path d="M5.4 18.4a8.4 8.4 0 1 1 13.2 0" />
+      <circle cx="12" cy="13.4" r="1.5" fill="currentColor" stroke="none" />
+    </Base>
+  );
+}
+
+export function IconAspect({ size = 24, ...rest }) {
+  return (
+    <Base size={size} {...rest}>
+      <path d="M7 3.5v13.5a2 2 0 0 0 2 2h12" />
+      <path d="M3.5 7H17a2 2 0 0 1 2 2v13.5" />
+    </Base>
+  );
+}
+
+export function IconSun({ size = 24, ...rest }) {
+  return (
+    <Base size={size} {...rest}>
+      <circle cx="12" cy="12" r="4.1" />
+      <path d="M12 2.6v2.3M12 19.1v2.3M4.5 4.5l1.6 1.6M17.9 17.9l1.6 1.6M2.6 12h2.3M19.1 12h2.3M4.5 19.5l1.6-1.6M17.9 6.1l1.6-1.6" />
+    </Base>
+  );
+}
+
+export function IconChevronsRight({ size = 24, ...rest }) {
+  return (
+    <Base size={size} {...rest}>
+      <path d="M6.5 6 12.5 12l-6 6" />
+      <path d="M13 6l6 6-6 6" />
+    </Base>
+  );
+}
+
+export function IconStop({ size = 24, ...rest }) {
+  return (
+    <Base size={size} {...rest}>
+      <circle cx="12" cy="12" r="8.4" />
+      <rect x="9.3" y="9.3" width="5.4" height="5.4" rx="1" fill="currentColor" stroke="none" />
+    </Base>
+  );
+}

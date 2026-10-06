@@ -1,6 +1,6 @@
 /* ── Player UI shared definitions ────────────────────────────────────────
-   Single source of truth for the fixed Netflix-style player chrome
-   (black + #E50914): playback-speed ladder, aspect-ratio catalog +
+   Single source of truth for the fixed Apple TV+-style player chrome
+   (black + white accent): playback-speed ladder, aspect-ratio catalog +
    glyphs, and shared spring tokens. Leaves under src/components/player/
    and CustomVideoPlayer all import from here. */
 

@@ -1,12 +1,20 @@
 import { memo } from "react";
 import { motion } from "framer-motion";
+import {
+  ACCENT_DIM,
+  GLASS_BG_STRONG,
+  GLASS_BLUR,
+  GLASS_BORDER,
+  RADIUS,
+  SHADOW,
+} from "./player/chrome/theme";
 
-const NETFLIX_RED = "#E50914";
+const FONT = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif";
 
-/* Netflix "Still watching?" — a full-frame dim + centered prompt when playback
-   has run unattended (2h idle or 3 auto-advanced episodes). Pausing + asking
-   is the honest Netflix behavior: it stops data burn when nobody is behind
-   the screen. "Continue Watching" resumes; "Exit" closes the player. */
+/* "Still watching?" — a full-frame dim + centered prompt when playback has run
+   unattended (2h idle or 3 auto-advanced episodes). Pausing + asking is the
+   honest behavior: it stops data burn when nobody is behind the screen.
+   "Continue Watching" resumes; "Exit" closes the player. */
 const NetflixStillWatching = memo(function NetflixStillWatching({ onContinue, onExit }) {
   return (
     <motion.div
@@ -22,6 +30,7 @@ const NetflixStillWatching = memo(function NetflixStillWatching({ onContinue, on
         alignItems: "center",
         justifyContent: "center",
         zIndex: 80,
+        fontFamily: FONT,
       }}
       role="alertdialog"
       aria-label="Still watching?"
@@ -31,29 +40,32 @@ const NetflixStillWatching = memo(function NetflixStillWatching({ onContinue, on
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          gap: 18,
+          gap: 22,
           textAlign: "center",
-          padding: "32px 40px",
-          background: "rgba(24,24,27,0.9)",
-          border: "1px solid rgba(255,255,255,0.1)",
-          borderRadius: 16,
-          backdropFilter: "blur(20px) saturate(1.3)",
-          WebkitBackdropFilter: "blur(20px) saturate(1.3)",
+          padding: "36px 44px",
+          background: GLASS_BG_STRONG,
+          border: `1px solid ${GLASS_BORDER}`,
+          borderRadius: 24,
+          backdropFilter: GLASS_BLUR,
+          WebkitBackdropFilter: GLASS_BLUR,
+          boxShadow: SHADOW.card,
         }}
       >
-        <span style={{ color: "#fff", fontSize: 26, fontWeight: 700 }}>Still watching?</span>
+        <span style={{ color: "#fff", fontSize: 24, fontWeight: 600, letterSpacing: -0.2 }}>
+          Still watching?
+        </span>
         <div style={{ display: "flex", gap: 12 }}>
           <button
             type="button"
             onClick={onContinue}
             style={{
-              padding: "10px 26px",
-              borderRadius: 4,
+              padding: "11px 28px",
+              borderRadius: RADIUS.pill,
               border: "none",
-              background: NETFLIX_RED,
-              color: "#fff",
-              fontSize: 16,
-              fontWeight: 700,
+              background: "#fff",
+              color: "#000",
+              fontSize: 15,
+              fontWeight: 600,
               cursor: "pointer",
             }}
           >
@@ -63,12 +75,12 @@ const NetflixStillWatching = memo(function NetflixStillWatching({ onContinue, on
             type="button"
             onClick={onExit}
             style={{
-              padding: "10px 26px",
-              borderRadius: 4,
-              border: "1px solid rgba(255,255,255,0.45)",
-              background: "transparent",
+              padding: "11px 28px",
+              borderRadius: RADIUS.pill,
+              border: "1px solid rgba(255,255,255,0.22)",
+              background: ACCENT_DIM,
               color: "#fff",
-              fontSize: 16,
+              fontSize: 15,
               fontWeight: 600,
               cursor: "pointer",
             }}

@@ -1,12 +1,12 @@
 import React from "react";
-import { Play, Captions, StopCircle } from "lucide-react";
+import { IconCaptions, IconPlay, IconStop } from "./player/chrome";
 import { logDebug } from "../utils/debugLogger";
 import { usePreferences } from "../context/preferences";
 
 /* ═══ PlayerPreview ═══════════════════════════════════════════════════
-   A truthful mini player with the SAME fixed Netflix-style chrome the real
-   player renders (black + #E50914): a muted looping demo video, red progress
-   scrubber and a subtitle line styled live from preferences. Props:
+   A truthful mini player with the SAME fixed Apple TV+-style chrome the real
+   player renders (black + white accent): a muted looping demo video, a white
+   progress scrubber and a subtitle line styled live from preferences. Props:
    - showChrome  false → video + subtitle line only (Subtitles preview)
    - label       preset/custom name shown on the caption chip
    - title       meta title next to the time row
@@ -100,7 +100,7 @@ const PlayerPreview = ({
 
         {showChrome && (
           <div className="player-preview-chrome" aria-hidden="true">
-            {/* Netflix-style red progress scrubber */}
+            {/* Apple TV+-style white progress scrubber */}
             <div className="player-preview-progress" aria-hidden="true">
               <span className="player-preview-progress-fill" />
             </div>
@@ -115,14 +115,14 @@ const PlayerPreview = ({
               </div>
               <div className="player-preview-bar">
                 <span className="player-preview-btn is-filled" title="Play">
-                  <Play size={14} fill="currentColor" />
+                  <IconPlay size={14} />
                 </span>
                 <span className="player-preview-btn">
-                  <StopCircle size={14} />
+                  <IconStop size={14} />
                 </span>
                 <span className="player-preview-speedpill" title="Speed">1x</span>
                 <span className="player-preview-btn" title="Subtitles">
-                  <Captions size={14} />
+                  <IconCaptions size={14} />
                 </span>
               </div>
             </div>

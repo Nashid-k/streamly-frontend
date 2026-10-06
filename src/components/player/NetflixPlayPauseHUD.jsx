@@ -1,7 +1,7 @@
 import { memo } from "react";
-import { Play, Pause } from "lucide-react";
 import { motion } from "framer-motion";
 import { SPRING } from "../../constants/motion";
+import { IconPause, IconPlay } from "./chrome/icons";
 
 const clamp = (lo, value, hi) => (value < lo ? lo : value > hi ? hi : value);
 
@@ -23,7 +23,7 @@ const NetflixPlayPauseHUD = memo(function NetflixPlayPauseHUD({ kind, metrics })
   const scale = metrics?.scale || 1;
   const box = Math.round(clamp(72, 96 * scale, 148));
   const icon = Math.round(clamp(34, 46 * scale, 68));
-  const Icon = kind === "pause" ? Pause : Play;
+  const Icon = kind === "pause" ? IconPause : IconPlay;
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.7 }}

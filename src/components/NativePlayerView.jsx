@@ -10,11 +10,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { buildAudioTrackList, originalTrackLabel } from "../utils/audioLabels";
 import {
-  Gauge,
-  SlidersHorizontal,
-  Proportions,
-  ServerCog,
-} from "lucide-react";
+  IconAspect,
+  IconGauge,
+  IconServers,
+  IconSliders,
+} from "./player/chrome";
 import {
   NetflixVolumeHUD,
   NetflixAspectHUD,
@@ -3229,28 +3229,28 @@ const showSkipOutro = shouldShowSkipOutro({
                   // committed key would highlight the server the viewer just
                   // abandoned.
                   sub={sourceLabel(activeSourceKey || requestedServer || DEFAULT_SOURCE_KEY, "Server 1")}
-                  icon={<ServerCog size={20} />}
+                  icon={<IconServers size={20} />}
                   hasChevron
                 />
                 <DialogRow
                   onClick={() => setPanel("video")}
                   title="Video Quality"
                   sub={autoLevel === false ? (qualities.find(q => q.height === manualHeight)?.label || (currentHeight ? currentHeight + "p" : "Manual")) : "Auto"}
-                  icon={<SlidersHorizontal size={20} />}
+                  icon={<IconSliders size={20} />}
                   hasChevron
                 />
                 <DialogRow
                   onClick={() => setPanel("speed")}
                   title="Playback Speed"
                   sub={playbackRate === 1 ? "Normal" : `${playbackRate}x`}
-                  icon={<Gauge size={20} />}
+                  icon={<IconGauge size={20} />}
                   hasChevron
                 />
                 <DialogRow
                   onClick={() => setPanel("aspect")}
                   title="Aspect Ratio"
                   sub={ASPECT_RATIOS[aspectRatioIndex]?.name || "Fit"}
-                  icon={<Proportions size={20} />}
+                  icon={<IconAspect size={20} />}
                   hasChevron
                 />
                 {/* The SkipDB data licence (ODbL) requires attribution wherever
