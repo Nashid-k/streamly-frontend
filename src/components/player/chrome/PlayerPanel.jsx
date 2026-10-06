@@ -10,7 +10,7 @@ import { useMotionTokens } from "../../../constants/motion";
 import IconBtn from "./IconBtn";
 import { IconArrowLeft, IconClose } from "./icons";
 import { IS_TOUCH } from "./constants";
-import { GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER } from "./theme";
+import { GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER, FONT } from "./theme";
 
 const TITLES = {
   settings: "Settings",
@@ -72,6 +72,7 @@ export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings
             background: GLASS_BG_STRONG,
             backdropFilter: GLASS_BLUR,
             WebkitBackdropFilter: GLASS_BLUR,
+            fontFamily: FONT,
             borderLeft: IS_TOUCH ? "none" : `1px solid ${GLASS_BORDER}`,
             borderTop: IS_TOUCH ? `1px solid ${GLASS_BORDER}` : "none",
             borderRadius: IS_TOUCH ? "16px 16px 0 0" : 0,
@@ -106,7 +107,7 @@ export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings
                   <IconArrowLeft size={20} />
                 </button>
               )}
-              <span style={{ color: "#fff", fontWeight: 700, fontSize: 16, letterSpacing: "-0.01em" }}>
+              <span style={{ color: "#fff", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>
                 {TITLES[panel] || ""}
               </span>
             </div>

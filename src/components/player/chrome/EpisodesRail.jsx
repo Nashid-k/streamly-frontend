@@ -11,7 +11,7 @@ import RailArrow from "../../RailArrow";
 import { isEpAired, formatAirsDate } from "../../../utils/titleDetails";
 import { IconCalendar, IconClose, IconPlay } from "./icons";
 import { IS_TOUCH } from "./constants";
-import { ACCENT } from "./theme";
+import { ACCENT, FONT } from "./theme";
 
 export default function EpisodesRail({ episodes, episode, onSelectEpisode, setPanel, setBuffering, setResumeOffer }) {
   const railRef = useRef(null);
@@ -44,6 +44,7 @@ export default function EpisodesRail({ episodes, episode, onSelectEpisode, setPa
         padding: `40px 24px calc(30px + env(safe-area-inset-bottom, 0px))`,
         display: "flex",
         alignItems: "center",
+        fontFamily: FONT,
       }}
     >
       {canScrollLeft && <RailArrow dir="left" onClick={() => scroll("left")} />}
@@ -61,7 +62,7 @@ export default function EpisodesRail({ episodes, episode, onSelectEpisode, setPa
           gap: 16,
           // Top padding as well as bottom, and it is load-bearing: `overflow-x`
           // forces the block axis to `auto` too, so this element CLIPS its
-          // children vertically. With no top padding the current episode's red
+          // children vertically. With no top padding the current episode's white
           // ring — which is an outer box-shadow — had its top edge sliced off.
           // It also gives the hover lift somewhere to go.
           padding: "8px 0",

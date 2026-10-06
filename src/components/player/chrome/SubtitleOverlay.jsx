@@ -6,6 +6,7 @@
 // than the old one vanishing mid-read.
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useMotionTokens } from "../../../constants/motion";
+import { FONT } from "./theme";
 
 export default function SubtitleOverlay({ text, controlsVisible }) {
   // A leaf that is rendered outside the engine, so it resolves the motion
@@ -34,6 +35,7 @@ export default function SubtitleOverlay({ text, controlsVisible }) {
             zIndex: 3,
             pointerEvents: "none",
             lineHeight: 1.4,
+            fontFamily: FONT,
             fontSize: "clamp(16px, 2.6vw, 26px)",
             fontWeight: 700,
             color: "#fff",

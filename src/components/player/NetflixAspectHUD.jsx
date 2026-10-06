@@ -2,7 +2,7 @@ import { memo } from "react";
 import { motion } from "framer-motion";
 import { ASPECT_RATIOS, AR_GLYPH } from "../../constants/playerUi";
 import { HUD_POP, SPRING } from "../../constants/motion";
-import { ACCENT, HUD_GLASS } from "./chrome/theme";
+import { ACCENT, HUD_GLASS, FONT } from "./chrome/theme";
 
 const NetflixAspectHUD = memo(function NetflixAspectHUD({ aspectRatioIndex, metrics }) {
   const ar = ASPECT_RATIOS[aspectRatioIndex] || ASPECT_RATIOS[0];
@@ -44,7 +44,7 @@ const NetflixAspectHUD = memo(function NetflixAspectHUD({ aspectRatioIndex, metr
           ...HUD_GLASS,
           padding: `${Math.max(3, Math.round(metrics.labelFont * 0.35))}px ${Math.max(8, Math.round(metrics.labelFont * 0.9))}px`,
           whiteSpace: "nowrap",
-          fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
+          fontFamily: FONT,
         }}>{ar.name}</span>
       </div>
     </motion.div>

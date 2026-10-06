@@ -7,7 +7,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { useMotionTokens } from "../../../constants/motion";
 import { IconCheck, IconChevronRight } from "./icons";
-import { ACCENT } from "./theme";
+import { ACCENT, FONT } from "./theme";
 
 export default function DialogRow({ selected, onClick, title, sub, disabled, icon, hasChevron }) {
   const M = useMotionTokens(useReducedMotion());
@@ -24,6 +24,7 @@ export default function DialogRow({ selected, onClick, title, sub, disabled, ico
         gap: 10,
         width: "100%",
         textAlign: "left",
+        fontFamily: FONT,
         padding: "10px 0",
         minHeight: 44,
         borderRadius: 0,

@@ -2,7 +2,7 @@ import { memo } from "react";
 import { motion } from "framer-motion";
 import { HUD_POP } from "../../constants/motion";
 import { IconVolumeHigh, IconVolumeLow, IconVolumeMute } from "./chrome/icons";
-import { ACCENT, HUD_GLASS } from "./chrome/theme";
+import { ACCENT, HUD_GLASS, FONT } from "./chrome/theme";
 
 const NetflixVolumeHUD = memo(function NetflixVolumeHUD({ effVolume, isMuted, metrics, volume }) {
   const isZero = isMuted || volume === 0;
@@ -41,7 +41,7 @@ const NetflixVolumeHUD = memo(function NetflixVolumeHUD({ effVolume, isMuted, me
           color: "#fff", fontSize: metrics.valueFont, fontWeight: 700,
           minWidth: metrics.valueMinWidth, textAlign: "right",
           fontVariantNumeric: "tabular-nums",
-          fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
+          fontFamily: FONT,
         }}>{pct}%</span>
       </div>
     </motion.div>

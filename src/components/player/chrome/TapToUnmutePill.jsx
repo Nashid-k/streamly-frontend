@@ -6,7 +6,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useMotionTokens } from "../../../constants/motion";
 import { IconVolumeMute } from "./icons";
-import { ACCENT } from "./theme";
+import { ACCENT, FONT } from "./theme";
 
 export default function TapToUnmutePill({ visible, onUnmute }) {
   const M = useMotionTokens();
@@ -38,6 +38,7 @@ export default function TapToUnmutePill({ visible, onUnmute }) {
             color: "#fff",
             border: "1px solid rgba(255,255,255,0.55)",
             borderRadius: 999,
+            fontFamily: FONT,
             fontWeight: 700,
             fontSize: 13,
             cursor: "pointer",

@@ -279,7 +279,7 @@
 
 
 /* ═══════════════════════════════════════════════════════════
-   NATIVE PLAYER (NativePlayerView) — Netflix-exact chrome CSS
+   NATIVE PLAYER (NativePlayerView) — Apple TV+ chrome CSS
    All spacing, hover states, and animations for the player UI
    ═══════════════════════════════════════════════════════════ */
 
@@ -334,15 +334,15 @@
   transition: transform var(--zxc-t-instant) var(--zxc-ease),
     color var(--zxc-t-fast) var(--zxc-ease);
 }
-/* Material backdrop: a soft disc that blooms under the glyph on hover/focus.
-   The player chrome sits on live video, so an unbacked white glyph disappears
-   on a bright frame — this is the affordance that keeps it readable. */
+/* Hover/focus bloom layered over the persistent frosted disc (the disc itself
+   is inline on IconBtn). The player chrome sits on live video, so this second
+   layer is what makes the focused control read as "pressed". */
 .np-icon-btn::before {
   content: "";
   position: absolute;
   inset: 1px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.22);
   opacity: 0;
   transform: scale(0.72);
   transition: opacity var(--zxc-t-fast) var(--zxc-ease),

@@ -8,7 +8,7 @@ import { motion } from "framer-motion";
 import { useMotionTokens } from "../../../constants/motion";
 import IconBtn from "./IconBtn";
 import { IconArrowLeft } from "./icons";
-import { TEXT_DIM } from "./theme";
+import { TEXT_DIM, FONT } from "./theme";
 
 export default function ChromeTopBar({ visible, title, subtitle, onBack }) {
   const M = useMotionTokens();
@@ -24,8 +24,10 @@ export default function ChromeTopBar({ visible, title, subtitle, onBack }) {
         right: 0,
         display: "flex",
         alignItems: "center",
-        justifyContent: "space-between",
+        justifyContent: "flex-start",
+        gap: 14,
         padding: "var(--np-safe-top, 16px) 24px 44px",
+        fontFamily: FONT,
         // The bar holds a back button and a title only. A heavier scrim read as a
         // black band over the frame; 0.55 fading out faster keeps the text
         // legible without painting the top third of the picture.
@@ -42,8 +44,8 @@ export default function ChromeTopBar({ visible, title, subtitle, onBack }) {
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: 2,
-          paddingLeft: 12,
+          gap: 3,
+          paddingLeft: 2,
           paddingRight: 24,
           minWidth: 0,
           overflow: "hidden",
@@ -53,8 +55,8 @@ export default function ChromeTopBar({ visible, title, subtitle, onBack }) {
           style={{
             color: "#fff",
             fontWeight: 700,
-            fontSize: "clamp(18px, 2.2vw, 23px)",
-            letterSpacing: "-0.01em",
+            fontSize: "clamp(20px, 2.6vw, 28px)",
+            letterSpacing: "-0.02em",
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -66,8 +68,9 @@ export default function ChromeTopBar({ visible, title, subtitle, onBack }) {
           <div
             style={{
               color: TEXT_DIM,
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: 500,
+              letterSpacing: "-0.01em",
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",

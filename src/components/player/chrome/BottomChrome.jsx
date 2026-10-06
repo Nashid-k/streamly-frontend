@@ -15,7 +15,7 @@ import { motion } from "framer-motion";
 import { useMotionTokens } from "../../../constants/motion";
 import IconBtn from "./IconBtn";
 import { IS_TOUCH, SAFE_BOTTOM, SCRUBBER_BAND_STYLE } from "./constants";
-import { ACCENT, TRACK, BUFFERED, TEXT_DIM } from "./theme";
+import { ACCENT, TRACK, BUFFERED, TEXT_DIM, FONT } from "./theme";
 import {
   IconAudio,
   IconCaptions,
@@ -37,11 +37,13 @@ import {
 
 const TIME_STYLE = {
   color: TEXT_DIM,
-  fontSize: 13,
+  fontFamily: FONT,
+  fontSize: 15,
   fontWeight: 500,
+  letterSpacing: "-0.01em",
   fontVariantNumeric: "tabular-nums",
   whiteSpace: "nowrap",
-  minWidth: 42,
+  minWidth: 48,
   textAlign: "center",
 };
 
@@ -114,7 +116,8 @@ export default function BottomChrome({
         paddingLeft: IS_TOUCH ? 14 : 32,
         paddingRight: IS_TOUCH ? 14 : 32,
         paddingBottom: SAFE_BOTTOM,
-        background: "linear-gradient(0deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.4) 52%, rgba(0,0,0,0) 100%)",
+        background: "linear-gradient(0deg, rgba(0,0,0,0.86) 0%, rgba(0,0,0,0.42) 52%, rgba(0,0,0,0) 100%)",
+        fontFamily: FONT,
         pointerEvents: visible ? "auto" : "none",
         zIndex: 4,
       }}
@@ -125,7 +128,7 @@ export default function BottomChrome({
           display: "flex",
           alignItems: "center",
           gap: IS_TOUCH ? 10 : 16,
-          marginBottom: IS_TOUCH ? 4 : 8,
+          marginBottom: IS_TOUCH ? 6 : 14,
         }}
       >
         <span style={TIME_STYLE}>{fmtTime(currentTime)}</span>
@@ -161,11 +164,11 @@ export default function BottomChrome({
           <div
             style={{
               position: "relative",
-              height: hoverRatio != null ? 7 : 4,
+              height: hoverRatio != null ? 9 : 6,
               width: "100%",
               background: TRACK,
               borderRadius: 999,
-              transition: "height 0.15s",
+              transition: "height 0.18s cubic-bezier(0.2,0.8,0.2,1)",
             }}
           >
             {duration > 0 &&
@@ -210,14 +213,14 @@ export default function BottomChrome({
               style={{
                 position: "absolute",
                 top: "50%",
-                left: `calc(${effectiveRatio * 100}% - ${(hoverRatio != null ? 18 : 14) / 2}px)`,
-                width: hoverRatio != null ? 18 : 14,
-                height: hoverRatio != null ? 18 : 14,
+                left: `calc(${effectiveRatio * 100}% - ${(hoverRatio != null ? 22 : 16) / 2}px)`,
+                width: hoverRatio != null ? 22 : 16,
+                height: hoverRatio != null ? 22 : 16,
                 borderRadius: "50%",
                 background: ACCENT,
                 transform: "translateY(-50%)",
-                transition: "width 0.15s, height 0.15s",
-                boxShadow: "0 1px 6px rgba(0,0,0,0.6)",
+                transition: "width 0.18s cubic-bezier(0.2,0.8,0.2,1), height 0.18s cubic-bezier(0.2,0.8,0.2,1)",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.65), 0 0 0 1px rgba(0,0,0,0.25)",
               }}
             />
           </div>
@@ -309,12 +312,12 @@ export default function BottomChrome({
               onClick={(e) => e.stopPropagation()}
               aria-label="Volume"
               className="np-volume-slider"
-              style={{ width: 80, cursor: "pointer", marginLeft: 6 }}
+              style={{ width: 84, cursor: "pointer", marginLeft: 10 }}
             />
           )}
         </span>
 
-        <div style={{ display: "flex", alignItems: "center", gap: IS_TOUCH ? 14 : 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: IS_TOUCH ? 16 : 30 }}>
           {!IS_TOUCH && (
             <IconBtn
               size={transportBtnSize}
@@ -330,7 +333,7 @@ export default function BottomChrome({
           <IconBtn
             label={playing ? "Pause" : "Play"}
             onClick={onTogglePlay}
-            size={IS_TOUCH ? 64 : 60}
+            size={IS_TOUCH ? 68 : 64}
           >
             {playing ? <IconPause size={30} /> : <IconPlay size={30} />}
           </IconBtn>
@@ -356,7 +359,7 @@ export default function BottomChrome({
           )}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 2, justifySelf: "end" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, justifySelf: "end" }}>
           {showEpisodeNav && (
             <>
               <IconBtn label="Previous episode" disabled={prevDisabled} onClick={onEpPrev}>
