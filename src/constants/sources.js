@@ -57,7 +57,10 @@ import { downloadService } from "../api/downloadService";
    Every ZXC row was dead for ONE reason: the token mint had been RENAMED
    upstream from `POST /backend/meow` to `POST /backend/fuckyou` ("meow" is now a
    SERVER name — "Ursa" — not an endpoint), so the old path 404'd. That single
-   path is fixed in api/stream.js; the rows below were re-verified after.
+   path is fixed in api/stream.js; the rows below were re-verified after. The
+   mint has been renamed twice since (latest: 2026-10-06) — the current string
+   is `ZXC_MINT_PATH` in `api/stream.js`, re-discovered from the shipped embed
+   chunk by the procedure recorded next to it.
 
    Centaurus leads because it is the only row with real multi-language audio AND
    verified bytes, which is why it is also `DEFAULT_SOURCE_KEY`.

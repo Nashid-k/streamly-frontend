@@ -5308,3 +5308,38 @@ cannot skip the check. The session that introduced it left the tree mid-flight:
   live — the guarantee is structural (the preference is read through
   `useReducedMotion` at one place per component, so the cut cannot be skipped
   at a call site), not a screenshot.
+
+## ZXC mint re-discovered (2026-10-06) — every server restored
+
+Pushed the motion work, then ran `scripts/probe-servers.mjs` because the push
+was the point where "is it playing" deserves a real answer. **0/10 passed** with
+the exact signature the resolver's own contract note predicts for a renamed
+mint: five simultaneous rows, every one `Upstream 404`, sub-second. Not an
+outage — one renamed string.
+
+- **Re-discovered by the documented procedure (no guessing):** `GET /embed/movie/27205`
+  -> 16 `/_next/static/chunks/*.js` -> grep for `/backend/` -> the mint is the
+  single POST, now **`/backend/fuckoffniggawtaf`** (one `a` inserted before the
+  final `f`). Verified live before touching the constant: old path 404 (HTML
+  page), new path 200 `{token, ts}`.
+- **Changed:** `ZXC_MINT_PATH` in `api/stream.js` (+ the rename history and the
+  second candidate note in the contract comment). `zxcMintPath.test.js` moves
+  its pinned `MINT_PATH` and adds `fuckoffniggawtf` to the retired-path list;
+  the fetch mocks in `zxcMirrorFallback.test.js` and `zxcDubList.test.js`
+  follow so the hermetic stubs still answer the CURRENT path. `src/constants/sources.js`
+  gets a "renamed twice since" pointer to `ZXC_MINT_PATH` in place of the
+  "that single path is fixed" claim.
+- **Gates:** `npm run test` 80 files / **1047 passed**. `npm run lint` 0 errors
+  / warnings unchanged. `npm run build` green (2.80s).
+- **Re-probe after the fix: 10/10 passed** (movie 27205 + tv 1399 s1e1 on all
+  five rows). Centaurus/Andromeda/Orion resolve real 1080p ladders; Atlas its
+  single-stack HLS; Meow 800p/720p. The per-dub "Upstream 427/500/404" logs are
+  the honesty gate dropping dubs whose MPD cannot load — that is the diff
+  between dubs being *listed* and dubs being *playable* (es/ptbr/ru/ta on
+  centaurus and orion got dropped in these two runs; the residencies rotate).
+  The local `MongoDB is not configured` usage-flush message is expected with no
+  `MONGODB_URI` in the environment and does not affect resolution.
+- **Not verified:** no headed browser, so no pixels were watched; "playing" here
+  means the real handler resolves a token, a servers answer, a manifest and a
+  variant ladder from the real provider for every row — which is the full chain
+  upstream of one segment fetch.

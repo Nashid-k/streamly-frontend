@@ -231,7 +231,7 @@ async function handleResolve(body, res) {
 
    The contract, read off the shipped client chunk (vidstuck's `queryFn`):
 
-1. `POST /backend/fuckoffniggawtf` with
+1. `POST /backend/fuckoffniggawtaf` with
       `{tmdbId, media_type, path[, season, episode]}` -> `{ token, ts }`. This
       endpoint is SELF-ORIGIN ONLY: a correct body with any other (or missing)
       `Origin` header answers 500 "Internal Server Error" â€” verified across a
@@ -244,6 +244,7 @@ async function handleResolve(body, res) {
 
         2026-10-03  `/backend/meow`  -> `/backend/fuckyou`
         2026-10-05  `/backend/fuckyou` -> `/backend/fuckoffniggawtf`
+        2026-10-06  `/backend/fuckoffniggawtf` -> `/backend/fuckoffniggawtaf`
 
       `meow` was never an endpoint at all: it is one of their SERVER names
       ("Ursa", `path=meow`). A 404 here fails the mint, so all four servers
@@ -261,6 +262,11 @@ async function handleResolve(body, res) {
       `{token, ts}`, and centaurus/andromeda/atlas/meow all answer
       `success=true` with a 200 manifest. (`milkyway` still answers
       `success=true` there too, but its manifest 403s, so it is retired.)
+      Candidate found 2026-10-06: `/backend/fuckoffniggawtaf` (one `a`
+      inserted before the `f`), read off the shipped chunks of
+      `GET /embed/movie/27205` by the same procedure. Verified live before
+      changing this line: old path 404, new path 200
+      `{"token":"379cb…","ts":1791304881605}`.
 
    2. `GET /backend/servers/{path}?â€¦` with a dozen OBFUSCATED query names
       (hex strings, mapped below) plus the token/ts from step 1, and optionally
@@ -303,7 +309,7 @@ const ZXC_ORIGIN = "https://vidstuck.xyz";
    source" for every option at once. That is the signature to recognise: a
    simultaneous four-row failure is almost always this constant, never four
    coincidental provider outages. */
-const ZXC_MINT_PATH = "/backend/fuckoffniggawtf";
+const ZXC_MINT_PATH = "/backend/fuckoffniggawtaf";
 /* Upstream's own server list, read off the CURRENT shipped embed chunk
    (module 53557 `gN.SERVERS`, re-verified 2026-10-05): Orion "Multi Audio
    Support" (`dubSupport`), Andromeda "Smooth Playback & HD", Centaurus
