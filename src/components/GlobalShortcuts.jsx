@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MODAL_PANEL } from "../constants/motion";
+import { MotionLeaf } from "../components/MotionLeaf";
 import { Keyboard, X, Search, ArrowLeft, Play } from "lucide-react";
 
 export default function GlobalShortcuts() {
@@ -91,6 +91,10 @@ export default function GlobalShortcuts() {
     };
   }, [isOpen]);
 
+  // Unconditional: the dialog mounts inside `{isOpen && ...}`, so the leaf must
+  // be built before the branch, not inside it.
+  const L = new MotionLeaf();
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -115,10 +119,10 @@ export default function GlobalShortcuts() {
           onClick={() => setIsOpen(false)}
         >
           <motion.div
-initial={MODAL_PANEL.initial}
-          animate={MODAL_PANEL.animate}
-          exit={MODAL_PANEL.exit}
-          transition={MODAL_PANEL.transition}
+            initial={L.Modal.panel.initial}
+            animate={L.Modal.panel.animate}
+            exit={L.Modal.panelExit}
+            transition={L.Modal.panel.transition}
             onClick={(e) => e.stopPropagation()}
             style={{
               width: "90%",

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Clock, X, Search, Check, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { SPRING } from "../constants/motion";
+import { MotionLeaf } from "../components/MotionLeaf";
 import { useAppAuth } from "../context/auth";
 import { useToast } from "../components/Toast.jsx";
 import { useConfirmDialog } from "../components/ConfirmDialog.jsx";
@@ -20,6 +20,10 @@ export default function HistoryPage() {
   } = useAppAuth();
   const { toast } = useToast();
   const { confirmDialog, ConfirmDialogRenderer } = useConfirmDialog();
+  // Unconditional and above every early return: the card variants below sit
+  // inside `groupItems.map(...)`, so a per-row MotionLeaf would change the
+  // hook count with the number of history entries.
+  const L = new MotionLeaf();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -313,7 +317,7 @@ export default function HistoryPage() {
                                 opacity: 1,
                                 scale: 1,
                                 y: 0,
-                                transition: SPRING.LIFT,
+                                transition: L.Spring.LIFT,
                               },
                             }}
                             initial="hidden"

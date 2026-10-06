@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { AlertCircle, CheckCircle2, Loader2, MailCheck } from "lucide-react";
 import { useAppAuth } from "../context/auth";
 import { useI18n } from "../i18n";
-import { MODAL_PANEL } from "../constants/motion";
+import { MotionLeaf } from "../components/MotionLeaf";
 
 /* ── /verify-email ──────────────────────────────────────────────────────────
    Where the emailed link lands. The account is created by the button press, not
@@ -25,6 +25,9 @@ export default function VerifyEmailPage() {
   const [status, setStatus] = useState("idle"); // idle | working | success | error
   const [failure, setFailure] = useState("");
   const startedRef = useRef(false);
+  // Built once, above the status branches below: both returns draw the same
+  // leaf instead of constructing it (and calling hooks) inline.
+  const L = new MotionLeaf();
 
   // Only ever called from the button below. Nothing in this component verifies on
   // mount: a mail client or corporate scanner that executes page JS would
@@ -70,9 +73,9 @@ export default function VerifyEmailPage() {
       <main className="verify-page">
         <motion.section
           className="verify-card"
-          initial={MODAL_PANEL.initial}
-          animate={MODAL_PANEL.animate}
-          transition={MODAL_PANEL.transition}
+          initial={L.Modal.panel.initial}
+          animate={L.Modal.panel.animate}
+          transition={L.Modal.panel.transition}
         >
           <MailCheck size={30} className="verify-card__icon" aria-hidden="true" />
           <h1 className="verify-card__title">
@@ -105,9 +108,9 @@ export default function VerifyEmailPage() {
         className="verify-card"
         role="status"
         aria-live="polite"
-        initial={MODAL_PANEL.initial}
-        animate={MODAL_PANEL.animate}
-        transition={MODAL_PANEL.transition}
+        initial={L.Modal.panel.initial}
+        animate={L.Modal.panel.animate}
+        transition={L.Modal.panel.transition}
       >
         {status === "working" && (
           <>

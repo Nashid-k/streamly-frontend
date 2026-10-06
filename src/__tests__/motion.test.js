@@ -154,13 +154,14 @@ describe("motion tokens", () => {
       }
     });
 
-    it("takes the dialog on the two big pages from the same tokens", () => {
+    it("takes the dialog on the two big pages through MotionLeaf", () => {
       for (const file of PAGE_DIALOGS) {
         const src = readFileSync(file, "utf8");
         // Depth-agnostic: PAGE_DIALOGS spans src/pages and src/components/auth.
-        expect(src).toMatch(/import \{[^}]*MODAL_PANEL[^}]*\} from "(?:\.\.\/)+constants\/motion"/);
-        expect(src).toMatch(/transition=\{MODAL_PANEL\.transition\}/);
-        expect(src).toMatch(/transition=\{FADE\.transition\}/);
+        expect(src).toMatch(/import \{[^}]*MotionLeaf[^}]*\} from "[^"]*MotionLeaf"/);
+        expect(src).toMatch(/transition=\{L\.Modal\.panel\.transition\}/);
+        expect(src).toMatch(/exit=\{L\.Modal\.panelExit\}/);
+        expect(src).toMatch(/<MotionFade/);
       }
     });
 
@@ -315,12 +316,17 @@ describe("every modal takes the shared shapes", () => {
     for (const f of COLLECTION_DIALOGS) expect(readFileSync(f, "utf8")).toBeTruthy();
   });
 
-  it("takes MODAL_PANEL and FADE from the token file", () => {
+  it("takes the panel and scrim through MotionLeaf so a cut is unavoidable", () => {
+    // The raw-token contract this replaced (import MODAL_PANEL, spread it) let
+    // a call site satisfy the test while every transition ignored the viewer's
+    // motion preference. MotionLeaf resolves that preference itself, so the
+    // import plus the panel/scrim shapes is the assertion that matters now.
     for (const file of COLLECTION_DIALOGS) {
       const src = readFileSync(file, "utf8");
-      expect(src, file).toMatch(/import \{[^}]*MODAL_PANEL[^}]*\} from "(?:\.\.\/)+constants\/motion"/);
-      expect(src, file).toMatch(/transition=\{MODAL_PANEL\.transition\}/);
-      expect(src, file).toMatch(/transition=\{FADE\.transition\}/);
+      expect(src, file).toMatch(/import \{[^}]*MotionLeaf[^}]*\} from "[^"]*MotionLeaf"/);
+      expect(src, file).toMatch(/transition=\{L\.Modal\.panel\.transition\}/);
+      expect(src, file).toMatch(/exit=\{L\.Modal\.panelExit\}/);
+      expect(src, file).toMatch(/<MotionFade/);
       expect(src, file).toMatch(/<AnimatePresence>/);
     }
   });

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { SPRING } from "../constants/motion";
+import { MotionLeaf } from "./MotionLeaf";
 
 export default function Popover({
   isOpen,
@@ -15,6 +15,8 @@ export default function Popover({
   ...props
 }) {
   const ref = useRef(null);
+  // Unconditional: the popover's own motion.div mounts inside `{isOpen && ...}`.
+  const L = new MotionLeaf();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -44,7 +46,7 @@ export default function Popover({
           initial={{ opacity: 0, y: 15, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 10, scale: 0.95 }}
-          transition={SPRING.POPOVER}
+          transition={L.Spring.POPOVER}
           style={{
             right: align === "right" ? 0 : undefined,
             left: align === "left" ? 0 : undefined,

@@ -1,5 +1,5 @@
 import { Reorder, useDragControls } from "framer-motion";
-import { SPRING } from "../../constants/motion";
+import { MotionLeaf } from "../../components/MotionLeaf";
 import { GripVertical } from "lucide-react";
 
 // Drag-and-drop server priority list. Pointer dragging starts from the grip
@@ -7,6 +7,9 @@ import { GripVertical } from "lucide-react";
 // with ArrowUp/ArrowDown on a focused row. No up/down arrow buttons.
 function ServerOrderList({ list, onReorder, onMoveKeyboard }) {
   const dragControls = useDragControls();
+  // Unconditional: the rows live inside `list.map(...)`, so building the leaf
+  // per row would make the hook count follow the number of servers.
+  const L = new MotionLeaf();
 
   return (
     <Reorder.Group
@@ -24,7 +27,7 @@ function ServerOrderList({ list, onReorder, onMoveKeyboard }) {
           dragListener={false}
           dragControls={dragControls}
           whileDrag={{ scale: 1.02 }}
-          transition={SPRING.SHEET}
+          transition={L.Spring.SHEET}
           className="order-item"
           role="listitem"
           aria-posinset={idx + 1}

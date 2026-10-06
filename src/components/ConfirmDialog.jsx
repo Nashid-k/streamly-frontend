@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { FADE, MODAL_PANEL } from "../constants/motion";
+import { MotionFade, MotionLeaf } from "./MotionLeaf";
 import { AlertTriangle } from "lucide-react";
 
 /**
@@ -86,18 +86,16 @@ export function useConfirmDialog() {
   }, [dialog]);
 
   function ConfirmDialogRenderer() {
+    const L = new MotionLeaf();
+
     return (
       <AnimatePresence>
         {dialog && (
           <>
             {/* Backdrop */}
-            <motion.div
+            <MotionFade
               className="modal-overlay"
               aria-hidden="true"
-              initial={FADE.initial}
-              animate={FADE.animate}
-              exit={FADE.exit}
-              transition={FADE.transition}
               onClick={handleCancel}
               style={{
                 position: "fixed",
@@ -109,10 +107,17 @@ export function useConfirmDialog() {
             />
             {/* Modal */}
             <motion.div
-              initial={MODAL_PANEL.initial}
-              animate={MODAL_PANEL.animate}
-              exit={MODAL_PANEL.exit}
-              transition={MODAL_PANEL.transition}
+              initial={L.Modal.panel.initial}
+              animate={L.Modal.panel.animate}
+              exit={L.Modal.panelExit}
+              transition={L.Modal.panel.transition}
+              className="modal-container confirm-dialog-panel"
+              ref={panelRef}
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="confirm-dialog-title"
+              aria-describedby="confirm-dialog-description"
+              tabIndex={-1}
               style={{
                 position: "fixed",
                 top: "50%",
@@ -134,13 +139,6 @@ export function useConfirmDialog() {
                 flexDirection: "column",
                 gap: "1.25rem",
               }}
-              className="modal-container confirm-dialog-panel"
-              ref={panelRef}
-              role="alertdialog"
-              aria-modal="true"
-              aria-labelledby="confirm-dialog-title"
-              aria-describedby="confirm-dialog-description"
-              tabIndex={-1}
             >
               {/* Icon */}
               <div

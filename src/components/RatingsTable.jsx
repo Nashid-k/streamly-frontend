@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { FADE, MODAL_PANEL } from "../constants/motion";
+import { MotionFade, MotionLeaf } from "./MotionLeaf";
 import { X, Star, RefreshCw } from "lucide-react";
 import { movieService } from "../api/movieService";
 import { getScoreColor } from "../utils/ratings";
@@ -33,6 +33,7 @@ const RatingsTable = ({ movie, seasons = [], onClose }) => {
   const [loaded, setLoaded] = useState({});
   const [failed, setFailed] = useState({});
   const loadedRef = useRef({});
+  const L = new MotionLeaf();
 
   useEffect(() => {
     const handler = (e) => {
@@ -90,12 +91,8 @@ const RatingsTable = ({ movie, seasons = [], onClose }) => {
   const cellSize = "clamp(26px, 3.5vw, 40px)";
 
   return (
-    <motion.div
+    <MotionFade
       key="ratings"
-      initial={FADE.initial}
-      animate={FADE.animate}
-      exit={FADE.exit}
-      transition={FADE.transition}
       className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-md px-4 sm:px-6"
       onClick={onClose}
       role="dialog"
@@ -103,10 +100,10 @@ const RatingsTable = ({ movie, seasons = [], onClose }) => {
       aria-labelledby="ratings-title"
     >
       <motion.div
-        initial={MODAL_PANEL.initial}
-        animate={MODAL_PANEL.animate}
-        exit={MODAL_PANEL.exit}
-        transition={MODAL_PANEL.transition}
+        initial={L.Modal.panel.initial}
+        animate={L.Modal.panel.animate}
+        exit={L.Modal.panelExit}
+        transition={L.Modal.panel.transition}
         className="w-full max-w-3xl overflow-hidden rounded-2xl border border-white/10 bg-[#0c0c0e]/95 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
@@ -247,7 +244,7 @@ const RatingsTable = ({ movie, seasons = [], onClose }) => {
           </div>
         </div>
       </motion.div>
-    </motion.div>
+    </MotionFade>
   );
 };
 

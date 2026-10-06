@@ -5236,3 +5236,75 @@ skin**. This pass finishes the sweep so no player surface reads Netflix:
   and the accessible titles kept for the existing tests.
 - **Gates:** lint 0 errors / 40 warnings. `npm run test` **80 files / 1047
   passed**. `npm run build` green (~1.6s). Changes local (not committed).
+
+## MotionLeaf — P1 reduced-motion pass on the app's dialogs and pages (2026-10-06)
+
+The gap: every non-player surface spread the raw `SPRING` / `FADE` /
+`MODAL_PANEL` tokens straight into framer props, so nothing outside the player
+obeyed `prefers-reduced-motion` — springs kept settling for a viewer who asked
+for stillness. `src/components/MotionLeaf.jsx` is the fix: it resolves the
+preference once per component (`useReducedMotion`) and hands back pre-checked
+shapes, so a call site writes `L.Modal.panel` instead of `MODAL_PANEL` and
+cannot skip the check. The session that introduced it left the tree mid-flight:
+**7 files did not parse**, so this entry records the repair and the finish.
+
+- **`ConfirmDialog.jsx` restored** (the file the single-`new MotionLeaf()`
+  patch broke): two duplicate `const L` declarations in one scope (the syntax
+  error), `*/export function` collapsed onto one line, `motion` dropped from the
+  import while `<motion.div>` still used it. The panel now carries the full set
+  `initial/animate/exit={L.Modal.panelExit}/transition={L.Modal.panel.transition}`.
+- **`MotionFade` was dropping the props it was given.** It destructured
+  `className`, `style` and `onClick` and never rendered them, so every migrated
+  backdrop silently lost its CSS class AND its click-to-close handler (the
+  collection dialogs' backdrop would have been an unstyled, non-dismissable
+  black layer). They now flow through `...rest`, which is spread last so a
+  caller can still override `animate` (TitleInfoModal drives its close fade by
+  state — there is no AnimatePresence around that portal).
+- **Unbalanced JSX closed in five files** (`CollectionPickerDialog`,
+  `CollectionNameDialog`, `AddTitlesDialog`, `SignInDialog`, `TitleInfoModal`):
+  the patch renamed the backdrop's opening `<motion.div>` to `<MotionFade>`
+  and left the closing tag behind. `CollectionPickerDialog` had also lost the
+  `document.body` container argument of its `createPortal`, and `SignInDialog`
+  still imported `FADE`/`MODAL_PANEL` while calling `MotionLeaf` — both
+  runtime-crashers, not lint-visible.
+- **Undeclared / out-of-scope `L`:** `RatingsTable` and `TitleInfoModal` used
+  `L` without ever declaring it; `TitleDetailsPage` declared `const L = new
+  MotionLeaf()` **at module scope**, which calls React hooks at import time and
+  takes the whole app down on load. All three now declare it inside the
+  component, above every early return.
+- **Hook-safety sweep — the systemic defect.** `new MotionLeaf()` runs hooks,
+  so where it sat mattered: module scope (`CastRail`'s `castItemVariants`) or a
+  conditional branch / `.map()` (`BackToTop` inside `{visible && ...}`,
+  `Popover` inside `{isOpen && ...}`, `GlobalShortcuts`, `ServerOrderList` and
+  `HistoryPage` per row, `TitleDetailsPage`'s episode section, `VerifyEmailPage`
+  across its status branches) all change the hook count between renders →
+  React's "rendered more/fewer hooks" crash on the first toggle. Every site is
+  now a single unconditional `const L = new MotionLeaf()` at the top of its
+  component; `VerifyEmailPage` went from six inline constructions to one.
+- **The token contract the raw call sites had silently dropped:** every panel
+  now passes `transition={L.Modal.panel.transition}` again (the patch had
+  deleted the `transition` prop, so panels were falling back to framer-motion's
+  default spring instead of `SPRING.SHEET`) plus `exit={L.Modal.panelExit}`.
+  The one behavioural edit beyond that: TitleDetailsPage's episode-section
+  reveal keeps its `y: 20` rise but gates it on `L.reduced`, and takes
+  `L.Fade.transition` instead of a hand-typed `duration: 0.4` (0.4s → `DURATION.MED`
+  0.28s — the shared scale, which is the point of the token file).
+- **`motion.test.js` contract updated with the migration, not weakened.** The
+  two source-shape tests still asserted `import { ...MODAL_PANEL } from
+  "constants/motion"` and `transition={MODAL_PANEL.transition}` — the old
+  contract, which was satisfiable while every transition ignored the motion
+  preference. They now pin the new one: import `MotionLeaf`,
+  `transition={L.Modal.panel.transition}`, `exit={L.Modal.panelExit}`, and a
+  `<MotionFade>` scrim, for both `COLLECTION_DIALOGS` and the two `PAGE_DIALOGS`.
+- **Gates:** `npm run lint` **0 errors / 39 warnings** (all pre-existing
+  baseline; the 4-5 warnings this patch itself introduced — unused imports and
+  unused `MotionFade` params — are gone). `npm run test` **80 files / 1047
+  passed**. `npm run build` green (2.53s). Encoding re-checked on every touched
+  file: **pure CRLF, zero bare LF, no BOM** (the patch had left
+  `motion.test.js` and `VerifyEmailPage.jsx` on bare LF).
+- **Deliberately untouched:** the TMDB timeout seen in the logs. It is a
+  network/provider issue, not a code regression, and was not chased as one.
+- **Not verified:** no browser here, so no reduced-motion run was observed
+  live — the guarantee is structural (the preference is read through
+  `useReducedMotion` at one place per component, so the cut cannot be skipped
+  at a call site), not a screenshot.

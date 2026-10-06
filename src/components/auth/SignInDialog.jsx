@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Mail, X } from "lucide-react";
-import { FADE, MODAL_PANEL } from "../../constants/motion";
+import { MotionFade, MotionLeaf } from "../../components/MotionLeaf";
 import { useAppAuth } from "../../context/auth";
 import { useI18n } from "../../i18n";
 import { logWarn } from "../../utils/debugLogger";
@@ -218,23 +218,20 @@ function SignInDialog({ initialMode = "signin", reason = "", onClose }) {
 
   const heading = mode === "signup" ? t("authEmail.createTitle") : t("authEmail.signInTitle");
 
+  const L = new MotionLeaf();
   // Portaled to <body>: every page is wrapped in a motion.div that carries a
   // transform, which would break `position: fixed` on the backdrop.
   return createPortal(
-    <motion.div
+    <MotionFade
       className="auth-dialog-backdrop"
       role="presentation"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={FADE.transition}
       onMouseDown={(e) => {
             // onMouseDown, not onClick: a drag that starts inside the panel and
             // ends on the backdrop must not dismiss the dialog, and that can
             // never be undone once the click has fired.
             if (e.target === e.currentTarget && !busy) requestClose();
           }}
-        >
+    >
           <motion.div
             ref={panelRef}
             className="auth-dialog"
@@ -242,10 +239,10 @@ function SignInDialog({ initialMode = "signin", reason = "", onClose }) {
             aria-modal="true"
             aria-label={heading}
             tabIndex={-1}
-            initial={MODAL_PANEL.initial}
-            animate={MODAL_PANEL.animate}
-            exit={MODAL_PANEL.exit}
-            transition={MODAL_PANEL.transition}
+            initial={L.Modal.panel.initial}
+            animate={L.Modal.panel.animate}
+            exit={L.Modal.panelExit}
+            transition={L.Modal.panel.transition}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="auth-dialog__header">
@@ -381,7 +378,7 @@ function SignInDialog({ initialMode = "signin", reason = "", onClose }) {
               </>
             )}
           </motion.div>
-    </motion.div>,
+    </MotionFade>,
     document.body,
   );
 }

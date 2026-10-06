@@ -42,7 +42,7 @@ import {
   motion,
   AnimatePresence,
 } from "framer-motion";
-import { SPRING, FADE, MODAL_PANEL } from "../constants/motion";
+import { MotionFade, MotionLeaf } from "../components/MotionLeaf";
 import { useAppAuth } from "../context/auth";
 import { useToast } from "../components/Toast.jsx";
 import MovieCard from "../components/MovieCard";
@@ -80,6 +80,10 @@ function formatEndsAt(durationMins) {
 
 export default function TitleDetails() {
   const { id } = useParams();
+  // Resolved once, unconditionally: MotionLeaf reads the motion preference
+  // through hooks, so it must run on every render of this component — never at
+  // module scope and never inside a conditional branch.
+  const L = new MotionLeaf();
   const navigate = useNavigate();
   const {
     muteTrailers,
@@ -1138,10 +1142,10 @@ export default function TitleDetails() {
       {isTvContent && hasSeriesEpisodes && (
         <motion.section
           style={{ position: "relative", zIndex: 1, marginTop: "1.5rem", maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: L.reduced ? 0 : 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-40px" }}
-          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          transition={L.Fade.transition}
         >
           <div className="flex flex-wrap items-center gap-x-2 gap-y-3 px-2">
             <motion.h2
@@ -1437,6 +1441,8 @@ export default function TitleDetails() {
                                         // series artwork so every card shows an image. Catalog objects
                                         // sometimes store art in the non-Url fields.
                     const epThumb = ep.thumbnailUrl || ep.posterUrl || ep.backdropUrl || movie.backdropUrl || movie.posterUrl || movie.backdrop || movie.poster || movie.thumbnailUrl || null;
+                    const thumbLoadPriority = idx < 6 ? 'high' : undefined;
+                    const thumbLoading = idx < 6 ? 'eager' : 'lazy';
                     const pctWatched = isWatched && watchedTs <= 0
                       ? 100
                       : Math.min(100, (watchedTs / (ep.durationMins ? ep.durationMins * 60 : 3600)) * 100);
@@ -1484,7 +1490,8 @@ export default function TitleDetails() {
                               <img
                                 src={epThumb}
                                 alt={ep.title}
-                                loading="lazy"
+                                loading={thumbLoading}
+                                fetchPriority={thumbLoadPriority}
                                 decoding="async"
                                 className="w-full h-full object-cover transition-transform duration-500 group-hover:brightness-110"
                                 style={{ filter: !isAired ? 'grayscale(0.85) brightness(0.55)' : undefined }}
@@ -1599,7 +1606,7 @@ export default function TitleDetails() {
                         {/* Thumbnail */}
                         <div style={{ position: 'relative', width: 'clamp(96px, 26vw, 140px)', flexShrink: 0, borderRadius: '8px', overflow: 'hidden', aspectRatio: '16/9', background: '#18181b' }}>
                           {epThumb ? (
-                            <img src={CdnImageAdapter.getUrl(epThumb, 'w500')} alt={ep.title} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: !isAired ? 'grayscale(0.85) brightness(0.55)' : undefined }} />
+                            <img src={CdnImageAdapter.getUrl(epThumb, 'w500')} alt={ep.title} loading={thumbLoading} fetchPriority={thumbLoadPriority} decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: !isAired ? 'grayscale(0.85) brightness(0.55)' : undefined }} />
                           ) : (
                             <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', background: 'linear-gradient(135deg, #18181b 0%, rgba(149,255,80,0.12) 55%, #211519 100%)' }}>
                               <span style={{ fontSize: '1.05rem', fontWeight: 800, color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace', lineHeight: 1 }}>{String(ep.episodeNumber).padStart(2, '0')}</span>
@@ -2246,12 +2253,8 @@ export default function TitleDetails() {
           </motion.div>
         )}
         {unreleasedModalOpen && createPortal(
-          <motion.div
+          <MotionFade
             key="unreleased"
-            initial={FADE.initial}
-            animate={FADE.animate}
-            exit={FADE.exit}
-            transition={FADE.transition}
             className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-md px-6"
             onClick={() => setUnreleasedModalOpen(false)}
             role="dialog"
@@ -2259,10 +2262,10 @@ export default function TitleDetails() {
             aria-labelledby="unreleased-title"
           >
             <motion.div
-              initial={MODAL_PANEL.initial}
-              animate={MODAL_PANEL.animate}
-              exit={MODAL_PANEL.exit}
-              transition={MODAL_PANEL.transition}
+              initial={L.Modal.panel.initial}
+              animate={L.Modal.panel.animate}
+              exit={L.Modal.panelExit}
+              transition={L.Modal.panel.transition}
               className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#0c0c0e]/95 p-6 text-center shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
@@ -2283,9 +2286,10 @@ export default function TitleDetails() {
                 <ChevronLeft size={16} strokeWidth={1.5} aria-hidden="true" /> Back
               </button>
             </motion.div>
-          </motion.div>,
+          </MotionFade>,
           document.body
         )}
+
         {ratingsOpen && movie && (
           <RatingsTable
             movie={movie}

@@ -1,7 +1,7 @@
 import { useCallback, useLayoutEffect, useRef, useState, memo } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { SPRING } from "../constants/motion";
+import { MotionLeaf } from "./MotionLeaf";
 import slugify from "slugify";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import RailArrow from "./RailArrow";
@@ -13,20 +13,23 @@ const castContainerVariants = {
     transition: { staggerChildren: 0.04, delayChildren: 0.1 },
   },
 };
-const castItemVariants = {
-  hidden: { opacity: 0, scale: 0.85, y: 12 },
-  show: {
-    opacity: 1,
-    scale: 1,
-    y: 0,
-    transition: SPRING.LIFT,
-  },
-};
 
 const CastRail = memo(function CastRail({ cast }) {
   const railRef = useRef(null);
   const [canLeft, setCanLeft] = useState(false);
   const [canRight, setCanRight] = useState(false);
+  // Inside the component, never at module scope: MotionLeaf reads the motion
+  // preference through hooks, which only exist during a render.
+  const L = new MotionLeaf();
+  const castItemVariants = {
+    hidden: { opacity: 0, scale: 0.85, y: 12 },
+    show: {
+      opacity: 1,
+      scale: 1,
+      y: 0,
+      transition: L.Spring.LIFT,
+    },
+  };
 
   // Arrows are rendered on desktop (fine pointer) and hidden on touch via CSS —
   // mobile relies on swipe. Disabled states track the scroll bounds.

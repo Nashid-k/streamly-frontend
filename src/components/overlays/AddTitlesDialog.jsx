@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { FADE, MODAL_PANEL } from "../../constants/motion";
+import { MotionFade, MotionLeaf } from "../../components/MotionLeaf";
 import { X, Check } from "lucide-react";
 
 /* ── Add-titles picker (from My List) ───────────────────────────────────── */
 function AddTitlesDialog({ open, candidates, assignedIds, onConfirm, onClose }) {
   const [checked, setChecked] = useState(() => new Set());
+  const L = new MotionLeaf();
   useEffect(() => setChecked(new Set()), [open]);
 
   const available = candidates.filter((m) => !assignedIds.has(m.id));
@@ -19,21 +20,16 @@ function AddTitlesDialog({ open, candidates, assignedIds, onConfirm, onClose }) 
     });
   };
 
-  /* Same treatment as CollectionNameDialog: shared MODAL_PANEL + FADE shapes
-     instead of an instant mount, and the early `return null` is gone so
-     AnimatePresence is still mounted when `open` flips false and can play the
-     exit. Backdrop centring is flexbox, so the panel transform is free. */
+  /* Same treatment as CollectionNameDialog: shared MotionLeaf so the
+     picker collapses to a cut under prefers-reduced-motion. Backdrop centring
+     is flexbox, so the panel transform is free. */
   return (
     <AnimatePresence>
       {open && (
-        <motion.div
+        <MotionFade
           className="collection-dialog-backdrop"
           role="presentation"
           onClick={onClose}
-          initial={FADE.initial}
-          animate={FADE.animate}
-          exit={FADE.exit}
-          transition={FADE.transition}
         >
           <motion.div
             className="collection-dialog collection-dialog--wide"
@@ -41,10 +37,10 @@ function AddTitlesDialog({ open, candidates, assignedIds, onConfirm, onClose }) 
             aria-modal="true"
             aria-label="Add titles to collection"
             onClick={(e) => e.stopPropagation()}
-            initial={MODAL_PANEL.initial}
-            animate={MODAL_PANEL.animate}
-            exit={MODAL_PANEL.exit}
-            transition={MODAL_PANEL.transition}
+            initial={L.Modal.panel.initial}
+            animate={L.Modal.panel.animate}
+            exit={L.Modal.panelExit}
+            transition={L.Modal.panel.transition}
           >
         <div className="collection-dialog__header">
           <h2 className="collection-dialog__title">Add titles</h2>
@@ -99,7 +95,7 @@ function AddTitlesDialog({ open, candidates, assignedIds, onConfirm, onClose }) 
           </button>
         </div>
           </motion.div>
-        </motion.div>
+      </MotionFade>
       )}
     </AnimatePresence>
   );

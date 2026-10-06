@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { FADE, MODAL_PANEL } from "../constants/motion";
+import { MotionFade, MotionLeaf } from "./MotionLeaf";
 import { Check, ChevronRight, GalleryHorizontal, LayoutGrid, List, Play, Plus, X } from "lucide-react";
 import slugify from "slugify";
 import { movieService } from "../api/movieService";
@@ -53,6 +53,9 @@ export default function TitleInfoModal({ movie, onClose, onSelectMovie }) {
   const [similarLayout, setSimilarLayout] = useState(
     SIMILAR_MODES.includes(episodeViewStyle) ? episodeViewStyle : "carousel",
   );
+  // Before the `!movie` early return below: MotionLeaf reads the motion
+  // preference through hooks, so it has to run on every render.
+  const L = new MotionLeaf();
 
   /* Live details (tagline, runtime, seasons, genres, cast) — the summary
      object from the card/banner renders instantly, then this enriches it.
@@ -164,11 +167,12 @@ export default function TitleInfoModal({ movie, onClose, onSelectMovie }) {
   };
 
   return createPortal(
-    <motion.div
+    <MotionFade
       className="title-info-backdrop"
-      initial={FADE.initial}
+      // No AnimatePresence wraps this portal, so the backdrop's close is driven
+      // by state, not by an exit prop. MotionFade's own transition still
+      // supplies the reduced-motion cut.
       animate={{ opacity: isClosing ? 0 : 1 }}
-      transition={FADE.transition}
       onClick={handleClose}
       role="dialog"
       aria-modal="true"
@@ -178,9 +182,9 @@ export default function TitleInfoModal({ movie, onClose, onSelectMovie }) {
       <motion.div
         ref={cardRef}
         className="title-info-card"
-        initial={MODAL_PANEL.initial}
-        animate={isClosing ? MODAL_PANEL.exit : MODAL_PANEL.animate}
-        transition={MODAL_PANEL.transition}
+        initial={L.Modal.panel.initial}
+        animate={isClosing ? L.Modal.panelExit : L.Modal.panel.animate}
+        transition={L.Modal.panel.transition}
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Backdrop header ── */}
@@ -362,7 +366,7 @@ export default function TitleInfoModal({ movie, onClose, onSelectMovie }) {
           )}
         </div>
       </motion.div>
-    </motion.div>,
+    </MotionFade>,
     document.body
   );
 }

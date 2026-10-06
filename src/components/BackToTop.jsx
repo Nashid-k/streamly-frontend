@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { SPRING } from "../constants/motion";
+import { MotionLeaf } from "./MotionLeaf";
 import { ChevronUp } from "lucide-react";
 
 /**
@@ -19,6 +19,9 @@ function isPlayerActive() {
 
 export default function BackToTop() {
   const [visible, setVisible] = useState(false);
+  // Declared unconditionally: the button itself mounts inside `{visible && ...}`,
+  // so a MotionLeaf constructed there would change the hook count on scroll.
+  const L = new MotionLeaf();
 
   useEffect(() => {
     let interval = null;
@@ -65,7 +68,7 @@ export default function BackToTop() {
           initial={{ opacity: 0, scale: 0.7, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.7, y: 20 }}
-          transition={SPRING.LIFT}
+          transition={L.Spring.LIFT}
           whileHover={{ scale: 1.1, y: -3 }}
           whileTap={{ scale: 0.93 }}
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
