@@ -5,9 +5,9 @@
 // nothing but presentation and the back action; the close policy stays with the
 // player via `onBack`.
 import { motion } from "framer-motion";
-import { ArrowLeft } from "lucide-react";
 import { useMotionTokens } from "../../../constants/motion";
 import IconBtn from "./IconBtn";
+import { IconArrowLeft } from "./icons";
 import { TEXT_DIM } from "./theme";
 
 export default function ChromeTopBar({ visible, title, subtitle, onBack }) {
@@ -36,7 +36,7 @@ export default function ChromeTopBar({ visible, title, subtitle, onBack }) {
       }}
     >
       <IconBtn label="Back" onClick={onBack}>
-        <ArrowLeft size={24} />
+        <IconArrowLeft size={24} />
       </IconBtn>
       <div
         style={{

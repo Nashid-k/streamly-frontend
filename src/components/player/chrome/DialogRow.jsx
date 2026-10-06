@@ -5,8 +5,8 @@
 // the preference itself — the same value, read from the same hook, so the
 // checkmark still collapses to a cut under reduced motion.
 import { motion, useReducedMotion } from "framer-motion";
-import { Check, ChevronRight } from "lucide-react";
 import { useMotionTokens } from "../../../constants/motion";
+import { IconCheck, IconChevronRight } from "./icons";
 import { ACCENT } from "./theme";
 
 export default function DialogRow({ selected, onClick, title, sub, disabled, icon, hasChevron }) {
@@ -48,7 +48,7 @@ export default function DialogRow({ selected, onClick, title, sub, disabled, ico
             transition={M.CHECK_POP.transition}
             style={{ display: "flex" }}
           >
-            <Check size={16} color={ACCENT} />
+            <IconCheck size={16} color={ACCENT} />
           </motion.span>
         ) : null}
       </span>
@@ -62,7 +62,7 @@ export default function DialogRow({ selected, onClick, title, sub, disabled, ico
       </span>
       {hasChevron && (
         <span style={{ display: "flex", alignItems: "center", color: "rgba(255,255,255,0.5)" }}>
-          <ChevronRight size={18} />
+          <IconChevronRight size={18} />
         </span>
       )}
     </button>

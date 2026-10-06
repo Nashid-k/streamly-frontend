@@ -5,8 +5,8 @@
 // bottom-right corner matches the episodes rail, whose gradient is transparent
 // at the top, so it does not show through an open panel.
 import { AnimatePresence, motion } from "framer-motion";
-import { Play } from "lucide-react";
 import { useMotionTokens } from "../../../constants/motion";
+import { IconPlay } from "./icons";
 import { IS_TOUCH } from "./constants";
 import { GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER, RADIUS } from "./theme";
 
@@ -68,7 +68,7 @@ export default function ResumeCard({ offer, fmtTime, onResume, onRestart }) {
               cursor: "pointer",
             }}
           >
-            <Play size={16} />
+            <IconPlay size={16} />
             Resume
           </button>
           <button

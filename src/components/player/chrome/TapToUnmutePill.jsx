@@ -4,8 +4,8 @@
 // blocked sound, and yields to an open panel for the same reason the skip pill
 // does. Lives bottom-left so it never collides with the skip pill on the right.
 import { AnimatePresence, motion } from "framer-motion";
-import { VolumeX } from "lucide-react";
 import { useMotionTokens } from "../../../constants/motion";
+import { IconVolumeMute } from "./icons";
 import { ACCENT } from "./theme";
 
 export default function TapToUnmutePill({ visible, onUnmute }) {
@@ -46,7 +46,7 @@ export default function TapToUnmutePill({ visible, onUnmute }) {
           whileHover={{ scale: 1.04 }}
           whileTap={{ scale: 0.97 }}
         >
-          <VolumeX size={16} color={ACCENT} />
+          <IconVolumeMute size={16} color={ACCENT} />
           Tap to unmute
         </motion.button>
       )}

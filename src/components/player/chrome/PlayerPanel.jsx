@@ -6,9 +6,9 @@
 // is passed in as `children` from the engine, so extraction removes the repeated
 // shell without having to thread every list's state through here.
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, X } from "lucide-react";
 import { useMotionTokens } from "../../../constants/motion";
 import IconBtn from "./IconBtn";
+import { IconArrowLeft, IconClose } from "./icons";
 import { IS_TOUCH } from "./constants";
 import { GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER } from "./theme";
 
@@ -103,7 +103,7 @@ export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings
                     padding: 0,
                   }}
                 >
-                  <ArrowLeft size={20} />
+                  <IconArrowLeft size={20} />
                 </button>
               )}
               <span style={{ color: "#fff", fontWeight: 700, fontSize: 16, letterSpacing: "-0.01em" }}>
@@ -111,7 +111,7 @@ export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings
               </span>
             </div>
             <IconBtn label="Close panel" onClick={onClose}>
-              <X size={18} />
+              <IconClose size={18} />
             </IconBtn>
           </div>
           {/* One panel per control (Netflix): Subtitles / Audio / Video

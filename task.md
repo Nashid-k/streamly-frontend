@@ -5184,3 +5184,27 @@ is complete and green.
   Single commit made once all phases were complete and green.
 - **Note:** visual quality of the restyle and the mobile sheet could not be
   verified here (no browser/screenshot tooling); user reviews in-browser.
+
+### Revision — real re-layout, not a reskin (2026-10-06, follow-up)
+
+User feedback on the first pass: "all changed is only the colors and sum
+blurness, not from scratch". Correct — the first commit only recoloured and
+glassed the existing Netflix arrangement. This pass rebuilds the chrome:
+
+- **New icon set** `chrome/icons.jsx`: every transport/utility glyph is now a
+  hand-drawn 24x24 SVG (circular-"10" skip back/forward, filled play/pause,
+  captions/audio/servers/settings, corner-bracket fullscreen + exit, speaker
+  high/low/mute, chevrons, arrow, close, check, calendar, replay). No
+  `lucide-react` import remains in `chrome/`.
+- **Bottom chrome re-laid-out** `BottomChrome.jsx`: scrubber is one full-width
+  line with elapsed time on its left end and duration on its right (times used
+  to sit in the left cluster); the transport is centred (skip-back-10 ·
+  play/pause, larger · skip-forward-10) instead of play pinned left; volume is
+  on the far-left edge and the utility cluster on the far-right edge via a
+  `1fr auto 1fr` grid. Bar thinned to 4px.
+- **CenterStack**: paused/end overlay uses the `10` glyphs and a frosted-glass
+  play/replay button (white glyph on glass) instead of the white-filled circle.
+- **IconBtn**: optional `size` prop and forwarding of extra pointer handlers
+  (hold-to-2x preserved).
+- **Gates:** lint 0 errors / 40 warnings. `npm run test` **80 files / 1047
+  passed**. `npm run build` green (~3.5s). Committed and pushed.

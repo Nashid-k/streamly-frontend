@@ -12,10 +12,10 @@
 // Each branch fades via AnimatePresence — a `transition` on a conditionally
 // mounted node never plays, which is why the spinner once looked frozen.
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Play, RotateCcw } from "lucide-react";
 import { useMotionTokens } from "../../../constants/motion";
 import { IS_TOUCH, CENTER_GLYPH_SHADOW } from "./constants";
-import { GLASS_BG, GLASS_BLUR, GLASS_BORDER } from "./theme";
+import { GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER } from "./theme";
+import { IconSkipBack10, IconSkipForward10, IconPlay, IconReplay } from "./icons";
 import { LoadingMessage, LoadingStage, RingSpinner } from "./primitives";
 
 export default function CenterStack({
@@ -145,7 +145,7 @@ export default function CenterStack({
               pointerEvents: "auto",
             }}
           >
-            <ChevronLeft size={34} strokeWidth={1.5} style={CENTER_GLYPH_SHADOW} />
+            <IconSkipBack10 size={44} style={CENTER_GLYPH_SHADOW} />
           </button>
           <button
             type="button"
@@ -157,15 +157,17 @@ export default function CenterStack({
               width: 92,
               height: 92,
               borderRadius: "50%",
-              border: "none",
-              background: "#fff",
-              color: "#000",
+              border: `1px solid ${GLASS_BORDER}`,
+              background: GLASS_BG_STRONG,
+              backdropFilter: GLASS_BLUR,
+              WebkitBackdropFilter: GLASS_BLUR,
+              color: "#fff",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               pointerEvents: "auto",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.6)",
+              boxShadow: "0 16px 44px rgba(0,0,0,0.55)",
               transition: "transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1)",
             }}
             onMouseEnter={(e) => {
@@ -177,7 +179,7 @@ export default function CenterStack({
           >
             {/* Bias the triangle optically: a centred Play glyph reads as
                 slightly left-heavy against the circle. */}
-            <Play size={40} fill="currentColor" style={{ transform: "translateX(2px)" }} />
+            <IconPlay size={40} style={{ transform: "translateX(2px)" }} />
           </button>
           <button
             type="button"
@@ -203,7 +205,7 @@ export default function CenterStack({
               pointerEvents: "auto",
             }}
           >
-            <ChevronRight size={34} strokeWidth={1.5} style={CENTER_GLYPH_SHADOW} />
+            <IconSkipForward10 size={44} style={CENTER_GLYPH_SHADOW} />
           </button>
         </motion.div>
       )}
@@ -232,7 +234,7 @@ export default function CenterStack({
             height: 84,
             borderRadius: "50%",
             border: `1px solid ${GLASS_BORDER}`,
-            background: GLASS_BG,
+            background: GLASS_BG_STRONG,
             backdropFilter: GLASS_BLUR,
             WebkitBackdropFilter: GLASS_BLUR,
             color: "#fff",
@@ -243,7 +245,7 @@ export default function CenterStack({
             zIndex: 3,
           }}
         >
-          <RotateCcw size={38} />
+          <IconReplay size={42} />
         </motion.button>
       )}
     </>

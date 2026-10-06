@@ -5,11 +5,11 @@
 // preference itself because it is not rendered inside the engine component.
 import { useCallback, useRef } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { Calendar, Play, X } from "lucide-react";
 import { useMotionTokens } from "../../../constants/motion";
 import useRailArrows from "../../../hooks/useRailArrows";
 import RailArrow from "../../RailArrow";
 import { isEpAired, formatAirsDate } from "../../../utils/titleDetails";
+import { IconCalendar, IconClose, IconPlay } from "./icons";
 import { IS_TOUCH } from "./constants";
 import { ACCENT } from "./theme";
 
@@ -165,7 +165,7 @@ export default function EpisodesRail({ episodes, episode, onSelectEpisode, setPa
                     >
                       {String(ep.number).padStart(2, "0")}
                     </span>
-                    <Play size={16} />
+                    <IconPlay size={16} />
                   </div>
                 )}
                 {isCurrent && (
@@ -196,7 +196,7 @@ export default function EpisodesRail({ episodes, episode, onSelectEpisode, setPa
                       padding: "4px 8px",
                     }}
                   >
-                    <Calendar size={11} strokeWidth={2} aria-hidden="true" />
+                    <IconCalendar size={11} strokeWidth={2} aria-hidden="true" />
                     {formatAirsDate(ep.airDate)}
                   </span>
                 )}
@@ -268,7 +268,7 @@ export default function EpisodesRail({ episodes, episode, onSelectEpisode, setPa
           zIndex: 7,
         }}
       >
-        <X size={18} />
+        <IconClose size={18} />
       </button>
     </motion.div>
   );

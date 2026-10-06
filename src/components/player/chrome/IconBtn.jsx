@@ -7,7 +7,7 @@
 import { BTN_SIZE } from "./constants";
 import { ACCENT } from "./theme";
 
-export default function IconBtn({ label, onClick, children, active, disabled, expanded }) {
+export default function IconBtn({ label, onClick, children, active, disabled, expanded, size = BTN_SIZE, ...rest }) {
   return (
     <button
       type="button"
@@ -23,8 +23,8 @@ export default function IconBtn({ label, onClick, children, active, disabled, ex
         onClick?.(e);
       }}
       style={{
-        width: BTN_SIZE,
-        height: BTN_SIZE,
+        width: size,
+        height: size,
         borderRadius: "50%",
         border: "none",
         background: active ? "rgba(255,255,255,0.16)" : "transparent",
@@ -35,6 +35,7 @@ export default function IconBtn({ label, onClick, children, active, disabled, ex
         justifyContent: "center",
         flexShrink: 0,
       }}
+      {...rest}
     >
       {children}
     </button>

@@ -4,9 +4,9 @@
 // owns the countdown timer and the auto-advance; this owns the card and the
 // Play now / cancel actions.
 import { AnimatePresence, motion } from "framer-motion";
-import { Play, X } from "lucide-react";
 import { useMotionTokens } from "../../../constants/motion";
 import IconBtn from "./IconBtn";
+import { IconClose, IconPlay } from "./icons";
 import { IS_TOUCH } from "./constants";
 import { ACCENT, GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER, RADIUS } from "./theme";
 
@@ -44,7 +44,7 @@ export default function UpNextCard({ upNext, upNextMs, onPlayNow, onCancel }) {
               Up Next
             </span>
             <IconBtn label="Cancel up next" onClick={onCancel}>
-              <X size={16} />
+              <IconClose size={16} />
             </IconBtn>
           </div>
           <div style={{ marginTop: 6, color: "#fff", fontWeight: 700, fontSize: 15, lineHeight: 1.3 }}>
@@ -99,7 +99,7 @@ export default function UpNextCard({ upNext, upNextMs, onPlayNow, onCancel }) {
               cursor: "pointer",
             }}
           >
-            <Play size={18} />
+            <IconPlay size={18} />
             Play now
           </button>
         </motion.div>

@@ -12,8 +12,8 @@
 // Behaviour note (do not "fix" this into an auto-jump): a wrong tail estimate is
 // always a visible button, never an unrequested seek. This seeks only on press.
 import { motion } from "framer-motion";
-import { SkipForward } from "lucide-react";
 import { useMotionTokens } from "../../../constants/motion";
+import { IconSkipForward10 } from "./icons";
 import { GLASS_BG, GLASS_BLUR, GLASS_BORDER, RADIUS } from "./theme";
 
 export default function SkipPill({ label, ariaLabel, title, onClick, progress = 0 }) {
@@ -63,7 +63,7 @@ export default function SkipPill({ label, ariaLabel, title, onClick, progress = 
           zIndex: 0,
         }}
       />
-      <SkipForward size={16} />
+      <IconSkipForward10 size={17} />
       {label}
     </motion.button>
   );
