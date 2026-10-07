@@ -1068,7 +1068,7 @@
 
 ## What's next (do these in order)
 
-- [ ] **Surface the videasy base audio in the native player** (follow-up to multi-audio research above): the videasy catalogue stores a hidden base stream `index-s{res}-v1.m3u8` (distinct full-movie audio) next to every `-a1` row the app serves, so dual-audio titles like RRR (`579974`) can offer a real second audio choice. `api/downloadify.js` only maps the API's `-a1` rows → resolution needs a second variant for the base track (derive `index-{q}.m3u8` from the row URL; verify it exists + `seg-1` differs before listing it), then the native player's Audio menu shows 2 entries. Premalu (`1149791`) stays 1-track (not in videasy; vidzen has no audio groups) — do NOT add a fake second row for it.
+- [x] **Surface the videasy base audio in the native player — CLOSED AS BLOCKED, re-verified live 2026-10-07 (full evidence in the REJECTED block below).** The mechanism this item describes no longer exists: the videasy path was replaced by the vidrack aggregate (`df3c61d`) and then deleted outright with the Server 5 retirement and the rename to `api/stream.js` (`5e63955`, `4b1958d`); the `-a1`→`index-{q}.m3u8` derivation was already built once (`e6bf1c6`) and reverted the SAME DAY (`0b68868`) after the base swap played as muted video; and today's live probes show the current upstream carries no hidden base track at all — RRR's Centaurus MPD has exactly ONE audio adaptation set, Atlas serves flat worker-host playlists with no `-a1` naming. The tick records the verified closure (exploration + fresh probe evidence), NOT a shipped feature — do not re-queue this item.
 
 - [x] 7. Ran `npm run lint` (0 errors), `npm run test` (201 passed), `npm run
   build` (✓ 3.71s) with Node 24 + npm 11. Also fixed two TDZ crashes the
@@ -3763,8 +3763,9 @@ base audio") and the three remaining Explore/MyList items (search "EXPLORE MYLIS
       button's icon need one human look.
 
 ## REJECTED - the videasy base-audio follow-up is not workable as written
-- [ ] **Surface the videasy base audio in the native player** stays open and is
-      now recorded as BLOCKED with evidence, not as un-started:
+- [x] **Surface the videasy base audio in the native player — CLOSED AS BLOCKED
+      (user approved the closure 2026-10-07 after a fresh evidence pass).**
+      Originally recorded as BLOCKED with evidence, not as un-started:
       `https://vidrack.created.app/api/sources/videasy?id=579974&type=movie`
       (Referer vidcore.org) answers **HTTP 200 `{"sources":[]}`** - there is no
       row to derive `index-{q}.m3u8` from, so the derivation the item describes
@@ -3773,6 +3774,37 @@ base audio") and the three remaining Explore/MyList items (search "EXPLORE MYLIS
       then deliberately REMOVED because it played as muted video. Doing this again
       needs a source whose API actually lists the base track, plus the muted-video
       issue solved - not another attempt against an empty response.
+  - **2026-10-07 re-verification (live probes through the real handler with real
+    network, RRR `579974` + Premalu `1149791`) — the item is now blocked on
+    THREE independent grounds:**
+    1. **The code it targets no longer exists.** `api/downloadify.js` was renamed
+       `api/stream.js` (`4b1958d`) and the whole videasy/VidCore path was deleted
+       with the Server 5 retirement (`5e63955`); the resolver is the five-server
+       ZXC roster only. `-a1` survives in the repo ONLY as URL fixtures in the
+       `nativeHlsLoader` referer-gate tests. Git archaeology: the derivation was
+       built ONCE (`e6bf1c6` — `tryVideasy` stripped `-a1` to derive
+       `index-s{res}-v1.m3u8`, verified the base's own `-v1` init, +89 player
+       lines exposing "Audio 2") and reverted the SAME DAY (`0b68868`) because
+       the base swap played as muted video — the toggle had no audible effect.
+    2. **The current upstream has no hidden base track to derive.** Live: RRR
+       (`579974`) Centaurus resolves 1080/720/480 but its MPD carries exactly ONE
+       audio adaptation set (`id=3, lang=und`, 2222 segments) — and
+       `buildMasterPlaylist` already lists it fully, nothing is dropped. Premalu
+       (`1149791`) Centaurus: 480p + 1 audio rep — 1-track, exactly as the item
+       requires. Atlas serves a flat MPEG-TS playlist on a worker host with no
+       `index-`/`-a1` naming at all. There is no row anywhere to derive from.
+    3. **The proposed `seg-1`-differs check would NOT have prevented the original
+       failure.** A video-only base stream's first segment differs from the
+       `-a1` row's by construction (no audio samples), so the check passes and
+       the row still plays muted — the exact symptom that forced `0b68868`.
+  - **RRR dual-audio already exists on the live path** — via `verifyZxcDubs`
+    (sibling dub masters, each verified by a full mint + MPD transcode, a far
+    stronger check than a seg-1 byte compare). During this session's probes the
+    dub list came back empty because upstream was throttling dub-minting
+    (427/500), the same transient the throttle-retry work documents above;
+    earlier healthy sessions measured 10-12 tracks. Nothing to build.
+  - **Verdict:** permanently blocked unless a future source actually LISTS an
+    extra audio track in its API or manifest. Do not re-derive from URL shape.
 
 ## SHIPPED - whole-app cleanup after the Watch Party / download removal
 - [x] Repo hygiene: deleted the untracked investigation debris that had piled up
