@@ -127,6 +127,84 @@ export function buildUpcoming(items = [], windowDays = 90) {
   return buildUpcomingInRange(items, todayStr, endStr);
 }
 
+/**
+ * Build an "On Air / New Seasons Airing" rail from a pool of TV titles. Unlike
+ * buildUpcoming, TV titles WITHOUT a confirmed future next-episode date are NOT
+ * dropped — they stay in the rail as "now airing" cards. This is what keeps a
+ * currently-airing series that TMDB has not yet announced the next episode for
+ * inside the on-air rail after a search confirms it exists. Dated titles sort
+ * soonest-first; date-less now-airing titles follow, freshest season first.
+ *
+ * @returns {Array} items enriched with { kind, releaseDate, daysUntil, relLabel,
+ *   nextEpisode }.
+ */
+export function buildAiringRail(items = [], windowDays = 120) {
+  if (!items || !Array.isArray(items)) return [];
+
+  const pad = (n) => String(n).padStart(2, "0");
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const end = new Date(now);
+  end.setDate(now.getDate() + windowDays);
+  const endStr = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
+  const isDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
+
+  const seen = new Set();
+  const dated = [];
+  const nowAiring = [];
+
+  for (const item of items) {
+    if (!item || !item.id) continue;
+    if (!isTvishItem(item)) continue;
+    if (seen.has(item.id)) continue;
+    seen.add(item.id);
+
+    const air = getAiringEpisode(item);
+    const releaseDate = air?.releaseDate || null;
+    // Normalized TV items expose the first-air date as releaseDate; raw TMDB
+    // rows (or Fixtures) carry first_air_date. Accept either for the now-airing
+    // sort key.
+    const firstAir = isDate(item.first_air_date)
+      ? item.first_air_date
+      : isDate(item.releaseDate)
+        ? item.releaseDate
+        : null;
+    const base = { ...item, kind: "series", nextEpisode: air };
+
+    if (releaseDate && isDate(releaseDate) && releaseDate >= todayStr) {
+      if (releaseDate > endStr) continue; // beyond the on-air window → leave to Upcoming.
+      const daysUntil = Math.round(
+        (Date.parse(`${releaseDate}T12:00:00Z`) - Date.parse(`${todayStr}T12:00:00Z`)) / 86400000,
+      );
+      dated.push({
+        ...base,
+        releaseDate,
+        daysUntil,
+        relLabel:
+          daysUntil <= 0
+            ? "TODAY"
+            : daysUntil === 1
+              ? "TOMORROW"
+              : daysUntil <= 7
+                ? formatTMDBDate(releaseDate, { weekday: "short" }).toUpperCase()
+                : formatTMDBDate(releaseDate, { month: "short", day: "numeric" }),
+      });
+      continue;
+    }
+
+    nowAiring.push({
+      ...base,
+      releaseDate: firstAir || null,
+      daysUntil: 0,
+      relLabel: "NOW AIRING",
+    });
+  }
+
+  dated.sort((a, b) => String(a.releaseDate).localeCompare(String(b.releaseDate)));
+  nowAiring.sort((a, b) => String(b.releaseDate || "").localeCompare(String(a.releaseDate || "")));
+  return [...dated, ...nowAiring];
+}
+
 
 /**
  * Countdown to a release date.

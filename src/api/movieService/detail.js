@@ -241,23 +241,63 @@ export const getAiringThisWeek = async () => {
   }
 };
 
-// Regional (Indian-language) now-airing series — /discover/tv per primary Indian
-// language (Tamil/Hindi/Malayalam/Telugu) airing in the last week, sorted by
-// popularity then enriched with next_episode_to_air for the top titles so the
-// Airing rails can show "Ep X · Mon DD" chips. A failed detail look-up never
-// kills the rail. No `region` param: /discover/tv region filters by first-air-date
-// country, which TMDB rarely tags as IN; with_original_language is the reliable
-// regional signal.
-export const getRegionalAiring = async (limit = 10) => {
+// Cap on the per-title next_episode_to_air look-ups the on-air producers fire
+// after slicing. The cap keeps TMDB request volume sane on the Discovery page
+// while every sliced title still lands in the rail — a title without an aired
+// next-episode chip just falls back to the plain card.
+const ENRICH_CAP = 20;
+
+// Shared tolerance: enrich the front of a slice with next_episode_to_air; a
+// failed look-up (or a title with no announced next episode) falls back to the
+// plain item, so enrichment never deletes titles from the on-air rail.
+function enrichAiringSlice(slice) {
+  return Promise.allSettled(
+    slice.slice(0, Math.min(ENRICH_CAP, slice.length)).map(async (item) => {
+      const rid = rawId(item.id);
+      const brief = await tmdb(`/tv/${rid}`, { append_to_response: 'next_episode_to_air' });
+      const nx = brief.next_episode_to_air;
+      if (!nx || !nx.air_date) return item;
+      return {
+        ...item,
+        nextEpisode: {
+          releaseDate: nx.air_date,
+          season: nx.season_number,
+          episode: nx.episode_number,
+          title: nx.name || null,
+        },
+        airingSeasonNumber: nx.season_number || null,
+      };
+    }),
+  );
+}
+
+// Regional (Indian-language) now-airing series — a returning-series sweep
+// (/discover/tv with_status=0, the reliable "on air now" signal for long-running
+// shows whose first_air_date is years ago) PLUS a recent-premieres pass per
+// primary Indian language (Tamil/Hindi/Malayalam/Telugu) so brand-new shows not
+// yet tagged returning still appear. Sorted by popularity, then enriched with
+// next_episode_to_air for the top titles so the Airing rail can show
+// "Ep X · Mon DD" chips. A failed detail look-up never kills the rail. No
+// `region` param: /discover/tv region filters by first-air-date country, which
+// TMDB rarely tags as IN; with_original_language is the reliable regional signal.
+export const getRegionalAiring = async (limit = 20) => {
   try {
     const pad = (n) => String(n).padStart(2, '0');
     const now = new Date();
     const from = new Date(now);
-    from.setDate(now.getDate() - 7);
+    from.setDate(now.getDate() - 30);
     const fromStr = `${from.getFullYear()}-${pad(from.getMonth() + 1)}-${pad(from.getDate())}`;
     const toStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-    const pages = await Promise.allSettled(
-      REGIONAL_PRIMARY_LANGUAGES.map((lang) =>
+    const pages = await Promise.allSettled([
+      ...REGIONAL_PRIMARY_LANGUAGES.map((lang) =>
+        tmdb('/discover/tv', {
+          page: 1,
+          sort_by: 'popularity.desc',
+          with_status: '0',
+          with_original_language: lang,
+        }),
+      ),
+      ...REGIONAL_PRIMARY_LANGUAGES.map((lang) =>
         tmdb('/discover/tv', {
           page: 1,
           sort_by: 'popularity.desc',
@@ -266,6 +306,45 @@ export const getRegionalAiring = async (limit = 10) => {
           with_original_language: lang,
         }),
       ),
+    ]);
+    const base = [];
+    const seen = new Set();
+    for (const res of pages) {
+      if (res.status !== 'fulfilled') continue;
+      for (const r of (res.value.results || [])) {
+        const item = normalizeResult({ ...r, media_type: 'tv' });
+        if (seen.has(item.id)) continue;
+        seen.add(item.id);
+        if (r.first_air_date) item.releaseDate = r.first_air_date;
+        base.push(item);
+      }
+    }
+    if (base.length === 0) {
+      logEmptyData('movieService', 'getRegionalAiring: no regional TV titles on the air right now.', {
+        languages: REGIONAL_PRIMARY_LANGUAGES.join(','),
+      });
+      return [];
+    }
+    const slice = base.slice(0, Math.min(limit, base.length));
+    const enriched = await enrichAiringSlice(slice);
+    const out = enriched.map((r, i) => (r.status === 'fulfilled' ? r.value : slice[i]));
+    warnIfEmpty('getRegionalAiring', out, { limit, languages: REGIONAL_PRIMARY_LANGUAGES.join(',') });
+    return out;
+  } catch (error) {
+    logServiceError('getRegionalAiring', error, { limit, languages: REGIONAL_PRIMARY_LANGUAGES.join(',') });
+    throw error;
+  }
+};
+
+// Series rail ("New Seasons Airing") — /tv/on_the_air paginated across pages so
+// the rail fills past a single 20-title page, deduped, with a tolerant per-title
+// next-episode look-up (cap ENRICH_CAP). A failed look-up falls back to the
+// plain list item, and `limit` is a target floor: the rail returns every title
+// it can reach, never fewer than the 20-odd titles TMDB advertises.
+export const getAiringRail = async (limit = 30) => {
+  try {
+    const pages = await Promise.allSettled(
+      [1, 2, 3].map((page) => tmdb('/tv/on_the_air', { page })),
     );
     const base = [];
     const seen = new Set();
@@ -280,69 +359,11 @@ export const getRegionalAiring = async (limit = 10) => {
       }
     }
     if (base.length === 0) {
-      logEmptyData('movieService', 'getRegionalAiring: no regional TV titles with an air date this week.', {
-        languages: REGIONAL_PRIMARY_LANGUAGES.join(','),
-      });
-      return [];
-    }
-    const slice = base.slice(0, Math.min(limit, base.length));
-    const enriched = await Promise.allSettled(
-      slice.map(async (item) => {
-        const rid = rawId(item.id);
-        const brief = await tmdb(`/tv/${rid}`, { append_to_response: 'next_episode_to_air' });
-        const nx = brief.next_episode_to_air;
-        if (!nx || !nx.air_date) return item;
-        return {
-          ...item,
-          nextEpisode: {
-            releaseDate: nx.air_date,
-            season: nx.season_number,
-            episode: nx.episode_number,
-            title: nx.name || null,
-          },
-          airingSeasonNumber: nx.season_number || null,
-        };
-      }),
-    );
-    const out = enriched.map((r, i) => (r.status === 'fulfilled' ? r.value : slice[i]));
-    warnIfEmpty('getRegionalAiring', out, { limit, languages: REGIONAL_PRIMARY_LANGUAGES.join(',') });
-    return out;
-  } catch (error) {
-    logServiceError('getRegionalAiring', error, { limit, languages: REGIONAL_PRIMARY_LANGUAGES.join(',') });
-    throw error;
-  }
-};
-
-// Series rail ("New Seasons Airing") — /tv/on_the_air plus a light next-episode
-// look-up for the first few titles so cards can show the "Season N" badge and
-// "Ep X · Mon DD" overlay. A failed look-up falls back to the plain list item.
-export const getAiringRail = async (limit = 10) => {
-  try {
-    const data = await tmdb('/tv/on_the_air');
-    const base = (data.results || []).map(r => normalizeResult({ ...r, media_type: 'tv' }));
-    if (base.length === 0) {
       logEmptyData('movieService', 'getAiringRail: /tv/on_the_air returned 0 titles.', {});
       return [];
     }
     const slice = base.slice(0, Math.min(limit, base.length));
-    const enriched = await Promise.allSettled(
-      slice.map(async (item) => {
-        const rid = rawId(item.id);
-        const brief = await tmdb(`/tv/${rid}`, { append_to_response: 'next_episode_to_air' });
-        const nx = brief.next_episode_to_air;
-        if (!nx || !nx.air_date) return item;
-        return {
-          ...item,
-          nextEpisode: {
-            releaseDate: nx.air_date,
-            season: nx.season_number,
-            episode: nx.episode_number,
-            title: nx.name || null,
-          },
-          airingSeasonNumber: nx.season_number || null,
-        };
-      }),
-    );
+    const enriched = await enrichAiringSlice(slice);
     const out = enriched.map((r, i) => (r.status === 'fulfilled' ? r.value : slice[i]));
     warnIfEmpty('getAiringRail', out, { limit });
     return out;

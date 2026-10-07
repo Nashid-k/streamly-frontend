@@ -35,6 +35,7 @@ import {
   getUpcomingMovies,
   getFutureMovies,
   getRegionalUpcoming,
+  getTvUpcoming,
   getDiscoverByGenre,
   getNewReleases,
 } from './discover';
@@ -64,6 +65,7 @@ export const movieService = {
   getUpcomingMovies,
   getFutureMovies,
   getRegionalUpcoming,
+  getTvUpcoming,
   getAiringRail,
   getTrendingThisWeek,
   getDiscoverByGenre,

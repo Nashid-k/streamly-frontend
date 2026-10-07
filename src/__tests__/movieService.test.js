@@ -159,7 +159,7 @@ it("normalizes production companies with rich logo metadata", async () => {
     ]);
   });
 
-  it("getRegionalUpcoming sweeps the Indian languages (pages 1-2) and returns deduped, date-sorted premieres", async () => {
+  it("getRegionalUpcoming sweeps the Indian languages (pages 1-3) and returns deduped, date-sorted premieres", async () => {
     const fetch = vi
       .fn()
       .mockResolvedValueOnce(
@@ -183,18 +183,24 @@ it("normalizes production companies with rich logo metadata", async () => {
       .mockResolvedValueOnce(jsonResponse({ results: [] }))
       .mockResolvedValueOnce(jsonResponse({ results: [{ id: 301, title: "Malayalam Hit", release_date: "2026-11-05", vote_average: 7.5 }] }))
       .mockResolvedValueOnce(jsonResponse({ results: [] }))
+      .mockResolvedValueOnce(jsonResponse({ results: [] }))
       .mockResolvedValueOnce(jsonResponse({ results: [{ id: 401, title: "Telugu Drama", release_date: "2026-09-30", vote_average: 6.9 }] }))
+      .mockResolvedValueOnce(jsonResponse({ results: [] }))
       .mockResolvedValueOnce(jsonResponse({ results: [] }));
     vi.stubGlobal("fetch", fetch);
 
     const items = await movieService.getRegionalUpcoming(60);
 
-    expect(fetch).toHaveBeenCalledTimes(8); // 4 languages × 2 pages
-    const urls = fetch.mock.calls.map(([url]) => String(url));
+    // Robust to the tmdbClient's proxy→direct fallback (a retry re-hits the same
+    // query string): collapse to one entry per distinct query.
+    const distinctQueries = [
+      ...new Set(fetch.mock.calls.map(([url]) => String(url).split("?")[1])),
+    ];
+    expect(distinctQueries).toHaveLength(12); // 4 languages × 3 pages
     for (const lang of ["ta", "hi", "ml", "te"]) {
-      // Each language is swept twice (page 1 + page 2) —
-      // count both, and no language is restricted by a region=IN param.
-      expect(urls.filter((u) => u.includes(`with_original_language=${lang}`)).length).toBe(2);
+      // Each language is swept three times (page 1 + page 2 + page 3) —
+      // count all three, and no language is restricted by a region=IN param.
+      expect(distinctQueries.filter((q) => q?.includes(`with_original_language=${lang}`)).length).toBe(3);
     }
     // Sorted soonest-first, deduped (no movie-101 twice).
     expect(items.map((i) => i.id)).toEqual(["movie-401", "movie-201", "movie-101", "movie-301", "movie-105", "movie-104"]);
@@ -202,24 +208,22 @@ it("normalizes production companies with rich logo metadata", async () => {
     expect(items[3].title).toBe("Malayalam Hit");
   });
 
-  it("getRegionalAiring dedupes regional on-the-air series and enriches top titles with the next episode", async () => {
+  it("getRegionalAiring merges returning-series and recent-premiere sweeps and enriches top titles", async () => {
     const fetch = vi
       .fn()
-      .mockResolvedValueOnce(
-        jsonResponse({ results: [{ id: 510, name: "Chennai Nights", first_air_date: "2023-06-01" }] }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({ results: [{ id: 520, name: "Delhi Drama", first_air_date: "2024-03-01" }] }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({ results: [{ id: 530, name: "Kochi Tales", first_air_date: "2022-09-01" }] }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({ results: [{ id: 510, name: "Chennai Nights", first_air_date: "2023-06-01" }] }),
-      )
+      // Returning-series sweep (with_status=0) per language: on-the-air now.
+      .mockResolvedValueOnce(jsonResponse({ results: [{ id: 510, name: "Chennai Nights", first_air_date: "2023-06-01" }] }))
+      .mockResolvedValueOnce(jsonResponse({ results: [{ id: 520, name: "Delhi Drama", first_air_date: "2024-03-01" }] }))
+      .mockResolvedValueOnce(jsonResponse({ results: [{ id: 530, name: "Kochi Tales", first_air_date: "2022-09-01" }] }))
+      .mockResolvedValueOnce(jsonResponse({ results: [{ id: 530, name: "Kochi Tales", first_air_date: "2022-09-01" }] }))
+      // Recent-premieres pass per language: brand-new shows not yet tagged returning.
+      .mockResolvedValueOnce(jsonResponse({ results: [{ id: 510, name: "Chennai Nights", first_air_date: "2023-06-01" }] }))
+      .mockResolvedValueOnce(jsonResponse({ results: [{ id: 520, name: "Delhi Drama", first_air_date: "2024-03-01" }] }))
+      .mockResolvedValueOnce(jsonResponse({ results: [{ id: 530, name: "Kochi Tales", first_air_date: "2022-09-01" }] }))
+      .mockResolvedValueOnce(jsonResponse({ results: [{ id: 530, name: "Kochi Tales", first_air_date: "2022-09-01" }] }))
       // Per-title next_episode_to_air lookups for the deduped slice.
       .mockResolvedValueOnce(
-        jsonResponse({ id: 510, name: "Chennai Nights", next_episode_to_air: { air_date: "2026-09-26", season_number: 2, episode_number: 7, name: "Storm" } }),
+        jsonResponse({ id: 510, name: "Chennai Nights", next_episode_to_air: { air_date: "2026-10-12", season_number: 2, episode_number: 7, name: "Storm" } }),
       )
       .mockResolvedValueOnce(jsonResponse({ id: 520, name: "Delhi Drama", next_episode_to_air: null }))
       .mockResolvedValueOnce(jsonResponse({ id: 530, name: "Kochi Tales", next_episode_to_air: null }));
@@ -227,11 +231,99 @@ it("normalizes production companies with rich logo metadata", async () => {
 
     const items = await movieService.getRegionalAiring(10);
 
-    expect(fetch).toHaveBeenCalledTimes(7); // 4 discovers + 3 enriched lookups
+    // Collapse proxy→direct fallback retries (same path+query) before counting.
+    const distinct = [
+      ...new Set(
+        fetch.mock.calls.map(([url]) => {
+          const u = String(url);
+          const q = u.split("?")[1] || "";
+          return `${u.split("?")[0]}?${q}`;
+        }),
+      ),
+    ];
+    expect(distinct).toHaveLength(11); // 4 returning + 4 premieres + 3 enriched look-ups
+    for (const lang of ["ta", "hi", "ml", "te"]) {
+      // One returning-series sweep + one recent-premiere sweep per language.
+      expect(distinct.filter((u) => u.includes("with_status=0") && u.includes(`with_original_language=${lang}`)).length).toBe(1);
+      expect(distinct.filter((u) => u.includes("air_date_gte=") && u.includes(`with_original_language=${lang}`)).length).toBe(1);
+    }
     expect(items.map((i) => i.id)).toEqual(["tv-510", "tv-520", "tv-530"]);
-    expect(items[0].nextEpisode).toMatchObject({ season: 2, episode: 7, releaseDate: "2026-09-26" });
+    expect(items[0].nextEpisode).toMatchObject({ season: 2, episode: 7, releaseDate: "2026-10-12" });
     expect(items[1].nextEpisode).toBeUndefined();
-expect(items[0].title).toBe("Chennai Nights");
+    expect(items[0].title).toBe("Chennai Nights");
+  });
+
+  it("getAiringRail paginates /tv/on_the_air, dedupes pages, and keeps the rail alive when enrichment fails", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ results: [{ id: 1, name: "One", first_air_date: "2024-01-01" }] }))
+      .mockResolvedValueOnce(jsonResponse({ results: [{ id: 2, name: "Two", first_air_date: "2025-05-05" }, { id: 1, name: "One", first_air_date: "2024-01-01" }] }))
+      .mockResolvedValueOnce(jsonResponse({ results: [] }))
+      // Enrichment: one hit with a next episode, one failed look-up (fallback item).
+      .mockResolvedValueOnce(
+        jsonResponse({ id: 1, name: "One", next_episode_to_air: { air_date: "2026-10-15", season_number: 3, episode_number: 5, name: "Rise" } }),
+      )
+      .mockResolvedValueOnce(jsonResponse({}, false));
+    vi.stubGlobal("fetch", fetch);
+
+    const items = await movieService.getAiringRail(30);
+
+    // Collapse proxy→direct fallback retries (same path+query) before counting.
+    const distinct = [
+      ...new Set(
+        fetch.mock.calls.map(([url]) => {
+          const u = String(url);
+          const q = u.split("?")[1] || "";
+          return `${u.split("?")[0]}?${q}`;
+        }),
+      ),
+    ];
+    const onAir = distinct.filter((u) => u.includes("/tv/on_the_air"));
+    expect(onAir).toHaveLength(3); // pages 1-3
+    for (const page of [1, 2, 3]) {
+      expect(onAir.some((u) => u.includes(`page=${page}`))).toBe(true);
+    }
+    // Two per-title next-episode look-ups, one of which fails and falls back.
+    expect(distinct.filter((u) => u.includes("/tv/") && !u.includes("/tv/on_the_air")).length).toBe(2);
+    expect(items.map((i) => i.id)).toEqual(["tv-1", "tv-2"]);
+    expect(items[0].nextEpisode).toMatchObject({ season: 3, episode: 5, releaseDate: "2026-10-15" });
+    // The failed look-up falls back to the plain list item — it stays in the rail.
+    expect(items[1]).toMatchObject({ id: "tv-2", title: "Two" });
+    expect(items[1].nextEpisode).toBeUndefined();
+  });
+
+  it("getTvUpcoming merges the global and regional first-air-date sweeps, deduped and soonest-first", async () => {
+    const fetch = vi
+      .fn()
+      // Global sweep pages 1-2.
+      .mockResolvedValueOnce(jsonResponse({ results: [{ id: 1, name: "Global One", first_air_date: "2026-10-15" }] }))
+      .mockResolvedValueOnce(jsonResponse({ results: [{ id: 2, name: "Global Two", first_air_date: "2026-11-01" }] }))
+      // Regional per language (pages 1-2). hi page1 duplicates the Tamil page-1 title.
+      .mockResolvedValueOnce(jsonResponse({ results: [{ id: 3, name: "Tamil Series", first_air_date: "2026-10-20" }] }))
+      .mockResolvedValueOnce(jsonResponse({ results: [] }))
+      .mockResolvedValueOnce(jsonResponse({ results: [{ id: 3, name: "Tamil Series", first_air_date: "2026-10-20" }, { id: 4, name: "Hindi Series", first_air_date: "2026-10-25" }] }))
+      .mockResolvedValueOnce(jsonResponse({ results: [] }))
+      .mockResolvedValueOnce(jsonResponse({ results: [] }))
+      .mockResolvedValueOnce(jsonResponse({ results: [] }))
+      .mockResolvedValueOnce(jsonResponse({ results: [{ id: 5, name: "Kochi Premiere", first_air_date: "2027-01-05" }] }))
+      .mockResolvedValueOnce(jsonResponse({ results: [{ id: 6, name: "Telugu Series", first_air_date: "2026-10-30" }] }));
+    vi.stubGlobal("fetch", fetch);
+
+    const items = await movieService.getTvUpcoming(120);
+
+    const distinctQueries = [
+      ...new Set(fetch.mock.calls.map(([url]) => String(url).split("?")[1])),
+    ];
+    expect(distinctQueries).toHaveLength(10); // 2 global + 4 languages × 2 pages
+    for (const lang of ["ta", "hi", "ml", "te"]) {
+      expect(distinctQueries.filter((q) => q?.includes(`with_original_language=${lang}`)).length).toBe(2);
+    }
+    expect(fetch.mock.calls.every(([url]) => String(url).includes("first_air_date.gte="))).toBe(true);
+    // tv-3 deduped across the ta/hi sweeps; tv-2 is the global page-2 title. Soonest-first.
+    expect(items.map((i) => i.id)).toEqual(["tv-1", "tv-3", "tv-4", "tv-6", "tv-2", "tv-5"]);
+    expect(items[0].releaseDate).toBe("2026-10-15");
+    expect(items[4].releaseDate).toBe("2026-11-01");
+    expect(items[5].releaseDate).toBe("2027-01-05");
   });
 });
 

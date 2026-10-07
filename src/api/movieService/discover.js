@@ -97,12 +97,12 @@ export const getRegions = async () => {
 };
 
 // Movies rail — near-term theatrical schedule carrying the release dates
-// buildUpcoming needs for the "Upcoming / Coming Soon" rail. Paginates the first
-// three pages so the rail is dense, not one sparse page.
+// buildUpcoming needs for the "Upcoming / Coming Soon" rails. Paginates the first
+// four pages so the rail is dense, not one sparse page.
 export const getUpcomingMovies = async () => {
   try {
     const pages = await Promise.allSettled(
-      [1, 2, 3].map((page) => tmdb('/movie/upcoming', { page })),
+      [1, 2, 3, 4].map((page) => tmdb('/movie/upcoming', { page })),
     );
     const out = [];
     for (const data of collectSettled(pages, 'getUpcomingMovies', {})) {
@@ -131,7 +131,7 @@ export const getFutureMovies = async () => {
     end.setDate(now.getDate() + 365);
     const endStr = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
     const pages = await Promise.allSettled(
-      [1, 2].map((page) =>
+      [1, 2, 3].map((page) =>
         tmdb('/discover/movie', {
           page,
           sort_by: 'primary_release_date.asc',
@@ -249,7 +249,7 @@ export const getRegionalUpcoming = async (windowDays = 90) => {
     const endStr = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
     const pages = await Promise.allSettled(
       REGIONAL_PRIMARY_LANGUAGES.flatMap((lang) =>
-        [1, 2].map((page) =>
+        [1, 2, 3].map((page) =>
           tmdb('/discover/movie', {
             page,
             sort_by: 'primary_release_date.asc',
@@ -276,6 +276,61 @@ export const getRegionalUpcoming = async (windowDays = 90) => {
     return out;
   } catch (error) {
     logServiceError('getRegionalUpcoming', error, { windowDays, languages: REGIONAL_PRIMARY_LANGUAGES.join(',') });
+    throw error;
+  }
+};
+
+// Series Upcoming slate ("Coming This Month / Next Month" on the TV discovery
+// page) — a global /discover/tv first-air-date sweep plus the same sweep per
+// Indian primary language (Tamil/Hindi/Malayalam/Telugu), merged, deduped and
+// soonest-first, so the TV page gets real release-calendar rails instead of a
+// single sparse row. Every returned title carries releaseDate = first_air_date
+// for buildUpcoming.
+export const getTvUpcoming = async (windowDays = 120) => {
+  try {
+    const pad = (n) => String(n).padStart(2, '0');
+    const now = new Date();
+    const start = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const end = new Date(now);
+    end.setDate(now.getDate() + windowDays);
+    const endStr = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
+    const pages = await Promise.allSettled([
+      ...[1, 2].map((page) =>
+        tmdb('/discover/tv', {
+          page,
+          sort_by: 'first_air_date.asc',
+          'first_air_date.gte': start,
+          'first_air_date.lte': endStr,
+        }),
+      ),
+      ...REGIONAL_PRIMARY_LANGUAGES.flatMap((lang) =>
+        [1, 2].map((page) =>
+          tmdb('/discover/tv', {
+            page,
+            sort_by: 'first_air_date.asc',
+            'first_air_date.gte': start,
+            'first_air_date.lte': endStr,
+            with_original_language: lang,
+          }),
+        ),
+      ),
+    ]);
+    const out = [];
+    const seen = new Set();
+    for (const data of collectSettled(pages, 'getTvUpcoming', { windowDays, languages: REGIONAL_PRIMARY_LANGUAGES.join(',') })) {
+      for (const r of (data.results || [])) {
+        if (!r.first_air_date) continue;
+        const item = normalizeResult({ ...r, media_type: 'tv' });
+        if (seen.has(item.id)) continue;
+        seen.add(item.id);
+        out.push({ ...item, releaseDate: r.first_air_date });
+      }
+    }
+    out.sort((a, b) => String(a.releaseDate).localeCompare(String(b.releaseDate)));
+    warnIfEmpty('getTvUpcoming', out, { windowDays });
+    return out;
+  } catch (error) {
+    logServiceError('getTvUpcoming', error, { windowDays });
     throw error;
   }
 };

@@ -5,6 +5,7 @@ import {
   detectLeavingSoon,
   getAiringEpisode,
   buildUpcoming,
+  buildAiringRail,
 } from '../utils/releaseCalendar';
 
 // Local-calendar helpers so every fixture survives any test TZ.
@@ -358,5 +359,79 @@ describe('buildUpcoming', () => {
     // Fight Club is released, the airing show is not a premiere → both gone.
     expect(rail.map((r) => r.id)).toEqual(['tmdb-tv-new', 'tmdb-movie-new']);
     expect(rail.every((r) => r.daysUntil >= 0)).toBe(true);
+  });
+});
+
+// ─── buildAiringRail (on-air "New Seasons Airing" rail) ────────────────────
+
+describe('buildAiringRail', () => {
+  it('returns [] for null/undefined/empty input', () => {
+    expect(buildAiringRail(null)).toEqual([]);
+    expect(buildAiringRail(undefined)).toEqual([]);
+    expect(buildAiringRail([])).toEqual([]);
+  });
+
+  it('keeps a currently-airing series even without an announced next episode', () => {
+    // The core regression: buildUpcoming DROPS this title (no future next-episode
+    // date); buildAiringRail keeps it as a "NOW AIRING" card.
+    const result = buildAiringRail([
+      { id: 'tmdb-tv-1', title: 'On Air Now', isSeries: true, first_air_date: '2023-06-01' },
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0].kind).toBe('series');
+    expect(result[0].relLabel).toBe('NOW AIRING');
+    expect(result[0].daysUntil).toBe(0);
+  });
+
+  it('excludes non-TV titles from the on-air rail', () => {
+    const result = buildAiringRail([
+      { id: 'movie-1', title: 'A Film', releaseDate: todayStr },
+    ]);
+    expect(result).toHaveLength(0);
+  });
+
+  it('keeps dated next-episode titles first (soonest-first) and appends now-airing titles after', () => {
+    const result = buildAiringRail([
+      { id: 'tmdb-tv-1', title: 'On Air No Date', isSeries: true, first_air_date: '2022-01-01' },
+      { id: 'tmdb-tv-2', title: 'Ep This Week', isSeries: true, nextEpisode: { releaseDate: in4DaysStr, season: 2, episode: 5 } },
+      { id: 'tmdb-tv-3', title: 'Ep Soonest', isSeries: true, nextEpisode: { releaseDate: tomorrowStr, season: 1, episode: 9 } },
+    ]);
+    expect(result.map((r) => r.id)).toEqual(['tmdb-tv-3', 'tmdb-tv-2', 'tmdb-tv-1']);
+    expect(result[0].relLabel).toBe('TOMORROW');
+    expect(result[1].relLabel).toMatch(/^[A-Z]{2,3}$/); // weekday short
+    expect(result[2].relLabel).toBe('NOW AIRING');
+  });
+
+  it('labels TODAY when the next episode airs today', () => {
+    const result = buildAiringRail([
+      { id: 'tmdb-tv-1', title: 'Drops Today', isSeries: true, nextEpisode: { releaseDate: todayStr, season: 1, episode: 1 } },
+    ]);
+    expect(result[0].daysUntil).toBe(0);
+    expect(result[0].relLabel).toBe('TODAY');
+  });
+
+  it('folds an already-aired next-episode date into the now-airing bucket', () => {
+    const result = buildAiringRail([
+      { id: 'tmdb-tv-1', title: 'Stale Ep', isSeries: true, first_air_date: '2024-03-01', nextEpisode: { releaseDate: released5dAgoStr, season: 2, episode: 3 } },
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0].relLabel).toBe('NOW AIRING');
+    expect(result[0].nextEpisode?.season).toBe(2);
+  });
+
+  it('drops titles whose next episode is beyond the window (the Upcoming calendars own those)', () => {
+    const result = buildAiringRail([
+      { id: 'tmdb-tv-1', title: 'Far Off', isSeries: true, nextEpisode: { releaseDate: in400DaysStr, season: 1, episode: 1 } },
+    ]);
+    expect(result).toHaveLength(0);
+  });
+
+  it('dedupes by id across the pool', () => {
+    const result = buildAiringRail([
+      { id: 'tmdb-tv-1', title: 'First', isSeries: true, first_air_date: '2023-01-01' },
+      { id: 'tmdb-tv-1', title: 'Dup', isSeries: true },
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0].title).toBe('First');
   });
 });

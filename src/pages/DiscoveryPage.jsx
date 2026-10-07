@@ -16,7 +16,7 @@ import RailArrow from "../components/RailArrow";
 import FilterPill from "../components/browse/FilterPill";
 import MenuItem from "../components/browse/MenuItem";
 import useDetailView from "../hooks/useDetailView";
-import { buildUpcoming } from "../utils/releaseCalendar";
+import { buildUpcoming, buildAiringRail } from "../utils/releaseCalendar";
 import { logEmptyData, reportQueryError } from "../utils/debugLogger";
 
 /* ── Cinejoy-mirrored Movies / Series discovery pages ───────────────────
@@ -154,7 +154,7 @@ function LandscapeCard({ item, badgeLabel, onOpen }) {
 // ── Month-grouped "Upcoming" rail ─────────────────────────────────────────
 // The full theatrical slate, not one sparse row: railItems (already sorted
 // soonest-first) group into per-month rails with a count pill and self-contained
-// fade-in arrows. Series mode keeps its single "New Seasons Airing" rail.
+// fade-in arrows. Series mode reuses the same rails for its release calendar.
 function UpcomingMonthRail({ heading, itemCount, items, onOpen }) {
   const reduceMotion = useReducedMotion();
   const railRef = useRef(null);
@@ -327,8 +327,8 @@ export default function DiscoveryPage({ mode = "movies" }) {
     queryFn: () =>
       isSeries
         ? Promise.allSettled([
-            movieService.getAiringRail(10),
-            movieService.getRegionalAiring(10),
+            movieService.getAiringRail(30),
+            movieService.getRegionalAiring(20),
           ]).then(([airing, regional]) => [
             ...(airing.status === "fulfilled" ? airing.value : []),
             ...(regional.status === "fulfilled" ? regional.value : []),
@@ -339,17 +339,34 @@ export default function DiscoveryPage({ mode = "movies" }) {
     refetchOnWindowFocus: false,
   });
 
-  const railItems = useMemo(
-    () => buildUpcoming(railQuery.data || [], 365),
-    [railQuery.data],
+  const railItems = useMemo(() => {
+    const data = railQuery.data || [];
+    // Series rail: keep now-airing titles that have no announced next episode
+    // (buildAiringRail) instead of dropping them (buildUpcoming), so a series
+    // that is genuinely on the air shows up even when TMDB has no next-episode
+    // date for it yet.
+    return isSeries ? buildAiringRail(data, 120) : buildUpcoming(data, 365);
+  }, [railQuery.data, isSeries]);
+
+  // Series "Coming This Month / Next Month" release-calendar rails. Movies get
+  // these via loadUpcomingFilmSlate; series need their own first-air-date sweep.
+  const seriesUpcomingQuery = useQuery({
+    queryKey: ["discover-series-upcoming", cfg.mediaType],
+    queryFn: () => movieService.getTvUpcoming(120),
+    enabled: isSeries,
+    staleTime: 1000 * 60 * 10,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  const seriesUpcomingItems = useMemo(
+    () => (isSeries ? buildUpcoming(seriesUpcomingQuery.data || [], 120) : []),
+    [seriesUpcomingQuery.data, isSeries],
   );
 
-  // Movies: split the date-sorted slate into per-month sections so the page
-  // reads like a full release calendar, not one sparse row.
-  const monthSections = useMemo(() => {
-    if (isSeries) return [];
+  const groupByMonth = (items) => {
     const map = new Map();
-    for (const item of railItems) {
+    for (const item of items) {
       const key = String(item.releaseDate || "").slice(0, 7);
       if (key.length !== 7) continue;
       if (!map.has(key)) map.set(key, []);
@@ -357,15 +374,25 @@ export default function DiscoveryPage({ mode = "movies" }) {
     }
     const now = new Date();
     const curKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    return [...map.entries()].map(([key, items]) => {
+    return [...map.entries()].map(([key, monthItems]) => {
       const [y, m] = key.split("-").map((s) => Number(s));
       const heading =
         key === curKey
           ? "Coming This Month"
           : `${new Date(y, m - 1, 1).toLocaleString("en-US", { month: "long" })} ${y}`;
-      return { key, heading, itemCount: items.length, items };
+      return { key, heading, itemCount: monthItems.length, items: monthItems };
     });
+  };
+
+  const monthSections = useMemo(() => {
+    if (isSeries) return [];
+    return groupByMonth(railItems);
   }, [railItems, isSeries]);
+
+  const seriesMonthSections = useMemo(
+    () => (isSeries ? groupByMonth(seriesUpcomingItems) : []),
+    [seriesUpcomingItems, isSeries],
+  );
 
   const gridItems = useMemo(
     () => (gridQuery.data?.pages || []).flat(),
@@ -702,6 +729,24 @@ export default function DiscoveryPage({ mode = "movies" }) {
             </div>
           </section>
         )}
+
+        {/* ── Series release calendar: Coming This Month / Next Month ──── */}
+        {!seriesUpcomingQuery.isLoading &&
+          !seriesUpcomingQuery.error &&
+          isSeries &&
+          seriesMonthSections.length > 0 && (
+            <div className="space-y-10 mt-2">
+              {seriesMonthSections.map((section) => (
+                <UpcomingMonthRail
+                  key={section.key}
+                  heading={section.heading}
+                  itemCount={section.itemCount}
+                  items={section.items}
+                  onOpen={openDetails}
+                />
+              ))}
+            </div>
+          )}
 
         {/* ── Poster grid ─────────────────────────────────────────────── */}
         <section className="px-4 md:px-8 mt-4 relative z-10">
