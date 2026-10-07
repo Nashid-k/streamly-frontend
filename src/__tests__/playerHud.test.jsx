@@ -3,7 +3,6 @@ import { render, screen } from "@testing-library/react";
 import { hudMetrics, HUD_REFERENCE_EDGE } from "../constants/playerUi";
 import {
   NetflixVolumeHUD,
-  NetflixBrightnessHUD,
   NetflixAspectHUD,
   NetflixSeekHUD,
   NetflixHold2xHUD,
@@ -169,12 +168,6 @@ describe("HUD pills anchor to the measured frame", () => {
     const overlay = container.firstElementChild;
     expect(overlay.style.paddingTop).toBe(`${TALL.top}px`);
     expect(screen.getByText("40%")).toBeInTheDocument();
-  });
-
-  it("brightness pill uses the container top", () => {
-    const { container } = render(<NetflixBrightnessHUD brightness={1.2} metrics={PHONE} />);
-    expect(container.firstElementChild.style.paddingTop).toBe(`${PHONE.top}px`);
-    expect(screen.getByText("120%")).toBeInTheDocument();
   });
 
   it("aspect pill uses the container top and scales its glyph", () => {

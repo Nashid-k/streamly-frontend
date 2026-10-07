@@ -1,17 +1,14 @@
 @import "tailwindcss/theme";
 @import "tailwindcss/utilities";
 @source "../";
-@source "../";
 :root {
   /* Native controls (selects, scrollbars, date pickers) must render dark —
      without this, Chromium paints white popups that clash with every theme. */
   color-scheme: dark;
   /* ── Colors ────────────────────────────────────────────── */
   --bg-color: #000000;
-  --bg-primary: #050505;
   --bg-elevated: #09090b;
   --bg-surface: #121217;
-  --bg-surface-hover: #1a1a20;
   --text-primary: #ffffff;
   --text-secondary: #a1a1aa;
   --text-muted: #71717a;
@@ -38,13 +35,9 @@
   --btn-ink: #000000;
   --btn-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   --btn-shadow-hover: 0 14px 36px rgba(0, 0, 0, 0.5);
-  --success-color: #4ade80;
-  --warning-color: #fbbf24;
   --error-color: #f87171;
-  --border-color: #27272a;
   --border-subtle: rgba(255, 255, 255, 0.06);
   --border-medium: rgba(255, 255, 255, 0.1);
-  --border-strong: rgba(255, 255, 255, 0.15);
 
   /* ── Header island geometry ─────────────────────────────
      .header-row is fixed: the back button + brand mark form one island
@@ -64,37 +57,23 @@
 
   /* ── Nav (official Cinejoy tokens) ──────────────────────── */
   --nav-pad: 6px;
-  --dock-top: calc(74px + var(--sat, 0px));
-  --dock-left: 0px;
   --nav-item-h: 40px;
   --nav-fade: 0.3s ease;
   --nav-transition: 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   --condense-ease: cubic-bezier(0.4, 0, 0.2, 1);
 
   /* ── Spacing Scale ─────────────────────────────────────── */
-  --spacing-xs: 0.25rem;
   --spacing-sm: 0.5rem;
-  --spacing-md: 1rem;
   --spacing-lg: 1.5rem;
   --spacing-xl: 2rem;
-  --spacing-2xl: 3rem;
   --spacing-3xl: 5rem;
 
   /* ── Border Radius ─────────────────────────────────────── */
-  --radius-xs: 4px;
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
-  --radius-2xl: 24px;
   --radius-full: 100px;
-
-  /* ── Shadows ───────────────────────────────────────────── */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 12px 24px -4px rgba(0, 0, 0, 0.8);
-  --shadow-xl: 0 20px 40px -8px rgba(0, 0, 0, 0.9);
-  --shadow-glow: 0 0 20px rgba(149, 255, 80, 0.15);
 
   /* ── Glass / Blur ──────────────────────────────────────── */
   --glass-bg: rgba(18, 18, 24, 0.72);
@@ -102,23 +81,13 @@
   --glass-blur: blur(24px) saturate(180%);
 
   /* ── Typography ────────────────────────────────────────── */
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: "JetBrains Mono", "Fira Code", monospace;
   --text-xs: 0.75rem;
   --text-sm: 0.85rem;
-  --text-base: 1rem;
-  --text-lg: 1.15rem;
   --text-xl: 1.5rem;
-  --text-2xl: 2rem;
-  --text-3xl: 2.5rem;
-  --text-4xl: 3.5rem;
-  --leading-tight: 1.25;
-  --leading-normal: 1.6;
   --leading-relaxed: 1.85;
 
   /* ── Transitions ───────────────────────────────────────── */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
   /* The app's one duration scale. `instant` sits below `fast` for the snappier
      rung: press feedback and colour shifts on an already-animating control,
      where the standard hover duration reads as lag on the first frame. It is
@@ -151,15 +120,11 @@
 
   /* ── Safe Area Insets ───────────────────────────────────── */
   --sat: env(safe-area-inset-top, 0px);
-  --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
-  --sal: env(safe-area-inset-left, 0px);
 
   /* ── Z-index Scale ─────────────────────────────────────── */
-  --z-dropdown: 200;
   --z-sticky: 1000;
   --z-modal: 9999;
-  --z-toast: 99999;
 }
 
 /* Compact island on phones: the brand mark shrinks and the top inset tightens,
@@ -267,8 +232,8 @@ button {
    hard rectangle peeking through every pill/capsule search field (Settings,
    Home, movies/series/my-list, history, search). Strip the UA chrome so bare
    inputs are invisible chrome inside their glass frosted capsules. Styled
-   controls win by specificity: `.login-field`, `.collection-dialog__input`,
-   `.settings-search__input`, `.search-panel__input` and Tailwind border/bg
+   controls win by specificity: `.collection-dialog__input`,
+   `.search-panel__input` and Tailwind border/bg
    utilities all outrank this (0,0,1). Color/range/checkbox/radio keep native
    appearance for their picker/thumb UI. */
 input:not([type="color"]):not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]),

@@ -17,7 +17,6 @@
 // moved from `vidcore` to `zxc-centaurus`, and a hardcoded "vidcore" here used to
 // warm a server the player would then refuse to consume (and vice versa).
 
-import { downloadService } from "./downloadService";
 import { DEFAULT_SOURCE_KEY, sourceByKey } from "../constants/sources";
 
 const WARM_TTL_MS = 4 * 60 * 1000; // tokens are time-scoped — never serve stale

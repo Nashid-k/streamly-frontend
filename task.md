@@ -5343,3 +5343,51 @@ outage — one renamed string.
   means the real handler resolves a token, a servers answer, a manifest and a
   variant ladder from the real provider for every row — which is the full chain
   upstream of one segment fetch.
+
+## Code cleanup, batch 1 (2026-10-07) — dead code removal, 25 files
+
+Single session, no UI behaviour change: every deletion was rg-verified to have
+zero consumers in the live tree (source components, JSX, tests) before removal.
+
+- **tokens.css:** removed 32 dead custom properties (+ duplicate `@source "../";`):
+  `--bg-primary`, `--bg-surface-hover`, `--success-color`, `--warning-color`,
+  `--border-color`, `--border-strong`, `--dock-top`, `--dock-left`,
+  `--spacing-xs/md/2xl`, `--radius-xs/2xl`, `--shadow-sm/md/lg/xl/glow`,
+  `--font-sans/mono`, `--text-base/lg/2xl/3xl/4xl`, `--leading-tight/normal`,
+  `--ease-spring`, `--sar/sal`, `--z-dropdown/z-toast`. Kept deliberately:
+  `LEGACY_SERVER_NAME_MAP`, `--zxc-t-*`, `--sat/--sab` (safe-area), the Cinejoy
+  nav/ease tokens still consumed by live rules. Post-edit `rg var(--X)` = 0 hits.
+- **Dead CSS classes removed (24):** `login-*` (whole glass-login section incl.
+  its shared refraction selectors in discovery.css), `btn-lg`, `btn-theaters`,
+  `btn-trailer`, `btn-ghost`, `btn-danger`, `btn-icon-spin`, `is-muted`,
+  `is-bordered`, `is-flash`, `sk-line--w45`, `settings-search__input` (name also
+  scrubbed from the responsive.css `:not(...)` exclusion). `btn-cta-pulse` KEPT
+  (comment documents "kept for API stability"). `theme-btn-primary`,
+  `custom-scrollbar`, `.is-icon` were already comment-only — no rules existed.
+- **Dead keyframes:** `npLoadingLine` + `npRingSpin` (player.css),
+  `loader-spin-cw/ccw`, `loader-pulse-center`, `loader-dash` (ui-kit.css) — all
+  definition-only, zero `animation:` references.
+- **Dead components deleted:** `ArcRing.jsx`, `LoadingArc.jsx`,
+  `NetflixBrightnessHUD.jsx` (player), `YoutubeRawTrailer.jsx`,
+  `LiquidGlassDefs.jsx` (its `#streamly-lg-dist` filter had only one consumer,
+  the deleted login panel; removing it keeps the Task 67 doc'd perf budget).
+  Barrel rows in `player/index.js` + `components/index.js` removed.
+- **Dead service fns:** `getExternalIds` (movieService/detail.js) +
+  `getTitleTrailer` (movieService/featured.js) had zero callers; removed + barrel.
+  `rankTrailerVideos` stays (live in normalize/detail).
+- **Unused imports:** `downloadService` in `warmResolve.js`; `originalTrackLabel`
+  + the `spokenLabel` block in `NativePlayerView.jsx` (its doc comment too);
+  `DownloadUnavailableError` removed from `api/index.js` barrel (class stays in
+  downloadService.js where it is thrown).
+- **Stale comments updated:** discovery.css Task-71 banner, tokens.css input-
+  specificity note, rails.css focus-affordance note now describe current reality.
+- **Tests:** motion.test.js drops the now-meaningless "SVG arcs honour reduced
+  motion" describe (3 tests) + `NetflixBrightnessHUD.jsx` from HUD_SOURCES;
+  playerHud.test.jsx drops the brightness-pill test (1) + its import.
+- **Gates:** lint 0 errors (pre-existing warnings unchanged), test 80 files /
+  **1043 passed** (1047 minus the 4 removed pins), build green (2.21s). All 21
+  edited files byte-verified pure CRLF.
+
+**Next (awaiting user go-ahead):** UI/UX + motion improvement plan — deep audits
+finished; `UI_UX_AUDIT.md` holds the findings and a ranked declutter list; no
+visual/motion edits applied this pass.

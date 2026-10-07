@@ -78,16 +78,6 @@
   flex-shrink: 0;
 }
 
-.player-preview-btn.is-muted {
-  color: rgba(255, 255, 255, 0.75);
-}
-
-.player-preview-btn.is-bordered {
-  background: transparent;
-  border-color: rgba(255, 255, 255, 0.18);
-  color: rgba(255, 255, 255, 0.75);
-}
-
 /* Primary play button — Apple TV+ white accent */
 .player-preview-btn.is-filled {
   background: #fff;

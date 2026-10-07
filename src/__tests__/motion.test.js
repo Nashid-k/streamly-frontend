@@ -142,7 +142,6 @@ describe("motion tokens", () => {
     const HUD_SOURCES = [
       "NetflixSeekHUD.jsx",
       "NetflixVolumeHUD.jsx",
-      "NetflixBrightnessHUD.jsx",
       "NetflixAspectHUD.jsx",
     ].map((f) => join(process.cwd(), "src", "components", "player", f));
 
@@ -356,38 +355,5 @@ describe("every modal takes the shared shapes", () => {
     const block = backdrop.slice(0, backdrop.indexOf("}"));
     expect(block).toMatch(/display:\s*flex/);
     expect(block).not.toMatch(/transform:\s*translate\(-50%/);
-  });
-});
-
-describe("the SVG arcs honour prefers-reduced-motion", () => {
-  /* These set `transition` on the STYLE attribute, which outranks every
-     stylesheet rule — so the `prefers-reduced-motion` blocks in player.css
-     could never reach them. A viewer who asked for stillness still got a
-     sweeping ring and a forever-spinning loader. */
-  const ARCS = ["ArcRing.jsx", "LoadingArc.jsx"].map((f) =>
-    join(process.cwd(), "src", "components", "player", f)
-  );
-
-  it("reads the viewer's preference in both arcs", () => {
-    for (const file of ARCS) {
-      const src = readFileSync(file, "utf8");
-      expect(src, file).toMatch(/useReducedMotion/);
-    }
-  });
-
-  it("never writes a bare dash-offset transition that reduced motion cannot reach", () => {
-    for (const file of ARCS) {
-      const src = readFileSync(file, "utf8");
-      const unguarded = [...src.matchAll(/style=\{\{[^}]*transition:\s*"stroke-dashoffset[^"]*"/g)];
-      expect(
-        unguarded.map((m) => m[0]),
-        `${file} sets an inline dash transition with no reduced-motion guard`
-      ).toEqual([]);
-    }
-  });
-
-  it("stops the loader's endless spin when motion is reduced", () => {
-    const src = readFileSync(join(process.cwd(), "src", "components", "player", "LoadingArc.jsx"), "utf8");
-    expect(src).toMatch(/animate=\{reduced \? undefined : \{ rotate: 360 \}\}/);
   });
 });

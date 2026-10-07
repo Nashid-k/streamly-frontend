@@ -41,5 +41,4 @@ export { default as GlobalShortcuts } from "./GlobalShortcuts";
 
 // Video Player & Studio
 export { default as PlayerPreview } from "./PlayerPreview";
-export { default as YoutubeRawTrailer } from "./YoutubeRawTrailer";
 export { PLAYER_SPEEDS } from "../constants/playerUi";

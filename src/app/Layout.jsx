@@ -1,6 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useLocation } from "react-router-dom";
-import LiquidGlassDefs from "../components/LiquidGlassDefs";
 import BackToTop from "../components/BackToTop";
 import Footer from "../components/Footer";
 import Header from "./Header";
@@ -14,7 +13,6 @@ function Layout({ children }) {
 
   return (
     <div className="app-container">
-      <LiquidGlassDefs />
       <Header />
 
       {/* Main Content Area with Page Transitions.

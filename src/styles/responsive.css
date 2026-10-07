@@ -206,7 +206,7 @@
     font-size: 16px !important;
   }
 
-  input:not(.search-panel__input):not(.settings-search__input):not(.range-slider):not(.pl-11):not(.px-4),
+  input:not(.search-panel__input):not(.range-slider):not(.pl-11):not(.px-4),
   select,
   textarea {
     padding: 12px 16px !important;

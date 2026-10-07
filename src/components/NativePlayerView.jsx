@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
-import { buildAudioTrackList, originalTrackLabel } from "../utils/audioLabels";
+import { buildAudioTrackList } from "../utils/audioLabels";
 import {
   IconAspect,
   IconGauge,
@@ -2462,13 +2462,6 @@ setScrubDragging(true);
     if (index === activeDubRef.current) return;
     const target = index === 0 ? null : dubTracks[index - 1];
     if (index > 0 && !target?.uri) return;
-    /* Announce the NORMALISED name ("Tamil"), not the provider's raw string
-       ("Tamil Dub"): the toast and the Audio panel are read in the same breath,
-       and a name changing between the two looks like it switched to something
-       else. Resolved by sourceIndex because rows can be dropped. */
-    const spokenLabel =
-      audioTrackList.find((r) => r.sourceIndex === index - 1)?.label ||
-      originalTrackLabel(originalLanguage);
     const meta = metaRef.current;
     const targetUri =
       index === 0 ? meta?.variants?.[0]?.uri || meta?.entryUrl : target.uri;

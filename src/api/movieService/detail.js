@@ -177,23 +177,6 @@ export const getSeasonEpisodes = async (id, seasonNumber) => {
 }
 };
 
-export const getExternalIds = async (id) => {
-  try {
-    const isTV = isTvId(id);
-    const rid = rawId(id);
-    const data = await tmdb(`/${isTV ? 'tv' : 'movie'}/${rid}/external_ids`);
-    if (!data?.imdb_id) {
-      logDebug('movieService', `getExternalIds: no IMDb id for ${id} — OMDb ratings will be skipped.`, { id });
-    }
-        // Return ONLY the normalized imdbId — spreading the raw TMDB payload leaked
-        // snake_case `imdb_id` across the domain boundary into the player.
-    return { imdbId: data?.imdb_id || null };
-  } catch (error) {
-    logServiceError('getExternalIds', error, { id });
-    throw error;
-  }
-};
-
 export const getPopular = async () => {
   try {
     const [movies, tv] = await Promise.all([

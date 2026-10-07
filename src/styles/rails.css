@@ -3,7 +3,7 @@
    border-radius override here used to snap them to --radius-sm). Text inputs
    are excluded: every field in the app already ships a focus affordance of
    its own (`:focus-within` accent border on the frosted capsules, the
-   `.login-field:focus` border, `.search-panel` focus-within), and Chromium
+   `.search-panel` focus-within), and Chromium
    fires `:focus-visible` on click for text boxes — the old hard accent
    rectangle is what showed around every input app-wide. */
 a:focus-visible,

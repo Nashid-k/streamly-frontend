@@ -16,26 +16,6 @@
 /* ── Buttons ─────────────────────────────────────────────── */
 /* Duplicate button block removed — styles in main .btn section above */
 
-.btn-ghost {
-  background: transparent;
-  color: var(--text-secondary);
-  border: none;
-}
-.btn-ghost:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: #fff;
-}
-
-.btn-danger {
-  background: rgba(248, 113, 113, 0.1);
-  color: var(--error-color);
-  border: 1px solid rgba(248, 113, 113, 0.2);
-}
-.btn-danger:hover {
-  background: rgba(248, 113, 113, 0.18);
-  border-color: rgba(248, 113, 113, 0.4);
-}
-
 .btn-sm {
   padding: 6px 14px;
   font-size: var(--text-xs);
@@ -209,14 +189,8 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Button icon spin on hover */
-.btn:hover .btn-icon-spin {
-  transform: rotate(90deg);
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.btn .btn-icon-spin {
-  transition: transform 0.3s;
-}
+/* Button icon spin on hover — removed: the only `.btn-icon-spin` consumer
+   never rendered, so the rules were dead (no CSS/JXS reference remained). */
 
 /* Loading spinner for buttons */
 @keyframes spin {
@@ -232,17 +206,6 @@ html {
 }
 
 /* Loader component keyframes */
-@keyframes loader-spin-cw { to { transform: rotate(360deg); } }
-@keyframes loader-spin-ccw { to { transform: rotate(-360deg); } }
-@keyframes loader-pulse-center {
-  0%, 100% { transform: scale(0.7); opacity: 0.4; }
-  50% { transform: scale(1.1); opacity: 1; }
-}
-@keyframes loader-dash {
-  0% { stroke-dashoffset: 180; }
-  50% { stroke-dashoffset: 45; }
-  100% { stroke-dashoffset: 180; }
-}
 @keyframes loader-fade-in {
   from { opacity: 0; transform: translateY(12px) scale(0.9); }
   to { opacity: 1; transform: translateY(0) scale(1); }

@@ -568,24 +568,6 @@
      bar would read as progress, a parked partial bar reads as "loading". */
 }
 
-@keyframes npLoadingLine {
-  0% {
-    transform: translateX(-110%);
-  }
-  100% {
-    transform: translateX(420%);
-  }
-}
-
-@keyframes npRingSpin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 /* ═══ ZXC-inspired design tokens (scraped from player.zxcprime.xyz) ═══════
    Their theme, extracted from the shipped Tailwind bundle: zinc scale for
    chrome (NOT pure black/white), 0.45rem control radius, fast 150-300ms

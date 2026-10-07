@@ -1,7 +1,7 @@
 import tmdb from '../tmdbClient';
 import { logDebug, logEmptyData, logWarn } from '../../utils/debugLogger';
 import { logServiceError, warnIfEmpty, isTvId, rawId } from './core';
-import { normalizeResult, isBrowsableTitle, logoUrlFromImages, rankTrailerVideos } from './normalize';
+import { normalizeResult, isBrowsableTitle, logoUrlFromImages } from './normalize';
 
 export const getFeaturedMovies = async () => {
   try {
@@ -52,30 +52,6 @@ export const getTitleLogo = async (id) => {
     return out;
   } catch (error) {
     logServiceError('getTitleLogo', error, { id });
-    throw error;
-  }
-};
-
-// Fetch an embeddable YouTube trailer key for any movie/TV id, reaching into the
-// live details so titles stored before trailers were wired up still get a preview.
-// Most prominent trailer wins (Final → Official → Trailer → Teaser → Extended),
-// falling back to the first usable YouTube video for legacy titles.
-export const getTitleTrailer = async (id) => {
-  const isTV = isTvId(id);
-  const rid = rawId(id);
-  try {
-    const data = await tmdb(`/${isTV ? 'tv' : 'movie'}/${rid}/videos`);
-    const videos = (data.results || []).filter(
-      (v) => v.site === 'YouTube' && v.key && v.key.trim(),
-    );
-    if (videos.length === 0) {
-      logDebug('movieService', `getTitleTrailer: no YouTube videos for ${id}.`, { id });
-      return null;
-    }
-    const ranked = rankTrailerVideos(videos, 1);
-    return ranked[0]?.key || videos[0].key;
-  } catch (error) {
-    logServiceError('getTitleTrailer', error, { id });
     throw error;
   }
 };

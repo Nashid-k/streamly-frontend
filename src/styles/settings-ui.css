@@ -205,10 +205,6 @@ html[data-theme]:not([data-theme=default]) .settings-section::after {
   transition: box-shadow 0.35s ease;
 }
 
-.glass-card.is-flash {
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5);
-}
-
 /* ── Section Header ── */
 .section-header {
   margin-bottom: 1.25rem;
