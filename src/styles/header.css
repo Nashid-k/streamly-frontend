@@ -65,7 +65,7 @@
   cursor: pointer;
   pointer-events: auto;
   margin-right: var(--spacing-sm);
-  transition: background-color 0.25s ease, color 0.25s ease, transform 0.2s ease;
+  transition: background-color 0.25s ease, color 0.25s ease, transform var(--duration-fast) ease;
 }
 .back-btn:hover {
   background: rgba(var(--white-rgb), 0.08);

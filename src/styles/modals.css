@@ -303,7 +303,7 @@
   cursor: pointer;
   color: #fff;
   background: rgba(20, 20, 26, 0.85);
-  transition: background 0.2s ease, transform 0.2s ease;
+  transition: background var(--duration-fast) ease, transform var(--duration-fast) ease;
 }
 .title-info-close:hover { background: rgba(40, 40, 52, 0.95); transform: scale(1.06); }
 .title-info-close:focus-visible { outline: 2px solid var(--accent-primary, var(--accent-color)); outline-offset: 2px; }
@@ -427,7 +427,7 @@
   color: #9ca3af;
   cursor: pointer;
   font-family: inherit;
-  transition: background 0.2s ease, color 0.2s ease;
+  transition: background var(--duration-fast) ease, color var(--duration-fast) ease;
 }
 .title-info-similar-mode:hover { color: #fff; }
 .title-info-similar-mode[data-active="true"] {
@@ -532,7 +532,7 @@
   cursor: pointer;
   text-align: left;
   font-family: inherit;
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+  transition: background var(--duration-fast) ease, border-color var(--duration-fast) ease, transform 0.15s ease;
 }
 .title-info-similar-row:hover {
   background: rgba(var(--white-rgb), 0.04);
@@ -605,7 +605,7 @@
   background: var(--btn-bg, rgba(242, 242, 242, 0.96));
   color: var(--btn-ink, #000000);
   box-shadow: 0 8px 26px rgba(var(--black-rgb), 0.4), 0 3px 14px rgba(var(--black-rgb), 0.2);
-  transition: background 0.2s ease, transform 0.2s ease;
+  transition: background var(--duration-fast) ease, transform var(--duration-fast) ease;
 }
 .title-info-play:hover { background: var(--btn-bg-hover, #ffffff); transform: translateY(-1px); }
 .title-info-play:active { transform: translateY(0); }
@@ -624,7 +624,7 @@
   color: rgba(var(--white-rgb), 0.85);
   background: rgba(var(--white-rgb), 0.07);
   border: 1px solid rgba(var(--white-rgb), 0.16);
-  transition: background 0.2s ease, border-color 0.2s ease;
+  transition: background var(--duration-fast) ease, border-color var(--duration-fast) ease;
 }
 .title-info-list:hover { background: rgba(var(--white-rgb), 0.13); }
 .title-info-list.is-in-list {
@@ -647,7 +647,7 @@
   color: rgba(var(--white-rgb), 0.85);
   background: transparent;
   border: 1px solid rgba(var(--white-rgb), 0.16);
-  transition: background 0.2s ease;
+  transition: background var(--duration-fast) ease;
 }
 .title-info-details:hover { background: rgba(var(--white-rgb), 0.09); }
 .title-info-play:focus-visible,

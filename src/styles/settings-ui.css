@@ -112,7 +112,7 @@ html[data-theme="custom"] {
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
-  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+  transition: color var(--duration-fast) ease, background-color var(--duration-fast) ease, border-color var(--duration-fast) ease;
 }
 
 .settings-tab:hover {
@@ -185,7 +185,7 @@ html[data-theme]:not([data-theme=default]) .settings-section::after {
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease;
+  transition: background var(--duration-fast) ease, border-color var(--duration-fast) ease;
 }
 
 .reset-preferences-button:hover {
@@ -373,7 +373,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   width: 18px;
   border-radius: 9999px;
   background: rgba(var(--white-rgb), 0.7);
-  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+  transition: transform var(--duration-fast) cubic-bezier(0.175, 0.885, 0.32, 1.275),
     background 0.2s ease;
   box-shadow: 0 2px 4px rgba(var(--black-rgb), 0.02);
 }
@@ -433,7 +433,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   border: 1px solid rgba(var(--white-rgb), 0.09);
   border-radius: 999px;
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease;
+  transition: background var(--duration-fast) ease, border-color var(--duration-fast) ease;
 }
 
 .seed-pill:hover {
@@ -495,7 +495,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   border: 1px solid rgba(var(--white-rgb), 0.1);
   border-radius: 999px;
   cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease;
+  transition: background var(--duration-fast) ease, color var(--duration-fast) ease;
 }
 
 .seed-reset:hover {
@@ -615,7 +615,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   background: rgba(var(--white-rgb), 0.03);
   border: 1px solid rgba(var(--white-rgb), 0.06);
   border-radius: 12px;
-  transition: background 0.2s ease, border-color 0.2s ease;
+  transition: background var(--duration-fast) ease, border-color var(--duration-fast) ease;
   user-select: none;
   -webkit-user-select: none;
 }

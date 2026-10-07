@@ -136,7 +136,7 @@ textarea:focus-visible {
   background: #000000;
   opacity: 1;
   pointer-events: none;
-  transition: opacity 0.45s ease 0.15s;
+  transition: opacity var(--duration-slow) ease 0.15s;
 }
 .cw-popup-cover.is-hidden {
   opacity: 0;
@@ -169,7 +169,7 @@ textarea:focus-visible {
   font-size: 0.62em;
   color: rgba(var(--white-rgb), 0.6);
   margin-left: 10px;
-  transition: transform 0.2s ease;
+  transition: transform var(--duration-fast) ease;
 }
 .movie-rail-wrapper > div:first-child h3.rail-title--because:hover::after {
   transform: translateY(2px);

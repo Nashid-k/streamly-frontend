@@ -145,7 +145,7 @@
   border: 1px solid rgba(var(--white-rgb), 0.18);
   color: var(--text-primary);
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+  transition: background var(--duration-fast) ease, border-color var(--duration-fast) ease, transform 0.15s ease;
 }
 .card-quick-list:active {
   transform: scale(0.92);

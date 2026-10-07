@@ -46,7 +46,7 @@
   -webkit-overflow-scrolling: touch;
   -webkit-mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
   mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
-  transition: -webkit-mask-image 0.2s ease, mask-image 0.2s ease;
+  transition: -webkit-mask-image var(--duration-fast) ease, mask-image var(--duration-fast) ease;
 }
 .cast-rail__scroll.is-at-start {
   -webkit-mask-image: linear-gradient(to right, #000 0%, #000 95%, transparent);

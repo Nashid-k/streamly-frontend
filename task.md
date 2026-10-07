@@ -5479,3 +5479,21 @@ Visual pass, conservative CSS-only changes.
   jsdom HTMLMediaElement/play() watchdog flake, unrelated to this CSS diff.
 - Gates: lint 0 errors, test 80 files / 1043 passed (x2 clean), build green
   (1.66s).
+
+## UI/UX Rank 5 — pills/chips + motion token debt (2026-10-07)
+
+- Chip pills were ALREADY single-source (one .chip definition in primitives.css;
+  search.css only scopes `.filter-group .chip` descendants). FilterPill is the
+  dropdown-trigger surface, not a chip variant, so no pill consolidation was
+  left — verified, nothing merged.
+- Motion literals: tokenized 47 value-exact durations in transition
+  declarations (46x `0.2s` -> var(--duration-fast), 1x `0.45s` ->
+  var(--duration-slow)) across 10 stylesheets (modals 11, settings-ui 12, hero
+  8, primitives 4, responsive 3, discovery 2, grids 2, rails 2, search 2,
+  header 1). Excluded player.css (motion.test.js gates it, already clean) and
+  tokens.css (definitions live there). Animation periods (ambient blobs,
+  loader-dash) and non-scale values (0.15s/0.25s/0.3s/0.35s) untouched.
+  Computed values identical (200ms/450ms) — zero visual change. This matches
+  motion.js's contract that CSS micro-interactions author at 0.2s and must not
+  drift from the JS DURATION.FAST (0.18s) — retuning happens in tokens.css.
+- Gates: lint 0 errors, test 80 files / 1043 passed, build green (2.03s).
