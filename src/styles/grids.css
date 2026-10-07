@@ -13,7 +13,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
-  color: rgba(255,255,255,0.95);
+  color: rgba(var(--white-rgb),0.95);
 }
 .section-title::before {
   content: "";
@@ -21,7 +21,7 @@
   width: 3px;
   height: 1em;
   border-radius: 999px;
-  background: var(--accent-gradient, linear-gradient(180deg, #95ff50, #5ce21c));
+  background: var(--accent-gradient, linear-gradient(180deg, var(--accent-color), #5ce21c));
   box-shadow: 0 0 12px var(--accent-glow, rgba(149, 255, 80, 0.25));
 }
 
@@ -70,7 +70,7 @@
   position: relative;
   border-radius: 12px;
   padding: 0;
-  background: rgba(255,255,255,0.01);
+  background: rgba(var(--white-rgb),0.01);
 }
 
 .poster-wrapper {
@@ -81,19 +81,19 @@
   overflow: hidden;
   background: #18181b;
   margin-bottom: var(--spacing-sm);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 18px 30px -26px rgba(0,0,0,0.9);
+  box-shadow: inset 0 1px 0 rgba(var(--white-rgb),0.04), 0 18px 30px -26px rgba(var(--black-rgb),0.9);
   transition:
     box-shadow 0.3s ease-out,
     border-color 0.3s ease-out,
     transform 0.3s ease-out;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(var(--white-rgb), 0.06);
 }
 .poster-wrapper::after {
   content: "";
   position: absolute;
   inset: auto 0 0 0;
   height: 42%;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.4) 55%, transparent);
+  background: linear-gradient(to top, rgba(var(--black-rgb), 0.85), rgba(var(--black-rgb), 0.4) 55%, transparent);
   pointer-events: none;
 }
 
@@ -103,10 +103,10 @@
     box-shadow 0.3s ease-out,
     border-color 0.3s ease-out;
   box-shadow:
-    0 26px 56px -14px rgba(0, 0, 0, 0.85),
-    0 0 0 1px rgba(255, 255, 255, 0.14),
-    0 0 30px -16px rgba(255, 255, 255, 0.18);
-  border-color: rgba(255, 255, 255, 0.22);
+    0 26px 56px -14px rgba(var(--black-rgb), 0.85),
+    0 0 0 1px rgba(var(--white-rgb), 0.14),
+    0 0 30px -16px rgba(var(--white-rgb), 0.18);
+  border-color: rgba(var(--white-rgb), 0.22);
 }
 
 .movie-poster {
@@ -142,7 +142,7 @@
   background: rgba(9, 9, 11, 0.7);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(var(--white-rgb), 0.18);
   color: var(--text-primary);
   cursor: pointer;
   transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
@@ -447,8 +447,8 @@
   object-fit: cover;
   flex-shrink: 0;
   border-radius: 20px;
-  box-shadow: 0 40px 80px -15px rgba(0, 0, 0, 0.95), 0 0 60px rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 40px 80px -15px rgba(var(--black-rgb), 0.95), 0 0 60px rgba(var(--black-rgb), 0.4);
+  border: 1px solid rgba(var(--white-rgb), 0.1);
 }
 
 .details-text {

@@ -3,15 +3,15 @@
    PreferencesProvider. CSS rules reference them for accent-aware elements.
    The --accent-* triplets keep existing translucent surfaces working. */
 html[data-theme="emerald"] {
-  --accent-gradient: linear-gradient(135deg, #95ff50, #43861e) !important;
-  --accent-color: #95ff50 !important;
-  --accent-primary: #95ff50 !important;
+  --accent-gradient: linear-gradient(135deg, var(--accent-color), #43861e) !important;
+  --accent-color: var(--accent-color) !important;
+  --accent-primary: var(--accent-color) !important;
   --accent-secondary: #43861e !important;
   --accent-primary-rgb: 149, 255, 80 !important;
   --accent-secondary-rgb: 67, 134, 30 !important;
   --accent-glow: rgba(149, 255, 80, 0.4) !important;
   --on-accent: #0e1a06 !important;
-  --theme-global-accentA: #95ff50;
+  --theme-global-accentA: var(--accent-color);
   --theme-global-accentB: #43861e;
 }
 
@@ -72,7 +72,7 @@ html[data-theme="custom"] {
   --accent-color: var(--theme-global-accentA) !important;
   --accent-primary: var(--theme-global-accentA) !important;
   --accent-secondary: var(--theme-global-accentB) !important;
-  --accent-glow: rgba(0,0,0,0.4) !important;
+  --accent-glow: rgba(var(--black-rgb),0.4) !important;
 }
 
 /* ── Settings Nav Tabs (Cinejoy capsule pills) ───────────────────────────────
@@ -107,7 +107,7 @@ html[data-theme="custom"] {
   border: 1px solid transparent;
   border-radius: 9999px;
   background: transparent;
-  color: rgba(255, 255, 255, 0.66);
+  color: rgba(var(--white-rgb), 0.66);
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
@@ -117,11 +117,11 @@ html[data-theme="custom"] {
 
 .settings-tab:hover {
   color: #fff;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--white-rgb), 0.08);
 }
 
 .settings-tab.is-active {
-  color: #95ff50;
+  color: var(--accent-color);
   border-color: rgba(149, 255, 80, 0.4);
   background: rgba(149, 255, 80, 0.1);
 }
@@ -196,7 +196,7 @@ html[data-theme]:not([data-theme=default]) .settings-section::after {
 /* ── Glass Card (Cinejoy .glass-card recipe) ── */
 .glass-card {
   background: rgba(20, 20, 20, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(var(--white-rgb), 0.08);
   border-radius: 20px;
   padding: clamp(1.25rem, 2.5vw, 1.75rem);
   backdrop-filter: blur(20px);
@@ -220,7 +220,7 @@ html[data-theme]:not([data-theme=default]) .settings-section::after {
 
 .section-subtitle {
   font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(var(--white-rgb), 0.5);
   margin: 0;
   line-height: 1.45;
 }
@@ -240,7 +240,7 @@ html[data-theme]:not([data-theme=default]) .settings-section::after {
 }
 
 .setting-row + .setting-row {
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(var(--white-rgb), 0.08);
 }
 
 .setting-meta {
@@ -254,12 +254,12 @@ html[data-theme]:not([data-theme=default]) .settings-section::after {
 .setting-title {
   font-size: 0.95rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(var(--white-rgb), 0.9);
 }
 
 .setting-desc {
   font-size: 0.82rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(var(--white-rgb), 0.5);
   line-height: 1.4;
 }
 
@@ -275,9 +275,9 @@ html[data-theme]:not([data-theme=default]) .settings-section::after {
   position: relative;
   gap: 0;
   padding: 4px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(var(--white-rgb), 0.06);
   border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(var(--white-rgb), 0.08);
 }
 
 .segment-slider {
@@ -286,9 +286,9 @@ html[data-theme]:not([data-theme=default]) .settings-section::after {
   bottom: 4px;
   left: 0;
   width: 0;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(var(--white-rgb), 0.9);
   border-radius: 9999px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 4px 12px rgba(var(--black-rgb), 0.02);
   transition: left 0.35s cubic-bezier(0.16, 1, 0.3, 1),
     width 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   z-index: 0;
@@ -317,7 +317,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   font-size: 0.75rem;
   font-weight: 600;
   white-space: nowrap;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(var(--white-rgb), 0.85);
   background: transparent;
   border: none;
   cursor: pointer;
@@ -340,9 +340,9 @@ html:not([data-theme]) .segment-btn.segment-active {
   height: 24px;
   flex: 0 0 auto;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(var(--white-rgb), 0.1);
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(var(--white-rgb), 0.12);
   cursor: pointer;
   transition: background 220ms ease, border-color 220ms ease;
 }
@@ -372,10 +372,10 @@ html:not([data-theme]) .segment-btn.segment-active {
   height: 18px;
   width: 18px;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(var(--white-rgb), 0.7);
   transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275),
     background 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 2px 4px rgba(var(--black-rgb), 0.02);
 }
 
 .toggle.toggle-on .toggle-dot {
@@ -390,7 +390,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   height: 15px;
   border-radius: 9999px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(var(--white-rgb), 0.2);
   flex-shrink: 0;
 }
 
@@ -429,20 +429,20 @@ html:not([data-theme]) .segment-btn.segment-active {
   align-items: center;
   gap: 9px;
   padding: 7px 14px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(var(--white-rgb), 0.05);
+  border: 1px solid rgba(var(--white-rgb), 0.09);
   border-radius: 999px;
   cursor: pointer;
   transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .seed-pill:hover {
-  background: rgba(255, 255, 255, 0.09);
-  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(var(--white-rgb), 0.09);
+  border-color: rgba(var(--white-rgb), 0.18);
 }
 
 .seed-pill:focus-within {
-  border-color: rgba(255, 255, 255, 0.5);
+  border-color: rgba(var(--white-rgb), 0.5);
 }
 
 .seed-dot {
@@ -450,7 +450,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   height: 13px;
   border-radius: 999px;
   flex-shrink: 0;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22) inset;
+  box-shadow: 0 0 0 1px rgba(var(--white-rgb), 0.22) inset;
 }
 
 .seed-text {
@@ -462,7 +462,7 @@ html:not([data-theme]) .segment-btn.segment-active {
 .seed-label {
   font-size: 0.85rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.92);
+  color: rgba(var(--white-rgb), 0.92);
   white-space: nowrap;
 }
 
@@ -470,7 +470,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   font-size: 0.72rem;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.03em;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(var(--white-rgb), 0.4);
   white-space: nowrap;
 }
 
@@ -490,23 +490,23 @@ html:not([data-theme]) .segment-btn.segment-active {
   padding: 6px 14px;
   font-size: 0.78rem;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(var(--white-rgb), 0.6);
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(var(--white-rgb), 0.1);
   border-radius: 999px;
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease;
 }
 
 .seed-reset:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(var(--white-rgb), 0.12);
   color: #fff;
 }
 
 .theme-picker-divider {
   height: 1px;
   margin: 4px 12px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(var(--white-rgb), 0.1);
 }
 
 /* ── Color Picker ── */
@@ -543,7 +543,7 @@ html:not([data-theme]) .segment-btn.segment-active {
 
 .color-dot.active {
   border-color: var(--accent-primary, #fff);
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.6), 0 0 0 4px var(--accent-primary, #fff), 0 0 10px var(--accent-glow, rgba(255, 255, 255, 0.4));
+  box-shadow: 0 0 0 2px rgba(var(--black-rgb), 0.6), 0 0 0 4px var(--accent-primary, #fff), 0 0 10px var(--accent-glow, rgba(var(--white-rgb), 0.4));
   transform: scale(1.1);
 }
 
@@ -557,8 +557,8 @@ html:not([data-theme]) .segment-btn.segment-active {
 .range-value {
   font-size: 0.8rem;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.9);
-  background: rgba(255, 255, 255, 0.08);
+  color: rgba(var(--white-rgb), 0.9);
+  background: rgba(var(--white-rgb), 0.08);
   padding: 3px 8px;
   border-radius: 6px;
   min-width: 48px;
@@ -571,7 +571,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   width: 120px;
   height: 6px;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(var(--white-rgb), 0.15);
   outline: none;
 }
 
@@ -583,7 +583,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   border-radius: 50%;
   background: #fff;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 6px rgba(var(--black-rgb), 0.4);
   border: 2px solid var(--accent-secondary, #5ce21c);
 }
 
@@ -593,7 +593,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   border-radius: 50%;
   background: #fff;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 6px rgba(var(--black-rgb), 0.4);
   border: 2px solid var(--accent-secondary, #5ce21c);
 }
 
@@ -612,8 +612,8 @@ html:not([data-theme]) .segment-btn.segment-active {
   align-items: center;
   justify-content: space-between;
   padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(var(--white-rgb), 0.03);
+  border: 1px solid rgba(var(--white-rgb), 0.06);
   border-radius: 12px;
   transition: background 0.2s ease, border-color 0.2s ease;
   user-select: none;
@@ -621,8 +621,8 @@ html:not([data-theme]) .segment-btn.segment-active {
 }
 
 .order-item:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(var(--white-rgb), 0.06);
+  border-color: rgba(var(--white-rgb), 0.12);
 }
 
 .order-item:focus-visible {
@@ -635,7 +635,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(var(--white-rgb), 0.4);
   margin-right: 12px;
 }
 
@@ -652,8 +652,8 @@ html:not([data-theme]) .segment-btn.segment-active {
 }
 
 .order-grip--drag:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--accent-primary, rgba(255, 255, 255, 0.8));
+  background: rgba(var(--white-rgb), 0.08);
+  color: var(--accent-primary, rgba(var(--white-rgb), 0.8));
 }
 
 .order-grip--drag:active {
@@ -665,7 +665,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(var(--white-rgb), 0.35);
   flex-shrink: 0;
 }
 

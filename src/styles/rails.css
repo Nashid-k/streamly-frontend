@@ -66,7 +66,7 @@ textarea:focus-visible {
   width: 3px;
   height: 1.1em;
   border-radius: 3px;
-  background: var(--accent-gradient, linear-gradient(to bottom, #95ff50, #5ce21c));
+  background: var(--accent-gradient, linear-gradient(to bottom, var(--accent-color), #5ce21c));
   flex-shrink: 0;
 }
 
@@ -156,7 +156,7 @@ textarea:focus-visible {
   display: none;
 }
 .movie-rail-wrapper > div:first-child h3.rail-title--because {
-  border-bottom: 1px dashed rgba(255, 255, 255, 0.28);
+  border-bottom: 1px dashed rgba(var(--white-rgb), 0.28);
   padding-bottom: 2px;
   max-width: min(76vw, 620px);
   white-space: nowrap;
@@ -167,7 +167,7 @@ textarea:focus-visible {
   content: "▾";
   flex-shrink: 0;
   font-size: 0.62em;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(var(--white-rgb), 0.6);
   margin-left: 10px;
   transition: transform 0.2s ease;
 }

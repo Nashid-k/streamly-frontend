@@ -5395,3 +5395,23 @@ zero consumers in the live tree (source components, JSX, tests) before removal.
 **Next (awaiting user go-ahead):** UI/UX + motion improvement plan — deep audits
 finished; `UI_UX_AUDIT.md` holds the findings and a ranked declutter list; no
 visual/motion edits applied this pass.
+
+## UI/UX Rank 2 — color tokenization (2026-10-07) — 441 literals → tokens
+
+No visual change: every substitution is byte-identical in computed value.
+
+- Added to tokens.css: `--white-rgb: 255, 255, 255;` + `--black-rgb: 0, 0, 0;`
+  (same RGB-channel pattern as `--accent-primary-rgb`). Blind-churn audit showed
+  ~200 `rgba(255,255,255,X)` / `rgba(0,0,0,X)` literals across 17 stylesheets;
+  a single channel source lets a future light theme retarget the whole chrome.
+- Substituted across all stylesheets except tokens.css: `rgba(255,255,255,X)`
+  → `rgba(var(--white-rgb), X)`; `rgba(0,0,0,X)` → `rgba(var(--black-rgb), X)`;
+  and brand `#95ff50` → `var(--accent-color)` (~21 uses in settings-ui,
+  collections, modals). 441 literals swapped, script-regex verified 0 strays.
+- Line-ending hygiene: normalized `auth.css` (was LF-only) + `grids.css`
+  (was pre-existing mixed) to CRLF; all 19 stylesheets now pure CRLF.
+- **Known follow-ups (NOT in this pass):** `--accent-primary` duplicates
+  `--accent-color` (both `#95ff50`, same value) — dedupe when the button pass
+  lands; rgba accent uses outside `--accent-glow` still literal; JSX inline
+  colors in HomePage/TitleDetails deferred.
+- Gates: lint 0 errors, test 80 files / 1043 passed, build green (1.70s).

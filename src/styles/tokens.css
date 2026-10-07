@@ -22,6 +22,13 @@
      follow the active theme via rgba(var(--accent-primary-rgb), <alpha>). */
   --accent-primary-rgb: 149, 255, 80;
   --accent-secondary-rgb: 92, 226, 28;
+  /* RGB triplets for the plain white/black overlays. Every glass fill, scrim
+     and border across the stylesheets was a literal rgba(255, 255, 255, X) /
+     rgba(0, 0, 0, X); deriving them from ONE channel source means a future
+     light theme retargets the whole chrome instead of ~200 literals. Values are
+     byte-identical to what they replace — this pass changes nothing visually. */
+  --white-rgb: 255, 255, 255;
+  --black-rgb: 0, 0, 0;
   /* Text color that stays legible on top of --accent-gradient. Light
      accents (emerald, ocean, solar) need dark text; saturated ones use white. */
   --on-accent: #ffffff;
