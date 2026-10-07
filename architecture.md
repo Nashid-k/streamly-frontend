@@ -278,7 +278,8 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
   exposes `movieService`, `EDITORIAL_RAILS`, `classifyTrailer`,
   `certificationFromDetail`, `normalizeResult`, `isBrowsableTitle`), `omdbClient.js`,
   `ratingService.js`, `videoSourceAdapter.js`, `subtitleFetcher.js`,
-  `downloadService.js` (native-player resolve driver — one method per server),
+  `streamResolve.js` (native-player resolve driver — one method per server;
+  renamed from downloadService.js when the download flow was removed),
   `prefetchAdapter.js`, `cdnImageAdapter.js`, `virtualRenderAdapter.js` (re-export of hook),
   `publicCollections.js` (same-origin anonymous public-collection fetch; throws
   typed errors on failure so the Explore page can render a retry state — never
@@ -330,7 +331,8 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
 - `src/utils/` — shared utilities (`@/utils`). `index.js` barrel. `debugLogger.js` (**all console output
   goes through here**), `index.js` (`asArray`/`EMPTY_ARRAY` null-safety + re-exports), `timezone`,
   `searchRanking`, `genreResults`, `releaseCalendar`, `ratings`, `notificationEngine`, `subtitleEngine`,
-  `downloadQuality` (pure HLS master/media playlist parser + quality/HDR labels),
+  `hlsPlaylist` (pure HLS master/media playlist parser + quality/HDR labels;
+  renamed from downloadQuality.js),
   `platforms`, `metaFacts`, `chunkRecovery`.
 - `src/__tests__/` — vitest suites (service shape, ranking, engines, components, barrels).
   `src/queryClient.js` — QueryClient + global `QueryCache.onError` logger. `src/main.jsx` — boot

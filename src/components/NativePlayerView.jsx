@@ -1,6 +1,6 @@
 // src/components/NativePlayerView.jsx â€” the app's player, opened by the hero /
 // episode Play buttons. Resolves VidCore-first (4K) â†’ VidSrc â†’ NHD (multi-
-// audio) via downloadService, with a Servers menu to switch the active server,
+// audio) via streamResolve, with a Servers menu to switch the active server,
 // and plays through hls.js (manifest relay + direct-segment loader). Custom
 // transport only: no native <video controls>.
 // Quality lives in the Audio & Subtitles dialog (Netflix has no quality menu), and
@@ -24,7 +24,7 @@ import {
 } from "./player";
 import NetflixStillWatching from "./NetflixStillWatching";
 import Hls from "hls.js";
-import { variantLabel } from "../utils/downloadQuality";
+import { variantLabel } from "../utils/hlsPlaylist";
 import { createStreamlyLoader, probeSourcePlayable } from "../api/nativeHlsLoader";
 import { takeWarmResolve } from "../api/warmResolve";
 import { SKIP_DATA_CREDIT, fetchSkipBoundaries } from "../api/skipBoundarySource";

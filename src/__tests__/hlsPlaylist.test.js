@@ -10,7 +10,7 @@ import {
   resolutionLabel,
   safeFileName,
   variantLabel,
-} from "../utils/downloadQuality";
+} from "../utils/hlsPlaylist";
 
 const MASTER = `#EXTM3U
 #EXT-X-VERSION:6

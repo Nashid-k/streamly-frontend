@@ -96,16 +96,16 @@ const ZXC_RESOLVE = {
   ],
 };
 
-vi.mock("../api/downloadService", async (orig) => {
+vi.mock("../api/streamResolve", async (orig) => {
   const actual = await orig();
   const zxc = (args) => {
     hlsState.resolveCalls.push(args);
-    return actual.downloadService.normalizeResolved(ZXC_RESOLVE);
+    return actual.streamResolve.normalizeResolved(ZXC_RESOLVE);
   };
   return {
     ...actual,
-    downloadService: {
-      ...actual.downloadService,
+    streamResolve: {
+      ...actual.streamResolve,
       resolve: zxc,
       resolveZxc: zxc,
     },

@@ -63,7 +63,7 @@ describe("Architecture & Folder Structure Barrels", () => {
     expect(Api.fetchOmdbByImdbId).toBeDefined();
     expect(Api.ratingService).toBeDefined();
     expect(Api.SubtitleFetcher).toBeDefined();
-    expect(Api.downloadService).toBeDefined();
+    expect(Api.streamResolve).toBeDefined();
     expect(Api.PrefetchAdapter).toBeDefined();
     expect(Api.CdnImageAdapter).toBeDefined();
     expect(Api.useVirtualRenderAdapter).toBeDefined();

@@ -18,7 +18,7 @@
 // fixed per source attempt.
 
 import { logDebug, logWarn } from "../utils/debugLogger.js";
-import { parseMasterPlaylist, parseMediaPlaylist } from "../utils/downloadQuality.js";
+import { parseMasterPlaylist, parseMediaPlaylist } from "../utils/hlsPlaylist.js";
 import { getCueBoundaries } from "../utils/hlsCueTags.js";
 import { deriveSliceMore, relayProxyConfig } from "./relayProxy.js";
 

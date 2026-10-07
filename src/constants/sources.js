@@ -25,7 +25,7 @@
    specifier AND the binding shape. A default import here resolves differently
    and silently bypasses tests that mock the download service (it did, and the
    real resolver went to the network mid-test). */
-import { downloadService } from "../api/downloadService";
+import { streamResolve } from "../api/streamResolve";
 
 /* Order matters twice over: it is the display number AND the auto-rotation
    order, so a row that is unreliable belongs late.
@@ -92,35 +92,35 @@ export const PLAYER_SOURCES = [
     label: "Server 1",
     tag: "Multi audio · up to 1080p",
     provider: "ZXC Centaurus",
-    resolve: (a, o) => downloadService.resolveZxc({ ...a, server: "centaurus" }, o),
+    resolve: (a, o) => streamResolve.resolveZxc({ ...a, server: "centaurus" }, o),
   },
   {
     key: "zxc-andromeda",
     label: "Server 2",
     tag: "Original audio · up to 1080p",
     provider: "ZXC Andromeda",
-    resolve: (a, o) => downloadService.resolveZxc({ ...a, server: "andromeda" }, o),
+    resolve: (a, o) => streamResolve.resolveZxc({ ...a, server: "andromeda" }, o),
   },
   {
     key: "zxc-atlas",
     label: "Server 3",
     tag: "Original audio · one quality",
     provider: "ZXC Atlas",
-    resolve: (a, o) => downloadService.resolveZxc({ ...a, server: "atlas" }, o),
+    resolve: (a, o) => streamResolve.resolveZxc({ ...a, server: "atlas" }, o),
   },
   {
     key: "zxc-meow",
     label: "Server 4",
     tag: "Original audio · up to 1080p",
     provider: "ZXC Ursa",
-resolve: (a, o) => downloadService.resolveZxc({ ...a, server: "meow" }, o),
+resolve: (a, o) => streamResolve.resolveZxc({ ...a, server: "meow" }, o),
   },
   {
     key: "zxc-orion",
     label: "Server 5",
     tag: "Multi audio · up to 1080p",
     provider: "ZXC Orion",
-    resolve: (a, o) => downloadService.resolveZxc({ ...a, server: "orion" }, o),
+    resolve: (a, o) => streamResolve.resolveZxc({ ...a, server: "orion" }, o),
   },
 ];
 

@@ -1,6 +1,12 @@
-// Shared download-quality helpers for the browser-only download flow.
+// src/utils/hlsPlaylist.js — shared HLS playlist parsing + variant labels.
 // Pure string/math helpers — no DOM, no fetch — so they unit-test cleanly
 // in jsdom and can run inside the Vercel function too.
+//
+// Renamed from downloadQuality.js (2026-10-07): the browser download flow it
+// was written for is gone, but its parsers became the shared HLS vocabulary
+// — api/stream.js resolves manifest/segment URIs with these rules server-side,
+// nativeHlsLoader.js parses playlists with them, and the resolver labels
+// variants from them.
 
 const KIND_TS = "ts";
 export const KIND_FMP4 = "fmp4";

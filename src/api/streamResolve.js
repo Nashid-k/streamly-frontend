@@ -1,4 +1,4 @@
-// src/api/downloadService.js — client half of the native playback resolvers.
+// src/api/streamResolve.js — client half of the native playback resolvers.
 //
 // The native player resolves each server's stream through the same-origin
 // Vercel function api/stream.js (media bytes ride that function and the
@@ -6,19 +6,21 @@
 // the RESOLVE contract: one method per server, every one normalizing to
 // `{ source, variants, audioTracks }` so the player treats providers uniformly.
 //
-// The browser download (save-to-disk) flow was removed — buildManifest /
-// saveStream / pickSaveTarget / the pause gate are gone. The resolve methods
-// and normalizeResolved stay because playback depends on them.
+// Renamed from downloadService.js (2026-10-07): the browser download
+// (save-to-disk) flow it once also served was removed — buildManifest /
+// saveStream / pickSaveTarget / the pause gate are gone — and the old name
+// advertised a feature that no longer exists. The resolve methods and
+// normalizeResolved stay because playback depends on them.
 
-import { estimateBytes, variantLabel } from "../utils/downloadQuality.js";
+import { estimateBytes, variantLabel } from "../utils/hlsPlaylist.js";
 import { logError, logInfo } from "../utils/debugLogger.js";
 
 const ENDPOINT = "/api/stream";
 
-export class DownloadUnavailableError extends Error {
+export class StreamUnavailableError extends Error {
   constructor(message, code) {
     super(message);
-    this.name = "DownloadUnavailableError";
+    this.name = "StreamUnavailableError";
     this.code = code || "unavailable";
   }
 }
@@ -36,10 +38,10 @@ async function post(body, { signal } = {}) {
     });
   } catch (error) {
     if (error?.name === "AbortError") throw error;
-    logError("download", "stream request failed (is the function deployed?)", error, {
+    logError("stream", "stream request failed (is the function deployed?)", error, {
       action: body?.action,
     });
-    throw new DownloadUnavailableError(
+    throw new StreamUnavailableError(
       "Stream resolver unreachable. Playback needs the deployed app (Vercel).",
       "offline",
     );
@@ -48,7 +50,7 @@ async function post(body, { signal } = {}) {
   // On plain static hosting the SPA catch-all answers with index.html.
   const contentType = response.headers.get("content-type") || "";
   if (!contentType.includes("application/json")) {
-    throw new DownloadUnavailableError(
+    throw new StreamUnavailableError(
       "Stream resolver returned a non-JSON response — the serverless function isn't running.",
       "offline",
     );
@@ -56,12 +58,12 @@ async function post(body, { signal } = {}) {
 
   const json = await response.json().catch(() => ({}));
   if (!json.ok) {
-    throw new DownloadUnavailableError(json.error || `Request failed (${response.status}).`, json.code);
+    throw new StreamUnavailableError(json.error || `Request failed (${response.status}).`, json.code);
   }
   return json;
 }
 
-export const downloadService = {
+export const streamResolve = {
   /** Normalize a resolver `{ ok, source, variants }` payload into the shape
       the player consumes (labeled variants, per-variant index). Sibling-URL
       dub tracks (ZXC Centaurus `audioTracks`) ride through untouched — the
@@ -97,7 +99,7 @@ export const downloadService = {
     const data = await post(body, { signal });
     const resolved = this.normalizeResolved(data);
     logInfo(
-      "download",
+      "stream",
       `Resolved ${resolved.variants.length} variant(s) via ZXC ${server}` +
         (resolved.audioTracks.length ? ` with ${resolved.audioTracks.length} audio track(s).` : "."),
       {
@@ -114,4 +116,4 @@ export const downloadService = {
   },
 };
 
-export default downloadService;
+export default streamResolve;

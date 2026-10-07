@@ -9,7 +9,7 @@ export { movieService } from "./movieService";
 export { fetchOmdbByImdbId } from "./omdbClient";
 export { ratingService } from "./ratingService";
 export { SubtitleFetcher } from "./subtitleFetcher";
-export { downloadService } from "./downloadService";
+export { streamResolve } from "./streamResolve";
 export { PrefetchAdapter } from "./prefetchAdapter";
 export { CdnImageAdapter } from "./cdnImageAdapter";
 export { useVirtualRenderAdapter } from "./virtualRenderAdapter";

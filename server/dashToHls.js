@@ -22,7 +22,7 @@
 //     nothing is resolved against a BaseURL and no relative-URL guess is made.
 //
 // Pure string work — no fetch, no DOM, no node builtins — so it unit-tests in
-// jsdom exactly like src/utils/downloadQuality.js does.
+// jsdom exactly like src/utils/hlsPlaylist.js does.
 
 const MAX_TEMPLATE_SEGMENTS = 20000; // ~28h at 5s; a guard, not a real limit.
 

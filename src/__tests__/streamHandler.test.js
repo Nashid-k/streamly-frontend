@@ -4,7 +4,8 @@
 //   [Streamly][download] <provider> has no downloadable stream
 //
 // The 500 was not a provider failure: api/stream.js imported `resolveUrl`
-// from src/utils/downloadQuality.js, which never exported it, so the ESM module
+// from src/utils/hlsPlaylist.js (then named downloadQuality.js), which never
+// exported it, so the ESM module
 // failed to LINK and every action threw before the handler ever ran. The client
 // then reported the 500 as "no downloadable stream", which is why the real cause
 // was invisible from the app's own logs.

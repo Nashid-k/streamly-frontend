@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { downloadService } from "../api/downloadService";
+import { streamResolve } from "../api/streamResolve";
 
 function jsonResponse(body) {
   return {
@@ -17,7 +17,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe("downloadService.resolveZxc", () => {
+describe("streamResolve.resolveZxc", () => {
   /* Sibling-URL dub tracks are NOT an NHD-only convenience: ZXC Centaurus is the
      one LIVE multi-audio server, and it ships its dubs the same way — a list of
      full sibling masters rather than #EXT-X-MEDIA rows. This coverage moved here
@@ -39,7 +39,7 @@ describe("downloadService.resolveZxc", () => {
       ),
     );
 
-    const resolved = await downloadService.resolveZxc({ type: "movie", id: "579974", server: "centaurus" });
+    const resolved = await streamResolve.resolveZxc({ type: "movie", id: "579974", server: "centaurus" });
     // Centaurus ships ONE unlabeled rung (height 0 -> the honest "Auto" label),
     // so the ladder is not the interesting part — the dub list is.
     expect(resolved.variants.map((v) => v.label)).toEqual(["Auto"]);
@@ -60,7 +60,7 @@ describe("downloadService.resolveZxc", () => {
         json: async () => ({}),
       }),
     );
-    await expect(downloadService.resolveZxc({ type: "movie", id: "550", server: "centaurus" })).rejects.toMatchObject({
+    await expect(streamResolve.resolveZxc({ type: "movie", id: "550", server: "centaurus" })).rejects.toMatchObject({
       code: "offline",
     });
   });
@@ -91,7 +91,7 @@ describe("downloadService.resolveZxc", () => {
       }),
     );
 
-    const resolved = await downloadService.resolveZxc({ type: "movie", id: "1101383", server: "centaurus" });
+    const resolved = await streamResolve.resolveZxc({ type: "movie", id: "1101383", server: "centaurus" });
     expect(capturedBody).toMatchObject({
       action: "resolvezxc",
       type: "movie",
@@ -117,7 +117,7 @@ describe("downloadService.resolveZxc", () => {
         });
       }),
     );
-    await downloadService.resolveZxc({ type: "tv", id: "1399", season: 2, episode: 3, server: "atlas" });
+    await streamResolve.resolveZxc({ type: "tv", id: "1399", season: 2, episode: 3, server: "atlas" });
     expect(capturedBody).toMatchObject({ server: "atlas", type: "tv", id: "1399", season: "2", episode: "3" });
   });
 
@@ -134,7 +134,7 @@ describe("downloadService.resolveZxc", () => {
         }),
       ),
     );
-    const resolved = await downloadService.resolveZxc({ type: "movie", id: "1101383", server: "atlas" });
+    const resolved = await streamResolve.resolveZxc({ type: "movie", id: "1101383", server: "atlas" });
     expect(resolved.variants.map((v) => v.label)).toEqual(["Auto"]);
     expect(resolved.source.multiLevelMaster).toBeUndefined();
     expect(resolved.audioTracks).toEqual([]);
@@ -146,7 +146,7 @@ describe("downloadService.resolveZxc", () => {
       vi.fn().mockResolvedValue(jsonResponse({ ok: false, error: "ZXC atlas has no source", code: "no-source" })),
     );
     await expect(
-      downloadService.resolveZxc({ type: "movie", id: "550", server: "atlas" }),
+      streamResolve.resolveZxc({ type: "movie", id: "550", server: "atlas" }),
     ).rejects.toMatchObject({ code: "no-source" });
   });
 });

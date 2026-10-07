@@ -17,8 +17,8 @@ const { resolveZxcMock } = vi.hoisted(() => ({
   resolveZxcMock: vi.fn(),
 }));
 
-vi.mock("../api/downloadService", () => ({
-  downloadService: { resolveZxc: resolveZxcMock },
+vi.mock("../api/streamResolve", () => ({
+  streamResolve: { resolveZxc: resolveZxcMock },
 }));
 
 const MOVIE_ARGS = { type: "movie", id: "550" };

@@ -48,7 +48,7 @@ import {
   parseMasterPlaylist,
   parseMediaPlaylist,
   resolveUrl,
-} from "../src/utils/downloadQuality.js";
+} from "../src/utils/hlsPlaylist.js";
 import { parseMpd, buildMasterPlaylist, buildMediaPlaylist } from "../server/dashToHls.js";
 import { rateLimit, tooManyRequests, clientIp } from "../server/rateLimit.js";
 import { countUsage } from "../server/usage.js";

@@ -41,7 +41,7 @@ export {
   estimateBytes,
   formatBytes,
   safeFileName,
-} from "./downloadQuality";
+} from "./hlsPlaylist";
 
 // Numeric preference reads (unset ≠ 0)
 export { readStoredNumber } from "./storedNumber";

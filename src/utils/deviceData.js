@@ -113,7 +113,7 @@ export function importDeviceData(rawJson) {
 }
 
 /* Download the snapshot as a file. Saves via the File System Access API when
-   available (same pattern as downloadService), Blob <a download> otherwise. */
+   available (same pattern as streamResolve), Blob <a download> otherwise. */
 export async function downloadDeviceData() {
   const snapshot = exportDeviceData();
   const json = JSON.stringify(snapshot, null, 2);
