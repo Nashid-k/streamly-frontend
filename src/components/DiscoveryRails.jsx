@@ -6,6 +6,7 @@ import { movieService } from "../api/movieService";
 import ErrorBoundary from "./ErrorBoundary";
 import SectionHeader from "./SectionHeader";
 import MovieCard from "./MovieCard";
+import SkeletonRail from "./SkeletonRail";
 import RailArrow from "./RailArrow";
 import useRailArrows from "../hooks/useRailArrows";
 import { asArray, EMPTY_ARRAY } from "../utils";
@@ -217,20 +218,7 @@ const DiscoveryRails = memo(function DiscoveryRails({ limit = 20 } = {}) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
       {loading
-        ? [1, 2, 3].map((rail) => (
-            <div key={rail}>
-              <div className="skeleton skeleton-title"></div>
-              <div className="skeleton-rail">
-                {[1, 2, 3, 4, 5].map((card) => (
-                  <div key={card} className="skeleton-moviecard">
-                    <div className="skeleton sk-poster"></div>
-                    <div className="skeleton sk-line sk-line--w70"></div>
-                    <div className="skeleton sk-line sk-line--sub"></div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))
+        ? [1, 2, 3].map((rail) => <SkeletonRail key={rail} />)
         : sections.map((section) => (
             <motion.section
               key={section.id}

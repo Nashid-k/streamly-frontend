@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { movieService } from "../api/movieService";
 import MovieCard from "../components/MovieCard";
+import MovieCardSkeleton from "../components/MovieCardSkeleton";
 import DiscoveryRails from "../components/DiscoveryRails";
 import AmbientBackground from "../components/AmbientBackground";
 import ErrorBoundary from "../components/ErrorBoundary";
@@ -169,11 +170,7 @@ export default function GenrePage() {
           {loading ? (
             <div className="movie-grid" style={{ marginTop: "1rem" }}>
               {[...Array(12)].map((_, i) => (
-                <div key={i} className="skeleton-moviecard">
-                  <div className="skeleton sk-poster"></div>
-                  <div className="skeleton sk-line sk-line--w70"></div>
-                  <div className="skeleton sk-line sk-line--sub"></div>
-                </div>
+                <MovieCardSkeleton key={i} />
               ))}
             </div>
           ) : error ? (

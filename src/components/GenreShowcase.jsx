@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { movieService } from "../api/movieService";
 import { DiscoveryRail } from "./DiscoveryRails";
+import SkeletonRail from "./SkeletonRail";
 import { useNearViewport } from "../hooks/useNearViewport";
 import ErrorBoundary from "./ErrorBoundary";
 import { logEmptyData, reportQueryError } from "../utils/debugLogger";
@@ -114,20 +115,7 @@ function GenreRail({ rail, mediaTypes, limit }) {
     // Always mounted so the observer has a target; a row with nothing to show
     // collapses to zero height.
     <div ref={sentinelRef}>
-      {isLoading && (
-        <div>
-          <div className="skeleton skeleton-title"></div>
-          <div className="skeleton-rail">
-            {[1, 2, 3, 4, 5].map((card) => (
-              <div key={card} className="skeleton-moviecard">
-                <div className="skeleton sk-poster"></div>
-                <div className="skeleton sk-line sk-line--w70"></div>
-                <div className="skeleton sk-line sk-line--sub"></div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {isLoading && <SkeletonRail />}
       {movies.length > 0 && (
         <motion.section
           initial={{ opacity: 0, y: 16 }}

@@ -5437,3 +5437,25 @@ Zero visual change: dedupes two conflicting definitions and one duplicate token.
   it is a visual batch, not a structural one. Rank 5 (chip/pill variants) also
   still open.
 - Gates: lint 0 errors, test 80 files / 1043 passed, build green (1.87s).
+
+## UI/UX Rank 3 — unify feedback surfaces (2026-10-07)
+
+Zero visual change — same DOM, one source of truth.
+
+- Extracted `MovieCardSkeleton` (src/components/MovieCardSkeleton.jsx): the
+  copy-pasted `div.skeleton-moviecard` + sk-poster/sk-line trio was hand-written
+  in ~11 places across 9 files with drift already visible (CategoryPage and
+  MovieDetailsSkeleton used sk-line--w40, MovieDetailsSkeleton tweaked the
+  poster radius). Component takes `lastLine="sub"|"w40"`, `style`, `posterStyle`.
+- Extracted `SkeletonRail` (src/components/SkeletonRail.jsx): title + N-card
+  rail loading shell, used by HomePage (4x8), DiscoveryRails (3x5),
+  GenreShowcase (1x5).
+- Swapped all 11 copy sites: GenrePage, CategoryPage (w40), SearchPage x2,
+  DiscoveryPage, PersonDetailsPage x2 (one carries the inline width-200 style),
+  MovieDetailsSkeleton (w40 + poster radius), HomePage, DiscoveryRails,
+  GenreShowcase.
+- Empty states were already a single shared component (EmptyState.jsx), no
+  consolidation needed there. Spinners (RingSpinner primitives.jsx, Loader.jsx,
+  lucide Loader2) are used in disjoint contexts and stay as-is this pass.
+- Gates: lint 0 errors (only pre-existing warnings), test 80 files / 1043
+  passed, build green (1.68s). +2 component files, -61 net lines.

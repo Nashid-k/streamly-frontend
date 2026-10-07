@@ -1,3 +1,5 @@
+import MovieCardSkeleton from "./MovieCardSkeleton";
+
 export default function MovieDetailsSkeleton() {
   return (
     <div
@@ -224,11 +226,7 @@ export default function MovieDetailsSkeleton() {
         </div>
         <div className="movie-grid">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="skeleton-moviecard">
-              <div className="skeleton sk-poster" style={{ borderRadius: "12px" }} />
-              <div className="skeleton sk-line sk-line--w70" />
-              <div className="skeleton sk-line sk-line--w40" />
-            </div>
+            <MovieCardSkeleton key={i} lastLine="w40" posterStyle={{ borderRadius: "12px" }} />
           ))}
         </div>
       </div>

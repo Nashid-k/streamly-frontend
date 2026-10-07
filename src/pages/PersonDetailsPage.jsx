@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { movieService } from "../api/movieService";
 import MovieCard from "../components/MovieCard";
+import MovieCardSkeleton from "../components/MovieCardSkeleton";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { logEmptyData, reportQueryError } from "../utils/debugLogger";
 
@@ -128,11 +129,7 @@ export default function PersonDetails() {
           </div>
           <div style={{ display: "flex", gap: "1.5rem", marginTop: "1.5rem", overflow: "hidden" }}>
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="skeleton-moviecard" style={{ width: "200px", flexShrink: 0 }}>
-                <div className="skeleton sk-poster"></div>
-                <div className="skeleton sk-line sk-line--w70"></div>
-                <div className="skeleton sk-line sk-line--sub"></div>
-              </div>
+              <MovieCardSkeleton key={i} style={{ width: "200px", flexShrink: 0 }} />
             ))}
           </div>
         </section>
@@ -144,11 +141,7 @@ export default function PersonDetails() {
           </div>
           <div className="movie-grid" style={{ marginTop: "1.5rem" }}>
             {[...Array(8)].map((_, i) => (
-              <div key={i} className="skeleton-moviecard">
-                <div className="skeleton sk-poster"></div>
-                <div className="skeleton sk-line sk-line--w70"></div>
-                <div className="skeleton sk-line sk-line--sub"></div>
-              </div>
+              <MovieCardSkeleton key={i} />
             ))}
           </div>
         </section>

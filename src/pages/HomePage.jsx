@@ -24,6 +24,7 @@ import RatingsCluster from "../components/RatingsCluster";
 import RailArrow from "../components/RailArrow";
 import LeavingSoonBanner from "../components/LeavingSoonBanner";
 import GenreShowcase from "../components/GenreShowcase";
+import SkeletonRail from "../components/SkeletonRail";
 import { detectLeavingSoon, buildUpcoming } from "../utils/releaseCalendar";
 import { asArray, EMPTY_ARRAY } from "../utils";
 import { useI18n } from "../i18n/index.jsx";
@@ -1242,20 +1243,7 @@ export default function Home({
           <div
             style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}
           >
-            {[1, 2, 3, 4].map((rail) => (
-              <div key={rail}>
-                <div className="skeleton skeleton-title"></div>
-                <div className="skeleton-rail">
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map((card) => (
-                    <div key={card} className="skeleton-moviecard">
-                      <div className="skeleton sk-poster"></div>
-                      <div className="skeleton sk-line sk-line--w70"></div>
-                      <div className="skeleton sk-line sk-line--sub"></div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
+            {[1, 2, 3, 4].map((rail) => <SkeletonRail key={rail} cards={8} />)}
           </div>
         ) : categories.length === 0 ? (
           <h3 style={{ textAlign: "center", color: "#a1a1aa" }}>

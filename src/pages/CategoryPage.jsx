@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { movieService } from "../api/movieService";
 import { motion } from "framer-motion";
 import MovieCard from "../components/MovieCard";
+import MovieCardSkeleton from "../components/MovieCardSkeleton";
 import AmbientBackground from "../components/AmbientBackground";
 import ErrorBoundary from "../components/ErrorBoundary";
 import ContentPageHeader from "../components/ContentPageHeader";
@@ -119,11 +120,7 @@ export default function CategoryPage() {
         />
         <div className="movie-grid" style={{ marginTop: "1rem" }}>
           {[...Array(12)].map((_, i) => (
-            <div key={i} className="skeleton-moviecard">
-              <div className="skeleton sk-poster"></div>
-              <div className="skeleton sk-line sk-line--w70"></div>
-              <div className="skeleton sk-line sk-line--w40"></div>
-            </div>
+            <MovieCardSkeleton key={i} lastLine="w40" />
           ))}
         </div>
         </div>
