@@ -26,6 +26,9 @@
   padding: 5px 12px !important;
   font-size: 0.78rem !important;
   gap: 0.35rem !important;
+  /* ui-kit.css used to restate .btn-sm with its own values; this is the single
+     definition now (border-radius folded in from there, same computed value). */
+  border-radius: var(--radius-sm);
 }
 .btn::after {
   content: '';

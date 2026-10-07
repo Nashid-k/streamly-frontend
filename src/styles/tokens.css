@@ -14,7 +14,7 @@
   --text-muted: #71717a;
   --text-faint: #52525b;
   --accent-color: #95ff50;
-  --accent-primary: #95ff50;
+  --accent-primary: var(--accent-color);
   --accent-secondary: #5ce21c;
   --accent-gradient: linear-gradient(135deg, #95ff50 0%, #5ce21c 100%);
   --accent-glow: rgba(149, 255, 80, 0.35);

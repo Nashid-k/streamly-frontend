@@ -5415,3 +5415,25 @@ No visual change: every substitution is byte-identical in computed value.
   lands; rgba accent uses outside `--accent-glow` still literal; JSX inline
   colors in HomePage/TitleDetails deferred.
 - Gates: lint 0 errors, test 80 files / 1043 passed, build green (1.70s).
+
+## UI/UX Rank 1 — button consolidation, structural pass (2026-10-07)
+
+Zero visual change: dedupes two conflicting definitions and one duplicate token.
+
+- `.btn-sm` was defined in BOTH buttons.css (padding 5px 12px !important, font-size
+  0.78rem !important, gap 0.35rem !important) AND ui-kit.css (6px 14px,
+  var(--text-xs), border-radius var(--radius-sm)). ui-kit loads AFTER buttons.css
+  in main.jsx, so its border-radius:var(--radius-sm) (8px) silently outranked the
+  `.btn` base 100px pill radius while its padding/font-size were dead behind the
+  `!important` versions. Merged into ONE `.btn-sm` in buttons.css (border-radius
+  folded in — identical computed value), deleted the ui-kit copy.
+- `--accent-primary` (tokens.css) held the same literal `#95ff50` as
+  `--accent-color`; now an alias `var(--accent-color)`, single brand source.
+  The `var(--accent-primary, <fallback>)` call sites (theme-tinted fallbacks)
+  are untouched.
+- **Deferred (needs visual approval):** mapping the player's `.np-icon-btn` /
+  `.np-resume-btn` / `.np-restart-btn` and the hero `.hero-cta-*` CTAs onto the
+  shared `.btn` + Button.jsx variants — that changes rendered radii/weights, so
+  it is a visual batch, not a structural one. Rank 5 (chip/pill variants) also
+  still open.
+- Gates: lint 0 errors, test 80 files / 1043 passed, build green (1.87s).

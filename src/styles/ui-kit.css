@@ -14,13 +14,8 @@
 }
 
 /* ── Buttons ─────────────────────────────────────────────── */
-/* Duplicate button block removed — styles in main .btn section above */
-
-.btn-sm {
-  padding: 6px 14px;
-  font-size: var(--text-xs);
-  border-radius: var(--radius-sm);
-}
+/* Duplicate button block removed — styles in the .btn section of buttons.css
+   (base, sm, variants) are the single source; .btn-sm lives there only. */
 
 .btn-pill {
   border-radius: var(--radius-full);
