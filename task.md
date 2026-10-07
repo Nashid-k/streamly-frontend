@@ -5364,9 +5364,13 @@ zero consumers in the live tree (source components, JSX, tests) before removal.
   scrubbed from the responsive.css `:not(...)` exclusion). `btn-cta-pulse` KEPT
   (comment documents "kept for API stability"). `theme-btn-primary`,
   `custom-scrollbar`, `.is-icon` were already comment-only — no rules existed.
-- **Dead keyframes:** `npLoadingLine` + `npRingSpin` (player.css),
-  `loader-spin-cw/ccw`, `loader-pulse-center`, `loader-dash` (ui-kit.css) — all
-  definition-only, zero `animation:` references.
+- **Dead keyframes:** `npLoadingLine` + `npRingSpin` (player.css) and
+  `loader-spin-cw` (ui-kit.css) - definition-only, zero references anywhere.
+  **Correction (2026-10-07):** a first pass also removed `loader-spin-ccw`,
+  `loader-pulse-center` and `loader-dash` on the same evidence, but Loader.jsx
+  drives them through inline `animation:` strings in JSX (not CSS rules), so a
+  CSS-only grep missed them (the animation-name never appears in a stylesheet).
+  Restored in the same session, re-verified across js/jsx/css, gates green.
 - **Dead components deleted:** `ArcRing.jsx`, `LoadingArc.jsx`,
   `NetflixBrightnessHUD.jsx` (player), `YoutubeRawTrailer.jsx`,
   `LiquidGlassDefs.jsx` (its `#streamly-lg-dist` filter had only one consumer,
