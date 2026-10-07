@@ -7,6 +7,7 @@ import { useAppAuth } from "../context/auth";
 import { useToast } from "../components/Toast.jsx";
 import { useConfirmDialog } from "../components/ConfirmDialog.jsx";
 import MovieCard from "../components/MovieCard.jsx";
+import { progressPct } from "../utils/resumeProgress";
 import ErrorBoundary from "../components/ErrorBoundary";
 import ContentPageHeader from "../components/ContentPageHeader";
 
@@ -340,13 +341,7 @@ export default function HistoryPage() {
                             <MovieCard
                               movie={movie}
                               showProgress={true}
-                              progressValue={
-                                movie.timestamp > 0 && movie.duration > 0
-                                  ? Math.min(95, Math.round((movie.timestamp / movie.duration) * 100))
-                                  : movie.timestamp > 0
-                                    ? Math.min(95, Math.max(10, Math.round(movie.timestamp / 60)))
-                                    : 0
-                              }
+                              progressValue={progressPct(movie)}
                             />
                             {isSelectMode ? (
                               <div

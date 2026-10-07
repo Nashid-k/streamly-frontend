@@ -222,11 +222,18 @@ export function AuthProvider({ children }) {
 
   // Sync across browser tabs or windows
   useEffect(() => {
+    // `syncOnCustom` handles the app's OWN aios_user_sync broadcast. The native
+    // `storage` event fires for EVERY localStorage write from any tab — a rail
+    // saving continue-watching progress, a preference flip — so it is gated to
+    // actual profile changes (or a full clear) before repainting the whole tree.
     const onUserChange = () => setUser(safeUserParse());
-    window.addEventListener("storage", onUserChange);
+    const onStorageKeyChange = (e) => {
+      if (e.key === null || e.key === USER_KEY) onUserChange();
+    };
+    window.addEventListener("storage", onStorageKeyChange);
     window.addEventListener("aios_user_sync", onUserChange);
     return () => {
-      window.removeEventListener("storage", onUserChange);
+      window.removeEventListener("storage", onStorageKeyChange);
       window.removeEventListener("aios_user_sync", onUserChange);
     };
   }, []);

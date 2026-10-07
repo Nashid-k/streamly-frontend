@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useId } from "react";
 import { useIsFetching, useIsMutating } from "@tanstack/react-query";
 
 /**
@@ -16,6 +16,12 @@ export default function Loader({ variant = "page", size, color }) {
   const isGlobalLoading = isFetching > 0 || isMutating > 0;
 
   const [showGlobal, setShowGlobal] = useState(false);
+
+  // The gradient def is referenced by url(#id): a FIXED id would point every
+  // instance (even a `color`-free one) at the FIRST gradient in the DOM, so a
+  // colored loader elsewhere on the page could turn this ring solid. Unique per
+  // instance keeps each loader's fill its own.
+  const gradientId = useId();
 
   useEffect(() => {
     if (variant !== "global") return;
@@ -39,7 +45,6 @@ export default function Loader({ variant = "page", size, color }) {
   const useGradient = !color;
   const primaryColor = color || "var(--accent-primary, #95ff50)";
   const secondaryColor = color || "var(--accent-secondary, #5ce21c)";
-  const gradientId = "streamly-loader-grad";
 
   const gradientUrl = `url(#${gradientId})`;
   // NOTE: SVG geometry attributes (stroke, stop-color) do not resolve

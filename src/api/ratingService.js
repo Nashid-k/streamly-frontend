@@ -1,6 +1,6 @@
 import tmdb from "./tmdbClient";
 import { fetchOmdbByImdbId } from "./omdbClient";
-import { logDebug, logError } from "../utils/debugLogger";
+import { logDebug, logError, logWarn } from "../utils/debugLogger";
 
 // OMDb is limited to 1,000 requests/day, so every resolved title (including
 // misses) is cached in localStorage for 24h. Revisits never hit the API again.
@@ -104,7 +104,9 @@ export const ratingService = {
       return result;
     } catch (error) {
       logError("ratings", `Real-ratings lookup failed for ${movie.id} — falling back to TMDB score. (OMDb quota is 1k/day.)`, error, { id: movie.id });
-      writeCache(movie.id, null);
+      // Do NOT cache the failure: a transient OMDb/TMDB error cached as `null`
+      // would suppress real scores for the whole 24h window despite the working
+      // fallback path (the miss also never gets re-resolved on revisit).
       return null;
     }
   },

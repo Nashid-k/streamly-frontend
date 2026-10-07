@@ -238,17 +238,32 @@ const inFlightRequests = new Map();
 
 /* `opts.signal` lets a caller cancel (search uses it so a stale query for the
    previous keystroke never lands on screen). Identical in-flight GETs still
-   share one round trip: a joining caller simply does not get its own handle on
-   the shared request, which is right — aborting a request someone else is
-   waiting on would be the wrong trade. */
+   share one round trip. A JOINING caller never gets to abort the shared fetch
+   (that is the original caller's handle alone), and if the shared request is
+   cancelled underneath a joining caller, the joining caller runs its OWN
+   request rather than surfacing a spurious error for a cancel it never asked
+   for — otherwise one caller hitting "stop" poisoned every rail waiting on the
+   same in-flight response. */
 async function tmdb(path, params = {}, opts = {}) {
   const query = buildQuery(params);
   const key = `${path}?${query}`;
   const shared = inFlightRequests.get(key);
   if (shared) {
     logDebug('tmdb', `deduped concurrent GET ${path}`, { path, params });
-    const data = await shared;
-    return typeof structuredClone === 'function' ? structuredClone(data) : data;
+    try {
+      const data = await shared;
+      return typeof structuredClone === 'function' ? structuredClone(data) : data;
+    } catch (error) {
+      // The shared request was cancelled by ITS original caller, or it failed.
+      // A joining caller that did not cancel must not inherit that abort, so
+      // fall through and run its own request. Its own cancellation (or a real
+      // shared failure) still surfaces normally.
+      if (error?.name === 'AbortError' && !opts?.signal?.aborted) {
+        logDebug('tmdb', `shared GET ${path} aborted by its original caller — running own request for the joining caller.`, { path, params });
+        return tmdb(path, params, opts);
+      }
+      throw error;
+    }
   }
   const request = fetchTmdb(path, params, query, opts);
   inFlightRequests.set(key, request);

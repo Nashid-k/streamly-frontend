@@ -120,8 +120,13 @@ export default function TitleDetails() {
   // Wrap toggleMyList to show toast feedback
   const handleToggleMyList = async (movieObj) => {
     const wasInList = isInList(movieObj.id);
+    // `toggleMyList` is the gated wrapper: an anonymous viewer is stopped at the
+    // door with a sign-in prompt and the wrapper returns false WITHOUT toggling.
+    // Falling through then would toast "Added"/"Removed" (and open the picker)
+    // for a save that never happened.
+    if ((await toggleMyList(movieObj)) === false) return;
     try {
-      await toggleMyList(movieObj);      if (wasInList) {
+      if (wasInList) {
         toast({
           title: "Removed from List",
           message: `"${movieObj.title}" was removed.`,
@@ -287,13 +292,14 @@ export default function TitleDetails() {
   );
 
   // Pickers' inline "create + add" target.
-  const handlePickerCreateFromDetails = (name, visibility) => {
+  const handlePickerCreateFromDetails = (name, movieIds, visibility) => {
     if (!movie) return;
-    const created = createCollectionWithItems(name, [movie.id], { visibility });
+    const created = createCollectionWithItems(name, movieIds, { visibility });
     if (created) {
+      const count = (movieIds || []).length;
       toast({
         title: "Collection Created",
-        message: `"${name}" created with 1 title.`,
+        message: `"${name}" created with ${count} ${count === 1 ? "title" : "titles"}.`,
         type: "success",
         duration: 2500,
       });
@@ -2307,8 +2313,8 @@ export default function TitleDetails() {
         movie={movie}
         collections={collections || []}
         onToggle={toggleInCollection}
-        onCreateWithItems={(name, visibility) =>
-          handlePickerCreateFromDetails(name, visibility)
+        onCreateWithItems={(name, movieIds, visibility) =>
+          handlePickerCreateFromDetails(name, movieIds, visibility)
         }
         onClose={() => setCollectionPickerOpen(false)}
       />

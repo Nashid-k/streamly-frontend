@@ -11,8 +11,12 @@ import ContentPageHeader from "../components/ContentPageHeader";
 import { logEmptyData, reportQueryError } from "../utils/debugLogger";
 
 export default function CategoryPage() {
+  // useParams already percent-decodes (so "Popular%20Now" arrives as
+  // "Popular Now"); decoding AGAIN would turn a literal "%20" in a category
+  // name into a space, and throw an URIError on a malformed escape like
+  // "/category/%E0" — an uncaught crash, then a full ErrorBoundary fallback.
   const { name } = useParams();
-  const categoryName = decodeURIComponent(name);
+  const categoryName = name;
 
   // Scroll to top on mount
   useEffect(() => {

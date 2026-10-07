@@ -1,7 +1,7 @@
 import tmdb from '../tmdbClient';
 import { CdnImageAdapter } from '../cdnImageAdapter';
 import { logEmptyData, logWarn } from '../../utils/debugLogger';
-import { logServiceError, warnIfEmpty } from './core';
+import { logServiceError, warnIfEmpty, collectSettled } from './core';
 import { normalizeResult, REGIONAL_PRIMARY_LANGUAGES } from './normalize';
 
 // Resolve a browse filter set to TMDB request params. Kept tiny and pure so
@@ -105,9 +105,8 @@ export const getUpcomingMovies = async () => {
       [1, 2, 3].map((page) => tmdb('/movie/upcoming', { page })),
     );
     const out = [];
-    for (const res of pages) {
-      if (res.status !== 'fulfilled') continue;
-      for (const r of (res.value.results || [])) {
+    for (const data of collectSettled(pages, 'getUpcomingMovies', {})) {
+      for (const r of (data.results || [])) {
         if (!r.release_date) continue;
         out.push({ ...normalizeResult({ ...r, media_type: 'movie' }), releaseDate: r.release_date });
       }
@@ -143,9 +142,8 @@ export const getFutureMovies = async () => {
       ),
     );
     const out = [];
-    for (const res of pages) {
-      if (res.status !== 'fulfilled') continue;
-      for (const r of (res.value.results || [])) {
+    for (const data of collectSettled(pages, 'getFutureMovies', {})) {
+      for (const r of (data.results || [])) {
         if (!r.release_date) continue;
         out.push({ ...normalizeResult({ ...r, media_type: 'movie' }), releaseDate: r.release_date });
       }
@@ -195,9 +193,8 @@ export const getNewReleases = async (pastDays = 90) => {
       );
       const out = [];
       const seen = new Set();
-      for (const res of pages) {
-        if (res.status !== 'fulfilled') continue;
-        for (const r of (res.value.results || [])) {
+      for (const data of collectSettled(pages, 'getNewReleases', { pastDays, languages: langs.join(',') })) {
+        for (const r of (data.results || [])) {
           const releaseDate = r[dateKey];
           if (!releaseDate || !/^\d{4}-\d{2}-\d{2}$/.test(releaseDate)) continue;
           const item = normalizeResult({ ...r, media_type: mediaType });
@@ -212,14 +209,22 @@ export const getNewReleases = async (pastDays = 90) => {
     const [movies, series] = await Promise.allSettled([sweep('movie'), sweep('tv')]);
     const merged = [];
     const seen = new Set();
+    let firstError = null;
     for (const feed of [movies, series]) {
-      if (feed.status !== 'fulfilled') continue;
-      for (const item of feed.value) {
-        if (seen.has(item.id)) continue;
-        seen.add(item.id);
-        merged.push(item);
+      if (feed.status === 'fulfilled') {
+        for (const item of feed.value) {
+          if (seen.has(item.id)) continue;
+          seen.add(item.id);
+          merged.push(item);
+        }
+      } else if (!firstError) {
+        firstError = feed.reason;
+        logServiceError('getNewReleases', feed.reason, { pastDays, languages: langs.join(',') });
       }
     }
+    // Both media feeds errored → surface it (callers show their error state)
+    // instead of silently rendering an empty banner once its fetches recover.
+    if (merged.length === 0 && firstError) throw firstError;
     merged.sort((a, b) => String(b.releaseDate).localeCompare(String(a.releaseDate)));
     warnIfEmpty('getNewReleases', merged, { pastDays, languages: langs.join(',') });
     return merged;
@@ -257,9 +262,8 @@ export const getRegionalUpcoming = async (windowDays = 90) => {
     );
     const out = [];
     const seen = new Set();
-    for (const res of pages) {
-      if (res.status !== 'fulfilled') continue;
-      for (const r of (res.value.results || [])) {
+    for (const data of collectSettled(pages, 'getRegionalUpcoming', { windowDays, languages: REGIONAL_PRIMARY_LANGUAGES.join(',') })) {
+      for (const r of (data.results || [])) {
         if (!r.release_date) continue;
         const item = normalizeResult({ ...r, media_type: 'movie' });
         if (seen.has(item.id)) continue;

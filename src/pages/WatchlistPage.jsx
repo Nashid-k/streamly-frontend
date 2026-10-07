@@ -111,7 +111,7 @@ function CollectionCard({ collection, items, onOpen, onRename, onDelete, onToggl
               : t("collections.visibilityPrivate")}
           </span>
           <span className="collection-card__count">
-            {collection.itemIds.length} {collection.itemIds.length === 1 ? "title" : "titles"}
+            {(collection.itemIds?.length ?? 0)} {(collection.itemIds?.length ?? 0) === 1 ? "title" : "titles"}
           </span>
         </div>
         <div className="collection-card__actions">
@@ -295,9 +295,14 @@ export default function WatchlistPage() {
     (c) => {
       const nextVisibility = c.visibility === "public" ? "private" : "public";
       if (setCollectionVisibility(c.id, nextVisibility) === false) return;
+      // The toast must describe the direction actually taken: flipping to
+      // private while announcing "Published! It now appears on Explore" would
+      // tell the viewer the opposite of what just happened.
       toast({
-        title: t("collections.visibilityPublic"),
-        message: t("collections.publishSuccess"),
+        title: nextVisibility === "public" ? t("collections.visibilityPublic") : t("collections.visibilityPrivate"),
+        message: nextVisibility === "public"
+          ? t("collections.publishSuccess")
+          : "It is now private to you.",
         type: "success",
         duration: 4000,
       });
@@ -1016,8 +1021,8 @@ export default function WatchlistPage() {
         movie={pickerMovie}
         collections={collections}
         onToggle={toggleInCollection}
-        onCreateWithItems={(name, visibility) =>
-          confirmPickerCreate(name, pickerMovie?.id, visibility)
+        onCreateWithItems={(name, movieIds, visibility) =>
+          confirmPickerCreate(name, movieIds?.[0] ?? pickerMovie?.id, visibility)
         }
         onClose={() => setPickerMovie(null)}
       />

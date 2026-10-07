@@ -268,6 +268,10 @@ export default function NativePlayerView({
   watchedEntryRef.current = watchedEntry;
   const lastProgressSaved = useRef(0);
   const resumeHandledKeyRef = useRef(null); // title/episode key that already offered resume
+  // Ticks remaining before the resume card auto-commits. Mirrored separately
+  // from the offer so the countdown interval can drive BOTH the counter and the
+  // final seek in one pass (see the effect below).
+  const resumeLeftRef = useRef(RESUME_WAIT_SECONDS);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   // Live views for closures that must not read stale hold/still-watching state.
@@ -540,14 +544,8 @@ export default function NativePlayerView({
   togglePlayRef.current = togglePlay;
 
   const seekTo = (value) => {
-    const video = videoRef.current;
-    if (!video) return;
     setEnded(false);
-    try {
-      video.currentTime = Number(value) || 0;
-    } catch {
-      // live-edge clamp â€” ignore out-of-range seeks
-    }
+    safeSeek(Number(value) || 0);
   };
 
   const replay = async () => {
@@ -738,6 +736,25 @@ setScrubDragging(true);
   };
   seekRelativeRef.current = seekRelative;
 
+  /* Single place every absolute seek goes through. Direct currentTime writes
+     scattered through the player let stale saved positions (resume after a
+     quality switch, a media-session seekto, an intro-skip target) land BELOW 0
+     or past the end once duration arrives; this clamps exactly like
+     seekRelative's HUD math and swallows the element's range errors. */
+  const safeSeek = (seconds) => {
+    const video = videoRef.current;
+    if (!video) return;
+    const t = Number(seconds);
+    if (!Number.isFinite(t)) return;
+    const dur = Number(video.duration);
+    const clamped = Number.isFinite(dur) && dur > 0 ? Math.min(Math.max(0, t), dur) : Math.max(0, t);
+    try {
+      video.currentTime = clamped;
+    } catch {
+      // out-of-range seek — the element clamps; nothing else to do
+    }
+  };
+
   /* Netflix resume: when a continue-watching entry exists for this title/
      episode, offer "Left off at â€¦" once per session and auto-resume into the
      saved position after a short countdown. Restart scrubs to 0. */
@@ -751,6 +768,7 @@ setScrubDragging(true);
     if (resumeHandledKeyRef.current === key) return;
     if (at <= 0 || (dur > 0 && at >= dur * 0.92)) return; // finished / barely started
     resumeHandledKeyRef.current = key;
+    resumeLeftRef.current = RESUME_WAIT_SECONDS;
     setResumeOffer({ at, left: RESUME_WAIT_SECONDS });
   };
   maybeOfferResumeRef.current = maybeOfferResume;
@@ -760,11 +778,7 @@ setScrubDragging(true);
     poke();
     const video = videoRef.current;
     if (!video) return;
-    try {
-      video.currentTime = at;
-    } catch {
-      // live-edge clamp â€” start where the stream begins
-    }
+    safeSeek(at); // clamped to duration; saved positions are stale by nature
     if (video.paused) {
       video.play().catch(() => {
         // autoplay policy â€” the big custom play button stays available
@@ -807,26 +821,28 @@ setScrubDragging(true);
     return () => clearInterval(iv);
   }, [playing, onProgressChange]);
 
-  // Resume countdown: tick seconds-remaining, auto-commit at zero; refs keep the effect cheap.
+  // Resume countdown: ONE interval ticks the mirror ref and, on the tick that
+  // would otherwise just hide the card, commits the resume seek in the same
+  // pass. The old design paired this interval with a parallel setTimeout that
+  // was re-armed every offer-change (the re-render after each tick) — so the
+  // final tick nulled the offer, whose cleanup cancelled the pending auto-commit
+  // and the resume silently never fired. Now the counter reaches zero and the
+  // seek happens in a single step, and pausing still freezes the countdown.
   useEffect(() => {
     if (!resumeOffer) return undefined;
-    // The countdown only runs while playback is actually underway. When autoplay is
-    // blocked (or the user pauses mid-card) the ticks freeze and no seek fires â€”
-    // seeking into a paused player would flash "Resumingâ€¦" and vanish. Tapping play
-    // commits the offer instead (togglePlay).
     const tick = setInterval(() => {
       if (videoRef.current?.paused) return;
-      setResumeOffer((o) => (o && o.left > 1 ? { ...o, left: o.left - 1 } : null));
+      resumeLeftRef.current -= 1;
+      if (resumeLeftRef.current <= 0) {
+        // Counter expired: commit BEFORE hiding the card so nothing can cancel
+        // the pending seek (the offer is intentionally not derived from the ref).
+        const at = resumeOffer.at;
+        commitResumeRef.current?.(at);
+        return;
+      }
+      setResumeOffer((o) => (o ? { ...o, left: resumeLeftRef.current } : null));
     }, 1000);
-    const auto = setTimeout(() => {
-      if (!resumeOffer) return;
-      if (videoRef.current?.paused) return;
-      commitResumeRef.current?.(resumeOffer.at);
-    }, resumeOffer.left * 1000);
-    return () => {
-      clearInterval(tick);
-      clearTimeout(auto);
-    };
+    return () => clearInterval(tick);
   }, [resumeOffer]);
 
   const showHud = useCallback((kind, value) => {
@@ -1394,13 +1410,8 @@ setScrubDragging(true);
         seekRelativeRef.current(d?.seekOffset || SKIP_SECONDS),
       );
       navigator.mediaSession.setActionHandler("seekto", (d) => {
-        const v = videoRef.current;
-        if (!v || d?.seekTime == null) return;
-        try {
-          v.currentTime = d.seekTime;
-        } catch {
-          // out-of-range seek â€” clamp handled by the element itself
-        }
+        if (d?.seekTime == null) return;
+        safeSeek(d.seekTime);
       });
       return () => {
         try {
@@ -2069,10 +2080,7 @@ setScrubDragging(true);
           setStageWhileLoading(false);
           setSwitchingNote(null);
           if (resumeTime != null) {
-            try {
-              videoRef.current.currentTime = resumeTime;
-            } catch {
-            }
+            safeSeek(resumeTime);
             resumeTime = null;
           }
           try {
@@ -2322,11 +2330,8 @@ setScrubDragging(true);
         hls.on(Hls.Events.ERROR, onFatal);
       });
       if (switchTokenRef.current !== myId) return;
+      safeSeek(t);
       const video = videoRef.current;
-      try {
-        video.currentTime = t;
-      } catch {
-      }
       // Reproduce "a paused switch feels instant": a fresh play() with zero buffered data
       // drops straight back to `waiting`, so wait for the first media bytes (bounded)
       // before resuming.
@@ -2896,24 +2901,16 @@ const showSkipOutro = shouldShowSkipOutro({
     if (autoSkipFiredRef.current) return;
     if (!shouldAutoSkipIntroOnce({ type, id, season, episode, duration: safeDuration, currentTime, firedRef: autoSkipFiredRef, cueIntroEnd })) return;
     autoSkipFiredRef.current = true;
-    const v = videoRef.current;
-    if (!v || skipIntroTarget <= 0) return;
-    try {
-      v.currentTime = skipIntroTarget;
-    } catch {
-    }
+    if (skipIntroTarget <= 0) return;
+    safeSeek(skipIntroTarget);
   }, [autoSkipIntro, type, id, season, episode, safeDuration, currentTime, skipIntroTarget, cueIntroEnd]);
 
   const doSeekPast = (target) => {
-    const v = videoRef.current;
-    if (!v) return;
-    try {
-      v.currentTime = target;
-    } catch {
-    }
+    if (!videoRef.current) return;
+    safeSeek(target);
     poke();
     try {
-      v.play();
+      videoRef.current.play();
     } catch {
       // user gesture needed â€” custom transport is present
     }

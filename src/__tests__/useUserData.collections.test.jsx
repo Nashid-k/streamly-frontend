@@ -82,7 +82,7 @@ describe("useMyCollections", () => {
     expect(read().collections[0].itemIds.sort()).toEqual(["movie-1", "movie-2"]);
   });
 
-  it("renames and deletes a collection", async () => {
+  it("renames and deletes a collection (private delete keeps a 30-day tombstone)", async () => {
     const read = setup();
     let id;
     await act(async () => {
@@ -96,8 +96,13 @@ describe("useMyCollections", () => {
     await act(async () => {
       read().deleteCollection(id);
     });
+    // Live list empties, but storage keeps the tombstone so a stale cloud
+    // upload or cross-tab write cannot resurrect the deleted collection.
     expect(read().collections).toHaveLength(0);
-    expect(JSON.parse(localStorage.getItem("aios_my_collections"))).toHaveLength(0);
+    const stored = JSON.parse(localStorage.getItem("aios_my_collections"));
+    expect(stored).toHaveLength(1);
+    expect(stored[0].id).toBe(id);
+    expect(stored[0].deletedAt).toBeGreaterThan(0);
   });
 
   it("toggles membership and ignores empty ids", async () => {

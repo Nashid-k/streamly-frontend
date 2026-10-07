@@ -236,13 +236,14 @@ export function useMyCollections() {
   }, [commitCollections]);
 
     /* Delete keeps a 30-day tombstone so it survives cloud + cross-tab merges (a
-       stale re-upload can no longer resurrect it). The card UI filters them out. */
+       stale re-upload can no longer resurrect it). The card UI filters them out.
+       Private and public deletes alike keep the marker — a private collection
+       without a tombstone would resurrect on the next merge. */
   const deleteCollection = useCallback((id) => {
     const target = collectionsRef.current.find((c) => c.id === id);
     if (!target) return;
     const next = collectionsRef.current
-      .map((c) => (c.id === id ? { ...c, deletedAt: Date.now(), updatedAt: Date.now() } : c))
-      .filter((c) => c.id !== id || c.visibility === 'public');
+      .map((c) => (c.id === id ? { ...c, deletedAt: Date.now(), updatedAt: Date.now() } : c));
     commitCollections(next);
   }, [commitCollections]);
 
@@ -394,17 +395,23 @@ export function useContinueWatching() {
 
   const commitCw = useCallback((nextRaw, { throttle = false } = {}) => {
     setCwState(nextRaw);
-    if (!throttle) {
-      persistRef.current.pending = null;
-      flushCw();
-      persistRef.current.lastAt = Date.now();
+    if (throttle) {
+      persistRef.current.pending = nextRaw;
+      if (persistRef.current.timer !== null) return;
+      const wait = Math.max(0, CW_PERSIST_INTERVAL_MS - (Date.now() - persistRef.current.lastAt));
+      if (wait === 0) { flushCw(); return; }
+      persistRef.current.timer = setTimeout(flushCw, wait);
       return;
     }
-    persistRef.current.pending = nextRaw;
-    if (persistRef.current.timer !== null) return;
-    const wait = Math.max(0, CW_PERSIST_INTERVAL_MS - (Date.now() - persistRef.current.lastAt));
-    if (wait === 0) { flushCw(); return; }
-    persistRef.current.timer = setTimeout(flushCw, wait);
+    // Structural edits (remove/clear) persist immediately: flush any
+    // coalesced throttle first so a stale snapshot cannot land after this
+    // write, then write the new list straight through (flushCw only writes
+    // what was in the throttle queue, so it can't be used for this).
+    if (persistRef.current.timer !== null) { clearTimeout(persistRef.current.timer); persistRef.current.timer = null; }
+    persistRef.current.pending = null;
+    persistRef.current.lastAt = Date.now();
+    writeStorage('aios_continue_watching', nextRaw);
+    dispatch('aios_sync_cw');
   }, [flushCw]);
 
   const updateProgress = useCallback((movie, season = null, episode = null, timestamp = null) => {

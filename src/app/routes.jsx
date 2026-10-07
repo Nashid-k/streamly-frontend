@@ -1,5 +1,5 @@
 import { Suspense, lazy } from "react";
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, Link, useLocation } from "react-router-dom";
 import ErrorBoundary from "../components/ErrorBoundary";
 import Loader from "../components/Loader";
 
@@ -23,6 +23,20 @@ import VerifyEmailPage from "../pages/VerifyEmailPage";
 /* Routes wrapped in a route-keyed ErrorBoundary + Suspense so a page that
    crashes shows the fallback once but recovers automatically the moment the
    user navigates (without requiring a hard reload). */
+function NoMatch() {
+  return (
+    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 px-4 text-center">
+      <p className="text-5xl font-bold tracking-tight">404</p>
+      <p className="text-sm text-muted-foreground">
+        This page does not exist.
+      </p>
+      <Link className="text-sm font-medium underline underline-offset-4" to="/">
+        Back to Home
+      </Link>
+    </div>
+  );
+}
+
 function AppRoutes() {
   const location = useLocation();
   return (
@@ -67,6 +81,10 @@ function AppRoutes() {
               and a second Suspense flash before the user can click "Verify" is
               pure latency. */}
           <Route path="/verify-email" element={<VerifyEmailPage />} />
+          {/* Unknown path: an unmatched <Routes> renders NOTHING, so a stale
+              bookmarked link lands on a blank screen. Surface it honestly
+              instead of pretending every route exists. */}
+          <Route path="*" element={<NoMatch />} />
         </Routes>
       </Suspense>
     </ErrorBoundary>

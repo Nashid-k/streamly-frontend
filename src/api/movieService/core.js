@@ -11,6 +11,27 @@ export function warnIfEmpty(method, list, context) {
   return list;
 }
 
+// Turn a Promise.allSettled result into the fulfilled values, logging every
+// rejection (no silent failures). Throws the FIRST rejection when nothing
+// fulfilled, so a rail reaches React Query's error state (which callers like
+// HomePage already report) instead of silently rendering empty — an all-Settled
+// sweep that continues past every failure both hid the outage and lied in the
+// "0 items" log.
+export function collectSettled(results, method, context = {}) {
+  const values = [];
+  let firstError = null;
+  for (const res of results || []) {
+    if (res.status === 'fulfilled') {
+      values.push(res.value);
+    } else {
+      if (!firstError) firstError = res.reason;
+      logServiceError(method, res.reason, context);
+    }
+  }
+  if (values.length === 0 && firstError) throw firstError;
+  return values;
+}
+
 // Helper: detect if a TMDB id refers to a TV show
 export function isTvId(id) {
   if (typeof id !== 'string') return false;
