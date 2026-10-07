@@ -96,52 +96,81 @@ function getUTCOffsetHours(timezone, date) {
 
 
 /**
+ * The exact UTC instant a title becomes available, derived from its TMDB date
+ * (YYYY-MM-DD) and the platform's release rule.
+ *
+ * "Midnight-local" titles become available at their own calendar midnight;
+ * regional/UTC platforms anchor at midnight (+ any release time) in their
+ * source region. US broadcast — the default fallback — anchors at 20:00
+ * America/New_York: a Monday 8PM ET show goes live Monday 20:00 ET, i.e. 00:00
+ * UTC Tuesday, and a Monday 8PM local date reaches an IST viewer on Tuesday.
+ *
+ * @param {string} tmdbDateString - Raw TMDB date (YYYY-MM-DD)
+ * @param {string} [viewerTimezone] - IANA timezone of the viewer (auto-detected if omitted)
+ * @param {string} [platform] - Content platform (e.g. "netflix", "hotstar", "prime")
+ * @returns {Date|null} The release instant (UTC), or null when the date is unusable.
+ */
+export function getReleaseInstant(tmdbDateString, viewerTimezone, platform) {
+  if (!tmdbDateString) return null;
+  const s = String(tmdbDateString);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!match) return null;
+  const y = Number(match[1]);
+  const m = Number(match[2]) - 1;
+  const d = Number(match[3]);
+  const probe = new Date(Date.UTC(y, m, d));
+  // Reject overflow like 2026-02-31 or 2026-13-45 (rather than letting
+  // Date.UTC roll over) so malformed dates stay untouched upstream.
+  if (
+    probe.getUTCFullYear() !== y ||
+    probe.getUTCMonth() !== m ||
+    probe.getUTCDate() !== d
+  ) {
+    return null;
+  }
+
+  const tz = viewerTimezone || getUserTimezone();
+  const srcTz = getSourceTimezone(platform, tz);
+  const { hour, minute } = getReleaseTime(platform);
+
+  // Source-local midnight as a UTC instant. Two passes through the offset so a
+  // DST border day (midnight lands in the previous day's offset) still decodes
+  // to the right wall-clock hour.
+  let inst = Date.UTC(y, m, d);
+  let offset = getUTCOffsetHours(srcTz, new Date(inst));
+  offset = getUTCOffsetHours(srcTz, new Date(inst - offset * 3600 * 1000));
+  return new Date(inst - offset * 3600 * 1000 + hour * 3600 * 1000 + minute * 60 * 1000);
+}
+
+/**
  * Convert a raw TMDB date (YYYY-MM-DD) to the viewer's local date.
  *
  * Midnight-local platforms need no conversion; other platforms resolve the
- * release moment in the source timezone and reformat it locally. US broadcast
- * (the default fallback) is the case that actually shifts: a Monday 8PM ET show
- * reaches an IST viewer (ET+9:30) on Tuesday.
+ * release moment in the source timezone (see getReleaseInstant) and reformat
+ * it locally.
  *
  * @param {string} tmdbDateString - Raw TMDB date (YYYY-MM-DD)
  * @param {string} [viewerTimezone] - IANA timezone of the viewer (auto-detected if omitted)
  * @param {string} [platform] - Content platform (e.g. "netflix", "hotstar", "prime")
  * @returns {string|null} Local date string (YYYY-MM-DD) or null
  */
-function tmdbDateToLocalDate(tmdbDateString, viewerTimezone, platform) {
+export function tmdbDateToLocalDate(tmdbDateString, viewerTimezone, platform) {
   if (!tmdbDateString) return null;
   const tz = viewerTimezone || getUserTimezone();
-  const srcTz = getSourceTimezone(platform, tz);
-  const { hour, minute } = getReleaseTime(platform);
+  const release = getReleaseInstant(tmdbDateString, viewerTimezone, platform);
+  if (!release) return tmdbDateString;
 
-  try {
-        // Midnight-local: the TMDB date is already the viewer's local date.
-    if (platform && (PLATFORM_RELEASE[platform?.toLowerCase()] || DEFAULT_RELEASE).type === 'midnight-local') {
-      return tmdbDateString;
-    }
-
-        // Otherwise build the release moment in the source timezone (date + source
-        // offset → a UTC instant) and format that instant in the viewer's timezone.
-    const srcOffset = getUTCOffsetHours(srcTz, new Date(tmdbDateString + 'T12:00:00Z'));
-    const releaseUTC = new Date(
-      new Date(tmdbDateString + 'T12:00:00Z').getTime() -
-      srcOffset * 3600 * 1000 +
-      hour * 3600 * 1000 +
-      minute * 60 * 1000
-    );
-
-    // Format the UTC instant in the viewer's local timezone
-    const parts = new Intl.DateTimeFormat('en-CA', {
-      timeZone: tz,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).formatToParts(releaseUTC);
-    const y = parts.find((p) => p.type === 'year')?.value;
-    const m = parts.find((p) => p.type === 'month')?.value;
-    const d = parts.find((p) => p.type === 'day')?.value;
-    if (y && m && d) return `${y}-${m}-${d}`;
-  } catch {}
+  // Format the release instant in the viewer's local timezone
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(release);
+  const yy = parts.find((p) => p.type === 'year')?.value;
+  const mm = parts.find((p) => p.type === 'month')?.value;
+  const dd = parts.find((p) => p.type === 'day')?.value;
+  if (yy && mm && dd) return `${yy}-${mm}-${dd}`;
   return tmdbDateString;
 }
 

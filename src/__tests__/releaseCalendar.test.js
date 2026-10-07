@@ -43,6 +43,24 @@ describe('getCountdown', () => {
     expect(result.isReleased).toBe(false);
     expect(result.days).toBeGreaterThanOrEqual(0);
   });
+
+  it('flips to released exactly at the platform release instant', () => {
+    // Default platform (US broadcast) for 2026-10-08 releases 2026-10-09T00:00:00Z.
+    const before = new Date('2026-10-08T23:59:00Z');
+    const at = new Date('2026-10-09T00:00:00Z');
+    const after = new Date('2026-10-09T00:01:00Z');
+    expect(getCountdown('2026-10-08', undefined, before).isReleased).toBe(false);
+    expect(getCountdown('2026-10-08', undefined, at).isReleased).toBe(true);
+    expect(getCountdown('2026-10-08', undefined, after).isReleased).toBe(true);
+  });
+
+  it('counts hours inside the release day from the same clock', () => {
+    const noon = new Date('2026-10-08T12:00:00Z');
+    const result = getCountdown('2026-10-08', undefined, noon);
+    expect(result.isReleased).toBe(false);
+    expect(result.days).toBe(0);
+    expect(result.hours).toBe(12);
+  });
 });
 
 describe('getCountdownUrgency', () => {

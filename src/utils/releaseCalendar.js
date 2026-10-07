@@ -3,7 +3,7 @@
  * content and "Leaving Soon" alerts for titles about to leave a platform.
  */
 
-import { formatTMDBDate, getTimeUntil } from "./timezone";
+import { formatTMDBDate, getReleaseInstant, getTimeUntil } from "./timezone";
 
 
 const isTvishItem = (item) =>
@@ -132,13 +132,15 @@ export function buildUpcoming(items = [], windowDays = 90) {
  * Countdown to a release date.
  * @param {string} releaseDate - YYYY-MM-DD
  * @param {string} platform - Platform key for timezone handling
+ * @param {Date} [now] - Clock to measure from (defaults to the current time; injectable for tests)
  * @returns {Object} { text, days, hours, minutes, isReleased, isToday }
  */
-export function getCountdown(releaseDate, platform) {
+export function getCountdown(releaseDate, platform, now = new Date()) {
   if (!releaseDate) return { text: "", days: 0, hours: 0, minutes: 0, isReleased: true, isToday: false };
 
-  const now = new Date();
-  const release = new Date(releaseDate + "T00:00:00Z");
+  const release = getReleaseInstant(releaseDate, undefined, platform);
+  if (!release) return { text: "", days: 0, hours: 0, minutes: 0, isReleased: true, isToday: false };
+
   const diff = release.getTime() - now.getTime();
 
   if (diff <= 0) {

@@ -164,9 +164,13 @@ export const getSeasonEpisodes = async (id, seasonNumber) => {
     voteCount: ep.vote_count || 0,
   }));
   const now = new Date();
-  const releasedEpisodes = episodes.filter(ep => ep.airDate && new Date(ep.airDate) <= now).length;
+  // Noon-UTC day anchor, matching contentTags/buildUpcoming/day labels: an
+  // episode "released today" agrees with the NEW tag instead of flipping a day
+  // early via the UTC-midnight YYYY-MM-DD string parse.
+  const airDateAt = (d) => new Date(`${d}T12:00:00Z`);
+  const releasedEpisodes = episodes.filter(ep => ep.airDate && airDateAt(ep.airDate) <= now).length;
   const lastEpDate = episodes.at(-1)?.airDate;
-  const isAiring = Boolean(lastEpDate && new Date(lastEpDate) > now);
+  const isAiring = Boolean(lastEpDate && airDateAt(lastEpDate) > now);
   if (episodes.length === 0) {
     logEmptyData('movieService', `getSeasonEpisodes: TMDB returned 0 episodes for ${id} season ${seasonNumber}.`, { id, seasonNumber });
   }

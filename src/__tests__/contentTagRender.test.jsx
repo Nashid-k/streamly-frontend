@@ -71,8 +71,8 @@ describe("ContentTag", () => {
 describe("NEW tag vs CountdownBadge — the two reds must stay distinguishable", () => {
   // CountdownBadge calls `new Date()` internally, so these tests freeze the
   // clock instead of guessing offsets. Guessing is what made them flaky: a
-  // release at T00:00:00Z is 0.4 or 1.9 days out depending on when CI runs,
-  // which flips the urgency bucket and the label.
+  // release is 0.4 or 1.9 day-gaps out depending on when CI runs, which flips
+  // the urgency bucket and the label.
   const FROZEN = "2026-06-15T12:00:00Z";
 
   it("a released title gets NEW, an unreleased one does not", () => {
@@ -92,24 +92,25 @@ describe("NEW tag vs CountdownBadge — the two reds must stay distinguishable",
     vi.useRealTimers();
   });
 
-  // getCountdown floors whole days from midnight-UTC, so with the clock frozen
-  // at 2026-06-15T12:00Z: 17th → 1.5d → days=1 (imminent, red pulse),
-  // 18th → 2.5d → days=2 ("In 2 days", orange).
+  // getCountdown anchors at the platform release instant (default: 20:00 ET,
+  // so it agrees with a converted local date instead of a UTC-midnight string).
+  // With the clock frozen at 2026-06-15T12:00Z: 16th → 1.5d → days=1
+  // (imminent, red pulse), 18th → 3.5d → days=3 ("In 3 days", orange).
   it("the countdown renders an unreleased title, proving it owns that state", () => {
     const { container } = render(<CountdownBadge releaseDate="2026-06-18" compact />);
-    expect(container.textContent).toMatch(/in 2 days/i);
+    expect(container.textContent).toMatch(/in 3 days/i);
   });
 
   it("the countdown keeps its pulse ring so it stays visually distinct", () => {
     // 1 day out = imminent = the red-pulse state NEW must never look like.
-    const { container } = render(<CountdownBadge releaseDate="2026-06-17" compact />);
+    const { container } = render(<CountdownBadge releaseDate="2026-06-16" compact />);
     expect(container.querySelector(".countdown-badge-ring")).not.toBeNull();
   });
 
   it("a title released today gets the countdown suppressed, freeing NEW to own it", () => {
-    const { container } = render(<CountdownBadge releaseDate="2026-06-15" compact />);
+    const { container } = render(<CountdownBadge releaseDate="2026-06-14" compact />);
     expect(container.firstChild).toBeNull();
     // …and the NEW rule agrees that nothing is pending.
-    expect(getContentTags({ id: "m", isSeries: false, releaseDate: "2026-06-15" }, { now: Date.parse(FROZEN) })).toHaveLength(1);
+    expect(getContentTags({ id: "m", isSeries: false, releaseDate: "2026-06-14" }, { now: Date.parse(FROZEN) })).toHaveLength(1);
   });
 });

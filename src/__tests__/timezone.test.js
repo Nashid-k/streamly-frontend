@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getUserTimezone, formatTMDBDate, getTMDBWeekday, getTimeUntil, getTMDBWeekdayShort } from '../utils/timezone';
+import { getUserTimezone, formatTMDBDate, getTMDBWeekday, getTimeUntil, getTMDBWeekdayShort, getReleaseInstant, tmdbDateToLocalDate } from '../utils/timezone';
 
 describe('getUserTimezone', () => {
   it('returns a string timezone', () => {
@@ -152,5 +152,69 @@ describe('getTimeUntil', () => {
   it('handles invalid date string', () => {
     const result = getTimeUntil('not-a-date');
     expect(typeof result).toBe('string');
+  });
+});
+
+describe('getReleaseInstant (platform release rule)', () => {
+  it('anchors US broadcast (default) at 20:00 America/New_York', () => {
+    // 2026-10-08 20:00 EDT (UTC-4) = 2026-10-09T00:00:00Z.
+    const inst = getReleaseInstant('2026-10-08', 'America/New_York');
+    expect(inst.toISOString()).toBe('2026-10-09T00:00:00.000Z');
+  });
+
+  it('anchors at midnight in a midnight-utc source (Prime)', () => {
+    const inst = getReleaseInstant('2026-10-08', 'UTC', 'prime');
+    expect(inst.toISOString()).toBe('2026-10-08T00:00:00.000Z');
+  });
+
+  it('anchors at local midnight for midnight-local platforms', () => {
+    // IST = UTC+5:30 → 00:00 IST is 2026-10-07T18:30:00Z.
+    const inst = getReleaseInstant('2026-10-08', 'Asia/Kolkata', 'netflix');
+    expect(inst.toISOString()).toBe('2026-10-07T18:30:00.000Z');
+  });
+
+  it('anchors regional platforms in their source timezone', () => {
+    const inst = getReleaseInstant('2026-10-08', 'UTC', 'hotstar');
+    expect(inst.toISOString()).toBe('2026-10-07T18:30:00.000Z');
+  });
+
+  it('respects DST on both sides of the border', () => {
+    // February is EST (UTC-5): 20:00 EST = next-day 01:00Z.
+    const feb = getReleaseInstant('2026-02-15', 'UTC');
+    expect(feb.toISOString()).toBe('2026-02-16T01:00:00.000Z');
+    // August is EDT (UTC-4): 20:00 EDT = next-day 00:00Z.
+    const aug = getReleaseInstant('2026-08-15', 'UTC');
+    expect(aug.toISOString()).toBe('2026-08-16T00:00:00.000Z');
+  });
+
+  it('returns null for malformed or impossible dates', () => {
+    expect(getReleaseInstant(null)).toBeNull();
+    expect(getReleaseInstant('not-a-date')).toBeNull();
+    expect(getReleaseInstant('2026-02-31')).toBeNull();
+    expect(getReleaseInstant('2026-13-45')).toBeNull();
+  });
+});
+
+describe('tmdbDateToLocalDate (the +12h regression)', () => {
+  it('keeps the US broadcast date for an ET viewer', () => {
+    expect(tmdbDateToLocalDate('2026-10-08', 'America/New_York')).toBe('2026-10-08');
+  });
+
+  it('shifts a Monday 8PM ET release to Tuesday for IST viewers', () => {
+    // 20:00 ET Oct 8 = 05:30 IST Oct 9 → local date Oct 9.
+    expect(tmdbDateToLocalDate('2026-10-08', 'Asia/Kolkata')).toBe('2026-10-09');
+  });
+
+  it('passes midnight-local dates through unchanged', () => {
+    expect(tmdbDateToLocalDate('2026-10-08', 'UTC', 'netflix')).toBe('2026-10-08');
+  });
+
+  it('keeps midnight-utc dates for Prime unchanged for a UTC viewer', () => {
+    expect(tmdbDateToLocalDate('2026-10-08', 'UTC', 'prime')).toBe('2026-10-08');
+  });
+
+  it('returns the raw string for malformed dates', () => {
+    expect(tmdbDateToLocalDate('not-a-date', 'UTC')).toBe('not-a-date');
+    expect(tmdbDateToLocalDate('2026-02-31', 'UTC')).toBe('2026-02-31');
   });
 });

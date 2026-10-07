@@ -5497,3 +5497,37 @@ Visual pass, conservative CSS-only changes.
   motion.js's contract that CSS micro-interactions author at 0.2s and must not
   drift from the JS DURATION.FAST (0.18s) — retuning happens in tokens.css.
 - Gates: lint 0 errors, test 80 files / 1043 passed, build green (2.03s).
+
+=== Bug-fix batch 1/10 — Date layer (timezone + release calendars) ===
+- CONFIRMED +12h bug: tmdbDateToLocalDate built every release instant from a
+  T12:00:00Z base (timezone.js), so an 8pm-ET broadcast date read as the
+  FOLLOWING local day (e.g. 2026-10-08 measured 2026-10-09 for ET/UTC/IST).
+- Fix: new exported getReleaseInstant(date, viewerTz, platform) computes the
+  true release instant as source-local midnight + release hour, resolved
+  through the IANA offset with a two-pass DST-safe decode; tmdbDateToLocalDate
+  now derives the local date from that instant (single code path, midnight-local
+  fast path removed). Malformed/overflow dates (2026-13-45, 2026-02-31) rejected
+  by rollover guard and passed through raw, matching the old native-parse
+  fallthrough.
+- getCountdown (releaseCalendar.js) now anchors on the exact release instant
+  via getReleaseInstant instead of a raw YYYY-MM-DDT00:00:00Z string, so the
+  "released"/countdown badge can no longer flip up to 24h early for ET viewers
+  and its clock agrees with getTimeUntil. CountdownBadge/TIME snapshot
+  semantics: added optional `now` param for exact-instant tests.
+- getSeasonEpisodes (movieService/detail.js): releasedEpisodes/isAiring were
+  comparing new Date(airDate) (UTC midnight) against now; unified to the app's
+  noon-UTC day anchor so a "released today" episode agrees with the NEW tag.
+- Tests: timezone.test.js +~20 exact-value cases (release instants for default
+  8pm-et / prime-utc / midnight-local IST / hotstar, DST winter+summer edges,
+  malformed dates, +12h regression for ET+IST views); releaseCalendar.test.js
+  +2 exact instant-flip + remaining-hours cases; contentTagRender.test.jsx
+  frozen-clock expectations re-anchored from midnight-UTC to the 8pm-ET release
+  instant (18th → "In 3 days", imminent ring now 16th, released-yesterday
+  14th suppresses countdown vs NEW).
+- Notes: PLATFORM_RELEASE still has no data source (dead config) — defaulting
+  to the 8pm-ET rule, now ARITHMETICALLY correct. contentTags/buildUpcoming
+  noon-UTC day logic untouched (already consistent).
+- Gates: lint 0 errors (pre-existing warnings only), test 80 files / 1056
+  passed (1 flaky playerA11y skip-intro timing test was red under parallel
+  load, green in isolation and on re-run; pre-existing, unrelated), build
+  green (4.92s).
