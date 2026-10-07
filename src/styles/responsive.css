@@ -456,3 +456,37 @@
   }
 }
 
+@media (max-width: 480px) {
+  /* Hero CTA cluster on phone widths: the play pill, both action pills and the
+     circle button should sit on ONE row with even bases. At 375px the 66vw
+     content cap used to force a wrap into an uneven two-line stack. */
+  .hero-content {
+    max-width: min(92vw, 780px) !important;
+  }
+  .hero-ctas {
+    gap: 0.5rem !important;
+  }
+  .hero-cta-play {
+    min-width: 86px !important;
+    height: clamp(34px, 3.2vw, 38px) !important;
+    padding: 0 12px !important;
+    font-size: 12.5px !important;
+  }
+  .hero-action-pill {
+    min-width: 78px !important;
+    height: clamp(34px, 3.2vw, 38px) !important;
+    padding: 0 2px !important;
+  }
+  .hero-cta-secondary-icon {
+    max-width: 42px !important;
+  }
+  .hero-circle-btn {
+    width: 36px !important;
+    height: 36px !important;
+  }
+  .hero-cta-separator {
+    margin: 0 1px !important;
+    font-size: 1.1rem !important;
+  }
+}
+

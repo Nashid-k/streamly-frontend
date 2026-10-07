@@ -5459,3 +5459,23 @@ Zero visual change — same DOM, one source of truth.
   lucide Loader2) are used in disjoint contexts and stay as-is this pass.
 - Gates: lint 0 errors (only pre-existing warnings), test 80 files / 1043
   passed, build green (1.68s). +2 component files, -61 net lines.
+
+## UI/UX Rank 4 — hero/details density (2026-10-07)
+
+Visual pass, conservative CSS-only changes.
+
+- Audit findings were mostly already resolved in the codebase: laptop hero
+  heights already trigger hero.css @media(max-height:800px)+@media(max-height:650px)
+  compression (clamped title / 2-line desc / compact meta) on every laptop size,
+  the details blurb already line-clamps at 3 with a Show-more toggle, and
+  grids.css already carries the single-step --details-hero-gap vertical rhythm.
+- Remaining real gap: on 375px the hero-content 66vw cap forced the Play pill +
+  both action pills + circle button into a wrapped, uneven two-line stack.
+  Added @media(max-width:480px) block in responsive.css: content max-width ->
+  min(92vw,780px); pills drop to 86/78px min-width, 36px height, tighter gap,
+  matching bases on one row. No JSX changed.
+- Test note: one `npm run test` pass reported 3 files/7 tests failed then the
+  next two consecutive passes were fully green (80/1043) - intermittent
+  jsdom HTMLMediaElement/play() watchdog flake, unrelated to this CSS diff.
+- Gates: lint 0 errors, test 80 files / 1043 passed (x2 clean), build green
+  (1.66s).
