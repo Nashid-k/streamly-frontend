@@ -68,6 +68,7 @@ export default function BottomChrome({
   onForwardHoldRelease,
   muted,
   volume,
+  volHover,
   onToggleMute,
   onVolHoverChange,
   onVolumeChange,
@@ -320,18 +321,24 @@ export default function BottomChrome({
 
         {/* Volume: the pill widens on hover to reveal the slider (CSS-driven). */}
         <span
-          className="np-pill np-vol-pill"
+          className={["np-pill np-vol-pill", volHover ? "expanded" : ""].filter(Boolean).join(" ")}
           onMouseEnter={(e) => {
             e.stopPropagation();
-            onVolHoverChange(true);
+            onVolHoverChange?.(true);
           }}
-          onMouseLeave={() => onVolHoverChange(false)}
-          onFocus={() => onVolHoverChange(true)}
+          onMouseLeave={() => onVolHoverChange?.(false)}
+          onFocus={() => onVolHoverChange?.(true)}
           onBlur={(e) => {
             if (e.currentTarget.contains(e.relatedTarget)) return;
-            onVolHoverChange(false);
+            onVolHoverChange?.(false);
           }}
-          style={{ ...PILL, height: pillSize, padding: "0 8px", gap: 2 }}
+          style={{
+            ...PILL,
+            justifyContent: "flex-start",
+            height: pillSize,
+            padding: "0 6px",
+            gap: 2,
+          }}
         >
           <Tooltip tip={muted || volume === 0 ? "Unmute" : "Mute"} kbd="m">
             <IconBtn size={IS_TOUCH ? 44 : 40} label={muted ? "Unmute" : "Mute"} onClick={onToggleMute}>

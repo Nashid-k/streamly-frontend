@@ -3254,7 +3254,7 @@ const showSkipOutro = shouldShowSkipOutro({
           }}
         >
             {panel === "settings" ? (
-              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 0 6px" }}>
                 {/* Audio and Subtitles were REMOVED from this list, not just
                     duplicated: they now have their own buttons in the transport
                     row. Leaving them here too would mean two routes to the same
@@ -3306,7 +3306,7 @@ const showSkipOutro = shouldShowSkipOutro({
                     style={{
                       fontSize: 11,
                       color: "rgba(255,255,255,0.35)",
-                      margin: "14px 0 0",
+                      margin: "12px 14px 2px",
                       lineHeight: 1.5,
                     }}
                   >
@@ -3324,11 +3324,8 @@ const showSkipOutro = shouldShowSkipOutro({
                 ) : null}
               </div>
             ) : panel === "servers" ? (
-              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
-                  <p style={{ fontSize: 11, fontWeight: 700, color: "#a1a1aa", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                    Servers
-                  </p>
-                  <p style={{ fontSize: 12.5, color: "#a1a1aa", margin: "6px 0 8px", lineHeight: 1.45 }}>
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 0 6px" }}>
+                  <p style={{ fontSize: 12, color: "#a1a1aa", margin: "4px 14px 8px", lineHeight: 1.45 }}>
                     Same title, different stream providers. Switching reloads the
                     stream from the chosen server.
                   </p>
@@ -3343,10 +3340,7 @@ const showSkipOutro = shouldShowSkipOutro({
                   ))}
               </div>
             ) : panel === "subs" ? (
-              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
-                  <p style={{ fontSize: 11, fontWeight: 700, color: "#a1a1aa", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                    Subtitles
-                  </p>
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 0 6px" }}>
                   <DialogRow
                     key="off"
                     selected={!subtitleEnabled}
@@ -3354,7 +3348,7 @@ const showSkipOutro = shouldShowSkipOutro({
                     title="Off"
                   />
                   {isFetchingSubtitles ? (
-                    <p style={{ fontSize: 12.5, color: "#a1a1aa", margin: "6px 0 2px", lineHeight: 1.45 }}>
+                    <p style={{ fontSize: 12.5, color: "#a1a1aa", margin: "8px 14px 4px", lineHeight: 1.45 }}>
                       Searching OpenSubtitles…
                     </p>
                   ) : subtitleLanguages.length > 0 ? (
@@ -3371,23 +3365,20 @@ const showSkipOutro = shouldShowSkipOutro({
                       />
                     ))
                   ) : (
-                    <p style={{ fontSize: 12.5, color: "#a1a1aa", margin: "6px 0 2px", lineHeight: 1.45 }}>
+                    <p style={{ fontSize: 12.5, color: "#a1a1aa", margin: "8px 14px 4px", lineHeight: 1.45 }}>
                       {!imdbId
                         ? "No subtitles found for this title on OpenSubtitles (no IMDb id — title search also came up empty)."
                         : "No subtitles found for this title on OpenSubtitles."}
                     </p>
                   )}
                   {subtitleError ? (
-                    <p role="alert" style={{ fontSize: 12.5, color: "#ff9d9d", margin: "8px 0 2px", lineHeight: 1.5 }}>
+                    <p role="alert" style={{ fontSize: 12.5, color: "#ff9d9d", margin: "8px 14px 4px", lineHeight: 1.5 }}>
                       {subtitleError}
                     </p>
                   ) : null}
               </div>
             ) : panel === "audio" ? (
-              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
-                  <p style={{ fontSize: 11, fontWeight: 700, color: "#a1a1aa", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                    Audio
-                  </p>
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 0 6px" }}>
                   {dubTracks.length > 0 ? (
                     // Sibling-URL dubs (NHD, ZXC Centaurus): one MASTER per dub,
                     // switched by swapping the source (pickDub) — NOT hls.js
@@ -3447,7 +3438,7 @@ const showSkipOutro = shouldShowSkipOutro({
                             fontSize: 11,
                             fontWeight: 700,
                             color: "rgba(255,255,255,0.5)",
-                            margin: "2px 0 10px",
+                            margin: "4px 14px 8px",
                             letterSpacing: "0.02em",
                           }}
                         >
@@ -3465,10 +3456,7 @@ const showSkipOutro = shouldShowSkipOutro({
                   )}
               </div>
             ) : panel === "video" ? (
-              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
-                  <p style={{ fontSize: 11, fontWeight: 700, color: "#a1a1aa", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                    Video Quality
-                  </p>
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 0 6px" }}>
                   {/* Auto is ALWAYS present — the active mode on every source
                       (master = hls.js ABR; per-rendition sources = the rung the
                       player negotiated at open, smooth-start / relay-friendly). */}
@@ -3506,10 +3494,7 @@ const showSkipOutro = shouldShowSkipOutro({
                   })}
               </div>
             ) : panel === "speed" ? (
-              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
-                  <p style={{ fontSize: 11, fontWeight: 700, color: "#a1a1aa", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                    Playback Speed
-                  </p>
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 0 6px" }}>
                   {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
                     <DialogRow
                       key={rate}
@@ -3536,10 +3521,7 @@ const showSkipOutro = shouldShowSkipOutro({
                   ))}
               </div>
             ) : panel === "aspect" ? (
-              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 16px" }}>
-                  <p style={{ fontSize: 11, fontWeight: 700, color: "#a1a1aa", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                    Aspect Ratio
-                  </p>
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 0 6px" }}>
                   {ASPECT_RATIOS.map((aspect, idx) => (
                     <DialogRow
                       /* `name`, not `label`: the catalog has only ever had

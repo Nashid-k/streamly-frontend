@@ -802,36 +802,47 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Volume pill: widens on hover/focus to reveal the slider. The 58→210px
-   expansion is the design's signature interaction. */
+/* Volume pill: widens on hover/focus to reveal the slider. The 54→200px
+   expansion matches NEW PLAYER UI-UX.html (#vol). */
 .np-vol-pill {
-  width: 58px;
+  width: 54px;
   overflow: hidden;
+  justify-content: flex-start !important;
   transition: width var(--zxc-t-fast) cubic-bezier(0.4, 0, 0.2, 1),
     background var(--zxc-t-fast) var(--zxc-ease);
 }
 .np-vol-pill:hover,
-.np-vol-pill:focus-within {
-  width: 210px;
+.np-vol-pill:focus-within,
+.np-vol-pill.expanded {
+  width: 200px;
+}
+.np-vol-pill .np-tip-wrap {
+  flex-shrink: 0;
 }
 
-/* Slider inside the pill: white fill to the current volume (--vol), revealed
-   only once the pill widens. */
+/* Slider inside the pill: white fill to the current volume (--vol), expanding
+   smoothly when the pill widens. */
 .np-vol-range {
   -webkit-appearance: none;
   appearance: none;
-  width: 132px;
+  width: 0;
+  opacity: 0;
   height: 28px;
   margin: 0;
-  margin-left: 6px;
+  pointer-events: none;
   background: transparent;
   cursor: pointer;
-  opacity: 0;
-  transition: opacity var(--zxc-t-instant) var(--zxc-ease);
+  transition: width var(--zxc-t-fast) cubic-bezier(0.4, 0, 0.2, 1),
+    opacity var(--zxc-t-fast) var(--zxc-ease),
+    margin var(--zxc-t-fast) var(--zxc-ease);
 }
 .np-vol-pill:hover .np-vol-range,
-.np-vol-pill:focus-within .np-vol-range {
+.np-vol-pill:focus-within .np-vol-range,
+.np-vol-pill.expanded .np-vol-range {
+  width: 130px;
   opacity: 1;
+  margin-left: 6px;
+  pointer-events: auto;
 }
 .np-vol-range::-webkit-slider-runnable-track {
   height: 4px;
@@ -986,6 +997,25 @@
   font-weight: 600;
   letter-spacing: 0.6px;
   background: rgba(255, 255, 255, 0.12);
+}
+
+/* Floating settings panel scrollbar polish */
+.np-panel-surface * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+}
+.np-panel-surface *::-webkit-scrollbar {
+  width: 6px;
+}
+.np-panel-surface *::-webkit-scrollbar-track {
+  background: transparent;
+}
+.np-panel-surface *::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+}
+.np-panel-surface *::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
 }
 
 /* Reduced motion: the new chrome obeys the same OS preference as the rest of

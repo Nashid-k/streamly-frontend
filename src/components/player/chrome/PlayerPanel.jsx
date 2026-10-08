@@ -1,14 +1,12 @@
-// The slide-in settings panel shell.
+// The floating settings popup card (NEW PLAYER UI-UX.html, 2026-10-08).
 //
-// Owns the shell only: the slide-from-edge animation (right on desktop, up from
-// the bottom on touch), the surface dimensions, the header (back-to-settings +
-// title + close) and the focus target. Each panel's deeply-coupled list content
-// is passed in as `children` from the engine, so extraction removes the repeated
-// shell without having to thread every list's state through here.
+// On desktop, anchors directly above the bottom chrome pill at the bottom-right
+// with a scale+fade pop. On touch, acts as a bottom sheet.
+// Back-chevron header navigates between submenus and root settings.
 import { AnimatePresence, motion } from "framer-motion";
 import { useMotionTokens } from "../../../constants/motion";
 import IconBtn from "./IconBtn";
-import { IconArrowLeft, IconClose } from "./icons";
+import { IconChevronLeft, IconClose } from "./icons";
 import { IS_TOUCH } from "./constants";
 import { GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER } from "./theme";
 
@@ -32,20 +30,16 @@ const ARIA_LABELS = {
   aspect: "Aspect ratio",
 };
 
-const WIDE_PANELS = ["settings", "subs", "audio", "video", "speed", "aspect"];
-
 export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings, children }) {
   const M = useMotionTokens();
   return (
     <AnimatePresence>
       {panel && panel !== "episodes" && (
         <motion.aside
-          // Slides from the edge it lives on: right on desktop, up from the
-          // bottom on touch (where it is a sheet, not a side pane).
-          initial={IS_TOUCH ? { y: "100%" } : { x: "100%" }}
-          animate={IS_TOUCH ? { y: 0 } : { x: 0 }}
-          exit={IS_TOUCH ? { y: "100%" } : { x: "100%" }}
-          transition={M.SPRING.SHEET}
+          initial={IS_TOUCH ? { y: "100%" } : { opacity: 0, scale: 0.94, y: 10 }}
+          animate={IS_TOUCH ? { y: 0 } : { opacity: 1, scale: 1, y: 0 }}
+          exit={IS_TOUCH ? { y: "100%" } : { opacity: 0, scale: 0.94, y: 10 }}
+          transition={IS_TOUCH ? M.SPRING.SHEET : { duration: 0.16, ease: [0.2, 0, 0, 1] }}
           ref={panelRef}
           role="dialog"
           aria-label={ARIA_LABELS[panel] || "Aspect ratio"}
@@ -54,18 +48,13 @@ export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings
           className="np-panel-surface"
           style={{
             position: "absolute",
-            right: IS_TOUCH ? 0 : 16,
-            top: IS_TOUCH ? undefined : 72,
-            bottom: IS_TOUCH ? undefined : "auto",
-            width: WIDE_PANELS.includes(panel)
-              ? IS_TOUCH
-                ? "100%"
-                : "min(400px, 36%)"
-              : IS_TOUCH
-                ? "100%"
-                : "min(400px, 36%)",
-            maxHeight: IS_TOUCH ? "85%" : "min(calc(100% - 152px), 760px)",
-            height: IS_TOUCH ? undefined : "auto",
+            right: IS_TOUCH ? 0 : 18,
+            bottom: IS_TOUCH ? 0 : 78,
+            left: IS_TOUCH ? 0 : "auto",
+            top: "auto",
+            width: IS_TOUCH ? "100%" : "min(340px, calc(100% - 36px))",
+            maxHeight: IS_TOUCH ? "85%" : "min(460px, calc(100% - 96px))",
+            height: "auto",
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
@@ -74,27 +63,32 @@ export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings
             WebkitBackdropFilter: GLASS_BLUR,
             border: `1px solid ${GLASS_BORDER}`,
             borderRadius: IS_TOUCH ? "14px 14px 0 0" : 14,
-            boxShadow: IS_TOUCH ? "none" : "0 18px 60px rgba(0,0,0,0.6)",
-            // Bottom inset keeps rows clear of the Android/iOS gesture bar.
-            padding: "16px 0 calc(12px + env(safe-area-inset-bottom, 0px))",
+            boxShadow: IS_TOUCH ? "none" : "0 16px 48px rgba(0,0,0,0.65)",
+            padding: IS_TOUCH ? "8px 0 calc(12px + env(safe-area-inset-bottom, 0px))" : "4px 0 8px",
             zIndex: 6,
-            // The sheet is a side pane, not a modal: the transport row stays
-            // visible and operable, so it takes focus (not a focus outline)
-            // rather than a ring when focused programmatically.
             outline: "none",
           }}
         >
           <div
+            className="np-panel-header"
             style={{
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              marginBottom: 8,
-              padding: "0 16px 10px",
+              padding: "6px 12px 6px 14px",
               borderBottom: "1px solid rgba(255, 255, 255, 0.12)",
+              userSelect: "none",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                cursor: panel !== "settings" ? "pointer" : "default",
+              }}
+              onClick={panel !== "settings" ? onBackToSettings : undefined}
+            >
               {panel !== "settings" && (
                 <button
                   type="button"
@@ -110,21 +104,29 @@ export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings
                     alignItems: "center",
                     justifyContent: "center",
                     padding: 0,
+                    width: 26,
+                    height: 26,
+                    borderRadius: "50%",
                   }}
                 >
-                  <IconArrowLeft size={20} />
+                  <IconChevronLeft size={18} strokeWidth={2.4} />
                 </button>
               )}
-              <span style={{ color: "#fff", fontWeight: 600, fontSize: 15, letterSpacing: "-0.01em" }}>
+              <span
+                style={{
+                  color: "#fff",
+                  fontWeight: 500,
+                  fontSize: 14.5,
+                  letterSpacing: "-0.01em",
+                }}
+              >
                 {TITLES[panel] || ""}
               </span>
             </div>
-            <IconBtn label="Close panel" onClick={onClose} size={32}>
-              <IconClose size={16} />
+            <IconBtn label="Close panel" onClick={onClose} size={28} style={{ opacity: 0.7 }}>
+              <IconClose size={15} />
             </IconBtn>
           </div>
-          {/* One panel per control (Netflix): Subtitles / Audio / Video
-              Quality each get their own sheet and their own scroll. */}
           {children}
         </motion.aside>
       )}

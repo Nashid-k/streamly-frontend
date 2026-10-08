@@ -176,28 +176,28 @@ const SPEAKER_BODY = "M3 9v6h4l5 5V4L7 9z";
 
 export function IconVolumeHigh({ size = 24, ...rest }) {
   return (
-    <Base size={size} strokeWidth={0} {...rest}>
-      <path d={SPEAKER_BODY} fill="currentColor" />
-      <path d="M15.5 8.5a5 5 0 0 1 0 7" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
-      <path d="M18 5.5a9 9 0 0 1 0 13" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+    <Base size={size} strokeWidth={2} {...rest}>
+      <path d={SPEAKER_BODY} fill="currentColor" stroke="none" />
+      <path d="M15.5 8.5a5 5 0 0 1 0 7" fill="none" />
+      <path d="M18 5.5a9 9 0 0 1 0 13" fill="none" />
     </Base>
   );
 }
 
 export function IconVolumeLow({ size = 24, ...rest }) {
   return (
-    <Base size={size} strokeWidth={0} {...rest}>
-      <path d={SPEAKER_BODY} fill="currentColor" />
-      <path d="M15.5 8.5a5 5 0 0 1 0 7" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+    <Base size={size} strokeWidth={2} {...rest}>
+      <path d={SPEAKER_BODY} fill="currentColor" stroke="none" />
+      <path d="M15.5 8.5a5 5 0 0 1 0 7" fill="none" />
     </Base>
   );
 }
 
 export function IconVolumeMute({ size = 24, ...rest }) {
   return (
-    <Base size={size} strokeWidth={0} {...rest}>
-      <path d={SPEAKER_BODY} fill="currentColor" />
-      <path d="M16 9.5l5 5M21 9.5l-5 5" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+    <Base size={size} strokeWidth={2} {...rest}>
+      <path d={SPEAKER_BODY} fill="currentColor" stroke="none" />
+      <path d="M16 9.5l5 5M21 9.5l-5 5" fill="none" />
     </Base>
   );
 }
@@ -259,20 +259,19 @@ export function IconCalendar({ size = 24, ...rest }) {
 export function IconSliders({ size = 24, ...rest }) {
   return (
     <Base size={size} {...rest}>
-      <path d="M4 8h9M18.4 8H20M4 16h5M14.4 16H20" />
-      <circle cx="15.2" cy="8" r="2.4" />
-      <circle cx="11.2" cy="16" r="2.4" />
+      <path d="M3 7h10M17 7h4M3 17h4M11 17h10" />
+      <circle cx="15" cy="7" r="2.2" />
+      <circle cx="9" cy="17" r="2.2" />
     </Base>
   );
 }
 
-// Playback speed reads as a clock, matching the design's "Normal" row.
+// Playback speed reads as a speedometer, matching NEW PLAYER UI-UX.html.
 export function IconGauge({ size = 24, ...rest }) {
   return (
     <Base size={size} {...rest}>
-      <path d="M20.5 13.5a8.5 8.5 0 1 1-3.4-8.9" />
-      <path d="M12 9v3.6l2.6 1.6" />
-      <path d="M12 3.2V2" />
+      <path d="M4 18a9 9 0 1 1 16 0M12 14l5-5" />
+      <circle cx="12" cy="14" r="1.5" fill="currentColor" stroke="none" />
     </Base>
   );
 }
