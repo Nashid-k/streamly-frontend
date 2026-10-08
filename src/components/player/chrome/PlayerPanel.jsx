@@ -84,8 +84,17 @@ export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings
             outline: "none",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, padding: "0 16px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 8,
+              padding: "0 16px 10px",
+              borderBottom: "1px solid rgba(255, 255, 255, 0.12)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               {panel !== "settings" && (
                 <button
                   type="button"
@@ -106,12 +115,12 @@ export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings
                   <IconArrowLeft size={20} />
                 </button>
               )}
-              <span style={{ color: "#fff", fontWeight: 700, fontSize: 16, letterSpacing: "-0.01em" }}>
+              <span style={{ color: "#fff", fontWeight: 600, fontSize: 15, letterSpacing: "-0.01em" }}>
                 {TITLES[panel] || ""}
               </span>
             </div>
-            <IconBtn label="Close panel" onClick={onClose}>
-              <IconClose size={18} />
+            <IconBtn label="Close panel" onClick={onClose} size={32}>
+              <IconClose size={16} />
             </IconBtn>
           </div>
           {/* One panel per control (Netflix): Subtitles / Audio / Video

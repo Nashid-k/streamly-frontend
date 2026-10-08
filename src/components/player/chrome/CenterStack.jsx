@@ -178,8 +178,16 @@ export default function CenterStack({
             }}
           >
             {/* Bias the triangle optically: a centred Play glyph reads as
-                slightly left-heavy against the circle. */}
-            <IconPlay size={IS_TOUCH ? 56 : 64} style={{ transform: "translateX(4px)" }} />
+                slightly left-heavy against the circle. Exact drawing from NEW PLAYER UI-UX.html. */}
+            <svg
+              width={IS_TOUCH ? 68 : 80}
+              height={IS_TOUCH ? 68 : 80}
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              style={{ transform: "translateX(4px)" }}
+            >
+              <path d="M8 5.5v13l10.5-6.5z" fill="#fff" stroke="#fff" strokeWidth={2.8} strokeLinejoin="round" />
+            </svg>
           </button>
           <button
             type="button"

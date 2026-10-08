@@ -85,9 +85,8 @@ export function IconReplay({ size = 24, ...rest }) {
 export function IconCaptions({ size = 24, ...rest }) {
   return (
     <Base size={size} {...rest}>
-      <rect x="3" y="5" width="18" height="14" rx="3.6" />
-      <path d="M11.6 10.3a2.1 2.1 0 0 0-3 1.8 2.1 2.1 0 0 0 3 1.8" />
-      <path d="M17.6 10.3a2.1 2.1 0 0 0-3 1.8 2.1 2.1 0 0 0 3 1.8" />
+      <rect x="2.5" y="5" width="19" height="14" rx="3" />
+      <path d="M10 10.5a2 2 0 1 0 0 3M17 10.5a2 2 0 1 0 0 3" />
     </Base>
   );
 }
@@ -113,13 +112,14 @@ export function IconServers({ size = 24, ...rest }) {
   );
 }
 
-// Cog: inner hub + eight spokes, reads crisp at 22px.
+// Filled gear from the YouTube design (NEW PLAYER UI-UX.html).
 export function IconSettings({ size = 24, ...rest }) {
   return (
-    <Base size={size} {...rest}>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M12 2.8v2.1M12 19.1v2.1M4.2 7.1l1.8 1M18 15.9l1.8 1M4.2 16.9l1.8-1M18 8.1l1.8-1" />
-      <path d="M7.1 4.2l1 1.8M15.9 18l1 1.8M16.9 4.2l-1 1.8M8.1 18l-1 1.8" />
+    <Base size={size} strokeWidth={0} {...rest}>
+      <path
+        d="M12 9.5c1.38 0 2.5 1.12 2.5 2.5s-1.12 2.5-2.5 2.5-2.5-1.12-2.5-2.5 1.12-2.5 2.5-2.5m0-1c-1.93 0-3.5 1.57-3.5 3.5s1.57 3.5 3.5 3.5 3.5-1.57 3.5-3.5-1.57-3.5-3.5-3.5zM13.22 3l.55 2.2.13.51.5.18c.61.23 1.19.56 1.72.98l.4.32.5-.14 2.17-.62 1.22 2.11-1.63 1.59-.37.36.08.51c.05.32.08.64.08.98s-.03.66-.08.98l-.08.51.37.36 1.63 1.59-1.22 2.11-2.17-.62-.5-.14-.4.32c-.53.43-1.11.76-1.72.98l-.5.18-.13.51-.55 2.24h-2.44l-.55-2.2-.13-.51-.5-.18c-.6-.23-1.18-.56-1.72-.99l-.4-.32-.5.14-2.17.62-1.21-2.12 1.63-1.59.37-.36-.08-.51c-.05-.32-.08-.65-.08-.98s.03-.66.08-.98l.08-.51-.37-.36L3.6 8.56l1.22-2.11 2.17.62.5.14.4-.32c.53-.44 1.11-.77 1.72-.99l.5-.18.13-.51.55-2.21h2.43M14 2h-4l-.74 2.96c-.73.27-1.4.66-2 1.14l-2.92-.83-2 3.46 2.19 2.13c-.06.37-.09.75-.09 1.14s.03.77.09 1.14l-2.19 2.13 2 3.46 2.92-.83c.6.48 1.27.87 2 1.14L10 22h4l.74-2.96c.73-.27 1.4-.66 2-1.14l2.92.83 2-3.46-2.19-2.13c.06-.37.09-.75.09-1.14s-.03-.77-.09-1.14l2.19-2.13-2-3.46-2.92.83c-.6-.48-1.27-.87-2-1.14L14 2z"
+        fill="currentColor"
+      />
     </Base>
   );
 }
@@ -135,18 +135,16 @@ export function IconEpisodes({ size = 24, ...rest }) {
 
 export function IconFullscreen({ size = 24, ...rest }) {
   return (
-    <Base size={size} {...rest}>
-      <path d="M3.5 3.5l6.6 6.6M10.1 4.6v5.5h-5.5" />
-      <path d="M20.5 20.5l-6.6-6.6M13.9 19.4v-5.5h5.5" />
+    <Base size={size} strokeWidth={2.2} {...rest}>
+      <path d="M14 10l7-7M16 3h5v5M10 14l-7 7M3 16v5h5" />
     </Base>
   );
 }
 
 export function IconFullscreenExit({ size = 24, ...rest }) {
   return (
-    <Base size={size} {...rest}>
-      <path d="M13.9 10.1l6.6-6.6M16.4 4.6h3v3" />
-      <path d="M10.1 13.9l-6.6 6.6M4.6 16.4v-3h3" />
+    <Base size={size} strokeWidth={2.2} {...rest}>
+      <path d="M3 3l7 7M10 5v5H5M21 21l-7-7M14 19v-5h5" />
     </Base>
   );
 }
@@ -155,8 +153,8 @@ export function IconFullscreenExit({ size = 24, ...rest }) {
 export function IconTheater({ size = 24, ...rest }) {
   return (
     <Base size={size} {...rest}>
-      <path d="M4 7v11l11.5-5.5L4 7Z" />
-      <path d="M16.5 6.5h3v12h-3" />
+      <rect x="3" y="5.5" width="18" height="13" rx="2.5" />
+      <path d="M9.5 9.5l-2.5 2.5 2.5 2.5M14.5 9.5l2.5 2.5-2.5 2.5" />
     </Base>
   );
 }
@@ -174,14 +172,14 @@ export function IconInfo({ size = 24, ...rest }) {
 /* Volume ------------------------------------------------------------------- */
 
 // Filled speaker body matching the design, open strokes for the waves.
-const SPEAKER_BODY = "M4 9.4v5.2h2.9l4.9 4.1V5.3L6.9 9.4H4Z";
+const SPEAKER_BODY = "M3 9v6h4l5 5V4L7 9z";
 
 export function IconVolumeHigh({ size = 24, ...rest }) {
   return (
     <Base size={size} strokeWidth={0} {...rest}>
       <path d={SPEAKER_BODY} fill="currentColor" />
-      <path d="M16.5 8.6a5 5 0 0 1 0 6.8" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
-      <path d="M19.3 5.6a9.4 9.4 0 0 1 0 12.8" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+      <path d="M15.5 8.5a5 5 0 0 1 0 7" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+      <path d="M18 5.5a9 9 0 0 1 0 13" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
     </Base>
   );
 }
@@ -190,7 +188,7 @@ export function IconVolumeLow({ size = 24, ...rest }) {
   return (
     <Base size={size} strokeWidth={0} {...rest}>
       <path d={SPEAKER_BODY} fill="currentColor" />
-      <path d="M16.5 8.6a5 5 0 0 1 0 6.8" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+      <path d="M15.5 8.5a5 5 0 0 1 0 7" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
     </Base>
   );
 }
@@ -199,7 +197,7 @@ export function IconVolumeMute({ size = 24, ...rest }) {
   return (
     <Base size={size} strokeWidth={0} {...rest}>
       <path d={SPEAKER_BODY} fill="currentColor" />
-      <path d="M16.4 9.2l5 5.6M21.4 9.2l-5 5.6" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+      <path d="M16 9.5l5 5M21 9.5l-5 5" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
     </Base>
   );
 }

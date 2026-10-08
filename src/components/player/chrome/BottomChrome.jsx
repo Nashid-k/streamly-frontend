@@ -149,13 +149,14 @@ export default function BottomChrome({
         }}
       >
         <div
+          className="np-scrub-line"
           style={{
             position: "relative",
-            height: hoverRatio != null ? 7 : 4,
+            height: hoverRatio != null ? 8 : 5,
             width: "100%",
             background: TRACK,
             borderRadius: 999,
-            transition: "height 0.15s",
+            transition: "height 0.15s ease",
           }}
         >
           {duration > 0 &&
@@ -197,16 +198,17 @@ export default function BottomChrome({
             <div aria-hidden="true" style={{ ...SCRUBBER_BAND_STYLE, ...scrubberBands.credits }} />
           )}
           <div
+            className="np-scrub-dot"
             style={{
               position: "absolute",
               top: "50%",
-              left: `calc(${effectiveRatio * 100}% - ${(hoverRatio != null ? 18 : 14) / 2}px)`,
-              width: hoverRatio != null ? 18 : 14,
-              height: hoverRatio != null ? 18 : 14,
+              left: `calc(${effectiveRatio * 100}% - ${(hoverRatio != null ? 17 : 13) / 2}px)`,
+              width: hoverRatio != null ? 17 : 13,
+              height: hoverRatio != null ? 17 : 13,
               borderRadius: "50%",
               background: ACCENT,
               transform: "translateY(-50%)",
-              transition: "width 0.15s, height 0.15s",
+              transition: "width 0.15s ease, height 0.15s ease",
               boxShadow: "0 1px 6px rgba(0,0,0,0.6)",
             }}
           />
@@ -376,26 +378,34 @@ export default function BottomChrome({
 
         <div style={{ flex: 1 }} />
 
-        {/* Right cluster: episodes/audio/servers · autoplay · subtitles · settings · fullscreen. */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        {/* Right cluster: a single unified pill container (NEW PLAYER UI-UX.html #rp) */}
+        <div
+          className="np-pill np-right-pill"
+          style={{
+            ...PILL,
+            height: pillSize,
+            padding: IS_TOUCH ? "0 10px" : "0 14px",
+            gap: IS_TOUCH ? 6 : 10,
+          }}
+        >
           {showEpisodeNav && (
             <>
-              <div className="np-pill np-circle-pill" style={{ ...PILL, width: 44, height: 44 }}>
-                <IconBtn size={44} label="Previous episode" disabled={prevDisabled} onClick={onEpPrev}>
+              <Tooltip tip="Previous episode">
+                <IconBtn size={IS_TOUCH ? 40 : 38} label="Previous episode" disabled={prevDisabled} onClick={onEpPrev}>
                   <IconChevronLeft size={20} />
                 </IconBtn>
-              </div>
-              <div className="np-pill np-circle-pill" style={{ ...PILL, width: 44, height: 44 }}>
-                <IconBtn size={44} label="Next episode" disabled={nextDisabled} onClick={onEpNext}>
+              </Tooltip>
+              <Tooltip tip="Next episode">
+                <IconBtn size={IS_TOUCH ? 40 : 38} label="Next episode" disabled={nextDisabled} onClick={onEpNext}>
                   <IconChevronRight size={20} />
                 </IconBtn>
-              </div>
+              </Tooltip>
             </>
           )}
           {showEpisodesButton && (
-            <div className="np-pill np-circle-pill" style={{ ...PILL, width: 44, height: 44 }}>
+            <Tooltip tip="Episodes">
               <IconBtn
-                size={44}
+                size={IS_TOUCH ? 40 : 38}
                 label="Episodes"
                 active={panel === "episodes"}
                 expanded={panel === "episodes"}
@@ -403,16 +413,12 @@ export default function BottomChrome({
               >
                 <IconEpisodes size={20} />
               </IconBtn>
-            </div>
+            </Tooltip>
           )}
-          {/* Audio + Subtitles live in the transport row, not only in the gear
-              sheet: a viewer who wants the Tamil track should not have to guess
-              which submenu holds it. Each appears only when it has something to
-              do — a button that opens an empty list is worse than no button. */}
           {showAudioButton ? (
-            <div className="np-pill np-circle-pill" style={{ ...PILL, width: 44, height: 44 }}>
+            <Tooltip tip="Audio track">
               <IconBtn
-                size={44}
+                size={IS_TOUCH ? 40 : 38}
                 label="Audio"
                 active={panel === "audio"}
                 expanded={panel === "audio"}
@@ -420,12 +426,12 @@ export default function BottomChrome({
               >
                 <IconAudio size={20} />
               </IconBtn>
-            </div>
+            </Tooltip>
           ) : null}
           {showSubsButton ? (
-            <div className="np-pill np-circle-pill" style={{ ...PILL, width: 44, height: 44 }}>
+            <Tooltip tip="Subtitles/closed captions" kbd="c">
               <IconBtn
-                size={44}
+                size={IS_TOUCH ? 40 : 38}
                 label="Subtitles"
                 active={panel === "subs"}
                 expanded={panel === "subs"}
@@ -433,11 +439,11 @@ export default function BottomChrome({
               >
                 <IconCaptions size={20} />
               </IconBtn>
-            </div>
+            </Tooltip>
           ) : null}
-          <div className="np-pill np-circle-pill" style={{ ...PILL, width: 44, height: 44 }}>
+          <Tooltip tip="Servers">
             <IconBtn
-              size={44}
+              size={IS_TOUCH ? 40 : 38}
               label="Servers"
               active={panel === "servers"}
               expanded={panel === "servers"}
@@ -445,49 +451,67 @@ export default function BottomChrome({
             >
               <IconServers size={20} />
             </IconBtn>
-          </div>
-          <div className="np-pill np-circle-pill" style={{ ...PILL, width: 44, height: 44 }}>
-            <IconBtn
-              size={44}
-              label="Autoplay"
+          </Tooltip>
+          <Tooltip tip={autoplayEnabled ? "Autoplay is on" : "Autoplay is off"}>
+            <button
+              type="button"
+              className="np-icon-btn"
+              aria-label="Autoplay"
               role="switch"
               aria-checked={Boolean(autoplayEnabled)}
               title={autoplayEnabled ? "Autoplay is on" : "Autoplay is off"}
               onClick={onToggleAutoplay}
+              style={{
+                background: "transparent",
+                border: "none",
+                padding: "0 2px",
+                display: "flex",
+                alignItems: "center",
+                cursor: "pointer",
+              }}
             >
               <span className={`np-toggle${autoplayEnabled ? " on" : ""}`} aria-hidden="true">
-                <span className="np-toggle-knob" />
+                <span className="np-toggle-knob">
+                  {autoplayEnabled ? (
+                    <svg width="10" height="10" viewBox="0 0 16 16" aria-hidden="true">
+                      <rect x="3" y="2" width="3.5" height="12" fill="#222" rx="0.5" />
+                      <rect x="9.5" y="2" width="3.5" height="12" fill="#222" rx="0.5" />
+                    </svg>
+                  ) : (
+                    <svg width="10" height="10" viewBox="0 0 16 16" aria-hidden="true">
+                      <path d="M4.5 3v10l8-5z" fill="#222" />
+                    </svg>
+                  )}
+                </span>
               </span>
+            </button>
+          </Tooltip>
+          <Tooltip tip="Settings">
+            <IconBtn
+              size={IS_TOUCH ? 40 : 38}
+              label="Settings"
+              badge={hdBadge}
+              active={
+                panel === "settings" ||
+                panel === "audio" ||
+                panel === "subs" ||
+                panel === "video" ||
+                panel === "speed" ||
+                panel === "aspect"
+              }
+              expanded={Boolean(panel && panel !== "episodes" && panel !== "servers")}
+              onClick={onToggleSettings}
+            >
+              <IconSettings size={20} />
             </IconBtn>
-          </div>
-          <div className="np-pill np-circle-pill" style={{ ...PILL, width: 44, height: 44 }}>
-            <Tooltip tip="Settings">
-              <IconBtn
-                size={44}
-                label="Settings"
-                badge={hdBadge}
-                active={
-                  panel === "settings" ||
-                  panel === "audio" ||
-                  panel === "subs" ||
-                  panel === "video" ||
-                  panel === "speed" ||
-                  panel === "aspect"
-                }
-                expanded={Boolean(panel && panel !== "episodes" && panel !== "servers")}
-                onClick={onToggleSettings}
-              >
-                <IconSettings size={20} />
-              </IconBtn>
-            </Tooltip>
-          </div>
-          <div className="np-pill np-circle-pill" style={{ ...PILL, width: 44, height: 44 }}>
-            <Tooltip tip={isFullscreen ? "Exit fullscreen" : "Fullscreen"} kbd="f">
-              <IconBtn size={44} label={isFullscreen ? "Exit fullscreen" : "Fullscreen"} onClick={onFullscreen}>
+          </Tooltip>
+          <Tooltip tip={isFullscreen ? "Exit fullscreen" : "Fullscreen"} kbd="f">
+            <div className="np-fs-wrap">
+              <IconBtn size={IS_TOUCH ? 40 : 38} label={isFullscreen ? "Exit fullscreen" : "Fullscreen"} onClick={onFullscreen}>
                 {isFullscreen ? <IconFullscreenExit size={20} /> : <IconFullscreen size={20} />}
               </IconBtn>
-            </Tooltip>
-          </div>
+            </div>
+          </Tooltip>
         </div>
       </div>
     </motion.div>
