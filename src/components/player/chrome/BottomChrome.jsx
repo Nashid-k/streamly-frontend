@@ -18,7 +18,6 @@ import Tooltip from "./Tooltip";
 import { IS_TOUCH, SAFE_BOTTOM, SCRUBBER_BAND_STYLE } from "./constants";
 import { ACCENT, TRACK, BUFFERED } from "./theme";
 import {
-  IconAudio,
   IconCaptions,
   IconChevronLeft,
   IconChevronRight,
@@ -27,10 +26,7 @@ import {
   IconFullscreenExit,
   IconPause,
   IconPlay,
-  IconServers,
   IconSettings,
-  IconSkipBack10,
-  IconSkipForward10,
   IconVolumeHigh,
   IconVolumeLow,
   IconVolumeMute,
@@ -268,21 +264,8 @@ export default function BottomChrome({
         )}
       </div>
 
-      {/* Transport row: transport+volume+time left, utilities right. */}
+      {/* Transport row: play+volume+time left, utilities right (NEW PLAYER UI-UX.html). */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        {/* Left cluster: skip back 10 · play · skip forward 10 · volume · time.
-            On touch the rewind/forward live in the centre overlay, so only the
-            play/volume/time trio and the utility cluster sit in this row. */}
-        {!IS_TOUCH && (
-          <div className="np-pill np-circle-pill" style={{ ...PILL, width: pillSize, height: pillSize }}>
-            <Tooltip tip="Back 10 seconds">
-              <IconBtn size={pillSize} label="Back 10 seconds" onClick={onBack10}>
-                <IconSkipBack10 size={IS_TOUCH ? 26 : 24} />
-              </IconBtn>
-            </Tooltip>
-          </div>
-        )}
-
         <div className="np-pill np-circle-pill" style={{ ...PILL, width: playSize, height: playSize }}>
           <Tooltip tip={playing ? "Pause" : "Play"} kbd="k">
             <IconBtn size={playSize} label={playing ? "Pause" : "Play"} onClick={onTogglePlay}>
@@ -290,34 +273,6 @@ export default function BottomChrome({
             </IconBtn>
           </Tooltip>
         </div>
-
-        {!IS_TOUCH && (
-          <div
-            className="np-pill np-circle-pill"
-            style={{ ...PILL, width: pillSize, height: pillSize }}
-          >
-            <Tooltip tip="Forward 10 seconds" kbd="l">
-              <IconBtn
-                size={pillSize}
-                label="Forward 10 seconds (hold for 2x)"
-                onPointerDown={(e) => {
-                  e.stopPropagation();
-                  if (e.pointerType === "touch") return; // touch holds the SCREEN, not the button
-                  onForwardHoldStart();
-                }}
-                onPointerUp={onForwardHoldRelease}
-                onPointerLeave={onForwardHoldRelease}
-                onPointerCancel={onForwardHoldRelease}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onForward10();
-                }}
-              >
-                <IconSkipForward10 size={IS_TOUCH ? 26 : 24} />
-              </IconBtn>
-            </Tooltip>
-          </div>
-        )}
 
         {/* Volume: the pill widens on hover to reveal the slider (CSS-driven). */}
         <span
@@ -422,19 +377,6 @@ export default function BottomChrome({
               </IconBtn>
             </Tooltip>
           )}
-          {showAudioButton ? (
-            <Tooltip tip="Audio track">
-              <IconBtn
-                size={IS_TOUCH ? 40 : 38}
-                label="Audio"
-                active={panel === "audio"}
-                expanded={panel === "audio"}
-                onClick={() => onTogglePanel("audio")}
-              >
-                <IconAudio size={20} />
-              </IconBtn>
-            </Tooltip>
-          ) : null}
           {showSubsButton ? (
             <Tooltip tip="Subtitles/closed captions" kbd="c">
               <IconBtn
@@ -448,17 +390,6 @@ export default function BottomChrome({
               </IconBtn>
             </Tooltip>
           ) : null}
-          <Tooltip tip="Servers">
-            <IconBtn
-              size={IS_TOUCH ? 40 : 38}
-              label="Servers"
-              active={panel === "servers"}
-              expanded={panel === "servers"}
-              onClick={() => onTogglePanel("servers")}
-            >
-              <IconServers size={20} />
-            </IconBtn>
-          </Tooltip>
           <Tooltip tip={autoplayEnabled ? "Autoplay is on" : "Autoplay is off"}>
             <button
               type="button"

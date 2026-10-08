@@ -345,12 +345,17 @@ describe("player aspect-ratio panel", () => {
 });
 
 describe("player Servers menu", () => {
+  const openServers = () => {
+    fireEvent.click(screen.getByRole("button", { name: /^settings$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /servers/i }));
+  };
+
   it("lists every server as a generic 'Server N' row with a capability line", () => {
     // jsdom has no MediaSource → the mount takes the fatal path, but the
     // chrome (and therefore the sheet) still renders — enough to verify the
     // menu wiring and its copy.
     mount();
-    fireEvent.click(screen.getByRole("button", { name: "Servers" }));
+    openServers();
     const dialog = screen.getByRole("dialog", { name: "Servers" });
     expect(dialog).toBeInTheDocument();
     // Row order = auto-rotation priority. The visible name is deliberately the
@@ -380,7 +385,7 @@ describe("player Servers menu", () => {
     // The whole point of the rename: the sheet describes what you GET, not
     // which host serves it. Provider names stay in debug logs only.
     mount();
-    fireEvent.click(screen.getByRole("button", { name: "Servers" }));
+    openServers();
     const dialog = screen.getByRole("dialog", { name: "Servers" });
     for (const leak of ["VidCore", "VidRack", "VidSrc", "NHD", "ZXC", "Centaurus", "Andromeda", "Atlas", "Ursa", "Meow"]) {
       expect(dialog.textContent).not.toContain(leak);
@@ -389,21 +394,25 @@ describe("player Servers menu", () => {
 
   it("does not call the audio capability 'dubs' in the menu copy", () => {
     mount();
-    fireEvent.click(screen.getByRole("button", { name: "Servers" }));
+    openServers();
     const dialog = screen.getByRole("dialog", { name: "Servers" });
     expect(dialog.textContent).not.toContain("dubs");
   });
 
-  it("exposes the switcher as a transport icon with dialog semantics", () => {
+  it("exposes the switcher through settings with dialog semantics", () => {
     const { rerender } = render(
       <NativePlayerView type="movie" id="550" title="Fight Club" onClose={() => {}} />,
     );
-    const btn = screen.getByRole("button", { name: "Servers" });
-    expect(btn).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(screen.getByRole("button", { name: /^settings$/i }));
+    const btn = screen.getByRole("button", { name: /servers/i });
+    expect(btn).toBeInTheDocument();
     fireEvent.click(btn);
-    expect(btn).toHaveAttribute("aria-expanded", "true");
-    // TV mounts carry the same switcher (chrome is shared).
+    expect(screen.getByRole("dialog", { name: "Servers" })).toBeInTheDocument();
+    // Close panel before rerendering
+    fireEvent.click(screen.getByRole("button", { name: /^settings$/i }));
+    // TV mounts carry the same switcher inside settings (chrome is shared).
     rerender(<NativePlayerView type="tv" id="1399" season={1} episode={1} title="Game of Thrones" onClose={() => {}} />);
-    expect(screen.getByRole("button", { name: "Servers" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^settings$/i }));
+    expect(screen.getByRole("button", { name: /servers/i })).toBeInTheDocument();
   });
 });

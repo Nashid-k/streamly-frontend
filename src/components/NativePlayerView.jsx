@@ -11,6 +11,7 @@ import { AnimatePresence } from "framer-motion";
 import { buildAudioTrackList } from "../utils/audioLabels";
 import {
   IconAspect,
+  IconAudio,
   IconGauge,
   IconServers,
   IconSliders,
@@ -530,6 +531,18 @@ export default function NativePlayerView({
     () => buildAudioTrackList(dubTracks, originalLanguage),
     [dubTracks, originalLanguage],
   );
+
+  const currentAudioLabel = useMemo(() => {
+    if (dubTracks.length > 0) {
+      if (activeDub === 0) return audioTrackList[0]?.label || "Original";
+      const found = audioTrackList.find((t) => t.sourceIndex === activeDub - 1);
+      return found?.label || audioTrackList[activeDub]?.label || "Dub";
+    }
+    if (audioTracks.length > 0) {
+      return audioTracks[audioIndex]?.name || "Original";
+    }
+    return originalLanguage ? (FILM_LANG[originalLanguage] || (originalLanguage || "").toUpperCase() || "Original") : "Original";
+  }, [dubTracks, activeDub, audioTrackList, audioTracks, audioIndex, originalLanguage]);
 
 
   const togglePlay = async () => {
@@ -3214,7 +3227,7 @@ const showSkipOutro = shouldShowSkipOutro({
             // If clicking Settings while any settings panel is open, close it.
             // Otherwise open root settings.
             setPanel((p) =>
-              ["settings", "audio", "subs", "video", "speed", "aspect"].includes(p)
+              ["settings", "servers", "audio", "subs", "video", "speed", "aspect"].includes(p)
                 ? null
                 : "settings",
             );
@@ -3273,6 +3286,13 @@ const showSkipOutro = shouldShowSkipOutro({
                   // abandoned.
                   sub={sourceLabel(activeSourceKey || requestedServer || DEFAULT_SOURCE_KEY, "Server 1")}
                   icon={<IconServers size={20} />}
+                  hasChevron
+                />
+                <DialogRow
+                  onClick={() => setPanel("audio")}
+                  title="Audio track"
+                  sub={currentAudioLabel}
+                  icon={<IconAudio size={20} />}
                   hasChevron
                 />
                 <DialogRow
