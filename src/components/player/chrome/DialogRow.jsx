@@ -36,7 +36,7 @@ export default function DialogRow({ selected, onClick, title, sub, disabled, ico
         fontSize: 15,
       }}
     >
-      <span style={{ width: 22, display: "flex", alignItems: "center", flexShrink: 0 }}>
+      <span className="np-dialog-row-icon" style={{ width: 22, display: "flex", alignItems: "center", flexShrink: 0 }}>
         {icon ? (
           icon
         ) : selected ? (

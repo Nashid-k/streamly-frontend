@@ -750,3 +750,189 @@
     transform: none !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   YOUTUBE-STYLE CHROME (NEW PLAYER UI-UX.html, 2026-10-08)
+   Black translucent pills, hover-expanding volume slider, the
+   autoplay switch, the gear's HD badge and custom key tooltips.
+   ═══════════════════════════════════════════════════════════ */
+
+/* Pills: black translucent capsule under every control. */
+.np-pill {
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  transition: background var(--zxc-t-fast) var(--zxc-ease);
+}
+.np-pill:hover {
+  background: rgba(0, 0, 0, 0.76);
+}
+.np-circle-pill {
+  border-radius: 50%;
+}
+
+/* Time pill keeps tabular digits steady while the clock ticks. */
+.np-time-pill {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Volume pill: widens on hover/focus to reveal the slider. The 58→210px
+   expansion is the design's signature interaction. */
+.np-vol-pill {
+  width: 58px;
+  overflow: hidden;
+  transition: width var(--zxc-t-fast) cubic-bezier(0.4, 0, 0.2, 1),
+    background var(--zxc-t-fast) var(--zxc-ease);
+}
+.np-vol-pill:hover,
+.np-vol-pill:focus-within {
+  width: 210px;
+}
+
+/* Slider inside the pill: white fill to the current volume (--vol), revealed
+   only once the pill widens. */
+.np-vol-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 132px;
+  height: 28px;
+  margin: 0;
+  margin-left: 6px;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--zxc-t-instant) var(--zxc-ease);
+}
+.np-vol-pill:hover .np-vol-range,
+.np-vol-pill:focus-within .np-vol-range {
+  opacity: 1;
+}
+.np-vol-range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    #fff var(--vol, 0%),
+    rgba(255, 255, 255, 0.3) var(--vol, 0%)
+  );
+}
+.np-vol-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #fff;
+  margin-top: -5.5px;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
+}
+.np-vol-range::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.3);
+  border: none;
+}
+.np-vol-range::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: #fff;
+}
+.np-vol-range::-moz-range-thumb {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #fff;
+  border: none;
+}
+
+/* Autoplay switch (design's 52×30-ish pill with a white knob). */
+.np-toggle {
+  display: block;
+  width: 52px;
+  height: 30px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  position: relative;
+  transition: background var(--zxc-t-fast) var(--zxc-ease);
+}
+.np-toggle .np-toggle-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  transition: transform var(--zxc-t-fast) cubic-bezier(0.4, 0, 0.2, 1),
+    background var(--zxc-t-fast) var(--zxc-ease);
+}
+.np-toggle.on {
+  background: #f03;
+}
+.np-toggle.on .np-toggle-knob {
+  transform: translateX(22px);
+}
+
+/* Gear "HD" badge — crimson chip on the cog's corner. */
+.np-hd-badge {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  min-width: 20px;
+  height: 14px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f03;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  line-height: 1;
+  border-radius: 6px 6px 6px 2px;
+  pointer-events: none;
+}
+
+/* Menu rows: the icon slot turns crimson on hover, matching the HD chip and
+   the played progress (the design's red emphasis inside the zinc sheet). */
+.np-dialog-row-icon {
+  transition: color var(--zxc-t-fast) var(--zxc-ease);
+  color: rgba(255, 255, 255, 0.62);
+}
+.np-dialog-row:hover:not(:disabled) .np-dialog-row-icon {
+  color: #f03;
+}
+
+/* Custom hover tooltip: dark capsule with a keyboard badge (k / m / f). */
+.np-tip-key {
+  padding: 2px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+}
+
+/* Reduced motion: the new chrome obeys the same OS preference as the rest of
+   the player — pills jump instead of sliding, no knob travel or hover pops. */
+@media (prefers-reduced-motion: reduce) {
+  .np-pill,
+  .np-vol-pill,
+  .np-vol-range,
+  .np-toggle,
+  .np-toggle .np-toggle-knob,
+  .np-dialog-row-icon {
+    transition: none !important;
+    -webkit-transition: none !important;
+    animation: none !important;
+    -webkit-animation: none !important;
+  }
+  /* The volume pill can still widen (snapping, since transition is off); it
+     just never animates. */
+  .np-toggle .np-toggle-knob {
+    transform: none !important;
+  }
+}

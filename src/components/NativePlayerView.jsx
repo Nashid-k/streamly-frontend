@@ -1,5 +1,5 @@
-// src/components/NativePlayerView.jsx â€” the app's player, opened by the hero /
-// episode Play buttons. Resolves VidCore-first (4K) â†’ VidSrc â†’ NHD (multi-
+// src/components/NativePlayerView.jsx — the app's player, opened by the hero /
+// episode Play buttons. Resolves VidCore-first (4K) → VidSrc → NHD (multi-
 // audio) via streamResolve, with a Servers menu to switch the active server,
 // and plays through hls.js (manifest relay + direct-segment loader). Custom
 // transport only: no native <video controls>.
@@ -86,7 +86,7 @@ import {
 } from "./player/chrome";
 
 // A source can fail fragments forever without ever going fatal (VidCore's
-// vidzen: playlist 200, segments 429 on repeat) â€” so fail over ourselves.
+// vidzen: playlist 200, segments 429 on repeat) — so fail over ourselves.
 const MAX_CONSECUTIVE_FRAG_FAILURES = 4;
 
 // How long to hold a source after an upstream 429 before re-resolving it. A
@@ -110,7 +110,7 @@ const UP_NEXT_MS = 15000;
 const HOLD_2X_DELAY_MS = 420;
 // "Still watching?" prompt idles that long in pause before it stops asking.
 const STILL_WATCHING_OFFER_MS = 90 * 1000;
-// Netflix resume gate: how long the "Left off atâ€¦" card waits before auto-resume.
+// Netflix resume gate: how long the "Left off at…" card waits before auto-resume.
 const RESUME_WAIT_SECONDS = 8;
 // Forward-buffer policy (YouTube-style). The byte cap is scaled to the top
 // rendition's bitrate: a FIXED 60MB cap idled the pipe before 4K could get
@@ -126,7 +126,7 @@ const MAX_BUFFER_SIZE = 500 * 1000 * 1000; // hard ceiling: ~2min of 4K@16Mbps, 
 // shortfall so the buffer refills faster than it drains.
 const BUFFER_FLOOR_SECONDS = 18;
 const BUFFER_UNDERFLOOR_MS = 8000;
-// Cap the WATCHED back buffer (hls.js defaults to Infinity â€” a 2h movie would
+// Cap the WATCHED back buffer (hls.js defaults to Infinity — a 2h movie would
 // pin ~7GB of browser RAM). hls.js trims the rest, like Netflix.
 const BACK_BUFFER_SECONDS = 60;
 // ABR seed: hls.js starts its bandwidth estimate at 1Mbps, so Auto would climb
@@ -136,7 +136,7 @@ const INITIAL_BW_BITS = 10 * 1000 * 1000;
 const VOLUME_STORAGE_KEY = "streamly-native-volume";
 const MUTED_STORAGE_KEY = "streamly-native-muted";
 const ASPECT_STORAGE_KEY = "streamly-native-aspect";
-/* Brightness is GONE (user call): a CSS filter is not the device backlight â€”
+/* Brightness is GONE (user call): a CSS filter is not the device backlight —
    it dims the video while the OS brightness setting stays where it was, which
    reads as a broken picture. The OS owns screen brightness on every platform.
    The old localStorage keys are simply no longer read. */
@@ -173,7 +173,7 @@ function fmtTime(s) {
 }
 
 // Canonical quality label + order: feeds list their ladders in any order, so
-// the menu always reads low â†’ high (480p â†’ 720p â†’ 1080p â†’ 2K â†’ 4K) regardless.
+// the menu always reads low → high (480p → 720p → 1080p → 2K → 4K) regardless.
 // Resolution + verified-only tags (HDR/SDR/60fps), no bitrate, no transport notes.
 function qualityLabelFor(v) {
   if (!v?.height) return "Auto";
@@ -211,7 +211,7 @@ export default function NativePlayerView({
   // Continue-watching entry for this title/episode ({ timestamp } in s, >0) + progress sink.
   watchedEntry,
   onProgressChange,
-  // TMDB original_language â€” the only language signal the sources give us.
+  // TMDB original_language — the only language signal the sources give us.
   originalLanguage = "",
 }) {
   const videoRef = useRef(null);
@@ -222,7 +222,7 @@ export default function NativePlayerView({
   const { w: playerW, h: playerH } = useContainerSize(screenRef);
   const hudBox = useMemo(() => hudMetrics(playerW, playerH), [playerW, playerH]);
   const scrubRef = useRef(null);
-  // Settings sheet surface â€” focus moves here on open and back to the control
+  // Settings sheet surface — focus moves here on open and back to the control
   // that opened it on close, so the panel is actually operable by keyboard.
   const panelRef = useRef(null);
   // Non-null while a settings sheet is open, holding the element that opened
@@ -233,7 +233,7 @@ export default function NativePlayerView({
   const metaRef = useRef({ variants: [], sourceKey: null, refUrl: null, masterLevels: false });
   const idleTimer = useRef(null);
   const clickTimer = useRef(null);
-  // Touch taps: last-tap info for double-tap seek (Â±10s by screen side) and a
+  // Touch taps: last-tap info for double-tap seek (±10s by screen side) and a
   // flag that swallows the synthetic click after touchend (it would double-toggle).
   const touchTapRef = useRef({ time: 0, zone: null });
   const singleTapTimer = useRef(null);
@@ -275,7 +275,7 @@ export default function NativePlayerView({
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   // Live views for closures that must not read stale hold/still-watching state.
-  // (Declared here; SYNCED below next to the other mirror refs â€” the states
+  // (Declared here; SYNCED below next to the other mirror refs — the states
   // they read are declared further down, and assigning earlier is a TDZ crash.)
   const hold2xRef = useRef(false);
   const endedRef = useRef(false);
@@ -312,7 +312,7 @@ export default function NativePlayerView({
   const [audioTracks, setAudioTracks] = useState([]);
   const [audioIndex, setAudioIndex] = useState(0);
   /* NHD sibling-URL dubs: `audioTracks` from the resolver, each a FULL alternate
-     manifest (one per dub), never #EXT-X-MEDIA groups â€” so unlike hls.js tracks a
+     manifest (one per dub), never #EXT-X-MEDIA groups — so unlike hls.js tracks a
      dub switch is a position-preserving manifest swap, and the pick must survive
      the token-refresh re-resolve below. */
   const [dubTracks, setDubTracks] = useState([]);
@@ -344,7 +344,7 @@ export default function NativePlayerView({
     tr: "Turkish", vi: "Vietnamese", th: "Thai", id: "Indonesian", pl: "Polish",
   };
   const [fatal, setFatal] = useState(null);
-  // Bumped by the fatal banner's "Try again" to re-run the whole load effect â€”
+  // Bumped by the fatal banner's "Try again" to re-run the whole load effect —
   // the effect re-resolves the source from scratch (a stale CDN token or a
   // transient 403 usually clears on a second resolve), which is why it is a
   // dependency of that effect and not just a local teardown.
@@ -364,6 +364,23 @@ export default function NativePlayerView({
   const [ended, setEnded] = useState(false);
   // Netflix "Up Next" card: { number, title } for the next TV episode, or null.
   const [upNext, setUpNext] = useState(null);
+  // YouTube-style autoplay switch in the bottom-right. A real preference: the
+  // Settings page already wrote `autoplay`, and the player never read it — off
+  // means the Up Next card appears but never fires (prefs winner, defaults on).
+  // Reads the same storage as PreferencesContext (prefs arrives later in this
+  // render, so the initializer touches localStorage directly; an effect below
+  // re-syncs once the provider is mounted).
+  const [autoplayEnabled, setAutoplayEnabled] = useState(() => {
+    try {
+      const stored = window.localStorage.getItem("setting-autoplay");
+      if (stored !== null) return JSON.parse(stored) === true;
+      const legacy = window.localStorage.getItem("streamly_autoNext");
+      if (legacy !== null) return legacy !== "false";
+    } catch {
+      // storage unavailable (privacy-restricted contexts)
+    }
+    return true;
+  });
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   // Real loader state: true while the screen has nothing new (initial load, stall, seek).
@@ -420,7 +437,7 @@ export default function NativePlayerView({
   // from the shape of what actually opened.
   const [autoLevel, setAutoLevel] = useState(null);
   const [manualHeight, setManualHeight] = useState(null);
-  // The rendition ABR currently settled on (LEVEL_SWITCHED) â€” shows the real
+  // The rendition ABR currently settled on (LEVEL_SWITCHED) — shows the real
   // "now playing" resolution in the quality dialog even while on Auto.
   const [currentHeight, setCurrentHeight] = useState(null);
   // Netflix resume card: { at, left } where `at` is the saved position in s.
@@ -439,8 +456,8 @@ export default function NativePlayerView({
   // Netflix chrome state.
   const [controlsVisible, setControlsVisible] = useState(true);
   const [panel, setPanel] = useState(null); // null | "subs" | "episodes" | "servers"
-  /* A sheet is open. Everything that floats in the bottom-right corner â€” the
-     Skip Intro pill, the "Tap to unmute" pill, the "Left off at" card â€” yields
+  /* A sheet is open. Everything that floats in the bottom-right corner — the
+     Skip Intro pill, the "Tap to unmute" pill, the "Left off at" card — yields
      while this is true: that corner is where the episodes rail and the settings
      pane land, their gradients are transparent at the top, so those controls
      used to show *through* an open panel on a second layer, still tappable. */
@@ -460,9 +477,9 @@ export default function NativePlayerView({
   const [scrubHover, setScrubHover] = useState(null); // 0..1 ratio or null
   const [scrubDragging, setScrubDragging] = useState(false);
   // Netflix-style HUD pill (volume / aspect) that pops then self-fades.
-  const [autoMuted, setAutoMuted] = useState(false); // autoplay-block â†’ muted play + hint
+  const [autoMuted, setAutoMuted] = useState(false); // autoplay-block → muted play + hint
   const [aspectRatioIndex, setAspectRatioIndex] = useState(() => {
-    // Clamp to the shared catalog length â€” the mode list lives in
+    // Clamp to the shared catalog length — the mode list lives in
     // constants/playerUi.js, so a stale stored index beyond it resets to Fit.
     const i = readStoredNumber(ASPECT_STORAGE_KEY, {
       min: 0,
@@ -477,7 +494,7 @@ export default function NativePlayerView({
   // plays at 2x; release restores the previous rate. Desktop holds the forward
   // transport button.
   const [hold2x, setHold2x] = useState(false);
-  // Netflix "Still watching?" â€” after enough unattended playback or auto-advanced
+  // Netflix "Still watching?" — after enough unattended playback or auto-advanced
   // episodes, pause and ask. The offer expires if ignored.
   const [stillWatching, setStillWatching] = useState(false);
   // Mirror refs: the keyboard + gesture handlers bind once, so they must read current values.
@@ -487,7 +504,7 @@ export default function NativePlayerView({
   mutedRef.current = muted;
   const aspectRef = useRef(aspectRatioIndex);
   aspectRef.current = aspectRatioIndex;
-  // Hold/still-watching mirrors â€” synced here because `hold2x`/`ended` are
+  // Hold/still-watching mirrors — synced here because `hold2x`/`ended` are
   // declared above this line, not at the ref block up top.
   hold2xRef.current = hold2x;
   endedRef.current = ended;
@@ -495,7 +512,7 @@ export default function NativePlayerView({
   // Touch gesture state for Netflix's vertical drags on the video surface.
   const gestureRef = useRef(null);
   // Fragments flowing via the Vercel relay (0 = all direct). A streak past a
-  // couple means the CDN throttled us mid-session â€” surfaced in the attempt log.
+  // couple means the CDN throttled us mid-session — surfaced in the attempt log.
   // The per-session verdict (relay vs direct) drives the quality menu's
   // relay-limited rows and skips a re-probe when it is already known.
   const [transportRelay, setTransportRelay] = useState(false);
@@ -534,7 +551,7 @@ export default function NativePlayerView({
         video.pause();
       }
     } catch {
-      // Autoplay policy â€” the big custom button stays visible for a tap.
+      // Autoplay policy — the big custom button stays visible for a tap.
     }
     // YouTube-style centre flash for the NEW state. After `await`, `video.paused`
     // is settled either way (play resolved or pause is sync); a rejected play
@@ -560,7 +577,7 @@ export default function NativePlayerView({
     try {
       await video.play();
     } catch {
-      // user gesture needed â€” controls are visible
+      // user gesture needed — controls are visible
     }
   };
 
@@ -615,11 +632,11 @@ export default function NativePlayerView({
       clearTimeout(scrubHoverTimer.current);
       scrubHoverTimer.current = null;
     }
-    if (resumeOffer) setResumeOffer(null); // user grabbed the bar â€” they pick the spot
+    if (resumeOffer) setResumeOffer(null); // user grabbed the bar — they pick the spot
     try {
       scrubRef.current?.setPointerCapture?.(e.pointerId);
     } catch {
-      // pointer capture unsupported â€” drag still works while over the bar
+      // pointer capture unsupported — drag still works while over the bar
     }
 setScrubDragging(true);
     const ratio = scrubRatioOf(e.clientX);
@@ -671,7 +688,7 @@ setScrubDragging(true);
      same feedback a drag gives.
      stopPropagation is load-bearing: the window keydown handler also binds
      ArrowLeft/ArrowRight, and without it one press seeks twice.
-     Up/Down are deliberately NOT handled here â€” they fall through to the global
+     Up/Down are deliberately NOT handled here — they fall through to the global
      volume binding, which is the convention this player uses everywhere else
      (and matches YouTube); hijacking them for seeking would make the same key
      mean two different things depending on focus. */
@@ -713,8 +730,8 @@ setScrubDragging(true);
      dragging, decode the frame at the hover position off-screen and show it in
      a small card above the time bubble. Cache miss decodes ride the preview
      pipeline (same transport as playback); failures resolve null and scrubbing
-     keeps working â€” the card just stays hidden until a capture lands.
-     NOTE: declared AFTER safeDuration/hoverRatio below â€” this effect reads
+     keeps working — the card just stays hidden until a capture lands.
+     NOTE: declared AFTER safeDuration/hoverRatio below — this effect reads
      them, and an earlier placement read them before initialization (TDZ crash). */
 
   const seekRelative = (delta) => {
@@ -722,7 +739,7 @@ setScrubDragging(true);
     if (!video) return;
     poke();
     // HUD shows the amount actually applied (clamped at 0 / duration), not the
-    // requested one â€” YouTube shows +Xs / -Xs, never a lie like -0s.
+    // requested one — YouTube shows +Xs / -Xs, never a lie like -0s.
     const dur = Number(video.duration);
     const from = video.currentTime || 0;
     const next = from + delta;
@@ -756,7 +773,7 @@ setScrubDragging(true);
   };
 
   /* Netflix resume: when a continue-watching entry exists for this title/
-     episode, offer "Left off at â€¦" once per session and auto-resume into the
+     episode, offer "Left off at …" once per session and auto-resume into the
      saved position after a short countdown. Restart scrubs to 0. */
   const maybeOfferResume = () => {
     const entry = watchedEntryRef.current;
@@ -781,7 +798,7 @@ setScrubDragging(true);
     safeSeek(at); // clamped to duration; saved positions are stale by nature
     if (video.paused) {
       video.play().catch(() => {
-        // autoplay policy â€” the big custom play button stays available
+        // autoplay policy — the big custom play button stays available
       });
     }
   };
@@ -798,7 +815,7 @@ setScrubDragging(true);
     }
     if (video.paused) {
       video.play().catch(() => {
-        // autoplay policy â€” the big custom play button stays available
+        // autoplay policy — the big custom play button stays available
       });
     }
   };
@@ -850,7 +867,7 @@ setScrubDragging(true);
     setHud({ kind, value });
     hudTimerRef.current = setTimeout(() => setHud(null), HUD_MS);
   }, []);
-  // Mirror for once-bound closures (togglePlay) â€” same pattern as the value
+  // Mirror for once-bound closures (togglePlay) — same pattern as the value
   // mirror refs above, so the YT-style centre flash survives stale closures.
   const showHudRef = useRef(showHud);
   showHudRef.current = showHud;
@@ -858,7 +875,7 @@ setScrubDragging(true);
   /* Settings-sheet focus management. Two real problems: focus was never moved
      into the sheet (so its rows were never announced and Tab started from
      wherever the transport row left off), and closing it dropped focus on the
-     floor. Deliberately NOT a focus trap and NOT aria-modal â€” the sheet is a
+     floor. Deliberately NOT a focus trap and NOT aria-modal — the sheet is a
      side pane, the transport row stays visible and operable beneath it, and
      trapping Tab would make the play button unreachable while it is open.
 
@@ -884,7 +901,7 @@ setScrubDragging(true);
     const session = panelSessionRef.current;
     panelSessionRef.current = null;
     // <body> means nothing was focused when the sheet opened (a synthetic click,
-    // or focus was never on the chrome) â€” focusing it is a no-op.
+    // or focus was never on the chrome) — focusing it is a no-op.
     if (session?.el?.isConnected && session.el !== document.body) session.el.focus();
     return undefined;
   }, [panel]);
@@ -932,7 +949,7 @@ setScrubDragging(true);
         setIsFullscreen(true);
       }
     } catch {
-      // fullscreen unsupported â€” native video keeps playing inline
+      // fullscreen unsupported — native video keeps playing inline
     }
     poke();
   };
@@ -1113,13 +1130,13 @@ setScrubDragging(true);
     suppressClickRef.current = true;
     if (hold2xRef.current || holdTimerRef.current) {
       // A right-zone hold just ended (2x engaged or still arming): it was not a
-      // tap â€” swallow it so play/pause doesn't fire on release.
+      // tap — swallow it so play/pause doesn't fire on release.
       handleHoldEnd();
       suppressClickRef.current = true;
       return;
     }
     if (buffering) return;
-    // A vertical gesture (volume drag) just happened â€” not a tap.
+    // A vertical gesture (volume drag) just happened — not a tap.
     if (gestureRef.current?.active) {
       gestureRef.current = null;
       return;
@@ -1128,7 +1145,7 @@ setScrubDragging(true);
     const t = e.changedTouches && e.changedTouches[0];
     if (!rect.width || !t) return;
     const zone = zoneOf(rect, t.clientX);
-    // Center taps toggle playback immediately â€” the 260ms single-tap delay
+    // Center taps toggle playback immediately — the 260ms single-tap delay
     // only exists where a double-tap means seek.
     if (zone === "center") {
       if (singleTapTimer.current) {
@@ -1160,8 +1177,8 @@ setScrubDragging(true);
     }, 260);
   };
 
-  // Vertical drag on the RIGHT THIRD = volume (brightness removed â€” the OS
-  // owns screen brightness). Vertical-only â€” horizontal movement declares a
+  // Vertical drag on the RIGHT THIRD = volume (brightness removed — the OS
+  // owns screen brightness). Vertical-only — horizontal movement declares a
   // non-gesture so taps and double-taps survive. A right-zone hold arms 2x;
   // a vertical move on that side cancels the arm.
   const handleGestureStart = (e) => {
@@ -1190,7 +1207,7 @@ setScrubDragging(true);
       if (Math.abs(t.clientY - g.startY) < 14) return;
       g.active = true;
       suppressClickRef.current = true;
-      // A right-half drag is a volume gesture, not a hold â€” cancel the 2x arm.
+      // A right-half drag is a volume gesture, not a hold — cancel the 2x arm.
       if (g.side === "volume" && holdTimerRef.current) {
         clearTimeout(holdTimerRef.current);
         holdTimerRef.current = null;
@@ -1200,7 +1217,7 @@ setScrubDragging(true);
     if (hold2xRef.current && g.side === "volume") {
       releaseHold2x();
     }
-    // Netflix sign: drag UP â†’ louder (clientY falls, so -dy is positive).
+    // Netflix sign: drag UP → louder (clientY falls, so -dy is positive).
     const nv = Math.min(1, Math.max(0, volumeRef.current - dy * 0.008));
     setMuted(false);
     setAutoMuted(false);
@@ -1210,7 +1227,7 @@ setScrubDragging(true);
     poke();
   };
 
-  /* Custom transport state (no native video controls â€” play/pause/seek/time/
+  /* Custom transport state (no native video controls — play/pause/seek/time/
      fullscreen below are all wired by hand). */
   useEffect(() => {
     const video = videoRef.current;
@@ -1252,7 +1269,7 @@ setScrubDragging(true);
           if (b.start(i) <= t && t <= b.end(i)) return Math.max(0, b.end(i) - t);
         }
       } catch {
-        // buffered unreadable (no media yet) â€” report zero
+        // buffered unreadable (no media yet) — report zero
       }
       return 0;
     };
@@ -1324,7 +1341,7 @@ setScrubDragging(true);
   }, []);
 
   /* Volume applies to the element and persists across visits. autoMuted is the
-     transient autoplay-policy mute (Netflix autoplays muted + hints) â€” it
+     transient autoplay-policy mute (Netflix autoplays muted + hints) — it
      overrides until the user taps the "unmute" affordance. */
   useEffect(() => {
     const video = videoRef.current;
@@ -1333,14 +1350,14 @@ setScrubDragging(true);
         video.volume = volume;
         video.muted = muted || autoMuted;
       } catch {
-        // element not ready â€” applied on the next change
+        // element not ready — applied on the next change
       }
     }
     try {
       window.localStorage.setItem(VOLUME_STORAGE_KEY, String(volume));
       window.localStorage.setItem(MUTED_STORAGE_KEY, muted ? "1" : "0");
     } catch {
-      // private mode â€” volume just won't persist
+      // private mode — volume just won't persist
     }
   }, [volume, muted, autoMuted]);
 
@@ -1362,13 +1379,13 @@ setScrubDragging(true);
        release is releaseHold2x's business alone. */
   }, [playbackRate]);
 
-  /* Aspect ratio persists across visits (brightness is gone â€” the OS owns
+  /* Aspect ratio persists across visits (brightness is gone — the OS owns
      screen brightness; a CSS filter only broke the picture). */
   useEffect(() => {
     try {
       window.localStorage.setItem(ASPECT_STORAGE_KEY, String(aspectRatioIndex));
     } catch {
-      // private mode â€” aspect just won't persist
+      // private mode — aspect just won't persist
     }
   }, [aspectRatioIndex]);
 
@@ -1386,7 +1403,7 @@ setScrubDragging(true);
 
   /* Media Session (Android/iOS lock screen + hardware buttons): advertise the
      title, reflect play/pause, and answer the 10s-seek buttons. Registered
-     once â€” the handlers call live refs so nothing goes stale. */
+     once — the handlers call live refs so nothing goes stale. */
   useEffect(() => {
     if (!("mediaSession" in navigator)) return undefined;
     try {
@@ -1425,7 +1442,7 @@ setScrubDragging(true);
         }
       };
     } catch {
-      // MediaMetadata/session unsupported â€” playback is unaffected
+      // MediaMetadata/session unsupported — playback is unaffected
     }
     return undefined;
   }, [displayTitle, displaySubtitle]);
@@ -1461,7 +1478,7 @@ setScrubDragging(true);
   );
 
   /* One-off keyframes for the "Up Next" countdown bar (the player is fully
-     inline-styled, so the 0%â†’100% sweep is injected into the head). */
+     inline-styled, so the 0%→100% sweep is injected into the head). */
   useEffect(() => {
     const styleId = "streamly-upnext-keyframes";
     if (document.getElementById(styleId)) return undefined;
@@ -1473,7 +1490,7 @@ setScrubDragging(true);
   }, []);
 
   /* Episodes that have actually aired. Everything that can move the viewer to a
-     different episode â€” the transport arrows, the keyboard paging, Up Next â€”
+     different episode — the transport arrows, the keyboard paging, Up Next —
      walks this instead of `episodes`, so an unaired episode (no still, no
      runtime, no source) can never be paged into or auto-played. */
   const airedEpisodes = useMemo(
@@ -1496,11 +1513,15 @@ setScrubDragging(true);
       return undefined;
     }
     setUpNext(next);
+    // Autoplay off: the card still appears (with its "Play now" affordance)
+    // but never fires — the timer simply isn't registered. Mirrors YouTube's
+    // switch, whose only effect is the countdown.
+    if (!autoplayEnabled) return undefined;
     const timer = setTimeout(() => {
       setUpNext((prev) => {
         if (prev) {
           // Still-watching guard: three auto-advances with zero interaction in
-          // between means nobody is behind the screen â€” pause and ask instead
+          // between means nobody is behind the screen — pause and ask instead
           // of burning data through a fourth episode.
           if (swAutoAdvRef.current + 1 >= STILL_WATCHING_EPISODES) {
             offerStillWatching("binge");
@@ -1513,7 +1534,7 @@ setScrubDragging(true);
       });
     }, UP_NEXT_MS);
     return () => clearTimeout(timer);
-  }, [type, ended, airedEpisodes, episode]);
+  }, [type, ended, airedEpisodes, episode, autoplayEnabled]);
 
   /* Netflix keyboard map. Space/K play-pause, arrows seek/volume, M mute,
      F fullscreen, N/Shift+P next/previous episode, Esc closes the dialog
@@ -1542,7 +1563,7 @@ setScrubDragging(true);
       if (e.defaultPrevented) return;
       const tag = String(e.target?.tagName || "").toLowerCase();
       if (tag === "input" || tag === "textarea" || tag === "select") return;
-      // Space/Enter on a focused button already clicks it â€” running our own
+      // Space/Enter on a focused button already clicks it — running our own
       // toggle too would double-fire into a no-op.
       if (tag === "button" && (e.code === "Space" || e.code === "Enter")) return;
       const video = videoRef.current;
@@ -1618,7 +1639,7 @@ setScrubDragging(true);
           }
           break;
         case "Escape":
-          // In fullscreen the browser consumes Esc to exit it â€” don't also
+          // In fullscreen the browser consumes Esc to exit it — don't also
           // close the player underneath.
           if (document.fullscreenElement) return;
           if (panel) setPanel(null);
@@ -1642,7 +1663,7 @@ setScrubDragging(true);
 
   useEffect(() => {
     if (!Hls.isSupported()) {
-      setFatal("This browser has no MediaSource support â€” native playback cannot run here.");
+      setFatal("This browser has no MediaSource support — native playback cannot run here.");
       return undefined;
     }
     const run = runRef.current + 1;
@@ -1657,7 +1678,7 @@ setScrubDragging(true);
     hasStartedRef.current = false;
     // The source committed by the PREVIOUS run (null on first mount): a dub
     // pin carried across a SERVER switch must not index into the new
-    // server's audioTracks â€” see the publish guard in the commit block.
+    // server's audioTracks — see the publish guard in the commit block.
     const prevSourceKey = metaRef.current?.sourceKey || null;
 
     const entryUrlFor = (def, resolved, variant) => {
@@ -1805,7 +1826,7 @@ setScrubDragging(true);
         }
         // Sibling-URL dubs ride OUTSIDE the ladder (resolved.audioTracks); variants
         // above is rewritten by the token-refresh path, so the dub list keeps the
-        // FIRST resolution's â€” sibling URLs never refresh tokens anyway.
+        // FIRST resolution's — sibling URLs never refresh tokens anyway.
         const dubTracks = Array.isArray(resolved?.audioTracks) ? resolved.audioTracks : [];
 
         let liveSource = resolved.source;
@@ -1818,11 +1839,11 @@ setScrubDragging(true);
         for (let attempt = 0; attempt < 2; attempt += 1) {
           if (stale()) return true;
           const pool = preferHeight != null ? variants.filter((v) => (v.height || 0) === preferHeight) : [];
-          // Smooth start: open on the tallest rendition â‰¤1080p (a 4K segment needs
-          // ~20Mbps sustained â€” opening there is what stalled playback after 5-10s).
+          // Smooth start: open on the tallest rendition ≤1080p (a 4K segment needs
+          // ~20Mbps sustained — opening there is what stalled playback after 5-10s).
           let smoothStart = pool[0] || pickSmooth(variants);
           // A pinned dub re-opens on ITS OWN sibling manifest (the token-refresh
-          // attempt below), not the original-language entry â€” the position restore
+          // attempt below), not the original-language entry — the position restore
           // then lands the viewer back inside the dub they were watching.
           // Row index N is dubTracks[N - 1] (row 0 is the original).
           const pinnedDub =
@@ -1855,7 +1876,7 @@ setScrubDragging(true);
           }
           setTransportRelay(probe?.via === "relay");
           // Relay delivery is latency-bound (fresh serverless round trip per chunk), so
-          // a relay start reopens at the tallest â‰¤720p; the direct path keeps â‰¤1080p.
+          // a relay start reopens at the tallest ≤720p; the direct path keeps ≤1080p.
           if (!isMaster && probe.via === "relay" && (smoothStart?.height || 0) > 720) {
             const relayFriendly = variants
               .filter((v) => (v.height || 0) > 0 && (v.height || 0) <= 720)
@@ -1864,7 +1885,7 @@ setScrubDragging(true);
               smoothStart = relayFriendly;
               entryUrl = entryUrlFor(def, { source: liveSource }, smoothStart);
               // A per-quality source whose variant lacks a uri must not reach
-              // hls.loadSource(undefined) â€” that surfaced as ?url=undefined at
+              // hls.loadSource(undefined) — that surfaced as ?url=undefined at
               // the worker (500 + CORS noise) instead of a clean failover.
               if (!entryUrl) {
                 return false;
@@ -1885,7 +1906,7 @@ setScrubDragging(true);
           // ABR seed. A fixed 10Mbps is a blind guess: too low on a fast TV, far
           // too high on a phone (an over-optimistic first rung shows a rebuffer
           // before hls.js corrects itself). navigator.connection already knows
-          // the pipe's shape before a byte flows, so use it as a PRIOR only â€”
+          // the pipe's shape before a byte flows, so use it as a PRIOR only —
           // hls.js's own measurement still wins after the first segments, and
           // the underflow step-down is unchanged. Absent the API (Safari,
           // Firefox) this is exactly the old fixed seed.
@@ -1897,7 +1918,7 @@ setScrubDragging(true);
           // parallel range chunking, so a manual tall pick may try and the buffer-floor
           // step-down negotiates back down. We do NOT yank a user's 4K/1080p pick (every
           // source is relay-only on the free tier; banning tall rungs bans everything).
-          // Startup stays â‰¤720p over relay; master sources self-adjust.
+          // Startup stays ≤720p over relay; master sources self-adjust.
           const hls = new Hls({
             loader: createStreamlyLoader({
               getRefUrl: () => liveRefUrl,
@@ -1927,7 +1948,7 @@ setScrubDragging(true);
             // Auto starts mid-ladder (INITIAL_BW_BITS) so quality doesn't climb rung-by-rung.
             initialBandwidthEstimate: streamSeedBits,
             // Judge ABR by MEASURED bytes/sec, not the advertised bitrate (relayed sources
-            // lie), and never exceed the rendered size â€” a small window doesn't need 1080p
+            // lie), and never exceed the rendered size — a small window doesn't need 1080p
             // and every rung saved off the relay is one fewer stall.
             abrMaxWithRealBitrate: true,
             capLevelToPlayerSize: true,
@@ -1954,8 +1975,7 @@ setScrubDragging(true);
               message: data?.error?.message,
               fragSn: frag?.sn ?? null,
             });
-            // A dead source should show its evidence, not a bare spinner.
-                      };
+          };
           const failOver = () => {
             try {
               hls.destroy();
@@ -1965,7 +1985,7 @@ setScrubDragging(true);
             resolveFatal?.();
           };
           // Non-fatal fragment failures never reach the attempt log, yet a loop of them IS
-          // the black screen (vidzen 429s) â€” count them and fail over ourselves.
+          // the black screen (vidzen 429s) — count them and fail over ourselves.
           let consecFragFails = 0;
           hls.on(Hls.Events.FRAG_BUFFERED, () => {
             consecFragFails = 0;
@@ -1998,7 +2018,7 @@ setScrubDragging(true);
                   hls.currentLevel = autoRung - 1;
                   consecFragFails = 0;
                                   } else if (consecFragFails >= MAX_CONSECUTIVE_FRAG_FAILURES) {
-                  reportFatal({ ...data, fatal: true, details: `${data.details} (Ã—${consecFragFails} consecutive â€” giving up)` });
+                  reportFatal({ ...data, fatal: true, details: `${data.details} (×${consecFragFails} consecutive — giving up)` });
                   failOver();
                 }
               }
@@ -2031,7 +2051,7 @@ setScrubDragging(true);
           // that has to announce it. Runs for a manual pick AND for the loader's
           // own fail-over, which is the case the ref could not express.
           setActiveSourceKey(def.key);
-          // A fresh resolution carries a fresh referer token â€” thumbnails from
+          // A fresh resolution carries a fresh referer token — thumbnails from
           // the previous one are dead weight; the preview decoder remounts.
           clearPreviewCache(def.key);
           startLevelFor(hls);
@@ -2056,7 +2076,7 @@ setScrubDragging(true);
               }
             });
           setQualities(Array.from(byLabel.values()));
-          // Publish this run's dub list â€” unless a dub pin carried over from
+          // Publish this run's dub list — unless a dub pin carried over from
           // a DIFFERENT server (a Servers-menu switch): a stale index must not
           // auto-pin a dub on the new server (its attempt loop would re-open
           // a dead old token). Same-server re-runs keep the pin by design.
@@ -2105,7 +2125,7 @@ setScrubDragging(true);
           // Netflix resume gate: first real playback for this title/episode.
           maybeOfferResumeRef.current();
           // A fatal error AFTER playback started either refreshes tokens in place (same
-          // source/quality, resume position) or moves on â€” never a dead "playing" screen.
+          // source/quality, resume position) or moves on — never a dead "playing" screen.
           const parked = await Promise.race([fatalLater.then(() => "fatal"), abortPromise()]);
           if (parked === "done") return true;
           // The stream died mid-play (expired token, dead CDN, quota'd relay):
@@ -2117,8 +2137,8 @@ setScrubDragging(true);
           hasStartedRef.current = false;
           setStageWhileLoading(true);
           setSwitchingNote("Reconnecting…");
-          // A pinned dub whose token died mid-play cannot refresh in place â€” its
-          // sibling URL is fixed â€” so drop back to the original track and let the
+          // A pinned dub whose token died mid-play cannot refresh in place — its
+          // sibling URL is fixed — so drop back to the original track and let the
           // token-refresh re-resolve below mint a fresh ladder for it.
           if (activeDubRef.current > 0 && isAuthFatal(lastFatalDetail) && !stale()) {
             activeDubRef.current = 0;
@@ -2179,7 +2199,7 @@ setScrubDragging(true);
       // A Servers-menu pick plays ONLY that server (its own retry + token-
       // refresh machinery still applies); the auto rotation is the no-pick
       // path. Silently falling back to another provider would lie about what
-      // the viewer chose â€” the fatal message points at the Servers menu.
+      // the viewer chose — the fatal message points at the Servers menu.
       if (requestedServerRef.current) {
         if (await runSource(null)) return;
       } else {
@@ -2193,7 +2213,7 @@ setScrubDragging(true);
       const quotaHit = anyUpstreamQuota;
       setFatal(
         requestedServerRef.current
-          ? `${sourceLabel(requestedServerRef.current)} had no playable stream${quotaHit ? " (provider hit its daily delivery quota, HTTP 429 — try again later)" : ""} â€” try another server (gear â†’ Servers).`
+          ? `${sourceLabel(requestedServerRef.current)} had no playable stream${quotaHit ? " (provider hit its daily delivery quota, HTTP 429 — try again later)" : ""} — try another server (gear → Servers).`
           : `No native source resolved this title (all sources came up empty).${
               quotaHit
                 ? " At least one provider hit a daily delivery quota (HTTP 429) — try again later or pick another server."
@@ -2222,10 +2242,10 @@ setScrubDragging(true);
     const hls = hlsRef.current;
     if (!videoRef.current) return;
     if (!hls) return;
-    // A pinned NHD dub IS the manifest â€” the source serves one rung per dub, so
+    // A pinned NHD dub IS the manifest — the source serves one rung per dub, so
     // a quality pick while a dub plays would silently swap the viewer back to
     // the original language instead of changing quality. Honest answer: fixed.
-    // (Dub switches pass dubSwitch â€” pickDub commits the ref only after its own
+    // (Dub switches pass dubSwitch — pickDub commits the ref only after its own
     // probe passed, and picking "Original" clears the ref first.)
     if (activeDubRef.current > 0 && !opts.dubSwitch) {
       setBuffering(false);
@@ -2242,13 +2262,13 @@ setScrubDragging(true);
       setAutoLevel(false);
       if (height != null) setManualHeight(height);
     }
-    // pickDub already said "Audio -> <track>â€¦" â€” don't overwrite it with "?p".
+    // pickDub already said "Audio -> <track>…" — don't overwrite it with "?p".
     setBuffering(true);
     poke();
     try {
       // A dub switch on a multi-rung master replaces the whole playlist (the dub
       // is a sibling master URL), so it must NOT be short-circuited into
-      // `hls.currentLevel` â€” that would keep the original language playing.
+      // `hls.currentLevel` — that would keep the original language playing.
       // An `external` pick carries a URI from a DIFFERENT master (the
       // vidrack upgrade): pinning a level inside the CURRENT manifest
       // would silently do nothing, so it must take the full loadSource path.
@@ -2287,10 +2307,10 @@ setScrubDragging(true);
           return;
         }
       } catch {
-        // probe hiccup (abort, timeout) â€” fall through to the requested uri
+        // probe hiccup (abort, timeout) — fall through to the requested uri
       }
       // A probe hiccup with no requested uri would reach loadSource(undefined)
-      // â†’ the worker's ?url=undefined 500. Bail to the current quality instead.
+      // → the worker's ?url=undefined 500. Bail to the current quality instead.
       if (!chosenUri) {
         setBuffering(false);
         setControlsVisible(true);
@@ -2357,11 +2377,11 @@ setScrubDragging(true);
         try {
           await videoRef.current.play();
         } catch {
-          // user gesture needed â€” custom transport is present
+          // user gesture needed — custom transport is present
         }
       }
       setActiveUri(chosenUri);
-      // A dub switch has no quality to report â€” pickDub already announced the
+      // A dub switch has no quality to report — pickDub already announced the
       // track it is moving to, so don't overwrite it with "?p".
       // Real frames again. The loader's own success path clears this too, but a
       // direct hls.loadSource() swap (quality/dub) never goes through that path,
@@ -2386,7 +2406,7 @@ setScrubDragging(true);
 
   /* Servers menu: re-drive the whole load effect through a different source.
      The ref is committed FIRST so the next resolve run sees the pick, the
-     reload token re-runs the effect (full teardown â†’ fresh resolve), and the
+     reload token re-runs the effect (full teardown → fresh resolve), and the
      dub pin is dropped so no NHD dub URL leaks across servers. The transport
      row highlights this icon while a Servers-menu panel is open. */
   const pickServer = (key) => {
@@ -2431,7 +2451,7 @@ setScrubDragging(true);
         .filter((q) => (q.height || 0) > 0 && (q.height || 0) < curH)
         .sort((a, b) => (b.height || 0) - (a.height || 0));
       const target = rungs[0];
-      // A pinned NHD dub IS the manifest â€” stepping down a rung would swap the
+      // A pinned NHD dub IS the manifest — stepping down a rung would swap the
       // viewer back to the original-language track, so leave the dub alone.
       if (activeDubRef.current > 0) return;
       if (!target || activeUri === target.uri) return;
@@ -2454,15 +2474,15 @@ setScrubDragging(true);
   /* Dub switch: each dub is a SEPARATE HLS manifest (a sibling full-stream
      URL from the resolver's audioTracks, never an in-manifest audio group), so
      switching = swapping the source with pickQuality's position-preserving
-     mechanics. Row index 0 is the original soundtrack â€” picking it swaps back to
+     mechanics. Row index 0 is the original soundtrack — picking it swaps back to
      the resolution's own entry URL.
 
      The row index and the dubTracks index are OFF BY ONE on purpose: the panel
      renders an "Original" row first, so row N is dubTracks[N - 1]. Indexing
      both with the same N played the WRONG language under the clicked label. */
   const pickDub = async (index) => {
-    // A sibling is NOT provably the original â€” the provider's own player
-    // highlights tracks[0] while playing the main URL â€” so the two lists must
+    // A sibling is NOT provably the original — the provider's own player
+    // highlights tracks[0] while playing the main URL — so the two lists must
     // never be conflated.
     if (index === activeDubRef.current) return;
     const target = index === 0 ? null : dubTracks[index - 1];
@@ -2472,7 +2492,7 @@ setScrubDragging(true);
       index === 0 ? meta?.variants?.[0]?.uri || meta?.entryUrl : target.uri;
     if (!targetUri) return;
     poke();
-    // Prove the target manifest flows BEFORE committing the pick â€” NHD tokens are
+    // Prove the target manifest flows BEFORE committing the pick — NHD tokens are
     // time-scoped, and a dead dub must not end up highlighted with the previous
     // audio still playing. (The same gate pickQuality applies to quality rungs.)
     try {
@@ -2482,7 +2502,7 @@ setScrubDragging(true);
         return;
       }
     } catch {
-      // probe hiccup (abort/timeout) â€” let the switch itself decide
+      // probe hiccup (abort/timeout) — let the switch itself decide
     }
     activeDubRef.current = index;
     setActiveDub(index);
@@ -2524,7 +2544,7 @@ setScrubDragging(true);
         entry.languageId || entry.language,
       );
     } catch {
-      // storage full/blocked â€” subtitle still works this session
+      // storage full/blocked — subtitle still works this session
     }
     try {
       const text = await SubtitleFetcher.downloadAndDecompress(entry.downloadLink);
@@ -2537,7 +2557,7 @@ setScrubDragging(true);
           // The fetcher logs the precise leg/status to the console; the pane
           // keeps the actionable half on screen.
           setSubtitleError(
-            "Subtitle download failed â€” try another language. If every language fails, the Cloudflare relay is serving without the OpenSubtitles update (redeploy the worker snippet from .env.example).",
+            "Subtitle download failed — try another language. If every language fails, the Cloudflare relay is serving without the OpenSubtitles update (redeploy the worker snippet from .env.example).",
           );
         }
         return;
@@ -2546,7 +2566,7 @@ setScrubDragging(true);
       const cues = parsed.length ? parsed : SubtitleEngine.parseVTT(text);
       if (!cues.length) {
         // The fetcher already refuses non-subtitle bodies, so reaching here
-        // means a real caption file with zero parseable lines â€” never leave
+        // means a real caption file with zero parseable lines — never leave
         // the track "enabled" with nothing to render.
         if (token === subtitleTokenRef.current) {
           subtitleEnabledRef.current = false;
@@ -2554,7 +2574,7 @@ setScrubDragging(true);
           setCurrentSubtitle(null);
           subtitleEngineRef.current?.setCues([]);
           applySubtitleCue(null);
-          setSubtitleError("This subtitle file had no readable lines â€” pick another language.");
+          setSubtitleError("This subtitle file had no readable lines — pick another language.");
         }
         return;
       }
@@ -2570,7 +2590,7 @@ setScrubDragging(true);
         subtitleEnabledRef.current = false;
         setSubtitleEnabled(false);
         setCurrentSubtitle(null);
-        setSubtitleError("Subtitle download failed â€” try another language.");
+        setSubtitleError("Subtitle download failed — try another language.");
       }
     }
   };
@@ -2599,7 +2619,7 @@ setScrubDragging(true);
         try {
           remembered = window.localStorage.getItem(`streamly-native-subtitle-${id}`);
         } catch {
-          // storage unavailable â€” no auto restore
+          // storage unavailable — no auto restore
         }
         if (remembered) {
           const match =
@@ -2721,17 +2741,47 @@ setScrubDragging(true);
     if (nextDisabled) return;
     goEpNext();
   };
-  // The keydown effect binds once per panel flip â€” route it through mirrors so
+  // The keydown effect binds once per panel flip — route it through mirrors so
   // N / Shift+P always see the current episode's nav state.
   keyboardEpPrevRef.current = keyboardPrevEpisode;
   keyboardEpNextRef.current = keyboardNextEpisode;
 
   // Skip-intro / skip-credits windows. The RULE lives in utils/skipMarkers.js;
   // this is only the viewer's choice about how to apply it (the Auto Skip Intro
-  // preference, previously dead on web â€” it was wired in Settings but nothing
+  // preference, previously dead on web — it was wired in Settings but nothing
   // here ever read it).
   const prefs = useOptionalPreferences();
   const autoSkipIntro = prefs?.autoSkipIntro === true;
+
+  // Same preference the Settings page toggles ("auto-play the next episode").
+  // The switch in the bottom-right writes straight to it; the provider (when
+  // mounted) is the single source of truth and re-syncs cross-tab changes.
+  useEffect(() => {
+    if (prefs?.autoplay !== undefined) setAutoplayEnabled(Boolean(prefs.autoplay));
+  }, [prefs?.autoplay]);
+
+  const onToggleAutoplay = useCallback(() => {
+    setAutoplayEnabled((cur) => {
+      const next = !cur;
+      try {
+        localStorage.setItem("setting-autoplay", JSON.stringify(next));
+      } catch {
+        // non-DOM test environments
+      }
+      prefs?.setPreference?.("autoplay", next);
+      return next;
+    });
+  }, [prefs]);
+
+  // Gear "HD" badge: shown once the active rendition is HD or better (the
+  // design's crimson chip next to the cog). Manual picks key on the chosen
+  // height; Auto/ABR keys on the currently negotiated height.
+  const hdBadge =
+    ((autoLevel === false
+      ? qualities.find((q) => q.height === manualHeight)?.height || currentHeight
+      : currentHeight) || 0) >= 1080
+      ? "HD"
+      : undefined;
 
   /* Real skip boundaries read off the manifest's own cue tags, when a provider
      emits any. Null keeps the 90s/150s estimates in skipMarkers.js. Reset on
@@ -2772,15 +2822,15 @@ setScrubDragging(true);
 
        server switch / dub switch  -> a different manifest, so its cue tags (if
          any) must be re-measured. Keeping the previous manifest's tags would
-         apply one provider's cut to another's encode â€” and, worse, the loader
-         logs "No cue tags in manifest â€” skip windows stay estimated" while the
+         apply one provider's cut to another's encode — and, worse, the loader
+         logs "No cue tags in manifest — skip windows stay estimated" while the
          windows are in fact NOT estimates, so the one diagnostic meant to answer
          "does any provider emit cue tags" reports a falsehood.
        in-manifest audio group      -> pickAudio only sets hls.audioTrack; the
          manifest is untouched, so the tags still describe what is playing.
 
      Dataset boundaries are keyed by IMDb id, so they describe the content and are
-     kept across every source switch â€” that is the whole reason to have them. */
+     kept across every source switch — that is the whole reason to have them. */
   const manifestScope = `${activeSourceKey || ""}|${activeDub}`;
   const prevScopeRef = useRef(manifestScope);
   useEffect(() => {
@@ -2912,7 +2962,7 @@ const showSkipOutro = shouldShowSkipOutro({
     try {
       videoRef.current.play();
     } catch {
-      // user gesture needed â€” custom transport is present
+      // user gesture needed — custom transport is present
     }
   };
   const doSkipIntro = () => doSeekPast(skipIntroTarget);
@@ -2992,10 +3042,10 @@ const showSkipOutro = shouldShowSkipOutro({
           }}
         />
         {/* (No standalone scrims: the top bar and bottom chrome paint their own
-            gradients â€” stacking more here double-darkened the picture.) */}
+            gradients — stacking more here double-darkened the picture.) */}
         {/* Dim the picture while a dialog panel is open (Netflix does this) so
             the rows read against the frame, not against the movie. Tapping the
-            dim (outside the sheet) closes the panel â€” mobile has no Esc. */}
+            dim (outside the sheet) closes the panel — mobile has no Esc. */}
         {panel && (
           <div
             aria-hidden="true"
@@ -3011,7 +3061,7 @@ const showSkipOutro = shouldShowSkipOutro({
             }}
           />
         )}
-        {/* Subtitle overlay â€” active OpenSubtitles line, bottom-anchored above
+        {/* Subtitle overlay — active OpenSubtitles line, bottom-anchored above
             the control chrome like CustomVideoPlayer. */}
         <SubtitleOverlay text={activeSubtitle} controlsVisible={controlsVisible} />
 {/* Top bar: back + title. */}
@@ -3027,7 +3077,7 @@ const showSkipOutro = shouldShowSkipOutro({
         {/* Netflix-style Skip Intro pill: bottom-right, above the transport row,
             present only inside the intro window, seeks just past the credits.
             Stays tappable even with the chrome hidden (Netflix keeps it while
-            the intro plays) â€” but yields to any open panel. */}
+            the intro plays) — but yields to any open panel. */}
 <AnimatePresence>
           {showSkipIntro && !sheetOpen && (
             <SkipPill
@@ -3059,7 +3109,7 @@ const showSkipOutro = shouldShowSkipOutro({
             The spinner carries deliberately NO full-frame scrim or backdrop blur
             (the first version had both): dimming + blurring the picture during
             every stall read as a broken player, and its fade needs
-            AnimatePresence â€” a `transition` on a conditionally mounted node never
+            AnimatePresence — a `transition` on a conditionally mounted node never
             plays, which is why it looked frozen. */}
         {/* Cold wait: no frame to preserve, so the stage is the picture. */}
         <CenterStack
@@ -3174,6 +3224,9 @@ const showSkipOutro = shouldShowSkipOutro({
           showSubsButton={subtitleLanguages.length > 0 || isFetchingSubtitles || subtitleError}
           isFullscreen={isFullscreen}
           onFullscreen={goFullscreen}
+          autoplayEnabled={autoplayEnabled}
+          onToggleAutoplay={onToggleAutoplay}
+          hdBadge={hdBadge}
         />
 {/* Netflix "Left off at …" resume card — auto-resumes after a short wait. */}
         <ResumeCard
@@ -3214,7 +3267,7 @@ const showSkipOutro = shouldShowSkipOutro({
                   onClick={() => setPanel("servers")}
                   title="Servers"
                   // What the viewer is watching right now, in the same words
-                  // the Servers sheet uses â€” not the resolver's internal key.
+                  // the Servers sheet uses — not the resolver's internal key.
                   // Requested wins over committed: after a failed switch the
                   // committed key would highlight the server the viewer just
                   // abandoned.
@@ -3246,7 +3299,7 @@ const showSkipOutro = shouldShowSkipOutro({
                 {/* The SkipDB data licence (ODbL) requires attribution wherever
                     its boundaries are used, so this is a licence term, not a
                     nicety. Gated on `source === "dataset"` so we credit it only
-                    for titles where its data actually reached the player â€”
+                    for titles where its data actually reached the player —
                     attribution for data we never used would be false. */}
                 {cueBoundaries?.source === "dataset" ? (
                   <p
@@ -3302,7 +3355,7 @@ const showSkipOutro = shouldShowSkipOutro({
                   />
                   {isFetchingSubtitles ? (
                     <p style={{ fontSize: 12.5, color: "#a1a1aa", margin: "6px 0 2px", lineHeight: 1.45 }}>
-                      Searching OpenSubtitlesâ€¦
+                      Searching OpenSubtitles…
                     </p>
                   ) : subtitleLanguages.length > 0 ? (
                     subtitleLanguages.map((s) => (
@@ -3320,7 +3373,7 @@ const showSkipOutro = shouldShowSkipOutro({
                   ) : (
                     <p style={{ fontSize: 12.5, color: "#a1a1aa", margin: "6px 0 2px", lineHeight: 1.45 }}>
                       {!imdbId
-                        ? "No subtitles found for this title on OpenSubtitles (no IMDb id â€” title search also came up empty)."
+                        ? "No subtitles found for this title on OpenSubtitles (no IMDb id — title search also came up empty)."
                         : "No subtitles found for this title on OpenSubtitles."}
                     </p>
                   )}
@@ -3337,14 +3390,14 @@ const showSkipOutro = shouldShowSkipOutro({
                   </p>
                   {dubTracks.length > 0 ? (
                     // Sibling-URL dubs (NHD, ZXC Centaurus): one MASTER per dub,
-                    // switched by swapping the source (pickDub) â€” NOT hls.js
+                    // switched by swapping the source (pickDub) — NOT hls.js
                     // audio groups.
                     //
                     // Checked BEFORE audioTracks on purpose: a transcoded DASH
                     // master always carries an in-manifest #EXT-X-MEDIA group
                     // (the muxed AAC), so testing audioTracks first would show
                     // one lonely "eng" row and hide every real dub behind it.
-                    // The sibling list is a superset â€” it starts at the original.
+                    // The sibling list is a superset — it starts at the original.
                     <>
                       {/* Row 0 is the original, named by the film's language
                           rather than the word "Original": TMDB already told us
@@ -3359,7 +3412,7 @@ const showSkipOutro = shouldShowSkipOutro({
                       />
                       {/* ALL siblings get rows: the provider's own player
                           highlights tracks[0] while playing the main URL, so
-                          track[0] is NOT provably the original soundtrack â€”
+                          track[0] is NOT provably the original soundtrack —
                           hiding it would hide a real language. Labels are the
                           normalised language names from audioLabels.js. */}
                       {audioTrackList.slice(1).map((t) => (
@@ -3386,7 +3439,7 @@ const showSkipOutro = shouldShowSkipOutro({
                     ))
                   ) : (
                     // No #EXT-X-MEDIA AUDIO groups: hls.js reports no audioTracks, but the
-                    // soundtrack IS playing â€” surface it as the single track.
+                    // soundtrack IS playing — surface it as the single track.
                     <>
                       {originalLanguage ? (
                         <p
@@ -3405,7 +3458,7 @@ const showSkipOutro = shouldShowSkipOutro({
                       <DialogRow
                         key="original"
                         selected
-                        title={originalLanguage ? `Original â€” ${FILM_LANG[originalLanguage] || (originalLanguage || "").toUpperCase() || "Unknown"}` : "Original"}
+                        title={originalLanguage ? `Original — ${FILM_LANG[originalLanguage] || (originalLanguage || "").toUpperCase() || "Unknown"}` : "Original"}
                         sub="This source's soundtrack"
                       />
                     </>
@@ -3416,7 +3469,7 @@ const showSkipOutro = shouldShowSkipOutro({
                   <p style={{ fontSize: 11, fontWeight: 700, color: "#a1a1aa", margin: "4px 0 4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
                     Video Quality
                   </p>
-                  {/* Auto is ALWAYS present â€” the active mode on every source
+                  {/* Auto is ALWAYS present — the active mode on every source
                       (master = hls.js ABR; per-rendition sources = the rung the
                       player negotiated at open, smooth-start / relay-friendly). */}
                   <DialogRow
@@ -3425,7 +3478,7 @@ const showSkipOutro = shouldShowSkipOutro({
                     title="Auto"
                     sub={
                       autoLevel && currentHeight != null
-                        ? `Now ${qualities.find((q) => q.height === currentHeight)?.label || `${currentHeight}p`} Â· adjusts with your connection`
+                        ? `Now ${qualities.find((q) => q.height === currentHeight)?.label || `${currentHeight}p`} · adjusts with your connection`
                         : "Adjusts with your connection"
                     }
                   />
@@ -3447,7 +3500,7 @@ const showSkipOutro = shouldShowSkipOutro({
                         key={`${q.uri}::${i}`}
                         selected={selected}
                         onClick={() => pickQuality(q.uri, q.height, { external: q.external })}
-                        title={q.label || `${q.height}p`}
+                        title={`${q.label || `${q.height}p`}${q.height >= 1080 && q.height < 2160 ? " HD" : ""}`}
                       />
                     );
                   })}
@@ -3492,7 +3545,7 @@ const showSkipOutro = shouldShowSkipOutro({
                       /* `name`, not `label`: the catalog has only ever had
                          `name`. Reading `.label` here made every option's text
                          undefined, so the whole panel rendered as six blank
-                         rows â€” the reason the aspect labels looked "missing".
+                         rows — the reason the aspect labels looked "missing".
                          Keyed on id so rows stay stable. */
                       key={aspect.id}
                       selected={aspectRatioIndex === idx}
@@ -3555,7 +3608,7 @@ const showSkipOutro = shouldShowSkipOutro({
             <NetflixSeekHUD key="seek-forward" direction="forward" metrics={hudBox} seconds={Math.abs(Math.round(hud.value))} />
           )}
         </AnimatePresence>
-        {/* Netflix "Still watching?" â€” pause + ask after unattended playback. */}
+        {/* Netflix "Still watching?" — pause + ask after unattended playback. */}
         <AnimatePresence>
           {stillWatching && (
             <NetflixStillWatching
@@ -3568,7 +3621,7 @@ const showSkipOutro = shouldShowSkipOutro({
                 try {
                   v?.play();
                 } catch {
-                  // user gesture needed â€” the custom transport is right there
+                  // user gesture needed — the custom transport is right there
                 }
               }}
               onExit={() => {

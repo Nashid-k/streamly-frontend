@@ -54,27 +54,27 @@ export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings
           className="np-panel-surface"
           style={{
             position: "absolute",
-            right: 0,
-            top: IS_TOUCH ? undefined : 0,
-            bottom: 0,
+            right: IS_TOUCH ? 0 : 16,
+            top: IS_TOUCH ? undefined : 72,
+            bottom: IS_TOUCH ? undefined : "auto",
             width: WIDE_PANELS.includes(panel)
               ? IS_TOUCH
-                ? "min(480px, 100%)"
-                : "min(480px, 32%)"
+                ? "100%"
+                : "min(400px, 36%)"
               : IS_TOUCH
-                ? "min(360px, 100%)"
-                : "min(360px, 28%)",
-            maxHeight: IS_TOUCH ? "85%" : "100%",
-            height: IS_TOUCH ? undefined : "100%",
+                ? "100%"
+                : "min(400px, 36%)",
+            maxHeight: IS_TOUCH ? "85%" : "min(calc(100% - 152px), 760px)",
+            height: IS_TOUCH ? undefined : "auto",
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
             background: GLASS_BG_STRONG,
             backdropFilter: GLASS_BLUR,
             WebkitBackdropFilter: GLASS_BLUR,
-            borderLeft: IS_TOUCH ? "none" : `1px solid ${GLASS_BORDER}`,
-            borderTop: IS_TOUCH ? `1px solid ${GLASS_BORDER}` : "none",
-            borderRadius: IS_TOUCH ? "16px 16px 0 0" : 0,
+            border: `1px solid ${GLASS_BORDER}`,
+            borderRadius: IS_TOUCH ? "14px 14px 0 0" : 14,
+            boxShadow: IS_TOUCH ? "none" : "0 18px 60px rgba(0,0,0,0.6)",
             // Bottom inset keeps rows clear of the Android/iOS gesture bar.
             padding: "16px 0 calc(12px + env(safe-area-inset-bottom, 0px))",
             zIndex: 6,

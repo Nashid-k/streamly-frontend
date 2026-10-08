@@ -132,8 +132,8 @@ export default function CenterStack({
             title="Rewind 10 seconds"
             style={{
               position: "relative",
-              width: IS_TOUCH ? 66 : 62,
-              height: IS_TOUCH ? 66 : 62,
+              width: IS_TOUCH ? 74 : 78,
+              height: IS_TOUCH ? 74 : 78,
               borderRadius: "50%",
               border: "none",
               background: "transparent",
@@ -145,7 +145,7 @@ export default function CenterStack({
               pointerEvents: "auto",
             }}
           >
-            <IconSkipBack10 size={44} style={CENTER_GLYPH_SHADOW} />
+            <IconSkipBack10 size={IS_TOUCH ? 46 : 50} style={CENTER_GLYPH_SHADOW} />
           </button>
           <button
             type="button"
@@ -154,13 +154,13 @@ export default function CenterStack({
             aria-label="Play"
             title="Play"
             style={{
-              width: 92,
-              height: 92,
+              width: IS_TOUCH ? 128 : 144,
+              height: IS_TOUCH ? 128 : 144,
               borderRadius: "50%",
-              border: `1px solid ${GLASS_BORDER}`,
-              background: GLASS_BG_STRONG,
-              backdropFilter: GLASS_BLUR,
-              WebkitBackdropFilter: GLASS_BLUR,
+              border: "none",
+              background: "rgba(70,62,55,0.6)",
+              backdropFilter: "blur(6px)",
+              WebkitBackdropFilter: "blur(6px)",
               color: "#fff",
               cursor: "pointer",
               display: "flex",
@@ -171,7 +171,7 @@ export default function CenterStack({
               transition: "transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1)",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.transform = "scale(1.06)";
+              e.currentTarget.style.transform = "scale(1.04)";
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = "scale(1)";
@@ -179,7 +179,7 @@ export default function CenterStack({
           >
             {/* Bias the triangle optically: a centred Play glyph reads as
                 slightly left-heavy against the circle. */}
-            <IconPlay size={40} style={{ transform: "translateX(2px)" }} />
+            <IconPlay size={IS_TOUCH ? 56 : 64} style={{ transform: "translateX(4px)" }} />
           </button>
           <button
             type="button"
@@ -192,8 +192,8 @@ export default function CenterStack({
             title="Fast forward 10 seconds"
             style={{
               position: "relative",
-              width: IS_TOUCH ? 66 : 62,
-              height: IS_TOUCH ? 66 : 62,
+              width: IS_TOUCH ? 74 : 78,
+              height: IS_TOUCH ? 74 : 78,
               borderRadius: "50%",
               border: "none",
               background: "transparent",
@@ -205,7 +205,7 @@ export default function CenterStack({
               pointerEvents: "auto",
             }}
           >
-            <IconSkipForward10 size={44} style={CENTER_GLYPH_SHADOW} />
+            <IconSkipForward10 size={IS_TOUCH ? 46 : 50} style={CENTER_GLYPH_SHADOW} />
           </button>
         </motion.div>
       )}

@@ -24,7 +24,7 @@ export default function ChromeTopBar({ visible, title, subtitle, onBack }) {
         right: 0,
         display: "flex",
         alignItems: "center",
-        justifyContent: "space-between",
+        gap: 14,
         padding: "var(--np-safe-top, 16px) 24px 44px",
         // The bar holds a back button and a title only. A heavier scrim read as a
         // black band over the frame; 0.55 fading out faster keeps the text
@@ -35,9 +35,22 @@ export default function ChromeTopBar({ visible, title, subtitle, onBack }) {
         zIndex: 4,
       }}
     >
-      <IconBtn label="Back" onClick={onBack}>
-        <IconArrowLeft size={24} />
-      </IconBtn>
+      <div
+        className="np-pill np-circle-pill"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 48,
+          height: 48,
+          borderRadius: 999,
+          flexShrink: 0,
+        }}
+      >
+        <IconBtn size={48} label="Back" onClick={onBack}>
+          <IconArrowLeft size={22} />
+        </IconBtn>
+      </div>
       <div
         style={{
           display: "flex",
