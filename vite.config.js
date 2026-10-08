@@ -16,6 +16,9 @@ function apiDevServerPlugin() {
     '/api/login': './api/login.js',
     '/api/sync': './api/sync.js',
     '/api/publicCollections': './api/publicCollections.js',
+    '/api/stream': './api/stream.js',
+    '/api/usage': './api/usage.js',
+    '/api/groq': './api/groq.js',
   };
   return {
     name: 'api-dev-server',

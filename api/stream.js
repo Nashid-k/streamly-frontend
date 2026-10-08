@@ -1,59 +1,52 @@
-// api/stream.js â€” browser-only download resolver (Vercel serverless).
+// api/stream.js — same-origin media relay for playback (Vercel serverless).
 //
-// The web app has no backend and no direct media URLs: every server is a
-// third-party iframe. To let viewers download a title "like a browser
-// download" we resolve the embed host's HLS playlist here (server-side, so
-// CORS/bot-walls don't apply) and proxy the media bytes back. The browser
-// then saves the assembled bytes to disk with the File System Access API
-// (incremental write) or a Blob download fallback.
+// The web app has no backend: native ZXC/vidstuck playback is relayed through
+// here by src/api/nativeHlsLoader.js so CORS/bot-walls don't apply and provider
+// URL rotation stays a server concern. Bytes are proxied one request at a time;
+// there is no download-assembly path anymore.
 //
 // Actions (POST JSON):
-//   resolve        { embedUrl }                         -> { source, variants }
 //   resolvezxc     { type, id, season?, episode?, server? } -> { source, variants, audioTracks }
 //   zxcintro       { imdbId, tmdbId, season?, episode? } -> { ok, introEndSeconds|null, creditsStartSeconds|null, confidence|null }
+//   playlist       { playlistUrl, refUrl? }              -> raw m3u8 text (referer-supplied)
+//   segment        { url, refUrl?, range: {start,max} }  -> bytes (octet-stream)
 //
-// "resolvevidcore" (Server 5, VidRack) was removed 2026-10-04: every ladder row
-// was AES-128 behind an api.dlproxy.com key host that 403s us, which is fatal to
-// hls.js. The action now answers a clean 400 bad-action.
-//   manifest       { playlistUrl, refUrl }              -> { kind, initUrl, segments, duration }
-//   playlist       { playlistUrl, refUrl }              -> raw m3u8 text (referer-supplied)
-//   segment        { url, refUrl?, range: {start,max} } -> bytes (octet-stream)
+// Retired actions (answer a clean 400 bad-action):
+//   · `resolve` — the old embed-download resolver. Every embed host it served
+//     (CineSrc, VidCore, 2embed, peachify, vidup and friends) was retired with
+//     iframe playback; only the ZXC native path is left.
+//   · `resolvevidcore` (Server 5, VidRack) — removed 2026-10-04: every ladder
+//     row was AES-128 behind an api.dlproxy.com key host that 403s us, fatal to
+//     hls.js.
+//   · `manifest` — redundant now that hls.js parses playlists itself.
 //
-// Byte transport notes (the reason this is different from the old version):
-//   Â· Vercel caps a function's request/response body at 4.5MB. The previous
-//     `segment` took a batch of 6 URLs and concatenated them â€” one 1080p
-//     movie blew that cap instantly (413 FUNCTION_PAYLOAD_TOO_LARGE) and
-//     nothing ever downloaded. Segments are now fetched ONE URL AT A TIME in
-//     bounded Range chunks (â‰¤ ~3.5MB each); the client loops until the
-//     server's `x-streamly-more` header says the file ended.
-//   Â· CDN segments that are served with open CORS can be pulled straight from
-//     the browser (zero serverless bandwidth); those that aren't go through
-//     this range relay.
+// Byte transport notes:
+//   · Vercel caps a function's request/response body at ~4.5MB, so `segment`
+//     fetches ONE URL AT A TIME in bounded Range chunks (≤ ~3.5MB each); the
+//     client loops until the server's `x-streamly-more` header says the file
+//     ended.
 //
 // Security:
-//   Â· resolve accepts only allow-listed embed hosts (SSRF guard).
-//   Â· EVERY upstream request â€” redirects included â€” is DNS-resolved and every
-//     resolved address must be public (this closes the decimal/hex-IP literal
-//     bypass like "http://2130706433/" that a string-based hostname blocklist
-//     never sees).
-//   Â· Response size caps bound bandwidth (a runaway "playlist" can't pull the
+//   · EVERY upstream request — redirects included — is DNS-resolved and every
+//     resolved address must be public (server/ssrf.js; this closes the
+//     decimal/hex-IP literal bypass like "http://2130706433/" that a
+//     string-based hostname blocklist never sees).
+//   · `playlist`/`segment` are further gated on the issued-host registry below
+//     so this public endpoint cannot be used as an open proxy or SSRF tunnel:
+//     only hosts a resolvezxc actually minted, hosts this instance has already
+//     relayed, or the two trusted CDN origins are allowed.
+//   · Response size caps bound bandwidth (a runaway "playlist" can't pull the
 //     whole internet through us).
-//   Â· Nothing is persisted; the function is a stateless pipe.
-//   Â· Quality/HDR labels reflect what the host actually serves â€” we never
-//     upscale or transcode, and DRM-protected renditions cannot be saved.
+//   · Nothing is persisted; the function is a stateless pipe.
 
 import crypto from "node:crypto";
 
-import {
-  parseMasterPlaylist,
-  parseMediaPlaylist,
-  resolveUrl,
-} from "../src/utils/hlsPlaylist.js";
+import { parseMasterPlaylist } from "../src/utils/hlsPlaylist.js";
 import { parseMpd, buildMasterPlaylist, buildMediaPlaylist } from "../server/dashToHls.js";
 import { rateLimit, tooManyRequests, clientIp } from "../server/rateLimit.js";
 import { countUsage } from "../server/usage.js";
 import { assertPublicDestination } from "../server/ssrf.js";
-import { logWarn } from "../src/utils/debugLogger.js";
+import { logWarn, logError } from "../src/utils/debugLogger.js";
 import {
   json,
   fetchUpstream,
@@ -63,160 +56,12 @@ import {
 
 export const config = { maxDuration: 60 };
 
-const ALLOWED_EMBED_HOSTS = new Set([
-  "cinesrc.st",
-  "www.cinesrc.st",
-  "vidlink.pro",
-  "www.vidlink.pro",
-  "2embed.cc",
-  "www.2embed.cc",
-  "vidcore.io",
-  "www.vidcore.io",
-  "peachify.top",
-  "www.peachify.top",
-  "vidup.to",
-  "www.vidup.to",
-  "embed.smashystream.com",
-  "smashystream.com",
-]);
+// Request bodies are tiny (an action + a URL + a range). Anything near this is
+// garbage; refusing it before any relaying keeps the function from acting as a
+// free proxy pipe for arbitrary payloads.
+const MAX_REQUEST_BODY_BYTES = 512 * 1024;
 
-// Pull playlist URLs out of embed HTML/JS, including JSON- and URL-escaped
-// forms hosts like to use to defeat naive scrapers.
-function extractPlaylistUrls(html, baseUrl) {
-  const normalized = String(html || "")
-    .replace(/\\u002f/gi, "/")
-    .replace(/\\\//g, "/")
-    .replace(/%2f/gi, "/");
-  const found = new Set();
-
-  const absRe = /https?:\/\/[^"'\\\s<>()]+?\.m3u8[^"'\\\s<>()]*/gi;
-  const relRe = /["'(](\/[^"'\\\s<>()]+?\.m3u8[^"'\\\s<>()]*)/gi;
-  const mp4Re = /https?:\/\/[^"'\\\s<>()]+?\.mp4[^"'\\\s<>()]*/gi;
-
-  let m;
-  while ((m = absRe.exec(normalized)) !== null) found.add(m[0]);
-  while ((m = relRe.exec(normalized)) !== null) found.add(resolveUrl(baseUrl, m[1]));
-  while ((m = mp4Re.exec(normalized)) !== null) found.add(m[0]);
-
-  return {
-    playlists: [...found].filter((u) => /\.m3u8(\?|$)/i.test(u)),
-    files: [...found].filter((u) => /\.mp4(\?|$)/i.test(u)),
-  };
-}
-
-function extractIframeSrcs(html, baseUrl) {
-  const srcs = new Set();
-  const re = /<iframe[^>]+src=["']([^"']+)["']/gi;
-  let m;
-  while ((m = re.exec(String(html || ""))) !== null) {
-    srcs.add(resolveUrl(baseUrl, m[1].replace(/\\u002f/gi, "/").replace(/\\\//g, "/")));
-  }
-  return [...srcs];
-}
-
-/* Deepest-first: embed page -> (nested player page) -> master playlist. */
-async function resolveFromEmbed(embedUrl, depth = 0) {
-  const html = await fetchUpstream(embedUrl, { referer: embedUrl });
-  const { playlists, files } = extractPlaylistUrls(html, embedUrl);
-
-  if (playlists.length > 0) return { playlists, files, refUrl: embedUrl };
-
-  if (depth < 2) {
-    for (const src of extractIframeSrcs(html, embedUrl)) {
-      try {
-        const nested = await resolveFromEmbed(src, depth + 1);
-        if (nested.playlists.length > 0 || nested.files.length > 0) return nested;
-      } catch {
-        // dead iframe â€” try the next one
-      }
-    }
-  }
-  return { playlists, files, refUrl: embedUrl };
-}
-
-async function handleResolve(body, res) {
-  const embedUrl = String(body.embedUrl || "").trim();
-  let parsed;
-  try {
-    parsed = new URL(embedUrl);
-  } catch {
-    json(res, 400, { ok: false, error: "Invalid embed URL", code: "bad-url" });
-    return;
-  }
-  if (parsed.protocol !== "https:" || !ALLOWED_EMBED_HOSTS.has(parsed.hostname.toLowerCase())) {
-    json(res, 403, { ok: false, error: "Embed host not allowed", code: "host-not-allowed" });
-    return;
-  }
-
-  let resolved;
-  try {
-    resolved = await resolveFromEmbed(embedUrl);
-  } catch (error) {
-    json(res, 502, {
-      ok: false,
-      error: `Could not read embed page: ${error?.message || "unknown"}`,
-      code: "embed-fetch-failed",
-    });
-    return;
-  }
-
-  // Direct file (rare, but the cleanest possible download).
-  if (resolved.files.length > 0 && resolved.playlists.length === 0) {
-    json(res, 200, {
-      ok: true,
-      source: { kind: "file", url: resolved.files[0], refUrl: resolved.refUrl },
-      variants: [
-        {
-          uri: resolved.files[0],
-          direct: true,
-          bandwidth: 0,
-          width: 0,
-          height: 0,
-          framerate: 0,
-          codecs: "",
-          hdr: false,
-        },
-      ],
-    });
-    return;
-  }
-
-  if (resolved.playlists.length === 0) {
-    json(res, 200, { ok: false, error: "No downloadable stream found on this server", code: "no-source" });
-    return;
-  }
-
-  // Fetch the first master; if it has no STREAM-INF rows it is the media
-  // playlist itself (single rendition).
-  let masterUrl = resolved.playlists[0];
-  let variants = [];
-  for (const candidate of resolved.playlists) {
-    try {
-      const text = await fetchUpstream(candidate, { referer: resolved.refUrl });
-      const list = parseMasterPlaylist(text, candidate);
-      if (list.length > 0) {
-        masterUrl = candidate;
-        variants = list;
-        break;
-      }
-    } catch {
-      // try the next candidate
-    }
-  }
-
-  if (variants.length === 0) {
-    json(res, 200, { ok: false, error: "Playlist could not be read", code: "no-source" });
-    return;
-  }
-
-  json(res, 200, {
-    ok: true,
-    source: { kind: "hls", url: masterUrl, refUrl: resolved.refUrl },
-    variants,
-  });
-}
-
-/* NetMirror (net27.cc family) â€” REMOVED (user order, 2024-09). net27's video
+/* NetMirror (net27.cc family) — REMOVED (user order, 2024-09). net27's video
    layer is per-IP 429-gated (bcdnxw CDN) and its auth is a Cloudflare
    challenge; the canonical-mirror family (net52/net51) mint real video URLs
    only for a per-session token issued behind an interactive challenge. No
@@ -224,7 +69,7 @@ async function handleResolve(body, res) {
    entries and player branches were removed; CineSrc (iframe sources) |
    VidCore | Videasy | VidVid remain the playback paths. */
 
-/* â”€â”€ ZXC / vidstuck third-party provider â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ── ZXC / vidstuck third-party provider ────────────────────────────────
    zxcstream.icu is a thin shell around a vidstuck.xyz JW Player embed; every
    real stream is behind vidstuck's own two-step backend, so we mint and read
    it server-side exactly like VidCore and serve the bytes ourselves.
@@ -234,7 +79,7 @@ async function handleResolve(body, res) {
 1. `POST /backend/fuckoffniggawtaf` with
       `{tmdbId, media_type, path[, season, episode]}` -> `{ token, ts }`. This
       endpoint is SELF-ORIGIN ONLY: a correct body with any other (or missing)
-      `Origin` header answers 500 "Internal Server Error" â€” verified across a
+      `Origin` header answers 500 "Internal Server Error" — verified across a
       header matrix, where only `Origin: https://vidstuck.xyz` returned 200. So
       the origin we send is not cosmetic; it is the whole gate.
 
@@ -248,7 +93,7 @@ async function handleResolve(body, res) {
 
       `meow` was never an endpoint at all: it is one of their SERVER names
       ("Ursa", `path=meow`). A 404 here fails the mint, so all four servers
-      report "no playable source" simultaneously â€” which reads like a network
+      report "no playable source" simultaneously — which reads like a network
       outage but is one renamed string.
 
       HOW TO RE-DISCOVER after the next rename (no guessing): both dead paths
@@ -268,23 +113,23 @@ async function handleResolve(body, res) {
       changing this line: old path 404, new path 200
       `{"token":"379cb…","ts":1791304881605}`.
 
-   2. `GET /backend/servers/{path}?â€¦` with a dozen OBFUSCATED query names
+   2. `GET /backend/servers/{path}?…` with a dozen OBFUSCATED query names
       (hex strings, mapped below) plus the token/ts from step 1, and optionally
       `dubCode`/`dubType` to pick an audio language. Answers
       `{ success, links: [{ type: "hls"|"dash", link, resolution }], dubs: [...] }`.
       Every `link` is AES-256-CBC encrypted with a hardcoded passphrase using
       CryptoJS's OpenSSL envelope (`Salted__` + 8-byte salt, key/IV derived by
       EVP_BytesToKey with MD5 and ONE round). `decryptZxcLink` below is that
-      derivation, and it is the only reason this works â€” the ciphertext is
+      derivation, and it is the only reason this works — the ciphertext is
       opaque without it.
 
    The four servers, and why they need different handling:
-     Â· andromeda / centaurus -> `type: "dash"`. MPD, not HLS. Transcoded to an
-       fMP4 HLS ladder by server/dashToHls.js (manifest only â€” no media bytes
+     · andromeda / centaurus -> `type: "dash"`. MPD, not HLS. Transcoded to an
+       fMP4 HLS ladder by server/dashToHls.js (manifest only — no media bytes
        are re-encoded, the segments are already CMAF).
-     Â· atlas  -> `type: "hls"` behind vidstuck's own `/backend/servers/atlas/edge`
+     · atlas  -> `type: "hls"` behind vidstuck's own `/backend/servers/atlas/edge`
        relay, so its relative `link` must be resolved against the origin.
-     Â· meow    -> `type: "hls"` direct off a Cloudflare worker. This row is
+     · meow    -> `type: "hls"` direct off a Cloudflare worker. This row is
        "Ursa" upstream and REPLACES the retired `milkyway`, whose manifest answers
        403 through this function and so could never play.
 
@@ -295,7 +140,7 @@ async function handleResolve(body, res) {
    implements) instead of `#EXT-X-MEDIA` rows in one master.
 
    Honesty gates: the advertised `dubs`
-   list overstates reality. Verified live against tmdb 1101383 â€” `hi` and `ta`
+   list overstates reality. Verified live against tmdb 1101383 — `hi` and `ta`
    are listed but their MPDs answer HTTP 427 ("Fetch failed"), and the one
    subtitle row (`es`, `dubType=1`) answers "No sources found". So every dub is
    individually minted and its manifest fetched before it may reach the Audio
@@ -328,7 +173,7 @@ const ZXC_DASH_SERVERS = new Set(["andromeda", "centaurus"]);
 const ZXC_DUB_SERVERS = new Set(["centaurus", "orion"]);
 
 /* The obfuscated parameter names the client sends. Read straight off the
-   shipped bundle's `uo/up/ug/uf/uh/ul/uu/ud/uc/um` constants â€” renaming any of
+   shipped bundle's `uo/up/ug/uf/uh/ul/uu/ud/uc/um` constants — renaming any of
    them makes the request fail closed. */
 const ZXC_PARAM = {
   tmdbId: "a7f39c821d604e5b9c71f36e1547b",
@@ -356,13 +201,90 @@ const ZXC_MARKER = { marker: "zx", value: "streamly", view: "zv", rep: "zr" };
 const ZXC_VIEW_MASTER = "master";
 const ZXC_VIEW_MEDIA = "media";
 
+/* Issued-host registry — the fine-grained gate behind the open-relay fix.
+   `playlist`/`segment` are public, so without a gate they relay ANY public URL
+   (a free open proxy for anonymous callers), and SSRF resolution alone cannot
+   see that. Resolution: a host is allowed when
+     · its REGISTRABLE DOMAIN (last two labels — which already groups rotating
+       sibling subdomains like cdn1.x/cdn2.x into one admission) is in the
+       registry, or
+     · it is one of the two always-trusted origins:
+         vidstuck.xyz   — the ZXC provider origin itself (every marker/master/
+                          media playlist URL we generate lives there)
+         b-cdn.net      — a dedicated media CDN platform whose subdomains
+                          rotate per title
+   The registry is populated by:
+     · `resolvezxc` issuing EVERY upstream host it touches (decrypted links,
+       the DASH MPD host, and hosts referenced inside parsed playlists/MPDs),
+     · a successful `playlist`/`segment` relay re-issuing the host it just
+       served (self-bootstrap), so provider CDN rotation that only shows up
+       mid-session is admitted the moment the client actually reaches it.
+   Registration holds for a bounded TTL and is purely in-memory: other warm
+   instances are cold — a fresh instance admits nothing but the two trusted
+   origins until it has served its first resolve, which is exactly the fence we
+   want (an open relay is a many-instances problem, so it must right by every
+   instance's own memory, not by a global allowlist that can never keep up). */
+const ISSUED_HOST_TTL_MS = 30 * 60_000;
+const ALWAYS_ALLOWED_HOST_ROOTS = new Set(["vidstuck.xyz", "b-cdn.net"]);
+const issuedHostRoots = new Map(); // registrable domain -> issuedAt
+const issuedHostNames = new Map(); // exact hostname -> issuedAt
+
+function registrableDomain(hostname) {
+  const labels = String(hostname || "").toLowerCase().split(".");
+  return labels.length >= 2 ? labels.slice(-2).join(".") : labels[0] || "";
+}
+
+function issueHost(rawUrl) {
+  let hostname;
+  try {
+    hostname = new URL(String(rawUrl || "")).hostname.toLowerCase();
+  } catch {
+    return;
+  }
+  const now = Date.now();
+  issuedHostNames.set(hostname, now);
+  issuedHostRoots.set(registrableDomain(hostname), now);
+}
+
+/* Admit every host a parsed m3u8/MPD body references. */
+function issueHostsInText(text) {
+  const re = /https?:\/\/[^\s"'<>\\]+/gi;
+  let m;
+  while ((m = re.exec(String(text || ""))) !== null) issueHost(m[0]);
+}
+
+function pruneIssuedHosts() {
+  const now = Date.now();
+  for (const [host, at] of issuedHostRoots) if (now - at > ISSUED_HOST_TTL_MS) issuedHostRoots.delete(host);
+  for (const [host, at] of issuedHostNames) if (now - at > ISSUED_HOST_TTL_MS) issuedHostNames.delete(host);
+}
+
+function isHostIssued(rawUrl) {
+  let hostname;
+  try {
+    hostname = new URL(String(rawUrl || "")).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  const root = registrableDomain(hostname);
+  if (ALWAYS_ALLOWED_HOST_ROOTS.has(root)) return true;
+  pruneIssuedHosts();
+  if (issuedHostRoots.has(root) || issuedHostNames.has(hostname)) return true;
+  return false;
+}
+
 /* MPD cache: dedupe upstream burst during playlist load */
 const MPD_CACHE_TTL_MS = 30_000;
 const MPD_CACHE_MAX = 60;
 const mpdCache = new Map();
 
 function zxcMpdCacheKey(meta, dubCode, dubType) {
-  return [meta.type, meta.tmdbId, meta.server, dubCode || "", dubType || ""].join("|");
+  // season/episode are part of the identity: a TV key that omitted them would
+  // serve the S1E1 MPD to the S1E3 request (same tmdbId/server/shape) and the
+  // wrong episode would play with byte-identical URLs — undetectable at the
+  // manifest layer. Movies carry empty strings for both, which leaves their
+  // dedupe behaviour unchanged.
+  return [meta.type, meta.tmdbId, meta.server, meta.season || "", meta.episode || "", dubCode || "", dubType || ""].join("|");
 }
 
 function takeMpdCache(key) {
@@ -400,7 +322,7 @@ function zxcTitleMetaKey({ type, tmdbId }) {
 
 // How many provider links we will probe per plain-HLS server. atlas/meow
 // hand back 2-3 links that are alternate encodes or mirrors of ONE runtime, not
-// a quality ladder, so we pick a single one â€” the bound only stops a
+// a quality ladder, so we pick a single one — the bound only stops a
 // pathological payload from fanning out without limit.
 const ZXC_MAX_HLS_LINKS = 4;
 
@@ -419,7 +341,7 @@ function zxcHeaders(refererPath, { json: asJson = false } = {}) {
   return headers;
 }
 
-/* CryptoJS.AES.decrypt(ciphertext, passphrase).toString(enc.Utf8) â€” the
+/* CryptoJS.AES.decrypt(ciphertext, passphrase).toString(enc.Utf8) — the
    OpenSSL envelope: "Salted__" + 8-byte salt, then AES-256-CBC with key and IV
    derived from passphrase+salt by iterated MD5 (EVP_BytesToKey, 1 round).
    Node has no OpenSSL-format EVP_BytesToKey, so it is spelled out here; a raw
@@ -458,7 +380,7 @@ function decryptZxcLink(ciphertext, passphrase) {
    is an instant 400, so a single flaky TMDB call turned into "no playable
    source" on every server, with the real cause nowhere in the message. The
    lookup now propagates, and `imdbId` stays optional (an absent imdb_id changes
-   nothing upstream). `title` is read for BOTH types on purpose â€” this endpoint
+   nothing upstream). `title` is read for BOTH types on purpose — this endpoint
    normalises a series' `name` into `title`, so the old movie-only concern does
    not apply here. For TV, `last_air_date` is also carried as `latestDate`
    because the shipped client sends it and episode freshness depends on it. */
@@ -559,9 +481,13 @@ async function zxcServerLinks(meta, { server, dubCode, dubType } = {}) {
       } catch {
         return null;
       }
+      // atlas hands back a vidstuck-relative relay path; the rest are absolute.
+      const url = url2.startsWith("/") ? `${ZXC_ORIGIN}${url2}` : url2;
+      // Issue this host so the playlist/segment relay will admit it later
+      // (see the issued-host registry above).
+      issueHost(url);
       return {
-        // atlas hands back a vidstuck-relative relay path; the rest are absolute.
-        url: url2.startsWith("/") ? `${ZXC_ORIGIN}${url2}` : url2,
+        url,
         kind: String(l.type || "").toLowerCase(),
         resolution: Number(l.resolution) || 0,
       };
@@ -572,7 +498,7 @@ async function zxcServerLinks(meta, { server, dubCode, dubType } = {}) {
 }
 
 /* The replayable URL of a generated playlist. Carries the whole title/server/dub
-   identity so `handlePlaylist`/`handleManifest` can rebuild it from scratch. */
+   identity so `handlePlaylist` can rebuild it from scratch. */
 function zxcPlaylistUrl(meta, { server, dubCode, dubType, view, representationId }) {
   const query = new URLSearchParams({
     [ZXC_PARAM.tmdbId]: meta.tmdbId,
@@ -646,7 +572,7 @@ function parseZxcPlaylistUrl(rawUrl) {
 }
 
 /* MPD in, transcoded ladder out. One mint + one servers call + one manifest
-   fetch â€” the cost a single generated playlist request costs, which is why the
+   fetch — the cost a single generated playlist request costs, which is why the
    marker URL replays instead of caching. NOW also caches the parsed MPD
    (see mpdCache above) so rapid parallel playlist loads collapse to one
    upstream trip instead of triggering a provider 429 burst. */
@@ -665,6 +591,12 @@ async function zxcDashManifest(target) {
   });
   const manifest = parseMpd(xml);
   if (!manifest) throw new Error("manifest is not a transcodable MPD");
+  // Issue the MPD host AND every host its segment/init templates reference, so
+  // the segment relay admits the CDN that actually carries this title's bytes
+  // (they are absolute per the dashToHls contract, template placeholders and
+  // all — `$Number$` only appears in the path, never the hostname).
+  issueHost(dash.url);
+  issueHostsInText(xml);
   const result = { manifest, refUrl: `${ZXC_ORIGIN}${meta.refererPath}` };
   setMpdCache(key, result);
   return result;
@@ -813,11 +745,11 @@ async function handleResolveZxc(body, res) {
   const refUrl = `${ZXC_ORIGIN}${refererPath}`;
   // Plain-HLS servers hand back MORE THAN ONE link, and they are not a quality
   // ladder: atlas ships two media playlists for the SAME runtime (identical
-  // #EXTINF total, different segment granularity and bitrate â€” measured at
+  // #EXTINF total, different segment granularity and bitrate — measured at
   // ~1.4 Mbps vs ~0.5 Mbps on Reacher S1E1) and meow ships several masters
   // that are byte-identical mirrors of one 640x360 encode. Publishing all of
   // them as "variants" would show the user the same picture three times, so we
-  // pick ONE â€” but we probe them in order and fall through, because a dead
+  // pick ONE — but we probe them in order and fall through, because a dead
   // first link must not kill a title that has a working mirror behind it.
   const hlsLinks = data.links.filter((l) => l.kind === "hls").slice(0, ZXC_MAX_HLS_LINKS);
 
@@ -831,6 +763,10 @@ async function handleResolveZxc(body, res) {
         logWarn("zxc", `${server} HLS link ${link.url.slice(0, 48)} failed`, { message: err?.message });
         continue;
       }
+      // Issue the playlist host and any hosts it references so the segment
+      // relay admits this source's media CDN once the player starts.
+      issueHost(link.url);
+      issueHostsInText(text);
       if (!text.startsWith("#EXTM3U")) {
         logWarn("zxc", `${server} HLS link ${link.url.slice(0, 48)} is not a playlist`);
         continue;
@@ -939,14 +875,19 @@ async function handleZxcIntro(body, res) {
   const tmdbId = String(body.tmdbId || "").trim();
   const season = String(body.season ?? "").trim();
   const episode = String(body.episode ?? "").trim();
-  if (!/^tt\d{4,12}$/.test(imdbId) || !/^\d{1,12}$/.test(tmdbId)) {
-    json(res, 400, { ok: false, error: "Invalid IMDb/TMDB id", code: "bad-id" });
+  // TMDB id is the addressable key; a title correctly carrying none does not
+  // get punished — it gets a miss (see below).
+  if (!/^\d{1,12}$/.test(tmdbId)) {
+    json(res, 400, { ok: false, error: "Invalid TMDB id", code: "bad-id" });
     return;
   }
   const miss = { ok: true, introEndSeconds: null, creditsStartSeconds: null, confidence: null };
   // Movies have no season/episode and upstream has no movie records — a call
-  // would only burn a request to learn that. TV carries S/E.
-  if (!season || !episode) {
+  // would only burn a request to learn that. TV carries S/E. And without a
+  // well-formed imdbId (movies, some TV rows) upstream answers "Missing
+  // params", which is upstream saying "no record", not the client being
+  // wrong — so both are a miss, never a 400.
+  if (!/^tt\d{4,12}$/.test(imdbId) || !season || !episode) {
     json(res, 200, miss);
     return;
   }
@@ -978,81 +919,14 @@ async function handleZxcIntro(body, res) {
   });
 }
 
-async function handleManifest(body, res) {
-  const playlistUrl = String(body.playlistUrl || "").trim();
-  try {
-    const u = new URL(playlistUrl);
-    if (u.protocol !== "https:" && u.protocol !== "http:") throw new Error("bad protocol");
-    await assertPublicDestination(u.toString());
-  } catch {
-    json(res, 400, { ok: false, error: "Invalid playlist URL", code: "bad-url" });
-    return;
-  }
-
-  // A ZXC marker URL is transcoded from the provider's MPD rather than fetched.
-  const zxcTarget = parseZxcPlaylistUrl(playlistUrl);
-  if (zxcTarget) {
-    // A master has no segments of its own â€” the download sheet always asks for a
-    // concrete rendition, so asking for the master is a client bug and gets a
-    // clear answer instead of a silent empty segment list.
-    if (zxcTarget.view === ZXC_VIEW_MASTER) {
-      json(res, 400, {
-        ok: false,
-        error: "Master playlist has no segments â€” resolve a rendition first",
-        code: "bad-url",
-      });
-      return;
-    }
-    let text;
-    try {
-      text = await handleZxcPlaylist(playlistUrl);
-    } catch (error) {
-      json(res, 502, {
-        ok: false,
-        error: `Manifest transcode failed: ${error?.message || "unknown"}`,
-        code: "manifest-fetch-failed",
-      });
-      return;
-    }
-    const parsed = parseMediaPlaylist(text, playlistUrl);
-    json(res, 200, {
-      ok: true,
-      kind: parsed.kind,
-      initUrl: parsed.initUrl,
-      segments: parsed.segments.map((s) => s.url),
-      duration: parsed.duration,
-      count: parsed.count,
-    });
-    return;
-  }
-
-  try {
-    const text = await fetchUpstream(playlistUrl, { referer: body.refUrl || playlistUrl });
-    const parsed = parseMediaPlaylist(text, playlistUrl);
-    json(res, 200, {
-      ok: true,
-      kind: parsed.kind,
-      initUrl: parsed.initUrl,
-      segments: parsed.segments.map((s) => s.url),
-      duration: parsed.duration,
-      count: parsed.count,
-    });
-  } catch (error) {
-    json(res, 502, {
-      ok: false,
-      error: `Playlist fetch failed: ${error?.message || "unknown"}`,
-      code: "manifest-fetch-failed",
-    });
-  }
-}
-
-/* Raw playlist relay for native HLS playback (prototype). Unlike `manifest`
-   (which parses into JSON), this returns the playlist TEXT so an MSE player
-   (hls.js) can parse levels/audio itself. Same SSRF validation + referer
-   supply as the manifest path: manifest hosts that gate on the owning
-   player's origin (e.g. VidCore's moon.quietridge.top) 403 a browser fetch,
-   so the server fetches with the source's refUrl and hands the text back.
-   Playlists are small; the MAX_TEXT_BYTES cap in fetchUpstream still binds. */
+/* Raw playlist relay for native HLS playback. Returns the playlist TEXT so an
+   MSE player (hls.js) can parse levels/audio itself. Same SSRF validation +
+   referer supply as `segment`: manifest hosts that gate on the owning player's
+   origin 403 a browser fetch, so the server fetches with the source's refUrl
+   and hands the text back. Admitted hosts are those this instance issued (see
+   the issued-host registry above); unknown hosts are refused before any
+   network I/O. Playlists are small; the MAX_TEXT_BYTES cap in fetchUpstream
+   still binds. */
 async function handlePlaylist(body, res) {
   const playlistUrl = String(body.playlistUrl || "").trim();
   try {
@@ -1063,23 +937,39 @@ async function handlePlaylist(body, res) {
     json(res, 400, { ok: false, error: "Invalid playlist URL", code: "bad-url" });
     return;
   }
+  // Open-relay fence: a public URL on a host this instance never touched gets
+  // no network I/O at all. Anything a resolvezxc mints (marker URLs included —
+  // they live on vidstuck.xyz) or a successful relay has already served passes.
+  if (!isHostIssued(playlistUrl)) {
+    json(res, 403, { ok: false, error: "Relay host not authorized this instance", code: "host-not-issued" });
+    return;
+  }
 
   try {
     // A ZXC marker URL is transcoded from the provider's MPD rather than fetched,
     // and the result is byte-for-byte the m3u8 hls.js expects.
-    const text = parseZxcPlaylistUrl(playlistUrl)
-      ? await handleZxcPlaylist(playlistUrl)
-      : await fetchUpstream(playlistUrl, {
-          referer: body.refUrl ? String(body.refUrl) : playlistUrl,
-        });
+    let text;
+    if (parseZxcPlaylistUrl(playlistUrl)) {
+      text = await handleZxcPlaylist(playlistUrl);
+    } else {
+      text = await fetchUpstream(playlistUrl, {
+        referer: body.refUrl ? String(body.refUrl) : playlistUrl,
+      });
+      // Self-bootstrap: a playlist the client actually reached admits its own
+      // host (and every host its body references) for the rest of the window,
+      // so provider CDN rotation that only shows up mid-session keeps playing.
+      issueHost(playlistUrl);
+      issueHostsInText(text);
+    }
     res.status(200);
     res.setHeader("content-type", "application/vnd.apple.mpegurl");
     res.setHeader("cache-control", "no-store");
     res.send(text);
   } catch (error) {
+    logWarn("stream", "playlist relay failed", { message: error?.message });
     json(res, 502, {
       ok: false,
-      error: `Playlist fetch failed: ${error?.message || "unknown"}`,
+      error: "Playlist fetch failed",
       code: "manifest-fetch-failed",
     });
   }
@@ -1097,6 +987,13 @@ async function handleSegment(body, res) {
     json(res, 400, { ok: false, error: "Invalid segment URL", code: "bad-url" });
     return;
   }
+  // Open-relay fence for bytes, same registry as `playlist`. A segment on a
+  // host this instance never issued (and that isn't a trusted CDN root) is
+  // refused before a single byte leaves the server.
+  if (!isHostIssued(url)) {
+    json(res, 403, { ok: false, error: "Relay host not authorized this instance", code: "host-not-issued" });
+    return;
+  }
 
   const start = Math.max(0, Math.floor(Number(body.range?.start) || 0));
   const max = Math.min(Math.max(1, Math.floor(Number(body.range?.max) || RANGE_CHUNK_BYTES)), RANGE_CHUNK_BYTES);
@@ -1104,6 +1001,9 @@ async function handleSegment(body, res) {
 
   try {
     const { bytes, more } = await fetchRangeChunk(url, { start, max, referer });
+    // Self-bootstrap (same as `playlist`): a served byte stream is the
+    // strongest evidence a host is legit — admit it for the window.
+    issueHost(url);
     res.status(200);
     res.setHeader("content-type", "application/octet-stream");
     res.setHeader("cache-control", "no-store");
@@ -1111,9 +1011,10 @@ async function handleSegment(body, res) {
     res.setHeader("x-streamly-more", more ? "1" : "0");
     res.send(bytes);
   } catch (error) {
+    logWarn("stream", "segment relay failed", { message: error?.message });
     json(res, 502, {
       ok: false,
-      error: `Segment fetch failed: ${error?.message || "unknown"}`,
+      error: "Segment fetch failed",
       code: "segment-fetch-failed",
     });
   }
@@ -1125,7 +1026,7 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   // The relay contract reads x-streamly-more ("does a slice continue past what
   // we just got?") and content-range (slice derivation when the header is
-  // absent). Default CORS exposes neither, so every JS read was null â€” that
+  // absent). Default CORS exposes neither, so every JS read was null — that
   // mattered for any cross-origin caller slicing over simple requests.
   res.setHeader(
     "Access-Control-Expose-Headers",
@@ -1143,11 +1044,11 @@ export default async function handler(req, res) {
 
   // Segment downloads are bandwidth-heavy. The client now fetches up to 4
   // segments concurrently and each segment costs 1-3 Range requests, so a
-  // legit title needs hundreds of requests fast â€” but 1800/min (30/s) still
+  // legit title needs hundreds of requests fast — but 1800/min (30/s) still
   // caps a runaway loop while letting the parallel client finish one title.
   const limit = rateLimit({ key: () => `dl:${clientIp(req)}`, limit: 1800, windowMs: 60_000 });
   // Capacity ledger (PLAN.md P0.3): one in-memory increment per relay call;
-  // batched Mongo flush â€” never a DB write in the request path.
+  // batched Mongo flush — never a DB write in the request path.
   countUsage("dl");
   if (!limit.ok) {
     tooManyRequests(res, limit.retryAfterSec);
@@ -1164,19 +1065,24 @@ export default async function handler(req, res) {
   }
   if (!body || typeof body !== "object") body = {};
 
+  // Byte-exact cap for both transport shapes (raw string and the parsed object
+  // the dev middleware already hands us). The rule is about bytes on the wire,
+  // so it measures the serialized payload, not the string length.
+  const bodyBytes = typeof req.body === "string" ? Buffer.byteLength(req.body) : Buffer.byteLength(JSON.stringify(body));
+  if (bodyBytes > MAX_REQUEST_BODY_BYTES) {
+    json(res, 413, { ok: false, error: "Request body too large", code: "too-large" });
+    return;
+  }
+
   try {
+    // Retired actions (`resolve`, `resolvevidcore`, `manifest`) fall through to
+    // the 400 bad-action default below — the header comment documents why.
     switch (body.action) {
-      case "resolve":
-        await handleResolve(body, res);
-        return;
       case "resolvezxc":
         await handleResolveZxc(body, res);
         return;
       case "zxcintro":
         await handleZxcIntro(body, res);
-        return;
-      case "manifest":
-        await handleManifest(body, res);
         return;
       case "playlist":
         await handlePlaylist(body, res);
@@ -1188,9 +1094,11 @@ export default async function handler(req, res) {
         json(res, 400, { ok: false, error: "Unknown action", code: "bad-action" });
     }
   } catch (error) {
+    // Never echo internals to the caller — log them server-side instead.
+    logError("stream", "handler failed", { message: error?.message });
     json(res, 500, {
       ok: false,
-      error: `stream failed: ${error?.message || "unknown"}`,
+      error: "Internal server error",
       code: "internal",
     });
   }

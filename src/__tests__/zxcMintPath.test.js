@@ -158,7 +158,7 @@ describe("ZXC metadata is mandatory, not advisory", () => {
 });
 
 describe("ZXC MPD cache", () => {
-  // A minimal valid MPD that parseMpd accepts â€” one video representation with
+  // A minimal valid MPD that parseMpd accepts — one video representation with
   // two 5-second segments.
   const MPD_XML = "<MPD mediaPresentationDuration=\"PT10S\">"
     + "<Period duration=\"PT10S\">"
@@ -195,7 +195,7 @@ describe("ZXC MPD cache", () => {
     const mintsAfterFirst = requests.filter((u) => u.includes(MINT_PATH)).length;
     expect(mintsAfterFirst).toBe(2);
 
-    // Reset request tracker but NOT the cache â€” the second resolve should reuse
+    // Reset request tracker but NOT the cache — the second resolve should reuse
     // the cached MPD.
     requests = [];
 
@@ -217,7 +217,7 @@ describe("ZXC MPD cache", () => {
     requests = [];
     clearZxcMpdCache();
     await resolve({ server: "centaurus" });
-    // Cache was cleared â€” both mints should be fresh again.
+    // Cache was cleared — both mints should be fresh again.
     expect(requests.filter((u) => u.includes(MINT_PATH)).length).toBe(2);
   });
 

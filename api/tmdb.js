@@ -2,6 +2,7 @@
 import { withLog } from '../server/logger.js';
 import { rateLimit, tooManyRequests, clientIp } from '../server/rateLimit.js';
 import { countUsage } from '../server/usage.js';
+import { logError } from '../src/utils/debugLogger.js';
 //
 // Why this exists: some ISPs (e.g. in India) block api.themoviedb.org outright
 // (DNS/IP level). Browsers calling TMDB directly fail on those networks while
@@ -142,8 +143,9 @@ export default withLog(async function handler(req, res) {
     }
     res.send(body);
   } catch (error) {
+    logError('api', 'tmdb proxy failed', { message: error?.message });
     res
       .status(502)
-      .json({ status_message: `TMDB proxy failed: ${error?.message || 'unknown'}`, status_code: 502 });
+      .json({ status_message: 'TMDB proxy failed.', status_code: 502 });
   }
 });

@@ -12,13 +12,48 @@ import { queryClient } from "../queryClient";
 const SETTING_PREFIX = "setting-";
 const LEGACY_AUTOPLAY_KEY = "streamly_autoNext";
 
+// Language change only affects TMDB-backed catalogue queries. `invalidateQueries()`
+// with an empty filter (the old behaviour) cleared EVERYTHING — playback, skip-
+// provider, ratings and collection queries included — sending those rails back to
+// the network for a data set language never touched. These first-token prefixes
+// mirror the frozen query keys in architecture.md §2–3; react-query's partial
+// deep-match turns each prefix into "every key starting with this token".
+const LANGUAGE_SENSITIVE_QUERY_PREFIXES = [
+  ["movie"],
+  ["similar"],
+  ["episodes"],
+  ["person"],
+  ["search"],
+  ["genre-search"],
+  ["genre-showcase"],
+  ["categories"],
+  ["category-fallback"],
+  ["featuredMovies"],
+  ["airing-this-week"],
+  ["trending-this-week"],
+  ["top10"],
+  ["popular"],
+  ["topRated"],
+  ["nowPlaying"],
+  ["upcoming-regional"],
+  ["airing-regional"],
+  ["new-releases"],
+  ["recommendations"],
+  ["discover-genres"],
+  ["discover-providers"],
+  ["discover-regions"],
+  ["discover-rail"],
+  ["discover-series-upcoming"],
+  ["editorial"],
+];
+
 export { LEGACY_SERVER_NAME_MAP };
 
 function isPlainObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/* Convert "#rrggbb" â†’ "r, g, b" triplet for rgba() surfaces, or null. */
+/* Convert "#rrggbb" → "r, g, b" triplet for rgba() surfaces, or null. */
 function hexToRgbTriplet(hex) {
   const match = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
   if (!match) return null;
@@ -64,7 +99,7 @@ const NUMERIC_RANGES = {
 function sanitizePreference(key, value) {
   const fallback = DEFAULT_PREFERENCES[key];
   if (key === "accentSeed") {
-    // Nullable string â€” a valid hex seed enables the custom accent, anything
+    // Nullable string — a valid hex seed enables the custom accent, anything
     // else (including null) disables it. Never store a garbage string.
     if (value === null || value === undefined || value === "") return null;
     if (typeof value !== "string" || !ACCENT_HEX_RE.test(value.trim())) return null;
@@ -149,14 +184,14 @@ function readPreference(key) {
         // a server that no longer exists, and that row must not reach the menu.
         const pruned = pruneRetiredServers(migrated, fallback);
         if (JSON.stringify(migrated) !== JSON.stringify(value)) {
-          logDebug("preferences", "Migrated saved server order to the restored Server 1â€“5 labels.", { order: migrated });
+          logDebug("preferences", "Migrated saved server order to the restored Server 1–5 labels.", { order: migrated });
         }
         if (JSON.stringify(pruned) !== JSON.stringify(migrated)) {
           logInfo("preferences", "Dropped retired servers from the saved order.", { dropped: migrated.filter((n) => !pruned.includes(n)) });
         }
         value = pruned;
         // Persist the renamed order so the stored key matches the current
-        // labels (idempotent â€” subsequent boots see no legacy names).
+        // labels (idempotent — subsequent boots see no legacy names).
         try {
           localStorage.setItem(`${SETTING_PREFIX}serverOrder`, JSON.stringify(value));
         } catch {
@@ -190,7 +225,7 @@ export function PreferencesProvider({ children }) {
   const setPreference = useCallback((key, value) => {
     if (!Object.hasOwn(DEFAULT_PREFERENCES, key)) return;
         // Sanitize against each key's contract: type checks, allowed theme ids,
-        // numeric clamps, valid hex accents, deduped Server 1â€“8 order names â€” so a
+        // numeric clamps, valid hex accents, deduped Server 1–8 order names — so a
         // garbage value never reaches state/localStorage (it used to surface as NaN%).
     const nextValue = sanitizePreference(key, value);
     setPreferences((current) =>
@@ -206,7 +241,10 @@ export function PreferencesProvider({ children }) {
         if (typeof document !== "undefined" && document.documentElement) {
           document.documentElement.lang = String(nextValue || "en");
         }
-        queryClient.invalidateQueries();
+        // Scoped: only the TMDB-backed, language-shaped queries above.
+        for (const prefix of LANGUAGE_SENSITIVE_QUERY_PREFIXES) {
+          queryClient.invalidateQueries({ queryKey: prefix });
+        }
       } catch {
         // Non-DOM test environments
       }

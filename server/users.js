@@ -110,12 +110,6 @@ export function toPublicLibrary(library) {
   };
 }
 
-export async function touchLastLogin(db, accountId) {
-  await db
-    .collection('users')
-    .updateOne({ _id: accountId }, { $set: { lastLogin: new Date() } });
-}
-
 /** Shape sent to the browser. Never includes passwordHash. */
 export function toPublicUser(doc) {
   if (!doc) return null;

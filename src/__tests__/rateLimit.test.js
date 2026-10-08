@@ -51,8 +51,14 @@ describe("rateLimit", () => {
 });
 
 describe("clientIp", () => {
-  it("prefers the first x-forwarded-for hop", () => {
-    expect(clientIp({ headers: { "x-forwarded-for": "1.2.3.4, 5.6.7.8" } })).toBe("1.2.3.4");
+  it("buckets on the LAST x-forwarded-for hop (the one Vercel appended)", () => {
+    // The first hops are exactly what the caller sent, so they are attacker-
+    // controlled — reading the first one would let anyone reset their own rate
+    // buckets by sending a fresh X-Forwarded-For. The last entry is the honest
+    // address the edge observed, which the client cannot push past.
+    expect(clientIp({ headers: { "x-forwarded-for": "1.2.3.4, 5.6.7.8" } })).toBe("5.6.7.8");
+    // A single hop (no proxies in front) still resolves to that one address.
+    expect(clientIp({ headers: { "x-forwarded-for": "1.2.3.4" } })).toBe("1.2.3.4");
   });
 
   it("falls back to socket address then anon", () => {

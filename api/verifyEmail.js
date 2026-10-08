@@ -18,6 +18,7 @@ import { connectToDatabase } from '../server/db.js';
 import { signSyncToken, isSyncEnabled } from '../server/syncToken.js';
 import { withLog } from '../server/logger.js';
 import { rateLimit, tooManyRequests, clientIp } from '../server/rateLimit.js';
+import { logError } from '../src/utils/debugLogger.js';
 import { verifyVerifyToken } from '../server/verifyToken.js';
 import { sendWelcomeEmail } from '../server/mailer.js';
 import {
@@ -144,10 +145,11 @@ export default withLog(async function handler(req, res) {
       userData: toPublicLibrary(library),
       syncToken: signSyncToken(String(created._id)),
     });
-  } catch (error) {
+} catch (error) {
+    logError('api', 'verifyEmail handler failed', { message: error?.message });
     res.status(500).json({
       success: false,
-      message: error?.message || 'Internal server error in verifyEmail handler.',
+      message: 'Internal server error.',
     });
   }
 });

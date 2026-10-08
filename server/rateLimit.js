@@ -13,7 +13,7 @@
 //
 // The `keyFor` callback decides identity. Order of preference:
 //   1. an authenticated subject (accountId / verified token)
-//   2. the x-forwarded-for client IP Vercel injects (first hop)
+//   2. the x-forwarded-for client IP Vercel injects (LAST hop — see clientIp)
 //   3. "anon" (shared bucket — intentionally generous)
 
 const buckets = new Map();
@@ -49,7 +49,14 @@ function prune(now) {
 export function clientIp(req) {
   const fwd = req.headers?.["x-forwarded-for"];
   if (typeof fwd === "string" && fwd.length > 0) {
-    return fwd.split(",")[0].trim();
+    // Vercel APPENDS the true client address as the LAST entry of the chain it
+    // received; the first entries are exactly what the caller sent, so they are
+    // attacker-controlled. Using the first hop (the old behaviour) let anyone
+    // reset their own rate buckets by sending a fresh `X-Forwarded-For`. The
+    // last hop is the value our edge added/traversed, which is the honest one
+    // to bucket on — the client has no way to push past it.
+    const parts = fwd.split(",").map((s) => s.trim()).filter(Boolean);
+    return parts[parts.length - 1] || "anon";
   }
   return req.socket?.remoteAddress || "anon";
 }

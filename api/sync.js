@@ -19,9 +19,11 @@
 // the shared Explore page for everyone. Only clean strings/lists survive.
 
 import { connectToDatabase } from '../server/db.js';
+import { ObjectId } from 'mongodb';
 import { isSyncEnabled, verifySyncToken } from '../server/syncToken.js';
 import { withLog } from '../server/logger.js';
 import { rateLimit, tooManyRequests, clientIp } from '../server/rateLimit.js';
+import { logError } from '../src/utils/debugLogger.js';
 
 const MAX_WATCHLIST = 500;
 const MAX_HISTORY = 500;
@@ -165,7 +167,17 @@ export default withLog(async function handler(req, res) {
     const filter = { accountId };
 
     if (req.method === 'POST') {
-      if (typeof req.body === 'string' && req.body.length > MAX_BODY_BYTES) {
+      // Byte-exact cap for both transport shapes. The raw-string case is the
+      // common one on Vercel; the parsed-object case is the Vite dev shim and
+      // any future middleware. `Buffer.byteLength` measures the serialized
+      // payload — the only honest reading of "512KB of body".
+      const rawBytes =
+        typeof req.body === 'string'
+          ? Buffer.byteLength(req.body)
+          : body && typeof body === 'object'
+            ? Buffer.byteLength(JSON.stringify(body))
+            : 0;
+      if (rawBytes > MAX_BODY_BYTES) {
         res.status(413).json({ success: false, message: 'Payload too large.' });
         return;
       }
@@ -225,9 +237,16 @@ export default withLog(async function handler(req, res) {
       // Wipe the caller's own cloud data: library doc first, profile row after.
       await userDataCol.deleteOne(filter);
       try {
-        await db.collection('users').deleteOne({ _id: accountId });
+        // The users row's _id is a Mongo ObjectId, NOT the string accountId
+        // (userData keys on the string, users rows on the driver-generated
+        // ObjectId). Deleting with the string matched nothing and the profile
+        // row survived every DELETE — a permanent ghost. Cast it, and treat a
+        // non-ObjectId/absent row as already-clean.
+        const accountObjectId = new ObjectId(accountId);
+        await db.collection('users').deleteOne({ _id: accountObjectId });
       } catch {
-        // The profile row is secondary — library wipe is the privacy-critical part.
+        // Malformed ObjectId (not the 24-hex shape) or no such profile row:
+        // the library wipe above is the privacy-critical part.
       }
       res.status(200).json({ success: true, message: 'Cloud data deleted.' });
       return;
@@ -235,9 +254,10 @@ export default withLog(async function handler(req, res) {
 
     res.status(405).json({ success: false, message: 'Method not allowed.' });
   } catch (error) {
+    logError('api', 'sync handler failed', { method: req.method, message: error?.message });
     res.status(500).json({
       success: false,
-      message: error?.message || 'Internal server error in sync handler.',
+      message: 'Internal server error.',
     });
   }
 });

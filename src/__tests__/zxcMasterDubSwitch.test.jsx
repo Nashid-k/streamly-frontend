@@ -3,7 +3,7 @@
 // The bug this pins: the player's quality/dub switch had a "master playlist"
 // fast path that set `hls.currentLevel` instead of loading the requested URL.
 // That is right for a QUALITY pick (the levels are in the loaded master), but
-// wrong for a DUB pick â€” a dub is a whole sibling master URL, so pinning a
+// wrong for a DUB pick — a dub is a whole sibling master URL, so pinning a
 // level kept the ORIGINAL language playing while the UI said "French dub".
 //
 // ZXC Centaurus is what exposed it: its dubs are sibling masters, so the first
@@ -36,7 +36,7 @@ vi.mock("hls.js", () => {
       this.levels = hlsState.levels;
       this.audioTracks = [];
       // Backed by the shared state so a test can actually see the player PIN a
-      // level â€” an instance-local field would hide the exact regression.
+      // level — an instance-local field would hide the exact regression.
       Object.defineProperty(this, "currentLevel", {
         get: () => hlsState.currentLevel,
         set: (v) => {
@@ -144,7 +144,7 @@ const openAudioPanel = () => {
   fireEvent.click(screen.getByRole("button", { name: /^Audio/i }));
 };
 
-describe("ZXC DASH master â€” dub switching", () => {
+describe("ZXC DASH master — dub switching", () => {
   it("loads the dub's sibling master instead of pinning an hls level", async () => {
     render(<NativePlayerView type="movie" id="1101383" title="The End of Oak Street" onClose={() => {}} />);
 
@@ -176,7 +176,7 @@ describe("ZXC DASH master â€” dub switching", () => {
 
   it("maps each dub row to ITS OWN label, not the next one over", async () => {
     // Row N is dubTracks[N-1] because row 0 is the original. Indexing both with
-    // the same N played the wrong language under the clicked label â€” the
+    // the same N played the wrong language under the clicked label — the
     // clickable row said "French dub" while esla was loaded.
     // The label shown is now the normalised name, so "esla dub" reads "Esla";
     // the mapping assertion below is unchanged, because a rename must never be
@@ -219,7 +219,7 @@ describe("ZXC DASH master â€” dub switching", () => {
     // control exists", not "none": a duplicate is what would let the two drift.
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     expect(screen.queryAllByRole("button", { name: /^Audio/i })).toHaveLength(1);
-    // Subtitles moved out too â€” at most one control, wherever it is placed. The
+    // Subtitles moved out too — at most one control, wherever it is placed. The
     // row itself only appears once a subtitle list exists, so do not assert a
     // count here; assert the absence of a duplicate.
     expect(screen.queryAllByRole("button", { name: /^Subtitles/i }).length).toBeLessThanOrEqual(1);

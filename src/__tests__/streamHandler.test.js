@@ -88,16 +88,28 @@ describe("POST /api/stream", () => {
     expect(JSON.parse(res.body)).toMatchObject({ ok: false, code: "bad-action" });
   });
 
-  /* VidSrc and NHD were deleted on 2026-10-03. Their actions have no handler
-     left, so a stale client (or a cached bundle in a service worker) must get a
-     clean 400 envelope naming the problem — never a 500, and never a silent
-     empty success that the player would show as a playable-but-black server. */
-  it.each(["resolvevidsrc", "resolvenhd"])("answers %s with an honest 400 after its retirement", async (action) => {
-    const res = await call({ action, type: "movie", id: "27205" });
-    expect(res.statusCode).toBe(400);
-    expect(res.statusCode).not.toBe(500);
-    expect(JSON.parse(res.body)).toMatchObject({ ok: false, code: "bad-action" });
-  });
+  /* Retired actions have no handler left, so the dispatch falls through to the
+     400 default. A stale client (or a cached bundle in a service worker) must
+     get a clean 400 envelope naming the problem — never a 500, and never a
+     silent empty success the player would show as a playable-but-black server.
+     Every resolver that has been cut, and why:
+       · `resolvevidcore` (Server 5, VidRack) — every ladder row was AES-128
+         behind an api.dlproxy.com key host that 403s us, fatal to hls.js
+         (2026-10-04);
+       · `resolvevidsrc` / `resolvenhd` — providers deleted with iframe playback
+         (2026-10-03);
+       · `resolve` — the old embed-download resolver; its hosts (CineSrc,
+         VidCore, 2embed, peachify, vidup) were all retired with it;
+       · `manifest` — redundant now that hls.js parses playlists itself. */
+  it.each(["resolve", "resolvevidcore", "resolvevidsrc", "resolvenhd", "manifest"])(
+    "answers the retired action %s with a clean 400",
+    async (action) => {
+      const res = await call({ action, type: "movie", id: "27205" });
+      expect(res.statusCode).toBe(400);
+      expect(res.statusCode).not.toBe(500);
+      expect(JSON.parse(res.body)).toMatchObject({ ok: false, code: "bad-action" });
+    },
+  );
 
   it("tolerates a malformed JSON body instead of crashing", async () => {
     const res = await call("{not json");
@@ -105,27 +117,24 @@ describe("POST /api/stream", () => {
     expect(res.statusCode).not.toBe(500);
   });
 
-  it.each([
-    "resolve",
-     "resolvezxc",
-    "manifest",
-    "playlist",
-    "segment",
-  ])("%s without a URL returns a structured refusal, never a 500", async (action) => {
-    // No upstream host supplied, so the provider walk must bail out through its
-    // own error path. What matters is the shape: a JSON envelope with ok:false,
-    // not an unhandled throw (which Vercel renders as a bodiless 500).
-    const res = await call({ action });
-    expect(res.statusCode).toBeGreaterThanOrEqual(400);
-    expect(res.statusCode).toBeLessThan(600);
-    const payload = JSON.parse(res.body);
-    expect(payload.ok).toBe(false);
-    expect(typeof payload.error).toBe("string");
-  });
+  it.each(["resolvezxc", "zxcintro", "playlist", "segment"])(
+    "%s without a URL returns a structured refusal, never a 500",
+    async (action) => {
+      // No upstream host supplied, so the handler must bail out through its own
+      // error path. What matters is the shape: a JSON envelope with ok:false,
+      // not an unhandled throw (which Vercel renders as a bodiless 500).
+      const res = await call({ action });
+      expect(res.statusCode).toBeGreaterThanOrEqual(400);
+      expect(res.statusCode).toBeLessThan(600);
+      const payload = JSON.parse(res.body);
+      expect(payload.ok).toBe(false);
+      expect(typeof payload.error).toBe("string");
+    },
+  );
 
 });
 
-describe("POST /api/stream â€” resolvezxc", () => {
+describe("POST /api/stream — resolvezxc", () => {
   const callZxc = (body) => call({ action: "resolvezxc", type: "movie", id: "1101383", ...body });
 
   it("rejects an unknown server before any provider request", async () => {
@@ -136,7 +145,7 @@ describe("POST /api/stream â€” resolvezxc", () => {
     const payload = JSON.parse(res.body);
     expect(payload.ok).toBe(false);
     expect(payload.error).toMatch(/server/i);
-    // A bad server key is a client bug â€” it must not spend an upstream call.
+    // A bad server key is a client bug — it must not spend an upstream call.
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -201,5 +210,130 @@ describe("POST /api/stream â€” resolvezxc", () => {
     // Sending empty episode keys would make the provider answer episode 0.
     expect(mint["d8427b59ce30684a2f957c3613e85b"]).toBeUndefined();
     expect(mint["91c6e4a728503d1f785c92346b713d"]).toBeUndefined();
+  });
+
+  it("shares the title-metadata lookup across episodes of the same title", async () => {
+    // The details endpoint is per-TITLE (same data for every episode), so the
+    // cache key is `type|tmdbId` — season/episode must NOT leak into it, or a
+    // two-episode session re-fetches identical metadata per episode.
+    let detailsCalls = 0;
+    const fetchMock = vi.fn(async (url) => {
+      if (String(url).includes("/backend/tmdb/details/")) {
+        detailsCalls += 1;
+        return new Response(JSON.stringify({ title: "T", release_date: "2020-01-01" }), { status: 200 });
+      }
+      return new Response("nope", { status: 502 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await callZxc({ type: "tv", season: 1, episode: 1, server: "atlas" });
+    expect(detailsCalls).toBe(1);
+    await callZxc({ type: "tv", season: 1, episode: 5, server: "atlas" });
+    expect(detailsCalls).toBe(1); // cross-episode: one details call for the title
+    await callZxc({ type: "movie", id: "99999" });
+    expect(detailsCalls).toBe(2); // a different tmdbId is a separate key
+  });
+});
+
+describe("POST /api/stream — issued-host relay fence", () => {
+  // The fence runs AFTER SSRF/public-destination validation but BEFORE any
+  // network I/O, so these hosts are chosen to resolve publicly (example.org is
+  // IANA's reserved-documentation domain) yet never be issued by a resolver.
+  // A fresh instance admits nothing but the two trusted origins, so the
+  // unissued-host cases must 403 without a single fetch.
+  it("refuses a playlist on an unissued host with 403 before any network I/O", async () => {
+    const fetchMock = vi.fn(async () => new Response("nope", { status: 502 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const res = await call({ action: "playlist", playlistUrl: "https://example.org/play.m3u8" });
+    expect(res.statusCode).toBe(403);
+    expect(JSON.parse(res.body)).toMatchObject({ ok: false, code: "host-not-issued" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses a segment on an unissued host with 403 before any network I/O", async () => {
+    const fetchMock = vi.fn(async () => new Response("nope", { status: 502 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const res = await call({
+      action: "segment",
+      url: "https://example.org/seg.ts",
+      range: { start: 0, max: 1048576 },
+    });
+    expect(res.statusCode).toBe(403);
+    expect(JSON.parse(res.body)).toMatchObject({ ok: false, code: "host-not-issued" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("admits the trusted provider origin without a prior issuance", async () => {
+    // vidstuck.xyz is the ZXC origin every marker/master/media URL lives on, so
+    // it is always allowed — a fresh instance must be able to play immediately.
+    const fetchMock = vi.fn(async () => new Response("nope", { status: 502 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const res = await call({ action: "playlist", playlistUrl: "https://vidstuck.xyz/provider/master.m3u8" });
+    expect(res.statusCode).not.toBe(403);
+    expect(fetchMock).toHaveBeenCalled();
+  });
+
+  it("self-bootstraps a host that a served playlist body references", async () => {
+    // Provider CDN rotation can hand a playlist body a host this instance never
+    // touched (issueHostsInText admits every URL a relayed body references), so
+    // the very next segment on that host passes the fence it would have failed
+    // a request earlier.
+    const fetchMock = vi.fn((url) =>
+      String(url).includes("vidstuck.xyz")
+        ? Promise.resolve(
+            new Response("#EXTM3U\n#EXTINF:10,\nhttps://example.com/seg1.ts\n", { status: 200 }),
+          )
+        : Promise.resolve(new Response("nope", { status: 502 })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const playlist = await call({ action: "playlist", playlistUrl: "https://vidstuck.xyz/provider/master.m3u8" });
+    expect(playlist.statusCode).toBe(200);
+    const seg = await call({
+      action: "segment",
+      url: "https://example.com/seg1.ts",
+      range: { start: 0, max: 1048576 },
+    });
+    // The fence passed (no 403) and the segment URL actually reached the network.
+    expect(seg.statusCode).not.toBe(403);
+    expect(fetchMock.mock.calls.some(([u]) => String(u).includes("example.com"))).toBe(true);
+  });
+});
+
+describe("POST /api/stream — zxcintro", () => {
+  it("answers a miss (200, null bounds) when imdbId is absent, spending no call", async () => {
+    // upstream answers "Missing params" for a malformed/absent imdbId — that is
+    // upstream saying "no record", not the client being wrong, so the handler
+    // short-circuits to a miss before any network I/O.
+    const fetchMock = vi.fn(async () => new Response("nope", { status: 502 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const res = await call({ action: "zxcintro", tmdbId: "1399", season: "1", episode: "1" });
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toMatchObject({
+      ok: true,
+      introEndSeconds: null,
+      creditsStartSeconds: null,
+      confidence: null,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("answers a miss for movies (no season/episode) instead of querying upstream", async () => {
+    // Upstream has no movie records — a call would only burn a request to learn
+    // that, so movies short-circuit to the same honesty-preserving miss.
+    const fetchMock = vi.fn(async () => new Response("nope", { status: 502 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const res = await call({ action: "zxcintro", tmdbId: "1101383" });
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toMatchObject({
+      ok: true,
+      introEndSeconds: null,
+      creditsStartSeconds: null,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a malformed tmdb id with a 400, not a 500", async () => {
+    const res = await call({ action: "zxcintro", tmdbId: "not-a-number" });
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.body)).toMatchObject({ ok: false, code: "bad-id" });
   });
 });

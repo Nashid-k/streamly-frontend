@@ -164,7 +164,12 @@ export function reportQueryError(scope, queryKey, error, extra) {
 }
 
 /** One-line environment checkpoint, called once on boot: whether the TMDB key is
-    present and whether the browser is online — the two usual "nothing loads" causes. */
+    present and whether the browser is online — the two usual "nothing loads" causes.
+    "Present" here means a build-time `VITE_TMDB_API_KEY` (TMDB keys are public by
+    design, so the variable is intentionally inlined into the bundle). There is NO
+    hidden bundled fallback key: a missing variable simply means direct-TMDB
+    fallback 401s, while the same-origin /api/tmdb proxy may still inject a
+    server-side key for same-origin requests. */
 export function logBootDiagnostics(scope = "boot") {
   try {
     let hasTmdbKey = false;
@@ -175,10 +180,6 @@ export function logBootDiagnostics(scope = "boot") {
       if (envKey && String(envKey).trim() && !String(envKey).includes("your_tmdb_api_key")) {
         hasTmdbKey = true;
         tmdbKeySource = "VITE_TMDB_API_KEY";
-      } else {
-        // tmdbClient falls back to a bundled key — data can still load.
-        hasTmdbKey = true;
-        tmdbKeySource = "bundled-fallback";
       }
     } catch {
       hasTmdbKey = false;

@@ -73,7 +73,7 @@ describe("buildAudioTrackList", () => {
     const list = buildAudioTrackList(ZXC_ROWS, "en");
     expect(list[0]).toEqual({ label: "English", isOriginal: true, sourceIndex: null });
     // "English Dub" is the SAME language as the original row, so it is folded
-    // away rather than listed twice â€” the remaining rows are the real dubs.
+    // away rather than listed twice — the remaining rows are the real dubs.
     expect(list.map((r) => r.label)).toEqual(["English", "Tamil", "Hindi", "Telugu"]);
     expect(list.every((r) => !/dub/i.test(r.label))).toBe(true);
   });

@@ -43,7 +43,7 @@ const tv = { type: "tv", id: "93405", duration: LONG_EPISODE };
 describe("skip intro", () => {
   it("offers a boundary for a long episode, but never for a movie", () => {
     expect(getSkipIntroEnd(tv)).toBe(SKIP_INTRO_DEFAULT_END);
-    // A movie's cold open is a scene â€” skipping 90s of it cuts story.
+    // A movie's cold open is a scene — skipping 90s of it cuts story.
     expect(getSkipIntroEnd({ type: "movie", id: "550", duration: 2 * 3600 })).toBe(0);
   });
 
@@ -52,7 +52,7 @@ describe("skip intro", () => {
   });
 
   it("still offers the button when the duration is unknown", () => {
-    // Before metadata arrives, an intro is the only thing playing â€” refusing
+    // Before metadata arrives, an intro is the only thing playing — refusing
     // here would hide the pill during the exact window it is useful. Safe,
     // because the button requires a tap.
     expect(getSkipIntroEnd({ type: "tv", id: "1", duration: 0 })).toBe(SKIP_INTRO_DEFAULT_END);
@@ -97,7 +97,7 @@ describe("skip intro", () => {
     expect(getSkipIntroTarget({ type: "tv", id: "1", duration: 96 })).toBe(0);
 
     // The duration-5 clamp is only reachable through the override seam, and
-    // only with a boundary later than the asset itself â€” i.e. bad data. That is
+    // only with a boundary later than the asset itself — i.e. bad data. That is
     // exactly what it is for: refuse to seek to `duration`, which some players
     // treat as unseekable and which would fire the end state immediately.
     SKIP_INTRO_OVERRIDES["__test-bogus"] = { endSeconds: 1400 };
@@ -119,7 +119,7 @@ describe("skip intro", () => {
   });
 });
 
-// â”€â”€ Per-episode dataset keying â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Per-episode dataset keying ─────────────────────────────────────────────
 // TV overrides used to be keyed by SHOW id, which meant every episode of a series
 // shared one cold-open length. A dataset cannot work that way, so episodes are
 // keyed "SxxExx" and the episode entry wins over a series-wide one.
@@ -235,7 +235,7 @@ describe("skip credits", () => {
   });
 });
 
-// â”€â”€ Measured cue boundaries â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Measured cue boundaries ────────────────────────────────────────────────
 // When a manifest states its own #EXT-X-CUE-OUT/#EXT-X-CUE-IN window, that fact
 // outranks every guess below. These pin the precedence, because getting it wrong
 // is how a real boundary would get ignored in favour of a blind 90s seek.
@@ -292,7 +292,7 @@ describe("mergeSkipBoundaries", () => {
   it("keeps a cue tag when the dataset lands afterwards", () => {
     // The regression this function exists for. The two fetches race, and without
     // ranking a slow SkipDB response would replace a boundary the provider
-    // embedded in the actual stream â€” silently, with both values looking valid.
+    // embedded in the actual stream — silently, with both values looking valid.
     const afterCues = mergeSkipBoundaries({ ...CUES, source: "cues" }, DATASET, "dataset");
     expect(afterCues.source).toBe("cues");
     expect(afterCues.introEndSeconds).toBe(246.5);
@@ -304,7 +304,7 @@ describe("mergeSkipBoundaries", () => {
     expect(afterDataset.introEndSeconds).toBe(246.5);
   });
 
-  it("is order-independent â€” both arrival orders converge", () => {
+  it("is order-independent — both arrival orders converge", () => {
     const a = mergeSkipBoundaries({ ...CUES, source: "cues" }, DATASET, "dataset");
     const b = mergeSkipBoundaries({ ...DATASET, source: "dataset" }, CUES, "cues");
     expect(a).toEqual(b);
@@ -328,7 +328,7 @@ describe("mergeSkipBoundaries", () => {
   });
 
   it("replaces dataset with dataset on a title change", () => {
-    // Same trust level, so the newer value is kept â€” the player resets on title
+    // Same trust level, so the newer value is kept — the player resets on title
     // change, but a late response for the PREVIOUS title must not stick.
     const out = mergeSkipBoundaries({ ...DATASET, source: "dataset" }, CUES, "cues");
     expect(out.introEndSeconds).toBe(246.5);
@@ -363,7 +363,7 @@ describe("rescopeBoundaries", () => {
   });
 
   it("keeps everything when the manifest did not change", () => {
-    // pickAudio only sets hls.audioTrack â€” same manifest, so the tags still
+    // pickAudio only sets hls.audioTrack — same manifest, so the tags still
     // describe what is on screen and must survive.
     expect(rescopeBoundaries(cues, VIDCORE, VIDCORE)).toBe(cues);
     expect(rescopeBoundaries(dataset, VIDCORE, VIDCORE)).toBe(dataset);

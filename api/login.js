@@ -16,6 +16,7 @@ import { connectToDatabase } from '../server/db.js';
 import { signSyncToken, isSyncEnabled } from '../server/syncToken.js';
 import { withLog } from '../server/logger.js';
 import { rateLimit, tooManyRequests, clientIp } from '../server/rateLimit.js';
+import { logError } from '../src/utils/debugLogger.js';
 import { burnPasswordCompare, verifyPassword } from '../server/passwords.js';
 import { ensureUserDataDoc, findUserByEmail, isValidEmail, normalizeEmail, toPublicLibrary, toPublicUser } from '../server/users.js';
 
@@ -117,9 +118,10 @@ export default withLog(async function handler(req, res) {
       userData: toPublicLibrary(library),
     });
   } catch (error) {
+    logError('api', 'login handler failed', { message: error?.message });
     res.status(500).json({
       success: false,
-      message: error?.message || 'Internal server error in login handler.',
+      message: 'Internal server error.',
     });
   }
 });

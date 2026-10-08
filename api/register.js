@@ -12,6 +12,7 @@
 import { connectToDatabase } from '../server/db.js';
 import { withLog } from '../server/logger.js';
 import { rateLimit, tooManyRequests, clientIp } from '../server/rateLimit.js';
+import { logError } from '../src/utils/debugLogger.js';
 import { hashPassword, validatePassword } from '../server/passwords.js';
 import { signVerifyToken, isVerifyTokenEnabled } from '../server/verifyToken.js';
 import { isMailConfigured, isMailLinkConfigured, sendVerificationEmail } from '../server/mailer.js';
@@ -127,9 +128,10 @@ export default withLog(async function handler(req, res) {
     try {
       await sendVerificationEmail({ to: email, name, token });
     } catch (error) {
+      logError('api', 'verification email send failed', { message: error?.message });
       res.status(502).json({
         success: false,
-        message: `Could not send the verification email. ${error?.message || ''}`.trim(),
+        message: 'Could not send the verification email. Please try again.',
       });
       return;
     }
@@ -141,9 +143,10 @@ export default withLog(async function handler(req, res) {
       message: 'Check your inbox — we sent a verification link. Your account is created once you open it.',
     });
   } catch (error) {
+    logError('api', 'register handler failed', { message: error?.message });
     res.status(500).json({
       success: false,
-      message: error?.message || 'Internal server error in register handler.',
+      message: 'Internal server error.',
     });
   }
 });

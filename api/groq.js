@@ -1,4 +1,4 @@
-﻿// api/groq.js - serverless Groq proxy. Groq key stays SERVER-side (git-ignored
+// api/groq.js - serverless Groq proxy. Groq key stays SERVER-side (git-ignored
 // api/groq.key.js local fallback + process.env.GROQ_API_KEY for Vercel), never
 // ships in the bundle. Same same-origin pattern as api/tmdb.js: the Vite dev
 // middleware + vercel rewrites route /api/groq to this function.
@@ -6,6 +6,7 @@ import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { withLog } from "../server/logger.js";
 import { rateLimit, tooManyRequests, clientIp } from "../server/rateLimit.js";
+import { logError } from "../src/utils/debugLogger.js";
 
 const GROQ_BASE = "https://api.groq.com/openai/v1";
 
@@ -116,6 +117,7 @@ export default withLog(async function handler(req, res) {
     }
     res.status(404).json({ status_message: "Unknown Groq endpoint", status_code: 404 });
   } catch (error) {
-    res.status(502).json({ status_message: `Groq proxy failed: ${error?.message || "unknown"}`, status_code: 502 });
+    logError("api", "groq proxy failed", { message: error?.message });
+    res.status(502).json({ status_message: "Groq proxy failed.", status_code: 502 });
   }
 });

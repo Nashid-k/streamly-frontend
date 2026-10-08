@@ -3,8 +3,13 @@ import { logDebug, logError, logWarn } from '../utils/debugLogger';
 // Direct TMDB base — used as fallback when no same-origin proxy is deployed
 // (plain static hosting, `vite preview`), and by non-browser runtimes.
 const DIRECT_BASE = 'https://api.themoviedb.org/3';
-// The key is NEVER bundled: deploys supply VITE_TMDB_API_KEY and the same-origin
-// /api/tmdb proxy injects its own server-side key. An empty key 401s TMDB.
+// TMDB keys are PUBLIC by design (they are embedded in TMDB's own guidance and
+// ships in every client; a leaked key costs nothing because the quota is tied to
+// the key's owner). So this is deliberately a build-time-inlined variable, not a
+// secret: bundling it buys resilience — the direct-TMDB fallback keeps working on
+// plain static hosting with no function deployed. Deploys supply it via
+// VITE_TMDB_API_KEY; the same-origin /api/tmdb proxy can also inject a
+// server-side key when the client omits one. An empty key 401s direct TMDB.
 const API_KEY = import.meta.env.VITE_TMDB_API_KEY || '';
 const REQUEST_TIMEOUT_MS = 10_000;
 
