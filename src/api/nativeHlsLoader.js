@@ -56,6 +56,18 @@ const probeCache = new Map();
 // origin -> timestamp (ms) until which direct fetches are skipped.
 const directBlockedUntil = new Map();
 
+/* Consecutive fragments served through the relay — MODULE-scoped. hls.js mints
+   a FRESH loader instance per fragment, so `this.relayStreak` read "1" on
+   every single fallback and fired the warn below on every fragment instead of
+   once per streak (the RELAY_LOG_EVERY throttle never engaged; a title landing
+   on a relay-only CDN logged hundreds of duplicate "1 consecutive" warns).
+   A gap longer than RELAY_STREAK_GAP_MS between relays (failover gap, seek
+   pause, source switch) starts a fresh streak so an old count can't inflate a
+   new session. */
+let relayStreak = 0;
+let lastRelayAt = 0;
+const RELAY_STREAK_GAP_MS = 10 * 1000;
+
 /* Hosts whose CDN gates on the owning player's referer (VidCore family): a bare
    browser fetch 403s and a probe burst trips their WAF. Relay-only by
    construction — the relay supplies the referer. */
@@ -250,6 +262,13 @@ export function clearPlaylistMemo() {
 
 export function clearDirectBlocks() {
   directBlockedUntil.clear();
+}
+
+/* Test-only: the relay streak is MODULE-scoped now (see the block above), so it
+   survives across fragments AND across tests — reset it for deterministic runs. */
+export function _resetRelayStreakForTests() {
+  relayStreak = 0;
+  lastRelayAt = 0;
 }
 
 /* An upstream 429/503 is a THROTTLE, not a dead source. hls.js re-requests the
@@ -592,8 +611,6 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath, onC
       // frag.stats = loader.stats), so it must ALWAYS be a full LoadStats-shaped
       // object — never undefined.
       this.stats = finishStats(0, 0);
-      // Consecutive fragments served through the relay. Reset by any direct success.
-      this.relayStreak = 0;
     }
 
     destroy() {
@@ -805,7 +822,8 @@ const text = await withThrottleRetry(this.signal(), async () => {
             const data = await this.directFragment(url, signal);
             const origin = originOf(url);
             if (origin) directBlockedUntil.delete(origin);
-            this.relayStreak = 0;
+            relayStreak = 0;
+            lastRelayAt = 0;
             onDirectPath?.();
             return data;
           } catch (error) {
@@ -935,9 +953,12 @@ const text = await withThrottleRetry(this.signal(), async () => {
           out.set(c, off);
           off += c.length;
         }
-        this.relayStreak = (this.relayStreak || 0) + 1;
-        if (this.relayStreak === 1 || this.relayStreak % RELAY_LOG_EVERY === 0) {
-          logWarn("native", `${this.relayStreak} consecutive fragment(s) via Vercel relay — direct path unavailable.`, {
+        const relayNow = Date.now();
+        if (relayNow - lastRelayAt > RELAY_STREAK_GAP_MS) relayStreak = 0;
+        lastRelayAt = relayNow;
+        relayStreak += 1;
+        if (relayStreak === 1 || relayStreak % RELAY_LOG_EVERY === 0) {
+          logWarn("native", `${relayStreak} consecutive fragment(s) via Vercel relay — direct path unavailable.`, {
             url: String(url).slice(0, 80),
           });
         } else {
