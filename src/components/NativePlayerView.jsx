@@ -181,6 +181,37 @@ function qualityLabelFor(v) {
   return variantLabel(v);
 }
 
+/* "HD or better" tag that agrees with the LABELS, not the raw pixel rows: a
+   scope/cinema rung cut at 1920x804 labels "1080p" (width-first resolutionLabel)
+   but its raw height is below 1080, so height-based checks left both the gear
+   badge and the inline row tag missing on exactly the rungs the menu calls HD. */
+function qualityHdTag(v) {
+  const label = String(v?.label || qualityLabelFor(v) || "");
+  return /^(1080p|2K)(\s|$)/.test(label) ? "HD" : "";
+}
+
+/* One row per DISTINCT LABEL, tallest/highest-bandwidth rendition kept. Shared
+   by the open path (resolver `variants`) and the post-swap ladder rebuild
+   (hls.levels of a swapped source) so both menus dedupe identically. */
+function buildQualityRows(variantsList) {
+  const byLabel = new Map();
+  variantsList
+    .slice()
+    .sort((a, b) => (a.height || 0) - (b.height || 0))
+    .forEach((v) => {
+      const label = qualityLabelFor(v);
+      const prev = byLabel.get(label);
+      if (
+        !prev ||
+        (v.height || 0) > (prev.height || 0) ||
+        ((v.height || 0) === (prev.height || 0) && (v.bandwidth || 0) > (prev.bandwidth || 0))
+      ) {
+        byLabel.set(label, { uri: v.uri, height: v.height || 0, label, bandwidth: v.bandwidth || 0 });
+      }
+    });
+  return Array.from(byLabel.values());
+}
+
 
 
 export default function NativePlayerView({
@@ -297,6 +328,11 @@ export default function NativePlayerView({
   const pickQualityRef = useRef(null);
   // Rapid quality switches stamp a token and re-check it after every await.
   const switchTokenRef = useRef(0);
+  // Arm-and-fire resume after a switch whose post-reload video.play() the browser
+  // refused (autoplay policy): the next user interaction replays it (see the
+  // pointerdown listener below), so a switch-while-playing never strands the
+  // viewer on a silently paused frame.
+  const pendingResumeRef = useRef(false);
   // When the forward buffer first dipped under BUFFER_FLOOR_SECONDS (sustained-shortfall guard).
   const lowBufferRef = useRef({ since: 0, prev: -1 });
   // Subtitle cue text is derived on timeupdate from a SubtitleEngine search; a
@@ -421,6 +457,10 @@ export default function NativePlayerView({
   const [stageWhileLoading, setStageWhileLoading] = useState(true);
   // Set by a server switch, cleared when frames return; null means a cold open.
   const [switchingNote, setSwitchingNote] = useState(null);
+  // Transient honest note for a quality pick the player must refuse (e.g. while
+  // a pinned dub is playing) — the old silent early-return read as "the button
+  // is dead". Cleared by any pick that actually runs.
+  const [qualityNote, setQualityNote] = useState(null);
   const showStage = spinner && (stageWhileLoading || !hasStartedRef.current);
   // Why this particular wait is happening. "Loading…" alone is identical for a
   // cold open and for a server the viewer just picked, and those two deserve
@@ -1250,6 +1290,8 @@ setScrubDragging(true);
       setPlaying(true);
       setBuffering(false);
       if (navigator.mediaSession) navigator.mediaSession.playbackState = "playing";
+      // Playback of any origin satisfies a pending switch-resume.
+      pendingResumeRef.current = false;
     };
     const onPause = () => {
       setPlaying(false);
@@ -1351,6 +1393,37 @@ setScrubDragging(true);
       video.removeEventListener("canplay", onCanPlay);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* One-shot switch-resume: when a switch-while-playing had its post-reload
+     video.play() refused (autoplay policy, the play runs outside the click
+     gesture), re-drive it on the NEXT interaction. The timer defers past the
+     press so the video's own click-to-toggle runs first (it plays when paused,
+     so a double play() is a harmless no-op), covering taps on the picture AND
+     on controls/settings that do not toggle. */
+  useEffect(() => {
+    const root = screenRef.current;
+    if (!root) return undefined;
+    const onPointerDown = () => {
+      if (!pendingResumeRef.current) return;
+      setTimeout(() => {
+        pendingResumeRef.current = false;
+        const video = videoRef.current;
+        if (!video) return;
+        // The video's own click-to-toggle runs first (plays when it is paused);
+        // if a real gesture already started playback there is nothing to do,
+        // otherwise (tap on chrome/settings/non-toggle) re-drive the play() the
+        // browser refused during the switch.
+        if (video.paused) {
+          video.play().catch(() => {
+            // Still blocked — the next interaction tries again.
+            pendingResumeRef.current = true;
+          });
+        }
+      }, 0);
+    };
+    root.addEventListener("pointerdown", onPointerDown);
+    return () => root.removeEventListener("pointerdown", onPointerDown);
   }, []);
 
   /* Volume applies to the element and persists across visits. autoMuted is the
@@ -1775,6 +1848,7 @@ setScrubDragging(true);
       setResumeOffer(null);
       setPanel(null);
       setTransportRelay(false);
+      setQualityNote(null);
       autoUriRef.current = null;
       autoUriHeightRef.current = null;
       const args = { type, id, season: type === "tv" ? season : undefined, episode: type === "tv" ? episode : undefined, title };
@@ -2004,7 +2078,10 @@ setScrubDragging(true);
             consecFragFails = 0;
           });
           hls.on(Hls.Events.LEVEL_SWITCHED, (_e, data) => {
-            setCurrentHeight(data?.height ?? null);
+            // A heightless media playlist reports 0/null; keep the last real
+            // height rather than drive the dialog to "0p" after a full-reload
+            // switch (that path now also seeds currentHeight from the pick).
+            if (data?.height) setCurrentHeight(data.height);
           });
           hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => attachAudio(hls));
           hls.on(Hls.Events.ERROR, (_e, data) => {
@@ -2070,25 +2147,9 @@ setScrubDragging(true);
           startLevelFor(hls);
           // One row per DISTINCT LABEL: providers list several renditions of the
           // same rung (640x272 + 640x360 both read "480p"), which showed as
-          // duplicate menu rows. Keep the tallest/highest-bandwidth rendition
-          // per label; rows carry their RAW height so level matching (highlight,
-          // step-down) keeps comparing like with like.
-          const byLabel = new Map();
-          variants
-            .slice()
-            .sort((a, b) => (a.height || 0) - (b.height || 0))
-            .forEach((v) => {
-              const label = qualityLabelFor(v);
-              const prev = byLabel.get(label);
-              if (
-                !prev ||
-                (v.height || 0) > (prev.height || 0) ||
-                ((v.height || 0) === (prev.height || 0) && (v.bandwidth || 0) > (prev.bandwidth || 0))
-              ) {
-                byLabel.set(label, { uri: v.uri, height: v.height || 0, label, bandwidth: v.bandwidth || 0 });
-              }
-            });
-          setQualities(Array.from(byLabel.values()));
+          // duplicate menu rows. Rows carry their RAW height so level matching
+          // (highlight, step-down) keeps comparing like with like.
+          setQualities(buildQualityRows(variants));
           // Publish this run's dub list — unless a dub pin carried over from
           // a DIFFERENT server (a Servers-menu switch): a stale index must not
           // auto-pin a dub on the new server (its attempt loop would re-open
@@ -2262,6 +2323,7 @@ setScrubDragging(true);
     // probe passed, and picking "Original" clears the ref first.)
     if (activeDubRef.current > 0 && !opts.dubSwitch) {
       setBuffering(false);
+      setQualityNote("Switch audio back to Original to change quality");
       return;
     }
     const t = videoRef.current.currentTime || 0;
@@ -2292,10 +2354,15 @@ setScrubDragging(true);
         });
         hls.currentLevel = best;
         setAutoLevel(false);
-        // Pin the dialog highlight to the level ACTUALLY selected (row height can differ a few px).
-        setManualHeight(hls.levels[best]?.height || height || null);
+        // Highlight the ROW the viewer clicked, not the manifest rung hls.js
+        // pinned to it. A coarse manifest ladder (or a resolver that reports
+        // different pixel heights than EXT-X-STREAM-INF RESOLUTION) lands on a
+        // DIFFERENT rung than the clicked label; keying manualHeight on the
+        // manifest height left NO row selected after the pick.
+        if (height != null) setManualHeight(height);
         setActiveUri(null);
         setBuffering(false);
+        setQualityNote(null);
         return;
       }
       const myId = (switchTokenRef.current += 1);
@@ -2389,11 +2456,44 @@ setScrubDragging(true);
       if (!wasPaused) {
         try {
           await videoRef.current.play();
-        } catch {
-          // user gesture needed — custom transport is present
+        } catch (error) {
+          // The resume play() lands outside the click gesture (after the manifest
+          // reload + canplay wait), and a strict autoplay policy refuses unmuted
+          // play() without one. Never swallow it: say so in the log and arm a
+          // one-shot resume so the next interaction starts playback.
+          logWarn("native", "Browser refused the post-switch auto-resume; playback starts on the next tap.", {
+            url: String(chosenUri).slice(0, 80),
+            code: error?.name || String(error),
+          });
+          pendingResumeRef.current = true;
         }
       }
       setActiveUri(chosenUri);
+      // The full-reload path never sees LEVEL_SWITCHED's height when the new
+      // media playlist carries NO RESOLUTION (a heightless level reports 0),
+      // which drove Auto's "Now" line and the HD chip to "0p". Seed currentHeight
+      // from the picked rung; LEVEL_SWITCHED still overrides it with a real one.
+      if (chosenHeight != null) setCurrentHeight(chosenHeight);
+      // A swapped source can bring its OWN ladder (external upgrade, sibling
+      // master): refresh the menu from what actually parsed, but only for a real
+      // multi-rung ladder — a single heightless media level must never clobber
+      // the resolver ladder the rows were built from.
+      if (hls && Array.isArray(hls.levels) && hls.levels.length > 1) {
+        const parsed = hls.levels.filter((l) => (l.height || 0) > 0);
+        if (parsed.length > 1 && parsed.length !== qualities.length) {
+          setQualities(
+            buildQualityRows(
+              parsed.map((l) => ({
+                uri: chosenUri,
+                width: l.width || 0,
+                height: l.height || 0,
+                bandwidth: l.bitrate || l.bandwidth || 0,
+              })),
+            ),
+          );
+        }
+      }
+      setQualityNote(null);
       // A dub switch has no quality to report — pickDub already announced the
       // track it is moving to, so don't overwrite it with "?p".
       // Real frames again. The loader's own success path clears this too, but a
@@ -2787,12 +2887,15 @@ setScrubDragging(true);
   }, [prefs]);
 
   // Gear "HD" badge: shown once the active rendition is HD or better (the
-  // design's crimson chip next to the cog). Manual picks key on the chosen
-  // height; Auto/ABR keys on the currently negotiated height.
-  const hdBadge =
-    ((autoLevel === false
-      ? qualities.find((q) => q.height === manualHeight)?.height || currentHeight
-      : currentHeight) || 0) >= 1080
+  // design's crimson chip next to the cog). Keyed on the row LABEL classification
+  // (scope/cinema 1920x804 reads "1080p"), falling back to the raw pixel height
+  // when no menu row matches.
+  const activeDisplayHeight = autoLevel === false ? manualHeight : currentHeight;
+  const activeQualityRow =
+    activeDisplayHeight != null ? qualities.find((q) => q.height === activeDisplayHeight) : undefined;
+  const hdBadge = activeQualityRow
+    ? qualityHdTag(activeQualityRow) || undefined
+    : activeDisplayHeight != null && activeDisplayHeight >= 1080
       ? "HD"
       : undefined;
 
@@ -3477,6 +3580,19 @@ const showSkipOutro = shouldShowSkipOutro({
               </div>
             ) : panel === "video" ? (
               <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 0 6px" }}>
+                  {qualityNote ? (
+                    <p
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "rgba(255,255,255,0.5)",
+                        margin: "4px 14px 8px",
+                        letterSpacing: "0.02em",
+                      }}
+                    >
+                      {qualityNote}
+                    </p>
+                  ) : null}
                   {/* Auto is ALWAYS present — the active mode on every source
                       (master = hls.js ABR; per-rendition sources = the rung the
                       player negotiated at open, smooth-start / relay-friendly). */}
@@ -3508,7 +3624,7 @@ const showSkipOutro = shouldShowSkipOutro({
                         key={`${q.uri}::${i}`}
                         selected={selected}
                         onClick={() => pickQuality(q.uri, q.height, { external: q.external })}
-                        title={`${q.label || `${q.height}p`}${q.height >= 1080 && q.height < 2160 ? " HD" : ""}`}
+                        title={`${q.label || `${q.height}p`}${qualityHdTag(q) ? " HD" : ""}`}
                       />
                     );
                   })}
