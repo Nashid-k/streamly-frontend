@@ -44,7 +44,11 @@ export default function IconBtn({
         height: size,
         borderRadius: "50%",
         border: "none",
-        background: active ? "rgba(255,255,255,0.16)" : "transparent",
+        // Active chrome (gear / episodes / subs with a panel open) keeps the SAME
+        // dark backdrop as the transport buttons. The old white disc read as an
+        // off-palette gray on top of the black pills (user report: "settings btn
+        // bg is kind of gray"); the open panel + aria-pressed carry the signal.
+        background: "transparent",
         color: disabled ? "rgba(255,255,255,0.35)" : TEXT,
         cursor: disabled ? "not-allowed" : "pointer",
         display: "flex",

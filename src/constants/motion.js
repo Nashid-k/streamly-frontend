@@ -112,6 +112,24 @@ export const MODAL_PANEL = {
   transition: SPRING.SHEET,
 };
 
+/** Scroll-reveal for in-page sections and their headings. These drifted apart
+    on the details page alone: some sections rose 20px, some only faded, some
+    entered from the side, on two different durations and two different eases —
+    so scrolling one page looked like scrolling three. One shape now: a 20px
+    rise into place, one duration, one curve, one trigger. */
+export const REVEAL = {
+  initial: { opacity: 0, y: 20 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: "-40px" },
+  transition: { duration: DURATION.SLOW, ease: EASE_OUT },
+};
+
+/** The reveal for the items inside a rail, where a short per-index stagger
+    reads as one group arriving rather than a row of independent pops. */
+export function revealAt(delay = 0) {
+  return { ...REVEAL, transition: { ...REVEAL.transition, delay } };
+}
+
 /**
  * A transition that collapses to a cut when the viewer has asked for less
  * motion. `reduced` comes from framer-motion's `useReducedMotion`, which reads
@@ -149,6 +167,7 @@ export function useMotionTokens(reduced) {
         PILL_IN: withTransition(PILL_IN),
         CHECK_POP: withTransition(CHECK_POP),
         FADE: withTransition(FADE),
+        REVEAL: withTransition(REVEAL),
       };
     },
     [reduced],

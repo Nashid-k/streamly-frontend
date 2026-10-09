@@ -91,7 +91,10 @@ export default function Loader({ variant = "page", size, color }) {
           strokeLinecap="round"
           strokeDasharray="113"
           strokeDashoffset="75"
-          style={ringStyle({ animation: "loader-dash 1.4s ease-in-out infinite" })}
+          style={ringStyle({
+            animation: "loader-spin-cw 1.4s linear infinite, loader-dash 1.4s ease-in-out infinite",
+            transformOrigin: "center",
+          })}
         />
         {/* Inner ring (counter-rotate) */}
         <circle
@@ -129,7 +132,7 @@ export default function Loader({ variant = "page", size, color }) {
           boxShadow: useGradient
             ? "0 0 10px var(--accent-glow, rgba(149,255,80,0.6)), 0 0 22px var(--accent-glow, rgba(92,226,28,0.35))"
             : `0 0 8px ${primaryColor}80`,
-          animation: "loader-pulse-center 1.2s ease-in-out infinite",
+          animation: "loader-pulse-dot 1.2s ease-in-out infinite",
         }}
       />
     </div>

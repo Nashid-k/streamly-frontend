@@ -757,16 +757,17 @@
    autoplay switch, the gear's HD badge and custom key tooltips.
    ═══════════════════════════════════════════════════════════ */
 
-/* Pills: black translucent capsule under every control. */
+/* Pills: black translucent capsule under every control. Opacity trimmed from
+   0.6 so the picture reads through the chrome more. */
 .np-pill {
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.42);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   transition: background var(--zxc-t-fast) var(--zxc-ease);
 }
 .np-pill:hover {
-  background: rgba(0, 0, 0, 0.76);
+  background: rgba(0, 0, 0, 0.55);
 }
 .np-circle-pill {
   border-radius: 50%;
@@ -775,13 +776,43 @@
 /* Unified right control cluster (NEW PLAYER UI-UX.html #rp). */
 .np-right-pill {
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.42);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   transition: background var(--zxc-t-fast) var(--zxc-ease);
 }
 .np-right-pill:hover {
-  background: rgba(0, 0, 0, 0.76);
+  background: rgba(0, 0, 0, 0.55);
+}
+
+/* On phones the utility cluster (up to seven controls for a series) is wider
+   than the screen. flex-wrap drops it to a second line, but its fixed intrinsic
+   width then runs off the right edge and the player's overflow:hidden clips the
+   last controls (measured: 84px cut off at 320px, losing settings + fullscreen).
+   Give it its own full-width row and spread the controls evenly, so nothing
+   clips and the touch targets survive. */
+@media (hover: none), (max-width: 768px) {
+  /* The utility cluster (up to seven controls for a series) is wider than a
+     phone, so flex-wrap drops it to its own line. Right-align that wrapped line
+     so it reads as a deliberate control bar instead of a stray left-hugging
+     pill, and compact the icon buttons so the whole capsule fits inside the
+     padding — previously its fixed width ran off the right edge and
+     overflow:hidden clipped the last controls (measured: 84px cut at 320px,
+     losing settings + fullscreen). The autoplay switch (role="switch") keeps
+     its width so its knob stays aligned. */
+  .np-transport {
+    justify-content: flex-end !important;
+  }
+  .np-right-pill {
+    min-width: 0 !important;
+    gap: 2px !important;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+  }
+  .np-right-pill .np-icon-btn:not([role="switch"]) {
+    width: 34px !important;
+    height: 34px !important;
+  }
 }
 
 /* Fullscreen button hover highlight (NEW PLAYER UI-UX.html line 206). */

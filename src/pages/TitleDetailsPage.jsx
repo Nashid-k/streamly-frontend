@@ -1148,19 +1148,13 @@ export default function TitleDetails() {
       {isTvContent && hasSeriesEpisodes && (
         <motion.section
           style={{ position: "relative", zIndex: 1, marginTop: "1.5rem", maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
-          initial={{ opacity: 0, y: L.reduced ? 0 : 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-40px" }}
-          transition={L.Fade.transition}
+          {...L.Reveal}
         >
           <div className="flex flex-wrap items-center gap-x-2 gap-y-3 px-2">
             <motion.h2
               className="text-xl lg:text-2xl font-bold text-white/90 shrink-0"
               style={{ margin: 0 }}
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
+              {...L.Reveal}
             >
               Episodes {isAiring && totalEpisodes > episodes.length
                 ? <span style={{ fontSize: '0.7em', color: '#52525b', fontWeight: 400 }}>({releasedEpisodes} of {totalEpisodes} released)</span>
@@ -1757,10 +1751,7 @@ export default function TitleDetails() {
       {movie.cast && movie.cast.length > 0 && (
         <motion.section
           style={{ position: "relative", zIndex: 1, maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-40px" }}
-          transition={{ duration: 0.4 }}
+          {...L.Reveal}
         >
           <div style={{ minWidth: 0 }}>
             <ErrorBoundary>
@@ -1774,17 +1765,11 @@ export default function TitleDetails() {
       {movie.videos && movie.videos.length > 0 && (
         <motion.section
           style={{ position: "relative", zIndex: 1, marginTop: "2rem", maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true, margin: "-40px" }}
-          transition={{ duration: 0.4 }}
+          {...L.Reveal}
         >
           <motion.h2
             className="text-xl lg:text-2xl font-bold text-white/90 px-2"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
+            {...L.Reveal}
           >
             Trailers
           </motion.h2>
@@ -1818,17 +1803,11 @@ export default function TitleDetails() {
       {(loading || (similar && similar.length > 0)) && (
         <motion.section
           style={{ position: "relative", zIndex: 1, marginTop: "2rem", maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true, margin: "-40px" }}
-          transition={{ duration: 0.4 }}
+          {...L.Reveal}
         >
           <motion.h2
             className="text-xl lg:text-2xl font-bold text-white/90 px-2"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
+            {...L.Reveal}
           >
             You Might Also Like
           </motion.h2>
@@ -1879,14 +1858,7 @@ export default function TitleDetails() {
                 <motion.div
                   key={`${sim.id}-${idx}`}
                   className="flex-none w-[140px] lg:w-[200px]"
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{
-                    duration: 0.4,
-                    delay: (idx % 12) * 0.05,
-                    ease: "easeOut",
-                  }}
+                  {...L.RevealAt((idx % 12) * 0.05)}
                 >
                   <MovieCard
                     movie={sim}
@@ -1903,17 +1875,11 @@ export default function TitleDetails() {
       {movie.director && similar.some(s => s.director && s.director === movie.director) && (
         <motion.section
           style={{ position: "relative", zIndex: 1, marginTop: "2rem", maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true, margin: "-40px" }}
-          transition={{ duration: 0.4 }}
+          {...L.Reveal}
         >
           <motion.h2
             className="text-xl lg:text-2xl font-bold text-white/90 px-2"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
+            {...L.Reveal}
             style={{ marginBottom: '1rem' }}
           >
             More from {movie.director}
@@ -1935,10 +1901,7 @@ export default function TitleDetails() {
               {similar.slice(0, 8).filter(s => s.director && s.director === movie.director).slice(0, 5).map((sim, idx) => (
               <motion.div
                 key={`dir-${sim.id}-${idx}`}
-                initial={{ opacity: 0, x: 20 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: idx * 0.08, duration: 0.4 }}
+                {...L.RevealAt(idx * 0.08)}
                 style={{ flexShrink: 0, width: '180px' }}
               >
                 <MovieCard movie={{ ...sim, source: sim.source || resolvedPlatform }} />
@@ -1951,9 +1914,7 @@ export default function TitleDetails() {
 
       {/* ── Social Proof Bar ─────────────────────────────────────────────────── */}
       <motion.div
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true }}
+        {...L.Reveal}
         style={{
           position: 'relative', zIndex: 1, marginTop: '2rem',
           padding: '1rem 1rem',

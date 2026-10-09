@@ -27,10 +27,10 @@ export default function ChromeTopBar({ visible, title, subtitle, onBack }) {
         gap: 14,
         padding: "var(--np-safe-top, 16px) 24px 44px",
         // The bar holds a back button and a title only. A heavier scrim read as a
-        // black band over the frame; 0.55 fading out faster keeps the text
+        // black band over the frame; 0.45 fading out faster keeps the text
         // legible without painting the top third of the picture.
         background:
-          "linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.22) 45%, rgba(0,0,0,0) 100%)",
+          "linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.16) 45%, rgba(0,0,0,0) 100%)",
         pointerEvents: visible ? "auto" : "none",
         zIndex: 4,
       }}

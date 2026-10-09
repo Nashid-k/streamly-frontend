@@ -202,9 +202,17 @@ html {
 
 /* Loader component keyframes */
 @keyframes loader-spin-ccw { to { transform: rotate(-360deg); } }
+@keyframes loader-spin-cw { to { transform: rotate(360deg); } }
 @keyframes loader-pulse-center {
   0%, 100% { transform: scale(0.7); opacity: 0.4; }
   50% { transform: scale(1.1); opacity: 1; }
+}
+/* The dot is absolutely centred with translate(-50%,-50%), so the pulse must
+   carry that translate in every frame — loader-pulse-center alone would drop it
+   and shove the dot off-centre. */
+@keyframes loader-pulse-dot {
+  0%, 100% { transform: translate(-50%, -50%) scale(0.7); opacity: 0.4; }
+  50% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
 }
 @keyframes loader-dash {
   0% { stroke-dashoffset: 180; }

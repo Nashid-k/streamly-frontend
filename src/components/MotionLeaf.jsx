@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { SPRING, FADE, MODAL_PANEL } from "../constants/motion";
+import { SPRING, FADE, MODAL_PANEL, REVEAL, revealAt } from "../constants/motion";
 
 /**
  * Shared reduced-motion-aware motion leaf for the heaviest non-chrome sites
@@ -30,6 +30,15 @@ export function MotionLeaf() {
         Fade: reduceMotion
           ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, transition: cut }
           : { ...FADE, transition: FADE.transition },
+        // The canonical scroll-reveal and its staggered sibling, pre-checked so
+        // a section and its headings cannot each pick their own travel again.
+        Reveal: reduceMotion
+          ? { initial: { opacity: 0 }, whileInView: { opacity: 1 }, viewport: { once: true }, transition: cut }
+          : { ...REVEAL, transition: REVEAL.transition },
+        RevealAt: (delay = 0) =>
+          reduceMotion
+            ? { initial: { opacity: 0 }, whileInView: { opacity: 1 }, viewport: { once: true }, transition: cut }
+            : revealAt(delay),
         Modal: {
           panel: reduceMotion
             ? {

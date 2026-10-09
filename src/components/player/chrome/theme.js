@@ -23,13 +23,15 @@ export const SKIP_BAND = "rgba(255,255,255,0.5)";
 export const TEXT = "#ffffff";
 export const TEXT_DIM = "rgba(255,255,255,0.62)";
 
-// Bottom-bar + overlay pills (design: rgba(0,0,0,0.6) with soft blur).
-export const PILL_BG = "rgba(0,0,0,0.6)";
-export const PILL_BG_HOVER = "rgba(0,0,0,0.76)";
+// Bottom-bar + overlay pills (design: rgba(0,0,0,0.6) with soft blur). Opacity
+// trimmed to 0.42 so more of the frame reads through the chrome.
+export const PILL_BG = "rgba(0,0,0,0.42)";
+export const PILL_BG_HOVER = "rgba(0,0,0,0.55)";
 
-// Glass materials.
-export const GLASS_BG = "rgba(28,28,28,0.88)";
-export const GLASS_BG_STRONG = "rgba(28,28,28,0.92)";
+// Glass materials (softened from 0.88/0.92 so the panel/cards are a little more
+// see-through; the blur keeps text legible).
+export const GLASS_BG = "rgba(28,28,28,0.8)";
+export const GLASS_BG_STRONG = "rgba(28,28,28,0.84)";
 export const GLASS_BORDER = "rgba(255,255,255,0.16)";
 export const GLASS_BLUR = "blur(12px)";
 

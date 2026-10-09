@@ -110,7 +110,7 @@ export default function BottomChrome({
         paddingLeft: IS_TOUCH ? 14 : 32,
         paddingRight: IS_TOUCH ? 14 : 32,
         paddingBottom: SAFE_BOTTOM,
-        background: "linear-gradient(0deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.4) 52%, rgba(0,0,0,0) 100%)",
+        background: "linear-gradient(0deg, rgba(0,0,0,0.68) 0%, rgba(0,0,0,0.28) 52%, rgba(0,0,0,0) 100%)",
         pointerEvents: visible ? "auto" : "none",
         zIndex: 4,
       }}
@@ -265,7 +265,7 @@ export default function BottomChrome({
       </div>
 
       {/* Transport row: play+volume+time left, utilities right (NEW PLAYER UI-UX.html). */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+      <div className="np-transport" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <div className="np-pill np-circle-pill" style={{ ...PILL, width: playSize, height: playSize }}>
           <Tooltip tip={playing ? "Pause" : "Play"} kbd="k">
             <IconBtn size={playSize} label={playing ? "Pause" : "Play"} onClick={onTogglePlay}>
