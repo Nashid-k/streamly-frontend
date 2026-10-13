@@ -8,6 +8,7 @@ import MovieCardSkeleton from "../components/MovieCardSkeleton";
 import AmbientBackground from "../components/AmbientBackground";
 import ErrorBoundary from "../components/ErrorBoundary";
 import ContentPageHeader from "../components/ContentPageHeader";
+import EmptyState from "../components/EmptyState";
 import { logEmptyData, reportQueryError } from "../utils/debugLogger";
 
 export default function CategoryPage() {
@@ -142,19 +143,21 @@ export default function CategoryPage() {
           backTo="/"
           backLabel="Browse"
         />
-        <div style={{ textAlign: "center", padding: "4rem 1rem" }}>
-          <p className="content-page__notice" style={{ marginBottom: "1.5rem" }}>
-            No titles matching "{categoryName}" were found.
-          </p>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={() => window.location.assign("/")}
-            style={{ padding: "0.65rem 1.5rem", borderRadius: "var(--radius-full)", cursor: "pointer" }}
-          >
-            Explore Trending Titles
-          </button>
-        </div>
+        <EmptyState
+          icon="search"
+          title="No matching titles"
+          description={`We couldn't find any titles for "${categoryName}".`}
+          actions={
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => window.location.assign("/")}
+              style={{ padding: "0.65rem 1.5rem", borderRadius: "var(--radius-full)", cursor: "pointer" }}
+            >
+              Explore Trending Titles
+            </button>
+          }
+        />
         </div>
       </div>
     );

@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { movieService } from "../api/movieService";
 import MovieCard from "../components/MovieCard";
 import MovieCardSkeleton from "../components/MovieCardSkeleton";
+import EmptyState from "../components/EmptyState";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { logEmptyData, reportQueryError } from "../utils/debugLogger";
 
@@ -151,15 +152,25 @@ export default function PersonDetails() {
 
   if (!person) {
     return (
-      <div className="main-content content-page person-page__missing">
-        <h2>Actor not found</h2>
-        <button
-          className="btn btn-glass"
-          onClick={() => navigate(-1)}
-          style={{ marginTop: "1rem" }}
-        >
-          Go Back
-        </button>
+      <div
+        className="main-content content-page"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "60vh",
+        }}
+      >
+        <EmptyState
+          icon="error"
+          title="Actor not found"
+          description="We couldn't find this person. They may have been removed, or the link is out of date."
+          actions={
+            <button className="btn btn-glass" onClick={() => navigate(-1)}>
+              <ChevronLeft size={16} strokeWidth={1.5} /> Go Back
+            </button>
+          }
+        />
       </div>
     );
   }

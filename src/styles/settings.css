@@ -112,14 +112,6 @@
   pointer-events: none;
 }
 
-.person-page__missing {
-  display: flex;
-  min-height: 60vh;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-}
-
 /* ── Responsive, touch-safe layout ────────────────────────────────────── */
 @media (max-width: 1280px) {
   .content-page-header {

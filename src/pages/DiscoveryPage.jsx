@@ -797,9 +797,11 @@ export default function DiscoveryPage({ mode = "movies" }) {
             )}
           </ErrorBoundary>
           {railEmpty && !gridLoading && (
-            <div style={{ padding: "2rem 0", textAlign: "center", color: "#71717a" }}>
-              {isSeries ? "No new seasons airing right now." : "No upcoming releases right now."}
-            </div>
+            <EmptyState
+              icon={isSeries ? "tv" : "film"}
+              title={isSeries ? "No new seasons airing right now." : "No upcoming releases right now."}
+              compact
+            />
           )}
         </section>
 

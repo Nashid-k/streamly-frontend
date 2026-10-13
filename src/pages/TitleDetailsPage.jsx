@@ -2,6 +2,7 @@ import SEO from "../components/SEO";
 import AmbientBackground from "../components/AmbientBackground";
 import MovieDetailsSkeleton from "../components/MovieDetailsSkeleton";
 import MovieCardSkeleton from "../components/MovieCardSkeleton";
+import EmptyState from "../components/EmptyState";
 import CastRail from "../components/CastRail";
 import RailArrow from "../components/RailArrow";
 import RatingsTable from "../components/RatingsTable";
@@ -664,73 +665,58 @@ export default function TitleDetails() {
       <div
         style={{
           display: "flex",
-          flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
           minHeight: "80vh",
           padding: "2rem",
-          textAlign: "center",
         }}
       >
-        <div
-          style={{
-            width: "80px",
-            height: "80px",
-            borderRadius: "50%",
-            background: "rgba(255,255,255,0.05)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            marginBottom: "1.5rem",
-          }}
-        >
-          <Film size={36} color="#52525b" />
-        </div>
-        <h2 style={{ color: "#fff", marginBottom: "0.5rem" }}>
-          Title not found
-        </h2>
-        <p style={{ color: "#a1a1aa", marginBottom: "2rem", maxWidth: "400px", lineHeight: 1.6 }}>
-          This title might have been removed or is unavailable in your region. Try searching for something else.
-        </p>
-        <div style={{ display: "flex", gap: "0.75rem" }}>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => navigate(-1)}
-            style={{
-              background: "rgba(255,255,255,0.08)",
-              border: "1px solid rgba(255,255,255,0.12)",
-              color: "#fff",
-              padding: "10px 24px",
-              borderRadius: "10px",
-              fontSize: "0.9rem",
-              fontWeight: 600,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}
-          >
-            <ChevronLeft size={18} strokeWidth={1.5} /> Go Back
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => navigate("/")}
-            style={{
-              background: "var(--btn-bg, rgba(242,242,242,0.96))",
-              border: "none",
-              color: "var(--btn-ink, #000000)",
-              padding: "10px 24px",
-              borderRadius: "10px",
-              fontSize: "0.9rem",
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            Browse Home
-          </motion.button>
-        </div>
+        <EmptyState
+          icon="film"
+          title="Title not found"
+          description="This title might have been removed or is unavailable in your region. Try searching for something else."
+          actions={
+            <>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => navigate(-1)}
+                style={{
+                  background: "rgba(255,255,255,0.08)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  color: "#fff",
+                  padding: "10px 24px",
+                  borderRadius: "10px",
+                  fontSize: "0.9rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
+                <ChevronLeft size={18} strokeWidth={1.5} /> Go Back
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => navigate("/")}
+                style={{
+                  background: "var(--btn-bg, rgba(242,242,242,0.96))",
+                  border: "none",
+                  color: "var(--btn-ink, #000000)",
+                  padding: "10px 24px",
+                  borderRadius: "10px",
+                  fontSize: "0.9rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Browse Home
+              </motion.button>
+            </>
+          }
+        />
       </div>
     );
   }
@@ -1374,51 +1360,46 @@ export default function TitleDetails() {
                 </div>
               ))
             ) : episodes.length === 0 ? (
-              <div
-                style={{
-                  gridColumn: episodeLayout === 'grid' ? '1/-1' : undefined,
-                  textAlign: "center",
-                  padding: "3rem 1rem",
-                }}
-              >
-                <Tv size={32} color="#52525b" style={{ marginBottom: "1rem" }} />
-                <p style={{ color: "#71717a", fontSize: "1rem", marginBottom: "0.5rem" }}>
-                  No episodes found for Season {selectedSeason}.
-                </p>
-
-                <p style={{ color: "#52525b", fontSize: "0.85rem", marginBottom: "1.25rem" }}>
-                  {normalizedSeasonCount > 1
-                    ? `This show has ${normalizedSeasonCount} season${normalizedSeasonCount > 1 ? 's' : ''}. Try selecting a different season.`
-                    : "Episode data may not be available yet."}
-                </p>
-                {normalizedSeasonCount > 1 && (
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => {
-                      const currentIndex = availableSeasonNumbers.indexOf(selectedSeason);
-                      const nextIndex = currentIndex >= 0
-                        ? (currentIndex + 1) % availableSeasonNumbers.length
-                        : 0;
-                      setSelectedSeason(availableSeasonNumbers[nextIndex]);
-                    }}
-                    style={{
-                      background: "rgba(var(--accent-primary-rgb),0.08)",
-                      border: "1px solid rgba(var(--accent-primary-rgb),0.2)",
-                      color: "var(--accent-primary)",
-                      padding: "8px 20px",
-                      borderRadius: "10px",
-                      fontSize: "0.85rem",
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "6px",
-                    }}
-                  >
-                    <RotateCcw size={14} /> Try Another Season
-                  </motion.button>
-                )}
+              <div style={{ gridColumn: episodeLayout === 'grid' ? '1/-1' : undefined }}>
+                <EmptyState
+                  icon="tv"
+                  title={`No episodes found for Season ${selectedSeason}.`}
+                  description={
+                    normalizedSeasonCount > 1
+                      ? `This show has ${normalizedSeasonCount} season${normalizedSeasonCount > 1 ? 's' : ''}. Try selecting a different season.`
+                      : "Episode data may not be available yet."
+                  }
+                  actions={
+                    normalizedSeasonCount > 1 && (
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => {
+                          const currentIndex = availableSeasonNumbers.indexOf(selectedSeason);
+                          const nextIndex = currentIndex >= 0
+                            ? (currentIndex + 1) % availableSeasonNumbers.length
+                            : 0;
+                          setSelectedSeason(availableSeasonNumbers[nextIndex]);
+                        }}
+                        style={{
+                          background: "rgba(var(--accent-primary-rgb),0.08)",
+                          border: "1px solid rgba(var(--accent-primary-rgb),0.2)",
+                          color: "var(--accent-primary)",
+                          padding: "8px 20px",
+                          borderRadius: "10px",
+                          fontSize: "0.85rem",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "6px",
+                        }}
+                      >
+                        <RotateCcw size={14} /> Try Another Season
+                      </motion.button>
+                    )
+                  }
+                />
               </div>
             ) : (() => {
                 const isCarouselLayout = episodeLayout === 'carousel';
