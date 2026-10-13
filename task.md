@@ -7,6 +7,15 @@
 
  ## Done (in order)
 
+- [x] **UI consistency sweep — colours, focus rings, radii, loading, page states (user: "fix, one by one and push") — 2026-10-14.** Committed `4240606`, `02ca708`, `8804dda`, `bc97829`, `590e815`, `941cfbb` and pushed to main.
+  - **A — colour/token bypasses (`4240606`).** Boot-ring colour string `#E50914 → #95ff50` in `index.html`; resume bars on `HomePage`/`TitleDetailsPage` → `var(--accent-gradient)`; the remaining `#95ff50` literals replaced with accent tokens in `MenuItem`, `SearchField`, `SettingsPage`, `RatingsTable`, `TitleDetailsPage`.
+  - **B — one focus ring (`02ca708`).** `--focus-ring` moved into `tokens.css` as the single source, plus a new `--focus-ring-color`; `header.css`, `auth.css`, `rails.css`, `modals.css` all use it instead of their per-surface colours.
+  - **C — radii (`8804dda`).** `grids.css` is the single card-radius source again, and `--radius-full` is used for pills.
+  - **D — boot reduced-motion (`bc97829`).** The pre-bundle splash spinner in `index.html` now honours `prefers-reduced-motion`.
+  - **E — loading (`590e815`).** Buttons use one spinner (`.btn-spinner`) for the Settings sync and sign-in submit; `SettingsPage`'s `Suspense` fallback is a real `<Loader variant="inline" />`; `TitleDetailsPage` renders `<MovieCardSkeleton />`; `skeleton.css` poster radius matched to `0.95rem`.
+  - **F — page states (`941cfbb`).** `EmptyState` accepts a ready element for `icon`; `GenrePage`, `DiscoveryPage`, `WatchlistPage`, `HistoryPage` route error/empty states through it (custom Clock/Folder/Bookmark glyphs + CTAs preserved); the duplicate `.collection-empty` CSS was retired from `collections.css`, `settings.css`, `player.css`.
+  - **Gates.** oxlint 0 errors (pre-existing warnings only); `npm run test` 84/84 files, 1091/1091; `npm run build` clean; touched files verified CRLF, no BOM.
+
 - [x] **Player chrome: the settings button's "different background" removed (user: "the player buttons have black blur pill bg; when i open settings, the settings button bg differs") — 2026-10-14.** Not committed (no push requested).
   - **The gear itself was never the bug.** Verified in a headless-Chrome (CDP) replica: `IconBtn`'s own `background` is transparent in every state, and a real mouse click moves focus to the panel, so the gear never matches `:focus-visible`. The only per-state paint it had left was the `::before` hover/focus disc (`rgba(255,255,255,0.14)`), so an open, still-hovered gear read as a second lighter pill beside its un-hovered siblings.
   - **Fix 1 — no disc on an open control.** `player.css` zeroes `.np-icon-btn[aria-expanded="true"]::before` (`!important`, so it also beats the reduced-motion hover rule). `playerA11y` still passes: the state is carried by `aria-expanded`, not the paint.
