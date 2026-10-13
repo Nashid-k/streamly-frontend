@@ -21,6 +21,7 @@ import AmbientBackground from "../components/AmbientBackground";
 import { usePreferences } from "../context/preferences";
 import { useAppAuth, useSyncStatus } from "../context/auth";
 import { useToast } from "../components/Toast.jsx";
+import Loader from "../components/Loader";
 
 const PlayerPreview = lazy(() => import("../components/PlayerPreview.jsx"));
 import { useConfirmDialog } from "../components/ConfirmDialog.jsx";
@@ -610,7 +611,11 @@ export default function SettingsPage() {
                           disabled={syncStatus === "syncing"}
                           className="settings-hit px-3.5 py-1.5 text-xs font-semibold rounded-full bg-white/10 hover:bg-white/15 text-white transition-colors flex items-center gap-1.5 border border-white/10 cursor-pointer disabled:opacity-50"
                         >
-                          <RotateCcw className={`w-3.5 h-3.5 ${syncStatus === "syncing" ? "animate-spin" : ""}`} />
+                          {syncStatus === "syncing" ? (
+                            <span className="btn-spinner" aria-hidden="true" style={{ width: "14px", height: "14px" }} />
+                          ) : (
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          )}
                           {t("settings.account.syncNow")}
                         </button>
                       </div>
@@ -1313,7 +1318,7 @@ export default function SettingsPage() {
                       (Big Buck Bunny poster + real player chrome + live subtitle
                       line driven by the preferences above). */}
                 <div className="mt-4">
-                  <Suspense fallback={null}>
+                  <Suspense fallback={<Loader variant="inline" />}>
                     <PlayerPreview label={t("settings.tabs.subtitles")} />
                   </Suspense>
                 </div>

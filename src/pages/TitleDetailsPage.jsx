@@ -1,6 +1,7 @@
 import SEO from "../components/SEO";
 import AmbientBackground from "../components/AmbientBackground";
 import MovieDetailsSkeleton from "../components/MovieDetailsSkeleton";
+import MovieCardSkeleton from "../components/MovieCardSkeleton";
 import CastRail from "../components/CastRail";
 import RailArrow from "../components/RailArrow";
 import RatingsTable from "../components/RatingsTable";
@@ -1814,34 +1815,7 @@ export default function TitleDetails() {
           {loading ? (
             <div className="movie-grid">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i}>
-                  <div
-                    className="skeleton"
-                    style={{
-                      width: "100%",
-                      aspectRatio: "2/3",
-                      borderRadius: "12px",
-                      marginBottom: "0.5rem",
-                    }}
-                  ></div>
-                  <div
-                    className="skeleton"
-                    style={{
-                      height: "1rem",
-                      width: "70%",
-                      borderRadius: "4px",
-                      marginBottom: "0.4rem",
-                    }}
-                  ></div>
-                  <div
-                    className="skeleton"
-                    style={{
-                      height: "0.8rem",
-                      width: "40%",
-                      borderRadius: "4px",
-                    }}
-                  ></div>
-                </div>
+                <MovieCardSkeleton key={i} />
               ))}
             </div>
           ) : (

@@ -7,7 +7,7 @@ import { useIsFetching, useIsMutating } from "@tanstack/react-query";
  * Variants:
  * - 'page': Full-page centered spinner for Suspense/loading states
  * - 'inline': Section-bound spinner
- * - 'button': Tiny 16px spinner for buttons
+ * - 'button': Tiny 18px spinner for buttons
  * - 'global': Non-blocking spinner fixed bottom-right for background fetches
  */
 export default function Loader({ variant = "page", size, color }) {

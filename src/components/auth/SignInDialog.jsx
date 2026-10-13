@@ -368,11 +368,20 @@ function SignInDialog({ initialMode = "signin", reason = "", onClose }) {
                   )}
 
                   <button type="submit" className="auth-dialog__submit" disabled={busy}>
-                    {busy
-                      ? t("common.loading")
-                      : mode === "signup"
-                        ? t("authEmail.createAction")
-                        : t("authEmail.signInAction")}
+                    {busy ? (
+                      <span className="inline-flex items-center justify-center gap-2">
+                        <span
+                          className="btn-spinner"
+                          aria-hidden="true"
+                          style={{ width: "16px", height: "16px", borderColor: "rgba(13,13,16,0.3)", borderTopColor: "#0d0d10" }}
+                        />
+                        {t("common.loading")}
+                      </span>
+                    ) : mode === "signup" ? (
+                      t("authEmail.createAction")
+                    ) : (
+                      t("authEmail.signInAction")
+                    )}
                   </button>
                 </form>
               </>
