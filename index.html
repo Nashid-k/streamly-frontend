@@ -65,6 +65,11 @@
         margin-bottom: 24px;
       }
       @keyframes spin { 100% { transform: rotate(360deg); } }
+      /* The app stylesheets apply a global reduced-motion rule, but this
+         splash renders before the bundle loads — stop its spinner here too. */
+      @media (prefers-reduced-motion: reduce) {
+        .spinner-ring { animation: none; }
+      }
     </style>
   </head>
   <body>
