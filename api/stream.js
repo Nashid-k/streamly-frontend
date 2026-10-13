@@ -76,7 +76,7 @@ const MAX_REQUEST_BODY_BYTES = 512 * 1024;
 
    The contract, read off the shipped client chunk (vidstuck's `queryFn`):
 
-1. `POST /backend/fuckoffniggawtaf` with
+1. `POST /backend/scrapeurfckingmom` with
       `{tmdbId, media_type, path[, season, episode]}` -> `{ token, ts }`. This
       endpoint is SELF-ORIGIN ONLY: a correct body with any other (or missing)
       `Origin` header answers 500 "Internal Server Error" — verified across a
@@ -90,6 +90,11 @@ const MAX_REQUEST_BODY_BYTES = 512 * 1024;
         2026-10-03  `/backend/meow`  -> `/backend/fuckyou`
         2026-10-05  `/backend/fuckyou` -> `/backend/fuckoffniggawtf`
         2026-10-06  `/backend/fuckoffniggawtf` -> `/backend/fuckoffniggawtaf`
+        2026-10-13  `/backend/fuckoffniggawtaf` -> `/backend/scrapeurfckingmom`
+                    (this rename ALSO rotated the `uo/up/ug/uf/uh/uu/ud/uc/ul/um`
+                    param names AND the imdb/latestDate params — see ZXC_PARAM.
+                    The AES link passphrase is unchanged, so only the paths/param
+                    names above had to move.)
 
       `meow` was never an endpoint at all: it is one of their SERVER names
       ("Ursa", `path=meow`). A 404 here fails the mint, so all four servers
@@ -112,6 +117,17 @@ const MAX_REQUEST_BODY_BYTES = 512 * 1024;
       `GET /embed/movie/27205` by the same procedure. Verified live before
       changing this line: old path 404, new path 200
       `{"token":"379cb…","ts":1791304881605}`.
+      Candidate found 2026-10-13: `/backend/scrapeurfckingmom`, and this time the
+      embedded chunk ALSO redefines `uo/up/ug/uf/uh/uu/ud/uc/ul/um` with new
+      values and a new imdb (`f35a8c19643265e871c4933a725f`) + latestDate
+      (`e92c543416ad739e5814b3027`) key. Read all of them off
+      `/_next/static/chunks/3cc5q1c06kn_d.js` (`let uo="…",ul="…",…`) and copied
+      into ZXC_PARAM / ZXC_IMDB_PARAM / ZXC_LATEST_DATE_PARAM. Verified live
+      before changing: old path 404 (HTML page), new path 200 with the new body
+      keys `{"token":"852437…","ts":1791871607715"}`, and a full
+      meta→mint→servers call for tmdb 27205 returned `success=true` with
+      `U2FsdGVkX18…` links. `ZXC_LINK_KEY` is unchanged (same passphrase in the
+      chunk's `AES.decrypt`).
 
    2. `GET /backend/servers/{path}?…` with a dozen OBFUSCATED query names
       (hex strings, mapped below) plus the token/ts from step 1, and optionally
@@ -154,7 +170,7 @@ const ZXC_ORIGIN = "https://vidstuck.xyz";
    source" for every option at once. That is the signature to recognise: a
    simultaneous four-row failure is almost always this constant, never four
    coincidental provider outages. */
-const ZXC_MINT_PATH = "/backend/fuckoffniggawtaf";
+const ZXC_MINT_PATH = "/backend/scrapeurfckingmom";
 /* Upstream's own server list, read off the CURRENT shipped embed chunk
    (module 53557 `gN.SERVERS`, re-verified 2026-10-05): Orion "Multi Audio
    Support" (`dubSupport`), Andromeda "Smooth Playback & HD", Centaurus
@@ -176,20 +192,20 @@ const ZXC_DUB_SERVERS = new Set(["centaurus", "orion"]);
    shipped bundle's `uo/up/ug/uf/uh/ul/uu/ud/uc/um` constants — renaming any of
    them makes the request fail closed. */
 const ZXC_PARAM = {
-  tmdbId: "a7f39c821d604e5b9c71f36e1547b",
-  mediaType: "c285f91ab306d28147a35632e816b",
-  path: "6b491e7253ad84d392e7561a9384c",
-  season: "d8427b59ce30684a2f957c3613e85b",
-  episode: "91c6e4a728503d1f785c92346b713d",
-  ts: "61d9a5274c8e3b29afd6384c291e6",
-  token: "c492f7a183d6502b1e7436c538a716d",
-  title: "5e28c9147a306d1e829f3674b392a1",
-  year: "b731e6c94f08269d725f8341c306e",
-  date: "e164932c50216a39e5814b3027",
+  tmdbId: "a7f39c821d604e5b9c1f6e547b",
+  mediaType: "c28f1b306d28147a35632e816b",
+  path: "6b491e725a8d392e7561a9384c",
+  season: "d8427b59c308a2f957c3613e85b",
+  episode: "91c6e4a7253d1f785c92346b713d",
+  ts: "61d9a5274c8e3b29fd38c291e6",
+  token: "c492f7a183d6021e436c538a716d",
+  title: "5e28c9147a306d1e29f3674b392a1",
+  year: "b731e6c94f086975f8341c306e",
+  date: "e16493201a39e5814b3027",
 };
 const ZXC_LINK_KEY = "7f4c9e2a81d63b05c4f7a9e8126d3b50e1a8c7f23d9465ab0c6e9f1d4a7b832c";
-const ZXC_IMDB_PARAM = "f35a8c19d674b3265e871c4933a725f";
-const ZXC_LATEST_DATE_PARAM = "e16932c543416ad739e5814b3027";
+const ZXC_IMDB_PARAM = "f35a8c19643265e871c4933a725f";
+const ZXC_LATEST_DATE_PARAM = "e92c543416ad739e5814b3027";
 
 // Our own playlist marker. A generated playlist has to be ADDRESSABLE, because
 // hls.js asks for it by URL (the loader posts `{action:"playlist", playlistUrl}`)

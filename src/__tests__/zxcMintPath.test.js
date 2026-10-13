@@ -2,8 +2,9 @@
 // silently.
 //
 // Measured live against the real provider on 2026-10-05: `/backend/meow` ->
-// `/backend/fuckyou` -> `/backend/fuckoffniggawtf`, and again 2026-10-06 ->
-// `/backend/fuckoffniggawtaf`. All four rows (centaurus,
+// `/backend/fuckyou` -> `/backend/fuckoffniggawtf`, again 2026-10-06 ->
+// `/backend/fuckoffniggawtaf`, and again 2026-10-13 -> `/backend/scrapeurfckingmom`
+// (that rename also rotated the `uo/up/ug/…` param names). All four rows (centaurus,
 // andromeda, atlas, meow) mint their token through that ONE POST, so a rename
 // takes out every row in the same instant and the player reports "no playable
 // source" for all of them at once. That looks exactly like a network outage and
@@ -26,7 +27,7 @@ const { default: handler, clearZxcMpdCache, clearZxcTitleMetaCache } = await imp
 
 /* The current mint path. If upstream renames it again, the failure is a 404 HTML
    page on every row; update this constant and ZXC_MINT_PATH together. */
-const MINT_PATH = "/backend/fuckoffniggawtaf";
+const MINT_PATH = "/backend/scrapeurfckingmom";
 
 const json = (payload) =>
   new Response(JSON.stringify(payload), { status: 200, headers: { "content-type": "application/json" } });
@@ -105,9 +106,10 @@ describe("ZXC mint endpoint", () => {
   it("never asks a path that is known to be retired", async () => {
     await resolve({ server: "andromeda" });
     // `/backend/meow` is a SERVER name ("Ursa"), never an endpoint; `fuckyou`
-    // was the 2026-10-03 name and `fuckoffniggawtf` the 2026-10-05 name. All
+    // was the 2026-10-03 name, `fuckoffniggawtf` the 2026-10-05 name, and
+    // `fuckoffniggawtaf` the 2026-10-06 name. All
     // three answer the Next.js HTML 404 page.
-    for (const dead of ["/backend/meow\"", "/backend/fuckyou\"", "/backend/fuckoffniggawtf\""]) {
+    for (const dead of ["/backend/meow\"", "/backend/fuckyou\"", "/backend/fuckoffniggawtf\"", "/backend/fuckoffniggawtaf\""]) {
       expect(requests.some((u) => u.includes(dead))).toBe(false);
     }
   });

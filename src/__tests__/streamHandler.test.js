@@ -185,10 +185,10 @@ describe("POST /api/stream — resolvezxc", () => {
       .map(([, init]) => init?.body)
       .filter(Boolean)
       .map((b) => JSON.parse(b));
-    const mint = bodies.find((b) => b["6b491e7253ad84d392e7561a9384c"] === "atlas");
+    const mint = bodies.find((b) => b["6b491e725a8d392e7561a9384c"] === "atlas");
     expect(mint).toBeTruthy();
-    expect(mint["d8427b59ce30684a2f957c3613e85b"]).toBe("2");
-    expect(mint["91c6e4a728503d1f785c92346b713d"]).toBe("7");
+    expect(mint["d8427b59c308a2f957c3613e85b"]).toBe("2");
+    expect(mint["91c6e4a7253d1f785c92346b713d"]).toBe("7");
   });
 
   it("omits season/episode for a movie", async () => {
@@ -205,11 +205,11 @@ describe("POST /api/stream — resolvezxc", () => {
       .map(([, init]) => init?.body)
       .filter(Boolean)
       .map((b) => JSON.parse(b));
-    const mint = bodies.find((b) => b["6b491e7253ad84d392e7561a9384c"] === "atlas");
+    const mint = bodies.find((b) => b["6b491e725a8d392e7561a9384c"] === "atlas");
     expect(mint).toBeTruthy();
     // Sending empty episode keys would make the provider answer episode 0.
-    expect(mint["d8427b59ce30684a2f957c3613e85b"]).toBeUndefined();
-    expect(mint["91c6e4a728503d1f785c92346b713d"]).toBeUndefined();
+    expect(mint["d8427b59c308a2f957c3613e85b"]).toBeUndefined();
+    expect(mint["91c6e4a7253d1f785c92346b713d"]).toBeUndefined();
   });
 
   it("shares the title-metadata lookup across episodes of the same title", async () => {
