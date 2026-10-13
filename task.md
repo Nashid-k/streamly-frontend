@@ -7,6 +7,10 @@
 
  ## Done (in order)
 
+- [x] **UI consistency sweep, part 2 — remaining hand-rolled page states (`5a504c1`) — 2026-10-14.** Pushed to main.
+  - `TitleDetailsPage` "Title not found" and "No episodes found for Season N", `PersonDetailsPage` "Actor not found", and `CategoryPage`'s collection-not-found + empty-grid notice now render through `EmptyState`; `DiscoveryPage`'s empty upcoming rail is a compact `EmptyState`. The now-unused `.person-page__missing` rule was removed from `settings.css`.
+  - **Gates.** oxlint 0 errors (pre-existing warnings only); `npm run test` 84/84 files, 1091/1091; `npm run build` clean; touched files verified CRLF, no BOM.
+
 - [x] **UI consistency sweep — colours, focus rings, radii, loading, page states (user: "fix, one by one and push") — 2026-10-14.** Committed `4240606`, `02ca708`, `8804dda`, `bc97829`, `590e815`, `941cfbb` and pushed to main.
   - **A — colour/token bypasses (`4240606`).** Boot-ring colour string `#E50914 → #95ff50` in `index.html`; resume bars on `HomePage`/`TitleDetailsPage` → `var(--accent-gradient)`; the remaining `#95ff50` literals replaced with accent tokens in `MenuItem`, `SearchField`, `SettingsPage`, `RatingsTable`, `TitleDetailsPage`.
   - **B — one focus ring (`02ca708`).** `--focus-ring` moved into `tokens.css` as the single source, plus a new `--focus-ring-color`; `header.css`, `auth.css`, `rails.css`, `modals.css` all use it instead of their per-surface colours.
