@@ -306,7 +306,7 @@
   transition: background var(--duration-fast) ease, transform var(--duration-fast) ease;
 }
 .title-info-close:hover { background: rgba(40, 40, 52, 0.95); transform: scale(1.06); }
-.title-info-close:focus-visible { outline: 2px solid var(--accent-primary, var(--accent-color)); outline-offset: 2px; }
+.title-info-close:focus-visible { outline: 2px solid var(--focus-ring-color); outline-offset: 2px; }
 .title-info-name {
   position: absolute;
   left: clamp(16px, 4vw, 34px);
@@ -652,7 +652,7 @@
 .title-info-details:hover { background: rgba(var(--white-rgb), 0.09); }
 .title-info-play:focus-visible,
 .title-info-list:focus-visible,
-.title-info-details:focus-visible { outline: 2px solid var(--accent-primary, var(--accent-color)); outline-offset: 2px; }
+.title-info-details:focus-visible { outline: 2px solid var(--focus-ring-color); outline-offset: 2px; }
 
 /* ≤640px: Netflix mobile bottom sheet — full width, rounded top, safe area */
 @media (max-width: 640px) {

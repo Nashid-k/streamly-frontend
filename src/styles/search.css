@@ -118,7 +118,6 @@
   --surface-2: rgba(var(--white-rgb), 0.055);
   --surface-3: rgba(var(--white-rgb), 0.085);
   --content-gutter: clamp(1rem, 3.2vw, 4rem);
-  --focus-ring: 0 0 0 3px rgba(var(--accent-primary-rgb), 0.22), 0 0 0 1px rgba(var(--accent-secondary-rgb), 0.48);
 }
 
 .app-main {

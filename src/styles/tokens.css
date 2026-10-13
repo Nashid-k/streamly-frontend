@@ -82,6 +82,17 @@
   --radius-xl: 16px;
   --radius-full: 100px;
 
+  /* ── Focus ─────────────────────────────────────────────── */
+  /* One focus recipe for the whole app. Previously the outline colour was
+     redeclared per surface (white in the header, auth and player, accent in
+     rails/search), so the same control focused differently page to page.
+     --focus-ring-color is the outline for buttons/links; --focus-ring is the
+     soft accent halo for controls whose own box-shadow carries the focus
+     state (cards, inputs, nav rows). The player keeps its white ring on
+     purpose: an accent ring is illegible over arbitrary video frames. */
+  --focus-ring-color: rgba(var(--accent-primary-rgb), 0.75);
+  --focus-ring: 0 0 0 3px rgba(var(--accent-primary-rgb), 0.22), 0 0 0 1px rgba(var(--accent-secondary-rgb), 0.48);
+
   /* ── Glass / Blur ──────────────────────────────────────── */
   --glass-bg: rgba(18, 18, 24, 0.72);
   --glass-border: rgba(255, 255, 255, 0.15);
