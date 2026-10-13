@@ -7,7 +7,7 @@
 
  ## Done (in order)
 
-- [x] **ZXC discovery survives a GROWN provider chunk + a Vercel Cron watchdog (user: "fix and push" + "also use pat and push") — 2026-10-14.** Committed `<sha>` and pushed to main.
+- [x] **ZXC discovery survives a GROWN provider chunk + a Vercel Cron watchdog (user: "fix and push" + "also use pat and push") — 2026-10-14.** Committed `3dd9c9e` and pushed to main.
   - **Why the daily job went red.** The provider's contract chunk (`3cc5q1c06kn_d.js`) is unchanged in content (`/backend/scrapeurfckingmom` + the same params) but GREW past the 1.5MB text cap to 1,819,459 bytes. `server/net.js` `fetchUpstream` rejected every chunk fetch with "upstream response too large", so BOTH the runtime self-heal and the daily sync derived `null`; the daily GitHub Action then exited 1 on unverifiable playback.
   - **Fix.** `fetchUpstream` gained a per-call `maxTextBytes` (default still 1.5MB); `api/stream.js` discovery alone asks for `ZXC_CHUNK_MAX_BYTES` (4MB) for the bundle. The global cap and every other caller are untouched.
   - **CI job made resilient.** `scripts/sync-zxc-contract.mjs` signals `changed=true` only when a rewrite happened AND playback verified; on a runner whose egress the provider blocks it logs a clear WARNING and exits 0 (commits nothing) instead of a red build — `--strict` restores exit 1 for local use. `.github/workflows/sync-zxc-contract.yml` prefers `secrets.SYNC_PAT` (else `github.token`) so the bot push can bypass branch protection.
