@@ -34,7 +34,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      # Prefer a PAT (secret SYNC_PAT) so the bot's push bypasses branch
+      # protection; fall back to the workflow token when it is not configured.
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.SYNC_PAT || github.token }}
 
       - uses: actions/setup-node@v4
         with:

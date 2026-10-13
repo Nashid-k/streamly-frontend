@@ -32,8 +32,20 @@
     },
     "api/usage.js": {
       "maxDuration": 10
+    },
+    "api/sync-contract.js": {
+      "maxDuration": 60,
+      "regions": [
+        "bom1"
+      ]
     }
   },
+  "crons": [
+    {
+      "path": "/api/sync-contract",
+      "schedule": "0 4 * * *"
+    }
+  ],
   "headers": [
     {
       "source": "(.*)",

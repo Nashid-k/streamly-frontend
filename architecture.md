@@ -200,12 +200,18 @@ provider down:** the mint path + obfuscated param names live in a mutable
 `zxcContract` (seeded from the constants) and a contract-shaped mint failure
 (HTTP 404 / non-JSON body / "no token") re-derives them from the provider's own
 shipped chunk and retries once — timeouts/429/5xx deliberately do NOT trigger
-discovery. A daily GitHub Action
-(`scripts/sync-zxc-contract.mjs` + `.github/workflows/sync-zxc-contract.yml`)
-additionally derives the live contract, rewrites the sentinel-delimited seed
-block in `api/stream.js` (and the path pinned in `zxcMintPath.test.js`) when it
-drifted, proves real movie + series playback through the handler, and only then
-commits + pushes, so the committed seed never goes stale. The decrypted
+discovery (discovery asks for a higher response ceiling than the default 1.5MB
+text cap, because the provider's contract chunk is a ~1.7MB bundle). Two
+out-of-band layers keep the committed seed truthful, both patching the same
+sentinel-delimited block through helpers exported from `api/stream.js`: a daily
+GitHub Action (`scripts/sync-zxc-contract.mjs` +
+`.github/workflows/sync-zxc-contract.yml`, prefers `SYNC_PAT`) and a Vercel Cron
+watchdog (`api/sync-contract.js`, `crons` in `vercel.json`, authenticated with
+`Authorization: Bearer $CRON_SECRET` and closed when the secret is unset; drift
+is committed as ONE atomic Git Data API commit via `GITHUB_TOKEN`). Each derives
+the live contract, rewrites the block (and the path pinned in
+`zxcMintPath.test.js`), proves real movie + series playback through the handler,
+and only then commits, so the committed seed never goes stale. The decrypted
 `lookupServer` result is an AES-encrypted per-server playlist; `playbackServers`
 maps each backend to a host:
 

@@ -56,7 +56,7 @@ function baseHeaders() {
    303 — and the 301/302 that browsers treat as "see other" for a POST — drops
    the body and downgrades to GET, so a redirect can never replay a JSON payload
    onto a GET endpoint. */
-async function followRedirects(url, headers, signal, as, init) {
+async function followRedirects(url, headers, signal, as, init, maxTextBytes = MAX_TEXT_BYTES) {
   let current = url;
   const isPost = String(init?.method || "GET").toUpperCase() === "POST";
   let upstream = await fetchNoRedirect(current, { ...init, headers, signal });
@@ -78,11 +78,11 @@ async function followRedirects(url, headers, signal, as, init) {
     return buf;
   }
   const text = await upstream.text();
-  if (text.length > MAX_TEXT_BYTES) throw new Error("upstream response too large");
+  if (text.length > maxTextBytes) throw new Error("upstream response too large");
   return text;
 }
 
-async function fetchUpstream(url, { as = "text", timeoutMs = 12000, referer, retryCount = 0, extraHeaders = {}, method, body } = {}) {
+async function fetchUpstream(url, { as = "text", timeoutMs = 12000, referer, retryCount = 0, extraHeaders = {}, method, body, maxTextBytes = MAX_TEXT_BYTES } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -98,7 +98,7 @@ async function fetchUpstream(url, { as = "text", timeoutMs = 12000, referer, ret
     const init = method ? { method: String(method).toUpperCase(), ...(body !== undefined ? { body } : {}) } : {};
 
     try {
-      return await followRedirects(safeUrl, headers, controller.signal, as, init);
+      return await followRedirects(safeUrl, headers, controller.signal, as, init, maxTextBytes);
     } catch (error) {
       // 403 is a WAF fingerprint block, so a different user agent is a
       // legitimate second attempt (and 3 is the cap).
@@ -111,7 +111,7 @@ async function fetchUpstream(url, { as = "text", timeoutMs = 12000, referer, ret
       // back off; the client's origin-cooldown logic then skips the doomed
       // direct path and stops re-asking for minutes.
       if (as !== "buffer" && error?.status === 403 && retryCount < 3) {
-        return fetchUpstream(url, { as, timeoutMs, referer, retryCount: retryCount + 1, extraHeaders, method, body });
+        return fetchUpstream(url, { as, timeoutMs, referer, retryCount: retryCount + 1, extraHeaders, method, body, maxTextBytes });
       }
       throw error;
     }

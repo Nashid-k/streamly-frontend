@@ -228,6 +228,11 @@ const ZXC_DUB_SERVERS = new Set(["centaurus", "orion"]);
    variable renames, which is the only part that changes. */
 const ZXC_DISCOVERY_TMDB_ID = "27205"; // a stable native title, only used to fetch the embed page
 const ZXC_DISCOVERY_COOLDOWN_MS = 60_000; // never re-discover more than once a minute
+// The provider's client chunk that carries the mint contract is a BUNDLE, not a
+// page: it crossed the default 1.5MB text cap (1.73MB on 2026-10-14) and every
+// discovery silently returned null. Discovery alone needs the headroom, so it
+// asks for its own (still bounded) ceiling rather than raising the global one.
+const ZXC_CHUNK_MAX_BYTES = 4 * 1024 * 1024;
 let zxcLastDiscoveryAt = 0;
 let zxcDiscoveryInFlight = null;
 let zxcContract = {
@@ -327,6 +332,23 @@ export function deriveZxcContractFromChunks(chunks) {
   return null;
 }
 
+/* Fetch the embed page and its shipped client chunks, then derive the live
+   contract. Kept OUTSIDE the discovery cache below so the cron watchdog
+   (api/sync-contract.js) and the daily sync script derive the exact same way
+   without touching module state. Returns null unless a complete contract parsed. */
+export async function fetchLiveZxcContract({ timeoutMs = 8000 } = {}) {
+  const referer = `${ZXC_ORIGIN}/embed/movie/${ZXC_DISCOVERY_TMDB_ID}`;
+  const html = await fetchUpstream(referer, { referer: `${ZXC_ORIGIN}/`, timeoutMs });
+  const chunkPaths = [...new Set(
+    [...html.matchAll(/\/_next\/static\/chunks\/[A-Za-z0-9._/-]+\.js/g)].map((m) => m[0]),
+  )];
+  const settled = await Promise.allSettled(
+    chunkPaths.map((p) => fetchUpstream(`${ZXC_ORIGIN}${p}`, { referer, timeoutMs, maxTextBytes: ZXC_CHUNK_MAX_BYTES })),
+  );
+  const chunks = settled.filter((r) => r.status === "fulfilled").map((r) => r.value);
+  return deriveZxcContractFromChunks(chunks);
+}
+
 /* Fetch the embed page, read its chunks, and re-derive the contract. Cached in
    module scope; concurrent callers share ONE in-flight discovery. */
 async function discoverZxcContract() {
@@ -334,16 +356,7 @@ async function discoverZxcContract() {
   if (Date.now() - zxcLastDiscoveryAt < ZXC_DISCOVERY_COOLDOWN_MS) return null;
   const run = (async () => {
     try {
-      const referer = `${ZXC_ORIGIN}/embed/movie/${ZXC_DISCOVERY_TMDB_ID}`;
-      const html = await fetchUpstream(referer, { referer: `${ZXC_ORIGIN}/`, timeoutMs: 8000 });
-      const chunkPaths = [...new Set(
-        [...html.matchAll(/\/_next\/static\/chunks\/[A-Za-z0-9._/-]+\.js/g)].map((m) => m[0]),
-      )];
-      const settled = await Promise.allSettled(
-        chunkPaths.map((p) => fetchUpstream(`${ZXC_ORIGIN}${p}`, { referer, timeoutMs: 8000 })),
-      );
-      const chunks = settled.filter((r) => r.status === "fulfilled").map((r) => r.value);
-      const found = deriveZxcContractFromChunks(chunks);
+      const found = await fetchLiveZxcContract();
       if (found) {
         zxcContract = found;
         logWarn("zxc", `provider mint contract re-discovered: mint=${found.mintPath}`);
@@ -375,6 +388,75 @@ export function clearZxcDiscoveryCache() {
     imdbParam: ZXC_IMDB_PARAM,
     latestDateParam: ZXC_LATEST_DATE_PARAM,
   };
+}
+
+/* ── Seed rendering / patching (shared by all the tooling) ───────────────
+   The seed block is sentinel-delimited so it can be rewritten in place without
+   touching the hand-written prose around it. `scripts/sync-zxc-contract.mjs`
+   (daily GitHub Action) and `api/sync-contract.js` (Vercel Cron watchdog) both
+   import these, so whichever heals the contract writes the exact same bytes. */
+export const ZXC_CONTRACT_BEGIN = "// <zxc-contract:begin>";
+export const ZXC_CONTRACT_END = "// <zxc-contract:end>";
+const ZXC_CONTRACT_PARAM_KEYS = [
+  "tmdbId", "mediaType", "path", "season", "episode",
+  "ts", "token", "title", "year", "date",
+];
+
+/* The COMMITTED seed (never the in-memory self-heal value) — what a drift check
+   compares the live provider chunk against. */
+export function zxcContractSeed() {
+  return {
+    mintPath: ZXC_MINT_PATH,
+    params: { ...ZXC_PARAM },
+    imdbParam: ZXC_IMDB_PARAM,
+    latestDateParam: ZXC_LATEST_DATE_PARAM,
+  };
+}
+
+export function zxcContractEquals(a, b) {
+  return (
+    !!a &&
+    !!b &&
+    a.mintPath === b.mintPath &&
+    a.imdbParam === b.imdbParam &&
+    a.latestDateParam === b.latestDateParam &&
+    ZXC_CONTRACT_PARAM_KEYS.every((k) => a.params?.[k] === b.params?.[k])
+  );
+}
+
+/* Render the sentinel block (LF-joined; callers normalise line endings). */
+export function renderZxcContractBlock(contract) {
+  return [
+    ZXC_CONTRACT_BEGIN,
+    "// AUTO-SYNCED by scripts/sync-zxc-contract.mjs (daily GitHub Action). The block",
+    "// below is rewritten in place from values the script derives from the",
+    "// provider's own shipped chunk and then confirms by real playback. Do not",
+    "// hand-edit inside the markers — edit the script instead.",
+    `const ZXC_MINT_PATH = "${contract.mintPath}";`,
+    "/* The obfuscated parameter names the client sends. Read straight off the",
+    "   shipped bundle's `uo/up/ug/uf/uh/ul/uu/ud/uc/um` constants — renaming any of",
+    "   them makes the request fail closed. */",
+    "const ZXC_PARAM = {",
+    ...ZXC_CONTRACT_PARAM_KEYS.map((k) => `  ${k}: "${contract.params[k]}",`),
+    "};",
+    `const ZXC_IMDB_PARAM = "${contract.imdbParam}";`,
+    `const ZXC_LATEST_DATE_PARAM = "${contract.latestDateParam}";`,
+    ZXC_CONTRACT_END,
+  ].join("\n");
+}
+
+/* Rewrite the seed block inside a full api/stream.js source string. Throws when
+   the markers are missing (a source that cannot be safely patched). */
+export function applyZxcContractToSource(source, contract) {
+  const b = source.indexOf(ZXC_CONTRACT_BEGIN);
+  const e = source.indexOf(ZXC_CONTRACT_END);
+  if (b < 0 || e < 0) throw new Error("contract markers not found in api/stream.js");
+  return source.slice(0, b) + renderZxcContractBlock(contract) + source.slice(e + ZXC_CONTRACT_END.length);
+}
+
+/* Repin the mint path in src/__tests__/zxcMintPath.test.js. */
+export function applyZxcContractToTest(source, contract) {
+  return source.replace(/const MINT_PATH = "[^"]*";/, `const MINT_PATH = "${contract.mintPath}";`);
 }
 
 // Our own playlist marker. A generated playlist has to be ADDRESSABLE, because
