@@ -932,8 +932,8 @@ export default function Home({
                 <div className="skeleton" style={{ width: "62%", height: "12px", borderRadius: "4px" }} />
               </div>
               <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-                <div className="skeleton" style={{ width: "150px", height: "48px", borderRadius: "100px" }} />
-                <div className="skeleton" style={{ width: "120px", height: "48px", borderRadius: "100px" }} />
+                <div className="skeleton" style={{ width: "150px", height: "48px", borderRadius: "var(--radius-full)" }} />
+                <div className="skeleton" style={{ width: "120px", height: "48px", borderRadius: "var(--radius-full)" }} />
               </div>
             </div>
           </motion.div>
@@ -1086,7 +1086,7 @@ export default function Home({
                 {/* Resume progress for continue-watching banner titles */}
                 {cwResumeEntry && (
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                    <div style={{ width: "min(200px, 30vw)", height: 4, borderRadius: 999, background: "rgba(255,255,255,0.22)", overflow: "hidden" }}>
+                    <div style={{ width: "min(200px, 30vw)", height: 4, borderRadius: "var(--radius-full)", background: "rgba(255,255,255,0.22)", overflow: "hidden" }}>
                       <div style={{ width: `${resumePct}%`, height: "100%", background: "var(--accent-gradient)" }} />
                     </div>
                     <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.85)", letterSpacing: "0.3px" }}>

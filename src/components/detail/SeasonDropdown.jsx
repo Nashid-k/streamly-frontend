@@ -40,7 +40,7 @@ function SeasonDropdown({ seasons, selectedSeason, airingSeasonNumber, onSelect 
           color: "#fff",
           padding: "0 16px",
           height: "40px",
-          borderRadius: "9999px",
+          borderRadius: "var(--radius-full)",
           fontSize: "0.875rem",
           fontWeight: 600,
           cursor: "pointer",

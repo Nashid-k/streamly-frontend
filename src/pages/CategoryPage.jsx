@@ -150,7 +150,7 @@ export default function CategoryPage() {
             type="button"
             className="btn-primary"
             onClick={() => window.location.assign("/")}
-            style={{ padding: "0.65rem 1.5rem", borderRadius: "999px", cursor: "pointer" }}
+            style={{ padding: "0.65rem 1.5rem", borderRadius: "var(--radius-full)", cursor: "pointer" }}
           >
             Explore Trending Titles
           </button>

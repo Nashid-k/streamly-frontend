@@ -37,7 +37,7 @@ export default function TapToUnmutePill({ visible, onUnmute }) {
             background: "rgba(0,0,0,0.65)",
             color: "#fff",
             border: "1px solid rgba(255,255,255,0.55)",
-            borderRadius: 999,
+            borderRadius: "var(--radius-full)",
             fontWeight: 700,
             fontSize: 13,
             cursor: "pointer",

@@ -572,7 +572,7 @@ const MovieCard = memo(function MovieCard({
                   alignItems: "center",
                   gap: "6px",
                   padding: compact ? "3px 10px" : "4px 12px",
-                  borderRadius: "100px",
+                  borderRadius: "var(--radius-full)",
                   background: "rgba(0,0,0,0.45)",
                   fontSize: compact ? "0.6rem" : "0.7rem",
                   fontWeight: 700,

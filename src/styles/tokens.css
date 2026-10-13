@@ -80,7 +80,7 @@
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
-  --radius-full: 100px;
+  --radius-full: 9999px;
 
   /* ── Focus ─────────────────────────────────────────────── */
   /* One focus recipe for the whole app. Previously the outline colour was

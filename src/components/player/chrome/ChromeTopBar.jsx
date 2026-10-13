@@ -43,7 +43,7 @@ export default function ChromeTopBar({ visible, title, subtitle, onBack }) {
           justifyContent: "center",
           width: 48,
           height: 48,
-          borderRadius: 999,
+          borderRadius: "var(--radius-full)",
           flexShrink: 0,
         }}
       >

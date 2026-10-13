@@ -36,12 +36,7 @@
   gap: clamp(0.9rem, 1.7vw, 1.45rem);
 }
 
-.movie-card {
-  border-radius: 1rem;
-}
-
 .poster-wrapper {
-  border-radius: 0.95rem;
   border-color: rgba(var(--white-rgb), 0.08);
   background: linear-gradient(155deg, #202027, #0d0d11);
 }
@@ -96,7 +91,7 @@
 .section-title::before,
 .movie-rail-wrapper > div:first-child h3::before {
   width: 0.22rem;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--accent-gradient);
 }
 

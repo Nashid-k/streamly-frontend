@@ -122,7 +122,7 @@
   min-width: 18px;
   height: 18px;
   padding: 0 4px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   border: 1px solid rgba(var(--accent-primary-rgb, 149, 255, 80), 0.45);
   background: rgba(8, 8, 10, 0.85);
   color: var(--accent-primary, var(--accent-color));

@@ -82,7 +82,7 @@
   display: flex;
   gap: 0.25rem;
   padding: 0.25rem;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: rgba(var(--white-rgb), 0.06);
 }
 
@@ -90,7 +90,7 @@
   flex: 1;
   padding: 0.55rem 0.75rem;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: transparent;
   color: rgba(var(--white-rgb), 0.62);
   font-size: 0.85rem;
@@ -224,7 +224,7 @@
   align-self: center;
   padding: 0.5rem 0.9rem;
   border: 1px solid rgba(var(--white-rgb), 0.18);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: transparent;
   color: rgba(var(--white-rgb), 0.8);
   font-size: 0.82rem;
@@ -335,7 +335,7 @@
 .verify-card__action {
   padding: 0.7rem 1.2rem;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: #fff;
   color: #0d0d10;
   font-size: 0.88rem;

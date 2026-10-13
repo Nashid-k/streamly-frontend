@@ -86,7 +86,7 @@ html[data-theme="custom"] {
   gap: 0.4rem;
   max-width: 100%;
   padding: 0.3rem;
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
 }
@@ -105,7 +105,7 @@ html[data-theme="custom"] {
   padding: 0.5rem 1rem;
   min-height: 40px;
   border: 1px solid transparent;
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
   background: transparent;
   color: rgba(var(--white-rgb), 0.66);
   font-size: 13px;
@@ -179,7 +179,7 @@ html[data-theme]:not([data-theme=default]) .settings-section::after {
   min-height: 44px;
   padding: 8px 18px;
   border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: 100px;
+  border-radius: var(--radius-full);
   background: rgba(239, 68, 68, 0.12);
   color: #f87171;
   font-size: 0.82rem;
@@ -276,7 +276,7 @@ html[data-theme]:not([data-theme=default]) .settings-section::after {
   gap: 0;
   padding: 4px;
   background: rgba(var(--white-rgb), 0.06);
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
   border: 1px solid rgba(var(--white-rgb), 0.08);
 }
 
@@ -287,7 +287,7 @@ html[data-theme]:not([data-theme=default]) .settings-section::after {
   left: 0;
   width: 0;
   background: rgba(var(--white-rgb), 0.9);
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
   box-shadow: 0 4px 12px rgba(var(--black-rgb), 0.02);
   transition: left 0.35s cubic-bezier(0.16, 1, 0.3, 1),
     width 0.35s cubic-bezier(0.16, 1, 0.3, 1);
@@ -313,7 +313,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   position: relative;
   z-index: 1;
   padding: 6px 14px;
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
   font-size: 0.75rem;
   font-weight: 600;
   white-space: nowrap;
@@ -341,7 +341,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   flex: 0 0 auto;
   padding: 0;
   border: 1px solid rgba(var(--white-rgb), 0.1);
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
   background: rgba(var(--white-rgb), 0.12);
   cursor: pointer;
   transition: background 220ms ease, border-color 220ms ease;
@@ -371,7 +371,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   left: 2px;
   height: 18px;
   width: 18px;
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
   background: rgba(var(--white-rgb), 0.7);
   transition: transform var(--duration-fast) cubic-bezier(0.175, 0.885, 0.32, 1.275),
     background 0.2s ease;
@@ -388,7 +388,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   display: inline-flex;
   width: 24px;
   height: 15px;
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
   overflow: hidden;
   border: 1px solid rgba(var(--white-rgb), 0.2);
   flex-shrink: 0;
@@ -431,7 +431,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   padding: 7px 14px;
   background: rgba(var(--white-rgb), 0.05);
   border: 1px solid rgba(var(--white-rgb), 0.09);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   cursor: pointer;
   transition: background var(--duration-fast) ease, border-color var(--duration-fast) ease;
 }
@@ -448,7 +448,7 @@ html:not([data-theme]) .segment-btn.segment-active {
 .seed-dot {
   width: 13px;
   height: 13px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   flex-shrink: 0;
   box-shadow: 0 0 0 1px rgba(var(--white-rgb), 0.22) inset;
 }
@@ -493,7 +493,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   color: rgba(var(--white-rgb), 0.6);
   background: transparent;
   border: 1px solid rgba(var(--white-rgb), 0.1);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   cursor: pointer;
   transition: background var(--duration-fast) ease, color var(--duration-fast) ease;
 }
@@ -570,7 +570,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   -webkit-appearance: none;
   width: 120px;
   height: 6px;
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
   background: rgba(var(--white-rgb), 0.15);
   outline: none;
 }

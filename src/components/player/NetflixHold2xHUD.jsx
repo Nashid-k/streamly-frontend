@@ -29,7 +29,7 @@ const NetflixHold2xHUD = memo(function NetflixHold2xHUD({ metrics }) {
         alignItems: "center",
         gap: Math.round(font * 0.35),
         ...HUD_GLASS,
-        borderRadius: 999,
+        borderRadius: "var(--radius-full)",
         padding: `${Math.round(font * 0.45)}px ${Math.round(font * 0.8)}px`,
         color: "#fff",
         pointerEvents: "none",

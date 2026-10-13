@@ -157,7 +157,7 @@ export default function BottomChrome({
             height: hoverRatio != null ? 8 : 5,
             width: "100%",
             background: TRACK,
-            borderRadius: 999,
+            borderRadius: "var(--radius-full)",
             transition: "height 0.15s ease",
           }}
         >
@@ -173,7 +173,7 @@ export default function BottomChrome({
                     left: `${(s / duration) * 100}%`,
                     width: `${((e - s) / duration) * 100}%`,
                     background: BUFFERED,
-                    borderRadius: 999,
+                    borderRadius: "var(--radius-full)",
                   }}
                 />
               ) : null,
@@ -186,7 +186,7 @@ export default function BottomChrome({
               left: 0,
               width: `${effectiveRatio * 100}%`,
               background: ACCENT,
-              borderRadius: 999,
+              borderRadius: "var(--radius-full)",
             }}
           />
           {/* Measured skip windows, drawn the way the provider draws them: a band

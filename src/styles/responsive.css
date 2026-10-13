@@ -132,7 +132,7 @@
     backdrop-filter: blur(36px) saturate(180%) !important;
     -webkit-backdrop-filter: blur(36px) saturate(180%) !important;
     border: 1px solid rgba(var(--white-rgb), 0.13);
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     box-shadow: 0 16px 48px rgba(var(--black-rgb), 0.7), inset 0 1px 0 rgba(var(--white-rgb), 0.14);
     z-index: 9999;
     justify-content: space-around;
@@ -146,7 +146,7 @@
     width: clamp(48px, 14vw, 60px);
     max-width: 60px;
     height: 2.5rem;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     padding: 0;
     color: #9ca3af;
     text-decoration: none;

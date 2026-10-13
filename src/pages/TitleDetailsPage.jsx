@@ -966,7 +966,7 @@ export default function TitleDetails() {
             {/* Banner-style resume progress for continue-watching entries */}
             {hasResume && resumePct > 0 && (
               <div className="details-hero__gap flex items-center gap-2.5">
-                <div style={{ width: "min(200px, 30vw)", height: 4, borderRadius: 999, background: "rgba(255,255,255,0.22)", overflow: "hidden" }}>
+                <div style={{ width: "min(200px, 30vw)", height: 4, borderRadius: "var(--radius-full)", background: "rgba(255,255,255,0.22)", overflow: "hidden" }}>
                   <div style={{ width: `${resumePct}%`, height: "100%", background: "var(--accent-gradient)" }} />
                 </div>
                 <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.85)", letterSpacing: "0.3px" }}>
@@ -1672,7 +1672,7 @@ export default function TitleDetails() {
                         style={{
                           display: 'flex', alignItems: 'center', gap: '6px',
                           background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-                          color: '#fff', padding: '8px 20px', borderRadius: '100px',
+                          color: '#fff', padding: '8px 20px', borderRadius: 'var(--radius-full)',
                           fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
                           letterSpacing: '0.02em', transition: 'all 0.2s',
                         }}
@@ -1713,7 +1713,7 @@ export default function TitleDetails() {
                         style={{
                           display: 'flex', alignItems: 'center', gap: '6px',
                           background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                          color: '#a1a1aa', padding: '8px 20px', borderRadius: '100px',
+                          color: '#a1a1aa', padding: '8px 20px', borderRadius: 'var(--radius-full)',
                           fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
                           letterSpacing: '0.02em', transition: 'all 0.2s',
                         }}

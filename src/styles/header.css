@@ -24,7 +24,7 @@
   display: inline-flex;
   align-items: center;
   pointer-events: auto;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   line-height: 0;
 }
 .brand-mark {
@@ -58,7 +58,7 @@
   flex-shrink: 0;
   width: var(--back-btn-h);
   height: var(--back-btn-h);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: transparent;
   border: none;
   color: rgba(var(--white-rgb), 0.8);
@@ -97,7 +97,7 @@
   display: flex;
   align-items: center;
   padding: var(--nav-pad) 10px var(--nav-pad) var(--nav-pad);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: rgba(14, 14, 16, 0.38);
   backdrop-filter: blur(20px) saturate(160%);
   -webkit-backdrop-filter: blur(20px) saturate(160%);
@@ -167,7 +167,7 @@
   color: #ffffff;
   opacity: 0.85;
   text-decoration: none;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   letter-spacing: -0.01em;
   transition: color var(--nav-fade), background-color var(--nav-fade), opacity var(--nav-fade), transform 0.25s ease;
   white-space: nowrap;
@@ -204,7 +204,7 @@
   left: 0;
   top: var(--nav-pad);
   bottom: var(--nav-pad);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: #ffffff;
   box-shadow: 0 2px 8px rgba(var(--black-rgb), 0.35), 0 0 16px 1px rgba(var(--white-rgb), 0.18);
   z-index: 0;

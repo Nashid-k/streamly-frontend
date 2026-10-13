@@ -54,7 +54,7 @@ export default function UpNextCard({ upNext, upNextMs, onPlayNow, onCancel }) {
             style={{
               marginTop: 8,
               height: 3,
-              borderRadius: 999,
+              borderRadius: "var(--radius-full)",
               background: "rgba(255,255,255,0.18)",
               overflow: "hidden",
               pointerEvents: "auto",

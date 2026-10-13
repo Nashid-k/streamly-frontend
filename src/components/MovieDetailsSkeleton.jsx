@@ -97,7 +97,7 @@ export default function MovieDetailsSkeleton() {
           {/* Genre pills */}
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1.5rem" }}>
             {[90, 70, 100, 60, 80].map((w, i) => (
-              <div key={i} className="skeleton" style={{ width: `${w}px`, height: "30px", borderRadius: "100px", animationDelay: `${i * 0.05}s` }} />
+              <div key={i} className="skeleton" style={{ width: `${w}px`, height: "30px", borderRadius: "var(--radius-full)", animationDelay: `${i * 0.05}s` }} />
             ))}
           </div>
 
@@ -136,15 +136,15 @@ export default function MovieDetailsSkeleton() {
 
           {/* CTA Buttons */}
           <div style={{ display: "flex", gap: "0.85rem", flexWrap: "wrap", marginTop: "0.75rem", marginBottom: "3.5rem", alignItems: "center" }}>
-            <div className="skeleton" style={{ width: "160px", height: "48px", borderRadius: "100px" }} />
-            <div className="skeleton" style={{ width: "120px", height: "48px", borderRadius: "100px" }} />
-            <div className="skeleton" style={{ width: "48px", height: "48px", borderRadius: "100px" }} />
+            <div className="skeleton" style={{ width: "160px", height: "48px", borderRadius: "var(--radius-full)" }} />
+            <div className="skeleton" style={{ width: "120px", height: "48px", borderRadius: "var(--radius-full)" }} />
+            <div className="skeleton" style={{ width: "48px", height: "48px", borderRadius: "var(--radius-full)" }} />
           </div>
 
           {/* Cast & Crew rail skeleton (mirrors CastRail) */}
           <section style={{ marginTop: "3rem" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.25rem" }}>
-              <div className="skeleton" style={{ width: "3px", height: "22px", borderRadius: "999px" }} />
+              <div className="skeleton" style={{ width: "3px", height: "22px", borderRadius: "var(--radius-full)" }} />
               <div className="skeleton" style={{ width: "130px", height: "24px", borderRadius: "6px" }} />
             </div>
             <div style={{ display: "flex", gap: "1rem", overflow: "hidden" }}>
@@ -171,7 +171,7 @@ export default function MovieDetailsSkeleton() {
         {/* Section header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "1rem" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <div className="skeleton" style={{ width: "3px", height: "24px", borderRadius: "999px" }} />
+            <div className="skeleton" style={{ width: "3px", height: "24px", borderRadius: "var(--radius-full)" }} />
             <div className="skeleton" style={{ width: "140px", height: "26px", borderRadius: "6px" }} />
           </div>
           {/* Layout toggle + Season dropdown */}

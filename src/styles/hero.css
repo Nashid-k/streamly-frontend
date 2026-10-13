@@ -316,7 +316,7 @@
   color: rgba(var(--white-rgb), 0.55);
   background: rgba(var(--white-rgb), 0.1);
   border: 1px solid rgba(var(--white-rgb), 0.12);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   padding: 2px 10px;
   letter-spacing: 0.01em;
   backdrop-filter: blur(8px);
@@ -380,7 +380,7 @@
   min-width: clamp(100px, 8.5vw, 126px);
   height: clamp(38px, 3.2vw, 46px);
   padding: 0 clamp(14px, 1.2vw, 20px);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   border: none;
   /* Cinejoy `.theme-btn-primary`: white pill, black text */
   background: rgba(242, 242, 242, 0.96);
@@ -408,7 +408,7 @@
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   /* Cinejoy `.theme-btn-secondary`: white/10 glass, white hairline border */
   background-color: rgba(var(--white-rgb), 0.1);
   border: 1px solid rgba(var(--white-rgb), 0.2);
@@ -494,7 +494,7 @@
   align-items: center;
   padding: 12px 18px;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
 }
 @media (max-width: 1200px) {
   .hero-dots--apple {
@@ -507,7 +507,7 @@
 .hero-dot {
   width: 18px;
   height: 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: rgba(var(--white-rgb), 0.35);
   border: none;
   outline: none;

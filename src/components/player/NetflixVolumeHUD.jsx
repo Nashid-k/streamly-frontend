@@ -33,9 +33,9 @@ const NetflixVolumeHUD = memo(function NetflixVolumeHUD({ effVolume, isMuted, me
         <div style={{
           position: "relative",
           width: metrics.barWidth, height: metrics.barHeight,
-          background: "rgba(255,255,255,0.22)", borderRadius: 999, overflow: "hidden",
+          background: "rgba(255,255,255,0.22)", borderRadius: "var(--radius-full)", overflow: "hidden",
         }}>
-          <div style={{ position: "absolute", inset: 0, width: `${pct}%`, background: ACCENT, borderRadius: 999 }} />
+          <div style={{ position: "absolute", inset: 0, width: `${pct}%`, background: ACCENT, borderRadius: "var(--radius-full)" }} />
         </div>
         <span style={{
           color: "#fff", fontSize: metrics.valueFont, fontWeight: 700,

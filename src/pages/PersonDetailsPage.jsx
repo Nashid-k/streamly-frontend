@@ -55,7 +55,7 @@ export default function PersonDetails() {
         <div style={{ position: "relative", zIndex: 1, marginBottom: "2rem" }}>
           <div
             className="skeleton"
-            style={{ width: "80px", height: "36px", borderRadius: "100px" }}
+            style={{ width: "80px", height: "36px", borderRadius: "var(--radius-full)" }}
           ></div>
         </div>
 
@@ -204,7 +204,7 @@ export default function PersonDetails() {
           className="btn btn-glass"
           style={{
             padding: "8px 16px",
-            borderRadius: "100px",
+            borderRadius: "var(--radius-full)",
             fontSize: "0.9rem",
           }}
         >
@@ -440,7 +440,7 @@ export default function PersonDetails() {
                       background: roleTab === tab.id ? "rgba(var(--accent-primary-rgb), 0.2)" : "rgba(255, 255, 255, 0.05)",
                       border: roleTab === tab.id ? "1px solid rgba(var(--accent-primary-rgb), 0.4)" : "1px solid rgba(255, 255, 255, 0.1)",
                       color: roleTab === tab.id ? "var(--accent-primary, #60a5fa)" : "rgba(255, 255, 255, 0.75)",
-                      borderRadius: "999px",
+                      borderRadius: "var(--radius-full)",
                       padding: "4px 14px",
                       fontSize: "0.8rem",
                       fontWeight: 600,

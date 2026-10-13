@@ -407,7 +407,7 @@
 
 /* Scrubber: the bar grows a hair and the knob ring blooms on hover/focus/drag. */
 .np-scrub {
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   transition: transform var(--zxc-t-fast) var(--zxc-ease);
 }
 .np-scrub:hover,
@@ -769,7 +769,7 @@
 /* Pills: black translucent capsule under every control. Opacity trimmed from
    0.6 so the picture reads through the chrome more. */
 .np-pill {
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: rgba(0, 0, 0, 0.42);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
@@ -784,7 +784,7 @@
 
 /* Unified right control cluster (NEW PLAYER UI-UX.html #rp). */
 .np-right-pill {
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: rgba(0, 0, 0, 0.42);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
@@ -826,7 +826,7 @@
 
 /* Fullscreen button hover highlight (NEW PLAYER UI-UX.html line 206). */
 .np-fs-wrap {
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   padding: 0 2px;
   display: flex;
   align-items: center;
@@ -886,7 +886,7 @@
 }
 .np-vol-range::-webkit-slider-runnable-track {
   height: 4px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: linear-gradient(
     to right,
     #fff var(--vol, 0%),
@@ -905,13 +905,13 @@
 }
 .np-vol-range::-moz-range-track {
   height: 4px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: rgba(255, 255, 255, 0.3);
   border: none;
 }
 .np-vol-range::-moz-range-progress {
   height: 4px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: #fff;
 }
 .np-vol-range::-moz-range-thumb {
@@ -927,7 +927,7 @@
   display: block;
   width: 48px;
   height: 28px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: rgba(255, 255, 255, 0.25);
   position: relative;
   transition: background var(--zxc-t-fast) var(--zxc-ease);
@@ -1052,7 +1052,7 @@
 }
 .np-panel-surface *::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.25);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
 }
 .np-panel-surface *::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.4);

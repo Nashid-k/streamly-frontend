@@ -238,7 +238,7 @@
   justify-content: center;
   gap: 0.4rem;
   padding: 0.55rem 1.15rem;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   border: 1px solid rgba(var(--white-rgb), 0.22);
   background: linear-gradient(180deg, rgba(var(--white-rgb), 0.16), rgba(var(--white-rgb), 0.05));
   color: #fff;
