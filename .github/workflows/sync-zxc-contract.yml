@@ -1,0 +1,69 @@
+name: Sync ZXC provider contract
+
+# The streaming provider renames its token-mint path and rotates the obfuscated
+# param names on its own schedule; a rename 404s EVERY server in the same instant
+# (see the rename history in api/stream.js). This job runs daily with no user
+# involved, derives the live contract from the provider's own shipped chunk,
+# rewrites the committed seed when it has drifted, plays a REAL movie AND a REAL
+# series through the actual handler to prove it works, then — only when the seed
+# actually changed AND playback verified — commits and pushes so the Vercel
+# deploy self-corrects. `api/stream.js` also self-heals at request time, so a
+# rename is survivable even between runs; this keeps the committed seed and its
+# pinned test truthful so the first request of the day never pays discovery cost.
+#
+# Pushes from here only; this workflow triggers on schedule/dispatch (not push),
+# so it can never recurse. Needs `contents: write` and a main branch that allows
+# the bot's direct push (adjust branch protection if it rejects the bot).
+
+on:
+  schedule:
+    # Daily 03:17 UTC — an off-peak minute, not on the hour. Edit to taste.
+    - cron: "17 3 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-zxc-contract
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Derive, verify, commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Derives the live contract, rewrites the seed if it drifted, and plays a
+      # real movie + series. Exits non-zero if playback can't be verified, which
+      # stops the job before anything is committed.
+      - name: Derive contract and verify playback
+        id: sync
+        run: node scripts/sync-zxc-contract.mjs
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Commit and push contract update
+        if: steps.sync.outputs.changed == 'true'
+        run: |
+          git config user.name "streamly-contract-bot"
+          git config user.email "streamly-contract-bot@users.noreply.github.com"
+          git add api/stream.js src/__tests__/zxcMintPath.test.js
+          git commit -m "chore(zxc): auto-sync provider mint contract"
+          git push

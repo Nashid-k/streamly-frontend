@@ -195,7 +195,17 @@ path (`ZXC_MINT_PATH` in `api/stream.js`; upstream renames it, so it is read
 from the constant and never repeated here) with a same-origin
 `Origin: https://vidstuck.xyz` and an obfuscated body (`mediaType`, `server`,
 `season`, `episode`); the answer is AES-256-CBC encrypted with the session's
-`secretKey`, so the whole exchange runs server-side. The decrypted
+`secretKey`, so the whole exchange runs server-side. **A rename cannot take the
+provider down:** the mint path + obfuscated param names live in a mutable
+`zxcContract` (seeded from the constants) and a contract-shaped mint failure
+(HTTP 404 / non-JSON body / "no token") re-derives them from the provider's own
+shipped chunk and retries once — timeouts/429/5xx deliberately do NOT trigger
+discovery. A daily GitHub Action
+(`scripts/sync-zxc-contract.mjs` + `.github/workflows/sync-zxc-contract.yml`)
+additionally derives the live contract, rewrites the sentinel-delimited seed
+block in `api/stream.js` (and the path pinned in `zxcMintPath.test.js`) when it
+drifted, proves real movie + series playback through the handler, and only then
+commits + pushes, so the committed seed never goes stale. The decrypted
 `lookupServer` result is an AES-encrypted per-server playlist; `playbackServers`
 maps each backend to a host:
 

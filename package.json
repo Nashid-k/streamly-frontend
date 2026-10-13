@@ -9,6 +9,7 @@
     "test": "vitest run",
     "lint": "oxlint",
     "preview": "vite preview",
+    "sync:zxc": "node scripts/sync-zxc-contract.mjs",
     "probe:latency": "node scripts/probe-catalogue-latency.mjs"
   },
   "dependencies": {

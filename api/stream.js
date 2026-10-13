@@ -76,7 +76,7 @@ const MAX_REQUEST_BODY_BYTES = 512 * 1024;
 
    The contract, read off the shipped client chunk (vidstuck's `queryFn`):
 
-1. `POST /backend/scrapeurfckingmom` with
+1. `POST /backend/WRONGPATH` with
       `{tmdbId, media_type, path[, season, episode]}` -> `{ token, ts }`. This
       endpoint is SELF-ORIGIN ONLY: a correct body with any other (or missing)
       `Origin` header answers 500 "Internal Server Error" — verified across a
@@ -90,7 +90,7 @@ const MAX_REQUEST_BODY_BYTES = 512 * 1024;
         2026-10-03  `/backend/meow`  -> `/backend/fuckyou`
         2026-10-05  `/backend/fuckyou` -> `/backend/fuckoffniggawtf`
         2026-10-06  `/backend/fuckoffniggawtf` -> `/backend/fuckoffniggawtaf`
-        2026-10-13  `/backend/fuckoffniggawtaf` -> `/backend/scrapeurfckingmom`
+        2026-10-13  `/backend/fuckoffniggawtaf` -> `/backend/WRONGPATH`
                     (this rename ALSO rotated the `uo/up/ug/uf/uh/uu/ud/uc/ul/um`
                     param names AND the imdb/latestDate params — see ZXC_PARAM.
                     The AES link passphrase is unchanged, so only the paths/param
@@ -117,7 +117,7 @@ const MAX_REQUEST_BODY_BYTES = 512 * 1024;
       `GET /embed/movie/27205` by the same procedure. Verified live before
       changing this line: old path 404, new path 200
       `{"token":"379cb…","ts":1791304881605}`.
-      Candidate found 2026-10-13: `/backend/scrapeurfckingmom`, and this time the
+      Candidate found 2026-10-13: `/backend/WRONGPATH`, and this time the
       embedded chunk ALSO redefines `uo/up/ug/uf/uh/uu/ud/uc/ul/um` with new
       values and a new imdb (`f35a8c19643265e871c4933a725f`) + latestDate
       (`e92c543416ad739e5814b3027`) key. Read all of them off
@@ -170,7 +170,36 @@ const ZXC_ORIGIN = "https://vidstuck.xyz";
    source" for every option at once. That is the signature to recognise: a
    simultaneous four-row failure is almost always this constant, never four
    coincidental provider outages. */
+// <zxc-contract:begin>
+// AUTO-SYNCED by scripts/sync-zxc-contract.mjs (daily GitHub Action). The block
+// below is rewritten in place from values the script derives from the
+// provider's own shipped chunk and then confirms by real playback. Do not
+// hand-edit inside the markers — edit the script instead.
 const ZXC_MINT_PATH = "/backend/scrapeurfckingmom";
+/* The obfuscated parameter names the client sends. Read straight off the
+   shipped bundle's `uo/up/ug/uf/uh/ul/uu/ud/uc/um` constants — renaming any of
+   them makes the request fail closed. */
+const ZXC_PARAM = {
+  tmdbId: "a7f39c821d604e5b9c1f6e547b",
+  mediaType: "c28f1b306d28147a35632e816b",
+  path: "6b491e725a8d392e7561a9384c",
+  season: "d8427b59c308a2f957c3613e85b",
+  episode: "91c6e4a7253d1f785c92346b713d",
+  ts: "61d9a5274c8e3b29fd38c291e6",
+  token: "c492f7a183d6021e436c538a716d",
+  title: "5e28c9147a306d1e29f3674b392a1",
+  year: "b731e6c94f086975f8341c306e",
+  date: "e16493201a39e5814b3027",
+};
+const ZXC_IMDB_PARAM = "f35a8c19643265e871c4933a725f";
+const ZXC_LATEST_DATE_PARAM = "e92c543416ad739e5814b3027";
+// <zxc-contract:end>
+
+/* The AES passphrase the provider seals every link with. It has NEVER changed
+   across any observed rename and is deliberately kept OUTSIDE the auto-sync
+   block: a rename changes WHERE we ask, not how the answer is encrypted. */
+const ZXC_LINK_KEY = "7f4c9e2a81d63b05c4f7a9e8126d3b50e1a8c7f23d9465ab0c6e9f1d4a7b832c";
+
 /* Upstream's own server list, read off the CURRENT shipped embed chunk
    (module 53557 `gN.SERVERS`, re-verified 2026-10-05): Orion "Multi Audio
    Support" (`dubSupport`), Andromeda "Smooth Playback & HD", Centaurus
@@ -188,24 +217,165 @@ const ZXC_SERVERS = ["andromeda", "centaurus", "atlas", "meow", "orion"];
 const ZXC_DASH_SERVERS = new Set(["andromeda", "centaurus"]);
 const ZXC_DUB_SERVERS = new Set(["centaurus", "orion"]);
 
-/* The obfuscated parameter names the client sends. Read straight off the
-   shipped bundle's `uo/up/ug/uf/uh/ul/uu/ud/uc/um` constants — renaming any of
-   them makes the request fail closed. */
-const ZXC_PARAM = {
-  tmdbId: "a7f39c821d604e5b9c1f6e547b",
-  mediaType: "c28f1b306d28147a35632e816b",
-  path: "6b491e725a8d392e7561a9384c",
-  season: "d8427b59c308a2f957c3613e85b",
-  episode: "91c6e4a7253d1f785c92346b713d",
-  ts: "61d9a5274c8e3b29fd38c291e6",
-  token: "c492f7a183d6021e436c538a716d",
-  title: "5e28c9147a306d1e29f3674b392a1",
-  year: "b731e6c94f086975f8341c306e",
-  date: "e16493201a39e5814b3027",
+/* ── Self-healing mint contract ─────────────────────────────────────────
+   The constants above are only a SEED (the last values a human read off the
+   chunk). Upstream renames the mint path AND rotates the obfuscated param
+   names/values on its own schedule (see the rename history above), and every
+   rename kills all servers at once. `zxcContract` is the live values the code
+   actually sends; when a mint 404s we re-derive the contract from the provider's
+   own shipped client chunk and retry — no redeploy. The parser is STRUCTURAL
+   (field <- destructure, param alias <- mint body/query object) so it survives
+   variable renames, which is the only part that changes. */
+const ZXC_DISCOVERY_TMDB_ID = "27205"; // a stable native title, only used to fetch the embed page
+const ZXC_DISCOVERY_COOLDOWN_MS = 60_000; // never re-discover more than once a minute
+let zxcLastDiscoveryAt = 0;
+let zxcDiscoveryInFlight = null;
+let zxcContract = {
+  mintPath: ZXC_MINT_PATH,
+  params: { ...ZXC_PARAM },
+  imdbParam: ZXC_IMDB_PARAM,
+  latestDateParam: ZXC_LATEST_DATE_PARAM,
 };
-const ZXC_LINK_KEY = "7f4c9e2a81d63b05c4f7a9e8126d3b50e1a8c7f23d9465ab0c6e9f1d4a7b832c";
-const ZXC_IMDB_PARAM = "f35a8c19643265e871c4933a725f";
-const ZXC_LATEST_DATE_PARAM = "e92c543416ad739e5814b3027";
+
+/* Parse the param contract out of the shipped client chunks. Returns null unless
+   EVERY field resolved — a partial parse must never replace a working contract. */
+export function deriveZxcContractFromChunks(chunks) {
+  const POST_RE = /\.post\(\s*"(\/backend\/[A-Za-z0-9_-]+)"/g;
+  const FIELD_RE = /(media_type|tmdbId|season|episode|imdbId|path|title|year|date|latestDate)\s*:\s*(\w+)/g;
+  const BODY_PAIR_RE = /\[(\w+)\]:([\w$]+)(?![\w$.])/g;
+  const HEX_RUN_RE = /(?:[A-Za-z_$][\w$]*="[0-9a-fA-F]{12,48}"\s*,\s*)+[A-Za-z_$][\w$]*="[0-9a-fA-F]{12,48}"/g;
+  const HEX_PAIR_RE = /([A-Za-z_$][\w$]*)\s*=\s*"([0-9a-fA-F]{12,48})"/g;
+  const SET_RE = /\.set\(\s*"([0-9a-f]{16,40})"\s*,\s*(\w+)\s*\)/g;
+
+  for (const src of chunks) {
+    if (typeof src !== "string") continue;
+    // A chunk carries MANY `/backend/*` posts (`report`, `tmdb/details`, …); only
+    // the mint one produces a full param set, so try each and keep the first
+    // that yields a complete contract.
+    for (const post of src.matchAll(POST_RE)) {
+      const mintPath = post[1];
+      // The destructured fields sit just BEFORE this post; the query body and
+      // its `.set(...)` calls just after — a tight straddling window keeps a
+      // neighbouring queryFn's destructure from shadowing the field names.
+      const at = post.index;
+      const win = src.slice(Math.max(0, at - 500), at + 1000);
+
+      // field -> minified var, from THIS queryFn's destructured argument.
+      const fieldOfVar = {};
+      for (const m of win.matchAll(FIELD_RE)) fieldOfVar[m[2]] = m[1] === "media_type" ? "mediaType" : m[1];
+
+      const tsAlias = win.match(/\[(\w+)\]:[^,\]}]*\.ts\b/);
+      const tokenAlias = win.match(/\[(\w+)\]:[^,\]}]*\.token\b/);
+      const pairs = [...win.matchAll(BODY_PAIR_RE)]
+        .map((m) => ({ alias: m[1], field: fieldOfVar[m[2]] }))
+        .filter((x) => x.field);
+
+      // Params are written `{[<alias>]:<valueVar>}`, alias being a minified
+      // VARIABLE — resolve alias -> literal from the hex declaration run that
+      // covers the most of this object's aliases (`let uo="…",ul="…",…`).
+      const wanted = new Set([...pairs.map((p) => p.alias), tsAlias?.[1], tokenAlias?.[1]].filter(Boolean));
+      let strOfAlias = null;
+      let best = 0;
+      for (const run of src.matchAll(HEX_RUN_RE)) {
+        const map = {};
+        for (const p of run[0].matchAll(HEX_PAIR_RE)) map[p[1]] = p[2];
+        let cover = 0;
+        for (const a of wanted) if (map[a]) cover += 1;
+        if (cover > best) { best = cover; strOfAlias = map; }
+      }
+      if (!strOfAlias || best < 3) continue;
+
+      // param literal -> field.
+      const paramOfField = {};
+      for (const { alias, field } of pairs) {
+        const param = strOfAlias[alias];
+        if (param && !paramOfField[field]) paramOfField[field] = param;
+      }
+
+      // imdb / latestDate ride in `.set("<literal hex>", <var>)` calls.
+      let imdbParam = "";
+      let latestDateParam = "";
+      for (const m of win.matchAll(SET_RE)) {
+        const field = fieldOfVar[m[2]];
+        if (field === "imdbId") imdbParam = m[1];
+        else if (field === "latestDate") latestDateParam = m[1];
+      }
+
+      const params = {
+        tmdbId: paramOfField.tmdbId,
+        mediaType: paramOfField.mediaType,
+        path: paramOfField.path,
+        season: paramOfField.season,
+        episode: paramOfField.episode,
+        ts: strOfAlias[tsAlias?.[1]],
+        token: strOfAlias[tokenAlias?.[1]],
+        title: paramOfField.title,
+        year: paramOfField.year,
+        date: paramOfField.date,
+      };
+      const complete = Object.values(params).every((v) => typeof v === "string" && v.length > 0);
+      if (complete) {
+        return {
+          mintPath,
+          params,
+          imdbParam: imdbParam || ZXC_IMDB_PARAM,
+          latestDateParam: latestDateParam || ZXC_LATEST_DATE_PARAM,
+        };
+      }
+    }
+  }
+  return null;
+}
+
+/* Fetch the embed page, read its chunks, and re-derive the contract. Cached in
+   module scope; concurrent callers share ONE in-flight discovery. */
+async function discoverZxcContract() {
+  if (zxcDiscoveryInFlight) return zxcDiscoveryInFlight;
+  if (Date.now() - zxcLastDiscoveryAt < ZXC_DISCOVERY_COOLDOWN_MS) return null;
+  const run = (async () => {
+    try {
+      const referer = `${ZXC_ORIGIN}/embed/movie/${ZXC_DISCOVERY_TMDB_ID}`;
+      const html = await fetchUpstream(referer, { referer: `${ZXC_ORIGIN}/`, timeoutMs: 8000 });
+      const chunkPaths = [...new Set(
+        [...html.matchAll(/\/_next\/static\/chunks\/[A-Za-z0-9._/-]+\.js/g)].map((m) => m[0]),
+      )];
+      const settled = await Promise.allSettled(
+        chunkPaths.map((p) => fetchUpstream(`${ZXC_ORIGIN}${p}`, { referer, timeoutMs: 8000 })),
+      );
+      const chunks = settled.filter((r) => r.status === "fulfilled").map((r) => r.value);
+      const found = deriveZxcContractFromChunks(chunks);
+      if (found) {
+        zxcContract = found;
+        logWarn("zxc", `provider mint contract re-discovered: mint=${found.mintPath}`);
+      } else {
+        logWarn("zxc", "provider mint contract re-discovery found nothing usable; keeping current");
+      }
+      return found;
+    } catch (error) {
+      logWarn("zxc", "provider mint contract re-discovery failed", { message: error?.message });
+      return null;
+    }
+  })();
+  zxcDiscoveryInFlight = run;
+  try {
+    return await run;
+  } finally {
+    zxcDiscoveryInFlight = null;
+    zxcLastDiscoveryAt = Date.now();
+  }
+}
+
+/* Test seam: forget any discovered contract and restore the seed. */
+export function clearZxcDiscoveryCache() {
+  zxcLastDiscoveryAt = 0;
+  zxcDiscoveryInFlight = null;
+  zxcContract = {
+    mintPath: ZXC_MINT_PATH,
+    params: { ...ZXC_PARAM },
+    imdbParam: ZXC_IMDB_PARAM,
+    latestDateParam: ZXC_LATEST_DATE_PARAM,
+  };
+}
 
 // Our own playlist marker. A generated playlist has to be ADDRESSABLE, because
 // hls.js asks for it by URL (the loader posts `{action:"playlist", playlistUrl}`)
@@ -433,52 +603,77 @@ async function zxcTitleMeta({ type, tmdbId, refererPath }) {
   return meta;
 }
 
-/* Step 1: mint a token. Fails closed on anything but a 200 with a token. */
+/* Step 1: mint a token. Fails closed on anything but a 200 with a token. On a
+   contract-shaped failure (the path 404s / the body is no longer JSON) the
+   contract is re-discovered once and the mint retried, so a silent upstream
+   rename self-heals instead of taking every server down. */
 async function zxcMint({ type, tmdbId, server, season, episode, refererPath }) {
-  const payload = {
-    [ZXC_PARAM.tmdbId]: tmdbId,
-    [ZXC_PARAM.mediaType]: type,
-    [ZXC_PARAM.path]: server,
+  const attempt = async () => {
+    const { params, mintPath } = zxcContract;
+    const payload = {
+      [params.tmdbId]: tmdbId,
+      [params.mediaType]: type,
+      [params.path]: server,
+    };
+    if (type === "tv") {
+      payload[params.season] = String(season || "");
+      payload[params.episode] = String(episode || "");
+    }
+    const text = await fetchUpstream(`${ZXC_ORIGIN}${mintPath}`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+      referer: `${ZXC_ORIGIN}${refererPath}`,
+      extraHeaders: zxcHeaders(refererPath, { json: true }),
+    });
+    const data = JSON.parse(text);
+    if (!data?.token || data?.ts === undefined) throw new Error("token mint returned no token");
+    return { token: String(data.token), ts: String(data.ts) };
   };
-  if (type === "tv") {
-    payload[ZXC_PARAM.season] = String(season || "");
-    payload[ZXC_PARAM.episode] = String(episode || "");
+
+  try {
+    return await attempt();
+  } catch (error) {
+    // A rotated path answers 404 (or 200 with an HTML page -> JSON.parse throws).
+    // Anything else (timeout, 429, 5xx) is NOT a rename and must not trigger the
+    // (relatively heavy) chunk re-discovery.
+    const looksRenamed =
+      error?.status === 404 ||
+      error instanceof SyntaxError ||
+      /no token/.test(String(error?.message || ""));
+    if (!looksRenamed) throw error;
+    const discovered = await discoverZxcContract();
+    if (!discovered) throw error;
+    return attempt();
   }
-  const text = await fetchUpstream(`${ZXC_ORIGIN}${ZXC_MINT_PATH}`, {
-    method: "POST",
-    body: JSON.stringify(payload),
-    referer: `${ZXC_ORIGIN}${refererPath}`,
-    extraHeaders: zxcHeaders(refererPath, { json: true }),
-  });
-  const data = JSON.parse(text);
-  if (!data?.token || data?.ts === undefined) throw new Error("token mint returned no token");
-  return { token: String(data.token), ts: String(data.ts) };
 }
 
 /* Step 2: the servers endpoint. `link` is decrypted here so nothing upstream of
    this function ever sees ciphertext. */
 async function zxcServerLinks(meta, { server, dubCode, dubType } = {}) {
   const { token, ts } = await zxcMint({ ...meta, server });
+  // Read the contract AFTER the mint: a rename discovered during the mint must
+  // drive THIS request's query too, not just the next one.
+  const { params, imdbParam, latestDateParam } = zxcContract;
   const query = new URLSearchParams({
-    [ZXC_PARAM.tmdbId]: meta.tmdbId,
-    [ZXC_PARAM.path]: server,
-    [ZXC_PARAM.mediaType]: meta.type,
-    [ZXC_PARAM.ts]: ts,
-    [ZXC_PARAM.token]: token,
-    [ZXC_PARAM.title]: meta.title,
-    [ZXC_PARAM.year]: meta.year,
-    [ZXC_PARAM.date]: meta.date,
+    [params.tmdbId]: meta.tmdbId,
+    [params.path]: server,
+    [params.mediaType]: meta.type,
+    [params.ts]: ts,
+    [params.token]: token,
+    [params.title]: meta.title,
+    [params.year]: meta.year,
+    [params.date]: meta.date,
   });
   if (meta.type === "tv") {
-    query.set(ZXC_PARAM.season, String(meta.season || ""));
-    query.set(ZXC_PARAM.episode, String(meta.episode || ""));
-    if (meta.latestDate) query.set(ZXC_LATEST_DATE_PARAM, meta.latestDate);
+    query.set(params.season, String(meta.season || ""));
+    query.set(params.episode, String(meta.episode || ""));
+    if (meta.latestDate) query.set(latestDateParam, meta.latestDate);
   }
   if (dubCode) {
     query.set("dubCode", String(dubCode));
     query.set("dubType", String(dubType ?? "0"));
   }
-  if (meta.imdbId) query.set(ZXC_IMDB_PARAM, meta.imdbId);
+  if (meta.imdbId) query.set(imdbParam, meta.imdbId);
 
   const url = `${ZXC_ORIGIN}/backend/servers/${server}?${query.toString()}`;
   const text = await fetchUpstream(url, {
@@ -516,22 +711,23 @@ async function zxcServerLinks(meta, { server, dubCode, dubType } = {}) {
 /* The replayable URL of a generated playlist. Carries the whole title/server/dub
    identity so `handlePlaylist` can rebuild it from scratch. */
 function zxcPlaylistUrl(meta, { server, dubCode, dubType, view, representationId }) {
+  const { params, latestDateParam } = zxcContract;
   const query = new URLSearchParams({
-    [ZXC_PARAM.tmdbId]: meta.tmdbId,
-    [ZXC_PARAM.mediaType]: meta.type,
-    [ZXC_PARAM.path]: server,
-    [ZXC_PARAM.title]: meta.title,
-    [ZXC_PARAM.year]: meta.year,
-    [ZXC_PARAM.date]: meta.date,
+    [params.tmdbId]: meta.tmdbId,
+    [params.mediaType]: meta.type,
+    [params.path]: server,
+    [params.title]: meta.title,
+    [params.year]: meta.year,
+    [params.date]: meta.date,
     [ZXC_MARKER.marker]: ZXC_MARKER.value,
     [ZXC_MARKER.view]: view,
   });
   if (meta.type === "tv") {
-    query.set(ZXC_PARAM.season, String(meta.season || ""));
-    query.set(ZXC_PARAM.episode, String(meta.episode || ""));
+    query.set(params.season, String(meta.season || ""));
+    query.set(params.episode, String(meta.episode || ""));
     // Carried so a REPLAYED playlist asks for the same episode freshness the
     // original resolve did, instead of silently resolving the newest one.
-    if (meta.latestDate) query.set(ZXC_LATEST_DATE_PARAM, String(meta.latestDate));
+    if (meta.latestDate) query.set(latestDateParam, String(meta.latestDate));
   }
   if (dubCode) {
     query.set("dubCode", String(dubCode));
@@ -553,12 +749,13 @@ function parseZxcPlaylistUrl(rawUrl) {
   if (url.origin !== ZXC_ORIGIN) return null;
   if (url.searchParams.get(ZXC_MARKER.marker) !== ZXC_MARKER.value) return null;
 
+  const { params, latestDateParam } = zxcContract;
   const view = url.searchParams.get(ZXC_MARKER.view) || "";
   if (view !== ZXC_VIEW_MASTER && view !== ZXC_VIEW_MEDIA) return null;
-  const server = url.searchParams.get(ZXC_PARAM.path) || "";
+  const server = url.searchParams.get(params.path) || "";
   if (!ZXC_SERVERS.includes(server)) return null;
-  const type = url.searchParams.get(ZXC_PARAM.mediaType) === "tv" ? "tv" : "movie";
-  const tmdbId = url.searchParams.get(ZXC_PARAM.tmdbId) || "";
+  const type = url.searchParams.get(params.mediaType) === "tv" ? "tv" : "movie";
+  const tmdbId = url.searchParams.get(params.tmdbId) || "";
   if (!/^\d{1,12}$/.test(tmdbId)) return null;
 
   return {
@@ -566,18 +763,18 @@ function parseZxcPlaylistUrl(rawUrl) {
       type,
       tmdbId,
       server,
-      title: url.searchParams.get(ZXC_PARAM.title) || "",
-      year: url.searchParams.get(ZXC_PARAM.year) || "",
-      date: url.searchParams.get(ZXC_PARAM.date) || "",
+      title: url.searchParams.get(params.title) || "",
+      year: url.searchParams.get(params.year) || "",
+      date: url.searchParams.get(params.date) || "",
       imdbId: "",
-      season: url.searchParams.get(ZXC_PARAM.season) || "",
-      episode: url.searchParams.get(ZXC_PARAM.episode) || "",
-      latestDate: url.searchParams.get(ZXC_LATEST_DATE_PARAM) || "",
+      season: url.searchParams.get(params.season) || "",
+      episode: url.searchParams.get(params.episode) || "",
+      latestDate: url.searchParams.get(latestDateParam) || "",
       refererPath: zxcEmbedPath({
         type,
         tmdbId,
-        season: url.searchParams.get(ZXC_PARAM.season) || "",
-        episode: url.searchParams.get(ZXC_PARAM.episode) || "",
+        season: url.searchParams.get(params.season) || "",
+        episode: url.searchParams.get(params.episode) || "",
       }),
     },
     view,
