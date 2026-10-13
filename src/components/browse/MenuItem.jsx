@@ -7,7 +7,7 @@ function MenuItem({ label, selected, onSelect, icon }) {
       aria-selected={selected}
       onClick={onSelect}
       className={`flex items-center justify-between w-full text-left px-3 py-2 rounded-xl text-sm transition-colors ${
-        selected ? "bg-[#95ff50]/[0.1] text-white" : "text-white/70 hover:bg-white/5 hover:text-white"
+        selected ? "bg-[rgba(var(--accent-primary-rgb),0.1)] text-white" : "text-white/70 hover:bg-white/5 hover:text-white"
       }`}
     >
       <span className="truncate">{label}</span>

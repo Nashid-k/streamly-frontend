@@ -155,7 +155,7 @@ const RatingsTable = ({ movie, seasons = [], onClose }) => {
             {rows.maxEp === 0 ? (
               <div className="flex flex-col items-center gap-2 py-10 text-white/45">
                 <span
-                  className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-[#95ff50]"
+                  className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-[var(--accent-primary)]"
                   aria-hidden="true"
                 />
                 <span className="text-sm">Loading ratings…</span>

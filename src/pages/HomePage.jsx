@@ -1087,7 +1087,7 @@ export default function Home({
                 {cwResumeEntry && (
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
                     <div style={{ width: "min(200px, 30vw)", height: 4, borderRadius: 999, background: "rgba(255,255,255,0.22)", overflow: "hidden" }}>
-                      <div style={{ width: `${resumePct}%`, height: "100%", background: "#E50914" }} />
+                      <div style={{ width: `${resumePct}%`, height: "100%", background: "var(--accent-gradient)" }} />
                     </div>
                     <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.85)", letterSpacing: "0.3px" }}>
                       {t("home.hero.watched", { pct: resumePct })}

@@ -420,7 +420,7 @@ export default function SettingsPage() {
               {/* Toolbar — frosted search capsule + section pills, the same
                   controls as the movies/series/my-list pages */}
               <div className="flex flex-col items-stretch gap-3 w-full xl:w-auto">
-                <div className="flex items-center gap-2 w-full md:w-72 px-3 md:px-4 py-2 bg-white/5 border border-white/10 rounded-full backdrop-blur-md transition-all duration-300 focus-within:border-[#95ff50]/40 min-w-0">
+                <div className="flex items-center gap-2 w-full md:w-72 px-3 md:px-4 py-2 bg-white/5 border border-white/10 rounded-full backdrop-blur-md transition-all duration-300 focus-within:border-[rgba(var(--accent-primary-rgb),0.4)] min-w-0">
                   <Search size={14} className="w-4 h-4 shrink-0 text-white/40" />
                   <input
                     type="text"

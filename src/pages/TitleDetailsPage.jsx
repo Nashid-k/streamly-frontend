@@ -967,7 +967,7 @@ export default function TitleDetails() {
             {hasResume && resumePct > 0 && (
               <div className="details-hero__gap flex items-center gap-2.5">
                 <div style={{ width: "min(200px, 30vw)", height: 4, borderRadius: 999, background: "rgba(255,255,255,0.22)", overflow: "hidden" }}>
-                  <div style={{ width: `${resumePct}%`, height: "100%", background: "#E50914" }} />
+                  <div style={{ width: `${resumePct}%`, height: "100%", background: "var(--accent-gradient)" }} />
                 </div>
                 <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.85)", letterSpacing: "0.3px" }}>
                   {resumePct}% Watched
@@ -1402,9 +1402,9 @@ export default function TitleDetails() {
                       setSelectedSeason(availableSeasonNumbers[nextIndex]);
                     }}
                     style={{
-                      background: "rgba(149,255,80,0.08)",
-                      border: "1px solid rgba(149,255,80,0.2)",
-                      color: "#95ff50",
+                      background: "rgba(var(--accent-primary-rgb),0.08)",
+                      border: "1px solid rgba(var(--accent-primary-rgb),0.2)",
+                      color: "var(--accent-primary)",
                       padding: "8px 20px",
                       borderRadius: "10px",
                       fontSize: "0.85rem",
