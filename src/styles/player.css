@@ -118,12 +118,6 @@
   .hero-logo-img {
     max-height: clamp(95px, 15vh, 150px) !important;
   }
-
-  /* Collection/history empty states */
-  .collection-empty {
-    min-height: min(16rem, 45vh) !important;
-    padding: 1.5rem 1rem !important;
-  }
 }
 
 @media (max-height: 680px) and (min-width: 1024px) {

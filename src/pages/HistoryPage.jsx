@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Clock, X, Search, Check, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MotionLeaf } from "../components/MotionLeaf";
+import EmptyState from "../components/EmptyState";
 import { useAppAuth } from "../context/auth";
 import { useToast } from "../components/Toast.jsx";
 import { useConfirmDialog } from "../components/ConfirmDialog.jsx";
@@ -241,43 +242,30 @@ export default function HistoryPage() {
         )}
 
         {continueWatching.length === 0 ? (
-          <motion.div
-            className="collection-empty"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <motion.div
-              animate={{ rotate: [0, -10, 10, -5, 5, 0] }}
-              transition={{ duration: 1.5, delay: 0.3, ease: "easeInOut" }}
-            >
-              <Clock
-                size={56}
-                style={{ opacity: 0.2, marginBottom: "1.5rem" }}
-              />
-            </motion.div>
-            <h2>No watch history yet</h2>
-            <p>
-              Titles you watch will automatically appear here so you can pick up
-              right where you left off.
-            </p>
-            <motion.button
-              onClick={() => navigate("/")}
-              className="btn btn-primary"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              Discover Content
-            </motion.button>
-          </motion.div>
+          <EmptyState
+            icon={
+              <motion.div
+                animate={{ rotate: [0, -10, 10, -5, 5, 0] }}
+                transition={{ duration: 1.5, delay: 0.3, ease: "easeInOut" }}
+              >
+                <Clock size={36} strokeWidth={1.5} color="#52525b" />
+              </motion.div>
+            }
+            title="No watch history yet"
+            description="Titles you watch will automatically appear here so you can pick up right where you left off."
+            actions={
+              <motion.button
+                onClick={() => navigate("/")}
+                className="btn btn-primary"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Discover Content
+              </motion.button>
+            }
+          />
         ) : filteredHistory.length === 0 ? (
-          <motion.div
-            className="content-page__notice"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
-            No titles match "{searchQuery}".
-          </motion.div>
+          <EmptyState icon="search" title={`No titles match "${searchQuery}".`} compact />
         ) : (
           <ErrorBoundary>
           <div className="history-groups">

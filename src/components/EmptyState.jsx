@@ -1,3 +1,4 @@
+import { isValidElement } from "react";
 import { motion } from "framer-motion";
 import { Search, Film, Tv, AlertCircle } from "lucide-react";
 
@@ -15,7 +16,10 @@ export default function EmptyState({
   actions,
   compact = false,
 }) {
-  const IconComponent = ICONS[icon] || Search;
+  // `icon` is normally a string key, but pages with their own glyph (a clock,
+  // a folder) pass a ready element instead so the frame stays identical.
+  const customIcon = isValidElement(icon);
+  const IconComponent = customIcon ? null : ICONS[icon] || Search;
 
   return (
     <motion.div
@@ -26,11 +30,15 @@ export default function EmptyState({
       style={compact ? { padding: "3rem 1rem" } : undefined}
     >
       <div className="empty-state-icon">
-        <IconComponent
-          size={compact ? 28 : 36}
-          color="#52525b"
-          strokeWidth={1.5}
-        />
+        {customIcon ? (
+          icon
+        ) : (
+          <IconComponent
+            size={compact ? 28 : 36}
+            color="#52525b"
+            strokeWidth={1.5}
+          />
+        )}
       </div>
       {title && <h2 className="empty-state-title">{title}</h2>}
       {description && <p className="empty-state-desc">{description}</p>}

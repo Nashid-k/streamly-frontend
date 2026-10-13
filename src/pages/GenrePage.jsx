@@ -10,6 +10,7 @@ import AmbientBackground from "../components/AmbientBackground";
 import ErrorBoundary from "../components/ErrorBoundary";
 import Chip from "../components/Chip";
 import ContentPageHeader from "../components/ContentPageHeader";
+import EmptyState from "../components/EmptyState";
 import { selectGenreResults } from "../utils/genreResults";
 import { logEmptyData, reportQueryError } from "../utils/debugLogger";
 
@@ -174,29 +175,13 @@ export default function GenrePage() {
               ))}
             </div>
           ) : error ? (
-            <div
-              style={{
-                padding: "4rem 0",
-                textAlign: "center",
-                color: "#ef4444",
-                fontSize: "1.2rem",
-              }}
-            >
-              {error}
-            </div>
+            <EmptyState icon="error" title="Couldn't load this genre" description={error} />
           ) : filteredAndSortedList.length === 0 ? (
-            <div
-              style={{
-                padding: "6rem 0",
-                textAlign: "center",
-                color: "#a1a1aa",
-              }}
-            >
-              <h2 style={{ color: "#fff", marginBottom: "0.5rem" }}>
-                No titles found
-              </h2>
-              <p>We couldn't find any titles in this genre.</p>
-            </div>
+            <EmptyState
+              icon="film"
+              title="No titles found"
+              description="We couldn't find any titles in this genre."
+            />
           ) : (
             <div className="movie-grid" style={{ marginTop: "1rem" }}>
               {visibleResults.map((movie, idx) => (

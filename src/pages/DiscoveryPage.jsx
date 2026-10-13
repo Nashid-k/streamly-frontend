@@ -12,6 +12,7 @@ import MovieCard from "../components/MovieCard";
 import MovieCardSkeleton from "../components/MovieCardSkeleton";
 import AmbientBackground from "../components/AmbientBackground";
 import ErrorBoundary from "../components/ErrorBoundary";
+import EmptyState from "../components/EmptyState";
 import RailArrow from "../components/RailArrow";
 import FilterPill from "../components/browse/FilterPill";
 import MenuItem from "../components/browse/MenuItem";
@@ -758,16 +759,13 @@ export default function DiscoveryPage({ mode = "movies" }) {
                 ))}
               </div>
             ) : gridError ? (
-              <div style={{ padding: "4rem 0", textAlign: "center", color: "#ef4444", fontSize: "1.1rem" }}>
-                {gridError}
-              </div>
+              <EmptyState icon="error" title="Couldn't load titles" description={gridError} />
             ) : gridItems.length === 0 ? (
-              <div style={{ padding: "5rem 0", textAlign: "center", color: "#a1a1aa" }}>
-                <h2 style={{ color: "#fff", marginBottom: "0.5rem", fontSize: "1.35rem" }}>
-                  No titles found
-                </h2>
-                <p>Try clearing a filter or choosing another category.</p>
-              </div>
+              <EmptyState
+                icon="film"
+                title="No titles found"
+                description="Try clearing a filter or choosing another category."
+              />
             ) : (
               <>
                 <div className="discovery-grid">

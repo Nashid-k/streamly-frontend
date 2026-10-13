@@ -22,6 +22,7 @@ import { useToast } from "../components/Toast.jsx";
 import { useConfirmDialog } from "../components/ConfirmDialog.jsx";
 import MovieCard from "../components/MovieCard";
 import AmbientBackground from "../components/AmbientBackground";
+import EmptyState from "../components/EmptyState";
 import ErrorBoundary from "../components/ErrorBoundary";
 import CollectionPickerDialog from "../components/CollectionPickerDialog";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
@@ -733,51 +734,50 @@ export default function WatchlistPage() {
         <section className="px-4 md:px-8 mt-4 relative z-10">
           <ErrorBoundary>
             {myList.length === 0 || (inCollectionView && activeCollection.itemIds.length === 0) ? (
-              <div style={{ padding: "5rem 0", textAlign: "center", color: "#a1a1aa" }}>
-                <div style={{ marginBottom: "1.25rem" }}>
-                  {inCollectionView ? (
-                    <FolderOpen size={48} strokeWidth={1.3} style={{ opacity: 0.2, margin: "0 auto" }} />
+              <EmptyState
+                icon={
+                  inCollectionView ? (
+                    <FolderOpen size={36} strokeWidth={1.5} color="#52525b" />
                   ) : (
-                    <Bookmark size={48} strokeWidth={1.3} style={{ opacity: 0.2, margin: "0 auto" }} />
-                  )}
-                </div>
-                <h2 style={{ color: "#fff", marginBottom: "0.5rem", fontSize: "1.35rem" }}>
-                  {inCollectionView ? "This collection is empty" : "Your list is empty"}
-                </h2>
-                <p style={{ margin: "0 auto 1.5rem", maxWidth: "24rem", lineHeight: 1.6 }}>
-                  {inCollectionView
+                    <Bookmark size={36} strokeWidth={1.5} color="#52525b" />
+                  )
+                }
+                title={inCollectionView ? "This collection is empty" : "Your list is empty"}
+                description={
+                  inCollectionView
                     ? `Add some of your saved titles to start filling "${activeCollection.name}".`
-                    : "Add movies and series to your list to save them for later."}
-                </p>
-                {inCollectionView ? (
-                  <button
-                    type="button"
-                    className={ACCENT_PILL}
-                    onClick={() => setAddTitlesOpen(true)}
-                  >
-                    <Plus size={16} /> Add Titles
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className={ACCENT_PILL}
-                    onClick={() => navigate("/")}
-                  >
-                    <Bookmark size={16} /> Discover Content
-                  </button>
-                )}
-              </div>
+                    : "Add movies and series to your list to save them for later."
+                }
+                actions={
+                  inCollectionView ? (
+                    <button
+                      type="button"
+                      className={ACCENT_PILL}
+                      onClick={() => setAddTitlesOpen(true)}
+                    >
+                      <Plus size={16} /> Add Titles
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className={ACCENT_PILL}
+                      onClick={() => navigate("/")}
+                    >
+                      <Bookmark size={16} /> Discover Content
+                    </button>
+                  )
+                }
+              />
             ) : filteredAndSortedList.length === 0 ? (
-              <div style={{ padding: "5rem 0", textAlign: "center", color: "#a1a1aa" }}>
-                <h2 style={{ color: "#fff", marginBottom: "0.5rem", fontSize: "1.35rem" }}>
-                  No titles found
-                </h2>
-                <p>
-                  {searchQuery
+              <EmptyState
+                icon="search"
+                title="No titles found"
+                description={
+                  searchQuery
                     ? `No saved titles match "${searchQuery}".`
-                    : "No items match this filter."}
-                </p>
-              </div>
+                    : "No items match this filter."
+                }
+              />
             ) : (
               <>
                 <div className="discovery-grid">

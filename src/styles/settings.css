@@ -228,15 +228,6 @@
     left: 1rem;
   }
 
-  .collection-empty {
-    min-height: 21rem;
-    padding: 3rem 1.25rem;
-  }
-
-  .collection-empty .btn {
-    width: min(100%, 19rem);
-  }
-
   .card-remove-button {
     width: 2.15rem;
     height: 2.15rem;
