@@ -7,6 +7,13 @@
 
  ## Done (in order)
 
+- [x] **Player chrome: the settings button's "different background" removed (user: "the player buttons have black blur pill bg; when i open settings, the settings button bg differs") — 2026-10-14.** Not committed (no push requested).
+  - **The gear itself was never the bug.** Verified in a headless-Chrome (CDP) replica: `IconBtn`'s own `background` is transparent in every state, and a real mouse click moves focus to the panel, so the gear never matches `:focus-visible`. The only per-state paint it had left was the `::before` hover/focus disc (`rgba(255,255,255,0.14)`), so an open, still-hovered gear read as a second lighter pill beside its un-hovered siblings.
+  - **Fix 1 — no disc on an open control.** `player.css` zeroes `.np-icon-btn[aria-expanded="true"]::before` (`!important`, so it also beats the reduced-motion hover rule). `playerA11y` still passes: the state is carried by `aria-expanded`, not the paint.
+  - **Fix 2 — the panel matches the pills.** `theme.js` `GLASS_BG 0.8 → 0.62`, `GLASS_BG_STRONG 0.84 → 0.7`, hue `rgba(28,28,28,…) → rgba(0,0,0,…)`: the settings panel/cards were zinc-gray next to the black `rgba(0,0,0,0.42)` pills.
+  - **Fix 3 — the transport no longer darkens.** The panel's full-frame dim (`NativePlayerView.jsx`, `rgba(0,0,0,0.55)`, zIndex 5) sat ABOVE the bottom chrome (zIndex 4), darkening every pill. `BottomChrome` is now zIndex 6, above the dim (and before `PlayerPanel`, also 6, so the panel still layers on top). The picture still dims and tap-to-close still works.
+  - **Verified.** CDP replica: with the new rule the open gear's `::before` opacity stays 0 while hovered and its own bg is transparent. `npm run lint` 0 errors; `npm run test` 84/84 files, 1091/1091; `npm run build` clean; touched files CRLF/no BOM.
+
 - [x] **ZXC discovery survives a GROWN provider chunk + a Vercel Cron watchdog (user: "fix and push" + "also use pat and push") — 2026-10-14.** Committed `3dd9c9e` and pushed to main.
   - **Why the daily job went red.** The provider's contract chunk (`3cc5q1c06kn_d.js`) is unchanged in content (`/backend/scrapeurfckingmom` + the same params) but GREW past the 1.5MB text cap to 1,819,459 bytes. `server/net.js` `fetchUpstream` rejected every chunk fetch with "upstream response too large", so BOTH the runtime self-heal and the daily sync derived `null`; the daily GitHub Action then exited 1 on unverifiable playback.
   - **Fix.** `fetchUpstream` gained a per-call `maxTextBytes` (default still 1.5MB); `api/stream.js` discovery alone asks for `ZXC_CHUNK_MAX_BYTES` (4MB) for the bundle. The global cap and every other caller are untouched.

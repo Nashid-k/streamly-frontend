@@ -4,7 +4,8 @@
 // tokens or the app's brand accent. The design this matches (NEW PLAYER
 // UI-UX.html, 2026-10-08) uses a YouTube idiom: red #f03 played/active marks,
 // filled white control glyphs, translucent black rounded pills, a floating
-// zinc settings menu, and custom hover tooltips with keyboard badges.
+// black settings menu (same black glass family as the pills), and custom hover
+// tooltips with keyboard badges.
 //
 // Values are plain strings because the chrome is styled with inline objects
 // (the engine owns no CSS layer for these nodes). Motion, hover and
@@ -28,10 +29,12 @@ export const TEXT_DIM = "rgba(255,255,255,0.62)";
 export const PILL_BG = "rgba(0,0,0,0.42)";
 export const PILL_BG_HOVER = "rgba(0,0,0,0.55)";
 
-// Glass materials (softened from 0.88/0.92 so the panel/cards are a little more
-// see-through; the blur keeps text legible).
-export const GLASS_BG = "rgba(28,28,28,0.8)";
-export const GLASS_BG_STRONG = "rgba(28,28,28,0.84)";
+// Glass materials. Black, so the settings panel/cards sit in the same family as
+// the translucent black pills instead of reading as a separate zinc material.
+// More opaque than the pills (0.42) because these surfaces carry rows of text,
+// not a single glyph; the blur keeps them legible over the picture.
+export const GLASS_BG = "rgba(0,0,0,0.62)";
+export const GLASS_BG_STRONG = "rgba(0,0,0,0.7)";
 export const GLASS_BORDER = "rgba(255,255,255,0.16)";
 export const GLASS_BLUR = "blur(12px)";
 

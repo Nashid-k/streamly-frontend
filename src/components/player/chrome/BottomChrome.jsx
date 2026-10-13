@@ -112,7 +112,12 @@ export default function BottomChrome({
         paddingBottom: SAFE_BOTTOM,
         background: "linear-gradient(0deg, rgba(0,0,0,0.68) 0%, rgba(0,0,0,0.28) 52%, rgba(0,0,0,0) 100%)",
         pointerEvents: visible ? "auto" : "none",
-        zIndex: 4,
+        // Above the panel's full-frame dim (zIndex 5 in NativePlayerView): the
+        // dim darkens the picture so the panel rows read, but the transport
+        // pills must keep their own black and stay the same colour with or
+        // without a sheet open. (The panel itself is zIndex 6 and is painted
+        // after this node, so it still layers on top.)
+        zIndex: 6,
       }}
     >
       {/* Scrubber: a bare full-width line, red played, white track/buffered. */}

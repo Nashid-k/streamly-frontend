@@ -354,6 +354,15 @@
   opacity: 1;
   transform: scale(1);
 }
+/* An open disclosure control (the settings/subs/episodes button while its panel
+   is up) must NOT also wear the hover disc. The disc is a hover affordance; with
+   a panel open it read as a second, lighter pill sitting beside the un-hovered
+   siblings — the "why does the settings button change colour" report. The panel
+   itself is the state signal; `aria-expanded` still carries "it is open" for a11y
+   (playerA11y asserts the attribute, not the paint). */
+.np-icon-btn[aria-expanded="true"]::before {
+  opacity: 0 !important;
+}
 .np-icon-btn:hover:not(:disabled) {
   transform: scale(1.1);
 }
