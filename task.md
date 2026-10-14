@@ -7,6 +7,10 @@
 
  ## Done (in order)
 
+- [x] **Disabled Play on unreleased titles (`1030884`) — 2026-10-14.** Pushed to main.
+  - On the title-details page the primary Play/Resume button is now `disabled` (with an `opacity-45 cursor-not-allowed` state) whenever `isUnreleased(movie.releaseDate)` is true, so a not-yet-released title can no longer open the player. The inline "Not released yet · Available <date>" badge is now the info trigger that opens the existing notice dialog, which keeps the page's `MotionFade` + `L.Modal` adoption (so `motion.test.js`'s big-page dialog gate still passes).
+  - Gates: oxlint 0 errors; `npm run test` 84/84 files, 1091/1091; `npm run build` clean; touched file CRLF, no BOM.
+
 - [x] **UI consistency sweep, part 2 — remaining hand-rolled page states (`5a504c1`) — 2026-10-14.** Pushed to main.
   - `TitleDetailsPage` "Title not found" and "No episodes found for Season N", `PersonDetailsPage` "Actor not found", and `CategoryPage`'s collection-not-found + empty-grid notice now render through `EmptyState`; `DiscoveryPage`'s empty upcoming rail is a compact `EmptyState`. The now-unused `.person-page__missing` rule was removed from `settings.css`.
   - **Gates.** oxlint 0 errors (pre-existing warnings only); `npm run test` 84/84 files, 1091/1091; `npm run build` clean; touched files verified CRLF, no BOM.
