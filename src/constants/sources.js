@@ -62,8 +62,15 @@ import { streamResolve } from "../api/streamResolve";
    is `ZXC_MINT_PATH` in `api/stream.js`, re-discovered from the shipped embed
    chunk by the procedure recorded next to it.
 
-   Centaurus leads because it is the only row with real multi-language audio AND
-   verified bytes, which is why it is also `DEFAULT_SOURCE_KEY`.
+   The order below MATCHES the provider's own roster (its shipped `SERVERS`
+   array, read 2026-10-14: Orion, Andromeda, Centaurus, Atlas, Ursa). It is not
+   arbitrary — the provider's Server 1 is Orion, and OUR Server 1 must be the
+   same backend so a viewer's "Server 1" means the same thing on both sites. The
+   provider rotates this order, so it is also re-derived at runtime server-side
+   (see `parseZxcRoster` in api/stream.js); when it moves, reorder here to match.
+
+   Centaurus (multi-audio) used to lead; on 2026-10-14 its delivery host began
+   answering HTTP 427 while Orion's multi-audio DASH stayed up, so Orion leads.
 
    Server 5 (VidRack) was removed on 2026-10-04 after being measured dead: every
    ladder it published was AES-128 and the key host (`api.dlproxy.com`) answers
@@ -82,49 +89,69 @@ import { streamResolve } from "../api/streamResolve";
    tokens. */
 export const PLAYER_SOURCES = [
   /* The five ZXC/VIDSTUCK backends, each kept as its OWN row so the Servers menu
-     can target one directly instead of auto-rotation racing to a winner. Two of
-     them ship DASH, which the server transcodes to an HLS fMP4 master (no remux,
-     no per-byte work) so hls.js can ABR and mux just like native HLS. Orion
-     (multi-audio, like centaurus) was read off the CURRENT embed chunk
-     (`gN.SERVERS`) — the older chunk only listed four, the roster rotates. */
+     can target one directly instead of auto-rotation racing to a winner. Kept in
+     the provider's own order, so "Server 1" means the same backend here as on
+     the provider's site. Some rows ship DASH, which the server transcodes to an
+     HLS fMP4 master (no remux, no per-byte work) so hls.js can ABR and mux just
+     like native HLS; which rows are DASH/HLS and which carry multi-audio is read
+     from each response, not frozen here. */
   {
-    key: "zxc-centaurus",
+    key: "zxc-orion",
     label: "Server 1",
     tag: "Multi audio · up to 1080p",
-    provider: "ZXC Centaurus",
-    resolve: (a, o) => streamResolve.resolveZxc({ ...a, server: "centaurus" }, o),
+    provider: "ZXC Orion",
+    server: "orion",
+    resolve: (a, o) => streamResolve.resolveZxc({ ...a, server: "orion" }, o),
   },
   {
     key: "zxc-andromeda",
     label: "Server 2",
     tag: "Original audio · up to 1080p",
     provider: "ZXC Andromeda",
+    server: "andromeda",
     resolve: (a, o) => streamResolve.resolveZxc({ ...a, server: "andromeda" }, o),
   },
   {
-    key: "zxc-atlas",
+    key: "zxc-centaurus",
     label: "Server 3",
+    tag: "Multi audio · up to 1080p",
+    provider: "ZXC Centaurus",
+    server: "centaurus",
+    resolve: (a, o) => streamResolve.resolveZxc({ ...a, server: "centaurus" }, o),
+  },
+  {
+    key: "zxc-atlas",
+    label: "Server 4",
     tag: "Original audio · one quality",
     provider: "ZXC Atlas",
+    server: "atlas",
     resolve: (a, o) => streamResolve.resolveZxc({ ...a, server: "atlas" }, o),
   },
   {
     key: "zxc-meow",
-    label: "Server 4",
+    label: "Server 5",
     tag: "Original audio · up to 1080p",
     provider: "ZXC Ursa",
-resolve: (a, o) => streamResolve.resolveZxc({ ...a, server: "meow" }, o),
-  },
-  {
-    key: "zxc-orion",
-    label: "Server 5",
-    tag: "Multi audio · up to 1080p",
-    provider: "ZXC Orion",
-    resolve: (a, o) => streamResolve.resolveZxc({ ...a, server: "orion" }, o),
+    server: "meow",
+    resolve: (a, o) => streamResolve.resolveZxc({ ...a, server: "meow" }, o),
   },
 ];
 
-export const DEFAULT_SOURCE_KEY = "zxc-centaurus";
+export const DEFAULT_SOURCE_KEY = "zxc-orion";
+
+/* The automatic rotation's mount. When the viewer has NOT picked a row, the
+   player resolves through THIS instead of walking the five rows above: the
+   server picks the healthiest backend and falls through in ONE round trip.
+   `key` is a sentinel (never in PLAYER_SOURCES, so it never shows in the menu);
+   after a resolve the player re-derives the REAL row from the server the
+   backend chose (`sourceByServer`), so the Servers menu still reflects truth. */
+export const AUTO_SOURCE = {
+  key: "__auto__",
+  label: "Auto",
+  tag: "Best available",
+  provider: "ZXC auto",
+  resolve: (a, o) => streamResolve.resolveZxc({ ...a, auto: true }, o),
+};
 
 /* Every live server label, in menu order. A saved `serverOrder` from before a
    retirement can still name a row that no longer exists (Server 6/7 = VidSrc,
@@ -138,6 +165,15 @@ export const PLAYER_SOURCE_LABELS = Object.freeze(PLAYER_SOURCES.map((s) => s.la
 export function sourceByKey(key) {
   if (!key) return null;
   return PLAYER_SOURCES.find((s) => s.key === key) || null;
+}
+
+/* Look a source up by the PROVIDER's own server name (the value the resolver
+   echoes back after an automatic resolve). Lets the player map "the backend
+   chose andromeda" back onto the Server 2 row so the Servers menu highlights
+   the row that is actually playing. Null for an unknown/absent name. */
+export function sourceByServer(server) {
+  if (!server) return null;
+  return PLAYER_SOURCES.find((s) => s.server === server) || null;
 }
 
 /* Display label for a key, with an explicit fallback. Never throws and never

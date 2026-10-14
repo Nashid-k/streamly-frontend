@@ -48,7 +48,9 @@ import {
 import {
   PLAYER_SOURCES,
   DEFAULT_SOURCE_KEY,
+  AUTO_SOURCE,
   sourceByKey,
+  sourceByServer,
   sourceLabel,
 } from "../constants/sources";
 import {
@@ -455,6 +457,11 @@ export default function NativePlayerView({
      earlier version that dimmed and blurred it during a stall read as a broken
      player (see the note at the spinner). So a stall keeps the light overlay. */
   const [stageWhileLoading, setStageWhileLoading] = useState(true);
+  // True until the very first frame plays. Drives the START loader only: the
+  // horizontal sweep belongs to the initial cold open (the player is booting),
+  // while every later cold stage — a server/quality/dub switch, an episode
+  // change — keeps the round Tailspin ring.
+  const [everPlayed, setEverPlayed] = useState(false);
   // Set by a server switch, cleared when frames return; null means a cold open.
   const [switchingNote, setSwitchingNote] = useState(null);
   // Transient honest note for a quality pick the player must refuse (e.g. while
@@ -1287,6 +1294,7 @@ setScrubDragging(true);
     if (!video) return undefined;
     const onPlay = () => {
       hasStartedRef.current = true;
+      setEverPlayed(true);
       setPlaying(true);
       setBuffering(false);
       if (navigator.mediaSession) navigator.mediaSession.playbackState = "playing";
@@ -1889,22 +1897,29 @@ setScrubDragging(true);
       // One pass at a source: true = settled (caller stops), false = transient (retryable
       // warm-up/empty/flaky), "off" = terminal (the provider doesn't have this title).
       const runSourceOnce = async (defArg) => {
-        // Auto rotation walks PLAYER_SOURCES in order; a Servers-menu pick overrides
-        // it for one pass (stale().guards everything as usual).
-        const def = defArg || PLAYER_SOURCES.find((s) => s.key === requestedServerRef.current) || null;
+        // Auto rotation resolves through AUTO_SOURCE (the backend picks the
+        // healthiest server in one round trip); a Servers-menu pick overrides it
+        // for one pass (stale() guards everything as usual).
+        let def = defArg || PLAYER_SOURCES.find((s) => s.key === requestedServerRef.current) || null;
         if (!def) return false;
         let resolved = null;
         try {
           // Warm-resolve handover (PLAN.md P0.4): the details page may have
-          // pre-minted the default server's token while the viewer read the
-          // synopsis — consume it instead of re-paying the resolve leg. The
-          // handover is one-shot and refuses any non-default server pick (a
-          // manual pick must resolve THAT server, not a VidCore warm token).
+          // pre-minted the token while the viewer read the synopsis — consume it
+          // instead of re-paying the resolve leg. The handover is one-shot and
+          // refuses ANY manual server pick (a pick must resolve THAT server, not
+          // a warm token minted for the auto path).
           const warm = takeWarmResolve(args, { sourceKey: requestedServerRef.current });
           resolved = warm || (await def.resolve(args, { signal: controller.signal }));
         } catch (error) {
           if (error?.code === "no-source") return "off";
           return false;
+        }
+        // Automatic resolve: the backend chose the real server and echoed it —
+        // map it back onto its row so the label, the Servers-menu highlight and
+        // any token-refresh retry all speak about the server actually playing.
+        if (def.key === AUTO_SOURCE.key) {
+          def = sourceByServer(resolved?.server) || def;
         }
         let variants = resolved?.variants || [];
         if (variants.length === 0) {
@@ -2271,16 +2286,16 @@ setScrubDragging(true);
       };
 
       // A Servers-menu pick plays ONLY that server (its own retry + token-
-      // refresh machinery still applies); the auto rotation is the no-pick
-      // path. Silently falling back to another provider would lie about what
-      // the viewer chose — the fatal message points at the Servers menu.
+      // refresh machinery still applies). The no-pick path resolves through
+      // AUTO_SOURCE: the server walks its health-ordered backends in ONE round
+      // trip, so a dead Server 1 no longer costs the viewer four more client
+      // requests before playback. Silently falling back to another provider on
+      // an explicit pick would lie about what the viewer chose — the fatal
+      // message points at the Servers menu instead.
       if (requestedServerRef.current) {
         if (await runSource(null)) return;
-      } else {
-        for (const def of PLAYER_SOURCES) {
-          if (stale()) return;
-          if (await runSource(def)) return;
-        }
+      } else if (await runSource(AUTO_SOURCE)) {
+        return;
       }
       if (stale()) return;
       setStatus("error");
@@ -3231,6 +3246,7 @@ const showSkipOutro = shouldShowSkipOutro({
         <CenterStack
           showStage={showStage}
           stageNote={stageNote}
+          stageInitial={!everPlayed}
           displayTitle={displayTitle}
           backdropUrl={backdropUrl}
           posterUrl={posterUrl}

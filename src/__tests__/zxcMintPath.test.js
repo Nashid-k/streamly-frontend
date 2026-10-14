@@ -23,7 +23,7 @@
 // Hermetic: fetch is stubbed, no test may reach a provider.
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-const { default: handler, clearZxcMpdCache, clearZxcTitleMetaCache, describeZxcContractChange } = await import("../../api/stream.js");
+const { default: handler, clearZxcMpdCache, clearZxcTitleMetaCache, describeZxcContractChange, parseZxcRoster } = await import("../../api/stream.js");
 
 /* The current mint path. If upstream renames it again, the failure is a 404 HTML
    page on every row; update this constant and ZXC_MINT_PATH together. */
@@ -159,6 +159,57 @@ describe("ZXC metadata is mandatory, not advisory", () => {
   });
 });
 
+describe("ZXC roster discovery (self-healing server order)", () => {
+  // The provider's shipped client bundle carries its OWN ordered roster as the
+  // webpack export `["SERVERS",0,[…]]` (read live off chunk `2xxoeiej0kf6r.js`
+  // on 2026-10-14; Orion leads, Ursa's path is `meow`). We read it so the menu
+  // order, the default, and the auto rotation follow the provider instead of a
+  // stale hand-copied seed.
+  const liveChunk =
+    '16508,e=>{"use strict";e.s(["SERVERS",0,['
+    + '{name:"Orion",status:"queue",server:"orion",desc:"Multi Audio Support",dubSupport:!0,sources:[]},'
+    + '{name:"Andromeda",status:"queue",server:"andromeda",desc:"Smooth Playback & HD",dubSupport:!1,sources:[]},'
+    + '{name:"Centaurus",status:"queue",server:"centaurus",desc:"Multi Audio Support",dubSupport:!0,sources:[]},'
+    + '{name:"Atlas",status:"queue",server:"atlas",desc:"Alternative",dubSupport:!1,sources:[]},'
+    + '{name:"Ursa",status:"queue",server:"meow",desc:"Alternative",dubSupport:!1,sources:[]}'
+    + "]])}";
+
+  it("reads the ordered roster with its dubSupport flags", () => {
+    const roster = parseZxcRoster([liveChunk]);
+    expect(roster).toEqual([
+      { name: "Orion", server: "orion", dubSupport: true },
+      { name: "Andromeda", server: "andromeda", dubSupport: false },
+      { name: "Centaurus", server: "centaurus", dubSupport: true },
+      { name: "Atlas", server: "atlas", dubSupport: false },
+      { name: "Ursa", server: "meow", dubSupport: false },
+    ]);
+  });
+
+  it("keeps each entry inside its own object even if a field is missing", () => {
+    // A malformed first entry (no dubSupport) must not swallow the second one's.
+    const chunk = 'e.s(["SERVERS",0,[{name:"Ghost",status:"queue",server:"ghost",desc:"x"},'
+      + '{name:"Orion",status:"queue",server:"orion",dubSupport:!0},'
+      + '{name:"Atlas",status:"queue",server:"atlas",dubSupport:!1}]])';
+    const roster = parseZxcRoster([chunk]);
+    // The broken entry is skipped; the two well-formed ones survive in order.
+    expect(roster).toEqual([
+      { name: "Orion", server: "orion", dubSupport: true },
+      { name: "Atlas", server: "atlas", dubSupport: false },
+    ]);
+  });
+
+  it("returns null (keep the seed) unless at least two servers parse", () => {
+    expect(parseZxcRoster(['e.s(["SERVERS",0,[{name:"Orion",server:"orion",dubSupport:!0}]])'])).toBeNull();
+    expect(parseZxcRoster(["no roster here at all"])).toBeNull();
+    expect(parseZxcRoster([null, 42, {}])).toBeNull();
+  });
+
+  it("scans past a chunk that does not carry the roster", () => {
+    const roster = parseZxcRoster(["self.webpackChunk=1", liveChunk]);
+    expect(roster?.[0]).toEqual({ name: "Orion", server: "orion", dubSupport: true });
+  });
+});
+
 describe("ZXC contract change description (auto-sync commit messages)", () => {
   const contract = () => ({
     mintPath: "/backend/aaa",
@@ -220,12 +271,14 @@ describe("ZXC MPD cache", () => {
     }));
   });
 
-  it("caches the MPD so a second resolve skips the redundant mint+servers+MPD", async () => {
-    // First resolve: zxcServerLinks (1 mint) + zxcDashManifest (1 mint + 1 MPD) = 2 mints.
+  it("does one mint+servers per resolve and caches the MPD across resolves", async () => {
+    // The DASH path reuses the links the resolve already fetched, so a resolve
+    // pays mint+servers ONCE instead of twice.
     const r1 = await resolve({ server: "centaurus" });
     expect(r1.ok).toBe(true);
-    const mintsAfterFirst = requests.filter((u) => u.includes(MINT_PATH)).length;
-    expect(mintsAfterFirst).toBe(2);
+    expect(requests.filter((u) => u.includes(MINT_PATH)).length).toBe(1);
+    expect(requests.filter((u) => u.includes("/backend/servers/")).length).toBe(1);
+    expect(requests.filter((u) => u.includes(DASH_URL)).length).toBe(1);
 
     // Reset request tracker but NOT the cache — the second resolve should reuse
     // the cached MPD.
@@ -234,23 +287,21 @@ describe("ZXC MPD cache", () => {
     // Second resolve of the SAME title: zxcDashManifest hits the cache.
     const r2 = await resolve({ server: "centaurus" });
     expect(r2.ok).toBe(true);
-    const mintsAfterSecond = requests.filter((u) => u.includes(MINT_PATH)).length;
-    // Only the servers-lookup mint ran; the zxcDashManifest mint was cached.
-    expect(mintsAfterSecond).toBe(1);
+    // Only the servers-lookup mint ran; the manifest is cached.
+    expect(requests.filter((u) => u.includes(MINT_PATH)).length).toBe(1);
     // No redundant MPD fetch.
     expect(requests.filter((u) => u.includes(DASH_URL)).length).toBe(0);
   });
 
-  it("re-fetches after the cache is cleared (TTL expiry path)", async () => {
-    clearZxcMpdCache();
+  it("re-fetches the MPD after the cache is cleared (TTL expiry path)", async () => {
     await resolve({ server: "centaurus" });
-    expect(requests.filter((u) => u.includes(MINT_PATH)).length).toBe(2);
+    expect(requests.filter((u) => u.includes(DASH_URL)).length).toBe(1);
 
     requests = [];
     clearZxcMpdCache();
     await resolve({ server: "centaurus" });
-    // Cache was cleared — both mints should be fresh again.
-    expect(requests.filter((u) => u.includes(MINT_PATH)).length).toBe(2);
+    // Cache was cleared — the manifest is fetched again.
+    expect(requests.filter((u) => u.includes(DASH_URL)).length).toBe(1);
   });
 
   it("keeps separate cache entries per dub", async () => {
@@ -270,8 +321,9 @@ describe("ZXC MPD cache", () => {
     const mintsAfterFirst = requests
       .filter((u) => u.includes(MINT_PATH) && !u.includes("/backend/servers/"))
       .length;
-    // 1 servers-lookup mint + 1 main-manifest dub + 2 dub manifests = 4 mints.
-    expect(mintsAfterFirst).toBe(4);
+    // 1 servers-lookup mint + 2 dub manifests = 3: the main manifest reuses the
+    // prefetched links instead of minting a second time.
+    expect(mintsAfterFirst).toBe(3);
 
     requests = [];
     const r2 = await resolve({ server: "centaurus" });

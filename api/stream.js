@@ -139,21 +139,27 @@ const MAX_REQUEST_BODY_BYTES = 512 * 1024;
       derivation, and it is the only reason this works — the ciphertext is
       opaque without it.
 
-   The four servers, and why they need different handling:
-     · andromeda / centaurus -> `type: "dash"`. MPD, not HLS. Transcoded to an
-       fMP4 HLS ladder by server/dashToHls.js (manifest only — no media bytes
-       are re-encoded, the segments are already CMAF).
-     · atlas  -> `type: "hls"` behind vidstuck's own `/backend/servers/atlas/edge`
-       relay, so its relative `link` must be resolved against the origin.
-     · meow    -> `type: "hls"` direct off a Cloudflare worker. This row is
-       "Ursa" upstream and REPLACES the retired `milkyway`, whose manifest answers
-       403 through this function and so could never play.
+   The servers, and why they need different handling — READ FROM EACH RESPONSE,
+   never a frozen list (the provider re-points servers without notice; on
+   2026-10-14 it moved Orion from HLS to a DASH relay and left Centaurus on a
+   dead `*.workers.dev` delivery host):
+     · `type: "dash"` -> an MPD, not HLS. Transcoded to an fMP4 HLS ladder by
+       server/dashToHls.js (manifest only — no media bytes are re-encoded, the
+       segments are already CMAF). Current DASH rows: orion, andromeda — and
+       centaurus while its host is up.
+     · `type: "hls"` -> either behind vidstuck's own `/backend/servers/{path}/edge`
+       relay (so a relative `link` must be resolved against the origin) or a
+       direct CDN/worker URL. Current HLS rows: atlas, meow (Ursa).
+     · some links arrive as `/backend/database/andromeda?url=…&header=…` — the
+       provider's newer relay shape — and are resolved against the origin the
+       same way.
 
-   MULTI-AUDIO is centaurus-only (`dubSupport`), and it is per-MANIFEST, not
-   per-adaptation-set: `dubCode`/`dubType` swap which language the returned MPD's
-   single audio AdaptationSet carries. That is why dubs ship as SIBLING master
-   URLs (`audioTracks: [{label, uri}]`, the sibling-stream convention the player already
-   implements) instead of `#EXT-X-MEDIA` rows in one master.
+   MULTI-AUDIO is per-MANIFEST, not per-adaptation-set: `dubCode`/`dubType` swap
+   which language the returned MPD's single audio AdaptationSet carries. That is
+   why dubs ship as SIBLING master URLs (`audioTracks: [{label, uri}]`, the
+   sibling-stream convention the player already implements) instead of
+   `#EXT-X-MEDIA` rows in one master. Which servers CAN carry dubs is read from
+   the response's own `dubs` array, not a frozen `dubSupport` list.
 
    Honesty gates: the advertised `dubs`
    list overstates reality. Verified live against tmdb 1101383 — `hi` and `ta`
@@ -201,21 +207,100 @@ const ZXC_LATEST_DATE_PARAM = "e92c543416ad739e5814b3027";
 const ZXC_LINK_KEY = "7f4c9e2a81d63b05c4f7a9e8126d3b50e1a8c7f23d9465ab0c6e9f1d4a7b832c";
 
 /* Upstream's own server list, read off the CURRENT shipped embed chunk
-   (module 53557 `gN.SERVERS`, re-verified 2026-10-05): Orion "Multi Audio
-   Support" (`dubSupport`), Andromeda "Smooth Playback & HD", Centaurus
-   "Multi Audio Support" (`dubSupport`), Atlas "Alternative", and Ursa
-   "Alternative" — whose PATH is literally `meow`. `milkyway` is GONE: it is
-   no longer in their list and its manifest answers 403 through our function
-   ("manifest unreadable: Upstream 403"), so it was dropped rather than left
-   as a row that can never play. An older chunk variant listed only
-   andromeda/centaurus/atlas/milkyway (no orion) — the roster ROTATES, so a
-   simultaneous all-row failure is the mint path, but a single-row failure
-   can be a rotated server name: re-read `gN.SERVERS` first. */
-const ZXC_SERVERS = ["andromeda", "centaurus", "atlas", "meow", "orion"];
-// The servers that answer with a DASH manifest, and the ones that carry dubs
-// (both `dubSupport` rows in the current chunk).
-const ZXC_DASH_SERVERS = new Set(["andromeda", "centaurus"]);
-const ZXC_DUB_SERVERS = new Set(["centaurus", "orion"]);
+   (`gN.SERVERS`, re-verified 2026-10-14): Orion "Multi Audio Support"
+   (`dubSupport`), Andromeda "Smooth Playback & HD", Centaurus "Multi Audio
+   Support" (`dubSupport`), Atlas "Alternative", and Ursa "Alternative" —
+   whose PATH is literally `meow`. `milkyway` is GONE (retired upstream).
+
+   THE ORDER IS THE PROVIDER'S OWN, and it MATTERS: their Server 1 is Orion,
+   not Centaurus. This list is the menu order, the default, and the
+   auto-rotation's tie-break. Reorder it whenever `gN.SERVERS` reorders — a
+   row whose delivered host is down should never sit at position 1.
+
+   The roster ROTATES and a single row can be renamed/removed, so the live
+   roster is RE-DERIVED from the shipped chunk at runtime (see
+   `parseZxcRoster`); this constant is only the truthful seed used before the
+   first discovery and offline. `dubSupport` is likewise read per request from
+   the servers payload (`data.dubs`), not frozen here. */
+const ZXC_ROSTER_SEED = [
+  { name: "Orion", server: "orion", dubSupport: true },
+  { name: "Andromeda", server: "andromeda", dubSupport: false },
+  { name: "Centaurus", server: "centaurus", dubSupport: true },
+  { name: "Atlas", server: "atlas", dubSupport: false },
+  { name: "Ursa", server: "meow", dubSupport: false },
+];
+const ZXC_SERVERS = ZXC_ROSTER_SEED.map((r) => r.server);
+
+/* ── Per-server health → fast automatic failover ────────────────────────
+   Resolving a DEAD server costs a full metadata → mint → servers → manifest
+   round trip (measured 2–4s against the live provider) before the player can
+   fall through to a live one. When a provider delivery host fails HARD — its
+   own HTTP 4xx/5xx (the current centaurus/`zxcstream.*.workers.dev` 427 is the
+   motivating case) or a network/abort error — the server is remembered for a
+   short cooldown so the ROTATION skips it (and an explicit pick fails
+   instantly) instead of making the viewer wait on a backend we already know is
+   down. Any success clears the mark. Module-level on purpose: one warm
+   function instance serves many viewers, so the first failure of the minute
+   spares everyone after it. A soft miss (the server is up but simply has no
+   source for this title) must NOT cool a server, or one obscure title would
+   sideline a healthy backend; only a hard transport failure counts. */
+const ZXC_SERVER_COOLDOWN_MS = 90_000;
+// How many HARD failures the auto path tolerates before giving up. Soft misses
+// (server up, title absent) never count — those walk the whole fleet, because
+// the title may simply live on a later server.
+const ZXC_AUTO_MAX_HARD_FAILS = 3;
+const zxcServerHealth = new Map(); // server -> { failUntil, lastOk }
+
+function noteZxcServer(server, ok) {
+  const prev = zxcServerHealth.get(server);
+  if (ok) {
+    zxcServerHealth.set(server, { failUntil: 0, lastOk: Date.now() });
+    return;
+  }
+  zxcServerHealth.set(server, { failUntil: Date.now() + ZXC_SERVER_COOLDOWN_MS, lastOk: prev?.lastOk || 0 });
+}
+
+function zxcServerCooling(server) {
+  return (zxcServerHealth.get(server)?.failUntil || 0) > Date.now();
+}
+
+/* The live roster's server names, in the provider's own order — the live
+   chunk's `SERVERS` when discovery has run, else the seed. This is the single
+   source for valid server names, the menu order, the default, and the
+   rotation's tie-break. */
+function zxcServerNames() {
+  const roster = zxcContract.roster?.length ? zxcContract.roster : ZXC_ROSTER_SEED;
+  return roster.map((r) => r.server);
+}
+
+/* Healthy first, then most-recently-successful, then the provider's own roster
+   order — so with every backend equally healthy the no-pick path lands on the
+   provider's Server 1 (Orion's multi-audio) rather than any dead row. */
+function orderZxcServers() {
+  const names = zxcServerNames();
+  return [...names].sort((a, b) => {
+    const ca = zxcServerCooling(a) ? 1 : 0;
+    const cb = zxcServerCooling(b) ? 1 : 0;
+    if (ca !== cb) return ca - cb;
+    const oa = zxcServerHealth.get(a)?.lastOk || 0;
+    const ob = zxcServerHealth.get(b)?.lastOk || 0;
+    if (oa !== ob) return ob - oa;
+    return names.indexOf(a) - names.indexOf(b);
+  });
+}
+
+/* Only a hard transport failure cools a server; a title-shaped miss does not. */
+function isHardZxcFailure(error) {
+  return (
+    Number.isFinite(error?.status) ||
+    error?.name === "AbortError" ||
+    /fetch failed|network|timed out|abort/i.test(String(error?.message || ""))
+  );
+}
+
+export function clearZxcServerHealth() {
+  zxcServerHealth.clear();
+}
 
 /* ── Self-healing mint contract ─────────────────────────────────────────
    The constants above are only a SEED (the last values a human read off the
@@ -241,6 +326,31 @@ let zxcContract = {
   imdbParam: ZXC_IMDB_PARAM,
   latestDateParam: ZXC_LATEST_DATE_PARAM,
 };
+
+/* Parse the provider's OWN server roster (`gN.SERVERS`) out of the shipped
+   chunks: the ordered `{ name, server, dubSupport }` list. This is what makes
+   the roster self-healing — the provider reorders/renames backends (it moved
+   Orion ahead of Centaurus on 2026-10-14) and the seed would otherwise send the
+   default and the rotation at a stale order. Returns null unless at least two
+   servers parse, so a partial read never replaces the seed. */
+export function parseZxcRoster(chunks) {
+  for (const src of chunks) {
+    if (typeof src !== "string") continue;
+    const at = src.indexOf('"SERVERS"');
+    if (at < 0) continue;
+    // Each entry is `{name:"…",status:"…",server:"…",desc:"…",dubSupport:!0|!1,…}`.
+    // `[^}]*?` keeps each match inside ONE object so a missing field cannot spill
+    // into the next server's.
+    const roster = [];
+    for (const m of src.slice(at, at + 2000).matchAll(
+      /\{name:"([^"]+)",[^}]*?server:"([^"]+)"[^}]*?dubSupport:(!0|!1)/g,
+    )) {
+      roster.push({ name: m[1], server: m[2], dubSupport: m[3] === "!0" });
+    }
+    if (roster.length >= 2) return roster;
+  }
+  return null;
+}
 
 /* Parse the param contract out of the shipped client chunks. Returns null unless
    EVERY field resolved — a partial parse must never replace a working contract. */
@@ -319,14 +429,16 @@ export function deriveZxcContractFromChunks(chunks) {
         date: paramOfField.date,
       };
       const complete = Object.values(params).every((v) => typeof v === "string" && v.length > 0);
-      if (complete) {
-        return {
-          mintPath,
-          params,
-          imdbParam: imdbParam || ZXC_IMDB_PARAM,
-          latestDateParam: latestDateParam || ZXC_LATEST_DATE_PARAM,
-        };
-      }
+      if (!complete) continue;
+      return {
+        mintPath,
+        params,
+        imdbParam,
+        latestDateParam,
+        // The live roster rides along so the caller adopts the provider's
+        // current server order/dubs without a second parse pass.
+        roster: parseZxcRoster(chunks),
+      };
     }
   }
   return null;
@@ -855,7 +967,7 @@ function parseZxcPlaylistUrl(rawUrl) {
   const view = url.searchParams.get(ZXC_MARKER.view) || "";
   if (view !== ZXC_VIEW_MASTER && view !== ZXC_VIEW_MEDIA) return null;
   const server = url.searchParams.get(params.path) || "";
-  if (!ZXC_SERVERS.includes(server)) return null;
+  if (!zxcServerNames().includes(server)) return null;
   const type = url.searchParams.get(params.mediaType) === "tv" ? "tv" : "movie";
   const tmdbId = url.searchParams.get(params.tmdbId) || "";
   if (!/^\d{1,12}$/.test(tmdbId)) return null;
@@ -891,13 +1003,17 @@ function parseZxcPlaylistUrl(rawUrl) {
    marker URL replays instead of caching. NOW also caches the parsed MPD
    (see mpdCache above) so rapid parallel playlist loads collapse to one
    upstream trip instead of triggering a provider 429 burst. */
-async function zxcDashManifest(target) {
+async function zxcDashManifest(target, prefetchedLinks) {
   const { meta, dubCode, dubType } = target;
   const key = zxcMpdCacheKey(meta, dubCode, dubType);
   const cached = takeMpdCache(key);
   if (cached) return cached;
 
-  const { links } = await zxcServerLinks(meta, { server: meta.server, dubCode, dubType });
+  // A resolve that already minted + fetched this server's links passes them in
+  // so the DASH path does not pay a SECOND mint + servers round trip (it did,
+  // and both calls are visible in a cold-start trace). Dub verification and
+  // replay call this without a prefetch and fetch their own links.
+  const links = prefetchedLinks || (await zxcServerLinks(meta, { server: meta.server, dubCode, dubType })).links;
   const dash = links.find((l) => l.kind === "dash") || links[0];
   if (!dash?.url) throw new Error("no dash manifest for this server");
   const xml = await fetchUpstream(dash.url, {
@@ -943,10 +1059,13 @@ async function handleZxcPlaylist(rawUrl) {
 }
 
 /* Dubs: sibling masters, each verified by actually minting + transcoding it.
-   Shared by BOTH resolve branches: a dub-support server (orion, centaurus)
-   can hand back HLS links on one title and DASH on the next, and taking the
-   HLS early-return without checking dubs would silently drop Hindi/Tamil
-   tracks the provider does carry. Filter to type-0 (audio). Drop the
+   Shared by BOTH resolve branches: any server whose response carries a `dubs`
+   array (orion and centaurus today) can hand back HLS links on one title and
+   DASH on the next, and taking the HLS early-return without checking dubs would
+   silently drop Hindi/Tamil tracks the provider does carry. The presence of the
+   `dubs` array IS the gate — no frozen dubSupport list — so a server the
+   provider newly endows with dubs is honoured without a code change. Filter to
+   type-0 (audio). Drop the
    "original" row if present (it's the native soundtrack already served by
    the master) to avoid duplicate labels, and also dedupe by (lanCode/type)
    when the provider lists the same pair twice. DO NOT hard-cap to 8: some
@@ -956,7 +1075,7 @@ async function handleZxcPlaylist(rawUrl) {
    winner — dropping an arbitrary first row would silently hide a real dub. */
 async function verifyZxcDubs(meta, server, dubs) {
   const audioTracks = [];
-  if (!ZXC_DUB_SERVERS.has(server) || !Array.isArray(dubs)) return audioTracks;
+  if (!Array.isArray(dubs)) return audioTracks;
   const seen = new Set();
   const originalKey = dubs.find((d) => d?.original && d?.lanCode) || null;
   const originalKeyStr = originalKey ? `${originalKey.lanCode}/${String(originalKey.type ?? "0")}` : null;
@@ -997,67 +1116,27 @@ async function verifyZxcDubs(meta, server, dubs) {
   return audioTracks;
 }
 
-async function handleResolveZxc(body, res) {
-  const type = body.type === "tv" ? "tv" : "movie";
-  const tmdbId = String(body.id || "").trim();
-  if (!/^\d{1,12}$/.test(tmdbId)) {
-    json(res, 400, { ok: false, error: "Invalid TMDB id", code: "bad-id" });
-    return;
-  }
-  const season = String(body.season ?? "").trim();
-  const episode = String(body.episode ?? "").trim();
-  const requested = String(body.server || "").trim().toLowerCase();
-  // An unknown server name is a client bug, not a title problem: answer 400
-  // rather than silently resolving a different server than the viewer picked.
-  if (requested && !ZXC_SERVERS.includes(requested)) {
-    json(res, 400, { ok: false, error: "Unknown ZXC server", code: "bad-server" });
-    return;
-  }
-  const server = requested || "centaurus";
-
-  const refererPath = zxcEmbedPath({ type, tmdbId, season, episode });
-
-  let titleMeta;
-  try {
-    titleMeta = await zxcTitleMeta({ type, tmdbId, refererPath });
-  } catch (error) {
-    // A failed TMDB lookup is OUR upstream failing, not the title being
-    // unstreamable. `upstream` (not `no-source`) so the player can say so
-    // instead of telling the viewer every server has no source for this title.
-    logWarn("zxc", "title metadata lookup failed before resolve", { message: error?.message });
-    json(res, 200, {
-      ok: false,
-      error: `Could not load title details for tmdb ${tmdbId}: ${error?.message || "unknown"}`,
-      code: "upstream",
-    });
-    return;
-  }
-  const meta = {
-    type,
-    tmdbId,
-    season,
-    episode,
-    refererPath,
-    title: titleMeta.title,
-    year: titleMeta.year,
-    date: titleMeta.date,
-    imdbId: titleMeta.imdbId,
-    latestDate: titleMeta.latestDate,
-  };
-
+/* Resolve ONE server and RETURN the outcome (never writes `res`). Splitting the
+   per-server work from the response is what lets the automatic rotation fall
+   through to the next backend while an explicit pick still answers only for the
+   server the viewer chose. `hard` separates a transport failure (the server
+   itself is down → safe to cool) from a title-shaped miss (server is up, this
+   title is absent → never cooled). */
+async function resolveZxcOnServer(meta, server) {
+  const refererPath = meta.refererPath;
+  const refUrl = `${ZXC_ORIGIN}${refererPath}`;
   let data;
   try {
     data = await zxcServerLinks(meta, { server });
   } catch (error) {
-    json(res, 200, {
+    return {
       ok: false,
-      error: `ZXC ${server} returned no stream: ${error?.message || "unknown"}`,
       code: "no-source",
-    });
-    return;
+      error: `ZXC ${server} returned no stream: ${error?.message || "unknown"}`,
+      hard: isHardZxcFailure(error),
+    };
   }
 
-  const refUrl = `${ZXC_ORIGIN}${refererPath}`;
   // Plain-HLS servers hand back MORE THAN ONE link, and they are not a quality
   // ladder: atlas ships two media playlists for the SAME runtime (identical
   // #EXTINF total, different segment granularity and bitrate — measured at
@@ -1067,8 +1146,14 @@ async function handleResolveZxc(body, res) {
   // pick ONE — but we probe them in order and fall through, because a dead
   // first link must not kill a title that has a working mirror behind it.
   const hlsLinks = data.links.filter((l) => l.kind === "hls").slice(0, ZXC_MAX_HLS_LINKS);
+  // DASH vs HLS is decided by what the provider actually sent THIS request, not
+  // by a frozen server list: the provider re-pointed Orion from HLS to a DASH
+  // relay (`/backend/database/andromeda`) on 2026-10-14, and a hardcoded set
+  // would have mis-read its MPD as an HLS playlist. A response carrying any
+  // `type:"dash"` link takes the DASH path; otherwise the HLS branch runs.
+  const hasDash = data.links.some((l) => l.kind === "dash");
 
-  if (!ZXC_DASH_SERVERS.has(server) && hlsLinks.length > 0) {
+  if (!hasDash && hlsLinks.length > 0) {
     let playable = null;
     for (const link of hlsLinks) {
       let text = "";
@@ -1101,51 +1186,54 @@ async function handleResolveZxc(body, res) {
       // dubs (orion does both across titles) — verify and attach them here
       // too, or the HLS early-return below would drop real Hindi/Tamil tracks.
       const audioTracks = await verifyZxcDubs(meta, server, data.dubs);
-      json(res, 200, {
+      return {
         ok: true,
-        source: {
-          kind: "hls",
-          url: link.url,
-          refUrl,
-          multiLevelMaster: levels.length > 1 ? true : undefined,
+        payload: {
+          ok: true,
+          source: {
+            kind: "hls",
+            url: link.url,
+            refUrl,
+            multiLevelMaster: levels.length > 1 ? true : undefined,
+          },
+          variants:
+            levels.length > 0
+              ? levels
+              : [
+                  {
+                    uri: link.url,
+                    bandwidth: 0,
+                    width: 0,
+                    height: link.resolution || 0,
+                    framerate: 0,
+                    codecs: "",
+                    hdr: false,
+                  },
+                ],
+          server,
+          audioTracks,
         },
-        variants:
-          levels.length > 0
-            ? levels
-            : [
-                {
-                  uri: link.url,
-                  bandwidth: 0,
-                  width: 0,
-                  height: link.resolution || 0,
-                  framerate: 0,
-                  codecs: "",
-                  hdr: false,
-                },
-              ],
-        server,
-        audioTracks,
-      });
-      return;
+      };
     }
   }
 
   // DASH servers: the ladder is only real once the MPD has been transcoded, so
   // fetch it here rather than claiming rungs the player would discover broken.
+  // The links just fetched are handed over so this does NOT pay a second mint +
+  // servers round trip for the same server.
   let manifest;
   try {
-    ({ manifest } = await zxcDashManifest({ meta: { ...meta, server }, dubCode: "", dubType: "" }));
+    ({ manifest } = await zxcDashManifest({ meta: { ...meta, server }, dubCode: "", dubType: "" }, data.links));
   } catch (error) {
-    json(res, 200, {
+    return {
       ok: false,
-      error: `ZXC ${server} manifest unreadable: ${error?.message || "unknown"}`,
       code: "no-source",
-    });
-    return;
+      error: `ZXC ${server} manifest unreadable: ${error?.message || "unknown"}`,
+      hard: isHardZxcFailure(error),
+    };
   }
   if (manifest.video.length === 0) {
-    json(res, 200, { ok: false, error: `ZXC ${server} has no video rendition`, code: "no-source" });
-    return;
+    return { ok: false, code: "no-source", error: `ZXC ${server} has no video rendition`, hard: false };
   }
 
   const masterUrl = zxcPlaylistUrl(meta, { server, view: ZXC_VIEW_MASTER });
@@ -1163,14 +1251,109 @@ async function handleResolveZxc(body, res) {
   // (shared helper — same rules as the HLS branch above).
   const audioTracks = await verifyZxcDubs(meta, server, data.dubs);
 
-  json(res, 200, {
+  return {
     ok: true,
-    // A transcoded MPD needs its levels + audio group in ONE url so hls.js can
-    // ABR and mux; the variants list stays for the quality menu.
-    source: { kind: "hls", url: masterUrl, refUrl, multiLevelMaster: true },
-    variants,
-    server,
-    audioTracks,
+    payload: {
+      ok: true,
+      // A transcoded MPD needs its levels + audio group in ONE url so hls.js can
+      // ABR and mux; the variants list stays for the quality menu.
+      source: { kind: "hls", url: masterUrl, refUrl, multiLevelMaster: true },
+      variants,
+      server,
+      audioTracks,
+    },
+  };
+}
+
+async function handleResolveZxc(body, res) {
+  const type = body.type === "tv" ? "tv" : "movie";
+  const tmdbId = String(body.id || "").trim();
+  if (!/^\d{1,12}$/.test(tmdbId)) {
+    json(res, 400, { ok: false, error: "Invalid TMDB id", code: "bad-id" });
+    return;
+  }
+  const season = String(body.season ?? "").trim();
+  const episode = String(body.episode ?? "").trim();
+  const requested = String(body.server || "").trim().toLowerCase();
+  const names = zxcServerNames();
+  // An unknown server name is a client bug, not a title problem: answer 400
+  // rather than silently resolving a different server than the viewer picked.
+  if (requested && !names.includes(requested)) {
+    json(res, 400, { ok: false, error: "Unknown ZXC server", code: "bad-server" });
+    return;
+  }
+  // `auto` (the client's no-pick path) lets the SERVER choose the healthiest
+  // backend and fall through in ONE round trip, instead of the client walking
+  // five rows itself. An explicit pick still resolves ONLY that server.
+  const auto = body.auto === true && !requested;
+
+  const refererPath = zxcEmbedPath({ type, tmdbId, season, episode });
+
+  let titleMeta;
+  try {
+    titleMeta = await zxcTitleMeta({ type, tmdbId, refererPath });
+  } catch (error) {
+    // A failed TMDB lookup is OUR upstream failing, not the title being
+    // unstreamable. `upstream` (not `no-source`) so the player can say so
+    // instead of telling the viewer every server has no source for this title.
+    logWarn("zxc", "title metadata lookup failed before resolve", { message: error?.message });
+    json(res, 200, {
+      ok: false,
+      error: `Could not load title details for tmdb ${tmdbId}: ${error?.message || "unknown"}`,
+      code: "upstream",
+    });
+    return;
+  }
+  const meta = {
+    type,
+    tmdbId,
+    season,
+    episode,
+    refererPath,
+    title: titleMeta.title,
+    year: titleMeta.year,
+    date: titleMeta.date,
+    imdbId: titleMeta.imdbId,
+    latestDate: titleMeta.latestDate,
+  };
+
+  // An explicit pick tries exactly one server; `auto` walks the servers in
+  // health order (healthy first, cooling last) so a backend we already know is
+  // down costs the viewer nothing but the round trip that discovers it. A soft
+  // miss moves on to the next server; only N HARD failures end the walk early.
+  let plan;
+  if (auto) {
+    plan = orderZxcServers();
+  } else {
+    plan = [requested || names[0]];
+  }
+
+  let hardFails = 0;
+  let last = null;
+  for (const server of plan) {
+    const result = await resolveZxcOnServer(meta, server);
+    if (result.ok) {
+      noteZxcServer(server, true);
+      json(res, 200, result.payload);
+      return;
+    }
+    last = result;
+    // Only a hard transport failure cools a server; a soft miss leaves it in
+    // the rotation, or one obscure title would sideline a healthy backend.
+    if (result.hard) {
+      noteZxcServer(server, false);
+      hardFails += 1;
+      if (auto && hardFails >= ZXC_AUTO_MAX_HARD_FAILS) break;
+    }
+    // An explicit pick must never silently resolve a different server than the
+    // viewer chose; only the automatic rotation falls through.
+    if (!auto) break;
+  }
+
+  json(res, 200, {
+    ok: false,
+    code: "no-source",
+    error: last?.error || `No ZXC server resolved tmdb ${tmdbId}`,
   });
 }
 

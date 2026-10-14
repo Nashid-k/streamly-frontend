@@ -183,13 +183,17 @@ full-stream URLs (one manifest per dub, each individually verified) in
 manifest swap rather than hls.js audio groups.
 
 **VIDSTUCK / ZXC (`resolvezxc`) is a FIFTH provider that contributes FIVE
-separate Servers-menu rows** — `zxc-centaurus`, `zxc-andromeda`, `zxc-atlas`,
-`zxc-meow` (Ursa), `zxc-orion` — because it fronts independent backends with
+separate Servers-menu rows** — `zxc-orion`, `zxc-andromeda`, `zxc-centaurus`,
+`zxc-atlas`, `zxc-meow` (Ursa) — because it fronts independent backends with
 different capabilities, not one source with quality rungs. **The roster ROTATES
-upstream**, so it is re-read from the live embed chunk's `gN.SERVERS`
-(`vidstuck.xyz/embed/...`, verified 2026-10-05: Orion, Andromeda, Centaurus,
-Atlas, Ursa; `ZXC_SERVERS` in `api/stream.js` mirrors it) rather than trusted
-from a stale note — `milkyway` was in an older bundle and 403s today. Minting is
+upstream**, so it is re-derived at runtime from the client chunk's shipped
+`SERVERS` array (`parseZxcRoster` in `api/stream.js`: ordered `{name, server,
+dubSupport}`) and drives the menu order, the default, and the rotation tie-break.
+`ZXC_ROSTER_SEED` in `api/stream.js` is only the seed for before-discovery and
+offline, kept in the provider's own order (re-verified live 2026-10-14: Orion,
+Andromeda, Centaurus, Atlas, Ursa — Orion is the provider's Server 1 and `Ursa`'s
+path is literally `meow`; `milkyway` was in an older bundle and 403s today).
+Minting is
 a single `POST https://vidstuck.xyz` + the provider's current obfuscated mint
 path (`ZXC_MINT_PATH` in `api/stream.js`; upstream renames it, so it is read
 from the constant and never repeated here) with a same-origin
@@ -217,11 +221,31 @@ maps each backend to a host:
 
 | row | backend | wire format | dubs |
 | --- | --- | --- | --- |
-| Server 1 Centaurus | `centaurus` | DASH MPD (3 rungs) | yes |
+| Server 1 Orion | `orion` | DASH MPD | yes |
 | Server 2 Andromeda | `andromeda` | DASH MPD | no |
-| Server 3 Atlas | `atlas` | single HLS media playlist | no |
-| Server 4 Ursa | `meow` | HLS master | no |
-| Server 5 Orion | `orion` | HLS master | yes |
+| Server 3 Centaurus | `centaurus` | DASH MPD | yes |
+| Server 4 Atlas | `atlas` | HLS | no |
+| Server 5 Ursa | `meow` | HLS | no |
+
+**The no-pick path resolves through AUTO, not a five-row client walk.** The
+Servers-menu default is Server 1, but when the viewer has NOT picked a row the
+player resolves through `AUTO_SOURCE` (`src/constants/sources.js`): one
+`resolvezxc` request with `auto: true` and no `server`, and the function walks
+the backends itself in health order (healthy first, then most-recently-
+successful, then the Servers-menu order). Soft misses (server up, title absent)
+continue to the next backend; the walk ends early after 3 HARD transport
+failures. A backend that fails HARD (its own HTTP 4xx/5xx — the centaurus
+`zxcstream.*.workers.dev` `427` is the motivating case — or a network/abort
+error) is remembered for a 90s cooldown (`zxcServerHealth` in `api/stream.js`,
+module-level so the first failure of the minute spares every viewer after it)
+and skipped by later automatic resolves; any success clears the mark. A SOFT
+miss must never cool a server, or one obscure title would sideline a healthy
+backend. The response echoes the `server` that actually served it, which the
+player maps back onto its row via `sourceByServer` so the Servers menu
+highlights the backend that is really playing. An EXPLICIT pick still names one
+server and tries ONLY it — never silently another. The warm-resolve token
+(details page) is minted through the same auto path and is consumed only for the
+no-pick case (any explicit pick resolves its own server live).
 
 **DASH is transcoded to HLS fMP4 server-side** (`server/dashToHls.js`) rather
 than played with `dash.js`: the MPD's `SegmentTemplate` is substituted per
@@ -234,12 +258,17 @@ parser, the existing relay). Real upstream captures confirm 997 fMP4 segments
 per 1080p Centaurus/Andromeda rendition with `ftyp` init + `styp` segments and
 no unsubstituted `$Number$`/`$RepresentationID$` left behind. Generated masters
 set `source.multiLevelMaster: true` so the player loads the master and keeps the
-ladder in one document; native HLS masters (Orion, Ursa) and single-rung media
-playlists (Atlas) are parsed as-is.
+ladder in one document; native HLS masters (Ursa) and single-rung media
+playlists (Atlas) are parsed as-is. Which rows are DASH versus HLS is decided
+from each response's link `type`, not a frozen server list — the provider moved
+Orion onto DASH on 2026-10-14 without warning.
 
-Centaurus dubs are SIBLING masters, not `#EXT-X-MEDIA` groups: `en/0`→`eng`,
-`fr/0`→`ave`, `esla/0`→`aka`, each probed server-side and dropped when dead
-(`hi/0` and `ta/0` currently answer HTTP 427). Duplicate `en/0` rows are
+The multi-audio rows (Orion, Centaurus) expose dubs as SIBLING masters, not
+`#EXT-X-MEDIA` groups: the servers payload's `dubs` array lists them (`en/0`→
+`eng`, `fr/0`→`ave`, `esla/0`→`aka`), each probed server-side and dropped when
+dead. Which rows carry dubs is read from that array per response, not from a
+frozen server set — the provider promoted Orion to multi-audio on 2026-10-14.
+Duplicate `en/0` rows are
 deduplicated so one language cannot appear twice under two labels. Because a
 transcoded master *always* carries an in-manifest audio group for its own muxed
 AAC, the Audio panel checks `dubTracks` BEFORE `audioTracks` — testing

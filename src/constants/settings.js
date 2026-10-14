@@ -132,7 +132,7 @@ export const SECTION_SEARCH_TERMS = {
   ].join(" "),
   servers: [
     "server order drag handle sources tried first title loads priority stream",
-    "reset server 1 centaurus server 2 andromeda server 3 atlas server 4 ursa",
+    "reset server 1 orion server 2 andromeda server 3 centaurus server 4 atlas server 5 ursa",
   ].join(" "),
   subtitles: [
     "subtitles readability customization font cinejoy netflix montserrat",

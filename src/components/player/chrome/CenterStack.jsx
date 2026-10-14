@@ -21,6 +21,7 @@ import { LoadingMessage, LoadingStage, RingSpinner } from "./primitives";
 export default function CenterStack({
   showStage,
   stageNote,
+  stageInitial,
   displayTitle,
   backdropUrl,
   posterUrl,
@@ -57,6 +58,7 @@ export default function CenterStack({
               backdropUrl={backdropUrl}
               posterUrl={posterUrl}
               message={stageNote}
+              initial={stageInitial}
             />
           </motion.div>
         )}

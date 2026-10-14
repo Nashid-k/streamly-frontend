@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeAll } from "vitest";
 import { render, screen } from "@testing-library/react";
 import NativePlayerView from "../components/NativePlayerView";
+import { LoadingStage } from "../components/player/chrome/primitives";
 
 // jsdom has no ResizeObserver; the player measures its frame with it.
 beforeAll(() => {
@@ -64,9 +65,9 @@ describe("NativePlayerView loading stage", () => {
     const backdrop = stage.querySelector(".np-loading-art");
     expect(backdrop).toBeTruthy();
     expect(backdrop.getAttribute("src")).toBe("https://image.test/backdrop.jpg");
-    // The Tailspin conic ring sits under the art (ZXC composition).
-    const ring = stage.querySelector(".np-tailspin > span");
-    expect(ring).toBeTruthy();
+    // INITIAL cold open: the loader is the horizontal sweep, not the ring.
+    expect(stage.querySelector(".np-loading-line > span")).toBeTruthy();
+    expect(stage.querySelector(".np-tailspin")).toBeNull();
   });
 
   it("keeps the title-only layout honest when no art is available", () => {
@@ -82,7 +83,27 @@ describe("NativePlayerView loading stage", () => {
       (d) => d.textContent === "Fight Club" && d.style.fontSize.includes("clamp"),
     );
     expect(fallback).toBeTruthy();
-    // The Tailspin ring still loads — a black stage never looks frozen.
-    expect(stage.querySelector(".np-tailspin > span")).toBeTruthy();
+    expect(fallback).toBeTruthy();
+    // The horizontal sweep still loads — a black stage never looks frozen.
+    expect(stage.querySelector(".np-loading-line > span")).toBeTruthy();
+  });
+});
+
+/* The loader is initial-only: the round Tailspin ring must come back for every
+   later cold stage (a server/quality/dub switch re-mounts this stage). */
+describe("LoadingStage loader variant", () => {
+  it("sweeps horizontally only while `initial`, and rings otherwise", () => {
+    const { container: first, unmount } = render(
+      <LoadingStage title="Fight Club" initial />,
+    );
+    expect(first.querySelector(".np-loading-line > span")).toBeTruthy();
+    expect(first.querySelector(".np-tailspin")).toBeNull();
+    unmount();
+
+    const { container: later } = render(
+      <LoadingStage title="Fight Club" initial={false} />,
+    );
+    expect(later.querySelector(".np-tailspin > span")).toBeTruthy();
+    expect(later.querySelector(".np-loading-line")).toBeNull();
   });
 });

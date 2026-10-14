@@ -9,15 +9,17 @@
 //
 // Contract with the player: `takeWarmResolve` hands over the promise AT MOST
 // ONCE (the player is the only consumer), and only for the SAME title AND the
-// default server — a manual server pick must resolve that server, not a warm
-// token minted for the default row. A consumed promise that rejects is the
+// auto (no-pick) path — any manual server pick must resolve its own server, not
+// a warm token minted without one. A consumed promise that rejects is the
 // player's ordinary resolve failure; the retry ladder is already around it.
 //
-// The default row is read from `sources.js`, NEVER a literal key: the default
-// moved from `vidcore` to `zxc-centaurus`, and a hardcoded "vidcore" here used to
-// warm a server the player would then refuse to consume (and vice versa).
+// The warm mount is `AUTO_SOURCE` (no server named), NOT a literal default row:
+// the default moved from `vidcore` to `zxc-orion` and a hardcoded key here
+// used to warm a server the player would then refuse to consume. Warming auto
+// also means a dead backend cannot waste the warm leg — the server picks a
+// live one internally.
 
-import { DEFAULT_SOURCE_KEY, sourceByKey } from "../constants/sources";
+import { AUTO_SOURCE } from "../constants/sources";
 
 const WARM_TTL_MS = 4 * 60 * 1000; // tokens are time-scoped — never serve stale
 const warm = {
@@ -42,8 +44,7 @@ export function warmResolve(args, { signal } = {}) {
   if (signal?.aborted) return null;
   warm.key = key;
   warm.at = Date.now();
-  const def = sourceByKey(DEFAULT_SOURCE_KEY);
-  warm.promise = (def ? def.resolve(args, { signal }) : Promise.reject(new Error("no default source")))
+  warm.promise = AUTO_SOURCE.resolve(args, { signal })
     .catch((error) => {
       // A rejected warm would poison takeWarmResolve's one-shot handover, so
       // a failure clears the entry — the player re-resolves on its own.
@@ -70,9 +71,11 @@ export function takeWarmResolve(args, { sourceKey } = {}) {
     warm.key = null;
     return null;
   }
-  // Only the auto-rotation default (null pick) or an explicit pick of the default
-  // row may consume the warm token. Any other pick must resolve its own server.
-  if (sourceKey && sourceKey !== DEFAULT_SOURCE_KEY) return null;
+  // The warm token was minted for the AUTO path, so ONLY a no-pick play may
+  // consume it. Any explicit pick — even of the default row — must resolve its
+  // own server live, or the viewer would watch the server auto chose while the
+  // menu claims the one they tapped.
+  if (sourceKey) return null;
   const promise = warm.promise;
   warm.promise = null;
   warm.key = null;

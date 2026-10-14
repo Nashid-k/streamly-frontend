@@ -44,7 +44,7 @@ export function LoadingMessage({ title }) {
    those are the same wait wearing different clothes — the artwork is what tells
    the viewer the player did not lose their place, and a bare black rectangle
    with a dot in it does not. */
-export function LoadingStage({ title, backdropUrl, posterUrl, message }) {
+export function LoadingStage({ title, backdropUrl, posterUrl, message, initial }) {
   return (
     <div
       aria-hidden="true"
@@ -141,11 +141,14 @@ export function LoadingStage({ title, backdropUrl, posterUrl, message }) {
               {title}
             </div>
           ) : null}
-          {/* The Tailspin ring sits under the art (their composition: centred
-              column, logo, ring below). Purely decorative — the reduced-motion
-              block stops and dims it. */}
+          {/* The loader under the art: a horizontal sweep on the very FIRST
+              cold open (the viewer is waiting on the player to boot), and the
+              Tailspin ring for every later wait — a server/quality/dub switch
+              re-mounts this same stage, and a ring reads as "the stream is
+              thinking" rather than "the app is starting". Purely decorative →
+              the reduced-motion block stops and parks both. */}
           <div style={{ marginTop: 10, display: "flex", justifyContent: "center" }}>
-            <RingSpinner size={44} />
+            {initial ? <LineLoader /> : <RingSpinner size={44} />}
           </div>
         </div>
       ) : null}
@@ -181,6 +184,30 @@ export function RingSpinner({ size = 34 }) {
       style={{ "--uib-size": `${size}px`, "--uib-color": "#fff", "--uib-speed": "0.9s", "--uib-stroke": "4px" }}
     >
       <span />
+    </span>
+  );
+}
+
+/* The horizontal loader: a hairline track with a white segment sweeping across
+   it. Used ONLY for the very first cold open (see LoadingStage) — every later
+   wait keeps the round Tailspin ring. Purely decorative, aria-hidden, and the
+   reduced-motion block in player.css parks the segment mid-track (a frozen full
+   bar would read as progress; a parked partial bar reads as "loading"). */
+export function LineLoader() {
+  return (
+    <span
+      aria-hidden="true"
+      className="np-loading-line"
+      style={{
+        width: "min(56vw, 340px)",
+        height: 3,
+        borderRadius: 2,
+        background: "rgba(255,255,255,0.16)",
+        overflow: "hidden",
+        display: "block",
+      }}
+    >
+      <span style={{ display: "block", height: "100%", borderRadius: 2, background: "#fff" }} />
     </span>
   );
 }

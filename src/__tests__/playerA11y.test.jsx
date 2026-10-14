@@ -361,19 +361,19 @@ describe("player Servers menu", () => {
     // Row order = auto-rotation priority. The visible name is deliberately the
     // generic "Server N" (a viewer picks on capability, not on brand), and the
     // grey sub-line states the capability: a resolution ceiling, multi-audio, etc.
-    // Server 1 is ZXC Centaurus — a multi-language-audio row — so "Multi audio"
-    // belongs on row 1. Five rows, matching the current upstream `gN.SERVERS`
-    // roster (Orion/Andromeda/Centaurus/Atlas/Ursa) read off the live embed
-    // chunk 2026-10-05; Server 5 (Orion) is a multi-audio row too. VidSrc (6),
-    // NHD (7) and VidRack (previously 5) were removed after re-measuring dead.
+    // Server 1 is ZXC Orion — a multi-language-audio row — so "Multi audio"
+    // belongs on row 1. Five rows, matching the provider's current `gN.SERVERS`
+    // roster (Orion/Andromeda/Centaurus/Atlas/Ursa) read 2026-10-14; Server 3
+    // (Centaurus) is the other multi-audio row. VidSrc (6), NHD (7) and VidRack
+    // (previously 5) were removed after re-measuring dead.
     const rows = [...dialog.querySelectorAll(".np-dialog-row")];
     expect(rows.length).toBe(5);
     const expected = [
       ["Server 1", "Multi audio"],
       ["Server 2", "Original audio"],
-      ["Server 3", "Original audio"],
+      ["Server 3", "Multi audio"],
       ["Server 4", "Original audio"],
-      ["Server 5", "Multi audio"],
+      ["Server 5", "Original audio"],
     ];
     expected.forEach(([label, cap], i) => {
       expect(rows[i].textContent).toContain(label);
