@@ -27,7 +27,7 @@ const { default: handler, clearZxcMpdCache, clearZxcTitleMetaCache } = await imp
 
 /* The current mint path. If upstream renames it again, the failure is a 404 HTML
    page on every row; update this constant and ZXC_MINT_PATH together. */
-const MINT_PATH = "/backend/scrapeurfckingmom";
+const MINT_PATH = "/backend/scrapeurfckingdad";
 
 const json = (payload) =>
   new Response(JSON.stringify(payload), { status: 200, headers: { "content-type": "application/json" } });

@@ -175,7 +175,7 @@ const ZXC_ORIGIN = "https://vidstuck.xyz";
 // below is rewritten in place from values the script derives from the
 // provider's own shipped chunk and then confirms by real playback. Do not
 // hand-edit inside the markers — edit the script instead.
-const ZXC_MINT_PATH = "/backend/scrapeurfckingmom";
+const ZXC_MINT_PATH = "/backend/scrapeurfckingdad";
 /* The obfuscated parameter names the client sends. Read straight off the
    shipped bundle's `uo/up/ug/uf/uh/ul/uu/ud/uc/um` constants — renaming any of
    them makes the request fail closed. */
