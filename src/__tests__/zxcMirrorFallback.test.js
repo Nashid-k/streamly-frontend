@@ -50,7 +50,7 @@ beforeEach(() => {
     "fetch",
     vi.fn(async (input) => {
       const url = String(typeof input === "string" ? input : input?.url || input);
-      if (url.includes("/backend/scrapeurfckingmom")) return json({ token: "tok", ts: "1700000000" });
+      if (url.includes(MINT_PATH)) return json({ token: "tok", ts: "1700000000" });
       if (url.includes("/backend/tmdb/details/")) return json({ title: "Stub", release_date: "2024-01-01", imdb_id: "" });
       if (url.includes("/backend/servers/")) {
         return json({
@@ -68,7 +68,10 @@ beforeEach(() => {
   );
 });
 
-const { default: handler } = await import("../../api/stream.js");
+const { default: handler, zxcContractSeed } = await import("../../api/stream.js");
+
+// Derived from the module seed so a provider rename can never strand this suite.
+const MINT_PATH = zxcContractSeed().mintPath;
 
 function makeRes() {
   const res = {

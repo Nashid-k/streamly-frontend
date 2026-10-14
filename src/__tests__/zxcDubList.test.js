@@ -39,14 +39,14 @@ beforeEach(() => {
   dubs = [];
   // A public literal IP so the SSRF guard passes without DNS: this suite is
   // about the dub-dedup path, not about the guard (covered by ssrf.test.js).
-  // NOTE: the mint URL below is the SAME path pinned in zxcMintPath.test.js —
-  // update both when the provider renames it.
+  // NOTE: the mint URL below is derived from the module seed (zxcContractSeed),
+  // so a provider rename self-heals here instead of needing this file edited.
   links = [{ link: Buffer.from("https://93.184.216.34/stub.mpd").toString("base64"), type: "dash", resolution: 1080 }];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input) => {
       const url = String(typeof input === "string" ? input : input?.url || input);
-      if (url.includes("/backend/scrapeurfckingmom")) return json({ token: "tok", ts: "1700000000" });
+      if (url.includes(MINT_PATH)) return json({ token: "tok", ts: "1700000000" });
       if (url.includes("/backend/tmdb/details/")) return json({ title: "Stub", release_date: "2024-01-01", imdb_id: "" });
       if (url.includes("/backend/servers/")) return json({ success: true, links, dubs });
       if (url.endsWith(".mpd") || url.includes("stub")) {
@@ -57,7 +57,10 @@ beforeEach(() => {
   );
 });
 
-const { default: handler } = await import("../../api/stream.js");
+const { default: handler, zxcContractSeed } = await import("../../api/stream.js");
+
+// Derived from the module seed so a provider rename can never strand this suite.
+const MINT_PATH = zxcContractSeed().mintPath;
 
 function makeRes() {
   const res = {

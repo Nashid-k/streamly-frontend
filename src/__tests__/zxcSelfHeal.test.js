@@ -10,9 +10,12 @@
 // Hermetic: fetch is stubbed, no test may reach a provider.
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-const { default: handler, clearZxcDiscoveryCache, clearZxcTitleMetaCache } = await import("../../api/stream.js");
+const { default: handler, clearZxcDiscoveryCache, clearZxcTitleMetaCache, zxcContractSeed } = await import("../../api/stream.js");
 
-const SEED_MINT = "/backend/scrapeurfckingmom"; // the seeded contract (a human last read this)
+// Read the seed from the module so a provider rename (rewritten by the
+// sync-zxc-contract step) can NEVER strand this suite. The seed is what the
+// handler tries first, so the stub must match it — not a frozen literal.
+const SEED_MINT = zxcContractSeed().mintPath; // the seeded contract (a human last read this)
 const NEW_MINT = "/backend/totallynewmint"; // what the "renamed" chunk advertises
 const EMBED = "https://vidstuck.xyz/embed/movie/27205";
 
@@ -63,7 +66,7 @@ function installFetch() {
     requests.push(url);
     if (url.includes("/backend/tmdb/details/")) return json(details);
     if (url.includes(NEW_MINT_PATH)) return json({ token: "newtok", ts: "1800000000" });
-    if (url.includes("/backend/scrapeurfckingmom")) {
+    if (url.includes(SEED_MINT)) {
       return new Response("<html><body>404</body></html>", { status: mintStatus });
     }
     if (url.includes("/embed/")) return html(EMBED_HTML);
@@ -122,7 +125,7 @@ describe("ZXC mint self-heal", () => {
     const r = await resolve({ server: "atlas" });
 
     // The seed path was tried and 404'd first.
-    expect(requests.some((u) => u.includes("/backend/scrapeurfckingmom"))).toBe(true);
+    expect(requests.some((u) => u.includes(SEED_MINT))).toBe(true);
     // Discovery actually read the embed page and a chunk.
     expect(requests.some((u) => u.includes(EMBED))).toBe(true);
     expect(requests.some((u) => u.includes("/_next/static/chunks/"))).toBe(true);
@@ -146,7 +149,7 @@ describe("ZXC mint self-heal", () => {
       const url = String(typeof input === "string" ? input : input?.url || input);
       requests.push(url);
       if (url.includes("/backend/tmdb/details/")) return json(details);
-      if (url.includes("/backend/scrapeurfckingmom")) return new Response("<html>404</html>", { status: 404 });
+      if (url.includes(SEED_MINT)) return new Response("<html>404</html>", { status: 404 });
       if (url.includes("/embed/")) return html(EMBED_HTML);
       if (url.includes("/_next/static/chunks/")) return html("var x=1;");
       return new Response("upstream unreachable", { status: 502 });
