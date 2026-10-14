@@ -23,7 +23,7 @@
     "hls.js": "^1.7.3",
     "lucide-react": "^1.31.0",
     "mongodb": "^7.6.0",
-    "nodemailer": "^7.0.13",
+    "nodemailer": "^10.1.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-helmet-async": "^3.0.0",
