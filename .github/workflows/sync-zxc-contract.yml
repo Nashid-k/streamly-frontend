@@ -2,8 +2,9 @@ name: Sync ZXC provider contract
 
 # The streaming provider renames its token-mint path and rotates the obfuscated
 # param names on its own schedule; a rename 404s EVERY server in the same instant
-# (see the rename history in api/stream.js). This job runs daily with no user
-# involved, derives the live contract from the provider's own shipped chunk,
+# (see the rename history in api/stream.js). This job runs THREE times a day at
+# fixed 8-hour intervals with no user involved, derives the live contract from
+# the provider's own shipped chunk,
 # rewrites the committed seed when it has drifted, plays a REAL movie AND a REAL
 # series through the actual handler to prove it works, then — only when the seed
 # actually changed AND playback verified — commits and pushes so the Vercel
@@ -17,8 +18,9 @@ name: Sync ZXC provider contract
 
 on:
   schedule:
-    # Daily 03:17 UTC — an off-peak minute, not on the hour. Edit to taste.
-    - cron: "17 3 * * *"
+    # Three runs a day at FIXED 8-hour intervals: 00:17, 08:17 and 16:17 UTC.
+    # The :17 minute keeps it off the top-of-the-hour GitHub cron rush.
+    - cron: "17 */8 * * *"
   workflow_dispatch: {}
 
 permissions:
@@ -69,9 +71,21 @@ jobs:
 
       - name: Commit and push contract update
         if: steps.sync.outputs.changed == 'true'
+        env:
+          HEADLINE: ${{ steps.sync.outputs.headline }}
+          SUMMARY: ${{ steps.sync.outputs.summary }}
         run: |
           git config user.name "streamly-contract-bot"
           git config user.email "streamly-contract-bot@users.noreply.github.com"
           git add api/stream.js src/__tests__/zxcMintPath.test.js
-          git commit -m "chore(zxc): auto-sync provider mint contract"
+          {
+            echo "chore(zxc): sync provider contract - ${HEADLINE}"
+            echo
+            echo "Provider-renamed / rotated fields (derived from the live chunk):"
+            echo
+            echo "${SUMMARY}"
+            echo
+            echo "Verified with real movie + series playback before committing."
+          } > /tmp/zxc-commit-msg.txt
+          git commit -F /tmp/zxc-commit-msg.txt
           git push

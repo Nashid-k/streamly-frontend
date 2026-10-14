@@ -23,7 +23,7 @@
 // Hermetic: fetch is stubbed, no test may reach a provider.
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-const { default: handler, clearZxcMpdCache, clearZxcTitleMetaCache } = await import("../../api/stream.js");
+const { default: handler, clearZxcMpdCache, clearZxcTitleMetaCache, describeZxcContractChange } = await import("../../api/stream.js");
 
 /* The current mint path. If upstream renames it again, the failure is a 404 HTML
    page on every row; update this constant and ZXC_MINT_PATH together. */
@@ -156,6 +156,36 @@ describe("ZXC metadata is mandatory, not advisory", () => {
     // carried value in its on-the-wire form.
     expect(url).toContain("Game+of+Thrones");
     expect(url).toContain("2019-05-19");
+  });
+});
+
+describe("ZXC contract change description (auto-sync commit messages)", () => {
+  const contract = () => ({
+    mintPath: "/backend/aaa",
+    params: {
+      tmdbId: "1", mediaType: "2", path: "3", season: "4", episode: "5",
+      ts: "6", token: "7", title: "8", year: "9", date: "a",
+    },
+    imdbParam: "b",
+    latestDateParam: "c",
+  });
+
+  it("names a mint rename first, in 'x -> y' form", () => {
+    expect(describeZxcContractChange(contract(), { ...contract(), mintPath: "/backend/bbb" }))
+      .toEqual(["mint /backend/aaa -> /backend/bbb"]);
+  });
+
+  it("lists every rotated param name, in contract order", () => {
+    const to = contract();
+    to.params.tmdbId = "zz";
+    to.params.year = "yy";
+    expect(describeZxcContractChange(contract(), to)).toEqual(["tmdbId 1 -> zz", "year 9 -> yy"]);
+  });
+
+  it("returns [] when nothing changed or either side is missing", () => {
+    expect(describeZxcContractChange(contract(), contract())).toEqual([]);
+    expect(describeZxcContractChange(null, contract())).toEqual([]);
+    expect(describeZxcContractChange(contract(), null)).toEqual([]);
   });
 });
 

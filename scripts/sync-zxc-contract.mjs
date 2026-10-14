@@ -60,6 +60,7 @@ const {
   fetchLiveZxcContract,
   zxcContractSeed,
   zxcContractEquals,
+  describeZxcContractChange,
   applyZxcContractToSource,
   applyZxcContractToTest,
 } = streamMod;
@@ -67,10 +68,10 @@ const {
 /* 3. Rewrite the seed block + the path pinned in the test (CRLF, no BOM). */
 function applySeed(seedContract) {
   const src = readFileSync(STREAM_FILE, "utf8");
-  const next = applyZxcContractToSource(src, contract).split(/\r?\n/).join(eolOf(src));
+  const next = applyZxcContractToSource(src, seedContract).split(/\r?\n/).join(eolOf(src));
 
   const test = readFileSync(TEST_FILE, "utf8");
-  const nextTest = applyZxcContractToTest(test, contract);
+  const nextTest = applyZxcContractToTest(test, seedContract);
 
   if (!DRY_RUN) {
     writeFileSync(STREAM_FILE, next, "utf8");
@@ -140,11 +141,14 @@ const derived = await fetchLiveZxcContract().catch((error) => {
 });
 const seed = zxcContractSeed();
 let rewrote = false;
+let changes = [];
 
 if (derived && !zxcContractEquals(seed, derived)) {
+  changes = describeZxcContractChange(seed, derived);
   log("contract DRIFT detected");
   log(`  committed: mint=${seed.mintPath} tmdbId=${seed.params.tmdbId}`);
   log(`  live:      mint=${derived.mintPath} tmdbId=${derived.params.tmdbId}`);
+  for (const change of changes) log(`  changed: ${change}`);
   rewrote = applySeed(derived);
   log(DRY_RUN ? "dry-run: seed rewrite skipped" : "rewrote api/stream.js seed + pinned test path");
 } else if (derived) {
@@ -172,7 +176,18 @@ if (rewrote && !verified) {
   log("WARNING: live contract unavailable from this environment — nothing to do");
 }
 
-if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `changed=${changed}\n`);
+// A concise one-line headline plus the full field list, so the commit message
+// says what actually changed ("mint /backend/a -> /backend/b") instead of a
+// generic "auto-sync". Values are single-line: GITHUB_OUTPUT is name=value.
+const headline = changes[0] || "provider contract refresh";
+const summary = changes.length ? changes.join("; ") : "no field difference";
+
+if (process.env.GITHUB_OUTPUT) {
+  appendFileSync(process.env.GITHUB_OUTPUT, `changed=${changed}\n`);
+  appendFileSync(process.env.GITHUB_OUTPUT, `headline=${headline}\n`);
+  appendFileSync(process.env.GITHUB_OUTPUT, `summary=${summary}\n`);
+}
+log(`changed=${changed} headline=${headline}`);
 console.log(`ZXC_SYNC_CHANGED=${changed}`);
 
 if (!verified && STRICT) {

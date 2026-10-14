@@ -424,6 +424,26 @@ export function zxcContractEquals(a, b) {
   );
 }
 
+/* Human-readable list of the fields that differ between two contracts, so the
+   auto-sync commit messages can say exactly what the provider renamed, e.g.
+   "mint /backend/a -> /backend/b" or "tmdbId <hex> -> <hex>". Returns [] when the
+   contracts match (or either is missing). */
+export function describeZxcContractChange(from, to) {
+  if (!from || !to) return [];
+  const changes = [];
+  if (from.mintPath !== to.mintPath) changes.push(`mint ${from.mintPath} -> ${to.mintPath}`);
+  for (const k of ZXC_CONTRACT_PARAM_KEYS) {
+    if (from.params?.[k] !== to.params?.[k]) {
+      changes.push(`${k} ${from.params?.[k]} -> ${to.params?.[k]}`);
+    }
+  }
+  if (from.imdbParam !== to.imdbParam) changes.push(`imdbParam ${from.imdbParam} -> ${to.imdbParam}`);
+  if (from.latestDateParam !== to.latestDateParam) {
+    changes.push(`latestDateParam ${from.latestDateParam} -> ${to.latestDateParam}`);
+  }
+  return changes;
+}
+
 /* Render the sentinel block (LF-joined; callers normalise line endings). */
 export function renderZxcContractBlock(contract) {
   return [

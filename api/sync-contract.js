@@ -27,6 +27,7 @@ import streamHandler, {
   fetchLiveZxcContract,
   zxcContractSeed,
   zxcContractEquals,
+  describeZxcContractChange,
   applyZxcContractToSource,
   applyZxcContractToTest,
 } from "./stream.js";
@@ -37,7 +38,6 @@ const STREAM_PATH = "api/stream.js";
 const TEST_PATH = "src/__tests__/zxcMintPath.test.js";
 const REPO = process.env.GITHUB_REPO || "Nashid-k/streamly-frontend";
 const BRANCH = process.env.GITHUB_BRANCH || "main";
-const COMMIT_MESSAGE = "chore(zxc): auto-sync provider mint contract (vercel cron)";
 const API = "https://api.github.com";
 
 const PROBE = { movie: "27205", tv: "1399", season: "1", episode: "1" };
@@ -84,7 +84,7 @@ async function readFileAt(path, token) {
 
 /* One commit touching every changed file, via tree/blob plumbing. Avoids the
    two-commits-with-a-transiently-failing-test window the Contents API would make. */
-async function commitFiles(files, token) {
+async function commitFiles(files, token, message) {
   const ref = await ghJson(`${API}/repos/${REPO}/git/ref/heads/${BRANCH}`, token);
   const headSha = ref.object.sha;
   const headCommit = await ghJson(`${API}/repos/${REPO}/git/commits/${headSha}`, token);
@@ -107,7 +107,7 @@ async function commitFiles(files, token) {
   });
   const newCommit = await ghJson(`${API}/repos/${REPO}/git/commits`, token, {
     method: "POST",
-    body: JSON.stringify({ message: COMMIT_MESSAGE, tree: newTree.sha, parents: [headSha] }),
+    body: JSON.stringify({ message, tree: newTree.sha, parents: [headSha] }),
   });
   await ghJson(`${API}/repos/${REPO}/git/refs/heads/${BRANCH}`, token, {
     method: "PATCH",
@@ -207,7 +207,19 @@ export default async function syncContract(req, res) {
       try {
         const files = await buildChangedFiles(derived, token);
         if (files.length) {
-          commitSha = await commitFiles(files, token);
+          const changes = describeZxcContractChange(seed, derived);
+          const headline = changes[0] || "provider contract refresh";
+          const summary = changes.length ? changes.join("; ") : "no field difference";
+          const message = [
+            `chore(zxc): sync provider contract - ${headline}`,
+            "",
+            "Provider-renamed / rotated fields (derived from the live chunk):",
+            "",
+            summary,
+            "",
+            "Auto-synced by the Vercel cron watchdog (api/sync-contract.js).",
+          ].join("\n");
+          commitSha = await commitFiles(files, token, message);
           pushed = true;
         }
       } catch (error) {
