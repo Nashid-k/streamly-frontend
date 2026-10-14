@@ -40,9 +40,13 @@ jobs:
         with:
           token: ${{ secrets.SYNC_PAT || github.token }}
 
+      # jsdom 30 (the vitest DOM env) requires Node ^22.22.2 || ^24.15.0 || >=26:
+      # on Node 20 its bundled undici calls a missing `webidl.util.markAsUncloneable`
+      # and EVERY forks worker dies before a test file loads ("no tests, 84 errors").
+      # Pin to 24 so the Test step below actually runs.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Install dependencies
         run: npm ci
