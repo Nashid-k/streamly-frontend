@@ -7,6 +7,12 @@
 
  ## Done (in order)
 
+- [x] **Auto-sync no longer churns whole files on a provider rename — 2026-10-14.** Committed `fa7a771`.
+  - **Symptom.** The first green run after the fix below landed the `mom→dad` rename as commit `e165bc5` (`chore(zxc): auto-sync provider mint contract`), but as a **1667-line** whole-file diff, not one line.
+  - **Cause.** `scripts/sync-zxc-contract.mjs` (and the Vercel watchdog `api/sync-contract.js`) rewrote the file with `.replace(/\r?\n/g, "\r\n")`, forcing CRLF. The repo stores **LF blobs** (349 × `i/lf`; `core.autocrlf=true` only makes the Windows *working copy* CRLF), so the coercion flipped every line and left `api/stream.js` + `zxcMintPath.test.js` as the only CRLF blobs in the tree.
+  - **Fix.** Both callers now detect the source file's own EOL and preserve it (`eolOf` + `split(/\r?\n/).join(eol)`), verified idempotent (re-applying yields byte-identical output, no bare LF). The two files the bot rewrote are renormalized back to LF (`git add --renormalize`).
+  - Gates: oxlint 0 errors; `npm run test` 87/87 files, 1099/1099; `npm run build` clean; seed stays `/backend/scrapeurfckingdad`.
+
 - [x] **CI `Sync ZXC provider contract` no longer strands on a provider rename — 2026-10-14.**
   - **Why the job was red.** Run `38521313811` (head `893f312`) detected real drift — `mint=/backend/scrapeurfckingmom` → live `/backend/scrapeurfckingdad` — and correctly rewrote `api/stream.js` + `zxcMintPath.test.js`, then verified movie + series playback via atlas, but `npm test` failed 3 files / 11 tests **before** the commit step. So the fix never landed: every scheduled run went red and the deployed seed stayed stale.
   - **Cause.** `zxcDubList.test.js`, `zxcMirrorFallback.test.js` and `zxcSelfHeal.test.js` stubbed their `fetch` on the hardcoded literal `/backend/scrapeurfckingmom`. Once the derive step rewrote the seed, no mint URL matched the stub, so the suites failed. Only `zxcMintPath.test.js` was auto-updated.
