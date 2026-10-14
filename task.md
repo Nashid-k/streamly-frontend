@@ -20,6 +20,13 @@
   - **Client auto path + reorder.** `src/constants/sources.js` gains a per-row `server` field, `sourceByServer(name)` and `AUTO_SOURCE` (a `__auto__` sentinel that resolves with `auto:true`); rows are reordered to the provider's order so **Server 1 = `zxc-orion`** (multi-audio) and `DEFAULT_SOURCE_KEY = "zxc-orion"`; `streamResolve.resolveZxc` accepts `auto` and carries the echoed `server`; `warmResolve` warms through auto and `takeWarmResolve` now refuses ANY explicit pick; `NativePlayerView` replaces the five-row client walk with a single `runSource(AUTO_SOURCE)` and maps the resolved server back onto its row (`sourceByServer`) so the Servers menu highlights what is really playing.
   - **Tests.** `zxcAutoFailover.test.js` (5 — hard fall-through, cooldown skip, soft miss never cools, early-stop after 3 hard, explicit pick stays put), `sources.test.js` (7), `playerAutoServer.test.jsx` (2 — no-pick resolves with `auto:true` and highlights the resolved row), `zxcMintPath.test.js` +4 for `parseZxcRoster` (live-shaped chunk, field-spill guard, `<2` keeps seed, scans past irrelevant chunk); `warmResolve.test.js`, `playerA11y.test.jsx`, `playerAutoServer.test.jsx`, `zxcMintPath.test.js` MPD-cache counts updated to the reordered/de-duped path.
   - Gates: oxlint 0 errors; `npm run test` 90/90 files, 1120/1120; `npm run build` clean; touched files CRLF, no BOM.
+  - **Plan checklist (every item shipped in commit `c4d5641`):**
+    - [x] Server: reorder `ZXC_SERVERS`/preference to provider order (orion first) — `ZXC_ROSTER_SEED` + `zxcServerNames()`; non-auto default is `names[0]` (orion).
+    - [x] Server: make DASH-vs-HLS + dub gating response-driven (drop frozen sets) — removed `ZXC_DASH_SERVERS`/`ZXC_DUB_SERVERS`; `hasDash` from link `type`; dubs from `Array.isArray(dubs)`.
+    - [x] Server: discovery parses live `SERVERS` roster (order + `dubSupport`) and drives failover order — `parseZxcRoster` → `deriveZxcContractFromChunks(...).roster` → `zxcServerNames()`/`orderZxcServers()`.
+    - [x] Client: reorder `PLAYER_SOURCES` to provider order, `DEFAULT_SOURCE_KEY = "zxc-orion"`.
+    - [x] Update tests (sources, zxcAutoFailover, nativePlayerView, warmResolve, etc.).
+    - [x] Update `architecture.md` + `task.md`; run lint/test/build.
 
 - [x] **Contract sync runs 3×/day and names the rename in its commit (user: "run this thrice a day, with fixed intervals… if it encounters naming and fixes it… use proper commits, names changed from x to y") — 2026-10-14.** Committed `e02a562`.
   - **Schedule.** `sync-zxc-contract.yml` cron is now `17 */8 * * *` → 00:17 / 08:17 / 16:17 UTC (three fixed 8-hour intervals, off the top-of-hour rush) instead of one daily `17 3 * * *`, so a provider rename is corrected within ~8h.
