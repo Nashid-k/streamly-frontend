@@ -7,6 +7,16 @@
 
  ## Done (in order)
 
+- [x] **Contract sync runs 3×/day and names the rename in its commit (user: "run this thrice a day, with fixed intervals… if it encounters naming and fixes it… use proper commits, names changed from x to y") — 2026-10-14.** Committed `e02a562`.
+  - **Schedule.** `sync-zxc-contract.yml` cron is now `17 */8 * * *` → 00:17 / 08:17 / 16:17 UTC (three fixed 8-hour intervals, off the top-of-hour rush) instead of one daily `17 3 * * *`, so a provider rename is corrected within ~8h.
+  - **Descriptive commits.** New exported `describeZxcContractChange(from, to)` in `api/stream.js` returns `["mint /backend/a -> /backend/b", "tmdbId <hex> -> <hex>", …]`. The Action emits `headline`/`summary` outputs and commits via `git commit -F` with subject `chore(zxc): sync provider contract - <headline>` and the full field list in the body; the Vercel watchdog (`api/sync-contract.js`) builds the same message. No more generic "auto-sync provider mint contract".
+  - **Two latent bugs fixed on the way.** (1) `scripts/sync-zxc-contract.mjs` `applySeed()` referenced an undefined `contract` (the param is `seedContract`) — a hard `ReferenceError` on the drift path that only the no-drift runs had so far masked. (2) `api/sync-contract.js` built its commit with `tree: tree.sha` where `tree` is an array → an undefined tree / malformed commit; now `newTree.sha`.
+  - **Tests.** `zxcMintPath.test.js` +3 for `describeZxcContractChange` (mint-first ordering, every rotated param, empty/missing cases).
+  - Gates: oxlint 0 errors; `npm run test` 87/87 files, 1102/1102; `npm run build` clean; workflow YAML validated (cron + commit env parsed).
+
+- [x] **Security deps: nodemailer 7 → 10.1.1, source-map-js patched — 2026-10-14.** Committed `ebaaf04`.
+  - `npm audit` reported 2 high-severity packages. `nodemailer@7.0.13` carried 8 advisories (addressparser ReDoS, IDN / RFC-5322-comment allow-list bypasses, process-global DNS cache cross-tenant `servername` reuse, OAuth2 TLS validation) → upgraded to `^10.1.1` (requires node ≥20, satisfied by our engines; `server/mailer.js` only uses `createTransport()`+`sendMail()`, unchanged and smoke-tested). `source-map-js` bumped 1.2.1 → 1.2.2 via `npm audit fix` (build-time transitive). `npm audit` now **0 vulnerabilities**.
+
 - [x] **Auto-sync no longer churns whole files on a provider rename — 2026-10-14.** Committed `fa7a771`.
   - **Symptom.** The first green run after the fix below landed the `mom→dad` rename as commit `e165bc5` (`chore(zxc): auto-sync provider mint contract`), but as a **1667-line** whole-file diff, not one line.
   - **Cause.** `scripts/sync-zxc-contract.mjs` (and the Vercel watchdog `api/sync-contract.js`) rewrote the file with `.replace(/\r?\n/g, "\r\n")`, forcing CRLF. The repo stores **LF blobs** (349 × `i/lf`; `core.autocrlf=true` only makes the Windows *working copy* CRLF), so the coercion flipped every line and left `api/stream.js` + `zxcMintPath.test.js` as the only CRLF blobs in the tree.
