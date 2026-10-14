@@ -7,7 +7,14 @@
 
  ## Done (in order)
 
+- [x] **CI `Sync ZXC provider contract` no longer strands on a provider rename — 2026-10-14.**
+  - **Why the job was red.** Run `38521313811` (head `893f312`) detected real drift — `mint=/backend/scrapeurfckingmom` → live `/backend/scrapeurfckingdad` — and correctly rewrote `api/stream.js` + `zxcMintPath.test.js`, then verified movie + series playback via atlas, but `npm test` failed 3 files / 11 tests **before** the commit step. So the fix never landed: every scheduled run went red and the deployed seed stayed stale.
+  - **Cause.** `zxcDubList.test.js`, `zxcMirrorFallback.test.js` and `zxcSelfHeal.test.js` stubbed their `fetch` on the hardcoded literal `/backend/scrapeurfckingmom`. Once the derive step rewrote the seed, no mint URL matched the stub, so the suites failed. Only `zxcMintPath.test.js` was auto-updated.
+  - **Fix.** All three now read the path from the module (`zxcContractSeed().mintPath`) instead of a frozen literal, so any rename the derive step applies keeps them green. `zxcMintPath.test.js` keeps its pinned literal (it is the deliberate canary the script rewrites).
+  - **Verified.** Simulated the exact rename (`mom` → `dad` in `api/stream.js` + `zxcMintPath.test.js`): all 4 ZXC suites pass (24/24), then restored. Gates: oxlint 0 errors (pre-existing warnings only); `npm run test` 87/87 files, 1099/1099; `npm run build` clean; touched files CRLF, no BOM.
+
 - [x] **404 page, SEO meta, a11y / offline / keyboard UX, CI Node fix — 2026-10-14.**
+
   - **404:** new `src/pages/NotFoundPage.jsx` (AmbientBackground fallback, giant translucent `404`, `EmptyState` + Compass, Go Home / Go Back, search box → `/search?q=`), wired as `path="*"` in `src/app/routes.jsx` (replacing the bare `NoMatch`), styles in `ui-kit.css`; regression test `NotFoundPage.test.jsx` (3).
   - **SEO:** `SEO` added to Genre, Search, Discovery, Category, PersonDetails, History, Watchlist, ExploreCollections and VerifyEmail pages; `SettingsPage` title `"Settings - Streamly"` → `"Settings"` + `noindex` (fixes the double `| Streamly` brand). Library/utility routes are `noindex`.
   - **Accessibility:** skip-to-content link (`#main-content`) + `.skip-link` CSS; Header root `div` → `header` (banner landmark); focus now moves to `<main>` on route change (`preventScroll`, keeps scroll restoration authoritative); GlobalShortcuts close button labelled.
