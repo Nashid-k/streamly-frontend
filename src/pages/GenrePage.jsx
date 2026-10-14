@@ -11,6 +11,7 @@ import ErrorBoundary from "../components/ErrorBoundary";
 import Chip from "../components/Chip";
 import ContentPageHeader from "../components/ContentPageHeader";
 import EmptyState from "../components/EmptyState";
+import SEO from "../components/SEO";
 import { selectGenreResults } from "../utils/genreResults";
 import { logEmptyData, reportQueryError } from "../utils/debugLogger";
 
@@ -106,6 +107,10 @@ export default function GenrePage() {
 
   return (
     <div style={{ position: "relative" }}>
+      <SEO
+        title={`${genre || "Genre"} Movies & TV Shows`}
+        description={`Browse the best ${genre} movies and TV shows streaming now on Streamly.`}
+      />
       {/* Ambient background — banner-at-the-time gradient blur, like the watch page */}
       <AmbientBackground
         src={results[0]?.backdropUrl || results[0]?.posterUrl || results[0]?.poster}

@@ -13,6 +13,7 @@ import MovieCardSkeleton from "../components/MovieCardSkeleton";
 import AmbientBackground from "../components/AmbientBackground";
 import ErrorBoundary from "../components/ErrorBoundary";
 import EmptyState from "../components/EmptyState";
+import SEO from "../components/SEO";
 import RailArrow from "../components/RailArrow";
 import FilterPill from "../components/browse/FilterPill";
 import MenuItem from "../components/browse/MenuItem";
@@ -550,6 +551,10 @@ export default function DiscoveryPage({ mode = "movies" }) {
 
   return (
     <div style={{ position: "relative" }}>
+      <SEO
+        title={cfg.title}
+        description={`Browse and filter ${cfg.title.toLowerCase()} by genre, year, provider and language on Streamly.`}
+      />
       {/* Ambient liquid backdrop from the first result */}
       {ambientSrc && <AmbientBackground src={ambientSrc} />}
 

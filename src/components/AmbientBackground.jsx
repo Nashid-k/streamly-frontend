@@ -7,8 +7,13 @@ import { CdnImageAdapter } from "../api/cdnImageAdapter";
    banner-at-the-time gradient wash. With `fallback` it renders the liquid
    gradient layer even when there is no backdrop image yet (e.g. an empty
    My List). */
-function AmbientBackground({ src, alt = "", fallback = false }) {
-  if (!src && !fallback) return null;
+function AmbientBackground({ src, alt = "", fallback = false, children }) {
+  // Wrapping usage (Explore / Public collection pages) nests the page body as
+  // `children`; self-closing usage passes none. Ignoring `children` rendered
+  // those pages blank, so render them here — outside the aria-hidden backdrop
+  // and lifted above its z-0 layer.
+  const hasChildren = children !== undefined && children !== null;
+  if (!src && !fallback && !hasChildren) return null;
 
   /* The two layers are pure color washes — resolution is invisible under a
      blur(50–80px). Render them from a w342 rendition so the GPU blurs a few
@@ -16,7 +21,7 @@ function AmbientBackground({ src, alt = "", fallback = false }) {
      behind the hero, forever). */
   const blurSrc = CdnImageAdapter.getUrl(src, "w342");
 
-  return (
+  const layer = (
     <div
       className="fixed inset-0 w-full h-full z-0 pointer-events-none ambient-sky"
       style={{ contain: "strict" }}
@@ -59,6 +64,15 @@ function AmbientBackground({ src, alt = "", fallback = false }) {
         <div className="absolute inset-0 z-0 pointer-events-none watch-hero-gradient" />
       </div>
     </div>
+  );
+
+  if (!hasChildren) return layer;
+
+  return (
+    <>
+      {layer}
+      <div className="relative z-10">{children}</div>
+    </>
   );
 }
 

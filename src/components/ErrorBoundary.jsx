@@ -110,10 +110,11 @@ export default class ErrorBoundary extends React.Component {
               fontSize: "2.5rem",
             }}
           >
-            Oops! Something went wrong.
+            Something went wrong
           </h1>
           <p style={{ color: "#a1a1aa", marginBottom: "2rem" }}>
-            We're sorry, an unexpected error occurred.
+            Don&rsquo;t worry &mdash; this isn&rsquo;t your fault. Try again, or head
+            back home. If it keeps happening, reloading the app usually clears it.
           </p>
           <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", justifyContent: "center" }}>
             <button

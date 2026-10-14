@@ -11,6 +11,7 @@ import MovieCard from "../components/MovieCard.jsx";
 import { progressPct } from "../utils/resumeProgress";
 import ErrorBoundary from "../components/ErrorBoundary";
 import ContentPageHeader from "../components/ContentPageHeader";
+import SEO from "../components/SEO";
 
 export default function HistoryPage() {
   const navigate = useNavigate();
@@ -139,6 +140,11 @@ export default function HistoryPage() {
 
   return (
     <div className="main-content content-page content-page--library">
+      <SEO
+        title="Watch History"
+        description="Every title you've watched, ready to resume."
+        noindex
+      />
       <ConfirmDialogRenderer />
       <div className="content-page__inner">
         <ContentPageHeader

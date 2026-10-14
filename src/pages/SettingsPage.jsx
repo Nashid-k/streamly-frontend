@@ -377,7 +377,7 @@ export default function SettingsPage() {
 
   return (
     <div className="settings-page min-h-screen" style={{ position: "relative" }}>
-      <SEO title="Settings - Streamly" description="Configure player, servers, appearance, subtitles and accounts." />
+      <SEO title="Settings" description="Configure player, servers, appearance, subtitles and accounts." noindex />
       {/* Visually-hidden results live region: announces search/tab filtering
           to screen readers without stealing focus or scroll position. */}
       <p className="sr-only" role="status" aria-live="polite">{liveSummary}</p>

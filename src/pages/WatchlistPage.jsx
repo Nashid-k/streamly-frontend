@@ -23,6 +23,7 @@ import { useConfirmDialog } from "../components/ConfirmDialog.jsx";
 import MovieCard from "../components/MovieCard";
 import AmbientBackground from "../components/AmbientBackground";
 import EmptyState from "../components/EmptyState";
+import SEO from "../components/SEO";
 import ErrorBoundary from "../components/ErrorBoundary";
 import CollectionPickerDialog from "../components/CollectionPickerDialog";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
@@ -504,6 +505,11 @@ export default function WatchlistPage() {
 
   return (
     <div style={{ position: "relative" }}>
+      <SEO
+        title="My List"
+        description="Your saved movies and series, ready whenever you are."
+        noindex
+      />
       {/* Ambient liquid backdrop — always on, even before anything is saved */}
       <AmbientBackground
         src={visibleResults[0]?.backdropUrl || visibleResults[0]?.posterUrl || myList[0]?.backdropUrl || myList[0]?.posterUrl}

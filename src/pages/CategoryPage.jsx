@@ -9,6 +9,7 @@ import AmbientBackground from "../components/AmbientBackground";
 import ErrorBoundary from "../components/ErrorBoundary";
 import ContentPageHeader from "../components/ContentPageHeader";
 import EmptyState from "../components/EmptyState";
+import SEO from "../components/SEO";
 import { logEmptyData, reportQueryError } from "../utils/debugLogger";
 
 export default function CategoryPage() {
@@ -18,6 +19,13 @@ export default function CategoryPage() {
   // "/category/%E0" — an uncaught crash, then a full ErrorBoundary fallback.
   const { name } = useParams();
   const categoryName = name;
+
+  const seo = (
+    <SEO
+      title={categoryName}
+      description={`Handpicked ${categoryName} movies and shows to stream on Streamly.`}
+    />
+  );
 
   // Scroll to top on mount
   useEffect(() => {
@@ -116,6 +124,7 @@ export default function CategoryPage() {
     return (
       <div className="main-content content-page content-page--collection">
         <div className="content-page__inner">
+        {seo}
         <ContentPageHeader
           eyebrow="Collection"
           title={categoryName}
@@ -136,6 +145,7 @@ export default function CategoryPage() {
     return (
       <div className="main-content content-page content-page--collection">
         <div className="content-page__inner">
+        {seo}
         <ContentPageHeader
           eyebrow="Collection"
           title={categoryName}
@@ -167,6 +177,7 @@ export default function CategoryPage() {
 
   return (
     <div className="main-content content-page content-page--collection">
+      {seo}
       <AmbientBackground
         src={
           visibleMovies[0]?.backdropUrl ||

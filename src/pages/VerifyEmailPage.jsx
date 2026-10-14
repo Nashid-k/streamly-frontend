@@ -5,6 +5,7 @@ import { AlertCircle, CheckCircle2, Loader2, MailCheck } from "lucide-react";
 import { useAppAuth } from "../context/auth";
 import { useI18n } from "../i18n";
 import { MotionLeaf } from "../components/MotionLeaf";
+import SEO from "../components/SEO";
 
 /* ── /verify-email ──────────────────────────────────────────────────────────
    Where the emailed link lands. The account is created by the button press, not
@@ -104,6 +105,7 @@ export default function VerifyEmailPage() {
 
   return (
     <main className="verify-page">
+      <SEO title="Verify Email" noindex />
       <motion.section
         className="verify-card"
         role="status"

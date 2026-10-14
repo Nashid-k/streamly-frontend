@@ -1,7 +1,9 @@
+import { useEffect, useRef } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useLocation } from "react-router-dom";
 import BackToTop from "../components/BackToTop";
 import Footer from "../components/Footer";
+import OfflineBanner from "../components/OfflineBanner";
 import Header from "./Header";
 import MobileBottomNav from "./MobileBottomNav";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
@@ -10,10 +12,23 @@ function Layout({ children }) {
   useScrollRestoration();
   const location = useLocation();
   const reduceMotion = useReducedMotion();
+  const mainRef = useRef(null);
+
+  /* Move focus to the main landmark on route change so keyboard and screen
+     reader users land in the new page instead of being left on the nav link
+     they just activated. `preventScroll` keeps the scroll-restoration logic in
+     charge of position. */
+  useEffect(() => {
+    mainRef.current?.focus({ preventScroll: true });
+  }, [location.pathname]);
 
   return (
     <div className="app-container">
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
       <Header />
+      <OfflineBanner />
 
       {/* Main Content Area with Page Transitions.
           No mode="wait": that held the outgoing page for the full 180ms exit
@@ -21,7 +36,7 @@ function Layout({ children }) {
           read as a stall (180ms hold, then the lazy chunk, then the page). The
           default sync mode mounts the new page immediately and cross-fades the
           old one out underneath it — same look, no dead time. */}
-      <main className="app-main" id="main-content" tabIndex={-1}>
+      <main className="app-main" id="main-content" tabIndex={-1} ref={mainRef}>
         <AnimatePresence>
           <motion.div
             key={location.pathname}

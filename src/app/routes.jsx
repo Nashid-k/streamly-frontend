@@ -1,5 +1,5 @@
 import { Suspense, lazy } from "react";
-import { Routes, Route, Navigate, Link, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import ErrorBoundary from "../components/ErrorBoundary";
 import Loader from "../components/Loader";
 
@@ -15,6 +15,7 @@ const ExploreCollectionsPage = lazy(() => import("../pages/ExploreCollectionsPag
 const PublicCollectionPage = lazy(() => import("../pages/PublicCollectionPage"));
 const HistoryPage = lazy(() => import("../pages/HistoryPage"));
 const SettingsPage = lazy(() => import("../pages/SettingsPage"));
+const NotFoundPage = lazy(() => import("../pages/NotFoundPage"));
 // Not lazy, unlike its neighbours: this page is the first paint after clicking a
 // link in an email, and a second Suspense flash before "Confirm my email" is
 // pure latency on the one screen that has to land.
@@ -23,20 +24,6 @@ import VerifyEmailPage from "../pages/VerifyEmailPage";
 /* Routes wrapped in a route-keyed ErrorBoundary + Suspense so a page that
    crashes shows the fallback once but recovers automatically the moment the
    user navigates (without requiring a hard reload). */
-function NoMatch() {
-  return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 px-4 text-center">
-      <p className="text-5xl font-bold tracking-tight">404</p>
-      <p className="text-sm text-muted-foreground">
-        This page does not exist.
-      </p>
-      <Link className="text-sm font-medium underline underline-offset-4" to="/">
-        Back to Home
-      </Link>
-    </div>
-  );
-}
-
 function AppRoutes() {
   const location = useLocation();
   return (
@@ -82,9 +69,9 @@ function AppRoutes() {
               pure latency. */}
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           {/* Unknown path: an unmatched <Routes> renders NOTHING, so a stale
-              bookmarked link lands on a blank screen. Surface it honestly
-              instead of pretending every route exists. */}
-          <Route path="*" element={<NoMatch />} />
+              bookmarked link lands on a blank screen. Surface it honestly — a
+              full ambient 404 with a way Home/Back and a search box. */}
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Suspense>
     </ErrorBoundary>

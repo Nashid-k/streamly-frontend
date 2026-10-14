@@ -133,7 +133,7 @@ function Header() {
   }, [scheduleMeasure, measurePill]);
 
   return (
-    <div className={`header-row${isScrolled ? " scrolled" : ""}`}>
+    <header className={`header-row${isScrolled ? " scrolled" : ""}`}>
       {/* Cinejoy-style back arrow — sits right before the brand logo on
           every non-home page; prefers history, falls back to home. */}
       {location.pathname !== "/" && (
@@ -252,7 +252,7 @@ function Header() {
         triggerRef={settingsBtnRef}
         position={menuPos}
       />
-    </div>
+    </header>
   );
 }
 

@@ -37,6 +37,13 @@ export default function GlobalShortcuts() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // Allow other UI (e.g. the footer hint) to surface the help overlay.
+  useEffect(() => {
+    const openShortcuts = () => setIsOpen(true);
+    window.addEventListener("streamly:open-shortcuts", openShortcuts);
+    return () => window.removeEventListener("streamly:open-shortcuts", openShortcuts);
+  }, []);
+
   const shortcuts = [
     { key: "Ctrl / Cmd + K", desc: "Global Search", icon: <Search size={16} /> },
     {
@@ -160,6 +167,7 @@ export default function GlobalShortcuts() {
               </h2>
               <button
                 onClick={() => setIsOpen(false)}
+                aria-label="Close keyboard shortcuts"
                 style={{
                   background: "transparent",
                   border: "none",

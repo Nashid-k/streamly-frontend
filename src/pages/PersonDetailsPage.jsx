@@ -9,6 +9,7 @@ import MovieCardSkeleton from "../components/MovieCardSkeleton";
 import EmptyState from "../components/EmptyState";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { logEmptyData, reportQueryError } from "../utils/debugLogger";
+import SEO from "../components/SEO";
 
 export default function PersonDetails() {
   const { id } = useParams();
@@ -41,6 +42,7 @@ export default function PersonDetails() {
   if (loading) {
     return (
       <div className="main-content person-page person-page--loading">
+        <SEO title="Person" noindex />
         {/* Blurred backdrop preview — mirrors the real blurred profile bg */}
         <div
           className="skeleton skeleton-glow"
@@ -161,6 +163,7 @@ export default function PersonDetails() {
           minHeight: "60vh",
         }}
       >
+        <SEO title="Actor not found" noindex />
         <EmptyState
           icon="error"
           title="Actor not found"
@@ -191,6 +194,10 @@ export default function PersonDetails() {
 
   return (
     <div className="main-content person-page">
+      <SEO
+        title={person.name}
+        description={`${person.name} — filmography, biography and credits on Streamly.`}
+      />
       {/* Dynamic Blurred Background */}
       <div
         className="person-page__backdrop"

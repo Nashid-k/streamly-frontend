@@ -27,6 +27,14 @@ function Footer() {
         >
           contact@streamly.app
         </a>
+
+        <button
+          type="button"
+          className="text-xs text-white/30 hover:text-white/60 underline underline-offset-2 transition-colors"
+          onClick={() => window.dispatchEvent(new Event("streamly:open-shortcuts"))}
+        >
+          Keyboard shortcuts
+        </button>
       </div>
     </footer>
   );

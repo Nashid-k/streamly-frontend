@@ -34,7 +34,7 @@ describe('ErrorBoundary', () => {
         <ThrowingComponent shouldThrow={true} />
       </ErrorBoundary>
     );
-    expect(screen.getByText(/Oops!/)).toBeInTheDocument();
+    expect(screen.getByText(/Something went wrong/)).toBeInTheDocument();
     expect(screen.getByText(/Return to Home/)).toBeInTheDocument();
   });
 

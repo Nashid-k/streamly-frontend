@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { CloudOff, FolderOpen, RotateCcw } from "lucide-react";
 import AmbientBackground from "../components/AmbientBackground";
+import SEO from "../components/SEO";
 import { useI18n } from "../i18n";
 import { useMyCollections } from "../hooks/useUserData";
 import { fetchPublicCollections, ExploreError } from "../api/publicCollections";
@@ -56,7 +57,8 @@ export default function ExploreCollectionsPage() {
   }, [publicCollections, remoteCollections]);
 
   return (
-    <AmbientBackground>
+    <AmbientBackground fallback>
+      <SEO title={t("explore.title")} description={t("explore.subtitle")} noindex />
       <div className="mx-auto max-w-6xl px-4 md:px-6 py-8 md:py-12">
         <header className="mb-8 md:mb-10 text-left">
           <h1 className="text-2xl md:text-4xl font-bold tracking-tight">

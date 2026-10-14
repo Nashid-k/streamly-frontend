@@ -8,6 +8,7 @@ import { motion } from "framer-motion";
 import MovieCard from "../components/MovieCard";
 import MovieCardSkeleton from "../components/MovieCardSkeleton";
 import EmptyState from "../components/EmptyState";
+import SEO from "../components/SEO";
 import Button from "../components/Button";
 import Chip from "../components/Chip";
 import AmbientBackground from "../components/AmbientBackground";
@@ -291,6 +292,11 @@ export default function SearchPage() {
 
   return (
     <div className="main-content content-page content-page--search">
+      <SEO
+        title={query ? `Search: ${query}` : "Search"}
+        description="Search thousands of movies and TV shows across every major streaming service."
+        noindex
+      />
       <AmbientBackground
         src={
           visibleResults[0]?.backdropUrl ||
