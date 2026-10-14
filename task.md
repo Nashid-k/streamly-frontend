@@ -7,6 +7,15 @@
 
  ## Done (in order)
 
+- [x] **404 page, SEO meta, a11y / offline / keyboard UX, CI Node fix — 2026-10-14.**
+  - **404:** new `src/pages/NotFoundPage.jsx` (AmbientBackground fallback, giant translucent `404`, `EmptyState` + Compass, Go Home / Go Back, search box → `/search?q=`), wired as `path="*"` in `src/app/routes.jsx` (replacing the bare `NoMatch`), styles in `ui-kit.css`; regression test `NotFoundPage.test.jsx` (3).
+  - **SEO:** `SEO` added to Genre, Search, Discovery, Category, PersonDetails, History, Watchlist, ExploreCollections and VerifyEmail pages; `SettingsPage` title `"Settings - Streamly"` → `"Settings"` + `noindex` (fixes the double `| Streamly` brand). Library/utility routes are `noindex`.
+  - **Accessibility:** skip-to-content link (`#main-content`) + `.skip-link` CSS; Header root `div` → `header` (banner landmark); focus now moves to `<main>` on route change (`preventScroll`, keeps scroll restoration authoritative); GlobalShortcuts close button labelled.
+  - **Offline / error UX:** new `OfflineBanner` (`navigator.onLine` + online/offline events) mounted in Layout; friendlier unrecoverable-`ErrorBoundary` copy ("Something went wrong — this isn't your fault…"); footer "Keyboard shortcuts" affordance dispatches `streamly:open-shortcuts` to surface the existing help overlay.
+  - **Bug fix:** `AmbientBackground.jsx` silently ignored `children`, so `ExploreCollectionsPage` / `PublicCollectionPage` rendered blank — now returns `{layer}` plus a `relative z-10` child wrapper; regression test `AmbientBackground.test.jsx` (2, first red before the fix).
+  - **CI:** `sync-zxc-contract.yml` + `mongo-snapshot.yml` bumped Node 20 → 24 (jsdom@30 requires `^22.22.2 || ^24.15.0 || >=26`), `engines` added to `package.json`, `.nvmrc` = `24` — fixes the `webidl.util.markAsUncloneable is not a function` / "no tests, 84 errors" runner failures.
+  - Gates: oxlint 0 errors; `npm run test` 87/87 files, 1099/1099; `npm run build` clean; touched files CRLF, no BOM.
+
 - [x] **Disabled Play on unreleased titles (`1030884`) — 2026-10-14.** Pushed to main.
   - On the title-details page the primary Play/Resume button is now `disabled` (with an `opacity-45 cursor-not-allowed` state) whenever `isUnreleased(movie.releaseDate)` is true, so a not-yet-released title can no longer open the player. The inline "Not released yet · Available <date>" badge is now the info trigger that opens the existing notice dialog, which keeps the page's `MotionFade` + `L.Modal` adoption (so `motion.test.js`'s big-page dialog gate still passes).
   - Gates: oxlint 0 errors; `npm run test` 84/84 files, 1091/1091; `npm run build` clean; touched file CRLF, no BOM.
