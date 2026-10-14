@@ -965,8 +965,11 @@ export default function TitleDetails() {
             {/* Actions */}
             <div className="details-hero__gap flex items-center gap-3 flex-wrap justify-center lg:justify-start">
               <button
+                type="button"
+                disabled={unreleased}
+                aria-disabled={unreleased}
+                title={unreleased ? "Not released yet" : undefined}
                 onClick={() => {
-                  if (unreleased) { setUnreleasedModalOpen(true); return; }
                   setPlayMode("movie");
                   setIsPlaying(true);
                   if (isTvContent) {
@@ -974,7 +977,9 @@ export default function TitleDetails() {
                   }
                   updateProgress(movie, isTvContent ? selectedSeason : null, isTvContent ? episodeToPlay : null, 0);
                 }}
-                className="relative rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 font-bold tracking-wide h-[44px] px-6 py-3 text-base min-w-[120px] border-none hover:scale-105 shadow-xl shadow-black/10"
+                className={`relative rounded-full flex items-center justify-center transition-all duration-200 font-bold tracking-wide h-[44px] px-6 py-3 text-base min-w-[120px] border-none shadow-xl shadow-black/10 ${
+                  unreleased ? "opacity-45 cursor-not-allowed" : "active:scale-95 hover:scale-105"
+                }`}
                 style={{ background: "var(--btn-bg, rgba(242,242,242,0.96))", color: "var(--btn-ink, #000000)", boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
               >
                 <Play className="w-5 h-5 mr-1.5 fill-current" /> {hasResume ? "Resume" : "Play"}
@@ -1019,14 +1024,19 @@ export default function TitleDetails() {
             </div>
 
             {unreleased && (
-              <div className="details-hero__gap inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] backdrop-blur-md px-3.5 py-1.5">
+              <button
+                type="button"
+                onClick={() => setUnreleasedModalOpen(true)}
+                aria-haspopup="dialog"
+                className="details-hero__gap inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] backdrop-blur-md px-3.5 py-1.5 transition-colors hover:bg-white/[0.11] cursor-pointer"
+              >
                 <Clock className="w-3.5 h-3.5 text-white/45" aria-hidden="true" />
                 <span className="text-[13px] font-semibold text-white">Not released yet</span>
                 <span className="text-white/25">·</span>
                 <span className="text-[13px] text-white/55">
                   Available {formatTMDBDate(movie.releaseDate, { month: "short", day: "numeric", year: "numeric" })}
                 </span>
-              </div>
+              </button>
             )}
 
             {/* Meta: Year · Runtime · Certification · Votes */}
