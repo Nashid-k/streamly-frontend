@@ -47,6 +47,11 @@ const SERVERS = ["atlas", "centaurus", "orion", "andromeda", "meow"];
 const log = (msg) => console.log(`[sync-zxc] ${msg}`);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// Preserve the file's OWN line endings. The repo stores LF blobs (Windows
+// working copies read CRLF via core.autocrlf), so coercing to CRLF turns a
+// one-line rename into a whole-file diff. Detect what was read and keep it.
+const eolOf = (text) => (text.includes("\r\n") ? "\r\n" : "\n");
+
 // One module instance: the seed/patch helpers and the real request handler all
 // come from the very file being kept truthful.
 const streamMod = await import(pathToFileURL(STREAM_FILE).href);
@@ -62,14 +67,14 @@ const {
 /* 3. Rewrite the seed block + the path pinned in the test (CRLF, no BOM). */
 function applySeed(seedContract) {
   const src = readFileSync(STREAM_FILE, "utf8");
-  const next = applyZxcContractToSource(src, seedContract);
+  const next = applyZxcContractToSource(src, contract).split(/\r?\n/).join(eolOf(src));
 
   const test = readFileSync(TEST_FILE, "utf8");
-  const nextTest = applyZxcContractToTest(test, seedContract);
+  const nextTest = applyZxcContractToTest(test, contract);
 
   if (!DRY_RUN) {
-    writeFileSync(STREAM_FILE, Buffer.from(next.replace(/\r?\n/g, "\r\n"), "utf8"));
-    if (nextTest !== test) writeFileSync(TEST_FILE, Buffer.from(nextTest.replace(/\r?\n/g, "\r\n"), "utf8"));
+    writeFileSync(STREAM_FILE, next, "utf8");
+    if (nextTest !== test) writeFileSync(TEST_FILE, nextTest, "utf8");
   }
   return next !== src || nextTest !== test;
 }

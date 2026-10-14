@@ -116,16 +116,20 @@ async function commitFiles(files, token) {
   return newCommit.sha;
 }
 
+// Preserve the file's OWN line endings: the repo stores LF blobs, so coercing
+// to CRLF would turn a one-line rename into a whole-file diff on every sync.
+const eolOf = (text) => (text.includes("\r\n") ? "\r\n" : "\n");
+
 /* Build the changed files (if any) by patching the CURRENT repo text, so a
    concurrent push never gets clobbered by our stale in-bundle copy. */
 async function buildChangedFiles(contract, token) {
   const files = [];
   const streamSrc = await readFileAt(STREAM_PATH, token);
-  const nextStream = applyZxcContractToSource(streamSrc, contract).replace(/\r?\n/g, "\r\n");
+  const nextStream = applyZxcContractToSource(streamSrc, contract).split(/\r?\n/).join(eolOf(streamSrc));
   if (nextStream !== streamSrc) files.push({ path: STREAM_PATH, content: nextStream });
 
   const testSrc = await readFileAt(TEST_PATH, token);
-  const nextTest = applyZxcContractToTest(testSrc, contract).replace(/\r?\n/g, "\r\n");
+  const nextTest = applyZxcContractToTest(testSrc, contract);
   if (nextTest !== testSrc) files.push({ path: TEST_PATH, content: nextTest });
   return files;
 }
