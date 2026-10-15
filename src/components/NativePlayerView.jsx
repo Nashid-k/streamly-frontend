@@ -2229,18 +2229,17 @@ setScrubDragging(true);
             setActiveDub(activeDubRef.current);
           }
           setIsMasterMode(isMaster);
+          setActiveUri(isMaster ? null : smoothStart?.uri || null);
+          // Remember the rung the player negotiated (non-master "Auto").
+          autoUriRef.current = isMaster ? null : smoothStart?.uri || null;
+          autoUriHeightRef.current = isMaster ? null : smoothStart?.height ?? null;
+          attachAudio(hls);
           // A real "playing" phase, not a label: consumers (the paused centre
           // transport in CenterStack, the low-buffer ABR step-down below) test
           // `status === "playing"` by exact equality, so the server name must
           // never be folded into this string or both go dead. The provider name
           // is already carried by `switchingNote`/the Servers menu.
           setStatus("playing");
-          setActiveUri(isMaster ? null : smoothStart?.uri || null);
-          // Remember the rung the player negotiated (non-master "Auto").
-          autoUriRef.current = isMaster ? null : smoothStart?.uri || null;
-          autoUriHeightRef.current = isMaster ? null : smoothStart?.height ?? null;
-          attachAudio(hls);
-          setStatus(`playing via ${def.label}`);
           // Real frames exist again: any later stall is a mid-playback one and
           // must use the light overlay, not hide the picture behind art.
           setStageWhileLoading(false);
