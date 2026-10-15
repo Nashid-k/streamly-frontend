@@ -79,7 +79,6 @@ beforeEach(() => {
   mpdStatus = {};
   mintedServers = [];
   emptyLinks = false;
-  let lastServer = "";
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input, init) => {
@@ -92,16 +91,17 @@ beforeEach(() => {
         } catch {
           body = {};
         }
-        lastServer = body[SERVER_PARAM] || lastServer;
-        mintedServers.push(lastServer);
+        mintedServers.push(body[SERVER_PARAM]);
         return json({ token: "tok", ts: "1700000000" });
       }
       if (url.includes("/backend/servers/")) {
+        // The server comes from THIS request's path, not from the last mint: a
+        // `prefer` pick now mints its fall-through candidate concurrently, so a
+        // mutable "last minted server" would map the wrong link to the wrong row.
+        const server = new URL(url).pathname.split("/").pop();
         return json({
           success: true,
-          links: emptyLinks
-            ? []
-            : [{ link: b64(`https://93.184.216.34/${lastServer}.mpd`), type: "dash", resolution: 1080 }],
+          links: emptyLinks ? [] : [{ link: b64(`https://93.184.216.34/${server}.mpd`), type: "dash", resolution: 1080 }],
         });
       }
       if (url.endsWith(".mpd")) {
@@ -183,7 +183,49 @@ describe("ZXC preferred server with fast fallback", () => {
     const r = await call({ auto: true, prefer: "andromeda" });
     expect(r.ok).toBe(true);
     expect(r.server).toBe("andromeda");
-    expect(mintedServers).toEqual(["andromeda"]);
+    // andromeda is served; orion (the next candidate) is minted up front as the
+    // fall-through's ready token — one cheap mint, no extra hop. The two mints
+    // are concurrent, so only membership is asserted, not order.
+    expect(mintedServers).toContain("andromeda");
+    expect(mintedServers).toContain("orion");
+  });
+
+  it("mints the fall-through candidate up front (one less round trip when the pick is dead)", async () => {
+    // A `prefer` pick on a dead backend must not pay a mint round trip before it
+    // falls through, so the second candidate's token is minted CONCURRENTLY with
+    // the first hop. Proven by ORDER: the second mint is issued before the first
+    // backend's manifest is ever fetched.
+    const order = [];
+    mpdStatus = { "https://93.184.216.34/centaurus.mpd": 427 };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input, init) => {
+        const url = String(typeof input === "string" ? input : input?.url || input);
+        if (url.includes("/backend/tmdb/details/")) return json({ title: "Stub", release_date: "2024-01-01", imdb_id: "" });
+        if (url.includes(MINT_PATH)) {
+          let body = {};
+          try {
+            body = init?.body ? JSON.parse(init.body) : {};
+          } catch {
+            body = {};
+          }
+          order.push(`mint:${body[SERVER_PARAM]}`);
+          return json({ token: "tok", ts: "1700000000" });
+        }
+        if (url.includes("/backend/servers/")) return json({ success: true, links: [{ link: b64(`https://93.184.216.34/${new URL(url).pathname.split("/").pop()}.mpd`), type: "dash", resolution: 720 }] });
+        if (url.includes(".mpd")) {
+          order.push(`mpd:${url.split("/").pop().replace(".mpd", "")}`);
+          return mpdStatus[url] ? new Response("down", { status: mpdStatus[url] }) : new Response(MPD, { status: 200 });
+        }
+        return new Response("upstream unreachable", { status: 502 });
+      }),
+    );
+    const r = await call({ auto: true, prefer: "centaurus" });
+    expect(r.ok).toBe(true);
+    expect(r.server).toBe("orion");
+    // orion's mint precedes centaurus's manifest fetch — it was already in flight.
+    expect(order.indexOf("mint:orion")).toBeGreaterThan(-1);
+    expect(order.indexOf("mint:orion")).toBeLessThan(order.indexOf("mpd:centaurus"));
   });
 
   it("falls through to a live backend when the preferred one has no source", async () => {
@@ -192,7 +234,9 @@ describe("ZXC preferred server with fast fallback", () => {
     expect(r.ok).toBe(true);
     // centaurus was attempted first, cooled, then the rotation served orion.
     expect(r.server).toBe("orion");
-    expect(mintedServers).toEqual(["centaurus", "orion"]);
+    // Both were mintable up front (concurrent), so assert membership, not order.
+    expect(mintedServers).toHaveLength(2);
+    expect(mintedServers).toEqual(expect.arrayContaining(["centaurus", "orion"]));
   });
 
   it("rejects an unknown preferred server", async () => {

@@ -1322,13 +1322,22 @@ async function handleResolveZxc(body, res) {
 
   // The token mint depends ONLY on type/id/server/season/episode — never on
   // /backend/tmdb/details — so kick it off CONCURRENTLY with the metadata
-  // lookup for the FIRST server in the plan. That folds one upstream round trip
-  // out of every resolve's critical path. A failed prefetch is not fatal: the
-  // token is simply absent and zxcServerLinks re-mints (where the real error,
-  // including contract-rename recovery, surfaces exactly as before).
-  const firstServer = plan[0];
-  const prefetchedTokenPromise = zxcMint({ type, tmdbId, server: firstServer, season, episode, refererPath })
-    .catch(() => null);
+  // lookup. That folds one upstream round trip out of every resolve's critical
+  // path. For a `prefer` (manual pick that may fall through) we mint the SECOND
+  // candidate too, so a dead pick does not ALSO pay a mint round trip before it
+  // falls through — the switch-then-fallback case. Bounded to two: minting the
+  // whole rotation up front is the amplification the per-dub verification was
+  // removed for. A failed prefetch is not fatal: the token is simply absent and
+  // zxcServerLinks re-mints, where the real error (including contract-rename
+  // recovery) surfaces exactly as before.
+  const prefetchedTokens = new Map();
+  const prefetchCount = Math.min(prefer && plan.length > 1 ? 2 : 1, plan.length);
+  for (let i = 0; i < prefetchCount; i += 1) {
+    prefetchedTokens.set(
+      plan[i],
+      zxcMint({ type, tmdbId, server: plan[i], season, episode, refererPath }).catch(() => null),
+    );
+  }
 
   let titleMeta;
   try {
@@ -1358,18 +1367,16 @@ async function handleResolveZxc(body, res) {
     latestDate: titleMeta.latestDate,
   };
 
-  // By now the parallel mint started above has had the whole metadata lookup to
-  // settle; awaiting it costs nothing if it already resolved. Only the FIRST
-  // server in the plan gets the prefetched token — the fall-through servers
-  // mint their own inside zxcServerLinks.
-  const prefetchedToken = await prefetchedTokenPromise;
-
   // `plan` is built above. A soft miss moves on to the next server; only N HARD
-  // failures end the walk early.
+  // failures end the walk early. Each hop spends its prefetched token when one
+  // was minted above (they had the whole metadata lookup to settle, so awaiting
+  // costs nothing); servers without one mint inside zxcServerLinks.
   let hardFails = 0;
   let last = null;
   for (const server of plan) {
-    const result = await resolveZxcOnServer(meta, server, server === firstServer ? prefetchedToken : undefined);
+    const tokenPromise = prefetchedTokens.get(server);
+    const prefetchedToken = tokenPromise ? await tokenPromise : undefined;
+    const result = await resolveZxcOnServer(meta, server, prefetchedToken);
     if (result.ok) {
       noteZxcServer(server, true);
       json(res, 200, result.payload);

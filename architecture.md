@@ -267,6 +267,27 @@ simply absent and `zxcServerLinks` re-mints, which is also where the real error
 (408–842ms) is already collapsed across playlist loads by the 30s `mpdCache`, so
 no second mint+servers trip is paid when the marker playlist replays.
 
+**A server SWITCH reuses that same "start the independent work early" idea, on
+four fronts** (2026-10-15). (1) `streamResolve.resolveZxc` keeps a resolve-payload
+cache keyed by `type|id|season|episode|mode`, where `mode` is `server:X`,
+`prefer:X`, or `auto`, TTL 5 minutes — the payload's variant/audio URLs are
+marker URLs that re-mint server-side, so they are replayable, which is exactly
+the provider's own `staleTime: Infinity` per server. It caches the PROMISE, so
+a prefetch still in flight when the viewer taps is COALESCED with the player's
+own resolve (one request, not two). `bypass:true` (every retry/token-refresh)
+skips the read so a payload a probe just proved dead is never replayed, and a
+failed resolve deletes its entry. (2) Opening the Servers sheet runs
+`prefetchSources` (`src/api/warmResolve.js`): it warms every row, skipping ones
+already fresh and capping at 2 in flight, so the open cannot recreate the
+request burst whose 429 once cascaded into series playback; the cancel function
+stops only NEW warms. (3) `pickServer` starts the target's resolve immediately —
+while the previous frame is still on screen — instead of waiting for the load
+effect to re-run, and the player's resolve joins that in-flight promise. (4) For
+a `prefer` (manual) pick the server mints the SECOND candidate's token
+concurrently with the first hop (`handleResolveZxc`), so a dead pick falls
+through without also paying a mint round trip; gated to `prefer` and bounded to
+two, so the pure-`auto` happy path pays nothing extra.
+
 **DASH is transcoded to HLS fMP4 server-side** (`server/dashToHls.js`) rather
 than played with `dash.js`: the MPD's `SegmentTemplate` is substituted per
 representation, and `buildMasterPlaylist`/`buildMediaPlaylist` emit a replayable

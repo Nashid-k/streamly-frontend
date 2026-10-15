@@ -27,7 +27,7 @@ import NetflixStillWatching from "./NetflixStillWatching";
 import Hls from "hls.js";
 import { variantLabel } from "../utils/hlsPlaylist";
 import { createStreamlyLoader, probeSourcePlayable } from "../api/nativeHlsLoader";
-import { takeWarmResolve } from "../api/warmResolve";
+import { takeWarmResolve, prefetchSources } from "../api/warmResolve";
 import { SKIP_DATA_CREDIT, fetchSkipBoundaries } from "../api/skipBoundarySource";
 import { fetchZxcIntroBounds } from "../api/skipProviderSource";
 import { SubtitleFetcher } from "../api/subtitleFetcher";
@@ -255,6 +255,13 @@ export default function NativePlayerView({
   // units and a fixed top percentage both land the overlay in the wrong place.
   const { w: playerW, h: playerH } = useContainerSize(screenRef);
   const hudBox = useMemo(() => hudMetrics(playerW, playerH), [playerW, playerH]);
+  // Resolver args for THIS title/episode, memoized so the Servers-menu prefetch
+  // and the player's own resolve sign the SAME streamResolve cache key — that
+  // identity is what lets a prefetch coalesce with the click instead of racing.
+  const resolveArgs = useMemo(
+    () => ({ type, id, season: type === "tv" ? season : undefined, episode: type === "tv" ? episode : undefined, title }),
+    [type, id, season, episode, title],
+  );
   const scrubRef = useRef(null);
   // Settings sheet surface — focus moves here on open and back to the control
   // that opened it on close, so the panel is actually operable by keyboard.
@@ -1901,7 +1908,7 @@ setScrubDragging(true);
 
       // One pass at a source: true = settled (caller stops), false = transient (retryable
       // warm-up/empty/flaky), "off" = terminal (the provider doesn't have this title).
-      const runSourceOnce = async (defArg) => {
+      const runSourceOnce = async (defArg, bypassCache) => {
         // Auto rotation resolves through AUTO_SOURCE (the backend picks the
         // healthiest server in one round trip); a Servers-menu pick overrides it
         // for one pass (stale() guards everything as usual).
@@ -1915,7 +1922,7 @@ setScrubDragging(true);
           // refuses ANY manual server pick (a pick must resolve THAT server, not
           // a warm token minted for the auto path).
           const warm = takeWarmResolve(args, { sourceKey: requestedServerRef.current });
-          resolved = warm || (await def.resolve(args, { signal: controller.signal }));
+          resolved = warm || (await def.resolve(args, { signal: controller.signal, bypass: bypassCache }));
         } catch (error) {
           if (error?.code === "no-source") return "off";
           return false;
@@ -2266,7 +2273,9 @@ setScrubDragging(true);
                 }
             let fresh = null;
             try {
-              fresh = await def.resolve(args, { signal: controller.signal });
+              // bypass: the cached payload is the one the probe just proved dead
+              // — a token refresh must actually re-resolve, not replay it.
+              fresh = await def.resolve(args, { signal: controller.signal, bypass: true });
             } catch {
               fresh = null;
             }
@@ -2295,7 +2304,9 @@ setScrubDragging(true);
             await sleep(SOURCE_RETRY_BACKOFF_MS[retry - 1] ?? 1200);
             if (stale()) return true;
           }
-          const outcome = await runSourceOnce(def);
+          // A retry means the previous attempt (possibly from the prefetch
+          // cache) did not play, so bypass the cache and resolve live.
+          const outcome = await runSourceOnce(def, retry > 0);
           if (outcome === true) return true;
           if (outcome === "off") return false;
         }
@@ -2556,6 +2567,12 @@ setScrubDragging(true);
      row highlights this icon while a Servers-menu panel is open. */
   const pickServer = (key) => {
     if (requestedServerRef.current === key) return;
+    // Overlap: start the target's resolve NOW, while the previous frame is still
+    // on screen, instead of after React tears the current run down and
+    // re-renders. The player's own resolve for this row coalesces onto this
+    // in-flight promise via the streamResolve cache, so the switch begins with
+    // the mint -> servers -> MPD chain already running.
+    Promise.resolve(sourceByKey(key)?.resolve(resolveArgs)).catch(() => {});
     requestedServerRef.current = key;
     setRequestedServer(key);
     activeDubRef.current = 0;
@@ -2571,6 +2588,14 @@ setScrubDragging(true);
     setServerSwitchStage(true);
     setSwitchingNote(`Switching to ${def?.label || "that server"}…`);
   };
+
+  // Servers menu open → warm every row so the tap starts almost instantly. The
+  // prefetch is bounded (see prefetchSources) and cancelled the moment the menu
+  // closes; a warm already in flight finishes and fills the cache for the tap.
+  useEffect(() => {
+    if (panel !== "servers") return undefined;
+    return prefetchSources(resolveArgs, { skipKey: requestedServer || activeSourceKey });
+  }, [panel, resolveArgs, requestedServer, activeSourceKey]);
 
   // YouTube's anti-stall rule: when the pipe can't refill faster than a segment
   // plays, drop one rung once the forward buffer sits under BUFFER_FLOOR_SECONDS

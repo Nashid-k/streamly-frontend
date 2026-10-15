@@ -19,7 +19,8 @@
 // also means a dead backend cannot waste the warm leg — the server picks a
 // live one internally.
 
-import { AUTO_SOURCE } from "../constants/sources";
+import { AUTO_SOURCE, PLAYER_SOURCES } from "../constants/sources";
+import { hasFreshResolve } from "./streamResolve";
 
 const WARM_TTL_MS = 4 * 60 * 1000; // tokens are time-scoped — never serve stale
 const warm = {
@@ -86,4 +87,49 @@ export function _resetWarmResolveForTests() {
   warm.key = null;
   warm.at = 0;
   warm.promise = null;
+}
+
+/* Servers-menu prefetch: warm the resolve for every row the viewer might tap,
+   so a switch starts almost instantly instead of paying mint -> servers -> MPD
+   after the click. This is the same "do the work before it is needed" idea as
+   the details-page warm, extended to the switch surface.
+
+   Bounded on purpose: rows already freshly cached are skipped, and at most
+   `MAX_PREFETCH_IN_FLIGHT` resolves run at once, so opening the menu cannot
+   recreate the request burst whose 429 once cascaded into series playback.
+   Because streamResolve caches the PROMISE, a prefetch that is still running
+   when the viewer taps that row is COALESCED with the player's own resolve —
+   the click joins the in-flight request rather than starting a second one.
+
+   Returns a cancel function; it stops NEW rows from starting but cannot abort a
+   request already in flight (that request fills the cache for the upcoming
+   click, which is the point). */
+const MAX_PREFETCH_IN_FLIGHT = 2;
+
+export function prefetchSources(args, { skipKey } = {}) {
+  let cancelled = false;
+  const rows = PLAYER_SOURCES.filter((s) => s.key !== skipKey && !hasFreshResolve({ ...args, prefer: s.server }));
+  let active = 0;
+  let index = 0;
+  const pump = () => {
+    if (cancelled) return;
+    while (active < MAX_PREFETCH_IN_FLIGHT && index < rows.length) {
+      const row = rows[index];
+      index += 1;
+      active += 1;
+      // Wrap in Promise.resolve: a resolver stub (tests) or a synchronous throw
+      // must not break the pump.
+      Promise.resolve()
+        .then(() => row.resolve(args))
+        .catch(() => {})
+        .finally(() => {
+          active -= 1;
+          pump();
+        });
+    }
+  };
+  pump();
+  return () => {
+    cancelled = true;
+  };
 }

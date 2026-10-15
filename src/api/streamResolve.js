@@ -63,6 +63,40 @@ async function post(body, { signal } = {}) {
   return json;
 }
 
+/* Resolve-payload cache with IN-FLIGHT coalescing. The payload's variant/audio
+   URLs are marker URLs that re-mint server-side on every playlist load, so they
+   are replayable and safe to reuse — which is exactly what the provider's own
+   client does (`staleTime: Infinity` per server). Caching the PROMISE (not the
+   settled value) means a Servers-menu prefetch and the player's own resolve for
+   the same row collapse onto ONE network request instead of racing, which is
+   what makes a server SWITCH start near-instantly: the target was already being
+   resolved while the previous frame was still on screen.
+
+   Failure deletes the entry, and every retry/failover path passes `bypass:true`
+   so a payload the probe just proved dead is never served twice. The TTL bounds
+   staleness if a delivery host changes state mid-session. */
+const RESOLVE_TTL_MS = 5 * 60 * 1000;
+const RESOLVE_CACHE_MAX = 60;
+const resolveCache = new Map(); // key -> { at, promise }
+
+function zxcResolveKey({ type, id, season, episode, server, auto, prefer }) {
+  const kind = type === "tv" ? "tv" : "movie";
+  const mode = prefer ? `prefer:${prefer}` : auto ? "auto" : `server:${server || ""}`;
+  return [kind, id, season || "", episode || "", mode].join("|");
+}
+
+/* Does a FRESH cached payload exist for this request? Lets a prefetch skip rows
+   that are already warm instead of re-asking (dedupe is otherwise implicit: a
+   second resolve just returns the cached promise). */
+export function hasFreshResolve(args) {
+  const entry = resolveCache.get(zxcResolveKey(args));
+  return Boolean(entry && Date.now() - entry.at < RESOLVE_TTL_MS);
+}
+
+export function clearZxcResolveCacheForTests() {
+  resolveCache.clear();
+}
+
 export const streamResolve = {
   /** Normalize a resolver `{ ok, source, variants }` payload into the shape
       the player consumes (labeled variants, per-variant index). Sibling-URL
@@ -94,48 +128,75 @@ export const streamResolve = {
       the backend echoes the `server` it actually used, which the player maps
       back onto its row. DASH servers come back as a transcoded multi-level
       master plus sibling-URL `audioTracks` (orion/centaurus dubs); HLS servers
-      pass their own ladder through. */
-  async resolveZxc({ type, id, season, episode, server, auto, prefer }, { signal } = {}) {
+      pass their own ladder through.
+
+      `bypass:true` skips the cache READ (used by the token-refresh retry and
+      the player's source retries, so a payload a probe just proved dead is not
+      served again); a successful result is still written. Prefetch callers get
+      the coalesced promise for free. */
+  resolveZxc({ type, id, season, episode, server, auto, prefer }, { signal, bypass } = {}) {
     const kind = type === "tv" ? "tv" : "movie";
-    const body = { action: "resolvezxc", type: kind, id: String(id || "") };
-    // Serialize exactly one of the three modes: an explicit pick names one
-    // server and ONLY that server, `prefer` names one that may fall through to
-    // the health-ordered rotation, and `auto` (no name) lets the backend choose.
-    if (prefer) {
-      body.auto = true;
-      body.prefer = String(prefer);
-    } else if (auto) {
-      body.auto = true;
-    } else {
-      body.server = String(server || "");
+    const key = zxcResolveKey({ type: kind, id, season, episode, server, auto, prefer });
+    if (!bypass) {
+      const hit = resolveCache.get(key);
+      if (hit && Date.now() - hit.at < RESOLVE_TTL_MS) return hit.promise;
+      if (hit) resolveCache.delete(key);
     }
-    if (kind === "tv") {
-      if (season != null) body.season = String(season);
-      if (episode != null) body.episode = String(episode);
+
+    const run = (async () => {
+      const body = { action: "resolvezxc", type: kind, id: String(id || "") };
+      // Serialize exactly one of the three modes: an explicit pick names one
+      // server and ONLY that server, `prefer` names one that may fall through to
+      // the health-ordered rotation, and `auto` (no name) lets the backend choose.
+      if (prefer) {
+        body.auto = true;
+        body.prefer = String(prefer);
+      } else if (auto) {
+        body.auto = true;
+      } else {
+        body.server = String(server || "");
+      }
+      if (kind === "tv") {
+        if (season != null) body.season = String(season);
+        if (episode != null) body.episode = String(episode);
+      }
+      const data = await post(body, { signal });
+      const resolved = this.normalizeResolved(data);
+      // Which backend actually served this — the automatic path is the reason
+      // this must survive normalization.
+      resolved.server = data.server;
+      logInfo(
+        "stream",
+        `Resolved ${resolved.variants.length} variant(s) via ZXC ${data.server || prefer || server || "auto"}` +
+          (resolved.audioTracks.length ? ` with ${resolved.audioTracks.length} audio track(s).` : "."),
+        {
+          type: kind,
+          id,
+          server: prefer || (auto ? null : server),
+          auto: !!auto || !!prefer,
+          prefer: prefer || null,
+          resolvedServer: data.server ?? null,
+          season: season ?? null,
+          episode: episode ?? null,
+          variants: resolved.variants.map((v) => v.label),
+          audioTracks: resolved.audioTracks.map((t) => t.label),
+        },
+      );
+      return resolved;
+    })();
+
+    // A failed resolve must not stay cached, or the next attempt would replay
+    // the same error; the catch also marks the shared promise as handled so a
+    // fire-and-forget prefetch cannot raise an unhandled rejection.
+    run.catch(() => {
+      const current = resolveCache.get(key);
+      if (current && current.promise === run) resolveCache.delete(key);
+    });
+    resolveCache.set(key, { at: Date.now(), promise: run });
+    while (resolveCache.size > RESOLVE_CACHE_MAX) {
+      resolveCache.delete(resolveCache.keys().next().value);
     }
-    const data = await post(body, { signal });
-    const resolved = this.normalizeResolved(data);
-    // Which backend actually served this — the automatic path is the reason
-    // this must survive normalization.
-    resolved.server = data.server;
-    logInfo(
-      "stream",
-      `Resolved ${resolved.variants.length} variant(s) via ZXC ${data.server || prefer || server || "auto"}` +
-        (resolved.audioTracks.length ? ` with ${resolved.audioTracks.length} audio track(s).` : "."),
-      {
-        type: kind,
-        id,
-        server: prefer || (auto ? null : server),
-        auto: !!auto || !!prefer,
-        prefer: prefer || null,
-        resolvedServer: data.server ?? null,
-        season: season ?? null,
-        episode: episode ?? null,
-        variants: resolved.variants.map((v) => v.label),
-        audioTracks: resolved.audioTracks.map((t) => t.label),
-      },
-    );
-    return resolved;
+    return run;
   },
 };
 
