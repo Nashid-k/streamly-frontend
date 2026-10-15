@@ -42,13 +42,37 @@ function isPrivateIpV4(ip) {
   return false;
 }
 
+/* Extract the IPv4 embedded in an IPv4-compatible/mapped IPv6 address. The
+   dotted form ("::ffff:127.0.0.1") was handled, but the HEX form
+   ("::ffff:7f00:1", "::a9fe:a9fe") was not — so loopback and the
+   169.254.169.254 metadata address slipped past as public. Only the
+   compatible/mapped shapes are decoded (every higher group must be zero; the
+   mapped form marks the 6th group `ffff`), so a normal public IPv6 is never
+   reclassified. */
+function embeddedIpv4(lower) {
+  const dotted = lower.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
+  if (dotted) return dotted[1];
+  const parts = lower.split(":");
+  if (parts.length < 2) return null;
+  const head = parts.slice(0, -2);
+  const marker = head[head.length - 1];
+  const higher = marker === "ffff" ? head.slice(0, -1) : head;
+  if (!higher.every((g) => g === "" || g === "0")) return null;
+  const [hiGroup, loGroup] = parts.slice(-2);
+  if (!/^[0-9a-f]{1,4}$/.test(hiGroup) || !/^[0-9a-f]{1,4}$/.test(loGroup)) return null;
+  const hi = parseInt(hiGroup, 16);
+  const lo = parseInt(loGroup, 16);
+  return `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
+}
+
 function isPrivateIpV6(ip) {
-  const lower = String(ip).toLowerCase();
+  const lower = String(ip || "").toLowerCase().replace(/^\[|\]$/g, "");
+  if (!lower) return true;
   if (lower === "::" || lower === "::1") return true;
   if (/^f[cd][0-9a-f]{2}/.test(lower)) return true; // fc00::/7 ULA
   if (/^fe[89ab]/.test(lower)) return true; // fe80::/10 link-local
-  const v4 = lower.split(":").pop();
-  if (v4 && v4.includes(".")) return isPrivateIpV4(v4);
+  const v4 = embeddedIpv4(lower);
+  if (v4 && isPrivateIpV4(v4)) return true;
   return false;
 }
 

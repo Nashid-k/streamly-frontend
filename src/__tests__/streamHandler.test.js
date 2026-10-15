@@ -14,6 +14,13 @@
 // dispatch regression shows up here instead of on someone's title page.
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
+// Hermetic DNS: the handler's SSRF pass resolves hostnames, so without this the
+// issued-host fence tests would depend on real resolution (and on a particular
+// public *.workers.dev subdomain actually existing). Every name resolves public;
+// the fence, not DNS, is what these tests exercise.
+const { lookup } = vi.hoisted(() => ({ lookup: vi.fn() }));
+vi.mock("node:dns/promises", () => ({ lookup, default: { lookup } }));
+
 const { default: handler, clearZxcMpdCache, clearZxcTitleMetaCache } = await import("../../api/stream.js");
 
 function makeRes() {
@@ -57,6 +64,8 @@ async function call(body, { method = "POST" } = {}) {
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  lookup.mockReset();
+  lookup.mockResolvedValue([{ address: "93.184.216.34" }]);
   clearZxcMpdCache();
   clearZxcTitleMetaCache();
   // Hermetic: no test may reach a real provider. A refused upstream is itself a
@@ -295,6 +304,37 @@ describe("POST /api/stream — issued-host relay fence", () => {
     // The fence passed (no 403) and the segment URL actually reached the network.
     expect(seg.statusCode).not.toBe(403);
     expect(fetchMock.mock.calls.some(([u]) => String(u).includes("example.com"))).toBe(true);
+  });
+
+  it("does not let one *.workers.dev host admit a sibling tenant", async () => {
+    // The served body references ONE Cloudflare worker. The registrable-domain
+    // grouping must not fold every *.workers.dev host onto one shared root, or
+    // planting a single URL would open the relay to every other tenant.
+    const fetchMock = vi.fn((url) =>
+      String(url).includes("vidstuck.xyz")
+        ? Promise.resolve(
+            new Response("#EXTM3U\n#EXTINF:10,\nhttps://alpha.workers.dev/seg1.ts\n", { status: 200 }),
+          )
+        : Promise.resolve(new Response("nope", { status: 502 })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const playlist = await call({ action: "playlist", playlistUrl: "https://vidstuck.xyz/provider/master.m3u8" });
+    expect(playlist.statusCode).toBe(200);
+
+    const own = await call({
+      action: "segment",
+      url: "https://alpha.workers.dev/seg1.ts",
+      range: { start: 0, max: 1048576 },
+    });
+    expect(own.statusCode).not.toBe(403);
+
+    const sibling = await call({
+      action: "segment",
+      url: "https://beta.workers.dev/seg2.ts",
+      range: { start: 0, max: 1048576 },
+    });
+    expect(sibling.statusCode).toBe(403);
+    expect(JSON.parse(sibling.body)).toMatchObject({ ok: false, code: "host-not-issued" });
   });
 });
 

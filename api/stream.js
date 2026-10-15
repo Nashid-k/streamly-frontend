@@ -637,12 +637,28 @@ const ISSUED_HOST_TTL_MS = 30 * 60_000;
 // backstop for that burst case.
 const ISSUED_HOST_MAX = 4096;
 const ALWAYS_ALLOWED_HOST_ROOTS = new Set(["vidstuck.xyz", "b-cdn.net"]);
+/* Public-suffix entries holding MORE than one label. `labels.slice(-2)` is only
+   right for a single-label TLD: for a Cloudflare `*.workers.dev` host (or
+   `pages.dev`, `github.io`, …) it folds every tenant onto one shared root, so
+   admitting one URL would admit every other tenant's host. These keep the label
+   to their left as part of the registrable domain. `b-cdn.net` is intentionally
+   absent — it is always-allowed wholesale, so collapsing it there is harmless. */
+const MULTI_LABEL_PUBLIC_SUFFIXES = new Set([
+  "co.uk", "org.uk", "ac.uk", "gov.uk", "co.jp", "ne.jp", "co.nz", "co.za",
+  "com.au", "com.br", "com.mx", "co.in", "com.tr",
+  "workers.dev", "pages.dev", "github.io", "gitlab.io", "herokuapp.com",
+  "netlify.app", "vercel.app", "web.app", "onrender.com", "fly.dev",
+  "cloudfront.net", "fastly.net", "azureedge.net",
+]);
 const issuedHostRoots = new Map(); // registrable domain -> issuedAt
 const issuedHostNames = new Map(); // exact hostname -> issuedAt
 
 function registrableDomain(hostname) {
-  const labels = String(hostname || "").toLowerCase().split(".");
-  return labels.length >= 2 ? labels.slice(-2).join(".") : labels[0] || "";
+  const labels = String(hostname || "").toLowerCase().replace(/\.+$/, "").split(".");
+  if (labels.length <= 2) return labels.join(".");
+  const lastTwo = labels.slice(-2).join(".");
+  if (MULTI_LABEL_PUBLIC_SUFFIXES.has(lastTwo)) return labels.slice(-3).join(".");
+  return lastTwo;
 }
 
 function issueHost(rawUrl) {

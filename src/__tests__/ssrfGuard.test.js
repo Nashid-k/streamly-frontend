@@ -113,14 +113,34 @@ describe("isPrivateIpV4", () => {
 });
 
 describe("isPrivateIpV6", () => {
-  it.each(["::", "::1", "fc00::1", "fd00::1", "fe80::1", "fe9f::1", "::ffff:127.0.0.1", "::ffff:10.0.0.1"])(
+  it.each([
+    "::",
+    "::1",
+    "fc00::1",
+    "fd00::1",
+    "fe80::1",
+    "fe9f::1",
+    "::ffff:127.0.0.1", // dotted IPv4-mapped
+    "::ffff:10.0.0.1",
+    "::ffff:7f00:1", // hex IPv4-mapped == 127.0.0.1
+    "::ffff:a00:1", // hex IPv4-mapped == 10.0.0.1
+    "::ffff:a9fe:a9fe", // hex IPv4-mapped == 169.254.169.254 metadata
+    "::a9fe:a9fe", // IPv4-compatible form of the metadata address
+    "0:0:0:0:0:ffff:7f00:1", // fully-expanded mapped loopback
+  ])(
     "blocks %s",
     (ip) => {
       expect(isPrivateIpV6(ip)).toBe(true);
     },
   );
 
-  it.each(["2606:4700:4700::1111", "2a00:1450:4001:81f::200e"])("allows %s", (ip) => {
+  it.each([
+    "2606:4700:4700::1111",
+    "2a00:1450:4001:81f::200e",
+    // Public prefix whose low groups happen to read like private hex: the higher
+    // groups are non-zero, so it is NOT an IPv4-mapped address and must pass.
+    "2001:db8:1234::a00:1",
+  ])("allows %s", (ip) => {
     expect(isPrivateIpV6(ip)).toBe(false);
   });
 });
@@ -154,6 +174,8 @@ describe("assertPublicDestination", () => {
     "http://192.168.1.1/",
     "http://169.254.169.254/latest/meta-data/",
     "http://[::1]:8080/",
+    "http://[::ffff:7f00:1]/",
+    "http://[::ffff:a9fe:a9fe]/latest/meta-data/",
   ])("refuses the literal internal address in %s", async (url) => {
     await expect(assertPublicDestination(url)).rejects.toThrow(/blocked host/);
     expect(lookup).not.toHaveBeenCalled();

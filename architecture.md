@@ -500,14 +500,20 @@ into each function through the import graph instead of deploying them as
   pin is inert — which is acceptable, because the edge cache is doing the work.
   `api/stream.js` resolves the native servers' HLS ladders and proxies
   media segments for playback (single-URL Range chunks under Vercel's 4.5MB
-  cap; allowlisted embed hosts + DNS-resolved SSRF guard; stateless, nothing
-  persisted). It owns only routing and the provider walks;
+  cap; allowlisted embed hosts + DNS-resolved SSRF guard + an issued-host
+   registry that refuses to relay a host this instance never saw; stateless,
+   nothing persisted). The registry groups hosts by a public-suffix-aware
+   registrable domain, so admitting one `*.workers.dev` tenant cannot open the
+   relay to a sibling tenant. It owns only routing and the provider walks;
   the two cross-cutting concerns it used to inline now live beside it:
   - `server/ssrf.js` — the only sanctioned way to name an outbound host.
     `assertPublicDestination` is called for the first hop *and* every redirect
     hop, and refuses a URL unless the scheme is http(s) and **every** resolved
     address is public (loopback, RFC1918, CGNAT 100.64/10, link-local incl.
-    `169.254.169.254`, IPv6 ULA/`fe80::/10`, multicast). The literal blocklist
+    `169.254.169.254`, IPv6 ULA/`fe80::/10`, multicast, and IPv4-mapped /
+    IPv4-compatible IPv6 in BOTH encodings — the dotted `::ffff:127.0.0.1` and
+    the hex `::ffff:7f00:1`/`::ffff:a9fe:a9fe` all decode to the v4 rules, since
+    the hex metadata address previously slipped through). The literal blocklist
     is only the cheap first pass; the resolved-address check is what actually
     stops a public name pointing inward.
   - `server/net.js` — the single outbound HTTP path: browser-shaped headers,

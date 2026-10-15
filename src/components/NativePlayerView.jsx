@@ -1044,12 +1044,13 @@ setScrubDragging(true);
   const lastPokeArm = useRef(0);
   const poke = useCallback(() => {
     setControlsVisible(true);
-    // Any interaction also resets the "Still watching?" idle window.
+    // Any interaction re-arms the "Still watching?" idle countdown — but it must
+    // NOT dismiss an OPEN prompt. `poke` is the full-surface onMouseMove handler,
+    // so clearing it here hid "Still watching?" on any incidental pointer move
+    // (a TV remote / HTPC that emits move events), leaving the viewer paused
+    // with no Continue/Exit. A prompt is dismissed only by a real press
+    // (dismissStillWatching) or its own buttons.
     if (swIdleRef.current) clearTimeout(swIdleRef.current);
-    if (stillWatchingRef.current) {
-      stillWatchingRef.current = false;
-      setStillWatching(false);
-    }
     const now = Date.now();
     if (now - lastPokeArm.current < POKE_REARM_MIN_MS) return;
     lastPokeArm.current = now;
@@ -1072,6 +1073,18 @@ setScrubDragging(true);
   // ---- "Still watching?" (Netflix pauses after long unattended playback) ----
   // Mirrors for the once-bound idle effect + the offer, which reads live state.
   const stillWatchingRef = useRef(false);
+  // A real press (pointerdown) dismisses an open prompt; a passive pointer MOVE
+  // must not, which is why `poke` no longer clears it. Ref-backed so the
+  // long-lived handlers read the live value.
+  const dismissStillWatching = useCallback(() => {
+    if (!stillWatchingRef.current) return;
+    stillWatchingRef.current = false;
+    setStillWatching(false);
+    if (swOfferTimerRef.current) {
+      clearTimeout(swOfferTimerRef.current);
+      swOfferTimerRef.current = null;
+    }
+  }, []);
   const offerStillWatching = (reason) => {
     const video = videoRef.current;
     if (!video || video.paused || endedRef.current) return;
@@ -2654,7 +2667,15 @@ setScrubDragging(true);
       }
       const refilling = bufferedSecs > st.prev + 1;
       st.prev = bufferedSecs;
-      if (refilling || Date.now() - st.since < BUFFER_UNDERFLOOR_MS) return;
+      if (refilling) {
+        // The pipe recovered by >1s, so the "sustained under-floor" clock must
+        // restart. Previously this returned WITHOUT clearing `since`, so a buffer
+        // that dipped, briefly refilled, then dipped again kept counting from the
+        // first dip and dropped a rung early.
+        st.since = Date.now();
+        return;
+      }
+      if (Date.now() - st.since < BUFFER_UNDERFLOOR_MS) return;
       st.since = 0;
       if (metaRef.current?.masterLevels) return;
       const curH = currentHeight || 0;
@@ -2666,7 +2687,6 @@ setScrubDragging(true);
       // viewer back to the original-language track, so leave the dub alone.
       if (activeDubRef.current > 0) return;
       if (!target || activeUri === target.uri) return;
-            st.prev = bufferedSecs;
       pickQualityRef.current?.(target.uri, target.height)?.catch?.(() => {});
       return;
     }
@@ -3209,6 +3229,7 @@ const showSkipOutro = shouldShowSkipOutro({
       <div
         ref={screenRef}
         onMouseMove={poke}
+        onPointerDown={dismissStillWatching}
         className="np-root"
         style={{
           position: "relative",
