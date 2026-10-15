@@ -106,6 +106,10 @@ const HIDE_DELAY_MS = 3000;
 // staying far below the 3s hide delay.
 const POKE_REARM_MIN_MS = 250;
 const SKIP_SECONDS = 10;
+// Touch double-tap window (left/right third = seek). The lone-tap play/pause
+// delay MUST be at least this long, or the single-tap timer fires while a
+// second tap is still within the double-tap window and both toggle AND seek.
+const DOUBLE_TAP_MS = 350;
 // Netflix "Up Next" auto-play countdown for a TV episode's next installment.
 const UP_NEXT_MS = 15000;
 // Hold-to-2x (Netflix mobile): how long the right-side hold must run before 2x
@@ -371,6 +375,10 @@ export default function NativePlayerView({
      re-resolves through runSourceOnce's `forceSource` argument. */
   const [requestedServer, setRequestedServer] = useState(null);
   const requestedServerRef = useRef(null); // mirror for the async resolve loop
+  // A Servers-menu switch reuses the same <video>, but the new run starts the
+  // source from 0:00. pickServer parks the live position + paused state here so
+  // the next run seeks back and (when it was paused) stays paused.
+  const switchResumeRef = useRef(null);
   // The media identity the current run belongs to. A manual server pick is
   // scoped to ONE title/episode; when this changes (a different movie, or the
   // next episode) the pick is dropped back to the default rotation. Kept as a
@@ -820,6 +828,10 @@ setScrubDragging(true);
     const video = videoRef.current;
     if (!video) return;
     poke();
+    // Rewinding off the end card must dismiss it (like seekTo): the media
+    // element un-ends on the seek, but the React `ended` flag is what still
+    // renders "Watch again" and keeps the Up Next timer armed.
+    setEnded(false);
     // HUD shows the amount actually applied (clamped at 0 / duration), not the
     // requested one — YouTube shows +Xs / -Xs, never a lie like -0s.
     const dur = Number(video.duration);
@@ -1263,8 +1275,8 @@ setScrubDragging(true);
     const t = e.changedTouches && e.changedTouches[0];
     if (!rect.width || !t) return;
     const zone = zoneOf(rect, t.clientX);
-    // Center taps toggle playback immediately — the 260ms single-tap delay
-    // only exists where a double-tap means seek.
+    // Center taps toggle playback immediately — the lone-tap delay only exists
+    // where a double-tap means seek.
     if (zone === "center") {
       if (singleTapTimer.current) {
         clearTimeout(singleTapTimer.current);
@@ -1276,7 +1288,7 @@ setScrubDragging(true);
     }
     const now = performance.now();
     const prev = touchTapRef.current;
-    if (now - prev.time < 350 && prev.zone === zone) {
+    if (now - prev.time < DOUBLE_TAP_MS && prev.zone === zone) {
       touchTapRef.current = { time: 0, zone: null };
       if (singleTapTimer.current) {
         clearTimeout(singleTapTimer.current);
@@ -1292,7 +1304,7 @@ setScrubDragging(true);
     singleTapTimer.current = setTimeout(() => {
       singleTapTimer.current = null;
       togglePlay();
-    }, 260);
+    }, DOUBLE_TAP_MS);
   };
 
   // Vertical drag on the RIGHT THIRD = volume (brightness removed — the OS
@@ -1743,7 +1755,9 @@ setScrubDragging(true);
           break;
         case "KeyK":
           e.preventDefault();
-          togglePlay();
+          // Use the live mirror, not the closure: togglePlay reads resumeOffer
+          // state, and this effect is bound once per panel flip (stale snapshot).
+          togglePlayRef.current?.();
           break;
         case "KeyJ":
           e.preventDefault();
@@ -2027,6 +2041,13 @@ setScrubDragging(true);
         // attempt 0 = initial URLs; attempt 1 = one token-refresh re-resolve.
         let preferHeight = null;
         let resumeTime = null;
+        // A Servers-menu switch parked its position/paused state (see pickServer):
+        // seek back instead of restarting at 0:00, and stay paused if it was.
+        const restorePaused = switchResumeRef.current?.paused ?? false;
+        if (switchResumeRef.current) {
+          if (switchResumeRef.current.at > 0) resumeTime = switchResumeRef.current.at;
+          switchResumeRef.current = null;
+        }
         for (let attempt = 0; attempt < 2; attempt += 1) {
           if (stale()) return true;
           const pool = preferHeight != null ? variants.filter((v) => (v.height || 0) === preferHeight) : [];
@@ -2287,16 +2308,20 @@ setScrubDragging(true);
             safeSeek(resumeTime);
             resumeTime = null;
           }
-          try {
-            await videoRef.current?.play();
-          } catch {
-            // Muted autoplay is allowed, an unmuted play() outside a user-activation window
-            // is not: try unmuted, else play muted + hint at "Tap to unmute".
+          // A server switch made while paused keeps playing-only intent out:
+          // attach + seek is enough, the frozen frame resumes on the next tap.
+          if (!restorePaused) {
             try {
-              videoRef.current.muted = true;
-              setAutoMuted(true);
-              await videoRef.current.play();
+              await videoRef.current?.play();
             } catch {
+              // Muted autoplay is allowed, an unmuted play() outside a user-activation window
+              // is not: try unmuted, else play muted + hint at "Tap to unmute".
+              try {
+                videoRef.current.muted = true;
+                setAutoMuted(true);
+                await videoRef.current.play();
+              } catch {
+              }
             }
           }
           // Non-master sources are single-rendition: their current height is fixed.
@@ -2652,6 +2677,16 @@ setScrubDragging(true);
      row highlights this icon while a Servers-menu panel is open. */
   const pickServer = (key) => {
     if (requestedServerRef.current === key) return;
+    // Park the current position + paused state: the reload below starts the new
+    // source at 0:00, so the run effect seeks back and honours a paused switch.
+    const liveVideo = videoRef.current;
+    if (liveVideo) {
+      const t = Number(liveVideo.currentTime);
+      switchResumeRef.current = {
+        at: Number.isFinite(t) && t > 0 ? t : 0,
+        paused: Boolean(liveVideo.paused),
+      };
+    }
     // Overlap: start the target's resolve NOW, while the previous frame is still
     // on screen, instead of after React tears the current run down and
     // re-renders. The player's own resolve for this row coalesces onto this
@@ -2814,6 +2849,13 @@ setScrubDragging(true);
       setCurrentSubtitle(null);
       setSubtitleError(null);
       applySubtitleCue(null);
+      // Persist the OFF choice: otherwise the per-title restore effect re-reads
+      // the remembered language on the next open and turns captions back on.
+      try {
+        window.localStorage.removeItem(`streamly-native-subtitle-${id}`);
+      } catch {
+        // storage blocked — this session still has captions off
+      }
       return;
     }
     subtitleTokenRef.current += 1;

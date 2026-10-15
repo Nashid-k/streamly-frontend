@@ -6,6 +6,12 @@
 // dead while a mirror behind it still works.
 import { describe, expect, it, beforeEach, vi } from "vitest";
 
+// Hermetic DNS: the handler resolves the provider hostname for the SSRF pass, so
+// without this stub the suite fails offline (ENOTFOUND). Every name resolves
+// public; the resolve path, not DNS, is what is under test.
+const { lookup } = vi.hoisted(() => ({ lookup: vi.fn() }));
+vi.mock("node:dns/promises", () => ({ lookup, default: { lookup } }));
+
 // Each entry: the PLAYLIST TEXT for that link, or null to simulate a dead link.
 // The handler base64-decodes `link`, so plain URLs are encoded here.
 let links = [];
@@ -46,6 +52,7 @@ const json = (payload) => new Response(JSON.stringify(payload), { status: 200, h
 
 beforeEach(() => {
   links = [];
+  lookup.mockResolvedValue([{ address: "93.184.216.34" }]);
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input) => {
