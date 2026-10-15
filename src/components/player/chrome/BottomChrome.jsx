@@ -81,9 +81,6 @@ export default function BottomChrome({
   showSubsButton,
   isFullscreen,
   onFullscreen,
-  // Autoplay switch (design's bottom-right toggle)
-  autoplayEnabled,
-  onToggleAutoplay,
   // Gear "HD" quality badge (design's crimson chip next to the cog)
   hdBadge,
 }) {
@@ -395,40 +392,9 @@ export default function BottomChrome({
               </IconBtn>
             </Tooltip>
           ) : null}
-          <Tooltip tip={autoplayEnabled ? "Autoplay is on" : "Autoplay is off"}>
-            <button
-              type="button"
-              className="np-icon-btn"
-              aria-label="Autoplay"
-              role="switch"
-              aria-checked={Boolean(autoplayEnabled)}
-              title={autoplayEnabled ? "Autoplay is on" : "Autoplay is off"}
-              onClick={onToggleAutoplay}
-              style={{
-                background: "transparent",
-                border: "none",
-                padding: "0 2px",
-                display: "flex",
-                alignItems: "center",
-                cursor: "pointer",
-              }}
-            >
-              <span className={`np-toggle${autoplayEnabled ? " on" : ""}`} aria-hidden="true">
-                <span className="np-toggle-knob">
-                  {autoplayEnabled ? (
-                    <svg width="10" height="10" viewBox="0 0 16 16" aria-hidden="true">
-                      <rect x="3" y="2" width="3.5" height="12" fill="#222" rx="0.5" />
-                      <rect x="9.5" y="2" width="3.5" height="12" fill="#222" rx="0.5" />
-                    </svg>
-                  ) : (
-                    <svg width="10" height="10" viewBox="0 0 16 16" aria-hidden="true">
-                      <path d="M4.5 3v10l8-5z" fill="#222" />
-                    </svg>
-                  )}
-                </span>
-              </span>
-            </button>
-          </Tooltip>
+          {/* The autoplay on/off toggle was removed by request: the setting is
+              still honoured (and persists), it is simply no longer a control in
+              the transport bar. */}
           <Tooltip tip="Settings">
             <IconBtn
               size={IS_TOUCH ? 40 : 38}

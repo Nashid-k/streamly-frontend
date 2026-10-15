@@ -15,13 +15,17 @@ export const HOLD_SPEED = 2;
 export const STILL_WATCHING_IDLE_MS = 2 * 60 * 60 * 1000;
 export const STILL_WATCHING_EPISODES = 3;
 
+/* Names follow the wording the popular players (MX Player, VLC, MX-style
+   "Resize" sheets) use, each with a one-line `sub` describing what it does to
+   the picture. `name` is what the settings summary + the aspect HUD show, so it
+   stays short; `sub` only renders inside the aspect menu. */
 export const ASPECT_RATIOS = [
-  { id: "fit", name: "Fit (Original 16:9)", scale: 1 },
-  { id: "fill", name: "Fill Screen (Edge-to-Edge)", scale: 1.25 },
-  { id: "zoom", name: "Zoom 1.25x (Punch-Hole Cutout)", scale: 1.25 },
-  { id: "cinema", name: "Cinema 2.39:1", scale: 1.344 },
-  { id: "crop1610", name: "16:10", scale: 1.111 },
-  { id: "stretch", name: "Stretch to Screen", scale: 1 },
+  { id: "fit", name: "Fit to Screen", sub: "Show the whole frame — letterboxed", scale: 1 },
+  { id: "fill", name: "Fill Screen", sub: "Crop the edges to fill the frame", scale: 1.25 },
+  { id: "zoom", name: "Zoom 125%", sub: "Magnify the centre of the picture", scale: 1.25 },
+  { id: "cinema", name: "Cinema 21:9", sub: "Widescreen crop for 2.39:1 films", scale: 1.344 },
+  { id: "crop1610", name: "16:10", sub: "Trim to a 16:10 frame", scale: 1.111 },
+  { id: "stretch", name: "Stretch", sub: "Stretch to fill — distorts the image", scale: 1 },
 ];
 
 /* How the video surface renders a catalog mode. `objectFit` alone is a no-op

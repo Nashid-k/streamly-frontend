@@ -370,6 +370,13 @@ export default function NativePlayerView({
      re-resolves through runSourceOnce's `forceSource` argument. */
   const [requestedServer, setRequestedServer] = useState(null);
   const requestedServerRef = useRef(null); // mirror for the async resolve loop
+  // The media identity the current run belongs to. A manual server pick is
+  // scoped to ONE title/episode; when this changes (a different movie, or the
+  // next episode) the pick is dropped back to the default rotation. Kept as a
+  // ref so the run effect can reset it synchronously, BEFORE the resolve below
+  // reads requestedServerRef — otherwise the first resolve after a media change
+  // would still force the previous title's server.
+  const mediaKeyRef = useRef(null);
   /* Which source is ACTUALLY playing, as state rather than a ref.
      `metaRef.current.sourceKey` already tracked this, but a ref mutation cannot
      schedule a render, so every reader during render saw whatever the last
@@ -478,8 +485,14 @@ export default function NativePlayerView({
   const [switchingNote, setSwitchingNote] = useState(null);
   // Transient honest note for a quality pick the player must refuse (e.g. while
   // a pinned dub is playing) — the old silent early-return read as "the button
-  // is dead". Cleared by any pick that actually runs.
+  // is dead". Cleared by any pick that actually runs. Also carries an audio-track
+  // failure note: a dub the provider advertises but cannot deliver (Orion's hi/ta
+  // for many titles) used to fail SILENTLY, which reads as "the audio won't change".
   const [qualityNote, setQualityNote] = useState(null);
+  // Dub rows (by their pickDub index) a probe already proved dead THIS source/
+  // title. Disabled in the Audio menu with an honest "Unavailable" label so the
+  // viewer stops retrying a track the provider 404s. Cleared on every new run.
+  const [deadDubs, setDeadDubs] = useState(() => new Set());
   const showStage = spinner && (stageWhileLoading || !hasStartedRef.current);
   // Why this particular wait is happening. "Loading…" alone is identical for a
   // cold open and for a server the viewer just picked, and those two deserve
@@ -1786,6 +1799,20 @@ setScrubDragging(true);
     // pin carried across a SERVER switch must not index into the new
     // server's audioTracks — see the publish guard in the commit block.
     const prevSourceKey = metaRef.current?.sourceKey || null;
+    // A NEW title/episode drops any manual server pick, so playback always
+    // opens on the default rotation (Orion/Server 1) instead of whatever server
+    // the viewer happened to pick for the PREVIOUS title. A same-media reload
+    // (reloadToken bump from pickServer) keeps the key unchanged and so keeps
+    // the pick. Done here, synchronously, so the resolve below sees it.
+    const mediaKey = `${type}|${id}|${season ?? ""}|${episode ?? ""}`;
+    if (mediaKeyRef.current !== mediaKey) {
+      mediaKeyRef.current = mediaKey;
+      requestedServerRef.current = null;
+      setRequestedServer(null);
+      activeDubRef.current = 0;
+      setActiveDub(0);
+      setDubTracks([]);
+    }
 
     const entryUrlFor = (def, resolved, variant) => {
       // Master sources keep their levels + audio groups on the master, so load the
@@ -1869,6 +1896,7 @@ setScrubDragging(true);
       setPanel(null);
       setTransportRelay(false);
       setQualityNote(null);
+      setDeadDubs(new Set());
       autoUriRef.current = null;
       autoUriHeightRef.current = null;
       const args = { type, id, season: type === "tv" ? season : undefined, episode: type === "tv" ? episode : undefined, title };
@@ -2475,9 +2503,24 @@ setScrubDragging(true);
       if (switchTokenRef.current !== myId) return;
       safeSeek(t);
       const video = videoRef.current;
-      // Reproduce "a paused switch feels instant": a fresh play() with zero buffered data
-      // drops straight back to `waiting`, so wait for the first media bytes (bounded)
-      // before resuming.
+      // Resume INSIDE the click's activation window: start the play() NOW, before
+      // the canplay wait below. Waiting for the first frames first (the previous
+      // order) pushed play() past the activation a strict autoplay policy grants,
+      // so an audio/quality change left the video paused until the viewer pressed
+      // play (user report). The bounded wait below is now only for the art stage,
+      // never a gate on the resume.
+      const resumePlay =
+        !wasPaused && video
+          ? Promise.resolve(video.play()).catch((error) => {
+              // Never swallow it: say so in the log and arm a one-shot resume so
+              // the next interaction still starts playback.
+              logWarn("native", "Browser refused the post-switch auto-resume; playback starts on the next tap.", {
+                url: String(chosenUri).slice(0, 80),
+                code: error?.name || String(error),
+              });
+              pendingResumeRef.current = true;
+            })
+          : null;
       if (!wasPaused && video && (video.readyState ?? 0) < 3) {
         await Promise.race([
           new Promise((resolve) => {
@@ -2496,21 +2539,7 @@ setScrubDragging(true);
         ]);
       }
       if (switchTokenRef.current !== myId) return;
-      if (!wasPaused) {
-        try {
-          await videoRef.current.play();
-        } catch (error) {
-          // The resume play() lands outside the click gesture (after the manifest
-          // reload + canplay wait), and a strict autoplay policy refuses unmuted
-          // play() without one. Never swallow it: say so in the log and arm a
-          // one-shot resume so the next interaction starts playback.
-          logWarn("native", "Browser refused the post-switch auto-resume; playback starts on the next tap.", {
-            url: String(chosenUri).slice(0, 80),
-            code: error?.name || String(error),
-          });
-          pendingResumeRef.current = true;
-        }
-      }
+      if (resumePlay) await resumePlay;
       setActiveUri(chosenUri);
       // The full-reload path never sees LEVEL_SWITCHED's height when the new
       // media playlist carries NO RESOLUTION (a heightless level reports 0),
@@ -2669,12 +2698,33 @@ setScrubDragging(true);
     try {
       const probe = await probeSourcePlayable(targetUri, meta?.refUrl);
       if (!probe.ok) {
+        // The provider advertises this dub but does not serve it (verified live:
+        // Orion lists Hindi/Tamil for tmdb 1101383 and answers HTTP 404 "Main
+        // request failed" for both). Previously this returned silently, so the row
+        // looked dead — the "audio track won't change" report. Say so AND mark the
+        // row, so the viewer stops retrying and picks a working language.
+        const label = index === 0 ? "This track" : audioTrackList[index]?.label || "That audio track";
+        const serverLabel = sourceLabel(activeSourceKey) || "this server";
+        setQualityNote(`${label} isn't available on ${serverLabel} (dead provider track). Try another.`);
+        setDeadDubs((prev) => {
+          const next = new Set(prev);
+          next.add(index);
+          return next;
+        });
         setControlsVisible(true);
         return;
       }
     } catch {
       // probe hiccup (abort/timeout) — let the switch itself decide
     }
+    // A track that proved playable is no longer flagged dead.
+    setDeadDubs((prev) => {
+      if (!prev.has(index)) return prev;
+      const next = new Set(prev);
+      next.delete(index);
+      return next;
+    });
+    setQualityNote(null);
     activeDubRef.current = index;
     setActiveDub(index);
     try {
@@ -2930,19 +2980,6 @@ setScrubDragging(true);
   useEffect(() => {
     if (prefs?.autoplay !== undefined) setAutoplayEnabled(Boolean(prefs.autoplay));
   }, [prefs?.autoplay]);
-
-  const onToggleAutoplay = useCallback(() => {
-    setAutoplayEnabled((cur) => {
-      const next = !cur;
-      try {
-        localStorage.setItem("setting-autoplay", JSON.stringify(next));
-      } catch {
-        // non-DOM test environments
-      }
-      prefs?.setPreference?.("autoplay", next);
-      return next;
-    });
-  }, [prefs]);
 
   // Gear "HD" badge: shown once the active rendition is HD or better (the
   // design's crimson chip next to the cog). Keyed on the row LABEL classification
@@ -3399,8 +3436,6 @@ const showSkipOutro = shouldShowSkipOutro({
           showSubsButton={subtitleLanguages.length > 0 || isFetchingSubtitles || subtitleError}
           isFullscreen={isFullscreen}
           onFullscreen={goFullscreen}
-          autoplayEnabled={autoplayEnabled}
-          onToggleAutoplay={onToggleAutoplay}
           hdBadge={hdBadge}
         />
 {/* Netflix "Left off at …" resume card — auto-resumes after a short wait. */}
@@ -3561,6 +3596,20 @@ const showSkipOutro = shouldShowSkipOutro({
               </div>
             ) : panel === "audio" ? (
               <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 0 6px" }}>
+                  {qualityNote ? (
+                    <p
+                      role="status"
+                      style={{
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        color: "#ffb4b4",
+                        margin: "4px 14px 8px",
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {qualityNote}
+                    </p>
+                  ) : null}
                   {dubTracks.length > 0 ? (
                     // Sibling-URL dubs (NHD, ZXC Centaurus): one MASTER per dub,
                     // switched by swapping the source (pickDub) — NOT hls.js
@@ -3588,17 +3637,22 @@ const showSkipOutro = shouldShowSkipOutro({
                           track[0] is NOT provably the original soundtrack —
                           hiding it would hide a real language. Labels are the
                           normalised language names from audioLabels.js. */}
-                      {audioTrackList.slice(1).map((t) => (
+                      {audioTrackList.slice(1).map((t) => {
                         /* sourceIndex, NOT the row's own position: buildAudioTrackList
                            drops duplicate/empty rows, so positional indexing here
                            would play a different language than the one clicked. */
-                        <DialogRow
-                          key={`dub-${t.sourceIndex}`}
-                          selected={activeDub === t.sourceIndex + 1}
-                          onClick={() => pickDub(t.sourceIndex + 1)}
-                          title={t.label}
-                        />
-                      ))}
+                        const dead = deadDubs.has(t.sourceIndex + 1);
+                        return (
+                          <DialogRow
+                            key={`dub-${t.sourceIndex}`}
+                            selected={activeDub === t.sourceIndex + 1}
+                            onClick={() => pickDub(t.sourceIndex + 1)}
+                            title={t.label}
+                            sub={dead ? "Not available on this server" : undefined}
+                            disabled={dead}
+                          />
+                        );
+                      })}
                     </>
                   ) : audioTracks.length > 0 ? (
                     audioTracks.map((a) => (
@@ -3732,6 +3786,7 @@ const showSkipOutro = shouldShowSkipOutro({
                         poke();
                       }}
                       title={aspect.name}
+                      sub={aspect.sub}
                     />
                   ))}
               </div>

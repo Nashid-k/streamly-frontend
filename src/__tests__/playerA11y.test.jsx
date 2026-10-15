@@ -311,8 +311,8 @@ describe("player aspect-ratio panel", () => {
     for (const row of rows) {
       expect((row.textContent || "").trim().length).toBeGreaterThan(0);
     }
-    expect(dialog.textContent).toContain("Cinema 2.39:1");
-    expect(dialog.textContent).toContain("Stretch to Screen");
+    expect(dialog.textContent).toContain("Cinema 21:9");
+    expect(dialog.textContent).toContain("Stretch");
   });
 
   it("the Settings row reports the CURRENT mode, not a hardcoded 'Fit'", () => {
@@ -323,13 +323,13 @@ describe("player aspect-ratio panel", () => {
     const row = [...document.querySelectorAll(".np-dialog-row")].find((r) =>
       (r.textContent || "").includes("Aspect Ratio"),
     );
-    expect(row.textContent).toContain("Fit (Original 16:9)");
+    expect(row.textContent).toContain("Fit to Screen");
   });
 
   it("picking an option selects it and closes the sheet", async () => {
     const dialog = openAspectPanel();
     const cinema = [...dialog.querySelectorAll(".np-dialog-row")].find((r) =>
-      (r.textContent || "").includes("Cinema 2.39:1"),
+      (r.textContent || "").includes("Cinema 21:9"),
     );
     fireEvent.click(cinema);
     // The sheet animates out, so it is still mounted for a moment — wait for
@@ -340,7 +340,7 @@ describe("player aspect-ratio panel", () => {
     const row = [...document.querySelectorAll(".np-dialog-row")].find((r) =>
       (r.textContent || "").includes("Aspect Ratio"),
     );
-    expect(row.textContent).toContain("Cinema 2.39:1");
+    expect(row.textContent).toContain("Cinema 21:9");
   });
 });
 

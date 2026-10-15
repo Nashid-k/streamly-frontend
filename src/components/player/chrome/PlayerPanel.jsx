@@ -1,13 +1,13 @@
 // The floating settings popup card (NEW PLAYER UI-UX.html, 2026-10-08).
 //
-// On desktop, anchors directly above the bottom chrome pill at the bottom-right
-// with a scale+fade pop. On touch, acts as a bottom sheet.
+// Anchors above the bottom chrome pill at the bottom-right with a scale+fade
+// pop. ONE compact card on every device: the old touch variant stretched to a
+// full-width bottom sheet, which on a phone buried the picture behind a wall of
+// chrome — the viewer asked for the desktop-sized card on mobile too.
 // Back-chevron header navigates between submenus and root settings.
 import { AnimatePresence, motion } from "framer-motion";
-import { useMotionTokens } from "../../../constants/motion";
 import IconBtn from "./IconBtn";
 import { IconChevronLeft, IconClose } from "./icons";
-import { IS_TOUCH } from "./constants";
 import { GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER } from "./theme";
 
 const TITLES = {
@@ -31,15 +31,14 @@ const ARIA_LABELS = {
 };
 
 export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings, children }) {
-  const M = useMotionTokens();
   return (
     <AnimatePresence>
       {panel && panel !== "episodes" && (
         <motion.aside
-          initial={IS_TOUCH ? { y: "100%" } : { opacity: 0, scale: 0.94, y: 10 }}
-          animate={IS_TOUCH ? { y: 0 } : { opacity: 1, scale: 1, y: 0 }}
-          exit={IS_TOUCH ? { y: "100%" } : { opacity: 0, scale: 0.94, y: 10 }}
-          transition={IS_TOUCH ? M.SPRING.SHEET : { duration: 0.16, ease: [0.2, 0, 0, 1] }}
+          initial={{ opacity: 0, scale: 0.94, y: 10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.94, y: 10 }}
+          transition={{ duration: 0.16, ease: [0.2, 0, 0, 1] }}
           ref={panelRef}
           role="dialog"
           aria-label={ARIA_LABELS[panel] || "Aspect ratio"}
@@ -48,12 +47,14 @@ export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings
           className="np-panel-surface"
           style={{
             position: "absolute",
-            right: IS_TOUCH ? 0 : 18,
-            bottom: IS_TOUCH ? 0 : 78,
-            left: IS_TOUCH ? 0 : "auto",
+            right: 18,
+            bottom: 78,
+            left: "auto",
             top: "auto",
-            width: IS_TOUCH ? "100%" : "min(340px, calc(100% - 36px))",
-            maxHeight: IS_TOUCH ? "85%" : "min(460px, calc(100% - 96px))",
+            // Compact on every device: a 340px card capped to the frame, so a
+            // phone gets the same tidy popover instead of a full-width sheet.
+            width: "min(340px, calc(100% - 36px))",
+            maxHeight: "min(460px, calc(100% - 96px))",
             height: "auto",
             display: "flex",
             flexDirection: "column",
@@ -62,9 +63,9 @@ export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings
             backdropFilter: GLASS_BLUR,
             WebkitBackdropFilter: GLASS_BLUR,
             border: `1px solid ${GLASS_BORDER}`,
-            borderRadius: IS_TOUCH ? "14px 14px 0 0" : 14,
-            boxShadow: IS_TOUCH ? "none" : "0 16px 48px rgba(0,0,0,0.65)",
-            padding: IS_TOUCH ? "8px 0 calc(12px + env(safe-area-inset-bottom, 0px))" : "4px 0 8px",
+            borderRadius: 14,
+            boxShadow: "0 16px 48px rgba(0,0,0,0.65)",
+            padding: "4px 0 8px",
             zIndex: 6,
             outline: "none",
           }}

@@ -326,6 +326,29 @@ Sibling rows are index-shifted by one (row 0 is "Original", row N is
 `dubTracks[N-1]`), and the same shift applies to the pinned-dub restore on token
 refresh and to the Settings → Audio label.
 
+A dub listed UNVERIFIED can genuinely be dead: verified live, Orion advertises
+Hindi/Tamil for tmdb 1101383 and answers HTTP **404 "Main request failed"** for
+both sibling masters. `pickDub` probes the target master before committing, and a
+failed probe is no longer a silent return — it sets the honest transient note
+("… isn't available on <server> (dead provider track)") and disables that row
+("Not available on this server") for the rest of the session. The silent return
+was the report "the audio track won't change on Orion". Also, a successful audio
+change now auto-resumes: `pickDub` → `pickQuality` previously called
+`video.play()` AFTER the bounded canplay wait, i.e. outside the click's user-
+activation window, so a strict browser refused it and the viewer had to press
+play; `play()` now fires before the wait and is awaited after (2026-10-15).
+
+**Server pick resets per video.** `requestedServer`, `activeDub` and `dubTracks`
+are keyed to the media: a `mediaKeyRef` (`type|id|season|episode`) clears them
+whenever the title/episode changes, so opening a new video always starts on the
+default server order instead of re-requesting whatever server the PREVIOUS title
+used. A same-media `reloadToken` bump (an actual server pick) is not a media
+change, so the pick still applies (2026-10-15). The settings card is now ONE
+compact 340px popover on every device — the touch full-width bottom sheet that
+buried the picture was removed (`PlayerPanel.jsx`, `player.css`), and the
+autoplay on/off switch was removed from the transport bar (the `autoplay`
+preference is still honoured and persisted).
+
 **ZXC bytes are relay-only in practice.** Its rotating worker/CDN hosts
 (`*.workers.dev`, `sopas9`, `onion18`, `invalid4`, `hakunaymatata`) gate on the
 owning origin: verified live, a request carrying a foreign `Origin` gets a bare
@@ -416,8 +439,9 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
   `playerUi`, `settings`. Imported per module (there is no barrel).
   `navigation.js` (`NAV_ITEMS`), `settings.js` (live single source for `THEMES`,
   `LANGUAGES`, `SEEK_TIMES`, `SUBTITLE_FONTS`, `SUBTITLE_COLORS`, `DEFAULT_SERVER_ORDER`, `TABS`,
-  `SECTION_SEARCH_TERMS`), `playerUi.js` (`PLAYER_SPEEDS`, `ASPECT_RATIOS`, `AR_GLYPH`,
-  `SPRING_SNAPPY`).
+  `SECTION_SEARCH_TERMS`), `playerUi.js` (`PLAYER_SPEEDS`, `ASPECT_RATIOS` — each
+  entry carries a player-standard `name` plus a one-line `sub` for the menu, and
+  `AR_GLYPH` stays index-aligned to it — and `SPRING_SNAPPY`).
 - `src/styles/` — global CSS sliced by concern and imported from `main.jsx` in cascade order
   (`{tokens,header,primitives,hero,buttons,grids,skeleton,rails,responsive,search,collections,
   settings,ui-kit,player,settings-ui,modals,discovery}.css`). Tailwind v4 `@source "../"`
