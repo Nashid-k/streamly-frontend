@@ -296,10 +296,15 @@ function orderZxcServers() {
   });
 }
 
-/* Only a hard transport failure cools a server; a title-shaped miss does not. */
+/* Only a hard transport failure cools a server; a title-shaped miss does not.
+   A 404/410 means the resource simply is not there — a title-shaped miss, or a
+   rotated path the mint already re-discovers — so it must never bench a healthy
+   server. Every other HTTP status is a real transport/host failure and cools. */
 function isHardZxcFailure(error) {
+  const status = error?.status;
+  if (status === 404 || status === 410) return false;
+  if (Number.isFinite(status)) return true;
   return (
-    Number.isFinite(error?.status) ||
     error?.name === "AbortError" ||
     /fetch failed|network|timed out|abort/i.test(String(error?.message || ""))
   );
@@ -1260,6 +1265,14 @@ async function resolveZxcOnServer(meta, server, prefetchedToken) {
         },
       };
     }
+  }
+  // The HLS branch ran (there were links) and found nothing playable. Do NOT
+  // fall through to the DASH path: it would pick links[0] (an HLS URL), fail to
+  // parse it as an MPD, and throw a plain Error that isHardZxcFailure reads as a
+  // SOFT miss — so a dead HLS server would never cool and would be retried on
+  // every rotation. Every link was HLS, so the media host is simply down.
+  if (!hasDash && hlsLinks.length > 0 && data.links.every((l) => l.kind === "hls")) {
+    return { ok: false, code: "no-source", error: `ZXC ${server} HLS links unplayable`, hard: true };
   }
 
   // DASH servers: the ladder is only real once the MPD has been transcoded, so

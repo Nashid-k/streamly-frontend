@@ -243,9 +243,9 @@ player resolves through `AUTO_SOURCE` (`src/constants/sources.js`): one
 the backends itself in health order (healthy first, then most-recently-
 successful, then the Servers-menu order). Soft misses (server up, title absent)
 continue to the next backend; the walk ends early after 3 HARD transport
-failures. A backend that fails HARD (its own HTTP 4xx/5xx — the centaurus
-`zxcstream.*.workers.dev` `427` is the motivating case — or a network/abort
-error) is remembered for a 90s cooldown (`zxcServerHealth` in `api/stream.js`,
+failures. A backend that fails HARD (any HTTP status except a 404/410
+"resource absent", or a network/abort error — the centaurus
+`zxcstream.*.workers.dev` `427` is the motivating case) is remembered for a 90s cooldown (`zxcServerHealth` in `api/stream.js`,
 module-level so the first failure of the minute spares every viewer after it)
 and skipped by later automatic resolves; any success clears the mark. A SOFT
 miss must never cool a server, or one obscure title would sideline a healthy
@@ -306,12 +306,12 @@ HLS pair addressed by a marker URL that re-runs the conversion on demand —
 keeps the whole native pipeline HLS-only (one MSE append path, one manifest
 parser, the existing relay). Real upstream captures confirm 997 fMP4 segments
 per 1080p Centaurus/Andromeda rendition with `ftyp` init + `styp` segments and
-no unsubstituted `$Number$`/`$RepresentationID$` left behind. Generated masters
+no unsubstituted `$Number$`/`$RepresentationID$` left behind, and the `$Time%Nd$`/`$Time$` timeline forms are substituted from each segment's own `t`. Generated masters
 set `source.multiLevelMaster: true` so the player loads the master and keeps the
 ladder in one document; native HLS masters (Ursa) and single-rung media
 playlists (Atlas) are parsed as-is. Which rows are DASH versus HLS is decided
 from each response's link `type`, not a frozen server list — the provider moved
-Orion onto DASH on 2026-10-14 without warning.
+Orion onto DASH on 2026-10-14 without warning. An `AdaptationSet` with no `contentType` is classified from its `mimeType`, and an HLS-only response whose every link is unplayable returns `no-source` HARD rather than falling through to the DASH path — so a dead HLS server cools instead of being retried on every resolve (2026-10-15).
 
 The multi-audio rows (Orion, Centaurus) expose dubs as SIBLING masters, not
 `#EXT-X-MEDIA` groups: the servers payload's `dubs` array lists them (`en/0`→
@@ -355,7 +355,7 @@ was the report "the audio track won't change on Orion". Also, a successful audio
 change now auto-resumes: `pickDub` → `pickQuality` previously called
 `video.play()` AFTER the bounded canplay wait, i.e. outside the click's user-
 activation window, so a strict browser refused it and the viewer had to press
-play; `play()` now fires before the wait and is awaited after (2026-10-15).
+play; `play()` now fires before the wait and is awaited after (2026-10-15). A dub switch that then fails rolls the active dub BACK to the previous one instead of leaving a half-applied pick, and it clears the status-watch idle timer only at its re-arm point (a poke that is too soon to re-arm no longer restarts the "Still watching?" gap). Auto-advance flags itself so the off-gap "Still watching?" streak RESETS on the new episode rather than re-arming, and the "binge the whole series?" guard is therefore reachable.
 
 **Server pick resets per video.** `requestedServer`, `activeDub` and `dubTracks`
 are keyed to the media: a `mediaKeyRef` (`type|id|season|episode`) clears them
@@ -445,7 +445,7 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
   fixed `top` percentage both misplace the overlay. Volume/brightness/aspect sit in a
   top-anchored band; `NetflixSeekHUD` anchors the rewind badge to the left edge and the
   forward badge to the right, vertically above centre, and `seekRelative` raises it for
-  every seek path (keys, the transport buttons, double-tap on that side).
+  every seek path (keys, the transport buttons, double-tap on that side). A single tap on the right third toggles the controls even while the two-thumb 2× hold handles are armed — the hold is swallowed only once it actually engaged, so a plain right-third tap and a right-side double-tap both fire (2026-10-15).
 - `src/hooks/` — custom React hooks (`@/hooks`). `index.js` barrel. `useUserData.js` (localStorage lists,
   logs corrupt/quota failures), `useDebounce`, `useDetailView`, `useMediaQuery`, `useRailArrows`,
   `useScrollRestoration`, `useVirtualRenderAdapter` (IntersectionObserver adapter for heavy elements),
