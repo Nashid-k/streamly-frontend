@@ -91,8 +91,8 @@ const ZXC_RESOLVE = {
   ],
   server: "centaurus",
   audioTracks: [
-    { label: "French dub", uri: FRENCH_DUB },
-    { label: "esla dub", uri: ESLA_DUB },
+    { label: "French dub", lang: "fr", uri: FRENCH_DUB },
+    { label: "esla dub", lang: "esla", uri: ESLA_DUB },
   ],
 };
 
@@ -178,15 +178,15 @@ describe("ZXC DASH master — dub switching", () => {
     // Row N is dubTracks[N-1] because row 0 is the original. Indexing both with
     // the same N played the wrong language under the clicked label — the
     // clickable row said "French dub" while esla was loaded.
-    // The label shown is now the normalised name, so "esla dub" reads "Esla";
-    // the mapping assertion below is unchanged, because a rename must never be
-    // able to re-break the label->URI pairing.
+    // The label shown is the PROPER language name from the row's lang code, so
+    // "esla dub" reads "Spanish (Latin America)"; the mapping assertion below is
+    // unchanged, because a rename must never re-break the label->URI pairing.
     render(<NativePlayerView type="movie" id="1101383" title="The End of Oak Street" onClose={() => {}} />);
     await waitFor(() => expect(hlsState.loadSourceCalls.length).toBeGreaterThan(0), { timeout: 5000 });
 
     openAudioPanel();
     // The LAST dub must reach the LAST track, not run off the end.
-    fireEvent.click(screen.getByRole("button", { name: /^Esla/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Spanish \(Latin America\)/i }));
     await waitFor(() => {
       expect(hlsState.loadSourceCalls).toContain(ESLA_DUB);
     }, { timeout: 3000 });

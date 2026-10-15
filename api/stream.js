@@ -1113,6 +1113,10 @@ function zxcDubTracks(meta, server, dubs) {
     seen.add(key);
     audioTracks.push({
       label: String(dub.lanName || dub.lanCode),
+      // The raw language code, so the Audio menu can name regional variants the
+      // provider only labels as a code ("esla" -> Spanish (Latin America), "ptbr"
+      // -> Portuguese (Brazil)) instead of echoing "esla" beside "French".
+      lang: String(dub.lanCode),
       uri: zxcPlaylistUrl(meta, {
         server,
         dubCode: String(dub.lanCode),

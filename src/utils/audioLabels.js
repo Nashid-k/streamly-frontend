@@ -34,10 +34,72 @@ const FILM_LANG = {
   gl: "Galician", lt_: "Lithuanian", is: "Icelandic", ms: "Malay",
 };
 
+/* Provider language CODES that are neither a 2-letter ISO code nor a name. The
+   ZXC/dub payload speaks in these: `esla` = Spanish (Latin America), `ptbr` =
+   Portuguese (Brazil). Left unmapped they leaked into the Audio menu verbatim —
+   a row literally reading "esla" beside "French" (live 2026-10-15). Regional
+   codes are kept apart on purpose: "Spanish" and "Spanish (Latin America)" are
+   two different tracks and must read as such. */
+const LANG_ALIASES = {
+  esla: "Spanish (Latin America)",
+  es419: "Spanish (Latin America)",
+  esmx: "Spanish (Mexico)",
+  essp: "Spanish (Spain)",
+  ptbr: "Portuguese (Brazil)",
+  ptpt: "Portuguese (Portugal)",
+  zhcn: "Chinese (Simplified)",
+  zhtw: "Chinese (Traditional)",
+  zhch: "Chinese (Simplified)",
+  enus: "English (US)",
+  engb: "English (UK)",
+  frca: "French (Canada)",
+  frfr: "French (France)",
+};
+
+/* ISO 639-2/B three-letter codes. The transcoded DASH master names its audio
+   group by the MPD's own `lang` ("eng", "hin", "fra"), so a single-audio source
+   (Andromeda) showed a bare "eng" row. */
+const ISO3_LANG = {
+  eng: "English", spa: "Spanish", fra: "French", fre: "French", deu: "German",
+  ger: "German", ita: "Italian", por: "Portuguese", rus: "Russian", jpn: "Japanese",
+  kor: "Korean", zho: "Chinese", chi: "Chinese", ara: "Arabic", tur: "Turkish",
+  vie: "Vietnamese", tha: "Thai", ind: "Indonesian", pol: "Polish", nld: "Dutch",
+  dut: "Dutch", swe: "Swedish", nor: "Norwegian", dan: "Danish", fin: "Finnish",
+  ces: "Czech", cze: "Czech", hun: "Hungarian", ron: "Romanian", rum: "Romanian",
+  ell: "Greek", gre: "Greek", heb: "Hebrew", ukr: "Ukrainian", bul: "Bulgarian",
+  hrv: "Croatian", srp: "Serbian", slk: "Slovak", slo: "Slovak", slv: "Slovenian",
+  est: "Estonian", lav: "Latvian", lit: "Lithuanian", fas: "Persian", per: "Persian",
+  urd: "Urdu", tam: "Tamil", tel: "Telugu", hin: "Hindi", mal: "Malayalam",
+  kan: "Kannada", ben: "Bengali", pan: "Punjabi", mar: "Marathi", guj: "Gujarati",
+  cat: "Catalan", eus: "Basque", baq: "Basque", glg: "Galician", isl: "Icelandic",
+  ice: "Icelandic", msa: "Malay", may: "Malay",
+};
+
+/* A code (2-letter, 3-letter, or a regional alias) to a human language name.
+   Returns null when nothing is known, so a caller can fall back to the raw
+   provider label rather than inventing a name. */
+export function languageNameFromCode(code) {
+  const c = String(code || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (!c) return null;
+  return LANG_ALIASES[c] || FILM_LANG[c] || ISO3_LANG[c] || null;
+}
+
 /* Provider wording we do not want in a short row. Matched as whole words so a
    language whose own name contains one of these survives: "Audio" never appears
    inside "Tamil", and "Original Audio" is the row this whole file exists for. */
 const NOISE = /\b(dubbed?|dub|audio|track|version|audio\s*track|soundtrack)\b/gi;
+
+/* The Audio-menu name for one dub row. Prefer the language CODE the source
+   reported (proper regional names for `esla`/`ptbr`, ISO-2/ISO-3 otherwise);
+   fall back to the normalised provider label, then to a code hidden inside that
+   label (older payloads carry no `lang`, only "esla dub"). */
+function dubLabel(track) {
+  const fromCode = languageNameFromCode(track?.lang);
+  if (fromCode) return fromCode;
+  const normalized = normalizeAudioLabel(track?.label);
+  if (!normalized) return "";
+  return LANG_ALIASES[normalized.toLowerCase().replace(/[^a-z0-9]/g, "")] || normalized;
+}
 
 /** "Tamil Dub" / "TAMIL_AUDIO" / "tamil" -> "Tamil". Empty input -> "". */
 export function normalizeAudioLabel(raw) {
@@ -78,17 +140,15 @@ export function originalTrackLabel(language) {
  * `pickDub(i + 1)` would play a DIFFERENT language than the one the viewer
  * clicked. The caller must switch on `sourceIndex + 1`, never on its own index.
  *
- * @param {Array<{label: string}>} tracks  provider rows, may be empty
+ * @param {Array<{label: string, lang?: string}>} tracks  provider rows, may be empty
  * @param {string} [language]              ISO 639-1 for the original row
  * @returns {Array<{label: string, isOriginal: boolean, sourceIndex: number|null}>}
  */
 export function buildAudioTrackList(tracks, language) {
   const out = [{ label: originalTrackLabel(language), isOriginal: true, sourceIndex: null }];
   const seen = new Set([out[0].label.toLowerCase()]);
-  (tracks || []).forEach((t, i) => {
-    const label = normalizeAudioLabel(t?.label);
-    // An empty or duplicate row is noise: a provider listing the original
-    // again as "Tamil Dub" next to our "Tamil" row helps nobody.
+  (tracks || []).forEach((track, i) => {
+    const label = dubLabel(track);
     if (!label || seen.has(label.toLowerCase())) return;
     seen.add(label.toLowerCase());
     out.push({ label, isOriginal: false, sourceIndex: i });

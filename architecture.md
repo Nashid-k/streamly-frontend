@@ -326,6 +326,16 @@ Sibling rows are index-shifted by one (row 0 is "Original", row N is
 `dubTracks[N-1]`), and the same shift applies to the pinned-dub restore on token
 refresh and to the Settings → Audio label.
 
+Each dub row also carries its raw language CODE (`lang`), and the Audio menu
+names the row from it before falling back to the provider label: the provider
+only sends "esla dub"/"ptbr dub" for those tracks, so the label is resolved
+through `languageNameFromCode` (`audioLabels.js`) — `esla` → "Spanish (Latin
+America)", `ptbr` → "Portuguese (Brazil)", and ISO-639-2 codes → names. The same
+helper names the in-manifest group a transcoded DASH master carries (its
+`#EXT-X-MEDIA NAME`/`LANGUAGE` is `eng`/`hin`/`fra`), so a single-audio source
+(Andromeda) no longer shows a bare "eng" row. A dub whose code is unknown keeps
+the normalised provider label rather than a guess (live 2026-10-15).
+
 A dub listed UNVERIFIED can genuinely be dead: verified live, Orion advertises
 Hindi/Tamil for tmdb 1101383 and answers HTTP **404 "Main request failed"** for
 both sibling masters. `pickDub` probes the target master before committing, and a

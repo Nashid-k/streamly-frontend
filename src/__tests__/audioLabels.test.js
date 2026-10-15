@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildAudioTrackList, normalizeAudioLabel, originalTrackLabel } from "../utils/audioLabels";
+import {
+  buildAudioTrackList,
+  languageNameFromCode,
+  normalizeAudioLabel,
+  originalTrackLabel,
+} from "../utils/audioLabels";
 
 // The provider strings that motivated this file, copied verbatim from the
 // shapes api/stream.js passes through (ZXC `lanName`, NHD `label`).
@@ -128,5 +133,50 @@ describe("buildAudioTrackList", () => {
     expect(list.filter((r) => r.isOriginal)).toHaveLength(1);
     expect(list[0].sourceIndex).toBeNull();
     expect(list[1].isOriginal).toBe(false);
+  });
+});
+
+describe("languageNameFromCode", () => {
+  it("names the provider's regional dub codes instead of echoing them", () => {
+    // Live ZXC shapes: `esla` / `ptbr` appeared verbatim in the Audio menu.
+    expect(languageNameFromCode("esla")).toBe("Spanish (Latin America)");
+    expect(languageNameFromCode("ptbr")).toBe("Portuguese (Brazil)");
+    expect(languageNameFromCode("zhcn")).toBe("Chinese (Simplified)");
+  });
+
+  it("names ISO-639-2 codes the transcoded DASH master uses", () => {
+    expect(languageNameFromCode("eng")).toBe("English");
+    expect(languageNameFromCode("hin")).toBe("Hindi");
+    expect(languageNameFromCode("fra")).toBe("French");
+  });
+
+  it("still names plain ISO-639-1 codes and rejects the unknown", () => {
+    expect(languageNameFromCode("ta")).toBe("Tamil");
+    expect(languageNameFromCode("")).toBeNull();
+    expect(languageNameFromCode("qqq")).toBeNull();
+  });
+});
+
+describe("buildAudioTrackList — regional/ISO-code dubs", () => {
+  it("prefers the language code so regional variants read as names", () => {
+    const list = buildAudioTrackList(
+      [
+        { label: "esla dub", lang: "esla" },
+        { label: "ptbr dub", lang: "ptbr" },
+        { label: "Hindi dub", lang: "hi" },
+      ],
+      "en",
+    );
+    expect(list.map((r) => r.label)).toEqual([
+      "English",
+      "Spanish (Latin America)",
+      "Portuguese (Brazil)",
+      "Hindi",
+    ]);
+  });
+
+  it("maps a code hidden in the label when the payload carries no `lang`", () => {
+    const list = buildAudioTrackList([{ label: "esla dub" }], "en");
+    expect(list.map((r) => r.label)).toEqual(["English", "Spanish (Latin America)"]);
   });
 });

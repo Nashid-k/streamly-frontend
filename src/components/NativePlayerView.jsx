@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
-import { buildAudioTrackList } from "../utils/audioLabels";
+import { buildAudioTrackList, languageNameFromCode } from "../utils/audioLabels";
 import {
   IconAspect,
   IconAudio,
@@ -388,14 +388,9 @@ export default function NativePlayerView({
      Promoting it makes the source change observable, which is what the boundary
      scoping below needs in order to trust it. */
   const [activeSourceKey, setActiveSourceKey] = useState(null);
-  // TMDB iso_639_1 -> display name, for the film-level original-language line.
-  const FILM_LANG = {
-    en: "English", te: "Telugu", hi: "Hindi", ta: "Tamil", ml: "Malayalam",
-    kn: "Kannada", bn: "Bengali", pa: "Punjabi", mr: "Marathi", gu: "Gujarati",
-    es: "Spanish", fr: "French", de: "German", it: "Italian", pt: "Portuguese",
-    ru: "Russian", ja: "Japanese", ko: "Korean", zh: "Chinese", ar: "Arabic",
-    tr: "Turkish", vi: "Vietnamese", th: "Thai", id: "Indonesian", pl: "Polish",
-  };
+  // Language codes are named through the shared audioLabels helper (2-letter,
+  // 3-letter and regional aliases) so the film-level line and the Audio rows
+  // cannot drift apart — see the `languageNameFromCode` call sites below.
   const [fatal, setFatal] = useState(null);
   // Bumped by the fatal banner's "Try again" to re-run the whole load effect —
   // the effect re-resolves the source from scratch (a stale CDN token or a
@@ -611,9 +606,10 @@ export default function NativePlayerView({
       return found?.label || audioTrackList[activeDub]?.label || "Dub";
     }
     if (audioTracks.length > 0) {
-      return audioTracks[audioIndex]?.name || "Original";
+      const a = audioTracks[audioIndex];
+      return languageNameFromCode(a?.lang || a?.name) || a?.name || "Original";
     }
-    return originalLanguage ? (FILM_LANG[originalLanguage] || (originalLanguage || "").toUpperCase() || "Original") : "Original";
+    return originalLanguage ? (languageNameFromCode(originalLanguage) || (originalLanguage || "").toUpperCase() || "Original") : "Original";
   }, [dubTracks, activeDub, audioTrackList, audioTracks, audioIndex, originalLanguage]);
 
 
@@ -3655,15 +3651,21 @@ const showSkipOutro = shouldShowSkipOutro({
                       })}
                     </>
                   ) : audioTracks.length > 0 ? (
-                    audioTracks.map((a) => (
-                      <DialogRow
-                        key={a.index}
-                        selected={a.index === audioIndex}
-                        onClick={() => pickAudio(a.index)}
-                        title={a.name}
-                        sub={a.lang && a.lang !== a.name ? a.lang : undefined}
-                      />
-                    ))
+                    audioTracks.map((a) => {
+                      // Name the group by its language CODE: a transcoded DASH
+                      // master labels the audio group "eng"/"hin"/"fra", which is
+                      // not a name a viewer should read.
+                      const proper = languageNameFromCode(a.lang || a.name);
+                      return (
+                        <DialogRow
+                          key={a.index}
+                          selected={a.index === audioIndex}
+                          onClick={() => pickAudio(a.index)}
+                          title={proper || a.name}
+                          sub={proper && a.lang && a.lang !== a.name ? a.lang : undefined}
+                        />
+                      );
+                    })
                   ) : (
                     // No #EXT-X-MEDIA AUDIO groups: hls.js reports no audioTracks, but the
                     // soundtrack IS playing — surface it as the single track.
@@ -3679,13 +3681,13 @@ const showSkipOutro = shouldShowSkipOutro({
                           }}
                         >
                           Film's original language:{" "}
-                          {FILM_LANG[originalLanguage] || (originalLanguage || "").toUpperCase() || "Unknown"}
+                          {languageNameFromCode(originalLanguage) || (originalLanguage || "").toUpperCase() || "Unknown"}
                         </p>
                       ) : null}
                       <DialogRow
                         key="original"
                         selected
-                        title={originalLanguage ? `Original — ${FILM_LANG[originalLanguage] || (originalLanguage || "").toUpperCase() || "Unknown"}` : "Original"}
+                        title={originalLanguage ? `Original — ${languageNameFromCode(originalLanguage) || (originalLanguage || "").toUpperCase() || "Unknown"}` : "Original"}
                         sub="This source's soundtrack"
                       />
                     </>
