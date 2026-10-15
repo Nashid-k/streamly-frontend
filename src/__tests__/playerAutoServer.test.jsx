@@ -10,6 +10,13 @@ const hlsState = {
   currentLevel: -1,
   loadSourceCalls: [],
   resolveCalls: [],
+  // Which server the fake backend says served the stream (echoed in the
+  // response). Flipped by a test to model a picked server falling through.
+  server: "orion",
+  // Hold the playability probe open so the switching stage stays mounted long
+  // enough to assert on. Cleared/resolved at the end of each test that sets it.
+  deferProbe: false,
+  releaseProbe: null,
 };
 
 vi.mock("hls.js", () => {
@@ -53,14 +60,25 @@ vi.mock("../api/streamResolve", async (orig) => {
   const zxc = (args) => {
     hlsState.resolveCalls.push(args);
     // mimic resolveZxc: normalize, then carry the server the backend used.
-    return { ...actual.streamResolve.normalizeResolved(RESOLVE_PAYLOAD), server: RESOLVE_PAYLOAD.server };
+    return { ...actual.streamResolve.normalizeResolved({ ...RESOLVE_PAYLOAD, server: hlsState.server }), server: hlsState.server };
   };
   return { ...actual, streamResolve: { ...actual.streamResolve, resolveZxc: zxc } };
 });
 
 vi.mock("../api/nativeHlsLoader", async (orig) => {
   const actual = await orig();
-  return { ...actual, createStreamlyLoader: () => ({ load: async () => "" }), probeSourcePlayable: async () => ({ ok: true }) };
+  return {
+    ...actual,
+    createStreamlyLoader: () => ({ load: async () => "" }),
+    probeSourcePlayable: async () => {
+      if (hlsState.deferProbe) {
+        return new Promise((resolve) => {
+          hlsState.releaseProbe = () => resolve({ ok: true });
+        });
+      }
+      return { ok: true };
+    },
+  };
 });
 
 import NativePlayerView from "../components/NativePlayerView";
@@ -81,6 +99,9 @@ beforeEach(() => {
   hlsState.currentLevel = -1;
   hlsState.loadSourceCalls.length = 0;
   hlsState.resolveCalls.length = 0;
+  hlsState.server = "orion";
+  hlsState.deferProbe = false;
+  hlsState.releaseProbe = null;
 });
 
 describe("no-pick resolve uses auto and reflects the chosen server", () => {
@@ -108,5 +129,76 @@ describe("no-pick resolve uses auto and reflects the chosen server", () => {
     const server5 = rows.find((r) => r.textContent.includes("Server 5"));
     expect(server1).toHaveAttribute("aria-pressed", "true");
     expect(server5).not.toHaveAttribute("aria-pressed");
+  });
+});
+
+/* Manual picks send `prefer` (not `server`): the picked backend is tried first
+   and, when it has no source, the SAME round trip walks the health-ordered
+   rotation. The response echoes whichever backend really served it, so the
+   player re-derives the real row and tells the viewer a fallback happened. */
+describe("manual server pick prefers then falls back fast", () => {
+  const openServers = () => {
+    fireEvent.click(screen.getByRole("button", { name: /^settings$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /servers/i }));
+  };
+
+  it("resolves a picked row with prefer (not server)", async () => {
+    render(<NativePlayerView type="movie" id="12345" title="A Title" onClose={() => {}} />);
+    await waitFor(() => expect(hlsState.loadSourceCalls.length).toBeGreaterThan(0), { timeout: 5000 });
+
+    openServers();
+    const dialog = screen.getByRole("dialog", { name: "Servers" });
+    const server2 = [...dialog.querySelectorAll(".np-dialog-row")].find((r) => r.textContent.includes("Server 2"));
+    fireEvent.click(server2);
+
+    await waitFor(() => expect(hlsState.resolveCalls.length).toBeGreaterThan(1), { timeout: 3000 });
+    const pick = hlsState.resolveCalls[1];
+    expect(pick.prefer).toBe("andromeda");
+    expect(pick.server).toBeUndefined();
+    expect(pick.auto).toBeUndefined();
+  });
+
+  it("a picked server with no source falls through and says which one plays", async () => {
+    render(<NativePlayerView type="movie" id="12345" title="A Title" onClose={() => {}} />);
+    await waitFor(() => expect(hlsState.loadSourceCalls.length).toBeGreaterThan(0), { timeout: 5000 });
+
+    // The picked row will be Server 2, but the backend serves Server 1 anyway —
+    // the exact "no source on the server I picked" case.
+    hlsState.server = "orion";
+    hlsState.deferProbe = true; // hold the stage so the note is observable
+
+    openServers();
+    const dialog = screen.getByRole("dialog", { name: "Servers" });
+    const server2 = [...dialog.querySelectorAll(".np-dialog-row")].find((r) => r.textContent.includes("Server 2"));
+    fireEvent.click(server2);
+
+    // The note starts as "Switching to Server 2…" and is replaced by the honest
+    // fallback once the response names Server 1.
+    await waitFor(() => expect(screen.getByText(/Server 2 has no stream/i)).toBeInTheDocument(), { timeout: 3000 });
+    expect(screen.getByText(/playing Server 1/i)).toBeInTheDocument();
+
+    hlsState.deferProbe = false;
+    hlsState.releaseProbe?.();
+  });
+
+  it("shows the horizontal loader on a server switch (not only the first cold open)", async () => {
+    const { container } = render(<NativePlayerView type="movie" id="12345" title="A Title" onClose={() => {}} />);
+    await waitFor(() => expect(hlsState.loadSourceCalls.length).toBeGreaterThan(0), { timeout: 5000 });
+
+    // A first frame exists, so a later wait would normally use the round ring.
+    container.querySelector("video").dispatchEvent(new Event("play"));
+    hlsState.deferProbe = true;
+
+    openServers();
+    const dialog = screen.getByRole("dialog", { name: "Servers" });
+    const server2 = [...dialog.querySelectorAll(".np-dialog-row")].find((r) => r.textContent.includes("Server 2"));
+    fireEvent.click(server2);
+
+    const stage = await screen.findByRole("status", { name: "Loading video" });
+    expect(stage.querySelector(".np-loading-line > span")).toBeTruthy();
+    expect(stage.querySelector(".np-tailspin")).toBeNull();
+
+    hlsState.deferProbe = false;
+    hlsState.releaseProbe?.();
   });
 });

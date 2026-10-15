@@ -6,7 +6,7 @@
 // there is no download-assembly path anymore.
 //
 // Actions (POST JSON):
-//   resolvezxc     { type, id, season?, episode?, server? } -> { source, variants, audioTracks }
+//   resolvezxc     { type, id, season?, episode?, server?, auto?, prefer? } -> { source, variants, audioTracks }
 //   zxcintro       { imdbId, tmdbId, season?, episode? } -> { ok, introEndSeconds|null, creditsStartSeconds|null, confidence|null }
 //   playlist       { playlistUrl, refUrl? }              -> raw m3u8 text (referer-supplied)
 //   segment        { url, refUrl?, range: {start,max} }  -> bytes (octet-stream)
@@ -161,12 +161,18 @@ const MAX_REQUEST_BODY_BYTES = 512 * 1024;
    `#EXT-X-MEDIA` rows in one master. Which servers CAN carry dubs is read from
    the response's own `dubs` array, not a frozen `dubSupport` list.
 
-   Honesty gates: the advertised `dubs`
-   list overstates reality. Verified live against tmdb 1101383 — `hi` and `ta`
-   are listed but their MPDs answer HTTP 427 ("Fetch failed"), and the one
-   subtitle row (`es`, `dubType=1`) answers "No sources found". So every dub is
-   individually minted and its manifest fetched before it may reach the Audio
-   menu; a dub that cannot produce an MPD is dropped, never listed. */
+   Dubs are listed UNVERIFIED, exactly as the provider's own player lists them:
+   the Audio menu is built from the current server's `data.dubs` (the shipped
+   chunk passes `dubs: eT`, `eT = eh[en]?.data?.dubs`), and picking one only
+   re-resolves that server with `dubCode`/`dubType`. Verified live on tmdb
+   1101383 — `hi` and `ta` are advertised but answer "Main request failed", and
+   the `es` row is a `dubType=1` subtitle — so those stay listed beside the
+   working `fr`/`esla` rows and a dead one fails at PLAY time, on its sibling
+   master, precisely as on the provider site. Eagerly minting+transcoding every
+   dub (the old behaviour) fanned N extra round trips per resolve; the provider
+   throttled that burst with a 429 that then cascaded into `/backend/tmdb/details`
+   and killed playback of TV titles whose metadata lookup is mandatory. Keeping
+   the list unverified removes that request amplification. See `zxcDubTracks`. */
 
 const ZXC_ORIGIN = "https://vidstuck.xyz";
 /* THE MINT PATH. Read off the shipped embed chunk, NOT guessed, and upstream
@@ -863,8 +869,14 @@ async function zxcMint({ type, tmdbId, server, season, episode, refererPath }) {
 
 /* Step 2: the servers endpoint. `link` is decrypted here so nothing upstream of
    this function ever sees ciphertext. */
-async function zxcServerLinks(meta, { server, dubCode, dubType } = {}) {
-  const { token, ts } = await zxcMint({ ...meta, server });
+async function zxcServerLinks(meta, { server, dubCode, dubType, prefetchedToken } = {}) {
+  // `prefetchedToken` is a token minted EARLIER — in handleResolveZxc it is
+  // minted CONCURRENTLY with the title-metadata lookup, since the mint depends
+  // only on type/id/server/season/episode and NOT on /backend/tmdb/details.
+  // Spending it here folds one upstream round trip out of the resolve's
+  // critical path; when absent (playlist re-mint, dub switch, other callers)
+  // the normal mint runs unchanged.
+  const { token, ts } = prefetchedToken || (await zxcMint({ ...meta, server }));
   // Read the contract AFTER the mint: a rename discovered during the mint must
   // drive THIS request's query too, not just the next one.
   const { params, imdbParam, latestDateParam } = zxcContract;
@@ -1058,61 +1070,57 @@ async function handleZxcPlaylist(rawUrl) {
   return build(rep);
 }
 
-/* Dubs: sibling masters, each verified by actually minting + transcoding it.
+/* Dubs: sibling masters, one per advertised audio language. The provider's own
+   shipped player builds its Audio menu straight from `data.dubs` with NO
+   liveness probe (the chunk passes `dubs: eT` where `eT = eh[en]?.data?.dubs`),
+   and selecting one just re-resolves that server with `dubCode`/`dubType`. We
+   do the same on purpose:
+
+     · PARITY. Verified live on tmdb 1101383 — the provider advertises 6 audio
+       rows (en original, en English, fr, hi, ta, esla) plus one `dubType=1`
+       subtitle row. Eagerly minting+transcoding every dub drops any language
+       whose probe hits a transient upstream 429, which is why ours showed one
+       row where the provider's own site shows many.
+     · COST. N advertised dubs cost N extra mint+servers+MPD round trips; a
+       6-dub title fanned ~18 requests in a burst the provider throttles, and
+       the 429 then cascaded into the NEXT call (`/backend/tmdb/details`,
+       mandatory for TV) — the "series do not play" symptom. Listing every dub
+       without probing leaves one round trip per resolve.
+
    Shared by BOTH resolve branches: any server whose response carries a `dubs`
-   array (orion and centaurus today) can hand back HLS links on one title and
-   DASH on the next, and taking the HLS early-return without checking dubs would
-   silently drop Hindi/Tamil tracks the provider does carry. The presence of the
-   `dubs` array IS the gate — no frozen dubSupport list — so a server the
-   provider newly endows with dubs is honoured without a code change. Filter to
-   type-0 (audio). Drop the
-   "original" row if present (it's the native soundtrack already served by
-   the master) to avoid duplicate labels, and also dedupe by (lanCode/type)
-   when the provider lists the same pair twice. DO NOT hard-cap to 8: some
-   titles carry 11+ type-0 dubs — the cap silently truncated Telugu/ptbr/esla
-   etc. Only an explicitly provider-flagged row is the original. If the
-   payload carries no flag (older provider responses) we must NOT guess a
-   winner — dropping an arbitrary first row would silently hide a real dub. */
-async function verifyZxcDubs(meta, server, dubs) {
+   array can hand back HLS links on one title and DASH on the next, and taking
+   the HLS early-return without reading dubs would drop every Hindi/Tamil track
+   the provider does carry. The presence of the `dubs` array IS the gate — no
+   frozen dubSupport list — so a server the provider newly endows with dubs is
+   honoured without a code change. Filter to `type:0` audio (the provider's
+   `dubType=1` rows are subtitles, not tracks); drop the provider-flagged
+   `original` row (it IS the master we already play, and the panel renders it
+   as row 0); dedupe repeated (lanCode/type) pairs. Only an explicitly
+   provider-flagged row is the original — with no flag we never guess a winner,
+   because dropping an arbitrary first row would hide a real dub. No hard cap:
+   titles carry 10+ type-0 dubs and an artificial bound silently hid them. */
+function zxcDubTracks(meta, server, dubs) {
   const audioTracks = [];
   if (!Array.isArray(dubs)) return audioTracks;
+  const original = dubs.find((d) => d?.original && d?.lanCode) || null;
+  const originalKeyStr = original ? `${original.lanCode}/${String(original.type ?? "0")}` : null;
   const seen = new Set();
-  const originalKey = dubs.find((d) => d?.original && d?.lanCode) || null;
-  const originalKeyStr = originalKey ? `${originalKey.lanCode}/${String(originalKey.type ?? "0")}` : null;
-  const candidates = dubs
-    .filter((d) => d?.lanCode && String(d.type ?? "0") === "0")
-    .filter((d) => {
-      const key = `${d.lanCode}/${String(d.type ?? "0")}`;
-      if (originalKeyStr && key === originalKeyStr) return false;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  const verified = await Promise.all(
-    candidates.map(async (dub) => {
-      const uri = zxcPlaylistUrl(meta, {
+  for (const dub of dubs) {
+    if (!dub?.lanCode || String(dub.type ?? "0") !== "0") continue;
+    const key = `${dub.lanCode}/${String(dub.type ?? "0")}`;
+    if (originalKeyStr && key === originalKeyStr) continue;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    audioTracks.push({
+      label: String(dub.lanName || dub.lanCode),
+      uri: zxcPlaylistUrl(meta, {
         server,
         dubCode: String(dub.lanCode),
         dubType: String(dub.type ?? "0"),
         view: ZXC_VIEW_MASTER,
-      });
-      try {
-        await zxcDashManifest({
-          meta: { ...meta, server },
-          dubCode: String(dub.lanCode),
-          dubType: String(dub.type ?? "0"),
-        });
-        return { label: String(dub.lanName || dub.lanCode), uri };
-      } catch (error) {
-        // Advertised but dead upstream (the 427 rows). Never listed.
-        logWarn("zxc", `dropping dead ${server} dub ${dub.lanCode}/${dub.type}`, {
-          message: error?.message,
-        });
-        return null;
-      }
-    }),
-  );
-  for (const track of verified) if (track) audioTracks.push(track);
+      }),
+    });
+  }
   return audioTracks;
 }
 
@@ -1122,12 +1130,12 @@ async function verifyZxcDubs(meta, server, dubs) {
    server the viewer chose. `hard` separates a transport failure (the server
    itself is down → safe to cool) from a title-shaped miss (server is up, this
    title is absent → never cooled). */
-async function resolveZxcOnServer(meta, server) {
+async function resolveZxcOnServer(meta, server, prefetchedToken) {
   const refererPath = meta.refererPath;
   const refUrl = `${ZXC_ORIGIN}${refererPath}`;
   let data;
   try {
-    data = await zxcServerLinks(meta, { server });
+    data = await zxcServerLinks(meta, { server, prefetchedToken });
   } catch (error) {
     return {
       ok: false,
@@ -1183,9 +1191,9 @@ async function resolveZxcOnServer(meta, server) {
     if (playable) {
       const { link, levels } = playable;
       // A dub-support server can serve HLS links on a title that ALSO has
-      // dubs (orion does both across titles) — verify and attach them here
+      // dubs (orion does both across titles) — read and attach them here
       // too, or the HLS early-return below would drop real Hindi/Tamil tracks.
-      const audioTracks = await verifyZxcDubs(meta, server, data.dubs);
+      const audioTracks = zxcDubTracks(meta, server, data.dubs);
       return {
         ok: true,
         payload: {
@@ -1247,9 +1255,9 @@ async function resolveZxcOnServer(meta, server) {
     hdr: false,
   }));
 
-  // Dubs: sibling masters, each verified by actually minting + transcoding it
-  // (shared helper — same rules as the HLS branch above).
-  const audioTracks = await verifyZxcDubs(meta, server, data.dubs);
+  // Dubs: sibling masters read straight from `data.dubs` (shared helper — same
+  // rules as the HLS branch above).
+  const audioTracks = zxcDubTracks(meta, server, data.dubs);
 
   return {
     ok: true,
@@ -1275,6 +1283,7 @@ async function handleResolveZxc(body, res) {
   const season = String(body.season ?? "").trim();
   const episode = String(body.episode ?? "").trim();
   const requested = String(body.server || "").trim().toLowerCase();
+  const prefer = String(body.prefer || "").trim().toLowerCase();
   const names = zxcServerNames();
   // An unknown server name is a client bug, not a title problem: answer 400
   // rather than silently resolving a different server than the viewer picked.
@@ -1282,12 +1291,44 @@ async function handleResolveZxc(body, res) {
     json(res, 400, { ok: false, error: "Unknown ZXC server", code: "bad-server" });
     return;
   }
+  if (prefer && !names.includes(prefer)) {
+    json(res, 400, { ok: false, error: "Unknown ZXC server", code: "bad-server" });
+    return;
+  }
   // `auto` (the client's no-pick path) lets the SERVER choose the healthiest
   // backend and fall through in ONE round trip, instead of the client walking
   // five rows itself. An explicit pick still resolves ONLY that server.
-  const auto = body.auto === true && !requested;
+  //
+  // `prefer` is a manual pick that is ALLOWED to fall through: the picked server
+  // is tried FIRST and, when it has no source (a dead delivery host, or the title
+  // simply absent there), the SAME request walks the rest in health order — a
+  // faster fallback than a fatal banner that makes the viewer reopen the menu.
+  // The response echoes whichever server actually served it, so the player can
+  // say so and highlight the real row.
+  const wantAuto = body.auto === true && !requested;
+  let plan;
+  if (prefer) {
+    plan = [prefer, ...orderZxcServers().filter((s) => s !== prefer)];
+  } else if (requested) {
+    plan = [requested];
+  } else if (wantAuto) {
+    plan = orderZxcServers();
+  } else {
+    plan = [names[0]];
+  }
+  const auto = prefer ? true : wantAuto;
 
   const refererPath = zxcEmbedPath({ type, tmdbId, season, episode });
+
+  // The token mint depends ONLY on type/id/server/season/episode — never on
+  // /backend/tmdb/details — so kick it off CONCURRENTLY with the metadata
+  // lookup for the FIRST server in the plan. That folds one upstream round trip
+  // out of every resolve's critical path. A failed prefetch is not fatal: the
+  // token is simply absent and zxcServerLinks re-mints (where the real error,
+  // including contract-rename recovery, surfaces exactly as before).
+  const firstServer = plan[0];
+  const prefetchedTokenPromise = zxcMint({ type, tmdbId, server: firstServer, season, episode, refererPath })
+    .catch(() => null);
 
   let titleMeta;
   try {
@@ -1317,21 +1358,18 @@ async function handleResolveZxc(body, res) {
     latestDate: titleMeta.latestDate,
   };
 
-  // An explicit pick tries exactly one server; `auto` walks the servers in
-  // health order (healthy first, cooling last) so a backend we already know is
-  // down costs the viewer nothing but the round trip that discovers it. A soft
-  // miss moves on to the next server; only N HARD failures end the walk early.
-  let plan;
-  if (auto) {
-    plan = orderZxcServers();
-  } else {
-    plan = [requested || names[0]];
-  }
+  // By now the parallel mint started above has had the whole metadata lookup to
+  // settle; awaiting it costs nothing if it already resolved. Only the FIRST
+  // server in the plan gets the prefetched token — the fall-through servers
+  // mint their own inside zxcServerLinks.
+  const prefetchedToken = await prefetchedTokenPromise;
 
+  // `plan` is built above. A soft miss moves on to the next server; only N HARD
+  // failures end the walk early.
   let hardFails = 0;
   let last = null;
   for (const server of plan) {
-    const result = await resolveZxcOnServer(meta, server);
+    const result = await resolveZxcOnServer(meta, server, server === firstServer ? prefetchedToken : undefined);
     if (result.ok) {
       noteZxcServer(server, true);
       json(res, 200, result.payload);

@@ -141,12 +141,13 @@ export function LoadingStage({ title, backdropUrl, posterUrl, message, initial }
               {title}
             </div>
           ) : null}
-          {/* The loader under the art: a horizontal sweep on the very FIRST
-              cold open (the viewer is waiting on the player to boot), and the
-              Tailspin ring for every later wait — a server/quality/dub switch
-              re-mounts this same stage, and a ring reads as "the stream is
-              thinking" rather than "the app is starting". Purely decorative →
-              the reduced-motion block stops and parks both. */}
+          {/* The loader under the art: a horizontal sweep on the SERVER-level
+              cold opens — the very first load (the viewer is waiting on the
+              player to boot) AND a manual server switch (they tapped a new
+              backend) — and the Tailspin ring for every later wait (a quality/
+              dub/episode switch re-mounts this same stage, and a ring reads as
+              "the stream is thinking" rather than "the app is starting"). Purely
+              decorative → the reduced-motion block stops and parks both. */}
           <div style={{ marginTop: 10, display: "flex", justifyContent: "center" }}>
             {initial ? <LineLoader /> : <RingSpinner size={44} />}
           </div>
@@ -189,10 +190,11 @@ export function RingSpinner({ size = 34 }) {
 }
 
 /* The horizontal loader: a hairline track with a white segment sweeping across
-   it. Used ONLY for the very first cold open (see LoadingStage) — every later
-   wait keeps the round Tailspin ring. Purely decorative, aria-hidden, and the
-   reduced-motion block in player.css parks the segment mid-track (a frozen full
-   bar would read as progress; a parked partial bar reads as "loading"). */
+   it. Used for the SERVER-level cold opens (the first load and a manual server
+   switch — see LoadingStage); every other later wait keeps the round Tailspin
+   ring. Purely decorative, aria-hidden, and the reduced-motion block in
+   player.css parks the segment mid-track (a frozen full bar would read as
+   progress; a parked partial bar reads as "loading"). */
 export function LineLoader() {
   return (
     <span

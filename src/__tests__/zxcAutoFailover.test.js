@@ -170,3 +170,35 @@ describe("ZXC automatic failover", () => {
     expect(mintedServers).toEqual(["centaurus"]);
   });
 });
+
+/* `prefer` is the manual-pick-with-fallback the player uses instead of
+   `server`: the picked backend is tried FIRST, and when it has no source the
+   SAME round trip keeps walking the health-ordered rotation — so a viewer who
+   taps a dead server is watching within one request, not after a client-side
+   walk. The response echoes whichever backend actually served it. */
+describe("ZXC preferred server with fast fallback", () => {
+  it("tries the preferred backend first when it is healthy", async () => {
+    // andromeda is NOT the health-first row (orion is) — landing on it proves
+    // the preference is honoured, not just the rotation order.
+    const r = await call({ auto: true, prefer: "andromeda" });
+    expect(r.ok).toBe(true);
+    expect(r.server).toBe("andromeda");
+    expect(mintedServers).toEqual(["andromeda"]);
+  });
+
+  it("falls through to a live backend when the preferred one has no source", async () => {
+    mpdStatus = { "https://93.184.216.34/centaurus.mpd": 427 };
+    const r = await call({ auto: true, prefer: "centaurus" });
+    expect(r.ok).toBe(true);
+    // centaurus was attempted first, cooled, then the rotation served orion.
+    expect(r.server).toBe("orion");
+    expect(mintedServers).toEqual(["centaurus", "orion"]);
+  });
+
+  it("rejects an unknown preferred server", async () => {
+    const r = await call({ auto: true, prefer: "not-a-server" });
+    expect(r.ok).toBe(false);
+    expect(r.code).toBe("bad-server");
+    expect(mintedServers).toEqual([]);
+  });
+});

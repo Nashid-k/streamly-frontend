@@ -94,14 +94,20 @@ export const PLAYER_SOURCES = [
      the provider's site. Some rows ship DASH, which the server transcodes to an
      HLS fMP4 master (no remux, no per-byte work) so hls.js can ABR and mux just
      like native HLS; which rows are DASH/HLS and which carry multi-audio is read
-     from each response, not frozen here. */
+     from each response, not frozen here.
+
+     Every row resolves with `prefer:"<backend>"` (not `server`): the picked
+     backend is tried FIRST and, when it has no source, the SAME request walks
+     the health-ordered rotation — the fast fallback that replaces the old dead
+     end. The response echoes whichever backend actually served it, and the player
+     re-derives that row via `sourceByServer`. */
   {
     key: "zxc-orion",
     label: "Server 1",
     tag: "Multi audio · up to 1080p",
     provider: "ZXC Orion",
     server: "orion",
-    resolve: (a, o) => streamResolve.resolveZxc({ ...a, server: "orion" }, o),
+    resolve: (a, o) => streamResolve.resolveZxc({ ...a, prefer: "orion" }, o),
   },
   {
     key: "zxc-andromeda",
@@ -109,7 +115,7 @@ export const PLAYER_SOURCES = [
     tag: "Original audio · up to 1080p",
     provider: "ZXC Andromeda",
     server: "andromeda",
-    resolve: (a, o) => streamResolve.resolveZxc({ ...a, server: "andromeda" }, o),
+    resolve: (a, o) => streamResolve.resolveZxc({ ...a, prefer: "andromeda" }, o),
   },
   {
     key: "zxc-centaurus",
@@ -117,15 +123,15 @@ export const PLAYER_SOURCES = [
     tag: "Multi audio · up to 1080p",
     provider: "ZXC Centaurus",
     server: "centaurus",
-    resolve: (a, o) => streamResolve.resolveZxc({ ...a, server: "centaurus" }, o),
+    resolve: (a, o) => streamResolve.resolveZxc({ ...a, prefer: "centaurus" }, o),
   },
   {
     key: "zxc-atlas",
     label: "Server 4",
-    tag: "Original audio · one quality",
+    tag: "Original audio · up to 1080p",
     provider: "ZXC Atlas",
     server: "atlas",
-    resolve: (a, o) => streamResolve.resolveZxc({ ...a, server: "atlas" }, o),
+    resolve: (a, o) => streamResolve.resolveZxc({ ...a, prefer: "atlas" }, o),
   },
   {
     key: "zxc-meow",
@@ -133,7 +139,7 @@ export const PLAYER_SOURCES = [
     tag: "Original audio · up to 1080p",
     provider: "ZXC Ursa",
     server: "meow",
-    resolve: (a, o) => streamResolve.resolveZxc({ ...a, server: "meow" }, o),
+    resolve: (a, o) => streamResolve.resolveZxc({ ...a, prefer: "meow" }, o),
   },
 ];
 

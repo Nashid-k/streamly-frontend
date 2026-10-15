@@ -104,6 +104,30 @@ describe("streamResolve.resolveZxc", () => {
     expect(resolved.audioTracks.map((t) => t.label)).toEqual(["Original Audio", "French dub"]);
   });
 
+  it("sends a preferred server as auto+prefer for a fast one-round-trip fallback", async () => {
+    let capturedBody = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        capturedBody = JSON.parse(init.body);
+        return jsonResponse({
+          ok: true,
+          source: { kind: "hls", url: "https://vidstuck.xyz/backend/servers/orion?zx=streamly", refUrl: "" },
+          variants: [{ uri: "https://vidstuck.xyz/backend/servers/orion?zv=media", bandwidth: 0, height: 0 }],
+          server: "orion",
+          audioTracks: [],
+        });
+      }),
+    );
+
+    // The viewer tapped Server 3 (centaurus), but the backend fell through to orion.
+    const resolved = await streamResolve.resolveZxc({ type: "movie", id: "1101383", prefer: "centaurus" });
+    expect(capturedBody).toMatchObject({ action: "resolvezxc", auto: true, prefer: "centaurus" });
+    expect(capturedBody.server).toBeUndefined();
+    // The echo names the server that actually served it, not the pick.
+    expect(resolved.server).toBe("orion");
+  });
+
   it("carries season+episode for TV", async () => {
     let capturedBody = null;
     vi.stubGlobal(

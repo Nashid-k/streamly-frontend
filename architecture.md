@@ -242,10 +242,30 @@ and skipped by later automatic resolves; any success clears the mark. A SOFT
 miss must never cool a server, or one obscure title would sideline a healthy
 backend. The response echoes the `server` that actually served it, which the
 player maps back onto its row via `sourceByServer` so the Servers menu
-highlights the backend that is really playing. An EXPLICIT pick still names one
-server and tries ONLY it — never silently another. The warm-resolve token
-(details page) is minted through the same auto path and is consumed only for the
-no-pick case (any explicit pick resolves its own server live).
+highlights the backend that is really playing. A MANUAL pick (a Servers-menu
+row) resolves with `prefer:"<backend>"`, not `server`: the picked backend is
+tried FIRST and, when it has no source, the SAME request keeps walking the
+health-ordered rotation — the fast one-round-trip fallback that replaced the old
+dead end. The response still echoes the backend that actually served it, so a
+fallen-through pick re-derives the real row and the player tells the viewer which
+server is playing. The strict form remains: `server:"<backend>"` tries ONLY that
+one and never silently another (kept for callers that need it, and pinned by
+test). The warm-resolve token (details page) is minted through the same auto path
+and is consumed only for the no-pick case (any explicit pick resolves its own
+server live).
+
+**A cold resolve runs the token mint CONCURRENTLY with the metadata lookup.** The
+critical path is `max(mint, /backend/tmdb/details) → /backend/servers → MPD`, not
+the four sequential round trips it used to be: the mint depends only on
+type/id/server/season/episode and never on the metadata, so `handleResolveZxc`
+starts the first server's mint BEFORE awaiting `zxcTitleMeta` and hands the
+settled token to `zxcServerLinks` (via an optional `prefetchedToken`) so the
+servers call does not mint twice. A failed prefetch is not fatal — the token is
+simply absent and `zxcServerLinks` re-mints, which is also where the real error
+(including contract-rename recovery) surfaces. Measured live (2026-10-15, movie
+1101383 / TV 1399): this removes ~0.2–0.5s from the ~1.2s resolve. The MPD fetch
+(408–842ms) is already collapsed across playlist loads by the 30s `mpdCache`, so
+no second mint+servers trip is paid when the marker playlist replays.
 
 **DASH is transcoded to HLS fMP4 server-side** (`server/dashToHls.js`) rather
 than played with `dash.js`: the MPD's `SegmentTemplate` is substituted per
@@ -265,11 +285,19 @@ Orion onto DASH on 2026-10-14 without warning.
 
 The multi-audio rows (Orion, Centaurus) expose dubs as SIBLING masters, not
 `#EXT-X-MEDIA` groups: the servers payload's `dubs` array lists them (`en/0`→
-`eng`, `fr/0`→`ave`, `esla/0`→`aka`), each probed server-side and dropped when
-dead. Which rows carry dubs is read from that array per response, not from a
-frozen server set — the provider promoted Orion to multi-audio on 2026-10-14.
-Duplicate `en/0` rows are
-deduplicated so one language cannot appear twice under two labels. Because a
+`eng`, `fr/0`→`ave`, `esla/0`→`aka`), and they are listed UNVERIFIED — exactly
+as the provider's own player builds its Audio menu from `data.dubs` (its chunk
+passes `dubs: eT`). Each dub used to be minted + transcoded server-side and
+dropped when its manifest failed, which (a) hid real languages whenever a single
+probe hit a transient `429` and (b) fanned ~18 requests for a 6-dub title into a
+burst the provider throttled, whose `429` then cascaded into the mandatory
+`/backend/tmdb/details` lookup and killed series playback (`zxcDubTracks`,
+2026-10-15). A genuinely dead dub now fails at PLAY time on its sibling master,
+matching the provider site. Which rows carry dubs is read from that array per
+response, not from a frozen server set — the provider promoted Orion to
+multi-audio on 2026-10-14. Duplicate `en/0` rows are
+deduplicated so one language cannot appear twice under two labels, and the
+provider-flagged `original` row is dropped (it IS the base master). Because a
 transcoded master *always* carries an in-manifest audio group for its own muxed
 AAC, the Audio panel checks `dubTracks` BEFORE `audioTracks` — testing
 `audioTracks` first showed a single lonely "eng" row and hid every real dub.

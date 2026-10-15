@@ -89,8 +89,10 @@ describe("NativePlayerView loading stage", () => {
   });
 });
 
-/* The loader is initial-only: the round Tailspin ring must come back for every
-   later cold stage (a server/quality/dub switch re-mounts this stage). */
+/* The horizontal sweep is for the two SERVER-level cold opens — the very first
+   load and a manual server switch (the component passes `initial=true` for
+   both). Every other later cold stage (quality/dub/episode) passes
+   `initial=false` and keeps the round Tailspin ring. */
 describe("LoadingStage loader variant", () => {
   it("sweeps horizontally only while `initial`, and rings otherwise", () => {
     const { container: first, unmount } = render(

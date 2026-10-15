@@ -457,11 +457,16 @@ export default function NativePlayerView({
      earlier version that dimmed and blurred it during a stall read as a broken
      player (see the note at the spinner). So a stall keeps the light overlay. */
   const [stageWhileLoading, setStageWhileLoading] = useState(true);
-  // True until the very first frame plays. Drives the START loader only: the
-  // horizontal sweep belongs to the initial cold open (the player is booting),
-  // while every later cold stage — a server/quality/dub switch, an episode
-  // change — keeps the round Tailspin ring.
+  // True until the very first frame plays. Drives the START loader: the
+  // horizontal sweep belongs to the initial cold open (the player is booting)
+  // AND to a server switch (the viewer tapped a new backend), while a
+  // quality/dub switch and an episode change keep the round Tailspin ring.
   const [everPlayed, setEverPlayed] = useState(false);
+  // True while a server the VIEWER picked is being fetched. A server switch is a
+  // server-level cold open — same sweep as the first load — so it rides the same
+  // horizontal bar. Cleared when frames return (or a quality/dub pick takes the
+  // stage instead). Never set by the automatic fail-over, which keeps the ring.
+  const [serverSwitchStage, setServerSwitchStage] = useState(false);
   // Set by a server switch, cleared when frames return; null means a cold open.
   const [switchingNote, setSwitchingNote] = useState(null);
   // Transient honest note for a quality pick the player must refuse (e.g. while
@@ -1915,11 +1920,21 @@ setScrubDragging(true);
           if (error?.code === "no-source") return "off";
           return false;
         }
-        // Automatic resolve: the backend chose the real server and echoed it —
-        // map it back onto its row so the label, the Servers-menu highlight and
+        // The backend echoes the server that ACTUALLY served this — for the
+        // automatic path because it picks one, and for a manual `prefer` pick
+        // because it may fall through when the picked backend has no source.
+        // Map it onto its real row so the label, the Servers-menu highlight and
         // any token-refresh retry all speak about the server actually playing.
-        if (def.key === AUTO_SOURCE.key) {
-          def = sourceByServer(resolved?.server) || def;
+        // A manual pick that fell through says so, instead of silently playing a
+        // different server behind the viewer's back.
+        const servedKey = sourceByServer(resolved?.server)?.key || null;
+        if (servedKey && servedKey !== def.key) {
+          if (requestedServerRef.current && requestedServerRef.current !== servedKey) {
+            setSwitchingNote(
+              `${sourceLabel(requestedServerRef.current)} has no stream — playing ${sourceLabel(servedKey)}`,
+            );
+          }
+          def = sourceByServer(resolved.server);
         }
         let variants = resolved?.variants || [];
         if (variants.length === 0) {
@@ -2187,6 +2202,7 @@ setScrubDragging(true);
           // Real frames exist again: any later stall is a mid-playback one and
           // must use the light overlay, not hide the picture behind art.
           setStageWhileLoading(false);
+          setServerSwitchStage(false);
           setSwitchingNote(null);
           if (resumeTime != null) {
             safeSeek(resumeTime);
@@ -2424,6 +2440,7 @@ setScrubDragging(true);
       // deliberately NOT armed: it never drops the frame, so it must not blank
       // the player either.
       setStageWhileLoading(true);
+      setServerSwitchStage(false);
       setSwitchingNote(
         opts.dubSwitch
           ? "Switching audio…"
@@ -2551,6 +2568,7 @@ setScrubDragging(true);
     // A server switch leaves no valid frame behind, so the wait is a cold one
     // and gets the art stage rather than the light overlay.
     setStageWhileLoading(true);
+    setServerSwitchStage(true);
     setSwitchingNote(`Switching to ${def?.label || "that server"}…`);
   };
 
@@ -3246,7 +3264,7 @@ const showSkipOutro = shouldShowSkipOutro({
         <CenterStack
           showStage={showStage}
           stageNote={stageNote}
-          stageInitial={!everPlayed}
+          stageInitial={!everPlayed || serverSwitchStage}
           displayTitle={displayTitle}
           backdropUrl={backdropUrl}
           posterUrl={posterUrl}

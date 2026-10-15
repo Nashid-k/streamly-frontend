@@ -115,6 +115,54 @@ describe("ZXC mint endpoint", () => {
   });
 });
 
+describe("resolve latency (the mint runs concurrently with the metadata lookup)", () => {
+  /* The token mint depends only on type/id/server/season/episode — never on
+     /backend/tmdb/details — so the handler issues it ALONGSIDE the metadata
+     lookup instead of after it, folding one upstream round trip out of the
+     critical path of every cold resolve. This test HOLDS the metadata response
+     open and proves the mint was already issued while metadata was still
+     pending. It is a gate, not a stopwatch, so there is no timing flake. */
+  it("issues the mint before the metadata lookup resolves", async () => {
+    let releaseDetails;
+    const detailsGate = new Promise((r) => { releaseDetails = r; });
+    let detailsSettled = false;
+    let mintWhileDetailsPending = false;
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input) => {
+        const url = String(typeof input === "string" ? input : input?.url || input);
+        requests.push(url);
+        if (url.includes("/backend/tmdb/details/")) {
+          await detailsGate;
+          detailsSettled = true;
+          return json(details);
+        }
+        if (url.includes(MINT_PATH)) {
+          if (!detailsSettled) mintWhileDetailsPending = true;
+          return json({ token: "tok", ts: "1700000000" });
+        }
+        if (url.includes("/backend/servers/")) return json(serversResponse);
+        if (url.includes(".m3u8")) {
+          return new Response(
+            "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:13\n#EXTINF:12.0,\nhttps://93.184.216.34/s0\n#EXT-X-ENDLIST\n",
+            { status: 200, headers: { "content-type": "application/vnd.apple.mpegurl" } },
+          );
+        }
+        return new Response("upstream unreachable", { status: 502 });
+      }),
+    );
+
+    const pending = resolve({ server: "centaurus" });
+    // Let the handler reach its first await: metadata is now parked on the gate.
+    await new Promise((r) => setTimeout(r, 20));
+    expect(mintWhileDetailsPending).toBe(true);
+    releaseDetails();
+    const r = await pending;
+    expect(r.ok).toBe(true);
+  });
+});
+
 describe("ZXC metadata is mandatory, not advisory", () => {
   it("sends title, year and date on the servers request", async () => {
     await resolve({ server: "centaurus" });
@@ -304,7 +352,7 @@ describe("ZXC MPD cache", () => {
     expect(requests.filter((u) => u.includes(DASH_URL)).length).toBe(1);
   });
 
-  it("keeps separate cache entries per dub", async () => {
+  it("lists dubs without minting or fetching a manifest per dub", async () => {
     serversResponse = {
       success: true,
       links: [
@@ -318,18 +366,21 @@ describe("ZXC MPD cache", () => {
     const r1 = await resolve({ server: "centaurus" });
     expect(r1.ok).toBe(true);
     expect(r1.audioTracks.length).toBe(2);
-    const mintsAfterFirst = requests
-      .filter((u) => u.includes(MINT_PATH) && !u.includes("/backend/servers/"))
-      .length;
-    // 1 servers-lookup mint + 2 dub manifests = 3: the main manifest reuses the
-    // prefetched links instead of minting a second time.
-    expect(mintsAfterFirst).toBe(3);
+    // ONE mint (the servers lookup) and ONE MPD fetch (the base manifest).
+    // The old per-dub verification added another mint+fetch for EACH dub, the
+    // request amplification that got the ip throttled and cascaded into TV
+    // metadata 429s. Dubs now ride the advertised list unverified.
+    expect(requests.filter((u) => u.includes(MINT_PATH)).length).toBe(1);
+    expect(requests.filter((u) => u.includes("/backend/servers/")).length).toBe(1);
+    expect(requests.filter((u) => u.includes(DASH_URL)).length).toBe(1);
 
     requests = [];
     const r2 = await resolve({ server: "centaurus" });
     expect(r2.ok).toBe(true);
-    // All 3 zxcDashManifest calls hit the cache; only the servers-lookup mint runs.
+    expect(r2.audioTracks.length).toBe(2);
+    // Only the servers-lookup mint runs; the base manifest is cached.
     expect(requests.filter((u) => u.includes(MINT_PATH)).length).toBe(1);
+    expect(requests.filter((u) => u.includes(DASH_URL)).length).toBe(0);
   });
 
   it("title metadata is cached across servers with same tmdbId", async () => {

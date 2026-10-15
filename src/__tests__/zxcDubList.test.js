@@ -10,6 +10,10 @@ import { describe, expect, it, beforeEach, vi } from "vitest";
 
 let dubs = [];
 let links = [];
+// Counts provider round trips so a test can prove the dub list is NOT built by
+// minting + transcoding every advertised dub (the old request-amplification
+// that got the ip throttled and cascaded into TV metadata 429s).
+let calls = { mint: 0, servers: 0, mpd: 0 };
 
 // A minimal but VALID MPD (SegmentTimeline form, as the real provider emits) so
 // the transcoder yields one video rep and one audio adaptation set.
@@ -37,6 +41,11 @@ const json = (payload) => new Response(JSON.stringify(payload), { status: 200, h
 
 beforeEach(() => {
   dubs = [];
+  calls = { mint: 0, servers: 0, mpd: 0 };
+  // The handler caches MPDs and title metadata at module scope, so clear both
+  // or the round-trip counts below would depend on test order.
+  clearZxcMpdCache();
+  clearZxcTitleMetaCache();
   // A public literal IP so the SSRF guard passes without DNS: this suite is
   // about the dub-dedup path, not about the guard (covered by ssrf.test.js).
   // NOTE: the mint URL below is derived from the module seed (zxcContractSeed),
@@ -46,10 +55,11 @@ beforeEach(() => {
     "fetch",
     vi.fn(async (input) => {
       const url = String(typeof input === "string" ? input : input?.url || input);
-      if (url.includes(MINT_PATH)) return json({ token: "tok", ts: "1700000000" });
+      if (url.includes(MINT_PATH)) { calls.mint += 1; return json({ token: "tok", ts: "1700000000" }); }
       if (url.includes("/backend/tmdb/details/")) return json({ title: "Stub", release_date: "2024-01-01", imdb_id: "" });
-      if (url.includes("/backend/servers/")) return json({ success: true, links, dubs });
+      if (url.includes("/backend/servers/")) { calls.servers += 1; return json({ success: true, links, dubs }); }
       if (url.endsWith(".mpd") || url.includes("stub")) {
+        calls.mpd += 1;
         return new Response(MPD, { status: 200, headers: { "content-type": "application/dash+xml" } });
       }
       return new Response("upstream unreachable", { status: 502 });
@@ -57,7 +67,7 @@ beforeEach(() => {
   );
 });
 
-const { default: handler, zxcContractSeed } = await import("../../api/stream.js");
+const { default: handler, zxcContractSeed, clearZxcMpdCache, clearZxcTitleMetaCache } = await import("../../api/stream.js");
 
 // Derived from the module seed so a provider rename can never strand this suite.
 const MINT_PATH = zxcContractSeed().mintPath;
@@ -149,5 +159,23 @@ describe("ZXC dub list — the original track", () => {
       { lanCode: "fr", type: "0", lanName: "French dub" },
     ];
     expect(await resolveDubs()).toEqual(["English dub", "French dub"]);
+  });
+
+  it("lists advertised dubs with NO per-dub mint/transcode (unverified parity)", async () => {
+    // The provider's own player lists `data.dubs` as-is; a dub that is dead
+    // fails at play time. Verifying each dub here used to cost N extra
+    // mint+servers+MPD round trips, so the ip got throttled and a live row was
+    // dropped on a transient 429. One base resolve must stay one of each.
+    dubs = [
+      { lanCode: "en", type: "0", lanName: "Original Audio", original: true },
+      { lanCode: "fr", type: "0", lanName: "French dub" },
+      { lanCode: "hi", type: "0", lanName: "Hindi dub" },
+      { lanCode: "ta", type: "0", lanName: "Tamil dub" },
+    ];
+    const labels = await resolveDubs();
+    expect(labels).toEqual(["French dub", "Hindi dub", "Tamil dub"]);
+    expect(calls.mint).toBe(1);
+    expect(calls.servers).toBe(1);
+    expect(calls.mpd).toBe(1);
   });
 });

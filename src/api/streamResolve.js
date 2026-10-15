@@ -84,22 +84,31 @@ export const streamResolve = {
   },
 
   /** Resolve one of the ZXC/VIDSTUCK servers (action "resolvezxc"). The
-      `server` arg picks the row (andromeda | centaurus | atlas | meow |
-      orion), so every server stays individually selectable instead of racing
-      to a winner. `auto:true` (the no-pick path) instead asks the server to
-      choose the healthiest backend and fall through internally — one round
-      trip instead of walking every row. Either way the backend echoes the
-      `server` it actually used, which the player maps back onto its row.
-      DASH servers come back as a transcoded multi-level master plus
-      sibling-URL `audioTracks` (centaurus/orion dubs); HLS servers pass
-      their own ladder through. */
-  async resolveZxc({ type, id, season, episode, server, auto }, { signal } = {}) {
+      `server` arg picks the row (orion | andromeda | centaurus | atlas | meow),
+      so every server stays individually selectable instead of racing to a
+      winner. `auto:true` (the no-pick path) instead asks the server to choose
+      the healthiest backend and fall through internally — one round trip
+      instead of walking every row. `prefer:"<server>"` is a manual pick that is
+      allowed to fall THROUGH: the picked backend is tried first and, when it has
+      no source, the same request walks the rest — the fast fallback. Either way
+      the backend echoes the `server` it actually used, which the player maps
+      back onto its row. DASH servers come back as a transcoded multi-level
+      master plus sibling-URL `audioTracks` (orion/centaurus dubs); HLS servers
+      pass their own ladder through. */
+  async resolveZxc({ type, id, season, episode, server, auto, prefer }, { signal } = {}) {
     const kind = type === "tv" ? "tv" : "movie";
     const body = { action: "resolvezxc", type: kind, id: String(id || "") };
-    // Serialize exactly one of the two modes: an explicit pick names a server,
-    // the automatic path asks the backend to choose.
-    if (auto) body.auto = true;
-    else body.server = String(server || "");
+    // Serialize exactly one of the three modes: an explicit pick names one
+    // server and ONLY that server, `prefer` names one that may fall through to
+    // the health-ordered rotation, and `auto` (no name) lets the backend choose.
+    if (prefer) {
+      body.auto = true;
+      body.prefer = String(prefer);
+    } else if (auto) {
+      body.auto = true;
+    } else {
+      body.server = String(server || "");
+    }
     if (kind === "tv") {
       if (season != null) body.season = String(season);
       if (episode != null) body.episode = String(episode);
@@ -111,13 +120,14 @@ export const streamResolve = {
     resolved.server = data.server;
     logInfo(
       "stream",
-      `Resolved ${resolved.variants.length} variant(s) via ZXC ${data.server || server || "auto"}` +
+      `Resolved ${resolved.variants.length} variant(s) via ZXC ${data.server || prefer || server || "auto"}` +
         (resolved.audioTracks.length ? ` with ${resolved.audioTracks.length} audio track(s).` : "."),
       {
         type: kind,
         id,
-        server: auto ? null : server,
-        auto: !!auto,
+        server: prefer || (auto ? null : server),
+        auto: !!auto || !!prefer,
+        prefer: prefer || null,
         resolvedServer: data.server ?? null,
         season: season ?? null,
         episode: episode ?? null,

@@ -63,6 +63,23 @@ describe("AUTO_SOURCE", () => {
   });
 });
 
+describe("manual server rows", () => {
+  it("send `prefer` (not `server`) so a dead pick falls through in one round trip", () => {
+    resolveZxcMock.mockResolvedValue({ source: {}, variants: [], audioTracks: [] });
+    for (const row of PLAYER_SOURCES) {
+      row.resolve({ type: "movie", id: "550" }, { signal: undefined });
+      expect(resolveZxcMock).toHaveBeenLastCalledWith(
+        { type: "movie", id: "550", prefer: row.server },
+        { signal: undefined },
+      );
+    }
+    // No row ever sends the strict single-server form any more.
+    for (const callArgs of resolveZxcMock.mock.calls) {
+      expect(callArgs[0].server).toBeUndefined();
+    }
+  });
+});
+
 describe("sourceLabel", () => {
   it("falls back instead of returning undefined for an unknown key", () => {
     expect(sourceLabel("zxc-orion")).toBe("Server 1");
