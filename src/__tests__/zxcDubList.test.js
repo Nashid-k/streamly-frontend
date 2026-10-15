@@ -8,12 +8,6 @@
 // as streamHandler.test.js) so the production dedup path is what runs.
 import { describe, expect, it, beforeEach, vi } from "vitest";
 
-// Hermetic DNS: the handler resolves the provider hostname for the SSRF pass, so
-// without this stub the suite fails offline (ENOTFOUND). Every name resolves
-// public; the resolve path, not DNS, is what is under test.
-const { lookup } = vi.hoisted(() => ({ lookup: vi.fn() }));
-vi.mock("node:dns/promises", () => ({ lookup, default: { lookup } }));
-
 let dubs = [];
 let links = [];
 // Counts provider round trips so a test can prove the dub list is NOT built by
@@ -47,7 +41,6 @@ const json = (payload) => new Response(JSON.stringify(payload), { status: 200, h
 
 beforeEach(() => {
   dubs = [];
-  lookup.mockResolvedValue([{ address: "93.184.216.34" }]);
   calls = { mint: 0, servers: 0, mpd: 0 };
   // The handler caches MPDs and title metadata at module scope, so clear both
   // or the round-trip counts below would depend on test order.

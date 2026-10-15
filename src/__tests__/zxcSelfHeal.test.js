@@ -10,12 +10,6 @@
 // Hermetic: fetch is stubbed, no test may reach a provider.
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-// Hermetic DNS: the handler resolves the provider hostname for the SSRF pass, so
-// without this stub the suite fails offline (ENOTFOUND). Every name resolves
-// public; the resolve path, not DNS, is what is under test.
-const { lookup } = vi.hoisted(() => ({ lookup: vi.fn() }));
-vi.mock("node:dns/promises", () => ({ lookup, default: { lookup } }));
-
 const { default: handler, clearZxcDiscoveryCache, clearZxcTitleMetaCache, zxcContractSeed } = await import("../../api/stream.js");
 
 // Read the seed from the module so a provider rename (rewritten by the
@@ -115,7 +109,6 @@ const serversUrl = () => requests.find((u) => u.includes("/backend/servers/")) |
 
 beforeEach(() => {
   requests = [];
-  lookup.mockResolvedValue([{ address: "93.184.216.34" }]);
   details = { title: "Inception", release_date: "2010-07-15", imdb_id: "tt0000000" };
   serversResponse = {
     success: true,

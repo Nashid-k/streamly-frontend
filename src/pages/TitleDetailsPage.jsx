@@ -507,19 +507,12 @@ export default function TitleDetails() {
     if (watched) list.add(ep.episodeNumber);
     else list.delete(ep.episodeNumber);
     watchedEpisodes[selectedSeason] = [...list];
-    const patched = { ...movie, source: resolvedPlatform, sourceName, watchedEpisodes };
-    if (watched) {
-      // Marking watched pins the episode as the resume point (full duration).
-      updateProgress(patched, selectedSeason, ep.episodeNumber, (ep.durationMins || 60) * 60);
-      return true;
-    }
-    // Un-watching must NOT blank the title's resume point. Passing null season/
-    // episode keeps whatever was saved; only clear the timestamp when the saved
-    // point IS this episode. (The old `0` wiped the position on any episode.)
-    const savedIsThis =
-      continueEntryForMovie?.savedSeason === selectedSeason &&
-      continueEntryForMovie?.savedEpisode === ep.episodeNumber;
-    updateProgress(patched, null, null, savedIsThis ? 0 : null);
+    updateProgress(
+      { ...movie, source: resolvedPlatform, sourceName, watchedEpisodes },
+      selectedSeason,
+      ep.episodeNumber,
+      watched ? (ep.durationMins || 60) * 60 : 0,
+    );
     return true;
   };
 
@@ -982,23 +975,7 @@ export default function TitleDetails() {
                   if (isTvContent) {
                     setPlayingEpisode(episodeToPlay);
                   }
-                  // Preserve the exact resume point the PLAYER will read
-                  // (watchedEntry matches season+episode). Passing 0 here used
-                  // to wipe it, so "Resume" restarted at 0:00; passing a
-                  // different episode's timestamp would fabricate one.
-                  const playEpisode = isTvContent ? episodeToPlay : null;
-                  const resumeEntry = continueWatching?.find(
-                    (m) =>
-                      String(m.id) === String(movie.id) &&
-                      (!isTvContent ||
-                        (m.savedSeason === selectedSeason && m.savedEpisode === playEpisode)),
-                  );
-                  updateProgress(
-                    movie,
-                    isTvContent ? selectedSeason : null,
-                    playEpisode,
-                    resumeEntry?.timestamp ?? 0,
-                  );
+                  updateProgress(movie, isTvContent ? selectedSeason : null, isTvContent ? episodeToPlay : null, 0);
                 }}
                 className={`relative rounded-full flex items-center justify-center transition-all duration-200 font-bold tracking-wide h-[44px] px-6 py-3 text-base min-w-[120px] border-none shadow-xl shadow-black/10 ${
                   unreleased ? "opacity-45 cursor-not-allowed" : "active:scale-95 hover:scale-105"

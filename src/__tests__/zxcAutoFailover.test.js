@@ -7,12 +7,6 @@
 // silently play a different one behind the viewer's back.
 import { describe, expect, it, beforeEach, vi } from "vitest";
 
-// Hermetic DNS: the handler resolves the provider hostname for the SSRF pass, so
-// without this stub the suite fails offline (ENOTFOUND). Every name resolves
-// public; the resolve path, not DNS, is what is under test.
-const { lookup } = vi.hoisted(() => ({ lookup: vi.fn() }));
-vi.mock("node:dns/promises", () => ({ lookup, default: { lookup } }));
-
 const mod = await import("../../api/stream.js");
 const { default: handler } = mod;
 const MINT_PATH = mod.zxcContractSeed().mintPath;
@@ -84,7 +78,6 @@ beforeEach(() => {
   mod.clearZxcServerHealth();
   mpdStatus = {};
   mintedServers = [];
-  lookup.mockResolvedValue([{ address: "93.184.216.34" }]);
   emptyLinks = false;
   vi.stubGlobal(
     "fetch",
