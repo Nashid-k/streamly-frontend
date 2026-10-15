@@ -107,12 +107,10 @@ function padNumber(value, width) {
    cannot match it, then restored at the end. */
 const DOLLAR_SENTINEL = "\uE000";
 
-export function substituteTemplate(template, { representationId = "", bandwidth = 0, number = 0, time = 0 } = {}) {
+export function substituteTemplate(template, { representationId = "", bandwidth = 0, number = 0 } = {}) {
   let out = String(template || "").replace(/\$\$/g, DOLLAR_SENTINEL);
   out = out.replace(/\$Number%(\d+)d\$/g, (_, width) => padNumber(number, Number(width)));
   out = out.replace(/\$Number\$/g, () => String(number));
-  out = out.replace(/\$Time%(\d+)d\$/g, (_, width) => padNumber(time, Number(width)));
-  out = out.replace(/\$Time\$/g, () => String(time));
   out = out.replace(/\$RepresentationID\$/g, () => String(representationId));
   out = out.replace(/\$Bandwidth\$/g, () => String(bandwidth));
   out = out.replace(/\$SubNumber\$/g, () => "0");
@@ -147,7 +145,7 @@ function expandTimeline(timelineXml, startNumber, periodUnits) {
       repeat = periodUnits > 0 ? Math.max(0, Math.ceil((periodUnits - cursor) / d) - 1) : 0;
     }
     for (let i = 0; i <= repeat && segments.length < MAX_TEMPLATE_SEGMENTS; i += 1) {
-      segments.push({ number, t: cursor, d });
+      segments.push({ number, d });
       cursor += d;
       number += 1;
     }
@@ -188,24 +186,12 @@ export function parseMpd(xml) {
   for (const set of sliceElements(period.inner, "AdaptationSet")) {
     const setAttrs = readAttrs(set.open);
     const contentType = String(setAttrs.contentType || "").toLowerCase();
-    const setMime = decodeEntities(setAttrs.mimeType || "");
-    // Classify by contentType, falling back to mimeType: a set that carries only
-    // `mimeType="video/mp4"` (no contentType) is otherwise dropped entirely, and
-    // a dropped video set makes the whole server read as "no video".
-    const mime = setMime.toLowerCase();
-    const kind =
-      contentType === "video" || contentType === "audio"
-        ? contentType
-        : mime.startsWith("video/")
-          ? "video"
-          : mime.startsWith("audio/")
-            ? "audio"
-            : "";
-    if (!kind) continue;
+    if (contentType !== "video" && contentType !== "audio") continue;
 
     const setTemplate = firstElement(set.inner, "SegmentTemplate");
     const setTemplateAttrs = setTemplate ? readAttrs(setTemplate.open) : {};
     const setTimeline = firstElement(set.inner, "SegmentTimeline");
+    const setMime = decodeEntities(setAttrs.mimeType || "");
     const language = decodeEntities(setAttrs.lang || "");
 
     for (const rep of sliceElements(set.inner, "Representation")) {
@@ -230,7 +216,7 @@ export function parseMpd(xml) {
         const fixed = Number(templateAttrs.duration || setTemplateAttrs.duration || 0);
         if (fixed > 0) {
           const count = Math.min(MAX_TEMPLATE_SEGMENTS, Math.floor(periodUnits / fixed));
-          for (let i = 0; i < count; i += 1) segments.push({ number: startNumber + i, t: i * fixed, d: fixed });
+          for (let i = 0; i < count; i += 1) segments.push({ number: startNumber + i, d: fixed });
         }
       }
       // A representation we cannot enumerate is a representation we cannot play.
@@ -255,7 +241,7 @@ export function parseMpd(xml) {
         durationSeconds: segments.reduce((sum, s) => sum + s.d, 0) / timescale,
       };
 
-      if (kind === "audio") audio.push(entry);
+      if (contentType === "audio") audio.push(entry);
       else video.push(entry);
     }
   }
@@ -275,12 +261,11 @@ function formatDuration(seconds) {
   return Math.max(0.00001, Math.round(seconds * 100000) / 100000).toFixed(5);
 }
 
-function segmentUrl(rep, segment) {
+function segmentUrl(rep, number) {
   return substituteTemplate(rep.mediaTemplate, {
     representationId: rep.id,
     bandwidth: rep.bandwidth,
-    number: segment.number,
-    time: segment.t ?? 0,
+    number,
   });
 }
 
@@ -301,7 +286,7 @@ export function buildMediaPlaylist(rep) {
   if (rep.initUrl) out.push(`#EXT-X-MAP:URI="${rep.initUrl}"`);
   for (let i = 0; i < rep.segments.length; i += 1) {
     out.push(`#EXTINF:${formatDuration(durations[i])},`);
-    out.push(segmentUrl(rep, rep.segments[i]));
+    out.push(segmentUrl(rep, rep.segments[i].number));
   }
   out.push("#EXT-X-ENDLIST", "");
   return out.join("\n");

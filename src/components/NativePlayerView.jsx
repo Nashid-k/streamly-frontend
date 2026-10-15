@@ -291,7 +291,6 @@ export default function NativePlayerView({
   // Still-watching bookkeeping.
   const swIdleRef = useRef(null); // rolling play-with-no-input timer
   const swAutoAdvRef = useRef(0); // consecutive auto-advanced episodes
-  const swAutoAdvancingRef = useRef(false); // true while an auto-advance drives the episode change
   const swOfferTimerRef = useRef(null); // offer expiry
   // Desktop hold-to-2x on the forward transport button.
   const desktopHoldTimerRef = useRef(null);
@@ -1051,20 +1050,13 @@ setScrubDragging(true);
     // (a TV remote / HTPC that emits move events), leaving the viewer paused
     // with no Continue/Exit. A prompt is dismissed only by a real press
     // (dismissStillWatching) or its own buttons.
+    if (swIdleRef.current) clearTimeout(swIdleRef.current);
     const now = Date.now();
-    // Throttle only the (relatively expensive) re-arm. Clearing the still-watching
-    // timer BEFORE this early return meant the last throttled poke of a pointer
-    // burst left it dead, so the 2h prompt never fired again until playback
-    // toggled. Clear both timers HERE, at the one place they are re-armed.
     if (now - lastPokeArm.current < POKE_REARM_MIN_MS) return;
     lastPokeArm.current = now;
     if (idleTimer.current) {
       clearTimeout(idleTimer.current);
       idleTimer.current = null;
-    }
-    if (swIdleRef.current) {
-      clearTimeout(swIdleRef.current);
-      swIdleRef.current = null;
     }
     if (videoRef.current && !videoRef.current.paused) {
       idleTimer.current = setTimeout(() => setControlsVisible(false), HIDE_DELAY_MS);
@@ -1115,13 +1107,6 @@ setScrubDragging(true);
   // Reset the auto-advance streak when the viewer CHOOSES an episode (the
   // streak only counts what the Up Next card started on its own).
   useEffect(() => {
-    // An episode change CAUSED BY the Up Next auto-advance must not reset the
-    // streak it is trying to count — that reset made the binge guard at the
-    // autoplay timer unreachable. A manual pick leaves the flag false -> reset.
-    if (swAutoAdvancingRef.current) {
-      swAutoAdvancingRef.current = false;
-      return;
-    }
     swAutoAdvRef.current = 0;
   }, [id, season, episode]);
   // Rolling 2h idle timer while playing, armed once and re-poked by `poke`.
@@ -1237,21 +1222,12 @@ setScrubDragging(true);
   const handleVideoTouchEnd = (e) => {
     poke();
     suppressClickRef.current = true;
-    // Only a HOLD that actually engaged 2x is swallowed — its pointer never
-    // "tapped". A merely armed timer (see handleHoldStart) is a tap.
-    if (hold2xRef.current) {
+    if (hold2xRef.current || holdTimerRef.current) {
+      // A right-zone hold just ended (2x engaged or still arming): it was not a
+      // tap — swallow it so play/pause doesn't fire on release.
       handleHoldEnd();
       suppressClickRef.current = true;
       return;
-    }
-    // A pending arm that never reached 2x was a TAP: cancel the arm and fall
-    // through to the tap/double-tap handling below. Returning here swallowed
-    // every right-third tap, because handleHoldStart arms the timer on any
-    // right-zone touchstart — killing single-tap pause and double-tap forward.
-    if (holdTimerRef.current) {
-      clearTimeout(holdTimerRef.current);
-      holdTimerRef.current = null;
-      holdPointerRef.current = null;
     }
     if (buffering) return;
     // A vertical gesture (volume drag) just happened — not a tap.
@@ -1680,7 +1656,6 @@ setScrubDragging(true);
             return null;
           }
           swAutoAdvRef.current += 1;
-          swAutoAdvancingRef.current = true;
           onSelectEpisodeRef.current?.(prev.number);
         }
         return null;
@@ -2627,13 +2602,6 @@ setScrubDragging(true);
       // the highlight must say so.
       setManualHeight(null);
       setAutoLevel(metaRef.current?.masterLevels ? true : false);
-      // A failed DUB switch must put the audio highlight back on the track
-      // that is still actually playing — pickDub committed it before this call.
-      if (opts.dubSwitch && opts.prevDub != null) {
-        activeDubRef.current = opts.prevDub;
-        setActiveDub(opts.prevDub);
-        setQualityNote("That audio track didn't load — pick another.");
-      }
       // A failed switch must never leave the buffering spinner stuck (the runSource
       // ERROR handler's failover re-drives its own spinner).
       setBuffering(false);
@@ -2788,11 +2756,10 @@ setScrubDragging(true);
       return next;
     });
     setQualityNote(null);
-    const prevDub = activeDubRef.current;
     activeDubRef.current = index;
     setActiveDub(index);
     try {
-      await pickQualityRef.current?.(targetUri, null, { dubSwitch: true, preProbed: true, prevDub });
+      await pickQualityRef.current?.(targetUri, null, { dubSwitch: true, preProbed: true });
     } catch {
       // pickQuality never rejects; the catch is future-proofing
     }

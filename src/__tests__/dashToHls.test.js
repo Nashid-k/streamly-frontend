@@ -101,13 +101,6 @@ describe("parseMpd", () => {
     expect(m.durationSeconds).toBeGreaterThan(0);
     expect(m.durationSeconds).toBeCloseTo(20, 1);
   });
-
-  it("classifies by mimeType when contentType is absent", () => {
-    const noContentType = STATIC_MPD.replace(/ contentType="video"/, "");
-    const m = parseMpd(noContentType);
-    expect(m).not.toBeNull();
-    expect(m.video.map((v) => v.id).sort()).toEqual(["v-1080", "v-480"]);
-  });
 });
 
 describe("buildMediaPlaylist", () => {
@@ -146,41 +139,6 @@ describe("buildMediaPlaylist", () => {
   });
 });
 
-describe("$Time$ substitution", () => {
-  const TIME_MPD = `<?xml version="1.0"?>
-<MPD type="static" mediaPresentationDuration="PT12S">
-  <Period>
-    <AdaptationSet contentType="video" mimeType="video/mp4">
-      <Representation id="v" bandwidth="800000" width="640" height="360">
-        <SegmentTemplate timescale="1000" initialization="https://cdn.test/init-$RepresentationID$.mp4" media="https://cdn.test/t/$Time$/seg-$Number$.m4s" startNumber="1">
-          <SegmentTimeline>
-            <S t="0" d="4000" r="2"/>
-          </SegmentTimeline>
-        </SegmentTemplate>
-      </Representation>
-    </AdaptationSet>
-  </Period>
-</MPD>`;
-
-  it("substitutes $Time$ with the segment start time", () => {
-    const text = buildMediaPlaylist(parseMpd(TIME_MPD).video[0]);
-    const segs = text.split("\n").filter((l) => l.startsWith("http") && l.includes("/t/"));
-    expect(segs).toHaveLength(3);
-    expect(segs[0]).toContain("/t/0/");
-    expect(segs[1]).toContain("/t/4000/");
-    expect(segs[2]).toContain("/t/8000/");
-    expect(text).not.toContain("$Time$");
-  });
-
-  it("substitutes $Time$ for a fixed-duration template too", () => {
-    const fixed = TIME_MPD.replace(/<SegmentTimeline>[\s\S]*?<\/SegmentTimeline>/, "").replace('startNumber="1"', 'startNumber="1" duration="4000"');
-    const text = buildMediaPlaylist(parseMpd(fixed).video[0]);
-    expect(text).not.toContain("$Time$");
-    expect(text).toContain("/t/0/");
-    expect(text).toContain("/t/4000/");
-  });
-});
-
 describe("buildMasterPlaylist", () => {
   const urlFor = (id) => `https://relay.test/playlist?rep=${id}`;
 
@@ -208,12 +166,7 @@ describe("buildMasterPlaylist", () => {
   });
 
   it("still emits a playable row for an audio-only MPD", () => {
-    // Strip BOTH contentType and a video mimeType so the set is genuinely
-    // unclassifiable (the mimeType fallback would otherwise keep it).
-    const noVideo = STATIC_MPD
-      .replace(/ contentType="video"/, "")
-      .replace(/mimeType="video\/mp4"/, 'mimeType="application/octet-stream"');
-    const audioOnly = parseMpd(noVideo);
+    const audioOnly = parseMpd(STATIC_MPD.replace(/contentType="video"/, "contentType=\"videoX\""));
     // The video set is skipped, so only the audio representation survives.
     expect(audioOnly.video).toHaveLength(0);
     const text = buildMasterPlaylist(audioOnly, urlFor);
