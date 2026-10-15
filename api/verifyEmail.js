@@ -29,9 +29,10 @@ import {
   toPublicLibrary,
   toPublicUser,
 } from '../server/users.js';
+import { applyCors } from '../server/cors.js';
 
-function setCorsHeaders(res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+function setCorsHeaders(req, res) {
+  applyCors(req, res);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
@@ -46,7 +47,7 @@ function parseBody(req) {
 }
 
 export default withLog(async function handler(req, res) {
-  setCorsHeaders(res);
+  setCorsHeaders(req, res);
 
   if (req.method === 'OPTIONS') {
     res.status(204).end();

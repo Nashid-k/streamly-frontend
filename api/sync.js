@@ -24,6 +24,7 @@ import { isSyncEnabled, verifySyncToken } from '../server/syncToken.js';
 import { withLog } from '../server/logger.js';
 import { rateLimit, tooManyRequests, clientIp } from '../server/rateLimit.js';
 import { logError } from '../src/utils/debugLogger.js';
+import { applyCors } from '../server/cors.js';
 
 const MAX_WATCHLIST = 500;
 const MAX_HISTORY = 500;
@@ -32,8 +33,8 @@ const MAX_ITEMS_PER_COLLECTION = 300;
 const MAX_COLLECTION_NAME_CHARS = 120;
 const MAX_BODY_BYTES = 512 * 1024;
 
-function setCorsHeaders(res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+function setCorsHeaders(req, res) {
+  applyCors(req, res);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
@@ -114,7 +115,7 @@ function sanitizePreferences(raw) {
 }
 
 export default withLog(async function handler(req, res) {
-  setCorsHeaders(res);
+  setCorsHeaders(req, res);
 
   if (req.method === 'OPTIONS') {
     res.status(204).end();

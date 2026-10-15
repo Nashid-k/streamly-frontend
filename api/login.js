@@ -19,11 +19,12 @@ import { rateLimit, tooManyRequests, clientIp } from '../server/rateLimit.js';
 import { logError } from '../src/utils/debugLogger.js';
 import { burnPasswordCompare, verifyPassword } from '../server/passwords.js';
 import { ensureUserDataDoc, findUserByEmail, isValidEmail, normalizeEmail, toPublicLibrary, toPublicUser } from '../server/users.js';
+import { applyCors } from '../server/cors.js';
 
 const GENERIC_FAILURE = 'Incorrect email or password.';
 
-function setCorsHeaders(res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+function setCorsHeaders(req, res) {
+  applyCors(req, res);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
@@ -38,7 +39,7 @@ function parseBody(req) {
 }
 
 export default withLog(async function handler(req, res) {
-  setCorsHeaders(res);
+  setCorsHeaders(req, res);
 
   if (req.method === 'OPTIONS') {
     res.status(204).end();

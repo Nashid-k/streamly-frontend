@@ -31,6 +31,14 @@ const ENDPOINT = "/api/stream";
 // fragment, no serverless cap.
 const FRAG_CHUNK_MAX = Math.floor(3.5 * 1024 * 1024);
 
+/* Hard ceiling on one relayed fragment. `deriveSliceMore` falls back to
+   `bufLength >= slice` when the upstream sends no content-range, so a relay
+   that IGNORES Range and re-serves a full slice with more=true forever drives
+   relayFragment's window loop without bound — the parts Map and `emitted`
+   grow until the tab OOMs. Bound it in bytes so a bad upstream fails the one
+   fragment (hls.js retries/fails over) instead of the whole session. */
+const MAX_RELAY_FRAGMENT_BYTES = 64 * 1024 * 1024;
+
 /* Active relay endpoint + slice + protocol, read lazily so tests can stub the
    env. mode "proxy" = the Cloudflare worker (GET ?url= + Range, whole-fragment
    60MB slices). mode "json" = Vercel /api/stream (POST {action,...},
@@ -52,7 +60,13 @@ const DIRECT_BLOCK_MS = 5 * 60 * 1000;
 // observable instead of silent.
 const RELAY_LOG_EVERY = 25;
 
+// origin -> { at, promise }. TTL-capped: a NON-abort probe failure (a transient
+// network TypeError, an opaque CORS blip) used to be cached as { ok:false } for
+// the whole session, which pinned a CORS-happy origin to the relay forever and
+// defeated the directBlockedUntil cooldown below (that cooldown only ever
+// re-arms when a fresh probe actually runs).
 const probeCache = new Map();
+const PROBE_CACHE_TTL_MS = 5 * 60 * 1000;
 // origin -> timestamp (ms) until which direct fetches are skipped.
 const directBlockedUntil = new Map();
 
@@ -144,7 +158,8 @@ function isDirectBlocked(url) {
 
 /* Direct-CORS probe per segment origin: Range 0-0 must return a readable
    allow-origin AND a content-range. Cached as a promise so concurrent fragment
-   loads share one probe. */
+   loads share one probe, TTL-capped so a transient miss re-probes instead of
+   pinning the origin to the relay for the session. */
 export async function probeDirectOrigin(url, { signal } = {}) {
   let origin = null;
   try {
@@ -158,52 +173,58 @@ export async function probeDirectOrigin(url, { signal } = {}) {
   // cache cleared mid-session) pays the doomed request again, which is the
   // exact cost this cooldown exists to remove.
   if (isDirectBlocked(url)) return { ok: false, status: 0, reason: "origin parked on relay-only cooldown" };
-  if (!probeCache.has(origin)) {
-    probeCache.set(
-      origin,
-      (async () => {
-        try {
-          const res = await fetch(url, { headers: { range: "bytes=0-0" }, signal });
-          // A 401/403/429 on a bare one-byte probe is a GATE, not a blip: the
-          // origin wants the owning player's referer, or it is throttling us.
-          // Either way a direct browser fetch can never succeed here, so park
-          // the origin on relay-only cooldown NOW instead of re-paying a doomed
-          // probe on every fragment for the next few minutes.
-          //
-          // This is why REFERER_GATED_HOST_SUFFIXES kept needing extending:
-          // VidCore rotates its segment CDN to fresh hosts, and a fresh host
-          // 403s a bare fetch until it is listed. Verified live against
-          // `v1.streamsitegp.workers.dev` (the host vidzen.fun now redirects
-          // to): 403 with NO access-control-allow-origin at all, so the
-          // browser reports an opaque CORS failure and the loader falls
-          // through to the relay having learned nothing. Parking on the
-          // status is general, so the next rotation needs no code change.
-          if (res.status === 401 || res.status === 403 || res.status === 429) {
-            directBlockedUntil.set(origin, Date.now() + DIRECT_BLOCK_MS);
-            logWarn("native", "Direct probe refused — origin parked relay-only for 5 min.", {
-              origin,
-              status: res.status,
-            });
-            return { ok: false, status: res.status, reason: `probe ${res.status}` };
-          }
-          const acao = res.headers.get("access-control-allow-origin");
-          const allowed =
-            acao === "*" || (typeof window !== "undefined" && acao === window.location.origin);
-          const match = /bytes\s+0-0\/(\d+)/i.exec(res.headers.get("content-range") || "");
-          res.body?.cancel?.().catch?.(() => {});
-          return { ok: Boolean(allowed && match), status: res.status };
-        } catch (error) {
-          // An AbortError means the OWNING load was cancelled (failover, watchdog,
-          // seek/title switch). Caching "not direct" would ride the relay for the rest of
-          // the session even though the CDN serves CORS — drop the entry so the next load
-          // re-probes with its own live signal.
-          if (error?.name === "AbortError") probeCache.delete(origin);
-          return { ok: false };
-        }
-      })(),
-    );
-  }
-  return probeCache.get(origin);
+  const cached = probeCache.get(origin);
+  if (cached && Date.now() - cached.at < PROBE_CACHE_TTL_MS) return cached.promise;
+  if (cached) probeCache.delete(origin);
+  // `entry` is assigned after the IIFE starts so the catch below can tell
+  // whether the map still holds THIS probe before deleting.
+  let entry = null;
+  const promise = (async () => {
+    try {
+      const res = await fetch(url, { headers: { range: "bytes=0-0" }, signal });
+      // A 401/403/429 on a bare one-byte probe is a GATE, not a blip: the
+      // origin wants the owning player's referer, or it is throttling us.
+      // Either way a direct browser fetch can never succeed here, so park
+      // the origin on relay-only cooldown NOW instead of re-paying a doomed
+      // probe on every fragment for the next few minutes.
+      //
+      // This is why REFERER_GATED_HOST_SUFFIXES kept needing extending:
+      // VidCore rotates its segment CDN to fresh hosts, and a fresh host
+      // 403s a bare fetch until it is listed. Verified live against
+      // `v1.streamsitegp.workers.dev` (the host vidzen.fun now redirects
+      // to): 403 with NO access-control-allow-origin at all, so the
+      // browser reports an opaque CORS failure and the loader falls
+      // through to the relay having learned nothing. Parking on the
+      // status is general, so the next rotation needs no code change.
+      if (res.status === 401 || res.status === 403 || res.status === 429) {
+        directBlockedUntil.set(origin, Date.now() + DIRECT_BLOCK_MS);
+        logWarn("native", "Direct probe refused — origin parked relay-only for 5 min.", {
+          origin,
+          status: res.status,
+        });
+        return { ok: false, status: res.status, reason: `probe ${res.status}` };
+      }
+      const acao = res.headers.get("access-control-allow-origin");
+      const allowed =
+        acao === "*" || (typeof window !== "undefined" && acao === window.location.origin);
+      const match = /bytes\s+0-0\/(\d+)/i.exec(res.headers.get("content-range") || "");
+      res.body?.cancel?.().catch?.(() => {});
+      return { ok: Boolean(allowed && match), status: res.status };
+    } catch (error) {
+      // An AbortError means the OWNING load was cancelled (failover, watchdog,
+      // seek/title switch). Caching "not direct" would ride the relay for the rest of
+      // the session even though the CDN serves CORS — drop the entry so the next load
+      // re-probes with its own live signal. Only drop OUR entry: a newer probe may
+      // have replaced it while this one was in flight.
+      if (error?.name === "AbortError" && probeCache.get(origin) === entry) {
+        probeCache.delete(origin);
+      }
+      return { ok: false };
+    }
+  })();
+  entry = { at: Date.now(), promise };
+  probeCache.set(origin, entry);
+  return promise;
 }
 
 export function clearProbeCache() {
@@ -983,6 +1004,9 @@ const text = await withThrottleRetry(this.signal(), async () => {
         let start = first.buf.length;
         for (;;) {
           if (this.aborted) throw new Error("Aborted");
+          if (start > MAX_RELAY_FRAGMENT_BYTES) {
+            throw new Error("Relay fragment exceeded the size cap — upstream ignored Range");
+          }
           const next = await relayChunk(start);
           if (next.buf.length === 0) break;
           serial.push(next.buf);
@@ -1000,6 +1024,7 @@ const text = await withThrottleRetry(this.signal(), async () => {
       // EOF marker lands) while hls.js still appends slices as they arrive.
       const CONCURRENCY = 4;
       const emitted = [first.buf]; // parts 0..N handed to hls.js in order
+      let emittedBytes = first.buf.length;
       const parts = new Map(); // index -> bytes (1-based; index sits at stride*slice)
       let nextIndex = 1;
       let eofIndex = 0; // highest index where the stream declared EOF
@@ -1012,6 +1037,7 @@ const text = await withThrottleRetry(this.signal(), async () => {
           parts.delete(idx);
           this.progress(ready, 0);
           emitted.push(ready);
+          emittedBytes += ready.length;
         }
       };
       const issueSingle = async (idx) => {
@@ -1041,6 +1067,12 @@ const text = await withThrottleRetry(this.signal(), async () => {
         }
       };
       const runWindow = async () => {
+        // A relay that ignores Range re-serves a full slice with more=true
+        // forever, so the loop never sees an EOF marker — cap in bytes so it
+        // fails the fragment instead of growing `emitted` without bound.
+        if (emittedBytes > MAX_RELAY_FRAGMENT_BYTES) {
+          throw new Error("Relay fragment exceeded the size cap — upstream ignored Range");
+        }
         const window = [];
         for (let i = 0; i < CONCURRENCY; i += 1) {
           const idx = nextIndex++;
@@ -1050,6 +1082,9 @@ const text = await withThrottleRetry(this.signal(), async () => {
         emitAll();
         if (this.aborted) throw new Error("Aborted");
         if (firstError) throw firstError;
+        if (emittedBytes > MAX_RELAY_FRAGMENT_BYTES) {
+          throw new Error("Relay fragment exceeded the size cap — upstream ignored Range");
+        }
         if (!eofIndex) await runWindow();
       };
       await runWindow();

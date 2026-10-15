@@ -6,6 +6,7 @@ import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { withLog } from "../server/logger.js";
 import { rateLimit, tooManyRequests, clientIp } from "../server/rateLimit.js";
+import { applyCors } from "../server/cors.js";
 import { logError } from "../src/utils/debugLogger.js";
 
 const GROQ_BASE = "https://api.groq.com/openai/v1";
@@ -25,8 +26,8 @@ function loadKey() {
   return "";
 }
 
-function cors(res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+function cors(req, res) {
+  applyCors(req, res);
   res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 }
@@ -49,7 +50,7 @@ function isAllowedOrigin(req) {
 const MAX_BODY_BYTES = 1024 * 1024; // 1 MB — LLM prompts that big are abuse, not chat.
 
 export default withLog(async function handler(req, res) {
-  cors(res);
+  cors(req, res);
   if (req.method === "OPTIONS") {
     res.status(204).end();
     return;

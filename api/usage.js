@@ -10,6 +10,7 @@
 // write side is the batched flush in server/usage.js.
 
 import { connectToDatabase } from '../server/db.js';
+import { applyCors } from '../server/cors.js';
 
 const SCOPE_BUDGETS = {
   // Daily capacity ceilings the dashboard row compares against. These mirror
@@ -19,7 +20,7 @@ const SCOPE_BUDGETS = {
 };
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  applyCors(req, res);
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 

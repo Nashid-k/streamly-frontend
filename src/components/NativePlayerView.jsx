@@ -1808,6 +1808,11 @@ setScrubDragging(true);
       activeDubRef.current = 0;
       setActiveDub(0);
       setDubTracks([]);
+      // A new title/episode is NOT "ended": without this the previous
+      // installment's `ended` flag survives the switch and the Up Next card
+      // (and the ended overlay) bleeds onto the episode that just started.
+      setEnded(false);
+      setUpNext(null);
     }
 
     const entryUrlFor = (def, resolved, variant) => {
@@ -2224,6 +2229,12 @@ setScrubDragging(true);
             setActiveDub(activeDubRef.current);
           }
           setIsMasterMode(isMaster);
+          // A real "playing" phase, not a label: consumers (the paused centre
+          // transport in CenterStack, the low-buffer ABR step-down below) test
+          // `status === "playing"` by exact equality, so the server name must
+          // never be folded into this string or both go dead. The provider name
+          // is already carried by `switchingNote`/the Servers menu.
+          setStatus("playing");
           setActiveUri(isMaster ? null : smoothStart?.uri || null);
           // Remember the rung the player negotiated (non-master "Auto").
           autoUriRef.current = isMaster ? null : smoothStart?.uri || null;
@@ -2518,21 +2529,26 @@ setScrubDragging(true);
             })
           : null;
       if (!wasPaused && video && (video.readyState ?? 0) < 3) {
-        await Promise.race([
-          new Promise((resolve) => {
-            const ok = () => {
-              cleanup();
-              resolve();
-            };
-            const cleanup = () => {
-              video.removeEventListener("canplay", ok);
-              video.removeEventListener("loadeddata", ok);
-            };
-            video.addEventListener("canplay", ok);
-            video.addEventListener("loadeddata", ok);
-          }),
-          new Promise((r2) => setTimeout(r2, 4000)),
-        ]);
+        let settleFrame;
+        let frameTimer;
+        function cleanup() {
+          video.removeEventListener("canplay", onFrame);
+          video.removeEventListener("loadeddata", onFrame);
+          clearTimeout(frameTimer);
+        }
+        function onFrame() {
+          cleanup();
+          settleFrame?.();
+        }
+        await new Promise((resolve) => {
+          settleFrame = resolve;
+          video.addEventListener("canplay", onFrame);
+          video.addEventListener("loadeddata", onFrame);
+          // The timeout must ALSO detach: previously cleanup() ran only on the
+          // frame event, so every audio/quality switch where the frame missed the
+          // 4s window left a dead canplay/loadeddata pair (and its timer) behind.
+          frameTimer = setTimeout(cleanup, 4000);
+        });
       }
       if (switchTokenRef.current !== myId) return;
       if (resumePlay) await resumePlay;

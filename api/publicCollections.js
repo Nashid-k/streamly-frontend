@@ -21,9 +21,10 @@ import { connectToDatabase } from '../server/db.js';
 import { withLog } from '../server/logger.js';
 import { extractPublicCollections, findPublicCollection } from '../server/publicCollections.js';
 import { rateLimit, tooManyRequests, clientIp } from '../server/rateLimit.js';
+import { applyCors } from '../server/cors.js';
 
-function setCorsHeaders(res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+function setCorsHeaders(req, res) {
+  applyCors(req, res);
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 }
@@ -40,7 +41,7 @@ async function ensureIndexes(col) {
 }
 
 export default withLog(async function handler(req, res) {
-  setCorsHeaders(res);
+  setCorsHeaders(req, res);
 
   if (req.method === 'OPTIONS') {
     res.status(204).end();

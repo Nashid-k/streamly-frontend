@@ -89,8 +89,17 @@ All endpoints are rate-limited per IP (`server/rateLimit.js`, fixed window:
 register 5/10min per IP + 3/hour per address, verify 20/15min, login 20/15min
 per IP + 10/15min per address, sync 60/min, public collections 60/min, tmdb
 120/min, groq
-20/min per IP + a 240/min global budget + 1MB payload cap (413 over), stream
-600/min — a movie is hundreds of three-megabyte chunk fetches).
+ 20/min per IP + a 240/min global budget + 1MB payload cap (413 over), stream
+ 600/min — a movie is hundreds of three-megabyte chunk fetches).
+
+CORS is **origin-scoped** (`server/cors.js`, `applyCors`): every browser caller
+of these endpoints is same-origin (the SPA and the functions share one Vercel
+deployment) and auth is a bearer token in the body/header, never a cookie, so a
+blanket `Access-Control-Allow-Origin: *` bought nothing and would let any page
+use `/api/stream` as an open proxy. `applyCors` emits `ACAO` (with `Vary:
+Origin`) only when the request `Origin` matches `SITE_URL`/`VITE_SITE_URL`;
+same-origin callers send no `Origin` and need no header. `api/tmdb.js` emits
+none at all.
 
 Auth trust path — **email + password, verified by link** (the Google ID-token
 path, `api/auth.js` + `server/googleVerify.js`, was removed outright):

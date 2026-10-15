@@ -46,6 +46,7 @@ import { parseMpd, buildMasterPlaylist, buildMediaPlaylist } from "../server/das
 import { rateLimit, tooManyRequests, clientIp } from "../server/rateLimit.js";
 import { countUsage } from "../server/usage.js";
 import { assertPublicDestination } from "../server/ssrf.js";
+import { applyCors } from "../server/cors.js";
 import { logWarn, logError } from "../src/utils/debugLogger.js";
 import {
   json,
@@ -631,6 +632,10 @@ const ZXC_VIEW_MEDIA = "media";
    want (an open relay is a many-instances problem, so it must right by every
    instance's own memory, not by a global allowlist that can never keep up). */
 const ISSUED_HOST_TTL_MS = 30 * 60_000;
+// TTL pruning only runs on lookup, so a body that references thousands of URLs
+// (issueHostsInText) could bloat the maps between lookups. A hard cap is a cheap
+// backstop for that burst case.
+const ISSUED_HOST_MAX = 4096;
 const ALWAYS_ALLOWED_HOST_ROOTS = new Set(["vidstuck.xyz", "b-cdn.net"]);
 const issuedHostRoots = new Map(); // registrable domain -> issuedAt
 const issuedHostNames = new Map(); // exact hostname -> issuedAt
@@ -650,6 +655,15 @@ function issueHost(rawUrl) {
   const now = Date.now();
   issuedHostNames.set(hostname, now);
   issuedHostRoots.set(registrableDomain(hostname), now);
+  if (issuedHostNames.size > ISSUED_HOST_MAX || issuedHostRoots.size > ISSUED_HOST_MAX) {
+    pruneIssuedHosts();
+    while (issuedHostNames.size > ISSUED_HOST_MAX) {
+      issuedHostNames.delete(issuedHostNames.keys().next().value);
+    }
+    while (issuedHostRoots.size > ISSUED_HOST_MAX) {
+      issuedHostRoots.delete(issuedHostRoots.keys().next().value);
+    }
+  }
 }
 
 /* Admit every host a parsed m3u8/MPD body references. */
@@ -1141,10 +1155,13 @@ async function resolveZxcOnServer(meta, server, prefetchedToken) {
   try {
     data = await zxcServerLinks(meta, { server, prefetchedToken });
   } catch (error) {
+    // Detail stays in the log — never interpolate an upstream error into the
+    // client payload (it can carry provider URLs/hostnames).
+    logWarn("zxc", "ZXC server returned no stream", { server, message: error?.message });
     return {
       ok: false,
       code: "no-source",
-      error: `ZXC ${server} returned no stream: ${error?.message || "unknown"}`,
+      error: `ZXC ${server} returned no stream`,
       hard: isHardZxcFailure(error),
     };
   }
@@ -1237,10 +1254,11 @@ async function resolveZxcOnServer(meta, server, prefetchedToken) {
   try {
     ({ manifest } = await zxcDashManifest({ meta: { ...meta, server }, dubCode: "", dubType: "" }, data.links));
   } catch (error) {
+    logWarn("zxc", "ZXC manifest unreadable", { server, message: error?.message });
     return {
       ok: false,
       code: "no-source",
-      error: `ZXC ${server} manifest unreadable: ${error?.message || "unknown"}`,
+      error: `ZXC ${server} manifest unreadable`,
       hard: isHardZxcFailure(error),
     };
   }
@@ -1353,7 +1371,7 @@ async function handleResolveZxc(body, res) {
     logWarn("zxc", "title metadata lookup failed before resolve", { message: error?.message });
     json(res, 200, {
       ok: false,
-      error: `Could not load title details for tmdb ${tmdbId}: ${error?.message || "unknown"}`,
+      error: `Could not load title details for tmdb ${tmdbId}`,
       code: "upstream",
     });
     return;
@@ -1568,7 +1586,7 @@ async function handleSegment(body, res) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  applyCors(req, res);
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   // The relay contract reads x-streamly-more ("does a slice continue past what
