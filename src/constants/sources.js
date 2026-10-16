@@ -63,7 +63,7 @@ import { streamResolve } from "../api/streamResolve";
    chunk by the procedure recorded next to it.
 
    The order below MATCHES the provider's own roster (its shipped `ec`
-   array, read 2026-11-16: Orion, Valstrax, Atlas, Ursa, Alatreon, Daedalus). It
+   array, read 2026-10-16: Orion, Valstrax, Atlas, Ursa, Alatreon, Daedalus). It
    is not arbitrary — the provider's Server 1 is Orion, and OUR Server 1 must be
    the same backend so a viewer's "Server 1" means the same thing on both sites.
    The provider rotates this order, so it is also re-derived at runtime
@@ -72,7 +72,7 @@ import { streamResolve } from "../api/streamResolve";
 
    Orion (multi-audio) leads. The earlier roster (Andromeda/Centaurus/Ursa-meow)
    was retired upstream when the provider migrated to `zxcstream.cc` and the
-   `/backend_/sources/{server}` contract on 2026-11-16.
+   `/backend_/sources/{server}` contract on 2026-10-16.
 
    Server 5 (VidRack) was removed on 2026-10-04 after being measured dead: every
    ladder it published was AES-128 and the key host (`api.dlproxy.com`) answers
