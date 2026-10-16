@@ -2,7 +2,9 @@
 // One place owns the browser-shaped headers, the manual redirect walk (each hop
 // re-validated by ssrf.assertPublicDestination), the response-size ceiling and
 // the Range-chunk reader the byte relay depends on.
+import { Agent, fetch as undiciFetch } from "undici";
 import { assertPublicDestination } from "./ssrf.js";
+import { peekPin, resolveUpstream } from "./providerDns.js";
 
 // Vercel hard-caps function response bodies at 4.5MB; keep well under with
 // headroom for headers/JSON overhead.
@@ -32,7 +34,56 @@ function json(res, status, body) {
    MANUALLY and re-validate every destination against the private-IP rules. */
 const MAX_REDIRECTS = 5;
 
+/* The connect-level DNS override. Undici's global fetch resolves hostnames
+   through the OS resolver, which is blind to a registrar-held domain
+   (recursion NXDOMAIN, zone still alive — see providerDns.js). This lookup
+   consults resolveUpstream (OS first, authoritative NS on failure) and hands
+   undici the address directly, so TLS SNI, the Host header and the HTTP
+   stack all still see the REAL hostname. Only sits in the outbound path;
+   healthy domains resolve the same way they always did. */
+let pinnedDispatcher = null;
+function upstreamDispatcher() {
+  if (pinnedDispatcher) return pinnedDispatcher;
+  pinnedDispatcher = new Agent({
+    connect: {
+      /* The pinned paths do their own family/quality routing, so undici's
+         Happy-Eyeballs multi-address connect is off: ONE handed address per
+         connect keeps behavior deterministic on hosts without an IPv6 route
+         (this dev box ENETUNREACHes every v6 attempt) and identical on Vercel. */
+      autoSelectFamily: false,
+      lookup(hostname, options, cb) {
+        resolveUpstream(hostname)
+          .then((records) => {
+            if (!records || records.length === 0) {
+              cb(new Error(`ENOTFOUND ${hostname}`));
+              return;
+            }
+            const wanted = Number(options?.family) || 0;
+            const candidates = wanted ? records.filter((r) => r.family === wanted) : records;
+            /* IPv4 first when both families exist: the v4 route is a superset
+               reachable everywhere the deployment can actually egress. */
+            const ranked = [...(candidates.length > 0 ? candidates : records)].sort((a, b) => a.family - b.family);
+            const best = ranked[0];
+            cb(null, best.address, best.family);
+          })
+          .catch(cb);
+      },
+    },
+  });
+  return pinnedDispatcher;
+}
+
+/* Version pairing matters here: Node's INTERNAL fetch rejects an Agent that
+   came from the bundled npm undici (UND_ERR_INVALID_ARG — the dispatcher
+   majors differ), and hermetic tests stub only the global fetch. So the
+   pinned path runs through undici's own fetch (same package as the Agent),
+   while healthy hostnames keep the plain global fetch — zero behavior change
+   everywhere the pin does not exist. The pin is ALWAYS already cached by
+   assertPublicDestination (same request, an await earlier), so peekPin is
+   sync and needs no extra resolution round trip. */
 function fetchNoRedirect(url, opts) {
+  const pinned = peekPin(new URL(url).hostname);
+  if (pinned) return undiciFetch(url, { ...opts, redirect: "manual", dispatcher: upstreamDispatcher() });
   return fetch(url, { ...opts, redirect: "manual" });
 }
 

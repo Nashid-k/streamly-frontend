@@ -175,7 +175,7 @@ const MAX_REQUEST_BODY_BYTES = 512 * 1024;
    and killed playback of TV titles whose metadata lookup is mandatory. Keeping
    the list unverified removes that request amplification. See `zxcDubTracks`. */
 
-const ZXC_ORIGIN = "https://vidstuck.xyz";
+const ZXC_ORIGIN = "https://player.zxcprime.xyz";
 /* THE MINT PATH. Read off the shipped embed chunk, NOT guessed, and upstream
    renames it periodically (see the contract note above for the rename history
    and for the re-discovery procedure). Every row shares this one call, so when

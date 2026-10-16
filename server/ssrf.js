@@ -3,8 +3,8 @@
 // before the function is allowed to fetch it: a public hostname may still
 // resolve to a loopback/link-local/metadata address, which would turn this
 // server into a proxy for internal-only endpoints.
-import { lookup } from "node:dns/promises";
 import net from "node:net";
+import { resolveUpstream } from "./providerDns.js";
 
 function isBlockedHost(hostname) {
   const h = String(hostname || "").toLowerCase();
@@ -101,12 +101,14 @@ async function assertPublicDestination(urlStr) {
     return u.toString();
   }
 
-  let records;
-  try {
-    records = await lookup(hostname, { all: true });
-  } catch {
-    throw new Error(`blocked host: ${hostname}`);
-  }
+  /* resolveUpstream walks the OS resolver FIRST (identical answers to the
+     plain lookup that used to sit here) and falls back to the domain's
+     authoritative nameservers when a registrar hold has stripped the name
+     from the recursive tree (see server/providerDns.js). The pin changes HOW
+     a name is resolved, never WHAT is allowed: the same records now returned
+     from the authoritative zone go through exactly the same private/metadata
+     rules below — a pinned loopback is still blocked. */
+  const records = await resolveUpstream(hostname);
   if (!records || records.length === 0) throw new Error(`blocked host: ${hostname}`);
   for (const record of records) {
     if (isPrivateIp(record.address)) throw new Error(`blocked host: ${hostname}`);

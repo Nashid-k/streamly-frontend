@@ -29,6 +29,7 @@
     "react-helmet-async": "^3.0.0",
     "react-router-dom": "^7.18.2",
     "slugify": "^1.6.9",
+    "undici": "^8.12.1",
     "vite": "^8.2.0"
   },
   "devDependencies": {
