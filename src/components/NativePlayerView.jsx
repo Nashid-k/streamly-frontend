@@ -242,12 +242,6 @@ export default function NativePlayerView({
   onGoPrev,
   onGoNext,
   onClose,
-  /* Fires once when native playback cannot run at all — the provider's API is
-     unreachable from our egress (a Cloudflare WAF block on datacenter IPs) or
-     this browser lacks MediaSource. The parent uses it to swap in the provider's
-     own embed player as a guaranteed-playback fallback. Optional: without it the
-     player just shows its fatal banner (the old behaviour). */
-  onUnavailable,
   // Continue-watching entry for this title/episode ({ timestamp } in s, >0) + progress sink.
   watchedEntry,
   onProgressChange,
@@ -321,12 +315,6 @@ export default function NativePlayerView({
   const resumeLeftRef = useRef(RESUME_WAIT_SECONDS);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
-  // Latest onUnavailable through a ref so the load effect (which binds per
-  // title/episode) never reads a stale callback. Fire-once per mount: the
-  // parent swaps us out on the first report, so a second never lands.
-  const onUnavailableRef = useRef(onUnavailable);
-  onUnavailableRef.current = onUnavailable;
-  const unavailableFiredRef = useRef(false);
   // Live views for closures that must not read stale hold/still-watching state.
   // (Declared here; SYNCED below next to the other mirror refs — the states
   // they read are declared further down, and assigning earlier is a TDZ crash.)
@@ -1804,11 +1792,6 @@ setScrubDragging(true);
   useEffect(() => {
     if (!Hls.isSupported()) {
       setFatal("This browser has no MediaSource support — native playback cannot run here.");
-      // Hand off to the provider's embed (which does not need MSE) once.
-      if (!unavailableFiredRef.current) {
-        unavailableFiredRef.current = true;
-        onUnavailableRef.current?.();
-      }
       return undefined;
     }
     const run = runRef.current + 1;
@@ -2400,14 +2383,6 @@ setScrubDragging(true);
                 : ""
             }`,
       );
-      // Native exhausted every source. This is the deployed-site case: our
-      // serverless resolve is WAF-blocked by the provider, so no native byte can
-      // ever flow. Report upward once so the parent can mount the provider's
-      // embed player and guarantee playback instead of a dead error card.
-      if (!unavailableFiredRef.current) {
-        unavailableFiredRef.current = true;
-        onUnavailableRef.current?.();
-      }
     })();
 
     return () => {

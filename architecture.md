@@ -403,36 +403,38 @@ server-side wrongly assumed the embed/sentinel handshake was required (it answer
 The handshake is NOT required: the mint takes the plain
 `{id, mediaType, path[, season, episode]}` body and the sources endpoint decrypts,
 so the server-side `resolvezxc` resolver works and native playback is restored.
-**The resolver works, but the provider WAF-blocks our datacenter egress, so
-native auto-falls-back to the embed.** The provider put `/backend/*` behind a
-Cloudflare WAF rule that answers **`403` (a hard "Attention Required!" block,
-not a JS challenge)** to datacenter IPs. Verified live: the same
-`GET /backend/tmdb/details/movie/27205?language=en-US` returns `200` from a
-residential IP but `403` from the Vercel function (`region: bom1`), from our own
-Cloudflare worker (`streamly-proxy….workers.dev`, which already sends a Chrome
-UA + `Accept-Language` + `Referer`), and from every datacenter CORS proxy —
-while `/`, `/player/*` and `/embed/*` still answer `200` from Vercel. So
-`resolvezxc` dies at its first call (`zxcTitleMeta`) in ~0.5s on the deployed
-site. The client cannot fill the gap either: `.cc/backend/*` emits **no `ACAO`**
-for any `Origin`, so a browser XHR cannot read the API cross-origin, and the
-`/embed/*` page is not SSR'd. Only the provider's OWN page, running — as the
-embed iframe — in the user's (residential) browser, can mint.
+**The resolver works, but the provider WAF-blocks our datacenter egress, so the
+deployed app plays through the provider's own embed.** The provider put
+`/backend*` behind a Cloudflare WAF rule that answers **`403` (a hard "Attention
+Required!" block, not a JS challenge)** to datacenter IPs. Verified live: the
+same `GET /backend/tmdb/details/movie/27205?language=en-US` returns `200` from a
+residential IP but `403`/`502` from the Vercel function (`region: bom1`), from
+our own Cloudflare worker (`streamly-proxy….workers.dev`, which already sends a
+Chrome UA + `Accept-Language` + `Referer`), and from every datacenter CORS proxy
+— while `/`, `/player/*` and `/embed/*` still answer `200` from Vercel. (Path
+sweep from the deployed function: `/embed/movie/27205` → `200`; `/backend`,
+`/backend/`, `/backend/fucku`, `/backend/intro`, `/backend_/sources/orion`, and
+`/backend/tmdb/details/...` → all `502`. The block is the `/backend*` prefix for
+datacenter IPs, on both `zxcstream.cc` and `vidstuck.cc`.) So `resolvezxc` dies
+at its first call (`zxcTitleMeta`) in ~0.5s on the deployed site. The client
+cannot fill the gap either: `.cc/backend/*` emits **no `ACAO`** for any `Origin`,
+so a browser XHR cannot read the API cross-origin, and the `/embed/*` page is
+not SSR'd. Only the provider's OWN page, running — as the embed iframe — in the
+user's (residential) browser, can mint. The WAF *does* allow at least Google's
+own egress (Google's translate proxy reaches `/backend` from `34.16.151.18`,
+Google Cloud), so a relay on an allowed ASN is the one route back to native.
 
-So playback is **native-first with an automatic fallback to that embed**.
-`NativePlayerView` takes an optional `onUnavailable`, fired once when native is
-definitively impossible (no `Hls.isSupported()`, or every source exhausted);
-`TitleDetailsPage` sets `nativeUnavailable` (reset on
-`[isPlaying, playMode, playingEpisode, selectedSeason, id]`) and renders
-`PROVIDER_EMBED_PLAYBACK || nativeUnavailable ? <ProviderEmbedPlayer/> :
-<NativePlayerView/>`. `ProviderEmbedPlayer` frames
-`https://zxcstream.cc/embed/{movie|tv}/{tmdbId}[/{season}/{episode}]` and
-`vercel.json`'s CSP `frame-src` allows `https://zxcstream.cc`. The
-`PROVIDER_EMBED_PLAYBACK` flag in `src/constants/playback.js` (still `false`)
-forces the embed unconditionally as before. The native ZXC resolver documented
-in this section (mint/discovery/relay/contract-sync) is still the primary path —
-it returns the moment the provider lifts the block, with no code change. (Note:
-`zxcstream.com` is a *different* host — an iframe aggregator that frames `.cc`;
-it exposes no API and is not a fallback.)
+So `PROVIDER_EMBED_PLAYBACK` in `src/constants/playback.js` is **`true`**: the
+details page mounts `ProviderEmbedPlayer`, which frames
+`https://zxcstream.cc/embed/{movie|tv}/{tmdbId}[/{season}/{episode}]`
+(`vercel.json`'s CSP `frame-src` allows `https://zxcstream.cc`). The native ZXC
+resolver documented in this section (mint/discovery/relay/contract-sync) is
+retained but not mounted from the deployed server — it works only from an egress
+the WAF allows, so flipping the flag back to `false` restores native with no
+other code change once such an egress exists (e.g. a residential IP or a Google
+Cloud relay). (Note: `zxcstream.com` is a *different* host — an iframe
+aggregator that frames `.cc`; it exposes no API and returns `404` for
+`/backend`, so it is not usable as an API mirror.)
  A third third-party
 provider, CineSrc, was REMOVED: its stream tokens are minted inside a real
 browser (canvas/TLS fingerprint-bound), so it only ever worked through a

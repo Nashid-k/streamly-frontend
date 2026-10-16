@@ -248,16 +248,6 @@ export default function TitleDetails() {
 
   const [playMode, setPlayMode] = useState("movie");
   const [playingTrailerKey, setPlayingTrailerKey] = useState(null);
-  // Native playback reports upward when it cannot resolve a single byte — on the
-  // deployed site the provider's API is WAF-blocked from our serverless egress,
-  // so no native source ever resolves. We then swap in the provider's own embed
-  // player (built for a residential browser) so the viewer still gets a picture.
-  // Reset per watch session / episode / title so the next open — or a manual
-  // server pick — tries native again before falling back.
-  const [nativeUnavailable, setNativeUnavailable] = useState(false);
-  useEffect(() => {
-    setNativeUnavailable(false);
-  }, [isPlaying, playMode, playingEpisode, selectedSeason, id]);
   // Trigger the trailer's loading state when its src/key is about to change
   useEffect(() => {
     if (isPlaying) setIframeLoading(true);
@@ -2137,7 +2127,7 @@ export default function TitleDetails() {
                         justifyContent: "center",
                       }}
                     >
-                      {PROVIDER_EMBED_PLAYBACK || nativeUnavailable ? (
+                      {PROVIDER_EMBED_PLAYBACK ? (
                         <ProviderEmbedPlayer
                           type={isTvContent ? "tv" : "movie"}
                           id={numericId}
@@ -2152,11 +2142,6 @@ export default function TitleDetails() {
                                     ? new Date(movie.releaseDate).getFullYear()
                                     : "",
                                 )
-                          }
-                          notice={
-                            nativeUnavailable && !PROVIDER_EMBED_PLAYBACK
-                              ? "Native stream unavailable — playing via the provider's player"
-                              : undefined
                           }
                           onClose={() => setIsPlaying(false)}
                         />
@@ -2201,9 +2186,6 @@ export default function TitleDetails() {
                           onGoPrev={goToPrevEpisode}
                           onGoNext={goToNextEpisode}
                           onClose={() => setIsPlaying(false)}
-                          /* Native exhausted every source (provider WAF-blocks
-                             our egress): swap in the provider embed for playback. */
-                          onUnavailable={() => setNativeUnavailable(true)}
                           imdbId={movie?.imdbId || ""}
                           backdropUrl={movie?.backdropUrl || ""}
                           posterUrl={movie?.logoUrl || movie?.posterUrl || movie?.backdropUrl || ""}

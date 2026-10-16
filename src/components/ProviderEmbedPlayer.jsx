@@ -47,7 +47,7 @@ export function providerEmbedUrl({ type = "movie", id, season = 1, episode = 1 }
   return url;
 }
 
-export default function ProviderEmbedPlayer({ type, id, season, episode, title, subtitle, notice, onClose }) {
+export default function ProviderEmbedPlayer({ type, id, season, episode, title, subtitle, onClose }) {
   const [loaded, setLoaded] = useState(false);
   const [chromeVisible, setChromeVisible] = useState(true);
   const idleTimerRef = useRef(null);
@@ -212,9 +212,6 @@ export default function ProviderEmbedPlayer({ type, id, season, episode, title, 
           </div>
           {subtitle ? (
             <div style={{ color: "rgba(255,255,255,0.65)", fontSize: 12 }}>{subtitle}</div>
-          ) : null}
-          {notice ? (
-            <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, marginTop: 2 }}>{notice}</div>
           ) : null}
         </div>
         {url && (
