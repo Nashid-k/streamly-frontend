@@ -1,22 +1,22 @@
 // src/components/ProviderEmbedPlayer.jsx — playback through the PROVIDER'S OWN
-// player, embedded same as the title's own page embeds it.
+// player, embedded via its public "custom player" route.
 //
-// Why this exists: the ZXC/vidstuck backend migrated to a v2 API whose token
-// mint (`POST /backend/fucku`) rejects every server-side request we can make
-// (400 "Invalid request" for every body/hash/origin permutation) while the
-// provider's page mints and plays fine IN A BROWSER. Our own HLS player needs
-// the decoded manifest, which we can no longer obtain server-side, so the only
-// reliable path is to let the provider's client do the mint/embed dance inside
-// an iframe — the browser context it is built for.
+// Why this exists: the ZXC/vidstuck backend put its /backend* API behind a
+// Cloudflare WAF that blocks every datacenter IP, so our serverless resolver
+// (and every proxy) is refused while the viewer's own (residential) browser is
+// allowed. The provider's client-side player mints from the browser
+// (`POST /backend/fucku` → `GET /backend_/sources/{server}`, links AES-sealed)
+// and plays the decrypted DASH/HLS link — we cannot do that from our origin
+// (the API emits no CORS), so we hand the whole job to the provider's player.
 //
-// The provider's own embed route is `/embed/{media_type}/{tmdbId}[/{season}/
-// {episode}]` and its page then fetches the minted `embed` URL and renders it
-// as a nested iframe (read from the shipped chunk 0mnx9p2vu2a3l.js, 2026-10-16).
-// It sends no X-Frame-Options / CSP, so framing is intended.
-//
-// This is a deliberate fallback to the provider's UI (their ads, their chrome).
-// It restores playback; it does not reproduce the app's native chrome. Callers
-// pick it via PROVIDER_EMBED_PLAYBACK in ../constants/playback.js.
+// We embed the CUSTOM PLAYER (`/player/{movie|tv}/{tmdbId}`), NOT the built-in
+// `/embed/...` route: the built-in embed runs a separate sentinel handshake
+// (`GET /backend_/embed/sentinel`) and shows a black screen, while the
+// provider's own site uses the custom player. Series take season/episode as
+// QUERY params — `/player/tv/{id}?season=&episode=` — read from the route's
+// params (`["", "player", "movie", "27205"]`). The custom player emits no
+// X-Frame-Options/CSP, so it embeds cleanly; callers pick it via
+// PROVIDER_EMBED_PLAYBACK in ../constants/playback.js.
 
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ExternalLink } from "lucide-react";
@@ -31,18 +31,19 @@ export const PROVIDER_EMBED_ORIGIN = "https://zxcstream.cc";
 // the provider's picture is not permanently covered by our chrome.
 const CHROME_IDLE_MS = 3000;
 
-/* Build the provider embed URL for a title. Movie → `/embed/movie/{id}`;
-   TV → `/embed/tv/{id}/{season}/{episode}`. Returns "" when there is no usable
-   id, which the caller renders as an honest error instead of an empty frame. */
+/* Build the provider custom-player URL for a title. Movie →
+   `/player/movie/{id}`; TV → `/player/tv/{id}?season=&episode=`. Returns ""
+   when there is no usable id, which the caller renders as an honest error
+   instead of an empty frame. */
 export function providerEmbedUrl({ type = "movie", id, season = 1, episode = 1 } = {}) {
   const media = type === "tv" ? "tv" : "movie";
   const tmdbId = String(id ?? "").trim();
   if (!tmdbId) return "";
-  let url = `${PROVIDER_EMBED_ORIGIN}/embed/${media}/${encodeURIComponent(tmdbId)}`;
+  let url = `${PROVIDER_EMBED_ORIGIN}/player/${media}/${encodeURIComponent(tmdbId)}`;
   if (media === "tv") {
     const s = Math.max(1, Number(season) || 1);
     const e = Math.max(1, Number(episode) || 1);
-    url += `/${s}/${e}`;
+    url += `?season=${s}&episode=${e}`;
   }
   return url;
 }

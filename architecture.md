@@ -425,16 +425,23 @@ own egress (Google's translate proxy reaches `/backend` from `34.16.151.18`,
 Google Cloud), so a relay on an allowed ASN is the one route back to native.
 
 So `PROVIDER_EMBED_PLAYBACK` in `src/constants/playback.js` is **`true`**: the
-details page mounts `ProviderEmbedPlayer`, which frames
-`https://zxcstream.cc/embed/{movie|tv}/{tmdbId}[/{season}/{episode}]`
-(`vercel.json`'s CSP `frame-src` allows `https://zxcstream.cc`). The native ZXC
-resolver documented in this section (mint/discovery/relay/contract-sync) is
-retained but not mounted from the deployed server — it works only from an egress
-the WAF allows, so flipping the flag back to `false` restores native with no
-other code change once such an egress exists (e.g. a residential IP or a Google
-Cloud relay). (Note: `zxcstream.com` is a *different* host — an iframe
-aggregator that frames `.cc`; it exposes no API and returns `404` for
-`/backend`, so it is not usable as an API mirror.)
+details page mounts `ProviderEmbedPlayer`, which frames the provider's **CUSTOM
+PLAYER** route, `https://zxcstream.cc/player/{movie|tv}/{tmdbId}` (series take
+`?season=&episode=` query params). This is the route the provider's own site
+uses — and the one its embed-generator labels "Custom Player" — and it emits no
+`X-Frame-Options`/CSP, so it embeds cleanly (`vercel.json`'s CSP `frame-src`
+allows `https://zxcstream.cc`). The built-in `/embed/{movie|tv}/{tmdbId}` route
+is deliberately NOT used: it runs a separate `/backend_/embed/sentinel`
+handshake and shows a black screen. Inside the frame the custom player mints
+(`POST /backend/fucku` → `GET /backend_/sources/{server}`) and plays the
+decrypted DASH/HLS link from the viewer's residential IP, which the WAF allows.
+The native ZXC resolver documented in this section (mint/discovery/relay/
+contract-sync) is retained but not mounted from the deployed server — it works
+only from an egress the WAF allows, so flipping the flag back to `false` restores
+native with no other code change once such an egress exists (e.g. a residential
+IP or a Google Cloud relay). (Note: `zxcstream.com` is a *different* host — an
+iframe aggregator that frames `.cc`'s `/player/*` as "Backup I"; it exposes no
+API and returns `404` for `/backend`, so it is not usable as an API mirror.)
  A third third-party
 provider, CineSrc, was REMOVED: its stream tokens are minted inside a real
 browser (canvas/TLS fingerprint-bound), so it only ever worked through a

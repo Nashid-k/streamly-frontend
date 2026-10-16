@@ -5,24 +5,23 @@ import ProviderEmbedPlayer, {
   PROVIDER_EMBED_ORIGIN,
 } from "../components/ProviderEmbedPlayer";
 
-/* The embed route is the provider's own scheme, read from its shipped chunk
-   (2026-10-16): `/embed/{media_type}/{tmdbId}[/{season}/{episode}]`. A wrong
-   URL silently lands the viewer on the provider's SPA shell, so the shape is
-   pinned here. */
+/* The player route is the provider's own "custom player" scheme, read from its route
+   (2026-10-16): `/player/{media_type}/{tmdbId}` with series season/episode as
+   query params. A wrong route opens the provider site, so the shape is pinned. */
 
 describe("providerEmbedUrl", () => {
-  it("builds a movie embed URL from the tmdb id", () => {
+  it("builds a movie player URL from the tmdb id", () => {
     expect(providerEmbedUrl({ type: "movie", id: 27205 })).toBe(
-      `${PROVIDER_EMBED_ORIGIN}/embed/movie/27205`,
+      `${PROVIDER_EMBED_ORIGIN}/player/movie/27205`,
     );
   });
 
-  it("builds a TV embed URL with season and episode, defaulting to S1E1", () => {
+  it("builds a TV player URL with season and episode query, defaulting to S1E1", () => {
     expect(providerEmbedUrl({ type: "tv", id: 1399, season: 2, episode: 5 })).toBe(
-      `${PROVIDER_EMBED_ORIGIN}/embed/tv/1399/2/5`,
+      `${PROVIDER_EMBED_ORIGIN}/player/tv/1399?season=2&episode=5`,
     );
     expect(providerEmbedUrl({ type: "tv", id: 1399 })).toBe(
-      `${PROVIDER_EMBED_ORIGIN}/embed/tv/1399/1/1`,
+      `${PROVIDER_EMBED_ORIGIN}/player/tv/1399?season=1&episode=1`,
     );
   });
 
@@ -33,14 +32,14 @@ describe("providerEmbedUrl", () => {
 });
 
 describe("ProviderEmbedPlayer", () => {
-  it("mounts the provider embed in an iframe and closes via the back button", () => {
+  it("mounts the provider player in an iframe and closes via the back button", () => {
     const onClose = vi.fn();
     const { container } = renderWithProviders(
       <ProviderEmbedPlayer type="movie" id="27205" title="Inception" onClose={onClose} />,
     );
     const iframe = container.querySelector("iframe");
     expect(iframe).toBeTruthy();
-    expect(iframe.getAttribute("src")).toBe(`${PROVIDER_EMBED_ORIGIN}/embed/movie/27205`);
+    expect(iframe.getAttribute("src")).toBe(`${PROVIDER_EMBED_ORIGIN}/player/movie/27205`);
     expect(iframe.getAttribute("allowfullscreen")).not.toBeNull();
 
     fireEvent.click(screen.getByLabelText("Close player"));
