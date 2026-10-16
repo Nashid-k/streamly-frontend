@@ -153,7 +153,7 @@ describe("manual server pick prefers then falls back fast", () => {
 
     await waitFor(() => expect(hlsState.resolveCalls.length).toBeGreaterThan(1), { timeout: 3000 });
     const pick = hlsState.resolveCalls[1];
-    expect(pick.prefer).toBe("andromeda");
+    expect(pick.prefer).toBe("valstrax");
     expect(pick.server).toBeUndefined();
     expect(pick.auto).toBeUndefined();
   });

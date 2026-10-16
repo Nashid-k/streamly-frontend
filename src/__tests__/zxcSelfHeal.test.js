@@ -18,7 +18,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 const { lookup } = vi.hoisted(() => ({ lookup: vi.fn() }));
 vi.mock("node:dns/promises", () => ({ lookup, default: { lookup } }));
 
-const { default: handler, clearZxcDiscoveryCache, clearZxcTitleMetaCache, zxcContractSeed } = await import("../../api/stream.js");
+const { default: handler, clearZxcDiscoveryCache, clearZxcTitleMetaCache, zxcContractSeed, deriveZxcContractFromChunks } = await import("../../api/stream.js");
 
 // Read the seed from the module so a provider rename (rewritten by the
 // sync-zxc-contract step) can NEVER strand this suite. The seed is what the
@@ -82,7 +82,7 @@ function installFetch() {
     }
     if (url.includes("/embed/")) return html(EMBED_HTML);
     if (url.includes("/_next/static/chunks/")) return html(CHUNK_SRC);
-    if (url.includes("/backend/servers/")) return json(serversResponse);
+    if (url.includes("/backend_/sources/")) return json(serversResponse);
     if (url.includes(".m3u8")) {
       return new Response("#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:13\n#EXTINF:12.0,\nhttps://93.184.216.34/s0\n#EXT-X-ENDLIST\n", {
         status: 200,
@@ -107,7 +107,7 @@ function makeRes() {
   return res;
 }
 
-async function resolve({ server = "centaurus" } = {}) {
+async function resolve({ server = "atlas" } = {}) {
   const res = makeRes();
   await handler(
     { method: "POST", body: { action: "resolvezxc", type: "movie", id: "27205", server }, headers: { "x-forwarded-for": "203.0.113.9" } },
@@ -116,7 +116,7 @@ async function resolve({ server = "centaurus" } = {}) {
   return JSON.parse(res.body);
 }
 
-const serversUrl = () => requests.find((u) => u.includes("/backend/servers/")) || "";
+const serversUrl = () => requests.find((u) => u.includes("/backend_/sources/")) || "";
 
 beforeEach(() => {
   lookup.mockReset();
@@ -152,7 +152,7 @@ describe("ZXC mint self-heal", () => {
 
   it("does NOT run discovery on a non-contract failure (5xx)", async () => {
     mintStatus = 500;
-    const r = await resolve({ server: "centaurus" });
+    const r = await resolve({ server: "atlas" });
     expect(r.ok).toBe(false);
     expect(requests.some((u) => u.includes("/embed/"))).toBe(false);
   });
@@ -167,8 +167,55 @@ describe("ZXC mint self-heal", () => {
       if (url.includes("/_next/static/chunks/")) return html("var x=1;");
       return new Response("upstream unreachable", { status: 502 });
     }));
-    const r = await resolve({ server: "centaurus" });
+    const r = await resolve({ server: "atlas" });
     expect(r.ok).toBe(false);
     expect(serversUrl()).toBe("");
+  });
+});
+
+describe("ZXC contract derivation — the CURRENT `FIELD_MAP` bundle shape", () => {
+  /* The live bundle no longer declares the params as a `let uo="…",ul="…"` run;
+     it exports a literal `FIELD_MAP` object whose keys ARE the field names, and
+     the mint body uses computed keys off it (`{[FIELD_MAP.id]: tmdbId}`). The
+     alias-based heuristic finds nothing there, so a dedicated parser reads the
+     object. These are the REAL current values (re-verified against
+     zxcstream.cc's shipped chunk), pinned so a silent regression to the old
+     parser is loud. */
+  const FIELD_MAP_CHUNK =
+    'const FIELD_MAP={id:"a7f39c821d604e5b9c1e547b",fToken:"a1b2c3d4e5f6",'
+    + 'mediaType:"c281b306d28147a35632e816b",path:"6b491e7258d392e7561a9384c",'
+    + 'season:"d8427b59c38a2f957c3613e85b",episode:"91c6e4a753d1f785c92346b713d",'
+    + 'ts:"61d9a5274c8e3b29f38c291e6",token:"c492f7a183d601e436c538a716d",'
+    + 'title:"5e28c9147a306d1e29f3674b392a1",year:"b731e6c94f08675f8341c306e",'
+    + 'date:"e1649321a39e5814b3027",imdbId:"f35a8c1943265e871c4933a725f",'
+    + 'latestDate:"e92543416ad739e5814b3027"};'
+    + 'function q(){return{queryFn:async()=>{let{data:e}=await X.post("/backend/fucku",'
+    + '{[FIELD_MAP.id]:r,[FIELD_MAP.mediaType]:t,[FIELD_MAP.path]:l})}}}';
+
+  it("reads the literal field-named params and the FIELD_MAP-fed mint path", () => {
+    const c = deriveZxcContractFromChunks([FIELD_MAP_CHUNK]);
+    expect(c).toBeTruthy();
+    expect(c.mintPath).toBe("/backend/fucku");
+    expect(c.params).toEqual({
+      tmdbId: "a7f39c821d604e5b9c1e547b",
+      mediaType: "c281b306d28147a35632e816b",
+      path: "6b491e7258d392e7561a9384c",
+      season: "d8427b59c38a2f957c3613e85b",
+      episode: "91c6e4a753d1f785c92346b713d",
+      ts: "61d9a5274c8e3b29f38c291e6",
+      token: "c492f7a183d601e436c538a716d",
+      title: "5e28c9147a306d1e29f3674b392a1",
+      year: "b731e6c94f08675f8341c306e",
+      date: "e1649321a39e5814b3027",
+    });
+    expect(c.imdbParam).toBe("f35a8c1943265e871c4933a725f");
+    expect(c.latestDateParam).toBe("e92543416ad739e5814b3027");
+  });
+
+  it("ignores a `FIELD_MAP`-shaped object whose core params are incomplete", () => {
+    const partial = 'const FIELD_MAP={id:"a7f39c821d604e5b9c1e547b",fToken:"a1b2c3"};';
+    // No mint post AND missing params → no derived contract, so the caller keeps
+    // its working seed instead of replacing it with a broken one.
+    expect(deriveZxcContractFromChunks([partial])).toBeNull();
   });
 });

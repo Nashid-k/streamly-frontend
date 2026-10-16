@@ -62,15 +62,17 @@ import { streamResolve } from "../api/streamResolve";
    is `ZXC_MINT_PATH` in `api/stream.js`, re-discovered from the shipped embed
    chunk by the procedure recorded next to it.
 
-   The order below MATCHES the provider's own roster (its shipped `SERVERS`
-   array, read 2026-10-14: Orion, Andromeda, Centaurus, Atlas, Ursa). It is not
-   arbitrary — the provider's Server 1 is Orion, and OUR Server 1 must be the
-   same backend so a viewer's "Server 1" means the same thing on both sites. The
-   provider rotates this order, so it is also re-derived at runtime server-side
-   (see `parseZxcRoster` in api/stream.js); when it moves, reorder here to match.
+   The order below MATCHES the provider's own roster (its shipped `ec`
+   array, read 2026-11-16: Orion, Valstrax, Atlas, Ursa, Alatreon, Daedalus). It
+   is not arbitrary — the provider's Server 1 is Orion, and OUR Server 1 must be
+   the same backend so a viewer's "Server 1" means the same thing on both sites.
+   The provider rotates this order, so it is also re-derived at runtime
+   server-side (see `parseZxcRoster` in api/stream.js); when it moves, reorder
+   here to match.
 
-   Centaurus (multi-audio) used to lead; on 2026-10-14 its delivery host began
-   answering HTTP 427 while Orion's multi-audio DASH stayed up, so Orion leads.
+   Orion (multi-audio) leads. The earlier roster (Andromeda/Centaurus/Ursa-meow)
+   was retired upstream when the provider migrated to `zxcstream.cc` and the
+   `/backend_/sources/{server}` contract on 2026-11-16.
 
    Server 5 (VidRack) was removed on 2026-10-04 after being measured dead: every
    ladder it published was AES-128 and the key host (`api.dlproxy.com`) answers
@@ -110,36 +112,44 @@ export const PLAYER_SOURCES = [
     resolve: (a, o) => streamResolve.resolveZxc({ ...a, prefer: "orion" }, o),
   },
   {
-    key: "zxc-andromeda",
+    key: "zxc-valstrax",
     label: "Server 2",
     tag: "Original audio · up to 1080p",
-    provider: "ZXC Andromeda",
-    server: "andromeda",
-    resolve: (a, o) => streamResolve.resolveZxc({ ...a, prefer: "andromeda" }, o),
-  },
-  {
-    key: "zxc-centaurus",
-    label: "Server 3",
-    tag: "Multi audio · up to 1080p",
-    provider: "ZXC Centaurus",
-    server: "centaurus",
-    resolve: (a, o) => streamResolve.resolveZxc({ ...a, prefer: "centaurus" }, o),
+    provider: "ZXC Valstrax",
+    server: "valstrax",
+    resolve: (a, o) => streamResolve.resolveZxc({ ...a, prefer: "valstrax" }, o),
   },
   {
     key: "zxc-atlas",
-    label: "Server 4",
+    label: "Server 3",
     tag: "Original audio · up to 1080p",
     provider: "ZXC Atlas",
     server: "atlas",
     resolve: (a, o) => streamResolve.resolveZxc({ ...a, prefer: "atlas" }, o),
   },
   {
-    key: "zxc-meow",
-    label: "Server 5",
+    key: "zxc-ursa",
+    label: "Server 4",
     tag: "Original audio · up to 1080p",
     provider: "ZXC Ursa",
-    server: "meow",
-    resolve: (a, o) => streamResolve.resolveZxc({ ...a, prefer: "meow" }, o),
+    server: "ursa",
+    resolve: (a, o) => streamResolve.resolveZxc({ ...a, prefer: "ursa" }, o),
+  },
+  {
+    key: "zxc-alatreon",
+    label: "Server 5",
+    tag: "Original audio · up to 1080p",
+    provider: "ZXC Alatreon",
+    server: "alatreon",
+    resolve: (a, o) => streamResolve.resolveZxc({ ...a, prefer: "alatreon" }, o),
+  },
+  {
+    key: "zxc-daedalus",
+    label: "Server 6",
+    tag: "Original audio · up to 1080p",
+    provider: "ZXC Daedalus",
+    server: "daedalus",
+    resolve: (a, o) => streamResolve.resolveZxc({ ...a, prefer: "daedalus" }, o),
   },
 ];
 

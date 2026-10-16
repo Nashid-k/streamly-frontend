@@ -148,15 +148,14 @@ describe("PreferencesProvider", () => {
     );
   });
 
-  /* VidSrc (Server 6), NHD (Server 7) and the old VidRack (previously Server 5,
-     now the live Orion) were removed after re-measuring dead, so a returning
-     visitor's saved order must lose those rows instead of keeping dead entries
-     in the menu. Server 5 is deliberately NOT in this list any more: it is live
-     again (Orion), so testing that it is dropped would pin the wrong contract. */
+  /* VidSrc, NHD and the old VidRack were removed after re-measuring dead, so a
+     returning visitor's saved order must lose those rows instead of keeping dead
+     entries in the menu. The live catalogue is Server 1–6 (Orion…Daedalus), so
+     Server 7 and 8 are the retired tail this pins. */
   it("drops retired servers from a saved order instead of listing dead rows", () => {
     localStorage.setItem(
       "setting-serverOrder",
-      JSON.stringify(["Server 8", "Server 1", "Server 6", "Server 7"]),
+      JSON.stringify(["Server 8", "Server 1", "Server 7"]),
     );
 
     render(
@@ -166,7 +165,6 @@ describe("PreferencesProvider", () => {
     );
 
     expect(screen.getByTestId("server-order")).toHaveTextContent("Server 1");
-    expect(screen.getByTestId("server-order")).not.toHaveTextContent("Server 6");
     expect(screen.getByTestId("server-order")).not.toHaveTextContent("Server 7");
     expect(screen.getByTestId("server-order")).not.toHaveTextContent("Server 8");
   });
@@ -174,7 +172,7 @@ describe("PreferencesProvider", () => {
   it("falls back to the live default order when every saved row is retired", () => {
     localStorage.setItem(
       "setting-serverOrder",
-      JSON.stringify(["Server 6", "Server 7", "Server 8"]),
+      JSON.stringify(["Server 7", "Server 8", "Server 9"]),
     );
 
     render(
@@ -187,7 +185,7 @@ describe("PreferencesProvider", () => {
     // catalogue: asserting the whole live roster keeps this honest when a server
     // is added or retired.
     expect(screen.getByTestId("server-order")).toHaveTextContent(
-      "Server 1 | Server 2 | Server 3 | Server 4 | Server 5",
+      "Server 1 | Server 2 | Server 3 | Server 4 | Server 5 | Server 6",
     );
   });
 

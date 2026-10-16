@@ -191,24 +191,32 @@ full-stream URLs (one manifest per dub, each individually verified) in
 `audioTracks`, which the player's Audio menu surfaces as a position-preserving
 manifest swap rather than hls.js audio groups.
 
-**VIDSTUCK / ZXC (`resolvezxc`) is a FIFTH provider that contributes FIVE
-separate Servers-menu rows** — `zxc-orion`, `zxc-andromeda`, `zxc-centaurus`,
-`zxc-atlas`, `zxc-meow` (Ursa) — because it fronts independent backends with
-different capabilities, not one source with quality rungs. **The roster ROTATES
-upstream**, so it is re-derived at runtime from the client chunk's shipped
-`SERVERS` array (`parseZxcRoster` in `api/stream.js`: ordered `{name, server,
-dubSupport}`) and drives the menu order, the default, and the rotation tie-break.
-`ZXC_ROSTER_SEED` in `api/stream.js` is only the seed for before-discovery and
-offline, kept in the provider's own order (re-verified live 2026-10-14: Orion,
-Andromeda, Centaurus, Atlas, Ursa — Orion is the provider's Server 1 and `Ursa`'s
-path is literally `meow`; `milkyway` was in an older bundle and 403s today).
+**VIDSTUCK / ZXC (`resolvezxc`) is a FIFTH provider that contributes SIX
+separate Servers-menu rows** — `zxc-orion`, `zxc-valstrax`, `zxc-atlas`,
+`zxc-ursa`, `zxc-alatreon`, `zxc-daedalus` — because it fronts independent
+backends with different capabilities, not one source with quality rungs. **The
+roster ROTATES upstream**, so it is re-derived at runtime from the client chunk's
+shipped `ec=[…]` array (`parseZxcRoster` in `api/stream.js`: ordered `{name,
+server, dubSupport}`; the legacy `SERVERS` export is still parsed) and drives the
+menu order, the default, and the rotation tie-break. `ZXC_ROSTER_SEED` in
+`api/stream.js` is only the seed for before-discovery and offline, kept in the
+provider's own order (re-verified live 2026-11-16: Orion, Valstrax, Atlas, Ursa,
+Alatreon, Daedalus — Orion is the provider's Server 1 and the only multi-audio
+row; `resshin` is a separate download-only row outside the roster array).
 Minting is
-a single `POST https://vidstuck.xyz` + the provider's current obfuscated mint
-path (`ZXC_MINT_PATH` in `api/stream.js`; upstream renames it, so it is read
-from the constant and never repeated here) with a same-origin
-`Origin: https://vidstuck.xyz` and an obfuscated body (`mediaType`, `server`,
-`season`, `episode`); the answer is AES-256-CBC encrypted with the session's
-`secretKey`, so the whole exchange runs server-side. **A rename cannot take the
+a single `POST {ZXC_ORIGIN}/backend/fucku` + the provider's current obfuscated
+mint path (`ZXC_MINT_PATH` in `api/stream.js`; upstream renames it — measured
+history `meow → fuckyou → fuckoffniggawtf → scrapeurfckingmom → scrapeurfckingdad
+→ fucku` — so it is read from the constant and never repeated here) whose body
+carries the obfuscated field keys (`ZXC_PARAM`: `id`, `mediaType`, `path` for the
+server, plus `season`/`episode` for TV) and answers `{token, ts}`. The links are
+then fetched from `GET {ZXC_ORIGIN}/backend_/sources/{server}?<obfuscated query>`,
+which answers `{success, links:[{type, link, resolution}], dubs, cached, server}`
+— each `link` is AES-256-CBC sealed with `ZXC_LINK_KEY` (CryptoJS `Salted__`
+envelope) and decrypted by `decryptZxcLink`. The whole exchange runs server-side.
+`ZXC_ORIGIN` is `https://zxcstream.cc` (the v1 `vidstuck.xyz` origin, the
+`/backend/servers/` endpoint, and the dead `player.zxcprime.xyz`/`zxcstream.icu`
+hosts are all retired). **A rename cannot take the
 provider down:** the mint path + obfuscated param names live in a mutable
 `zxcContract` (seeded from the constants) and a contract-shaped mint failure
 (HTTP 404 / non-JSON body / "no token") re-derives them from the provider's own
@@ -224,17 +232,19 @@ watchdog (`api/sync-contract.js`, `crons` in `vercel.json`, authenticated with
 is committed as ONE atomic Git Data API commit via `GITHUB_TOKEN`). Each derives
 the live contract, rewrites the block (and the path pinned in
 `zxcMintPath.test.js`), proves real movie + series playback through the handler,
-and only then commits, so the committed seed never goes stale. The decrypted
-`lookupServer` result is an AES-encrypted per-server playlist; `playbackServers`
-maps each backend to a host:
+and only then commits, so the committed seed never goes stale. The sources
+response's `links` are decrypted per-server links whose wire `type` picks the
+playback path (DASH→`server/dashToHls.js`, else native HLS); wire format and dubs
+are read per response, not frozen. The seed roster maps each backend to a row:
 
-| row | backend | wire format | dubs |
-| --- | --- | --- | --- |
-| Server 1 Orion | `orion` | DASH MPD | yes |
-| Server 2 Andromeda | `andromeda` | DASH MPD | no |
-| Server 3 Centaurus | `centaurus` | DASH MPD | yes |
-| Server 4 Atlas | `atlas` | HLS | no |
-| Server 5 Ursa | `meow` | HLS | no |
+| row | backend | multi-audio |
+| --- | --- | --- |
+| Server 1 Orion | `orion` | yes |
+| Server 2 Valstrax | `valstrax` | no |
+| Server 3 Atlas | `atlas` | no |
+| Server 4 Ursa | `ursa` | no |
+| Server 5 Alatreon | `alatreon` | no |
+| Server 6 Daedalus | `daedalus` | no |
 
 **The no-pick path resolves through AUTO, not a five-row client walk.** The
 Servers-menu default is Server 1, but when the viewer has NOT picked a row the
@@ -243,8 +253,9 @@ player resolves through `AUTO_SOURCE` (`src/constants/sources.js`): one
 the backends itself in health order (healthy first, then most-recently-
 successful, then the Servers-menu order). Soft misses (server up, title absent)
 continue to the next backend; the walk ends early after 3 HARD transport
-failures. A backend that fails HARD (its own HTTP 4xx/5xx — the centaurus
-`zxcstream.*.workers.dev` `427` is the motivating case — or a network/abort
+failures. A backend that fails HARD (its own HTTP 4xx/5xx — the provider's
+`atlas` delivery host answering `427` is the current motivating case — or a
+network/abort
 error) is remembered for a 90s cooldown (`zxcServerHealth` in `api/stream.js`,
 module-level so the first failure of the minute spares every viewer after it)
 and skipped by later automatic resolves; any success clears the mark. A SOFT
@@ -264,7 +275,7 @@ and is consumed only for the no-pick case (any explicit pick resolves its own
 server live).
 
 **A cold resolve runs the token mint CONCURRENTLY with the metadata lookup.** The
-critical path is `max(mint, /backend/tmdb/details) → /backend/servers → MPD`, not
+critical path is `max(mint, /backend/tmdb/details) → /backend_/sources → MPD`, not
 the four sequential round trips it used to be: the mint depends only on
 type/id/server/season/episode and never on the metadata, so `handleResolveZxc`
 starts the first server's mint BEFORE awaiting `zxcTitleMeta` and hands the
@@ -301,19 +312,19 @@ two, so the pure-`auto` happy path pays nothing extra.
 than played with `dash.js`: the MPD's `SegmentTemplate` is substituted per
 representation, and `buildMasterPlaylist`/`buildMediaPlaylist` emit a replayable
 HLS pair addressed by a marker URL that re-runs the conversion on demand —
-`…/backend/servers/{server}?zx=streamly&zv=master|media&zr={representationId}`
+`…/backend_/sources/{server}?zx=streamly&zv=master|media&zr={representationId}`
 (plus `zd={lang}` for a dub), so the browser never sees a time-scoped MPD. This
 keeps the whole native pipeline HLS-only (one MSE append path, one manifest
-parser, the existing relay). Real upstream captures confirm 997 fMP4 segments
-per 1080p Centaurus/Andromeda rendition with `ftyp` init + `styp` segments and
+parser, the existing relay). Real upstream captures confirm hundreds of fMP4
+segments per 1080p DASH rendition with `ftyp` init + `styp` segments and
 no unsubstituted `$Number$`/`$RepresentationID$` left behind. Generated masters
 set `source.multiLevelMaster: true` so the player loads the master and keeps the
-ladder in one document; native HLS masters (Ursa) and single-rung media
-playlists (Atlas) are parsed as-is. Which rows are DASH versus HLS is decided
+ladder in one document; native HLS masters and single-rung media
+playlists are parsed as-is. Which rows are DASH versus HLS is decided
 from each response's link `type`, not a frozen server list — the provider moved
 Orion onto DASH on 2026-10-14 without warning.
 
-The multi-audio rows (Orion, Centaurus) expose dubs as SIBLING masters, not
+The multi-audio row (Orion) exposes dubs as SIBLING masters, not
 `#EXT-X-MEDIA` groups: the servers payload's `dubs` array lists them (`en/0`→
 `eng`, `fr/0`→`ave`, `esla/0`→`aka`), and they are listed UNVERIFIED — exactly
 as the provider's own player builds its Audio menu from `data.dubs` (its chunk
@@ -342,7 +353,7 @@ through `languageNameFromCode` (`audioLabels.js`) — `esla` → "Spanish (Latin
 America)", `ptbr` → "Portuguese (Brazil)", and ISO-639-2 codes → names. The same
 helper names the in-manifest group a transcoded DASH master carries (its
 `#EXT-X-MEDIA NAME`/`LANGUAGE` is `eng`/`hin`/`fra`), so a single-audio source
-(Andromeda) no longer shows a bare "eng" row. A dub whose code is unknown keeps
+(Valstrax/Atlas/…) no longer shows a bare "eng" row. A dub whose code is unknown keeps
 the normalised provider label rather than a guess (live 2026-10-15).
 
 A dub listed UNVERIFIED can genuinely be dead: verified live, Orion advertises
@@ -369,11 +380,11 @@ autoplay on/off switch was removed from the transport bar (the `autoplay`
 preference is still honoured and persisted).
 
 **ZXC bytes are relay-only in practice.** Its rotating worker/CDN hosts
-(`*.workers.dev`, `sopas9`, `onion18`, `invalid4`, `hakunaymatata`) gate on the
+(`*.workers.dev`, `sopas9`, `onion18`, `invalid4`, `hakunaymatata`, and the
+`vidstuck.cc` database relay) gate on the
 owning origin: verified live, a request carrying a foreign `Origin` gets a bare
-`403 Forbidden`, and only `Origin: https://vidstuck.xyz` is answered (with
-`ACAO: https://vidstuck.xyz`). Andromeda's `sacdn` host is the exception
-(`ACAO: *`). A browser XHR always sends `Origin`, so the player can never fetch
+`403 Forbidden`, and only `Origin: https://zxcstream.cc` is answered (with
+`ACAO: https://zxcstream.cc`). A browser XHR always sends `Origin`, so the player can never fetch
 those fragments directly — it does not need to: `nativeHlsLoader` probes direct,
 sees no usable `ACAO`, and falls back to the server-side relay, which sends no
 `Origin` and carries the embed referer (that path returns real `styp` bytes with
@@ -382,20 +393,22 @@ this holds on Safari too. Cost consequence: ZXC fragments ride the relay, so
 `VITE_STREAMLY_RELAY_URL` (the Cloudflare worker) matters for these rows — on
 the Vercel fallback every fragment is a serverless round trip.
 
-**The ZXC provider migrated, and the app now plays through the provider's OWN embed player.**
-`vidstuck.xyz` is retired (its apex 302s to a dead `backup.vidstuck.xyz` Railway app). The live
-origin is `player.zxcprime.xyz` (reached via `zxcstream.xyz`; the marketing apex `zxcprime.xyz`
-301s to `zxcstream.cc`), and it serves **only the v2 API** — the v1 `scrapeurfckingdad` mint and
-`/backend/servers/` are gone, so the server-side `resolvezxc` resolver 404s. The v2 handshake
-(`POST /backend/fucku` + a sentinel GET) rejects every server-side request we can make, while the
-provider's OWN page mints fine in a browser — so playback frames the provider's embed route
-`https://zxcstream.cc/embed/{movie|tv}/{tmdbId}[/{season}/{episode}]`
-(`src/components/ProviderEmbedPlayer.jsx`, wired into the `TitleDetailsPage` player slot) and lets
-the provider's JS run its own mint/sentinel dance. The switch is ONE flag,
-`PROVIDER_EMBED_PLAYBACK` in `src/constants/playback.js` (`false` restores the native
-`NativePlayerView` path). `vercel.json`'s CSP `frame-src` now allows `https://zxcstream.cc`. While
-the flag is on, the native ZXC resolver documented in this section (mint/discovery/relay) is
-retained but unused, and `ZXC_ORIGIN` in `api/stream.js` is pointed at the live origin.
+**The ZXC provider migrated to a v2 sources contract, and the app plays it natively again.**
+`vidstuck.xyz` and `/backend/servers/` are retired. The live
+origin is `https://zxcstream.cc` and it serves the v2 API: mint at
+`POST /backend/fucku` (body keyed by the `FIELD_MAP` hex params) → then
+`GET /backend_/sources/{server}` (AES-sealed links). A first attempt to solve this
+server-side wrongly assumed the embed/sentinel handshake was required (it answers
+`400` to us) and briefly switched playback to the provider's own embed iframe.
+The handshake is NOT required: the mint takes the plain
+`{id, mediaType, path[, season, episode]}` body and the sources endpoint decrypts,
+so the server-side `resolvezxc` resolver works and native playback is restored.
+The embed remains wired as an escape hatch behind ONE flag,
+`PROVIDER_EMBED_PLAYBACK` in `src/constants/playback.js` (now `false`; `true`
+frames `https://zxcstream.cc/embed/{movie|tv}/{tmdbId}[/{season}/{episode}]` via
+`src/components/ProviderEmbedPlayer.jsx`, and `vercel.json`'s CSP `frame-src`
+still allows `https://zxcstream.cc`). The native ZXC resolver documented in this
+section (mint/discovery/relay/contract-sync) is the live path.
  A third third-party
 provider, CineSrc, was REMOVED: its stream tokens are minted inside a real
 browser (canvas/TLS fingerprint-bound), so it only ever worked through a

@@ -21,7 +21,12 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 const { lookup } = vi.hoisted(() => ({ lookup: vi.fn() }));
 vi.mock("node:dns/promises", () => ({ lookup, default: { lookup } }));
 
-const { default: handler, clearZxcMpdCache, clearZxcTitleMetaCache } = await import("../../api/stream.js");
+const { default: handler, clearZxcMpdCache, clearZxcTitleMetaCache, zxcContractSeed } = await import("../../api/stream.js");
+
+// The obfuscated param names the mint body carries. Derived from the module seed
+// so a provider rename (rewritten by the sync-zxc-contract step) can never strand
+// this suite on stale hex literals.
+const ZXC_PARAM = zxcContractSeed().params;
 
 function makeRes() {
   const res = {
@@ -158,7 +163,7 @@ describe("POST /api/stream — resolvezxc", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("defaults to centaurus when no server is named", async () => {
+  it("defaults to the provider's first server when no server is named", async () => {
     // The client always names a server (each SOURCES row binds one), so a
     // missing key is a lenient fallback rather than an error.
     const fetchMock = vi.fn(async () => new Response("nope", { status: 502 }));
@@ -171,7 +176,7 @@ describe("POST /api/stream — resolvezxc", () => {
   it("returns a structured refusal when the provider is unreachable, not a 500", async () => {
     // beforeEach stubs every fetch to a 502, so the mint/lookup chain fails
     // upstream. The handler must still answer with a JSON envelope.
-    const res = await callZxc({ server: "centaurus" });
+    const res = await callZxc({ server: "orion" });
     expect(res.statusCode).toBe(200);
     const payload = JSON.parse(res.body);
     expect(payload.ok).toBe(false);
@@ -194,10 +199,10 @@ describe("POST /api/stream — resolvezxc", () => {
       .map(([, init]) => init?.body)
       .filter(Boolean)
       .map((b) => JSON.parse(b));
-    const mint = bodies.find((b) => b["6b491e725a8d392e7561a9384c"] === "atlas");
+    const mint = bodies.find((b) => b[ZXC_PARAM.path] === "atlas");
     expect(mint).toBeTruthy();
-    expect(mint["d8427b59c308a2f957c3613e85b"]).toBe("2");
-    expect(mint["91c6e4a7253d1f785c92346b713d"]).toBe("7");
+    expect(mint[ZXC_PARAM.season]).toBe("2");
+    expect(mint[ZXC_PARAM.episode]).toBe("7");
   });
 
   it("omits season/episode for a movie", async () => {
@@ -214,11 +219,11 @@ describe("POST /api/stream — resolvezxc", () => {
       .map(([, init]) => init?.body)
       .filter(Boolean)
       .map((b) => JSON.parse(b));
-    const mint = bodies.find((b) => b["6b491e725a8d392e7561a9384c"] === "atlas");
+    const mint = bodies.find((b) => b[ZXC_PARAM.path] === "atlas");
     expect(mint).toBeTruthy();
     // Sending empty episode keys would make the provider answer episode 0.
-    expect(mint["d8427b59c308a2f957c3613e85b"]).toBeUndefined();
-    expect(mint["91c6e4a7253d1f785c92346b713d"]).toBeUndefined();
+    expect(mint[ZXC_PARAM.season]).toBeUndefined();
+    expect(mint[ZXC_PARAM.episode]).toBeUndefined();
   });
 
   it("shares the title-metadata lookup across episodes of the same title", async () => {
@@ -272,11 +277,11 @@ describe("POST /api/stream — issued-host relay fence", () => {
   });
 
   it("admits the trusted provider origin without a prior issuance", async () => {
-    // vidstuck.xyz is the ZXC origin every marker/master/media URL lives on, so
+    // zxcstream.cc is the ZXC origin every marker/master/media URL lives on, so
     // it is always allowed — a fresh instance must be able to play immediately.
     const fetchMock = vi.fn(async () => new Response("nope", { status: 502 }));
     vi.stubGlobal("fetch", fetchMock);
-    const res = await call({ action: "playlist", playlistUrl: "https://vidstuck.xyz/provider/master.m3u8" });
+    const res = await call({ action: "playlist", playlistUrl: "https://zxcstream.cc/provider/master.m3u8" });
     expect(res.statusCode).not.toBe(403);
     expect(fetchMock).toHaveBeenCalled();
   });
@@ -287,14 +292,14 @@ describe("POST /api/stream — issued-host relay fence", () => {
     // the very next segment on that host passes the fence it would have failed
     // a request earlier.
     const fetchMock = vi.fn((url) =>
-      String(url).includes("vidstuck.xyz")
+      String(url).includes("zxcstream.cc")
         ? Promise.resolve(
             new Response("#EXTM3U\n#EXTINF:10,\nhttps://example.com/seg1.ts\n", { status: 200 }),
           )
         : Promise.resolve(new Response("nope", { status: 502 })),
     );
     vi.stubGlobal("fetch", fetchMock);
-    const playlist = await call({ action: "playlist", playlistUrl: "https://vidstuck.xyz/provider/master.m3u8" });
+    const playlist = await call({ action: "playlist", playlistUrl: "https://zxcstream.cc/provider/master.m3u8" });
     expect(playlist.statusCode).toBe(200);
     const seg = await call({
       action: "segment",
@@ -311,14 +316,14 @@ describe("POST /api/stream — issued-host relay fence", () => {
     // grouping must not fold every *.workers.dev host onto one shared root, or
     // planting a single URL would open the relay to every other tenant.
     const fetchMock = vi.fn((url) =>
-      String(url).includes("vidstuck.xyz")
+      String(url).includes("zxcstream.cc")
         ? Promise.resolve(
             new Response("#EXTM3U\n#EXTINF:10,\nhttps://alpha.workers.dev/seg1.ts\n", { status: 200 }),
           )
         : Promise.resolve(new Response("nope", { status: 502 })),
     );
     vi.stubGlobal("fetch", fetchMock);
-    const playlist = await call({ action: "playlist", playlistUrl: "https://vidstuck.xyz/provider/master.m3u8" });
+    const playlist = await call({ action: "playlist", playlistUrl: "https://zxcstream.cc/provider/master.m3u8" });
     expect(playlist.statusCode).toBe(200);
 
     const own = await call({

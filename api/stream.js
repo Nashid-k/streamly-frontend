@@ -175,7 +175,7 @@ const MAX_REQUEST_BODY_BYTES = 512 * 1024;
    and killed playback of TV titles whose metadata lookup is mandatory. Keeping
    the list unverified removes that request amplification. See `zxcDubTracks`. */
 
-const ZXC_ORIGIN = "https://player.zxcprime.xyz";
+const ZXC_ORIGIN = "https://zxcstream.cc";
 /* THE MINT PATH. Read off the shipped embed chunk, NOT guessed, and upstream
    renames it periodically (see the contract note above for the rename history
    and for the re-discovery procedure). Every row shares this one call, so when
@@ -188,24 +188,24 @@ const ZXC_ORIGIN = "https://player.zxcprime.xyz";
 // below is rewritten in place from values the script derives from the
 // provider's own shipped chunk and then confirms by real playback. Do not
 // hand-edit inside the markers — edit the script instead.
-const ZXC_MINT_PATH = "/backend/scrapeurfckingdad";
+const ZXC_MINT_PATH = "/backend/fucku";
 /* The obfuscated parameter names the client sends. Read straight off the
-   shipped bundle's `uo/up/ug/uf/uh/ul/uu/ud/uc/um` constants — renaming any of
-   them makes the request fail closed. */
+   shipped bundle's `FIELD_MAP` export (module 78863) — renaming any of them
+   makes the request fail closed. */
 const ZXC_PARAM = {
-  tmdbId: "a7f39c821d604e5b9c1f6e547b",
-  mediaType: "c28f1b306d28147a35632e816b",
-  path: "6b491e725a8d392e7561a9384c",
-  season: "d8427b59c308a2f957c3613e85b",
-  episode: "91c6e4a7253d1f785c92346b713d",
-  ts: "61d9a5274c8e3b29fd38c291e6",
-  token: "c492f7a183d6021e436c538a716d",
+  tmdbId: "a7f39c821d604e5b9c1e547b",
+  mediaType: "c281b306d28147a35632e816b",
+  path: "6b491e7258d392e7561a9384c",
+  season: "d8427b59c38a2f957c3613e85b",
+  episode: "91c6e4a753d1f785c92346b713d",
+  ts: "61d9a5274c8e3b29f38c291e6",
+  token: "c492f7a183d601e436c538a716d",
   title: "5e28c9147a306d1e29f3674b392a1",
-  year: "b731e6c94f086975f8341c306e",
-  date: "e16493201a39e5814b3027",
+  year: "b731e6c94f08675f8341c306e",
+  date: "e1649321a39e5814b3027",
 };
-const ZXC_IMDB_PARAM = "f35a8c19643265e871c4933a725f";
-const ZXC_LATEST_DATE_PARAM = "e92c543416ad739e5814b3027";
+const ZXC_IMDB_PARAM = "f35a8c1943265e871c4933a725f";
+const ZXC_LATEST_DATE_PARAM = "e92543416ad739e5814b3027";
 // <zxc-contract:end>
 
 /* The AES passphrase the provider seals every link with. It has NEVER changed
@@ -213,28 +213,29 @@ const ZXC_LATEST_DATE_PARAM = "e92c543416ad739e5814b3027";
    block: a rename changes WHERE we ask, not how the answer is encrypted. */
 const ZXC_LINK_KEY = "7f4c9e2a81d63b05c4f7a9e8126d3b50e1a8c7f23d9465ab0c6e9f1d4a7b832c";
 
-/* Upstream's own server list, read off the CURRENT shipped embed chunk
-   (`gN.SERVERS`, re-verified 2026-10-14): Orion "Multi Audio Support"
-   (`dubSupport`), Andromeda "Smooth Playback & HD", Centaurus "Multi Audio
-   Support" (`dubSupport`), Atlas "Alternative", and Ursa "Alternative" —
-   whose PATH is literally `meow`. `milkyway` is GONE (retired upstream).
+/* Upstream's own server list, read off the CURRENT shipped client chunk
+   (`ec=[…]`, re-verified 2026-11-16): Orion I "Multi Audio Support", Valstrax
+   II "HD Quality & Reliable", Atlas III "Fast & Stable", Ursa IV
+   "Alternative", Alatreon V "Extensive Movie & TV Library", Daedalus VI
+   "Alternative". `resshin` is a separate download-only row.
 
-   THE ORDER IS THE PROVIDER'S OWN, and it MATTERS: their Server 1 is Orion,
-   not Centaurus. This list is the menu order, the default, and the
-   auto-rotation's tie-break. Reorder it whenever `gN.SERVERS` reorders — a
-   row whose delivered host is down should never sit at position 1.
+   THE ORDER IS THE PROVIDER'S OWN, and it MATTERS: their Server 1 is Orion.
+   This list is the menu order, the default, and the auto-rotation's tie-break.
+   Reorder it whenever the provider reorders — a row whose delivered host is
+   down should never sit at position 1.
 
    The roster ROTATES and a single row can be renamed/removed, so the live
    roster is RE-DERIVED from the shipped chunk at runtime (see
    `parseZxcRoster`); this constant is only the truthful seed used before the
    first discovery and offline. `dubSupport` is likewise read per request from
-   the servers payload (`data.dubs`), not frozen here. */
+   the sources payload (`data.dubs`), not frozen here. */
 const ZXC_ROSTER_SEED = [
   { name: "Orion", server: "orion", dubSupport: true },
-  { name: "Andromeda", server: "andromeda", dubSupport: false },
-  { name: "Centaurus", server: "centaurus", dubSupport: true },
+  { name: "Valstrax", server: "valstrax", dubSupport: false },
   { name: "Atlas", server: "atlas", dubSupport: false },
-  { name: "Ursa", server: "meow", dubSupport: false },
+  { name: "Ursa", server: "ursa", dubSupport: false },
+  { name: "Alatreon", server: "alatreon", dubSupport: false },
+  { name: "Daedalus", server: "daedalus", dubSupport: false },
 ];
 const ZXC_SERVERS = ZXC_ROSTER_SEED.map((r) => r.server);
 
@@ -343,20 +344,78 @@ let zxcContract = {
 export function parseZxcRoster(chunks) {
   for (const src of chunks) {
     if (typeof src !== "string") continue;
+    // LEGACY: an exported `["SERVERS",0,[…]]` whose entries carry explicit
+    // `dubSupport` flags. Each entry is
+    // `{name:"…",status:"…",server:"…",desc:"…",dubSupport:!0|!1,…}`; `[^}]*?`
+    // keeps each match inside ONE object so a missing field cannot spill into
+    // the next server's.
     const at = src.indexOf('"SERVERS"');
-    if (at < 0) continue;
-    // Each entry is `{name:"…",status:"…",server:"…",desc:"…",dubSupport:!0|!1,…}`.
-    // `[^}]*?` keeps each match inside ONE object so a missing field cannot spill
-    // into the next server's.
-    const roster = [];
-    for (const m of src.slice(at, at + 2000).matchAll(
-      /\{name:"([^"]+)",[^}]*?server:"([^"]+)"[^}]*?dubSupport:(!0|!1)/g,
-    )) {
-      roster.push({ name: m[1], server: m[2], dubSupport: m[3] === "!0" });
+    if (at >= 0) {
+      const roster = [];
+      for (const m of src.slice(at, at + 2000).matchAll(
+        /\{name:"([^"]+)",[^}]*?server:"([^"]+)"[^}]*?dubSupport:(!0|!1)/g,
+      )) {
+        roster.push({ name: m[1], server: m[2], dubSupport: m[3] === "!0" });
+      }
+      if (roster.length >= 2) return roster;
     }
-    if (roster.length >= 2) return roster;
+    // CURRENT: a plain `ec=[{name:"Orion I",server:"orion",status:"queue",
+    // desc:"Multi Audio Support"},…]` array with no `dubSupport` flag — derive it
+    // from the description ("Multi Audio Support"). The provider ALSO ships a
+    // lone `ed={…}` download-only entry (resshin) OUTSIDE that array, so the
+    // regex matches one extra object; group matches into comma-connected runs
+    // and keep the longest, so the stray entry cannot join the roster.
+    const matched = [...src.matchAll(
+      /\{name:"([^"]+)",server:"([^"]+)",status:"queue",desc:"([^"]*)"\}/g,
+    )];
+    let best = [];
+    let run = [];
+    let prevEnd = -1;
+    for (const m of matched) {
+      if (prevEnd >= 0 && !/^\s*,\s*$/.test(src.slice(prevEnd, m.index))) {
+        if (run.length > best.length) best = run;
+        run = [];
+      }
+      run.push({ name: m[1], server: m[2], dubSupport: /multi audio/i.test(m[3]) });
+      prevEnd = m.index + m[0].length;
+    }
+    if (run.length > best.length) best = run;
+    if (best.length >= 2) return best;
   }
   return null;
+}
+
+/* Parse the provider's `FIELD_MAP` object — the literal field-named hex params
+   (`{id:"…",fToken:"…",ts:"…",token:"…",title:"…",year:"…",season:"…",
+   episode:"…",imdbId:"…",path:"…",mediaType:"…",date:"…",latestDate:"…"}`).
+   `fToken` is the distinctive anchor; the keys are literal field names, so this
+   survives minifier variable renames. Returns null unless every required param
+   resolved. */
+function parseZxcFieldMap(src) {
+  const anchor = src.indexOf('fToken:"');
+  if (anchor < 0) return null;
+  const open = src.lastIndexOf("{", anchor);
+  const close = src.indexOf("}", anchor);
+  if (open < 0 || close < 0) return null;
+  const obj = src.slice(open, close + 1);
+  const get = (key) => {
+    const m = obj.match(new RegExp(`${key}:"([0-9a-fA-F]{8,64})"`));
+    return m ? m[1] : "";
+  };
+  const params = {
+    tmdbId: get("id"),
+    mediaType: get("mediaType"),
+    path: get("path"),
+    season: get("season"),
+    episode: get("episode"),
+    ts: get("ts"),
+    token: get("token"),
+    title: get("title"),
+    year: get("year"),
+    date: get("date"),
+  };
+  if (!Object.values(params).every((v) => typeof v === "string" && v.length > 0)) return null;
+  return { params, imdbParam: get("imdbId"), latestDateParam: get("latestDate") };
 }
 
 /* Parse the param contract out of the shipped client chunks. Returns null unless
@@ -368,6 +427,30 @@ export function deriveZxcContractFromChunks(chunks) {
   const HEX_RUN_RE = /(?:[A-Za-z_$][\w$]*="[0-9a-fA-F]{12,48}"\s*,\s*)+[A-Za-z_$][\w$]*="[0-9a-fA-F]{12,48}"/g;
   const HEX_PAIR_RE = /([A-Za-z_$][\w$]*)\s*=\s*"([0-9a-fA-F]{12,48})"/g;
   const SET_RE = /\.set\(\s*"([0-9a-f]{16,40})"\s*,\s*(\w+)\s*\)/g;
+
+  // CURRENT bundle shape: the params live in a `FIELD_MAP` object export and
+  // are accessed as `X.FIELD_MAP.id` etc., so the alias-based heuristic below
+  // finds nothing. Parse the object directly, and take the mint path from the
+  // `.post("/backend/…")` that consumes `FIELD_MAP`.
+  const fieldList = chunks.filter((s) => typeof s === "string");
+  const fieldMap = fieldList.map(parseZxcFieldMap).find(Boolean);
+  if (fieldMap) {
+    let mintPath = "";
+    for (const src of fieldList) {
+      if (!src.includes("FIELD_MAP")) continue;
+      const m = src.match(/\.post\(\s*"(\/backend\/[A-Za-z0-9_-]+)"/);
+      if (m) { mintPath = m[1]; break; }
+    }
+    if (mintPath) {
+      return {
+        mintPath,
+        params: { ...fieldMap.params },
+        imdbParam: fieldMap.imdbParam,
+        latestDateParam: fieldMap.latestDateParam,
+        roster: parseZxcRoster(chunks),
+      };
+    }
+  }
 
   for (const src of chunks) {
     if (typeof src !== "string") continue;
@@ -615,11 +698,15 @@ const ZXC_VIEW_MEDIA = "media";
      · its REGISTRABLE DOMAIN (last two labels — which already groups rotating
        sibling subdomains like cdn1.x/cdn2.x into one admission) is in the
        registry, or
-     · it is one of the two always-trusted origins:
-         vidstuck.xyz   — the ZXC provider origin itself (every marker/master/
-                          media playlist URL we generate lives there)
-         b-cdn.net      — a dedicated media CDN platform whose subdomains
-                          rotate per title
+      · it is one of the always-trusted origins:
+          zxcstream.cc   — the ZXC provider origin itself (every marker/master/
+                           media playlist URL we generate lives there)
+          vidstuck.cc    — the provider's own DASH relay host (decrypted
+                           `link`s point at `/backend/database/{server}?url=…`)
+          vidstuck.xyz   — LEGACY provider origin; kept so a mid-migration
+                           session does not drop, harmless otherwise
+          b-cdn.net      — a dedicated media CDN platform whose subdomains
+                           rotate per title
    The registry is populated by:
      · `resolvezxc` issuing EVERY upstream host it touches (decrypted links,
        the DASH MPD host, and hosts referenced inside parsed playlists/MPDs),
@@ -636,7 +723,7 @@ const ISSUED_HOST_TTL_MS = 30 * 60_000;
 // (issueHostsInText) could bloat the maps between lookups. A hard cap is a cheap
 // backstop for that burst case.
 const ISSUED_HOST_MAX = 4096;
-const ALWAYS_ALLOWED_HOST_ROOTS = new Set(["vidstuck.xyz", "b-cdn.net"]);
+const ALWAYS_ALLOWED_HOST_ROOTS = new Set(["zxcstream.cc", "vidstuck.cc", "vidstuck.xyz", "b-cdn.net"]);
 /* Public-suffix entries holding MORE than one label. `labels.slice(-2)` is only
    right for a single-label TLD: for a Cloudflare `*.workers.dev` host (or
    `pages.dev`, `github.io`, …) it folds every tenant onto one shared root, so
@@ -931,13 +1018,13 @@ async function zxcServerLinks(meta, { server, dubCode, dubType, prefetchedToken 
   }
   if (meta.imdbId) query.set(imdbParam, meta.imdbId);
 
-  const url = `${ZXC_ORIGIN}/backend/servers/${server}?${query.toString()}`;
+  const url = `${ZXC_ORIGIN}/backend_/sources/${server}?${query.toString()}`;
   const text = await fetchUpstream(url, {
     referer: `${ZXC_ORIGIN}${meta.refererPath}`,
     extraHeaders: zxcHeaders(meta.refererPath, { json: true }),
   });
   const data = JSON.parse(text);
-  if (data?.success !== true || !Array.isArray(data.links)) throw new Error("servers endpoint returned no links");
+  if (data?.success !== true || !Array.isArray(data.links)) throw new Error("sources endpoint returned no links");
 
   const links = data.links
     .filter((l) => l?.link)
@@ -990,7 +1077,7 @@ function zxcPlaylistUrl(meta, { server, dubCode, dubType, view, representationId
     query.set("dubType", String(dubType ?? "0"));
   }
   if (representationId !== undefined) query.set(ZXC_MARKER.rep, String(representationId));
-  return `${ZXC_ORIGIN}/backend/servers/${server}?${query.toString()}`;
+  return `${ZXC_ORIGIN}/backend_/sources/${server}?${query.toString()}`;
 }
 
 /* The inverse. Returns null for ANY url that is not one of ours, so a caller's
@@ -1132,24 +1219,29 @@ async function handleZxcPlaylist(rawUrl) {
 function zxcDubTracks(meta, server, dubs) {
   const audioTracks = [];
   if (!Array.isArray(dubs)) return audioTracks;
-  const original = dubs.find((d) => d?.original && d?.lanCode) || null;
-  const originalKeyStr = original ? `${original.lanCode}/${String(original.type ?? "0")}` : null;
+  // The provider's current `dubs` rows are `{type, lang, name, original}`; the
+  // retired build used `lanCode`/`lanName`. Read the new names with a legacy
+  // fallback so a response from either contract lists its audio.
+  const codeOf = (d) => d?.lang || d?.lanCode || "";
+  const original = dubs.find((d) => d?.original && codeOf(d)) || null;
+  const originalKeyStr = original ? `${codeOf(original)}/${String(original.type ?? "0")}` : null;
   const seen = new Set();
   for (const dub of dubs) {
-    if (!dub?.lanCode || String(dub.type ?? "0") !== "0") continue;
-    const key = `${dub.lanCode}/${String(dub.type ?? "0")}`;
+    const code = codeOf(dub);
+    if (!code || String(dub.type ?? "0") !== "0") continue;
+    const key = `${code}/${String(dub.type ?? "0")}`;
     if (originalKeyStr && key === originalKeyStr) continue;
     if (seen.has(key)) continue;
     seen.add(key);
     audioTracks.push({
-      label: String(dub.lanName || dub.lanCode),
+      label: String(dub.name || dub.lanName || code),
       // The raw language code, so the Audio menu can name regional variants the
       // provider only labels as a code ("esla" -> Spanish (Latin America), "ptbr"
       // -> Portuguese (Brazil)) instead of echoing "esla" beside "French".
-      lang: String(dub.lanCode),
+      lang: String(code),
       uri: zxcPlaylistUrl(meta, {
         server,
-        dubCode: String(dub.lanCode),
+        dubCode: String(code),
         dubType: String(dub.type ?? "0"),
         view: ZXC_VIEW_MASTER,
       }),

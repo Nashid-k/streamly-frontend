@@ -1,24 +1,26 @@
 // Why EVERY server stopped playing, and the two rules that keep it from coming back
 // silently.
 //
-// Measured live against the real provider on 2026-10-05: `/backend/meow` ->
-// `/backend/fuckyou` -> `/backend/fuckoffniggawtf`, again 2026-10-06 ->
-// `/backend/fuckoffniggawtaf`, and again 2026-10-13 -> `/backend/scrapeurfckingmom`
-// (that rename also rotated the `uo/up/ug/…` param names). All four rows (centaurus,
-// andromeda, atlas, meow) mint their token through that ONE POST, so a rename
-// takes out every row in the same instant and the player reports "no playable
-// source" for all of them at once. That looks exactly like a network outage and
-// four coincidental provider deaths, and it is neither.
+// Measured live against the real provider across its rename history: the mint
+// path has been `/backend/meow` -> `/backend/fuckyou` -> `/backend/fuckoffniggawtf`
+// -> `/backend/scrapeurfckingmom` -> `/backend/scrapeurfckingdad` -> `/backend/fucku`,
+// and on 2026-11-16 the whole app moved to `zxcstream.cc` with the sources endpoint
+// flipped from `/backend/servers/{server}` to `/backend_/sources/{server}` (each
+// rename also rotated the obfuscated param names, now shipped as the `FIELD_MAP`
+// export). Every row mints its token through that ONE POST, so a rename takes out
+// every row in the same instant and the player reports "no playable source" for
+// all of them at once. That looks exactly like a network outage and a fleet of
+// coincidental provider deaths, and it is neither.
 //
-// These tests pin the two things that actually broke:
+// These tests pin the things that actually break:
 //
 //   1. The mint path. Asserted against the CURRENT path so the next rename fails
 //      a test naming the string to change, instead of failing every title.
 //   2. The metadata contract. title + year + date are MANDATORY: a matrix over
-//      movie 27205 showed the servers endpoint answers 400 "missing params" if
+//      movie 27205 showed the sources endpoint answers 400 "missing params" if
 //      any one is blank. The handler used to swallow a failed lookup and send
-//      blanks, converting a flaky TMDB call into "no playable source" on all four
-//      servers with the real cause nowhere in the message.
+//      blanks, converting a flaky TMDB call into "no playable source" on every
+//      server with the real cause nowhere in the message.
 //
 // Hermetic: fetch is stubbed, no test may reach a provider.
 import { describe, it, expect, beforeEach, vi } from "vitest";
@@ -35,7 +37,9 @@ const { default: handler, clearZxcMpdCache, clearZxcTitleMetaCache, describeZxcC
 
 /* The current mint path. If upstream renames it again, the failure is a 404 HTML
    page on every row; update this constant and ZXC_MINT_PATH together. */
-const MINT_PATH = "/backend/scrapeurfckingdad";
+const MINT_PATH = "/backend/fucku";
+/* The current sources endpoint. Retired name: `/backend/servers/{server}`. */
+const SOURCES_PATH = "/backend_/sources/";
 
 const json = (payload) =>
   new Response(JSON.stringify(payload), { status: 200, headers: { "content-type": "application/json" } });
@@ -64,7 +68,7 @@ beforeEach(() => {
         return details === null ? new Response("upstream unreachable", { status: 502 }) : json(details);
       }
       if (url.includes(MINT_PATH)) return json({ token: "tok", ts: "1700000000" });
-      if (url.includes("/backend/servers/")) return json(serversResponse);
+      if (url.includes(SOURCES_PATH)) return json(serversResponse);
       if (url.includes(".m3u8")) {
         return new Response("#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:13\n#EXTINF:12.0,\nhttps://93.184.216.34/s0\n#EXT-X-ENDLIST\n", {
           status: 200,
@@ -90,7 +94,7 @@ function makeRes() {
   return res;
 }
 
-async function resolve({ type = "movie", season, episode, server = "centaurus" } = {}) {
+async function resolve({ type = "movie", season, episode, server = "orion" } = {}) {
   const res = makeRes();
   await handler(
     {
@@ -103,23 +107,23 @@ async function resolve({ type = "movie", season, episode, server = "centaurus" }
   return JSON.parse(res.body);
 }
 
-const serversUrl = () => requests.find((u) => u.includes("/backend/servers/")) || "";
+const serversUrl = () => requests.find((u) => u.includes(SOURCES_PATH)) || "";
 
 describe("ZXC mint endpoint", () => {
   it("mints through the current path, not a retired one", async () => {
-    await resolve({ server: "centaurus" });
-    const mints = requests.filter((u) => u.includes("/backend/") && !u.includes("/backend/tmdb/") && !u.includes("/backend/servers/"));
+    await resolve({ server: "orion" });
+    const mints = requests.filter((u) => u.includes("/backend/") && !u.includes("/backend/tmdb/") && !u.includes(SOURCES_PATH));
     expect(mints.length).toBeGreaterThan(0);
     expect(mints.every((u) => u.includes(MINT_PATH))).toBe(true);
   });
 
   it("never asks a path that is known to be retired", async () => {
-    await resolve({ server: "andromeda" });
-    // `/backend/meow` is a SERVER name ("Ursa"), never an endpoint; `fuckyou`
-    // was the 2026-10-03 name, `fuckoffniggawtf` the 2026-10-05 name, and
-    // `fuckoffniggawtaf` the 2026-10-06 name. All
-    // three answer the Next.js HTML 404 page.
-    for (const dead of ["/backend/meow\"", "/backend/fuckyou\"", "/backend/fuckoffniggawtf\"", "/backend/fuckoffniggawtaf\""]) {
+    await resolve({ server: "valstrax" });
+    // `/backend/meow` is a SERVER name ("Ursa"), never an endpoint; `fuckyou`,
+    // `fuckoffniggawtf`, `fuckoffniggawtaf`, `scrapeurfckingmom` and
+    // `scrapeurfckingdad` are all retired mint names that answer the Next.js
+    // HTML 404 page. `/backend/servers/` is the retired sources endpoint.
+    for (const dead of ["/backend/meow", "/backend/fuckyou", "/backend/fuckoffniggawtf", "/backend/fuckoffniggawtaf", "/backend/scrapeurfckingmom", "/backend/scrapeurfckingdad", "/backend/servers/"]) {
       expect(requests.some((u) => u.includes(dead))).toBe(false);
     }
   });
@@ -152,7 +156,7 @@ describe("resolve latency (the mint runs concurrently with the metadata lookup)"
           if (!detailsSettled) mintWhileDetailsPending = true;
           return json({ token: "tok", ts: "1700000000" });
         }
-        if (url.includes("/backend/servers/")) return json(serversResponse);
+        if (url.includes(SOURCES_PATH)) return json(serversResponse);
         if (url.includes(".m3u8")) {
           return new Response(
             "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:13\n#EXTINF:12.0,\nhttps://93.184.216.34/s0\n#EXT-X-ENDLIST\n",
@@ -163,7 +167,7 @@ describe("resolve latency (the mint runs concurrently with the metadata lookup)"
       }),
     );
 
-    const pending = resolve({ server: "centaurus" });
+    const pending = resolve({ server: "orion" });
     // Let the handler reach its first await: metadata is now parked on the gate.
     await new Promise((r) => setTimeout(r, 20));
     expect(mintWhileDetailsPending).toBe(true);
@@ -174,8 +178,8 @@ describe("resolve latency (the mint runs concurrently with the metadata lookup)"
 });
 
 describe("ZXC metadata is mandatory, not advisory", () => {
-  it("sends title, year and date on the servers request", async () => {
-    await resolve({ server: "centaurus" });
+  it("sends title, year and date on the sources request", async () => {
+    await resolve({ server: "orion" });
     const url = serversUrl();
     // The obfuscated param names are positional contracts; assert on values,
     // which is what upstream actually validates.
@@ -186,7 +190,7 @@ describe("ZXC metadata is mandatory, not advisory", () => {
 
   it("fails with a metadata error, not 'no playable source', when the lookup fails", async () => {
     details = null; // TMDB upstream refused
-    const r = await resolve({ server: "centaurus" });
+    const r = await resolve({ server: "orion" });
     expect(r.ok).toBe(false);
     // The distinction matters: `no-source` tells the viewer the title has no
     // stream anywhere, which is a lie when our own lookup broke.
@@ -208,7 +212,7 @@ describe("ZXC metadata is mandatory, not advisory", () => {
     // The provider normalises a series' `name` into `title`; an old movie-only
     // read would send a blank title for every episode and 400.
     details = { title: "Game of Thrones", release_date: "2011-04-17", last_air_date: "2019-05-19", imdb_id: "tt0944947" };
-    await resolve({ type: "tv", season: 1, episode: 1, server: "centaurus" });
+    await resolve({ type: "tv", season: 1, episode: 1, server: "orion" });
     const url = serversUrl();
     // URLSearchParams encodes the space as `+`, not `%20` — assert the
     // carried value in its on-the-wire form.
@@ -218,28 +222,38 @@ describe("ZXC metadata is mandatory, not advisory", () => {
 });
 
 describe("ZXC roster discovery (self-healing server order)", () => {
-  // The provider's shipped client bundle carries its OWN ordered roster as the
-  // webpack export `["SERVERS",0,[…]]` (read live off chunk `2xxoeiej0kf6r.js`
-  // on 2026-10-14; Orion leads, Ursa's path is `meow`). We read it so the menu
-  // order, the default, and the auto rotation follow the provider instead of a
-  // stale hand-copied seed.
+  // The provider's shipped client bundle carries its OWN ordered roster as a
+  // plain minified `ec=[…]` array (read live off chunk `00uxoksvhj._d.js` on
+  // 2026-11-16; Orion leads, and multi-audio is derived from the description).
   const liveChunk =
-    '16508,e=>{"use strict";e.s(["SERVERS",0,['
-    + '{name:"Orion",status:"queue",server:"orion",desc:"Multi Audio Support",dubSupport:!0,sources:[]},'
-    + '{name:"Andromeda",status:"queue",server:"andromeda",desc:"Smooth Playback & HD",dubSupport:!1,sources:[]},'
-    + '{name:"Centaurus",status:"queue",server:"centaurus",desc:"Multi Audio Support",dubSupport:!0,sources:[]},'
-    + '{name:"Atlas",status:"queue",server:"atlas",desc:"Alternative",dubSupport:!1,sources:[]},'
-    + '{name:"Ursa",status:"queue",server:"meow",desc:"Alternative",dubSupport:!1,sources:[]}'
-    + "]])}";
+    'let ed={name:"Resshin ",server:"resshin",status:"queue",desc:"Download & Multi Audio Support"},'
+    + 'ec=[{name:"Orion I",server:"orion",status:"queue",desc:"Multi Audio Support"},'
+    + '{name:"Valstrax II",server:"valstrax",status:"queue",desc:"HD Quality & Reliable"},'
+    + '{name:"Atlas III",server:"atlas",status:"queue",desc:"Fast & Stable"},'
+    + '{name:"Ursa IV",server:"ursa",status:"queue",desc:"Alternative"},'
+    + '{name:"Alatreon V",server:"alatreon",status:"queue",desc:"Extensive Movie & TV Library"},'
+    + '{name:"Daedalus VI",server:"daedalus",status:"queue",desc:"Alternative"}],eh=Number.isFinite';
 
-  it("reads the ordered roster with its dubSupport flags", () => {
+  it("reads the ordered roster and derives dubSupport from the description", () => {
     const roster = parseZxcRoster([liveChunk]);
     expect(roster).toEqual([
+      { name: "Orion I", server: "orion", dubSupport: true },
+      { name: "Valstrax II", server: "valstrax", dubSupport: false },
+      { name: "Atlas III", server: "atlas", dubSupport: false },
+      { name: "Ursa IV", server: "ursa", dubSupport: false },
+      { name: "Alatreon V", server: "alatreon", dubSupport: false },
+      { name: "Daedalus VI", server: "daedalus", dubSupport: false },
+    ]);
+  });
+
+  it("still reads the LEGACY `SERVERS` export with explicit dubSupport flags", () => {
+    const legacy = '16508,e=>{"use strict";e.s(["SERVERS",0,['
+      + '{name:"Orion",status:"queue",server:"orion",desc:"Multi Audio Support",dubSupport:!0,sources:[]},'
+      + '{name:"Atlas",status:"queue",server:"atlas",desc:"Alternative",dubSupport:!1,sources:[]}'
+      + "]])}";
+    expect(parseZxcRoster([legacy])).toEqual([
       { name: "Orion", server: "orion", dubSupport: true },
-      { name: "Andromeda", server: "andromeda", dubSupport: false },
-      { name: "Centaurus", server: "centaurus", dubSupport: true },
       { name: "Atlas", server: "atlas", dubSupport: false },
-      { name: "Ursa", server: "meow", dubSupport: false },
     ]);
   });
 
@@ -257,14 +271,14 @@ describe("ZXC roster discovery (self-healing server order)", () => {
   });
 
   it("returns null (keep the seed) unless at least two servers parse", () => {
-    expect(parseZxcRoster(['e.s(["SERVERS",0,[{name:"Orion",server:"orion",dubSupport:!0}]])'])).toBeNull();
+    expect(parseZxcRoster(['ec=[{name:"Orion I",server:"orion",status:"queue",desc:"x"}]'])).toBeNull();
     expect(parseZxcRoster(["no roster here at all"])).toBeNull();
     expect(parseZxcRoster([null, 42, {}])).toBeNull();
   });
 
   it("scans past a chunk that does not carry the roster", () => {
     const roster = parseZxcRoster(["self.webpackChunk=1", liveChunk]);
-    expect(roster?.[0]).toEqual({ name: "Orion", server: "orion", dubSupport: true });
+    expect(roster?.[0]).toEqual({ name: "Orion I", server: "orion", dubSupport: true });
   });
 });
 
@@ -311,7 +325,7 @@ describe("ZXC MPD cache", () => {
   const DASH_URL = "https://93.184.216.34/a.mpd";
 
   beforeEach(() => {
-    // Switch the servers response to a single DASH link.
+    // Switch the sources response to a single DASH link.
     serversResponse = {
       success: true,
       links: [
@@ -323,19 +337,19 @@ describe("ZXC MPD cache", () => {
       requests.push(url);
       if (url.includes("/backend/tmdb/details/")) return json(details);
       if (url.includes(MINT_PATH)) return json({ token: "tok", ts: "1700000000" });
-      if (url.includes("/backend/servers/")) return json(serversResponse);
+      if (url.includes(SOURCES_PATH)) return json(serversResponse);
       if (url.includes(DASH_URL)) return new Response(MPD_XML, { status: 200 });
       return new Response("upstream unreachable", { status: 502 });
     }));
   });
 
-  it("does one mint+servers per resolve and caches the MPD across resolves", async () => {
+  it("does one mint+sources per resolve and caches the MPD across resolves", async () => {
     // The DASH path reuses the links the resolve already fetched, so a resolve
-    // pays mint+servers ONCE instead of twice.
-    const r1 = await resolve({ server: "centaurus" });
+    // pays mint+sources ONCE instead of twice.
+    const r1 = await resolve({ server: "orion" });
     expect(r1.ok).toBe(true);
     expect(requests.filter((u) => u.includes(MINT_PATH)).length).toBe(1);
-    expect(requests.filter((u) => u.includes("/backend/servers/")).length).toBe(1);
+    expect(requests.filter((u) => u.includes(SOURCES_PATH)).length).toBe(1);
     expect(requests.filter((u) => u.includes(DASH_URL)).length).toBe(1);
 
     // Reset request tracker but NOT the cache — the second resolve should reuse
@@ -343,21 +357,21 @@ describe("ZXC MPD cache", () => {
     requests = [];
 
     // Second resolve of the SAME title: zxcDashManifest hits the cache.
-    const r2 = await resolve({ server: "centaurus" });
+    const r2 = await resolve({ server: "orion" });
     expect(r2.ok).toBe(true);
-    // Only the servers-lookup mint ran; the manifest is cached.
+    // Only the sources-lookup mint ran; the manifest is cached.
     expect(requests.filter((u) => u.includes(MINT_PATH)).length).toBe(1);
     // No redundant MPD fetch.
     expect(requests.filter((u) => u.includes(DASH_URL)).length).toBe(0);
   });
 
   it("re-fetches the MPD after the cache is cleared (TTL expiry path)", async () => {
-    await resolve({ server: "centaurus" });
+    await resolve({ server: "orion" });
     expect(requests.filter((u) => u.includes(DASH_URL)).length).toBe(1);
 
     requests = [];
     clearZxcMpdCache();
-    await resolve({ server: "centaurus" });
+    await resolve({ server: "orion" });
     // Cache was cleared — the manifest is fetched again.
     expect(requests.filter((u) => u.includes(DASH_URL)).length).toBe(1);
   });
@@ -369,26 +383,26 @@ describe("ZXC MPD cache", () => {
         { link: Buffer.from(DASH_URL).toString("base64"), type: "dash", resolution: 720 },
       ],
       dubs: [
-        { lanCode: "hi", lanName: "Hindi", type: 0 },
-        { lanCode: "ta", lanName: "Tamil", type: 0 },
+        { lang: "hi", name: "Hindi dub", type: 0 },
+        { lang: "ta", name: "Tamil dub", type: 0 },
       ],
     };
-    const r1 = await resolve({ server: "centaurus" });
+    const r1 = await resolve({ server: "orion" });
     expect(r1.ok).toBe(true);
     expect(r1.audioTracks.length).toBe(2);
-    // ONE mint (the servers lookup) and ONE MPD fetch (the base manifest).
+    // ONE mint (the sources lookup) and ONE MPD fetch (the base manifest).
     // The old per-dub verification added another mint+fetch for EACH dub, the
     // request amplification that got the ip throttled and cascaded into TV
     // metadata 429s. Dubs now ride the advertised list unverified.
     expect(requests.filter((u) => u.includes(MINT_PATH)).length).toBe(1);
-    expect(requests.filter((u) => u.includes("/backend/servers/")).length).toBe(1);
+    expect(requests.filter((u) => u.includes(SOURCES_PATH)).length).toBe(1);
     expect(requests.filter((u) => u.includes(DASH_URL)).length).toBe(1);
 
     requests = [];
-    const r2 = await resolve({ server: "centaurus" });
+    const r2 = await resolve({ server: "orion" });
     expect(r2.ok).toBe(true);
     expect(r2.audioTracks.length).toBe(2);
-    // Only the servers-lookup mint runs; the base manifest is cached.
+    // Only the sources-lookup mint runs; the base manifest is cached.
     expect(requests.filter((u) => u.includes(MINT_PATH)).length).toBe(1);
     expect(requests.filter((u) => u.includes(DASH_URL)).length).toBe(0);
   });
@@ -397,12 +411,12 @@ describe("ZXC MPD cache", () => {
     /* Same tmdbId, different servers - the /backend/tmdb/details/ endpoint
        should be hit only once across all rows, not once per server. */
     requests = [];
-    const r1 = await resolve({ server: "centaurus", type: "movie", tmdbId: "27205" });
+    const r1 = await resolve({ server: "orion", type: "movie", tmdbId: "27205" });
     expect(r1.ok).toBe(true);
     expect(requests.filter((u) => u.includes("/backend/tmdb/details/")).length).toBe(1);
 
     requests = [];
-    const r2 = await resolve({ server: "andromeda", type: "movie", tmdbId: "27205" });
+    const r2 = await resolve({ server: "valstrax", type: "movie", tmdbId: "27205" });
     expect(r2.ok).toBe(true);
     // Cached: no second metadata fetch for the same tmdbId.
     expect(requests.filter((u) => u.includes("/backend/tmdb/details/")).length).toBe(0);

@@ -419,17 +419,18 @@ export async function probeSourcePlayable(entryUrl, refUrl, { signal } = {}) {
 
 /* ZXC replay-marker URLs, minted server-side by zxcPlaylistUrl() in
    api/stream.js, look like
-     https://vidstuck.xyz/backend/servers/<server>?...&zx=streamly&zv=master
+     https://zxcstream.cc/backend_/sources/<server>?...&zx=streamly&zv=master
    They are NOT upstream URLs — the marker only means "ask our handler", and
    handlePlaylist is the only thing that can turn one into a real provider
    request (it mints the fresh signed token the provider demands). Forwarded
-   verbatim to the Cloudflare worker the marker reaches vidstuck.xyz unsigned
-   and the provider answers 400, every single time. That wasted leg was also
-   costing a second upstream request per playlist against a provider that
-   rate-limits us (429), so the "noisy" bug actively made playback worse.
-   Segments are never markers (the handler rewrites them absolute), so this
-   only ever gates the playlist leg. */
-const ZXC_MARKER_HOSTS = new Set(["vidstuck.xyz"]);
+   verbatim to the provider the marker reaches it unsigned and the provider
+   answers 400, every single time. That wasted leg was also costing a second
+   upstream request per playlist against a provider that rate-limits us (429),
+   so the "noisy" bug actively made playback worse. Segments are never markers
+   (the handler rewrites them absolute), so this only ever gates the playlist
+   leg. `vidstuck.xyz` is the retired origin, kept so an in-flight session from
+   before the migration does not drop. */
+const ZXC_MARKER_HOSTS = new Set(["zxcstream.cc", "vidstuck.xyz"]);
 const ZXC_MARKER_VALUE = "streamly";
 
 function isZxcMarkerUrl(url) {

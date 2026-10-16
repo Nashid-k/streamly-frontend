@@ -1,17 +1,16 @@
 // src/constants/playback.js — which playback engine the details page mounts.
 //
-// PROVIDER_EMBED_PLAYBACK = true
-//   Play through the PROVIDER'S OWN player in an iframe (ProviderEmbedPlayer).
-//   The album's only live backend is ZXC/vidstuck, which migrated to a v2 API
-//   whose token mint refuses every server-side request we can make — while the
-//   provider's page mints and plays fine in a browser. Until the mint is solved
-//   (or a backend that speaks to our resolver returns), the browser-driven
-//   embed is the only reliable path, so it is the default.
-//
 // PROVIDER_EMBED_PLAYBACK = false
 //   Play through the app's own NativePlayerView (native HLS via the serverless
-//   + Cloudflare relay). Flip this back on when the resolver can obtain a
-//   manifest again; both engines stay wired, so the switch is one line and no
-//   component is deleted.
+//   + Cloudflare relay). This is the default again: the provider's v2 "sources"
+//   contract is now solved server-side (the mint `POST /backend/fucku` takes the
+//   `{id, mediaType, path}` body and the DASH/`/backend_/sources/{server}`
+//   response decrypts), so the resolver obtains a manifest directly.
+//
+// PROVIDER_EMBED_PLAYBACK = true
+//   Fall back to the PROVIDER'S OWN player in an iframe (ProviderEmbedPlayer).
+//   Kept wired as an escape hatch: if the provider renames the mint/sources
+//   contract again and the native resolver cannot self-heal in time, one line
+//   restores the browser-driven embed. No component is ever deleted.
 
-export const PROVIDER_EMBED_PLAYBACK = true;
+export const PROVIDER_EMBED_PLAYBACK = false;

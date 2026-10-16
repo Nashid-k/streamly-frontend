@@ -33,8 +33,8 @@ describe("PLAYER_SOURCES", () => {
 
 describe("sourceByServer", () => {
   it("maps a backend server name back onto its row", () => {
-    expect(sourceByServer("centaurus")?.key).toBe("zxc-centaurus");
-    expect(sourceByServer("andromeda")?.key).toBe("zxc-andromeda");
+    expect(sourceByServer("atlas")?.key).toBe("zxc-atlas");
+    expect(sourceByServer("valstrax")?.key).toBe("zxc-valstrax");
     expect(sourceByServer("orion")?.key).toBe("zxc-orion");
   });
 
@@ -83,7 +83,7 @@ describe("manual server rows", () => {
 describe("sourceLabel", () => {
   it("falls back instead of returning undefined for an unknown key", () => {
     expect(sourceLabel("zxc-orion")).toBe("Server 1");
-    expect(sourceLabel("zxc-centaurus")).toBe("Server 3");
+    expect(sourceLabel("zxc-atlas")).toBe("Server 3");
     expect(sourceLabel("__auto__", "Server 1")).toBe("Server 1");
   });
 });

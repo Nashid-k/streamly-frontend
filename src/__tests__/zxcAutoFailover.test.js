@@ -104,7 +104,7 @@ beforeEach(() => {
         mintedServers.push(body[SERVER_PARAM]);
         return json({ token: "tok", ts: "1700000000" });
       }
-      if (url.includes("/backend/servers/")) {
+      if (url.includes("/backend_/sources/")) {
         // The server comes from THIS request's path, not from the last mint: a
         // `prefer` pick now mints its fall-through candidate concurrently, so a
         // mutable "last minted server" would map the wrong link to the wrong row.
@@ -129,9 +129,9 @@ describe("ZXC automatic failover", () => {
     mpdStatus = { "https://93.184.216.34/orion.mpd": 427 };
     const r = await call({ auto: true });
     expect(r.ok).toBe(true);
-    expect(r.server).toBe("andromeda");
-    // orion (the provider's Server 1) was attempted, cooled, then andromeda served it.
-    expect(mintedServers).toEqual(["orion", "andromeda"]);
+    expect(r.server).toBe("valstrax");
+    // orion (the provider's Server 1) was attempted, cooled, then valstrax served it.
+    expect(mintedServers).toEqual(["orion", "valstrax"]);
   });
 
   it("skips a server already in cooldown on the next automatic resolve", async () => {
@@ -141,9 +141,9 @@ describe("ZXC automatic failover", () => {
     mintedServers = [];
     const r = await call({ auto: true });
     expect(r.ok).toBe(true);
-    expect(r.server).toBe("andromeda");
+    expect(r.server).toBe("valstrax");
     // orion is cooling, so it is not attempted at all this time.
-    expect(mintedServers).toEqual(["andromeda"]);
+    expect(mintedServers).toEqual(["valstrax"]);
   });
 
   it("a soft miss does NOT cool a server (a title absent on every backend)", async () => {
@@ -162,22 +162,22 @@ describe("ZXC automatic failover", () => {
   it("a hard-down backend ends the walk early instead of draining every server", async () => {
     mpdStatus = {
       "https://93.184.216.34/orion.mpd": 427,
-      "https://93.184.216.34/andromeda.mpd": 427,
-      "https://93.184.216.34/centaurus.mpd": 427,
+      "https://93.184.216.34/valstrax.mpd": 427,
+      "https://93.184.216.34/atlas.mpd": 427,
     };
     const r = await call({ auto: true });
     expect(r.ok).toBe(false);
-    // Three hard failures is the cap — atlas and meow are never attempted.
-    expect(mintedServers).toEqual(["orion", "andromeda", "centaurus"]);
+    // Three hard failures is the cap — ursa and alatreon are never attempted.
+    expect(mintedServers).toEqual(["orion", "valstrax", "atlas"]);
   });
 
   it("an explicit pick still tries ONLY the chosen server, even if it is dead", async () => {
-    mpdStatus = { "https://93.184.216.34/centaurus.mpd": 427 };
-    const r = await call({ server: "centaurus" });
+    mpdStatus = { "https://93.184.216.34/atlas.mpd": 427 };
+    const r = await call({ server: "atlas" });
     expect(r.ok).toBe(false);
     expect(r.code).toBe("no-source");
     // It must not silently resolve another row behind the viewer's back.
-    expect(mintedServers).toEqual(["centaurus"]);
+    expect(mintedServers).toEqual(["atlas"]);
   });
 });
 
@@ -188,15 +188,15 @@ describe("ZXC automatic failover", () => {
    walk. The response echoes whichever backend actually served it. */
 describe("ZXC preferred server with fast fallback", () => {
   it("tries the preferred backend first when it is healthy", async () => {
-    // andromeda is NOT the health-first row (orion is) — landing on it proves
+    // valstrax is NOT the health-first row (orion is) — landing on it proves
     // the preference is honoured, not just the rotation order.
-    const r = await call({ auto: true, prefer: "andromeda" });
+    const r = await call({ auto: true, prefer: "valstrax" });
     expect(r.ok).toBe(true);
-    expect(r.server).toBe("andromeda");
-    // andromeda is served; orion (the next candidate) is minted up front as the
+    expect(r.server).toBe("valstrax");
+    // valstrax is served; orion (the next candidate) is minted up front as the
     // fall-through's ready token — one cheap mint, no extra hop. The two mints
     // are concurrent, so only membership is asserted, not order.
-    expect(mintedServers).toContain("andromeda");
+    expect(mintedServers).toContain("valstrax");
     expect(mintedServers).toContain("orion");
   });
 
@@ -206,7 +206,7 @@ describe("ZXC preferred server with fast fallback", () => {
     // the first hop. Proven by ORDER: the second mint is issued before the first
     // backend's manifest is ever fetched.
     const order = [];
-    mpdStatus = { "https://93.184.216.34/centaurus.mpd": 427 };
+    mpdStatus = { "https://93.184.216.34/atlas.mpd": 427 };
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input, init) => {
@@ -222,7 +222,7 @@ describe("ZXC preferred server with fast fallback", () => {
           order.push(`mint:${body[SERVER_PARAM]}`);
           return json({ token: "tok", ts: "1700000000" });
         }
-        if (url.includes("/backend/servers/")) return json({ success: true, links: [{ link: b64(`https://93.184.216.34/${new URL(url).pathname.split("/").pop()}.mpd`), type: "dash", resolution: 720 }] });
+        if (url.includes("/backend_/sources/")) return json({ success: true, links: [{ link: b64(`https://93.184.216.34/${new URL(url).pathname.split("/").pop()}.mpd`), type: "dash", resolution: 720 }] });
         if (url.includes(".mpd")) {
           order.push(`mpd:${url.split("/").pop().replace(".mpd", "")}`);
           return mpdStatus[url] ? new Response("down", { status: mpdStatus[url] }) : new Response(MPD, { status: 200 });
@@ -230,23 +230,23 @@ describe("ZXC preferred server with fast fallback", () => {
         return new Response("upstream unreachable", { status: 502 });
       }),
     );
-    const r = await call({ auto: true, prefer: "centaurus" });
+    const r = await call({ auto: true, prefer: "atlas" });
     expect(r.ok).toBe(true);
     expect(r.server).toBe("orion");
-    // orion's mint precedes centaurus's manifest fetch — it was already in flight.
+    // orion's mint precedes atlas's manifest fetch — it was already in flight.
     expect(order.indexOf("mint:orion")).toBeGreaterThan(-1);
-    expect(order.indexOf("mint:orion")).toBeLessThan(order.indexOf("mpd:centaurus"));
+    expect(order.indexOf("mint:orion")).toBeLessThan(order.indexOf("mpd:atlas"));
   });
 
   it("falls through to a live backend when the preferred one has no source", async () => {
-    mpdStatus = { "https://93.184.216.34/centaurus.mpd": 427 };
-    const r = await call({ auto: true, prefer: "centaurus" });
+    mpdStatus = { "https://93.184.216.34/atlas.mpd": 427 };
+    const r = await call({ auto: true, prefer: "atlas" });
     expect(r.ok).toBe(true);
-    // centaurus was attempted first, cooled, then the rotation served orion.
+    // atlas was attempted first, cooled, then the rotation served orion.
     expect(r.server).toBe("orion");
     // Both were mintable up front (concurrent), so assert membership, not order.
     expect(mintedServers).toHaveLength(2);
-    expect(mintedServers).toEqual(expect.arrayContaining(["centaurus", "orion"]));
+    expect(mintedServers).toEqual(expect.arrayContaining(["atlas", "orion"]));
   });
 
   it("rejects an unknown preferred server", async () => {

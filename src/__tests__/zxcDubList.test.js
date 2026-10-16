@@ -67,7 +67,7 @@ beforeEach(() => {
       const url = String(typeof input === "string" ? input : input?.url || input);
       if (url.includes(MINT_PATH)) { calls.mint += 1; return json({ token: "tok", ts: "1700000000" }); }
       if (url.includes("/backend/tmdb/details/")) return json({ title: "Stub", release_date: "2024-01-01", imdb_id: "" });
-      if (url.includes("/backend/servers/")) { calls.servers += 1; return json({ success: true, links, dubs }); }
+      if (url.includes("/backend_/sources/")) { calls.servers += 1; return json({ success: true, links, dubs }); }
       if (url.endsWith(".mpd") || url.includes("stub")) {
         calls.mpd += 1;
         return new Response(MPD, { status: 200, headers: { "content-type": "application/dash+xml" } });
@@ -97,7 +97,7 @@ function makeRes() {
 async function resolveDubs() {
   const res = makeRes();
   await handler(
-    { method: "POST", body: { action: "resolvezxc", type: "movie", id: "12345", server: "centaurus" }, headers: { "x-forwarded-for": "203.0.113.9" } },
+    { method: "POST", body: { action: "resolvezxc", type: "movie", id: "12345", server: "orion" }, headers: { "x-forwarded-for": "203.0.113.9" } },
     res,
   );
   const parsed = typeof res.body === "string" ? JSON.parse(res.body) : res.body;
