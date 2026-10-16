@@ -112,28 +112,38 @@ function relayTargetFor(url) {
 /* Text-only passthrough through the external relay. The relay echoes the
    upstream status, content-type and body as JSON; a non-2xx upstream is
    re-raised with `status` so fetchUpstream's 403-retry and the callers' error
-   mapping behave exactly as they do on the direct path. */
+   mapping behave exactly as they do on the direct path.
+
+   The relay is driven with GET, not POST: Google Apps Script answers a POST to
+   its /exec endpoint with a 302 to script.googleusercontent.com, and following
+   that drops the request body, so the JSON envelope never survives. Everything
+   the upstream request needs therefore travels in the query string — the target
+   URL, the method, the few provider-relevant headers, and the (small, text)
+   body for the POST mint. */
 async function relayFetch(relayUrl, { url, method, body, headers, signal, maxTextBytes }) {
   const upstreamMethod = method ? String(method).toUpperCase() : "GET";
+  const hasBody = body != null && upstreamMethod !== "GET" && upstreamMethod !== "HEAD";
   const passthrough = {};
   for (const [name, value] of Object.entries(headers || {})) {
+    // Only the handful of headers the provider actually reads are forwarded;
+    // hop-by-hop/framing headers are recomputed by the relay's own fetch, and
+    // anything else is noise the open relay should not be made to echo back.
     const key = name.toLowerCase();
-    // Hop-by-hop and body-framing headers are recomputed by the relay's own
-    // fetch; forwarding them only risks a rejected request.
-    if (key === "content-length" || key === "host" || key === "connection" || key === "accept-encoding") continue;
-    passthrough[key] = value;
+    if (key === "referer" || key === "origin" || key === "accept" || key === "content-type") {
+      passthrough[key] = value;
+    }
   }
-  const response = await fetch(relayUrl, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      url,
-      method: upstreamMethod,
-      headers: passthrough,
-      body: upstreamMethod === "GET" || upstreamMethod === "HEAD" ? null : body ?? null,
-    }),
-    signal,
-  });
+  const params = new URLSearchParams();
+  params.set("url", url);
+  params.set("method", upstreamMethod);
+  if (passthrough.referer) params.set("referer", String(passthrough.referer));
+  if (passthrough.origin) params.set("origin", String(passthrough.origin));
+  if (passthrough.accept) params.set("accept", String(passthrough.accept));
+  if (passthrough["content-type"]) params.set("ctype", String(passthrough["content-type"]));
+  if (hasBody) params.set("body", typeof body === "string" ? body : String(body));
+  const relayTarget = `${relayUrl}${relayUrl.includes("?") ? "&" : "?"}${params.toString()}`;
+
+  const response = await fetch(relayTarget, { method: "GET", signal });
   if (!response.ok) throw new Error(`relay HTTP ${response.status}`);
   const data = await response.json().catch(() => null);
   if (!data || typeof data !== "object") throw new Error("relay returned non-JSON");

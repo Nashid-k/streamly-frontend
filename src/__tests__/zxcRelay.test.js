@@ -85,16 +85,16 @@ describe("ZXC relay routing (server/net.js fetchUpstream)", () => {
 
     await callZxc({ type: "tv", season: 1, episode: 1, server: "orion" });
 
-    const relayCalls = fetchMock.mock.calls.filter(([u]) => String(u) === RELAY_URL);
+    const relayCalls = fetchMock.mock.calls.filter(([u]) => String(u).startsWith(RELAY_URL));
     expect(relayCalls.length).toBeGreaterThan(0);
-    const relayRequestBodies = relayCalls.map(([, init]) => JSON.parse(init.body));
+    const relayTargets = relayCalls.map(([u]) => new URL(u).searchParams.get("url"));
     expect(
-      relayRequestBodies.some((b) => String(b.url).includes("/backend/tmdb/details/")),
+      relayTargets.some((target) => String(target).includes("/backend/tmdb/details/")),
     ).toBe(true);
     // Every relay request carries the provider URL, never the relay URL again.
-    expect(relayRequestBodies.every((b) => String(b.url).startsWith("https://zxcstream.cc/"))).toBe(true);
-    // Nothing reached the provider directly.
-    expect(fetchMock.mock.calls.every(([u]) => !String(u).includes("zxcstream.cc"))).toBe(true);
+    expect(relayTargets.every((target) => String(target).startsWith("https://zxcstream.cc/"))).toBe(true);
+    // Nothing reached the provider directly (every call went to script.google.com).
+    expect(fetchMock.mock.calls.every(([u]) => new URL(u).hostname === "script.google.com")).toBe(true);
   });
 
   it("forwards the method and body so the POST token mint still mints", async () => {
@@ -106,16 +106,18 @@ describe("ZXC relay routing (server/net.js fetchUpstream)", () => {
 
     await callZxc({ type: "movie", server: "orion" });
 
-    const mintCall = fetchMock.mock.calls.find(([u, init]) => {
-      if (String(u) !== RELAY_URL) return false;
-      const body = JSON.parse(init.body);
-      return String(body.url).includes("/backend/fucku");
+    const mintCall = fetchMock.mock.calls.find(([u]) => {
+      if (!String(u).startsWith(RELAY_URL)) return false;
+      return String(new URL(u).searchParams.get("url")).includes("/backend/fucku");
     });
     expect(mintCall).toBeTruthy();
-    const mintBody = JSON.parse(mintCall[1].body);
-    expect(mintBody.method).toBe("POST");
-    expect(typeof mintBody.body).toBe("string");
-    expect(mintBody.headers.referer).toContain("zxcstream.cc");
+    const [mintUrl, mintInit] = mintCall;
+    const params = new URL(mintUrl).searchParams;
+    expect(mintInit.method).toBe("GET");
+    expect(params.get("method")).toBe("POST");
+    expect(typeof params.get("body")).toBe("string");
+    expect(params.get("ctype")).toBe("application/json");
+    expect(params.get("referer")).toContain("zxcstream.cc");
   });
 
   it("hits the provider directly when no relay is configured", async () => {

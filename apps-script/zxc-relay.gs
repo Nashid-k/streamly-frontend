@@ -24,13 +24,19 @@
  *   5. Copy the Web app URL (https://script.google.com/macros/s/AKfy.../exec).
  *   6. On Vercel -> Project -> Settings -> Environment Variables, add:
  *        ZXC_RELAY_URL = <that URL>?token=<your SECRET>
- *      (and set VITE_ZXC_NATIVE=true — see .env.example).
+ *      Nothing else is needed — the client asks api/stream.js `capabilities`
+ *      whether a relay is configured and picks the native engine on its own.
  *   7. Redeploy the Vercel project so the function picks up the variable.
  *
- * CONTRACT (server -> relay, JSON POST; relay -> server, JSON body)
- *   request  { url, method, headers, body }
+ * CONTRACT (server -> relay, GET on the /exec URL; relay -> server, JSON body)
+ *   query  ?token=<SECRET>&url=<enc>&method=<GET|POST>[&referer=][&origin=]
+ *          [&accept=][&ctype=][&body=<enc>]
  *   response { status, contentType, body }   // body is always text
- *   GET on the /exec URL with ?ping=1 returns { ok: true } for a health check.
+ *   ?ping=1 returns { ok: true } for a health check.
+ *
+ *   GET, not POST: Apps Script redirects a POST to script.googleusercontent.com
+ *   and clients drop the body when they follow it. The few small TEXT requests
+ *   the resolver needs fit comfortably in a query string.
  */
 
 var SECRET = "CHANGE_ME_TO_A_RANDOM_STRING";
@@ -38,15 +44,6 @@ var SECRET = "CHANGE_ME_TO_A_RANDOM_STRING";
 // The relay only talks to the playback provider — a leaked URL can never turn
 // it into a general-purpose open proxy.
 var ALLOWED_HOSTS = ["zxcstream.cc", "vidstuck.cc", "vidstuck.xyz"];
-
-// Headers Apps Script refuses to set (or that its own fetch must own). Our
-// server already filters these, but guard here too.
-var BLOCKED_HEADERS = {
-  host: true,
-  "content-length": true,
-  connection: true,
-  "accept-encoding": true,
-};
 
 function hostAllowed(host) {
   host = String(host || "").toLowerCase();
@@ -70,60 +67,83 @@ function doGet(e) {
   if (e && e.parameter && e.parameter.ping) {
     return jsonOutput({ ok: true });
   }
-  return jsonOutput({ ok: true, relay: "streamly-zxc" });
+  if (!e || !e.parameter || !e.parameter.url) {
+    return jsonOutput({ ok: true, relay: "streamly-zxc" });
+  }
+  return proxy(e.parameter);
 }
 
+// Secondary path. Apps Script redirects a POST to script.googleusercontent.com
+// and most HTTP clients drop the body when they follow it, so the server drives
+// proxy() through doGet instead; this stays for manual curl testing.
 function doPost(e) {
+  if (e && e.parameter && e.parameter.token !== SECRET) {
+    return jsonOutput({ ok: false, error: "unauthorized" });
+  }
   var req;
   try {
     req = JSON.parse(e.postData.contents);
   } catch (err) {
     return jsonOutput({ ok: false, error: "bad request body" });
   }
-  if (!req || (e.parameter && e.parameter.token !== SECRET)) {
+  if (!req) {
     return jsonOutput({ ok: false, error: "unauthorized" });
   }
+  var params = { url: req.url, method: req.method };
+  var headers = req.headers || {};
+  for (var name in headers) {
+    if (!Object.prototype.hasOwnProperty.call(headers, name)) continue;
+    params[String(name).toLowerCase()] = headers[name];
+  }
+  if (req.body != null) params.body = req.body;
+  return proxy(params);
+}
 
-  var parsed;
-  try {
-    parsed = new URL(req.url);
-  } catch (err) {
+function proxy(p) {
+  // NOTE: Apps Script's V8 runtime does not reliably expose the WHATWG `URL`
+  // constructor, so parse the host with a regex instead of `new URL(...)`.
+  var match = String(p.url || "").match(/^https?:\/\/([^\/?#]+)/i);
+  if (!match) {
     return jsonOutput({ ok: false, error: "bad target url" });
   }
-  if (!hostAllowed(parsed.hostname)) {
+  if (!hostAllowed(match[1].split(":")[0])) {
     return jsonOutput({ ok: false, error: "host not allowed" });
   }
 
   var headers = {};
-  var incoming = req.headers || {};
-  for (var name in incoming) {
-    if (!Object.prototype.hasOwnProperty.call(incoming, name)) continue;
-    if (BLOCKED_HEADERS[String(name).toLowerCase()]) continue;
-    headers[name] = incoming[name];
+  var forwarded = ["referer", "origin", "accept", "content-type"];
+  for (var i = 0; i < forwarded.length; i++) {
+    var key = forwarded[i];
+    if (p[key] != null && p[key] !== "") headers[key] = String(p[key]);
   }
+  // The query form uses a short alias for the request content-type.
+  if (p.ctype != null && p.ctype !== "") headers["content-type"] = String(p.ctype);
 
   var options = {
-    method: req.method || "GET",
+    method: String(p.method || "GET").toUpperCase(),
     headers: headers,
     muteHttpExceptions: true,
     followRedirects: true,
   };
-  var method = String(options.method).toUpperCase();
-  if (req.body != null && method !== "GET" && method !== "HEAD") {
-    options.payload = typeof req.body === "string" ? req.body : JSON.stringify(req.body);
+  if (p.body != null && options.method !== "GET" && options.method !== "HEAD") {
+    options.payload = typeof p.body === "string" ? p.body : JSON.stringify(p.body);
   }
 
   try {
-    var response = UrlFetchApp.fetch(req.url, options);
+    var response = UrlFetchApp.fetch(p.url, options);
     var body;
     try {
       body = response.getContentText();
     } catch (textErr) {
       return jsonOutput({ ok: false, error: "upstream body not text" });
     }
+    // HTTPResponse has no getContentType(); the content type lives in the
+    // header map (header names arrive with their original casing).
+    var respHeaders = response.getHeaders();
+    var contentType = respHeaders["Content-Type"] || respHeaders["content-type"] || "";
     return jsonOutput({
       status: response.getResponseCode(),
-      contentType: response.getContentType(),
+      contentType: contentType,
       body: body,
     });
   } catch (fetchErr) {
