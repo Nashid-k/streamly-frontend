@@ -1,19 +1,19 @@
-// src/constants/playback.js — which playback engine the details page mounts.
+// src/constants/playback.js — hard override for which playback engine the
+// details page mounts.
 //
-// PROVIDER_EMBED_PLAYBACK = true  (current)
-//   Play through the PROVIDER'S OWN player in an iframe (ProviderEmbedPlayer).
-//   The provider put its /backend/* API behind a Cloudflare WAF that blocks
-//   every datacenter IP (Vercel's bom1 egress, Cloudflare Workers, datacenter
-//   CORS proxies) while allowing residential browsers — so the native resolver
-//   can never obtain a manifest from our server, no matter the URL or contract.
-//   The provider's embed runs in the viewer's own browser (a residential IP the
-//   provider allows), so it is the only path that plays without extra
-//   infrastructure. See architecture.md.
+// The engine is normally chosen at RUNTIME from the deployment's capabilities:
+// the client asks api/stream.js `capabilities` (the probe in TitleDetailsPage)
+// whether the native resolver can reach the provider. That
+// answer is `zxcNative`, which is true only when ZXC_RELAY_URL is configured
+// (an Apps Script relay on a Google egress IP the provider's WAF allows — see
+// server/net.js and apps-script/zxc-relay.gs).
 //
-// PROVIDER_EMBED_PLAYBACK = false
-//   Play through the app's own NativePlayerView (native HLS via the serverless
-//   + Cloudflare relay). Only viable from an egress the provider's WAF allows
-//   (e.g. residential or a Google Cloud relay); from Vercel/Cloudflare
-//   serverless it dies on the first `/backend` call.
+//   zxcNative true  -> NativePlayerView (native HLS through the serverless).
+//   zxcNative false -> ProviderEmbedPlayer (the provider's own player iframe),
+//                      because our datacenter egress 502s every /backend call.
+//
+// PROVIDER_EMBED_PLAYBACK = true forces the embed regardless of capabilities —
+// the escape hatch if the relay ever misbehaves in production. Leave it false
+// so the runtime decision wins.
 
-export const PROVIDER_EMBED_PLAYBACK = true;
+export const PROVIDER_EMBED_PLAYBACK = false;

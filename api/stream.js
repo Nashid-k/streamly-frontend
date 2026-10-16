@@ -10,6 +10,7 @@
 //   zxcintro       { imdbId, tmdbId, season?, episode? } -> { ok, introEndSeconds|null, creditsStartSeconds|null, confidence|null }
 //   playlist       { playlistUrl, refUrl? }              -> raw m3u8 text (referer-supplied)
 //   segment        { url, refUrl?, range: {start,max} }  -> bytes (octet-stream)
+//   capabilities   {}                                     -> { ok, zxcNative } (transport availability)
 //
 // Retired actions (answer a clean 400 bad-action):
 //   · `resolve` — the old embed-download resolver. Every embed host it served
@@ -1693,6 +1694,18 @@ async function handleSegment(body, res) {
   }
 }
 
+/* Reports which transports this deployment can actually serve. `zxcNative`
+   is true only when ZXC_RELAY_URL is set: the provider WAF refuses our
+   datacenter egress, so native resolve only works once a relay on an allowed
+   IP is configured (see server/net.js). The client uses this to decide between
+   its own player and the provider embed, instead of guessing. */
+function handleCapabilities(res) {
+  json(res, 200, {
+    ok: true,
+    zxcNative: Boolean(String(process.env.ZXC_RELAY_URL || "").trim()),
+  });
+}
+
 export default async function handler(req, res) {
   applyCors(req, res);
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -1762,6 +1775,9 @@ export default async function handler(req, res) {
         return;
       case "segment":
         await handleSegment(body, res);
+        return;
+      case "capabilities":
+        handleCapabilities(res);
         return;
       default:
         json(res, 400, { ok: false, error: "Unknown action", code: "bad-action" });

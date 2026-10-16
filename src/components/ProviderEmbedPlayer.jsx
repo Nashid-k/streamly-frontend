@@ -15,8 +15,9 @@
 // provider's own site uses the custom player. Series take season/episode as
 // QUERY params — `/player/tv/{id}?season=&episode=` — read from the route's
 // params (`["", "player", "movie", "27205"]`). The custom player emits no
-// X-Frame-Options/CSP, so it embeds cleanly; callers pick it via
-// PROVIDER_EMBED_PLAYBACK in ../constants/playback.js.
+// X-Frame-Options/CSP, so it embeds cleanly. TitleDetailsPage mounts this only
+// when native playback is unavailable (no relay configured) or when
+// PROVIDER_EMBED_PLAYBACK forces it (../constants/playback.js).
 
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ExternalLink } from "lucide-react";

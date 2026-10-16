@@ -58,14 +58,16 @@ import { formatRuntimeLabel, isUnreleased, voteSplitPct } from "../utils/titleDe
 import { buildEpisodeOrder, episodeNumberLabel, isEpAired, formatAirsDate } from "../utils/titleDetails";
 import { getPlatformName } from "../utils/platforms";
 import { logEmptyData, logError, reportQueryError } from "../utils/debugLogger";
-// NativePlayerView is the app's player: direct HLS playback through the
-// serverless + Cloudflare relay, with the Netflix-style chrome. The provider's
-// backend migrated to a v2 API our resolver can no longer mint against, so the
-// default engine is now the provider's own player embedded in an iframe
-// (ProviderEmbedPlayer); both stay wired behind PROVIDER_EMBED_PLAYBACK.
+// Two engines: NativePlayerView (the app's own HLS player through the
+// serverless relay) and ProviderEmbedPlayer (the provider's own iframe player).
+// The provider WAF refuses datacenter egress, so native only works once the
+// deployment has a relay configured; the `capabilities` probe below picks the
+// engine at runtime. PROVIDER_EMBED_PLAYBACK (constants/playback.js) is the
+// hard override that forces the embed.
 const NativePlayerView = lazy(() => import("../components/NativePlayerView"));
 const ProviderEmbedPlayer = lazy(() => import("../components/ProviderEmbedPlayer"));
 import { PROVIDER_EMBED_PLAYBACK } from "../constants/playback";
+import { getZxcCapabilities } from "../api/streamResolve";
 import ErrorBoundary from "../components/ErrorBoundary";
 
 import { progressPct } from "../utils/resumeProgress";
@@ -219,6 +221,23 @@ export default function TitleDetails() {
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [unreleasedModalOpen, setUnreleasedModalOpen] = useState(false);
   const [iframeLoading, setIframeLoading] = useState(false);
+
+  // Which engine to mount is a DEPLOYMENT capability, not a per-title choice:
+  // the server reports whether its egress can reach the provider natively (a
+  // relay configured -> native HLS; otherwise the provider WAF refuses us and
+  // we must use the embed). `null` = not yet known, so we hold the frame black
+  // instead of flashing the embed and then swapping engines.
+  const [zxcNative, setZxcNative] = useState(null);
+  useEffect(() => {
+    if (PROVIDER_EMBED_PLAYBACK) return undefined;
+    let alive = true;
+    getZxcCapabilities().then((caps) => {
+      if (alive) setZxcNative(caps.zxcNative);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
   const [episodeLayout, setEpisodeLayout] = useState(() => (
     episodeViewStyle === "grid" || episodeViewStyle === "list" || episodeViewStyle === "carousel"
       ? episodeViewStyle
@@ -2127,7 +2146,7 @@ export default function TitleDetails() {
                         justifyContent: "center",
                       }}
                     >
-                      {PROVIDER_EMBED_PLAYBACK ? (
+                      {PROVIDER_EMBED_PLAYBACK || zxcNative === false ? (
                         <ProviderEmbedPlayer
                           type={isTvContent ? "tv" : "movie"}
                           id={numericId}
@@ -2145,7 +2164,7 @@ export default function TitleDetails() {
                           }
                           onClose={() => setIsPlaying(false)}
                         />
-                      ) : (
+                      ) : zxcNative === true ? (
                         <NativePlayerView
                           type={isTvContent ? "tv" : "movie"}
                           id={numericId}
@@ -2201,6 +2220,8 @@ export default function TitleDetails() {
                             }
                           }}
                         />
+                      ) : (
+                        <div style={{ width: "100%", height: "100%", background: "#000" }} />
                       )}
                     </div>
                   </Suspense>

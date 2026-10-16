@@ -403,8 +403,8 @@ server-side wrongly assumed the embed/sentinel handshake was required (it answer
 The handshake is NOT required: the mint takes the plain
 `{id, mediaType, path[, season, episode]}` body and the sources endpoint decrypts,
 so the server-side `resolvezxc` resolver works and native playback is restored.
-**The resolver works, but the provider WAF-blocks our datacenter egress, so the
-deployed app plays through the provider's own embed.** The provider put
+**The resolver works, but the provider WAF-blocks our datacenter egress, so
+native playback needs a relay on an allowed IP.** The provider put
 `/backend*` behind a Cloudflare WAF rule that answers **`403` (a hard "Attention
 Required!" block, not a JS challenge)** to datacenter IPs. Verified live: the
 same `GET /backend/tmdb/details/movie/27205?language=en-US` returns `200` from a
@@ -419,27 +419,39 @@ datacenter IPs, on both `zxcstream.cc` and `vidstuck.cc`.) So `resolvezxc` dies
 at its first call (`zxcTitleMeta`) in ~0.5s on the deployed site. The client
 cannot fill the gap either: `.cc/backend/*` emits **no `ACAO`** for any `Origin`,
 so a browser XHR cannot read the API cross-origin, and the `/embed/*` page is
-not SSR'd. Only the provider's OWN page, running — as the embed iframe — in the
-user's (residential) browser, can mint. The WAF *does* allow at least Google's
-own egress (Google's translate proxy reaches `/backend` from `34.16.151.18`,
-Google Cloud), so a relay on an allowed ASN is the one route back to native.
+not SSR'd. The WAF *does* allow Google's own egress (Google's translate proxy
+reaches `/backend` from `34.16.151.18`, Google Cloud), so a relay on an allowed
+ASN is the route back to native.
 
-So `PROVIDER_EMBED_PLAYBACK` in `src/constants/playback.js` is **`true`**: the
-details page mounts `ProviderEmbedPlayer`, which frames the provider's **CUSTOM
-PLAYER** route, `https://zxcstream.cc/player/{movie|tv}/{tmdbId}` (series take
-`?season=&episode=` query params). This is the route the provider's own site
-uses — and the one its embed-generator labels "Custom Player" — and it emits no
+**The relay is a Google Apps Script web app (`apps-script/zxc-relay.gs`).**
+When `ZXC_RELAY_URL` is set, `server/net.js` `fetchUpstream` routes the small
+TEXT fetches to the two WAF-blocked provider hosts (`zxcstream.cc`,
+`vidstuck.cc`) through it instead of attempting them from Vercel; the relay runs
+on Google's egress and forwards status/content-type/body back as JSON. Only
+manifests/JSON ride the relay — the final media CDN (`sacdn.hakunaymatata.com`)
+sends `access-control-allow-origin: *`, so segment bytes stay direct
+(`as: "buffer"` is never relayed). The relay is called server-side, so it needs
+no CORS; a `?token=` shared secret and a host allow-list keep it from being an
+open proxy if the URL leaks.
+
+**Which engine mounts is a runtime capability, not a build constant.**
+`api/stream.js` exposes `capabilities` → `{ ok, zxcNative }`, where `zxcNative`
+is true iff `ZXC_RELAY_URL` is set. `TitleDetailsPage` asks for it once (cached
+for the session in `streamResolve.getZxcCapabilities`) and mounts
+`NativePlayerView` when native is available, else `ProviderEmbedPlayer`; while
+the answer is pending it holds a black frame rather than flash the embed and
+swap. `ProviderEmbedPlayer` frames the provider's **CUSTOM PLAYER** route,
+`https://zxcstream.cc/player/{movie|tv}/{tmdbId}` (series take `?season=&episode=`
+query params) — the route the provider's own site uses, which emits no
 `X-Frame-Options`/CSP, so it embeds cleanly (`vercel.json`'s CSP `frame-src`
 allows `https://zxcstream.cc`). The built-in `/embed/{movie|tv}/{tmdbId}` route
 is deliberately NOT used: it runs a separate `/backend_/embed/sentinel`
-handshake and shows a black screen. Inside the frame the custom player mints
-(`POST /backend/fucku` → `GET /backend_/sources/{server}`) and plays the
-decrypted DASH/HLS link from the viewer's residential IP, which the WAF allows.
-The native ZXC resolver documented in this section (mint/discovery/relay/
-contract-sync) is retained but not mounted from the deployed server — it works
-only from an egress the WAF allows, so flipping the flag back to `false` restores
-native with no other code change once such an egress exists (e.g. a residential
-IP or a Google Cloud relay). (Note: `zxcstream.com` is a *different* host — an
+handshake and shows a black screen. `PROVIDER_EMBED_PLAYBACK` in
+`src/constants/playback.js` is now a hard override (**default `false`**) that
+forces the embed regardless of capabilities — the escape hatch if the relay ever
+misbehaves. The native ZXC resolver documented in this section
+(mint/discovery/relay/contract-sync) is unchanged and mounted by default once
+the relay is configured. (Note: `zxcstream.com` is a *different* host — an
 iframe aggregator that frames `.cc`'s `/player/*` as "Backup I"; it exposes no
 API and returns `404` for `/backend`, so it is not usable as an API mirror.)
  A third third-party

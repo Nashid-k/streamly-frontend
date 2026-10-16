@@ -87,6 +87,67 @@ function fetchNoRedirect(url, opts) {
   return fetch(url, { ...opts, redirect: "manual" });
 }
 
+/* Provider hosts whose WAF refuses datacenter egress. Every /backend* path
+   answers 502 from the Vercel function (AWS ranges), yet the identical request
+   succeeds from a residential or Google IP — verified against the live provider
+   (see task.md). When ZXC_RELAY_URL is set, TEXT fetches to these hosts are
+   proxied through that external relay (an Apps Script web app running on a
+   Google egress IP) instead of being attempted directly. Only manifests/JSON
+   ride the relay: the final media CDN sends `access-control-allow-origin: *`,
+   so segment bytes are never routed through it (as === "buffer" stays direct). */
+const RELAY_HOSTS = new Set(["zxcstream.cc", "vidstuck.cc", "vidstuck.xyz"]);
+const RELAY_TIMEOUT_MS = 25000;
+
+function relayTargetFor(url) {
+  const relay = String(process.env.ZXC_RELAY_URL || "").trim();
+  if (!relay) return null;
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return RELAY_HOSTS.has(host) ? relay : null;
+  } catch {
+    return null;
+  }
+}
+
+/* Text-only passthrough through the external relay. The relay echoes the
+   upstream status, content-type and body as JSON; a non-2xx upstream is
+   re-raised with `status` so fetchUpstream's 403-retry and the callers' error
+   mapping behave exactly as they do on the direct path. */
+async function relayFetch(relayUrl, { url, method, body, headers, signal, maxTextBytes }) {
+  const upstreamMethod = method ? String(method).toUpperCase() : "GET";
+  const passthrough = {};
+  for (const [name, value] of Object.entries(headers || {})) {
+    const key = name.toLowerCase();
+    // Hop-by-hop and body-framing headers are recomputed by the relay's own
+    // fetch; forwarding them only risks a rejected request.
+    if (key === "content-length" || key === "host" || key === "connection" || key === "accept-encoding") continue;
+    passthrough[key] = value;
+  }
+  const response = await fetch(relayUrl, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      url,
+      method: upstreamMethod,
+      headers: passthrough,
+      body: upstreamMethod === "GET" || upstreamMethod === "HEAD" ? null : body ?? null,
+    }),
+    signal,
+  });
+  if (!response.ok) throw new Error(`relay HTTP ${response.status}`);
+  const data = await response.json().catch(() => null);
+  if (!data || typeof data !== "object") throw new Error("relay returned non-JSON");
+  const status = Number(data.status) || 0;
+  if (status < 200 || status >= 300) {
+    const err = new Error(`Upstream ${status || "unknown"} (relay)`);
+    err.status = status;
+    throw err;
+  }
+  const text = typeof data.body === "string" ? data.body : "";
+  if (text.length > maxTextBytes) throw new Error("upstream response too large");
+  return text;
+}
+
 function baseHeaders() {
   return {
     "user-agent": getRandomUA(),
@@ -134,8 +195,12 @@ async function followRedirects(url, headers, signal, as, init, maxTextBytes = MA
 }
 
 async function fetchUpstream(url, { as = "text", timeoutMs = 12000, referer, retryCount = 0, extraHeaders = {}, method, body, maxTextBytes = MAX_TEXT_BYTES } = {}) {
+  // Buffer reads are media bytes and stay direct; only text legs from a
+  // WAF-blocked provider host are routed through the relay, which can take
+  // longer than the default budget (cold start + upstream fetch).
+  const relay = as === "buffer" ? null : relayTargetFor(url);
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const timer = setTimeout(() => controller.abort(), relay ? Math.max(timeoutMs, RELAY_TIMEOUT_MS) : timeoutMs);
   try {
     const safeUrl = await assertPublicDestination(url);
     const headers = baseHeaders();
@@ -149,6 +214,9 @@ async function fetchUpstream(url, { as = "text", timeoutMs = 12000, referer, ret
     const init = method ? { method: String(method).toUpperCase(), ...(body !== undefined ? { body } : {}) } : {};
 
     try {
+      if (relay) {
+        return await relayFetch(relay, { url: safeUrl, method, body, headers, signal: controller.signal, maxTextBytes });
+      }
       return await followRedirects(safeUrl, headers, controller.signal, as, init, maxTextBytes);
     } catch (error) {
       // 403 is a WAF fingerprint block, so a different user agent is a

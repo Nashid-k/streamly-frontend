@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { streamResolve } from "../api/streamResolve";
+import { streamResolve, getZxcCapabilities, clearZxcCapabilitiesCacheForTests } from "../api/streamResolve";
 
 function jsonResponse(body) {
   return {
@@ -172,5 +172,36 @@ describe("streamResolve.resolveZxc", () => {
     await expect(
       streamResolve.resolveZxc({ type: "movie", id: "550", server: "atlas" }),
     ).rejects.toMatchObject({ code: "no-source" });
+  });
+});
+
+describe("getZxcCapabilities", () => {
+  it("reports native when the server says the relay is configured", async () => {
+    clearZxcCapabilitiesCacheForTests();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ ok: true, zxcNative: true })));
+    await expect(getZxcCapabilities()).resolves.toEqual({ zxcNative: true });
+  });
+
+  it("reports native unavailable on a non-JSON (static-hosting) response instead of throwing", async () => {
+    clearZxcCapabilitiesCacheForTests();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: { get: () => "text/html" },
+        json: async () => ({}),
+      }),
+    );
+    await expect(getZxcCapabilities()).resolves.toEqual({ zxcNative: false });
+  });
+
+  it("caches the answer for the session — it is a deployment property", async () => {
+    clearZxcCapabilitiesCacheForTests();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ ok: true, zxcNative: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    await getZxcCapabilities();
+    await getZxcCapabilities();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

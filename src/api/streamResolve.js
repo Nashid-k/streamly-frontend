@@ -97,6 +97,26 @@ export function clearZxcResolveCacheForTests() {
   resolveCache.clear();
 }
 
+/* Whether this DEPLOYMENT can serve native ZXC playback — true only when the
+   server has a relay configured (its egress is otherwise WAF-blocked; see
+   server/net.js). Cached for the session: it is a deployment property, not a
+   per-title one. A failure (static hosting, function down) resolves to
+   `{ zxcNative:false }` instead of throwing — the caller only needs a yes/no to
+   pick an engine, and the fallback is the provider embed, not an error. */
+let capabilitiesPromise = null;
+export function getZxcCapabilities() {
+  if (!capabilitiesPromise) {
+    capabilitiesPromise = post({ action: "capabilities" })
+      .then((data) => ({ zxcNative: Boolean(data?.zxcNative) }))
+      .catch(() => ({ zxcNative: false }));
+  }
+  return capabilitiesPromise;
+}
+
+export function clearZxcCapabilitiesCacheForTests() {
+  capabilitiesPromise = null;
+}
+
 export const streamResolve = {
   /** Normalize a resolver `{ ok, source, variants }` payload into the shape
       the player consumes (labeled variants, per-variant index). Sibling-URL
