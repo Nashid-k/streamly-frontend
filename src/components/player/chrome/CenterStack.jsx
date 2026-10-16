@@ -107,7 +107,14 @@ export default function CenterStack({
           </motion.div>
         )}
       </AnimatePresence>
-      {!buffering && !ended && !playing && status === "playing" && (
+      {/* Paused transport (rewind / play / forward). TOUCH ONLY: on a
+          hover-less device this is the primary, large tap target (and the only
+          way to start playback when the autoplay policy blocks a cold start).
+          A mouse/trackpad already has the bottom bar's play/pause pill — and,
+          because the chrome always stays up while paused, that pill is on
+          screen — so drawing this here too put two play/pause buttons on the
+          picture at once. */}
+      {IS_TOUCH && !buffering && !ended && !playing && status === "playing" && (
         <motion.div
           initial={false}
           animate={{ opacity: controlsVisible ? 1 : 0, scale: controlsVisible ? 1 : 0.9 }}
