@@ -72,7 +72,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://image.tmdb.org https://wsrv.nl https://via.placeholder.com https://img.youtube.com https://i.ytimg.com; media-src 'self' blob: data:; connect-src 'self' https: https://api.themoviedb.org https://www.omdbapi.com https://wsrv.nl https://rest.opensubtitles.org https://dl.opensubtitles.org; frame-src https://www.youtube.com https://www.youtube-nocookie.com; frame-ancestors 'none'; base-uri 'self'; form-action 'none'; object-src 'none'"
+          "value": "default-src 'self'; script-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://image.tmdb.org https://wsrv.nl https://via.placeholder.com https://img.youtube.com https://i.ytimg.com; media-src 'self' blob: data:; connect-src 'self' https: https://api.themoviedb.org https://www.omdbapi.com https://wsrv.nl https://rest.opensubtitles.org https://dl.opensubtitles.org; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://zxcstream.cc; frame-ancestors 'none'; base-uri 'self'; form-action 'none'; object-src 'none'"
         }
       ]
     },

@@ -381,6 +381,21 @@ sees no usable `ACAO`, and falls back to the server-side relay, which sends no
 this holds on Safari too. Cost consequence: ZXC fragments ride the relay, so
 `VITE_STREAMLY_RELAY_URL` (the Cloudflare worker) matters for these rows — on
 the Vercel fallback every fragment is a serverless round trip.
+
+**The ZXC provider migrated, and the app now plays through the provider's OWN embed player.**
+`vidstuck.xyz` is retired (its apex 302s to a dead `backup.vidstuck.xyz` Railway app). The live
+origin is `player.zxcprime.xyz` (reached via `zxcstream.xyz`; the marketing apex `zxcprime.xyz`
+301s to `zxcstream.cc`), and it serves **only the v2 API** — the v1 `scrapeurfckingdad` mint and
+`/backend/servers/` are gone, so the server-side `resolvezxc` resolver 404s. The v2 handshake
+(`POST /backend/fucku` + a sentinel GET) rejects every server-side request we can make, while the
+provider's OWN page mints fine in a browser — so playback frames the provider's embed route
+`https://zxcstream.cc/embed/{movie|tv}/{tmdbId}[/{season}/{episode}]`
+(`src/components/ProviderEmbedPlayer.jsx`, wired into the `TitleDetailsPage` player slot) and lets
+the provider's JS run its own mint/sentinel dance. The switch is ONE flag,
+`PROVIDER_EMBED_PLAYBACK` in `src/constants/playback.js` (`false` restores the native
+`NativePlayerView` path). `vercel.json`'s CSP `frame-src` now allows `https://zxcstream.cc`. While
+the flag is on, the native ZXC resolver documented in this section (mint/discovery/relay) is
+retained but unused, and `ZXC_ORIGIN` in `api/stream.js` is pointed at the live origin.
  A third third-party
 provider, CineSrc, was REMOVED: its stream tokens are minted inside a real
 browser (canvas/TLS fingerprint-bound), so it only ever worked through a
@@ -425,6 +440,7 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
 - `src/components/` — reusable UI (`@/components`). `index.js` categorized barrel. Rail primitives
   (`CastRail`, `DiscoveryRails`, `ContinueWatchingRail`, `GenreShowcase`, `LeavingSoonBanner`),
   cards (`MovieCard`), player subsystem (`CustomVideoPlayer`, `PlayerPreview`,
+  `ProviderEmbedPlayer` — the provider-embed iframe player,
   `YoutubeRawTrailer`, and `player/` leaf subfolder — `ArcRing`, `LoadingArc`,
   `NetflixVolumeHUD`, `NetflixBrightnessHUD`, `NetflixAspectHUD`,
   `NetflixSeekHUD`, `index.js`),
@@ -455,7 +471,8 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
 - `src/context/` — React contexts (`@/context`). `index.js` barrel. `AuthContext.jsx` + `auth.js`
   (merges user data hooks), `PreferencesContext.jsx` + `preferences.js` (settings + `setting-*`).
 - `src/constants/` — app-level constant single sources (`@/constants`): `navigation`,
-  `playerUi`, `settings`. Imported per module (there is no barrel).
+  `playerUi`, `settings`, `playback` (`PROVIDER_EMBED_PLAYBACK` — the provider-embed
+  playback switch). Imported per module (there is no barrel).
   `navigation.js` (`NAV_ITEMS`), `settings.js` (live single source for `THEMES`,
   `LANGUAGES`, `SEEK_TIMES`, `SUBTITLE_FONTS`, `SUBTITLE_COLORS`, `DEFAULT_SERVER_ORDER`, `TABS`,
   `SECTION_SEARCH_TERMS`), `playerUi.js` (`PLAYER_SPEEDS`, `ASPECT_RATIOS` — each

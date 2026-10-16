@@ -59,8 +59,13 @@ import { buildEpisodeOrder, episodeNumberLabel, isEpAired, formatAirsDate } from
 import { getPlatformName } from "../utils/platforms";
 import { logEmptyData, logError, reportQueryError } from "../utils/debugLogger";
 // NativePlayerView is the app's player: direct HLS playback through the
-// serverless + Cloudflare relay, with the Netflix-style chrome.
+// serverless + Cloudflare relay, with the Netflix-style chrome. The provider's
+// backend migrated to a v2 API our resolver can no longer mint against, so the
+// default engine is now the provider's own player embedded in an iframe
+// (ProviderEmbedPlayer); both stay wired behind PROVIDER_EMBED_PLAYBACK.
 const NativePlayerView = lazy(() => import("../components/NativePlayerView"));
+const ProviderEmbedPlayer = lazy(() => import("../components/ProviderEmbedPlayer"));
+import { PROVIDER_EMBED_PLAYBACK } from "../constants/playback";
 import ErrorBoundary from "../components/ErrorBoundary";
 
 import { progressPct } from "../utils/resumeProgress";
@@ -2122,61 +2127,81 @@ export default function TitleDetails() {
                         justifyContent: "center",
                       }}
                     >
-                      <NativePlayerView
-                        type={isTvContent ? "tv" : "movie"}
-                        id={numericId}
-                        season={selectedSeason}
-                        episode={isTvContent ? playingEpisode : 1}
-                        originalLanguage={movie?.originalLanguage}
-                        title={movie?.title || movie?.name || "Title"}
-                        subtitle={
-                          isTvContent
-                            ? `S${selectedSeason}:E${playingEpisode}` +
-                              (() => {
-                                const ep = (episodes || []).find(
-                                  (e) => e.episodeNumber === playingEpisode,
-                                );
-                                return ep?.title ? ` "${ep.title}"` : "";
-                              })()
-                            : String(
-                                movie?.releaseDate
-                                  ? new Date(movie.releaseDate).getFullYear()
-                                  : "",
-                              )
-                        }
-                        episodes={
-                          isTvContent
-                            ? (episodes || []).map((e) => ({
-                                number: e.episodeNumber,
-                                title: e.title,
-                                thumbnailUrl: e.thumbnailUrl,
-                                durationMins: e.durationMins,
-                                description: e.description,
-                                airDate: e.airDate,
-                              }))
-                            : []
-                        }
-                        onSelectEpisode={(n) => setPlayingEpisode(n)}
-                        canGoPrev={canGoPrev}
-                        canGoNext={canGoNext}
-                        onGoPrev={goToPrevEpisode}
-                        onGoNext={goToNextEpisode}
-                        onClose={() => setIsPlaying(false)}
-                        imdbId={movie?.imdbId || ""}
-                        backdropUrl={movie?.backdropUrl || ""}
-                        posterUrl={movie?.logoUrl || movie?.posterUrl || movie?.backdropUrl || ""}
-                        watchedEntry={watchEntry}
-                        onProgressChange={(t) => {
-                          if (t > 10) {
-                            updateProgress(
-                              { ...movie, source: resolvedPlatform, sourceName },
-                              selectedSeason,
-                              playingEpisode,
-                              Math.floor(t),
-                            );
+                      {PROVIDER_EMBED_PLAYBACK ? (
+                        <ProviderEmbedPlayer
+                          type={isTvContent ? "tv" : "movie"}
+                          id={numericId}
+                          season={selectedSeason}
+                          episode={isTvContent ? playingEpisode : 1}
+                          title={movie?.title || movie?.name || "Title"}
+                          subtitle={
+                            isTvContent
+                              ? `S${selectedSeason}:E${playingEpisode}`
+                              : String(
+                                  movie?.releaseDate
+                                    ? new Date(movie.releaseDate).getFullYear()
+                                    : "",
+                                )
                           }
-                        }}
-                      />
+                          onClose={() => setIsPlaying(false)}
+                        />
+                      ) : (
+                        <NativePlayerView
+                          type={isTvContent ? "tv" : "movie"}
+                          id={numericId}
+                          season={selectedSeason}
+                          episode={isTvContent ? playingEpisode : 1}
+                          originalLanguage={movie?.originalLanguage}
+                          title={movie?.title || movie?.name || "Title"}
+                          subtitle={
+                            isTvContent
+                              ? `S${selectedSeason}:E${playingEpisode}` +
+                                (() => {
+                                  const ep = (episodes || []).find(
+                                    (e) => e.episodeNumber === playingEpisode,
+                                  );
+                                  return ep?.title ? ` "${ep.title}"` : "";
+                                })()
+                              : String(
+                                  movie?.releaseDate
+                                    ? new Date(movie.releaseDate).getFullYear()
+                                    : "",
+                                )
+                          }
+                          episodes={
+                            isTvContent
+                              ? (episodes || []).map((e) => ({
+                                  number: e.episodeNumber,
+                                  title: e.title,
+                                  thumbnailUrl: e.thumbnailUrl,
+                                  durationMins: e.durationMins,
+                                  description: e.description,
+                                  airDate: e.airDate,
+                                }))
+                              : []
+                          }
+                          onSelectEpisode={(n) => setPlayingEpisode(n)}
+                          canGoPrev={canGoPrev}
+                          canGoNext={canGoNext}
+                          onGoPrev={goToPrevEpisode}
+                          onGoNext={goToNextEpisode}
+                          onClose={() => setIsPlaying(false)}
+                          imdbId={movie?.imdbId || ""}
+                          backdropUrl={movie?.backdropUrl || ""}
+                          posterUrl={movie?.logoUrl || movie?.posterUrl || movie?.backdropUrl || ""}
+                          watchedEntry={watchEntry}
+                          onProgressChange={(t) => {
+                            if (t > 10) {
+                              updateProgress(
+                                { ...movie, source: resolvedPlatform, sourceName },
+                                selectedSeason,
+                                playingEpisode,
+                                Math.floor(t),
+                              );
+                            }
+                          }}
+                        />
+                      )}
                     </div>
                   </Suspense>
                 </ErrorBoundary>

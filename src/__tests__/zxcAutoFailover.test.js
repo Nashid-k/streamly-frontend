@@ -7,6 +7,14 @@
 // silently play a different one behind the viewer's back.
 import { describe, expect, it, beforeEach, vi } from "vitest";
 
+// Hermetic DNS: the SSRF pass resolves the provider origin through
+// resolveUpstream, whose OS lookup cannot answer for that host in this
+// environment. Every name resolves public here; the SSRF rules themselves are
+// covered by ssrfGuard.test.js, and the fetch mock below is what this suite
+// exercises. Same pattern as streamHandler.test.js.
+const { lookup } = vi.hoisted(() => ({ lookup: vi.fn() }));
+vi.mock("node:dns/promises", () => ({ lookup, default: { lookup } }));
+
 const mod = await import("../../api/stream.js");
 const { default: handler } = mod;
 const MINT_PATH = mod.zxcContractSeed().mintPath;
@@ -73,6 +81,8 @@ async function call(body) {
 }
 
 beforeEach(() => {
+  lookup.mockReset();
+  lookup.mockResolvedValue([{ address: "93.184.216.34" }]);
   mod.clearZxcMpdCache();
   mod.clearZxcTitleMetaCache();
   mod.clearZxcServerHealth();

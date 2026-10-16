@@ -6,6 +6,14 @@
 // dead while a mirror behind it still works.
 import { describe, expect, it, beforeEach, vi } from "vitest";
 
+// Hermetic DNS: the SSRF pass resolves the provider origin through
+// resolveUpstream, whose OS lookup cannot answer for that host in this
+// environment. Every name resolves public here; the SSRF rules themselves are
+// covered by ssrfGuard.test.js, and the fetch mock below is what this suite
+// exercises. Same pattern as streamHandler.test.js.
+const { lookup } = vi.hoisted(() => ({ lookup: vi.fn() }));
+vi.mock("node:dns/promises", () => ({ lookup, default: { lookup } }));
+
 // Each entry: the PLAYLIST TEXT for that link, or null to simulate a dead link.
 // The handler base64-decodes `link`, so plain URLs are encoded here.
 let links = [];
@@ -45,6 +53,8 @@ const masterPlaylist = (rungs) => [
 const json = (payload) => new Response(JSON.stringify(payload), { status: 200, headers: { "content-type": "application/json" } });
 
 beforeEach(() => {
+  lookup.mockReset();
+  lookup.mockResolvedValue([{ address: "93.184.216.34" }]);
   links = [];
   vi.stubGlobal(
     "fetch",

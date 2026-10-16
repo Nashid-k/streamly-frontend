@@ -23,6 +23,14 @@
 // Hermetic: fetch is stubbed, no test may reach a provider.
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
+// Hermetic DNS: the SSRF pass resolves the provider origin through
+// resolveUpstream, whose OS lookup cannot answer for that host in this
+// environment. Every name resolves public here; the SSRF rules themselves are
+// covered by ssrfGuard.test.js, and the fetch mock below is what this suite
+// exercises. Same pattern as streamHandler.test.js.
+const { lookup } = vi.hoisted(() => ({ lookup: vi.fn() }));
+vi.mock("node:dns/promises", () => ({ lookup, default: { lookup } }));
+
 const { default: handler, clearZxcMpdCache, clearZxcTitleMetaCache, describeZxcContractChange, parseZxcRoster } = await import("../../api/stream.js");
 
 /* The current mint path. If upstream renames it again, the failure is a 404 HTML
@@ -37,6 +45,8 @@ let details = { title: "Inception", release_date: "2010-07-15", imdb_id: "tt1375
 let serversResponse = { success: true, links: [] };
 
 beforeEach(() => {
+  lookup.mockReset();
+  lookup.mockResolvedValue([{ address: "93.184.216.34" }]);
   requests = [];
   clearZxcMpdCache();
   clearZxcTitleMetaCache();

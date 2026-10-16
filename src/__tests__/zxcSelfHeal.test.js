@@ -10,6 +10,14 @@
 // Hermetic: fetch is stubbed, no test may reach a provider.
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
+// Hermetic DNS: the SSRF pass resolves the provider origin through
+// resolveUpstream, whose OS lookup cannot answer for that host in this
+// environment. Every name resolves public here; the SSRF rules themselves are
+// covered by ssrfGuard.test.js, and the fetch mock below is what this suite
+// exercises. Same pattern as streamHandler.test.js.
+const { lookup } = vi.hoisted(() => ({ lookup: vi.fn() }));
+vi.mock("node:dns/promises", () => ({ lookup, default: { lookup } }));
+
 const { default: handler, clearZxcDiscoveryCache, clearZxcTitleMetaCache, zxcContractSeed } = await import("../../api/stream.js");
 
 // Read the seed from the module so a provider rename (rewritten by the
@@ -17,7 +25,10 @@ const { default: handler, clearZxcDiscoveryCache, clearZxcTitleMetaCache, zxcCon
 // handler tries first, so the stub must match it — not a frozen literal.
 const SEED_MINT = zxcContractSeed().mintPath; // the seeded contract (a human last read this)
 const NEW_MINT = "/backend/totallynewmint"; // what the "renamed" chunk advertises
-const EMBED = "https://vidstuck.xyz/embed/movie/27205";
+// Host-agnostic: the handler builds this from ZXC_ORIGIN, which moves when the
+// provider migrates. The assertion only needs to prove the embed PAGE was read,
+// so match the path, not the (rotating) origin.
+const EMBED = "/embed/movie/27205";
 
 /* A fresh contract + a synthetic chunk shaped exactly like the real minified
    client: the field destructure BEFORE the `.post(...)`, the param literals
@@ -108,6 +119,8 @@ async function resolve({ server = "centaurus" } = {}) {
 const serversUrl = () => requests.find((u) => u.includes("/backend/servers/")) || "";
 
 beforeEach(() => {
+  lookup.mockReset();
+  lookup.mockResolvedValue([{ address: "93.184.216.34" }]);
   requests = [];
   details = { title: "Inception", release_date: "2010-07-15", imdb_id: "tt0000000" };
   serversResponse = {
