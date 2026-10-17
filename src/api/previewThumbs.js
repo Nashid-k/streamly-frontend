@@ -36,6 +36,13 @@ let captures = new Map();
 // replay every hover position it passed through.
 let chain = Promise.resolve();
 let latestReq = 0;
+// While the MAIN player is fetching for itself (a seek, a stall refill), the
+// preview pipeline must stand down: a capture pulls whole fragments through the
+// SAME relay the real seek fragment needs, so a preview decode in flight at
+// release steals the very bytes that decide how long the seek spins. The player
+// flips this on `buffering`; stopLoad() halts an in-flight preview download the
+// instant a seek starts, and startLoad() resumes it once the player is happy.
+let suppressed = false;
 
 const cacheKeyOf = (key, t) => `${key}@${Math.max(0, Math.round(t / CACHE_STEP_SECONDS))}`;
 
@@ -80,6 +87,25 @@ export function clearPreviewCache(sourceKey) {
 export function resetPreviewPipeline() {
   teardown();
   captures = new Map();
+  suppressed = false;
+}
+
+/* Park the whole preview pipeline while the MAIN player is fetching for itself
+   (a seek / stall refill): a preview capture pulls whole fragments through the
+   SAME relay the real seek fragment needs, so leaving it running steals the
+   bandwidth that decides how long a seek spins. stopLoad() halts any in-flight
+   preview download immediately; startLoad() resumes it when the player is happy. */
+export function setPreviewSuppressed(value) {
+  const next = Boolean(value);
+  if (next === suppressed) return;
+  suppressed = next;
+  if (!hls) return;
+  try {
+    if (next) hls.stopLoad();
+    else hls.startLoad();
+  } catch {
+    // hls mid-teardown — the next mount starts clean
+  }
 }
 
 async function ensureMounted({ url, refUrl, sourceKey }) {
@@ -179,6 +205,9 @@ export async function getPreviewThumb({ url, refUrl, sourceKey, seconds }) {
   const key = cacheKeyOf(sourceKey, seconds);
   const hit = captures.get(key);
   if (hit) return hit;
+  // A cached thumb needs no network, so it still shows while suppressed — only
+  // a fresh decode (a mount, a fragment pull) is held back for the player.
+  if (suppressed) return null;
   const mine = ++latestReq;
   const job = chain.then(async () => {
     if (mine !== latestReq) return captures.get(key) || null;

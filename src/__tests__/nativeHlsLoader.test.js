@@ -56,6 +56,27 @@ describe("probeDirectOrigin", () => {
     expect(probe.ok).toBe(false);
   });
 
+  it("flags a CORS-open host that ignores Range as readable (not ok)", async () => {
+    // A 200 with ACAO but no content-range: the browser CAN read the body direct
+    // (a plain GET is all directFragment sends), it just cannot be range-sliced
+    // by the relay. Reporting readable separately is what stops loadFragment
+    // pinning this host to the relay for no reason.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: {
+          get: (name) => (name === "access-control-allow-origin" ? "*" : null),
+        },
+        body: { cancel: async () => {} },
+      }),
+    );
+    const probe = await probeDirectOrigin("https://rangeless.example.com/vd/seg-1.m4s");
+    expect(probe.readable).toBe(true);
+    expect(probe.ok).toBe(false);
+  });
+
   it("caches the probe per origin", async () => {
     const fetchMock = vi.fn().mockResolvedValue(rangeOkResponse());
     vi.stubGlobal("fetch", fetchMock);
@@ -403,6 +424,40 @@ describe("createStreamlyLoader", () => {
       );
     });
     expect(response.data.byteLength).toBe(8);
+  });
+
+  it("plays a CORS-open fragment direct even when the host ignores Range", async () => {
+    // Regression: the playability probe accepted this host (any 2xx) but
+    // loadFragment demanded content-range too, so every fragment was relayed —
+    // the exact "CORS-capable origin forced onto the relay" inconsistency. The
+    // direct pull must win, and the relay must never be touched.
+    const bytes = new Uint8Array([1, 2, 3, 4]).buffer;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url, init) => {
+        if (init?.headers?.range) {
+          return {
+            ok: true,
+            status: 200,
+            headers: { get: (name) => (name === "access-control-allow-origin" ? "*" : null) },
+            body: { cancel: async () => {} },
+          };
+        }
+        if (typeof url === "string" && url.startsWith("https://rangeless.example.com")) {
+          return { ok: true, status: 200, headers: { get: () => null }, arrayBuffer: async () => bytes };
+        }
+        throw new Error(`unexpected relay leg: ${url}`);
+      }),
+    );
+    const Loader = createStreamlyLoader({ getRefUrl: () => "https://vidcore.io/" });
+    const response = await new Promise((resolve, reject) => {
+      new Loader().load(
+        { url: "https://rangeless.example.com/vd/seg-1.m4s", frag: { sn: 1 } },
+        {},
+        { onSuccess: (resp) => resolve(resp), onError: (err) => reject(new Error(err.text)) },
+      );
+    });
+    expect(response.data.byteLength).toBe(4);
   });
 
   it("falls back to the relay when direct fails", async () => {

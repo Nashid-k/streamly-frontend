@@ -72,7 +72,7 @@ import {
 } from "../utils/skipMarkers";
 import { pickInitialBandwidthBits } from "../utils/streamTuning";
 import { useOptionalPreferences } from "../context/preferences";
-import { getPreviewThumb, clearPreviewCache, resetPreviewPipeline } from "../api/previewThumbs";
+import { getPreviewThumb, clearPreviewCache, resetPreviewPipeline, setPreviewSuppressed } from "../api/previewThumbs";
 import {
   ChromeTopBar,
   SkipPill,
@@ -3145,6 +3145,14 @@ setScrubDragging(true);
       cancelled = true;
     };
   }, [hoverRatio, safeDuration]);
+
+  /* While the player itself is fetching (seek/stall), park the preview decoder so
+     it cannot compete for the same relay bytes the real fragment needs — the
+     difference between a seek that resolves on one fragment and one that waits
+     behind a scrubber decode. */
+  useEffect(() => {
+    setPreviewSuppressed(buffering);
+  }, [buffering]);
 
   const showEpisodesButton = Array.isArray(episodes) && episodes.length > 0;
 

@@ -209,7 +209,14 @@ export async function probeDirectOrigin(url, { signal } = {}) {
         acao === "*" || (typeof window !== "undefined" && acao === window.location.origin);
       const match = /bytes\s+0-0\/(\d+)/i.exec(res.headers.get("content-range") || "");
       res.body?.cancel?.().catch?.(() => {});
-      return { ok: Boolean(allowed && match), status: res.status };
+      // `readable` is the browser-visible truth: CORS let us read the reply at
+      // all (the fetch above would have THROWN on a missing ACAO, so a returned
+      // response already passed CORS). That is exactly what `directFragment`
+      // needs — its plain GET reads the body, not a range — while `ok` (CORS AND
+      // content-range) additionally proves the relay can slice the byte ranges
+      // it hands back. Reporting both stops the probe from pinning a CORS-open
+      // host that simply ignores Range on the relay forever.
+      return { ok: Boolean(allowed && match), readable: Boolean(allowed), status: res.status };
     } catch (error) {
       // An AbortError means the OWNING load was cancelled (failover, watchdog,
       // seek/title switch). Caching "not direct" would ride the relay for the rest of
@@ -839,7 +846,12 @@ const text = await withThrottleRetry(this.signal(), async () => {
           probe = { ok: false };
         }
         if (this.aborted) throw new Error("Aborted");
-        if (probe.ok) {
+        // `readable` (CORS open) is enough for the DIRECT path — directFragment's
+        // plain GET reads the whole body and never needs Range. Requiring the
+        // stricter `ok` here (CORS + content-range) was pinning CORS-open hosts
+        // that ignore Range to the relay, even though the playability probe had
+        // already blessed them as direct (probeSourcePlayable accepts any 2xx).
+        if (probe.ok || probe.readable) {
           try {
             const data = await this.directFragment(url, signal);
             const origin = originOf(url);
