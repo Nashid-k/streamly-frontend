@@ -33,7 +33,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 const { lookup } = vi.hoisted(() => ({ lookup: vi.fn() }));
 vi.mock("node:dns/promises", () => ({ lookup, default: { lookup } }));
 
-const { default: handler, clearZxcMpdCache, clearZxcTitleMetaCache, describeZxcContractChange, parseZxcRoster } = await import("../../api/stream.js");
+const { default: handler, clearZxcMpdCache, clearZxcTitleMetaCache, clearZxcResolveCache, describeZxcContractChange, parseZxcRoster } = await import("../../api/stream.js");
 
 /* The current mint path. If upstream renames it again, the failure is a 404 HTML
    page on every row; update this constant and ZXC_MINT_PATH together. */
@@ -54,6 +54,7 @@ beforeEach(() => {
   requests = [];
   clearZxcMpdCache();
   clearZxcTitleMetaCache();
+  clearZxcResolveCache();
   details = { title: "Inception", release_date: "2010-07-15", imdb_id: "tt1375666" };
   serversResponse = {
     success: true,
@@ -352,9 +353,11 @@ describe("ZXC MPD cache", () => {
     expect(requests.filter((u) => u.includes(SOURCES_PATH)).length).toBe(1);
     expect(requests.filter((u) => u.includes(DASH_URL)).length).toBe(1);
 
-    // Reset request tracker but NOT the cache — the second resolve should reuse
-    // the cached MPD.
+    // Reset the request tracker and the RESOLVE cache (so the second call
+    // actually re-runs the resolve) but NOT the MPD cache — the point is that
+    // the second resolve reuses the cached MPD.
     requests = [];
+    clearZxcResolveCache();
 
     // Second resolve of the SAME title: zxcDashManifest hits the cache.
     const r2 = await resolve({ server: "orion" });
@@ -371,6 +374,7 @@ describe("ZXC MPD cache", () => {
 
     requests = [];
     clearZxcMpdCache();
+    clearZxcResolveCache();
     await resolve({ server: "orion" });
     // Cache was cleared — the manifest is fetched again.
     expect(requests.filter((u) => u.includes(DASH_URL)).length).toBe(1);
@@ -399,6 +403,7 @@ describe("ZXC MPD cache", () => {
     expect(requests.filter((u) => u.includes(DASH_URL)).length).toBe(1);
 
     requests = [];
+    clearZxcResolveCache();
     const r2 = await resolve({ server: "orion" });
     expect(r2.ok).toBe(true);
     expect(r2.audioTracks.length).toBe(2);

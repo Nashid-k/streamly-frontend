@@ -85,6 +85,7 @@ beforeEach(() => {
   lookup.mockResolvedValue([{ address: "93.184.216.34" }]);
   mod.clearZxcMpdCache();
   mod.clearZxcTitleMetaCache();
+  mod.clearZxcResolveCache();
   mod.clearZxcServerHealth();
   mpdStatus = {};
   mintedServers = [];
@@ -137,7 +138,10 @@ describe("ZXC automatic failover", () => {
   it("skips a server already in cooldown on the next automatic resolve", async () => {
     mpdStatus = { "https://93.184.216.34/orion.mpd": 427 };
     await call({ auto: true }); // cools orion
-    mod.clearZxcMpdCache(); // the MPD cache only — health deliberately survives
+    // Clear the resolve and MPD caches (not health) so the second call actually
+    // re-runs the rotation instead of returning the cached payload.
+    mod.clearZxcResolveCache();
+    mod.clearZxcMpdCache();
     mintedServers = [];
     const r = await call({ auto: true });
     expect(r.ok).toBe(true);

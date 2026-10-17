@@ -361,17 +361,18 @@ describe("player Servers menu", () => {
     // Row order = auto-rotation priority. The visible name is deliberately the
     // generic "Server N" (a viewer picks on capability, not on brand), and the
     // grey sub-line states the capability: a resolution ceiling, multi-audio, etc.
-    // Server 1 is ZXC Orion — a multi-language-audio row — so "Multi audio"
-    // belongs on row 1. Six rows, matching the provider's current `ec=[…]`
-    // roster (Orion/Valstrax/Atlas/Ursa/Alatreon/Daedalus) read 2026-11-16;
-    // Orion is the only multi-audio row. VidSrc, NHD and VidRack were removed
-    // after re-measuring dead.
+    // Server 1 is ZXC Orion and Server 3 is ZXC Atlas — both served 7-12 dub
+    // tracks on every title probed live 2026-10-17, so "Multi audio" belongs on
+    // rows 1 and 3. Six rows, matching the provider's current `ec=[…]` roster
+    // (Orion/Valstrax/Atlas/Ursa/Alatreon/Daedalus); VidSrc, NHD and VidRack were
+    // removed after re-measuring dead. Alatreon was probed too and serves NO
+    // alternate audio, so it stays "Original audio".
     const rows = [...dialog.querySelectorAll(".np-dialog-row")];
     expect(rows.length).toBe(6);
     const expected = [
       ["Server 1", "Multi audio"],
       ["Server 2", "Original audio"],
-      ["Server 3", "Original audio"],
+      ["Server 3", "Multi audio"],
       ["Server 4", "Original audio"],
       ["Server 5", "Original audio"],
       ["Server 6", "Original audio"],

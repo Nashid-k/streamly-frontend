@@ -18,7 +18,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 const { lookup } = vi.hoisted(() => ({ lookup: vi.fn() }));
 vi.mock("node:dns/promises", () => ({ lookup, default: { lookup } }));
 
-const { default: handler, clearZxcDiscoveryCache, clearZxcTitleMetaCache, zxcContractSeed, deriveZxcContractFromChunks } = await import("../../api/stream.js");
+const { default: handler, clearZxcDiscoveryCache, clearZxcTitleMetaCache, clearZxcResolveCache, zxcContractSeed, deriveZxcContractFromChunks } = await import("../../api/stream.js");
 
 // Read the seed from the module so a provider rename (rewritten by the
 // sync-zxc-contract step) can NEVER strand this suite. The seed is what the
@@ -130,6 +130,7 @@ beforeEach(() => {
   mintStatus = 404;
   clearZxcDiscoveryCache();
   clearZxcTitleMetaCache();
+  clearZxcResolveCache();
   installFetch();
 });
 

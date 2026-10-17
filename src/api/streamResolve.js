@@ -79,10 +79,11 @@ const RESOLVE_TTL_MS = 5 * 60 * 1000;
 const RESOLVE_CACHE_MAX = 60;
 const resolveCache = new Map(); // key -> { at, promise }
 
-function zxcResolveKey({ type, id, season, episode, server, auto, prefer }) {
+function zxcResolveKey({ type, id, season, episode, server, auto, prefer, sourceHeight }) {
   const kind = type === "tv" ? "tv" : "movie";
   const mode = prefer ? `prefer:${prefer}` : auto ? "auto" : `server:${server || ""}`;
-  return [kind, id, season || "", episode || "", mode].join("|");
+  const src = sourceHeight ? `:src${sourceHeight}` : "";
+  return [kind, id, season || "", episode || "", `${mode}${src}`].join("|");
 }
 
 /* Does a FRESH cached payload exist for this request? Lets a prefetch skip rows
@@ -139,7 +140,15 @@ export const streamResolve = {
     // the provider's default mix is not always the film's native language.
     const audioOriginalLang =
       typeof data.audioOriginalLang === "string" ? data.audioOriginalLang : "";
-    return { source: data.source, variants, audioTracks, audioOriginalLang };
+    // Distinct raw source resolutions (>1 only) that the HLS servers expose —
+    // the "Source quality" ladder the player shows as its own selector. Absent
+    // (undefined) for DASH servers and single-link sources.
+    const sourceVariants = Array.isArray(data.sourceVariants)
+      ? data.sourceVariants
+          .filter((v) => v && Number(v.height) > 0)
+          .map((v) => ({ height: Number(v.height), label: String(v.label || `${v.height}p`) }))
+      : [];
+    return { source: data.source, variants, audioTracks, audioOriginalLang, sourceVariants };
   },
 
   /** Resolve one of the ZXC/VIDSTUCK servers (action "resolvezxc"). The
@@ -159,9 +168,9 @@ export const streamResolve = {
       the player's source retries, so a payload a probe just proved dead is not
       served again); a successful result is still written. Prefetch callers get
       the coalesced promise for free. */
-  resolveZxc({ type, id, season, episode, server, auto, prefer }, { signal, bypass } = {}) {
+  resolveZxc({ type, id, season, episode, server, auto, prefer, sourceHeight }, { signal, bypass } = {}) {
     const kind = type === "tv" ? "tv" : "movie";
-    const key = zxcResolveKey({ type: kind, id, season, episode, server, auto, prefer });
+    const key = zxcResolveKey({ type: kind, id, season, episode, server, auto, prefer, sourceHeight });
     if (!bypass) {
       const hit = resolveCache.get(key);
       if (hit && Date.now() - hit.at < RESOLVE_TTL_MS) return hit.promise;
@@ -185,6 +194,7 @@ export const streamResolve = {
         if (season != null) body.season = String(season);
         if (episode != null) body.episode = String(episode);
       }
+      if (Number(sourceHeight) > 0) body.sourceHeight = Number(sourceHeight);
       const data = await post(body, { signal });
       const resolved = this.normalizeResolved(data);
       // Which backend actually served this — the automatic path is the reason

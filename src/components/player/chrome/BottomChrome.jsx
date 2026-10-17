@@ -404,8 +404,11 @@ export default function BottomChrome({
                 panel === "settings" ||
                 panel === "audio" ||
                 panel === "subs" ||
+                panel === "substyle" ||
                 panel === "video" ||
+                panel === "sourcequality" ||
                 panel === "speed" ||
+                panel === "sleep" ||
                 panel === "aspect"
               }
               expanded={Boolean(panel && panel !== "episodes" && panel !== "servers")}

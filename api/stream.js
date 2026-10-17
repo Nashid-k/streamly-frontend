@@ -844,6 +844,52 @@ function zxcTitleMetaKey({ type, tmdbId }) {
   return `${type}|${tmdbId}`;
 }
 
+/* Resolve-result cache (see handleResolveZxc). A provider resolve is 2-3 relay
+   round trips priced in seconds each; the client already reuses a payload for
+   minutes, so mirroring that here for a short window collapses the re-resolve a
+   reload / prefetch burst / server switch would otherwise pay — and spares the
+   provider endpoint that rate-limits us (429). The payload is replay-safe: DASH
+   urls are re-minting markers and HLS urls are reused by the client for far
+   longer than this TTL. */
+const ZXC_RESOLVE_TTL_MS = 60_000;
+const ZXC_RESOLVE_CACHE_MAX = 40;
+const resolveCache = new Map();
+
+function zxcResolveCacheKey({ type, tmdbId, season, episode, requested, prefer, sourceHeight }) {
+  return [type, tmdbId, season || "", episode || "", requested || "auto", prefer || "", sourceHeight || 0].join("|");
+}
+
+function takeResolveCache(key) {
+  const hit = resolveCache.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.at > ZXC_RESOLVE_TTL_MS) {
+    resolveCache.delete(key);
+    return null;
+  }
+  return hit.payload;
+}
+
+function setResolveCache(key, payload) {
+  resolveCache.set(key, { at: Date.now(), payload });
+  while (resolveCache.size > ZXC_RESOLVE_CACHE_MAX) {
+    const oldest = resolveCache.keys().next().value;
+    resolveCache.delete(oldest);
+  }
+}
+
+export function clearZxcResolveCache() { resolveCache.clear(); }
+
+/* A cached payload skipped the resolve's host issuance, so the open-relay fence
+   would refuse this instance's playlist/segment requests. Re-admit every URL the
+   payload carries; segment hosts are re-learned when the client fetches the
+   playlist (handlePlaylist), exactly as on a cold resolve. */
+function reissueHostsFromPayload(payload) {
+  const urls = [payload?.source?.url]
+    .concat((payload?.variants || []).map((v) => v?.uri))
+    .concat((payload?.audioTracks || []).map((a) => a?.uri));
+  for (const url of urls) if (url) issueHost(url);
+}
+
 // How many provider links we will probe per plain-HLS server. atlas/meow
 // hand back 2-3 links that are alternate encodes or mirrors of ONE runtime, not
 // a quality ladder, so we pick a single one — the bound only stops a
@@ -1278,7 +1324,7 @@ function zxcDubTracks(meta, server, dubs) {
    server the viewer chose. `hard` separates a transport failure (the server
    itself is down → safe to cool) from a title-shaped miss (server is up, this
    title is absent → never cooled). */
-async function resolveZxcOnServer(meta, server, prefetchedToken) {
+async function resolveZxcOnServer(meta, server, prefetchedToken, sourceHeight) {
   const refererPath = meta.refererPath;
   const refUrl = `${ZXC_ORIGIN}${refererPath}`;
   let data;
@@ -1305,6 +1351,23 @@ async function resolveZxcOnServer(meta, server, prefetchedToken) {
   // pick ONE — but we probe them in order and fall through, because a dead
   // first link must not kill a title that has a working mirror behind it.
   const hlsLinks = data.links.filter((l) => l.kind === "hls").slice(0, ZXC_MAX_HLS_LINKS);
+  // Some plain-HLS servers hand back links at DISTINCT resolutions — a real
+  // source ladder, not the byte-identical mirrors described above (Daedalus
+  // answered 1080/720/480 on every title probed live 2026-10-17). Those become
+  // the "Source quality" selector: `sourceVariants` is published when there is
+  // more than one rung, and a viewer's pick pins the matching link. Links whose
+  // resolution is absent/0 cannot be ranked, so they never enter the ladder.
+  const sourceHeights = [...new Set(data.links.filter((l) => l.kind === "hls").map((l) => l.resolution).filter((r) => r > 0))].sort(
+    (a, b) => b - a,
+  );
+  const sourceVariants =
+    sourceHeights.length > 1 ? sourceHeights.map((h) => ({ height: h, label: `${h}p` })) : undefined;
+  // A source-quality pick pins the link at that resolution; when the pinned
+  // height is absent (a failover moved to a server that doesn't offer it) the
+  // full link list runs unchanged, so an unknown height degrades to Auto.
+  const pinnedLinks =
+    sourceHeight > 0 ? hlsLinks.filter((l) => l.resolution === sourceHeight) : [];
+  const orderedHlsLinks = pinnedLinks.length > 0 ? pinnedLinks : hlsLinks;
   // DASH vs HLS is decided by what the provider actually sent THIS request, not
   // by a frozen server list: the provider re-pointed Orion from HLS to a DASH
   // relay (`/backend/database/andromeda`) on 2026-10-14, and a hardcoded set
@@ -1312,31 +1375,44 @@ async function resolveZxcOnServer(meta, server, prefetchedToken) {
   // `type:"dash"` link takes the DASH path; otherwise the HLS branch runs.
   const hasDash = data.links.some((l) => l.kind === "dash");
 
-  if (!hasDash && hlsLinks.length > 0) {
-    let playable = null;
-    for (const link of hlsLinks) {
-      let text = "";
-      try {
-        text = await fetchUpstream(link.url, { referer: refUrl, extraHeaders: zxcHeaders(refererPath) });
-      } catch (err) {
-        logWarn("zxc", `${server} HLS link ${link.url.slice(0, 48)} failed`, { message: err?.message });
-        continue;
-      }
-      // Issue the playlist host and any hosts it references so the segment
-      // relay admits this source's media CDN once the player starts.
-      issueHost(link.url);
-      issueHostsInText(text);
-      if (!text.startsWith("#EXTM3U")) {
-        logWarn("zxc", `${server} HLS link ${link.url.slice(0, 48)} is not a playlist`);
-        continue;
-      }
-      // Some HLS servers already publish a real ladder; do not flatten it to a
-      // single "Auto" rung when the master playlist is present. A multi-rung
-      // master always beats a single rendition, whatever the provider ordered.
-      const levels = text.includes("#EXT-X-STREAM-INF") ? parseMasterPlaylist(text, link.url) : [];
-      if (playable === null || levels.length > playable.levels.length) {
-        playable = { link, levels };
-        if (levels.length > 1) break;
+  if (!hasDash && orderedHlsLinks.length > 0) {
+    // Probe every candidate CONCURRENTLY: these are DIRECT CDN fetches (not
+    // relay legs), so N-at-once costs one round trip instead of N and never
+    // touches the provider's rate-limited API. A link that errors or answers a
+    // non-playlist body is simply not a candidate — the same fall-through the
+    // old sequential walk gave, minus the serial wait on each dead mirror.
+    const probed = await Promise.all(
+      orderedHlsLinks.map(async (link) => {
+        let text = "";
+        try {
+          text = await fetchUpstream(link.url, { referer: refUrl, extraHeaders: zxcHeaders(refererPath) });
+        } catch (err) {
+          logWarn("zxc", `${server} HLS link ${link.url.slice(0, 48)} failed`, { message: err?.message });
+          return null;
+        }
+        // Issue the playlist host and any hosts it references so the segment
+        // relay admits this source's media CDN once the player starts.
+        issueHost(link.url);
+        if (!text.startsWith("#EXTM3U")) {
+          logWarn("zxc", `${server} HLS link ${link.url.slice(0, 48)} is not a playlist`);
+          return null;
+        }
+        issueHostsInText(text);
+        // Some HLS servers already publish a real ladder; do not flatten it to a
+        // single "Auto" rung when the master playlist is present. A multi-rung
+        // master always beats a single rendition, whatever the provider ordered.
+        const levels = text.includes("#EXT-X-STREAM-INF") ? parseMasterPlaylist(text, link.url) : [];
+        return { link, levels };
+      }),
+    );
+    // The first link offering a real multi-rung ladder wins (provider order
+    // preserved); failing that, the richest playlist, ties going to the first.
+    let playable = probed.find((candidate) => candidate && candidate.levels.length > 1) || null;
+    if (!playable) {
+      for (const candidate of probed) {
+        if (candidate && (playable === null || candidate.levels.length > playable.levels.length)) {
+          playable = candidate;
+        }
       }
     }
     if (playable) {
@@ -1374,6 +1450,9 @@ async function resolveZxcOnServer(meta, server, prefetchedToken) {
           // The provider's original-track language, so the Audio menu labels its
           // "Original" row honestly (see zxcOriginalDub).
           audioOriginalLang: zxcOriginalLang(data.dubs),
+          // Distinct raw source resolutions (>1 only), which the player's
+          // "Source quality" selector lists — see sourceHeights above.
+          sourceVariants,
         },
       };
     }
@@ -1440,6 +1519,10 @@ async function handleResolveZxc(body, res) {
   const episode = String(body.episode ?? "").trim();
   const requested = String(body.server || "").trim().toLowerCase();
   const prefer = String(body.prefer || "").trim().toLowerCase();
+  // Source-quality pick (optional): a raw-source resolution in px. 0/absent =
+  // Auto (the provider's own default link). Only HLS-ladder servers honour it;
+  // everywhere else it is ignored and the resolve runs unchanged.
+  const sourceHeight = Math.max(0, Math.floor(Number(body.sourceHeight) || 0));
   const names = zxcServerNames();
   // An unknown server name is a client bug, not a title problem: answer 400
   // rather than silently resolving a different server than the viewer picked.
@@ -1449,6 +1532,17 @@ async function handleResolveZxc(body, res) {
   }
   if (prefer && !names.includes(prefer)) {
     json(res, 400, { ok: false, error: "Unknown ZXC server", code: "bad-server" });
+    return;
+  }
+  // A resolve just paid seconds of relay latency; serve an identical request
+  // (a reload, a prefetch that outlived its click, a switch back) from the
+  // short-lived mirror instead of paying it again. Hosts are re-issued so the
+  // relay fence still admits this instance (see reissueHostsFromPayload).
+  const cacheKey = zxcResolveCacheKey({ type, tmdbId, season, episode, requested, prefer, sourceHeight });
+  const cachedPayload = takeResolveCache(cacheKey);
+  if (cachedPayload) {
+    reissueHostsFromPayload(cachedPayload);
+    json(res, 200, cachedPayload);
     return;
   }
   // `auto` (the client's no-pick path) lets the SERVER choose the healthiest
@@ -1532,9 +1626,10 @@ async function handleResolveZxc(body, res) {
   for (const server of plan) {
     const tokenPromise = prefetchedTokens.get(server);
     const prefetchedToken = tokenPromise ? await tokenPromise : undefined;
-    const result = await resolveZxcOnServer(meta, server, prefetchedToken);
+    const result = await resolveZxcOnServer(meta, server, prefetchedToken, sourceHeight);
     if (result.ok) {
       noteZxcServer(server, true);
+      setResolveCache(cacheKey, result.payload);
       json(res, 200, result.payload);
       return;
     }

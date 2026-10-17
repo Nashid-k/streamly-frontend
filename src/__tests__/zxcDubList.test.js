@@ -52,8 +52,10 @@ beforeEach(() => {
   lookup.mockResolvedValue([{ address: "93.184.216.34" }]);
   dubs = [];
   calls = { mint: 0, servers: 0, mpd: 0 };
-  // The handler caches MPDs and title metadata at module scope, so clear both
-  // or the round-trip counts below would depend on test order.
+  // The handler caches resolved payloads, MPDs and title metadata at module
+  // scope, so clear all three or the round-trip counts below would depend on
+  // test order.
+  clearZxcResolveCache();
   clearZxcMpdCache();
   clearZxcTitleMetaCache();
   // A public literal IP so the SSRF guard passes without DNS: this suite is
@@ -77,7 +79,7 @@ beforeEach(() => {
   );
 });
 
-const { default: handler, zxcContractSeed, clearZxcMpdCache, clearZxcTitleMetaCache } = await import("../../api/stream.js");
+const { default: handler, zxcContractSeed, clearZxcMpdCache, clearZxcTitleMetaCache, clearZxcResolveCache } = await import("../../api/stream.js");
 
 // Derived from the module seed so a provider rename can never strand this suite.
 const MINT_PATH = zxcContractSeed().mintPath;

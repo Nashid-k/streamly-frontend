@@ -15,6 +15,9 @@ import {
   IconGauge,
   IconServers,
   IconSliders,
+  IconCalendar,
+  IconCaptions,
+  IconTheater,
 } from "./player/chrome";
 import {
   NetflixVolumeHUD,
@@ -27,7 +30,7 @@ import NetflixStillWatching from "./NetflixStillWatching";
 import Hls from "hls.js";
 import { variantLabel } from "../utils/hlsPlaylist";
 import { createStreamlyLoader, probeSourcePlayable } from "../api/nativeHlsLoader";
-import { takeWarmResolve, prefetchSources } from "../api/warmResolve";
+import { takeWarmResolve, prefetchSources, warmResolve } from "../api/warmResolve";
 import { SKIP_DATA_CREDIT, fetchSkipBoundaries } from "../api/skipBoundarySource";
 import { fetchZxcIntroBounds } from "../api/skipProviderSource";
 import { SubtitleFetcher } from "../api/subtitleFetcher";
@@ -139,6 +142,8 @@ const INITIAL_BW_BITS = 10 * 1000 * 1000;
 const VOLUME_STORAGE_KEY = "streamly-native-volume";
 const MUTED_STORAGE_KEY = "streamly-native-muted";
 const ASPECT_STORAGE_KEY = "streamly-native-aspect";
+const SUB_SIZE_STORAGE_KEY = "streamly-native-sub-size";
+const SUB_BG_STORAGE_KEY = "streamly-native-sub-bg";
 /* Brightness is GONE (user call): a CSS filter is not the device backlight —
    it dims the video while the OS brightness setting stays where it was, which
    reads as a broken picture. The OS owns screen brightness on every platform.
@@ -527,6 +532,15 @@ export default function NativePlayerView({
   // fails SILENTLY: the pick flips back to Off with no visible reason. This state
   // keeps the reason on screen until the next pick or title change.
   const [subtitleError, setSubtitleError] = useState(null);
+  /* Subtitle STYLING (provider "Subtitle settings" parity): size 0=S/1=M/2=L and
+     background 0=none/1=shadow/2=box. Presentation only — persisted separately
+     from the track choice. */
+  const [subtitleSize, setSubtitleSize] = useState(() =>
+    readStoredNumber(SUB_SIZE_STORAGE_KEY, { min: 0, max: 2, fallback: 1 }),
+  );
+  const [subtitleBg, setSubtitleBg] = useState(() =>
+    readStoredNumber(SUB_BG_STORAGE_KEY, { min: 0, max: 2, fallback: 1 }),
+  );
   // Netflix chrome state.
   const [controlsVisible, setControlsVisible] = useState(true);
   const [panel, setPanel] = useState(null); // null | "subs" | "episodes" | "servers"
@@ -563,6 +577,21 @@ export default function NativePlayerView({
     return Number.isInteger(i) && ASPECT_RATIOS[i] ? i : 0;
   });
   const [playbackRate, setPlaybackRate] = useState(1);
+  /* Provider "Source quality": the raw source ladder a plain-HLS server exposes
+     (Daedalus answers 1080/720/480). 0 = Auto, the provider's own default link.
+     Distinct from the video-quality selector above, which picks a rung of the
+     DELIVERED ladder; this re-resolves the SOURCE at a chosen raw resolution.
+     Only populated when the picked server returned >1 distinct resolution, so
+     the selector stays hidden rather than offering an empty list. */
+  const [sourceHeight, setSourceHeight] = useState(0);
+  const sourceHeightRef = useRef(0);
+  const [sourceVariants, setSourceVariants] = useState([]);
+  // Loop and sleep timer (provider Playback menu parity). Loop wraps the current
+  // item; the sleep timer pauses playback after the chosen minutes.
+  const [loopEnabled, setLoopEnabled] = useState(false);
+  const [sleepMinutes, setSleepMinutes] = useState(null); // chosen duration, null = off
+  const [sleepRemaining, setSleepRemaining] = useState(null); // seconds, for the label
+  const [pipActive, setPipActive] = useState(false);
   const [hud, setHud] = useState(null); // { kind: "volume"|"aspect"|"seek"|"play"|"pause"|"hold2x", value }
   // Hold-to-2x (Netflix mobile): press-and-hold on the right half of the screen
   // plays at 2x; release restores the previous rate. Desktop holds the forward
@@ -578,10 +607,10 @@ export default function NativePlayerView({
   mutedRef.current = muted;
   const aspectRef = useRef(aspectRatioIndex);
   aspectRef.current = aspectRatioIndex;
-  // Hold/still-watching mirrors — synced here because `hold2x`/`ended` are
-  // declared above this line, not at the ref block up top.
-  hold2xRef.current = hold2x;
-  endedRef.current = ended;
+  const sleepTimerId = useRef(null);
+  const sleepDisplayId = useRef(null);
+  const pipSupported =
+    typeof document !== "undefined" && document.pictureInPictureEnabled;
   const hudTimerRef = useRef(null);
   // Touch gesture state for Netflix's vertical drags on the video surface.
   const gestureRef = useRef(null);
@@ -1526,6 +1555,117 @@ setScrubDragging(true);
     }
   }, [aspectRatioIndex]);
 
+  /* Loop + sleep timer + picture-in-picture + subtitle styling. Small,
+     self-contained "playback QoL" controls that mirror the provider's own
+     Playback and Subtitle menus. */
+  const clearSleepTimer = useCallback(() => {
+    if (sleepTimerId.current) {
+      clearTimeout(sleepTimerId.current);
+      sleepTimerId.current = null;
+    }
+    if (sleepDisplayId.current) {
+      clearInterval(sleepDisplayId.current);
+      sleepDisplayId.current = null;
+    }
+    setSleepMinutes(null);
+    setSleepRemaining(null);
+  }, []);
+
+  const startSleepTimer = useCallback(
+    (minutes) => {
+      if (sleepTimerId.current) {
+        clearTimeout(sleepTimerId.current);
+        sleepTimerId.current = null;
+      }
+      if (sleepDisplayId.current) {
+        clearInterval(sleepDisplayId.current);
+        sleepDisplayId.current = null;
+      }
+      if (!minutes || minutes <= 0) {
+        setSleepMinutes(null);
+        setSleepRemaining(null);
+        return;
+      }
+      const endsAt = Date.now() + minutes * 60 * 1000;
+      setSleepMinutes(minutes);
+      setSleepRemaining(Math.round((endsAt - Date.now()) / 1000));
+      sleepDisplayId.current = setInterval(() => {
+        setSleepRemaining(Math.max(0, Math.round((endsAt - Date.now()) / 1000)));
+      }, 1000);
+      sleepTimerId.current = setTimeout(() => {
+        try {
+          videoRef.current?.pause();
+        } catch {
+          // element already torn down — nothing to pause
+        }
+        clearSleepTimer();
+        setControlsVisible(true);
+        setQualityNote("Sleep timer ended — playback paused.");
+      }, minutes * 60 * 1000);
+    },
+    [clearSleepTimer],
+  );
+
+  // Apply the loop toggle to the element (a real attribute, so a wrapped
+  // playback restarts without the ended overlay).
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    try {
+      video.loop = loopEnabled;
+    } catch {
+      // some webviews reject the attribute; playback simply won't loop
+    }
+  }, [loopEnabled]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SUB_SIZE_STORAGE_KEY, String(subtitleSize));
+      window.localStorage.setItem(SUB_BG_STORAGE_KEY, String(subtitleBg));
+    } catch {
+      // private mode — subtitle styling just won't persist
+    }
+  }, [subtitleSize, subtitleBg]);
+
+  // Tear the sleep timer down on unmount so its timeout can't fire against a
+  // discarded player (and the display interval can't leak).
+  useEffect(
+    () => () => {
+      if (sleepTimerId.current) clearTimeout(sleepTimerId.current);
+      if (sleepDisplayId.current) clearInterval(sleepDisplayId.current);
+    },
+    [],
+  );
+
+  const togglePip = useCallback(async () => {
+    const video = videoRef.current;
+    if (!video) return;
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+      } else if (document.pictureInPictureEnabled) {
+        await video.requestPictureInPicture();
+      }
+    } catch (error) {
+      logWarn("native", "Picture-in-picture request failed", { message: error?.message });
+    }
+  }, []);
+
+  /* Track the element's PiP state so the row's label reflects reality (a
+     browser gesture can exit PiP without going through our button). */
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return undefined;
+    const onEnter = () => setPipActive(true);
+    const onLeave = () => setPipActive(false);
+    video.addEventListener("enterpictureinpicture", onEnter);
+    video.addEventListener("leavepictureinpicture", onLeave);
+    return () => {
+      video.removeEventListener("enterpictureinpicture", onEnter);
+      video.removeEventListener("leavepictureinpicture", onLeave);
+    };
+  }, []);
+
   /* Fullscreen icon follows the real fullscreen state (incl. iOS webkit). */
   useEffect(() => {
     const onFull = () =>
@@ -1831,6 +1971,10 @@ setScrubDragging(true);
       setActiveDub(0);
       setDubTracks([]);
       setDubOriginalLang("");
+      setSourceVariants([]);
+      setSourceHeight(0);
+      sourceHeightRef.current = 0;
+      clearSleepTimer();
       // A new title/episode is NOT "ended": without this the previous
       // installment's `ended` flag survives the switch and the Up Next card
       // (and the ended overlay) bleeds onto the episode that just started.
@@ -1924,7 +2068,15 @@ setScrubDragging(true);
       setDeadDubs(new Set());
       autoUriRef.current = null;
       autoUriHeightRef.current = null;
-      const args = { type, id, season: type === "tv" ? season : undefined, episode: type === "tv" ? episode : undefined, title };
+      const args = {
+        type,
+        id,
+        season: type === "tv" ? season : undefined,
+        episode: type === "tv" ? episode : undefined,
+        title,
+        // Raw-source resolution pin (0/undefined = Auto) — see pickSourceQuality.
+        sourceHeight: sourceHeightRef.current || undefined,
+      };
       const stale = () => runRef.current !== run || controller.signal.aborted;
       const abortPromise = () =>
         new Promise((resolve) => {
@@ -2007,6 +2159,11 @@ setScrubDragging(true);
         const dubTracks = Array.isArray(resolved?.audioTracks) ? resolved.audioTracks : [];
         const dubOriginalLang =
           typeof resolved?.audioOriginalLang === "string" ? resolved.audioOriginalLang : "";
+        // The server reports the distinct raw source resolutions it can offer for
+        // THIS server/title (>1 only), which drives the "Source quality" row. The
+        // pick itself lives in sourceHeightRef and is NOT reset here — the reload
+        // that a pick triggers re-runs this effect, and a reset would undo it.
+        setSourceVariants(Array.isArray(resolved?.sourceVariants) ? resolved.sourceVariants : []);
 
         let liveSource = resolved.source;
         let liveRefUrl = resolved.source?.refUrl || resolved.source?.url;
@@ -2414,7 +2571,7 @@ setScrubDragging(true);
         // element already detached
       }
     };
-  }, [type, id, season, episode, title, reloadToken]);
+  }, [type, id, season, episode, title, reloadToken, clearSleepTimer]);
 
   const pickQuality = async (uri, height, opts = {}) => {
     const hls = hlsRef.current;
@@ -2647,6 +2804,9 @@ setScrubDragging(true);
     setActiveDub(0);
     setDubTracks([]);
     setDubOriginalLang("");
+    setSourceVariants([]);
+    setSourceHeight(0);
+    sourceHeightRef.current = 0;
     setPanel(null);
     poke();
     const def = sourceByKey(key);
@@ -2656,6 +2816,24 @@ setScrubDragging(true);
     setStageWhileLoading(true);
     setServerSwitchStage(true);
     setSwitchingNote(`Switching to ${def?.label || "that server"}…`);
+  };
+
+  /* Source-quality pick: the raw source ladder a plain-HLS server exposes
+     (Daedalus 1080/720/480). Distinct from pickQuality (a rung of the DELIVERED
+     ladder) — this re-resolves the whole stream from the source at that raw
+     resolution, so it rides the same reload path a server switch uses. 0 = Auto
+     (the provider's own default link). */
+  const pickSourceQuality = (height) => {
+    const next = Number(height) > 0 ? Number(height) : 0;
+    if ((sourceHeightRef.current || 0) === next) return;
+    sourceHeightRef.current = next;
+    setSourceHeight(next);
+    setPanel(null);
+    // A source re-resolve has no valid frame to keep, so it is a cold wait.
+    setStageWhileLoading(true);
+    setSwitchingNote(null);
+    poke();
+    setReloadToken((t) => t + 1);
   };
 
   // Servers menu open → warm every row so the tap starts almost instantly. The
@@ -2978,6 +3156,25 @@ setScrubDragging(true);
     navIndex >= 0 && navIndex < airedEpisodes.length - 1 ? airedEpisodes[navIndex + 1]?.number : null;
   const prevDisabled = typeof canGoPrev === "boolean" ? !canGoPrev : navPrevNumber == null;
   const nextDisabled = typeof canGoNext === "boolean" ? !canGoNext : navNextNumber == null;
+
+  /* Next-episode prewarm: once THIS episode is actually playing, mint the next
+     one's resolve in the background so "Next" starts almost instantly instead of
+     paying mint -> sources after the click. Gated on `playing` so it never
+     competes with the current cold start, and delayed so a quick channel-flip
+     doesn't spend the warm leg on an episode the viewer never reaches. A
+     season-crossing next simply misses the warm key (season differs) and
+     resolves normally — harmless. */
+  useEffect(() => {
+    if (type !== "tv" || status !== "playing" || navNextNumber == null) return undefined;
+    const timer = setTimeout(() => {
+      try {
+        warmResolve({ ...resolveArgs, episode: navNextNumber }, {})?.catch?.(() => {});
+      } catch {
+        // warmResolve never throws; a stub resolver in tests might.
+      }
+    }, 15000);
+    return () => clearTimeout(timer);
+  }, [type, status, navNextNumber, resolveArgs]);
 
   const goEpPrev = () => {
     if (prevDisabled) return;
@@ -3322,7 +3519,7 @@ const showSkipOutro = shouldShowSkipOutro({
         )}
         {/* Subtitle overlay — active OpenSubtitles line, bottom-anchored above
             the control chrome like CustomVideoPlayer. */}
-        <SubtitleOverlay text={activeSubtitle} controlsVisible={controlsVisible} />
+        <SubtitleOverlay text={activeSubtitle} controlsVisible={controlsVisible} size={subtitleSize} background={subtitleBg} />
 {/* Top bar: back + title. */}
         <ChromeTopBar
           visible={controlsVisible}
@@ -3561,6 +3758,49 @@ const showSkipOutro = shouldShowSkipOutro({
                   icon={<IconAspect size={20} />}
                   hasChevron
                 />
+                {/* Provider "Source quality" parity: the RAW source resolution
+                    (distinct from the delivered-ladder "Video Quality" above).
+                    Only surfaced when the picked server actually offers a
+                    multi-resolution source — never an empty selector. */}
+                {sourceVariants.length > 1 ? (
+                  <DialogRow
+                    onClick={() => setPanel("sourcequality")}
+                    title="Source quality"
+                    sub={sourceHeight ? `${sourceHeight}p` : "Auto"}
+                    icon={<IconSliders size={20} />}
+                    hasChevron
+                  />
+                ) : null}
+                {/* Loop is a direct toggle (selected shows the check); the sleep
+                    timer opens its own chooser. Both mirror the provider's
+                    Playback menu. */}
+                <DialogRow
+                  onClick={() => {
+                    setLoopEnabled((v) => !v);
+                    poke();
+                  }}
+                  title="Loop"
+                  sub={loopEnabled ? "On" : "Off"}
+                  selected={loopEnabled}
+                />
+                <DialogRow
+                  onClick={() => setPanel("sleep")}
+                  title="Sleep timer"
+                  sub={sleepMinutes ? `${fmtTime(sleepRemaining ?? sleepMinutes * 60)} left` : "Off"}
+                  icon={<IconCalendar size={20} />}
+                  hasChevron
+                />
+                {pipSupported ? (
+                  <DialogRow
+                    onClick={() => {
+                      togglePip();
+                      poke();
+                    }}
+                    title="Picture in picture"
+                    sub={pipActive ? "On" : "Off"}
+                    icon={<IconTheater size={20} />}
+                  />
+                ) : null}
                 {/* The SkipDB data licence (ODbL) requires attribution wherever
                     its boundaries are used, so this is a licence term, not a
                     nicety. Gated on `source === "dataset"` so we credit it only
@@ -3641,6 +3881,16 @@ const showSkipOutro = shouldShowSkipOutro({
                       {subtitleError}
                     </p>
                   ) : null}
+                  {/* Provider "Subtitle settings" parity: styling of the caption
+                      line (size + background), presentation-only and persisted
+                      separately from the chosen track. */}
+                  <DialogRow
+                    onClick={() => setPanel("substyle")}
+                    title="Subtitle style"
+                    sub={`${["Small", "Medium", "Large"][subtitleSize] || "Medium"} · ${["None", "Shadow", "Box"][subtitleBg] || "Shadow"}`}
+                    icon={<IconCaptions size={20} />}
+                    hasChevron
+                  />
               </div>
             ) : panel === "audio" ? (
               <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 0 6px" }}>
@@ -3798,7 +4048,7 @@ const showSkipOutro = shouldShowSkipOutro({
               </div>
             ) : panel === "speed" ? (
               <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 0 6px" }}>
-                  {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
+                  {[0.25, 0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
                     <DialogRow
                       key={rate}
                       selected={playbackRate === rate}
@@ -3843,6 +4093,85 @@ const showSkipOutro = shouldShowSkipOutro({
                       sub={aspect.sub}
                     />
                   ))}
+              </div>
+            ) : panel === "substyle" ? (
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 0 6px" }}>
+                  <p style={{ fontSize: 12, color: "#a1a1aa", margin: "4px 14px 8px", lineHeight: 1.45 }}>
+                    Appearance of the caption line. Applies to the track you pick
+                    in the Subtitles menu.
+                  </p>
+                  <p style={{ fontSize: 11.5, fontWeight: 700, color: "rgba(255,255,255,0.5)", margin: "4px 14px 6px", letterSpacing: "0.02em" }}>
+                    SIZE
+                  </p>
+                  {["Small", "Medium", "Large"].map((name, i) => (
+                    <DialogRow
+                      key={name}
+                      selected={subtitleSize === i}
+                      onClick={() => setSubtitleSize(i)}
+                      title={name}
+                    />
+                  ))}
+                  <p style={{ fontSize: 11.5, fontWeight: 700, color: "rgba(255,255,255,0.5)", margin: "12px 14px 6px", letterSpacing: "0.02em" }}>
+                    BACKGROUND
+                  </p>
+                  {["None", "Shadow", "Box"].map((name, i) => (
+                    <DialogRow
+                      key={name}
+                      selected={subtitleBg === i}
+                      onClick={() => setSubtitleBg(i)}
+                      title={name}
+                    />
+                  ))}
+              </div>
+            ) : panel === "sourcequality" ? (
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 0 6px" }}>
+                  <p style={{ fontSize: 12, color: "#a1a1aa", margin: "4px 14px 8px", lineHeight: 1.45 }}>
+                    The provider's raw source file resolution. Different from Video
+                    Quality, which picks a rung of the stream we deliver.
+                  </p>
+                  <DialogRow
+                    selected={!sourceHeight}
+                    onClick={() => pickSourceQuality(0)}
+                    title="Auto"
+                    sub="The provider's own default link"
+                  />
+                  {sourceVariants.map((v) => (
+                    <DialogRow
+                      key={v.height}
+                      selected={sourceHeight === v.height}
+                      onClick={() => pickSourceQuality(v.height)}
+                      title={v.label || `${v.height}p`}
+                    />
+                  ))}
+              </div>
+            ) : panel === "sleep" ? (
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 0 6px" }}>
+                  <DialogRow
+                    selected={!sleepMinutes}
+                    onClick={() => {
+                      startSleepTimer(0);
+                      setPanel(null);
+                      poke();
+                    }}
+                    title="Off"
+                  />
+                  {[15, 30, 45, 60].map((min) => (
+                    <DialogRow
+                      key={min}
+                      selected={sleepMinutes === min}
+                      onClick={() => {
+                        startSleepTimer(min);
+                        setPanel(null);
+                        poke();
+                      }}
+                      title={`${min} minutes`}
+                    />
+                  ))}
+                  {sleepMinutes ? (
+                    <p style={{ fontSize: 12, color: "#a1a1aa", margin: "8px 14px 4px" }}>
+                      Pausing in {fmtTime(sleepRemaining ?? sleepMinutes * 60)}.
+                    </p>
+                  ) : null}
               </div>
             ) : null}
         </PlayerPanel>

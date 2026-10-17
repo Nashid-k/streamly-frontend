@@ -56,6 +56,7 @@ beforeEach(() => {
   lookup.mockReset();
   lookup.mockResolvedValue([{ address: "93.184.216.34" }]);
   links = [];
+  clearZxcResolveCache();
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input) => {
@@ -78,7 +79,7 @@ beforeEach(() => {
   );
 });
 
-const { default: handler, zxcContractSeed } = await import("../../api/stream.js");
+const { default: handler, zxcContractSeed, clearZxcResolveCache } = await import("../../api/stream.js");
 
 // Derived from the module seed so a provider rename can never strand this suite.
 const MINT_PATH = zxcContractSeed().mintPath;

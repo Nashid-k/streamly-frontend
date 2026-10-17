@@ -70,7 +70,10 @@ import { streamResolve } from "../api/streamResolve";
    server-side (see `parseZxcRoster` in api/stream.js); when it moves, reorder
    here to match.
 
-   Orion (multi-audio) leads. The earlier roster (Andromeda/Centaurus/Ursa-meow)
+   Orion and Atlas are multi-audio (both returned the provider's 7-12 dub
+   tracks on every title probed through the live relay 2026-10-17), so they
+   lead. Alatreon was probed too and returned NO alternate audio, so its tag
+   stays "Original audio". The earlier roster (Andromeda/Centaurus/Ursa-meow)
    was retired upstream when the provider migrated to `zxcstream.cc` and the
    `/backend_/sources/{server}` contract on 2026-10-16.
 
@@ -122,7 +125,7 @@ export const PLAYER_SOURCES = [
   {
     key: "zxc-atlas",
     label: "Server 3",
-    tag: "Original audio · up to 1080p",
+    tag: "Multi audio · up to 1080p",
     provider: "ZXC Atlas",
     server: "atlas",
     resolve: (a, o) => streamResolve.resolveZxc({ ...a, prefer: "atlas" }, o),
