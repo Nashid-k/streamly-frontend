@@ -134,7 +134,12 @@ export const streamResolve = {
     const audioTracks = Array.isArray(data.audioTracks)
       ? data.audioTracks.filter((t) => t?.uri && t?.label).map((t) => ({ label: String(t.label), uri: String(t.uri) }))
       : [];
-    return { source: data.source, variants, audioTracks };
+    // The provider's original-track language code (may be ""), used to label the
+    // Audio menu's "Original" row. It can differ from TMDB's original_language —
+    // the provider's default mix is not always the film's native language.
+    const audioOriginalLang =
+      typeof data.audioOriginalLang === "string" ? data.audioOriginalLang : "";
+    return { source: data.source, variants, audioTracks, audioOriginalLang };
   },
 
   /** Resolve one of the ZXC/VIDSTUCK servers (action "resolvezxc"). The

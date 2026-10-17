@@ -50,6 +50,41 @@ describe("streamResolve.resolveZxc", () => {
     });
   });
 
+  it("passes the provider's original-track language through for the Audio menu", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          ok: true,
+          source: { kind: "hls", url: "https://vidstuck.xyz/zxc/orion/master.m3u8" },
+          variants: [{ uri: "https://vidstuck.xyz/zxc/orion/master.m3u8", bandwidth: 0, height: 0 }],
+          audioTracks: [{ label: "Tamil dub", uri: "https://vidstuck.xyz/zxc/orion/ta.m3u8" }],
+          audioOriginalLang: "ml",
+        }),
+      ),
+    );
+    const resolved = await streamResolve.resolveZxc({ type: "movie", id: "937020", server: "orion" });
+    // Jailer 937020: the provider's default master is Malayalam, not the film's
+    // TMDB Tamil — the label must come from the source's own original row.
+    expect(resolved.audioOriginalLang).toBe("ml");
+  });
+
+  it("defaults audioOriginalLang to an empty string when the source omits it", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          ok: true,
+          source: { kind: "hls", url: "https://vidstuck.xyz/zxc/orion/master.m3u8" },
+          variants: [{ uri: "https://vidstuck.xyz/zxc/orion/master.m3u8", bandwidth: 0, height: 0 }],
+          audioTracks: [],
+        }),
+      ),
+    );
+    const resolved = await streamResolve.resolveZxc({ type: "movie", id: "937021", server: "orion" });
+    expect(resolved.audioOriginalLang).toBe("");
+  });
+
   it("throws a clear error when the serverless function is not deployed", async () => {
     vi.stubGlobal(
       "fetch",

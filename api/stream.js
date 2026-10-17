@@ -1217,6 +1217,27 @@ async function handleZxcPlaylist(rawUrl) {
    provider-flagged row is the original — with no flag we never guess a winner,
    because dropping an arbitrary first row would hide a real dub. No hard cap:
    titles carry 10+ type-0 dubs and an artificial bound silently hid them. */
+/* The provider flags ONE `dubs` row as `original` — the track its default
+   (no-`dubCode`) master actually plays. Read both the current `{type,lang,name,
+   original}` shape and the retired `lanCode`/`lanName` one. */
+function zxcOriginalDub(dubs) {
+  if (!Array.isArray(dubs)) return null;
+  const codeOf = (d) => d?.lang || d?.lanCode || "";
+  return dubs.find((d) => d?.original && codeOf(d)) || null;
+}
+
+/* The language CODE of the provider's original track, or "". The player labels
+   its "Original" row with this rather than TMDB's `original_language`: the two
+   disagree whenever the provider's default mix is not the film's native
+   language (Jailer 937020 — TMDB says `ta`, the provider's default is `ml`), and
+   trusting TMDB there showed TWO rows reading "Tamil" while the top one played
+   Malayalam. Empty when the provider flags no original, so the client falls back
+   to TMDB as before. */
+function zxcOriginalLang(dubs) {
+  const original = zxcOriginalDub(dubs);
+  return original ? String(original.lang || original.lanCode || "") : "";
+}
+
 function zxcDubTracks(meta, server, dubs) {
   const audioTracks = [];
   if (!Array.isArray(dubs)) return audioTracks;
@@ -1224,7 +1245,7 @@ function zxcDubTracks(meta, server, dubs) {
   // retired build used `lanCode`/`lanName`. Read the new names with a legacy
   // fallback so a response from either contract lists its audio.
   const codeOf = (d) => d?.lang || d?.lanCode || "";
-  const original = dubs.find((d) => d?.original && codeOf(d)) || null;
+  const original = zxcOriginalDub(dubs);
   const originalKeyStr = original ? `${codeOf(original)}/${String(original.type ?? "0")}` : null;
   const seen = new Set();
   for (const dub of dubs) {
@@ -1350,6 +1371,9 @@ async function resolveZxcOnServer(meta, server, prefetchedToken) {
                 ],
           server,
           audioTracks,
+          // The provider's original-track language, so the Audio menu labels its
+          // "Original" row honestly (see zxcOriginalDub).
+          audioOriginalLang: zxcOriginalLang(data.dubs),
         },
       };
     }
@@ -1400,6 +1424,7 @@ async function resolveZxcOnServer(meta, server, prefetchedToken) {
       variants,
       server,
       audioTracks,
+      audioOriginalLang: zxcOriginalLang(data.dubs),
     },
   };
 }

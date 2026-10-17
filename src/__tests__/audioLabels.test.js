@@ -134,6 +134,26 @@ describe("buildAudioTrackList", () => {
     expect(list[0].sourceIndex).toBeNull();
     expect(list[1].isOriginal).toBe(false);
   });
+
+  it("labels the original row with the SOURCE's original code, not TMDB's", () => {
+    /* Regression (live, Jailer tmdb 937020): TMDB says the film is Tamil, but the
+       provider's default master plays Malayalam (its `original` row is
+       `lang: "ml"`). Trusting TMDB named row 0 "Tamil"; because row 0 is in the
+       de-dupe set, the REAL "Tamil dub" row was then swallowed, leaving only a
+       "Tamil" row that played Malayalam. */
+    const list = buildAudioTrackList(
+      [{ label: "Bengali dub", lang: "bn" }, { label: "Tamil dub", lang: "ta" }],
+      "ta",
+      "ml",
+    );
+    expect(list.map((r) => r.label)).toEqual(["Malayalam", "Bengali", "Tamil"]);
+    expect(list[0].isOriginal).toBe(true);
+  });
+
+  it("falls back to the TMDB language when the source reports no original code", () => {
+    const list = buildAudioTrackList([{ label: "Hindi dub", lang: "hi" }], "ta", "");
+    expect(list.map((r) => r.label)).toEqual(["Tamil", "Hindi"]);
+  });
 });
 
 describe("languageNameFromCode", () => {

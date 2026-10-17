@@ -16,9 +16,11 @@
 
    ── The rule ────────────────────────────────────────────────────────────────
    Strip the word "dub" (and "audio"/"track"/"version" noise) from a provider
-   label, and title-case whatever is left. Then, for the original track, prefer
-   the film's actual language and fall back to "Original" only when TMDB did not
-   say — a wrong guess is worse than no guess. */
+   label, and title-case whatever is left. For the original track, prefer the
+   SOURCE's own original-track code when it reports one, then the film's TMDB
+   language, and fall back to "Original" only when neither is known — a wrong
+   guess is worse than no guess, and TMDB's language is only the source's default
+   when the provider agrees (see buildAudioTrackList). */
 
 const FILM_LANG = {
   en: "English", te: "Telugu", hi: "Hindi", ta: "Tamil", ml: "Malayalam",
@@ -142,10 +144,18 @@ export function originalTrackLabel(language) {
  *
  * @param {Array<{label: string, lang?: string}>} tracks  provider rows, may be empty
  * @param {string} [language]              ISO 639-1 for the original row
+ * @param {string} [originalCode]          the SOURCE's own original-track code,
+ *   when it reports one. Preferred over `language`: the provider's default mix is
+ *   not always the film's TMDB language (Jailer `937020` — TMDB `ta`, default
+ *   `ml`), and trusting TMDB there named the original row "Tamil", which then
+ *   COLLIDED with the real Tamil dub row and hid it (buildAudioTrackList drops a
+ *   dub whose label the original already claims) — so the only "Tamil" the viewer
+ *   could pick played the provider's Malayalam default.
  * @returns {Array<{label: string, isOriginal: boolean, sourceIndex: number|null}>}
  */
-export function buildAudioTrackList(tracks, language) {
-  const out = [{ label: originalTrackLabel(language), isOriginal: true, sourceIndex: null }];
+export function buildAudioTrackList(tracks, language, originalCode) {
+  const row0 = languageNameFromCode(originalCode) || originalTrackLabel(language);
+  const out = [{ label: row0, isOriginal: true, sourceIndex: null }];
   const seen = new Set([out[0].label.toLowerCase()]);
   (tracks || []).forEach((track, i) => {
     const label = dubLabel(track);

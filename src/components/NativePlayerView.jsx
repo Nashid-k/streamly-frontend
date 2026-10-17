@@ -362,6 +362,12 @@ export default function NativePlayerView({
      dub switch is a position-preserving manifest swap, and the pick must survive
      the token-refresh re-resolve below. */
   const [dubTracks, setDubTracks] = useState([]);
+  /* The provider's original-track language code (its `original` dub row), so the
+     Audio menu's "Original" row is labelled with what the default master really
+     plays — NOT TMDB's `original_language`, which disagrees when the provider's
+     default mix is a dub (Jailer 937020: TMDB `ta`, default `ml`). Empty when the
+     provider flags none, which falls back to the TMDB language. */
+  const [dubOriginalLang, setDubOriginalLang] = useState("");
   const [activeDub, setActiveDub] = useState(0);
   // Mirror of activeDub for the async resolve loop (same pattern as mutedRef et al.).
   const activeDubRef = useRef(0);
@@ -595,8 +601,8 @@ export default function NativePlayerView({
      language. Covers every multi-audio source — Server 3 (NHD) and Server 4
      (ZXC Centaurus) both arrive as the same `audioTracks` array. */
   const audioTrackList = useMemo(
-    () => buildAudioTrackList(dubTracks, originalLanguage),
-    [dubTracks, originalLanguage],
+    () => buildAudioTrackList(dubTracks, originalLanguage, dubOriginalLang),
+    [dubTracks, originalLanguage, dubOriginalLang],
   );
 
   const currentAudioLabel = useMemo(() => {
@@ -609,8 +615,11 @@ export default function NativePlayerView({
       const a = audioTracks[audioIndex];
       return languageNameFromCode(a?.lang || a?.name) || a?.name || "Original";
     }
-    return originalLanguage ? (languageNameFromCode(originalLanguage) || (originalLanguage || "").toUpperCase() || "Original") : "Original";
-  }, [dubTracks, activeDub, audioTrackList, audioTracks, audioIndex, originalLanguage]);
+    // Prefer the provider's own original-track code over TMDB's film language —
+    // same reason the row-0 label does (see buildAudioTrackList).
+    const origCode = dubOriginalLang || originalLanguage;
+    return origCode ? (languageNameFromCode(origCode) || (origCode || "").toUpperCase() || "Original") : "Original";
+  }, [dubTracks, activeDub, audioTrackList, audioTracks, audioIndex, originalLanguage, dubOriginalLang]);
 
 
   const togglePlay = async () => {
@@ -1821,6 +1830,7 @@ setScrubDragging(true);
       activeDubRef.current = 0;
       setActiveDub(0);
       setDubTracks([]);
+      setDubOriginalLang("");
       // A new title/episode is NOT "ended": without this the previous
       // installment's `ended` flag survives the switch and the Up Next card
       // (and the ended overlay) bleeds onto the episode that just started.
@@ -1899,6 +1909,7 @@ setScrubDragging(true);
       setAudioTracks([]);
       setAudioIndex(0);
       setDubTracks([]);
+      setDubOriginalLang("");
       setActiveDub(0);
       setBuffering(true);
       setBufferedSecs(0);
@@ -1994,6 +2005,8 @@ setScrubDragging(true);
         // above is rewritten by the token-refresh path, so the dub list keeps the
         // FIRST resolution's — sibling URLs never refresh tokens anyway.
         const dubTracks = Array.isArray(resolved?.audioTracks) ? resolved.audioTracks : [];
+        const dubOriginalLang =
+          typeof resolved?.audioOriginalLang === "string" ? resolved.audioOriginalLang : "";
 
         let liveSource = resolved.source;
         let liveRefUrl = resolved.source?.refUrl || resolved.source?.url;
@@ -2237,8 +2250,10 @@ setScrubDragging(true);
             activeDubRef.current = 0;
             setActiveDub(0);
             setDubTracks([]);
+            setDubOriginalLang("");
           } else {
             setDubTracks(dubTracks);
+            setDubOriginalLang(dubOriginalLang);
             setActiveDub(activeDubRef.current);
           }
           setIsMasterMode(isMaster);
@@ -2631,6 +2646,7 @@ setScrubDragging(true);
     activeDubRef.current = 0;
     setActiveDub(0);
     setDubTracks([]);
+    setDubOriginalLang("");
     setPanel(null);
     poke();
     const def = sourceByKey(key);
@@ -3653,10 +3669,10 @@ const showSkipOutro = shouldShowSkipOutro({
                     // one lonely "eng" row and hide every real dub behind it.
                     // The sibling list is a superset — it starts at the original.
                     <>
-                      {/* Row 0 is the original, named by the film's language
-                          rather than the word "Original": TMDB already told us
-                          what it is, and "Original" next to a row called "Tamil"
-                          reads as a category rather than a language. */}
+                      {/* Row 0 is the original, named by the SOURCE's own
+                          original-track language when it reports one (falling back
+                          to TMDB's film language), never the bare word "Original"
+                          — but never a guess that collides with a real dub row. */}
                       <DialogRow
                         key="dub-original"
                         selected={activeDub === 0}

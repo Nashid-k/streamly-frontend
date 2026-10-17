@@ -94,15 +94,18 @@ function makeRes() {
   return res;
 }
 
-async function resolveDubs() {
+async function callResolve() {
   const res = makeRes();
   await handler(
-    { method: "POST", body: { action: "resolvezxc", type: "movie", id: "12345", server: "orion" }, headers: { "x-forwarded-for": "203.0.113.9" } },
+    { method: "POST", body: { action: "resolvezxc", type: "movie", id: "550" }, headers: {}, socket: { remoteAddress: "127.0.0.1" } },
     res,
   );
-  const parsed = typeof res.body === "string" ? JSON.parse(res.body) : res.body;
-  expect(parsed.ok, `resolve failed: ${JSON.stringify(parsed)}`).toBe(true);
-  return parsed.audioTracks.map((t) => t.label);
+  return JSON.parse(res.body);
+}
+
+async function resolveDubs() {
+  const payload = await callResolve();
+  return payload.audioTracks.map((t) => t.label);
 }
 
 describe("ZXC dub list — the original track", () => {
@@ -169,6 +172,23 @@ describe("ZXC dub list — the original track", () => {
       { lanCode: "fr", type: "0", lanName: "French dub" },
     ];
     expect(await resolveDubs()).toEqual(["English dub", "French dub"]);
+  });
+
+  it("reports the provider's original-track code so row 0 is not mislabelled", async () => {
+    /* Jailer 937020: the provider flags `ml` as original but TMDB says the film is
+       Tamil, so the master we play (Malayalam) was labelled "Tamil" and swallowed
+       the real Tamil dub row. The player needs the SOURCE's code for row 0. */
+    dubs = [
+      { lanCode: "ml", type: "0", lanName: "Original Audio", original: true },
+      { lanCode: "ta", type: "0", lanName: "Tamil dub" },
+    ];
+    const payload = await callResolve();
+    expect(payload.audioOriginalLang).toBe("ml");
+  });
+
+  it("omits the original language when no row is flagged", async () => {
+    dubs = [{ lanCode: "en", type: "0", lanName: "English dub" }];
+    expect((await callResolve()).audioOriginalLang).toBe("");
   });
 
   it("lists advertised dubs with NO per-dub mint/transcode (unverified parity)", async () => {
