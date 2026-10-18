@@ -61,16 +61,22 @@
 .movie-card {
   /* No permanent translateZ(0)/will-change here: a rail of 20 cards times
      every rail on the page meant 180+ always-on compositor layers eating GPU
-     memory. framer-motion writes an inline transform for the hover lift, which
-     promotes the card for exactly as long as it animates. */
+     memory. The hover lift is a CSS transition, which promotes the card for
+     exactly as long as it animates. */
   backface-visibility: hidden;
   display: flex;
   flex-direction: column;
   cursor: pointer;
   position: relative;
+  z-index: 1;
   border-radius: var(--radius-xl);
   padding: 0;
   background: rgba(var(--white-rgb),0.01);
+  /* Leave-side transition for the lift: no delay, decelerating. The enter
+     side lives on the :hover/:focus-visible rules below, so entering gets the
+     silk curve + staged delays and leaving gets this quick settle — CSS's
+     version of framer's rest/hover variant split, with zero JS per hover. */
+  transition: transform 250ms var(--ease-out);
 }
 
 .poster-wrapper {
@@ -115,15 +121,139 @@
   object-fit: cover;
 }
 
-/* ── Curtain action button hover polish ──────────────────── */
+/* ── Cinematic curtain — pure CSS hover/focus choreography ────────────────
+   The card lift, veil, curtain, meta row, play button and badge row are all
+   transitioned here from ONE selector set instead of framer variants fed by a
+   150ms-debounced React state. Three wins: transitions start on the FIRST
+   frame of hover (no debounce lag), enter gets the silk curve + staged delays
+   while leave replays the quick undelayed rest timing (each rule's own
+   transition is the side it animates INTO — CSS's version of the framer
+   rest/hover split), and zero React work happens per card hover.
+   `:hover` is scoped to real pointing devices so touch never gets a sticky
+   hover curtain; keyboard `:focus-visible` opens it exactly like the old focus
+   handler did. The play button opens on the `translate` property so its own
+   hover scale (`transform`) never fights the open travel. */
+
+/* Leave side (base) — what a hover EXITS to. */
+.card-veil {
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-out);
+}
+.card-curtain {
+  opacity: 0;
+  transform: translateY(24%);
+  pointer-events: none;
+  transition: opacity 250ms var(--ease-out), transform 250ms var(--ease-out);
+}
+.curtain-meta {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
+}
 .curtain-play-btn {
+  opacity: 0;
+  translate: 0 10px;
+  pointer-events: none;
   transition:
-    opacity 0.15s,
+    opacity var(--duration-fast) var(--ease-out),
+    translate var(--duration-fast) var(--ease-out),
     transform 0.15s;
 }
-.curtain-play-btn:hover {
+.card-badges {
+  transition: opacity var(--duration-instant) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .movie-card:hover {
+    transform: scale(1.035);
+    z-index: 20;
+    transition: transform var(--anim-hover-time) var(--anim-hover-ease);
+  }
+  .movie-card:hover .card-veil {
+    opacity: 1;
+    transition: opacity var(--duration-slow) var(--ease-out) 180ms;
+  }
+  .movie-card:hover .card-curtain {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+    transition:
+      opacity var(--duration-slow) var(--ease-out) 200ms,
+      transform var(--duration-slow) var(--ease-out) 200ms;
+  }
+  .movie-card:hover .curtain-meta {
+    opacity: 1;
+    transform: translateY(0);
+    transition:
+      opacity 350ms var(--ease-out) 430ms,
+      transform 350ms var(--ease-out) 430ms;
+  }
+  .movie-card:hover .curtain-play-btn {
+    opacity: 1;
+    translate: 0 0;
+    pointer-events: auto;
+    transition:
+      opacity 350ms var(--ease-out) 500ms,
+      translate 350ms var(--ease-out) 500ms,
+      transform 0.15s;
+  }
+  .movie-card:hover .card-badges {
+    opacity: 0;
+  }
+  .movie-card:hover .curtain-play-btn:hover {
+    opacity: 0.88;
+    transform: scale(1.03);
+  }
+}
+
+/* Keyboard focus opens the same curtain (media query above never matches a
+   keyboard-only session). Identical declarations on purpose. */
+.movie-card:focus-visible {
+  transform: scale(1.035);
+  z-index: 20;
+  transition: transform var(--anim-hover-time) var(--anim-hover-ease);
+}
+.movie-card:focus-visible .card-veil {
+  opacity: 1;
+  transition: opacity var(--duration-slow) var(--ease-out) 180ms;
+}
+.movie-card:focus-visible .card-curtain {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+  transition:
+    opacity var(--duration-slow) var(--ease-out) 200ms,
+    transform var(--duration-slow) var(--ease-out) 200ms;
+}
+.movie-card:focus-visible .curtain-meta {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 350ms var(--ease-out) 430ms,
+    transform 350ms var(--ease-out) 430ms;
+}
+.movie-card:focus-visible .curtain-play-btn {
+  opacity: 1;
+  translate: 0 0;
+  pointer-events: auto;
+  transition:
+    opacity 350ms var(--ease-out) 500ms,
+    translate 350ms var(--ease-out) 500ms,
+    transform 0.15s;
+}
+.movie-card:focus-visible .card-badges {
+  opacity: 0;
+}
+.movie-card:focus-visible .curtain-play-btn:hover {
   opacity: 0.88;
   transform: scale(1.03);
+}
+
+/* Press sink — last so it beats the matching :hover/:focus-visible lift while
+   held (same 0.97 the framer whileTap used, tokenised). */
+.movie-card:active {
+  transform: scale(var(--press-scale));
+  transition: transform var(--duration-fast) var(--ease-out);
 }
 
 /* Mobile-only quick list toggle — appears on the poster corner for

@@ -2,20 +2,24 @@ import { Suspense, lazy } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import ErrorBoundary from "../components/ErrorBoundary";
 import Loader from "../components/Loader";
+import { pageLoaders } from "./routeLoaders";
 
-const HomePage = lazy(() => import("../pages/HomePage"));
-const DiscoveryPage = lazy(() => import("../pages/DiscoveryPage"));
-const TitleDetails = lazy(() => import("../pages/TitleDetailsPage"));
-const PersonDetails = lazy(() => import("../pages/PersonDetailsPage"));
-const SearchPage = lazy(() => import("../pages/SearchPage"));
-const CategoryPage = lazy(() => import("../pages/CategoryPage"));
-const GenrePage = lazy(() => import("../pages/GenrePage"));
-const WatchlistPage = lazy(() => import("../pages/WatchlistPage"));
-const ExploreCollectionsPage = lazy(() => import("../pages/ExploreCollectionsPage"));
-const PublicCollectionPage = lazy(() => import("../pages/PublicCollectionPage"));
-const HistoryPage = lazy(() => import("../pages/HistoryPage"));
-const SettingsPage = lazy(() => import("../pages/SettingsPage"));
-const NotFoundPage = lazy(() => import("../pages/NotFoundPage"));
+// Every lazy route pulls its chunk through routeLoaders.js, so the idle/link
+// warm-up in routeWarmup.js can import the SAME module ahead of the click —
+// the Suspense fallback then never appears for a warmed route.
+const HomePage = lazy(pageLoaders.home);
+const DiscoveryPage = lazy(pageLoaders.discovery);
+const TitleDetails = lazy(pageLoaders.titleDetails);
+const PersonDetails = lazy(pageLoaders.personDetails);
+const SearchPage = lazy(pageLoaders.search);
+const CategoryPage = lazy(pageLoaders.category);
+const GenrePage = lazy(pageLoaders.genre);
+const WatchlistPage = lazy(pageLoaders.watchlist);
+const ExploreCollectionsPage = lazy(pageLoaders.exploreCollections);
+const PublicCollectionPage = lazy(pageLoaders.publicCollection);
+const HistoryPage = lazy(pageLoaders.history);
+const SettingsPage = lazy(pageLoaders.settings);
+const NotFoundPage = lazy(pageLoaders.notFound);
 // Not lazy, unlike its neighbours: this page is the first paint after clicking a
 // link in an email, and a second Suspense flash before "Confirm my email" is
 // pure latency on the one screen that has to land.

@@ -156,7 +156,8 @@
   -webkit-backdrop-filter: blur(20px) saturate(160%);
   overflow: hidden;
   cursor: pointer;
-  transition: border-color 180ms ease, transform 180ms var(--ease-out), box-shadow 180ms ease;
+  /* Lift + depth on the silk hover curve; border colour stays fast. */
+  transition: border-color 180ms ease, transform var(--anim-hover-time) var(--anim-hover-ease), box-shadow var(--anim-hover-time) var(--anim-hover-ease);
   outline: none;
 }
 

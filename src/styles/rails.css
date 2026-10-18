@@ -41,6 +41,25 @@ textarea:focus-visible {
   margin: 0;
 }
 
+/* ── Rail fade-in reveal (CSS half of FadeInSection) ───────────────────────
+   JS only adds .is-visible via IntersectionObserver; the 30px rise + fade runs
+   here as a transition, compositor-side — the previous per-rail framer
+   whileInView animated on the main thread for every rail on the page.
+   The global reduced-motion kill switch (tokens.css + this file) collapses the
+   transition, and without JS support FadeInSection renders is-visible at once,
+   so content can never be stuck hidden. */
+.fade-in-section {
+  opacity: 0;
+  transform: translateY(30px);
+  transition:
+    opacity 0.6s var(--ease-out),
+    transform 0.6s var(--ease-out);
+}
+.fade-in-section.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
 .movie-rail {
   gap: 1.5rem;
   padding: 0.75rem 0;
@@ -70,9 +89,13 @@ textarea:focus-visible {
   flex-shrink: 0;
 }
 
-/* Desktop scroll snap on rails (mobile reinforces with scroll-snap-stop: always inside media query) */
+/* Desktop scroll snap on rails (mobile reinforces with scroll-snap-stop: always inside media query).
+   PROXIMITY, not mandatory — mandatory wrestles the wheel/trackpad and drags a
+   free scroll back onto a card edge, which is the classic "laggy rail" feel.
+   Proximity (Cinejoy's default via Tailwind) only settles the scroll when it
+   is already near an edge. */
 .movie-rail {
-  scroll-snap-type: x mandatory;
+  scroll-snap-type: x proximity;
 }
 .movie-rail > * {
   scroll-snap-align: start;

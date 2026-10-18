@@ -25,7 +25,7 @@ export default function RailArrow({
       onClick={onClick}
       disabled={disabled}
       aria-label={dir === "left" ? "Scroll left" : "Scroll right"}
-      className={`hidden md:flex absolute top-1/2 -translate-y-1/2 z-40 w-12 h-12 items-center justify-center bg-transparent text-white/80 hover:text-white cursor-pointer transition duration-200 hover:scale-105 disabled:cursor-default disabled:opacity-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/50 ${reveal} ${
+      className={`hidden md:flex absolute top-1/2 -translate-y-1/2 z-40 w-12 h-12 items-center justify-center bg-transparent text-white/80 hover:text-white cursor-pointer transition duration-[var(--anim-hover-time)] ease-[var(--anim-hover-ease)] hover:scale-105 disabled:cursor-default disabled:opacity-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/50 ${reveal} ${
         sideClass || (dir === "left" ? "left-0" : "right-0")
       } ${className}`.trim()}
     >

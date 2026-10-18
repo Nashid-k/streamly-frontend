@@ -1,5 +1,4 @@
-import { useCallback, useState, useEffect, useRef, memo } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { useCallback, useState, useEffect, memo } from "react";
 import { Play, Plus, Check, Star } from "lucide-react";
 import { getTMDBWeekdayShort } from "../utils/timezone";
 import { highlightSegments } from "../utils/highlightMatch";
@@ -14,64 +13,12 @@ import { useToast } from "./Toast";
 /* ─────────────────────────────────────────────────────────────
 MovieCard — "Cinematic Curtain" hover design
 
-   Everything lives INSIDE .poster-wrapper (overflow: hidden). The curtain is
-   driven by ONE source — a debounced isHovered state (150ms, so quick swipes
-   don't thrash; mouse and focus both feed it) — so no second whileHover fights
-   the same variants. The panel slides up from translateY(100%) → 0, the image
-   dims via a flat opacity veil (no filter repaint), and enter/leave sit on one
-   element so it can never get stuck. ───────────────────────────────────── */
-
-// Animation variants live outside the component so they stay stable refs.
-// Stagger: instant scale lift, then dim + curtain, then title → meta → actions.
-const EASE_OUT = [0.16, 1, 0.3, 1];
-
-const cardVariants = {
-  rest: { scale: 1, zIndex: 1, transition: { duration: 0.25, ease: "easeOut" } },
-  hover: {
-    // A modest lift preserves the rhythm of a dense rail and prevents one
-    // card from visually swallowing its neighbours.
-    scale: 1.035,
-    zIndex: 20,
-    transition: { duration: 0.4, ease: EASE_OUT },
-  },
-};
-const curtainVariants = {
-  rest: { opacity: 0, y: "24%", transition: { duration: 0.25, ease: "easeOut" } },
-  hover: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.45, delay: 0.2, ease: EASE_OUT },
-  },
-};
-
-const imageVeilVariants = {
-  rest: {
-    opacity: 0,
-    transition: { duration: 0.3, ease: "easeOut" },
-  },
-  hover: {
-    opacity: 1,
-    transition: { duration: 0.45, delay: 0.18, ease: EASE_OUT },
-  },
-};
-
-const metaVariants = {
-  rest: { opacity: 0, y: 8, transition: { duration: 0.2, ease: "easeOut" } },
-  hover: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.35, delay: 0.43, ease: EASE_OUT },
-  },
-};
-
-const btnVariants = {
-  rest: { opacity: 0, y: 10, transition: { duration: 0.2, ease: "easeOut" } },
-  hover: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.35, delay: 0.5, ease: EASE_OUT },
-  },
-};
+   The choreography (lift, veil, curtain, meta, badges) is pure CSS, declared
+   next to the card styles in styles/grids.css: transitions start on the first
+   frame of hover with no debounced state, `:hover` is scoped to real pointing
+   devices, `:focus-visible` reproduces the keyboard behaviour, and hovering a
+   card runs ZERO React work. The JS handlers here only trigger background
+   prefetch of the details data so the click lands on a warm cache. ─────── */
 
 import { PrefetchAdapter } from "../api/prefetchAdapter";
 
@@ -104,9 +51,6 @@ const MovieCard = memo(function MovieCard({
   const { isVisible, ref: virtualRef } = useVirtualRenderAdapter("400px"); // render 400px before it comes into view
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasImageError, setHasImageError] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
-  const hoverTimeoutRef = useRef(null);
-  const reduceMotion = useReducedMotion();
   const isTvContent = movie?.isSeries || String(movie?.id || '').startsWith('tmdb-tv-');
   // Touch devices never see the hover curtain, so metadata moves below the
   // poster (Cinejoy-style "mobile card meta"). Desktop keeps the curtain-only
@@ -116,39 +60,17 @@ const MovieCard = memo(function MovieCard({
   const showBelowMeta = isTouchDevice || Boolean(highlightQuery);
 
 
+  // Hover/focus no longer drive any animation state (that is CSS in
+  // styles/grids.css) — the handlers exist purely to warm the details cache so
+  // the click after a hover resolves from prefetch instead of the network.
   const handleMouseEnter = useCallback(() => {
     if (isTouchDevice) return;
-    // 1. Instantly trigger background data prefetch for 0ms load times if clicked
     PrefetchAdapter.prefetchMovieDetails(movie.id);
-
-    // 2. Debounce the hover animation state to prevent UI thrashing on quick swipes
-    hoverTimeoutRef.current = setTimeout(() => {
-      setIsHovered(true);
-    }, 150);
   }, [movie]);
-
-  const handleMouseLeave = useCallback(() => {
-    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-    setIsHovered(false);
-  }, []);
 
   const handleFocus = useCallback(() => {
     PrefetchAdapter.prefetchMovieDetails(movie.id);
-    setIsHovered(true);
   }, [movie.id]);
-
-  const handleBlur = useCallback((event) => {
-    // Keep the curtain open while focus moves between the card and its actions.
-    if (event.currentTarget.contains(event.relatedTarget)) return;
-    setIsHovered(false);
-  }, []);
-
-    // Clear hoverTimeoutRef on unmount to avoid setState on an unmounted component
-  useEffect(() => {
-    return () => {
-      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-    };
-  }, []);
 
   // Details open through one shared gateway — page or modal per the
   // Detail View Type preference (same behavior as the hero banner).
@@ -238,12 +160,8 @@ const MovieCard = memo(function MovieCard({
       style={{ width: "100%", height: "100%", minHeight: "200px" }}
     >
       {isVisible ? (
-        <motion.div
+        <div
           className="movie-card"
-          variants={cardVariants}
-          initial="rest"
-          whileTap={reduceMotion ? undefined : { scale: 0.97 }}
-          animate={isHovered && !isTouchDevice ? "hover" : "rest"}
           role="button"
           tabIndex={0}
           aria-label={`View details for ${movie.title}`}
@@ -258,9 +176,7 @@ const MovieCard = memo(function MovieCard({
             }
           }}
           onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
           onFocus={handleFocus}
-          onBlur={handleBlur}
           style={{
             cursor: "pointer",
             position: "relative",
@@ -303,21 +219,25 @@ const MovieCard = memo(function MovieCard({
 
 
 
-            {/* Bottom-left badges: SERIES + S/E + NEW {DAY} — one row so nothing overlaps */}
-            {!isHovered && (
-              <div
-                style={{
-                  position: "absolute",
-                  bottom: "8px",
-                  left: "8px",
-                  zIndex: 10,
-                  display: "flex",
-                  gap: "4px",
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                  pointerEvents: "none",
-                }}
-              >
+            {/* Bottom-left badges: SERIES + S/E + NEW {DAY} — one row so nothing
+                overlaps. Always mounted; the CSS curtain choreography fades the
+                row out while the curtain is open (old code unmounted it on a
+                debounced hover state, which re-rendered the card on every
+                hover). */}
+            <div
+              className="card-badges"
+              style={{
+                position: "absolute",
+                bottom: "8px",
+                left: "8px",
+                zIndex: 10,
+                display: "flex",
+                gap: "4px",
+                alignItems: "center",
+                flexWrap: "wrap",
+                pointerEvents: "none",
+              }}
+            >
                 {/* Content tags first (NEW). getContentTags suppresses itself
                     when the rail already renders an equivalent label, so this
                     never double-labels a card. */}
@@ -434,8 +354,7 @@ const MovieCard = memo(function MovieCard({
                     )}
                   </>
                 )}
-              </div>
-            )}
+            </div>
 
 
 
@@ -502,9 +421,10 @@ const MovieCard = memo(function MovieCard({
 
             {/* Flat hover veil (Cinejoy-style): a plain opacity fade instead of
                 animating filter: brightness/saturate, which would repaint on
-                every frame. Opacity is compositor-only. */}
-            <motion.div
-              variants={imageVeilVariants}
+                every frame. Opacity is compositor-only; class-driven from the
+                curtain choreography in styles/grids.css. */}
+            <div
+              className="card-veil"
               style={{
                 position: "absolute",
                 inset: 0,
@@ -515,8 +435,8 @@ const MovieCard = memo(function MovieCard({
             />
 
             {/* ── Cinematic curtain ─────────────────────────── */}
-            <motion.div
-              variants={curtainVariants}
+            <div
+              className="card-curtain"
               style={{
                 position: "absolute",
                 inset: 0,
@@ -533,8 +453,7 @@ const MovieCard = memo(function MovieCard({
               }}
             >
               {/* Single centered circular play button — Cinejoy white circle */}
-              <motion.button
-                variants={btnVariants}
+              <button
                 onClick={(e) => {
                   e.stopPropagation();
                   navigateToDetails();
@@ -556,17 +475,17 @@ const MovieCard = memo(function MovieCard({
                     "0 8px 24px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.9)",
                 }}
               >
-                <Play
-                  size={compact ? 18 : 22}
-                  fill="currentColor"
-                  stroke="none"
-                  style={{ marginLeft: "2px" }}
-                />
-              </motion.button>
+                  <Play
+                    size={compact ? 18 : 22}
+                    fill="currentColor"
+                    stroke="none"
+                    style={{ marginLeft: "2px" }}
+                  />
+              </button>
 
               {/* IMDb star rating + year */}
-              <motion.div
-                variants={metaVariants}
+              <div
+                className="curtain-meta"
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -602,8 +521,8 @@ const MovieCard = memo(function MovieCard({
                       .substring(0, 4)}
                   </span>
                 )}
-              </motion.div>
-            </motion.div>
+              </div>
+            </div>
 
             {/* Progress bar — always on top of curtain */}
             {showProgress && (
@@ -629,7 +548,7 @@ const MovieCard = memo(function MovieCard({
               </div>
             )}
           </div>
-        </motion.div>
+        </div>
       ) : null}
 
       {/* Below-card metadata — touch devices (no hover curtain) */}

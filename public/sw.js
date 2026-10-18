@@ -14,18 +14,29 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
+  // Navigation preload: the browser starts fetching the next document in
+  // parallel with SW startup instead of waiting for this worker to boot and
+  // dispatch the fetch handler — that race is pure latency on first navigate.
+  // Not every context exposes it (or accepts enable()), so never let it reject
+  // the whole activate.
+  const preload =
+    self.registration && self.registration.navigationPreload
+      ? self.registration.navigationPreload.enable().catch(() => {})
+      : Promise.resolve();
   // Delete OLD caches only, preserving the current CACHE_NAME and IMAGE_CACHE
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys
-            .filter((k) => k !== CACHE_NAME && k !== IMAGE_CACHE)
-            .map((k) => caches.delete(k))
-        )
-      )
-      .then(() => self.clients.claim())
+    Promise.all([
+      preload,
+      caches
+        .keys()
+        .then((keys) =>
+          Promise.all(
+            keys
+              .filter((k) => k !== CACHE_NAME && k !== IMAGE_CACHE)
+              .map((k) => caches.delete(k))
+          )
+        ),
+    ]).then(() => self.clients.claim())
   );
 });
 
@@ -122,7 +133,18 @@ self.addEventListener('fetch', (event) => {
 
     const handle = async () => {
       try {
-        const response = await fetch(request);
+        // Prefer the preloaded response (starts before this worker was even
+        // woken); fall back to a plain fetch if the preload failed or was
+        // never offered. A rejected preload must not cost the navigation.
+        let response = null;
+        if (event.preloadResponse) {
+          try {
+            response = await event.preloadResponse;
+          } catch {
+            response = null;
+          }
+        }
+        if (!response) response = await fetch(request);
         if (response && response.status === 200) {
           const responseClone = response.clone();
           // Best effort: a full disk quota must not surface as an unhandled

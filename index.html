@@ -26,10 +26,13 @@
     <!-- Non-blocking font load: preloaded + applied by public/boot.js once ready
          (an onload= attribute would be an inline event handler, which the CSP's
          script-src without 'unsafe-inline' blocks) -->
+    <!-- One variable font file instead of six static instances — same trick as
+         the reference site: a single request covers every weight the app
+         renders (300–800), so no weight boundary ever re-requests a font. -->
     <link
       rel="preload"
       as="style"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap"
     />
 
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />

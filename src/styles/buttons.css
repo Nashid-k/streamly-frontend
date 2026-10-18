@@ -10,12 +10,15 @@
   font-size: clamp(0.82rem, 0.85vw, 0.95rem);
   line-height: 1.2;
   cursor: pointer;
+  /* Lift (transform) + depth change (box-shadow) ride the Cinejoy silk hover
+     curve — quick attack, long settle. Colour fades stay on the 0.25s ease-out:
+     a 0.4s colour change reads as lag, not silk. */
   transition:
-    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    transform var(--anim-hover-time) var(--anim-hover-ease),
+    box-shadow var(--anim-hover-time) var(--anim-hover-ease),
     background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1),
     color 0.25s cubic-bezier(0.16, 1, 0.3, 1),
     border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1),
     opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   border: none;
   white-space: nowrap;
