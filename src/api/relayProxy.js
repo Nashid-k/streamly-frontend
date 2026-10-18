@@ -1,12 +1,19 @@
 // src/api/relayProxy.js — shared Cloudflare Workers relay protocol for the
 // native player loader and the download stream.
 //
-// The worker (VITE_STREAMLY_RELAY_URL) is a GET ?url= passthrough: it strips
-// Origin/Referer/Host, forwards our Range, follows redirects and exposes
-// content-range/content-length. Raw transport pointed at it first takes bytes
-// OFF Vercel Hobby (no 4.5MB body cap, no egress charge) — one request can pull
-// a whole fMP4 fragment instead of a fan-out of 3.5MB slices.
-// /api/stream stays the automatic fallback.
+// The worker is a GET ?url= passthrough: it strips Origin/Referer/Host,
+// forwards our Range, follows redirects and exposes content-range/content-length.
+// Raw transport pointed at it first takes bytes OFF Vercel Hobby (no 4.5MB body
+// cap, no egress charge) — one request pulls a whole fMP4 fragment instead of a
+// fan-out of 3.5MB slices. /api/stream stays the automatic fallback.
+//
+// ZERO-ENV DEFAULT: the deployed worker URL below is the code default, so a
+// build with no VITE_STREAMLY_RELAY_URL at all still gets the fast leg — this
+// matters because WITHOUT it every relayed ZXC seek fragment and every manifest
+// reload is a cold-capable Vercel round trip (~2s warm, worse when scale-to-zero
+// bites), which is exactly what read as "ff/bw and server switching load forever".
+// Resolution order: an explicitly set URL wins; an explicitly EMPTY string
+// opts out (force the Vercel /api/stream relay); unset => the default worker.
 //
 // Referer-gated CDNs (VidCore's moon/palehive) 403 a bare fetch, so the client
 // passes the owning player's referer as ?referer= and a worker deployed with the
@@ -16,12 +23,18 @@
 
 const WORKER_SLICE_MAX = 60 * 1024 * 1024;
 
-/* Active proxy endpoint + slice, or null when unconfigured (then every relay
-   request uses the Vercel function). Read lazily so tests can stub the env. */
+/* The worker shipped with this repo (.env.example + docs/relay-worker.js) —
+   live-verified, referer-forwarding version. Client-visible by design. */
+export const DEFAULT_RELAY_URL = "https://streamly-proxy.nashidk1999.workers.dev";
+
+/* Active proxy endpoint + slice, or null when EXPLICITLY disabled (empty
+   string — then every relay request uses the Vercel function). An unset env
+   var falls back to DEFAULT_RELAY_URL so a zero-env deploy is full-speed.
+   Read lazily so tests can stub the env. */
 export function relayProxyConfig() {
-  const relay =
-    typeof import.meta !== "undefined" ? String(import.meta.env?.VITE_STREAMLY_RELAY_URL || "") : "";
-  const trimmed = relay.trim().replace(/\/+$/, "");
+  const raw = typeof import.meta !== "undefined" ? import.meta.env?.VITE_STREAMLY_RELAY_URL : undefined;
+  if (raw === undefined || raw === null) return { base: DEFAULT_RELAY_URL, slice: WORKER_SLICE_MAX };
+  const trimmed = String(raw).trim().replace(/\/+$/, "");
   return trimmed ? { base: trimmed, slice: WORKER_SLICE_MAX } : null;
 }
 

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearDirectBlocks,
   clearPlaylistMemo,
@@ -6,6 +6,11 @@ import {
   createStreamlyLoader,
   probeSourcePlayable,
 } from "../api/nativeHlsLoader";
+// These suites were written against the Vercel /api/stream relay leg (the fetch
+// mocks branch on that URL). relayProxy now DEFAULTS to the Cloudflare worker
+// when VITE_STREAMLY_RELAY_URL is unset, so pin the explicit opt-out here —
+// the unset/empty/set resolution itself is asserted in relayProxy.test.js.
+beforeEach(() => vi.stubEnv("VITE_STREAMLY_RELAY_URL", ""));
 
 const SLICE = Math.floor(3.5 * 1024 * 1024);
 const REF = "https://vidcore.io/";

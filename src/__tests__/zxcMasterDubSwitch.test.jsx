@@ -135,6 +135,9 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
+  // This harness' fetch mocks model the Vercel /api/stream leg; pin the
+  // explicit opt-out so the worker-default (relayProxy) never reroutes them.
+  vi.stubEnv("VITE_STREAMLY_RELAY_URL", "");
   hlsState.currentLevel = -1;
   hlsState.loadSourceCalls.length = 0;
 });

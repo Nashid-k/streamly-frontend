@@ -135,6 +135,10 @@ const BUFFER_UNDERFLOOR_MS = 8000;
 // Cap the WATCHED back buffer (hls.js defaults to Infinity — a 2h movie would
 // pin ~7GB of browser RAM). hls.js trims the rest, like Netflix.
 const BACK_BUFFER_SECONDS = 60;
+// Background sibling-server warm: long enough that the current stream's own
+// ramp-up (resolve, probe, first fragments, ABR climb) owns the pipe first,
+// short enough that a viewer who decides to switch has the rows ready.
+const SIBLING_WARM_DELAY_MS = 8000;
 // ABR seed: hls.js starts its bandwidth estimate at 1Mbps, so Auto would climb
 // the ladder one relay round-trip at a time (a visible "loading" per rung).
 // 10Mbps starts Auto mid-ladder; the floor step-down still guards a bad pipe.
@@ -2843,6 +2847,31 @@ setScrubDragging(true);
     if (panel !== "servers") return undefined;
     return prefetchSources(resolveArgs, { skipKey: requestedServer || activeSourceKey });
   }, [panel, resolveArgs, requestedServer, activeSourceKey]);
+
+  // Background sibling-server warm. The menu prefetch only covers the menu being
+  // OPEN — a viewer who switches shortly after closing it (or from a remembered
+  // row) still paid mint -> servers -> MPD cold (~2-6s through the relay chain).
+  // Once the CURRENT stream is playing and settled, pump the other rows into the
+  // streamResolve client cache in the background: a switch inside the resolve
+  // TTL then skips the chain entirely and only pays manifest + first fragment.
+  // Bounded by prefetchSources' own 2-in-flight pump (the 429-safe ceiling);
+  // cancel stops NEW rows only, so an in-flight resolve still lands in the cache.
+  // Re-armed by the menu effect below independently — both pumps coalesce onto
+  // the same cached promises, so overlap never doubles a request.
+  useEffect(() => {
+    if (status !== "playing") return undefined;
+    let cancelled = false;
+    let stopPump = null;
+    const timer = setTimeout(() => {
+      if (cancelled) return;
+      stopPump = prefetchSources(resolveArgs, { skipKey: requestedServer || activeSourceKey });
+    }, SIBLING_WARM_DELAY_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      stopPump?.();
+    };
+  }, [status, resolveArgs, requestedServer, activeSourceKey]);
 
   // YouTube's anti-stall rule: when the pipe can't refill faster than a segment
   // plays, drop one rung once the forward buffer sits under BUFFER_FLOOR_SECONDS

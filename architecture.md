@@ -389,9 +389,15 @@ those fragments directly — it does not need to: `nativeHlsLoader` probes direc
 sees no usable `ACAO`, and falls back to the server-side relay, which sends no
 `Origin` and carries the embed referer (that path returns real `styp` bytes with
 `ACAO: *` for every server). The player has no native-`canPlayType` HLS path, so
-this holds on Safari too. Cost consequence: ZXC fragments ride the relay, so
-`VITE_STREAMLY_RELAY_URL` (the Cloudflare worker) matters for these rows — on
-the Vercel fallback every fragment is a serverless round trip.
+this holds on Safari too. Cost consequence: ZXC fragments ride the relay, and the
+Cloudflare worker is now the relay's CODE DEFAULT (`relayProxy.js`): with
+`VITE_STREAMLY_RELAY_URL` unset — the zero-env deploy shape — the bundled worker
+URL serves each fragment in ONE request (no serverless slicing, nothing on the
+critical path can cold-start); an explicitly set URL overrides it, and an
+explicitly EMPTY value opts out onto the Vercel `/api/stream` leg, where every
+fragment is a serverless round trip again. The worker failure path still cascades
+to `/api/stream` per request, so a dead or rate-limited worker degrades to the
+old behaviour instead of breaking playback.
 
 **The ZXC provider migrated to a v2 sources contract, and the app plays it natively again.**
 `vidstuck.xyz` and `/backend/servers/` are retired. The live
