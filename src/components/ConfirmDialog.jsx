@@ -91,27 +91,28 @@ export function useConfirmDialog() {
     return (
       <AnimatePresence>
         {dialog && (
-          <>
-            {/* Backdrop */}
-            <MotionFade
-              className="modal-overlay"
-              aria-hidden="true"
-              onClick={handleCancel}
-              style={{
-                position: "fixed",
-                inset: 0,
-                background: "rgba(0,0,0,0.7)",
-                backdropFilter: "blur(4px)",
-                zIndex: 10000,
-              }}
-            />
-            {/* Modal */}
+          <MotionFade
+            className="modal-overlay"
+            onClick={handleCancel}
+            style={{
+              position: "fixed",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "1rem",
+              background: "rgba(0,0,0,0.7)",
+              backdropFilter: "blur(4px)",
+              zIndex: 10000,
+            }}
+          >
             <motion.div
               initial={L.Modal.panel.initial}
               animate={L.Modal.panel.animate}
               exit={L.Modal.panelExit}
               transition={L.Modal.panel.transition}
               className="modal-container confirm-dialog-panel"
+              onClick={(event) => event.stopPropagation()}
               ref={panelRef}
               role="alertdialog"
               aria-modal="true"
@@ -119,11 +120,6 @@ export function useConfirmDialog() {
               aria-describedby="confirm-dialog-description"
               tabIndex={-1}
               style={{
-                position: "fixed",
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -50%)",
-                zIndex: 10001,
                 background: "linear-gradient(160deg, rgba(255,255,255,0.1), rgba(255,255,255,0.035)), rgba(20,20,26,0.62)",
                 backdropFilter: "blur(28px) saturate(160%)",
                 border: "1px solid rgba(255,255,255,0.14)",
@@ -245,7 +241,7 @@ export function useConfirmDialog() {
                 </button>
               </div>
             </motion.div>
-          </>
+          </MotionFade>
         )}
       </AnimatePresence>
     );

@@ -3939,6 +3939,16 @@ base audio") and the three remaining Explore/MyList items (search "EXPLORE MYLIS
       cue-tag result: parsers exist and are tested, but the count of real manifests
       confirmed to carry #EXT-X-CUE-OUT is still **0**, and the SkipDB attribution
       row has never been seen rendering on a dataset-backed title.
+      - Browser QA (2026-10-18): ran the local app with the temporary TMDB key
+        and waited for data before navigating. Checked home, movies, series,
+        search, genre, category, title details, person, My List, history,
+        settings, collections, email verification, and 404 at 1440x900,
+        1024x768, 390x844, and 320x720. No horizontal overflow or broken loaded
+        images appeared; sign-in/create-account dialogs and the player frame/
+        close control fit on mobile. The palette follows the dark/white/lime
+        tokens. Playback reached the provider iframe, but its source then showed
+        "Unable to Load Content" / unsupported media in this browser, so the
+        playback-specific checks above remain unverified and this task stays open.
 - [ ] **P1 source-aware readahead / start rendition + a visible loader state machine
       with byte counts.** The relay reports progress as an opaque spinner today;
       a state machine (connecting / probing / first-byte / buffered) would tell the
@@ -4909,16 +4919,12 @@ dead rows, and `milkyway` -> `meow` was an upstream server-list change, not our 
         the CSS scale from drifting from `DURATION` again.
   - [x] Gates: oxlint 0 errors, vitest 74 files / 927 passed, build OK.
 - [ ] **STAGE 5 - deliberately left open**
-  - [ ] Mobile sheets still arrive without motion. `responsive.css` needs
-        `transform: none !important` on `.modal-container` to cancel the
-        `translate(-50%,-50%)` those panels use to centre themselves on
-        desktop — which would otherwise shove a bottom-anchored sheet up and left
-        on a phone — but `!important` also beats framer's inline transform, so the
-        enter animation is cancelled with it. The real fix is moving the
-        centring onto a wrapper element so the animated node never needs a
-        static transform. Deliberately NOT done blind: it changes dialog
-        geometry on every phone and there is no browser/screenshot tooling here
-        to verify it.
+  - [x] Mobile sheets now keep their motion. `ConfirmDialog` and
+        `GlobalShortcuts` use their flex overlay as the positioning wrapper, so
+        Framer can animate the panel without fighting desktop centring
+        transforms. Removed the mobile `transform: none !important` override.
+        Browser-verified both mobile sheet geometry and the shortcuts panel's
+        enter/exit animation at 390x844 with no horizontal overflow.
   - [ ] The ~50 hand-written `0.2s` CSS declarations should migrate to
         `var(--duration-fast)` over time, and the 23 framer tweens with no
         `ease` should take `EASE_OUT`. Mechanical, but a wide sweep — not

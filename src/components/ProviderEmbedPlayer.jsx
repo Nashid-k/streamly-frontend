@@ -109,7 +109,7 @@ export default function ProviderEmbedPlayer({ type, id, season, episode, title, 
           src={url}
           title={title ? `${title}${subtitle ? ` — ${subtitle}` : ""}` : "Stream player"}
           onLoad={() => setLoaded(true)}
-          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+          allow="autoplay; encrypted-media; picture-in-picture"
           allowFullScreen
           referrerPolicy="origin"
           style={{

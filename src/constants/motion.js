@@ -52,10 +52,9 @@ export const SPRING = {
 /* Non-spring timings. Springs cover anything with weight or gesture; these
    cover fades and opacity-only work, where a spring would overshoot past 1.
    FAST/NORMAL/SLOW here are the same scale CSS publishes as --duration-fast /
-   --duration-normal / --duration-slow in tokens.css (fast is 0.18s in JS and
-   200ms in CSS — the stylesheets author their micro-interactions at 0.2s, and
-   the two must not drift further). Retune one and retune the other. */
-export const DURATION = { FAST: 0.18, MED: 0.28, SLOW: 0.45 };
+   --duration-normal / --duration-slow in tokens.css. Retune one and retune the
+   other. */
+export const DURATION = { FAST: 0.2, MED: 0.28, SLOW: 0.45 };
 
 /* `useMotionTokens` is a hook, so it needs the import. Kept at the top of the
    file with the other module setup rather than added at the use site. */

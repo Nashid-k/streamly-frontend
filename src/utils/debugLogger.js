@@ -32,7 +32,7 @@ function isDebugEnabled() {
   try {
     // Vite injects import.meta.env; guard for non-Vite runtimes (tests).
     // eslint-disable-next-line no-undef
-    return Boolean(import.meta?.env?.DEV);
+    return Boolean(import.meta.env?.DEV);
   } catch {
     return false;
   }
@@ -176,7 +176,7 @@ export function logBootDiagnostics(scope = "boot") {
     let tmdbKeySource = "missing";
     try {
       // eslint-disable-next-line no-undef
-      const envKey = import.meta?.env?.VITE_TMDB_API_KEY;
+      const envKey = import.meta.env?.VITE_TMDB_API_KEY;
       if (envKey && String(envKey).trim() && !String(envKey).includes("your_tmdb_api_key")) {
         hasTmdbKey = true;
         tmdbKeySource = "VITE_TMDB_API_KEY";

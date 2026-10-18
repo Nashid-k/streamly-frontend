@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MotionLeaf } from "../components/MotionLeaf";
+import { MotionFade, MotionLeaf } from "../components/MotionLeaf";
 import { Keyboard, X, Search, ArrowLeft, Play } from "lucide-react";
 
 export default function GlobalShortcuts() {
@@ -105,14 +105,12 @@ export default function GlobalShortcuts() {
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div
+        <MotionFade
           ref={modalRef}
+          className="modal-overlay"
           role="dialog"
           aria-modal="true"
           aria-label="Keyboard Shortcuts"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
           style={{
             position: "fixed",
             inset: 0,
@@ -142,7 +140,7 @@ export default function GlobalShortcuts() {
               overflowY: "auto",
               boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)",
             }}
-            className="modal-container"
+            className="modal-container shortcuts-panel"
           >
             <div
               style={{
@@ -255,7 +253,7 @@ export default function GlobalShortcuts() {
               Press Esc to close
             </p>
           </motion.div>
-        </motion.div>
+        </MotionFade>
       )}
     </AnimatePresence>
   );

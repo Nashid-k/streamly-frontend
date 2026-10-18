@@ -20,6 +20,7 @@ import MenuItem from "../components/browse/MenuItem";
 import useDetailView from "../hooks/useDetailView";
 import { buildUpcoming, buildAiringRail } from "../utils/releaseCalendar";
 import { logEmptyData, reportQueryError } from "../utils/debugLogger";
+import { DURATION, EASE_OUT } from "../constants/motion";
 
 /* ── Cinejoy-mirrored Movies / Series discovery pages ───────────────────
    One parameterized layout drives /movies and /series: glass header, filter
@@ -779,7 +780,7 @@ export default function DiscoveryPage({ mode = "movies" }) {
                       key={movie.id}
                       initial={reduceMotion ? false : { opacity: 0, y: 16 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.35, delay: (idx % 12) * 0.04, ease: "easeOut" }}
+                      transition={{ duration: DURATION.MED, delay: (idx % 8) * 0.025, ease: EASE_OUT }}
                     >
                       <MovieCard movie={movie} />
                     </motion.div>

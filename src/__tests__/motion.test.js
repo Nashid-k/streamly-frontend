@@ -79,6 +79,7 @@ describe("motion tokens", () => {
 
     expect(ms(tokens, "--duration-normal")).toBe(DURATION.MED * 1000);
     expect(ms(tokens, "--duration-slow")).toBe(DURATION.SLOW * 1000);
+    expect(ms(tokens, "--duration-fast")).toBe(DURATION.FAST * 1000);
     // player.css must alias the scale, never redeclare it.
     expect(player).toMatch(/--zxc-t-med:\s*var\(--duration-normal\)/);
     expect(player).toMatch(/--zxc-t-slow:\s*var\(--duration-slow\)/);
@@ -313,6 +314,21 @@ describe("every modal takes the shared shapes", () => {
   it("finds all three collection dialogs", () => {
     expect(COLLECTION_DIALOGS.length).toBe(3);
     for (const f of COLLECTION_DIALOGS) expect(readFileSync(f, "utf8")).toBeTruthy();
+  });
+
+  describe("mobile modal motion", () => {
+    it("centres animated panels with their flex overlay instead of a panel transform", () => {
+      const confirm = readFileSync(join(process.cwd(), "src", "components", "ConfirmDialog.jsx"), "utf8");
+      const shortcuts = readFileSync(join(process.cwd(), "src", "components", "GlobalShortcuts.jsx"), "utf8");
+      const responsive = readFileSync(join(process.cwd(), "src", "styles", "responsive.css"), "utf8");
+
+      expect(confirm).toMatch(/className="modal-overlay"[\s\S]*?alignItems:\s*"center"/);
+      expect(confirm).not.toMatch(/transform:\s*"translate\(-50%,\s*-50%\)"/);
+      expect(shortcuts).toMatch(/className="modal-overlay"/);
+      const mobileModal = responsive.slice(responsive.indexOf(".modal-container {"));
+      const mobileModalBlock = mobileModal.slice(0, mobileModal.indexOf("}"));
+      expect(mobileModalBlock).not.toMatch(/transform:\s*none\s*!important/);
+    });
   });
 
   it("takes the panel and scrim through MotionLeaf so a cut is unavoidable", () => {

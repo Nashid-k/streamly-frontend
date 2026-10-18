@@ -979,7 +979,7 @@ export default function Home({
                 sizes={CdnImageAdapter.getSizes("backdrop")}
                 alt={activeFeaturedMovie.title}
                 className="hero-bg"
-                fetchpriority="high"
+                fetchPriority="high"
                 loading="eager"
                 decoding="async"
                 initial={{ opacity: 0 }}
