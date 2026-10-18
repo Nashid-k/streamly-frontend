@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useLocation } from "react-router-dom";
+import { DURATION, EASE_OUT } from "../constants/motion";
 import BackToTop from "../components/BackToTop";
 import Footer from "../components/Footer";
 import OfflineBanner from "../components/OfflineBanner";
@@ -31,24 +32,25 @@ function Layout({ children }) {
       <OfflineBanner />
 
       {/* Main Content Area with Page Transitions.
-          No mode="wait": that held the outgoing page for the full 180ms exit
-          before the next route was even allowed to mount, so every tab click
-          read as a stall (180ms hold, then the lazy chunk, then the page). The
-          default sync mode mounts the new page immediately and cross-fades the
-          old one out underneath it — same look, no dead time. */}
+          Enter-fade only, no AnimatePresence exit: the exit animation kept the
+          old page mounted for 180 ms while useScrollRestoration fired
+          window.scrollTo(0, 0), so the outgoing page visibly jumped to top
+          before fading out. Without an exit the old page unmounts instantly
+          (the scroll reset is invisible) and the new page fades in smoothly. */}
       <main className="app-main" id="main-content" tabIndex={-1} ref={mainRef}>
-        <AnimatePresence>
-          <motion.div
-            key={location.pathname}
-            initial={reduceMotion ? false : { opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={reduceMotion ? undefined : { opacity: 0 }}
-            transition={{ duration: reduceMotion ? 0 : 0.18, ease: "easeOut" }}
-            style={{ flex: 1 }}
-          >
-            {children}
-          </motion.div>
-        </AnimatePresence>
+        <motion.div
+          key={location.pathname}
+          initial={reduceMotion ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={
+            reduceMotion
+              ? { duration: 0 }
+              : { duration: DURATION.FAST, ease: EASE_OUT }
+          }
+          style={{ flex: 1 }}
+        >
+          {children}
+        </motion.div>
       </main>
 
       {/* Back to top */}

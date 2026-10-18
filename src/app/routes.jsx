@@ -1,7 +1,7 @@
 import { Suspense, lazy } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import ErrorBoundary from "../components/ErrorBoundary";
-import Loader from "../components/Loader";
+import RouteFallback from "../components/RouteFallback";
 import { pageLoaders } from "./routeLoaders";
 
 // Every lazy route pulls its chunk through routeLoaders.js, so the idle/link
@@ -32,7 +32,7 @@ function AppRoutes() {
   const location = useLocation();
   return (
     <ErrorBoundary key={location.pathname}>
-      <Suspense fallback={<Loader />}>
+      <Suspense fallback={<RouteFallback />}>
         <Routes>
               <Route
                 path="/"

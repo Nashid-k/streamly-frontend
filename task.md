@@ -5920,3 +5920,45 @@ Visual pass, conservative CSS-only changes.
   - **HomePage rails -> memoised `HomeRails`** (`src/components/rails/HomeRails.jsx`). Hero rotation/hover ticks used to re-render the whole dozen-rail subtree every 10s; everything below the hero is now one `React.memo` child fed only by useMemo'd query arrays + primitives (`continueWatching`/`myList`/`t` read from context inside the child, identity changes only with the data). The parent keeps hero, data, queries, the `useNearViewport` hook (its stable ref passes down) and `modalHost`. Hero JSX, `LeavingSoonBanner` placement and rail order are byte-identical to before; 8 now-unused rail imports dropped from HomePage.
   - **Tests.** New `src/__tests__/routeWarmup.test.js` (+8): every navigable shape -> its loader, trailing-slash + `/mylist` + `/continue-watching` aliases, eager `/verify-email` => null, `WARM_ORDER` covers every loader, listener install/cleanup, foreign-origin and `data-no-prefetch` skips (readyState mocked to `loading` so the idle loop never fires a real chunk import). Motion contract (`motion.test.js`), `MovieCard.gate.test.jsx` and SearchPage's `.movie-card` assertion all still green — no pins on scroll-snap type or card internals existed.
   - **Gates.** `npm run lint` 0 errors (pre-existing warnings only); `npm run test` **94/94 files, 1184/1184**; `npm run build` clean.
+- [x] **ff/bw + server-switch loading tax — found the cause, fixed WITHOUT any new Vercel env (user: "why ff/bw takes too much time loading, find the cause and fix it, as i didnt do any env in vercel for that and i dont want to do also, not only for this but also for server switching also") — 2026-10-18.**
+
+  - **Cause (code-traced, architecture.md already half-said it).** `VITE_STREAMLY_RELAY_URL` was env-OPT-IN, so a deploy with no Vercel env (the user's exact setup) ran `relayProxyConfig()` -> null -> `relayConfig()` = `mode:"json"`: EVERY relayed fragment AND every manifest reload POSTed to the Vercel Hobby function in 3.5MB slices. The ZXC origin only answers `Origin: https://zxcstream.cc`, so a browser can never fetch those fragments directly (only Daedalus is CORS-open) — every seek beyond the 90s buffer paid 1-2 sequential `/api/stream` legs (~1.9s relay round trip measured earlier, PLUS Hobby scale-to-zero cold starts = the "loads forever" tail), and server switches paid the same leg for the manifest on top of the resolve chain. The scrubber-preview fix (c8c7952) helped contention but not this tax.
+  - **Fix 1 — zero-env default to the already-deployed worker (`src/api/relayProxy.js`).** Resolution order is now: env UNSET => `DEFAULT_RELAY_URL` (the bundled `streamly-proxy.nashidk1999.workers.dev`, client-visible by design, live-verified 200); explicit URL => that URL; explicit EMPTY string => null (opt-out, old Vercel-only behaviour). One GET with forwarded Range pulls the WHOLE fragment (60MB ceiling, no serverless slicing, no cold start, nothing on the Vercel bill), playlists ride the same worker (the postStream comment itself calls a cold-start playlist call "endless loading"). `postStream` already cascades proxy -> `/api/stream` per request, so a dead/rate-limited worker degrades to the old path instead of breaking. Built the prod bundle env-less and confirmed the default URL is baked in with no literal env-name leftovers.
+  - **Fix 2 — background sibling-server warm (`NativePlayerView.jsx`, `SIBLING_WARM_DELAY_MS = 8s`).** The Servers-menu prefetch only ran while the menu was OPEN, so a switch soon after (or from a remembered row) still paid mint -> servers -> MPD cold. Now once the CURRENT stream reports `playing`, the other menu rows pump into the streamResolve client cache (5-min TTL, promise-coalesced, same 2-in-flight 429-safe bound as the menu pump; cancel stops NEW rows only so in-flight resolves still land). A switch inside the TTL skips the resolve chain entirely and only pays manifest + first fragment — both of which now ride the worker (Fix 1).
+  - **Live probes (this network).** Worker root 200; `Range: bytes=1000000-2000000` through the worker => 206 + exact `Content-Range: bytes 1000000-1128374/1128375` matching a direct fetch byte-for-byte (GCS test buckets 403 DIRECT too — passthrough confirmed transparent); worker overhead vs direct ≈ +0.3-0.6s on a well-peered target, vs the Vercel leg's ~1.9s warm round trip + cold-start tail + slicing.
+  - **Tests.** New `relayProxy.test.js` (+6): unset => DEFAULT_RELAY_URL with >4.5MB slice, custom URL trimmed, empty => null, plus 3 `deriveSliceMore` cases. Six existing suites written against the Vercel leg (`nativeHlsLoader`, `Startup`, `Streak`, `vidcoreOriginParking`, `playerSwitchResume`, `zxcMasterDubSwitch`) now pin the explicit opt-out `vi.stubEnv("VITE_STREAMLY_RELAY_URL","")` in `beforeEach` with a comment — their fetch mocks branch on `/api/stream` and the default would reroute them; the default itself is asserted in the new file.
+  - **Docs.** architecture.md:393 rewritten (worker is now the code default, unset/URL/empty resolution, per-request cascade unchanged); .env.example documents zero-env default + empty-string opt-out.
+  - **Gates.** `npm run lint` 0 errors; `npm run test` **95/95 files, 1190/1190**; `npm run build` clean. Touched files byte-verified pure CRLF / zero bare LF / no BOM.
+
+## 2026-10-18 — UX polish: white-flash fix, scroll-jump fix, route skeleton
+
+### White flash on refresh (index.html)
+- Root cause: #initial-loader is removed by React's first commit, but
+  ody { background: #050505 } lives in tokens.css (a JS-module import). On
+  force-refresh the JS can win the race against CSS, exposing one white frame.
+- Fix: inline html, body { background: #050505; margin: 0 } in the existing
+  <style> block in index.html. Dark paint is now guaranteed before any CSS
+  or JS loads. The splash removal becomes dark-to-dark (seamless).
+
+### Scroll-to-top jump on card click (Layout.jsx)
+- Root cause: AnimatePresence kept the old page mounted for a 180 ms exit
+  while useScrollRestoration fired window.scrollTo(0, 0) — the outgoing page
+  visibly jumped to top before fading out.
+- Fix: removed AnimatePresence and the exit animation. The keyed motion.div
+  now only fades IN on mount (DURATION.FAST + EASE_OUT from constants/motion).
+  The old page unmounts instantly so the scroll reset is invisible; the new
+  page fades in smoothly. This is also the "fluid page switch" the user asked
+  for — no spinner, no crossfade jank.
+
+### Suspense fallback: spinner to skeleton (routes.jsx)
+- New src/components/RouteFallback.jsx: a page-shaped skeleton (hero block
+  + two rail rows of card placeholders) using the existing .skeleton CSS.
+  Replaces the dual-ring <Loader /> as the Suspense fallback so a lazy chunk
+  load reads as "content arriving" rather than "app stalled".
+- Loader component itself is untouched (still used for page/inline/button
+  variants elsewhere).
+
+### Gates
+- lint: 0 errors (pre-existing warnings unchanged)
+- test: 95/95 files, 1190/1190 tests pass
+- build: clean, 1.93s
