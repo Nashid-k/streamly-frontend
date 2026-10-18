@@ -5962,3 +5962,32 @@ Visual pass, conservative CSS-only changes.
 - lint: 0 errors (pre-existing warnings unchanged)
 - test: 95/95 files, 1190/1190 tests pass
 - build: clean, 1.93s
+## 2026-10-18 — Liquid-wave loader + page-settle transition
+
+### Loader.jsx: dual-ring SVG replaced with liquid-wave dots
+- The old Loader used two counter-rotating SVG circles with dash-offset
+  animation — mechanically correct but visually rigid. Replaced with three
+  dots that scale and lift on a staggered 1.4 s wave (0.14 s offset per dot),
+  reading as one continuous ripple rather than three separate pulses.
+- All four variants (global badge, page, inline, button) now render the same
+  WaveDots core at their respective sizes. The global frosted-glass badge
+  keeps its 400 ms delayed fade-in so a fast request never flashes.
+- Removed the five old keyframes (loader-spin-cw, loader-spin-ccw,
+  loader-dash, loader-pulse-dot, loader-pulse-center) from ui-kit.css.
+  Added loader-wave (scale + translateY + opacity, three-stop). The existing
+  loader-fade-in keyframe is unchanged.
+- No test imports the React Loader component (the "Loader" hits in test
+  files are createStreamlyLoader from nativeHlsLoader.js), so no test
+  changes were needed.
+
+### Layout.jsx: page transition now settles, not just fades
+- Added a subtle 12 px y-rise to the enter animation (opacity 0 + y 12 ->
+  opacity 1 + y 0) so new-page content reads as settling into place rather
+  than materialising in mid-air. Duration bumped from DURATION.FAST to
+  DURATION.MED so the rise has room to breathe. Reduced-motion collapses to
+  a cut as before.
+
+### Gates
+- lint: 0 errors (pre-existing warnings unchanged)
+- test: 95/95 files, 1190/1190 tests pass
+- build: clean, 2.01s

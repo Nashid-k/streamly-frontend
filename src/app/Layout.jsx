@@ -32,20 +32,21 @@ function Layout({ children }) {
       <OfflineBanner />
 
       {/* Main Content Area with Page Transitions.
-          Enter-fade only, no AnimatePresence exit: the exit animation kept the
-          old page mounted for 180 ms while useScrollRestoration fired
+          Enter-fade + subtle rise, no AnimatePresence exit: the exit animation
+          kept the old page mounted for 180 ms while useScrollRestoration fired
           window.scrollTo(0, 0), so the outgoing page visibly jumped to top
           before fading out. Without an exit the old page unmounts instantly
-          (the scroll reset is invisible) and the new page fades in smoothly. */}
+          (the scroll reset is invisible) and the new page fades in with a
+          gentle upward settle. */}
       <main className="app-main" id="main-content" tabIndex={-1} ref={mainRef}>
         <motion.div
           key={location.pathname}
-          initial={reduceMotion ? false : { opacity: 0 }}
-          animate={{ opacity: 1 }}
+          initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={
             reduceMotion
               ? { duration: 0 }
-              : { duration: DURATION.FAST, ease: EASE_OUT }
+              : { duration: DURATION.MED, ease: EASE_OUT }
           }
           style={{ flex: 1 }}
         >

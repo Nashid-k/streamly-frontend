@@ -1,14 +1,53 @@
-import React, { useEffect, useState, useId } from "react";
+import React, { useEffect, useState } from "react";
 import { useIsFetching, useIsMutating } from "@tanstack/react-query";
 
+/* Liquid-wave loader — three dots that flow upward in a staggered wave.
+   Replaces the old dual-ring SVG spinner, which read as mechanical. The wave
+   is organic: each dot scales and lifts on a 1.4 s cycle, offset by 0.14 s so
+   the eye reads one continuous ripple rather than three separate pulses. */
+
+function WaveDots({ dimensions, color }) {
+  const dotSize = Math.max(4, Math.round(parseFloat(dimensions) * 0.22));
+  const gap = Math.max(3, Math.round(dotSize * 0.7));
+  const accent = color || "var(--accent-primary, #95ff50)";
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: `${gap}px`,
+        width: dimensions,
+        height: dimensions,
+      }}
+    >
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          style={{
+            width: dotSize,
+            height: dotSize,
+            borderRadius: "50%",
+            background: accent,
+            animation: `loader-wave 1.4s ease-in-out ${i * 0.14}s infinite`,
+            willChange: "transform, opacity",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 /**
- * Universal Loader — smoother dual-ring spinner with context-aware colors.
+ * Universal Loader — liquid-wave dots with context-aware colours.
  *
  * Variants:
- * - 'page': Full-page centered spinner for Suspense/loading states
- * - 'inline': Section-bound spinner
- * - 'button': Tiny 18px spinner for buttons
- * - 'global': Non-blocking spinner fixed bottom-right for background fetches
+ * - 'page': Full-page centred wave for Suspense/loading states
+ * - 'inline': Section-bound wave
+ * - 'button': Tiny 18px wave for buttons
+ * - 'global': Non-blocking frosted-glass badge fixed bottom-right for
+ *   background fetches. Fades in after 400 ms so a fast request never flashes.
  */
 export default function Loader({ variant = "page", size, color }) {
   const isFetching = useIsFetching();
@@ -16,12 +55,6 @@ export default function Loader({ variant = "page", size, color }) {
   const isGlobalLoading = isFetching > 0 || isMutating > 0;
 
   const [showGlobal, setShowGlobal] = useState(false);
-
-  // The gradient def is referenced by url(#id): a FIXED id would point every
-  // instance (even a `color`-free one) at the FIRST gradient in the DOM, so a
-  // colored loader elsewhere on the page could turn this ring solid. Unique per
-  // instance keeps each loader's fill its own.
-  const gradientId = useId();
 
   useEffect(() => {
     if (variant !== "global") return;
@@ -42,108 +75,12 @@ export default function Loader({ variant = "page", size, color }) {
   else if (variant === "button") dimensions = "18px";
   else if (variant === "global") dimensions = "28px";
 
-  const useGradient = !color;
-  const primaryColor = color || "var(--accent-primary, #95ff50)";
-  const secondaryColor = color || "var(--accent-secondary, #5ce21c)";
-
-  const gradientUrl = `url(#${gradientId})`;
-  // NOTE: SVG geometry attributes (stroke, stop-color) do not resolve
-  // CSS var() as presentation attributes — they must go through `style`.
-  const ringStyle = (extra) => ({
-    stroke: useGradient ? gradientUrl : primaryColor,
-    ...extra,
-  });
-  const innerStyle = (extra) => ({
-    stroke: useGradient ? secondaryColor : primaryColor,
-    ...extra,
-  });
-
-  const spinnerCore = (
-    <div style={{ position: "relative", width: dimensions, height: dimensions }}>
-      <svg
-        viewBox="0 0 44 44"
-        style={{ width: "100%", height: "100%", transform: "rotate(-90deg)" }}
-      >
-        {useGradient && (
-          <defs>
-            <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" style={{ stopColor: "var(--accent-primary, #95ff50)" }} />
-              <stop offset="55%" style={{ stopColor: "var(--accent-primary, #95ff50)" }} />
-              <stop offset="100%" style={{ stopColor: "var(--accent-secondary, #5ce21c)" }} />
-            </linearGradient>
-          </defs>
-        )}
-        {/* Outer ring */}
-        <circle
-          cx="22" cy="22" r="18"
-          fill="none"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeDasharray="113"
-          strokeDashoffset="75"
-          opacity="0.2"
-          style={ringStyle()}
-        />
-        <circle
-          cx="22" cy="22" r="18"
-          fill="none"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeDasharray="113"
-          strokeDashoffset="75"
-          style={ringStyle({
-            animation: "loader-spin-cw 1.4s linear infinite, loader-dash 1.4s ease-in-out infinite",
-            transformOrigin: "center",
-          })}
-        />
-        {/* Inner ring (counter-rotate) */}
-        <circle
-          cx="22" cy="22" r="11"
-          fill="none"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeDasharray="69"
-          strokeDashoffset="40"
-          opacity="0.2"
-          style={innerStyle({ animation: "loader-spin-ccw 1.8s linear infinite", transformOrigin: "center" })}
-        />
-        <circle
-          cx="22" cy="22" r="11"
-          fill="none"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeDasharray="69"
-          strokeDashoffset="40"
-          style={innerStyle({ animation: "loader-dash 2s ease-in-out infinite 0.3s" })}
-        />
-      </svg>
-      {/* Center dot */}
-      <div
-        style={{
-          position: "absolute",
-          top: "50%", left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: "20%",
-          height: "20%",
-          borderRadius: "50%",
-          background: useGradient
-            ? "var(--accent-gradient, linear-gradient(135deg, #95ff50, #5ce21c))"
-            : primaryColor,
-          boxShadow: useGradient
-            ? "0 0 10px var(--accent-glow, rgba(149,255,80,0.6)), 0 0 22px var(--accent-glow, rgba(92,226,28,0.35))"
-            : `0 0 8px ${primaryColor}80`,
-          animation: "loader-pulse-dot 1.2s ease-in-out infinite",
-        }}
-      />
-    </div>
-  );
-
   // ── Button variant ──
   if (variant === "button") {
     return (
-      <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-        {spinnerCore}
-      </div>
+      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+        <WaveDots dimensions={dimensions} color={color} />
+      </span>
     );
   }
 
@@ -158,6 +95,7 @@ export default function Loader({ variant = "page", size, color }) {
           zIndex: 999999,
           background: "rgba(10, 10, 13, 0.85)",
           backdropFilter: "blur(16px)",
+          WebkitBackdropFilter: "blur(16px)",
           padding: "10px",
           borderRadius: "50%",
           border: "1px solid rgba(255, 255, 255, 0.08)",
@@ -166,7 +104,7 @@ export default function Loader({ variant = "page", size, color }) {
           animation: "loader-fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
         }}
       >
-        {spinnerCore}
+        <WaveDots dimensions={dimensions} color={color} />
       </div>
     );
   }
@@ -191,7 +129,7 @@ export default function Loader({ variant = "page", size, color }) {
         flex: variant === "page" ? 1 : undefined,
       }}
     >
-      {spinnerCore}
+      <WaveDots dimensions={dimensions} color={color} />
       {variant === "page" && (
         <div
           style={{
@@ -200,7 +138,7 @@ export default function Loader({ variant = "page", size, color }) {
             fontWeight: 500,
             letterSpacing: "0.08em",
             textTransform: "uppercase",
-            animation: "loader-pulse-center 2s ease-in-out infinite",
+            animation: "loader-wave 1.4s ease-in-out 0.28s infinite",
           }}
         >
           Loading
