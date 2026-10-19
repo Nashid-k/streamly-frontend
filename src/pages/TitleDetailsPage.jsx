@@ -7,6 +7,7 @@ import CastRail from "../components/CastRail";
 import RailArrow from "../components/RailArrow";
 import RatingsTable from "../components/RatingsTable";
 import useRailArrows from "../hooks/useRailArrows";
+import { useTitleLogo } from "../hooks/useTitleLogo";
 import { warmResolve } from "../api/warmResolve";
 import { useQuery } from "@tanstack/react-query";
 import { movieService, classifyTrailer } from "../api/movieService";
@@ -96,7 +97,6 @@ export default function TitleDetails() {
   const navigate = useNavigate();
   const {
     muteTrailers,
-    useImageLogos = true,
     episodeViewStyle = "carousel",
     spoilerFreeMode = false,
     trailers = true,
@@ -310,6 +310,12 @@ export default function TitleDetails() {
   const movie = rawMovie;
 
   const movieId = movie?.id;
+
+  /* The hero logo AND the player's cold-open stage both draw this — the stage
+     used to receive `logoUrl || posterUrl || backdropUrl`, so a title TMDB has
+     no logo for got its full poster/backdrop preview squeezed into the logo
+     slot. One lookup, one fallback (text title), same rule as the home hero. */
+  const { logoUrl: titleLogoUrl, onLogoError: onTitleLogoError } = useTitleLogo(movie, "TitleDetails");
 
   // Member of at least one collection → tiny folder badge on the List button.
   const inAnyCollection = useMemo(
@@ -921,11 +927,12 @@ export default function TitleDetails() {
         <div className="details-hero__body details-gutter">
           {/* Left Column */}
           <div className="w-full max-w-[700px] lg:max-w-[650px] lg:min-w-0 flex flex-col items-center lg:items-start">
-            {useImageLogos && movie.logoUrl ? (
+            {titleLogoUrl ? (
               <img
                 className="details-hero__logo drop-shadow-2xl"
-                src={movie.logoUrl}
+                src={titleLogoUrl}
                 alt={movie.title}
+                onError={onTitleLogoError}
               />
             ) : (
               <h1 className="details-hero__title font-bold text-white drop-shadow-2xl text-center lg:text-left">
@@ -2253,7 +2260,7 @@ export default function TitleDetails() {
                           onClose={() => setIsPlaying(false)}
                           imdbId={movie?.imdbId || ""}
                           backdropUrl={movie?.backdropUrl || ""}
-                          posterUrl={movie?.logoUrl || movie?.posterUrl || movie?.backdropUrl || ""}
+                          posterUrl={titleLogoUrl || ""}
                           watchedEntry={watchEntry}
                           onProgressChange={(t) => {
                             if (t > 10) {

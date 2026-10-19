@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, fireEvent, screen } from "@testing-library/react";
 import NativePlayerView from "../components/NativePlayerView";
 import { LoadingStage } from "../components/player/chrome/primitives";
 
@@ -68,6 +68,28 @@ describe("NativePlayerView loading stage", () => {
     // INITIAL cold open: the loader is the horizontal sweep, not the ring.
     expect(stage.querySelector(".np-loading-line > span")).toBeTruthy();
     expect(stage.querySelector(".np-tailspin")).toBeNull();
+  });
+
+  it("hands the title slot to the text name when the logo file fails to load", () => {
+    const { container } = render(
+      <LoadingStage
+        title="Fight Club"
+        posterUrl="https://image.test/broken-logo.png"
+        initial
+      />,
+    );
+    const art = container.querySelector(".np-loading-poster");
+    expect(art).toBeTruthy();
+
+    fireEvent.error(art);
+
+    // The broken art steps aside; the text title takes the slot it left —
+    // an empty frame where the title should be reads as a bug, not a fallback.
+    expect(container.querySelector(".np-loading-poster")).toBeNull();
+    const fallback = Array.from(container.querySelectorAll("div")).find(
+      (d) => d.textContent === "Fight Club" && d.style.fontSize.includes("clamp"),
+    );
+    expect(fallback).toBeTruthy();
   });
 
   it("keeps the title-only layout honest when no art is available", () => {

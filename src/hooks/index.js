@@ -16,5 +16,6 @@ export {
   useSearchHistory,
 } from "./useUserData";
 export { useVirtualRenderAdapter } from "./useVirtualRenderAdapter";
+export { useTitleLogo } from "./useTitleLogo";
 export { default as useIsTouch } from "./useIsTouch";
 export { default as useContainerSize } from "./useContainerSize";

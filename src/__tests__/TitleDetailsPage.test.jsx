@@ -54,6 +54,9 @@ vi.mock("../api/movieService", () => ({
       })),
     ),
     getSimilarMovies: vi.fn().mockResolvedValue([]),
+    // The logo lookup the details hero AND the player's cold-open stage share.
+    // Null here = TMDB has no wordmark for this title, so both must draw text.
+    getTitleLogo: vi.fn().mockResolvedValue(null),
     classifyTrailer: vi.fn(() => "trailer"),
   },
 }));
@@ -135,5 +138,16 @@ describe("TitleDetailsPage TDZ regression guard", () => {
     // hovers right at findByText's 1s default and flakes the gate.
     expect(await screen.findByText("Episode 1", {}, { timeout: 5000 })).toBeInTheDocument();
     expect(await screen.findByText("E1")).toBeInTheDocument();
+  });
+
+  it("draws the text title when TMDB has no logo instead of the poster art", async () => {
+    renderPage();
+    // getTitleLogo resolves null above, so the hero must fall back to the styled
+    // text name. It used to be fed `posterUrl`/`backdropUrl` as a stand-in,
+    // which put a full preview still where the wordmark belongs.
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Reacher" }),
+    ).toBeInTheDocument();
+    expect(document.querySelector(".details-hero__logo")).toBeNull();
   });
 });

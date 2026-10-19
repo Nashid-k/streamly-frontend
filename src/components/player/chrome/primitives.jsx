@@ -45,6 +45,14 @@ export function LoadingMessage({ title }) {
    the viewer the player did not lose their place, and a bare black rectangle
    with a dot in it does not. */
 export function LoadingStage({ title, backdropUrl, posterUrl, message, initial, frame }) {
+  // A logo URL that fails to decode (a stale TMDB path, a blocked CDN) must not
+  // leave an empty frame where the title should be: the failed art steps aside
+  // and the styled text title takes its place, exactly as when no logo exists.
+  const [artFailed, setArtFailed] = useState(false);
+  useEffect(() => {
+    setArtFailed(false);
+  }, [posterUrl]);
+  const showArt = !!posterUrl && !frame && !artFailed;
   return (
     <div
       aria-hidden="true"
@@ -129,12 +137,13 @@ export function LoadingStage({ title, backdropUrl, posterUrl, message, initial, 
           {/* With a captured frame up, the frame IS the picture: the title
               art would cover it, so it steps aside (the status line below
               still names what is happening). */}
-          {posterUrl && !frame ? (
+          {showArt ? (
             <img
               src={posterUrl}
               alt=""
               aria-hidden="true"
               className="np-loading-poster"
+              onError={() => setArtFailed(true)}
               style={{
                 width: "auto",
                 height: "auto",
@@ -147,7 +156,7 @@ export function LoadingStage({ title, backdropUrl, posterUrl, message, initial, 
           {/* Title text removed when the logo exists (user order): the image
               IS the title. Without a logo the text name is the only honest
               identifier left, so it falls back in. */}
-          {!posterUrl && title && !frame ? (
+          {!showArt && title && !frame ? (
             <div
               style={{
                 fontSize: "clamp(18px, 3.2vw, 30px)",

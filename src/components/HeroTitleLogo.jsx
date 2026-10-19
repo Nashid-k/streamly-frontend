@@ -1,46 +1,14 @@
-import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useOptionalPreferences } from "../context/preferences";
-import { movieService } from "../api/movieService";
-import { logDebug, reportQueryError } from "../utils/debugLogger";
+import { useTitleLogo } from "../hooks/useTitleLogo";
 
 /* Hero banner title logo. Renders the movie's actual wordmark/logo image.
-   If the movie was loaded from a list endpoint (rail, trending) it has no
-   logoUrl, so we lazily fetch it from TMDB once per id and cache it via
-   React Query — subsequent slides render immediately. Falls back to the
-   styled text title only when the title genuinely has no logo on TMDB. */
+   The lookup (list-fed movies have no logoUrl → fetch TMDB /images once per id,
+   cached by React Query) and the text fallback both live in `useTitleLogo`, so
+   the hero, the details hero and the player's cold-open stage can never again
+   disagree about what counts as this title's logo. */
 export default function HeroTitleLogo({ movie }) {
-  const prefs = useOptionalPreferences();
-  const useImageLogos = prefs?.useImageLogos ?? true;
-  const [imageError, setImageError] = useState(false);
+  const { logoUrl, onLogoError } = useTitleLogo(movie, "HeroTitleLogo");
 
-  useEffect(() => {
-    setImageError(false);
-  }, [movie?.id]);
-
-  const { data: url, error } = useQuery({
-    queryKey: ["titleLogo", movie.id],
-    queryFn: () => movieService.getTitleLogo(movie.id),
-    enabled: !movie.logoUrl && useImageLogos,
-    staleTime: 1000 * 60 * 60 * 24,
-    retry: 1,
-  });
-
-  useEffect(() => {
-    if (error) {
-      reportQueryError("HeroTitleLogo", ["titleLogo", movie.id], error, { id: movie.id, title: movie.title });
-    }
-  }, [error, movie.id, movie.title]);
-
-  const logoUrl = movie.logoUrl || url;
-
-  useEffect(() => {
-    if (!logoUrl && movie?.id) {
-      logDebug("HeroTitleLogo", `No logo for "${movie.title}" — text title fallback is intentional, not an error.`, { id: movie.id });
-    }
-  }, [logoUrl, movie?.id, movie?.title]);
-
-  if (useImageLogos && logoUrl && !imageError) {
+  if (logoUrl) {
     return (
       <img
         src={logoUrl}
@@ -48,7 +16,7 @@ export default function HeroTitleLogo({ movie }) {
         className="hero-logo-img"
         loading="eager"
         decoding="async"
-        onError={() => setImageError(true)}
+        onError={onLogoError}
       />
     );
   }
