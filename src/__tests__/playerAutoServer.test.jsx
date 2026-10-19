@@ -202,3 +202,29 @@ describe("manual server pick prefers then falls back fast", () => {
     hlsState.releaseProbe?.();
   });
 });
+
+/* A same-media reload (server pick / source-quality pick / manual retry) tears
+   the media element down, which resets currentTime to 0 — the reload carry
+   must reposition the new run, or a mid-film switch restarted at the beginning. */
+describe("server switch carries the playback position", () => {
+  it("seeks back to the pre-switch time once the new source commits", async () => {
+    const { container } = render(<NativePlayerView type="movie" id="12345" title="A Title" onClose={() => {}} />);
+    await waitFor(() => expect(hlsState.loadSourceCalls.length).toBeGreaterThan(0), { timeout: 5000 });
+
+    const video = container.querySelector("video");
+    video.dispatchEvent(new Event("play"));
+    video.currentTime = 321;
+
+    fireEvent.click(screen.getByRole("button", { name: /^settings$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /servers/i }));
+    const dialog = screen.getByRole("dialog", { name: "Servers" });
+    const server2 = [...dialog.querySelectorAll(".np-dialog-row")].find((r) => r.textContent.includes("Server 2"));
+    fireEvent.click(server2);
+    // jsdom never runs the media-element load algorithm, so model the detach's
+    // emptied reset by hand: without the carry, nothing would re-seek after it.
+    video.currentTime = 0;
+
+    await waitFor(() => expect(hlsState.loadSourceCalls.length).toBeGreaterThan(1), { timeout: 5000 });
+    await waitFor(() => expect(video.currentTime).toBe(321), { timeout: 3000 });
+  });
+});

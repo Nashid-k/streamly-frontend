@@ -22,6 +22,7 @@ export default function CenterStack({
   showStage,
   stageNote,
   stageInitial,
+  switchFrame,
   displayTitle,
   backdropUrl,
   posterUrl,
@@ -59,6 +60,7 @@ export default function CenterStack({
               posterUrl={posterUrl}
               message={stageNote}
               initial={stageInitial}
+              frame={switchFrame}
             />
           </motion.div>
         )}

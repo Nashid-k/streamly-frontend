@@ -137,8 +137,10 @@ const BUFFER_UNDERFLOOR_MS = 8000;
 const BACK_BUFFER_SECONDS = 60;
 // Background sibling-server warm: long enough that the current stream's own
 // ramp-up (resolve, probe, first fragments, ABR climb) owns the pipe first,
-// short enough that a viewer who decides to switch has the rows ready.
-const SIBLING_WARM_DELAY_MS = 8000;
+// short enough that a viewer who decides to switch has the rows ready. The warm
+// itself is a tiny JSON resolve (2-in-flight bounded), so it does not fight the
+// stream for bandwidth — 4s is enough for the first fragments to land.
+const SIBLING_WARM_DELAY_MS = 4000;
 // ABR seed: hls.js starts its bandwidth estimate at 1Mbps, so Auto would climb
 // the ladder one relay round-trip at a time (a visible "loading" per rung).
 // 10Mbps starts Auto mid-ladder; the floor step-down still guards a bad pipe.
@@ -169,8 +171,8 @@ const HUD_MS = 1100;
 // One auto-retry per source: a fresh open often fails on the FIRST attempt
 // (cold function, warm-up 429s, a rate-flaky catalogue returning nothing) and
 // succeeds on the retry. Terminal "no-source" answers are not retried.
-const SOURCE_RETRIES = 1;
-const SOURCE_RETRY_BACKOFF_MS = [800];
+const SOURCE_RETRIES = 2;
+const SOURCE_RETRY_BACKOFF_MS = [800, 1600];
 
 const PARSE_TIMEOUT_MS = 75000;
 
@@ -416,7 +418,47 @@ export default function NativePlayerView({
   // over it directly (TDZ); the ref is the same pattern the file already uses
   // for once-bound handlers.
   const pokeRef = useRef(() => {});
+  /* Same-media RELOAD carry (server pick / source-quality pick / manual retry):
+     the effect teardown detaches the media element, which resets currentTime to
+     0 — without arming this first, every reload restarted the film at the
+     beginning. Keyed by media so a reload aimed at a DIFFERENT title/episode
+     can never inherit the old position, and it records paused-ness so a switch
+     made while paused stays paused (same rule pickQuality follows) instead of
+     auto-playing after the reload. */
+  const carryRef = useRef(null);
+  const armReloadCarry = () => {
+    const v = videoRef.current;
+    carryRef.current = v
+      ? { key: mediaKeyRef.current, at: v.currentTime || 0, paused: Boolean(v.paused) }
+      : null;
+  };
+  /* The last decoded frame as a JPEG data URL, captured while it is still on
+     screen: the switch stage shows THIS instead of the title art, so a server
+     or source pick reads as "the same picture, re-sourced" rather than a hard
+     cut to a static card. Null (no frame yet / canvas unusable) falls back to
+     the art stage exactly as before. MSE frames come from same-origin blob
+     URLs, so the canvas is never tainted. */
+  const captureFrameUrl = () => {
+    const v = videoRef.current;
+    if (!v || v.readyState < 2 || !v.videoWidth || !v.videoHeight) return null;
+    try {
+      const c = document.createElement("canvas");
+      c.width = 640;
+      c.height = Math.max(1, Math.round((640 * v.videoHeight) / v.videoWidth));
+      c.getContext("2d")?.drawImage(v, 0, 0, c.width, c.height);
+      return c.toDataURL("image/jpeg", 0.7);
+    } catch {
+      return null; // tainted or unavailable frame — art stage instead
+    }
+  };
+  // The captured frame above; cleared the moment real frames return (or the
+  // reload turns out to be for different media).
+  const [switchFrame, setSwitchFrame] = useState(null);
   const retryLoad = useCallback(() => {
+    // Position carries over, but the frozen frame does not: it belongs to a
+    // source that just died, so the retry shows the art stage, not a still.
+    armReloadCarry();
+    setSwitchFrame(null);
     setFatal(null);
     setEnded(false);
     setResumeOffer(null);
@@ -464,11 +506,13 @@ export default function NativePlayerView({
       setSpinner(true);
       return undefined;
     }
-    if (!playing) {
-      setSpinner(false);
-      return undefined;
-    }
-    const t = setTimeout(() => setSpinner(true), 700);
+    // Paused + buffering means a seek into an empty region (or a stall caught
+    // at the pause instant): the spinner is the only honest feedback there is.
+    // It arms faster than the playing-stall delay because a paused seek should
+    // feel instant — and a paused-but-LOADED stream never reaches this branch
+    // (buffering is false there, so it still never spins).
+    const delay = playing ? 700 : 350;
+    const t = setTimeout(() => setSpinner(true), delay);
     return () => clearTimeout(t);
   }, [buffering, playing]);
   /* Two waits, two treatments.
@@ -503,7 +547,11 @@ export default function NativePlayerView({
   // title. Disabled in the Audio menu with an honest "Unavailable" label so the
   // viewer stops retrying a track the provider 404s. Cleared on every new run.
   const [deadDubs, setDeadDubs] = useState(() => new Set());
-  const showStage = spinner && (stageWhileLoading || !hasStartedRef.current);
+  // A server switch is a stage even while PAUSED: the teardown blanks the
+  // picture, and without this a paused switch showed neither spinner (the
+  // spinner gate wants `playing`) nor stage — just a black rectangle with no
+  // progress indication until the new stream committed.
+  const showStage = (spinner || serverSwitchStage) && (stageWhileLoading || !hasStartedRef.current);
   // Why this particular wait is happening. "Loading…" alone is identical for a
   // cold open and for a server the viewer just picked, and those two deserve
   // different wording — one is the app working, the other is the app admitting
@@ -821,15 +869,21 @@ setScrubDragging(true);
     let handled = true;
     switch (e.key) {
       case "ArrowLeft":
+        // Same auto-repeat guard as the window handler: a held nudge re-targets
+        // the seek on every repeat and thrashes the fragment loader.
+        if (e.repeat) break;
         seekRelative(-SKIP_SECONDS);
         break;
       case "ArrowRight":
+        if (e.repeat) break;
         seekRelative(SKIP_SECONDS);
         break;
       case "PageDown":
+        if (e.repeat) break;
         seekRelative(-60);
         break;
       case "PageUp":
+        if (e.repeat) break;
         seekRelative(60);
         break;
       case "Home":
@@ -1271,7 +1325,6 @@ setScrubDragging(true);
       suppressClickRef.current = true;
       return;
     }
-    if (buffering) return;
     // A vertical gesture (volume drag) just happened — not a tap.
     if (gestureRef.current?.active) {
       gestureRef.current = null;
@@ -1281,6 +1334,11 @@ setScrubDragging(true);
     const t = e.changedTouches && e.changedTouches[0];
     if (!rect.width || !t) return;
     const zone = zoneOf(rect, t.clientX);
+    // During a rebuffer the EDGE zones stay dead — a seek into an empty buffer
+    // only deepens the stall — but the CENTER tap still toggles play/pause.
+    // Swallowing every tap here made the player feel frozen on touch exactly
+    // when the viewer most wanted to interact with it.
+    if (buffering && zone !== "center") return;
     // Center taps toggle playback immediately — the 260ms single-tap delay
     // only exists where a double-tap means seek.
     if (zone === "center") {
@@ -1883,10 +1941,15 @@ setScrubDragging(true);
           break;
         case "ArrowLeft":
           e.preventDefault();
+          // Auto-repeat must not machine-gun seeks: every write re-targets the
+          // in-flight fragments, so a held arrow thrashed the relay and loaded
+          // nothing until release. One seek per physical press, like Space.
+          if (e.repeat) return;
           seekRelative(-SKIP_SECONDS);
           break;
         case "ArrowRight":
           e.preventDefault();
+          if (e.repeat) return;
           seekRelative(SKIP_SECONDS);
           break;
         case "ArrowUp":
@@ -1985,6 +2048,13 @@ setScrubDragging(true);
       setEnded(false);
       setUpNext(null);
     }
+    // Consume any reload carry exactly once, and only for the SAME media — a
+    // carry armed for one episode must never reposition another.
+    const carry = carryRef.current;
+    carryRef.current = null;
+    const carrySame = Boolean(carry && carry.key === mediaKey);
+    const carryPaused = carrySame && Boolean(carry.paused);
+    if (!carrySame) setSwitchFrame(null);
 
     const entryUrlFor = (def, resolved, variant) => {
       // Master sources keep their levels + audio groups on the master, so load the
@@ -2175,7 +2245,9 @@ setScrubDragging(true);
         const isMaster = Boolean(liveSource?.multiLevelMaster);
         // attempt 0 = initial URLs; attempt 1 = one token-refresh re-resolve.
         let preferHeight = null;
-        let resumeTime = null;
+        // A reload carry (server/source pick, manual retry) repositions this
+        // run the same way the token-refresh path below does.
+        let resumeTime = carrySame && carry.at > 0 ? carry.at : null;
         for (let attempt = 0; attempt < 2; attempt += 1) {
           if (stale()) return true;
           const pool = preferHeight != null ? variants.filter((v) => (v.height || 0) === preferHeight) : [];
@@ -2275,8 +2347,14 @@ setScrubDragging(true);
             // still arriving. The back buffer stays small so device RAM stays bounded.
             abrEnabled: true,
             progressive: true,
-              fragLoadingTimeOut: 30000,
-              fragLoadingMaxRetry: 8,
+            // The loader's watchdog is an INACTIVITY timer (it re-arms on every
+            // progress chunk — see nativeHlsLoader), so 15s means "no bytes for
+            // 15s = dead hop", not "the segment must finish in 15s". The old 30s
+            // held a seek/stall spinner for half a minute per attempt, and 8
+            // retries stretched a dead origin's detection into minutes; with the
+            // re-arming watchdog, failover now trips in under a minute worst case.
+              fragLoadingTimeOut: 15000,
+              fragLoadingMaxRetry: 5,
               manifestLoadingTimeOut: 20000,
               manifestLoadingMaxRetry: 4,
               levelLoadingTimeOut: 20000,
@@ -2434,20 +2512,28 @@ setScrubDragging(true);
           setStageWhileLoading(false);
           setServerSwitchStage(false);
           setSwitchingNote(null);
+          // The captured pre-switch frame has served its purpose; real frames
+          // are on screen again.
+          setSwitchFrame(null);
           if (resumeTime != null) {
             safeSeek(resumeTime);
             resumeTime = null;
           }
-          try {
-            await videoRef.current?.play();
-          } catch {
-            // Muted autoplay is allowed, an unmuted play() outside a user-activation window
-            // is not: try unmuted, else play muted + hint at "Tap to unmute".
+          // A switch made while PAUSED stays paused (pickQuality's rule): the
+          // commit's play() runs outside the click gesture, so it would also
+          // fight the autoplay policy on the way.
+          if (!carryPaused) {
             try {
-              videoRef.current.muted = true;
-              setAutoMuted(true);
-              await videoRef.current.play();
+              await videoRef.current?.play();
             } catch {
+              // Muted autoplay is allowed, an unmuted play() outside a user-activation window
+              // is not: try unmuted, else play muted + hint at "Tap to unmute".
+              try {
+                videoRef.current.muted = true;
+                setAutoMuted(true);
+                await videoRef.current.play();
+              } catch {
+              }
             }
           }
           // Non-master sources are single-rendition: their current height is fixed.
@@ -2796,6 +2882,12 @@ setScrubDragging(true);
      row highlights this icon while a Servers-menu panel is open. */
   const pickServer = (key) => {
     if (requestedServerRef.current === key) return;
+    // The teardown below detaches the media element (currentTime → 0) and the
+    // stage replaces the picture: carry the position/paused state and the last
+    // frame across, or a switch mid-film restarted at the beginning behind a
+    // static art card.
+    armReloadCarry();
+    setSwitchFrame(captureFrameUrl());
     // Overlap: start the target's resolve NOW, while the previous frame is still
     // on screen, instead of after React tears the current run down and
     // re-renders. The player's own resolve for this row coalesces onto this
@@ -2830,6 +2922,10 @@ setScrubDragging(true);
   const pickSourceQuality = (height) => {
     const next = Number(height) > 0 ? Number(height) : 0;
     if ((sourceHeightRef.current || 0) === next) return;
+    // Same reload carry as pickServer: this rides the same teardown path, so
+    // without it a mid-film source-quality change also restarted at 0.
+    armReloadCarry();
+    setSwitchFrame(captureFrameUrl());
     sourceHeightRef.current = next;
     setSourceHeight(next);
     setPanel(null);
@@ -2878,7 +2974,13 @@ setScrubDragging(true);
   // for a sustained stretch without refilling. Auto-level only.
   useEffect(() => {
     const st = lowBufferRef.current;
-    if (status !== "playing" || buffering) {
+    // A STALL must not reset the clock: `buffering` used to gate this rule, so
+    // the step-down only counted while playback limped along and was blind to
+    // the full stalls it exists to rescue (the spinner could sit for a minute
+    // while the rung stayed pinned). While the element is still "playing", a
+    // stall keeps the under-floor timer running. A PAUSED wait (seek in flight)
+    // still resets — dropping a rung mid-seek would disturb it.
+    if (status !== "playing" || !playing) {
       st.since = 0;
       st.prev = bufferedSecs;
       return;
@@ -2915,7 +3017,7 @@ setScrubDragging(true);
     }
     st.since = 0;
     st.prev = bufferedSecs;
-  }, [bufferedSecs, status, buffering, currentHeight, qualities, activeUri]);
+  }, [bufferedSecs, status, playing, currentHeight, qualities, activeUri]);
 
   const pickAudio = (index) => {
     const hls = hlsRef.current;
@@ -3609,6 +3711,7 @@ const showSkipOutro = shouldShowSkipOutro({
           showStage={showStage}
           stageNote={stageNote}
           stageInitial={!everPlayed || serverSwitchStage}
+          switchFrame={switchFrame}
           displayTitle={displayTitle}
           backdropUrl={backdropUrl}
           posterUrl={posterUrl}

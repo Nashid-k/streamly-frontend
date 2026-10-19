@@ -44,7 +44,7 @@ export function LoadingMessage({ title }) {
    those are the same wait wearing different clothes — the artwork is what tells
    the viewer the player did not lose their place, and a bare black rectangle
    with a dot in it does not. */
-export function LoadingStage({ title, backdropUrl, posterUrl, message, initial }) {
+export function LoadingStage({ title, backdropUrl, posterUrl, message, initial, frame }) {
   return (
     <div
       aria-hidden="true"
@@ -61,7 +61,25 @@ export function LoadingStage({ title, backdropUrl, posterUrl, message, initial }
         zIndex: 3,
       }}
     >
-      {backdropUrl ? (
+      {/* A pre-switch frame was captured (server/source pick): the viewer's own
+          picture stays on screen — dimmed, not blurred — so the switch reads as
+          continuous instead of a hard cut to title art. */}
+      {frame ? (
+        <img
+          src={frame}
+          alt=""
+          aria-hidden="true"
+          className="np-loading-frame"
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            filter: "brightness(0.55)",
+          }}
+        />
+      ) : backdropUrl ? (
         <img
           src={backdropUrl}
           alt=""
@@ -108,7 +126,10 @@ export function LoadingStage({ title, backdropUrl, posterUrl, message, initial }
         >
           {/* The title ART is the centrepiece: the logo-style still TMDB
               serves, contained so nothing crops it. */}
-          {posterUrl ? (
+          {/* With a captured frame up, the frame IS the picture: the title
+              art would cover it, so it steps aside (the status line below
+              still names what is happening). */}
+          {posterUrl && !frame ? (
             <img
               src={posterUrl}
               alt=""
@@ -126,7 +147,7 @@ export function LoadingStage({ title, backdropUrl, posterUrl, message, initial }
           {/* Title text removed when the logo exists (user order): the image
               IS the title. Without a logo the text name is the only honest
               identifier left, so it falls back in. */}
-          {!posterUrl && title ? (
+          {!posterUrl && title && !frame ? (
             <div
               style={{
                 fontSize: "clamp(18px, 3.2vw, 30px)",

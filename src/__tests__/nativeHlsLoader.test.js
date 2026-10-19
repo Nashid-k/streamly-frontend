@@ -1194,6 +1194,36 @@ describe("createStreamlyLoader", () => {
     expect(calls.error).toBe(0);
   });
 
+  it("rearms the watchdog on progress — a slow stream survives, a silent one dies", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+    const Loader = createStreamlyLoader({ getRefUrl: () => "https://vidcore.io/" });
+    const loader = new Loader();
+    let timedOut = 0;
+    loader.load(
+      { url: "https://moon.quietridge.top/vd/x/index.m3u8", frag: {} },
+      { timeout: 100 },
+      {
+        onSuccess: () => {},
+        onError: () => {},
+        onTimeout: () => {
+          timedOut += 1;
+        },
+      },
+    );
+    // Bytes keep arriving just under the timeout budget: the load must survive
+    // (the old FIXED timer killed legitimately slow 4K fragments at the total
+    // budget even while they were still streaming).
+    for (let i = 0; i < 5; i += 1) {
+      await vi.advanceTimersByTimeAsync(80);
+      loader.progress(new Uint8Array(8), 40);
+      expect(timedOut).toBe(0);
+    }
+    // The stream goes silent: now the inactivity watchdog must fire.
+    await vi.advanceTimersByTimeAsync(250);
+    expect(timedOut).toBe(1);
+  });
+
   it("reuses a loader instance after abort — the abort flag resets per load", async () => {
     let hanging = true;
     const abortable = (_url, init) => {

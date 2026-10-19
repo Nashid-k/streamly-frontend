@@ -50,8 +50,10 @@ function relayConfig() {
     : { base: ENDPOINT, slice: FRAG_CHUNK_MAX, mode: "json" };
 }
 
-// Default per-load watchdog when hls.js passes no config.timeout: a tolerant
-// ceiling for a 3.5MB relayed slice, firing before a hang looks permanent.
+// Default per-load watchdog when hls.js passes no config.timeout: an INACTIVITY
+// ceiling (progress rearms it — see the loader's progress()), so a slow-but-
+// moving relayed slice survives while a dead hop fails before the wait looks
+// permanent.
 const DEFAULT_LOAD_TIMEOUT_MS = 20 * 1000;
 // How long a throttled origin stays relay-only: long enough to ride out a WAF
 // burst, short enough to re-probe direct while the title still plays.
@@ -635,6 +637,7 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath, onC
       this.aborted = false;
       this.controller = null;
       this._timeoutTimer = null;
+      this._armWatchdog = null;
       this.trequest = 0;
       // hls.js grabs this reference directly (fragment-loader assigns
       // frag.stats = loader.stats), so it must ALWAYS be a full LoadStats-shaped
@@ -683,15 +686,24 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath, onC
         // as an unhandled rejection.
       });
       const watchdog = new Promise((resolve, reject) => {
-        this._timeoutTimer = setTimeout(() => {
-          this._timeoutTimer = null;
-          try {
-            this.controller?.abort();
-          } catch {
-            // controller already settled — nothing to cancel
-          }
-          reject(timeoutError(`load timed out after ${Math.round(timeoutMs)}ms`));
-        }, timeoutMs);
+        const arm = () => {
+          clearTimeout(this._timeoutTimer);
+          this._timeoutTimer = setTimeout(() => {
+            this._timeoutTimer = null;
+            try {
+              this.controller?.abort();
+            } catch {
+              // controller already settled — nothing to cancel
+            }
+            reject(timeoutError(`no progress for ${Math.round(timeoutMs)}ms`));
+          }, timeoutMs);
+        };
+        // INACTIVITY watchdog, not a total-time budget: progress() rearms it on
+        // every chunk, so a big 4K fragment on a slow pipe keeps streaming while
+        // a hop that goes silent still fails fast (the old fixed timer killed
+        // legitimately slow loads AND held dead ones for the full budget).
+        this._armWatchdog = arm;
+        arm();
       });
 
       Promise.race([runPromise, watchdog]).then(
@@ -741,6 +753,9 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath, onC
         clearTimeout(this._timeoutTimer);
         this._timeoutTimer = null;
       }
+      // Disarm re-arming too: progress() may still fire for a lost race and
+      // must not restart a watchdog for a load that already settled.
+      this._armWatchdog = null;
     }
 
     signal() {
@@ -762,6 +777,8 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath, onC
        callbacks.onProgress is optional. */
     progress(chunk, total) {
       if (!chunk || chunk.length === 0) return;
+      // Bytes moved: the inactivity watchdog gets a fresh budget (see load()).
+      this._armWatchdog?.();
       if (!this.firstByteSeen) {
         this.firstByteSeen = true;
         const t = now();
