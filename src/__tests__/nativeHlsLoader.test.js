@@ -3,6 +3,7 @@ import {
   clearDirectBlocks,
   clearPlaylistMemo,
   clearProbeCache,
+  clearProbeMemo,
   createStreamlyLoader,
   isRefererGated,
   probeDirectOrigin,
@@ -21,6 +22,7 @@ afterEach(() => {
   vi.clearAllMocks();
   vi.useRealTimers();
   clearProbeCache();
+  clearProbeMemo();
   clearDirectBlocks();
   clearPlaylistMemo();
 });
@@ -1277,6 +1279,32 @@ const MEDIA_PLAYLIST = "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:6\n#EXT
 const MASTER_PLAYLIST = "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1000000,RESOLUTION=640x360\nlow.m3u8\n";
 
 describe("probeSourcePlayable", () => {
+  it("memoizes a success so a repeat probe pays no round trips", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url) => {
+      if (typeof url === "string" && url.includes("/api/stream")) {
+        return { ok: true, status: 200, headers: { get: () => "text" }, text: async () => MEDIA_PLAYLIST };
+      }
+      return rangeOkResponse();
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const first = await probeSourcePlayable("https://cdn.example.com/x/memo.m3u8", "https://vidcore.io/");
+    expect(first).toMatchObject({ ok: true, via: "direct" });
+    const callsAfterFirst = fetchMock.mock.calls.length;
+    expect(callsAfterFirst).toBeGreaterThan(0);
+
+    // Same entry URL (switch away and back, retry, re-pick): the cached
+    // verdict answers instantly — zero new network.
+    const second = await probeSourcePlayable("https://cdn.example.com/x/memo.m3u8", "https://vidcore.io/");
+    expect(second).toMatchObject({ ok: true, via: "direct" });
+    expect(fetchMock.mock.calls.length).toBe(callsAfterFirst);
+
+    // A cleared memo (token rotation, next session) probes again for real.
+    clearProbeMemo();
+    await probeSourcePlayable("https://cdn.example.com/x/memo.m3u8", "https://vidcore.io/");
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(callsAfterFirst);
+  });
+
   it("passes when the first segment flows direct", async () => {
     vi.stubGlobal(
       "fetch",

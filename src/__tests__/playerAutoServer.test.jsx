@@ -10,6 +10,9 @@ const hlsState = {
   currentLevel: -1,
   loadSourceCalls: [],
   resolveCalls: [],
+  // Every FakeHls ever constructed this test, so a test can drive the handlers
+  // a real instance registered (e.g. fire a fatal error at the live one).
+  instances: [],
   // Which server the fake backend says served the stream (echoed in the
   // response). Flipped by a test to model a picked server falling through.
   server: "orion",
@@ -31,6 +34,7 @@ vi.mock("hls.js", () => {
       this.levels = hlsState.levels;
       this.audioTracks = [];
       this.currentLevel = -1;
+      hlsState.instances.push(this);
     }
     on(evt, fn) {
       (this._h ||= {})[evt] = (this._h[evt] || []).concat(fn);
@@ -99,6 +103,7 @@ beforeEach(() => {
   hlsState.currentLevel = -1;
   hlsState.loadSourceCalls.length = 0;
   hlsState.resolveCalls.length = 0;
+  hlsState.instances.length = 0;
   hlsState.server = "orion";
   hlsState.deferProbe = false;
   hlsState.releaseProbe = null;
@@ -226,5 +231,32 @@ describe("server switch carries the playback position", () => {
 
     await waitFor(() => expect(hlsState.loadSourceCalls.length).toBeGreaterThan(1), { timeout: 5000 });
     await waitFor(() => expect(video.currentTime).toBe(321), { timeout: 3000 });
+  });
+});
+
+/* The reload carry only covers PICKS the viewer made. A stream that dies
+   MID-PLAY (quota'd relay, dead CDN) tears the media down too, and its
+   failover to the next attempt/source has to resume where the viewer
+   actually was — it used to restart the whole run at 0. */
+describe("mid-play failover resumes the real position", () => {
+  it("picks up at the last playback position after a fatal error", async () => {
+    const { container } = render(<NativePlayerView type="movie" id="12345" title="A Title" onClose={() => {}} />);
+    await waitFor(() => expect(hlsState.loadSourceCalls.length).toBeGreaterThan(0), { timeout: 5000 });
+
+    const video = container.querySelector("video");
+    video.dispatchEvent(new Event("play"));
+    video.currentTime = 500;
+
+    // The stream dies mid-play: the LIVE instance reports a fatal error.
+    const hls = hlsState.instances[hlsState.instances.length - 1];
+    const errHandlers = hls._h?.error || [];
+    expect(errHandlers.length).toBeGreaterThan(0);
+    errHandlers.forEach((fn) => fn(null, { fatal: true, details: "fragLoadError", error: { message: "upstream died" } }));
+    // The destroy/detach resets currentTime — model it by hand (jsdom never
+    // runs the media load algorithm), so only the failOver latch can restore it.
+    video.currentTime = 0;
+
+    await waitFor(() => expect(hlsState.loadSourceCalls.length).toBeGreaterThan(1), { timeout: 5000 });
+    await waitFor(() => expect(video.currentTime).toBe(500), { timeout: 3000 });
   });
 });

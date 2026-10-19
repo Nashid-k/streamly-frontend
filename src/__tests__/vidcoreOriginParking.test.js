@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearDirectBlocks,
   clearProbeCache,
+  clearProbeMemo,
   probeDirectOrigin,
   probeSourcePlayable,
 } from "../api/nativeHlsLoader";
@@ -44,6 +45,7 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.clearAllMocks();
   clearProbeCache();
+  clearProbeMemo();
   clearDirectBlocks();
 });
 

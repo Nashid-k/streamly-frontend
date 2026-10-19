@@ -367,7 +367,27 @@ async function relayPlaylistText(url, refUrl, signal) {
   });
 }
 
-export async function probeSourcePlayable(entryUrl, refUrl, { signal } = {}) {
+/* Playability-probe result memo. The probe is a SERIAL 2-3 round-trip chain
+   (master -> media playlist -> segment sip) paid before hls.js may even start,
+   so a source that proved playable a moment ago should not pay it again:
+   switch away and back, a full-reload quality pick, and a manual retry all
+   re-probe the SAME entry URL. VOD entry URLs are immutable for the lifetime
+   of their token, so caching a SUCCESS is safe; a FAILURE is never cached (a
+   dead origin must always be re-proved), and the TTL bounds how long a token
+   rotation or a mid-session origin death can hide behind a stale "playable". */
+const PROBE_MEMO_TTL_MS = 120 * 1000;
+const PROBE_MEMO_MAX = 16;
+const probeMemo = new Map();
+
+function probeMemoKey(entryUrl, refUrl) {
+  return `${refUrl || ""}|${entryUrl}`;
+}
+
+export function clearProbeMemo() {
+  probeMemo.clear();
+}
+
+async function probeSourcePlayableOnce(entryUrl, refUrl, { signal } = {}) {
   try {
     let base = entryUrl;
     let text = await relayPlaylistText(base, refUrl, signal);
@@ -424,6 +444,28 @@ export async function probeSourcePlayable(entryUrl, refUrl, { signal } = {}) {
     if (error?.name === "AbortError") throw error;
     return { ok: false, reason: error?.message || "probe failed" };
   }
+}
+
+export async function probeSourcePlayable(entryUrl, refUrl, options = {}) {
+  const key = probeMemoKey(entryUrl, refUrl);
+  const hit = probeMemo.get(key);
+  if (hit && Date.now() - hit.at <= PROBE_MEMO_TTL_MS) {
+    // Re-insert so the Map's insertion order doubles as LRU order, and hand
+    // back a COPY: callers must never be able to mutate the cached shape.
+    probeMemo.delete(key);
+    probeMemo.set(key, hit);
+    return { ...hit.result };
+  }
+  const result = await probeSourcePlayableOnce(entryUrl, refUrl, options);
+  if (result?.ok) {
+    probeMemo.set(key, { at: Date.now(), result });
+    while (probeMemo.size > PROBE_MEMO_MAX) {
+      const oldest = probeMemo.keys().next().value;
+      if (oldest === undefined) break;
+      probeMemo.delete(oldest);
+    }
+  }
+  return result;
 }
 
 /* ZXC replay-marker URLs, minted server-side by zxcPlaylistUrl() in

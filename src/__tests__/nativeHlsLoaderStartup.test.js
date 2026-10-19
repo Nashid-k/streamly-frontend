@@ -3,6 +3,7 @@ import {
   clearDirectBlocks,
   clearPlaylistMemo,
   clearProbeCache,
+  clearProbeMemo,
   createStreamlyLoader,
   probeSourcePlayable,
 } from "../api/nativeHlsLoader";
@@ -21,6 +22,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   clearProbeCache();
+  clearProbeMemo();
   clearDirectBlocks();
   clearPlaylistMemo();
 });

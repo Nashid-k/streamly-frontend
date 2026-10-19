@@ -313,6 +313,10 @@ export default function NativePlayerView({
   // Live views of the play/seek closures for media-session handlers that register once.
   const togglePlayRef = useRef(() => {});
   const seekRelativeRef = useRef(() => {});
+  // Deltas queued while a seek is still in flight (see seekRelative): each new
+  // tap re-targets the pending seek, which cancels hls.js's fragment load on
+  // every write — on a relay path nothing finishes until the taps stop.
+  const pendingSeekRef = useRef(0);
   // Pending "drop the hover overlay" deadline; cleared when a NEW scrub starts,
   // or a leftover timer snaps the bar back mid-drag between two gestures.
   const scrubHoverTimer = useRef(null);
@@ -915,6 +919,16 @@ setScrubDragging(true);
     const video = videoRef.current;
     if (!video) return;
     poke();
+    // Rapid taps (double-tap spam, quick key presses) land while the previous
+    // seek is still resolving: writing currentTime again cancels the in-flight
+    // fragment load, so nothing ever completes until the viewer stops. Queue
+    // those deltas and flush the total once `seeked` fires; the HUD shows the
+    // growing queued amount so the feedback stays honest.
+    if (video.seeking) {
+      pendingSeekRef.current += delta;
+      showHudRef.current("seek", pendingSeekRef.current);
+      return;
+    }
     // HUD shows the amount actually applied (clamped at 0 / duration), not the
     // requested one — YouTube shows +Xs / -Xs, never a lie like -0s.
     const dur = Number(video.duration);
@@ -938,6 +952,9 @@ setScrubDragging(true);
   const safeSeek = (seconds) => {
     const video = videoRef.current;
     if (!video) return;
+    // An absolute seek supersedes any relative deltas queued behind an
+    // in-flight one — applying them afterwards would jump off the target.
+    pendingSeekRef.current = 0;
     const t = Number(seconds);
     if (!Number.isFinite(t)) return;
     const dur = Number(video.duration);
@@ -1506,6 +1523,12 @@ setScrubDragging(true);
     };
     const onSeeked = () => {
       setBuffering(false);
+      // Flush whatever the viewer queued while this seek was in flight.
+      const pending = pendingSeekRef.current;
+      if (pending) {
+        pendingSeekRef.current = 0;
+        seekRelativeRef.current(pending);
+      }
     };
     const onCanPlay = () => setBuffering(false);
     video.addEventListener("play", onPlay);
@@ -2052,6 +2075,9 @@ setScrubDragging(true);
     // carry armed for one episode must never reposition another.
     const carry = carryRef.current;
     carryRef.current = null;
+    // Queued relative deltas belong to the previous media — never re-apply
+    // them onto a fresh stream that starts at 0.
+    pendingSeekRef.current = 0;
     const carrySame = Boolean(carry && carry.key === mediaKey);
     const carryPaused = carrySame && Boolean(carry.paused);
     if (!carrySame) setSwitchFrame(null);
@@ -2185,6 +2211,13 @@ setScrubDragging(true);
       // should say THAT instead of a bare "no stream".
       let anyUpstreamQuota = false;
 
+      // The position a re-run of THIS effect must resume at. Seeded from the
+      // reload carry (server/source pick, manual retry) and then kept honest by
+      // the fatal-latch below, so a MID-PLAY failover to another source picks
+      // up where the viewer actually was — a non-auth fatal used to restart the
+      // whole run with no carry and began again at 0.
+      let carryAt = carrySame && carry.at > 0 ? carry.at : null;
+
       // One pass at a source: true = settled (caller stops), false = transient (retryable
       // warm-up/empty/flaky), "off" = terminal (the provider doesn't have this title).
       const runSourceOnce = async (defArg, bypassCache) => {
@@ -2245,9 +2278,10 @@ setScrubDragging(true);
         const isMaster = Boolean(liveSource?.multiLevelMaster);
         // attempt 0 = initial URLs; attempt 1 = one token-refresh re-resolve.
         let preferHeight = null;
-        // A reload carry (server/source pick, manual retry) repositions this
-        // run the same way the token-refresh path below does.
-        let resumeTime = carrySame && carry.at > 0 ? carry.at : null;
+        // A reload carry (server/source pick, manual retry) — or the fatal-latch
+        // from an earlier attempt in this run — repositions this run the same
+        // way the token-refresh path below does.
+        let resumeTime = carryAt;
         for (let attempt = 0; attempt < 2; attempt += 1) {
           if (stale()) return true;
           const pool = preferHeight != null ? variants.filter((v) => (v.height || 0) === preferHeight) : [];
@@ -2395,6 +2429,12 @@ setScrubDragging(true);
             });
           };
           const failOver = () => {
+            // Latch the REAL position first: destroy() detaches the media, and a
+            // detach resets currentTime to 0 — without this every re-run of the
+            // failed run (token refresh, same-source retry, rotation to another
+            // server) resumed at 0 instead of where the viewer actually was.
+            const lastT = videoRef.current?.currentTime || 0;
+            if (lastT > 0) carryAt = lastT;
             try {
               hls.destroy();
             } catch {
@@ -3280,10 +3320,13 @@ setScrubDragging(true);
   /* While the player itself is fetching (seek/stall), park the preview decoder so
      it cannot compete for the same relay bytes the real fragment needs — the
      difference between a seek that resolves on one fragment and one that waits
-     behind a scrubber decode. */
+     behind a scrubber decode. A thin pipe while playing gets the same stand-
+     down: under the buffer floor, refill and the next seek outrank a hover
+     decode. Cache hits still render (see previewThumbs), only network work
+     pauses. */
   useEffect(() => {
-    setPreviewSuppressed(buffering);
-  }, [buffering]);
+    setPreviewSuppressed(buffering || (playing && bufferedSecs < BUFFER_FLOOR_SECONDS));
+  }, [buffering, playing, bufferedSecs]);
 
   const showEpisodesButton = Array.isArray(episodes) && episodes.length > 0;
 
