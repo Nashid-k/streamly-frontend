@@ -75,7 +75,8 @@ function writeJson(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
     return true;
-  } catch {
+  } catch (error) {
+    logError("auth", `Failed to write localStorage key "${key}" (quota exceeded or private mode?). Change kept in memory only.`, error, { key });
     return false;
   }
 }
@@ -83,7 +84,8 @@ function writeJson(key, value) {
 function readJson(key, fallback) {
   try {
     return JSON.parse(localStorage.getItem(key) || "null") ?? fallback;
-  } catch {
+  } catch (error) {
+    logWarn("auth", `Could not read JSON from localStorage key "${key}" — returning fallback.`, { key, message: error?.message });
     return fallback;
   }
 }
@@ -207,6 +209,13 @@ export function AuthProvider({ children }) {
   const [lastSyncedAt, setLastSyncedAt] = useState(null);
   const [signIn, setSignIn] = useState({ open: false, mode: "signin", reason: "" });
   const syncTimeoutRef = useRef(null);
+  // The restore-time auto-push (2.5s) must not land while the initial cloud
+  // pull is still in flight — syncToCloud pushes the LOCAL lists wholesale, so
+  // a push winning that race would overwrite another device's edits. "Settled"
+  // means settled, success or failure: a failed pull must still let the push
+  // run, or local changes would never upload.
+  const pullSettledRef = useRef(true);
+  const pendingPushRef = useRef(false);
   // requireAuth is called from event handlers built before the latest render (a
   // card in a rail, a memoised callback), so it must read the CURRENT user rather
   // than close over whatever it saw when it was built.
@@ -243,8 +252,10 @@ export function AuthProvider({ children }) {
  *
  * Only the three synced collections go. Search history is deliberately kept — it
  * never leaves the device, so it cannot leak, and throwing it away would punish
- * someone for tapping a gate. Device preferences are kept too: wiping them would
- * flash the wrong theme on adopt, and a theme following its owner is desirable.
+ * someone for tapping a gate (logout() removes it separately: sign-out is a
+ * different contract, the next guest must inherit nothing). Device preferences
+ * are kept too: wiping them would flash the wrong theme on adopt, and a theme
+ * following its owner is desirable.
  *
  * The aios_sync_* events are dispatched because every rail is subscribed to them;
  * without this the UI would keep showing the wiped rows until the next write.
@@ -263,7 +274,7 @@ function discardLocalLibrary() {
     }
     window.dispatchEvent(new Event(event));
   }
-  logDebug("auth", "Local library discarded — adopting a new account.");
+  logDebug("auth", "Local library discarded — this device starts the next session with no inherited rows.");
 }
 
   /**
@@ -297,6 +308,14 @@ function discardLocalLibrary() {
     window.dispatchEvent(new Event("aios_user_sync"));
   }, []);
 
+  /**
+   * Push local lists to the cloud.
+   *
+   * Returns `true` ONLY when the server accepted the push (HTTP 200); every
+   * skip/failure returns `false` without throwing. SettingsPage's Sync Now
+   * toast branches on it — the internal auto-pushes ignore the value. The
+   * syncStatus side effects are unchanged either way.
+   */
   const syncToCloud = useCallback(async (customPayload = null) => {
     const currentUser = user || safeUserParse();
     const accountId = accountIdOf(currentUser);
@@ -307,14 +326,14 @@ function discardLocalLibrary() {
       logDebug("auth", "Cloud sync skipped — no verified account on this device.", {
         provider: currentUser?.provider,
       });
-      return;
+      return false;
     }
 
     const token = readSyncToken();
     if (!token) {
       setSyncStatus("error");
       logWarn("auth", "No sync token — please sign in again.");
-      return;
+      return false;
     }
 
     try {
@@ -345,29 +364,38 @@ function discardLocalLibrary() {
         setSyncStatus("synced");
         setLastSyncedAt(new Date());
         logDebug("auth", "Cloud data successfully synchronized to MongoDB.");
+        return true;
       } else {
         setSyncStatus("error");
         logWarn("auth", `Sync to MongoDB answered with non-200 status: ${res.status}.`, {
           status: res.status,
         });
+        return false;
       }
     } catch (err) {
       setSyncStatus("error");
       logError("auth", "Failed to sync user data to MongoDB.", err);
+      return false;
     }
   }, [user]);
 
   useEffect(() => {
     // Only verified identities pull cloud data; guests stay local.
     const accountId = accountIdOf(user);
-    if (!user || !accountId) return;
+    if (!user || !accountId) {
+      // Nothing to pull → the scheduled push has no race to wait for.
+      pullSettledRef.current = true;
+      return;
+    }
 
     const token = readSyncToken();
     if (!token) {
+      pullSettledRef.current = true;
       logWarn("auth", "Cloud pull skipped — no sync token. Please sign in again.");
       return;
     }
 
+    pullSettledRef.current = false;
     let isMounted = true;
     async function pullCloudData() {
       try {
@@ -378,7 +406,10 @@ function discardLocalLibrary() {
           logWarn("auth", "Cloud pull rejected (401) — token no longer valid, please re-sign-in.");
           return;
         }
-        if (!res.ok) return;
+        if (!res.ok) {
+          logWarn("auth", `Cloud pull answered with non-OK status: ${res.status}.`, { status: res.status });
+          return;
+        }
 
         const data = await res.json();
         if (!isMounted || !data?.userData) return;
@@ -388,6 +419,17 @@ function discardLocalLibrary() {
         setLastSyncedAt(new Date());
       } catch (error) {
         logDebug("auth", "Could not pull initial cloud data from MongoDB:", { message: error?.message });
+      } finally {
+        // Only the CURRENT pull run owns the flag: a user change mid-flight
+        // re-runs this effect and the stale run's finally must not unlock a
+        // push against the newer pull.
+        if (isMounted) {
+          pullSettledRef.current = true;
+          if (pendingPushRef.current) {
+            pendingPushRef.current = false;
+            syncToCloud();
+          }
+        }
       }
     }
 
@@ -396,13 +438,19 @@ function discardLocalLibrary() {
     return () => {
       isMounted = false;
     };
-  }, [user]);
+  }, [user, syncToCloud]);
 
   useEffect(() => {
     if (!user) return;
 
     if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
     syncTimeoutRef.current = setTimeout(() => {
+      // The initial pull is still in flight — hold the push until its finally
+      // releases it (settle includes pull failure, so the push is never lost).
+      if (!pullSettledRef.current) {
+        pendingPushRef.current = true;
+        return;
+      }
       syncToCloud();
     }, 2500);
 
@@ -491,7 +539,21 @@ function discardLocalLibrary() {
     try {
       localStorage.removeItem(USER_KEY);
       localStorage.removeItem(SYNC_TOKEN_KEY);
-    } catch {}
+    } catch (error) {
+      logWarn("auth", "Sign-out could not clear the stored session keys.", { message: error?.message });
+    }
+
+    // Sign-out on a shared machine must leave NOTHING of the previous account
+    // readable: discardLocalLibrary wipes the three synced lists, and search
+    // history (deliberately kept on account-adoption — it never syncs) goes
+    // here too, because the next guest is a different person entirely.
+    discardLocalLibrary();
+    try {
+      localStorage.removeItem("aios_search_history");
+    } catch (error) {
+      logWarn("auth", "Sign-out could not clear the local search history.", { message: error?.message });
+    }
+    window.dispatchEvent(new Event("aios_sync_sh"));
 
     setSyncStatus("idle");
     setLastSyncedAt(null);

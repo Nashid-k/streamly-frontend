@@ -50,15 +50,28 @@ function Header() {
   }, [location.pathname]);
 
   useEffect(() => {
+    let focusFrame = 0;
     const handleKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        navigate("/search");
+        // Carry the active query over so results, scroll and filters survive.
+        navigate({ pathname: "/search", search: location.search });
+        // Contract with SearchPage: it listens for this event and focuses its
+        // input. Deferred a frame so a /search page that has to mount first is
+        // committed (and subscribed) before the event fires.
+        if (focusFrame) window.cancelAnimationFrame(focusFrame);
+        focusFrame = window.requestAnimationFrame(() => {
+          focusFrame = 0;
+          window.dispatchEvent(new CustomEvent("streamly:search-focus"));
+        });
       }
     };
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [navigate]);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      if (focusFrame) window.cancelAnimationFrame(focusFrame);
+    };
+  }, [navigate, location.search]);
 
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -206,7 +219,7 @@ function Header() {
           <div className="nav-right">
             {/* Search */}
             <Link
-              to="/search"
+              to={{ pathname: "/search", search: location.search }}
               data-nav-active={location.pathname === "/search" ? "true" : undefined}
               className={`nav-icon-btn${location.pathname === "/search" ? " nav-icon-btn--active" : ""}`}
               aria-label={t("nav.search")}

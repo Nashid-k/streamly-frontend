@@ -807,9 +807,6 @@ export default function WatchlistPage() {
                             delay: (idx % 20) * 0.04,
                             ease: "easeOut",
                           }}
-                          onClick={
-                            isSelectMode ? () => toggleSelectCard(movie.id) : undefined
-                          }
                           style={{
                             position: "relative",
                             cursor: isSelectMode ? "pointer" : "default",
@@ -822,7 +819,12 @@ export default function WatchlistPage() {
                             transition: "outline 0.15s ease",
                           }}
                         >
-                          <MovieCard movie={movie} />
+                          <MovieCard
+                            movie={movie}
+                            onToggleSelect={
+                              isSelectMode ? () => toggleSelectCard(movie.id) : undefined
+                            }
+                          />
 
                           {isSelectMode ? (
                             <div
@@ -898,9 +900,12 @@ export default function WatchlistPage() {
                   </AnimatePresence>
                 </div>
                 {filteredAndSortedList.length > 20 && (
+                  // Pure client windowing (no fetch): the dots are a visual
+                  // "scroll for more" pulse mirroring the discovery load-more,
+                  // so they must not be announced on every render.
                   <div className="discover-loadmore" aria-live="polite">
                     {hasMore ? (
-                      <span className="loading-dots" role="status" aria-label="Loading more titles">
+                      <span className="loading-dots" aria-hidden="true">
                         <span />
                         <span />
                         <span />

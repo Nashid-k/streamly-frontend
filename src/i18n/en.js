@@ -383,7 +383,7 @@ export const en = {
     title: "Explore collections",
     subtitle: "Public lists from across the app — no username needed to view",
     empty: "No public collections yet. Open any list, make it Public, and it appears here.",
-    itemCount: "{count, plural, one {# title} other {# titles}}",
+    itemCount: "{count} titles",
     errorTitle: "Couldn't load public collections",
     errorMessage: "The collections service may be unavailable or not configured on this deployment. Your own lists below still work.",
     retry: "Try again",

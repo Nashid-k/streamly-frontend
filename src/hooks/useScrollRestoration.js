@@ -47,26 +47,38 @@ export function useScrollRestoration() {
   const navType = useNavigationType();
 
   useEffect(() => {
-    let scrollTimer;
+    let scrollTimer = null;
+    const savePosition = () => {
+      try {
+        sessionStorage.setItem(
+          `scroll-${location.key}`,
+          JSON.stringify({ y: window.scrollY, savedAt: Date.now() }),
+        );
+      } catch {
+        // Storage can be disabled; navigation should still work normally.
+      }
+    };
+
     const handleScroll = () => {
       // Debounce sessionStorage writes to avoid thrashing on fast scroll
       clearTimeout(scrollTimer);
       scrollTimer = setTimeout(() => {
-        try {
-          sessionStorage.setItem(
-            `scroll-${location.key}`,
-            JSON.stringify({ y: window.scrollY, savedAt: Date.now() }),
-          );
-        } catch {
-          // Storage can be disabled; navigation should still work normally.
-        }
+        scrollTimer = null;
+        savePosition();
       }, 150);
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => {
-      clearTimeout(scrollTimer);
       window.removeEventListener("scroll", handleScroll);
+      // Flush a save still inside its debounce window: cleanup runs after the
+      // route change but before any scrollTo, so window.scrollY is still the
+      // position on the page being left — dropping it made Back land on top.
+      if (scrollTimer) {
+        clearTimeout(scrollTimer);
+        scrollTimer = null;
+        savePosition();
+      }
       // Prune old entries when leaving a page
       pruneScrollEntries(location.key);
     };
@@ -77,11 +89,22 @@ export function useScrollRestoration() {
       const savedPosition = readScrollEntry(`scroll-${location.key}`);
       if (savedPosition) {
         const scrollY = savedPosition.y;
-        // Attempt immediate restore
-        window.scrollTo(0, scrollY);
-        // Fallback restore for when React renders children or Suspense resolves
-        const timeoutId = setTimeout(() => window.scrollTo(0, scrollY), 100);
-        return () => clearTimeout(timeoutId);
+        const deadline = Date.now() + 1200;
+        let retryTimer = 0;
+
+        // Pages that grow on scroll (HomePage appends categories per scroll
+        // event) are still shorter than the saved offset when the first
+        // scrollTo runs, so the browser clamps. Keep re-attempting every 100ms
+        // until window.scrollY holds at the target or the deadline passes;
+        // cleanup (unmount / navigation / a later restore) cancels the loop.
+        const attempt = () => {
+          window.scrollTo(0, scrollY);
+          if (Math.abs(window.scrollY - scrollY) >= 1 && Date.now() < deadline) {
+            retryTimer = window.setTimeout(attempt, 100);
+          }
+        };
+        attempt();
+        return () => window.clearTimeout(retryTimer);
       }
     } else {
       window.scrollTo(0, 0);

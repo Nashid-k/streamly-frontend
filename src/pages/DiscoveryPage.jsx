@@ -5,6 +5,7 @@ import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
   CalendarDays,
   Dices,
+  RotateCw,
 } from "lucide-react";
 import { movieService } from "../api/movieService";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
@@ -13,6 +14,7 @@ import MovieCardSkeleton from "../components/MovieCardSkeleton";
 import AmbientBackground from "../components/AmbientBackground";
 import ErrorBoundary from "../components/ErrorBoundary";
 import EmptyState from "../components/EmptyState";
+import Button from "../components/Button";
 import SEO from "../components/SEO";
 import RailArrow from "../components/RailArrow";
 import FilterPill from "../components/browse/FilterPill";
@@ -313,16 +315,16 @@ export default function DiscoveryPage({ mode = "movies" }) {
     // next year AND the regional future slate, so the rail is dense and regional
     // premieres are not skipped.
   const loadUpcomingFilmSlate = async () => {
-    const [upcoming, future, regional] = await Promise.allSettled([
+    const settled = await Promise.allSettled([
       movieService.getUpcomingMovies(),
       movieService.getFutureMovies(),
       movieService.getRegionalUpcoming(365),
     ]);
-    return [
-      ...(upcoming.status === "fulfilled" ? upcoming.value : []),
-      ...(future.status === "fulfilled" ? future.value : []),
-      ...(regional.status === "fulfilled" ? regional.value : []),
-    ];
+    // Every source failed → surface it so the query enters its error state
+    // (and reportQueryError fires) instead of caching a 10-minute empty
+    // "success" with no rails. Partial failures still resolve with what landed.
+    if (settled.every((r) => r.status === "rejected")) throw settled[0].reason;
+    return settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
   };
 
   const railQuery = useQuery({
@@ -332,10 +334,11 @@ export default function DiscoveryPage({ mode = "movies" }) {
         ? Promise.allSettled([
             movieService.getAiringRail(30),
             movieService.getRegionalAiring(20),
-          ]).then(([airing, regional]) => [
-            ...(airing.status === "fulfilled" ? airing.value : []),
-            ...(regional.status === "fulfilled" ? regional.value : []),
-          ])
+          ]).then((settled) => {
+            // Both sources failed → error state, not a silent empty rail.
+            if (settled.every((r) => r.status === "rejected")) throw settled[0].reason;
+            return settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+          })
         : loadUpcomingFilmSlate(),
     staleTime: 1000 * 60 * 10,
     retry: false,
@@ -545,7 +548,11 @@ export default function DiscoveryPage({ mode = "movies" }) {
   };
 
   const gridLoading = gridQuery.isLoading;
-  const gridError = gridQuery.error ? "No titles found for these filters." : null;
+  // An outage is not "your filters are wrong" — the error copy must not blame
+  // the user's filter choices, and the state gets an in-page retry.
+  const gridError = gridQuery.error
+    ? "Streamly couldn't reach the catalog right now. Try again, or come back in a moment."
+    : null;
   const railEmpty = !railQuery.isLoading && !railQuery.error && railItems.length === 0;
 
   const ambientSrc = gridItems[0]?.backdropUrl || gridItems[0]?.posterUrl || railItems[0]?.backdropUrl || null;
@@ -765,7 +772,21 @@ export default function DiscoveryPage({ mode = "movies" }) {
                 ))}
               </div>
             ) : gridError ? (
-              <EmptyState icon="error" title="Couldn't load titles" description={gridError} />
+              <EmptyState
+                icon="error"
+                title="Couldn't load titles"
+                description={gridError}
+                actions={
+                  <Button
+                    variant="secondary"
+                    pill
+                    icon={RotateCw}
+                    onClick={() => gridQuery.refetch()}
+                  >
+                    Try Again
+                  </Button>
+                }
+              />
             ) : gridItems.length === 0 ? (
               <EmptyState
                 icon="film"

@@ -70,8 +70,10 @@ export const ratingService = {
 
   // Resolve REAL ratings via TMDB external_ids → OMDb (IMDb + Rotten Tomatoes).
   // Cached in localStorage for 24h to respect OMDb's daily quota. Returns null
-  // when there's no key/imdb id/OMDb data, or on any API failure — callers then
-  // fall back to showing only the TMDB community score.
+  // when there's no key/imdb id/OMDb data — a genuine miss, cached as data so a
+  // 24h revisit never burns quota. API failures RETHROW instead: a null here
+  // would be indistinguishable from a miss, and React Query would cache it as a
+  // 24h success, hiding the error state the fallback UI and refresh depend on.
   async getRealRatings(movie) {
     if (!movie?.id) {
       logWarn("ratings", "getRealRatings called without movie.id — skipping.", {});
@@ -104,10 +106,12 @@ export const ratingService = {
       return result;
     } catch (error) {
       logError("ratings", `Real-ratings lookup failed for ${movie.id} — falling back to TMDB score. (OMDb quota is 1k/day.)`, error, { id: movie.id });
-      // Do NOT cache the failure: a transient OMDb/TMDB error cached as `null`
-      // would suppress real scores for the whole 24h window despite the working
-      // fallback path (the miss also never gets re-resolved on revisit).
-      return null;
+      // Do NOT resolve the failure as `null`: react-query caches resolved
+      // values for the whole 24h staleTime, so a transient OMDb/TMDB error
+      // would suppress real scores until then and `ratingsError` would never
+      // fire. Genuine misses are cached in localStorage above; this is not
+      // one — rethrow so the query surfaces an error state instead.
+      throw error;
     }
   },
 

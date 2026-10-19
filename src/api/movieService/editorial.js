@@ -67,16 +67,16 @@ export const getEditorialRail = async (key) => {
       }
       params.with_keywords = String(keywordId);
       params.sort_by = 'popularity.desc';
-      params.vote_count_gte = 10;
+      params['vote_count.gte'] = 10;
     } else {
       params.sort_by = cfg.sort.field;
-      params.vote_count_gte = cfg.sort.voteCountGte;
+      params['vote_count.gte'] = cfg.sort.voteCountGte;
     }
     let data = await tmdb(`/discover/${mt}`, params);
         // Sparse keyword catalogs (festival/niche tags) can sink a strict vote floor
         // to zero rows — drop it so the rail still surfaces what the keyword has.
     if (cfg.keywords && !(data.results || []).length) {
-      delete params.vote_count_gte;
+      delete params['vote_count.gte'];
       params.language = 'en';
       data = await tmdb(`/discover/${mt}`, params);
     }

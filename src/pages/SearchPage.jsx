@@ -68,15 +68,38 @@ export default function SearchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localQuery]);
 
+  // Search history records REAL searches only. It used to be written from the
+  // debounced URL sync, so pausing mid-word saved every prefix ("b", "ba",
+  // "bat"…) and pushed actual terms out of the 10 slots. `submittedAtRef` is
+  // the "this URL came from a submit" signal, and the input value is captured
+  // at submit time so a debounce that fires after the user kept typing cannot
+  // pollute history with a prefix.
+  const submittedAtRef = useRef(null);
+  const submitQuery = () => {
+    const committed = localQuery.trim();
+    if (!committed) return;
+    submittedAtRef.current = Date.now();
+    setSearchParams({ q: committed }, { replace: true });
+  };
+
   const [filterType, setFilterType] = useState("All");
   const [sortBy, setSortBy] = useState("Relevance");
 
+  // Filters/sort reset for a new term as soon as its results land — unchanged
+  // by the history fix.
   useEffect(() => {
     if (!query.trim()) return;
-    addSearch(query);
     setFilterType("All");
     setSortBy("Relevance");
-  }, [query, addSearch]);
+  }, [query]);
+
+  useEffect(() => {
+    if (!query.trim()) return;
+    if (submittedAtRef.current && query === localQuery.trim()) {
+      submittedAtRef.current = null;
+      addSearch(query);
+    }
+  }, [query, localQuery, addSearch]);
 
   const {
     data: rawResults,
@@ -213,6 +236,21 @@ export default function SearchPage() {
   const searchInputRef = useRef(null);
   const resultsRef = useRef(null);
 
+  /* Header's Ctrl+K shortcut dispatches `streamly:search-focus` a frame after
+     navigating here. `autoFocus` only covers a fresh mount, so when /search is
+     already up the caret would stay on the nav button — this grabs it (and
+     selects the preserved query so typing replaces it) instead. */
+  useEffect(() => {
+    const handleSearchFocus = () => {
+      const input = searchInputRef.current;
+      if (!input) return;
+      input.focus();
+      input.select?.();
+    };
+    window.addEventListener("streamly:search-focus", handleSearchFocus);
+    return () => window.removeEventListener("streamly:search-focus", handleSearchFocus);
+  }, []);
+
   const resultCards = useCallback(
     () =>
       Array.from(
@@ -232,6 +270,15 @@ export default function SearchPage() {
   );
 
   const handleInputKeyDown = (e) => {
+    // Mid-composition an IME owns these keys: ArrowDown picks a conversion
+    // candidate and Enter confirms it (229/"isComposing" covers every such
+    // sequence), so skip both until the composition is committed.
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+    if (e.key === "Enter") {
+      e.preventDefault();
+      submitQuery();
+      return;
+    }
     if (e.key === "ArrowDown") {
       e.preventDefault();
       focusResultCard(0);
@@ -318,9 +365,7 @@ export default function SearchPage() {
           role="search"
           onSubmit={(e) => {
             e.preventDefault();
-            if (localQuery.trim()) {
-              setSearchParams({ q: localQuery.trim() }, { replace: true });
-            }
+            submitQuery();
           }}
         >
             <Search

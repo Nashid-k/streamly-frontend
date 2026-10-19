@@ -541,6 +541,14 @@ html:not([data-theme]) .segment-btn.segment-active {
   transform: scale(1.15);
 }
 
+/* Explicit ring: the dot ships `outline: none`, so keep its focus affordance
+   local instead of leaning on the global button rule in rails.css. */
+.color-dot:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
+  box-shadow: var(--focus-ring);
+}
+
 .color-dot.active {
   border-color: var(--accent-primary, #fff);
   box-shadow: 0 0 0 2px rgba(var(--black-rgb), 0.6), 0 0 0 4px var(--accent-primary, #fff), 0 0 10px var(--accent-glow, rgba(var(--white-rgb), 0.4));
@@ -573,6 +581,15 @@ html:not([data-theme]) .segment-btn.segment-active {
   border-radius: var(--radius-full);
   background: rgba(var(--white-rgb), 0.15);
   outline: none;
+}
+
+/* rails.css strips outline/box-shadow from every input:focus-visible and the
+   slider ships no focus affordance of its own — without this ring a keyboard
+   user cannot see which control they are on. */
+.range-slider:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
+  box-shadow: var(--focus-ring);
 }
 
 .range-slider::-webkit-slider-thumb {

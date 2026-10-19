@@ -44,6 +44,10 @@ const MovieCard = memo(function MovieCard({
   // <mark> in the title so a result visibly answers what was typed. Undefined
   // everywhere else, so nothing outside search pays for it.
   highlightQuery,
+  // Select mode (Watchlist/History): when present, activating the card toggles
+  // this movie's selection instead of opening details, so a click or Enter/Space
+  // never navigates away mid-selection. Undefined everywhere else.
+  onToggleSelect,
 }) {
   const { isInList, toggleMyList, addNotification } = useAppAuth();
   const { toast } = useToast();
@@ -76,6 +80,13 @@ const MovieCard = memo(function MovieCard({
   // Detail View Type preference (same behavior as the hero banner).
   const { openDetails, modalHost } = useDetailView();
   const navigateToDetails = useCallback(() => openDetails(movie), [openDetails, movie]);
+  // Card activation is context-dependent: select mode toggles selection instead
+  // of navigating, so a click (or Enter/Space) mid-selection can never unmount
+  // the page and destroy the selection set.
+  const activateCard = useCallback(() => {
+    if (onToggleSelect) onToggleSelect(movie.id);
+    else navigateToDetails();
+  }, [onToggleSelect, navigateToDetails, movie.id]);
 
   const handleToggleMyList = useCallback(
     (e) => {
@@ -164,15 +175,19 @@ const MovieCard = memo(function MovieCard({
           className="movie-card"
           role="button"
           tabIndex={0}
-          aria-label={`View details for ${movie.title}`}
-          onClick={navigateToDetails}
+          aria-label={
+            onToggleSelect
+              ? `Select or deselect ${movie.title}`
+              : `View details for ${movie.title}`
+          }
+          onClick={activateCard}
           onKeyDown={(e) => {
             // Only activate when the card itself is focused — inner buttons
             // handle their own keyboard activation and must not bubble here.
             if (e.target !== e.currentTarget) return;
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              navigateToDetails();
+              activateCard();
             }
           }}
           onMouseEnter={handleMouseEnter}
@@ -456,10 +471,16 @@ const MovieCard = memo(function MovieCard({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  navigateToDetails();
+                  // Same context-dependent activation as the card itself — in
+                  // select mode this must not navigate away either.
+                  activateCard();
                 }}
                 className="curtain-play-btn"
-                aria-label={`View details for ${movie.title}`}
+                aria-label={
+                  onToggleSelect
+                    ? `Select or deselect ${movie.title}`
+                    : `View details for ${movie.title}`
+                }
                 style={{
                   width: compact ? "44px" : "52px",
                   height: compact ? "44px" : "52px",

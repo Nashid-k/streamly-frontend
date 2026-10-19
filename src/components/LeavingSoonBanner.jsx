@@ -55,7 +55,8 @@ export default function LeavingSoonBanner({ items = [], maxDisplay = 3 }) {
       {/* Items */}
       <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
         {displayed.map((item, idx) => (
-          <motion.div
+          <motion.button
+            type="button"
             key={item.id || idx}
             whileHover={{ background: "rgba(255,255,255,0.06)" }}
             whileTap={{ scale: 0.98, background: "rgba(255,255,255,0.08)" }}
@@ -63,6 +64,8 @@ export default function LeavingSoonBanner({ items = [], maxDisplay = 3 }) {
             style={{
               display: "flex", alignItems: "center", gap: "10px",
               padding: "8px 10px", borderRadius: "8px",
+              width: "100%", background: "transparent", border: "none",
+              font: "inherit", color: "inherit", textAlign: "left",
               cursor: "pointer", transition: "background 0.2s",
             }}
           >
@@ -104,7 +107,7 @@ export default function LeavingSoonBanner({ items = [], maxDisplay = 3 }) {
               </div>
             </div>
             <Clock size={12} color={item.urgency === "critical" ? "#ef4444" : "#71717a"} />
-          </motion.div>
+          </motion.button>
         ))}
       </div>
 

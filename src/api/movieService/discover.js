@@ -19,7 +19,7 @@ export const getDiscover = async ({ mediaType = 'movie', genreId, year, sortBy =
             ? (mt === 'movie' ? 'primary_release_date.desc' : 'first_air_date.desc')
             : 'popularity.desc',
     };
-    if (sortBy === 'top_rated') params.vote_count_gte = 200;
+    if (sortBy === 'top_rated') params['vote_count.gte'] = 200;
     if (genreId) params.with_genres = String(genreId);
     if (year) params[mt === 'movie' ? 'primary_release_year' : 'first_air_date_year'] = String(year);
     if (country) params.with_origin_country = String(country);
@@ -135,8 +135,8 @@ export const getFutureMovies = async () => {
         tmdb('/discover/movie', {
           page,
           sort_by: 'primary_release_date.asc',
-          primary_release_date_gte: start,
-          primary_release_date_lte: endStr,
+          'primary_release_date.gte': start,
+          'primary_release_date.lte': endStr,
           with_original_language: 'en',
         }),
       ),
@@ -253,8 +253,8 @@ export const getRegionalUpcoming = async (windowDays = 90) => {
           tmdb('/discover/movie', {
             page,
             sort_by: 'primary_release_date.asc',
-            primary_release_date_gte: start,
-            primary_release_date_lte: endStr,
+            'primary_release_date.gte': start,
+            'primary_release_date.lte': endStr,
             with_original_language: lang,
           }),
         ),
@@ -338,7 +338,7 @@ export const getTvUpcoming = async (windowDays = 120) => {
 // Genre-cluster discover rails for the home showcase ("Action & Adventure",
 // "Sci-Fi & Fantasy", ...). Per-type genre id lists let one rail mix the movie
 // genre (28) with its TV equivalent (10759); movie + tv results interleave so the
-// row feels curated, and vote_count_gte is the quality floor.
+// row feels curated, and `vote_count.gte` is the quality floor.
 export const getDiscoverByGenre = async ({ movies = [], tv = [] } = {}) => {
   const jobs = [];
   const typed = (list) => (Array.isArray(list) ? list.filter(Boolean) : []);
@@ -357,7 +357,7 @@ export const getDiscoverByGenre = async ({ movies = [], tv = [] } = {}) => {
         const data = await tmdb(`/discover/${mt}`, {
           with_genres: genreIds.join(','),
           sort_by: 'popularity.desc',
-          vote_count_gte: 30,
+          'vote_count.gte': 30,
           include_adult: 'false',
           include_video: 'false',
         });

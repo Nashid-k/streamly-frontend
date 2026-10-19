@@ -8,19 +8,29 @@ import OfflineBanner from "../components/OfflineBanner";
 import Header from "./Header";
 import MobileBottomNav from "./MobileBottomNav";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
+import { useOptionalPreferences } from "../context/preferences";
 
 function Layout({ children }) {
   useScrollRestoration();
   const location = useLocation();
-  const reduceMotion = useReducedMotion();
+  const osReduced = useReducedMotion();
+  const prefs = useOptionalPreferences();
+  // framer's hook reads only the OS media query, and MotionConfig
+  // reducedMotion="always" still animates opacity — the in-app setting has to
+  // gate the fade itself or Reduce Motion never stops page transitions.
+  const reduceMotion = osReduced || !!prefs?.reduceMotion;
   const mainRef = useRef(null);
 
   /* Move focus to the main landmark on route change so keyboard and screen
      reader users land in the new page instead of being left on the nav link
-     they just activated. `preventScroll` keeps the scroll-restoration logic in
-     charge of position. */
+     they just activated. Skipped when focus is already inside <main>: a page's
+     autofocus input (Search) wins for one frame and this parent-layout effect
+     would otherwise steal the caret right back. `preventScroll` keeps the
+     scroll-restoration logic in charge of position. */
   useEffect(() => {
-    mainRef.current?.focus({ preventScroll: true });
+    const main = mainRef.current;
+    if (main?.contains(document.activeElement)) return;
+    main?.focus({ preventScroll: true });
   }, [location.pathname]);
 
   return (

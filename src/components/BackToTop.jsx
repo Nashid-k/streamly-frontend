@@ -22,6 +22,10 @@ export default function BackToTop() {
   // Declared unconditionally: the button itself mounts inside `{visible && ...}`,
   // so a MotionLeaf constructed there would change the hook count on scroll.
   const L = new MotionLeaf();
+  // `L.reduced` combines the OS media query with the in-app Reduce Motion
+  // setting; smooth scrolling has to honor both or the CSS reduced-motion
+  // override in tokens.css never gets a say over window.scrollTo.
+  const scrollBehavior = L.reduced ? "auto" : "smooth";
 
   useEffect(() => {
     let interval = null;
@@ -71,7 +75,7 @@ export default function BackToTop() {
           transition={L.Spring.LIFT}
           whileHover={{ scale: 1.1, y: -3 }}
           whileTap={{ scale: 0.93 }}
-          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          onClick={() => window.scrollTo({ top: 0, behavior: scrollBehavior })}
           aria-label="Back to top"
           className="back-to-top-btn"
           style={{

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { SPRING, FADE, MODAL_PANEL, REVEAL, revealAt } from "../constants/motion";
+import { useOptionalPreferences } from "../context/preferences";
 
 /**
  * Shared reduced-motion-aware motion leaf for the heaviest non-chrome sites
@@ -14,12 +15,19 @@ import { SPRING, FADE, MODAL_PANEL, REVEAL, revealAt } from "../constants/motion
  * shapes, so a call site writes `L.Modal.panel` instead of `MODAL_PANEL` and
  * cannot forget the reduced-motion check.
  *
+ * Reduced motion here means the OS media query OR Streamly's in-app Reduce
+ * Motion setting: framer's useReducedMotion() only reads the OS one, and
+ * MotionConfig reducedMotion="always" only suppresses transform keys, so
+ * opacity would keep fading without this combined check.
+ *
  * Under reduced motion every transition collapses to a cut
  * ({ duration: 0 }), matching the chrome contract in constants/motion and the
  * CSS `prefers-reduced-motion` block in player.css.
  */
 export function MotionLeaf() {
-  const reduceMotion = useReducedMotion();
+  const osReduced = useReducedMotion();
+  const prefs = useOptionalPreferences();
+  const reduceMotion = osReduced || !!prefs?.reduceMotion;
 
   return useMemo(
     () => {
@@ -68,7 +76,10 @@ export function MotionLeaf() {
  * the full MODAL_PANEL travel.
  */
 export function MotionFade({ children, ...rest }) {
-  const reduceMotion = useReducedMotion();
+  const osReduced = useReducedMotion();
+  const prefs = useOptionalPreferences();
+  // Same combined gate as MotionLeaf — see its docstring.
+  const reduceMotion = osReduced || !!prefs?.reduceMotion;
   return (
     <motion.div
       initial={{ opacity: 0 }}

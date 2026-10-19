@@ -112,11 +112,11 @@ describe("movieService", () => {
     expect(items.length).toBe(2);
     // Strict floor attempt runs first...
     const strictCall = fetch.mock.calls[1][0];
-    expect(strictCall).toContain("vote_count_gte=10");
+    expect(strictCall).toContain("vote_count.gte=10");
     expect(strictCall).toContain("with_keywords=11472");
     // ...then the fallback drops the floor and forces English.
     const fallbackCall = fetch.mock.calls[2][0];
-    expect(fallbackCall).not.toContain("vote_count_gte");
+    expect(fallbackCall).not.toContain("vote_count.gte");
     expect(fallbackCall).toContain("language=en");
   });
 
@@ -245,7 +245,7 @@ it("normalizes production companies with rich logo metadata", async () => {
     for (const lang of ["ta", "hi", "ml", "te"]) {
       // One returning-series sweep + one recent-premiere sweep per language.
       expect(distinct.filter((u) => u.includes("with_status=0") && u.includes(`with_original_language=${lang}`)).length).toBe(1);
-      expect(distinct.filter((u) => u.includes("air_date_gte=") && u.includes(`with_original_language=${lang}`)).length).toBe(1);
+      expect(distinct.filter((u) => u.includes("air_date.gte=") && u.includes(`with_original_language=${lang}`)).length).toBe(1);
     }
     expect(items.map((i) => i.id)).toEqual(["tv-510", "tv-520", "tv-530"]);
     expect(items[0].nextEpisode).toMatchObject({ season: 2, episode: 7, releaseDate: "2026-10-12" });

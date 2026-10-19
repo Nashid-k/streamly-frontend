@@ -39,11 +39,13 @@ const LANGUAGE_SENSITIVE_QUERY_PREFIXES = [
   ["airing-regional"],
   ["new-releases"],
   ["recommendations"],
+  ["discover"],
   ["discover-genres"],
   ["discover-providers"],
   ["discover-regions"],
   ["discover-rail"],
   ["discover-series-upcoming"],
+  ["titleLogo"],
   ["editorial"],
 ];
 

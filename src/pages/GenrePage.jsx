@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { motion } from "framer-motion";
+import { RotateCw } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { movieService } from "../api/movieService";
 import MovieCard from "../components/MovieCard";
@@ -8,6 +9,7 @@ import MovieCardSkeleton from "../components/MovieCardSkeleton";
 import DiscoveryRails from "../components/DiscoveryRails";
 import AmbientBackground from "../components/AmbientBackground";
 import ErrorBoundary from "../components/ErrorBoundary";
+import Button from "../components/Button";
 import Chip from "../components/Chip";
 import ContentPageHeader from "../components/ContentPageHeader";
 import EmptyState from "../components/EmptyState";
@@ -21,7 +23,12 @@ export default function GenrePage() {
   const [filterType, setFilterType] = useState("All");
   const [sortBy, setSortBy] = useState("Popularity");
 
-  const { data: rawResults, isLoading: loading, error: queryError } = useQuery({
+  const {
+    data: rawResults,
+    isLoading: loading,
+    error: queryError,
+    refetch: refetchGenreResults,
+  } = useQuery({
     queryKey: ["genre-search", genre],
     queryFn: () => movieService.searchMovies(genre),
     enabled: !!genre,
@@ -180,7 +187,21 @@ export default function GenrePage() {
               ))}
             </div>
           ) : error ? (
-            <EmptyState icon="error" title="Couldn't load this genre" description={error} />
+            <EmptyState
+              icon="error"
+              title="Couldn't load this genre"
+              description={error}
+              actions={
+                <Button
+                  variant="secondary"
+                  pill
+                  icon={RotateCw}
+                  onClick={() => refetchGenreResults()}
+                >
+                  Try Again
+                </Button>
+              }
+            />
           ) : filteredAndSortedList.length === 0 ? (
             <EmptyState
               icon="film"

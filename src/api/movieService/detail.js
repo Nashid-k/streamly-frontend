@@ -301,8 +301,8 @@ export const getRegionalAiring = async (limit = 20) => {
         tmdb('/discover/tv', {
           page: 1,
           sort_by: 'popularity.desc',
-          air_date_gte: fromStr,
-          air_date_lte: toStr,
+          'air_date.gte': fromStr,
+          'air_date.lte': toStr,
           with_original_language: lang,
         }),
       ),
@@ -320,6 +320,11 @@ export const getRegionalAiring = async (limit = 20) => {
       }
     }
     if (base.length === 0) {
+      // Total failure must not become a cached empty SUCCESS: React Query would
+      // hold `[]` for the full stale window with no error/retry. Surface the
+      // rejection when at least one source errored (partial data still passes).
+      const failures = pages.filter((res) => res.status === "rejected");
+      if (failures.length > 0) throw failures[0].reason;
       logEmptyData('movieService', 'getRegionalAiring: no regional TV titles on the air right now.', {
         languages: REGIONAL_PRIMARY_LANGUAGES.join(','),
       });
@@ -359,12 +364,22 @@ export const getAiringRail = async (limit = 30) => {
       }
     }
     if (base.length === 0) {
+      // Same total-failure rule as getRegionalAiring: every page rejected (or
+      // only errors came back) → throw so the rail shows its error state
+      // instead of caching a silent empty success.
+      const failures = pages.filter((res) => res.status === "rejected");
+      if (failures.length > 0) throw failures[0].reason;
       logEmptyData('movieService', 'getAiringRail: /tv/on_the_air returned 0 titles.', {});
       return [];
     }
     const slice = base.slice(0, Math.min(limit, base.length));
     const enriched = await enrichAiringSlice(slice);
-    const out = enriched.map((r, i) => (r.status === 'fulfilled' ? r.value : slice[i]));
+    // enrichAiringSlice caps at ENRICH_CAP — map over the FULL slice so titles
+    // past the cap keep their unenriched item instead of being dropped.
+    const out = slice.map((item, i) => {
+      const e = enriched[i];
+      return e && e.status === 'fulfilled' ? e.value : item;
+    });
     warnIfEmpty('getAiringRail', out, { limit });
     return out;
   } catch (error) {

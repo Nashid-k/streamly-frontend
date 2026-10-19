@@ -42,9 +42,15 @@ export default function HistoryPage() {
     return list;
   }, [continueWatching, searchQuery]);
 
-  // Reset visible count when data or search query changes
+  // Reset the window for a NEW search; when the list merely changes length
+  // (a delete or a failed-view reorder) only clamp, so removing one row never
+  // snaps the rows already on screen back to 20.
   useEffect(() => {
     setVisibleCount(20);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    setVisibleCount((c) => Math.min(c, filteredHistory.length));
   }, [filteredHistory.length]);
 
   useEffect(() => {
@@ -322,7 +328,6 @@ export default function HistoryPage() {
                               scale: 0.9,
                               transition: { duration: 0.2 },
                             }}
-                            onClick={isSelectMode ? () => toggleSelectCard(movie.id) : undefined}
                             style={{
                               position: "relative",
                               cursor: isSelectMode ? "pointer" : "default",
@@ -336,6 +341,7 @@ export default function HistoryPage() {
                               movie={movie}
                               showProgress={true}
                               progressValue={progressPct(movie)}
+                              onToggleSelect={isSelectMode ? () => toggleSelectCard(movie.id) : undefined}
                             />
                             {isSelectMode ? (
                               <div

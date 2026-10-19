@@ -428,7 +428,17 @@ export default function TitleDetails() {
     return rows;
   }, [isTvContent, runtimeLabel, endsAt, movie]);
 
-  const { data: episodesData, isLoading: episodesLoading, error: episodesError } = useQuery({
+  const {
+    data: episodesData,
+    isLoading: episodesLoading,
+    // With placeholderData the re-keyed season query reports status "success"
+    // while it fetches — only isFetching distinguishes "previous season still
+    // on screen" from "these episodes are the selected season's".
+    isFetching: episodesFetching,
+    isError: episodesFailed,
+    refetch: refetchEpisodes,
+    error: episodesError,
+  } = useQuery({
     // No `platform` in the key: getSeasonEpisodes ignores it, so keying on it
     // only created duplicate cache rows for identical data per platform switch.
     queryKey: ["episodes", id, selectedSeason],
@@ -452,19 +462,19 @@ export default function TitleDetails() {
   }, [episodesError, id, selectedSeason]);
 
   useEffect(() => {
-    if (isTvContent && !!movie && !episodesLoading && !episodesError) {
+    if (isTvContent && !!movie && !episodesLoading && !episodesFetching && !episodesError) {
       const count = Array.isArray(episodesData) ? episodesData.length : (episodesData?.episodes?.length || 0);
       if (count === 0) {
         logEmptyData("TitleDetails", `No episodes for ${id} season ${selectedSeason}. Check TMDB season numbering (specials excluded).`, { id, selectedSeason });
       }
     }
-  }, [isTvContent, movie, episodesLoading, episodesError, episodesData, id, selectedSeason]);
+  }, [isTvContent, movie, episodesLoading, episodesFetching, episodesError, episodesData, id, selectedSeason]);
   // Refresh arrow availability at layout time so carousel arrows are correct
   // before paint (no flicker) whenever the rail remounts (season/layout/load).
   useLayoutEffect(() => {
     if (episodeLayout !== "carousel") return;
     refreshEpArrows();
-  }, [episodeLayout, selectedSeason, episodesLoading, refreshEpArrows]);
+  }, [episodeLayout, selectedSeason, episodesFetching, refreshEpArrows]);
   // Backend returns { episodes, totalEpisodes, releasedEpisodes, isAiring } for running series
   // But also handle plain array format for backward compatibility
   const episodes = useMemo(
@@ -516,6 +526,10 @@ export default function TitleDetails() {
   // Per-episode watch state lives in the single continue-watching entry as a
   // `watchedEpisodes: { [season]: number[] }` set (same localStorage key).
   const isEpisodeWatched = (ep) => {
+    // While the selected season fetches (or after it failed), the episode list
+    // is the previous season's placeholder data — ticking it with the NEW
+    // season's watched set would show wrong checkmarks.
+    if (episodesFetching || episodesFailed) return false;
     const item = continueEntryForMovie;
     if (!item) return false;
     if (item.savedEpisode === ep.episodeNumber && (item.timestamp || 0) > 0) return true;
@@ -1306,7 +1320,7 @@ export default function TitleDetails() {
           <AnimatePresence mode="wait">
           <motion.div
             ref={episodeLayout === 'carousel' ? epRailRef : undefined}
-            key={`season-${selectedSeason}-${episodesLoading}-${episodeLayout}`}
+            key={`season-${selectedSeason}-${episodesFetching}-${episodeLayout}`}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
@@ -1330,8 +1344,40 @@ export default function TitleDetails() {
             }
             className={episodeLayout === 'carousel' ? 'episodes-rail-mask scrollbar-hide' : 'episode-grid hide-scrollbar'}
           >
-            {episodesLoading ? (
-              // Skeleton placeholders while episodes load
+            {episodesFailed ? (
+              <div style={{ gridColumn: episodeLayout === 'grid' ? '1/-1' : undefined }}>
+                <EmptyState
+                  icon="error"
+                  title="Couldn't load episodes"
+                  description="The episode list failed to load. This may be a temporary problem."
+                  actions={
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => refetchEpisodes()}
+                      style={{
+                        background: "rgba(var(--accent-primary-rgb),0.08)",
+                        border: "1px solid rgba(var(--accent-primary-rgb),0.2)",
+                        color: "var(--accent-primary)",
+                        padding: "8px 20px",
+                        borderRadius: "10px",
+                        fontSize: "0.85rem",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                      }}
+                    >
+                      <RotateCcw size={14} /> Try Again
+                    </motion.button>
+                  }
+                />
+              </div>
+            ) : episodesFetching ? (
+              // Skeleton placeholders while episodes load (also covers a season
+              // switch: placeholderData keeps the PREVIOUS season's episodes in
+              // `data`, so isFetching — not isLoading — is the real signal).
               Array.from({ length: 6 }).map((_, idx) => (
                 <div
                   key={idx}

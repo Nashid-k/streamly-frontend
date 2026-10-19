@@ -580,6 +580,8 @@ export default function SettingsPage() {
                         {user
                           ? syncStatus === "syncing"
                             ? t("settings.account.syncingMsg")
+                            : syncStatus === "error"
+                            ? t("settings.toasts.syncFailed")
                             : lastSyncedAt
                             ? t("settings.account.lastSynced", {
                                 time: new Date(lastSyncedAt).toLocaleTimeString(),
@@ -593,12 +595,23 @@ export default function SettingsPage() {
                         <button
                           onClick={async () => {
                             try {
-                              await auth?.syncToCloud?.();
-                              toast({
-                                type: "success",
-                                title: t("settings.account.cloudSync"),
-                                message: t("settings.toasts.cloudSyncOk"),
-                              });
+                              // syncToCloud never throws — its result is the only
+                              // honest signal a push actually reached the server.
+                              const synced = await auth?.syncToCloud?.();
+                              if (synced) {
+                                toast({
+                                  type: "success",
+                                  title: t("settings.account.cloudSync"),
+                                  message: t("settings.toasts.cloudSyncOk"),
+                                });
+                              } else {
+                                logDebug("settings", "Cloud sync did not complete.", {});
+                                toast({
+                                  type: "error",
+                                  title: t("settings.toasts.syncFailed"),
+                                  message: t("settings.toasts.syncFailedMsg"),
+                                });
+                              }
                             } catch (error) {
                               logDebug("settings", "Cloud sync failed.", { message: error?.message });
                               toast({
