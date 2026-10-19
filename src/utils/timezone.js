@@ -26,10 +26,19 @@ const PLATFORM_RELEASE = {
 
   // Prime Video — global rollout at midnight UTC
   prime:      { type: 'midnight-utc' },
+
+  // Sentinel platform: "this date is not platform-specific". Details pages show
+  // the raw TMDB calendar date (release/air dates) as-is in every viewer's
+  // timezone instead of inheriting the 8pm-ET broadcast shift, which pushed
+  // every date one day late for viewers outside ET.
+  local:      { type: 'midnight-local' },
 };
 
 // Default for unknown platforms / US broadcast networks
 const DEFAULT_RELEASE = { type: '8pm-et' };
+
+// Platform id for callers that must NOT apply a broadcast shift (see above).
+export const LOCAL_RELEASE = 'local';
 
 
 export function getUserTimezone() {

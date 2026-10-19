@@ -14,6 +14,10 @@ function CollectionPickerDialog({ open, movie, collections, onToggle, onCreateWi
   const { t } = useI18n();
   const [showCreate, setShowCreate] = useState(false);
   const [createName, setCreateName] = useState("");
+  // A refused create (auth gate answers `false`) must keep the form open with a
+  // reason instead of wiping it — closing silently looked like the title had
+  // been filed away when nothing was created.
+  const [createRefused, setCreateRefused] = useState(false);
   // Private by default: publishing a list is a deliberate act everywhere else
   // in the app (it puts the list on the anonymous Explore page), so a create
   // form must never get there by omission.
@@ -24,6 +28,7 @@ function CollectionPickerDialog({ open, movie, collections, onToggle, onCreateWi
     if (open) {
       setShowCreate(false);
       setCreateName("");
+      setCreateRefused(false);
       setCreateVisibility("private");
       requestAnimationFrame(() => inputRef.current?.focus());
     }
@@ -31,8 +36,14 @@ function CollectionPickerDialog({ open, movie, collections, onToggle, onCreateWi
 
   const submitCreate = (e) => {
     e.preventDefault();
-    if (!createName.trim()) return;
-    onCreateWithItems(createName.trim(), [movie.id], createVisibility);
+    const name = createName.trim();
+    if (!name) return;
+    const created = onCreateWithItems(name, [movie.id], createVisibility);
+    if (created === false) {
+      setCreateRefused(true);
+      return;
+    }
+    setCreateRefused(false);
     setShowCreate(false);
     setCreateName("");
     setCreateVisibility("private");
@@ -115,7 +126,10 @@ function CollectionPickerDialog({ open, movie, collections, onToggle, onCreateWi
                 ref={inputRef}
                 type="text"
                 value={createName}
-                onChange={(e) => setCreateName(e.target.value)}
+                onChange={(e) => {
+                  setCreateName(e.target.value);
+                  if (createRefused) setCreateRefused(false);
+                }}
                 placeholder="New collection name"
                 aria-label="New collection name"
                 maxLength={60}
@@ -154,6 +168,19 @@ function CollectionPickerDialog({ open, movie, collections, onToggle, onCreateWi
                   ? t("collections.visibilityHintPublic")
                   : t("collections.visibilityHintPrivate")}
               </p>
+              {createRefused && (
+                <p
+                  role="alert"
+                  style={{
+                    margin: 0,
+                    fontSize: "0.78rem",
+                    lineHeight: 1.4,
+                    color: "var(--error-color, #f87171)",
+                  }}
+                >
+                  {t("authEmail.gateCollections")}
+                </p>
+              )}
               <div className="collection-dialog__actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowCreate(false)}>
                   Cancel

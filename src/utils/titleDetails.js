@@ -42,11 +42,59 @@ export function episodeNumberLabel(episodeNumber) {
 
 /* An episode is playable once its air date is not in the future (null date
    counts as aired). Rule shared by the card, list and controls — and by the
-   player's episode rail, so both surfaces agree on what is playable. */
+   player's episode rail, so both surfaces agree on what is playable.
+   The day is anchored at noon UTC, matching getSeasonEpisodes' releasedEpisodes
+   count / contentTags / day labels: parsing the YYYY-MM-DD as UTC midnight flips
+   an episode "released today" a day early near the boundary. */
 export function isEpAired(ep, now = new Date()) {
   if (!ep || !ep.airDate) return true;
-  const t = new Date(ep.airDate).getTime();
+  const s = String(ep.airDate);
+  const day = /^\d{4}-\d{2}-\d{2}/.exec(s)?.[0];
+  const t = day ? Date.parse(`${day}T12:00:00Z`) : new Date(s).getTime();
   return !Number.isFinite(t) || t <= now.getTime();
+}
+
+/* The timestamp argument a "start playback" action should hand to
+   updateProgress: `null` means "keep whatever resume point is already stored",
+   `0` means "reset to a fresh start". Starting an episode the viewer already
+   progressed in (or a movie with progress) must never zero its saved position,
+   so keep the stored timestamp whenever the stored entry is the very episode
+   about to play; a different episode (or no progress) starts clean. */
+export function startPlaybackTimestamp(entry, { isTv, season, episode } = {}) {
+  const ts = Number(entry?.timestamp) || 0;
+  if (ts <= 0) return 0;
+  if (!isTv) return null;
+  const sameEpisode =
+    Number(entry?.savedSeason) === Number(season) &&
+    Number(entry?.savedEpisode) === Number(episode);
+  return sameEpisode ? null : 0;
+}
+
+/* Per-episode watch state: the live resume point counts, plus the explicit
+   watchedEpisodes set for THAT season. Scoped to the season so a tick on S1E5
+   never leaks onto S2E5. */
+export function isEpisodeWatchedEntry(entry, season, episodeNumber) {
+  if (!entry) return false;
+  if (
+    Number(entry.savedSeason) === Number(season) &&
+    entry.savedEpisode === episodeNumber &&
+    (entry.timestamp || 0) > 0
+  ) {
+    return true;
+  }
+  return (entry.watchedEpisodes?.[season] || []).includes(episodeNumber);
+}
+
+/* The episode to land on when stepping across a season boundary. Uses the
+   target season's own episode count — never the series' absolute last episode,
+   which would jump past the season — so "last" lands on that season's final
+   episode and "first" on its opening one. */
+export function seasonEdgeEpisode(seasonEpisodeCount, edge) {
+  if (edge === "last") {
+    const count = Number(seasonEpisodeCount) || 0;
+    return count > 0 ? count : 1;
+  }
+  return 1;
 }
 
 /* Compact "Thu, Sep 9"-style label for an upcoming episode chip. Lives here so

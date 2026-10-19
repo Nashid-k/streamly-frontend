@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { render, act, cleanup } from "@testing-library/react";
 import { useState, useEffect } from "react";
-import { useMyCollections } from "../hooks/useUserData";
+import { useMyCollections, liveCollectionCount } from "../hooks/useUserData";
 
 // Minimal harness that re-renders with every state change so the hook's
 // local state can be asserted (mirrors the useUserData storage pattern).
@@ -173,5 +173,24 @@ describe("useMyCollections", () => {
     });
     expect(read().collections[0].visibility).toBeUndefined();
     expect(read().collections[0].publicId).toBeUndefined();
+  });
+});
+
+describe("liveCollectionCount", () => {
+  const collection = { id: "c1", itemIds: ["m1", "gone-1", "m2", "gone-2"] };
+  const myList = [{ id: "m1" }, { id: "m2" }];
+
+  it("counts only ids that still resolve to a live My List entry", () => {
+    expect(liveCollectionCount(collection, myList)).toBe(2);
+  });
+
+  it("returns 0 for a fully orphaned or empty collection", () => {
+    expect(liveCollectionCount({ id: "c2", itemIds: ["x", "y"] }, myList)).toBe(0);
+    expect(liveCollectionCount({ id: "c3", itemIds: [] }, myList)).toBe(0);
+    expect(liveCollectionCount(null, myList)).toBe(0);
+  });
+
+  it("treats an empty My List as counting nothing", () => {
+    expect(liveCollectionCount(collection, [])).toBe(0);
   });
 });

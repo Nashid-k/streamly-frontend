@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ChevronLeft, Calendar, MapPin } from "lucide-react";
+import { ChevronLeft, Calendar, MapPin, RotateCw } from "lucide-react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { movieService } from "../api/movieService";
 import MovieCard from "../components/MovieCard";
 import MovieCardSkeleton from "../components/MovieCardSkeleton";
 import EmptyState from "../components/EmptyState";
+import Button from "../components/Button";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { logEmptyData, reportQueryError } from "../utils/debugLogger";
 import SEO from "../components/SEO";
@@ -21,7 +22,12 @@ export default function PersonDetails() {
     window.scrollTo(0, 0);
   }, [id]);
 
-  const { data: person, isLoading: loading, error: personError } = useQuery({
+  const {
+    data: person,
+    isLoading: loading,
+    error: personError,
+    refetch: refetchPerson,
+  } = useQuery({
     queryKey: ["person", id],
     queryFn: () => movieService.getPersonDetails(id),
     enabled: !!id,
@@ -148,6 +154,39 @@ export default function PersonDetails() {
             ))}
           </div>
         </section>
+      </div>
+    );
+  }
+
+  // A failed or rate-limited fetch is not "this person does not exist" — that
+  // verdict is for a settled, empty response. Surface the outage with a retry.
+  if (personError) {
+    return (
+      <div
+        className="main-content content-page"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "60vh",
+        }}
+      >
+        <SEO title="Couldn't load this person" noindex />
+        <EmptyState
+          icon="error"
+          title="Couldn't load this person"
+          description="Streamly couldn't reach the catalog right now. Try again, or come back in a moment."
+          actions={
+            <Button
+              variant="secondary"
+              pill
+              icon={RotateCw}
+              onClick={() => refetchPerson()}
+            >
+              Try Again
+            </Button>
+          }
+        />
       </div>
     );
   }

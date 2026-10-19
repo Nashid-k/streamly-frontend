@@ -5,13 +5,14 @@ import { CloudOff, FolderOpen, RotateCcw } from "lucide-react";
 import AmbientBackground from "../components/AmbientBackground";
 import SEO from "../components/SEO";
 import { useI18n } from "../i18n";
-import { useMyCollections } from "../hooks/useUserData";
+import { useMyCollections, useMyList } from "../hooks/useUserData";
 import { fetchPublicCollections, ExploreError } from "../api/publicCollections";
 import { logWarn } from "../utils/debugLogger";
 
 export default function ExploreCollectionsPage() {
   const { t } = useI18n();
   const { publicCollections } = useMyCollections();
+  const { myList } = useMyList();
   const [remoteCollections, setRemoteCollections] = useState([]);
   const [loadError, setLoadError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -56,6 +57,15 @@ export default function ExploreCollectionsPage() {
     return [...map.values()];
   }, [publicCollections, remoteCollections]);
 
+  // Own public lists carry local itemIds; a title removed from My List leaves a
+  // dangling id there, so the displayed count intersects the live list. Remote
+  // lists carry only a server-side itemCount and are shown as-is.
+  const liveIds = useMemo(() => new Set((myList || []).map((m) => m.id)), [myList]);
+  const collectionCount = (collection) =>
+    Array.isArray(collection.itemIds)
+      ? collection.itemIds.filter((id) => liveIds.has(id)).length
+      : collection.itemCount ?? 0;
+
   return (
     <AmbientBackground fallback>
       <SEO title={t("explore.title")} description={t("explore.subtitle")} noindex />
@@ -69,8 +79,8 @@ export default function ExploreCollectionsPage() {
           </p>
         </header>
 
-        {loadError ? (
-          <div className="flex flex-col items-start gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4 md:p-5">
+        {loadError && (
+          <div className="mb-6 flex flex-col items-start gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4 md:p-5">
             <div className="flex items-center gap-2 text-sm font-medium text-red-300">
               <CloudOff size={16} />
               {t("explore.errorTitle")}
@@ -85,7 +95,13 @@ export default function ExploreCollectionsPage() {
               {t("explore.retry")}
             </button>
           </div>
-        ) : isLoading && merged.length === 0 ? (
+        )}
+
+        {/* The viewer's OWN public lists live in localStorage: a remote outage
+            must not hide them. They render below the error note; the misleading
+            "nothing published yet" copy is suppressed while the remote list is
+            unknown. */}
+        {loadError && merged.length === 0 ? null : isLoading && merged.length === 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" aria-busy="true">
             {[0, 1, 2].map((i) => (
               <div
@@ -119,9 +135,7 @@ export default function ExploreCollectionsPage() {
                     </span>
                     <span className="block text-xs text-muted-foreground">
                       {t("explore.itemCount", {
-                        count: Array.isArray(collection.itemIds)
-                          ? collection.itemIds.length
-                          : collection.itemCount ?? 0,
+                        count: collectionCount(collection),
                       })}
                     </span>
                   </span>

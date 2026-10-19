@@ -44,6 +44,16 @@ const isAnime = (m) =>
       (m.tags && m.tags.some((t) => t.toLowerCase().includes("anime"))),
   );
 
+// Regional rail language name → TMDB original-language code. normalizeResult
+// emits `originalLanguage` (it never populates audioLanguages/languages), so a
+// name-only match left every regional rail empty.
+const REGIONAL_LANGUAGE_CODES = {
+  malayalam: "ml",
+  tamil: "ta",
+  hindi: "hi",
+  telugu: "te",
+};
+
 export default function Home({
   filter = "all",
   title,
@@ -272,9 +282,11 @@ export default function Home({
 
     const getMoviesByLanguage = (lang) => {
       const regex = new RegExp(lang, "i");
+      const code = REGIONAL_LANGUAGE_CODES[lang.toLowerCase()];
       return allMovies
         .filter(
           (m) =>
+            (code && m.originalLanguage === code) ||
             (m.audioLanguages &&
               m.audioLanguages.some((l) => l.match(regex))) ||
             (m.languages && m.languages.some((l) => l.match(regex))) ||
@@ -530,10 +542,13 @@ export default function Home({
     for (const m of built) {
       (regionalIds.has(m.id) ? regionalTitles : globalTitles).push(m);
     }
-    return [
-      ...regionalTitles.slice(0, Math.min(4, regionalTitles.length)),
-      ...globalTitles,
-    ].slice(0, 12);
+    // Guaranteed regional prefix, then the REST of the regional slate (the old
+    // slice(0, 4) discarded every regional premiere past the fourth because the
+    // other pools carry no releaseDate, so `built` is regional-only here), then
+    // any global premieres, up to a full rail of 12.
+    const guaranteedRegional = regionalTitles.slice(0, Math.min(4, regionalTitles.length));
+    const remainingRegional = regionalTitles.slice(guaranteedRegional.length);
+    return [...guaranteedRegional, ...remainingRegional, ...globalTitles].slice(0, 12);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [airingData, trendingData, top10Data, featuredData, regionalUpcomingData, rawCategories, filter]);
 

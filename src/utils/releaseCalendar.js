@@ -211,18 +211,18 @@ export function buildAiringRail(items = [], windowDays = 120) {
  * @param {string} releaseDate - YYYY-MM-DD
  * @param {string} platform - Platform key for timezone handling
  * @param {Date} [now] - Clock to measure from (defaults to the current time; injectable for tests)
- * @returns {Object} { text, days, hours, minutes, isReleased, isToday }
+ * @returns {Object} { text, days, hours, minutes, isReleased, isToday, underADay }
  */
 export function getCountdown(releaseDate, platform, now = new Date()) {
-  if (!releaseDate) return { text: "", days: 0, hours: 0, minutes: 0, isReleased: true, isToday: false };
+  if (!releaseDate) return { text: "", days: 0, hours: 0, minutes: 0, isReleased: true, isToday: false, underADay: false };
 
   const release = getReleaseInstant(releaseDate, undefined, platform);
-  if (!release) return { text: "", days: 0, hours: 0, minutes: 0, isReleased: true, isToday: false };
+  if (!release) return { text: "", days: 0, hours: 0, minutes: 0, isReleased: true, isToday: false, underADay: false };
 
   const diff = release.getTime() - now.getTime();
 
   if (diff <= 0) {
-    return { text: "Available Now", days: 0, hours: 0, minutes: 0, isReleased: true, isToday: false };
+    return { text: "Available Now", days: 0, hours: 0, minutes: 0, isReleased: true, isToday: false, underADay: false };
   }
 
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
@@ -231,10 +231,16 @@ export function getCountdown(releaseDate, platform, now = new Date()) {
 
   const timeUntil = getTimeUntil(releaseDate, undefined, platform);
   const isToday = timeUntil === "today";
+  // Under 24 hours out but not (yet) the viewer's local release day: `days`
+  // floors to 0 and the old copy read "In 0 days". Flag it so the badge can show
+  // the imminent style instead of the dull, released one.
+  const underADay = days === 0;
 
   let text;
   if (isToday) {
     text = hours > 0 ? `In ${hours}h ${minutes}m` : `In ${minutes}m`;
+  } else if (days === 0) {
+    text = "In less than a day";
   } else if (days === 1) {
     text = "Tomorrow";
   } else if (days <= 7) {
@@ -245,7 +251,7 @@ export function getCountdown(releaseDate, platform, now = new Date()) {
     text = formatTMDBDate(releaseDate, { month: "short", day: "numeric" }, undefined, platform);
   }
 
-  return { text, days, hours, minutes, isReleased: false, isToday };
+  return { text, days, hours, minutes, isReleased: false, isToday, underADay };
 }
 
 /** Countdown urgency level for badge styling. */

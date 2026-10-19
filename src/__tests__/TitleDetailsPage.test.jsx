@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, fireEvent } from "@testing-library/react";
 import { Routes, Route } from "react-router-dom";
 import TitleDetailsPage from "../pages/TitleDetailsPage";
 import { renderWithProviders } from "../test/testUtils";
@@ -59,6 +59,16 @@ vi.mock("../api/movieService", () => ({
     getTitleLogo: vi.fn().mockResolvedValue(null),
     classifyTrailer: vi.fn(() => "trailer"),
   },
+}));
+
+/* Pressing play mounts the lazily-imported player, which would try to resolve a
+   real stream. Stub both engines: these tests assert the progress write, not
+   playback. */
+vi.mock("../components/NativePlayerView", () => ({
+  default: () => <div data-testid="native-player" />,
+}));
+vi.mock("../components/ProviderEmbedPlayer", () => ({
+  default: () => <div data-testid="embed-player" />,
 }));
 
 /* jsdom lacks these; the page's rails/hero read them at mount. */
@@ -149,5 +159,75 @@ describe("TitleDetailsPage TDZ regression guard", () => {
       await screen.findByRole("heading", { level: 1, name: "Reacher" }),
     ).toBeInTheDocument();
     expect(document.querySelector(".details-hero__logo")).toBeNull();
+  });
+});
+
+/* Starting playback must never move a stored resume point backwards. These
+   mount the page over a synthetic session whose only continue-watching entry is
+   the episode in flight, then assert the 4th updateProgress argument: `null`
+   keeps the stored timestamp, `0` starts a different episode fresh. */
+function renderPageWithAuth(authValue) {
+  return renderWithProviders(
+    <Routes>
+      <Route path="/watch/:id" element={<TitleDetailsPage />} />
+    </Routes>,
+    { route: "/watch/tv-108978", authValue },
+  );
+}
+
+function baseAuth({ updateProgress, continueWatching }) {
+  return {
+    user: { accountId: "acc-1" },
+    isInList: () => false,
+    toggleMyList: vi.fn(),
+    collections: [],
+    toggleInCollection: vi.fn(),
+    createCollectionWithItems: vi.fn(),
+    continueWatching,
+    updateProgress,
+    removeFromContinueWatching: vi.fn(),
+    addNotification: vi.fn(),
+    requireAuth: () => true,
+  };
+}
+
+const STORED_ENTRY = { id: "tv-108978", savedSeason: 1, savedEpisode: 1, timestamp: 640 };
+
+describe("TitleDetailsPage start-playback resume guard", () => {
+  it("hero Resume keeps the stored timestamp for the episode about to play", async () => {
+    const updateProgress = vi.fn();
+    renderPageWithAuth(baseAuth({ updateProgress, continueWatching: [STORED_ENTRY] }));
+
+    fireEvent.click(await screen.findByRole("button", { name: /resume/i }, { timeout: 5000 }));
+
+    const call = updateProgress.mock.calls.at(-1);
+    expect(call[1]).toBe(1);
+    expect(call[2]).toBe(1);
+    // null => updateProgress keeps the entry's existing timestamp (not 0).
+    expect(call[3]).toBeNull();
+  });
+
+  it("playing a different episode starts it at 0 instead of inheriting the timestamp", async () => {
+    const updateProgress = vi.fn();
+    renderPageWithAuth(baseAuth({ updateProgress, continueWatching: [STORED_ENTRY] }));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Play Episode 2" }, { timeout: 5000 }));
+
+    const call = updateProgress.mock.calls.at(-1);
+    expect(call[1]).toBe(1);
+    expect(call[2]).toBe(2);
+    expect(call[3]).toBe(0);
+  });
+
+  it("reopening the stored episode keeps its timestamp", async () => {
+    const updateProgress = vi.fn();
+    renderPageWithAuth(baseAuth({ updateProgress, continueWatching: [STORED_ENTRY] }));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Play Episode 1" }, { timeout: 5000 }));
+
+    const call = updateProgress.mock.calls.at(-1);
+    expect(call[1]).toBe(1);
+    expect(call[2]).toBe(1);
+    expect(call[3]).toBeNull();
   });
 });

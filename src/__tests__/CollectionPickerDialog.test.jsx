@@ -119,3 +119,25 @@ describe("CollectionPickerDialog create form visibility", () => {
     expect(screen.getByRole("radio", { name: /private/i })).toHaveAttribute("aria-checked", "true");
   });
 });
+
+/* The auth gate answers `false` when it refuses a create. The form used to wipe
+   itself regardless, so a refused publish looked like a successful one. It must
+   stay open with the typed name and say why. */
+describe("CollectionPickerDialog refused create", () => {
+  it("keeps the form open and surfaces the reason when creation is refused", () => {
+    onCreateWithItems.mockReturnValue(false);
+    open();
+    createVia("Needs Sign In");
+
+    expect(screen.getByLabelText(/new collection name/i)).toHaveValue("Needs Sign In");
+    expect(screen.getByRole("alert")).toHaveTextContent(/sign in to create/i);
+  });
+
+  it("closes the form when creation succeeds", () => {
+    onCreateWithItems.mockReturnValue("col-1");
+    open();
+    createVia("Made It");
+
+    expect(screen.queryByLabelText(/new collection name/i)).toBeNull();
+  });
+});

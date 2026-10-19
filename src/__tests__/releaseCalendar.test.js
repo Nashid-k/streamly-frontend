@@ -62,6 +62,28 @@ describe('getCountdown', () => {
     expect(result.days).toBe(0);
     expect(result.hours).toBe(12);
   });
+
+  it('says "In less than a day" — never "In 0 days" — when under 24h out', () => {
+    // Prime Video anchors at midnight UTC, so this is timezone-independent:
+    // 19h before the release instant, but not the viewer's local release day.
+    const result = getCountdown('2027-03-10', 'prime', new Date('2027-03-09T05:00:00Z'));
+    expect(result.isReleased).toBe(false);
+    expect(result.days).toBe(0);
+    expect(result.underADay).toBe(true);
+    expect(result.text).toBe('In less than a day');
+    expect(result.text).not.toBe('In 0 days');
+  });
+
+  it('does not flag a release a full day or more out as under-a-day', () => {
+    const result = getCountdown('2027-03-12', 'prime', new Date('2027-03-09T05:00:00Z'));
+    expect(result.underADay).toBe(false);
+    expect(result.days).toBe(2);
+    expect(result.text).toBe('In 2 days');
+  });
+
+  it('reports released results with underADay false', () => {
+    expect(getCountdown('2020-01-01').underADay).toBe(false);
+  });
 });
 
 describe('getCountdownUrgency', () => {

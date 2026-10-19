@@ -33,21 +33,25 @@ export const DiscoveryRail = ({ section }) => {
       <SectionHeader
         title={section.title}
         actions={
-          <Link
-            to={section.href || `/search?q=${encodeURIComponent(section.title)}`}
-            state={section.linkState}
-            style={{
-              fontSize: "0.72rem",
-              color: "rgba(255,255,255,0.72)",
-              textDecoration: "none",
-              fontWeight: 500,
-              padding: "2px 8px",
-              borderRadius: "4px",
-              whiteSpace: "nowrap",
-            }}
-          >
-            Show all ›
-          </Link>
+          // Only a real destination earns the affordance. Searching for the
+          // rail's own title ("Trending Now") returned noise, not a listing.
+          section.href ? (
+            <Link
+              to={section.href}
+              state={section.linkState}
+              style={{
+                fontSize: "0.72rem",
+                color: "rgba(255,255,255,0.72)",
+                textDecoration: "none",
+                fontWeight: 500,
+                padding: "2px 8px",
+                borderRadius: "4px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Show all ›
+            </Link>
+          ) : undefined
         }
       />
       {canScrollLeft && <RailArrow dir="left" onClick={() => scroll("left")} />}
@@ -144,19 +148,37 @@ const DiscoveryRails = memo(function DiscoveryRails({ limit = 20 } = {}) {
         )
         .flatMap((c) => asArray(c.movies));
 
-      const ninetyDays = 90 * 24 * 60 * 60 * 1000;
-      const inferred = pool.filter(
-        (m) =>
-          m.releaseDate &&
-          Date.now() - new Date(m.releaseDate).getTime() < ninetyDays,
-      );
+      // "Latest Releases" means ALREADY RELEASED — a future premiere is
+      // "upcoming", not "latest". Keep titles from the last 90 days only (date-
+      // string compare, so today counts and tomorrow does not; the old numeric
+      // check let future dates in because the age went negative) and sort
+      // newest-first before slicing.
+      const pad = (n) => String(n).padStart(2, "0");
+      const now = new Date();
+      const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+      const cutoff = new Date(now);
+      cutoff.setDate(now.getDate() - 90);
+      const cutoffStr = `${cutoff.getFullYear()}-${pad(cutoff.getMonth() + 1)}-${pad(cutoff.getDate())}`;
+      const isYmd = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
+      const inferred = pool
+        .filter(
+          (m) =>
+            isYmd(m.releaseDate) &&
+            m.releaseDate <= todayStr &&
+            m.releaseDate >= cutoffStr,
+        )
+        .sort((a, b) => String(b.releaseDate).localeCompare(String(a.releaseDate)));
 
       const merged = new Map();
       const source = freshRails.length >= 8 ? freshRails : inferred;
       for (const m of source) {
         if (m && m.id && !merged.has(m.id)) merged.set(m.id, m);
       }
-      return Array.from(merged.values()).slice(0, limit);
+      return Array.from(merged.values())
+        .sort((a, b) =>
+          String(b.releaseDate || "").localeCompare(String(a.releaseDate || "")),
+        )
+        .slice(0, limit);
     } catch (e) {
       logError("DiscoveryRails", "latestReleases memo failed — Latest Releases rail skipped.", e, {});
       return EMPTY_ARRAY;

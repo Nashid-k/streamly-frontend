@@ -62,8 +62,19 @@ export const getCategories = async () => {
       tmdb('/trending/movie/week'),
       tmdb('/trending/tv/week'),
     ]);
-    const movieItems = (movies.results || []).map(r => normalizeResult({ ...r, media_type: 'movie' }));
-    const tvItems = (tv.results || []).map(r => normalizeResult({ ...r, media_type: 'tv' }));
+    // Categories feed the "Latest Releases" rail, which needs the real release
+    // date — normalizeResult only carries `year`. Attach it additively (the
+    // field name `releaseDate` is what releaseCalendar/contentTags read) so the
+    // rail can filter/sort on already-released titles.
+    const withReleaseDate = (r, mediaType) => {
+      const item = { ...r, media_type: mediaType };
+      return {
+        ...normalizeResult(item),
+        releaseDate: item.release_date || item.first_air_date || null,
+      };
+    };
+    const movieItems = (movies.results || []).map(r => withReleaseDate(r, 'movie'));
+    const tvItems = (tv.results || []).map(r => withReleaseDate(r, 'tv'));
     if (movieItems.length === 0 && tvItems.length === 0) {
       logEmptyData('movieService', 'getCategories: both trending feeds were empty.', {});
     }

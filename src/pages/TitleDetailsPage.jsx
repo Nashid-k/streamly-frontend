@@ -54,9 +54,10 @@ import SeasonDropdown from "../components/detail/SeasonDropdown";
 import ProductionCompaniesBlock from "../components/detail/ProductionCompaniesBlock";
 
 import { buildMovieAddedNotification } from "../utils/notificationEngine";
-import { formatTMDBDate, getTMDBWeekday } from "../utils/timezone";
+import { formatTMDBDate, getTMDBWeekday, LOCAL_RELEASE } from "../utils/timezone";
 import { formatRuntimeLabel, isUnreleased, voteSplitPct } from "../utils/titleDetails";
 import { buildEpisodeOrder, episodeNumberLabel, isEpAired, formatAirsDate } from "../utils/titleDetails";
+import { startPlaybackTimestamp, isEpisodeWatchedEntry, seasonEdgeEpisode } from "../utils/titleDetails";
 import { getPlatformName } from "../utils/platforms";
 import { logEmptyData, logError, reportQueryError } from "../utils/debugLogger";
 // Two engines: NativePlayerView (the app's own HLS player through the
@@ -86,6 +87,16 @@ function formatEndsAt(durationMins) {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+/* Release year for the hero meta row and the player subtitle. Prefer the
+   catalogue's parsed `year` and fall back to the date string's first four
+   characters — parsing YYYY-MM-DD as a local Date shifted Jan-1 releases back
+   a year for US timezones and produced "NaN" when the date was missing. */
+function releaseYear(movie) {
+  if (movie?.year) return String(movie.year);
+  const d = movie?.releaseDate;
+  return d ? String(d).slice(0, 4) : "";
 }
 
 export default function TitleDetails() {
@@ -340,6 +351,10 @@ export default function TitleDetails() {
 
   // Resolve the actual platform — now guaranteed to be a canonical key or null
   const effectivePlatform = movie?.source || undefined;
+  // Dates on this page are TMDB calendar facts (release / air dates), not a
+  // platform broadcast moment: use the title's own platform when known, else the
+  // LOCAL_RELEASE sentinel so a non-ET viewer never sees them a day late.
+  const releasePlatform = effectivePlatform || LOCAL_RELEASE;
 
   const { data: similarData, error: similarError } = useQuery({
     queryKey: ["similar", id],
@@ -422,17 +437,17 @@ export default function TitleDetails() {
     if (isTvContent) {
       if (movie?.status) rows.push({ label: "Status", value: movie.status });
       if (movie?.originalLanguage) rows.push({ label: "Language", value: movie.originalLanguage, uppercase: true });
-      if (movie?.releaseDate) rows.push({ label: "First Aired", value: formatTMDBDate(movie.releaseDate, dateOpts) });
-      if (movie?.lastAiredDate) rows.push({ label: "Last Aired", value: formatTMDBDate(movie.lastAiredDate, dateOpts) });
+      if (movie?.releaseDate) rows.push({ label: "First Aired", value: formatTMDBDate(movie.releaseDate, dateOpts, undefined, releasePlatform) });
+      if (movie?.lastAiredDate) rows.push({ label: "Last Aired", value: formatTMDBDate(movie.lastAiredDate, dateOpts, undefined, releasePlatform) });
       if (movie?.seasonsCount) rows.push({ label: "Seasons", value: String(movie.seasonsCount) });
       if (movie?.episodesCount) rows.push({ label: "Episodes", value: String(movie.episodesCount) });
     } else {
       if (runtimeLabel) rows.push({ label: "Runtime", value: runtimeLabel, extra: endsAt ? `\u2022 Ends ${endsAt}` : null });
       if (movie?.originalLanguage) rows.push({ label: "Language", value: movie.originalLanguage, uppercase: true });
-      if (movie?.releaseDate) rows.push({ label: "Release Date", value: formatTMDBDate(movie.releaseDate, dateOpts) });
+      if (movie?.releaseDate) rows.push({ label: "Release Date", value: formatTMDBDate(movie.releaseDate, dateOpts, undefined, releasePlatform) });
     }
     return rows;
-  }, [isTvContent, runtimeLabel, endsAt, movie]);
+  }, [isTvContent, runtimeLabel, endsAt, movie, releasePlatform]);
 
   const {
     data: episodesData,
@@ -536,10 +551,7 @@ export default function TitleDetails() {
     // is the previous season's placeholder data — ticking it with the NEW
     // season's watched set would show wrong checkmarks.
     if (episodesFetching || episodesFailed) return false;
-    const item = continueEntryForMovie;
-    if (!item) return false;
-    if (item.savedEpisode === ep.episodeNumber && (item.timestamp || 0) > 0) return true;
-    return (item.watchedEpisodes?.[selectedSeason] || []).includes(ep.episodeNumber);
+    return isEpisodeWatchedEntry(continueEntryForMovie, selectedSeason, ep.episodeNumber);
   };
 
   /** Returns false when the gate refused, so callers skip their own toast. */
@@ -768,7 +780,7 @@ export default function TitleDetails() {
   const resolvedPlatform = effectivePlatform;
   const sourceName = movie?.sourceName || getPlatformName(resolvedPlatform) || "Streaming";
   const airedEpisodeNumbers = episodes
-    .filter((ep) => !ep.airDate || new Date(ep.airDate) <= new Date())
+    .filter((ep) => isEpAired(ep))
     .sort((a, b) => (a.episodeNumber || 0) - (b.episodeNumber || 0))
     .map((ep) => ep.episodeNumber);
 
@@ -825,12 +837,18 @@ export default function TitleDetails() {
       return;
     }
     if (!hasPrevSeason) return;
-    const prevSeason = availableSeasonNumbers[currentSeasonIndex - 1];
+    const prevSeasonIndex = currentSeasonIndex - 1;
+    const prevSeason = availableSeasonNumbers[prevSeasonIndex];
     setSelectedSeason(prevSeason);
+    // Land on the previous season's LAST episode. `movie.lastEpisode` is the
+    // series' last aired episode, so it is authoritative ONLY when it belongs to
+    // that season (the season is still airing); otherwise fall back to the
+    // season's own episode count — never the series' absolute last episode,
+    // which lives in a different season.
     setPlayingEpisode(
       movie?.lastEpisode?.seasonNumber === prevSeason
         ? movie.lastEpisode.episodeNumber
-        : 1,
+        : seasonEdgeEpisode(availableSeasons[prevSeasonIndex]?.episodeCount, "last"),
     );
   };
 
@@ -843,13 +861,10 @@ export default function TitleDetails() {
       return;
     }
     if (!hasNextSeason) return;
-    const nextSeason = availableSeasonNumbers[currentSeasonIndex + 1];
-    setSelectedSeason(nextSeason);
-    setPlayingEpisode(
-      movie?.lastEpisode?.seasonNumber === nextSeason
-        ? movie.lastEpisode.episodeNumber
-        : 1,
-    );
+    setSelectedSeason(availableSeasonNumbers[currentSeasonIndex + 1]);
+    // First episode of the next season — using movie.lastEpisode here jumped to
+    // the series' final episode, skipping most of the season.
+    setPlayingEpisode(1);
   };
 
   const formatTime = (time) => {
@@ -983,13 +998,13 @@ export default function TitleDetails() {
                     style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
                   >
                     New episode{" "}
-                    {getTMDBWeekday(movie.nextEpisode.releaseDate, undefined, effectivePlatform)}
+                    {getTMDBWeekday(movie.nextEpisode.releaseDate, undefined, releasePlatform)}
                     <span className="text-white/40 mx-1">·</span>
                     {formatTMDBDate(movie.nextEpisode.releaseDate, {
                       weekday: "short",
                       month: "short",
                       day: "numeric",
-                    })}
+                    }, undefined, releasePlatform)}
                   </span>
                 )}
               </div>
@@ -1020,7 +1035,18 @@ export default function TitleDetails() {
                   if (isTvContent) {
                     setPlayingEpisode(episodeToPlay);
                   }
-                  updateProgress(movie, isTvContent ? selectedSeason : null, isTvContent ? episodeToPlay : null, 0);
+                  updateProgress(
+                    movie,
+                    isTvContent ? selectedSeason : null,
+                    isTvContent ? episodeToPlay : null,
+                    // Keep the stored resume point for the episode about to play;
+                    // a fresh episode (or no progress) starts at 0.
+                    startPlaybackTimestamp(continueEntryForMovie, {
+                      isTv: isTvContent,
+                      season: selectedSeason,
+                      episode: episodeToPlay,
+                    }),
+                  );
                 }}
                 className={`relative rounded-full flex items-center justify-center transition-all duration-200 font-bold tracking-wide h-[44px] px-6 py-3 text-base min-w-[120px] border-none shadow-xl shadow-black/10 ${
                   unreleased ? "opacity-45 cursor-not-allowed" : "active:scale-95 hover:scale-105"
@@ -1079,14 +1105,14 @@ export default function TitleDetails() {
                 <span className="text-[13px] font-semibold text-white">Not released yet</span>
                 <span className="text-white/25">·</span>
                 <span className="text-[13px] text-white/55">
-                  Available {formatTMDBDate(movie.releaseDate, { month: "short", day: "numeric", year: "numeric" })}
+                  Available {formatTMDBDate(movie.releaseDate, { month: "short", day: "numeric", year: "numeric" }, undefined, releasePlatform)}
                 </span>
               </button>
             )}
 
             {/* Meta: Year · Runtime · Certification · Votes */}
             <div className="details-hero__gap flex flex-wrap items-center gap-x-3 gap-y-1 text-sm lg:text-base text-white/80 font-medium">
-              {movie.releaseDate && <span>{new Date(movie.releaseDate).getFullYear()}</span>}
+              {movie.releaseDate && <span>{releaseYear(movie)}</span>}
               {runtimeLabel && <span>{runtimeLabel}</span>}
               {movie.certification && (
                 <span className="px-1.5 py-0.5 border border-white/30 rounded text-xs lg:text-sm">
@@ -1198,7 +1224,7 @@ export default function TitleDetails() {
               style={{ margin: 0 }}
               {...L.Reveal}
             >
-              Episodes {isAiring && totalEpisodes > episodes.length
+              Episodes {isAiring && releasedEpisodes < totalEpisodes
                 ? <span style={{ fontSize: '0.7em', color: '#52525b', fontWeight: 400 }}>({releasedEpisodes} of {totalEpisodes} released)</span>
                 : episodes.length > 0 && <span style={{ fontSize: '0.7em', color: '#52525b', fontWeight: 400 }}>({episodes.length})</span>}
             </motion.h2>
@@ -1519,7 +1545,18 @@ export default function TitleDetails() {
                       if (!playable) return;
                       setIsPlaying(true);
                       setPlayingEpisode(ep.episodeNumber);
-                      updateProgress({ ...movie, source: resolvedPlatform, sourceName }, selectedSeason, ep.episodeNumber);
+                      updateProgress(
+                        { ...movie, source: resolvedPlatform, sourceName },
+                        selectedSeason,
+                        ep.episodeNumber,
+                        // A different episode starts fresh; reopening the stored
+                        // episode keeps its resume point instead of inheriting it.
+                        startPlaybackTimestamp(continueEntryForMovie, {
+                          isTv: true,
+                          season: selectedSeason,
+                          episode: ep.episodeNumber,
+                        }),
+                      );
                     };
                     const playEpKeyboard = (e) => {
                       if (e.target !== e.currentTarget || !playable) return;
@@ -2209,11 +2246,7 @@ export default function TitleDetails() {
                           subtitle={
                             isTvContent
                               ? `S${selectedSeason}:E${playingEpisode}`
-                              : String(
-                                  movie?.releaseDate
-                                    ? new Date(movie.releaseDate).getFullYear()
-                                    : "",
-                                )
+                              : releaseYear(movie)
                           }
                           onClose={() => setIsPlaying(false)}
                         />
@@ -2234,11 +2267,7 @@ export default function TitleDetails() {
                                   );
                                   return ep?.title ? ` "${ep.title}"` : "";
                                 })()
-                              : String(
-                                  movie?.releaseDate
-                                    ? new Date(movie.releaseDate).getFullYear()
-                                    : "",
-                                )
+                              : releaseYear(movie)
                           }
                           episodes={
                             isTvContent
@@ -2307,7 +2336,7 @@ export default function TitleDetails() {
                 This Hasn&apos;t Released Yet
               </h3>
               <p className="mt-1.5 text-sm text-white/60">
-                Releases on {formatTMDBDate(movie.releaseDate, { month: "long", day: "numeric", year: "numeric" })}
+                Releases on {formatTMDBDate(movie.releaseDate, { month: "long", day: "numeric", year: "numeric" }, undefined, releasePlatform)}
               </p>
               <button
                 type="button"

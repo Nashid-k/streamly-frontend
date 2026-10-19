@@ -26,6 +26,7 @@ export default function GenrePage() {
   const {
     data: rawResults,
     isLoading: loading,
+    isPlaceholderData,
     error: queryError,
     refetch: refetchGenreResults,
   } = useQuery({
@@ -141,7 +142,7 @@ export default function GenrePage() {
             eyebrow="Browse by genre"
             title={genre}
             description={`A handpicked view of the best ${genre} stories right now.`}
-            count={results.length || undefined}
+            count={filteredAndSortedList.length || undefined}
             actions={results.length > 0 && (
               <div className="filter-controls">
                 <div className="filter-group" aria-label="Filter genre results by type">
@@ -202,7 +203,10 @@ export default function GenrePage() {
                 </Button>
               }
             />
-          ) : filteredAndSortedList.length === 0 ? (
+          ) : filteredAndSortedList.length === 0 && !isPlaceholderData ? (
+            // Only a settled, genuinely-empty response is "no titles found". While
+            // the previous genre's placeholder is still on screen the new list is
+            // legitimately empty — don't call that a miss.
             <EmptyState
               icon="film"
               title="No titles found"

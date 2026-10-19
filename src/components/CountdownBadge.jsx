@@ -24,7 +24,11 @@ export default function CountdownBadge({ releaseDate, platform, compact = false 
 
   if (!releaseDate || countdown.isReleased) return null;
 
-  const urgency = getCountdownUrgency(countdown.days);
+  // A release under 24h out floors to 0 days, which getCountdownUrgency labels
+  // "released" (dull grey). It is the opposite of released — treat it as imminent.
+  const urgency = countdown.underADay
+    ? "imminent"
+    : getCountdownUrgency(countdown.days);
 
   const styles = {
     imminent: {

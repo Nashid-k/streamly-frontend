@@ -160,6 +160,20 @@ function mergeStoredList(current, incoming, { limit, pruneTombstonesMs, sortBy }
   return JSON.stringify(merged) === JSON.stringify(current) ? current : merged;
 }
 
+/* A collection stores only itemIds that point at aios_my_list entries, but
+   removing a title from My List tombstones JUST the my_list copy — the id is
+   left dangling in every collection it belonged to. Read-side counts must
+   therefore measure the live intersection (the same one the collection grid
+   renders), never the stored itemIds array. Stored ids are never mutated here. */
+export function liveCollectionCount(collection, myList) {
+  const ids = Array.isArray(collection?.itemIds) ? collection.itemIds : [];
+  if (ids.length === 0) return 0;
+  const live = new Set((myList || []).map((m) => m.id));
+  let count = 0;
+  for (const id of ids) if (live.has(id)) count += 1;
+  return count;
+}
+
 export function useMyCollections() {
   const [collections, setCollections] = useState(() => morphCollections(readStorage(COLLECTIONS_KEY)));
 

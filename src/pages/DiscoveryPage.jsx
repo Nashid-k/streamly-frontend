@@ -63,15 +63,21 @@ const YEAR_START = 1975;
 const DISCOVER_PAGE_SIZE = 20;
 
 // ── Random pill — expands on hover like Cinejoy's ────────────────────────
-function RandomPill({ ariaLabel, onClick, busy }) {
+function RandomPill({ ariaLabel, onClick, busy, disabled }) {
   return (
     <button
       type="button"
       aria-label={ariaLabel}
       aria-busy={busy || undefined}
+      aria-disabled={disabled || undefined}
+      disabled={disabled}
       onClick={onClick}
       className={`shrink-0 flex items-center h-[38px] overflow-hidden bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all duration-300 ease-out backdrop-blur-md group ${
-        busy ? "max-w-[130px] cursor-wait" : "max-w-[38px] hover:max-w-[130px]"
+        busy
+          ? "max-w-[130px] cursor-wait"
+          : disabled
+            ? "opacity-40 cursor-not-allowed"
+            : "max-w-[38px] hover:max-w-[130px]"
       }`}
     >
       <span className="flex items-center justify-center w-9 h-9 shrink-0">
@@ -295,6 +301,12 @@ export default function DiscoveryPage({ mode = "movies" }) {
         providerId: providerParam,
         languageParam,
         languageId: languageParam,
+        // "Country" means production country (getDiscover → with_origin_country),
+        // the conventional meaning of a Country filter. getRegions supplies the
+        // option codes; the same value also becomes watch_region inside
+        // getDiscover when a Provider is chosen, so it scopes that provider's
+        // availability. Passing it as `region` instead would leave the pill inert
+        // whenever no provider is selected (TMDB ignores watch_region alone).
         country: countryParam,
         page: pageParam,
       }),
@@ -405,6 +417,12 @@ export default function DiscoveryPage({ mode = "movies" }) {
     [gridQuery.data],
   );
 
+  // ── Random draws only from the CURRENT filter's results ─────────────────
+  // While a new filter's first page is in flight react-query keeps the previous
+  // filter's rows mounted as placeholderData; those are stale, so exclude them
+  // (and the pill stays disabled until real results for this filter land).
+  const randomPool = gridQuery.isPlaceholderData ? [] : gridItems;
+
     // ── Scroll-triggered pagination ─────────────────────────────────────────
     // A generous bottom rootMargin starts the next page before the user hits the
     // floor, so the grid appears to grow with the scroll.
@@ -510,10 +528,10 @@ export default function DiscoveryPage({ mode = "movies" }) {
   useEffect(() => () => clearTimeout(randomTimerRef.current), []);
 
   const handleRandom = () => {
-    if (randomPicking || !gridItems.length) return;
+    if (randomPicking || randomPool.length === 0) return;
     setRandomPicking(true);
     randomTimerRef.current = setTimeout(() => {
-      const pick = gridItems[Math.floor(Math.random() * gridItems.length)];
+      const pick = randomPool[Math.floor(Math.random() * randomPool.length)];
       setRandomPicking(false);
       openDetails(pick, { forceModal: true });
     }, 620);
@@ -548,6 +566,10 @@ export default function DiscoveryPage({ mode = "movies" }) {
   };
 
   const gridLoading = gridQuery.isLoading;
+  // Whether the grid's CURRENT key has finished loading — no in-flight page and
+  // no stale placeholderData from the previous filter. The end-of-list copy may
+  // only appear once this is true and hasNextPage is genuinely exhausted.
+  const gridSettled = !gridQuery.isFetching && !gridQuery.isPlaceholderData;
   // An outage is not "your filters are wrong" — the error copy must not blame
   // the user's filter choices, and the state gets an in-page retry.
   const gridError = gridQuery.error
@@ -583,109 +605,180 @@ export default function DiscoveryPage({ mode = "movies" }) {
               {/* Filter pills */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full xl:w-auto">
                 <div className="filter-row flex items-center sm:justify-start gap-2 sm:gap-3 flex-wrap">
-                  <RandomPill ariaLabel={cfg.randomAria} onClick={handleRandom} busy={randomPicking} />
+                  <RandomPill
+                    ariaLabel={cfg.randomAria}
+                    onClick={handleRandom}
+                    busy={randomPicking}
+                    disabled={randomPool.length === 0}
+                  />
                   <FilterPill label={genreLabel}>
-                    {({ close }) =>
-                      (genresQuery.data || []).map((g) => (
+                    {({ close }) => (
+                      <>
                         <MenuItem
-                          key={g.id}
-                          label={g.name}
-                          selected={String(g.id) === genreParam}
+                          key="__all"
+                          label="All Genres"
+                          selected={!genreParam}
                           onSelect={() => {
-                            setParam("genre", String(g.id));
+                            setParam("genre", "");
                             close();
                           }}
                         />
-                      ))
-                    }
+                        {(genresQuery.data || []).map((g) => (
+                          <MenuItem
+                            key={g.id}
+                            label={g.name}
+                            selected={String(g.id) === genreParam}
+                            onSelect={() => {
+                              setParam("genre", String(g.id));
+                              close();
+                            }}
+                          />
+                        ))}
+                      </>
+                    )}
                   </FilterPill>
                   <FilterPill label={yearLabel}>
-                    {({ close }) =>
-                      yearOptions.map((y) => (
+                    {({ close }) => (
+                      <>
                         <MenuItem
-                          key={y}
-                          label={y}
-                          selected={y === yearParam}
+                          key="__all"
+                          label="Any Year"
+                          selected={!yearParam}
                           onSelect={() => {
-                            setParam("year", y);
+                            setParam("year", "");
                             close();
                           }}
                         />
-                      ))
-                    }
+                        {yearOptions.map((y) => (
+                          <MenuItem
+                            key={y}
+                            label={y}
+                            selected={y === yearParam}
+                            onSelect={() => {
+                              setParam("year", y);
+                              close();
+                            }}
+                          />
+                        ))}
+                      </>
+                    )}
                   </FilterPill>
                 </div>
                 <div className="filter-row flex items-center sm:justify-start gap-2 sm:gap-3 flex-wrap">
                   <FilterPill label={sortLabel}>
-                    {({ close }) =>
-                      SORT_OPTIONS.map((o) => (
+                    {({ close }) => (
+                      <>
                         <MenuItem
-                          key={o.value}
-                          label={o.label}
-                          selected={o.value === sortParam}
+                          key="__default"
+                          label="Default"
+                          selected={!searchParams.get("sort")}
                           onSelect={() => {
-                            setParam("sort", o.value);
+                            setParam("sort", "");
                             close();
                           }}
                         />
-                      ))
-                    }
+                        {SORT_OPTIONS.map((o) => (
+                          <MenuItem
+                            key={o.value}
+                            label={o.label}
+                            selected={o.value === sortParam}
+                            onSelect={() => {
+                              setParam("sort", o.value);
+                              close();
+                            }}
+                          />
+                        ))}
+                      </>
+                    )}
                   </FilterPill>
                   <FilterPill label={providerLabel}>
-                    {({ close }) =>
-                      (providersQuery.data || []).map((p) => (
+                    {({ close }) => (
+                      <>
                         <MenuItem
-                          key={p.id}
-                          label={p.name}
-                          selected={String(p.id) === providerParam}
-                          icon={
-                            p.logoUrl ? (
-                              <img
-                                src={p.logoUrl}
-                                alt=""
-                                className="w-4 h-4 rounded object-contain bg-white/10"
-                                loading="lazy"
-                              />
-                            ) : null
-                          }
+                          key="__any"
+                          label="Any Provider"
+                          selected={!providerParam}
                           onSelect={() => {
-                            setParam("provider", String(p.id));
+                            setParam("provider", "");
                             close();
                           }}
                         />
-                      ))
-                    }
+                        {(providersQuery.data || []).map((p) => (
+                          <MenuItem
+                            key={p.id}
+                            label={p.name}
+                            selected={String(p.id) === providerParam}
+                            icon={
+                              p.logoUrl ? (
+                                <img
+                                  src={p.logoUrl}
+                                  alt=""
+                                  className="w-4 h-4 rounded object-contain bg-white/10"
+                                  loading="lazy"
+                                />
+                              ) : null
+                            }
+                            onSelect={() => {
+                              setParam("provider", String(p.id));
+                              close();
+                            }}
+                          />
+                        ))}
+                      </>
+                    )}
                   </FilterPill>
 
                   <FilterPill label={languageLabel}>
-                    {({ close }) =>
-                      LANGUAGE_OPTIONS.map((l) => (
+                    {({ close }) => (
+                      <>
                         <MenuItem
-                          key={l.id}
-                          label={l.name}
-                          selected={l.id === languageParam}
+                          key="__any"
+                          label="Any Language"
+                          selected={!languageParam}
                           onSelect={() => {
-                            setParam("language", l.id);
+                            setParam("language", "");
                             close();
                           }}
                         />
-                      ))
-                    }
+                        {LANGUAGE_OPTIONS.map((l) => (
+                          <MenuItem
+                            key={l.id}
+                            label={l.name}
+                            selected={l.id === languageParam}
+                            onSelect={() => {
+                              setParam("language", l.id);
+                              close();
+                            }}
+                          />
+                        ))}
+                      </>
+                    )}
                   </FilterPill>
                   <FilterPill label={countryLabel}>
-                    {({ close }) =>
-                      (regionsQuery.data || []).map((r) => (
+                    {({ close }) => (
+                      <>
                         <MenuItem
-                          key={r.code}
-                          label={r.name}
-                          selected={String(r.code) === countryParam}
+                          key="__any"
+                          label="Any Country"
+                          selected={!countryParam}
                           onSelect={() => {
-                            setParam("country", String(r.code));
+                            setParam("country", "");
                             close();
                           }}
                         />
-                      ))
-                    }
+                        {(regionsQuery.data || []).map((r) => (
+                          <MenuItem
+                            key={r.code}
+                            label={r.name}
+                            selected={String(r.code) === countryParam}
+                            onSelect={() => {
+                              setParam("country", String(r.code));
+                              close();
+                            }}
+                          />
+                        ))}
+                      </>
+                    )}
                   </FilterPill>
                 </div>
               </div>
@@ -816,14 +909,14 @@ export default function DiscoveryPage({ mode = "movies" }) {
                       <span />
                       <span />
                     </span>
-                  ) : hasNextPage ? null : (
+                  ) : hasNextPage || !gridSettled ? null : (
                     <span className="discover-loadmore__end">You have reached the end</span>
                   )}
                 </div>
               </>
             )}
           </ErrorBoundary>
-          {railEmpty && !gridLoading && (
+          {railEmpty && !gridLoading && !gridError && gridItems.length > 0 && (
             <EmptyState
               icon={isSeries ? "tv" : "film"}
               title={isSeries ? "No new seasons airing right now." : "No upcoming releases right now."}

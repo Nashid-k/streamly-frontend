@@ -33,13 +33,17 @@ import SearchField from "../components/browse/SearchField";
 import PillAction, { ACCENT_PILL, GHOST_PILL } from "../components/browse/PillAction";
 import CollectionNameDialog from "../components/overlays/CollectionNameDialog";
 import AddTitlesDialog from "../components/overlays/AddTitlesDialog";
+import { liveCollectionCount } from "../hooks/useUserData";
 import { copyTextToClipboard } from "../utils/clipboard";
 
 
 /* ── Collection folder card: 2×2 cover collage mining the saved list ────── */
 function CollectionCard({ collection, items, onOpen, onRename, onDelete, onToggleVisibility, onCopyLink }) {
   const { t } = useI18n();
-  const hasItems = collection.itemIds.length > 0;
+  // Only ids that still resolve to a live My List entry count: a removed title
+  // tombstones my_list but leaves its id behind in every collection.
+  const liveCount = liveCollectionCount(collection, items);
+  const hasItems = liveCount > 0;
   const posters = (collection.itemIds || [])
     .map((id) => items.find((m) => m.id === id))
     .filter(Boolean)
@@ -113,7 +117,7 @@ function CollectionCard({ collection, items, onOpen, onRename, onDelete, onToggl
               : t("collections.visibilityPrivate")}
           </span>
           <span className="collection-card__count">
-            {(collection.itemIds?.length ?? 0)} {(collection.itemIds?.length ?? 0) === 1 ? "title" : "titles"}
+            {liveCount} {liveCount === 1 ? "title" : "titles"}
           </span>
         </div>
         <div className="collection-card__actions">
@@ -220,6 +224,14 @@ export default function WatchlistPage() {
     [collections, activeCollectionId],
   );
 
+  // Live (still-in-My-List) size of the open collection — the header, the
+  // "has items" gate and the empty state must agree with the grid, which only
+  // ever renders the live intersection.
+  const activeLiveCount = useMemo(
+    () => (activeCollection ? liveCollectionCount(activeCollection, myList) : 0),
+    [activeCollection, myList],
+  );
+
   /* An index of collection membership for fast lookups on cards. */
   const collectionForTitle = useMemo(() => {
     const map = new Map();
@@ -245,14 +257,14 @@ export default function WatchlistPage() {
   const bestCollections = useMemo(
     () =>
       (publicCollections || [])
-        .filter((c) => c.publicId && (c.itemIds?.length || 0) > 0)
+        .filter((c) => c.publicId && liveCollectionCount(c, myList) > 0)
         .sort((a, b) => {
-          const sizeDiff = (b.itemIds?.length || 0) - (a.itemIds?.length || 0);
+          const sizeDiff = liveCollectionCount(b, myList) - liveCollectionCount(a, myList);
           if (sizeDiff !== 0) return sizeDiff;
           return (b.updatedAt || 0) - (a.updatedAt || 0);
         })
         .slice(0, 6),
-    [publicCollections],
+    [publicCollections, myList],
   );
 
   /* Copy the opaque public link, with an honest outcome on both sides: a
@@ -390,7 +402,9 @@ export default function WatchlistPage() {
      success: a refusal means the gate opened the sign-in dialog instead. */
   const confirmPickerCreate = (name, movieId, visibility) => {
     const id = createCollectionWithItems(name, [movieId], { visibility });
-    if (id === false) return null;
+    // `false` (not null) is the explicit "the auth gate refused" signal the
+    // picker checks to keep its create form open instead of silently closing.
+    if (id === false) return false;
     toast({
       title: "Collection Created",
       message: `"${name}" created with 1 title.`,
@@ -454,11 +468,17 @@ export default function WatchlistPage() {
     });
   };
 
+  // "Select all visible" must mean exactly that: only the window on screen,
+  // not every filtered row across pagination. The larger scope made a
+  // destructive delete reach off-screen titles the label never mentioned.
+  const allVisibleSelected =
+    visibleResults.length > 0 && visibleResults.every((m) => selectedIds.has(m.id));
+
   const handleSelectAll = () => {
-    if (selectedIds.size === filteredAndSortedList.length) {
+    if (allVisibleSelected) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(filteredAndSortedList.map((m) => m.id)));
+      setSelectedIds(new Set(visibleResults.map((m) => m.id)));
     }
   };
 
@@ -492,7 +512,7 @@ export default function WatchlistPage() {
   );
 
   const hasItems = inCollectionView
-    ? activeCollection.itemIds.length > 0
+    ? activeLiveCount > 0
     : myList.length > 0;
 
   const hasMore = visibleCount < filteredAndSortedList.length;
@@ -540,7 +560,7 @@ export default function WatchlistPage() {
                 </h1>
                 <p className="mt-3 text-lg text-white/70 font-medium leading-relaxed">
                   {inCollectionView
-                    ? `${activeCollection.itemIds.length} saved title${activeCollection.itemIds.length === 1 ? "" : "s"} · curated by you.`
+                    ? `${activeLiveCount} saved title${activeLiveCount === 1 ? "" : "s"} · curated by you.`
                     : `Keep the next great watch close at hand · ${myList.length} saved.`}
                 </p>
               </div>
@@ -611,10 +631,10 @@ export default function WatchlistPage() {
                         accent
                         active
                         onClick={handleSelectAll}
-                        ariaLabel={selectedIds.size === filteredAndSortedList.length ? "Deselect all" : "Select all visible"}
+                        ariaLabel={allVisibleSelected ? "Deselect all" : "Select all visible"}
                       >
                         <Check size={15} />
-                        {selectedIds.size === filteredAndSortedList.length ? "Deselect All" : "Select All"}
+                        {allVisibleSelected ? "Deselect All" : "Select All"}
                       </PillAction>
                     )}
                   </div>
@@ -739,7 +759,7 @@ export default function WatchlistPage() {
         {/* ── Poster grid ─────────────────────────────────────────────── */}
         <section className="px-4 md:px-8 mt-4 relative z-10">
           <ErrorBoundary>
-            {myList.length === 0 || (inCollectionView && activeCollection.itemIds.length === 0) ? (
+            {myList.length === 0 || (inCollectionView && activeLiveCount === 0) ? (
               <EmptyState
                 icon={
                   inCollectionView ? (
@@ -964,7 +984,7 @@ export default function WatchlistPage() {
                 whiteSpace: "nowrap",
               }}
             >
-              {selectedIds.size === filteredAndSortedList.length ? "Deselect All" : "Select All"}
+              {allVisibleSelected ? "Deselect All" : "Select All"}
             </button>
             <button
               type="button"

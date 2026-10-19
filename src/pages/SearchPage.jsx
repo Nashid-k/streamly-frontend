@@ -70,36 +70,29 @@ export default function SearchPage() {
 
   // Search history records REAL searches only. It used to be written from the
   // debounced URL sync, so pausing mid-word saved every prefix ("b", "ba",
-  // "bat"…) and pushed actual terms out of the 10 slots. `submittedAtRef` is
-  // the "this URL came from a submit" signal, and the input value is captured
-  // at submit time so a debounce that fires after the user kept typing cannot
-  // pollute history with a prefix.
-  const submittedAtRef = useRef(null);
+  // "bat"…) and pushed actual terms out of the 10 slots. Recording now happens
+  // at the deliberate submit — the only act that should write history — so a
+  // debounce that fires after the user kept typing cannot pollute it. The old
+  // "URL changed" signal missed a submit whose term already matched the URL
+  // (e.g. pressing Enter on a term opened from a quick-start chip), so those
+  // searches never landed. addSearch dedupes, so re-submitting the same term
+  // stays a single entry.
   const submitQuery = () => {
     const committed = localQuery.trim();
     if (!committed) return;
-    submittedAtRef.current = Date.now();
     setSearchParams({ q: committed }, { replace: true });
+    addSearch(committed);
   };
 
   const [filterType, setFilterType] = useState("All");
   const [sortBy, setSortBy] = useState("Relevance");
 
-  // Filters/sort reset for a new term as soon as its results land — unchanged
-  // by the history fix.
+  // Filters/sort reset for a new term as soon as its results land.
   useEffect(() => {
     if (!query.trim()) return;
     setFilterType("All");
     setSortBy("Relevance");
   }, [query]);
-
-  useEffect(() => {
-    if (!query.trim()) return;
-    if (submittedAtRef.current && query === localQuery.trim()) {
-      submittedAtRef.current = null;
-      addSearch(query);
-    }
-  }, [query, localQuery, addSearch]);
 
   const {
     data: rawResults,
@@ -465,7 +458,9 @@ export default function SearchPage() {
               </div>
             </div>
             <p className="search-toolbar__count" aria-live="polite">
-              {results.length === 1 ? t("search.resultsOne") : t("search.resultsMany", { n: results.length })}
+              {filteredAndSortedList.length === 1
+                ? t("search.resultsOne")
+                : t("search.resultsMany", { n: filteredAndSortedList.length })}
             </p>
           </div>
         )}
@@ -623,7 +618,7 @@ export default function SearchPage() {
           <section
             ref={resultsRef}
             className="mt-6"
-            aria-label={`${results.length} results for "${query}"`}
+            aria-label={`${filteredAndSortedList.length} results for "${query}"`}
             onKeyDown={handleResultsKeyDown}
           >
             <div className="movie-grid">

@@ -13,6 +13,25 @@ import ErrorBoundary from "../components/ErrorBoundary";
 import ContentPageHeader from "../components/ContentPageHeader";
 import SEO from "../components/SEO";
 
+/* Calendar-day bucket for a history row, in the VIEWER's local time.
+   The old code measured a rolling 24h window (`(Date.now() - lastWatched) /
+   86_400_000`), so 11pm last night and 1am this morning both read "Today", and
+   a legacy string/absent timestamp produced a NaN that matched NO bucket — the
+   row silently vanished. This clamps an unparseable value to "Earlier" and
+   buckets by local midnight, so a day boundary is a real day boundary. */
+function historyBucket(lastWatched, now = Date.now()) {
+  const ts = typeof lastWatched === "number" ? lastWatched : Number(lastWatched);
+  if (!Number.isFinite(ts) || ts <= 0) return "Earlier";
+  const at = new Date(ts);
+  const today = new Date(now);
+  const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  // Math.round keeps DST-shortened/longthened days from drifting a bucket.
+  const diffDays = Math.round((startOfDay(today) - startOfDay(at)) / (1000 * 60 * 60 * 24));
+  if (diffDays <= 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  return "Earlier";
+}
+
 export default function HistoryPage() {
   const navigate = useNavigate();
   const {
@@ -282,15 +301,9 @@ export default function HistoryPage() {
           <ErrorBoundary>
           <div className="history-groups">
             {["Today", "Yesterday", "Earlier"].map((group) => {
-              const groupItems = visibleResults.filter((item) => {
-                if (!item.lastWatched) return group === "Earlier";
-                const diffDays = Math.floor(
-                  (Date.now() - item.lastWatched) / (1000 * 60 * 60 * 24),
-                );
-                if (group === "Today") return diffDays === 0;
-                if (group === "Yesterday") return diffDays === 1;
-                return diffDays > 1;
-              });
+              const groupItems = visibleResults.filter(
+                (item) => historyBucket(item.lastWatched) === group,
+              );
 
               if (groupItems.length === 0) return null;
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatRuntimeLabel, isUnreleased, voteSplitPct, buildEpisodeOrder, episodeNumberLabel, isEpAired, formatAirsDate } from "../utils/titleDetails";
+import { formatRuntimeLabel, isUnreleased, voteSplitPct, buildEpisodeOrder, episodeNumberLabel, isEpAired, formatAirsDate, startPlaybackTimestamp, isEpisodeWatchedEntry, seasonEdgeEpisode } from "../utils/titleDetails";
 import { certificationFromDetail } from "../api/movieService";
 
 describe("TitleDetails meta helpers", () => {
@@ -79,6 +79,74 @@ describe("episode layout helpers (Cinejoy episodes section)", () => {
     // An unparseable date is shown verbatim rather than as "Invalid Date".
     expect(formatAirsDate("whenever")).toBe("whenever");
     expect(formatAirsDate("2026-09-09")).toMatch(/2026|9/);
+  });
+
+  it("anchors the aired boundary at noon UTC like getSeasonEpisodes", () => {
+    // 06:00Z is the same calendar day but before the noon-UTC anchor, so an
+    // episode airing today is not yet aired; the old UTC-midnight parse flipped
+    // it a day early. After noon it is aired.
+    expect(isEpAired({ episodeNumber: 1, airDate: "2026-06-15" }, new Date("2026-06-15T06:00:00Z"))).toBe(false);
+    expect(isEpAired({ episodeNumber: 1, airDate: "2026-06-15" }, new Date("2026-06-15T13:00:00Z"))).toBe(true);
+    // The day before is unambiguously aired.
+    expect(isEpAired({ episodeNumber: 1, airDate: "2026-06-14" }, new Date("2026-06-15T06:00:00Z"))).toBe(true);
+  });
+});
+
+describe("startPlaybackTimestamp (resume must survive pressing play)", () => {
+  const entry = { id: "tv-1", savedSeason: 2, savedEpisode: 5, timestamp: 640 };
+
+  it("keeps a series resume point when the same episode is about to play", () => {
+    expect(startPlaybackTimestamp(entry, { isTv: true, season: 2, episode: 5 })).toBeNull();
+  });
+
+  it("resets for a different episode so it does not inherit the old timestamp", () => {
+    expect(startPlaybackTimestamp(entry, { isTv: true, season: 2, episode: 6 })).toBe(0);
+    expect(startPlaybackTimestamp(entry, { isTv: true, season: 3, episode: 5 })).toBe(0);
+  });
+
+  it("keeps a movie's positive resume point", () => {
+    expect(startPlaybackTimestamp({ id: "m1", timestamp: 120 }, { isTv: false })).toBeNull();
+  });
+
+  it("writes 0 when there is no progress to keep", () => {
+    expect(startPlaybackTimestamp(null, { isTv: true, season: 1, episode: 1 })).toBe(0);
+    expect(startPlaybackTimestamp({ id: "tv-1", timestamp: 0 }, { isTv: true, season: 1, episode: 1 })).toBe(0);
+  });
+});
+
+describe("isEpisodeWatchedEntry (season-scoped ticks)", () => {
+  const entry = { savedSeason: 1, savedEpisode: 5, timestamp: 300, watchedEpisodes: { 1: [5] } };
+
+  it("counts the live resume point only for its own season", () => {
+    expect(isEpisodeWatchedEntry(entry, 1, 5)).toBe(true);
+    expect(isEpisodeWatchedEntry(entry, 2, 5)).toBe(false);
+  });
+
+  it("reads the watchedEpisodes set for the given season", () => {
+    expect(isEpisodeWatchedEntry({ watchedEpisodes: { 2: [3, 4] } }, 2, 4)).toBe(true);
+    expect(isEpisodeWatchedEntry({ watchedEpisodes: { 2: [3, 4] } }, 2, 5)).toBe(false);
+    expect(isEpisodeWatchedEntry({ watchedEpisodes: { 2: [3, 4] } }, 3, 4)).toBe(false);
+  });
+
+  it("returns false without an entry", () => {
+    expect(isEpisodeWatchedEntry(null, 1, 1)).toBe(false);
+  });
+});
+
+describe("seasonEdgeEpisode (cross-season prev/next landing)", () => {
+  it("lands on the target season's last episode when stepping back", () => {
+    expect(seasonEdgeEpisode(8, "last")).toBe(8);
+    expect(seasonEdgeEpisode("10", "last")).toBe(10);
+  });
+
+  it("falls back to 1 when the season's count is unknown", () => {
+    expect(seasonEdgeEpisode(0, "last")).toBe(1);
+    expect(seasonEdgeEpisode(undefined, "last")).toBe(1);
+  });
+
+  it("always lands on the first episode when stepping forward", () => {
+    expect(seasonEdgeEpisode(8, "first")).toBe(1);
+    expect(seasonEdgeEpisode(undefined, "first")).toBe(1);
   });
 });
 

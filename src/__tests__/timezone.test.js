@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getUserTimezone, formatTMDBDate, getTMDBWeekday, getTimeUntil, getTMDBWeekdayShort, getReleaseInstant, tmdbDateToLocalDate } from '../utils/timezone';
+import { getUserTimezone, formatTMDBDate, getTMDBWeekday, getTimeUntil, getTMDBWeekdayShort, getReleaseInstant, tmdbDateToLocalDate, LOCAL_RELEASE } from '../utils/timezone';
 
 describe('getUserTimezone', () => {
   it('returns a string timezone', () => {
@@ -198,6 +198,20 @@ describe('getReleaseInstant (platform release rule)', () => {
 describe('tmdbDateToLocalDate (the +12h regression)', () => {
   it('keeps the US broadcast date for an ET viewer', () => {
     expect(tmdbDateToLocalDate('2026-10-08', 'America/New_York')).toBe('2026-10-08');
+  });
+
+  it('renders the same calendar date for a non-ET viewer with LOCAL_RELEASE', () => {
+    const tz = 'Asia/Kolkata';
+    const opts = { year: 'numeric', month: 'short', day: 'numeric' };
+    // The platform-unknown default (8pm-ET) shifts Jan 1 to Jan 2 for IST.
+    expect(formatTMDBDate('2026-01-01', opts, tz)).not.toBe(
+      new Date('2026-01-01T12:00:00Z').toLocaleDateString(undefined, { timeZone: tz, ...opts }),
+    );
+    // LOCAL_RELEASE keeps the calendar date the viewer actually reads.
+    expect(tmdbDateToLocalDate('2026-01-01', tz, LOCAL_RELEASE)).toBe('2026-01-01');
+    expect(formatTMDBDate('2026-01-01', opts, tz, LOCAL_RELEASE)).toBe(
+      new Date('2026-01-01T12:00:00Z').toLocaleDateString(undefined, { timeZone: tz, ...opts }),
+    );
   });
 
   it('shifts a Monday 8PM ET release to Tuesday for IST viewers', () => {

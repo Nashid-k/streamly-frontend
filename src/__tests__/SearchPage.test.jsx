@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { fireEvent, waitFor } from "@testing-library/react";
+import { screen, fireEvent, waitFor } from "@testing-library/react";
 import SearchPage from "../pages/SearchPage";
 import { movieService } from "../api/movieService";
 import { renderWithProviders } from "../test/testUtils";
@@ -144,5 +144,65 @@ describe("SearchPage result highlighting", () => {
     const marks = document.querySelectorAll(".movie-title mark");
     expect(marks.length).toBeGreaterThan(0);
     expect(marks[0].textContent.toLowerCase()).toContain("matrix");
+  });
+});
+
+describe("SearchPage search history", () => {
+  function renderWithHistory(q) {
+    const addSearch = vi.fn();
+    renderWithProviders(<SearchPage />, {
+      route: `/search?q=${encodeURIComponent(q)}`,
+      authValue: {
+        searchHistory: [],
+        addSearch,
+        clearSearchHistory: vi.fn(),
+        myList: [],
+        collections: [],
+        publicCollections: [],
+        isInList: () => false,
+        toggleMyList: vi.fn(),
+        addNotification: vi.fn(),
+        removeBatchFromMyList: vi.fn(),
+      },
+    });
+    return { addSearch };
+  }
+
+  // The real regression: pressing Enter on a term that already matches the URL
+  // (a quick-start chip, a shared link) left the URL unchanged, so the old
+  // "did the query change?" effect never fired and the search went unrecorded.
+  it("records a submitted term even when it already matches the URL", async () => {
+    const { addSearch } = renderWithHistory("matrix");
+    await waitForResults();
+
+    fireEvent.keyDown(queryInput(), { key: "Enter" });
+
+    expect(addSearch).toHaveBeenCalledTimes(1);
+    expect(addSearch).toHaveBeenCalledWith("matrix");
+  });
+
+  it("ignores IME-composition Enter but records the committed submit", async () => {
+    const { addSearch } = renderWithHistory("matrix");
+    await waitForResults();
+
+    const input = queryInput();
+    fireEvent.keyDown(input, { key: "Enter", keyCode: 229 });
+    expect(addSearch).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(addSearch).toHaveBeenCalledTimes(1);
+    expect(addSearch).toHaveBeenCalledWith("matrix");
+  });
+});
+
+describe("SearchPage result count", () => {
+  it("reports the filtered count rather than the raw result array", async () => {
+    renderPage("matrix");
+    await waitForResults();
+
+    // Three raw results, one of them a series → the Movies filter leaves two.
+    fireEvent.click(screen.getByRole("button", { name: "Movies" }));
+
+    await waitFor(() => expect(screen.getByText("2 results")).toBeInTheDocument());
   });
 });
