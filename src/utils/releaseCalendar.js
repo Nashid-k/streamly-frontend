@@ -128,6 +128,19 @@ export function buildUpcoming(items = [], windowDays = 90) {
 }
 
 /**
+ * Strict "Coming This Week" pool: a 7-day window with no grace period.
+ * buildUpcoming lets a backend `isUpcoming` flag past the window (an announced
+ * premiere must not vanish from a month- or year-long rail), but a rail titled
+ * "Coming This Week" cannot show a premiere months out, so flagged items are
+ * re-cut back to the week here.
+ *
+ * @returns {Array} the same enriched shape as buildUpcoming, soonest first.
+ */
+export function buildUpcomingThisWeek(items = []) {
+  return buildUpcoming(items, 7).filter((item) => item.daysUntil <= 7);
+}
+
+/**
  * Build an "On Air / New Seasons Airing" rail from a pool of TV titles. Unlike
  * buildUpcoming, TV titles WITHOUT a confirmed future next-episode date are NOT
  * dropped — they stay in the rail as "now airing" cards. This is what keeps a

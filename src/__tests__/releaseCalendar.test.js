@@ -5,6 +5,7 @@ import {
   detectLeavingSoon,
   getAiringEpisode,
   buildUpcoming,
+  buildUpcomingThisWeek,
   buildAiringRail,
 } from '../utils/releaseCalendar';
 
@@ -381,6 +382,38 @@ describe('buildUpcoming', () => {
     // Fight Club is released, the airing show is not a premiere → both gone.
     expect(rail.map((r) => r.id)).toEqual(['tmdb-tv-new', 'tmdb-movie-new']);
     expect(rail.every((r) => r.daysUntil >= 0)).toBe(true);
+  });
+});
+
+// ─── buildUpcomingThisWeek (strict "Coming This Week" home rail) ────────────
+
+describe('buildUpcomingThisWeek', () => {
+  it('keeps premieres dated today through the next seven days', () => {
+    const inThreeDays = new Date(now);
+    inThreeDays.setDate(now.getDate() + 3);
+    const inSevenDays = new Date(now);
+    inSevenDays.setDate(now.getDate() + 7);
+    const result = buildUpcomingThisWeek([
+      { id: 'm1', title: 'Soon', releaseDate: localDateStr(inThreeDays) },
+      { id: 'm2', title: 'Week Edge', releaseDate: localDateStr(inSevenDays) },
+    ]);
+    expect(result.map((r) => r.id)).toEqual(['m1', 'm2']);
+    expect(result.every((r) => r.daysUntil <= 7)).toBe(true);
+  });
+
+  it('cuts a backend-flagged premiere beyond the week (no grace period)', () => {
+    const far = new Date(now);
+    far.setMonth(now.getMonth() + 2);
+    const announced = {
+      id: 'm3',
+      title: 'Announced',
+      releaseDate: localDateStr(far),
+      isUpcoming: true,
+    };
+    // buildUpcoming honours the flag past its window…
+    expect(buildUpcoming([announced], 7)).toHaveLength(1);
+    // …but a rail titled "Coming This Week" must not show it.
+    expect(buildUpcomingThisWeek([announced])).toHaveLength(0);
   });
 });
 

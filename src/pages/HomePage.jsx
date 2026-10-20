@@ -21,7 +21,7 @@ import { useNearViewport } from "../hooks/useNearViewport";
 import RatingsCluster from "../components/RatingsCluster";
 
 import RailArrow from "../components/RailArrow";
-import { detectLeavingSoon, buildUpcoming } from "../utils/releaseCalendar";
+import { detectLeavingSoon, buildUpcomingThisWeek } from "../utils/releaseCalendar";
 import { asArray, EMPTY_ARRAY } from "../utils";
 import { useI18n } from "../i18n/index.jsx";
 import { logEmptyData, logError, reportQueryError } from "../utils/debugLogger";
@@ -510,8 +510,9 @@ export default function Home({
   // "Upcoming" — premieres only: movies with a future release date plus series the
   // backend flags isUpcoming. Ongoing shows whose NEXT EPISODE is in the future are
   // excluded (they live in the Airing rail). Rows are anchored to the current date
-  // (TODAY/TOMORROW/weekday chips), sorted soonest-first, 365-day window, and NEVER
-  // padded with trending/airing titles — released films are not "coming soon".
+  // (TODAY/TOMORROW/weekday chips), sorted soonest-first, limited to THIS WEEK's
+  // premieres, and NEVER padded with trending/airing titles — released films are
+  // not "coming soon".
   // detectLeavingSoon() flattens every category, parses date strings and sorts
   // the result. Calling it inline meant all of that ran again on every render —
   // including the 1 Hz progress ticks while a title plays in the background.
@@ -530,7 +531,7 @@ export default function Home({
       ...asArray(rawCategories).flatMap((c) => (Array.isArray(c.movies) ? c.movies : [])),
     ];
     const hasArtwork = (m) => m && (m.posterUrl || m.backdropUrl);
-    const built = applyPageFilter(buildUpcoming(pool, 365))
+    const built = applyPageFilter(buildUpcomingThisWeek(pool))
       .filter((m) => !isSeriesMovie(m) || m.isUpcoming === true)
       .filter(hasArtwork);
     // Regional premieres get a guaranteed share: a pure date-sort + slice(0, 12)
@@ -552,8 +553,8 @@ export default function Home({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [airingData, trendingData, top10Data, featuredData, regionalUpcomingData, rawCategories, filter]);
 
-  // Proximity-aware heading: surface when the next premiere drops instead of
-  // always saying a flat "Upcoming".
+  // The rail only holds this week's premieres, so the heading always says so;
+  // the scope suffix still follows the active tab.
   const upcomingTitle = (() => {
     const translatedScope =
       filter === "series" || filter === "tv shows"
@@ -561,18 +562,9 @@ export default function Home({
         : filter === "movies"
           ? t("home.scope.movies")
           : "";
-    const nearest = upcomingReleases[0];
-    if (nearest && nearest.daysUntil <= 7)
-      return translatedScope
-        ? t("home.upcomingWeekScope", { scope: translatedScope })
-        : t("home.upcomingWeek");
-    if (nearest && nearest.daysUntil <= 30)
-      return translatedScope
-        ? t("home.upcomingMonthScope", { scope: translatedScope })
-        : t("home.upcomingMonth");
     return translatedScope
-      ? t("home.rails.upcomingScope", { scope: translatedScope })
-      : t("home.rails.upcoming");
+      ? t("home.upcomingWeekScope", { scope: translatedScope })
+      : t("home.upcomingWeek");
   })();
 
   // Top 10 — backend rank first, padded to a full 10 per tab (the per-page-type

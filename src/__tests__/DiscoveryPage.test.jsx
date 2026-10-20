@@ -162,3 +162,27 @@ describe("DiscoveryPage empty states", () => {
     expect(screen.queryByText("No upcoming releases right now.")).toBeNull();
   });
 });
+
+describe("DiscoveryPage upcoming rail", () => {
+  it("shows only this month's premieres, never later months", async () => {
+    const today = new Date();
+    const ymd = (d) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+
+    vi.spyOn(movieService, "getUpcomingMovies").mockResolvedValue([
+      { id: "tmdb-movie-901", title: "Premiere This Month", mediaType: "movie", releaseDate: ymd(today), posterUrl: null, backdropUrl: null, voteAverage: 7 },
+      { id: "tmdb-movie-902", title: "Premiere Next Month", mediaType: "movie", releaseDate: ymd(nextMonth), posterUrl: null, backdropUrl: null, voteAverage: 7 },
+    ]);
+
+    renderPage("/movies");
+
+    await screen.findByRole("heading", { name: "Coming This Month" });
+    expect(
+      screen.getByRole("button", { name: "View details for Premiere This Month" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "View details for Premiere Next Month" }),
+    ).toBeNull();
+  });
+});

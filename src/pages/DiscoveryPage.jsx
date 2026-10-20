@@ -366,8 +366,8 @@ export default function DiscoveryPage({ mode = "movies" }) {
     return isSeries ? buildAiringRail(data, 120) : buildUpcoming(data, 365);
   }, [railQuery.data, isSeries]);
 
-  // Series "Coming This Month / Next Month" release-calendar rails. Movies get
-  // these via loadUpcomingFilmSlate; series need their own first-air-date sweep.
+  // Series release-calendar rail. Movies get their slate via
+  // loadUpcomingFilmSlate; series need their own first-air-date sweep.
   const seriesUpcomingQuery = useQuery({
     queryKey: ["discover-series-upcoming", cfg.mediaType],
     queryFn: () => movieService.getTvUpcoming(120),
@@ -382,24 +382,17 @@ export default function DiscoveryPage({ mode = "movies" }) {
     [seriesUpcomingQuery.data, isSeries],
   );
 
+  // One rail, this month only: the old grouping emitted a rail per month
+  // ("Coming This Month", then "November 2026", "December 2026" …) and the
+  // browse pages only need the current calendar month's premieres.
   const groupByMonth = (items) => {
-    const map = new Map();
-    for (const item of items) {
-      const key = String(item.releaseDate || "").slice(0, 7);
-      if (key.length !== 7) continue;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key).push(item);
-    }
     const now = new Date();
     const curKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    return [...map.entries()].map(([key, monthItems]) => {
-      const [y, m] = key.split("-").map((s) => Number(s));
-      const heading =
-        key === curKey
-          ? "Coming This Month"
-          : `${new Date(y, m - 1, 1).toLocaleString("en-US", { month: "long" })} ${y}`;
-      return { key, heading, itemCount: monthItems.length, items: monthItems };
-    });
+    const monthItems = items.filter(
+      (item) => String(item.releaseDate || "").slice(0, 7) === curKey,
+    );
+    if (monthItems.length === 0) return [];
+    return [{ key: curKey, heading: "Coming This Month", itemCount: monthItems.length, items: monthItems }];
   };
 
   const monthSections = useMemo(() => {
@@ -837,7 +830,7 @@ export default function DiscoveryPage({ mode = "movies" }) {
           </section>
         )}
 
-        {/* ── Series release calendar: Coming This Month / Next Month ──── */}
+        {/* ── Series release calendar: Coming This Month ────────────────── */}
         {!seriesUpcomingQuery.isLoading &&
           !seriesUpcomingQuery.error &&
           isSeries &&
