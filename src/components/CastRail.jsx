@@ -69,7 +69,7 @@ const CastRail = memo(function CastRail({ cast }) {
       </div>
       <div className="group/cast relative">
         {canLeft && (
-          <RailArrow dir="left" onClick={() => scroll("left")} revealOnHover hoverClass="group-hover/cast:opacity-100" iconSize={36} />
+          <RailArrow dir="left" onClick={() => scroll("left")} revealOnHover hoverClass="group-hover/cast:opacity-100" iconSize={36} label="Cast" />
         )}
         <motion.div
         ref={railRef}
@@ -186,7 +186,7 @@ const CastRail = memo(function CastRail({ cast }) {
         })}
       </motion.div>
       {canRight && (
-        <RailArrow dir="right" onClick={() => scroll("right")} revealOnHover hoverClass="group-hover/cast:opacity-100" iconSize={36} />
+        <RailArrow dir="right" onClick={() => scroll("right")} revealOnHover hoverClass="group-hover/cast:opacity-100" iconSize={36} label="Cast" />
       )}
       </div>
     </section>

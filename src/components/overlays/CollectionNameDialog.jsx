@@ -2,19 +2,24 @@ import { useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { MotionFade, MotionLeaf } from "../../components/MotionLeaf";
 import { X } from "lucide-react";
+import useDialogA11y from "../../hooks/useDialogA11y";
 
 /* ── Create / Rename dialog ─────────────────────────────────────────────── */
 function CollectionNameDialog({ open, title, initial = "", submitLabel, onSubmit, onClose }) {
   const [value, setValue] = useState(initial);
   const inputRef = useRef(null);
+  const panelRef = useRef(null);
   const L = new MotionLeaf();
 
   useEffect(() => {
     if (open) {
       setValue(initial);
-      requestAnimationFrame(() => inputRef.current?.focus());
     }
   }, [open, initial]);
+
+  // Escape, Tab-trap and focus restore; opens on the name field (the thing the
+  // viewer came here to type), never on the close button.
+  useDialogA11y(open, panelRef, onClose, { initialFocus: () => inputRef.current });
 
   const submit = (e) => {
     e.preventDefault();
@@ -36,6 +41,8 @@ function CollectionNameDialog({ open, title, initial = "", submitLabel, onSubmit
           onClick={onClose}
         >
           <motion.div
+            ref={panelRef}
+            tabIndex={-1}
             className="collection-dialog"
             role="dialog"
             aria-modal="true"

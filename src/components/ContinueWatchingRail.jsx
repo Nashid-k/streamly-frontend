@@ -126,6 +126,7 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
             revealOnHover
             hoverClass="group-hover/row:opacity-100"
             className="z-[60]"
+            label="Continue Watching"
           />
         )}
 
@@ -136,6 +137,7 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
             revealOnHover
             hoverClass="group-hover/row:opacity-100"
             className="z-[60]"
+            label="Continue Watching"
           />
         )}
 

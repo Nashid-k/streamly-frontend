@@ -133,11 +133,18 @@ export default function HistoryPage() {
     });
   };
 
+  // "Select all visible" must mean exactly that: only the window on screen,
+  // not every filtered row across pagination. The larger scope made a
+  // destructive delete reach off-screen titles the label never mentioned.
+  // (Mirrors WatchlistPage.)
+  const allVisibleSelected =
+    visibleResults.length > 0 && visibleResults.every((m) => selectedIds.has(m.id));
+
   const handleSelectAll = () => {
-    if (selectedIds.size === filteredHistory.length) {
+    if (allVisibleSelected) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(filteredHistory.map((m) => m.id)));
+      setSelectedIds(new Set(visibleResults.map((m) => m.id)));
     }
   };
 
@@ -442,7 +449,7 @@ export default function HistoryPage() {
                   whiteSpace: "nowrap",
                 }}
               >
-                {selectedIds.size === filteredHistory.length ? "Deselect All" : "Select All"}
+                {allVisibleSelected ? "Deselect All" : "Select All"}
               </button>
               <button
                 type="button"

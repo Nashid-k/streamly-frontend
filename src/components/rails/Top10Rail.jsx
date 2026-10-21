@@ -101,8 +101,8 @@ const Top10Rail = React.memo(
 
         {inView && (
           <>
-            {canScrollLeft && <RailArrow dir="left" onClick={() => scroll("left")} />}
-            {canScrollRight && <RailArrow dir="right" onClick={() => scroll("right")} />}
+            {canScrollLeft && <RailArrow dir="left" onClick={() => scroll("left")} label="Top 10" />}
+            {canScrollRight && <RailArrow dir="right" onClick={() => scroll("right")} label="Top 10" />}
 
             <div
               ref={railRef}

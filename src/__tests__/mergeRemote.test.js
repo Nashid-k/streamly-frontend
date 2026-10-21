@@ -112,6 +112,49 @@ describe("mergeListsById (deletion tombstones)", () => {
     expect(merged[0].deletedAt).toBe(100);
   });
 
+  // The tie case: a delete and a concurrent edit can land on the SAME
+  // millisecond (or both sides can carry no timestamp at all, both → 0). A
+  // plain `>` on one scalar had no tie-break, so the tombstone lost and the
+  // item came back on the next sync.
+  it("lets a remote tombstone win when its deletedAt ties the local updatedAt", () => {
+    const merged = mergeListsById(
+      [{ id: "col-5", name: "Local", updatedAt: 1000 }],
+      [{ id: "col-5", name: "Local", deletedAt: 1000, updatedAt: 1000 }],
+    );
+    expect(merged.find((c) => c.id === "col-5").deletedAt).toBe(1000);
+  });
+
+  it("lets a remote tombstone win when neither side carries a timestamp", () => {
+    const merged = mergeListsById(
+      [{ id: "col-6", name: "Local" }],
+      [{ id: "col-6", name: "Local", deletedAt: 0 }],
+    );
+    expect(merged.find((c) => c.id === "col-6").deletedAt).toBe(0);
+  });
+
+  it("does not let a stale remote tombstone beat a newer local live copy on a tie", () => {
+    // The reverse precedence must still hold: an un-deleted item with a real
+    // newer timestamp is not overwritten by an equally-or-older tombstone.
+    const merged = mergeListsById(
+      [{ id: "col-7", name: "Revived", updatedAt: 2000 }],
+      [{ id: "col-7", name: "Old", deletedAt: 1500, updatedAt: 1500 }],
+    );
+    expect(merged.find((c) => c.id === "col-7").deletedAt).toBeUndefined();
+  });
+
+  it("GCs a tombstone whose deletedAt rides the wire as a string", () => {
+    // Legacy payloads carry string dates; the GC compared the raw field, so
+    // `Date.now() - "2020-01-01"` was NaN and the comparison was false — the
+    // tombstone never aged out.
+    const oldIso = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString();
+    const merged = mergeListsById(
+      [{ id: "col-8", name: "Ancient", deletedAt: oldIso, updatedAt: oldIso }],
+      [],
+      { pruneTombstonesMs: 30 * 24 * 60 * 60 * 1000 },
+    );
+    expect(merged).toHaveLength(0);
+  });
+
   it("GCs tombstones older than pruneTombstonesMs", () => {
     const old = Date.now() - 40 * 24 * 60 * 60 * 1000; // 40 days ago
     const merged = mergeListsById(

@@ -1,13 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { MotionFade, MotionLeaf } from "../../components/MotionLeaf";
 import { X, Check } from "lucide-react";
+import useDialogA11y from "../../hooks/useDialogA11y";
 
 /* ── Add-titles picker (from My List) ───────────────────────────────────── */
 function AddTitlesDialog({ open, candidates, assignedIds, onConfirm, onClose }) {
   const [checked, setChecked] = useState(() => new Set());
+  const panelRef = useRef(null);
   const L = new MotionLeaf();
   useEffect(() => setChecked(new Set()), [open]);
+  // Escape, Tab-trap and focus restore. The trap matters most here: this is the
+  // only one of the three collection dialogs with a scrolling list, so Tab into
+  // the page behind was easy to hit.
+  useDialogA11y(open, panelRef, onClose);
 
   const available = candidates.filter((m) => !assignedIds.has(m.id));
 
@@ -32,6 +38,8 @@ function AddTitlesDialog({ open, candidates, assignedIds, onConfirm, onClose }) 
           onClick={onClose}
         >
           <motion.div
+            ref={panelRef}
+            tabIndex={-1}
             className="collection-dialog collection-dialog--wide"
             role="dialog"
             aria-modal="true"

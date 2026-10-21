@@ -1842,10 +1842,10 @@ export default function TitleDetails() {
           {episodeLayout === 'carousel' && episodes.length > 0 && (
             <>
               {epCanLeft && (
-                <RailArrow dir="left" onClick={() => scrollEpRail('left')} revealOnHover hoverClass="group-hover/episodes:opacity-100" />
+                <RailArrow dir="left" onClick={() => scrollEpRail('left')} revealOnHover hoverClass="group-hover/episodes:opacity-100" label="Episodes" />
               )}
               {epCanRight && (
-                <RailArrow dir="right" onClick={() => scrollEpRail('right')} revealOnHover hoverClass="group-hover/episodes:opacity-100" />
+                <RailArrow dir="right" onClick={() => scrollEpRail('right')} revealOnHover hoverClass="group-hover/episodes:opacity-100" label="Episodes" />
               )}
             </>
           )}
@@ -1974,8 +1974,8 @@ export default function TitleDetails() {
               }}
               ref={directorRailRef}
             >
-              {canScrollLeft && <RailArrow dir="left" onClick={() => scrollDirector("left")} />}
-              {canScrollRight && <RailArrow dir="right" onClick={() => scrollDirector("right")} />}
+              {canScrollLeft && <RailArrow dir="left" onClick={() => scrollDirector("left")} label={movie.director ? `More from ${movie.director}` : "More titles"} />}
+              {canScrollRight && <RailArrow dir="right" onClick={() => scrollDirector("right")} label={movie.director ? `More from ${movie.director}` : "More titles"} />}
               <ErrorBoundary>
               {similar.slice(0, 8).filter(s => s.director && s.director === movie.director).slice(0, 5).map((sim, idx) => (
               <motion.div

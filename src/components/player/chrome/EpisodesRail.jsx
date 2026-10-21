@@ -46,8 +46,8 @@ export default function EpisodesRail({ episodes, episode, onSelectEpisode, setPa
         alignItems: "center",
       }}
     >
-      {canScrollLeft && <RailArrow dir="left" onClick={() => scroll("left")} />}
-      {canScrollRight && <RailArrow dir="right" onClick={() => scroll("right")} />}
+      {canScrollLeft && <RailArrow dir="left" onClick={() => scroll("left")} label="Episodes" />}
+      {canScrollRight && <RailArrow dir="right" onClick={() => scroll("right")} label="Episodes" />}
 
       <div
         ref={railRef}

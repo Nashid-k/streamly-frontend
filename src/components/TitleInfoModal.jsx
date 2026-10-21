@@ -12,6 +12,7 @@ import { useAppAuth } from "../context/auth";
 import { useOptionalPreferences } from "../context/preferences";
 import { useToast } from "./Toast";
 import { buildMetaFacts } from "../utils/metaFacts";
+import useDialogA11y from "../hooks/useDialogA11y";
 
 /* ── TitleInfoModal — Netflix-style quick info ──────────────────────
    One shared modal for every "more info" affordance: the hero banner Info button
@@ -80,23 +81,14 @@ export default function TitleInfoModal({ movie, onClose, onSelectMovie }) {
   });
   const similar = Array.isArray(similarData) ? similarData.slice(0, 20) : [];
 
-  /* Scroll lock + Escape + initial focus. handleClose is stable enough via
-     the isClosing guard that it must not rebind the key listener. */
-  useEffect(() => {
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    // preventScroll: never let focus reposition the page under the modal.
-    closeButtonRef.current?.focus?.({ preventScroll: true });
-    const onKey = (e) => {
-      if (e.key === "Escape") handleClose();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.body.style.overflow = prevOverflow;
-      document.removeEventListener("keydown", onKey);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above
-  }, []);
+  /* Scroll lock + Escape + Tab-trap + initial focus + focus restore. This modal
+     is mounted fresh per open, so the hook's "opener" capture is the control
+     that summoned it. The trap was the missing piece: Escape and initial focus
+     existed, but Tab walked out of an `aria-modal="true"` panel into the page
+     behind. */
+  useDialogA11y(true, cardRef, handleClose, {
+    initialFocus: () => closeButtonRef.current,
+  });
 
     /* Follow the global "Episode View Style" preference (Settings and the details
        page). onSelectMovie swaps the movie in place, so reset the card scroll. */

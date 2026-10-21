@@ -156,7 +156,13 @@ function Header() {
           aria-label="Go back"
           title="Go back"
           onClick={() => {
-            if (window.history.length > 1) {
+            // `window.history.length` counts the whole browser session (it
+            // includes the new-tab page and prior sites), so it was ≥2 for a
+            // deep-linked details page and navigate(-1) left the app entirely.
+            // A react-router location that was never pushed by the app keeps the
+            // literal key "default"; anything the app navigated to has a random
+            // key. So "default" means there is no in-app history to go back to.
+            if (location.key !== "default") {
               navigate(-1);
             } else {
               navigate("/");

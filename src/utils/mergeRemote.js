@@ -38,7 +38,7 @@ export function mergeListsById(local = [], remote = [], { limit, pruneTombstones
             // even staler copy, unless GC asks to drop old ones. Live items append.
       if (item.deletedAt !== undefined) {
         if (typeof pruneTombstonesMs === "number") {
-          if (Date.now() - item.deletedAt > pruneTombstonesMs) continue;
+          if (Date.now() - timestampOf(item) > pruneTombstonesMs) continue;
         }
         index.set(item.id, out.length);
         out.push(item);
@@ -46,8 +46,24 @@ export function mergeListsById(local = [], remote = [], { limit, pruneTombstones
       }
       index.set(item.id, out.length);
       out.push(item);
-    } else if (timestampOf(item) > timestampOf(out[existingIdx])) {
-      out[existingIdx] = item;
+    } else {
+      // "The newer side wins" must also honour tombstone precedence: the header
+      // promises a delete beats an older live copy, but a plain `>` on one scalar
+      // (deletedAt/updatedAt) has no tie-break, so a remote tombstone whose
+      // deletedAt EQUALS the local live copy's updatedAt (or where the live copy
+      // carries no timestamp at all — both 0) was rejected and the delete lost.
+      const incoming = timestampOf(item);
+      const current = timestampOf(out[existingIdx]);
+      const incomingDeleted = item.deletedAt !== undefined;
+      const currentDeleted = out[existingIdx]?.deletedAt !== undefined;
+      if (incomingDeleted !== currentDeleted) {
+        // A tombstone wins ties against a live copy, and vice-versa loses them.
+        if (incomingDeleted ? incoming >= current : incoming > current) {
+          out[existingIdx] = item;
+        }
+      } else if (incoming > current) {
+        out[existingIdx] = item;
+      }
     }
   }
 
@@ -56,7 +72,7 @@ export function mergeListsById(local = [], remote = [], { limit, pruneTombstones
     typeof pruneTombstonesMs === "number"
       ? out.filter(
           (item) =>
-            item?.deletedAt === undefined || Date.now() - item.deletedAt <= pruneTombstonesMs,
+            item?.deletedAt === undefined || Date.now() - timestampOf(item) <= pruneTombstonesMs,
         )
       : out;
 

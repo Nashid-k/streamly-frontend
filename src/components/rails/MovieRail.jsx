@@ -152,8 +152,8 @@ const MovieRail = React.memo(
 
         {inView && (
           <>
-            {canScrollLeft && <RailArrow dir="left" onClick={() => scroll("left")} />}
-            {canScrollRight && <RailArrow dir="right" onClick={() => scroll("right")} />}
+            {canScrollLeft && <RailArrow dir="left" onClick={() => scroll("left")} label={category.name} />}
+            {canScrollRight && <RailArrow dir="right" onClick={() => scroll("right")} label={category.name} />}
 
             <div
               ref={railRef}

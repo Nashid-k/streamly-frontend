@@ -1187,7 +1187,15 @@ setScrubDragging(true);
     // (a TV remote / HTPC that emits move events), leaving the viewer paused
     // with no Continue/Exit. A prompt is dismissed only by a real press
     // (dismissStillWatching) or its own buttons.
-    if (swIdleRef.current) clearTimeout(swIdleRef.current);
+    // Clearing is not enough: the id must be nulled too, because the re-arm
+    // guard below (and the [playing] effect) tests `swIdleRef.current` to mean
+    // "a still-watching countdown is live". A clear without the null left the
+    // ref truthy-but-dead, so the rate-limited early return below permanently
+    // buried the countdown — it never fired again until `playing` toggled.
+    if (swIdleRef.current) {
+      clearTimeout(swIdleRef.current);
+      swIdleRef.current = null;
+    }
     const now = Date.now();
     if (now - lastPokeArm.current < POKE_REARM_MIN_MS) return;
     lastPokeArm.current = now;
@@ -1242,10 +1250,15 @@ setScrubDragging(true);
     }, STILL_WATCHING_OFFER_MS);
   };
   // Reset the auto-advance streak when the viewer CHOOSES an episode (the
-  // streak only counts what the Up Next card started on its own).
-  useEffect(() => {
+  // streak only counts what the Up Next card started on its own). This must NOT
+  // be an effect on [id, season, episode]: the auto-advance path itself changes
+  // the episode prop, so a reset there zeroed the counter before the next timer
+  // read it and the binge guard could never reach STILL_WATCHING_EPISODES.
+  // Manual picks go through `chooseEpisode`; the auto path calls the ref raw.
+  const chooseEpisode = useCallback((number) => {
     swAutoAdvRef.current = 0;
-  }, [id, season, episode]);
+    onSelectEpisodeRef.current?.(number);
+  }, []);
   // Rolling 2h idle timer while playing, armed once and re-poked by `poke`.
   useEffect(() => {
     if (!playing) {
@@ -2056,7 +2069,12 @@ setScrubDragging(true);
           break;
         case "KeyK":
           e.preventDefault();
-          togglePlay();
+          // The ref, not the closed-over function: this effect binds once per
+          // panel flip, so the raw `togglePlay` here captured the mount render's
+          // `resumeOffer` (always null) — K ignored a pending "Left off at …"
+          // card while a click/Space honoured it. togglePlayRef is reassigned
+          // every render.
+          togglePlayRef.current?.();
           break;
         case "KeyJ":
           e.preventDefault();
@@ -2832,6 +2850,15 @@ setScrubDragging(true);
       setAutoLevel(false);
       if (height != null) setManualHeight(height);
     }
+    // The optimistic highlight above must be undone on EVERY bail-out that
+    // leaves the old stream playing — not only in the catch. The two early
+    // returns below (dead probe, no chosen URI) are plain returns inside the
+    // try, so they used to leave the menu row and the settings summary claiming
+    // a rung that never loaded.
+    const rollbackPick = () => {
+      setManualHeight(null);
+      setAutoLevel(metaRef.current?.masterLevels ? true : false);
+    };
     // pickDub already said "Audio -> <track>…" — don't overwrite it with "?p".
     setBuffering(true);
     poke();
@@ -2877,6 +2904,7 @@ setScrubDragging(true);
         if (!warm) warm = await probeSourcePlayable(uri, refUrl);
         if (switchTokenRef.current !== myId) return;
         if (!warm.ok) {
+          rollbackPick();
           setBuffering(false);
           setControlsVisible(true);
           return;
@@ -2887,6 +2915,7 @@ setScrubDragging(true);
       // A probe hiccup with no requested uri would reach loadSource(undefined)
       // → the worker's ?url=undefined 500. Bail to the current quality instead.
       if (!chosenUri) {
+        rollbackPick();
         setBuffering(false);
         setControlsVisible(true);
         return;
@@ -3006,8 +3035,7 @@ setScrubDragging(true);
     } catch {
       // Roll the optimistic pick back: the stream is still on the old rung, so
       // the highlight must say so.
-      setManualHeight(null);
-      setAutoLevel(metaRef.current?.masterLevels ? true : false);
+      rollbackPick();
       // A failed switch must never leave the buffering spinner stuck (the runSource
       // ERROR handler's failover re-drives its own spinner).
       setBuffering(false);
@@ -3188,8 +3216,15 @@ setScrubDragging(true);
     const target = index === 0 ? null : dubTracks[index - 1];
     if (index > 0 && !target?.uri) return;
     const meta = metaRef.current;
+    // The "Original" row must return to the SAME entry the resolver loaded:
+    // for a master source that is the multi-level master (meta.entryUrl), not
+    // `variants[0].uri` — `variants` is the per-rendition ladder, so preferring
+    // it swapped a 4K-capable master for its lowest rendition and killed ABR.
+    // Mirrors entryUrlFor() and the preview target at the top of the file.
     const targetUri =
-      index === 0 ? meta?.variants?.[0]?.uri || meta?.entryUrl : target.uri;
+      index === 0
+        ? (meta?.masterLevels ? meta?.entryUrl : meta?.variants?.[0]?.uri || meta?.entryUrl)
+        : target.uri;
     if (!targetUri) return;
     poke();
     // Prove the target manifest flows BEFORE committing the pick — NHD tokens are
@@ -3470,7 +3505,7 @@ setScrubDragging(true);
     setUpNext(null);
     setBuffering(true);
     if (onGoPrevRef.current) return onGoPrevRef.current();
-    if (navPrevNumber != null) onSelectEpisodeRef.current?.(navPrevNumber);
+    if (navPrevNumber != null) chooseEpisode(navPrevNumber);
   };
   const goEpNext = () => {
     if (nextDisabled) return;
@@ -3480,7 +3515,7 @@ setScrubDragging(true);
     setUpNext(null);
     setBuffering(true);
     if (onGoNextRef.current) return onGoNextRef.current();
-    if (navNextNumber != null) onSelectEpisodeRef.current?.(navNextNumber);
+    if (navNextNumber != null) chooseEpisode(navNextNumber);
   };
   // Keyboard episode paging reuses the same guards as the rail buttons. Shift+P
   // mirrors Netflix's Shift+P (previous episode); N mirrors Netflix's N (next).
@@ -3980,7 +4015,7 @@ const showSkipOutro = shouldShowSkipOutro({
         <UpNextCard
           upNext={ended ? upNext : null}
           upNextMs={UP_NEXT_MS}
-          onPlayNow={(n) => onSelectEpisodeRef.current?.(n)}
+          onPlayNow={(n) => chooseEpisode(n)}
           onCancel={() => setUpNext(null)}
         />
 
@@ -4468,7 +4503,7 @@ const showSkipOutro = shouldShowSkipOutro({
             <EpisodesRail 
               episodes={episodes}
               episode={episode}
-              onSelectEpisode={onSelectEpisode}
+              onSelectEpisode={chooseEpisode}
               setPanel={setPanel}
               setBuffering={setBuffering}
               setResumeOffer={setResumeOffer}
@@ -4515,7 +4550,12 @@ const showSkipOutro = shouldShowSkipOutro({
             <NetflixStillWatching
               key="still-watching"
               onContinue={() => {
-                setStillWatching(false);
+                // Route through the ref-backed dismisser, not a bare
+                // setStillWatching(false): only pointerdown normally clears
+                // `stillWatchingRef`, so a KEYBOARD/remote "Continue" left the
+                // ref true and the touch hold-to-2x guard (handleHoldStart) dead
+                // until some later pointer event.
+                dismissStillWatching();
                 swAutoAdvRef.current = 0;
                 poke();
                 const v = videoRef.current;
@@ -4526,7 +4566,7 @@ const showSkipOutro = shouldShowSkipOutro({
                 }
               }}
               onExit={() => {
-                setStillWatching(false);
+                dismissStillWatching();
                 onCloseRef.current?.();
               }}
             />

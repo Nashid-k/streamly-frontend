@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { MotionFade, MotionLeaf } from "./MotionLeaf";
 import { Check, Globe, Lock, Plus, X } from "lucide-react";
 import { useI18n } from "../i18n";
+import useDialogA11y from "../hooks/useDialogA11y";
 
 /* ── Collection picker: add/remove ONE title from ANY collection ──────────
    Shared by WatchlistPage (per-card, "Add to / remove from collection") and
@@ -30,9 +31,12 @@ function CollectionPickerDialog({ open, movie, collections, onToggle, onCreateWi
       setCreateName("");
       setCreateRefused(false);
       setCreateVisibility("private");
-      requestAnimationFrame(() => inputRef.current?.focus());
     }
   }, [open]);
+  const panelRef = useRef(null);
+  // Escape, Tab-trap and focus restore. `open && movie` because the panel only
+  // mounts when both hold (below), and the hook binds to that same condition.
+  useDialogA11y(Boolean(open && movie), panelRef, onClose);
 
   const submitCreate = (e) => {
     e.preventDefault();
@@ -69,6 +73,8 @@ function CollectionPickerDialog({ open, movie, collections, onToggle, onCreateWi
           onClick={onClose}
         >
           <motion.div
+            ref={panelRef}
+            tabIndex={-1}
             className="collection-dialog collection-dialog--wide"
             role="dialog"
             aria-modal="true"
