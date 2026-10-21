@@ -8,9 +8,11 @@
 // fullscreen). Custom hover tooltips carry keyboard badges.
 //
 // Entangled region, so it takes state/handlers as explicit props and owns only
-// presentation. The desktop hold-to-2x logic stays in the engine: this reports a
-// plain click via `onForward10` and the press/release via the hold callbacks, so
-// quick-press-vs-hold discrimination is not duplicated.
+// presentation. The desktop hold-to-2x logic stays in the engine: the forward
+// button reports a plain click via `onForward10` and the press/release via the
+// hold callbacks, so quick-press-vs-hold discrimination is not duplicated.
+// (Audio-track switching is NOT a chrome button — the design clubs it inside the
+// Settings menu, so there is no `showAudioButton` here.)
 import { motion } from "framer-motion";
 import { useMotionTokens } from "../../../constants/motion";
 import IconBtn from "./IconBtn";
@@ -27,6 +29,8 @@ import {
   IconPause,
   IconPlay,
   IconSettings,
+  IconSkipBack10,
+  IconSkipForward10,
   IconVolumeHigh,
   IconVolumeLow,
   IconVolumeMute,
@@ -77,7 +81,6 @@ export default function BottomChrome({
   panel,
   onTogglePanel,
   onToggleSettings,
-  showAudioButton,
   showSubsButton,
   isFullscreen,
   onFullscreen,
@@ -271,8 +274,24 @@ export default function BottomChrome({
         )}
       </div>
 
-      {/* Transport row: play+volume+time left, utilities right (NEW PLAYER UI-UX.html). */}
+      {/* Transport row: skip-back / play / skip-forward + volume + time left,
+          utilities right (NEW PLAYER UI-UX.html). */}
       <div className="np-transport" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        {/* Transport cluster: the ±10s buttons flank the play button. They were
+            WIRED by the engine all along (onBack10/onForward10/onForwardHold*
+            were passed and destructured) but never rendered, so desktop had no
+            rewind/forward control at all and the whole desktop hold-to-2x path
+            (desktopHoldTimerRef + the desktopHoldFiredRef guard) was unreachable
+            — the feature only ever existed on touch and on the Space key.
+            The skips are bare IconBtns: each carries its own hover disc, so they
+            need no wrapping capsule (the play button keeps its own circle). */}
+        {!IS_TOUCH && (
+          <Tooltip tip="Rewind 10 seconds" kbd="←">
+            <IconBtn size={40} label="Rewind 10 seconds" onClick={onBack10}>
+              <IconSkipBack10 size={22} />
+            </IconBtn>
+          </Tooltip>
+        )}
         <div className="np-pill np-circle-pill" style={{ ...PILL, width: playSize, height: playSize }}>
           <Tooltip tip={playing ? "Pause" : "Play"} kbd="k">
             <IconBtn size={playSize} label={playing ? "Pause" : "Play"} onClick={onTogglePlay}>
@@ -280,6 +299,25 @@ export default function BottomChrome({
             </IconBtn>
           </Tooltip>
         </div>
+        {!IS_TOUCH && (
+          <Tooltip tip="Forward 10 seconds (hold for 2×)" kbd="→">
+            {/* A quick press seeks; a sustained press arms 2x on the engine side
+                and then reports `desktopHoldFiredRef` so the click that follows
+                the release does not also seek (YouTube's behaviour). The engine
+                owns the timing; this only reports press and release. */}
+            <IconBtn
+              size={40}
+              label="Forward 10 seconds"
+              onClick={onForward10}
+              onPointerDown={onForwardHoldStart}
+              onPointerUp={onForwardHoldRelease}
+              onPointerLeave={onForwardHoldRelease}
+              onPointerCancel={onForwardHoldRelease}
+            >
+              <IconSkipForward10 size={22} />
+            </IconBtn>
+          </Tooltip>
+        )}
 
         {/* Volume: the pill widens on hover to reveal the slider (CSS-driven). */}
         <span

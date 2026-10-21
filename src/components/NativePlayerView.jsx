@@ -669,6 +669,24 @@ export default function NativePlayerView({
   // rate, never the transient 2x it is about to write).
   const playbackRateRef = useRef(playbackRate);
   playbackRateRef.current = playbackRate;
+  /* `endedRef` mirrors `ended` for the once-bound handlers (the idle timer's
+     `offerStillWatching` reads it to refuse a prompt after the credits). It was
+     declared at the top and READ at line ~1209 but never ASSIGNED, so the guard
+     was permanently `false` — the same bug class as the old `hold2xRef`. Synced
+     here, after the state it mirrors is declared. */
+  endedRef.current = ended;
+  /* The remaining mirrors below are written imperatively next to each setter,
+     but `setActiveDub(0)` in the resolve bootstrap (line ~2249) forgot its ref
+     write, so `activeDubRef` could outlive a re-resolve with a stale dub index
+     (read by the resolve loop). These render-time syncs make the refs a
+     consequence of the state rather than of every caller remembering, which
+     closes the whole class instead of the one instance. (`stillWatchingRef` is
+     declared further down with its own state, so it keeps its setter-site
+     writes.) */
+  activeDubRef.current = activeDub;
+  requestedServerRef.current = requestedServer;
+  sourceHeightRef.current = sourceHeight;
+  subtitleEnabledRef.current = subtitleEnabled;
   const sleepTimerId = useRef(null);
   const sleepDisplayId = useRef(null);
   const pipSupported =
@@ -1700,6 +1718,21 @@ setScrubDragging(true);
     if (hold2xRef.current || holdTimerRef.current) releaseHold2x();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type, id, season, episode]);
+
+  /* Pending timers on unmount. These fire long after the player is gone if left
+     armed: a HUD timeout would `setHud` on an unmounted component, a single-tap
+     timer would run the play/pause toggle against a dead element, and a desktop
+     hold timer could arm 2x on a torn-down element. (`swIdleRef` /
+     `swOfferTimerRef` have their own unmount effect above; the touch hold timer
+     is cleared by `releaseHold2x`.) */
+  useEffect(
+    () => () => {
+      if (hudTimerRef.current) clearTimeout(hudTimerRef.current);
+      if (singleTapTimer.current) clearTimeout(singleTapTimer.current);
+      if (desktopHoldTimerRef.current) clearTimeout(desktopHoldTimerRef.current);
+    },
+    [],
+  );
 
   /* Aspect ratio persists across visits (brightness is gone — the OS owns
      screen brightness; a CSS filter only broke the picture). */
@@ -3931,7 +3964,6 @@ const showSkipOutro = shouldShowSkipOutro({
             );
             poke();
           }}
-          showAudioButton={audioTrackList.length > 1}
           showSubsButton={subtitleLanguages.length > 0 || isFetchingSubtitles || subtitleError}
           isFullscreen={isFullscreen}
           onFullscreen={goFullscreen}
