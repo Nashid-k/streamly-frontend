@@ -114,6 +114,8 @@ const UP_NEXT_MS = 15000;
 // Hold-to-2x (Netflix mobile): how long the right-side hold must run before 2x
 // engages, so a normal double-tap seek never fires it.
 const HOLD_2X_DELAY_MS = 420;
+// Backstop for a hold whose release never arrives (see the safety-net effect).
+const HOLD_2X_MAX_MS = 60 * 1000;
 // "Still watching?" prompt idles that long in pause before it stops asking.
 const STILL_WATCHING_OFFER_MS = 90 * 1000;
 // Netflix resume gate: how long the "Left off at…" card waits before auto-resume.
@@ -663,6 +665,10 @@ export default function NativePlayerView({
   mutedRef.current = muted;
   const aspectRef = useRef(aspectRatioIndex);
   aspectRef.current = aspectRatioIndex;
+  // The SETTING rate, kept live for handlers bound once (a hold must restore this
+  // rate, never the transient 2x it is about to write).
+  const playbackRateRef = useRef(playbackRate);
+  playbackRateRef.current = playbackRate;
   const sleepTimerId = useRef(null);
   const sleepDisplayId = useRef(null);
   const pipSupported =
@@ -1248,12 +1254,28 @@ setScrubDragging(true);
   );
 
   // ---- Hold-to-2x (Netflix mobile): hold the right half of the screen ----
+  /* `hold2xRef` is the ONLY signal every other handler reads to answer "is a
+     2x hold live right now?" — the touch-end branch, the pause/ended/seeking
+     listeners, the volume drag, the keyup. It was declared and never assigned,
+     so it permanently read `false` and the rate restore ran on nothing:
+     releasing a hold left the element at 2x (no keyup, no tap and not even a
+     pause could bring it back — the picture played fast until the media was
+     rebuilt). One place sets it, one place clears it, so the state cannot drift
+     from the DOM rate again. */
   const engageHold2x = () => {
     const video = videoRef.current;
     if (!video || video.paused) return;
-    heldRateRef.current = video.playbackRate || 1;
+    /* The element's own rate is the truth, but a browser that paused playback
+       in the background reports `playbackRate` as 1 while the picture is still
+       the one the viewer set — keep a live mirror of the SETTING rate so a hold
+       can never latch 2x as the "rate to restore". */
+    heldRateRef.current =
+      video.playbackRate > 0 && video.playbackRate !== HOLD_SPEED
+        ? video.playbackRate
+        : playbackRateRef.current || 1;
     try {
       video.playbackRate = HOLD_SPEED;
+      hold2xRef.current = true;
       setHold2x(true);
       poke();
     } catch {
@@ -1266,6 +1288,9 @@ setScrubDragging(true);
       holdTimerRef.current = null;
     }
     holdPointerRef.current = null;
+    /* The ref is cleared FIRST: the listeners below (ratechange included) react
+       to the assignment and must see "no hold" while the restore is written. */
+    hold2xRef.current = false;
     const video = videoRef.current;
     if (video) {
       try {
@@ -1335,9 +1360,23 @@ setScrubDragging(true);
   const handleVideoTouchEnd = (e) => {
     poke();
     suppressClickRef.current = true;
-    if (hold2xRef.current || holdTimerRef.current) {
-      // A right-zone hold just ended (2x engaged or still arming): it was not a
-      // tap — swallow it so play/pause doesn't fire on release.
+    /* A right-zone press arms 2x after HOLD_2X_DELAY_MS, and that arm is still
+       PENDING for the whole of a normal tap — so on release the hold branch below
+       saw `holdTimerRef.current` set and swallowed the gesture as "not a tap".
+       Every right-third tap, single or double, was eaten: the double-tap forward
+       seek never fired, and a lone tap never toggled. Only an arm that has
+       actually engaged 2x (`hold2xRef`) is a real hold; a pending arm is just a
+       tap that has not yet become a hold. */
+    if (!hold2xRef.current) {
+      if (holdTimerRef.current) {
+        clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+        holdPointerRef.current = null;
+      }
+    }
+    if (hold2xRef.current) {
+      // A right-zone hold that reached 2x just ended: it was not a tap —
+      // swallow it so play/pause doesn't fire on release.
       handleHoldEnd();
       suppressClickRef.current = true;
       return;
@@ -1356,8 +1395,8 @@ setScrubDragging(true);
     // Swallowing every tap here made the player feel frozen on touch exactly
     // when the viewer most wanted to interact with it.
     if (buffering && zone !== "center") return;
-    // Center taps toggle playback immediately — the 260ms single-tap delay
-    // only exists where a double-tap means seek.
+    // Center taps toggle playback immediately — the single-tap delay only exists
+    // where a double-tap means seek.
     if (zone === "center") {
       if (singleTapTimer.current) {
         clearTimeout(singleTapTimer.current);
@@ -1369,7 +1408,10 @@ setScrubDragging(true);
     }
     const now = performance.now();
     const prev = touchTapRef.current;
-    if (now - prev.time < 350 && prev.zone === zone) {
+    /* DOUBLE-TAP SEEK. A double tap is two ~100ms taps, which lands well inside
+       the 400ms window below. (The right third's pending hold arm was already
+       dropped at the top of this handler — an armed 2x returned above.) */
+    if (now - prev.time < 400 && prev.zone === zone) {
       touchTapRef.current = { time: 0, zone: null };
       if (singleTapTimer.current) {
         clearTimeout(singleTapTimer.current);
@@ -1380,12 +1422,14 @@ setScrubDragging(true);
     }
     touchTapRef.current = { time: now, zone };
     // A lone edge tap waits briefly in case it becomes a double-tap seek;
-    // if nothing follows, it plays/pauses.
+    // if nothing follows, it plays/pauses. The wait is a hair longer than the
+    // double-tap window itself, so the toggle can never fire while the second
+    // tap of a deliberate double tap is still on its way.
     if (singleTapTimer.current) clearTimeout(singleTapTimer.current);
     singleTapTimer.current = setTimeout(() => {
       singleTapTimer.current = null;
       togglePlay();
-    }, 260);
+    }, 420);
   };
 
   // Vertical drag on the RIGHT THIRD = volume (brightness removed — the OS
@@ -1629,6 +1673,33 @@ setScrubDragging(true);
        undone. Only a real SETTING change re-syncs the element now; a hold
        release is releaseHold2x's business alone. */
   }, [playbackRate]);
+
+  /* Hold-to-2x safety net. The release gesture is the normal exit, but the hold
+     can be interrupted by something that never delivers a touchend for the video
+     (an OS gesture taking over, the tab going to the background, a stream that
+     dies under the finger). Without a backstop the element stays at 2x until the
+     media is rebuilt. Two independent exits: the element reporting "not playing"
+     (a stall or an episode ending) restores immediately, and a wall-clock cutoff
+     restores after HOLD_2X_MAX_MS even if the element still claims to be
+     playing. */
+  useEffect(() => {
+    if (!hold2x) return undefined;
+    const startedAt = Date.now();
+    const id = setInterval(() => {
+      const video = videoRef.current;
+      if (!video) return;
+      if (video.paused || Date.now() - startedAt >= HOLD_2X_MAX_MS) releaseHold2x();
+    }, 500);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hold2x]);
+
+  /* A new episode / title is new media: the element is rebuilt at the state rate,
+     so a hold that was live when the switch happened must not keep arming 2x. */
+  useEffect(() => {
+    if (hold2xRef.current || holdTimerRef.current) releaseHold2x();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [type, id, season, episode]);
 
   /* Aspect ratio persists across visits (brightness is gone — the OS owns
      screen brightness; a CSS filter only broke the picture). */

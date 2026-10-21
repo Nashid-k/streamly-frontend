@@ -104,8 +104,13 @@ export default function BottomChrome({
         right: 0,
         bottom: 0,
         paddingTop: IS_TOUCH ? 8 : 12,
-        paddingLeft: IS_TOUCH ? 14 : 32,
-        paddingRight: IS_TOUCH ? 14 : 32,
+        // The player element can be mirrored by the OS/app under an RTL locale
+        // (Arabic is a shipped language), which flips the INLINE axis: the
+        // physical `paddingLeft`/`paddingRight` pair then swapped sides and the
+        // whole transport row was flush against the wrong edge (the scrubber's
+        // own `padding: 0 2px` is symmetric, so only this was affected).
+        paddingInlineStart: IS_TOUCH ? 14 : 32,
+        paddingInlineEnd: IS_TOUCH ? 14 : 32,
         paddingBottom: SAFE_BOTTOM,
         background: "linear-gradient(0deg, rgba(0,0,0,0.68) 0%, rgba(0,0,0,0.28) 52%, rgba(0,0,0,0) 100%)",
         pointerEvents: visible ? "auto" : "none",

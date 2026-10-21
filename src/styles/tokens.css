@@ -199,6 +199,26 @@ button, a, input, select, textarea, [role="button"], .movie-card, .chip {
   touch-action: manipulation;
 }
 
+/* The global app font is Inter, which has NO glyphs for the player's transport
+   symbols (play/pause, skip, closed-captions). Without a symbol-capable family
+   in the stack the browser falls back to whatever font the DEVICE happens to
+   resolve — on Android Chrome the fallback for U+23F8/U+23ED/U+1F39B is the
+   colour-emoji font, so the touch transport rendered blue emoji glyphs (and, for
+   the ▶︎/⏸ variant selectors, usually nothing at all). Chrome that draws glyphs
+   through SVG uses font-family: inherit to stay in sync with the surrounding UI
+   colour, so the fallback chain has to be fixed once, here, instead of in every
+   chrome component. */
+button {
+  font-family:
+    "Inter",
+    -apple-system,
+    "Segoe UI Symbol",
+    "Apple Symbols",
+    "Noto Sans Symbols 2",
+    "Noto Sans Symbols",
+    sans-serif;
+}
+
 body {
   font-family:
     "Inter",

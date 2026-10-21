@@ -160,4 +160,39 @@ describe("Space: tap plays/pauses, hold runs 2x", () => {
     fireEvent.keyUp(window, { code: "Space", key: " " });
     expect(v.pause).not.toHaveBeenCalled();
   });
+
+  it("restores the rate when nothing is playing any more", () => {
+    // The release gesture is the normal exit, but a hold interrupted by a stream
+    // that dies under the finger never delivers one. The safety net restores the
+    // rate as soon as the element reports it is not playing.
+    vi.useFakeTimers();
+    const { container } = mount();
+    const v = stubPlaying(container);
+    fireEvent.keyDown(window, { code: "Space", key: " " });
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+    expect(v.playbackRate).toBe(2);
+    Object.defineProperty(v, "paused", { value: true, configurable: true });
+    act(() => {
+      vi.advanceTimersByTime(600); // one safety-net tick
+    });
+    expect(v.playbackRate).toBe(1);
+  });
+
+  it("restores the rate after the wall-clock backstop, even while playing", () => {
+    vi.useFakeTimers();
+    const { container } = mount();
+    const v = stubPlaying(container);
+    fireEvent.keyDown(window, { code: "Space", key: " " });
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+    expect(v.playbackRate).toBe(2);
+    // No keyup at all, and the element keeps claiming it is playing.
+    act(() => {
+      vi.advanceTimersByTime(61 * 1000);
+    });
+    expect(v.playbackRate).toBe(1);
+  });
 });

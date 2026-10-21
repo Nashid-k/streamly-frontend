@@ -822,8 +822,8 @@
   .np-right-pill {
     min-width: 0 !important;
     gap: 2px !important;
-    padding-left: 6px !important;
-    padding-right: 6px !important;
+    padding-inline-start: 6px !important;
+    padding-inline-end: 6px !important;
   }
   .np-right-pill .np-icon-btn:not([role="switch"]) {
     width: 34px !important;
