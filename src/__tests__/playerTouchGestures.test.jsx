@@ -16,6 +16,7 @@
 // timers, and gives the player's own mount-time progress a frozen baseline.
 import { describe, expect, it, beforeAll, beforeEach, afterEach, afterAll, vi } from "vitest";
 import { render, fireEvent, act } from "@testing-library/react";
+import { stubMediaElement, touches as touch } from "../test/mediaHarness";
 
 /* Mounting this 2,700-line player costs a few hundred ms on its own, and under
    the parallel full-suite load the cold import can push a single test past
@@ -72,75 +73,11 @@ const mount = async () => {
 
 /* Touch geometry in jsdom is a lie by default: getBoundingClientRect() is all
    zeros, so `zoneOf` would divide by a zero width and every gesture would be
-   ignored. Pin a real 300px-wide surface. */
-const stubSurface = (container) => {
-  const v = container.querySelector("video");
-  v.getBoundingClientRect = () => ({
-    left: 0,
-    top: 0,
-    width: 300,
-    height: 600,
-    right: 300,
-    bottom: 600,
-    x: 0,
-    y: 0,
-    toJSON: () => {},
-  });
-  let paused = false;
-  Object.defineProperty(v, "paused", {
-    get: () => paused,
-    set: (next) => {
-      paused = next;
-    },
-    configurable: true,
-  });
-  let rate = 1;
-  Object.defineProperty(v, "playbackRate", {
-    get: () => rate,
-    set: (next) => {
-      rate = next;
-    },
-    configurable: true,
-  });
-  let seeking = false;
-  Object.defineProperty(v, "seeking", {
-    get: () => seeking,
-    set: (next) => {
-      seeking = next;
-    },
-    configurable: true,
-  });
-  let current = 120;
-  Object.defineProperty(v, "currentTime", {
-    get: () => current,
-    set: (next) => {
-      current = next;
-      // Staying "seen" would make the next seek queue instead of applying.
-      seeking = false;
-    },
-    configurable: true,
-  });
-  Object.defineProperty(v, "duration", {
-    get: () => 3600,
-    set: () => {},
-    configurable: true,
-  });
-  v.play = vi.fn().mockResolvedValue(undefined);
-  v.pause = vi.fn().mockImplementation(() => {
-    paused = true;
-  });
-  /* The picture is live. The player starts at `buffering: true` and only the
-     element's own `canplay` (or a completed seek) clears it; while buffering the
-     EDGE zones are deliberately dead, so without this every edge gesture — the
-     double tap in particular — is ignored for reasons that have nothing to do
-     with the code under test. */
-  act(() => {
-    v.dispatchEvent(new Event("canplay"));
-  });
-  return v;
-};
-
-const touch = (x, y) => [{ identifier: 1, clientX: x, clientY: y }];
+   ignored. Pin a real 300px-wide surface, and let the shared harness supply the
+   rest (a live clock/rate/seeking flag plus the `canplay` that clears the
+   buffering gate — while buffering, EDGE zones are deliberately dead, so
+   without it every edge gesture is ignored for reasons unrelated to the test). */
+const stubSurface = (container) => stubMediaElement(container, { width: 300, height: 600 });
 const RIGHT = 280; // right third of 300
 const LEFT = 20; // left third
 const CENTER = 150;

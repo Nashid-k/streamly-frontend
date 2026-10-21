@@ -752,10 +752,23 @@ export default function Home({
 
     // 5. Always find better: If the pool didn't reach 7 banner-ready items,
     // backfill from any featured movie that is banner-ready.
+    //
+    // The tab filter has to be re-applied here. `globalPool` was filtered at the
+    // top of this memo, but both backfills below reach into the RAW
+    // `featuredMovies` list — so on the Movies tab a series that never qualified
+    // for `globalPool` (and vice versa) was pushed back in purely because the
+    // hero wanted a full rotation. That is how a TV show ended up headlining the
+    // Movies banner.
+    const matchesTab = (m) => {
+      if (!m) return false;
+      if (filter === "series" || filter === "tv shows") return Boolean(m.isSeries);
+      if (filter === "movies") return !m.isSeries;
+      return true;
+    };
     if (pool.length < 7 && featuredMovies.length > 0) {
       for (const fm of featuredMovies) {
         if (pool.length >= 7) break;
-        if (bannerReady(fm)) {
+        if (matchesTab(fm) && bannerReady(fm)) {
           pushToPool(fm);
         }
       }
@@ -767,7 +780,7 @@ export default function Home({
       const allCandidates = [...tabFilteredMovies, ...featuredMovies];
       for (const m of allCandidates) {
         if (pool.length >= 7) break;
-        if (m && (m.backdropUrl || m.posterUrl || m.poster)) {
+        if (matchesTab(m) && (m.backdropUrl || m.posterUrl || m.poster)) {
           pushToPool(m);
         }
       }

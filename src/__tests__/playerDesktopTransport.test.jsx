@@ -12,10 +12,11 @@
 // Desktop is "no coarse pointer", so unlike the touch suite this file does NOT
 // stub matchMedia — the real module sees hover/fine and renders the desktop bar.
 //
-// jsdom's media element is inert, so it is stubbed after mount the same way the
-// touch suite does it.
+// jsdom's media element is inert, so it is stubbed after mount via the shared
+// harness (src/test/mediaHarness.js) the same way the touch suite does it.
 import { describe, expect, it, beforeAll, beforeEach, afterEach, afterAll, vi } from "vitest";
 import { render, fireEvent, act } from "@testing-library/react";
+import { stubMediaElement } from "../test/mediaHarness";
 
 /* Mounting the full player cold can exceed vitest's 5s default under parallel
    load; the assertions are instant, the budget is for the component. */
@@ -52,58 +53,7 @@ const mount = async () => {
   );
 };
 
-/* Strip the inert jsdom media element down to the handful of surfaces the
-   transport touches: a live clock, a rate, and a seeking flag. */
-const stubMedia = (container) => {
-  const v = container.querySelector("video");
-  let paused = false;
-  Object.defineProperty(v, "paused", {
-    get: () => paused,
-    set: (next) => {
-      paused = next;
-    },
-    configurable: true,
-  });
-  let rate = 1;
-  Object.defineProperty(v, "playbackRate", {
-    get: () => rate,
-    set: (next) => {
-      rate = next;
-    },
-    configurable: true,
-  });
-  let seeking = false;
-  Object.defineProperty(v, "seeking", {
-    get: () => seeking,
-    set: (next) => {
-      seeking = next;
-    },
-    configurable: true,
-  });
-  let current = 120;
-  Object.defineProperty(v, "currentTime", {
-    get: () => current,
-    set: (next) => {
-      current = next;
-      seeking = false;
-    },
-    configurable: true,
-  });
-  Object.defineProperty(v, "duration", {
-    get: () => 3600,
-    set: () => {},
-    configurable: true,
-  });
-  v.play = vi.fn().mockResolvedValue(undefined);
-  v.pause = vi.fn().mockImplementation(() => {
-    paused = true;
-  });
-  // The bar is only interactive once the picture is live (buffering gates it).
-  act(() => {
-    v.dispatchEvent(new Event("canplay"));
-  });
-  return v;
-};
+const stubMedia = (container) => stubMediaElement(container);
 
 const advance = (ms) =>
   act(() => {
