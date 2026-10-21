@@ -85,6 +85,33 @@ describe("SettingsPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("mounts the branded switch curtain on a real language change", () => {
+    renderPage();
+
+    // Nothing before the pick.
+    expect(screen.queryByText(/switching language/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /default subtitle language, current/i }));
+    fireEvent.click(screen.getByRole("option", { name: /spanish/i }));
+
+    // The curtain is up, so the viewer is not left staring at the stale
+    // English catalogue while the refetch runs.
+    const curtain = screen.getByText(/switching language/i).closest('[role="status"]');
+    expect(curtain).toBeInTheDocument();
+    expect(curtain).toHaveAttribute("aria-busy", "true");
+  });
+
+  it("does not raise the curtain when the same language is re-picked", () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: /default subtitle language, current/i }));
+    // English is already selected — re-picking it must be a no-op, not a full
+    // catalogue refetch behind a curtain.
+    fireEvent.click(screen.getByRole("option", { name: /^English$/i }));
+
+    expect(screen.queryByText(/switching language/i)).not.toBeInTheDocument();
+  });
+
   it("offers an All tab plus every section filter, Notifications included", () => {
     renderPage();
 

@@ -9,45 +9,9 @@ import {
 import { logDebug, logInfo } from "../utils/debugLogger";
 import { PLAYER_SOURCE_LABELS } from "../constants/sources";
 import { queryClient } from "../queryClient";
+import { LANGUAGE_SENSITIVE_QUERY_PREFIXES } from "./preferencesConstants";
 const SETTING_PREFIX = "setting-";
 const LEGACY_AUTOPLAY_KEY = "streamly_autoNext";
-
-// Language change only affects TMDB-backed catalogue queries. `invalidateQueries()`
-// with an empty filter (the old behaviour) cleared EVERYTHING — playback, skip-
-// provider, ratings and collection queries included — sending those rails back to
-// the network for a data set language never touched. These first-token prefixes
-// mirror the frozen query keys in architecture.md §2–3; react-query's partial
-// deep-match turns each prefix into "every key starting with this token".
-const LANGUAGE_SENSITIVE_QUERY_PREFIXES = [
-  ["movie"],
-  ["similar"],
-  ["episodes"],
-  ["person"],
-  ["search"],
-  ["genre-search"],
-  ["genre-showcase"],
-  ["categories"],
-  ["category-fallback"],
-  ["featuredMovies"],
-  ["airing-this-week"],
-  ["trending-this-week"],
-  ["top10"],
-  ["popular"],
-  ["topRated"],
-  ["nowPlaying"],
-  ["upcoming-regional"],
-  ["airing-regional"],
-  ["new-releases"],
-  ["recommendations"],
-  ["discover"],
-  ["discover-genres"],
-  ["discover-providers"],
-  ["discover-regions"],
-  ["discover-rail"],
-  ["discover-series-upcoming"],
-  ["titleLogo"],
-  ["editorial"],
-];
 
 export { LEGACY_SERVER_NAME_MAP };
 

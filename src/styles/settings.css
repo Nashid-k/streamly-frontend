@@ -16,6 +16,61 @@
   filter: blur(8px);
 }
 
+/* ── Language-switch curtain ─────────────────────────────────────────────
+   Full-screen branded wait while the catalogue refetches in the new language.
+   Opaque and above everything (the header nav sits at a high z-index too), so
+   the viewer cannot mistake the stale previous-language page for the result. */
+.language-switch-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.1rem;
+  padding: 2rem;
+  text-align: center;
+  background: radial-gradient(
+      ellipse 60% 45% at 50% 18%,
+      var(--accent-glow, rgba(149, 255, 80, 0.13)),
+      transparent 70%
+    ),
+    #050505;
+}
+
+.language-switch-overlay__logo {
+  width: clamp(120px, 22vw, 190px);
+  height: auto;
+  margin-bottom: 0.4rem;
+  /* Brand SVG is a light mark on dark; keep it from blowing out. */
+  filter: drop-shadow(0 8px 30px rgba(0, 0, 0, 0.6));
+}
+
+.language-switch-overlay__label {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(var(--white-rgb), 0.92);
+}
+
+.language-switch-overlay__hint {
+  margin: 0;
+  max-width: 26rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: rgba(var(--white-rgb), 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .language-switch-overlay {
+    transition: none;
+  }
+}
+
+
 .settings-sections {
   display: flex;
   flex-direction: column;

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import SEO from "../components/SEO";
 import AmbientBackground from "../components/AmbientBackground";
+import LanguageSwitchOverlay from "../components/LanguageSwitchOverlay";
 import { usePreferences } from "../context/preferences";
 import { useAppAuth, useSyncStatus } from "../context/auth";
 import { useToast } from "../components/Toast.jsx";
@@ -69,6 +70,14 @@ export default function SettingsPage() {
   const [query, setQuery] = useState("");
   // Only one menu may be open at a time: null | "theme" | "seek" | "lang".
   const [openDropdown, setOpenDropdown] = useState(null);
+  // True while a language change's catalogue refetch is in flight. Drives
+  // LanguageSwitchOverlay so the viewer gets an explicit branded wait instead of
+  // being dropped onto a Home page still showing the old language's titles.
+  const [switchingLanguage, setSwitchingLanguage] = useState(false);
+  // Name of the language being switched TO, captured at pick time. `activeLang`
+  // would work too (the pref commits synchronously), but this keeps the toast
+  // text correct even if the overlay spans a preference re-sync.
+  const languageNameRef = useRef("");
 
     // Auth state comes from the context as the SINGLE source of truth. This page
     // used to keep a shadow `localUser` in useState and double-write
@@ -378,6 +387,23 @@ export default function SettingsPage() {
   return (
     <div className="settings-page min-h-screen" style={{ position: "relative" }}>
       <SEO title="Settings" description="Configure player, servers, appearance, subtitles and accounts." noindex />
+      {/* Blocking branded wait for the catalogue refetch a language change
+          triggers. Rendered last so it sits above every dropdown/row. */}
+      <AnimatePresence>
+        {switchingLanguage && (
+          <LanguageSwitchOverlay
+            active={switchingLanguage}
+            onDone={() => {
+              setSwitchingLanguage(false);
+              toast({
+                type: "success",
+                title: t("settings.toasts.defaultLanguage"),
+                message: t("settings.toasts.defaultLanguageSet", { lang: languageNameRef.current || activeLang.name }),
+              });
+            }}
+          />
+        )}
+      </AnimatePresence>
       {/* Visually-hidden results live region: announces search/tab filtering
           to screen readers without stealing focus or scroll position. */}
       <p className="sr-only" role="status" aria-live="polite">{liveSummary}</p>
@@ -1189,13 +1215,23 @@ export default function SettingsPage() {
                                     aria-selected={selected}
                                     tabIndex={selected ? 0 : -1}
                                     onClick={() => {
+                                      // No-op when re-picking the current
+                                      // language: the invalidation would refetch
+                                      // the whole catalogue for nothing.
+                                      if (l.code === defaultLanguage) {
+                                        selectFromDropdown("lang");
+                                        return;
+                                      }
                                       setPreference("defaultLanguage", l.code);
                                       selectFromDropdown("lang");
-                                      toast({
-                                        type: "success",
-                                        title: t("settings.toasts.defaultLanguage"),
-                                        message: t("settings.toasts.defaultLanguageSet", { lang: l.name }),
-                                      });
+                                      languageNameRef.current = l.name;
+                                      // Hold the viewer on a branded wait until
+                                      // the new-language catalogue lands. The
+                                      // toast fires when it settles, not now —
+                                      // "Subtitles will auto-select in Español"
+                                      // while the page is still English read as
+                                      // a lie.
+                                      setSwitchingLanguage(true);
                                     }}
                                     className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
                                       selected ? "settings-dropdown-item is-selected" : "settings-dropdown-item text-white/70 hover:text-white"
