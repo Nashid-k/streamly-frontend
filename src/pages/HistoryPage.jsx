@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { EASE_OUT } from "../constants/motion";
+import { EASE_OUT, PRESS_SCALE } from "../constants/motion";
 import { useNavigate } from "react-router-dom";
 import { Clock, X, Search, Check, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -304,7 +304,7 @@ export default function HistoryPage() {
                 onClick={() => navigate("/")}
                 className="btn btn-primary"
                 whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileTap={{ scale: PRESS_SCALE.CONTROL }}
               >
                 Discover Content
               </motion.button>

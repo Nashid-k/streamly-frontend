@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { PRESS_SCALE } from "../../constants/motion";
 import { ChevronDown } from "lucide-react";
 
 // ─── SeasonDropdown — custom styled dropdown (no native <select>) ─────────────
@@ -30,7 +31,7 @@ function SeasonDropdown({ seasons, selectedSeason, airingSeasonNumber, onSelect 
       <motion.button
         onClick={() => setOpen((o) => !o)}
         whileHover={{ borderColor: "rgba(255,255,255,0.35)" }}
-        whileTap={{ scale: 0.97 }}
+        whileTap={{ scale: PRESS_SCALE.CONTROL }}
         style={{
           display: "flex",
           alignItems: "center",

@@ -40,6 +40,7 @@ export const en = {
     clearSearch: "Clear search",
   },
   footer: {
+    shortcuts: "Keyboard shortcuts",
     tagline:
       "Streamly is an all-in-one streaming platform that brings together movies and shows from across major platforms in one place. We do not host, stream, or store any content ourselves — all titles, artwork, and metadata are sourced from TMDB and used for illustration only, and every title remains the property of its respective owners.",
   },

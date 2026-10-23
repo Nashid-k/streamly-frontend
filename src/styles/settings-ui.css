@@ -210,6 +210,18 @@ html[data-theme]:not([data-theme=default]) .settings-section::after {
   margin-bottom: 1.25rem;
 }
 
+/* grids.css turns .section-header into a one-row title/subtitle flex band for
+   the rails; the same rule leaks into these cards per-property (this sheet
+   never declared display) and at phone widths the subtitle collided with the
+   title. Scoped here: one row on desktop, subtitle wraps below on narrow ones. */
+.settings-section .section-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.15rem 1.25rem;
+}
+
 .section-title {
   font-size: 1.25rem;
   font-weight: 700;

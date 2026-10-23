@@ -1,5 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
+import { PRESS_SCALE } from "../constants/motion";
 import { AlertTriangle, Clock } from "lucide-react";
 import useDetailView from "../hooks/useDetailView";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
@@ -59,7 +60,7 @@ export default function LeavingSoonBanner({ items = [], maxDisplay = 3 }) {
             type="button"
             key={item.id || idx}
             whileHover={{ background: "rgba(255,255,255,0.06)" }}
-            whileTap={{ scale: 0.98, background: "rgba(255,255,255,0.08)" }}
+            whileTap={{ scale: PRESS_SCALE.ROW, background: "rgba(255,255,255,0.08)" }}
             onClick={() => openDetails(item)}
             style={{
               display: "flex", alignItems: "center", gap: "10px",

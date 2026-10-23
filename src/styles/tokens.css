@@ -12,7 +12,9 @@
   --text-primary: #ffffff;
   --text-secondary: #a1a1aa;
   --text-muted: #71717a;
-  --text-faint: #52525b;
+  /* --text-faint (#52525b) was removed: its only informational consumer
+     (SectionHeader subtitle) now reads --text-muted for AA contrast, and its
+     other uses were decorative glyph tints that spell the hex directly. */
   --accent-color: #95ff50;
   --accent-primary: var(--accent-color);
   --accent-secondary: #5ce21c;

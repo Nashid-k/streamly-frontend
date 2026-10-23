@@ -33,7 +33,7 @@ function Footer() {
           className="text-xs text-white/30 hover:text-white/60 underline underline-offset-2 transition-colors"
           onClick={() => window.dispatchEvent(new Event("streamly:open-shortcuts"))}
         >
-          Keyboard shortcuts
+          {t("footer.shortcuts")}
         </button>
       </div>
     </footer>

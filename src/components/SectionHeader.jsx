@@ -41,7 +41,9 @@ export default function SectionHeader({
           <span
             style={{
               fontSize: "var(--text-xs)",
-              color: "var(--text-faint)",
+              /* --text-muted, not --text-faint: this is informational copy,
+               * not a decorative wash — held to the AA contrast line. */
+              color: "var(--text-muted)",
               fontWeight: 400,
             }}
           >

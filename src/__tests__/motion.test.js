@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { SPRING, DURATION, EASE_OUT, HUD_POP, PILL_IN, CHECK_POP, FADE, MODAL_PANEL, motionSafe } from "../constants/motion";
+import { SPRING, DURATION, EASE_OUT, HUD_POP, PILL_IN, CHECK_POP, FADE, MODAL_PANEL, PRESS_SCALE, motionSafe } from "../constants/motion";
 import { SPRING as REEXPORTED } from "../constants/playerUi";
 
 /* Walks a directory for source files, so the contract tests below cover every
@@ -588,5 +588,103 @@ describe("every modal takes the shared shapes", () => {
     const block = backdrop.slice(0, backdrop.indexOf("}"));
     expect(block).toMatch(/display:\s*flex/);
     expect(block).not.toMatch(/transform:\s*translate\(-50%/);
+  });
+});
+
+describe("press feedback is one vocabulary", () => {
+  const tokensCss = readFileSync(join(process.cwd(), "src", "styles", "tokens.css"), "utf8");
+  // Comments quote the old values while explaining the change, so parse
+  // declarations only — otherwise the test would happily read a number out of
+  // a sentence describing why it was removed.
+  const declarations = tokensCss.replace(/\/\*[\s\S]*?\*\//g, "");
+  const cssRung = (name) => {
+    const match = declarations.match(new RegExp(`--press-scale${name}:\\s*([\\d.]+)\\s*;`));
+    if (!match) throw new Error(`tokens.css no longer declares --press-scale${name}`);
+    return Number(match[1]);
+  };
+
+  /* Every `whileTap={...}` in app source, with the whole expression. Brace
+     matching instead of a regex: the shapes are `{{...}}` and ternaries, so a
+     single-brace pattern silently matches nothing. */
+  function pressSites() {
+    const files = walk(join(process.cwd(), "src")).filter((f) => !/[\\/]__tests__[\\/]/.test(f));
+    const sites = [];
+    for (const file of files) {
+      const source = readFileSync(file, "utf8");
+      let from = 0;
+      for (;;) {
+        const start = source.indexOf("whileTap={", from);
+        if (start === -1) break;
+        let depth = 0;
+        let end = -1;
+        for (let i = start + "whileTap=".length; i < source.length; i += 1) {
+          if (source[i] === "{") depth += 1;
+          else if (source[i] === "}") {
+            depth -= 1;
+            if (depth === 0) {
+              end = i + 1;
+              break;
+            }
+          }
+        }
+        if (end === -1) throw new Error(`${file}: unbalanced whileTap at ${start}`);
+        sites.push({ file, body: source.slice(start, end), source });
+        from = end;
+      }
+    }
+    return sites;
+  }
+
+  const sites = pressSites();
+
+  it("keeps the JS rungs equal to the CSS rungs", () => {
+    // The stylesheet has published these three tiers since the player redesign.
+    // A JS copy that drifts means a framer button and a CSS `:active` button
+    // that sit next to each other sink by different amounts.
+    expect(PRESS_SCALE).toEqual({
+      ICON: cssRung("-icon"),
+      CONTROL: cssRung(""),
+      ROW: cssRung("-row"),
+    });
+  });
+
+  it("orders the rungs by target size, all short of a full collapse", () => {
+    expect(PRESS_SCALE.ICON).toBeLessThan(PRESS_SCALE.CONTROL);
+    expect(PRESS_SCALE.CONTROL).toBeLessThan(PRESS_SCALE.ROW);
+    expect(PRESS_SCALE.ROW).toBeLessThan(1);
+    for (const value of Object.values(PRESS_SCALE)) expect(value).toBeGreaterThan(0.9);
+  });
+
+  it("finds the press sites, so the scan cannot pass by finding nothing", () => {
+    expect(sites.length).toBeGreaterThanOrEqual(25);
+  });
+
+  it("lets no call site hand-type its own press scale", () => {
+    // The eight literals this replaced (0.88, 0.9, 0.92, 0.93, 0.95, 0.96,
+    // 0.97, 0.98) were each a small design decision nobody could find again.
+    const offenders = sites
+      .filter(({ body }) => /scale:\s*-?[\d.]/.test(body))
+      .map(({ file, body }) => `${file.replace(process.cwd(), "")}: ${body.replace(/\s+/g, " ")}`);
+    expect(offenders, `Hand-typed press scale: ${offenders.join(" | ")}`).toEqual([]);
+  });
+
+  it("only names rungs that exist", () => {
+    const used = new Set();
+    for (const { body } of sites) {
+      for (const match of body.matchAll(/PRESS_SCALE\.(\w+)/g)) used.add(match[1]);
+    }
+    const unknown = [...used].filter((name) => !(name in PRESS_SCALE));
+    expect(unknown, `Unknown press rung: ${unknown.join(", ")}`).toEqual([]);
+    expect(used.size, "No rung is used anywhere").toBeGreaterThan(0);
+  });
+
+  it("imports the rungs it names", () => {
+    const users = new Set(sites.filter(({ body }) => body.includes("PRESS_SCALE.")).map(({ file }) => file));
+    for (const file of users) {
+      const source = readFileSync(file, "utf8");
+      expect(source, `${file} names PRESS_SCALE without importing it`).toMatch(
+        /import \{[^}]*\bPRESS_SCALE\b[^}]*\} from "[^"]*constants\/motion"/,
+      );
+    }
   });
 });

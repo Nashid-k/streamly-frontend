@@ -1,5 +1,5 @@
 import SEO from "../components/SEO";
-import { EASE_OUT } from "../constants/motion";
+import { EASE_OUT, PRESS_SCALE } from "../constants/motion";
 import slugify from "slugify";
 import ErrorBoundary from "../components/ErrorBoundary";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -1115,7 +1115,7 @@ export default function Home({
                   <motion.button
                     className="hero-cta-play"
                     whileHover={{ scale: 1.04 }}
-                    whileTap={{ scale: 0.96 }}
+                    whileTap={{ scale: PRESS_SCALE.CONTROL }}
                     onClick={(e) => { e.stopPropagation(); navigate(`/watch/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`); }}
                   >
                     <Play size={20} strokeWidth={2.5} fill="currentColor" stroke="none" />
@@ -1126,7 +1126,7 @@ export default function Home({
                     <motion.button
                       className="hero-cta-secondary-icon"
                       whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.92 }}
+                      whileTap={{ scale: PRESS_SCALE.ICON }}
                       onClick={(e) => { e.stopPropagation(); toggleMyList(activeFeaturedMovie); }}
                       aria-label={isInList(activeFeaturedMovie?.id) ? t("home.hero.removeMyList") : t("home.hero.addMyList")}
                       title={isInList(activeFeaturedMovie?.id) ? t("home.hero.removeMyList") : t("home.hero.addMyList")}
@@ -1137,7 +1137,7 @@ export default function Home({
                     <motion.button
                       className="hero-cta-secondary-icon"
                       whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.92 }}
+                      whileTap={{ scale: PRESS_SCALE.ICON }}
                       aria-label={t("home.hero.moreInfo")}
                       title={t("home.hero.moreInfo")}
                       onClick={(e) => { e.stopPropagation(); openDetails(activeFeaturedMovie); }}
@@ -1158,7 +1158,7 @@ export default function Home({
                     <motion.button
                       key={i}
                       onClick={(e) => { e.stopPropagation(); setFeaturedIndex(i); }}
-                      whileTap={{ scale: 0.88 }}
+                      whileTap={{ scale: PRESS_SCALE.ICON }}
                       aria-label={`Show ${finalPool[i]?.title || `featured title ${i + 1}`}`}
                       aria-current={isActive ? "true" : undefined}
                       className={`hero-dot${isActive ? " hero-dot--active" : ""}`}

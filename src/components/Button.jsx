@@ -1,4 +1,5 @@
 import { motion, useReducedMotion } from "framer-motion";
+import { PRESS_SCALE } from "../constants/motion";
 
 export default function Button({
   children,
@@ -24,7 +25,7 @@ export default function Button({
       onClick={onClick}
       disabled={disabled}
       whileHover={disabled || reduceMotion ? undefined : { scale: 1.02 }}
-      whileTap={disabled || reduceMotion ? undefined : { scale: 0.98 }}
+      whileTap={disabled || reduceMotion ? undefined : { scale: PRESS_SCALE.CONTROL }}
       style={{
         opacity: disabled ? 0.5 : 1,
         cursor: disabled ? "not-allowed" : "pointer",

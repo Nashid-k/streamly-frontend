@@ -12,7 +12,7 @@
 // Behaviour note (do not "fix" this into an auto-jump): a wrong tail estimate is
 // always a visible button, never an unrequested seek. This seeks only on press.
 import { motion } from "framer-motion";
-import { useMotionTokens } from "../../../constants/motion";
+import { useMotionTokens, PRESS_SCALE } from "../../../constants/motion";
 import { IconSkipForward10 } from "./icons";
 import { GLASS_BG, GLASS_BLUR, GLASS_BORDER, RADIUS } from "./theme";
 
@@ -26,7 +26,7 @@ export default function SkipPill({ label, ariaLabel, title, onClick, progress = 
       aria-label={ariaLabel ?? label}
       title={title ?? ariaLabel ?? label}
       {...M.PILL_IN}
-      whileTap={{ scale: 0.97 }}
+      whileTap={{ scale: PRESS_SCALE.CONTROL }}
       style={{
         position: "absolute",
         // SAFE_BOTTOM + 96px keeps it above the transport row. The safe-area

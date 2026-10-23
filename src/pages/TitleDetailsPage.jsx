@@ -1,5 +1,5 @@
 import SEO from "../components/SEO";
-import { EASE_OUT } from "../constants/motion";
+import { EASE_OUT, PRESS_SCALE } from "../constants/motion";
 import AmbientBackground from "../components/AmbientBackground";
 import MovieDetailsSkeleton from "../components/MovieDetailsSkeleton";
 import MovieCardSkeleton from "../components/MovieCardSkeleton";
@@ -735,7 +735,7 @@ export default function TitleDetails() {
             <>
               <motion.button
                 whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileTap={{ scale: PRESS_SCALE.CONTROL }}
                 onClick={() => navigate(-1)}
                 style={{
                   background: "rgba(255,255,255,0.08)",
@@ -755,7 +755,7 @@ export default function TitleDetails() {
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileTap={{ scale: PRESS_SCALE.CONTROL }}
                 onClick={() => navigate("/")}
                 style={{
                   background: "var(--btn-bg, rgba(242,242,242,0.96))",
@@ -1225,8 +1225,8 @@ export default function TitleDetails() {
               {...L.Reveal}
             >
               Episodes {isAiring && releasedEpisodes < totalEpisodes
-                ? <span style={{ fontSize: '0.7em', color: '#52525b', fontWeight: 400 }}>({releasedEpisodes} of {totalEpisodes} released)</span>
-                : episodes.length > 0 && <span style={{ fontSize: '0.7em', color: '#52525b', fontWeight: 400 }}>({episodes.length})</span>}
+                ? <span style={{ fontSize: '0.7em', color: '#71717a', fontWeight: 400 }}>({releasedEpisodes} of {totalEpisodes} released)</span>
+                : episodes.length > 0 && <span style={{ fontSize: '0.7em', color: '#71717a', fontWeight: 400 }}>({episodes.length})</span>}
             </motion.h2>
 
             <div className="flex items-center gap-2 shrink-0 ml-auto flex-wrap">
@@ -1306,7 +1306,7 @@ export default function TitleDetails() {
               {/* Layout toggle — three icon pills */}
               <div className="inline-flex items-center gap-1 rounded-full bg-white/10 backdrop-blur-md border border-white/10 p-1" role="radiogroup" aria-label="Episode layout">
                 <motion.button
-                  whileTap={{ scale: 0.92 }}
+                  whileTap={{ scale: PRESS_SCALE.ICON }}
                   onClick={() => setEpisodeLayout('carousel')}
                   aria-pressed={episodeLayout === 'carousel'}
                   className="h-8 w-8 inline-flex items-center justify-center rounded-full transition-colors"
@@ -1319,7 +1319,7 @@ export default function TitleDetails() {
                   <GalleryHorizontal size={15} />
                 </motion.button>
                 <motion.button
-                  whileTap={{ scale: 0.92 }}
+                  whileTap={{ scale: PRESS_SCALE.ICON }}
                   onClick={() => setEpisodeLayout('grid')}
                   aria-pressed={episodeLayout === 'grid'}
                   className="h-8 w-8 inline-flex items-center justify-center rounded-full transition-colors"
@@ -1332,7 +1332,7 @@ export default function TitleDetails() {
                   <LayoutGrid size={15} />
                 </motion.button>
                 <motion.button
-                  whileTap={{ scale: 0.92 }}
+                  whileTap={{ scale: PRESS_SCALE.ICON }}
                   onClick={() => setEpisodeLayout('list')}
                   aria-pressed={episodeLayout === 'list'}
                   className="h-8 w-8 inline-flex items-center justify-center rounded-full transition-colors"
@@ -1386,7 +1386,7 @@ export default function TitleDetails() {
                   actions={
                     <motion.button
                       whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
+                      whileTap={{ scale: PRESS_SCALE.CONTROL }}
                       onClick={() => refetchEpisodes()}
                       style={{
                         background: "rgba(var(--accent-primary-rgb),0.08)",
@@ -1486,7 +1486,7 @@ export default function TitleDetails() {
                     normalizedSeasonCount > 1 && (
                       <motion.button
                         whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
+                        whileTap={{ scale: PRESS_SCALE.CONTROL }}
                         onClick={() => {
                           const currentIndex = availableSeasonNumbers.indexOf(selectedSeason);
                           const nextIndex = currentIndex >= 0
@@ -1576,7 +1576,7 @@ export default function TitleDetails() {
                           exit={{ opacity: 0, scale: 0.95, y: -8 }}
                           transition={{ duration: 0.35, delay: Math.min(idx * 0.04, 0.3), ease: [0.16, 1, 0.3, 1] }}
                           whileHover={{ y: -4 }}
-                          whileTap={playable ? { scale: 0.97 } : undefined}
+                          whileTap={playable ? { scale: PRESS_SCALE.CONTROL } : undefined}
                           role={playable ? "button" : undefined}
                           tabIndex={playable ? 0 : undefined}
                           aria-disabled={playable ? undefined : true}
@@ -1693,7 +1693,7 @@ export default function TitleDetails() {
                         exit={{ opacity: 0, x: 12 }}
                         transition={{ duration: 0.3, delay: Math.min(idx * 0.03, 0.25), ease: EASE_OUT }}
                         whileHover={{ background: 'rgba(255,255,255,0.04)' }}
-                        whileTap={playable ? { scale: 0.98 } : undefined}
+                        whileTap={playable ? { scale: PRESS_SCALE.ROW } : undefined}
                         role={playable ? "button" : undefined}
                         tabIndex={playable ? 0 : undefined}
                         aria-disabled={playable ? undefined : true}
@@ -1738,11 +1738,14 @@ export default function TitleDetails() {
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '0.25rem' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: isEpPlaying ? 'var(--accent-primary, #95ff50)' : '#52525b', fontFamily: 'monospace', flexShrink: 0 }}>E{String(ep.episodeNumber).padStart(2, '0')}</span>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: isEpPlaying ? 'var(--accent-primary, #95ff50)' : '#71717a', fontFamily: 'monospace', flexShrink: 0 }}>E{String(ep.episodeNumber).padStart(2, '0')}</span>
                               <h3 style={{ fontSize: '0.9rem', fontWeight: 600, margin: 0, color: isEpPlaying ? '#fff' : '#e4e4e7', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ep.title}</h3>
                             </div>
                           </div>
-                          <p style={{ fontSize: '0.78rem', color: spoilerFreeMode ? '#52525b' : '#71717a', fontStyle: spoilerFreeMode ? 'italic' : 'normal', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {/* Spoiler-free copy is distinguished by italics, not by
+                              dimming: #52525b (--text-faint) read as a ghost at
+                              2.9:1 against the card. */}
+                          <p style={{ fontSize: '0.78rem', color: '#71717a', fontStyle: spoilerFreeMode ? 'italic' : 'normal', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {spoilerFreeMode ? "Episode details hidden (Spoiler-Free Mode)" : ep.description}
                           </p>
                           {isWatched && (
@@ -1773,7 +1776,7 @@ export default function TitleDetails() {
                     >
                       <motion.button
                         whileHover={{ scale: 1.03, background: 'rgba(255,255,255,0.1)' }}
-                        whileTap={{ scale: 0.97 }}
+                        whileTap={{ scale: PRESS_SCALE.CONTROL }}
                         onClick={() => setVisibleEpisodeCount((prev) => Math.min(episodes.length, prev + EPISODES_CHUNK_SIZE))}
                         style={{
                           display: 'flex', alignItems: 'center', gap: '6px',
@@ -1814,7 +1817,7 @@ export default function TitleDetails() {
                     >
                       <motion.button
                         whileHover={{ scale: 1.03, background: 'rgba(255,255,255,0.1)' }}
-                        whileTap={{ scale: 0.97 }}
+                        whileTap={{ scale: PRESS_SCALE.CONTROL }}
                         onClick={() => setVisibleEpisodeCount(EPISODES_CHUNK_SIZE)}
                         style={{
                           display: 'flex', alignItems: 'center', gap: '6px',
@@ -2157,7 +2160,7 @@ export default function TitleDetails() {
                       background: "rgba(255,255,255,0.18)",
                       scale: 1.1,
                     }}
-                    whileTap={{ scale: 0.9 }}
+                    whileTap={{ scale: PRESS_SCALE.ICON }}
                     title="Close Trailer"
                   >
                     <X size={18} />

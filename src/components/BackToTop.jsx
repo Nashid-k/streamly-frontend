@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { PRESS_SCALE } from "../constants/motion";
 import { MotionLeaf } from "./MotionLeaf";
 import { ChevronUp } from "lucide-react";
 
@@ -74,7 +75,7 @@ export default function BackToTop() {
           exit={{ opacity: 0, scale: 0.7, y: 20 }}
           transition={L.Spring.LIFT}
           whileHover={{ scale: 1.1, y: -3 }}
-          whileTap={{ scale: 0.93 }}
+          whileTap={{ scale: PRESS_SCALE.ICON }}
           onClick={() => window.scrollTo({ top: 0, behavior: scrollBehavior })}
           aria-label="Back to top"
           className="back-to-top-btn"
@@ -82,7 +83,10 @@ export default function BackToTop() {
             position: "fixed",
             bottom: "calc(env(safe-area-inset-bottom, 0px) + 96px)",
             right: "1.5rem",
-            zIndex: 998,
+            /* One rung below --z-sticky, where the header and the mobile bottom
+               nav sit, so the button never paints over either — expressed as an
+               offset from the ladder instead of a magic 998. */
+            zIndex: "calc(var(--z-sticky) - 2)",
             width: "44px",
             height: "44px",
             borderRadius: "50%",

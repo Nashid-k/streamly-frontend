@@ -170,7 +170,9 @@ function ToastItem({ toast, onDismiss }) {
         style={{
           background: "transparent",
           border: "none",
-          color: "#52525b",
+          /* --text-muted, not faint: a close control someone can barely see
+             still has to be findable. */
+          color: "var(--text-muted)",
           cursor: "pointer",
           padding: "4px",
           display: "flex",
@@ -181,7 +183,7 @@ function ToastItem({ toast, onDismiss }) {
           transition: "color 0.15s",
         }}
         onMouseEnter={(e) => (e.currentTarget.style.color = "#a1a1aa")}
-        onMouseLeave={(e) => (e.currentTarget.style.color = "#52525b")}
+        onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
       >
         <X size={12} />
       </button>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useIsFetching, useIsMutating } from "@tanstack/react-query";
+import { useI18n } from "../i18n/index.jsx";
 
 /* Liquid-wave loader — three dots that flow upward in a staggered wave.
    Replaces the old dual-ring SVG spinner, which read as mechanical. The wave
@@ -52,6 +53,7 @@ function WaveDots({ dimensions, color }) {
 export default function Loader({ variant = "page", size, color }) {
   const isFetching = useIsFetching();
   const isMutating = useIsMutating();
+  const { t } = useI18n();
   const isGlobalLoading = isFetching > 0 || isMutating > 0;
 
   const [showGlobal, setShowGlobal] = useState(false);
@@ -133,7 +135,7 @@ export default function Loader({ variant = "page", size, color }) {
       {variant === "page" && (
         <div
           style={{
-            color: "#52525b",
+            color: "var(--text-muted)",
             fontSize: "0.8rem",
             fontWeight: 500,
             letterSpacing: "0.08em",
@@ -141,7 +143,7 @@ export default function Loader({ variant = "page", size, color }) {
             animation: "loader-wave 1.4s ease-in-out 0.28s infinite",
           }}
         >
-          Loading
+          {t("common.loading")}
         </div>
       )}
     </div>

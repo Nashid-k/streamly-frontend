@@ -1,4 +1,5 @@
 import { motion, useReducedMotion } from "framer-motion";
+import { PRESS_SCALE } from "../constants/motion";
 
 /**
  * Chip — shared pill filter/sort control. One source of truth for the
@@ -19,7 +20,7 @@ export default function Chip({
       type="button"
       onClick={onClick}
       whileHover={reduceMotion ? undefined : { scale: 1.05 }}
-      whileTap={reduceMotion ? undefined : { scale: 0.95 }}
+      whileTap={reduceMotion ? undefined : { scale: PRESS_SCALE.CONTROL }}
       aria-pressed={active}
       className={`chip${active ? " chip--active" : ""} ${sizeClass} ${className}`}
       {...props}

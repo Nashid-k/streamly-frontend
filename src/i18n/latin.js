@@ -9,6 +9,7 @@ export const es = {
     remove: "Quitar", play: "Reproducir", resume: "Continuar", episodes: "Episodios", seasons: "Temporadas", done: "Hecho", editList: "Editar lista", doneEditing: "Listo editando",
   },
   footer: {
+    shortcuts: "Atajos de teclado",
     tagline:
       "Streamly es una plataforma todo-en-uno que reúne películas y series de las principales plataformas en un solo lugar. No alojamos, transmitimos ni almacenamos contenido propio: todos los títulos, carteles y metadatos provienen de TMDB y se usan solo con fines ilustrativos, y cada título sigue siendo propiedad de sus respectivos dueños.",
   },
@@ -142,6 +143,7 @@ export const fr = {
     remove: "Retirer", play: "Regarder", resume: "Reprendre", episodes: "Épisodes", seasons: "Saisons", done: "Terminé", editList: "Modifier la liste", doneEditing: "Modification terminée",
   },
   footer: {
+    shortcuts: "Raccourcis clavier",
     tagline:
       "Streamly est une plateforme tout-en-un qui regroupe films et séries des principales plateformes au même endroit. Nous n'hébergeons, ne diffusons ni ne stockons aucun contenu : tous les titres, visuels et métadonnées proviennent de TMDB, sont uniquement utilisés à titre illustratif, et chaque titre demeure la propriété de ses ayants droit respectifs.",
   },
@@ -275,6 +277,7 @@ export const de = {
     remove: "Entfernen", play: "Abspielen", resume: "Fortsetzen", episodes: "Episoden", seasons: "Staffeln", done: "Fertig", editList: "Liste bearbeiten", doneEditing: "Bearbeitung beendet",
   },
   footer: {
+    shortcuts: "Tastenkombinationen",
     tagline:
       "Streamly ist eine All-in-One-Streaming-Plattform, die Filme und Serien von den großen Plattformen an einem Ort vereint. Wir hosten, streamen oder speichern selbst keine Inhalte – alle Titel, Artworks und Metadaten stammen von TMDB, dienen nur der Veranschaulichung und bleiben Eigentum ihrer jeweiligen Rechteinhaber.",
   },
@@ -410,6 +413,7 @@ export const it = {
     remove: "Rimuovi", play: "Riproduci", resume: "Riprendi", episodes: "Episodi", seasons: "Stagioni", done: "Fatto", editList: "Modifica lista", doneEditing: "Modifica terminata",
   },
   footer: {
+    shortcuts: "Scorciatoie da tastiera",
     tagline:
       "Streamly è una piattaforma streaming all-in-one che riunisce film e serie TV delle principali piattaforme in un unico posto. Non ospitiamo, trasmettiamo né immagazziniamo contenuti: tutti i titoli, le grafiche e i metadati provengono da TMDB, sono usati solo a scopo illustrativo e ogni titolo resta di proprietà dei rispettivi titolari.",
   },
@@ -544,6 +548,7 @@ export const pt = {
     remove: "Remover", play: "Reproduzir", resume: "Continuar", episodes: "Episódios", seasons: "Temporadas", done: "Concluído", editList: "Editar lista", doneEditing: "Edição concluída",
   },
   footer: {
+    shortcuts: "Atalhos do teclado",
     tagline:
       "Streamly é uma plataforma all-in-one que reúne filmes e séries das principais plataformas em um só lugar. Não hospedamos, transmitimos ou armazenamos nenhum conteúdo: todos os títulos, artes e metadados vêm da TMDB, são usados apenas para fins ilustrativos e cada título permanece de propriedade de seus respectivos donos.",
   },

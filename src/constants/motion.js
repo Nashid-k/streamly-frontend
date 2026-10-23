@@ -49,6 +49,28 @@ export const SPRING = {
   TOAST: { type: "spring", stiffness: 500, damping: 35, mass: 0.8 },
 };
 
+/* Press feedback, by target size. The CSS side has published three rungs since
+   the player redesign (`--press-scale-icon` 0.95, `--press-scale` 0.97,
+   `--press-scale-row` 0.99 in tokens.css) while 26 framer call sites hand-typed
+   their own `whileTap={{ scale }}` in eight different values, 0.88 → 0.98 —
+   including sibling icon buttons in the same row at 0.92 and 0.95. Two controls
+   that look alike answered a tap differently, and neither matched the CSS
+   buttons around them.
+
+   These three numbers therefore ARE the CSS rungs, and the motion suite asserts
+   that they stay equal: one vocabulary, one feel, whether a press is a CSS
+   `:active` or a framer `whileTap`. The rule the values encode is physical —
+   the smaller the target, the more it must move for the press to be visible;
+   a full-width row barely sinks at all. */
+export const PRESS_SCALE = {
+  /** Small icon-only targets: layout toggles, hero dots, close buttons. */
+  ICON: 0.95,
+  /** Ordinary buttons, pills, dropdown triggers, chips and cards. */
+  CONTROL: 0.97,
+  /** Full-width rows and banner rows, where a deeper sink reads as a lurch. */
+  ROW: 0.99,
+};
+
 /* Non-spring timings. Springs cover anything with weight or gesture; these
    cover fades and opacity-only work, where a spring would overshoot past 1.
    FAST/NORMAL/SLOW here are the same scale CSS publishes as --duration-fast /
