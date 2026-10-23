@@ -3,6 +3,7 @@ import { render, screen, act } from "@testing-library/react";
 import { useState } from "react";
 import { AuthProvider } from "../context/AuthContext";
 import { useAppAuth, useSyncStatus } from "../context/auth";
+import { queryClient } from "../queryClient";
 
 function TestConsumer() {
   const { user, isAuthenticated, hasAccount, requireAuth, loginWithEmail, logout } = useAppAuth();
@@ -168,6 +169,33 @@ describe("AuthContext and useAppAuth", () => {
     expect(screen.getByTestId("user-name")).toHaveTextContent("none");
     expect(localStorage.getItem("streamly_user")).toBeNull();
     expect(localStorage.getItem("streamly_sync_token")).toBeNull();
+  });
+
+  /* The query cache is part of the local library. Most of it is public
+     catalogue data, but rails such as `recommendations` are keyed on the
+     viewer's last watched title, so a signed-out device kept showing the
+     previous account's picks. */
+  it("clears cached query data on sign-out so no user-shaped cache survives", async () => {
+    localStorage.setItem(
+      "streamly_user",
+      JSON.stringify({ id: "acc-4", accountId: "acc-4", name: "Cached", email: "cached@test.com" })
+    );
+    localStorage.setItem("streamly_sync_token", "tok-4");
+    queryClient.setQueryData(["recommendations", 550], [{ id: 550 }]);
+    const clearSpy = vi.spyOn(queryClient, "clear");
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>
+    );
+
+    await act(async () => {
+      screen.getByText("Logout").click();
+    });
+
+    expect(clearSpy).toHaveBeenCalled();
+    expect(queryClient.getQueryData(["recommendations", 550])).toBeUndefined();
   });
 
   it("discards a guest library when an account is adopted, so it cannot be uploaded", async () => {

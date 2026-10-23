@@ -71,6 +71,7 @@ import {
   rescopeBoundaries,
 } from "../utils/skipMarkers";
 import { pickInitialBandwidthBits } from "../utils/streamTuning";
+import { subtitleFontFamily, findSubtitleTrack } from "../constants/settings";
 import { useOptionalPreferences } from "../context/preferences";
 import { getPreviewThumb, clearPreviewCache, resetPreviewPipeline, setPreviewSuppressed } from "../api/previewThumbs";
 import {
@@ -108,6 +109,10 @@ const HIDE_DELAY_MS = 3000;
 // surface pokes on every pointer move, so this caps timer churn at ~4/s while
 // staying far below the 3s hide delay.
 const POKE_REARM_MIN_MS = 250;
+// Fallback skip amount. The REAL amount is the viewer's "Seek Time" setting
+// (5 / 10 / 15 / 30 seconds), read from PreferencesContext below — this
+// constant used to be the only value, so the Settings dropdown changed
+// nothing and every skip jumped 10s.
 const SKIP_SECONDS = 10;
 // Netflix "Up Next" auto-play countdown for a TV episode's next installment.
 const UP_NEXT_MS = 15000;
@@ -263,6 +268,18 @@ export default function NativePlayerView({
 }) {
   const videoRef = useRef(null);
   const screenRef = useRef(null);
+  /* Viewer preferences. Read here, at the top of the component, because the
+     skip amount below is needed by handlers declared further down (and a
+     `const` declared later would be a TDZ error at those call sites).
+     `useOptionalPreferences` returns null outside a provider — the player is
+     also mounted in isolation by several test suites, and a hard
+     `usePreferences` would throw there. */
+  const prefs = useOptionalPreferences();
+  /* The skip amount the viewer chose in Settings (5 / 10 / 15 / 30 seconds).
+     It used to be a hardcoded 10, so the Settings dropdown changed nothing
+     and every skip — transport buttons, arrow keys, the touch double-tap and
+     the media-session handlers — jumped 10s regardless. */
+  const skipSeconds = Number(prefs?.seekTime) || SKIP_SECONDS;
   // HUD geometry follows the measured frame, not the window: the player is
   // often a phone-width box on a desktop viewport (and vice versa), so vw/vh
   // units and a fixed top percentage both land the overlay in the wrong place.
@@ -665,6 +682,12 @@ export default function NativePlayerView({
   mutedRef.current = muted;
   const aspectRef = useRef(aspectRatioIndex);
   aspectRef.current = aspectRatioIndex;
+  /* The skip amount, mirrored for the same reason: the keyboard map, the
+     media-session handlers and the gesture handlers are bound ONCE (see the
+     effects further down), so a plain closure would keep the amount that was
+     current when they bound and ignore a later Settings change. */
+  const skipSecondsRef = useRef(skipSeconds);
+  skipSecondsRef.current = skipSeconds;
   // The SETTING rate, kept live for handlers bound once (a hold must restore this
   // rate, never the transient 2x it is about to write).
   const playbackRateRef = useRef(playbackRate);
@@ -770,7 +793,10 @@ export default function NativePlayerView({
     poke();
     try {
       video.currentTime = 0;
-    } catch {
+    } catch (error) {
+      // A detached or not-yet-ready element refuses the write; replay still
+      // proceeds and the next `loadedmetadata` sets the position.
+      logDebug("player", "Could not reset currentTime for replay.", { message: error?.message });
     }
     setEnded(false);
     try {
@@ -900,11 +926,11 @@ setScrubDragging(true);
         // Same auto-repeat guard as the window handler: a held nudge re-targets
         // the seek on every repeat and thrashes the fragment loader.
         if (e.repeat) break;
-        seekRelative(-SKIP_SECONDS);
+        seekRelative(-skipSecondsRef.current);
         break;
       case "ArrowRight":
         if (e.repeat) break;
-        seekRelative(SKIP_SECONDS);
+        seekRelative(skipSecondsRef.current);
         break;
       case "PageDown":
         if (e.repeat) break;
@@ -1029,7 +1055,10 @@ setScrubDragging(true);
     if (!video) return;
     try {
       video.currentTime = 0;
-    } catch {
+    } catch (error) {
+      // Same detached/not-ready refusal as replay(); playback continues from
+      // wherever the element is, which is still better than a crash.
+      logDebug("player", "Could not seek to 0 on restart.", { message: error?.message });
     }
     if (video.paused) {
       video.play().catch(() => {
@@ -1448,7 +1477,7 @@ setScrubDragging(true);
         clearTimeout(singleTapTimer.current);
         singleTapTimer.current = null;
       }
-      seekRelative((zone === "left" ? -1 : 1) * SKIP_SECONDS);
+      seekRelative((zone === "left" ? -1 : 1) * skipSecondsRef.current);
       return;
     }
     touchTapRef.current = { time: now, zone };
@@ -1693,7 +1722,9 @@ setScrubDragging(true);
       try {
         video.playbackRate = playbackRate;
         heldRateRef.current = playbackRate;
-      } catch {
+      } catch (error) {
+        // Some engines reject a rate mid-seek; the next effect pass retries.
+        logDebug("player", "Could not apply playbackRate.", { message: error?.message });
       }
     }
     /* `hold2x` releasing used to fall straight into the branch above, which
@@ -1900,10 +1931,10 @@ setScrubDragging(true);
         }
       });
       navigator.mediaSession.setActionHandler("seekbackward", (d) =>
-        seekRelativeRef.current(-(d?.seekOffset || SKIP_SECONDS)),
+        seekRelativeRef.current(-(d?.seekOffset || skipSecondsRef.current)),
       );
       navigator.mediaSession.setActionHandler("seekforward", (d) =>
-        seekRelativeRef.current(d?.seekOffset || SKIP_SECONDS),
+        seekRelativeRef.current(d?.seekOffset || skipSecondsRef.current),
       );
       navigator.mediaSession.setActionHandler("seekto", (d) => {
         if (d?.seekTime == null) return;
@@ -2078,11 +2109,11 @@ setScrubDragging(true);
           break;
         case "KeyJ":
           e.preventDefault();
-          seekRelative(-SKIP_SECONDS);
+          seekRelative(-skipSecondsRef.current);
           break;
         case "KeyL":
           e.preventDefault();
-          seekRelative(SKIP_SECONDS);
+          seekRelative(skipSecondsRef.current);
           break;
         case "ArrowLeft":
           e.preventDefault();
@@ -2090,12 +2121,12 @@ setScrubDragging(true);
           // in-flight fragments, so a held arrow thrashed the relay and loaded
           // nothing until release. One seek per physical press, like Space.
           if (e.repeat) return;
-          seekRelative(-SKIP_SECONDS);
+          seekRelative(-skipSecondsRef.current);
           break;
         case "ArrowRight":
           e.preventDefault();
           if (e.repeat) return;
-          seekRelative(SKIP_SECONDS);
+          seekRelative(skipSecondsRef.current);
           break;
         case "ArrowUp":
           e.preventDefault();
@@ -2694,7 +2725,13 @@ setScrubDragging(true);
                 videoRef.current.muted = true;
                 setAutoMuted(true);
                 await videoRef.current.play();
-              } catch {
+              } catch (error) {
+                // Even muted playback was refused: the element cannot start
+                // without a gesture, so leave it paused and let the viewer press
+                // play. The log is dev-only and keeps the reason traceable.
+                logDebug("player", "Muted autoplay after a quality switch was refused.", {
+                  message: error?.message,
+                });
               }
             }
           }
@@ -3381,7 +3418,19 @@ setScrubDragging(true);
           const match =
             list.find((l) => l.languageId === remembered) ||
             list.find((l) => l.language === remembered);
-          if (match) selectSubtitle(match);
+          if (match) {
+            selectSubtitle(match);
+            return;
+          }
+        }
+        /* Auto Subtitles: "Automatically select subtitles in your preferred
+           language when available". The Settings toggle existed and nothing
+           read it, so a viewer who asked for this got no subtitles until they
+           opened the panel and picked a language by hand. Only runs when
+           nothing was remembered — an explicit past pick always wins. */
+        if (prefs?.autoSubtitles) {
+          const preferred = findSubtitleTrack(list, prefs?.defaultLanguage);
+          if (preferred) selectSubtitle(preferred);
         }
       })
       .finally(() => {
@@ -3536,7 +3585,6 @@ setScrubDragging(true);
   // this is only the viewer's choice about how to apply it (the Auto Skip Intro
   // preference, previously dead on web — it was wired in Settings but nothing
   // here ever read it).
-  const prefs = useOptionalPreferences();
   const autoSkipIntro = prefs?.autoSkipIntro === true;
 
   // Same preference the Settings page toggles ("auto-play the next episode").
@@ -3840,7 +3888,15 @@ const showSkipOutro = shouldShowSkipOutro({
         )}
         {/* Subtitle overlay — active OpenSubtitles line, bottom-anchored above
             the control chrome like CustomVideoPlayer. */}
-        <SubtitleOverlay text={activeSubtitle} controlsVisible={controlsVisible} size={subtitleSize} background={subtitleBg} />
+        <SubtitleOverlay
+          text={activeSubtitle}
+          controlsVisible={controlsVisible}
+          size={subtitleSize}
+          background={subtitleBg}
+          fontFamily={subtitleFontFamily(prefs?.subtitleFont)}
+          color={prefs?.subtitleColor || "#fff"}
+          scale={prefs?.subtitleSize}
+        />
 {/* Top bar: back + title. */}
         <ChromeTopBar
           visible={controlsVisible}
@@ -3905,7 +3961,7 @@ const showSkipOutro = shouldShowSkipOutro({
           controlsVisible={controlsVisible}
           onRewind={() => {
             poke();
-            seekRelative(-SKIP_SECONDS);
+            seekRelative(-skipSecondsRef.current);
           }}
           onTogglePlay={() => {
             poke();
@@ -3913,8 +3969,9 @@ const showSkipOutro = shouldShowSkipOutro({
           }}
           onForward={() => {
             poke();
-            seekRelative(SKIP_SECONDS);
+            seekRelative(skipSecondsRef.current);
           }}
+          skipSeconds={skipSeconds}
           onReplay={replay}
         />
         <TapToUnmutePill
@@ -3948,14 +4005,15 @@ const showSkipOutro = shouldShowSkipOutro({
           onScrubFocus={poke}
           playing={playing}
           onTogglePlay={togglePlay}
-          onBack10={() => seekRelative(-SKIP_SECONDS)}
+          onBack10={() => seekRelative(-skipSecondsRef.current)}
           onForward10={() => {
             if (desktopHoldFiredRef.current) {
               desktopHoldFiredRef.current = false;
               return;
             }
-            seekRelative(SKIP_SECONDS);
+            seekRelative(skipSecondsRef.current);
           }}
+          skipSeconds={skipSeconds}
           onForwardHoldStart={() => {
             // Arm 2x on a sustained press; the click still fires on a quick
             // press, so a hold both seeks AND speeds up (YouTube).

@@ -164,14 +164,20 @@ function readPreference(key) {
           // In-memory rename still applies for this visit.
         }
       }
-      return value;
+      /* Sanitise on READ, not only on write. A value can reach storage without
+         passing through setPreference: a hand-edited key, a value written by an
+         older build, or a settings backup applied by the Import action. Reading
+         it verbatim let an out-of-range size, an unknown theme id or a garbage
+         colour drive the UI — and the player's seek amount, which is why a
+         restored backup could make every skip jump 9e15 seconds. */
+      return sanitizePreference(key, value);
     }
 
     // The player owned this value before the Settings page existed. Preserve a
     // viewer's established autoplay preference during the migration.
     if (key === "autoplay") {
       const legacy = localStorage.getItem(LEGACY_AUTOPLAY_KEY);
-      if (legacy !== null) return legacy !== "false";
+      if (legacy !== null) return sanitizePreference(key, legacy !== "false");
     }
   } catch {
     // Storage can be unavailable in privacy-restricted browser contexts.

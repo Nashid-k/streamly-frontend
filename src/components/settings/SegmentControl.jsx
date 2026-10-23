@@ -33,6 +33,13 @@ function SegmentControl({ options, value, onChange, label }) {
   }, [value, options]);
 
   const activeIndex = options.findIndex((opt) => valueOf(opt) === value);
+  /* Roving tabindex needs exactly ONE tab stop. When `value` matches no option
+     (a stale or migrated preference), every button was `tabIndex={-1}` and the
+     whole group dropped out of the Tab order — a keyboard user could not focus
+     it at all, so the control was effectively dead for them. Fall back to the
+     first option as the tab stop; the arrow handler already starts from index 0
+     in that case. */
+  const tabStopIndex = activeIndex >= 0 ? activeIndex : 0;
 
   // ARIA radiogroup contract: Arrow keys move selection (and focus), roving
   // tabindex keeps the group a single tab stop.
@@ -79,7 +86,7 @@ function SegmentControl({ options, value, onChange, label }) {
             type="button"
             role="radio"
             aria-checked={active}
-            tabIndex={active ? 0 : -1}
+            tabIndex={i === tabStopIndex ? 0 : -1}
             onClick={() => onChange(id)}
             className={`segment-btn${active ? " segment-active" : ""}`}
           >

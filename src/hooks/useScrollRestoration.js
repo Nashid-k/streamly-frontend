@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useLocation, useNavigationType } from "react-router-dom";
+import { logDebug } from "../utils/debugLogger";
 
 const MAX_SCROLL_ENTRIES = 20;
 
@@ -39,7 +40,11 @@ function pruneScrollEntries(currentKey) {
         }
       }
     }
-  } catch {}
+  } catch (error) {
+    // Session storage is optional: a blocked store must never break paging,
+    // but a silent failure here looks like "scroll restore randomly stopped".
+    logDebug("scroll", "Could not prune saved scroll entries.", { message: error?.message });
+  }
 }
 
 export function useScrollRestoration() {

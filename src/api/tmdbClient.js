@@ -1,4 +1,5 @@
 import { logDebug, logError, logWarn } from '../utils/debugLogger';
+import { SUPPORTED_LANGUAGE_CODES } from '../constants/settings';
 
 // Direct TMDB base — used as fallback when no same-origin proxy is deployed
 // (plain static hosting, `vite preview`), and by non-browser runtimes.
@@ -47,7 +48,9 @@ function getActiveLanguage() {
       const stored = localStorage.getItem('setting-defaultLanguage');
       if (stored) {
         const lang = JSON.parse(stored);
-        if (typeof lang === 'string' && lang.trim()) return lang.trim();
+        if (typeof lang === 'string' && SUPPORTED_LANGUAGE_CODES.includes(lang.trim())) {
+          return lang.trim();
+        }
       }
     }
   } catch {

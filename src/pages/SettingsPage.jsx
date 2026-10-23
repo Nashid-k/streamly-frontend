@@ -597,10 +597,35 @@ export default function SettingsPage() {
                     <div className="setting-meta">
                       <div className="flex items-center gap-2">
                         <span className="setting-title">{t("settings.account.cloudSync")}</span>
-                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                          {t("settings.account.connected")}
-                        </span>
+                        {/* The badge is a STATUS, so it may only render when
+                            there is a status to report. It used to render
+                            unconditionally — a green pulsing "Connected" for a
+                            signed-out guest who has no account and therefore
+                            nothing connected. Silence is the honest state for
+                            a guest; the description below already tells them
+                            how to turn sync on. */}
+                        {hasAccount && (
+                          <span
+                            className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                              syncStatus === "error"
+                                ? "bg-red-500/15 text-red-300 border-red-500/30"
+                                : "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                            }`}
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                syncStatus === "error"
+                                  ? "bg-red-400"
+                                  : "bg-emerald-400 animate-pulse"
+                              }`}
+                            />
+                            {syncStatus === "syncing"
+                              ? t("settings.account.syncing")
+                              : syncStatus === "error"
+                                ? t("settings.account.syncIssue")
+                                : t("settings.account.connected")}
+                          </span>
+                        )}
                       </div>
                       <span className="setting-desc">
                         {user

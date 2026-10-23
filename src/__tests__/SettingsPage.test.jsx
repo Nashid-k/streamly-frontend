@@ -38,7 +38,7 @@ describe("SettingsPage", () => {
     expect(screen.getByText(/^detail view type$/i)).toBeInTheDocument();
     expect(screen.getByText(/^use image logos$/i)).toBeInTheDocument();
     expect(screen.getByText(/^auto skip intro$/i)).toBeInTheDocument();
-    expect(screen.getByText(/^default language$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^app & content language$/i)).toBeInTheDocument();
     // Player UI Studio is removed from settings entirely.
     expect(screen.queryByText(/player ui studio/i)).not.toBeInTheDocument();
   }, 15000);
@@ -68,10 +68,10 @@ describe("SettingsPage", () => {
     expect(localStorage.getItem("setting-theme")).toBe('"emerald"');
   });
 
-  it("changes the default subtitle language through its dropdown", () => {
+  it("changes the app and content language through its dropdown", () => {
     renderPage();
 
-    const trigger = screen.getByRole("button", { name: /default subtitle language, current/i });
+    const trigger = screen.getByRole("button", { name: /app and content language, current/i });
     expect(trigger).toHaveTextContent("English");
 
     fireEvent.click(trigger);
@@ -81,7 +81,7 @@ describe("SettingsPage", () => {
     expect(localStorage.getItem("setting-defaultLanguage")).toBe('"es"');
     expect(document.documentElement.lang).toBe("es");
     expect(
-      screen.getByRole("button", { name: /default subtitle language, current: spanish/i })
+      screen.getByRole("button", { name: /app and content language, current: spanish/i })
     ).toBeInTheDocument();
   });
 
@@ -91,7 +91,7 @@ describe("SettingsPage", () => {
     // Nothing before the pick.
     expect(screen.queryByText(/switching language/i)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /default subtitle language, current/i }));
+    fireEvent.click(screen.getByRole("button", { name: /app and content language, current/i }));
     fireEvent.click(screen.getByRole("option", { name: /spanish/i }));
 
     // The curtain is up, so the viewer is not left staring at the stale
@@ -104,7 +104,7 @@ describe("SettingsPage", () => {
   it("does not raise the curtain when the same language is re-picked", () => {
     renderPage();
 
-    fireEvent.click(screen.getByRole("button", { name: /default subtitle language, current/i }));
+    fireEvent.click(screen.getByRole("button", { name: /app and content language, current/i }));
     // English is already selected — re-picking it must be a no-op, not a full
     // catalogue refetch behind a curtain.
     fireEvent.click(screen.getByRole("option", { name: /^English$/i }));
@@ -217,6 +217,33 @@ describe("SettingsPage", () => {
     expect(screen.getByRole("button", { name: "Servers" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("heading", { name: /server order/i })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /^account$/i })).not.toBeInTheDocument();
+  });
+
+  /* Cloud Sync is a STATUS. It used to render a green, pulsing "Connected"
+     badge unconditionally — including for a signed-out guest with no account
+     and therefore nothing connected. A status that is always "Connected" is
+     not a status; it is a false claim about where the viewer's data lives. */
+  it("does not claim Cloud Sync is Connected for a signed-out guest", () => {
+    renderPage();
+
+    expect(screen.getByText(/not signed in/i)).toBeInTheDocument();
+    expect(screen.queryByText(/^connected$/i)).not.toBeInTheDocument();
+  });
+
+  it("shows the Connected badge once there is an account to sync", () => {
+    renderWithProviders(<SettingsPage />, {
+      route: "/settings",
+      authValue: {
+        user: { accountId: "acc-1", name: "Watcher", email: "watcher@test.com" },
+        hasAccount: true,
+        myList: [],
+        collections: [],
+        continueWatching: [],
+        logout: () => {},
+      },
+    });
+
+    expect(screen.getByText(/^connected$/i)).toBeInTheDocument();
   });
 });
 

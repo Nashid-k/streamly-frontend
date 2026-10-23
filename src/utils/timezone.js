@@ -92,7 +92,10 @@ function getUTCOffsetHours(timezone, date) {
         (parts[1] ? parseInt(parts[1], 10) / 60 : 0)
       );
     }
-  } catch {}
+  } catch {
+    // `timeZoneName: 'shortOffset'` is not implemented everywhere; the UTC-diff
+    // fallback below is the intended path on those engines, not an error.
+  }
   // Fallback: compute from difference between UTC and local representation
   try {
     const utcStr = date.toLocaleString('en-US', { timeZone: 'UTC' });

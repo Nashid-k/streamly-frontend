@@ -1,6 +1,7 @@
 import React from "react";
 import { IconCaptions, IconPlay, IconStop } from "./player/chrome";
 import { logDebug } from "../utils/debugLogger";
+import { subtitleFontFamily } from "../constants/settings";
 import { usePreferences } from "../context/preferences";
 
 /* ═══ PlayerPreview ═══════════════════════════════════════════════════
@@ -75,12 +76,7 @@ const PlayerPreview = ({
   } = usePreferences();
 
   const subtitleStyle = {
-    fontFamily:
-      subtitleFont === "montserrat"
-        ? "'Montserrat', sans-serif"
-        : subtitleFont === "netflix"
-          ? "'Arial', sans-serif"
-          : "'Inter', sans-serif",
+    fontFamily: subtitleFontFamily(subtitleFont),
     fontSize: `calc(clamp(11px, 1.8vw, 20px) * ${(Number(subtitleSize) || 100) / 100})`,
     color: subtitleColor,
     textShadow:

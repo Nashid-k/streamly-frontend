@@ -21,6 +21,7 @@ import { mergeListsById } from "../utils/mergeRemote";
 import { logDebug, logError, logWarn } from "../utils/debugLogger";
 import { morphCollections } from "../hooks/collectionMorph";
 import { readPreferencesSnapshot, applyRemotePreferences } from "../utils/preferencesSnapshot";
+import { queryClient } from "../queryClient";
 import SignInDialog from "../components/auth/SignInDialog";
 
 const SYNC_TOKEN_KEY = "streamly_sync_token";
@@ -191,6 +192,7 @@ const GATED_MUTATIONS = {
   deleteCollection: "gateCollections",
   addToCollection: "gateCollections",
   removeFromCollection: "gateCollections",
+  removeBatchFromCollection: "gateCollections",
   toggleInCollection: "gateCollections",
   setCollectionVisibility: "gateCollections",
   removeFromContinueWatching: "gateHistory",
@@ -272,9 +274,27 @@ function discardLocalLibrary() {
     } catch {
       /* Private-mode storage refusal must not block the sign-in. */
     }
-    window.dispatchEvent(new Event(event));
+    // `detail.replace` marks this as a WIPE, not a merge. The list readers
+    // union incoming rows with the ones they already hold, so announcing a
+    // wipe with a plain event merged an empty list into the current state and
+    // changed nothing — the previous account's watchlist, history and
+    // collection names stayed on screen until a full page reload.
+    window.dispatchEvent(new CustomEvent(event, { detail: { replace: true } }));
   }
   logDebug("auth", "Local library discarded — this device starts the next session with no inherited rows.");
+  /* Cached query data is part of the local library too. Most of the cache is
+     public catalogue data, but rails such as `recommendations` are keyed on the
+     viewer's last watched title, so leaving the cache alone showed the previous
+     account's picks to the next person on the device. Sign-out and account
+     change are rare enough that refetching the public rails is the right price
+     for a clean handover. */
+  try {
+    queryClient.clear();
+  } catch (error) {
+    logWarn("auth", "Could not clear the query cache while discarding the local library.", {
+      message: error?.message,
+    });
+  }
 }
 
   /**
@@ -303,7 +323,13 @@ function discardLocalLibrary() {
     if (syncToken) {
       try {
         localStorage.setItem(SYNC_TOKEN_KEY, syncToken);
-      } catch {}
+      } catch (error) {
+        // Private-mode storage refusal: the session still works this visit, but
+        // the next load will need a fresh sign-in. Worth a warning.
+        logWarn("auth", "Could not persist the sync token — this session will not survive a reload.", {
+          message: error?.message,
+        });
+      }
     }
     window.dispatchEvent(new Event("aios_user_sync"));
   }, []);

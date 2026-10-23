@@ -3,6 +3,7 @@ import { en } from "./en.js";
 import { es, fr, de, it, pt } from "./latin.js";
 import { ja, ko, hi, ar } from "./script.js";
 import { useOptionalPreferences } from "../context/preferences";
+import { SUPPORTED_LANGUAGE_CODES } from "../constants/settings";
 
 /* ── Streamly i18n ────────────────────────────────────────────────────────
    Lightweight, dependency-free translation layer. The catalogs in
@@ -12,7 +13,7 @@ import { useOptionalPreferences } from "../context/preferences";
    <html lang> + dir (rtl for Arabic). Outside a provider useI18n() resolves to
    English, which is what keeps isolated tests/stories stable. */
 
-const SUPPORTED_LANGUAGES = ["en", "es", "fr", "de", "it", "pt", "ja", "ko", "hi", "ar"];
+const SUPPORTED_LANGUAGES = SUPPORTED_LANGUAGE_CODES;
 
 const DICTIONARIES = { en, es, fr, de, it, pt, ja, ko, hi, ar };
 

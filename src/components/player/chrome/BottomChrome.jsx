@@ -66,6 +66,11 @@ export default function BottomChrome({
   onForward10,
   onForwardHoldStart,
   onForwardHoldRelease,
+  /* The skip amount actually applied, in seconds. The buttons used to say
+     "10 seconds" unconditionally, so a viewer who set Seek Time to 30 got a
+     30-second jump from a button labelled 10 — the label has to name what
+     the control does. */
+  skipSeconds = 10,
   muted,
   volume,
   volHover,
@@ -286,8 +291,8 @@ export default function BottomChrome({
             The skips are bare IconBtns: each carries its own hover disc, so they
             need no wrapping capsule (the play button keeps its own circle). */}
         {!IS_TOUCH && (
-          <Tooltip tip="Rewind 10 seconds" kbd="←">
-            <IconBtn size={40} label="Rewind 10 seconds" onClick={onBack10}>
+          <Tooltip tip={`Rewind ${skipSeconds} seconds`} kbd="←">
+            <IconBtn size={40} label={`Rewind ${skipSeconds} seconds`} onClick={onBack10}>
               <IconSkipBack10 size={22} />
             </IconBtn>
           </Tooltip>
@@ -300,14 +305,14 @@ export default function BottomChrome({
           </Tooltip>
         </div>
         {!IS_TOUCH && (
-          <Tooltip tip="Forward 10 seconds (hold for 2×)" kbd="→">
+          <Tooltip tip={`Forward ${skipSeconds} seconds (hold for 2×)`} kbd="→">
             {/* A quick press seeks; a sustained press arms 2x on the engine side
                 and then reports `desktopHoldFiredRef` so the click that follows
                 the release does not also seek (YouTube's behaviour). The engine
                 owns the timing; this only reports press and release. */}
             <IconBtn
               size={40}
-              label="Forward 10 seconds"
+              label={`Forward ${skipSeconds} seconds`}
               onClick={onForward10}
               onPointerDown={onForwardHoldStart}
               onPointerUp={onForwardHoldRelease}

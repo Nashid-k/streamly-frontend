@@ -36,6 +36,10 @@ export default function CenterStack({
   onTogglePlay,
   onForward,
   onReplay,
+  /* The skip amount actually applied, in seconds — the centre buttons used to
+     say "10 seconds" unconditionally, which lied once Seek Time was
+     configurable. */
+  skipSeconds = 10,
 }) {
   const M = useMotionTokens();
   return (
@@ -139,8 +143,8 @@ export default function CenterStack({
               e.stopPropagation();
               onRewind();
             }}
-            aria-label="Rewind 10 seconds"
-            title="Rewind 10 seconds"
+            aria-label={`Rewind ${skipSeconds} seconds`}
+            title={`Rewind ${skipSeconds} seconds`}
             style={{
               position: "relative",
               width: IS_TOUCH ? 74 : 78,
@@ -207,8 +211,8 @@ export default function CenterStack({
               e.stopPropagation();
               onForward();
             }}
-            aria-label="Fast forward 10 seconds"
-            title="Fast forward 10 seconds"
+            aria-label={`Fast forward ${skipSeconds} seconds`}
+            title={`Fast forward ${skipSeconds} seconds`}
             style={{
               position: "relative",
               width: IS_TOUCH ? 74 : 78,

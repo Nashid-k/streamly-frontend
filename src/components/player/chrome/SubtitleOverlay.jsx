@@ -7,18 +7,37 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useMotionTokens } from "../../../constants/motion";
 
-export default function SubtitleOverlay({ text, controlsVisible, size = 1, background = 1 }) {
+export default function SubtitleOverlay({
+  text,
+  controlsVisible,
+  size = 1,
+  background = 1,
+  /* The viewer's Settings subtitle style. The player used to hardcode the
+     family and the colour and ignore the Settings controls entirely — the
+     Font / Text Size / Text Color rows changed the SETTINGS PREVIEW and
+     nothing else, so the real player disagreed with the preview on every
+     caption. `scale` is the Settings size percentage; it composes with the
+     in-player S/M/L index. */
+  fontFamily,
+  color = "#fff",
+  scale = 100,
+}) {
   // A leaf that is rendered outside the engine, so it resolves the motion
   // preference itself — a cue cross-fade must collapse to a cut under reduced
   // motion like every other player surface.
   const M = useMotionTokens(useReducedMotion());
   // Styling comes from the provider-parity "Subtitle style" menu: size 0/1/2
   // scales the clamp range, background 0/1/2 picks none / drop-shadow / solid box.
-  const fontSize = [
+  const sizeScale = (Number(scale) || 100) / 100;
+  const baseFontSize = [
     "clamp(13px, 2.1vw, 20px)",
     "clamp(16px, 2.6vw, 26px)",
     "clamp(19px, 3.2vw, 34px)",
   ][size] || "clamp(16px, 2.6vw, 26px)";
+  const fontSize =
+    sizeScale === 1
+      ? baseFontSize
+      : `calc(${baseFontSize} * ${sizeScale.toFixed(2)})`;
   const textShadow =
     background === 0 ? "none" : "0 2px 6px rgba(0,0,0,0.95), 0 0 2px rgba(0,0,0,0.9)";
   const boxStyle =
@@ -49,7 +68,8 @@ export default function SubtitleOverlay({ text, controlsVisible, size = 1, backg
             lineHeight: 1.4,
             fontSize,
             fontWeight: 700,
-            color: "#fff",
+            fontFamily,
+            color,
             whiteSpace: "pre-line",
             textShadow,
             WebkitTextStroke: "0 0 transparent",

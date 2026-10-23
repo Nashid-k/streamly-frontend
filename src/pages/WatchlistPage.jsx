@@ -201,6 +201,7 @@ export default function WatchlistPage() {
     deleteCollection,
     addToCollection,
     removeFromCollection,
+    removeBatchFromCollection,
     toggleInCollection,
     setCollectionVisibility,
   } = useAppAuth();
@@ -350,6 +351,13 @@ export default function WatchlistPage() {
 
   useEffect(() => {
     setVisibleCount(20);
+    /* A selection is a statement about the rows ON SCREEN. Changing the
+       filter, the sort, the search or the collection changes those rows, so
+       the selection must go with them. It used to survive: select 5 rows, pick
+       a different Type, and the grid showed nothing selected while the bar
+       still said "5 selected" — and Delete then removed 5 rows that were no
+       longer visible, including ones the viewer had never seen. */
+    setSelectedIds(new Set());
     window.scrollTo({ top: 0, behavior: "auto" });
   }, [filterType, sortBy, searchQuery, activeCollectionId]);
 
@@ -374,6 +382,8 @@ export default function WatchlistPage() {
   }, [filteredAndSortedList.length]);
 
   const visibleResults = filteredAndSortedList.slice(0, visibleCount);
+
+  const inCollectionView = Boolean(activeCollection);
 
   const handleRemove = (e, movie) => {
     e.preventDefault();
@@ -486,7 +496,15 @@ export default function WatchlistPage() {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
     let removed = true;
-    if (removeBatchFromMyList) {
+    /* The screen decides what "delete" means, and in a collection it means
+       "take these out of THIS COLLECTION" — the per-card ✕ on the same rows
+       does exactly that. The bulk path used to always call
+       removeBatchFromMyList, which tombstones the My List entry, so tidying a
+       collection silently destroyed the user's My List too (and the toast
+       claimed "removed from your list" while a collection was on screen). */
+    if (inCollectionView) {
+      removed = removeBatchFromCollection(activeCollection.id, ids) !== false;
+    } else if (removeBatchFromMyList) {
       removed = removeBatchFromMyList(ids) !== false;
     } else {
       removed = ids.every((id) => {
@@ -497,7 +515,9 @@ export default function WatchlistPage() {
     if (!removed) return;
     toast({
       title: "Items Removed",
-      message: `Removed ${ids.length} item${ids.length > 1 ? "s" : ""} from your list.`,
+      message: inCollectionView
+        ? `Removed ${ids.length} item${ids.length > 1 ? "s" : ""} from "${activeCollection.name}".`
+        : `Removed ${ids.length} item${ids.length > 1 ? "s" : ""} from your list.`,
       type: "info",
       duration: 2500,
     });
@@ -505,7 +525,6 @@ export default function WatchlistPage() {
     setIsSelectMode(false);
   };
 
-  const inCollectionView = Boolean(activeCollection);
   const assignedIds = useMemo(
     () => new Set(activeCollection?.itemIds || []),
     [activeCollection],

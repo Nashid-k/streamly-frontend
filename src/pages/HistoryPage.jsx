@@ -64,8 +64,15 @@ export default function HistoryPage() {
   // Reset the window for a NEW search; when the list merely changes length
   // (a delete or a failed-view reorder) only clamp, so removing one row never
   // snaps the rows already on screen back to 20.
+  //
+  // A selection is a statement about the rows ON SCREEN, so it goes when the
+  // search changes. It used to survive: select 5 rows, type a new search, and
+  // the grid showed nothing selected while the bar still said "5 selected" —
+  // and Delete then removed 5 rows that were no longer visible. (Mirrors
+  // WatchlistPage.)
   useEffect(() => {
     setVisibleCount(20);
+    setSelectedIds(new Set());
   }, [searchQuery]);
 
   useEffect(() => {

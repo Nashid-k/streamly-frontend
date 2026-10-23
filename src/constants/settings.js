@@ -58,6 +58,12 @@ export const LANGUAGES = [
   { code: "ar", name: "Arabic", flag: "flags/sa.svg" },
 ];
 
+/* The app's language codes, derived so the i18n provider and the API client
+   cannot drift apart. The API client used to trust `setting-defaultLanguage`
+   verbatim and send it to TMDB as `language=`, so a corrupt or hand-edited key
+   produced a catalogue request in a language nobody supports. */
+export const SUPPORTED_LANGUAGE_CODES = Object.freeze(LANGUAGES.map((l) => l.code));
+
 export const SEEK_TIMES = [
   { value: 5, label: "5 seconds" },
   { value: 10, label: "10 seconds" },
@@ -78,6 +84,38 @@ export const SUBTITLE_COLORS = [
   { name: "Magenta", value: "#ff00ff" },
   { name: "Emerald", value: "#95ff50" },
 ];
+
+/* The CSS family for a subtitle font id. Shared by the Settings preview and
+   the REAL player: both used to carry their own copy of this mapping, and the
+   player did not apply it at all, so the preview promised a font the player
+   never used. Unknown ids fall back to the default face rather than to
+   `undefined` (which would make the browser pick its own default and look
+   like a broken style). */
+export function subtitleFontFamily(id) {
+  const match = SUBTITLE_FONTS.find((f) => f.id === id);
+  return match?.family || SUBTITLE_FONTS[0].family;
+}
+
+/* The OpenSubtitles track that matches an app language code.
+   The track carries a language NAME ("English") and an ISO 639-2 id ("eng");
+   the app carries the 2-letter code ("en"). Both spellings are tried, because
+   the catalogue is inconsistent about which one it returns. */
+export function findSubtitleTrack(languages, code) {
+  const list = Array.isArray(languages) ? languages : [];
+  const wanted = String(code || "").trim().toLowerCase();
+  if (!wanted) return null;
+  const name = LANGUAGES.find((l) => l.code === wanted)?.name?.toLowerCase();
+  if (!name) return null;
+  const byName = list.find(
+    (l) => String(l.language || "").trim().toLowerCase() === name,
+  );
+  if (byName) return byName;
+  return (
+    list.find((l) =>
+      String(l.languageId || "").trim().toLowerCase().startsWith(wanted),
+    ) || null
+  );
+}
 
 /* DERIVED from the live catalogue, never hand-listed, so adding or retiring a
    server renumbers this automatically. It used to be a hardcoded Server 1–4 and

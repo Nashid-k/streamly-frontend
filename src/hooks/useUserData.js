@@ -47,6 +47,24 @@ function dispatch(name) {
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(name));
 }
 
+/* A WIPE is not a merge.
+   `aios_sync_*` normally means "some other writer touched this list" — another
+   tab, or a cloud pull — and the correct response is the timestamp-aware union
+   in mergeListsById. Sign-out and account adoption mean the opposite: the rows
+   belong to a DIFFERENT person and must be replaced, not merged with.
+
+   The distinction matters because a union with an empty list is a no-op: the
+   merge starts from the current state and only ever ADDS, so wiping storage and
+   announcing it left the previous account's watchlist, history and collection
+   names on screen until a full page reload. The wipe therefore announces itself
+   with `detail.replace`, and the readers below honour it.
+
+   A plain `storage` event (another tab wrote) carries no detail, so it keeps
+   the merge behaviour. */
+function isReplaceSignal(event) {
+  return event?.detail?.replace === true;
+}
+
 /* Legacy payloads can carry string timestamps; coerce before any comparison
    (raw strings otherwise outrank every number in a JS compare). */
 function toMillis(value) {
@@ -71,10 +89,13 @@ export function useMyList() {
   const [myListState, setMyListState] = useState(() => readStorage('aios_my_list'));
 
   useEffect(() => {
-    const sync = () =>
-      setMyListState((current) =>
-        mergeStoredList(current, readStorage('aios_my_list'), { pruneTombstonesMs: TOMBSTONE_TTL_MS }),
-      );
+    const sync = (event) =>
+      setMyListState((current) => {
+        const incoming = readStorage('aios_my_list');
+        // Sign-out / account switch: the rows are not ours. Replace, don't merge.
+        if (isReplaceSignal(event)) return incoming;
+        return mergeStoredList(current, incoming, { pruneTombstonesMs: TOMBSTONE_TTL_MS });
+      });
     window.addEventListener('aios_sync_mylist', sync);
     window.addEventListener('storage', sync);
     return () => { window.removeEventListener('aios_sync_mylist', sync); window.removeEventListener('storage', sync); };
@@ -178,8 +199,14 @@ export function useMyCollections() {
   const [collections, setCollections] = useState(() => morphCollections(readStorage(COLLECTIONS_KEY)));
 
   useEffect(() => {
-    const sync = () =>
-      setCollections((current) => mergeStoredCollections(current, readStorage(COLLECTIONS_KEY)));
+    const sync = (event) =>
+      setCollections((current) => {
+        const incoming = morphCollections(readStorage(COLLECTIONS_KEY));
+        // Sign-out / account switch: the collection NAMES are the previous
+        // account's. Replace, don't merge.
+        if (isReplaceSignal(event)) return incoming;
+        return mergeStoredCollections(current, incoming);
+      });
     window.addEventListener(COLLECTIONS_SYNC, sync);
     window.addEventListener('storage', sync);
     return () => {
@@ -286,6 +313,28 @@ export function useMyCollections() {
     );
   }, [commitCollections]);
 
+  /* Bulk sibling of removeFromCollection.
+     A collection holds only REFERENCES to My List entries, so removing titles
+     from a collection must touch the collection's itemIds and nothing else —
+     the titles stay in My List. The bulk path used to call removeBatchFromMyList
+     instead, which tombstones the My List entry, so a bulk delete inside a
+     collection silently destroyed the user's My List as well (and the toast
+     said "removed from your list" while the screen showed a collection). */
+  const removeBatchFromCollection = useCallback((id, movieIds) => {
+    const idSet = new Set(Array.isArray(movieIds) ? movieIds : []);
+    if (idSet.size === 0) return;
+    commitCollections(
+      collectionsRef.current.map((c) => {
+        if (c.id !== id) return c;
+        return {
+          ...c,
+          itemIds: c.itemIds.filter((mid) => !idSet.has(mid)),
+          updatedAt: Date.now(),
+        };
+      }),
+    );
+  }, [commitCollections]);
+
   const toggleInCollection = useCallback((id, movieId) => {
     const col = collectionsRef.current.find((c) => c.id === id);
     if (!col) return;
@@ -328,6 +377,7 @@ export function useMyCollections() {
       deleteCollection,
       addToCollection,
       removeFromCollection,
+      removeBatchFromCollection,
       toggleInCollection,
       setCollectionVisibility,
       publicCollections,
@@ -341,6 +391,7 @@ export function useMyCollections() {
       deleteCollection,
       addToCollection,
       removeFromCollection,
+      removeBatchFromCollection,
       toggleInCollection,
       setCollectionVisibility,
       publicCollections,
@@ -358,14 +409,18 @@ export function useContinueWatching() {
   const sortByLastWatched = useCallback((a, b) => toMillis(b.lastWatched) - toMillis(a.lastWatched), []);
 
   useEffect(() => {
-    const sync = () =>
-      setCwState((current) =>
-        mergeStoredList(current, readStorage('aios_continue_watching'), {
+    const sync = (event) =>
+      setCwState((current) => {
+        const incoming = readStorage('aios_continue_watching');
+        // Sign-out / account switch: the watch history is the previous
+        // account's. Replace, don't merge.
+        if (isReplaceSignal(event)) return incoming;
+        return mergeStoredList(current, incoming, {
           limit: 20,
           pruneTombstonesMs: TOMBSTONE_TTL_MS,
           sortBy: sortByLastWatched,
-        }),
-      );
+        });
+      });
     window.addEventListener('aios_sync_cw', sync);
     window.addEventListener('storage', sync);
     return () => { window.removeEventListener('aios_sync_cw', sync); window.removeEventListener('storage', sync); };

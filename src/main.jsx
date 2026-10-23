@@ -28,7 +28,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { HelmetProvider } from "react-helmet-async";
 import { Analytics } from "@vercel/analytics/react";
 import { queryClient } from "./queryClient";
-import { initGlobalErrorLogging, logBootDiagnostics } from "./utils/debugLogger";
+import { initGlobalErrorLogging, logBootDiagnostics, logDebug } from "./utils/debugLogger";
 import { shouldAttemptRecovery, clearRuntimeCaches } from "./utils/chunkRecovery";
 
 // Boot diagnostics — always visible in the console so "nothing loads" is
@@ -98,18 +98,31 @@ if ('serviceWorker' in navigator) {
         });
         setInterval(() => {
           if (document.visibilityState !== 'visible') return;
-          reg.update().catch(() => {});
+          reg.update().catch((error) => {
+            logDebug("sw", "Background service worker update check failed.", { message: error?.message });
+          });
         }, 60000);
         document.addEventListener('visibilitychange', () => {
-          if (document.visibilityState === 'visible') reg.update().catch(() => {});
+          if (document.visibilityState !== 'visible') return;
+          reg.update().catch((error) => {
+            logDebug("sw", "Service worker update check on focus failed.", { message: error?.message });
+          });
         });
-      } catch {}
+      } catch (error) {
+        // Service workers are an enhancement (offline shell). A browser that
+        // refuses registration must not break app boot; log it so "why does
+        // offline not work here" has an answer.
+        logDebug("sw", "Service worker registration failed.", { message: error?.message });
+      }
     });
   } else {
     navigator.serviceWorker.getRegistrations().then((registrations) => {
       for (const reg of registrations) {
         reg.unregister();
       }
-    }).catch(() => {});
+    }).catch((error) => {
+      // Unregistering stale workers is best-effort cleanup (dev builds).
+      logDebug("sw", "Could not unregister stale service workers.", { message: error?.message });
+    });
   }
 }
