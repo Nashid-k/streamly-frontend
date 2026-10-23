@@ -506,11 +506,14 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
   log every `error` + empty-data state via `reportQueryError`/`logEmptyData`.
 - `src/components/` — reusable UI (`@/components`). `index.js` categorized barrel. Rail primitives
   (`CastRail`, `DiscoveryRails`, `ContinueWatchingRail`, `GenreShowcase`, `LeavingSoonBanner`),
-  cards (`MovieCard`), player subsystem (`CustomVideoPlayer`, `PlayerPreview`,
+  cards (`MovieCard`), player subsystem (`PlayerPreview`,
   `ProviderEmbedPlayer` — the provider-embed iframe player,
-  `YoutubeRawTrailer`, and `player/` leaf subfolder — `ArcRing`, `LoadingArc`,
-  `NetflixVolumeHUD`, `NetflixBrightnessHUD`, `NetflixAspectHUD`,
-  `NetflixSeekHUD`, `index.js`),
+  `YoutubeRawTrailer`, `NativePlayerView` — the native playback engine, and
+  `player/` — the engine's pure interaction helpers (`nativePlayerHelpers.js`:
+  the transport clock, quality-ladder dedupe/ordering and tap zones;
+  `nativePlayerGestures.js`: tap-vs-hold arbitration and its timings;
+  `nativePlayerKeys.js`: the keyboard action map), the extracted chrome under
+  `player/chrome/`, and the transient HUDs (`Netflix*HUD`, `index.js`)),
   feature-grouped subfolders (`browse/` — `FilterPill`, `MenuItem`, `SearchField`,
   `PillAction`; `detail/` — `SeasonDropdown`,
   `ProductionCompaniesBlock`; `rails/` — `FadeInSection`, `MovieRail`, `Top10Rail`,

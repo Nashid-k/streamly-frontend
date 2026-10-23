@@ -28,7 +28,6 @@ import {
 } from "./player";
 import NetflixStillWatching from "./NetflixStillWatching";
 import Hls from "hls.js";
-import { variantLabel } from "../utils/hlsPlaylist";
 import { createStreamlyLoader, probeSourcePlayable } from "../api/nativeHlsLoader";
 import { takeWarmResolve, prefetchSources, warmResolve } from "../api/warmResolve";
 import { SKIP_DATA_CREDIT, fetchSkipBoundaries } from "../api/skipBoundarySource";
@@ -91,6 +90,9 @@ import {
   SAFE_TOP,
   SAFE_BOTTOM,
 } from "./player/chrome";
+import { buildQualityRows, fmtTime, qualityHdTag, zoneOf } from "./player/nativePlayerHelpers";
+import { HOLD_2X_DELAY_MS, HOLD_2X_MAX_MS, SINGLE_TAP_DELAY_MS, resolveTap } from "./player/nativePlayerGestures";
+import { keyboardAction } from "./player/nativePlayerKeys";
 
 // A source can fail fragments forever without ever going fatal (VidCore's
 // vidzen: playlist 200, segments 429 on repeat) — so fail over ourselves.
@@ -116,11 +118,6 @@ const POKE_REARM_MIN_MS = 250;
 const SKIP_SECONDS = 10;
 // Netflix "Up Next" auto-play countdown for a TV episode's next installment.
 const UP_NEXT_MS = 15000;
-// Hold-to-2x (Netflix mobile): how long the right-side hold must run before 2x
-// engages, so a normal double-tap seek never fires it.
-const HOLD_2X_DELAY_MS = 420;
-// Backstop for a hold whose release never arrives (see the safety-net effect).
-const HOLD_2X_MAX_MS = 60 * 1000;
 // "Still watching?" prompt idles that long in pause before it stops asking.
 const STILL_WATCHING_OFFER_MS = 90 * 1000;
 // Netflix resume gate: how long the "Left off at…" card waits before auto-resume.
@@ -184,53 +181,7 @@ const SOURCE_RETRY_BACKOFF_MS = [800, 1600];
 const PARSE_TIMEOUT_MS = 75000;
 
 
-function fmtTime(s) {
-  const v = Math.max(0, Math.floor(Number(s) || 0));
-  const h = Math.floor(v / 3600);
-  const m = Math.floor((v % 3600) / 60);
-  const r = v % 60;
-  // Netflix style: m:ss under an hour, h:mm:ss above (156:22 -> 2:36:22).
-  return (h > 0 ? `${h}:` : "") + (h > 0 ? String(m).padStart(2, "0") : `${m}`) + `:${String(r).padStart(2, "0")}`;
-}
 
-// Canonical quality label + order: feeds list their ladders in any order, so
-// the menu always reads low → high (480p → 720p → 1080p → 2K → 4K) regardless.
-// Resolution + verified-only tags (HDR/SDR/60fps), no bitrate, no transport notes.
-function qualityLabelFor(v) {
-  if (!v?.height) return "Auto";
-  return variantLabel(v);
-}
-
-/* "HD or better" tag that agrees with the LABELS, not the raw pixel rows: a
-   scope/cinema rung cut at 1920x804 labels "1080p" (width-first resolutionLabel)
-   but its raw height is below 1080, so height-based checks left both the gear
-   badge and the inline row tag missing on exactly the rungs the menu calls HD. */
-function qualityHdTag(v) {
-  const label = String(v?.label || qualityLabelFor(v) || "");
-  return /^(1080p|2K)(\s|$)/.test(label) ? "HD" : "";
-}
-
-/* One row per DISTINCT LABEL, tallest/highest-bandwidth rendition kept. Shared
-   by the open path (resolver `variants`) and the post-swap ladder rebuild
-   (hls.levels of a swapped source) so both menus dedupe identically. */
-function buildQualityRows(variantsList) {
-  const byLabel = new Map();
-  variantsList
-    .slice()
-    .sort((a, b) => (a.height || 0) - (b.height || 0))
-    .forEach((v) => {
-      const label = qualityLabelFor(v);
-      const prev = byLabel.get(label);
-      if (
-        !prev ||
-        (v.height || 0) > (prev.height || 0) ||
-        ((v.height || 0) === (prev.height || 0) && (v.bandwidth || 0) > (prev.bandwidth || 0))
-      ) {
-        byLabel.set(label, { uri: v.uri, height: v.height || 0, label, bandwidth: v.bandwidth || 0 });
-      }
-    });
-  return Array.from(byLabel.values());
-}
 
 
 
@@ -1411,12 +1362,6 @@ setScrubDragging(true);
   // THREE zones, YouTube/Netflix style: double-tap LEFT = rewind, double-tap
   // RIGHT = forward, and any tap in the CENTER THIRD = play/pause (single tap,
   // no 260ms lag). A double-tap in the center is just two play/pause toggles.
-  const zoneOf = (rect, clientX) => {
-    const x = clientX - rect.left;
-    if (x < rect.width / 3) return "left";
-    if (x > (rect.width * 2) / 3) return "right";
-    return "center";
-  };
   const handleVideoTouchEnd = (e) => {
     poke();
     suppressClickRef.current = true;
@@ -1450,46 +1395,37 @@ setScrubDragging(true);
     const t = e.changedTouches && e.changedTouches[0];
     if (!rect.width || !t) return;
     const zone = zoneOf(rect, t.clientX);
-    // During a rebuffer the EDGE zones stay dead — a seek into an empty buffer
-    // only deepens the stall — but the CENTER tap still toggles play/pause.
-    // Swallowing every tap here made the player feel frozen on touch exactly
-    // when the viewer most wanted to interact with it.
-    if (buffering && zone !== "center") return;
-    // Center taps toggle playback immediately — the single-tap delay only exists
-    // where a double-tap means seek.
-    if (zone === "center") {
-      if (singleTapTimer.current) {
-        clearTimeout(singleTapTimer.current);
-        singleTapTimer.current = null;
-      }
-      touchTapRef.current = { time: 0, zone: "center" };
+    const tap = resolveTap({
+      zone,
+      buffering,
+      now: performance.now(),
+      prevTap: touchTapRef.current,
+    });
+    touchTapRef.current = tap.tap;
+    if (tap.action === "ignore") return;
+    // Every action below settles whatever lone-tap toggle was still pending.
+    if (singleTapTimer.current) {
+      clearTimeout(singleTapTimer.current);
+      singleTapTimer.current = null;
+    }
+    if (tap.action === "toggle") {
       togglePlay();
       return;
     }
-    const now = performance.now();
-    const prev = touchTapRef.current;
-    /* DOUBLE-TAP SEEK. A double tap is two ~100ms taps, which lands well inside
-       the 400ms window below. (The right third's pending hold arm was already
-       dropped at the top of this handler — an armed 2x returned above.) */
-    if (now - prev.time < 400 && prev.zone === zone) {
-      touchTapRef.current = { time: 0, zone: null };
-      if (singleTapTimer.current) {
-        clearTimeout(singleTapTimer.current);
-        singleTapTimer.current = null;
-      }
-      seekRelative((zone === "left" ? -1 : 1) * skipSecondsRef.current);
+    if (tap.action === "seek") {
+      /* DOUBLE-TAP SEEK. A double tap is two ~100ms taps, which lands well
+         inside the window in nativePlayerGestures. (The right third's pending
+         hold arm was already dropped at the top of this handler — an armed 2x
+         returned above.) */
+      seekRelative(tap.direction * skipSecondsRef.current);
       return;
     }
-    touchTapRef.current = { time: now, zone };
-    // A lone edge tap waits briefly in case it becomes a double-tap seek;
-    // if nothing follows, it plays/pauses. The wait is a hair longer than the
-    // double-tap window itself, so the toggle can never fire while the second
-    // tap of a deliberate double tap is still on its way.
-    if (singleTapTimer.current) clearTimeout(singleTapTimer.current);
+    // A lone edge tap waits briefly in case it becomes a double-tap seek; if
+    // nothing follows, it plays/pauses.
     singleTapTimer.current = setTimeout(() => {
       singleTapTimer.current = null;
       togglePlay();
-    }, 420);
+    }, SINGLE_TAP_DELAY_MS);
   };
 
   // Vertical drag on the RIGHT THIRD = volume (brightness removed — the OS
@@ -2070,24 +2006,23 @@ setScrubDragging(true);
       togglePlayRef.current?.();
     };
     const onKey = (e) => {
-      if (e.defaultPrevented) return;
-      const tag = String(e.target?.tagName || "").toLowerCase();
-      if (tag === "input" || tag === "textarea" || tag === "select") return;
-      // Space/Enter on a focused button already clicks it — running our own
-      // toggle too would double-fire into a no-op.
-      if (tag === "button" && (e.code === "Space" || e.code === "Enter")) return;
-      const video = videoRef.current;
-      if (!video) return;
-      switch (e.code) {
-        case "Space":
-          e.preventDefault();
-          /* Space is the one key that must wait to know the intent: a TAP is
-             play/pause, a HOLD is 2x (YouTube/Netflix both do this). Toggling on
-             keydown and then also engaging 2x would pause the video out from
-             under a viewer who is only holding the key to skim, so the tap is
-             deferred to keyup and cancelled outright if 2x engaged. KeyK stays
-             an instant toggle — it has no hold meaning. */
-          if (spaceHoldRef.current) return; // auto-repeat: ignore the held-down stream
+      const action = keyboardAction({
+        code: e.code,
+        repeat: e.repeat,
+        shiftKey: e.shiftKey,
+        defaultPrevented: e.defaultPrevented,
+        targetTag: e.target?.tagName,
+        panelOpen: Boolean(panel),
+        fullscreen: Boolean(document.fullscreenElement),
+        spaceHeld: spaceHoldRef.current,
+        hasVideo: Boolean(videoRef.current),
+      });
+      if (!action) return;
+      if (action.preventDefault) e.preventDefault();
+      // Auto-repeat is swallowed above but never acts twice (see the module).
+      if (action.repeated) return;
+      switch (action.type) {
+        case "space":
           spaceHoldRef.current = true;
           spaceFiredRef.current = false;
           if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
@@ -2098,8 +2033,7 @@ setScrubDragging(true);
             engageHold2x();
           }, HOLD_2X_DELAY_MS);
           break;
-        case "KeyK":
-          e.preventDefault();
+        case "toggle-play":
           // The ref, not the closed-over function: this effect binds once per
           // panel flip, so the raw `togglePlay` here captured the mount render's
           // `resumeOffer` (always null) — K ignored a pending "Left off at …"
@@ -2107,63 +2041,38 @@ setScrubDragging(true);
           // every render.
           togglePlayRef.current?.();
           break;
-        case "KeyJ":
-          e.preventDefault();
+        case "seek-back":
           seekRelative(-skipSecondsRef.current);
           break;
-        case "KeyL":
-          e.preventDefault();
+        case "seek-forward":
           seekRelative(skipSecondsRef.current);
           break;
-        case "ArrowLeft":
-          e.preventDefault();
-          // Auto-repeat must not machine-gun seeks: every write re-targets the
-          // in-flight fragments, so a held arrow thrashed the relay and loaded
-          // nothing until release. One seek per physical press, like Space.
-          if (e.repeat) return;
-          seekRelative(-skipSecondsRef.current);
-          break;
-        case "ArrowRight":
-          e.preventDefault();
-          if (e.repeat) return;
-          seekRelative(skipSecondsRef.current);
-          break;
-        case "ArrowUp":
-          e.preventDefault();
+        case "volume-up":
           changeVolume(0.1);
           break;
-        case "ArrowDown":
-          e.preventDefault();
+        case "volume-down":
           changeVolume(-0.1);
           break;
-        case "KeyA":
-          e.preventDefault();
+        case "cycle-aspect":
           cycleAspect();
           break;
-        case "KeyM":
+        case "toggle-mute":
           toggleMute();
           break;
-        case "KeyF":
+        case "fullscreen":
           goFullscreen();
           break;
-        case "KeyN":
-          // Netflix web: N = next episode.
-          e.preventDefault();
+        case "episode-next":
           keyboardEpNextRef.current();
           break;
-        case "KeyP":
-          // Netflix web: Shift+P = previous episode (plain P toggles play there).
-          if (e.shiftKey) {
-            e.preventDefault();
-            keyboardEpPrevRef.current();
-          }
+        case "episode-prev":
+          keyboardEpPrevRef.current();
           break;
-        case "Escape":
-          // In fullscreen the browser consumes Esc to exit it — don't also
-          // close the player underneath.
-          if (document.fullscreenElement) return;
-          if (panel) setPanel(null);
-          else onCloseRef.current?.();
+        case "close-panel":
+          setPanel(null);
+          break;
+        case "close-player":
+          onCloseRef.current?.();
           break;
         default:
           break;
