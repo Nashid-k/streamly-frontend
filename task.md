@@ -5139,16 +5139,22 @@ dead rows, and `milkyway` -> `meow` was an upstream server-list change, not our 
         animates one level down through `Popover`
         (`src/app/AccountMenu.jsx:3`), which already runs `SPRING.POPOVER`, so
         grepping only `AccountMenu.jsx` made it look motionless.
-  - [ ] Publish PRESS scale tokens and reconcile the eight different hover/press
+  - [x] Publish PRESS scale tokens and reconcile the eight different hover/press
         scales (buttons.css, Button.jsx, Chip.jsx, grids.css, hero.css).
-        **Half done:** `tokens.css` publishes `--press-scale-icon` (0.95),
-        `--press-scale` (0.97) and `--press-scale-row` (0.99); `player.css`,
-        `buttons.css`, `grids.css` and `modals.css` consume them and
-        `motion.test.js` pins the player's three tiers. Still open: the ~25 JS
-        `whileTap` literals (0.88–0.98) across pages/components were not mapped
-        to those tiers. Several of them are deliberate whole-card collapses
-        (hero CTA, poster card), so this is a per-surface design decision, not a
-        mechanical substitution.
+        **Done (2026-10-23).** `tokens.css` publishes `--press-scale-icon`
+        (0.95), `--press-scale` (0.97) and `--press-scale-row` (0.99);
+        `player.css`, `buttons.css`, `grids.css` and `modals.css` consume them
+        and `motion.test.js` pins the player's three tiers. The ~25 JS
+        `whileTap` literals (0.88–0.98) now name the same three rungs through
+        `PRESS_SCALE` in `src/constants/motion.js`, so a framer press and a CSS
+        `:active` press beside it move by the same amount. The cases flagged
+        here as per-surface design decisions were resolved by role rather than
+        by snapping every number: the hero CTA and the poster/episode card are
+        CONTROL (0.97), the full-width banner and episode rows are ROW (0.99),
+        and icon-sized targets — layout toggles, hero dots, the trailer close —
+        are ICON (0.95). The single opacity-only press (trailer expand) stays
+        opacity-only. Six guard tests assert CSS/JS parity, rung ordering, and
+        that no call site hand-types a scale again; four mutations verified red.
   - [x] **Audited the "Settings theme dropdown should be a menu" deferral —
         rejected, not changed.** The popup is not a menu: it contains a
         `role="listbox"` of theme options **and** a custom-accent colour input
