@@ -247,6 +247,14 @@
     transform: translateY(-2px) scale(1.02) !important;
   }
 
+  /* Toast close on touch: the desktop 22px hit area is too small with a
+     finger. Grow the target and cancel the shift with a negative margin so
+     surrounding content stays put. */
+  .toast-container .toast-close {
+    padding: 10px !important;
+    margin: -4px !important;
+  }
+
   /* Toast mobile position — above bottom nav, centered */
   .toast-container {
     bottom: calc(82px + env(safe-area-inset-bottom, 0px)) !important;

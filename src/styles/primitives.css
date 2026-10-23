@@ -149,6 +149,18 @@
   padding: 4px 11px;
   font-size: 0.78rem;
 }
+/* Touch ergonomics: chips carry the genre/search filters, which on a phone are
+   primary navigation — the ~28px desktop pill is under a comfortable finger
+   target. (pointer: coarse) lifts the hit area without touching the mouse
+   layout. */
+@media (pointer: coarse) {
+  .chip {
+    min-height: 40px;
+  }
+  .chip--sm {
+    min-height: 36px;
+  }
+}
 .chip:active {
   transform: scale(0.97);
 }

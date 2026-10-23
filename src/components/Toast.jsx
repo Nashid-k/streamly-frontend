@@ -11,6 +11,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { SPRING, EASE_OUT } from "../constants/motion";
 import { Check, X, AlertCircle, AlertTriangle, Info, Volume2, Settings, Play } from "lucide-react";
 import { useOptionalPreferences } from "../context/preferences";
+import { useI18n } from "../i18n/index.jsx";
 
 const ToastContext = createContext(null);
 
@@ -78,6 +79,8 @@ const COLORS = {
 
 function ToastItem({ toast, onDismiss }) {
   const colors = COLORS[toast.type] || COLORS.info;
+  // Outside the app shell (tests, isolated mounts) this resolves to English.
+  const { t } = useI18n();
 
   return (
     <motion.div
@@ -155,7 +158,13 @@ function ToastItem({ toast, onDismiss }) {
         )}
         {toast.message && (
           <div
-            style={{ fontSize: "0.72rem", color: "#71717a", lineHeight: 1.3 }}
+            style={{
+              fontSize: "0.72rem",
+              /* --text-muted (AA on the toast surface), not the old #71717a
+                 (≈3.5:1) — the message is the payload, it has to be readable. */
+              color: "var(--text-muted)",
+              lineHeight: 1.3,
+            }}
           >
             {toast.message}
           </div>
@@ -167,6 +176,8 @@ function ToastItem({ toast, onDismiss }) {
           e.stopPropagation();
           onDismiss(toast.id);
         }}
+        className="toast-close"
+        aria-label={t("common.close")}
         style={{
           background: "transparent",
           border: "none",
@@ -174,13 +185,14 @@ function ToastItem({ toast, onDismiss }) {
              still has to be findable. */
           color: "var(--text-muted)",
           cursor: "pointer",
-          padding: "4px",
+          padding: "6px",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           borderRadius: "6px",
           flexShrink: 0,
-          transition: "color 0.15s",
+          /* The duration-band vocabulary, not a raw 0.15s. */
+          transition: "color var(--duration-fast) var(--ease-out)",
         }}
         onMouseEnter={(e) => (e.currentTarget.style.color = "#a1a1aa")}
         onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}

@@ -2,7 +2,7 @@
    falls back to the English catalog automatically. */
 
 export const es = {
-  nav: { home: "Inicio", movies: "Películas", shows: "Series", myList: "Mi Lista", search: "Buscar", settings: "Ajustes", account: "Cuenta", login: "Iniciar sesión", watchHistory: "Historial de visualización" },
+  nav: { home: "Inicio", movies: "Películas", shows: "Series", myList: "Mi Lista", search: "Buscar", settings: "Ajustes", account: "Cuenta", login: "Iniciar sesión", watchHistory: "Historial de visualización", mobileNav: "Navegación móvil" },
   common: {
     back: "Volver", cancel: "Cancelar", close: "Cerrar", save: "Guardar", create: "Crear", rename: "Renombrar",
     loading: "Cargando…", retry: "Reintentar", search: "Buscar", all: "Todo", get: "Obtener", clear: "Borrar",
@@ -136,7 +136,7 @@ export const es = {
 };
 
 export const fr = {
-  nav: { home: "Accueil", movies: "Films", shows: "Séries", myList: "Ma Liste", search: "Recherche", settings: "Paramètres", account: "Compte", login: "Connexion", watchHistory: "Historique de visionnage" },
+  nav: { home: "Accueil", movies: "Films", shows: "Séries", myList: "Ma Liste", search: "Recherche", settings: "Paramètres", account: "Compte", login: "Connexion", watchHistory: "Historique de visionnage", mobileNav: "Navigation mobile" },
   common: {
     back: "Retour", cancel: "Annuler", close: "Fermer", save: "Enregistrer", create: "Créer", rename: "Renommer",
     loading: "Chargement…", retry: "Réessayer", search: "Rechercher", all: "Tout", get: "Obtenir", clear: "Effacer",
@@ -270,7 +270,7 @@ export const fr = {
 };
 
 export const de = {
-  nav: { home: "Start", movies: "Filme", shows: "Serien", myList: "Meine Liste", search: "Suche", settings: "Einstellungen", account: "Konto", login: "Anmelden", watchHistory: "Verlauf" },
+  nav: { home: "Start", movies: "Filme", shows: "Serien", myList: "Meine Liste", search: "Suche", settings: "Einstellungen", account: "Konto", login: "Anmelden", watchHistory: "Verlauf", mobileNav: "Mobile Navigation" },
   common: {
     back: "Zurück", cancel: "Abbrechen", close: "Schließen", save: "Speichern", create: "Erstellen", rename: "Umbenennen",
     loading: "Lädt…", retry: "Erneut versuchen", search: "Suchen", all: "Alle", get: "Holen", clear: "Löschen",
@@ -406,7 +406,7 @@ export const de = {
 };
 
 export const it = {
-  nav: { home: "Home", movies: "Film", shows: "Serie TV", myList: "La Mia Lista", search: "Cerca", settings: "Impostazioni", account: "Account", login: "Accedi", watchHistory: "Cronologia" },
+  nav: { home: "Home", movies: "Film", shows: "Serie TV", myList: "La Mia Lista", search: "Cerca", settings: "Impostazioni", account: "Account", login: "Accedi", watchHistory: "Cronologia", mobileNav: "Navigazione mobile" },
   common: {
     back: "Indietro", cancel: "Annulla", close: "Chiudi", save: "Salva", create: "Crea", rename: "Rinomina",
     loading: "Caricamento…", retry: "Riprova", search: "Cerca", all: "Tutto", get: "Ottieni", clear: "Cancella",
@@ -541,7 +541,7 @@ export const it = {
 };
 
 export const pt = {
-  nav: { home: "Início", movies: "Filmes", shows: "Séries", myList: "Minha Lista", search: "Buscar", settings: "Configurações", account: "Conta", login: "Entrar", watchHistory: "Histórico" },
+  nav: { home: "Início", movies: "Filmes", shows: "Séries", myList: "Minha Lista", search: "Buscar", settings: "Configurações", account: "Conta", login: "Entrar", watchHistory: "Histórico", mobileNav: "Navegação móvel" },
   common: {
     back: "Voltar", cancel: "Cancelar", close: "Fechar", save: "Salvar", create: "Criar", rename: "Renomear",
     loading: "Carregando…", retry: "Tentar novamente", search: "Buscar", all: "Tudo", get: "Obter", clear: "Limpar",

@@ -2,7 +2,7 @@
    Deep-merged over src/i18n/en.js — missing keys fall back to English. */
 
 export const ja = {
-  nav: { home: "ホーム", movies: "映画", shows: "ドラマ", myList: "マイリスト", search: "検索", settings: "設定", account: "アカウント", login: "ログイン", watchHistory: "視聴履歴" },
+  nav: { home: "ホーム", movies: "映画", shows: "ドラマ", myList: "マイリスト", search: "検索", settings: "設定", account: "アカウント", login: "ログイン", watchHistory: "視聴履歴", mobileNav: "モバイルナビゲーション" },
   common: {
     back: "戻る", cancel: "キャンセル", close: "閉じる", save: "保存", create: "作成", rename: "名前を変更",
     loading: "読み込み中…", retry: "再試行", search: "検索", all: "すべて", get: "取得", clear: "クリア",
@@ -137,7 +137,7 @@ export const ja = {
 };
 
 export const ko = {
-  nav: { home: "홈", movies: "영화", shows: "시리즈", myList: "내 목록", search: "검색", settings: "설정", account: "계정", login: "로그인", watchHistory: "시청 기록" },
+  nav: { home: "홈", movies: "영화", shows: "시리즈", myList: "내 목록", search: "검색", settings: "설정", account: "계정", login: "로그인", watchHistory: "시청 기록", mobileNav: "모바일 내비게이션" },
   common: {
     back: "뒤로", cancel: "취소", close: "닫기", save: "저장", create: "만들기", rename: "이름 변경",
     loading: "불러오는 중…", retry: "다시 시도", search: "검색", all: "전체", get: "받기", clear: "지우기",
@@ -272,7 +272,7 @@ export const ko = {
 };
 
 export const hi = {
-  nav: { home: "होम", movies: "फ़िल्में", shows: "सीरीज़", myList: "मेरी सूची", search: "खोजें", settings: "सेटिंग्स", account: "खाता", login: "लॉग इन", watchHistory: "देखने का इतिहास" },
+  nav: { home: "होम", movies: "फ़िल्में", shows: "सीरीज़", myList: "मेरी सूची", search: "खोजें", settings: "सेटिंग्स", account: "खाता", login: "लॉग इन", watchHistory: "देखने का इतिहास", mobileNav: "मोबाइल नेविगेशन" },
   common: {
     back: "वापस", cancel: "रद्द करें", close: "बंद करें", save: "सहेजें", create: "बनाएं", rename: "नाम बदलें",
     loading: "लोड हो रहा है…", retry: "पुनः प्रयास करें", search: "खोजें", all: "सभी", get: "प्राप्त करें", clear: "साफ़ करें",
@@ -407,7 +407,7 @@ export const hi = {
 };
 
 export const ar = {
-  nav: { home: "الرئيسية", movies: "الأفلام", shows: "المسلسلات", myList: "قائمتي", search: "البحث", settings: "الإعدادات", account: "الحساب", login: "تسجيل الدخول", watchHistory: "سجل المشاهدة" },
+  nav: { home: "الرئيسية", movies: "الأفلام", shows: "المسلسلات", myList: "قائمتي", search: "البحث", settings: "الإعدادات", account: "الحساب", login: "تسجيل الدخول", watchHistory: "سجل المشاهدة", mobileNav: "التنقل عبر الهاتف المحمول" },
   common: {
     back: "رجوع", cancel: "إلغاء", close: "إغلاق", save: "حفظ", create: "إنشاء", rename: "إعادة تسمية",
     loading: "جارٍ التحميل…", retry: "إعادة المحاولة", search: "بحث", all: "الكل", get: "الحصول", clear: "مسح",

@@ -23,7 +23,7 @@ function MobileBottomNav() {
   ];
 
   return (
-    <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
+    <nav className="mobile-bottom-nav" aria-label={t("nav.mobileNav")}>
       {items.map((item) => {
         const active = item.match(location.pathname);
         return (
@@ -38,7 +38,9 @@ function MobileBottomNav() {
             {item.id === "settings" && user?.picture ? (
               <img
                 src={user.picture}
-                alt={user.name || "User"}
+                /* Decorative: the enclosing link is the labelled control, so
+                   an avatar alt would only be read twice. */
+                alt=""
                 className="w-6 h-6 rounded-full object-cover border border-white/40"
                 referrerPolicy="no-referrer"
               />

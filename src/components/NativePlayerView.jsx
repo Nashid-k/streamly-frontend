@@ -437,6 +437,10 @@ export default function NativePlayerView({
     setFatal(null);
     setEnded(false);
     setResumeOffer(null);
+    setStageWhileLoading(true);
+    setServerSwitchStage(true);
+    setSwitchingNote("Retrying…");
+    setBuffering(true);
     setReloadToken((n) => n + 1);
     pokeRef.current();
   }, []);
@@ -2512,6 +2516,29 @@ setScrubDragging(true);
             if (data?.height) setCurrentHeight(data.height);
           });
           hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => attachAudio(hls));
+          hls.on(Hls.Events.AUDIO_TRACK_SWITCHING, () => {
+            setBuffering(true);
+            setStageWhileLoading(true);
+            setServerSwitchStage(false);
+            if (!switchingNote) setSwitchingNote("Switching audio…");
+          });
+          hls.on(Hls.Events.AUDIO_TRACK_SWITCHED, () => {
+            if (runRef.current !== run) return;
+            setBuffering(false);
+            setStageWhileLoading(false);
+            setSwitchingNote(null);
+            try {
+              setAudioIndex(hlsRef.current?.audioTrack ?? 0);
+            } catch {
+              // ignore
+            }
+          });
+          hls.on(Hls.Events.AUDIO_TRACK_LOADED, () => {
+            if (runRef.current !== run) return;
+            setBuffering(false);
+            setStageWhileLoading(false);
+            setSwitchingNote(null);
+          });
           hls.on(Hls.Events.ERROR, (_e, data) => {
             if (!data?.fatal) {
               if (
@@ -3016,7 +3043,8 @@ setScrubDragging(true);
     setSourceVariants([]);
     setSourceHeight(0);
     sourceHeightRef.current = 0;
-    setPanel(null);
+    // Keep panel open briefly for smoother UX, then close
+    // setPanel(null); // close immediately for snappy feel
     poke();
     const def = sourceByKey(key);
     setReloadToken((t) => t + 1);
@@ -3025,6 +3053,9 @@ setScrubDragging(true);
     setStageWhileLoading(true);
     setServerSwitchStage(true);
     setSwitchingNote(`Switching to ${def?.label || "that server"}…`);
+    setBuffering(true);
+    // Close panel after a short delay for smoother transition
+    setTimeout(() => setPanel(null), 150);
   };
 
   /* Source-quality pick: the raw source ladder a plain-HLS server exposes
@@ -3135,9 +3166,19 @@ setScrubDragging(true);
   const pickAudio = (index) => {
     const hls = hlsRef.current;
     if (!hls) return;
-    hls.audioTrack = index;
-    setAudioIndex(index);
+    if (index === hls.audioTrack) return;
+    // Show branded loader immediately on audio track change (like server/dub switches)
+    setStageWhileLoading(true);
+    setServerSwitchStage(false);
+    setSwitchingNote("Switching audio…");
+    setBuffering(true);
     poke();
+    try {
+      hls.audioTrack = index;
+    } catch {
+      // ignore
+    }
+    setAudioIndex(index);
   };
 
   /* Dub switch: each dub is a SEPARATE HLS manifest (a sibling full-stream
@@ -3457,6 +3498,9 @@ setScrubDragging(true);
     setResumeOffer(null);
     setUpNext(null);
     setBuffering(true);
+    setStageWhileLoading(true);
+    setServerSwitchStage(true);
+    setSwitchingNote("Loading previous episode…");
     if (onGoPrevRef.current) return onGoPrevRef.current();
     if (navPrevNumber != null) chooseEpisode(navPrevNumber);
   };
@@ -3467,6 +3511,9 @@ setScrubDragging(true);
     setResumeOffer(null);
     setUpNext(null);
     setBuffering(true);
+    setStageWhileLoading(true);
+    setServerSwitchStage(true);
+    setSwitchingNote("Loading next episode…");
     if (onGoNextRef.current) return onGoNextRef.current();
     if (navNextNumber != null) chooseEpisode(navNextNumber);
   };

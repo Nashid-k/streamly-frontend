@@ -13,6 +13,7 @@ export const en = {
     account: "Account",
     login: "Login",
     watchHistory: "Watch History",
+    mobileNav: "Mobile navigation",
   },
   common: {
     back: "Back",
