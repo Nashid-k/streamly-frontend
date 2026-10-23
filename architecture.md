@@ -512,6 +512,9 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
   `player/` — the engine's pure interaction helpers (`nativePlayerHelpers.js`:
   the transport clock, quality-ladder dedupe/ordering and tap zones;
   `nativePlayerGestures.js`: tap-vs-hold arbitration and its timings;
+  `nativePlayerHold.js`: what a touch release or a Space keyup means once the
+  hold arm, the volume drag and the 2x latch have had their say, including the
+  rate to restore;
   `nativePlayerKeys.js`: the keyboard action map), the extracted chrome under
   `player/chrome/`, and the transient HUDs (`Netflix*HUD`, `index.js`)),
   feature-grouped subfolders (`browse/` — `FilterPill`, `MenuItem`, `SearchField`,

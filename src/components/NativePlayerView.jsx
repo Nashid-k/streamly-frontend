@@ -91,7 +91,8 @@ import {
   SAFE_BOTTOM,
 } from "./player/chrome";
 import { buildQualityRows, fmtTime, qualityHdTag, zoneOf } from "./player/nativePlayerHelpers";
-import { HOLD_2X_DELAY_MS, HOLD_2X_MAX_MS, SINGLE_TAP_DELAY_MS, resolveTap } from "./player/nativePlayerGestures";
+import { HOLD_2X_DELAY_MS, HOLD_2X_MAX_MS, SINGLE_TAP_DELAY_MS } from "./player/nativePlayerGestures";
+import { holdRestoreRate, resolveSpaceRelease, resolveTouchRelease } from "./player/nativePlayerHold";
 import { keyboardAction } from "./player/nativePlayerKeys";
 
 // A source can fail fragments forever without ever going fatal (VidCore's
@@ -1279,11 +1280,12 @@ setScrubDragging(true);
     /* The element's own rate is the truth, but a browser that paused playback
        in the background reports `playbackRate` as 1 while the picture is still
        the one the viewer set — keep a live mirror of the SETTING rate so a hold
-       can never latch 2x as the "rate to restore". */
-    heldRateRef.current =
-      video.playbackRate > 0 && video.playbackRate !== HOLD_SPEED
-        ? video.playbackRate
-        : playbackRateRef.current || 1;
+       can never latch 2x as the "rate to restore". The rule lives in
+       nativePlayerHold so a release cannot restore a rate the element rejects. */
+    heldRateRef.current = holdRestoreRate({
+      elementRate: video.playbackRate,
+      settingRate: playbackRateRef.current,
+    });
     try {
       video.playbackRate = HOLD_SPEED;
       hold2xRef.current = true;
@@ -1365,59 +1367,49 @@ setScrubDragging(true);
   const handleVideoTouchEnd = (e) => {
     poke();
     suppressClickRef.current = true;
-    /* A right-zone press arms 2x after HOLD_2X_DELAY_MS, and that arm is still
-       PENDING for the whole of a normal tap — so on release the hold branch below
-       saw `holdTimerRef.current` set and swallowed the gesture as "not a tap".
-       Every right-third tap, single or double, was eaten: the double-tap forward
-       seek never fired, and a lone tap never toggled. Only an arm that has
-       actually engaged 2x (`hold2xRef`) is a real hold; a pending arm is just a
-       tap that has not yet become a hold. */
-    if (!hold2xRef.current) {
-      if (holdTimerRef.current) {
-        clearTimeout(holdTimerRef.current);
-        holdTimerRef.current = null;
-        holdPointerRef.current = null;
-      }
-    }
-    if (hold2xRef.current) {
-      // A right-zone hold that reached 2x just ended: it was not a tap —
-      // swallow it so play/pause doesn't fire on release.
-      handleHoldEnd();
-      suppressClickRef.current = true;
-      return;
-    }
-    // A vertical gesture (volume drag) just happened — not a tap.
-    if (gestureRef.current?.active) {
-      gestureRef.current = null;
-      return;
-    }
     const rect = e.currentTarget.getBoundingClientRect();
     const t = e.changedTouches && e.changedTouches[0];
-    if (!rect.width || !t) return;
-    const zone = zoneOf(rect, t.clientX);
-    const tap = resolveTap({
+    const zone = rect.width && t ? zoneOf(rect, t.clientX) : null;
+    /* A right-zone press arms 2x after HOLD_2X_DELAY_MS, so the arm is still
+       PENDING for the whole of a normal tap. resolveTouchRelease treats only an
+       arm that actually engaged 2x as a hold; a pending arm is dropped and the
+       tap survives. */
+    const release = resolveTouchRelease({
+      holdLive: hold2xRef.current,
+      gestureActive: Boolean(gestureRef.current?.active),
       zone,
       buffering,
       now: performance.now(),
       prevTap: touchTapRef.current,
     });
-    touchTapRef.current = tap.tap;
-    if (tap.action === "ignore") return;
+    if (release.dropArm) {
+      if (holdTimerRef.current) {
+        clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+      }
+      holdPointerRef.current = null;
+    }
+    if (release.clearGesture) gestureRef.current = null;
+    if (release.tap) touchTapRef.current = release.tap;
+    if (release.action === "end-hold") {
+      // A hold that reached 2x was not a tap: restore the rate and swallow the
+      // release so play/pause does not fire on lift.
+      handleHoldEnd();
+      return;
+    }
+    if (release.action === "ignore") return;
     // Every action below settles whatever lone-tap toggle was still pending.
-    if (singleTapTimer.current) {
+    if (release.clearPendingTap && singleTapTimer.current) {
       clearTimeout(singleTapTimer.current);
       singleTapTimer.current = null;
     }
-    if (tap.action === "toggle") {
+    if (release.action === "toggle") {
       togglePlay();
       return;
     }
-    if (tap.action === "seek") {
-      /* DOUBLE-TAP SEEK. A double tap is two ~100ms taps, which lands well
-         inside the window in nativePlayerGestures. (The right third's pending
-         hold arm was already dropped at the top of this handler — an armed 2x
-         returned above.) */
-      seekRelative(tap.direction * skipSecondsRef.current);
+    if (release.action === "seek") {
+      // DOUBLE-TAP SEEK. A double tap is two ~100ms taps, well inside the window.
+      seekRelative(release.direction * skipSecondsRef.current);
       return;
     }
     // A lone edge tap waits briefly in case it becomes a double-tap seek; if
@@ -1991,15 +1983,18 @@ setScrubDragging(true);
        a keyup when 2x IS engaged just restores the rate and does nothing else. */
     const onKeyUp = (e) => {
       if (e.code !== "Space") return;
-      if (!spaceHoldRef.current) return;
+      const release = resolveSpaceRelease({
+        held: spaceHoldRef.current,
+        engaged: spaceFiredRef.current,
+      });
+      if (release === "ignore") return;
       spaceHoldRef.current = false;
-      const engaged = spaceFiredRef.current;
       spaceFiredRef.current = false;
       if (holdTimerRef.current) {
         clearTimeout(holdTimerRef.current);
         holdTimerRef.current = null;
       }
-      if (engaged) {
+      if (release === "release-hold") {
         releaseHold2x();
         return;
       }
