@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { EASE_OUT } from "../constants/motion";
 import { useNavigate, Link } from "react-router-dom";
 import {
   Bookmark,
@@ -839,12 +840,12 @@ export default function WatchlistPage() {
                           exit={{
                             opacity: 0,
                             scale: 0.85,
-                            transition: { duration: 0.2 },
+                            transition: { duration: 0.2, ease: EASE_OUT },
                           }}
                           transition={{
                             duration: 0.4,
                             delay: (idx % 20) * 0.04,
-                            ease: "easeOut",
+                            ease: EASE_OUT,
                           }}
                           style={{
                             position: "relative",

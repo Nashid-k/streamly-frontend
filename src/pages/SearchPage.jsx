@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { EASE_OUT } from "../constants/motion";
 import { movieService } from "../api/movieService";
 import { rankSearchResults, getDidYouMean } from "../utils/searchRanking";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -524,7 +525,7 @@ export default function SearchPage() {
                     transition={{
                       duration: 0.4,
                       delay: (idx % 10) * 0.05,
-                      ease: "easeOut",
+                      ease: EASE_OUT,
                     }}
                   >
                     <MovieCard movie={movie} />
@@ -631,7 +632,7 @@ export default function SearchPage() {
                   transition={{
                     duration: 0.4,
                     delay: (idx % 10) * 0.05,
-                    ease: "easeOut",
+                    ease: EASE_OUT,
                   }}
                 >
                   <MovieCard movie={movie} highlightQuery={query} />

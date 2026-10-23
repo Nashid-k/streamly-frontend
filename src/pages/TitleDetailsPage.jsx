@@ -1,4 +1,5 @@
 import SEO from "../components/SEO";
+import { EASE_OUT } from "../constants/motion";
 import AmbientBackground from "../components/AmbientBackground";
 import MovieDetailsSkeleton from "../components/MovieDetailsSkeleton";
 import MovieCardSkeleton from "../components/MovieCardSkeleton";
@@ -1690,7 +1691,7 @@ export default function TitleDetails() {
                         initial={{ opacity: 0, x: -12 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: 12 }}
-                        transition={{ duration: 0.3, delay: Math.min(idx * 0.03, 0.25) }}
+                        transition={{ duration: 0.3, delay: Math.min(idx * 0.03, 0.25), ease: EASE_OUT }}
                         whileHover={{ background: 'rgba(255,255,255,0.04)' }}
                         whileTap={playable ? { scale: 0.98 } : undefined}
                         role={playable ? "button" : undefined}
@@ -2039,7 +2040,7 @@ export default function TitleDetails() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
+            transition={{ duration: 0.35, ease: EASE_OUT }}
             style={{
               position: "fixed",
               inset: 0,
@@ -2056,7 +2057,7 @@ export default function TitleDetails() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 0.12 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.9 }}
+                transition={{ duration: 0.9, ease: EASE_OUT }}
                 style={{
                   position: "absolute",
                   inset: 0,
@@ -2075,7 +2076,7 @@ export default function TitleDetails() {
               <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1, duration: 0.4, ease: "easeOut" }}
+                transition={{ delay: 0.1, duration: 0.4, ease: EASE_OUT }}
                 className="video-modal-header"
                 style={{
                   position: "relative",

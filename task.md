@@ -7,6 +7,16 @@
 
  ## Done (in order)
 
+- [x] **STAGE 5b — one easing curve and one fast-duration scale, app-wide — 2026-10-23.**
+  - **What was audited.** Every `transition`/`transition-duration` declaration in the 18 stylesheets (131 declarations) and every framer `transition` prop in `src/components`, `src/pages` and `src/app`. The question was the one the tokens exist to answer: if two controls do the same job, do they move on the same curve and the same clock?
+  - **The CSS had two vocabularies for one job.** `tokens.css` publishes `--ease-out` = `cubic-bezier(0.16, 1, 0.3, 1)` and `player.css` already enforces it, but the rest of the app still used the bare `ease` keyword (`cubic-bezier(0.25, 0.1, 0.25, 1)`) in transition declarations across **14 stylesheets** — so a player button and a settings tab decelerated differently. Every one now uses `var(--ease-out)`, including properties that previously declared no curve at all and silently took the browser default (`opacity 0.3s`, three card `transform` segments, the skip-link and more). `--condense-ease`, `--anim-hover-ease` and `var(--nav-fade)` keep their own curves because they are deliberate distinct motion (header condense, silk lift, nav fade), not drift.
+  - **Fast durations were typed five ways.** `0.1s`, `0.15s`, `0.2s`, `150ms`, `160ms` and `180ms` all meant "micro-interaction" while `--duration-fast`/`--duration-instant` already named the step. Every transition duration in that band is now a token; `0.1s` maps to `var(--duration-instant)` (120ms) and the rest to `var(--duration-fast)` (200ms). Only the **duration** slot is rewritten — stagger delays (`200ms`, `0.15s` after an easing) stay literal, because a delay is content, not interaction speed.
+  - **Twelve framer tweens had no `ease` at all**, so they took framer's default rather than `EASE_OUT` (CountdownBadge, LanguageSwitchOverlay, NetflixStillWatching, CenterStack's spinner fade, Toast's exit, HistoryPage's row exit, all three Settings dropdowns, two TitleDetails fades, WatchlistPage's card exit). All twelve now pass `ease: EASE_OUT`.
+  - **Sixteen tweens spelled the curve `ease: "easeOut"`** — framer resolves that to `cubic-bezier(0, 0, 0.58, 1)`, not the app's `[0.16, 1, 0.3, 1]`. Every call site (MovieRail, Top10Rail, ContentTag, Tooltip, Category/Genre/Person/Search/Home/TitleDetails/Watchlist pages) now imports `EASE_OUT` from `src/constants/motion.js`. The two `easeInOut` uses (SeasonDropdown, HistoryPage's progress bar) are intentionally untouched: a symmetric in/out is the point there.
+  - **Tests.** `motion.test.js` gained 7 tests (37 total in the file): two scan all stylesheets for a bare `ease` and for typed fast durations, one requires an explicit curve on every animated property; two scan every framer `transition` prop — including nested per-property maps — and require an `ease` on any non-zero `duration`, plus ban the `"easeOut"` keyword. **All 5 contract tests were run against source that violates them and fail there** (12 tweens, 11 files with the `"easeOut"` keyword, the multi-line declarations the first sweep missed, and the 5 properties that only named a duration). The first sweep was line-based and missed transition declarations wrapped onto a continuation line; the parser was widened to whole declarations, which is how the last multi-line offenders in `discovery.css`, `settings-ui.css` and `grids.css` were found and fixed. The remaining 2 tests are sanity guards proving the scanners found their files rather than passing on an empty list.
+  - **Deliberately deferred.** Macro durations above 200ms are still literal (`220ms`, `250ms`, `300ms`, `320ms`, `350ms`, `500ms`): those are section reveals, header condense and background fades, where choosing between `--duration-normal` (280ms) and `--duration-slow` (450ms) is a design decision, not a token rename. Stagger delays remain literal by design.
+  - **Gates.** `npm run lint` — 0 errors (warning count unchanged; no new warnings introduced). `npm run test` — **110 files / 1308 tests**, all green. `npm run build` — clean (2.23 s).
+
 - [x] **Batch 4 of 4 — health: one z-index ladder, measured perf, honest deferrals — 2026-10-23.**
   - **What was audited.** Every layered surface in `src/` (a mechanical scan for `z-index`, `zIndex` and Tailwind `z-[…]`), every "unused" symbol the lint warnings mention, and the two items the plan listed as performance work ("You Might Also Like" windowing, the 4.5k-line player). The measure used was: *is this a real defect with a reachable consequence, and can it be verified without a browser?*
   - **The layers were seven magic numbers that all claimed to be "above everything".** `9998` (offline banner), `9999` (help sheet, `TitleInfoModal`), `10000` (`ConfirmDialog`, `Toast`), `10010` (sign-in, collection dialogs), `99999` (player), `100000` (ratings grid, unreleased notice, language curtain), `999999` (global loader). Two surfaces shared `10000`, so whether a toast painted over a dialog's buttons was decided by DOM order; `tokens.css` had a two-rung scale (`--z-sticky`, `--z-modal`) that almost nothing used. There is now one ladder — sticky 1000, skiplink 1100, overlay 8000, modal 10000, modal-top 10100, toast 11000, curtain 12000, tooltip 13000 — and every surface takes a rung. The help sheet deliberately moved to `modal-top`: pressing `Shift + ?` while a dialog was open used to open it *behind* that dialog.
@@ -5064,10 +5074,16 @@ dead rows, and `milkyway` -> `meow` was an upstream server-list change, not our 
         transforms. Removed the mobile `transform: none !important` override.
         Browser-verified both mobile sheet geometry and the shortcuts panel's
         enter/exit animation at 390x844 with no horizontal overflow.
-  - [ ] The ~50 hand-written `0.2s` CSS declarations should migrate to
-        `var(--duration-fast)` over time, and the 23 framer tweens with no
-        `ease` should take `EASE_OUT`. Mechanical, but a wide sweep — not
-        worth doing in the same pass as the tokens.
+  - [x] The hand-written fast durations and the two easing vocabularies were
+        swept app-wide (see STAGE 5b at the top of Done): every `transition`
+        declaration in the 14 non-player stylesheets that used a bare `ease`
+        (or no curve at all) now uses `var(--ease-out)`/the deliberate
+        `--condense-ease`/`--anim-hover-ease`, every 100–200ms interaction
+        duration uses `var(--duration-instant)`/`var(--duration-fast)`, and all
+        12 framer tweens that omitted `ease` plus 16 that used the `"easeOut"`
+        keyword now take `EASE_OUT`. `motion.test.js` polices all of it from
+        the source, including multi-line CSS declarations. Durations above
+        200ms remain literal on purpose (STAGE 5b records why).
   - [ ] Break the home hero waterfall (`featured.js` waits for trending before
         the detail/logo requests start) and let the hero paint from list data
         with the text title as the logo fallback.

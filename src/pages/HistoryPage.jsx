@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { EASE_OUT } from "../constants/motion";
 import { useNavigate } from "react-router-dom";
 import { Clock, X, Search, Check, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -353,7 +354,7 @@ export default function HistoryPage() {
                             exit={{
                               opacity: 0,
                               scale: 0.9,
-                              transition: { duration: 0.2 },
+                              transition: { duration: 0.2, ease: EASE_OUT },
                             }}
                             style={{
                               position: "relative",

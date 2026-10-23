@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { EASE_OUT } from "../constants/motion";
 import { motion, useReducedMotion } from "framer-motion";
 import { Clock, Zap } from "lucide-react";
 import { getCountdown, getCountdownUrgency } from "../utils/releaseCalendar";
@@ -64,7 +65,7 @@ export default function CountdownBadge({ releaseDate, platform, compact = false 
     <motion.div
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: pulse ? 0.3 : 0.3 }}
+      transition={{ duration: pulse ? 0.3 : 0.3, ease: EASE_OUT }}
       style={{
         position: "relative",
         display: "inline-flex",

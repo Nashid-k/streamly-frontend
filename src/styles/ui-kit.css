@@ -135,7 +135,7 @@
   font-weight: 700;
   border-radius: 0 0 var(--radius-md, 12px) 0;
   transform: translateY(-120%);
-  transition: transform 0.15s ease;
+  transition: transform var(--duration-fast) var(--ease-out);
 }
 .skip-link:focus-visible {
   transform: translateY(0);
@@ -223,7 +223,7 @@
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
-  transition: opacity var(--duration-fast);
+  transition: opacity var(--duration-fast) var(--ease-out);
   z-index: var(--z-tooltip);
   max-width: 200px;
   overflow: hidden;

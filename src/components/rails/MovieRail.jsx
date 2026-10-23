@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { EASE_OUT } from "../../constants/motion";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import MovieCard from "../MovieCard";
@@ -178,7 +179,7 @@ const MovieRail = React.memo(
                   transition={{
                     duration: 0.35,
                     delay: Math.min((i % 10) * 0.03, 0.15),
-                    ease: "easeOut",
+                    ease: EASE_OUT,
                   }}
                   style={{ flexShrink: 0 }}
                 >

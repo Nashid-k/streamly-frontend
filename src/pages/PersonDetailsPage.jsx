@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { EASE_OUT } from "../constants/motion";
 import { useParams, useNavigate } from "react-router-dom";
 import { ChevronLeft, Calendar, MapPin, RotateCw } from "lucide-react";
 import { motion } from "framer-motion";
@@ -454,7 +455,7 @@ export default function PersonDetails() {
                 transition={{
                   duration: 0.4,
                   delay: idx * 0.08,
-                  ease: "easeOut",
+                  ease: EASE_OUT,
                 }}
                 style={{ width: "200px", flexShrink: 0 }}
               >
@@ -522,7 +523,7 @@ export default function PersonDetails() {
                 transition={{
                   duration: 0.4,
                   delay: Math.min(idx * 0.04, 0.25),
-                  ease: "easeOut",
+                  ease: EASE_OUT,
                 }}
               >
                 <MovieCard

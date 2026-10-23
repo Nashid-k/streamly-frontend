@@ -63,7 +63,7 @@
   background: rgba(var(--white-rgb), 0.06);
   color: rgba(var(--white-rgb), 0.7);
   cursor: pointer;
-  transition: background 180ms ease, color 180ms ease;
+  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
 }
 
 .auth-dialog__close:hover:not(:disabled) {
@@ -96,7 +96,7 @@
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 180ms ease, color 180ms ease;
+  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
 }
 
 .auth-dialog__tab[aria-selected="true"] {
@@ -143,7 +143,7 @@
   color: #fff;
   font-size: 0.95rem;
   outline: none;
-  transition: border-color 180ms ease, background 180ms ease;
+  transition: border-color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
 }
 
 .auth-dialog__input:focus {
@@ -172,7 +172,7 @@
   background: transparent;
   color: rgba(var(--white-rgb), 0.55);
   cursor: pointer;
-  transition: color 180ms ease, background 180ms ease;
+  transition: color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
 }
 
 .auth-dialog__reveal:hover {
@@ -208,7 +208,7 @@
   font-size: 0.92rem;
   font-weight: 700;
   cursor: pointer;
-  transition: opacity 180ms ease, transform 180ms ease;
+  transition: opacity var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
 }
 
 .auth-dialog__submit:hover:not(:disabled) {
@@ -230,7 +230,7 @@
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 180ms ease, color 180ms ease;
+  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
 }
 
 .auth-dialog__ghost:hover {

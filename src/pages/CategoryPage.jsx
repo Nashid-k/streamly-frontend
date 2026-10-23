@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
+import { EASE_OUT } from "../constants/motion";
 import { useParams, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { movieService } from "../api/movieService";
@@ -208,7 +209,7 @@ export default function CategoryPage() {
               transition={{
                 duration: 0.4,
                 delay: (index % 20) * 0.05,
-                ease: "easeOut",
+                ease: EASE_OUT,
               }}
             >
               <MovieCard movie={movie} />

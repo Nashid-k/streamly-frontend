@@ -1,4 +1,5 @@
 import SEO from "../components/SEO";
+import { EASE_OUT } from "../constants/motion";
 import slugify from "slugify";
 import ErrorBoundary from "../components/ErrorBoundary";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -962,7 +963,7 @@ export default function Home({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
+            transition={{ duration: 0.35, ease: EASE_OUT }}
             style={{ willChange: "opacity" }}
             onTouchStart={handleHeroTouchStart}
             onTouchEnd={handleHeroTouchEnd}
@@ -1005,7 +1006,7 @@ export default function Home({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.45, ease: "easeOut" }}
+                transition={{ duration: 0.45, ease: EASE_OUT }}
               />
             </AnimatePresence>
 

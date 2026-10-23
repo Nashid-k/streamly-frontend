@@ -112,7 +112,7 @@ html[data-theme="custom"] {
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
-  transition: color var(--duration-fast) ease, background-color var(--duration-fast) ease, border-color var(--duration-fast) ease;
+  transition: color var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
 }
 
 .settings-tab:hover {
@@ -135,7 +135,7 @@ html[data-theme]:not([data-theme=default]) .settings-tab.is-active {
 /* Dropdown option rows — match the discovery MenuItem recipe (accent-tinted
    selection with a check). */
 .settings-dropdown-item {
-  transition: color 0.15s ease, background-color 0.15s ease;
+  transition: color var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out);
 }
 
 .settings-dropdown-item.is-selected {
@@ -185,7 +185,7 @@ html[data-theme]:not([data-theme=default]) .settings-section::after {
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background var(--duration-fast) ease, border-color var(--duration-fast) ease;
+  transition: background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
 }
 
 .reset-preferences-button:hover {
@@ -202,7 +202,7 @@ html[data-theme]:not([data-theme=default]) .settings-section::after {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   scroll-margin-top: 100px;
-  transition: box-shadow 0.35s ease;
+  transition: box-shadow 0.35s var(--ease-out);
 }
 
 /* ── Section Header ── */
@@ -321,7 +321,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   background: transparent;
   border: none;
   cursor: pointer;
-  transition: color 0.25s ease;
+  transition: color 0.25s var(--ease-out);
 }
 
 .segment-btn:hover {
@@ -344,7 +344,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   border-radius: var(--radius-full);
   background: rgba(var(--white-rgb), 0.12);
   cursor: pointer;
-  transition: background 220ms ease, border-color 220ms ease;
+  transition: background 220ms var(--ease-out), border-color 220ms var(--ease-out);
 }
 
 .toggle::before {
@@ -374,7 +374,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   border-radius: var(--radius-full);
   background: rgba(var(--white-rgb), 0.7);
   transition: transform var(--duration-fast) cubic-bezier(0.175, 0.885, 0.32, 1.275),
-    background 0.2s ease;
+    background var(--duration-fast) var(--ease-out);
   box-shadow: 0 2px 4px rgba(var(--black-rgb), 0.02);
 }
 
@@ -433,7 +433,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   border: 1px solid rgba(var(--white-rgb), 0.09);
   border-radius: var(--radius-full);
   cursor: pointer;
-  transition: background var(--duration-fast) ease, border-color var(--duration-fast) ease;
+  transition: background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
 }
 
 .seed-pill:hover {
@@ -495,7 +495,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   border: 1px solid rgba(var(--white-rgb), 0.1);
   border-radius: var(--radius-full);
   cursor: pointer;
-  transition: background var(--duration-fast) ease, color var(--duration-fast) ease;
+  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
 }
 
 .seed-reset:hover {
@@ -524,9 +524,9 @@ html:not([data-theme]) .segment-btn.segment-active {
   border: 2px solid transparent;
   cursor: pointer;
   transition:
-    transform 0.2s ease,
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
+    transform var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
   outline: none;
 }
 
@@ -632,7 +632,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   background: rgba(var(--white-rgb), 0.03);
   border: 1px solid rgba(var(--white-rgb), 0.06);
   border-radius: 12px;
-  transition: background var(--duration-fast) ease, border-color var(--duration-fast) ease;
+  transition: background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
   user-select: none;
   -webkit-user-select: none;
 }
@@ -665,7 +665,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   border-radius: 8px;
   padding: 6px;
   margin: -6px 6px -6px -6px;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
 }
 
 .order-grip--drag:hover {

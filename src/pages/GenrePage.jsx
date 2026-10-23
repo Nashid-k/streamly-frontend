@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { EASE_OUT } from "../constants/motion";
 import { useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { RotateCw } from "lucide-react";
@@ -222,7 +223,7 @@ export default function GenrePage() {
                   transition={{
                     duration: 0.4,
                     delay: (idx % 20) * 0.05,
-                    ease: "easeOut",
+                    ease: EASE_OUT,
                   }}
                 >
                   <MovieCard movie={movie} />

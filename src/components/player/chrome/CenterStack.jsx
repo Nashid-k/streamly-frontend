@@ -12,7 +12,7 @@
 // Each branch fades via AnimatePresence — a `transition` on a conditionally
 // mounted node never plays, which is why the spinner once looked frozen.
 import { AnimatePresence, motion } from "framer-motion";
-import { useMotionTokens } from "../../../constants/motion";
+import { useMotionTokens, EASE_OUT } from "../../../constants/motion";
 import { IS_TOUCH, CENTER_GLYPH_SHADOW } from "./constants";
 import { GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER } from "./theme";
 import { IconSkipBack10, IconSkipForward10, IconPlay, IconReplay } from "./icons";
@@ -244,7 +244,7 @@ export default function CenterStack({
           initial={{ opacity: 0, scale: 0.7 }}
           animate={{ opacity: 1, scale: [0.7, 1.08, 1] }}
           transition={{
-            opacity: { duration: 0.2 },
+            opacity: { duration: 0.2, ease: EASE_OUT },
             scale: M.SPRING.PRESS,
           }}
           whileHover={{ scale: 1.08 }}

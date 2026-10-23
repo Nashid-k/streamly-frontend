@@ -157,7 +157,7 @@
   transition:
     opacity var(--duration-fast) var(--ease-out),
     translate var(--duration-fast) var(--ease-out),
-    transform 0.15s;
+    transform var(--duration-fast) var(--ease-out);
 }
 .card-badges {
   transition: opacity var(--duration-instant) var(--ease-out);
@@ -195,7 +195,7 @@
     transition:
       opacity 350ms var(--ease-out) 500ms,
       translate 350ms var(--ease-out) 500ms,
-      transform 0.15s;
+      transform var(--duration-fast) var(--ease-out);
   }
   .movie-card:hover .card-badges {
     opacity: 0;
@@ -239,7 +239,7 @@
   transition:
     opacity 350ms var(--ease-out) 500ms,
     translate 350ms var(--ease-out) 500ms,
-    transform 0.15s;
+    transform var(--duration-fast) var(--ease-out);
 }
 .movie-card:focus-visible .card-badges {
   opacity: 0;
@@ -275,7 +275,7 @@
   border: 1px solid rgba(var(--white-rgb), 0.18);
   color: var(--text-primary);
   cursor: pointer;
-  transition: background var(--duration-fast) ease, border-color var(--duration-fast) ease, transform 0.15s ease;
+  transition: background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
 }
 .card-quick-list:active {
   transform: scale(0.92);
@@ -298,7 +298,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--text-primary);
-  transition: color 0.25s ease;
+  transition: color 0.25s var(--ease-out);
 }
 .movie-card:hover .movie-title {
   color: #ffffff;

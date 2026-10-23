@@ -46,7 +46,7 @@
   -webkit-overflow-scrolling: touch;
   -webkit-mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
   mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
-  transition: -webkit-mask-image var(--duration-fast) ease, mask-image var(--duration-fast) ease;
+  transition: -webkit-mask-image var(--duration-fast) var(--ease-out), mask-image var(--duration-fast) var(--ease-out);
 }
 .cast-rail__scroll.is-at-start {
   -webkit-mask-image: linear-gradient(to right, #000 0%, #000 95%, transparent);
@@ -74,7 +74,7 @@
   font-size: 1.6rem;
   font-weight: 700;
   color: rgba(var(--white-rgb), 0.85);
-  transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  transition: transform 0.3s var(--ease-out), border-color 0.3s var(--ease-out), box-shadow 0.3s var(--ease-out);
 }
 @media (min-width: 768px) {
   .cast-rail__avatar {
@@ -83,7 +83,7 @@
   }
 }
 .cast-card > * {
-  transition: transform 0.3s ease;
+  transition: transform 0.3s var(--ease-out);
 }
 .cast-card:hover .cast-rail__avatar {
   transform: scale(1.1);
@@ -293,7 +293,7 @@ body::after {
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
-  transition: transform 180ms var(--ease-out), background 180ms ease, border-color 180ms ease, color 180ms ease;
+  transition: transform var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
 }
 
 .page-back {
@@ -442,7 +442,7 @@ body::after {
   color: #fff;
   font: inherit;
   font-size: 0.98rem;
-  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+  transition: border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
 }
 
 .search-panel__input::placeholder {
@@ -470,7 +470,7 @@ body::after {
   background: rgba(var(--white-rgb), 0.075);
   color: rgba(var(--white-rgb), 0.65);
   cursor: pointer;
-  transition: background 180ms ease, color 180ms ease, transform 180ms var(--ease-out);
+  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
 }
 
 .search-panel__clear:hover {
@@ -576,7 +576,7 @@ body::after {
   font-size: 0.82rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background 160ms ease, color 160ms ease, transform 160ms var(--ease-out);
+  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
   touch-action: manipulation;
 }
 

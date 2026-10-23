@@ -36,7 +36,7 @@
   filter: drop-shadow(0 2px 10px rgba(var(--black-rgb), 0.45));
   /* Condense on scroll is a transform-only scale (44 → 38px optically):
      never animates height/layout, so the fixed header never reflows. */
-  transition: transform 0.32s var(--condense-ease), filter 0.3s ease;
+  transition: transform 0.32s var(--condense-ease), filter 0.3s var(--ease-out);
 }
 .header-row.scrolled .brand-mark {
   transform: scale(0.864);
@@ -65,7 +65,7 @@
   cursor: pointer;
   pointer-events: auto;
   margin-right: var(--spacing-sm);
-  transition: background-color 0.25s ease, color 0.25s ease, transform var(--duration-fast) ease;
+  transition: background-color 0.25s var(--ease-out), color 0.25s var(--ease-out), transform var(--duration-fast) var(--ease-out);
 }
 .back-btn:hover {
   background: rgba(var(--white-rgb), 0.08);
@@ -110,7 +110,7 @@
      header on every frame of every scroll. The scrolled state therefore snaps
      its tint and shadow (a single, invisible-at-speed change) while the pill
      still moves smoothly. */
-  transition: transform 0.32s var(--condense-ease), border-color 0.3s ease;
+  transition: transform 0.32s var(--condense-ease), border-color 0.3s var(--ease-out);
 }
 .navbar.scrolled {
   transform: translateY(-3px);
@@ -169,7 +169,7 @@
   text-decoration: none;
   border-radius: var(--radius-full);
   letter-spacing: -0.01em;
-  transition: color var(--nav-fade), background-color var(--nav-fade), opacity var(--nav-fade), transform 0.25s ease;
+  transition: color var(--nav-fade), background-color var(--nav-fade), opacity var(--nav-fade), transform 0.25s var(--ease-out);
   white-space: nowrap;
 }
 .nav-link:hover {
@@ -217,7 +217,7 @@
 }
 .nav-cluster .nav-link,
 .nav-cluster .nav-icon-btn {
-  transition: color var(--nav-fade), background-color var(--nav-fade), opacity var(--nav-fade), transform 0.25s ease;
+  transition: color var(--nav-fade), background-color var(--nav-fade), opacity var(--nav-fade), transform 0.25s var(--ease-out);
 }
 
 /* ── Nav hover (Cinejoy): hovering anywhere on the pill whitens every

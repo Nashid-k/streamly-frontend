@@ -4,6 +4,7 @@
 // without escaping the picture. Fades on mouse-enter / keyboard focus; the
 // reduced-motion variant drops the slide via player.css.
 import { useEffect, useRef, useState } from "react";
+import { EASE_OUT } from "../../../constants/motion";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -61,7 +62,7 @@ export default function Tooltip({ tip, kbd, children }) {
                 initial={{ opacity: 0, y: 6, scale: 0.96 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 4, scale: 0.97 }}
-                transition={{ duration: 0.15, ease: "easeOut" }}
+                transition={{ duration: 0.15, ease: EASE_OUT }}
                 style={{
                   position: "fixed",
                   left: pos.left,

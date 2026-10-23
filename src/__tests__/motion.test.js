@@ -299,6 +299,223 @@ describe("player stylesheet speaks the token scale", () => {
   });
 });
 
+describe("the whole app speaks one easing curve", () => {
+  const stylesDir = join(process.cwd(), "src", "styles");
+  const sheets = readdirSync(stylesDir)
+    .filter((f) => f.endsWith(".css"))
+    .map((f) => [f, readFileSync(join(stylesDir, f), "utf8")]);
+
+  // Parse whole declarations, not lines: a transition may be wrapped across
+  // several lines, and a line-based scan silently misses every continuation.
+  // Comments are stripped (they explain the scale; reduced-motion kill switches
+  // are `0.001ms` on purpose and are skipped by the duration check).
+  function transitionDeclarations(css) {
+    const clean = css.replace(/\/\*[\s\S]*?\*\//g, "");
+    const out = [];
+    for (const match of clean.matchAll(/transition(-duration)?\s*:\s*([^;]+);/g)) {
+      out.push({
+        property: match[1] ? "transition-duration" : "transition",
+        value: match[2],
+        line: clean.slice(0, match.index).split(/\r?\n/).length,
+      });
+    }
+    return out;
+  }
+
+  // `cubic-bezier(0.16, 1, 0.3, 1)` contains commas, so a plain split would
+  // read each coefficient as its own transition segment.
+  function splitTopLevel(value) {
+    const out = [];
+    let depth = 0;
+    let current = "";
+    for (const ch of value) {
+      if (ch === "(") depth += 1;
+      if (ch === ")") depth -= 1;
+      if (ch === "," && depth === 0) {
+        out.push(current);
+        current = "";
+      } else {
+        current += ch;
+      }
+    }
+    out.push(current);
+    return out;
+  }
+
+  // In the shorthand, the FIRST time value is the duration and the second is
+  // the delay. Only the duration belongs to the shared scale; a stagger delay
+  // is content, not interaction speed. A `var()` duration counts as the first
+  // time value, which is how the `.. var(--duration-slow) .. 180ms` delays
+  // below are left alone.
+  function firstDuration(segment) {
+    const times = segment.match(
+      /[\d.]+m?s\b|var\(--duration-[a-z]+\)|var\(--anim-hover-time\)/g
+    );
+    return times ? times[0] : null;
+  }
+
+  it("finds every stylesheet", () => {
+    expect(sheets.length).toBeGreaterThan(10);
+  });
+
+  it("uses the shared curve instead of the bare ease keyword", () => {
+    const offenders = [];
+    for (const [name, css] of sheets) {
+      for (const { value, line } of transitionDeclarations(css)) {
+        if (/(?<![\w-])ease(?![\w-])/.test(value)) {
+          offenders.push(`${name}:${line} ${value.replace(/\s+/g, " ").trim()}`);
+        }
+      }
+    }
+    expect(
+      offenders,
+      `Bare \`ease\` is cubic-bezier(0.25, 0.1, 0.25, 1); use var(--ease-out).\n${offenders.join("\n")}`
+    ).toEqual([]);
+  });
+
+  it("names fast interaction durations instead of typing them", () => {
+    // 100/150/160/180/200ms were five spellings of one step. The shared name
+    // is --duration-fast (200ms) and --duration-instant (120ms) for presses.
+    const typed = new Set(["0.1s", "0.15s", "0.2s", "150ms", "160ms", "180ms"]);
+    const offenders = [];
+    for (const [name, css] of sheets) {
+      for (const { value, line } of transitionDeclarations(css)) {
+        for (const segment of splitTopLevel(value)) {
+          const duration = firstDuration(segment);
+          if (duration && typed.has(duration)) {
+            offenders.push(`${name}:${line} ${value.replace(/\s+/g, " ").trim()}`);
+            break;
+          }
+        }
+      }
+    }
+    expect(
+      offenders,
+      `Hand-written interaction durations; use var(--duration-fast)/var(--duration-instant).\n${offenders.join("\n")}`
+    ).toEqual([]);
+  });
+
+  it("gives every animated property an explicit curve", () => {
+    // Omitting the timing function is not "no curve" — the browser falls back
+    // to bare `ease`, which is exactly the drift the token exists to stop.
+    // `transition-duration` cannot carry a curve, and the reduced-motion
+    // kill switches are intentionally instantaneous.
+    const offenders = [];
+    for (const [name, css] of sheets) {
+      for (const { property, value, line } of transitionDeclarations(css)) {
+        if (property === "transition-duration") continue;
+        if (/0\.00?1?ms/.test(value)) continue;
+        for (const segment of splitTopLevel(value)) {
+          const hasTime = /[\d.]+m?s\b|var\(--duration|var\(--anim-hover-time\)/.test(segment);
+          const hasCurve = /ease|cubic-bezier|linear|steps\(/.test(segment);
+          if (hasTime && !hasCurve) {
+            offenders.push(`${name}:${line} ${segment.replace(/\s+/g, " ").trim()}`);
+          }
+        }
+      }
+    }
+    expect(
+      offenders,
+      `Animated properties with no timing function (implicit \`ease\`):\n${offenders.join("\n")}`
+    ).toEqual([]);
+  });
+});
+
+describe("framer tweens declare the shared easing", () => {
+  const SOURCE_DIRS = ["components", "pages", "app"];
+  const files = SOURCE_DIRS.flatMap((d) =>
+    walk(join(process.cwd(), "src", d))
+  );
+
+  function objectBlocks(text) {
+    const blocks = [];
+    let depth = 0;
+    let start = -1;
+    for (let i = 0; i < text.length; i += 1) {
+      if (text[i] === "{") {
+        if (depth === 0) start = i;
+        depth += 1;
+      } else if (text[i] === "}") {
+        depth -= 1;
+        if (depth === 0 && start >= 0) {
+          blocks.push(text.slice(start + 1, i));
+          start = -1;
+        }
+      }
+    }
+    return blocks;
+  }
+
+  // Every motion transition prop, whether written `transition={{...}}` (JSX)
+  // or `transition: {...}` (a variant object). Nested maps such as
+  // `{ opacity: { duration }, scale: SPRING.X }` are audited per sub-object.
+  function transitionObjects(src) {
+    const out = [];
+    const re = /transition\s*(?:=|:)\s*\{/g;
+    let match;
+    while ((match = re.exec(src))) {
+      const start = match.index + match[0].length - 1;
+      const [block] = objectBlocks(src.slice(start));
+      if (block !== undefined) out.push(block);
+    }
+    return out;
+  }
+
+  function ownProps(block) {
+    let own = "";
+    let depth = 0;
+    for (const ch of block) {
+      if (ch === "{") depth += 1;
+      else if (ch === "}") depth -= 1;
+      else if (depth === 0) own += ch;
+    }
+    return own;
+  }
+
+  function audit(block, file, out) {
+    const own = ownProps(block);
+    const duration = own.match(/duration\s*:\s*([^,}]+)/);
+    if (duration) {
+      const raw = duration[1].trim();
+      const isZero = raw === "0" || Number(raw) === 0;
+      if (!isZero && !/\bease\s*:/.test(own)) {
+        out.push(`${file.replace(process.cwd(), "")}: duration ${raw}`);
+      }
+    }
+    for (const nested of objectBlocks(block)) audit(nested, file, out);
+  }
+
+  it("scans the app sources", () => {
+    expect(files.length).toBeGreaterThan(20);
+  });
+
+  it("gives every tween a non-zero duration an explicit ease", () => {
+    const offenders = [];
+    for (const file of files) {
+      const src = readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+      if (file.includes(`${join("constants", "motion")}`)) continue;
+      for (const block of transitionObjects(src)) audit(block, file, offenders);
+    }
+    expect(
+      offenders,
+      `Tweens without an ease take framer's default curve instead of EASE_OUT.\n${offenders.join("\n")}`
+    ).toEqual([]);
+  });
+
+  it("uses the EASE_OUT token, not the easeOut keyword", () => {
+    // `easeOut` is cubic-bezier(0, 0, 0.58, 1); the app's curve is
+    // [0.16, 1, 0.3, 1]. Same name, different deceleration.
+    const offenders = [];
+    for (const file of files) {
+      const src = readFileSync(file, "utf8");
+      if (/ease:\s*"easeOut"/.test(src)) {
+        offenders.push(file.replace(process.cwd(), ""));
+      }
+    }
+    expect(offenders, `Use ease: EASE_OUT in: ${offenders.join(", ")}`).toEqual([]);
+  });
+});
+
 describe("every modal takes the shared shapes", () => {
   /* These three mounted and unmounted instantly: each returned null the moment
      its `open` prop went false, so there was no node left for AnimatePresence
