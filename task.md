@@ -5086,12 +5086,40 @@ dead rows, and `milkyway` -> `meow` was an upstream server-list change, not our 
         200ms remain literal on purpose (STAGE 5b records why).
   - [ ] Break the home hero waterfall (`featured.js` waits for trending before
         the detail/logo requests start) and let the hero paint from list data
-        with the text title as the logo fallback.
-  - [ ] Opt the four motionless surfaces into motion (`CollectionPickerDialog`,
-        `AddTitlesDialog`, `CollectionNameDialog`, `AccountMenu`) — they mount
-        with no framer, no CSS transition and no `AnimatePresence`.
+        with the text title as the logo fallback. **Audited — blocked on a data
+        contract decision.** `getFeaturedMovies` makes one `/trending/all/week`
+        call, then the five detail+images calls in parallel; the only waterfall
+        step is "list first, then details", which is unavoidable because the
+        IDs come from the list. Painting before the logos arrive needs a second
+        query that hydrates `logoUrl` after the hero renders — i.e. a new React
+        Query key outside the frozen set in `architecture.md` §2–3 — so it waits
+        for an explicit migration order rather than being slipped in.
+  - [x] Opt the four motionless surfaces into motion — **already done.**
+        `CollectionPickerDialog`, `AddTitlesDialog` and `CollectionNameDialog`
+        each take `MotionLeaf` + `MotionFade` inside `<AnimatePresence>` and stay
+        mounted while closing (pinned by `motion.test.js`); `AccountMenu`
+        animates one level down through `Popover`
+        (`src/app/AccountMenu.jsx:3`), which already runs `SPRING.POPOVER`, so
+        grepping only `AccountMenu.jsx` made it look motionless.
   - [ ] Publish PRESS scale tokens and reconcile the eight different hover/press
         scales (buttons.css, Button.jsx, Chip.jsx, grids.css, hero.css).
+        **Half done:** `tokens.css` publishes `--press-scale-icon` (0.95),
+        `--press-scale` (0.97) and `--press-scale-row` (0.99); `player.css`,
+        `buttons.css`, `grids.css` and `modals.css` consume them and
+        `motion.test.js` pins the player's three tiers. Still open: the ~25 JS
+        `whileTap` literals (0.88–0.98) across pages/components were not mapped
+        to those tiers. Several of them are deliberate whole-card collapses
+        (hero CTA, poster card), so this is a per-surface design decision, not a
+        mechanical substitution.
+  - [x] **Audited the "Settings theme dropdown should be a menu" deferral —
+        rejected, not changed.** The popup is not a menu: it contains a
+        `role="listbox"` of theme options **and** a custom-accent colour input
+        plus a reset button. `menu`/`listbox` may not contain those controls; a
+        non-modal `role="dialog"` (with the trigger's matching
+        `aria-haspopup="dialog"`) is the correct container. Focus already lands
+        on the selected option when it opens, Arrow/Home/End rove the options,
+        and Escape closes it and restores the trigger. Re-labelling it would be
+        less correct, not more.
 
 
 ## EMAIL AUTH — verified email sign-up replaces Google (2026-10-05)
