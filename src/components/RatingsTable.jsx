@@ -92,7 +92,8 @@ const RatingsTable = ({ movie, seasons = [], onClose }) => {
   return (
     <MotionFade
       key="ratings"
-      className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-md px-4 sm:px-6"
+      className="fixed inset-0 flex items-center justify-center bg-black/80 backdrop-blur-md px-4 sm:px-6"
+      style={{ zIndex: "var(--z-modal)" }}
       onClick={onClose}
     >
       <motion.div

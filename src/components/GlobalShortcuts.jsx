@@ -75,7 +75,7 @@ export default function GlobalShortcuts() {
           style={{
             position: "fixed",
             inset: 0,
-            zIndex: 9999,
+            zIndex: "var(--z-modal-top)",
             background: "rgba(0,0,0,0.85)",
             backdropFilter: "blur(8px)",
             display: "flex",

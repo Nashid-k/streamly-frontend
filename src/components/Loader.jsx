@@ -92,7 +92,7 @@ export default function Loader({ variant = "page", size, color }) {
           position: "fixed",
           bottom: "24px",
           right: "24px",
-          zIndex: 999999,
+          zIndex: "var(--z-toast)",
           background: "rgba(10, 10, 13, 0.85)",
           backdropFilter: "blur(16px)",
           WebkitBackdropFilter: "blur(16px)",

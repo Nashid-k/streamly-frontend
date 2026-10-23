@@ -248,7 +248,7 @@ export function ToastProvider({ children }) {
           position: "fixed",
           bottom: "24px",
           right: "24px",
-          zIndex: 10000,
+          zIndex: "var(--z-toast)",
           display: "flex",
           flexDirection: "column-reverse",
           gap: "8px",

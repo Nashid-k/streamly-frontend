@@ -2043,7 +2043,7 @@ export default function TitleDetails() {
             style={{
               position: "fixed",
               inset: 0,
-              zIndex: 99999,
+              zIndex: "var(--z-overlay)",
               display: "flex",
               flexDirection: "column",
               overflow: "hidden",
@@ -2314,7 +2314,8 @@ export default function TitleDetails() {
         {unreleasedModalOpen && createPortal(
           <MotionFade
             key="unreleased"
-            className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-md px-6"
+            className="fixed inset-0 flex items-center justify-center bg-black/80 backdrop-blur-md px-6"
+            style={{ zIndex: "var(--z-modal)" }}
             onClick={() => setUnreleasedModalOpen(false)}
           >
             <motion.div

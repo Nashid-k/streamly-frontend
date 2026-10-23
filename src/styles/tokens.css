@@ -149,8 +149,19 @@
   --sab: env(safe-area-inset-bottom, 0px);
 
   /* ── Z-index Scale ─────────────────────────────────────── */
-  --z-sticky: 1000;
-  --z-modal: 9999;
+  /* One ladder, low to high. Every layered surface picks a rung instead of
+     inventing a number: the old code had seven competing "above everything"
+     values (9998, 9999, 10000, 10010, 99999, 100000, 999999) and two surfaces
+     sharing 10000, where paint order silently decided whether a toast covered
+     the dialog's buttons. */
+  --z-sticky: 1000;      /* header, bottom nav */
+  --z-skiplink: 1100;    /* keyboard escape hatch, over the header */
+  --z-overlay: 8000;     /* full-screen media (the player) and page-level banners */
+  --z-modal: 10000;      /* dialogs, sheets, pickers */
+  --z-modal-top: 10100;  /* a dialog summoned from another dialog; global help */
+  --z-toast: 11000;      /* notifications outrank dialogs */
+  --z-curtain: 12000;    /* language-switch wait curtain, full-page loader */
+  --z-tooltip: 13000;    /* tooltips outrank everything */
 }
 
 /* Compact island on phones: the brand mark shrinks and the top inset tightens,

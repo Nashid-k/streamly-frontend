@@ -69,7 +69,7 @@ export function useConfirmDialog() {
               padding: "1rem",
               background: "rgba(0,0,0,0.7)",
               backdropFilter: "blur(4px)",
-              zIndex: 10000,
+              zIndex: "var(--z-modal)",
             }}
           >
             <motion.div
