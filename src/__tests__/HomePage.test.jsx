@@ -7,14 +7,15 @@ import { renderWithProviders } from "../test/testUtils";
 /* HomePage had NO coverage at all (1,136 lines, the app's landing surface).
    These tests pin the behaviours that are easy to break silently:
      - the hero is built from the featured pool and names the active title,
+     - the hero paints from the trending list without waiting for artwork,
      - the loading skeleton and the failure state stay DISTINCT (an outage
        must not render as an endless skeleton),
      - the tab filter never leaks the wrong media type into the hero pool,
      - the hero can actually be navigated (dots + arrow keys).
 
-   Queried via the hero's own accessible names: the banner renders a title LOGO
-   image, never a visible <h1> (by design — see bannerReady in HomePage), so
-   `getByText(title)` would never match. The slide dots expose
+   Queried via the hero's own accessible names: when a title already carries a
+   logo the banner renders it, otherwise `HeroTitleLogo` draws the styled <h1>
+   until the cached logo lookup resolves. The slide dots expose
    aria-label="Show <title>" and aria-current on the active one, which is the
    real user-facing contract. */
 
@@ -50,8 +51,10 @@ const SERIES = {
 };
 
 /* Everything HomePage can reach. Only the hero-critical two are given data;
-   the rails are emptied so the assertions are about the hero, not the rails. */
-function stubHomeService({ featured = [MOVIE], reject = false } = {}) {
+   the rails are emptied so the assertions are about the hero, not the rails.
+   `stubFeatured: false` leaves `getFeaturedMovies` real so a test can exercise
+   the service/render boundary (see the waterfall test). */
+function stubHomeService({ featured = [MOVIE], reject = false, stubFeatured = true } = {}) {
   const empty = () => Promise.resolve([]);
   for (const method of [
     "getCategories",
@@ -70,12 +73,18 @@ function stubHomeService({ featured = [MOVIE], reject = false } = {}) {
       vi.spyOn(movieService, method).mockImplementation(empty);
     }
   }
-  vi.spyOn(movieService, "getFeaturedMovies").mockImplementation(() =>
-    reject ? Promise.reject(new Error("network down")) : Promise.resolve(featured),
-  );
+  if (stubFeatured) {
+    vi.spyOn(movieService, "getFeaturedMovies").mockImplementation(() =>
+      reject ? Promise.reject(new Error("network down")) : Promise.resolve(featured),
+    );
+  }
   vi.spyOn(movieService, "getCategories").mockImplementation(() =>
     reject ? Promise.reject(new Error("network down")) : Promise.resolve([]),
   );
+}
+
+function jsonResponse(body, ok = true) {
+  return { ok, status: ok ? 200 : 500, json: async () => body };
 }
 
 function renderHome(props = {}) {
@@ -103,6 +112,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("HomePage hero", () => {
@@ -115,6 +125,47 @@ describe("HomePage hero", () => {
     expect(
       await screen.findByText(/an insomniac office worker forms an underground fight club/i),
     ).toBeInTheDocument();
+  });
+
+  it("paints the hero from the trending list without waiting for per-title artwork", async () => {
+    stubHomeService({ stubFeatured: false });
+    const fetch = vi.fn((url) => {
+      if (String(url).includes("/trending/all/week")) {
+        return Promise.resolve(
+          jsonResponse({
+            results: [
+              {
+                id: 550,
+                media_type: "movie",
+                title: "Fight Club",
+                overview: "An insomniac office worker forms an underground fight club.",
+                backdrop_path: "/fight-club.jpg",
+                poster_path: "/fight-club-poster.jpg",
+                release_date: "1999-10-15",
+                vote_average: 8.4,
+                genre_ids: [18, 53],
+              },
+            ],
+          }),
+        );
+      }
+      // Every artwork/detail lookup stalls forever: the banner must not need it.
+      return new Promise(() => {});
+    });
+    vi.stubGlobal("fetch", fetch);
+    renderHome();
+
+    // The list payload is enough to paint. The wordmark resolves separately and
+    // this title's lookup is still in flight, so the styled text title is the
+    // designed fallback rather than a loading gate. The timeout is generous
+    // because the full suite runs 110 jsdom environments in parallel and this
+    // assertion traverses the real service + query pipeline.
+    expect(
+      await screen.findByRole("heading", { name: /fight club/i }, { timeout: 5000 }),
+    ).toBeInTheDocument();
+    expect(
+      fetch.mock.calls.some(([url]) => String(url).includes("append_to_response=images")),
+    ).toBe(false);
   });
 
   it("shows a loading skeleton (not the failure copy) while the first fetch is in flight", () => {

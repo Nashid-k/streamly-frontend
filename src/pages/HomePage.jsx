@@ -696,13 +696,14 @@ export default function Home({
       );
     }
 
-    // Banner slots need a TITLE IMAGE: the hero renders the show logo
-    // (HeroTitleLogo), and a bare backdrop/poster falls back to the <h1> text the
-    // user does not want on a banner. logoUrl is the TMDB English logo;
-    // titleImage/titleLogo are the normalized aliases some feeds carry.
+    // Banner slots prefer a TITLE IMAGE: the hero renders the show logo
+    // (HeroTitleLogo) and draws the styled text title until that lookup
+    // resolves. `featured` items are the curated hero set and no longer carry a
+    // pre-fetched logoUrl — the trending list alone is enough to paint — so
+    // they are not filtered here. The other feeds still need an image so an old
+    // regional or a logo-less card cannot displace the featured rotation.
     const bannerReady = (m) =>
       m.logoUrl || m.titleImage || m.logoUrl?.trim() || m.titleLogo || m.logo;
-    globalPool = globalPool.filter(bannerReady);
     regionalPool = regionalPool.filter(bannerReady);
     recommendedPool = recommendedPool.filter(bannerReady);
 

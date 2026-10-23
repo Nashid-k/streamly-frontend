@@ -26,6 +26,48 @@ describe("movieService", () => {
     expect(titles.map((title) => title.id)).toEqual(["movie-2", "tv-3"]);
   });
 
+  it("paints the featured hero from the trending list alone", async () => {
+    // The hero used to await one detail request per candidate before it could
+    // render. The list payload already carries everything normalizeResult
+    // keeps; the wordmark is resolved lazily per title, so one request is the
+    // whole cost of first paint.
+    const fetch = vi.fn().mockResolvedValue(
+      jsonResponse({
+        results: [
+          {
+            id: 550,
+            media_type: "movie",
+            title: "Fight Club",
+            backdrop_path: "/fight-club.jpg",
+            poster_path: "/fight-club-poster.jpg",
+            release_date: "1999-10-15",
+            vote_average: 8.4,
+            genre_ids: [18, 53],
+          },
+          {
+            id: 1399,
+            media_type: "tv",
+            name: "Game of Thrones",
+            first_air_date: "2011-04-17",
+            backdrop_path: "/got.jpg",
+            vote_average: 8.4,
+            genre_ids: [18],
+          },
+        ],
+      }),
+    );
+    vi.stubGlobal("fetch", fetch);
+
+    const hero = await movieService.getFeaturedMovies();
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(String(fetch.mock.calls[0][0])).toContain("/trending/all/week");
+    expect(hero.map((title) => title.id)).toEqual(["movie-550", "tv-1399"]);
+    expect(hero[0].title).toBe("Fight Club");
+    // No logo yet: HeroTitleLogo resolves and caches it, the h1 covers the gap.
+    expect(hero[0].logoUrl).toBeUndefined();
+  });
+
   it("uses appended credits and keeps details usable when external IDs fail", async () => {
     const fetch = vi
       .fn()

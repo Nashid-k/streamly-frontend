@@ -1,5 +1,5 @@
 import tmdb from '../tmdbClient';
-import { logDebug, logEmptyData, logWarn } from '../../utils/debugLogger';
+import { logDebug, logEmptyData } from '../../utils/debugLogger';
 import { logServiceError, warnIfEmpty, isTvId, rawId } from './core';
 import { normalizeResult, isBrowsableTitle, logoUrlFromImages } from './normalize';
 
@@ -15,23 +15,14 @@ export const getFeaturedMovies = async () => {
         total: (data.results || []).length,
       });
     }
-    // Fetch details for the featured movies to get logos
-    return await Promise.all(results.map(async (r) => {
-      try {
-        const detail = await tmdb(`/${r.media_type || 'movie'}/${r.id}`, { append_to_response: 'images' });
-        const item = { ...r, ...detail };
-        const base = normalizeResult(item);
-        const logoUrl = logoUrlFromImages(detail.images);
-        return { ...base, logoUrl };
-      } catch (error) {
-        logWarn('movieService', `getFeaturedMovies: detail fetch failed for ${r.media_type || 'movie'}/${r.id} — using list item without logo.`, {
-          id: r.id,
-          media_type: r.media_type,
-          message: error?.message,
-        });
-        return normalizeResult(r);
-      }
-    }));
+    // The list payload is enough to paint the hero. `normalizeResult` already
+    // carries title, artwork, genres and rating, and the wordmark is resolved
+    // lazily per title by `HeroTitleLogo`/`useTitleLogo` through the cached
+    // `titleLogo` query, which draws the styled text title until it lands.
+    // Fetching every candidate's detail here only added `logoUrl`
+    // (normalizeResult discards the rest) at the cost of blocking the whole
+    // hero on five extra round trips.
+    return results.map(normalizeResult);
   } catch (error) {
     logServiceError('getFeaturedMovies', error, {});
     throw error;

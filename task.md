@@ -7,6 +7,13 @@
 
  ## Done (in order)
 
+- [x] **STAGE 5c — the hero paints from the trending list; wordmarks hydrate per title — 2026-10-23.**
+  - **What was audited.** `getFeaturedMovies`, the HomePage hero-pool builder, `HeroTitleLogo`/`useTitleLogo`, and every consumer of the featured payload. The earlier audit called this blocked on a new query key; that verdict was wrong.
+  - **The blocking fetch only produced `logoUrl`.** `getFeaturedMovies` fetched `/trending/all/week`, then awaited a detail+images request per candidate and merged the detail into the list item — but `normalizeResult` discards every detail-only field (runtime, tagline, detail genres), so the only thing those extra round trips contributed was the wordmark. `HeroTitleLogo` already resolves wordmarks lazily through the cached `titleLogo:<id>` query and draws the styled text title meanwhile, so the new key the earlier note demanded did not need to exist.
+  - **Change.** `getFeaturedMovies` now returns the normalized trending list after one request. HomePage no longer requires a pre-fetched `logoUrl` for the curated featured set; the other feeds keep `bannerReady` so a logo-less regional card cannot displace the rotation, and the featured list still leads the pool, so rotation order is unchanged. `architecture.md` §2 records the new shape.
+  - **Tests.** `movieService.test.js`: the featured query makes exactly one request and returns no `logoUrl`. `HomePage.test.jsx`: with every artwork/detail request stalled forever, the hero still paints the title. Both fail against the pre-fix source (3 requests / no heading), verified by stashing only the two source files and re-running them.
+  - **Gates.** `npm run lint` — 0 errors. `npm run test` — **110 files / 1310 tests**. `npm run build` — clean.
+
 - [x] **STAGE 5b — one easing curve and one fast-duration scale, app-wide — 2026-10-23.**
   - **What was audited.** Every `transition`/`transition-duration` declaration in the 18 stylesheets (131 declarations) and every framer `transition` prop in `src/components`, `src/pages` and `src/app`. The question was the one the tokens exist to answer: if two controls do the same job, do they move on the same curve and the same clock?
   - **The CSS had two vocabularies for one job.** `tokens.css` publishes `--ease-out` = `cubic-bezier(0.16, 1, 0.3, 1)` and `player.css` already enforces it, but the rest of the app still used the bare `ease` keyword (`cubic-bezier(0.25, 0.1, 0.25, 1)`) in transition declarations across **14 stylesheets** — so a player button and a settings tab decelerated differently. Every one now uses `var(--ease-out)`, including properties that previously declared no curve at all and silently took the browser default (`opacity 0.3s`, three card `transform` segments, the skip-link and more). `--condense-ease`, `--anim-hover-ease` and `var(--nav-fade)` keep their own curves because they are deliberate distinct motion (header condense, silk lift, nav fade), not drift.
@@ -5084,16 +5091,19 @@ dead rows, and `milkyway` -> `meow` was an upstream server-list change, not our 
         keyword now take `EASE_OUT`. `motion.test.js` polices all of it from
         the source, including multi-line CSS declarations. Durations above
         200ms remain literal on purpose (STAGE 5b records why).
-  - [ ] Break the home hero waterfall (`featured.js` waits for trending before
+  - [x] Break the home hero waterfall (`featured.js` waits for trending before
         the detail/logo requests start) and let the hero paint from list data
-        with the text title as the logo fallback. **Audited — blocked on a data
-        contract decision.** `getFeaturedMovies` makes one `/trending/all/week`
-        call, then the five detail+images calls in parallel; the only waterfall
-        step is "list first, then details", which is unavoidable because the
-        IDs come from the list. Painting before the logos arrive needs a second
-        query that hydrates `logoUrl` after the hero renders — i.e. a new React
-        Query key outside the frozen set in `architecture.md` §2–3 — so it waits
-        for an explicit migration order rather than being slipped in.
+        with the text title as the logo fallback. **Done (STAGE 5c).**
+        `getFeaturedMovies` now makes one `/trending/all/week` request and
+        returns normalized list items; `HeroTitleLogo`/`useTitleLogo` resolve
+        each wordmark lazily through the cached `titleLogo:<id>` query and draw
+        the styled text title until it lands. The five per-candidate
+        detail+images requests only ever contributed `logoUrl`, because
+        `normalizeResult` discards the rest of the detail payload. Featured
+        titles no longer need a pre-fetched logo to enter the hero pool; other
+        feeds keep that filter so a logo-less regional card cannot displace the
+        curated rotation. Covered by a one-request service test and a
+        stalled-artwork hero test, both failing pre-fix.
   - [x] Opt the four motionless surfaces into motion — **already done.**
         `CollectionPickerDialog`, `AddTitlesDialog` and `CollectionNameDialog`
         each take `MotionLeaf` + `MotionFade` inside `<AnimatePresence>` and stay
