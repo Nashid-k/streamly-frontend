@@ -2,12 +2,10 @@ import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MotionFade, MotionLeaf } from "../components/MotionLeaf";
 import { Keyboard, X, Search, ArrowLeft, Play } from "lucide-react";
+import useDialogA11y from "../hooks/useDialogA11y";
 
 export default function GlobalShortcuts() {
   const [isOpen, setIsOpen] = useState(false);
-  const isOpenRef = useRef(isOpen);
-  const previouslyFocusedRef = useRef(null);
-  isOpenRef.current = isOpen;
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -24,12 +22,6 @@ export default function GlobalShortcuts() {
           e.preventDefault();
           setIsOpen((prev) => !prev);
         }
-      }
-
-      // Close modal on escape
-      if (e.key === "Escape" && isOpenRef.current) {
-        e.preventDefault();
-        setIsOpen(false);
       }
     };
 
@@ -64,39 +56,12 @@ export default function GlobalShortcuts() {
     },
   ];
 
-  // Trap focus, preserve the trigger, and stop background scrolling while open.
-  const modalRef = useRef(null);
-  useEffect(() => {
-    if (!isOpen || !modalRef.current) return;
-    previouslyFocusedRef.current = document.activeElement;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const focusable = modalRef.current.querySelector('button, [tabindex]:not([tabindex="-1"])');
-    if (focusable) focusable.focus();
-
-    const trapFocus = (event) => {
-      if (event.key !== "Tab") return;
-      const controls = [...modalRef.current.querySelectorAll('button:not(:disabled), [href], [tabindex]:not([tabindex="-1"])')];
-      if (controls.length === 0) return;
-      const first = controls[0];
-      const last = controls.at(-1);
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    window.addEventListener("keydown", trapFocus);
-    return () => {
-      window.removeEventListener("keydown", trapFocus);
-      document.body.style.overflow = previousOverflow;
-      if (previouslyFocusedRef.current instanceof HTMLElement && previouslyFocusedRef.current.isConnected) {
-        previouslyFocusedRef.current.focus();
-      }
-    };
-  }, [isOpen]);
+  // The shortcuts sheet is a modal like any other: Escape closes, Tab stays in
+  // the panel, the page behind cannot scroll, and focus returns to whatever
+  // opened it (the Shift+? keystroke, the footer hint, or the nav button).
+  // This was the third hand-rolled focus trap in the app.
+  const panelRef = useRef(null);
+  useDialogA11y(isOpen, panelRef, () => setIsOpen(false));
 
   // Unconditional: the dialog mounts inside `{isOpen && ...}`, so the leaf must
   // be built before the branch, not inside it.
@@ -106,11 +71,7 @@ export default function GlobalShortcuts() {
     <AnimatePresence>
       {isOpen && (
         <MotionFade
-          ref={modalRef}
           className="modal-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Keyboard Shortcuts"
           style={{
             position: "fixed",
             inset: 0,
@@ -124,6 +85,11 @@ export default function GlobalShortcuts() {
           onClick={() => setIsOpen(false)}
         >
           <motion.div
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Keyboard Shortcuts"
+            tabIndex={-1}
             initial={L.Modal.panel.initial}
             animate={L.Modal.panel.animate}
             exit={L.Modal.panelExit}

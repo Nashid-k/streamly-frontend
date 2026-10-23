@@ -4,6 +4,7 @@ import { MotionFade, MotionLeaf } from "./MotionLeaf";
 import { X, Star, RefreshCw } from "lucide-react";
 import { movieService } from "../api/movieService";
 import { getScoreColor } from "../utils/ratings";
+import useDialogA11y from "../hooks/useDialogA11y";
 
 const RATING_LEGEND = [
   { label: "8.5+", color: "#22c55e" },
@@ -33,15 +34,13 @@ const RatingsTable = ({ movie, seasons = [], onClose }) => {
   const [loaded, setLoaded] = useState({});
   const [failed, setFailed] = useState({});
   const loadedRef = useRef({});
+  const panelRef = useRef(null);
   const L = new MotionLeaf();
 
-  useEffect(() => {
-    const handler = (e) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
+  // The grid is presented as a modal (`aria-modal` + a full-screen backdrop),
+  // so it takes the full modal contract: Escape closes, Tab stays inside, the
+  // page behind cannot scroll, and focus returns to the ratings button.
+  useDialogA11y(true, panelRef, onClose);
 
   // Fetch every season once (cached) so the full grid renders progressively.
   useEffect(() => {
@@ -95,15 +94,17 @@ const RatingsTable = ({ movie, seasons = [], onClose }) => {
       key="ratings"
       className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-md px-4 sm:px-6"
       onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="ratings-title"
     >
       <motion.div
         initial={L.Modal.panel.initial}
         animate={L.Modal.panel.animate}
         exit={L.Modal.panelExit}
         transition={L.Modal.panel.transition}
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ratings-title"
+        tabIndex={-1}
         className="w-full max-w-3xl overflow-hidden rounded-2xl border border-white/10 bg-[#0c0c0e]/95 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >

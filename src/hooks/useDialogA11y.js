@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 const FOCUSABLE_SELECTOR =
   "button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
@@ -22,6 +22,11 @@ const FOCUSABLE_SELECTOR =
  *        while a submit is in flight and closing would abandon it).
  * @param {Function} [options.initialFocus]  Returns the element to focus first;
  *        falls back to the first focusable control, then the panel itself.
+ * @returns {{ restore: Function }} `restore()` releases the scroll lock and
+ *        returns focus to the opener immediately. Call it when a dialog is
+ *        DISMISSED if the panel stays mounted for an exit animation — waiting
+ *        for unmount leaves focus inside something already invisible and the
+ *        page scroll-locked behind a dialog the viewer has closed. Idempotent.
  */
 export default function useDialogA11y(open, panelRef, onClose, options = {}) {
   const { closeOnEscape = true, initialFocus } = options;
@@ -36,6 +41,18 @@ export default function useDialogA11y(open, panelRef, onClose, options = {}) {
   closeOnEscapeRef.current = closeOnEscape;
   const initialFocusRef = useRef(initialFocus);
   initialFocusRef.current = initialFocus;
+
+  // Shared by the effect cleanup AND by callers that dismiss a panel kept
+  // mounted by an exit animation. Idempotent: it nulls both captured values.
+  const restore = useCallback(() => {
+    if (overflowRef.current !== null) {
+      document.body.style.overflow = overflowRef.current;
+      overflowRef.current = null;
+    }
+    const opener = openerRef.current;
+    openerRef.current = null;
+    if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
+  }, []);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -89,12 +106,9 @@ export default function useDialogA11y(open, panelRef, onClose, options = {}) {
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
-      if (overflowRef.current !== null) {
-        document.body.style.overflow = overflowRef.current;
-        overflowRef.current = null;
-      }
-      const opener = openerRef.current;
-      if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
+      restore();
     };
-  }, [open, panelRef]);
+  }, [open, panelRef, restore]);
+
+  return { restore };
 }

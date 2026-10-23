@@ -7,6 +7,7 @@ import CastRail from "../components/CastRail";
 import RailArrow from "../components/RailArrow";
 import RatingsTable from "../components/RatingsTable";
 import useRailArrows from "../hooks/useRailArrows";
+import useDialogA11y from "../hooks/useDialogA11y";
 import { useTitleLogo } from "../hooks/useTitleLogo";
 import { warmResolve } from "../api/warmResolve";
 import { useQuery } from "@tanstack/react-query";
@@ -231,6 +232,7 @@ export default function TitleDetails() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [unreleasedModalOpen, setUnreleasedModalOpen] = useState(false);
+  const unreleasedPanelRef = useRef(null);
   const [iframeLoading, setIframeLoading] = useState(false);
 
   // Which engine to mount is a DEPLOYMENT capability, not a per-title choice:
@@ -668,15 +670,12 @@ export default function TitleDetails() {
     return () => window.removeEventListener("keydown", handleKey);
   }, [isPlaying, playMode]);
 
-  // Close the unreleased-notice modal on Escape key
-  useEffect(() => {
-    if (!unreleasedModalOpen) return;
-    const handleKey = (e) => {
-      if (e.key === "Escape") setUnreleasedModalOpen(false);
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [unreleasedModalOpen]);
+  // The unreleased-notice modal gets the same modal contract as every other
+  // dialog: Escape closes, Tab stays inside the panel, the page behind cannot
+  // scroll, and focus returns to the button that opened it. It used to be an
+  // `aria-modal="true"` panel with a bare Escape listener — a modal claim with
+  // none of the modal behaviour.
+  useDialogA11y(unreleasedModalOpen, unreleasedPanelRef, () => setUnreleasedModalOpen(false));
 
   /* Warm resolve (PLAN.md P0.4): pre-mint the default server's stream token
      while the viewer reads the page, so tapping Watch skips the resolve leg
@@ -2317,15 +2316,17 @@ export default function TitleDetails() {
             key="unreleased"
             className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-md px-6"
             onClick={() => setUnreleasedModalOpen(false)}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="unreleased-title"
           >
             <motion.div
               initial={L.Modal.panel.initial}
               animate={L.Modal.panel.animate}
               exit={L.Modal.panelExit}
               transition={L.Modal.panel.transition}
+              ref={unreleasedPanelRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="unreleased-title"
+              tabIndex={-1}
               className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#0c0c0e]/95 p-6 text-center shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >

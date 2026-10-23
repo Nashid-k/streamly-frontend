@@ -5,6 +5,7 @@ import { Eye, EyeOff, Mail, X } from "lucide-react";
 import { MotionFade, MotionLeaf } from "../../components/MotionLeaf";
 import { useAppAuth } from "../../context/auth";
 import { useI18n } from "../../i18n";
+import useDialogA11y from "../../hooks/useDialogA11y";
 import { logWarn } from "../../utils/debugLogger";
 
 /* ── Sign in / create account ───────────────────────────────────────────────
@@ -42,111 +43,40 @@ function SignInDialog({ initialMode = "signin", reason = "", onClose }) {
   const [pendingEmail, setPendingEmail] = useState("");
   const emailRef = useRef(null);
   const panelRef = useRef(null);
-  // Read by the keydown handler, which must not re-subscribe every time `busy`
-  // flips — re-running the effect mid-typing would steal focus back to the
-  // email field on each keystroke.
-  const busyRef = useRef(false);
-  useEffect(() => {
-    busyRef.current = busy;
-  }, [busy]);
-  const openerRef = useRef(null);
-  const overflowRef = useRef(null);
+  // Filled from the shared hook below. `requestClose` is the hook's onClose
+  // callback, so it cannot read the hook's return value directly — this ref
+  // breaks that cycle and always points at the current release function.
+  const releaseRef = useRef(() => {});
 
-  /* Modal hygiene, moved here from the copy of this panel that used to live in
-     SettingsPage: lock body scroll, move focus into the panel, trap Tab inside
-     it, allow Escape to dismiss, and hand focus back to whatever opened it. A
-      dialog that can be summoned from a card click and dismissed by clicking
-      the page behind it has to own all of that itself — callers cannot. */
+  /* Modal hygiene comes from the shared hook: body scroll lock, focus into the
+     panel, a Tab trap, Escape-to-dismiss, and focus restored to whatever opened
+     the dialog. This replaces the hand-rolled copy that used to live here and a
+     second one in ConfirmDialog, so the two can no longer drift apart. */
 
   /**
-   * Dismiss, handing focus straight back to whatever opened the dialog.
-   *
-   * Done here rather than in the unmount cleanup because <AnimatePresence> keeps
-   * this component mounted for the length of the exit fade. Waiting for unmount
-   * meant focus sat inside a dialog that was already invisible — long enough for
-   * the next Tab to land nowhere useful.
+   * Dismiss, handing focus straight back to whatever opened the dialog. Called
+   * here rather than left to the unmount cleanup because <AnimatePresence> keeps
+   * this component mounted for the exit fade: waiting for unmount left focus
+   * inside a dialog that was already invisible.
    */
   const requestClose = useCallback(() => {
-    const opener = openerRef.current;
-    if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
-    // Released here, not in the unmount cleanup: <AnimatePresence> keeps this
-    // mounted for the exit fade, and a page that stays scroll-locked behind a
-    // dialog the user has already dismissed feels broken.
-    if (overflowRef.current !== null) {
-      document.body.style.overflow = overflowRef.current;
-      overflowRef.current = null;
-    }
+    releaseRef.current();
     onClose?.();
   }, [onClose]);
 
+  const { restore } = useDialogA11y(true, panelRef, requestClose, {
+    // Escape must not abandon an in-flight request: the dialog would close
+    // while /api/login is still running, and its result would then adopt a
+    // session behind a dialog the viewer no longer sees.
+    closeOnEscape: !busy,
+    // Land on the email field when it is on screen; the hook falls back to the
+    // first focusable control (the "check your inbox" panel has no email field).
+    initialFocus: () => emailRef.current,
+  });
+
   useEffect(() => {
-    const prevOverflow = document.body.style.overflow;
-    // Captured on mount — and this dialog is mounted fresh on every open, so
-    // "active element right now" is the control that summoned it.
-    openerRef.current = document.activeElement;
-    overflowRef.current = prevOverflow;
-    document.body.style.overflow = "hidden";
-
-    const focusables = () => {
-      const panel = panelRef.current;
-      if (!panel) return [];
-      return [
-        ...panel.querySelectorAll(
-          "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
-        ),
-      ].filter((el) => !el.disabled && !el.hidden);
-    };
-
-    // Land on the email field when it is the first thing on screen, otherwise on
-    // whatever comes first — a focus trap that opens on the close button reads
-    // as "dismiss this" to anyone arriving by keyboard.
-    //
-    // Synchronous, not on a rAF: this effect already runs after the panel is
-    // committed to the DOM, so there is nothing to wait for, and deferring it
-    // leaves focus on the page behind for a frame.
-    (emailRef.current || focusables()[0] || panelRef.current)?.focus?.();
-
-    const handleKey = (e) => {
-      // Escape must not abandon an in-flight request: the dialog would close
-      // while /api/login is still running, and its result would then adopt a
-      // session behind a dialog the user no longer sees.
-      if (e.key === "Escape") {
-        if (!busyRef.current) requestClose();
-        return;
-      }
-      if (e.key !== "Tab") return;
-      const panel = panelRef.current;
-      const items = focusables();
-      if (!panel || items.length === 0) {
-        e.preventDefault();
-        panel?.focus?.();
-        return;
-      }
-      const first = items[0];
-      const last = items[items.length - 1];
-      if (!panel.contains(document.activeElement)) {
-        e.preventDefault();
-        first.focus();
-      } else if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener("keydown", handleKey);
-    return () => {
-      // Safety net for a close that never went through requestClose (a sign-in
-      // landing from another tab unmounts us directly). Idempotent: requestClose
-      // already nulled the ref.
-      if (overflowRef.current !== null) {
-        document.body.style.overflow = overflowRef.current;
-        overflowRef.current = null;
-      }
-      document.removeEventListener("keydown", handleKey);
-    };
-  }, [requestClose]);
+    releaseRef.current = restore;
+  }, [restore]);
 
   // Signing in by any other means (the /verify-email route, another tab) while
   // this is open should dismiss it — there is nothing left to do.

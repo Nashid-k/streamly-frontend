@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { MotionFade, MotionLeaf } from "./MotionLeaf";
 import { AlertTriangle } from "lucide-react";
+import useDialogA11y from "../hooks/useDialogA11y";
 
 /**
  * Reusable confirm dialog — replaces window.confirm().
@@ -41,49 +42,14 @@ export function useConfirmDialog() {
     setQueue((current) => current.slice(1));
   };
 
-  useEffect(() => {
-    if (!dialog) return;
-
-    const previouslyFocused = document.activeElement;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    const focusInitialControl = () => {
-      panelRef.current?.querySelector("[data-dialog-initial]")?.focus();
-    };
-    const focusTimer = window.setTimeout(focusInitialControl, 0);
-
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        handleCancel();
-        return;
-      }
-      if (event.key !== "Tab" || !panelRef.current) return;
-
-      const controls = [...panelRef.current.querySelectorAll("button:not(:disabled)")];
-      if (controls.length === 0) return;
-      const first = controls[0];
-      const last = controls.at(-1);
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.clearTimeout(focusTimer);
-      window.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
-      if (previouslyFocused instanceof HTMLElement && previouslyFocused.isConnected) {
-        previouslyFocused.focus();
-      }
-    };
-  }, [dialog]);
+  // A destructive prompt is a modal: Escape cancels, Tab stays inside, the page
+  // behind cannot scroll, and focus returns to the control that asked. This is
+  // the shared contract, not one of the two hand-rolled copies that used to
+  // drift apart. Deliberately called here rather than inside the renderer
+  // below: that renderer is re-created on every render, so its effects remount.
+  useDialogA11y(Boolean(dialog), panelRef, handleCancel, {
+    initialFocus: () => panelRef.current?.querySelector("[data-dialog-initial]"),
+  });
 
   function ConfirmDialogRenderer() {
     const L = new MotionLeaf();
