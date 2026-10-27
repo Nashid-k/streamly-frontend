@@ -231,18 +231,29 @@ declarations; discovery fetches the bundle chunk-by-chunk and retries only FAILE
 chunk paths once, because FIELD_MAP and the mint path ship in different chunks.
 Discovery is throttled three ways: 60s after a successful discovery, 10s after a
 failed one, and 10s for the sources-side forced path. A successful discovery
-clears the MPD and resolve caches so the old contract's URLs are never replayed.
-The sources call has its own self-heal: after a successful mint, an HTTP **400**
-means the param names or fToken salt moved between the mint and that query, so
-the resolver forces one re-discovery, re-mints under the new contract, and
-retries the query once. A sources 404 ("no streams for this title"),
-timeout/429/5xx is not drift and must NOT trigger discovery. Minted tokens are
-tagged with the exact contract that minted them; `zxcServerLinks` discards a
-prefetched token whose contract is stale (or which pre-dates fToken) instead of
-sending it and waiting for a 400. Generated playlist marker URLs also carry
-`imdbId` (plus title/year/date) so a replayed playlist asks for the same title,
-and a marker with a blank title/year/date is rejected before it can reach the
-provider. Timeouts/429/5xx deliberately do NOT trigger discovery (discovery asks
+clears the MPD and resolve caches so the old contract's URLs are never replayed,
+and clears the per-server health cooldowns, whose old-contract 400 reasons no
+longer apply. The FIELD_MAP parser anchors on the `FIELD_MAP` declaration itself
+(with the fToken literal, then mediaType, as fallbacks for a minified inline
+object), so a future contract without fToken is still readable instead of
+silently keeping a dead seed. The sources call has its own self-heal: after a
+successful mint, an HTTP **400** means the param names or fToken salt moved
+between the mint and that query, so the resolver forces one re-discovery,
+re-mints under the new contract, and retries the query once. A sources 404
+("no streams for this title"), timeout/429/5xx is not drift and must NOT trigger
+discovery. Minted tokens are tagged with the exact contract that minted them;
+`zxcServerLinks` builds the query from the token's contract (not whatever
+`zxcContract` happens to be at send time) and discards a prefetched token whose
+contract is stale (or which pre-dates fToken) instead of sending it and waiting
+for a 400. The mint retry compares discovery against the contract the FAILED
+attempt used, so a concurrent discovery cannot make it skip a needed retry.
+Generated playlist marker URLs use STABLE internal keys (`zs`, `zi`, `zm`, ...)
+rather than the rotating FIELD_MAP names: the viewer holds that URL for the
+session, so a provider rotation between resolve and replay must not rename its
+identity fields. They still carry `imdbId` (plus title/year/date), so a replayed
+playlist asks for the same title, and the parser falls back to the retired
+contract keys for markers issued before this change; a marker with a blank
+title/year/date is rejected before it can reach the provider. Timeouts/429/5xx deliberately do NOT trigger discovery (discovery asks
 for a higher response ceiling than the default 1.5MB text cap, because the
 provider's contract chunk is a ~1.7MB bundle). Two out-of-band layers keep the
 committed seed truthful, both patching the same sentinel-delimited block through
@@ -338,8 +349,11 @@ two, so the pure-`auto` happy path pays nothing extra.
 than played with `dash.js`: the MPD's `SegmentTemplate` is substituted per
 representation, and `buildMasterPlaylist`/`buildMediaPlaylist` emit a replayable
 HLS pair addressed by a marker URL that re-runs the conversion on demand —
-`…/backend_/sources/{server}?zx=streamly&zv=master|media&zr={representationId}`
-(plus `zd={lang}` for a dub), so the browser never sees a time-scoped MPD. This
+`…/backend_/sources/{server}?zx=streamly&zv=master|media&zs={server}&zi={tmdbId}&zm={movie|tv}&zr={representationId}`
+(plus `zt`/`zy`/`zd` and, for TV, `zn`/`ze`; dubs add `dubCode`/`dubType`), so
+the browser never sees a time-scoped MPD. Every identity key in that marker is a
+STABLE internal name, never a rotating FIELD_MAP name, so a provider rotation
+mid-session cannot orphan a URL the player already holds. This
 keeps the whole native pipeline HLS-only (one MSE append path, one manifest
 parser, the existing relay). Real upstream captures confirm hundreds of fMP4
 segments per 1080p DASH rendition with `ftyp` init + `styp` segments and
@@ -349,6 +363,22 @@ ladder in one document; native HLS masters and single-rung media
 playlists are parsed as-is. Which rows are DASH versus HLS is decided
 from each response's link `type`, not a frozen server list — the provider moved
 Orion onto DASH on 2026-10-14 without warning.
+
+**An HLS link is only a candidate if it can deliver VIDEO.** A media playlist
+that starts with `#EXTM3U` can still be a storyboard: Daedalus has returned three
+"1080/720/480" links that all decrypt to the same `index_287.m3u8` whose entries
+are `.jpg` sprites. Publishing that as the source makes the player request a
+poster as if it were a segment, so the row reports PLAYING and paints nothing.
+`resolveZxcOnServer` now parses every media playlist and rejects one whose
+segments are ALL preview assets (JPEG/PNG/WebP/GIF/AVIF/BMP/SVG images or
+VTT/SRT/ASS sidecars), plus `#EXT-X-I-FRAMES-ONLY` seek tracks; masters are
+judged by their `#EXT-X-STREAM-INF` variants, and mixed playlists stay playable.
+If every HLS link is preview-only the resolver returns a soft `no-source`
+("has no video playlist"); if none answered at all it says "HLS links
+unreadable". Neither falls into the DASH branch or logs a misleading "manifest
+unreadable", and `prefer`/auto then falls through normally.
+The byte probe uses the same `#EXT-X-STREAM-INF` video variant and only passes a
+row when the first segment carries real fMP4/TS bytes.
 
 The multi-audio row (Orion) exposes dubs as SIBLING masters, not
 `#EXT-X-MEDIA` groups: the servers payload's `dubs` array lists them (`en/0`→

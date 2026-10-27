@@ -6552,3 +6552,94 @@ Visual pass, conservative CSS-only changes.
 - build: clean, 2.76s
 - Not verifiable here: real-browser paint/switch behavior (jsdom), and
   Atlas/Ursa cannot play while their provider workers return 427/403.
+
+## 2026-10-27 - ZXC: contract-independent markers, preview-playlist rejection, parser/health hardening
+
+### What was still broken
+- A resolved DASH playlist marker embedded the live FIELD_MAP names. The viewer
+  holds that URL for the session, so a provider rotation between resolve and
+  replay renamed every identity field and the marker stopped parsing.
+- A fresh mint's sources query read the GLOBAL contract at send time. A
+  concurrent discovery could pair a token minted under A with B's param names,
+  earning a 400 for a token that was still valid under its own contract.
+- The mint retry compared discovery against the current global contract. If a
+  concurrent request had already installed a replacement, it concluded "nothing
+  changed" and skipped the retry the failed attempt still needed.
+- `parseZxcFieldMap` anchored on the fToken literal. A future contract without
+  fToken (optional field) made the whole object unreadable and kept the dead seed.
+- A successful contract change cleared the MPD/resolve caches but not the
+  per-server health cooldowns, so old-contract 400s kept healthy backends
+  sidelined for the rest of their cooldown.
+- Daedalus now returns three "1080/720/480" links that all decrypt to the SAME
+  `index_287.m3u8`, whose entries are JPEG storyboard sprites. The HLS selector
+  published that playlist as the source, so the row reported PLAYING while the
+  player requested a poster as a segment and painted nothing.
+
+### Resolver (`api/stream.js`)
+- The replay marker now uses STABLE internal keys (`zs` server, `zi` tmdbId,
+  `zm` mediaType, `zt` title, `zy` year, `zd` date, `zn`/`ze` season/episode,
+  `zim` imdbId, `zl` latestDate) instead of FIELD_MAP names; `zxcPlaylistUrl`
+  writes them and `parseZxcPlaylistUrl` reads stable-first with a legacy
+  contract-key fallback for markers issued by older builds.
+- `zxcServerLinks` builds the query from the token's own minting contract, not
+  the current global, and compares the sources-400 rediscovery against the
+  contract that shaped the failed query.
+- `zxcMint` remembers the contract used by the failed attempt, so a concurrent
+  discovery cannot make the retry gate skip a real rename.
+- `parseZxcFieldMap` anchors on the `FIELD_MAP` declaration first, then fToken,
+  then mediaType (for the minified inline object), so a contract without fToken
+  still parses.
+- A successful contract-changing discovery now also clears `zxcServerHealth()`;
+  old-contract failure reasons no longer outlive the contract they described.
+- HLS candidates are parsed and an all-preview media playlist (JPEG/PNG/WebP/
+  GIF/AVIF/BMP/SVG images or VTT/SRT/ASS sidecars) or an
+  `#EXT-X-I-FRAMES-ONLY` seek track is rejected. A mixed playlist stays valid;
+  masters are judged by their `#EXT-X-STREAM-INF` variants. If every HLS link is
+  preview-only the resolver returns a soft `no-source` ("has no video playlist");
+  if none answered at all it says "HLS links unreadable". Neither enters the DASH
+  branch or logs a misleading manifest error.
+
+### Live playback probe (movie 27205 + TV 1399 S1E1, this tree)
+| row | movie | TV |
+| --- | --- | --- |
+| Server 1 Orion | PASS fMP4, 3 variants, 8 audio | PASS fMP4, 3 variants, 5 audio |
+| Server 2 Valstrax | PASS fMP4, 3 variants | PASS fMP4, 3 variants |
+| Server 3 Atlas | FAIL upstream 427 | FAIL upstream 427 |
+| Server 4 Ursa | FAIL segment 502 / upstream 403 | FAIL segment 502 / upstream 403 |
+| Server 5 Alatreon | PASS TS | PASS TS |
+| Server 6 Daedalus | FAIL no video playlist (all 3 links = JPEG storyboard) | FAIL no video playlist (same) |
+| Auto | PASS TS via alatreon | PASS TS via alatreon |
+
+- `8/14 played real media bytes`; both Auto rows played. Daedalus previously
+  reported PASS with real TS bytes, but this run its three distinct resolutions
+  all decrypt to one `.jpg` storyboard; rejecting it is the honest result (the
+  old code claimed SUCCESS and painted nothing). Atlas' worker answers its own
+  `427`; Ursa's segment worker answers `Fetch failed: 403 Forbidden` to plain,
+  Range, and all referer variants. Both are provider-side.
+- `node scripts/sync-zxc-contract.mjs --dry-run`: seed matches live chunk;
+  movie + series playback OK via Orion (65,536B fMP4 each); `changed=false`.
+
+### Tests
+- `zxcMintPath.test.js` (+2 net): stable marker keys + no leaked contract keys;
+  a hand-built stable marker replays through `handlePlaylist` into a generated
+  master after a simulated rotation; and a thumbnail playlist plus a real HLS
+  link selects the real link instead of the storyboard.
+- `zxcSelfHeal.test.js` (+1): FIELD_MAP parses from the declaration/mediaType
+  anchor when the fToken field is absent.
+- Honesty: with `api/stream.js` stashed to `a58af5b` (tests kept), all four new
+  behaviours fail for the expected reasons — marker identity keys are null, the
+  stable marker is relayed as the provider's JSON instead of #EXTM3U, and the
+  no-fToken contract is null; the preview test selects `thumb.m3u8`. They pass
+  on this tree.
+- Not separately asserted: the token-contract query and attempted-contract retry
+  are race-hardening in the same paths exercised by the existing sources-400 and
+  concurrent-discovery tests; the health reset rides the same contract-change
+  branch.
+
+### Gates
+- lint: 0 errors (pre-existing warnings unchanged)
+- test: 116/116 files, 1392/1392 tests
+- build: clean, 1.87s
+- Not verifiable here: real-browser paint/switch behavior (jsdom); Atlas/Ursa/
+  Daedalus cannot deliver bytes while their provider workers/storyboard-only
+  responses stay in this state.

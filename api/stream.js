@@ -42,7 +42,7 @@
 
 import crypto from "node:crypto";
 
-import { parseMasterPlaylist } from "../src/utils/hlsPlaylist.js";
+import { parseMasterPlaylist, parseMediaPlaylist } from "../src/utils/hlsPlaylist.js";
 import { parseMpd, buildMasterPlaylist, buildMediaPlaylist } from "../server/dashToHls.js";
 import { rateLimit, tooManyRequests, clientIp } from "../server/rateLimit.js";
 import { countUsage } from "../server/usage.js";
@@ -400,14 +400,31 @@ export function parseZxcRoster(chunks) {
 /* Parse the provider's `FIELD_MAP` object — the literal field-named hex params
    (`{id:"…",fToken:"…",ts:"…",token:"…",title:"…",year:"…",season:"…",
    episode:"…",imdbId:"…",path:"…",mediaType:"…",date:"…",latestDate:"…"}`).
-   `fToken` is the distinctive anchor; the keys are literal field names, so this
-   survives minifier variable renames. Returns null unless every required param
+   Locate the `FIELD_MAP` declaration first so a contract without `fToken` still
+   parses; the fToken literal is only a fallback anchor for a bundle that inlines
+   the object under a minified variable. The keys are literal field names, so
+   this survives minifier renames. Returns null unless every required param
    resolved. */
 function parseZxcFieldMap(src) {
-  const anchor = src.search(/fToken\s*:\s*["']/);
-  if (anchor < 0) return null;
-  const open = src.lastIndexOf("{", anchor);
-  const close = src.indexOf("}", anchor);
+  const decl = src.match(/FIELD_MAP\s*[:=]\s*\{/);
+  let open;
+  if (decl) {
+    open = decl.index + decl[0].length - 1;
+  } else {
+    // Fallback for the minified `i={…}` object that is only REFERENCED as
+    // `FIELD_MAP.id`: anchor on a distinctive literal field key. fToken is
+    // preferred because it is unique to this object; mediaType keeps the parse
+    // alive when a future contract drops fToken.
+    for (const re of [/fToken\s*:\s*["']/, /mediaType\s*:\s*["']/]) {
+      const anchor = src.search(re);
+      if (anchor >= 0) {
+        open = src.lastIndexOf("{", anchor);
+        break;
+      }
+    }
+    if (open === undefined) return null;
+  }
+  const close = src.indexOf("}", open);
   if (open < 0 || close < 0) return null;
   const obj = src.slice(open, close + 1);
   const get = (key) => {
@@ -637,6 +654,10 @@ async function discoverZxcContract({ force = false } = {}) {
         if (changed) {
           clearZxcMpdCache();
           clearZxcResolveCache();
+          // Old-contract 400s cooled servers for a reason that no longer exists.
+          // Keeping that state would sideline a healthy backend for the rest of
+          // the cooldown after the contract has already healed.
+          clearZxcServerHealth();
         }
         logWarn("zxc", `provider mint contract re-discovered: mint=${found.mintPath}`);
       } else {
@@ -777,7 +798,28 @@ export function applyZxcContractToTest(source, contract) {
 // we store, the marker rides ON the provider's own servers URL: the URL replays
 // the exact request, the handler re-mints a fresh token, and the function stays
 // the stateless pipe it documents itself to be.
-const ZXC_MARKER = { marker: "zx", value: "streamly", view: "zv", rep: "zr" };
+/* The replay marker is INTERNAL state, not a provider request. Its keys must not
+   follow FIELD_MAP: the viewer holds the marker URL for the life of the session,
+   and a provider rotation between resolve and playlist replay would otherwise
+   rename every identity field out from under a marker that was already issued.
+   Stable keys keep a mid-session rotation replayable; `parseZxcPlaylistUrl`
+   still reads the retired contract keys as a fallback for older markers. */
+const ZXC_MARKER = {
+  marker: "zx",
+  value: "streamly",
+  view: "zv",
+  rep: "zr",
+  server: "zs",
+  mediaType: "zm",
+  tmdbId: "zi",
+  title: "zt",
+  year: "zy",
+  date: "zd",
+  season: "zn",
+  episode: "ze",
+  imdbId: "zim",
+  latestDate: "zl",
+};
 const ZXC_VIEW_MASTER = "master";
 const ZXC_VIEW_MEDIA = "media";
 
@@ -1091,8 +1133,13 @@ function zxcFrontendToken(tmdbId, salt) {
    no longer JSON) the contract is re-discovered once and the mint retried, so a
    silent upstream rename self-heals instead of taking every server down. */
 async function zxcMint({ type, tmdbId, server, season, episode, refererPath }) {
+  // Remember the contract the FAILED attempt actually used. Capturing
+  // zxcContract inside the catch would see a replacement installed by a
+  // concurrent discovery and wrongly conclude "nothing changed, do not retry".
+  let attemptedContract = null;
   const attempt = async () => {
-    const contract = zxcContract;
+    attemptedContract = zxcContract;
+    const contract = attemptedContract;
     const { params, mintPath, fTokenSalt } = contract;
     const payload = {
       [params.tmdbId]: tmdbId,
@@ -1139,7 +1186,7 @@ async function zxcMint({ type, tmdbId, server, season, episode, refererPath }) {
       error instanceof SyntaxError ||
       /no token/.test(String(error?.message || ""));
     if (!looksRenamed) throw error;
-    const before = zxcContract;
+    const before = attemptedContract || zxcContract;
     const discovered = await discoverZxcContract();
     if (!discovered) throw error;
     // Discovery can confirm the current contract (a title-shaped 400, a provider
@@ -1171,10 +1218,12 @@ async function zxcServerLinks(meta, { server, dubCode, dubType, prefetchedToken 
   }
   if (!tokenInfo) tokenInfo = await zxcMint({ ...meta, server });
 
-  const fetchLinks = async ({ token, ts, fToken }) => {
-    // Read the contract at SEND time: a rename discovered during the mint must
-    // drive THIS request's query too, not just the next one.
-    const { params, imdbParam, latestDateParam } = zxcContract;
+  const fetchLinks = async ({ token, ts, fToken, contract }) => {
+    // The query MUST use the contract that minted this token. If another
+    // request's discovery replaced zxcContract between the mint and this call,
+    // reading the global here would pair a fresh fToken with renamed params and
+    // earn a 400 for a token that is still valid under its own contract.
+    const { params, imdbParam, latestDateParam } = contract || zxcContract;
     const query = new URLSearchParams({
       [params.tmdbId]: meta.tmdbId,
       [params.path]: server,
@@ -1219,7 +1268,10 @@ async function zxcServerLinks(meta, { server, dubCode, dubType, prefetchedToken 
     // found"), and timeouts/429/5xx are transport failures; none may trigger
     // discovery.
     if (error?.status !== 400) throw error;
-    const before = zxcContract;
+    // Compare against the contract that shaped the FAILED query, not whatever
+    // is current now: a concurrent request may already have installed the
+    // replacement, and in that case this token is the stale half.
+    const before = tokenInfo.contract || zxcContract;
     const discovered = await discoverZxcContract({ force: true });
     if (!discovered || zxcContractEquals(discovered, before)) throw error;
     data = await fetchLinks(await zxcMint({ ...meta, server }));
@@ -1251,26 +1303,27 @@ async function zxcServerLinks(meta, { server, dubCode, dubType, prefetchedToken 
 }
 
 /* The replayable URL of a generated playlist. Carries the whole title/server/dub
-   identity so `handlePlaylist` can rebuild it from scratch. */
+   identity so `handlePlaylist` can rebuild it from scratch. Every identity key is
+   a STABLE marker key, never a contract param: a provider rotation must not
+   invalidate URLs the player is already holding. */
 function zxcPlaylistUrl(meta, { server, dubCode, dubType, view, representationId }) {
-  const { params, imdbParam, latestDateParam } = zxcContract;
   const query = new URLSearchParams({
-    [params.tmdbId]: meta.tmdbId,
-    [params.mediaType]: meta.type,
-    [params.path]: server,
-    [params.title]: meta.title,
-    [params.year]: meta.year,
-    [params.date]: meta.date,
+    [ZXC_MARKER.tmdbId]: meta.tmdbId,
+    [ZXC_MARKER.mediaType]: meta.type,
+    [ZXC_MARKER.server]: server,
+    [ZXC_MARKER.title]: meta.title,
+    [ZXC_MARKER.year]: meta.year,
+    [ZXC_MARKER.date]: meta.date,
     [ZXC_MARKER.marker]: ZXC_MARKER.value,
     [ZXC_MARKER.view]: view,
   });
-  if (meta.imdbId && imdbParam) query.set(imdbParam, String(meta.imdbId));
+  if (meta.imdbId) query.set(ZXC_MARKER.imdbId, String(meta.imdbId));
   if (meta.type === "tv") {
-    query.set(params.season, String(meta.season || ""));
-    query.set(params.episode, String(meta.episode || ""));
+    query.set(ZXC_MARKER.season, String(meta.season || ""));
+    query.set(ZXC_MARKER.episode, String(meta.episode || ""));
     // Carried so a REPLAYED playlist asks for the same episode freshness the
     // original resolve did, instead of silently resolving the newest one.
-    if (meta.latestDate) query.set(latestDateParam, String(meta.latestDate));
+    if (meta.latestDate) query.set(ZXC_MARKER.latestDate, String(meta.latestDate));
   }
   if (dubCode) {
     query.set("dubCode", String(dubCode));
@@ -1293,16 +1346,22 @@ function parseZxcPlaylistUrl(rawUrl) {
   if (url.searchParams.get(ZXC_MARKER.marker) !== ZXC_MARKER.value) return null;
 
   const { params, imdbParam, latestDateParam } = zxcContract;
+  // Stable marker keys FIRST; retired contract keys only keep an older marker
+  // readable. A rotation must not change how an already-issued marker parses.
+  const pick = (stable, legacy) =>
+    url.searchParams.get(stable) || (legacy ? url.searchParams.get(legacy) || "" : "");
   const view = url.searchParams.get(ZXC_MARKER.view) || "";
   if (view !== ZXC_VIEW_MASTER && view !== ZXC_VIEW_MEDIA) return null;
-  const server = url.searchParams.get(params.path) || "";
+  const server = pick(ZXC_MARKER.server, params.path);
   if (!zxcServerNames().includes(server)) return null;
-  const type = url.searchParams.get(params.mediaType) === "tv" ? "tv" : "movie";
-  const tmdbId = url.searchParams.get(params.tmdbId) || "";
+  const type = pick(ZXC_MARKER.mediaType, params.mediaType) === "tv" ? "tv" : "movie";
+  const tmdbId = pick(ZXC_MARKER.tmdbId, params.tmdbId);
   if (!/^\d{1,12}$/.test(tmdbId)) return null;
-  const title = url.searchParams.get(params.title) || "";
-  const year = url.searchParams.get(params.year) || "";
-  const date = url.searchParams.get(params.date) || "";
+  const title = pick(ZXC_MARKER.title, params.title);
+  const year = pick(ZXC_MARKER.year, params.year);
+  const date = pick(ZXC_MARKER.date, params.date);
+  const season = pick(ZXC_MARKER.season, params.season);
+  const episode = pick(ZXC_MARKER.episode, params.episode);
   // A marker we generated always carries all three; a crafted one with blanks
   // would otherwise reach the provider, get a 400, and trigger the sources-side
   // contract self-heal for a URL that was never ours.
@@ -1316,16 +1375,11 @@ function parseZxcPlaylistUrl(rawUrl) {
       title,
       year,
       date,
-      imdbId: imdbParam ? url.searchParams.get(imdbParam) || "" : "",
-      season: url.searchParams.get(params.season) || "",
-      episode: url.searchParams.get(params.episode) || "",
-      latestDate: url.searchParams.get(latestDateParam) || "",
-      refererPath: zxcEmbedPath({
-        type,
-        tmdbId,
-        season: url.searchParams.get(params.season) || "",
-        episode: url.searchParams.get(params.episode) || "",
-      }),
+      imdbId: pick(ZXC_MARKER.imdbId, imdbParam),
+      season,
+      episode,
+      latestDate: pick(ZXC_MARKER.latestDate, latestDateParam),
+      refererPath: zxcEmbedPath({ type, tmdbId, season, episode }),
     },
     view,
     representationId: url.searchParams.get(ZXC_MARKER.rep),
@@ -1478,6 +1532,28 @@ function zxcDubTracks(meta, server, dubs) {
   return audioTracks;
 }
 
+/* True when a media playlist carries ONLY preview assets (JPEG storyboards,
+   WebP thumbnails, subtitle sidecars) instead of video segments. Daedalus has
+   served exactly this: three "1080/720/480" links that all decode to the same
+   `index_287.m3u8` whose entries are `.jpg` sprites. Publishing that as the
+   source makes the player request a poster as if it were a segment, so the row
+   reports PLAYING and paints nothing. A playlist mixing real segments with
+   preview assets stays playable; only an all-preview one is rejected. */
+const PREVIEW_ASSET_RE = /\.(?:jpe?g|png|webp|gif|avif|bmp|svg|vtt|webvtt|srt|ass|ssa)(?:$|[?#])/i;
+function isPreviewOnlyPlaylist(text, baseUrl) {
+  if (!text || text.includes("#EXT-X-STREAM-INF")) return false;
+  if (/#EXT-X-I-FRAMES-ONLY\b/.test(text)) return true;
+  const { segments } = parseMediaPlaylist(text, baseUrl);
+  if (segments.length === 0) return false;
+  return segments.every((segment) => {
+    try {
+      return PREVIEW_ASSET_RE.test(new URL(segment.url).pathname);
+    } catch {
+      return false;
+    }
+  });
+}
+
 /* Resolve ONE server and RETURN the outcome (never writes `res`). Splitting the
    per-server work from the response is what lets the automatic rotation fall
    through to the next backend while an explicit pick still answers only for the
@@ -1562,14 +1638,21 @@ async function resolveZxcOnServer(meta, server, prefetchedToken, sourceHeight) {
         // single "Auto" rung when the master playlist is present. A multi-rung
         // master always beats a single rendition, whatever the provider ordered.
         const levels = text.includes("#EXT-X-STREAM-INF") ? parseMasterPlaylist(text, link.url) : [];
-        return { link, levels };
+        const preview = isPreviewOnlyPlaylist(text, link.url);
+        if (preview) {
+          logWarn("zxc", `${server} HLS link ${link.url.slice(0, 48)} is a preview/storyboard playlist`);
+        }
+        return { link, levels, preview };
       }),
     );
     // The first link offering a real multi-rung ladder wins (provider order
     // preserved); failing that, the richest playlist, ties going to the first.
-    let playable = probed.find((candidate) => candidate && candidate.levels.length > 1) || null;
+    // Preview-only playlists are never candidates: they can never paint a frame.
+    const fetched = probed.filter(Boolean);
+    const candidates = fetched.filter((candidate) => !candidate.preview);
+    let playable = candidates.find((candidate) => candidate.levels.length > 1) || null;
     if (!playable) {
-      for (const candidate of probed) {
+      for (const candidate of candidates) {
         if (candidate && (playable === null || candidate.levels.length > playable.levels.length)) {
           playable = candidate;
         }
@@ -1616,6 +1699,16 @@ async function resolveZxcOnServer(meta, server, prefetchedToken, sourceHeight) {
         },
       };
     }
+    // No candidate survived. Do not fall into the DASH branch: these links are
+    // not MPDs, and a "manifest unreadable" error hides the real provider state.
+    // Distinguish a storyboard-only response from links that never answered:
+    // the first is a provider fact, the second is a transport failure.
+    return {
+      ok: false,
+      code: "no-source",
+      error: fetched.length > 0 ? `ZXC ${server} has no video playlist` : `ZXC ${server} HLS links unreadable`,
+      hard: false,
+    };
   }
 
   // DASH servers: the ladder is only real once the MPD has been transcoded, so

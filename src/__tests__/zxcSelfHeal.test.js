@@ -393,4 +393,17 @@ describe("ZXC contract derivation — the CURRENT `FIELD_MAP` bundle shape", () 
     const single = FIELD_MAP_CHUNK.replace(/"/g, "'");
     expect(deriveZxcContractFromChunks([single])).toEqual(deriveZxcContractFromChunks([FIELD_MAP_CHUNK]));
   });
+
+  it("finds the FIELD_MAP declaration even when fToken is absent", () => {
+    // fToken is an OPTIONAL field of the contract. Anchoring the object parse on
+    // it makes a future bundle without the token unreadable, so the declaration
+    // is the primary anchor and fToken only a fallback.
+    const withoutFToken = FIELD_MAP_CHUNK.replace(/,fToken:"[^"]+"/, "");
+    const c = deriveZxcContractFromChunks([withoutFToken]);
+    expect(c).toBeTruthy();
+    expect(c.mintPath).toBe("/backend/fucku");
+    expect(c.params.fToken).toBe("");
+    expect(c.params.tmdbId).toBe("a7f39c821d604e5b91e547b");
+    expect(c.fTokenSalt).toBe("23423653");
+  });
 });

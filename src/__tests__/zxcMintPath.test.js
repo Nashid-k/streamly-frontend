@@ -70,6 +70,18 @@ beforeEach(() => {
       }
       if (url.includes(MINT_PATH)) return json({ token: "tok", ts: "1700000000" });
       if (url.includes(SOURCES_PATH)) return json(serversResponse);
+      if (url.includes("thumb.m3u8")) {
+        return new Response("#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:4\n#EXTINF:4.0,\nhttps://93.184.216.34/0.jpg\n#EXT-X-ENDLIST\n", {
+          status: 200,
+          headers: { "content-type": "application/vnd.apple.mpegurl" },
+        });
+      }
+      if (url.includes("video.m3u8")) {
+        return new Response("#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:4\n#EXTINF:4.0,\nhttps://93.184.216.34/s0.ts\n#EXT-X-ENDLIST\n", {
+          status: 200,
+          headers: { "content-type": "application/vnd.apple.mpegurl" },
+        });
+      }
       if (url.includes(".m3u8")) {
         return new Response("#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:13\n#EXTINF:12.0,\nhttps://93.184.216.34/s0\n#EXT-X-ENDLIST\n", {
           status: 200,
@@ -313,6 +325,26 @@ describe("ZXC contract change description (auto-sync commit messages)", () => {
   });
 });
 
+describe("ZXC HLS preview playlists", () => {
+  it("does not publish a thumbnail/storyboard playlist as the source", async () => {
+    serversResponse = {
+      success: true,
+      links: [
+        { link: Buffer.from("https://93.184.216.34/thumb.m3u8").toString("base64"), type: "hls", resolution: 1080 },
+        { link: Buffer.from("https://93.184.216.34/video.m3u8").toString("base64"), type: "hls", resolution: 720 },
+      ],
+    };
+    const r = await resolve({ server: "daedalus" });
+    expect(r.ok).toBe(true);
+    // Daedalus has returned three "qualities" that all decode to one JPEG
+    // storyboard playlist. That playlist starts with #EXTM3U, so the old
+    // selection published it as the video source and the player painted nothing.
+    expect(r.source.url).toContain("video.m3u8");
+    expect(r.variants[0].uri).toContain("video.m3u8");
+    expect(requests.some((u) => u.includes("thumb.m3u8"))).toBe(true);
+  });
+});
+
 describe("ZXC MPD cache", () => {
   // A minimal valid MPD that parseMpd accepts — one video representation with
   // two 5-second segments.
@@ -427,13 +459,44 @@ describe("ZXC MPD cache", () => {
     expect(requests.filter((u) => u.includes("/backend/tmdb/details/")).length).toBe(0);
   });
 
-  it("carries imdbId into the replay marker so a replayed playlist asks for the same title", async () => {
+  it("writes contract-independent marker identity so a rotation cannot orphan a live session", async () => {
     const r = await resolve({ server: "orion" });
     expect(r.ok).toBe(true);
     const marker = r.variants?.[0]?.uri || "";
     expect(marker).toContain("/backend_/sources/orion?");
-    // The sources call needs imdbId (on the servers that require it); a replay
-    // that drops it can resolve a different title or 400 after the first fetch.
-    expect(new URL(marker).searchParams.get(zxcContractSeed().imdbParam)).toBe("tt1375666");
+    const params = new URL(marker).searchParams;
+    // Stable marker keys, not the provider's rotating FIELD_MAP names. The
+    // viewer holds this URL for the session; re-reading it through a rotated
+    // contract would otherwise lose every identity field.
+    expect(params.get("zi")).toBe("27205");
+    expect(params.get("zm")).toBe("movie");
+    expect(params.get("zs")).toBe("orion");
+    expect(params.get("zt")).toBe("Inception");
+    expect(params.get("zy")).toBe("2010");
+    expect(params.get("zd")).toBe("2010-07-15");
+    // Sources that require imdbId still get it on a replay.
+    expect(params.get("zim")).toBe("tt1375666");
+    // The live contract's obfuscated names must not leak into the marker.
+    const seed = zxcContractSeed();
+    expect(params.get(seed.params.tmdbId)).toBeNull();
+    expect(params.get(seed.params.path)).toBeNull();
+    expect(params.get(seed.imdbParam)).toBeNull();
+  });
+
+  it("replays a stable marker after a contract rotation instead of fetching it as an ordinary playlist", async () => {
+    // This marker predates the current contract: only the stable keys are
+    // present. If the parser read FIELD_MAP names, it would reject the URL and
+    // the handler would relay the provider's JSON as if it were an m3u8.
+    const stable =
+      "https://zxcstream.cc/backend_/sources/orion?zx=streamly&zv=master"
+      + "&zs=orion&zi=27205&zm=movie&zt=Inception&zy=2010&zd=2010-07-15&zim=tt1375666";
+    const res = makeRes();
+    await handler(
+      { method: "POST", body: { action: "playlist", playlistUrl: stable }, headers: { "x-forwarded-for": "203.0.113.9" } },
+      res,
+    );
+    expect(res.statusCode).toBe(200);
+    expect(String(res.body)).toContain("#EXTM3U");
+    expect(String(res.body)).toContain("#EXT-X-STREAM-INF");
   });
 });
