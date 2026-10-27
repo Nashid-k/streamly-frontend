@@ -146,6 +146,10 @@ const BACK_BUFFER_SECONDS = 60;
 // itself is a tiny JSON resolve (2-in-flight bounded), so it does not fight the
 // stream for bandwidth — 4s is enough for the first fragments to land.
 const SIBLING_WARM_DELAY_MS = 4000;
+// An in-manifest audio switch normally settles in well under a second (the
+// group's segments are already buffered). If the provider advertises a track it
+// never delivers, this bound keeps the branded stage from spinning forever.
+const AUDIO_SWITCH_TIMEOUT_MS = 6000;
 // ABR seed: hls.js starts its bandwidth estimate at 1Mbps, so Auto would climb
 // the ladder one relay round-trip at a time (a visible "loading" per rung).
 // 10Mbps starts Auto mid-ladder; the floor step-down still guards a bad pipe.
@@ -244,6 +248,35 @@ export default function NativePlayerView({
     () => ({ type, id, season: type === "tv" ? season : undefined, episode: type === "tv" ? episode : undefined, title }),
     [type, id, season, episode, title],
   );
+  /* Settings → Servers drag order. It was a real preference that the player
+     never read: the menu stayed in catalogue order and the auto path ignored it.
+     Sort the rows for the menu, and make the FIRST row the preferred server for
+     the no-pick path (`prefer` still falls through to the health rotation, so a
+     dead first row never dead-ends playback). */
+  const orderedSources = useMemo(() => {
+    const order = Array.isArray(prefs?.serverOrder) ? prefs.serverOrder : [];
+    const rank = new Map(order.map((label, i) => [label, i]));
+    return [...PLAYER_SOURCES].sort((a, b) => {
+      const ra = rank.has(a.label) ? rank.get(a.label) : Number.MAX_SAFE_INTEGER;
+      const rb = rank.has(b.label) ? rank.get(b.label) : Number.MAX_SAFE_INTEGER;
+      return ra - rb;
+    });
+  }, [prefs?.serverOrder]);
+  const preferredAutoSource = useMemo(() => {
+    const first = orderedSources[0];
+    // Keep AUTO_SOURCE identity for the default order so the details-page warm
+    // token stays consumable (it was minted for the auto path).
+    if (!first || first.key === DEFAULT_SOURCE_KEY) return AUTO_SOURCE;
+    return {
+      key: AUTO_SOURCE.key,
+      label: AUTO_SOURCE.label,
+      tag: AUTO_SOURCE.tag,
+      provider: AUTO_SOURCE.provider,
+      resolve: (a, o) => first.resolve(a, o),
+    };
+  }, [orderedSources]);
+  const autoSourceRef = useRef(AUTO_SOURCE);
+  autoSourceRef.current = preferredAutoSource;
   const scrubRef = useRef(null);
   // Settings sheet surface — focus moves here on open and back to the control
   // that opened it on close, so the panel is actually operable by keyboard.
@@ -323,6 +356,17 @@ export default function NativePlayerView({
   const pickQualityRef = useRef(null);
   // Rapid quality switches stamp a token and re-check it after every await.
   const switchTokenRef = useRef(0);
+  // User-initiated in-manifest audio switches (hls.audioTrack) — gate events so
+  // normal startup audio loading never re-arms the branded loader.
+  const audioSwitchRef = useRef(null);
+  const audioSwitchTokenRef = useRef(0);
+  const audioSwitchTimerRef = useRef(null);
+  // Persist the viewer's chosen audio track across re-resolves (by lang/name)
+  // so a server switch or token refresh doesn't silently revert to track 0.
+  const audioPreferenceRef = useRef(null);
+  // Rapid sibling-dub picks each probe before committing; only the newest probe
+  // may apply its URL/labels (a slower old probe used to win the race).
+  const dubPickTokenRef = useRef(0);
   // Arm-and-fire resume after a switch whose post-reload video.play() the browser
   // refused (autoplay policy): the next user interaction replays it (see the
   // pointerdown listener below), so a switch-while-playing never strands the
@@ -616,6 +660,9 @@ export default function NativePlayerView({
      the selector stays hidden rather than offering an empty list. */
   const [sourceHeight, setSourceHeight] = useState(0);
   const sourceHeightRef = useRef(0);
+  // The height that was active before a source-quality pick, so a run that
+  // fails on the new rung can roll the selector back to a ladder that worked.
+  const pendingSourceHeightRollbackRef = useRef(null);
   const [sourceVariants, setSourceVariants] = useState([]);
   // Loop and sleep timer (provider Playback menu parity). Loop wraps the current
   // item; the sleep timer pauses playback after the chosen minutes.
@@ -2125,6 +2172,10 @@ setScrubDragging(true);
       setSourceVariants([]);
       setSourceHeight(0);
       sourceHeightRef.current = 0;
+      pendingSourceHeightRollbackRef.current = null;
+      // A track chosen for the previous title must not pin the new one.
+      audioPreferenceRef.current = null;
+      dubPickTokenRef.current += 1;
       clearSleepTimer();
       // A new title/episode is NOT "ended": without this the previous
       // installment's `ended` flag survives the switch and the Up Next card
@@ -2197,6 +2248,33 @@ setScrubDragging(true);
     const attachAudio = (hls) => {
       const tracks = hls.audioTracks || [];
       if (runRef.current !== run) return;
+      // Re-apply a user language preference after a re-resolve / token refresh.
+      // Match by lang/name; if missing, fall back to track 0 (original).
+      const pref = audioPreferenceRef.current;
+      if (pref && Array.isArray(tracks) && tracks.length > 1) {
+        try {
+          const idx = tracks.findIndex((t) => {
+            const lang = t.lang || "";
+            const name = t.name || "";
+            if (pref.lang && lang && lang === pref.lang) return true;
+            if (pref.name && name && name === pref.name) return true;
+            return false;
+          });
+          if (idx > 0 && hls.audioTrack !== idx) {
+            // Part of the run's own commit; don't trigger the branded switch UI.
+            hls.audioTrack = idx;
+          } else if (idx < 0) {
+            // Preference unavailable on this server/variant — drop back to original
+            // instead of silently keeping a foreign track (also avoid re-applying).
+            audioPreferenceRef.current = null;
+            if (hls.audioTrack !== 0) {
+              hls.audioTrack = 0;
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
       setAudioTracks(
         tracks.map((t, i) => ({ index: i, name: t.name || t.lang || `Audio ${i + 1}`, lang: t.lang || "" })),
       );
@@ -2205,6 +2283,46 @@ setScrubDragging(true);
       } catch {
         setAudioIndex(0);
       }
+    };
+
+    /* The commit used to drop the stage the moment the PLAYLIST parsed, which
+       is before the element has a frame: a server switch showed black between
+       the old captured frame and the new one. Keep the branded stage (and the
+       captured frame) until a frame is actually decoded — bounded, because a
+       paused/slow element may never fire loadeddata. */
+    let revealCleanup = () => {};
+    const revealStageWhenReady = () => {
+      const video = videoRef.current;
+      const finish = () => {
+        revealCleanup();
+        if (runRef.current !== run) return;
+        setStageWhileLoading(false);
+        setServerSwitchStage(false);
+        setSwitchingNote(null);
+        setSwitchFrame(null);
+      };
+      if (!video) {
+        finish();
+        return;
+      }
+      const ready = () => (video.readyState ?? 0) >= 2 && !video.seeking;
+      if (ready()) {
+        finish();
+        return;
+      }
+      const onReady = () => {
+        if (ready()) finish();
+      };
+      video.addEventListener("loadeddata", onReady);
+      video.addEventListener("canplay", onReady);
+      video.addEventListener("seeked", onReady);
+      const timer = setTimeout(finish, 2500);
+      revealCleanup = () => {
+        video.removeEventListener("loadeddata", onReady);
+        video.removeEventListener("canplay", onReady);
+        video.removeEventListener("seeked", onReady);
+        clearTimeout(timer);
+      };
     };
 
     (async () => {
@@ -2294,7 +2412,14 @@ setScrubDragging(true);
           // instead of re-paying the resolve leg. The handover is one-shot and
           // refuses ANY manual server pick (a pick must resolve THAT server, not
           // a warm token minted for the auto path).
-          const warm = takeWarmResolve(args, { sourceKey: requestedServerRef.current });
+          // The warm token was minted for the plain auto path, so a custom
+          // server priority must not consume it (it would play a server the
+          // order says is not first).
+          const autoDef = autoSourceRef.current;
+          const warm =
+            autoDef === AUTO_SOURCE
+              ? takeWarmResolve(args, { sourceKey: requestedServerRef.current })
+              : null;
           resolved = warm || (await def.resolve(args, { signal: controller.signal, bypass: bypassCache }));
         } catch (error) {
           if (error?.code === "no-source") return "off";
@@ -2516,29 +2641,70 @@ setScrubDragging(true);
             if (data?.height) setCurrentHeight(data.height);
           });
           hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => attachAudio(hls));
-          hls.on(Hls.Events.AUDIO_TRACK_SWITCHING, () => {
-            setBuffering(true);
-            setStageWhileLoading(true);
-            setServerSwitchStage(false);
-            if (!switchingNote) setSwitchingNote("Switching audio…");
-          });
-          hls.on(Hls.Events.AUDIO_TRACK_SWITCHED, () => {
-            if (runRef.current !== run) return;
-            setBuffering(false);
-            setStageWhileLoading(false);
-            setSwitchingNote(null);
+
+          const clearAudioSwitch = () => {
+            if (!audioSwitchRef.current) return;
+            audioSwitchRef.current = null;
             try {
-              setAudioIndex(hlsRef.current?.audioTrack ?? 0);
+              clearTimeout(audioSwitchTimerRef.current);
             } catch {
               // ignore
             }
-          });
-          hls.on(Hls.Events.AUDIO_TRACK_LOADED, () => {
-            if (runRef.current !== run) return;
+            audioSwitchTimerRef.current = null;
             setBuffering(false);
             setStageWhileLoading(false);
             setSwitchingNote(null);
-          });
+          };
+
+          if (Hls.Events.AUDIO_TRACK_SWITCHING) {
+            hls.on(Hls.Events.AUDIO_TRACK_SWITCHING, () => {
+              if (runRef.current !== run) return;
+              if (!audioSwitchRef.current) return;
+              setBuffering(true);
+              setStageWhileLoading(true);
+              setServerSwitchStage(false);
+              setSwitchingNote("Switching audio…");
+            });
+          }
+          if (Hls.Events.AUDIO_TRACK_SWITCHED) {
+            hls.on(Hls.Events.AUDIO_TRACK_SWITCHED, () => {
+              if (runRef.current !== run) return;
+              const pending = audioSwitchRef.current;
+              if (!pending) return;
+              // A rapid second pick moved the target while this event was in
+              // flight: only the track that is actually selected may settle it.
+              try {
+                if ((hls.audioTrack ?? 0) !== pending.index) return;
+              } catch {
+                // fall through: the event itself is the confirmation
+              }
+              clearAudioSwitch();
+              try {
+                setAudioIndex(hlsRef.current?.audioTrack ?? 0);
+              } catch {
+                // ignore
+              }
+            });
+          }
+          if (Hls.Events.AUDIO_TRACK_LOADED) {
+            hls.on(Hls.Events.AUDIO_TRACK_LOADED, () => {
+              if (runRef.current !== run) return;
+              // Only clear for an actual user-initiated in-manifest audio switch.
+              const pending = audioSwitchRef.current;
+              if (!pending) return;
+              try {
+                if ((hls.audioTrack ?? 0) !== pending.index) return;
+              } catch {
+                // fall through: the event itself is the confirmation
+              }
+              clearAudioSwitch();
+              try {
+                setAudioIndex(hlsRef.current?.audioTrack ?? 0);
+              } catch {
+                // ignore
+              }
+            });
+          }
           hls.on(Hls.Events.ERROR, (_e, data) => {
             if (!data?.fatal) {
               if (
@@ -2631,18 +2797,18 @@ setScrubDragging(true);
           // never be folded into this string or both go dead. The provider name
           // is already carried by `switchingNote`/the Servers menu.
           setStatus("playing");
-          // Real frames exist again: any later stall is a mid-playback one and
-          // must use the light overlay, not hide the picture behind art.
-          setStageWhileLoading(false);
-          setServerSwitchStage(false);
-          setSwitchingNote(null);
-          // The captured pre-switch frame has served its purpose; real frames
-          // are on screen again.
-          setSwitchFrame(null);
+          // This run committed: a source-quality pick (if any) is no longer
+          // pending, so a later failure must not roll back to an older rung.
+          pendingSourceHeightRollbackRef.current = null;
+          // Restore the position BEFORE arming the reveal gate, so the first
+          // decoded frame is the resumed one rather than the new stream's 0:00.
           if (resumeTime != null) {
             safeSeek(resumeTime);
             resumeTime = null;
           }
+          // The stage comes down when a frame exists, not when the playlist
+          // parses (see revealStageWhenReady).
+          revealStageWhenReady();
           // A switch made while PAUSED stays paused (pickQuality's rule): the
           // commit's play() runs outside the click gesture, so it would also
           // fight the autoplay policy on the way.
@@ -2760,31 +2926,70 @@ setScrubDragging(true);
       // message points at the Servers menu instead.
       if (requestedServerRef.current) {
         if (await runSource(null)) return;
-      } else if (await runSource(AUTO_SOURCE)) {
+      } else if (await runSource(autoSourceRef.current)) {
         return;
       }
       if (stale()) return;
       setStatus("error");
+      // Terminal failure: the fatal banner is the only thing on screen, so the
+      // branded stage/spinner must not keep spinning behind it. Same for an
+      // in-flight audio switch — its listeners died with this run.
+      audioSwitchRef.current = null;
+      try {
+        clearTimeout(audioSwitchTimerRef.current);
+      } catch {
+        // ignore
+      }
+      audioSwitchTimerRef.current = null;
+      setBuffering(false);
+      setStageWhileLoading(false);
+      setServerSwitchStage(false);
+      setSwitchingNote(null);
+      // A source-quality pin is a request to the provider. If that request is
+      // what failed, restore the last ladder that worked so "Try again" is not
+      // doomed to repeat the dead rung.
+      let restoredHeight = null;
+      if (pendingSourceHeightRollbackRef.current != null) {
+        restoredHeight = pendingSourceHeightRollbackRef.current;
+        pendingSourceHeightRollbackRef.current = null;
+        if (sourceHeightRef.current !== restoredHeight) {
+          sourceHeightRef.current = restoredHeight;
+          setSourceHeight(restoredHeight);
+        }
+      }
       const quotaHit = anyUpstreamQuota;
+      const qualityNote = restoredHeight != null ? ` Restored the previous source quality (${restoredHeight ? `${restoredHeight}p` : "Auto"}).` : "";
       setFatal(
         requestedServerRef.current
-          ? `${sourceLabel(requestedServerRef.current)} had no playable stream${quotaHit ? " (provider hit its daily delivery quota, HTTP 429 — try again later)" : ""} — try another server (gear → Servers).`
+          ? `${sourceLabel(requestedServerRef.current)} had no playable stream${quotaHit ? " (provider hit its daily delivery quota, HTTP 429 — try again later)" : ""} — try another server (gear → Servers).${qualityNote}`
           : `No native source resolved this title (all sources came up empty).${
               quotaHit
                 ? " At least one provider hit a daily delivery quota (HTTP 429) — try again later or pick another server."
                 : ""
-            }`,
+            }${qualityNote}`,
       );
     })();
 
     return () => {
       controller.abort();
       try {
+        revealCleanup();
+      } catch {
+        // listeners already detached
+      }
+      try {
         hlsRef.current?.destroy();
       } catch {
         // already torn down
       }
       hlsRef.current = null;
+      try {
+        clearTimeout(audioSwitchTimerRef.current);
+      } catch {
+        // ignore
+      }
+      audioSwitchTimerRef.current = null;
+      audioSwitchRef.current = null;
       try {
         videoRef.current?.removeAttribute?.("src");
       } catch {
@@ -2807,6 +3012,10 @@ setScrubDragging(true);
       setQualityNote("Switch audio back to Original to change quality");
       return;
     }
+    // Stamp this pick before any await: a newer pick or a server switch bumps
+    // the token, and this continuation must then never write into the new run.
+    const myId = (switchTokenRef.current += 1);
+    const isCurrent = () => switchTokenRef.current === myId && hlsRef.current === hls;
     const t = videoRef.current.currentTime || 0;
     const wasPaused = videoRef.current.paused;
     // A manual rung pick leaves Auto; the Auto row stays highlighted as the active mode.
@@ -2852,10 +3061,11 @@ setScrubDragging(true);
         if (height != null) setManualHeight(height);
         setActiveUri(null);
         setBuffering(false);
+        setStageWhileLoading(false);
+        setSwitchingNote(null);
         setQualityNote(null);
         return;
       }
-      const myId = (switchTokenRef.current += 1);
       // Pre-warm the swap: probe the TARGET while the current level still plays (warms
       // the CDN edge and proves the route). With parallel range chunking a tall pick
       // may try; the floor step-down negotiates back down.
@@ -2870,26 +3080,33 @@ setScrubDragging(true);
       const refUrl = metaRef.current?.refUrl;
       try {
         if (!warm) warm = await probeSourcePlayable(uri, refUrl);
-        if (switchTokenRef.current !== myId) return;
+        if (!isCurrent()) return;
         if (!warm.ok) {
           rollbackPick();
           setBuffering(false);
+          setStageWhileLoading(false);
+          setSwitchingNote(null);
           setControlsVisible(true);
           return;
         }
       } catch {
         // probe hiccup (abort, timeout) — fall through to the requested uri
       }
+      if (!isCurrent()) return;
       // A probe hiccup with no requested uri would reach loadSource(undefined)
       // → the worker's ?url=undefined 500. Bail to the current quality instead.
       if (!chosenUri) {
         rollbackPick();
         setBuffering(false);
+        setStageWhileLoading(false);
+        setSwitchingNote(null);
         setControlsVisible(true);
         return;
       }
       if (chosenUri === activeUri) {
         setBuffering(false);
+        setStageWhileLoading(false);
+        setSwitchingNote(null);
         setControlsVisible(true);
         return;
       }
@@ -2922,7 +3139,7 @@ setScrubDragging(true);
         hls.on(Hls.Events.MANIFEST_PARSED, done);
         hls.on(Hls.Events.ERROR, onFatal);
       });
-      if (switchTokenRef.current !== myId) return;
+      if (!isCurrent()) return;
       safeSeek(t);
       const video = videoRef.current;
       // Resume INSIDE the click's activation window: start the play() NOW, before
@@ -2965,7 +3182,7 @@ setScrubDragging(true);
           frameTimer = setTimeout(cleanup, 4000);
         });
       }
-      if (switchTokenRef.current !== myId) return;
+      if (!isCurrent()) return;
       if (resumePlay) await resumePlay;
       setActiveUri(chosenUri);
       // The full-reload path never sees LEVEL_SWITCHED's height when the new
@@ -3001,6 +3218,10 @@ setScrubDragging(true);
       setStageWhileLoading(false);
       setSwitchingNote(null);
     } catch {
+      // A superseded pick owns nothing on screen: the newer action (or server
+      // switch) has already set its own highlight/stage. Writing here would roll
+      // back the NEW pick and clear the NEW loader.
+      if (!isCurrent()) return;
       // Roll the optimistic pick back: the stream is still on the old rung, so
       // the highlight must say so.
       rollbackPick();
@@ -3021,7 +3242,22 @@ setScrubDragging(true);
      dub pin is dropped so no NHD dub URL leaks across servers. The transport
      row highlights this icon while a Servers-menu panel is open. */
   const pickServer = (key) => {
-    if (requestedServerRef.current === key) return;
+    // Same-key pick is a no-op while that server is playing, but after a fatal
+    // it is the viewer's retry: let it re-run the resolve instead of dead-ending
+    // on a banner that tells them to pick a server.
+    if (requestedServerRef.current === key && status !== "error") return;
+    // Invalidate any in-flight quality/dub continuation: it belongs to the old
+    // stream and must not commit into this run.
+    switchTokenRef.current += 1;
+    audioSwitchTokenRef.current += 1;
+    audioSwitchRef.current = null;
+    try {
+      clearTimeout(audioSwitchTimerRef.current);
+    } catch {
+      // ignore
+    }
+    audioSwitchTimerRef.current = null;
+    pendingSourceHeightRollbackRef.current = null;
     // The teardown below detaches the media element (currentTime → 0) and the
     // stage replaces the picture: carry the position/paused state and the last
     // frame across, or a switch mid-film restarted at the beginning behind a
@@ -3043,8 +3279,10 @@ setScrubDragging(true);
     setSourceVariants([]);
     setSourceHeight(0);
     sourceHeightRef.current = 0;
-    // Keep panel open briefly for smoother UX, then close
-    // setPanel(null); // close immediately for snappy feel
+    // Close immediately: the sheet's exit animation is the transition, and the
+    // branded loader must be visible the moment the row is picked (a delayed
+    // unmount just kept the sheet covering the loader).
+    setPanel(null);
     poke();
     const def = sourceByKey(key);
     setReloadToken((t) => t + 1);
@@ -3054,8 +3292,6 @@ setScrubDragging(true);
     setServerSwitchStage(true);
     setSwitchingNote(`Switching to ${def?.label || "that server"}…`);
     setBuffering(true);
-    // Close panel after a short delay for smoother transition
-    setTimeout(() => setPanel(null), 150);
   };
 
   /* Source-quality pick: the raw source ladder a plain-HLS server exposes
@@ -3065,7 +3301,25 @@ setScrubDragging(true);
      (the provider's own default link). */
   const pickSourceQuality = (height) => {
     const next = Number(height) > 0 ? Number(height) : 0;
-    if ((sourceHeightRef.current || 0) === next) return;
+    // Same-key is a no-op while that ladder is live, but after a fatal it is the
+    // viewer's retry for the exact rung they picked.
+    if ((sourceHeightRef.current || 0) === next && status !== "error") return;
+    // A source-quality pick re-runs the whole stream: invalidate any quality/dub
+    // continuation still parked on the old manifest.
+    switchTokenRef.current += 1;
+    audioSwitchTokenRef.current += 1;
+    audioSwitchRef.current = null;
+    try {
+      clearTimeout(audioSwitchTimerRef.current);
+    } catch {
+      // ignore
+    }
+    audioSwitchTimerRef.current = null;
+    // Remember the last working ladder for the failure path (only when this is
+    // an actual change, so a same-rung retry doesn't roll back to itself).
+    if ((sourceHeightRef.current || 0) !== next) {
+      pendingSourceHeightRollbackRef.current = sourceHeightRef.current || 0;
+    }
     // Same reload carry as pickServer: this rides the same teardown path, so
     // without it a mid-film source-quality change also restarted at 0.
     armReloadCarry();
@@ -3075,7 +3329,9 @@ setScrubDragging(true);
     setPanel(null);
     // A source re-resolve has no valid frame to keep, so it is a cold wait.
     setStageWhileLoading(true);
-    setSwitchingNote(null);
+    setServerSwitchStage(true);
+    setSwitchingNote(next ? `Switching source to ${next}p…` : "Switching source quality…");
+    setBuffering(true);
     poke();
     setReloadToken((t) => t + 1);
   };
@@ -3167,18 +3423,72 @@ setScrubDragging(true);
     const hls = hlsRef.current;
     if (!hls) return;
     if (index === hls.audioTrack) return;
-    // Show branded loader immediately on audio track change (like server/dub switches)
+    const tracks = hls.audioTracks || [];
+    const picked = tracks[index];
+    // Remember the language, not the index: a re-resolve (server switch, token
+    // refresh) builds a new track list where the same language may sit elsewhere.
+    audioPreferenceRef.current = {
+      lang: picked?.lang || "",
+      name: picked?.name || "",
+    };
+    // Gate the hls AUDIO_TRACK_* listeners: only a real user pick may put the
+    // branded stage up (or take it down). Startup audio loading fires the same
+    // events and used to clear a cold-open stage before the first frame.
+    const token = (audioSwitchTokenRef.current += 1);
+    audioSwitchRef.current = { index, token };
+    try {
+      clearTimeout(audioSwitchTimerRef.current);
+    } catch {
+      // ignore
+    }
     setStageWhileLoading(true);
     setServerSwitchStage(false);
     setSwitchingNote("Switching audio…");
     setBuffering(true);
     poke();
+    // Close the sheet so the viewer actually sees the branded loader behind it.
+    setPanel(null);
+    // If the group is advertised but the manifest never confirms the switch,
+    // never leave the stage up forever: restore the track the element is on.
+    audioSwitchTimerRef.current = setTimeout(() => {
+      if (audioSwitchTokenRef.current !== token) return;
+      if (!audioSwitchRef.current) return;
+      audioSwitchRef.current = null;
+      audioSwitchTimerRef.current = null;
+      try {
+        setAudioIndex(hlsRef.current?.audioTrack ?? 0);
+      } catch {
+        setAudioIndex(0);
+      }
+      setBuffering(false);
+      setStageWhileLoading(false);
+      setSwitchingNote(null);
+      setQualityNote("That audio track didn't start — the provider may not serve it.");
+      setControlsVisible(true);
+    }, AUDIO_SWITCH_TIMEOUT_MS);
     try {
       hls.audioTrack = index;
-    } catch {
-      // ignore
+      setAudioIndex(index);
+    } catch (error) {
+      // Roll the optimistic label back; the old track keeps playing.
+      logWarn("native", "Could not switch the in-manifest audio track.", {
+        index,
+        message: error?.message,
+      });
+      audioSwitchRef.current = null;
+      clearTimeout(audioSwitchTimerRef.current);
+      audioSwitchTimerRef.current = null;
+      try {
+        setAudioIndex(hls.audioTrack ?? 0);
+      } catch {
+        setAudioIndex(0);
+      }
+      setBuffering(false);
+      setStageWhileLoading(false);
+      setSwitchingNote(null);
+      setQualityNote("That audio track couldn't be selected.");
+      setControlsVisible(true);
     }
-    setAudioIndex(index);
   };
 
   /* Dub switch: each dub is a SEPARATE HLS manifest (a sibling full-stream
@@ -3197,6 +3507,14 @@ setScrubDragging(true);
     if (index === activeDubRef.current) return;
     const target = index === 0 ? null : dubTracks[index - 1];
     if (index > 0 && !target?.uri) return;
+    // This probe awaits the network. If another dub is picked, the server is
+    // switched, or the source ladder is re-resolved before it returns, its
+    // result belongs to a stream that is no longer playing.
+    const myId = (dubPickTokenRef.current += 1);
+    const sourceAtPick = `${requestedServerRef.current || ""}|${sourceHeightRef.current || 0}`;
+    const isCurrent = () =>
+      dubPickTokenRef.current === myId &&
+      `${requestedServerRef.current || ""}|${sourceHeightRef.current || 0}` === sourceAtPick;
     const meta = metaRef.current;
     // The "Original" row must return to the SAME entry the resolver loaded:
     // for a master source that is the multi-level master (meta.entryUrl), not
@@ -3214,6 +3532,7 @@ setScrubDragging(true);
     // audio still playing. (The same gate pickQuality applies to quality rungs.)
     try {
       const probe = await probeSourcePlayable(targetUri, meta?.refUrl);
+      if (!isCurrent()) return;
       if (!probe.ok) {
         // The provider advertises this dub but does not serve it (verified live:
         // Orion lists Hindi/Tamil for tmdb 1101383 and answers HTTP 404 "Main
@@ -3233,7 +3552,9 @@ setScrubDragging(true);
       }
     } catch {
       // probe hiccup (abort/timeout) — let the switch itself decide
+      if (!isCurrent()) return;
     }
+    if (!isCurrent()) return;
     // A track that proved playable is no longer flagged dead.
     setDeadDubs((prev) => {
       if (!prev.has(index)) return prev;
@@ -4164,7 +4485,7 @@ const showSkipOutro = shouldShowSkipOutro({
                     Same title, different stream providers. Switching reloads the
                     stream from the chosen server.
                   </p>
-                  {PLAYER_SOURCES.map((s) => (
+                  {orderedSources.map((s) => (
                     <DialogRow
                       key={s.key}
                       selected={(activeSourceKey || requestedServer || DEFAULT_SOURCE_KEY) === s.key}

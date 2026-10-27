@@ -6234,3 +6234,71 @@ Visual pass, conservative CSS-only changes.
 - lint: 0 errors (pre-existing warnings unchanged)
 - test: 95/95 files, 1190/1190 tests pass
 - build: clean, 2.01s
+
+## 2026-10-27 — Player switching: audio stage, stale-run guards, retry + rollback
+
+### Branded loader on an audio-track pick
+- `pickAudio` now arms the same stage machinery as a server switch
+  (`stageWhileLoading`, `serverSwitchStage`, `switchingNote`
+  "Switching audio…"), closes the menu sheet in the same click, and records
+  `{lang, name}` in `audioPreferenceRef` so a later re-resolve re-applies the
+  chosen language. If the language is gone from the new manifest, `attachAudio`
+  falls back to track 0 and clears the preference instead of hovering on a dead
+  index.
+- `AUDIO_TRACK_*` listeners are gated on `audioSwitchRef`, which only a real
+  user pick sets. Without the gate the startup `AUDIO_TRACK_LOADED` hls.js
+  fires while opening the manifest was treated as a completed switch and could
+  clear a cold-open/server stage before a frame existed.
+- `AUDIO_TRACK_SWITCHED`/`AUDIO_TRACK_LOADED` settle the pick only when
+  `hls.audioTrack` matches the pending index, so a stray event for track 0
+  cannot end the switch early. A 6 s bound (`AUDIO_SWITCH_TIMEOUT_MS`) settles a
+  provider that advertises a track it never delivers, with a note rather than an
+  endless stage. A failed `hls.audioTrack = …` assignment rolls the index back
+  and clears the stage + note.
+
+### Stale-run guards (quality / dub / server)
+- `pickQuality` stamps its token before the first await and re-checks
+  `isCurrent()` (token + same `hls` instance) after every await and in the
+  failure path; a superseded pick bails instead of mutating the newer run.
+- `pickDub` probe results carry a token plus a source/server snapshot; a probe
+  resolving after the user moved on can no longer commit a dub or mark it dead.
+- `pickServer`/`pickSourceQuality` bump `switchTokenRef`, clear audio-switch
+  state, close the panel immediately (the unmanaged `setPanel(null)` timer is
+  gone), allow a same-key retry when `status === "error"`, and arm the stage,
+  note and buffering state.
+- Terminal failure now clears `stageWhileLoading`/`serverSwitchStage`/
+  `switchingNote`/`buffering` and rolls `sourceHeight` back to the last working
+  ladder (`pendingSourceHeightRollbackRef`) with a note naming the restored
+  height, instead of leaving the branded art stage stuck over a dead stream.
+
+### `serverOrder` is now real
+- The Servers menu is sorted by `prefs.serverOrder`, and the no-pick auto path
+  resolves with the first row as `prefer`. The default first label maps to
+  `DEFAULT_SOURCE_KEY` (`zxc-orion`), so warm-resolve consumption is unchanged
+  for default users. A warm auto token is skipped while a custom preference is
+  active because the warm key does not encode the preference.
+
+### Commit transition
+- The branded stage/snapshot now comes down on a decoded frame
+  (`loadeddata`/`canplay`/`seeked` after `safeSeek(resumeTime)`) with a 2.5 s
+  bound, instead of on `MANIFEST_PARSED`, so a switch no longer flashes black
+  between the old snapshot and the new picture.
+
+### Tests
+- New `src/__tests__/playerAudioSwitchStage.test.jsx` (3 tests): pick → branded
+  "Switching audio…" → confirmation clears; a startup `AUDIO_TRACK_LOADED`
+  leaves a server-switch stage armed; the chosen language is re-applied on the
+  re-resolved instance.
+- Honesty: the startup-event test fails against the previous ungated handlers
+  (verified by stashing the component), and the pick test pins the shipped
+  lifecycle. No browser-only claim is made.
+
+### Gates
+- lint: 0 errors (pre-existing warnings unchanged)
+- test: 116/116 files, 1377/1377 tests
+- build: clean, 1.95s
+- One earlier run of the same tree hit 5 load-timeout flakes
+  (`TitleDetailsPage` + one other file); both pass in isolation and the clean
+  full run above is green.
+- Not verifiable here: real-browser feel of the frame-gated reveal and the
+  audio switch transition (jsdom cannot paint).
