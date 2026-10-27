@@ -33,7 +33,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 const { lookup } = vi.hoisted(() => ({ lookup: vi.fn() }));
 vi.mock("node:dns/promises", () => ({ lookup, default: { lookup } }));
 
-const { default: handler, clearZxcMpdCache, clearZxcTitleMetaCache, clearZxcResolveCache, describeZxcContractChange, parseZxcRoster } = await import("../../api/stream.js");
+const { default: handler, clearZxcMpdCache, clearZxcTitleMetaCache, clearZxcResolveCache, describeZxcContractChange, parseZxcRoster, zxcContractSeed } = await import("../../api/stream.js");
 
 /* The current mint path. If upstream renames it again, the failure is a 404 HTML
    page on every row; update this constant and ZXC_MINT_PATH together. */
@@ -425,5 +425,15 @@ describe("ZXC MPD cache", () => {
     expect(r2.ok).toBe(true);
     // Cached: no second metadata fetch for the same tmdbId.
     expect(requests.filter((u) => u.includes("/backend/tmdb/details/")).length).toBe(0);
+  });
+
+  it("carries imdbId into the replay marker so a replayed playlist asks for the same title", async () => {
+    const r = await resolve({ server: "orion" });
+    expect(r.ok).toBe(true);
+    const marker = r.variants?.[0]?.uri || "";
+    expect(marker).toContain("/backend_/sources/orion?");
+    // The sources call needs imdbId (on the servers that require it); a replay
+    // that drops it can resolve a different title or 400 after the first fetch.
+    expect(new URL(marker).searchParams.get(zxcContractSeed().imdbParam)).toBe("tt1375666");
   });
 });

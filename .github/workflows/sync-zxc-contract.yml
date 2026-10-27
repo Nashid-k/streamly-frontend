@@ -54,8 +54,9 @@ jobs:
         run: npm ci
 
       # Derives the live contract, rewrites the seed if it drifted, and plays a
-      # real movie + series. Exits non-zero if playback can't be verified, which
-      # stops the job before anything is committed.
+      # real movie + series. An unverified run signals changed=false so nothing
+      # is committed (the Vercel watchdog gets the next attempt); only `--strict`
+      # turns the same result into a non-zero exit.
       - name: Derive contract and verify playback
         id: sync
         run: node scripts/sync-zxc-contract.mjs

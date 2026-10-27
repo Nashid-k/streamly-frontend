@@ -41,10 +41,6 @@ const DRY_RUN = process.argv.includes("--dry-run");
 const STRICT = process.argv.includes("--strict");
 
 const PROBE = { movie: "27205", tv: "1399", season: "1", episode: "1" };
-// The live rows, in menu order (`src/constants/sources.js`). A single pass on
-// ANY row is enough to call the contract playable, but every row gets a REAL
-// bytes check when it is tried — a resolve that says ok:true is not playback.
-const SERVERS = ["orion", "valstrax", "atlas", "ursa", "alatreon", "daedalus"];
 
 const log = (msg) => console.log(`[sync-zxc] ${msg}`);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -65,6 +61,7 @@ const {
   describeZxcContractChange,
   applyZxcContractToSource,
   applyZxcContractToTest,
+  zxcServerNames,
 } = streamMod;
 
 /* 3. Rewrite the seed block + the path pinned in the test (CRLF, no BOM). */
@@ -117,6 +114,23 @@ function firstUri(text, baseUrl) {
   return "";
 }
 
+/* A master's first URI can be an #EXT-X-MEDIA audio rendition. Verify the VIDEO
+   variant the player actually selects: the URI after #EXT-X-STREAM-INF. */
+function firstVariantUri(text, baseUrl) {
+  let expectUri = false;
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (line.startsWith("#EXT-X-STREAM-INF")) {
+      expectUri = true;
+      continue;
+    }
+    if (expectUri && line && !line.startsWith("#")) {
+      try { return new URL(line, baseUrl).toString(); } catch { return ""; }
+    }
+  }
+  return "";
+}
+
 function byteKind(buf) {
   if (!Buffer.isBuffer(buf) || buf.length === 0) return "";
   const head = buf.subarray(0, Math.min(buf.length, 12));
@@ -132,8 +146,8 @@ async function playRow(server, kind) {
   if (kind === "tv") { body.season = PROBE.season; body.episode = PROBE.episode; }
   const resolved = await callHandler(body);
   const payload = resolved.payload;
-  if (payload?.ok !== true) {
-    return { ok: false, note: `${payload?.code || "?"} ${payload?.error || ""}`.trim() };
+  if (resolved.status !== 200 || payload?.ok !== true) {
+    return { ok: false, note: `resolve HTTP ${resolved.status} ${payload?.code || ""} ${payload?.error || ""}`.trim() };
   }
   const variant = (payload.variants || []).find((v) => v?.uri);
   if (!variant) return { ok: false, note: "resolve returned no variant" };
@@ -146,8 +160,8 @@ async function playRow(server, kind) {
   }
   let text = list.payload;
   if (text.includes("#EXT-X-STREAM-INF")) {
-    playlistUrl = firstUri(text, playlistUrl);
-    if (!playlistUrl) return { ok: false, note: "master has no variant URI" };
+    playlistUrl = firstVariantUri(text, playlistUrl);
+    if (!playlistUrl) return { ok: false, note: "master has no video variant URI" };
     list = await callHandler({ action: "playlist", playlistUrl, refUrl });
     if (list.status !== 200 || !isPlaylist(list.payload)) {
       return { ok: false, note: `media playlist HTTP ${list.status}` };
@@ -172,7 +186,9 @@ async function playRow(server, kind) {
 
 async function play(kind) {
   let lastErr = "no server attempted";
-  for (const server of SERVERS) {
+  // Try the handler's live roster order (the seed until discovery runs), so a
+  // new row is exercised without editing this script.
+  for (const server of zxcServerNames()) {
     try {
       const result = await playRow(server, kind);
       if (result.ok) return result;

@@ -241,8 +241,6 @@ const ZXC_ROSTER_SEED = [
   { name: "Alatreon", server: "alatreon", dubSupport: false },
   { name: "Daedalus", server: "daedalus", dubSupport: false },
 ];
-const ZXC_SERVERS = ZXC_ROSTER_SEED.map((r) => r.server);
-
 /* ── Per-server health → fast automatic failover ────────────────────────
    Resolving a DEAD server costs a full metadata → mint → servers → manifest
    round trip (measured 2–4s against the live provider) before the player can
@@ -280,7 +278,7 @@ function zxcServerCooling(server) {
    chunk's `SERVERS` when discovery has run, else the seed. This is the single
    source for valid server names, the menu order, the default, and the
    rotation's tie-break. */
-function zxcServerNames() {
+export function zxcServerNames() {
   const roster = zxcContract.roster?.length ? zxcContract.roster : ZXC_ROSTER_SEED;
   return roster.map((r) => r.server);
 }
@@ -324,13 +322,22 @@ export function clearZxcServerHealth() {
    (field <- destructure, param alias <- mint body/query object) so it survives
    variable renames, which is the only part that changes. */
 const ZXC_DISCOVERY_TMDB_ID = "27205"; // a stable native title, only used to fetch the embed page
-const ZXC_DISCOVERY_COOLDOWN_MS = 60_000; // never re-discover more than once a minute
+const ZXC_DISCOVERY_COOLDOWN_MS = 60_000; // after a SUCCESSFUL discovery
+// A transient failure (one chunk fetch 5xx/aborted) must not hide a rename for
+// a full minute: retry sooner, but still bound the chunk-fetch storm.
+const ZXC_DISCOVERY_FAILURE_COOLDOWN_MS = 10_000;
+// The sources-side self-heal is triggered by a 400 AFTER a successful mint, so
+// it may need to bypass the normal cooldown a mint discovery just consumed. It
+// still gets its own throttle.
+const ZXC_FORCED_DISCOVERY_COOLDOWN_MS = 10_000;
 // The provider's client chunk that carries the mint contract is a BUNDLE, not a
 // page: it crossed the default 1.5MB text cap (1.73MB on 2026-10-14) and every
 // discovery silently returned null. Discovery alone needs the headroom, so it
 // asks for its own (still bounded) ceiling rather than raising the global one.
 const ZXC_CHUNK_MAX_BYTES = 4 * 1024 * 1024;
 let zxcLastDiscoveryAt = 0;
+let zxcLastDiscoveryFound = false;
+let zxcLastForcedDiscoveryAt = 0;
 let zxcDiscoveryInFlight = null;
 let zxcContract = {
   mintPath: ZXC_MINT_PATH,
@@ -397,14 +404,14 @@ export function parseZxcRoster(chunks) {
    survives minifier variable renames. Returns null unless every required param
    resolved. */
 function parseZxcFieldMap(src) {
-  const anchor = src.indexOf('fToken:"');
+  const anchor = src.search(/fToken\s*:\s*["']/);
   if (anchor < 0) return null;
   const open = src.lastIndexOf("{", anchor);
   const close = src.indexOf("}", anchor);
   if (open < 0 || close < 0) return null;
   const obj = src.slice(open, close + 1);
   const get = (key) => {
-    const m = obj.match(new RegExp(`${key}:"([0-9a-fA-F]{8,64})"`));
+    const m = obj.match(new RegExp(`${key}\\s*:\\s*["']([0-9a-fA-F]{8,64})["']`));
     return m ? m[1] : "";
   };
   const params = {
@@ -434,15 +441,15 @@ function parseZxcFieldMap(src) {
 function parseZxcFrontendSalt(chunks) {
   for (const src of chunks) {
     if (typeof src !== "string") continue;
-    const call = src.match(/createHash\(\s*"sha512"\s*\)[\s\S]{0,240}?update\(\s*`\$\{[^}]+\}:\$\{([A-Za-z_$][\w$]*)\}:[\s\S]{0,80}?`\s*\)/);
+    const call = src.match(/createHash\(\s*["']sha512["']\s*\)[\s\S]{0,240}?update\(\s*`\$\{[^}]+\}:\$\{([A-Za-z_$][\w$]*)\}:[\s\S]{0,80}?`\s*\)/);
     if (!call) continue;
     const ident = call[1].replace(/[$]/g, "\\$&");
     // Scope the declaration lookup to the text just BEFORE the hash call and
-    // require `let`/`;`/`,` so a random `r="object"` elsewhere in the bundle
-    // cannot masquerade as the salt.
+    // require `let`/`const`/`;`/`,` so a random `r="object"` elsewhere in the
+    // bundle cannot masquerade as the salt.
     const at = call.index;
     const before = src.slice(Math.max(0, at - 4000), at);
-    const decls = [...before.matchAll(new RegExp(`(?:\\blet\\s+|[,;])${ident}\\s*=\\s*"([0-9A-Za-z_-]{4,64})"`, "g"))];
+    const decls = [...before.matchAll(new RegExp(`(?:\\blet\\s+|\\bconst\\s+|[,;])${ident}\\s*=\\s*["']([0-9A-Za-z_-]{4,64})["']`, "g"))];
     if (decls.length > 0) return decls[decls.length - 1][1];
   }
   return "";
@@ -451,7 +458,7 @@ function parseZxcFrontendSalt(chunks) {
 /* Parse the param contract out of the shipped client chunks. Returns null unless
    EVERY field resolved — a partial parse must never replace a working contract. */
 export function deriveZxcContractFromChunks(chunks) {
-  const POST_RE = /\.post\(\s*"(\/backend\/[A-Za-z0-9_-]+)"/g;
+  const POST_RE = /\.post\(\s*["'](\/backend\/[A-Za-z0-9_-]+)["']/g;
   const FIELD_RE = /(media_type|tmdbId|season|episode|imdbId|path|title|year|date|latestDate)\s*:\s*(\w+)/g;
   const BODY_PAIR_RE = /\[(\w+)\]:([\w$]+)(?![\w$.])/g;
   const HEX_RUN_RE = /(?:[A-Za-z_$][\w$]*="[0-9a-fA-F]{12,48}"\s*,\s*)+[A-Za-z_$][\w$]*="[0-9a-fA-F]{12,48}"/g;
@@ -468,7 +475,7 @@ export function deriveZxcContractFromChunks(chunks) {
     let mintPath = "";
     for (const src of fieldList) {
       if (!src.includes("FIELD_MAP")) continue;
-      const m = src.match(/\.post\(\s*"(\/backend\/[A-Za-z0-9_-]+)"/);
+      const m = src.match(/\.post\(\s*["'](\/backend\/[A-Za-z0-9_-]+)["']/);
       if (m) { mintPath = m[1]; break; }
     }
     const fTokenSalt = parseZxcFrontendSalt(chunks);
@@ -580,18 +587,45 @@ export async function fetchLiveZxcContract({ timeoutMs = 8000 } = {}) {
   const chunkPaths = [...new Set(
     [...html.matchAll(/\/_next\/static\/chunks\/[A-Za-z0-9._/-]+\.js/g)].map((m) => m[0]),
   )];
-  const settled = await Promise.allSettled(
-    chunkPaths.map((p) => fetchUpstream(`${ZXC_ORIGIN}${p}`, { referer, timeoutMs, maxTextBytes: ZXC_CHUNK_MAX_BYTES })),
-  );
-  const chunks = settled.filter((r) => r.status === "fulfilled").map((r) => r.value);
-  return deriveZxcContractFromChunks(chunks);
+  if (chunkPaths.length === 0) {
+    logWarn("zxc", "contract discovery found no client chunks in the embed page");
+    return null;
+  }
+  const fetchChunk = (p) => fetchUpstream(`${ZXC_ORIGIN}${p}`, { referer, timeoutMs, maxTextBytes: ZXC_CHUNK_MAX_BYTES });
+  const settled = await Promise.allSettled(chunkPaths.map(fetchChunk));
+  let chunks = settled.filter((r) => r.status === "fulfilled").map((r) => r.value);
+  let contract = deriveZxcContractFromChunks(chunks);
+  if (contract) return contract;
+
+  // One chunk carries FIELD_MAP and another carries the mint path, so a single
+  // transient failure in either chunk turns a real rename into a null contract.
+  // Retry ONLY the failed paths once; all-200-but-no-contract is a parser
+  // mismatch, not a transport failure, and must not re-fetch the bundle.
+  const failed = chunkPaths.filter((_, i) => settled[i].status === "rejected");
+  if (failed.length > 0) {
+    logWarn("zxc", "contract discovery chunk fetch failed; retrying once", {
+      failed: failed.length,
+      total: chunkPaths.length,
+    });
+    const retried = await Promise.allSettled(failed.map(fetchChunk));
+    chunks = chunks.concat(retried.filter((r) => r.status === "fulfilled").map((r) => r.value));
+    contract = deriveZxcContractFromChunks(chunks);
+  }
+  return contract;
 }
 
 /* Fetch the embed page, read its chunks, and re-derive the contract. Cached in
-   module scope; concurrent callers share ONE in-flight discovery. */
-async function discoverZxcContract() {
+   module scope; concurrent callers share ONE in-flight discovery. A normal call
+   is throttled by the last attempt; a forced call (sources-side 400 recovery)
+   bypasses that throttle once, with its own separate cooldown. */
+async function discoverZxcContract({ force = false } = {}) {
   if (zxcDiscoveryInFlight) return zxcDiscoveryInFlight;
-  if (Date.now() - zxcLastDiscoveryAt < ZXC_DISCOVERY_COOLDOWN_MS) return null;
+  if (force) {
+    if (Date.now() - zxcLastForcedDiscoveryAt < ZXC_FORCED_DISCOVERY_COOLDOWN_MS) return null;
+  } else {
+    const cooldown = zxcLastDiscoveryFound ? ZXC_DISCOVERY_COOLDOWN_MS : ZXC_DISCOVERY_FAILURE_COOLDOWN_MS;
+    if (Date.now() - zxcLastDiscoveryAt < cooldown) return null;
+  }
   const run = (async () => {
     try {
       const found = await fetchLiveZxcContract();
@@ -616,16 +650,21 @@ async function discoverZxcContract() {
   })();
   zxcDiscoveryInFlight = run;
   try {
-    return await run;
+    const found = await run;
+    zxcLastDiscoveryFound = Boolean(found);
+    return found;
   } finally {
     zxcDiscoveryInFlight = null;
     zxcLastDiscoveryAt = Date.now();
+    if (force) zxcLastForcedDiscoveryAt = Date.now();
   }
 }
 
 /* Test seam: forget any discovered contract and restore the seed. */
 export function clearZxcDiscoveryCache() {
   zxcLastDiscoveryAt = 0;
+  zxcLastDiscoveryFound = false;
+  zxcLastForcedDiscoveryAt = 0;
   zxcDiscoveryInFlight = null;
   zxcContract = {
     mintPath: ZXC_MINT_PATH,
@@ -1053,7 +1092,8 @@ function zxcFrontendToken(tmdbId, salt) {
    silent upstream rename self-heals instead of taking every server down. */
 async function zxcMint({ type, tmdbId, server, season, episode, refererPath }) {
   const attempt = async () => {
-    const { params, mintPath, fTokenSalt } = zxcContract;
+    const contract = zxcContract;
+    const { params, mintPath, fTokenSalt } = contract;
     const payload = {
       [params.tmdbId]: tmdbId,
       [params.mediaType]: type,
@@ -1078,7 +1118,11 @@ async function zxcMint({ type, tmdbId, server, season, episode, refererPath }) {
     });
     const data = JSON.parse(text);
     if (!data?.token || data?.ts === undefined) throw new Error("token mint returned no token");
-    return { token: String(data.token), ts: String(data.ts), fToken };
+    // Tag the token with the EXACT contract that minted it. A token minted just
+    // before a discovery is not replayable against the new param names/salt, and
+    // zxcServerLinks uses this identity to discard it instead of sending a
+    // stale fToken and waiting for a 400.
+    return { token: String(data.token), ts: String(data.ts), fToken, contract };
   };
 
   try {
@@ -1095,8 +1139,13 @@ async function zxcMint({ type, tmdbId, server, season, episode, refererPath }) {
       error instanceof SyntaxError ||
       /no token/.test(String(error?.message || ""));
     if (!looksRenamed) throw error;
+    const before = zxcContract;
     const discovered = await discoverZxcContract();
     if (!discovered) throw error;
+    // Discovery can confirm the current contract (a title-shaped 400, a provider
+    // validation change) — retrying the SAME mint would just spend the failure
+    // path twice. Only retry when the contract actually moved.
+    if (zxcContractEquals(discovered, before)) throw error;
     return attempt();
   }
 }
@@ -1110,39 +1159,71 @@ async function zxcServerLinks(meta, { server, dubCode, dubType, prefetchedToken 
   // Spending it here folds one upstream round trip out of the resolve's
   // critical path; when absent (playlist re-mint, dub switch, other callers)
   // the normal mint runs unchanged.
-  const { token, ts, fToken } = prefetchedToken || (await zxcMint({ ...meta, server }));
-  // Read the contract AFTER the mint: a rename discovered during the mint must
-  // drive THIS request's query too, not just the next one.
-  const { params, imdbParam, latestDateParam } = zxcContract;
-  const query = new URLSearchParams({
-    [params.tmdbId]: meta.tmdbId,
-    [params.path]: server,
-    [params.mediaType]: meta.type,
-    [params.ts]: ts,
-    [params.token]: token,
-    [params.title]: meta.title,
-    [params.year]: meta.year,
-    [params.date]: meta.date,
-  });
-  if (fToken && params.fToken) query.set(params.fToken, fToken);
-  if (meta.type === "tv") {
-    query.set(params.season, String(meta.season || ""));
-    query.set(params.episode, String(meta.episode || ""));
-    if (meta.latestDate) query.set(latestDateParam, meta.latestDate);
+  //
+  // A token is only replayable against the contract that minted it. If a
+  // discovery replaced the contract between the prefetch and this call, or the
+  // token predates the fToken parameter, discard it and mint afresh.
+  let tokenInfo = prefetchedToken;
+  if (tokenInfo) {
+    const staleContract = tokenInfo.contract && tokenInfo.contract !== zxcContract;
+    const missingFrontendToken = Boolean(zxcContract.params.fToken) && !tokenInfo.fToken;
+    if (staleContract || missingFrontendToken) tokenInfo = null;
   }
-  if (dubCode) {
-    query.set("dubCode", String(dubCode));
-    query.set("dubType", String(dubType ?? "0"));
-  }
-  if (meta.imdbId) query.set(imdbParam, meta.imdbId);
+  if (!tokenInfo) tokenInfo = await zxcMint({ ...meta, server });
 
-  const url = `${ZXC_ORIGIN}/backend_/sources/${server}?${query.toString()}`;
-  const text = await fetchUpstream(url, {
-    referer: `${ZXC_ORIGIN}${meta.refererPath}`,
-    extraHeaders: zxcHeaders(meta.refererPath, { json: true }),
-  });
-  const data = JSON.parse(text);
-  if (data?.success !== true || !Array.isArray(data.links)) throw new Error("sources endpoint returned no links");
+  const fetchLinks = async ({ token, ts, fToken }) => {
+    // Read the contract at SEND time: a rename discovered during the mint must
+    // drive THIS request's query too, not just the next one.
+    const { params, imdbParam, latestDateParam } = zxcContract;
+    const query = new URLSearchParams({
+      [params.tmdbId]: meta.tmdbId,
+      [params.path]: server,
+      [params.mediaType]: meta.type,
+      [params.ts]: ts,
+      [params.token]: token,
+      [params.title]: meta.title,
+      [params.year]: meta.year,
+      [params.date]: meta.date,
+    });
+    if (fToken && params.fToken) query.set(params.fToken, fToken);
+    if (meta.type === "tv") {
+      query.set(params.season, String(meta.season || ""));
+      query.set(params.episode, String(meta.episode || ""));
+      if (meta.latestDate) query.set(latestDateParam, meta.latestDate);
+    }
+    if (dubCode) {
+      query.set("dubCode", String(dubCode));
+      query.set("dubType", String(dubType ?? "0"));
+    }
+    if (meta.imdbId && imdbParam) query.set(imdbParam, meta.imdbId);
+
+    const url = `${ZXC_ORIGIN}/backend_/sources/${server}?${query.toString()}`;
+    const text = await fetchUpstream(url, {
+      referer: `${ZXC_ORIGIN}${meta.refererPath}`,
+      extraHeaders: zxcHeaders(meta.refererPath, { json: true }),
+    });
+    const data = JSON.parse(text);
+    if (data?.success !== true || !Array.isArray(data.links)) throw new Error("sources endpoint returned no links");
+    return data;
+  };
+
+  let data;
+  try {
+    data = await fetchLinks(tokenInfo);
+  } catch (error) {
+    // The mint SUCCEEDED, so a 400 here is contract-shaped: the only way a
+    // query carrying a fresh token is rejected is that the param names or the
+    // fToken salt moved between the mint and this call. Re-derive ONCE (forced
+    // past the normal cooldown, which the mint's own recovery may have just
+    // consumed), then re-mint and retry. 404s are title-shaped ("No streams
+    // found"), and timeouts/429/5xx are transport failures; none may trigger
+    // discovery.
+    if (error?.status !== 400) throw error;
+    const before = zxcContract;
+    const discovered = await discoverZxcContract({ force: true });
+    if (!discovered || zxcContractEquals(discovered, before)) throw error;
+    data = await fetchLinks(await zxcMint({ ...meta, server }));
+  }
 
   const links = data.links
     .filter((l) => l?.link)
@@ -1172,7 +1253,7 @@ async function zxcServerLinks(meta, { server, dubCode, dubType, prefetchedToken 
 /* The replayable URL of a generated playlist. Carries the whole title/server/dub
    identity so `handlePlaylist` can rebuild it from scratch. */
 function zxcPlaylistUrl(meta, { server, dubCode, dubType, view, representationId }) {
-  const { params, latestDateParam } = zxcContract;
+  const { params, imdbParam, latestDateParam } = zxcContract;
   const query = new URLSearchParams({
     [params.tmdbId]: meta.tmdbId,
     [params.mediaType]: meta.type,
@@ -1183,6 +1264,7 @@ function zxcPlaylistUrl(meta, { server, dubCode, dubType, view, representationId
     [ZXC_MARKER.marker]: ZXC_MARKER.value,
     [ZXC_MARKER.view]: view,
   });
+  if (meta.imdbId && imdbParam) query.set(imdbParam, String(meta.imdbId));
   if (meta.type === "tv") {
     query.set(params.season, String(meta.season || ""));
     query.set(params.episode, String(meta.episode || ""));
@@ -1210,7 +1292,7 @@ function parseZxcPlaylistUrl(rawUrl) {
   if (url.origin !== ZXC_ORIGIN) return null;
   if (url.searchParams.get(ZXC_MARKER.marker) !== ZXC_MARKER.value) return null;
 
-  const { params, latestDateParam } = zxcContract;
+  const { params, imdbParam, latestDateParam } = zxcContract;
   const view = url.searchParams.get(ZXC_MARKER.view) || "";
   if (view !== ZXC_VIEW_MASTER && view !== ZXC_VIEW_MEDIA) return null;
   const server = url.searchParams.get(params.path) || "";
@@ -1218,16 +1300,23 @@ function parseZxcPlaylistUrl(rawUrl) {
   const type = url.searchParams.get(params.mediaType) === "tv" ? "tv" : "movie";
   const tmdbId = url.searchParams.get(params.tmdbId) || "";
   if (!/^\d{1,12}$/.test(tmdbId)) return null;
+  const title = url.searchParams.get(params.title) || "";
+  const year = url.searchParams.get(params.year) || "";
+  const date = url.searchParams.get(params.date) || "";
+  // A marker we generated always carries all three; a crafted one with blanks
+  // would otherwise reach the provider, get a 400, and trigger the sources-side
+  // contract self-heal for a URL that was never ours.
+  if (!title || !year || !date) return null;
 
   return {
     meta: {
       type,
       tmdbId,
       server,
-      title: url.searchParams.get(params.title) || "",
-      year: url.searchParams.get(params.year) || "",
-      date: url.searchParams.get(params.date) || "",
-      imdbId: "",
+      title,
+      year,
+      date,
+      imdbId: imdbParam ? url.searchParams.get(imdbParam) || "" : "",
       season: url.searchParams.get(params.season) || "",
       episode: url.searchParams.get(params.episode) || "",
       latestDate: url.searchParams.get(latestDateParam) || "",

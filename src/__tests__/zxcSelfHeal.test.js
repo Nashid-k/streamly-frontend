@@ -234,6 +234,108 @@ describe("ZXC mint self-heal", () => {
     expect(r.ok).toBe(false);
     expect(serversUrl()).toBe("");
   });
+
+  it("re-mints and retries when the sources call 400s under the live contract", async () => {
+    // Contract A has no fToken; the provider rotates to B (with fToken) between
+    // the mint and the sources query. The native resolver must re-derive ONCE,
+    // re-mint under B, and retry — not report no-source for a contract it can
+    // already read from the chunk.
+    const B = {
+      tmdbId: "a1b2c3d4e5f60718293a4b5c",
+      mediaType: "b2c3d4e5f60718293a4b5c6d",
+      path: "c3d4e5f60718293a4b5c6d7e",
+      season: "d4e5f60718293a4b5c6d7e8f",
+      episode: "e5f60718293a4b5c6d7e8f90",
+      ts: "f60718293a4b5c6d7e8f9012",
+      token: "0718293a4b5c6d7e8f901234",
+      title: "18293a4b5c6d7e8f90123456",
+      year: "293a4b5c6d7e8f9012345678",
+      date: "3a4b5c6d7e8f901234567890",
+      imdb: "4b5c6d7e8f90123456789012",
+      latest: "5c6d7e8f9012345678901234",
+      fToken: "6d7e8f901234567890123456",
+      salt: "24681357",
+    };
+    const NEW_MINT_PATH_B = "/backend/secondmint";
+    const CHUNK_B = [
+      `let r="${B.salt}",i={id:"${B.tmdbId}",fToken:"${B.fToken}",ts:"${B.ts}",token:"${B.token}",title:"${B.title}",year:"${B.year}",season:"${B.season}",episode:"${B.episode}",imdbId:"${B.imdb}",path:"${B.path}",mediaType:"${B.mediaType}",date:"${B.date}",latestDate:"${B.latest}"};`,
+      'function n(t){let i=Date.now();return{xt:e.default.createHash("sha512").update(`${i}:${r}:${t}`).digest("hex").slice(0,64),rt:i}}',
+      `function q(){return{queryFn:async()=>{let{data:e}=await X.post("${NEW_MINT_PATH_B}",{[FIELD_MAP.id]:r,[FIELD_MAP.mediaType]:t,[FIELD_MAP.path]:l})}}}`,
+    ].join("");
+
+    let chunkRound = 0;
+    let sourcesCalls = 0;
+    vi.stubGlobal("fetch", vi.fn(async (input, init) => {
+      const url = String(typeof input === "string" ? input : input?.url || input);
+      requests.push(url);
+      if (url.includes("/backend/tmdb/details/")) return json(details);
+      if (url.includes(NEW_MINT_PATH_B)) {
+        mintPayloads.push(init?.body ? JSON.parse(init.body) : null);
+        return json({ token: "btok", ts: "1800000001" });
+      }
+      if (url.includes(NEW_MINT_PATH)) {
+        mintPayloads.push(init?.body ? JSON.parse(init.body) : null);
+        return json({ token: "atok", ts: "1800000000" });
+      }
+      if (url.includes(SEED_MINT)) return new Response("<html>404</html>", { status: 404 });
+      if (url.includes("/embed/")) return html(EMBED_HTML);
+      if (url.includes("/_next/static/chunks/")) {
+        const source = chunkRound === 0 ? CHUNK_SRC : CHUNK_B;
+        chunkRound += 1;
+        return html(source);
+      }
+      if (url.includes("/backend_/sources/")) {
+        sourcesCalls += 1;
+        // The first sources call is the retired A contract; the retry is B.
+        if (sourcesCalls === 1) return new Response("missing params", { status: 400 });
+        return json(serversResponse);
+      }
+      if (url.includes(".m3u8")) {
+        return new Response("#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:13\n#EXTINF:12.0,\nhttps://93.184.216.34/s0\n#EXT-X-ENDLIST\n", {
+          status: 200,
+          headers: { "content-type": "application/vnd.apple.mpegurl" },
+        });
+      }
+      return new Response("upstream unreachable", { status: 502 });
+    }));
+
+    const r = await resolve({ server: "atlas" });
+    expect(r.ok).toBe(true);
+    const sources = requests.filter((u) => u.includes("/backend_/sources/"));
+    expect(sources.length).toBe(2);
+    expect(new URL(sources[0]).searchParams.get(A.tmdbId)).toBe("27205");
+    expect(new URL(sources[1]).searchParams.get(B.tmdbId)).toBe("27205");
+    // One discovery for the seed 404, one FORCED discovery for the sources 400.
+    expect(requests.filter((u) => u.includes("/embed/")).length).toBe(2);
+  });
+
+  it("does not retry a mint when discovery confirms the same contract", async () => {
+    // A 400 that is not drift (e.g. provider-side validation) must not spend the
+    // whole mint path twice: one prefetch attempt + one re-mint from
+    // zxcServerLinks is the ceiling, not a third retry inside zxcMint.
+    const seed = zxcContractSeed();
+    const SEED_CHUNK = [
+      `let r="${seed.fTokenSalt}",i={id:"${seed.params.tmdbId}",fToken:"${seed.params.fToken}",ts:"${seed.params.ts}",token:"${seed.params.token}",title:"${seed.params.title}",year:"${seed.params.year}",season:"${seed.params.season}",episode:"${seed.params.episode}",imdbId:"${seed.imdbParam}",path:"${seed.params.path}",mediaType:"${seed.params.mediaType}",date:"${seed.params.date}",latestDate:"${seed.latestDateParam}"};`,
+      'function n(t){let i=Date.now();return{xt:e.default.createHash("sha512").update(`${i}:${r}:${t}`).digest("hex").slice(0,64),rt:i}}',
+      `function q(){return{queryFn:async()=>{let{data:e}=await X.post("${seed.mintPath}",{[FIELD_MAP.id]:r,[FIELD_MAP.mediaType]:t,[FIELD_MAP.path]:l})}}}`,
+    ].join("");
+
+    vi.stubGlobal("fetch", vi.fn(async (input) => {
+      const url = String(typeof input === "string" ? input : input?.url || input);
+      requests.push(url);
+      if (url.includes("/backend/tmdb/details/")) return json(details);
+      if (url.includes(SEED_MINT)) return new Response("<html>400</html>", { status: 400 });
+      if (url.includes("/embed/")) return html(EMBED_HTML);
+      if (url.includes("/_next/static/chunks/")) return html(SEED_CHUNK);
+      if (url.includes("/backend_/sources/")) return json(serversResponse);
+      return new Response("upstream unreachable", { status: 502 });
+    }));
+
+    const r = await resolve({ server: "atlas" });
+    expect(r.ok).toBe(false);
+    expect(requests.filter((u) => u.includes(SEED_MINT)).length).toBe(2);
+    expect(requests.filter((u) => u.includes("/embed/")).length).toBe(1);
+  });
 });
 
 describe("ZXC contract derivation — the CURRENT `FIELD_MAP` bundle shape", () => {
@@ -283,5 +385,12 @@ describe("ZXC contract derivation — the CURRENT `FIELD_MAP` bundle shape", () 
     // No mint post AND missing params → no derived contract, so the caller keeps
     // its working seed instead of replacing it with a broken one.
     expect(deriveZxcContractFromChunks([partial])).toBeNull();
+  });
+
+  it("reads the contract from a single-quoted bundle too", () => {
+    // Minifiers can flip quote style without touching the structure; a parser
+    // that only accepts `"` would silently lose the whole contract.
+    const single = FIELD_MAP_CHUNK.replace(/"/g, "'");
+    expect(deriveZxcContractFromChunks([single])).toEqual(deriveZxcContractFromChunks([FIELD_MAP_CHUNK]));
   });
 });

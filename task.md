@@ -6458,3 +6458,97 @@ Visual pass, conservative CSS-only changes.
 - build: clean, 1.94s
 - Not verifiable here: real-browser paint/switch behavior (jsdom), and
   Atlas/Ursa cannot play while their provider workers return 427/403.
+
+## 2026-10-27 - ZXC resolver hardening: sources 400 self-heal, contract-tagged tokens, byte-verified cron
+
+### What was still broken
+- The mint could heal a 400, but the **sources** query could still 400 after a
+  successful mint (param names or salt rotated between the mint and the query).
+  `zxcServerLinks` threw straight to no-source, so that rotation still killed
+  every row until the next mint.
+- A prefetched token minted under a retired contract was replayed, and a token
+  from before fToken existed was sent without it. Both earn a 400.
+- Discovery had one 60s cooldown, so a transient chunk-fetch failure hid a real
+  rename for a full minute, and the sources retry could not run at all.
+- The cron/Action proved `ok:true`, not bytes, so they could commit a drifted
+  contract the provider could not actually play. Master playlists were probed by
+  taking the first non-comment line, which can be an `#EXT-X-MEDIA` audio
+  rendition instead of the video variant.
+- The replay marker dropped `imdbId`, so a replayed playlist could ask for a
+  different title on servers that require it.
+
+### Resolver (`api/stream.js`)
+- `zxcServerLinks` now catches a sources HTTP **400** after a successful mint,
+  forces one re-discovery, re-mints, and retries the query once. A sources 404
+  (title-shaped), timeout, 429 or 5xx does not trigger discovery.
+- Minted tokens are tagged with the exact `zxcContract` that minted them. A
+  stale-contract token, or one missing the current fToken, is discarded before
+  the query instead of being replayed into a 400.
+- `zxcContractEquals` gates the mint retry: a discovery that confirms the same
+  contract no longer spends the whole mint path twice.
+- Cooldowns split: 60s after a successful discovery, 10s after a failed one,
+  and 10s for the sources-side forced path. A successful discovery still clears
+  the MPD and resolve caches.
+- `fetchLiveZxcContract` retries only FAILED chunk paths once (FIELD_MAP and the
+  mint path can ship in different chunks) and logs an embed page with no chunks.
+- The parser accepts single- or double-quoted FIELD_MAP/mint/salt literals and
+  `let`/`const` salt declarations.
+- Replay markers carry `imdbId`; `parseZxcPlaylistUrl` reads it and rejects a
+  marker with a blank title/year/date before it can reach the provider.
+- `zxcServerNames()` is exported so the sync/probe tooling uses the same roster
+  instead of duplicating the list.
+
+### Sync layers
+- `api/sync-contract.js` now verifies a real movie AND series by bytes
+  (resolve -> playlist -> first fMP4/TS segment) before it may commit, selects
+  the `#EXT-X-STREAM-INF` video variant on masters, uses the exported roster,
+  reports `verified`/`pending`, and returns `ok:false` unless derivation,
+  playback and any required commit all succeeded.
+- `scripts/sync-zxc-contract.mjs` and `scripts/probe-servers.mjs` both select
+  the video variant on a master and use the exported roster. The Action comment
+  now matches the script: an unverified run signals `changed=false`; only
+  `--strict` exits non-zero.
+
+### Live playback probe (movie 27205 + TV 1399 S1E1, this tree)
+| row | movie | TV |
+| --- | --- | --- |
+| Server 1 Orion | PASS fMP4, 3 variants, 8 audio | PASS fMP4, 3 variants, 5 audio |
+| Server 2 Valstrax | PASS fMP4, 3 variants | PASS fMP4, 3 variants |
+| Server 3 Atlas | FAIL upstream 427 | FAIL upstream 427 |
+| Server 4 Ursa | FAIL playlist 502 (aborted) | FAIL segment 502 / upstream 403 |
+| Server 5 Alatreon | PASS TS | PASS TS |
+| Server 6 Daedalus | PASS TS, 1080p | PASS TS, 1080p |
+| Auto | PASS TS via daedalus | PASS TS via daedalus |
+
+- `10/14 played real media bytes`. Daedalus TV, which failed with
+  `No streams found` in the previous run, played this time; its availability is
+  provider-side and title/timing dependent.
+- Atlas/Ursa remain provider-side dead at their delivery workers: Atlas'
+  workers.dev host answers its own `Upstream 427`; Ursa's playlist aborts and
+  its segment worker answers `Upstream 403`. No resolver change can manufacture
+  those bytes. Manual picks send `prefer`, so they still fall through to a
+  healthy backend; the explicit-`server` probe stays strict.
+- `node scripts/sync-zxc-contract.mjs --dry-run` reports `seed matches the live
+  provider chunk` and movie + series playback OK via Orion (65,536B fMP4 each).
+
+### Tests
+- `zxcSelfHeal.test.js` (+3): a sources 400 after a successful mint forces a
+  contract B discovery, re-mints under B and retries (A -> B params asserted);
+  a 400 that discovery confirms is not drift mints twice, not three times; and
+  a single-quoted FIELD_MAP bundle parses to the same contract as the
+  double-quoted one.
+- `zxcMintPath.test.js` (+1): the replay marker carries the live `imdbId`
+  parameter and `tt1375666`, so a replayed playlist asks for the same title.
+- Honesty: with `api/stream.js` stashed to `5b7e5d7`, all 4 new tests fail for
+  the expected reasons (sources 400 -> `ok:false` and one sources call, mint
+  count 3 vs 2, single-quote contract null, missing imdb marker param). They
+  pass on this tree. Targeted run: 2 files / 30 tests.
+- Docs: `architecture.md` records the sources self-heal, split cooldowns,
+  contract-tagged tokens, imdbId replay, and verify-before-commit cron.
+
+### Gates
+- lint: 0 errors (pre-existing warnings unchanged)
+- test: 116/116 files, 1389/1389 tests
+- build: clean, 2.76s
+- Not verifiable here: real-browser paint/switch behavior (jsdom), and
+  Atlas/Ursa cannot play while their provider workers return 427/403.

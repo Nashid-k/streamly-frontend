@@ -69,6 +69,23 @@ function firstUri(text, baseUrl) {
   return "";
 }
 
+/* A master's first URI can be an #EXT-X-MEDIA audio rendition (Ursa does this).
+   Pick the VIDEO variant the player selects: the URI after #EXT-X-STREAM-INF. */
+function firstVariantUri(text, baseUrl) {
+  let expectUri = false;
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (line.startsWith("#EXT-X-STREAM-INF")) {
+      expectUri = true;
+      continue;
+    }
+    if (expectUri && line && !line.startsWith("#")) {
+      try { return new URL(line, baseUrl).toString(); } catch { return ""; }
+    }
+  }
+  return "";
+}
+
 function byteKind(buf) {
   if (!Buffer.isBuffer(buf) || buf.length === 0) return "";
   const head = buf.subarray(0, Math.min(buf.length, 12));
@@ -91,8 +108,8 @@ async function playback(payload) {
   }
   let text = p.payload;
   if (text.includes("#EXT-X-STREAM-INF")) {
-    const child = firstUri(text, playlistUrl);
-    if (!child) return { ok: false, note: "master playlist has no variant URI" };
+    const child = firstVariantUri(text, playlistUrl);
+    if (!child) return { ok: false, note: "master playlist has no video variant URI" };
     playlistUrl = child;
     p = await call({ action: "playlist", playlistUrl, refUrl });
     if (p.status !== 200 || !isPlaylist(p.payload)) {

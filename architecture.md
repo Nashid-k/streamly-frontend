@@ -225,12 +225,29 @@ hosts are all retired). **A rename or a param rotation cannot take the
 provider down:** the mint path, obfuscated param names, and fToken salt live in a
 mutable `zxcContract` (seeded from the constants) and a contract-shaped mint
 failure (HTTP 400/404 / non-JSON body / "no token") re-derives them from the
-provider's own shipped chunk and retries once — timeouts/429/5xx deliberately do
-NOT trigger discovery (discovery asks for a higher response ceiling than the
-default 1.5MB text cap, because the provider's contract chunk is a ~1.7MB
-bundle). Two out-of-band layers keep the committed seed truthful, both patching
-the same sentinel-delimited block through helpers exported from `api/stream.js`:
-a daily GitHub Action (`scripts/sync-zxc-contract.mjs` +
+provider's own shipped chunk and retries once. The parser accepts single- or
+double-quoted literals (minifiers flip quote style) and `let`/`const` salt
+declarations; discovery fetches the bundle chunk-by-chunk and retries only FAILED
+chunk paths once, because FIELD_MAP and the mint path ship in different chunks.
+Discovery is throttled three ways: 60s after a successful discovery, 10s after a
+failed one, and 10s for the sources-side forced path. A successful discovery
+clears the MPD and resolve caches so the old contract's URLs are never replayed.
+The sources call has its own self-heal: after a successful mint, an HTTP **400**
+means the param names or fToken salt moved between the mint and that query, so
+the resolver forces one re-discovery, re-mints under the new contract, and
+retries the query once. A sources 404 ("no streams for this title"),
+timeout/429/5xx is not drift and must NOT trigger discovery. Minted tokens are
+tagged with the exact contract that minted them; `zxcServerLinks` discards a
+prefetched token whose contract is stale (or which pre-dates fToken) instead of
+sending it and waiting for a 400. Generated playlist marker URLs also carry
+`imdbId` (plus title/year/date) so a replayed playlist asks for the same title,
+and a marker with a blank title/year/date is rejected before it can reach the
+provider. Timeouts/429/5xx deliberately do NOT trigger discovery (discovery asks
+for a higher response ceiling than the default 1.5MB text cap, because the
+provider's contract chunk is a ~1.7MB bundle). Two out-of-band layers keep the
+committed seed truthful, both patching the same sentinel-delimited block through
+helpers exported from `api/stream.js`: a daily GitHub Action
+(`scripts/sync-zxc-contract.mjs` +
 `.github/workflows/sync-zxc-contract.yml`, prefers `SYNC_PAT`) and a Vercel Cron
 watchdog (`api/sync-contract.js`, `crons` in `vercel.json`, authenticated with
 `Authorization: Bearer $CRON_SECRET` and closed when the secret is unset; drift
@@ -238,7 +255,10 @@ is committed as ONE atomic Git Data API commit via `GITHUB_TOKEN`). Each derives
 the live contract, rewrites the block (and the path pinned in
 `zxcMintPath.test.js`), proves real movie + series playback BYTES through the
 handler (resolve → playlist → first fMP4/TS segment, not just `ok:true`), and
-only then commits, so the committed seed never goes stale. The sources
+only then commits, so the committed seed never goes stale. The watchdog will not
+commit (or report `pushed`) unless BOTH a movie and a series verified, and its
+probe playlist walker selects the `#EXT-X-STREAM-INF` VIDEO variant rather than
+the first `#EXT-X-MEDIA` audio rendition on a master. The sources
 response's `links` are decrypted per-server links whose wire `type` picks the
 playback path (DASH→`server/dashToHls.js`, else native HLS); wire format and dubs
 are read per response, not frozen. The seed roster maps each backend to a row:
